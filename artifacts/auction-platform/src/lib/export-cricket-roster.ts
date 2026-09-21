@@ -28,7 +28,8 @@ function buildPlayerRow(
   index: number,
 ) {
   return {
-    "Serial #": p.jerseyNumber ? `#${p.jerseyNumber}` : index + 1,
+    "Serial #": p.serialNo ?? (index + 1),
+    "Jersey #": p.jerseyNumber ? `#${p.jerseyNumber}` : "—",
     "Player Name": p.name || "",
     Team: teamName,
     Role: p.role || "—",
@@ -61,6 +62,7 @@ export async function exportCricketRosterToExcel({
 
   const colWidths = [
     { wch: 10 }, // Serial #
+    { wch: 10 }, // Jersey #
     { wch: 26 }, // Player Name
     { wch: 22 }, // Team
     { wch: 18 }, // Role
@@ -274,8 +276,8 @@ export async function exportCricketRosterToPdf({
     doc.setTextColor(30, 41, 59);
 
     const values = [
-      p.jerseyNumber ? `#${p.jerseyNumber}` : "—",
-      p.name || "—",
+      String(p.serialNo ?? (idx + 1)),
+      p.jerseyNumber ? `${p.name} (#${p.jerseyNumber})` : (p.name || "—"),
       p.role || "—",
       p.battingStyle || "—",
       p.bowlingStyle || "—",

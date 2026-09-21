@@ -172,6 +172,7 @@ function teamChipStyle(color?: string | null): CSSProperties {
 
 function playerSearchHaystack(player: Player, team: Team | undefined): string {
   return [
+    String(player.serialNo ?? player.id),
     player.name,
     player.mobileNumber,
     player.role,
@@ -194,6 +195,7 @@ function matchesSearch(player: Player, team: Team | undefined, rawQuery: string)
   if (!query) return true;
 
   if (/^\d+$/.test(query)) {
+    if (String(player.serialNo ?? player.id) === query) return true;
     if (player.jerseyNumber && String(player.jerseyNumber) === query) return true;
     if (query.length >= 4 && (player.mobileNumber || "").includes(query)) return true;
     if (player.jerseyNumber?.includes(query)) return true;
@@ -1041,13 +1043,9 @@ export default function CricketPlayersPage() {
                                     className="group hover:bg-muted/30 transition-colors"
                                   >
                                     <td className="py-2 px-3 text-center">
-                                      {p.jerseyNumber ? (
-                                        <span className="inline-block px-1.5 py-0.5 rounded text-[11px] font-bold font-mono bg-muted/80 text-foreground border border-border/60">
-                                          #{p.jerseyNumber}
-                                        </span>
-                                      ) : (
-                                        <span className="text-muted-foreground/40 text-xs">—</span>
-                                      )}
+                                      <span className="inline-block px-1.5 py-0.5 rounded text-[11px] font-bold font-mono bg-muted/80 text-foreground border border-border/60">
+                                        #{p.serialNo ?? p.id}
+                                      </span>
                                     </td>
                                     <td className="py-2 px-3">
                                       <div className="flex items-center gap-2.5">
@@ -1057,13 +1055,23 @@ export default function CricketPlayersPage() {
                                           aria-hidden
                                         />
                                         <div className="min-w-0">
-                                          <button
-                                            type="button"
-                                            onClick={() => openEdit(p)}
-                                            className="font-medium text-foreground hover:text-primary transition-colors truncate text-left block"
-                                          >
-                                            {p.name}
-                                          </button>
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            <button
+                                              type="button"
+                                              onClick={() => openEdit(p)}
+                                              className="font-medium text-foreground hover:text-primary transition-colors truncate text-left"
+                                            >
+                                              {p.name}
+                                            </button>
+                                            {p.jerseyNumber ? (
+                                              <span
+                                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-primary/10 text-primary border border-primary/20 shrink-0"
+                                                title={`Jersey #${p.jerseyNumber}`}
+                                              >
+                                                #{p.jerseyNumber}
+                                              </span>
+                                            ) : null}
+                                          </div>
                                           {subtitle ? (
                                             <span className="text-[11px] text-muted-foreground truncate block">
                                               {subtitle}
@@ -1147,7 +1155,7 @@ export default function CricketPlayersPage() {
                             const accent = normalizeTeamColor(cardTeam?.color);
                             const meta = [
                               p.role,
-                              p.jerseyNumber ? `#${p.jerseyNumber}` : null,
+                              p.jerseyNumber ? `Jersey #${p.jerseyNumber}` : null,
                               p.gender ? formatPlayerGender(p.gender) : null,
                             ].filter(Boolean);
 
@@ -1175,7 +1183,12 @@ export default function CricketPlayersPage() {
                                 />
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="min-w-0 space-y-1">
-                                    <p className="font-medium text-foreground truncate">{p.name}</p>
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className="font-mono text-xs font-bold text-muted-foreground/70 shrink-0">
+                                        #{p.serialNo ?? p.id}
+                                      </span>
+                                      <p className="font-medium text-foreground truncate">{p.name}</p>
+                                    </div>
                                     {cardTeam ? (
                                       <span
                                         className="inline-flex max-w-full items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold truncate"
@@ -1281,7 +1294,7 @@ export default function CricketPlayersPage() {
       {formOpen ? (
         <FormModal
           title={editing ? "Edit Player" : "Add Player"}
-          subtitle="Sports scoring fields only"
+          subtitle={editing ? `Player #${editing.serialNo ?? editing.id} · Sports scoring fields only` : "Sports scoring fields only"}
           onClose={closeForm}
           size="lg"
           footer={
@@ -1311,6 +1324,12 @@ export default function CricketPlayersPage() {
           }
         >
           <div className="space-y-3">
+            {editing ? (
+              <div className="flex items-center justify-between px-3.5 py-2 rounded-lg bg-muted/40 border border-border/60 text-xs">
+                <span className="text-muted-foreground font-medium">Tournament Serial No:</span>
+                <span className="font-mono font-bold text-foreground text-sm">#{editing.serialNo ?? editing.id}</span>
+              </div>
+            ) : null}
             <FormField label="Name" required>
               <input
                 className={inputClass}
@@ -1365,7 +1384,7 @@ export default function CricketPlayersPage() {
               </FormField>
             ) : null}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FormField label="Jersey number">
+              <FormField label="Jersey number (Kit #)">
                 <input
                   className={inputClass}
                   value={form.jerseyNumber}
