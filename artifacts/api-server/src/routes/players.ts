@@ -404,6 +404,7 @@ const playerSpecificationInputSchema = z.object({
 });
 
 const playerInputSchema = z.object({
+  serialNo: z.number().int().positive().optional(),
   categoryId: z.number().int().nullable().optional(),
   teamId: z.number().int().nullable().optional(),
   name: z.string().min(1),
@@ -540,11 +541,34 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
     return;
   }
 
+  let targetSerialNo: number;
+  if (d.serialNo !== undefined && d.serialNo !== null) {
+    const [dupSerial] = await db
+      .select({ id: playersTable.id, name: playersTable.name })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.tournamentId, tid),
+          eq(playersTable.serialNo, d.serialNo),
+        ),
+      );
+    if (dupSerial) {
+      res.status(400).json({
+        error: `Tournament Serial #${d.serialNo} is already assigned to "${dupSerial.name}".`,
+        field: "serialNo",
+      });
+      return;
+    }
+    targetSerialNo = d.serialNo;
+  } else {
+    targetSerialNo = await allocateNextPlayerSerialNo(tid);
+  }
+
   const [player] = await db
     .insert(playersTable)
     .values({
       tournamentId: tid,
-      serialNo: await allocateNextPlayerSerialNo(tid),
+      serialNo: targetSerialNo,
       categoryId: d.categoryId ?? null,
       name: d.name,
       city: d.city ?? null,
@@ -1205,6 +1229,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const schema = z.object({
+    serialNo: z.number().int().positive().nullable().optional(),
     categoryId: z.number().int().nullable().optional(),
     name: z.string().optional(),
     city: z.string().optional(),
@@ -1369,6 +1394,27 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     updates.basePrice = bidResolved.fields.basePrice;
     updates.selectedBidValue = bidResolved.fields.selectedBidValue;
     updates.bidValueSource = bidResolved.fields.bidValueSource;
+  }
+
+  if (d.serialNo !== undefined && d.serialNo !== null && d.serialNo !== existing.serialNo) {
+    const [dupSerial] = await db
+      .select({ id: playersTable.id, name: playersTable.name })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.tournamentId, tid),
+          eq(playersTable.serialNo, d.serialNo),
+          ne(playersTable.id, playerId),
+        ),
+      );
+    if (dupSerial) {
+      res.status(400).json({
+        error: `Tournament Serial #${d.serialNo} is already assigned to "${dupSerial.name}".`,
+        field: "serialNo",
+      });
+      return;
+    }
+    updates.serialNo = d.serialNo;
   }
 
   if (d.jerseyNumber !== undefined) updates.jerseyNumber = d.jerseyNumber;

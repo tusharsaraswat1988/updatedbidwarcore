@@ -940,6 +940,7 @@ export const PlayerInputPlayerTag = {
 } as const;
 
 export interface PlayerInput {
+  serialNo?: number;
   categoryId?: number;
   name: string;
   city?: string;
@@ -1016,6 +1017,7 @@ export const PlayerUpdateRegistrationPaymentStatus = {
 } as const;
 
 export interface PlayerUpdate {
+  serialNo?: number;
   categoryId?: number;
   name?: string;
   city?: string;

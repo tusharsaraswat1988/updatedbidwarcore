@@ -115,6 +115,7 @@ const BOWLING_STYLES = [
 const UNASSIGNED_KEY = "unassigned";
 
 type SportsPlayerForm = {
+  serialNo: string;
   name: string;
   mobile: string;
   role: string;
@@ -128,6 +129,7 @@ type SportsPlayerForm = {
 };
 
 const EMPTY_FORM: SportsPlayerForm = {
+  serialNo: "",
   name: "",
   mobile: "",
   role: FALLBACK_ROLES[0],
@@ -142,6 +144,7 @@ const EMPTY_FORM: SportsPlayerForm = {
 
 function formFromPlayer(player: Player): SportsPlayerForm {
   return {
+    serialNo: player.serialNo != null ? String(player.serialNo) : "",
     name: player.name || "",
     mobile: player.mobileNumber ? sanitizeMobileInput(player.mobileNumber) : "",
     role: player.role || FALLBACK_ROLES[0],
@@ -618,8 +621,19 @@ export default function CricketPlayersPage() {
       return;
     }
 
+    let parsedSerialNo: number | undefined;
+    if (form.serialNo.trim()) {
+      const parsed = parseInt(form.serialNo.trim(), 10);
+      if (isNaN(parsed) || parsed <= 0) {
+        setFormError("Serial number must be a valid positive number");
+        return;
+      }
+      parsedSerialNo = parsed;
+    }
+
     const assignedTeamId = form.teamId ? Number(form.teamId) : null;
     const sportsPayload = {
+      ...(parsedSerialNo !== undefined ? { serialNo: parsedSerialNo } : {}),
       name: form.name.trim(),
       mobileNumber: parsedMobile.normalized,
       role: form.role || undefined,
@@ -1324,12 +1338,25 @@ export default function CricketPlayersPage() {
           }
         >
           <div className="space-y-3">
-            {editing ? (
-              <div className="flex items-center justify-between px-3.5 py-2 rounded-lg bg-muted/40 border border-border/60 text-xs">
-                <span className="text-muted-foreground font-medium">Tournament Serial No:</span>
-                <span className="font-mono font-bold text-foreground text-sm">#{editing.serialNo ?? editing.id}</span>
-              </div>
-            ) : null}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField label="Tournament Serial No (S.No)">
+                <input
+                  className={inputClass}
+                  inputMode="numeric"
+                  value={form.serialNo}
+                  onChange={(e) => setForm((f) => ({ ...f, serialNo: e.target.value.replace(/\D/g, "") }))}
+                  placeholder={editing ? String(editing.serialNo ?? "") : "Auto-assigned (optional)"}
+                />
+              </FormField>
+              <FormField label="Jersey number (Kit #)">
+                <input
+                  className={inputClass}
+                  value={form.jerseyNumber}
+                  onChange={(e) => setForm((f) => ({ ...f, jerseyNumber: e.target.value }))}
+                  placeholder="e.g. 18"
+                />
+              </FormField>
+            </div>
             <FormField label="Name" required>
               <input
                 className={inputClass}
@@ -1384,14 +1411,6 @@ export default function CricketPlayersPage() {
               </FormField>
             ) : null}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FormField label="Jersey number (Kit #)">
-                <input
-                  className={inputClass}
-                  value={form.jerseyNumber}
-                  onChange={(e) => setForm((f) => ({ ...f, jerseyNumber: e.target.value }))}
-                  placeholder="e.g. 18"
-                />
-              </FormField>
               <FormField label="City">
                 <input
                   className={inputClass}
@@ -1400,20 +1419,20 @@ export default function CricketPlayersPage() {
                   placeholder="City"
                 />
               </FormField>
+              <FormField label="Gender">
+                <DarkSelect
+                  value={form.gender || "none"}
+                  onValueChange={(v) =>
+                    setForm((f) => ({ ...f, gender: v === "none" ? "" : v }))
+                  }
+                  options={[
+                    { value: "none", label: "Not specified" },
+                    { value: "M", label: "Male" },
+                    { value: "F", label: "Female" },
+                  ]}
+                />
+              </FormField>
             </div>
-            <FormField label="Gender">
-              <DarkSelect
-                value={form.gender || "none"}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, gender: v === "none" ? "" : v }))
-                }
-                options={[
-                  { value: "none", label: "Not specified" },
-                  { value: "M", label: "Male" },
-                  { value: "F", label: "Female" },
-                ]}
-              />
-            </FormField>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Batting">
                 <DarkSelect
