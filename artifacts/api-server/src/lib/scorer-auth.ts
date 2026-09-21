@@ -613,6 +613,13 @@ export async function createScorerAccountForTournament(
       .where(eq(scorerAccountsTable.id, existing.id))
       .returning();
     account = updated!;
+
+    // Re-provisioning credentials invalidates old sessions so the new PIN is
+    // the only credential accepted by active scoring tabs.
+    await db
+      .update(scorerSessionsTable)
+      .set({ revokedAt: new Date() })
+      .where(eq(scorerSessionsTable.scorerId, existing.id));
   } else {
     const pinHash = await hashScorerPin(pin);
     const [created] = await db
