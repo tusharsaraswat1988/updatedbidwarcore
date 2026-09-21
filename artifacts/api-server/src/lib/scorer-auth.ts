@@ -10,6 +10,7 @@ import {
   scorerAccountsTable,
   scorerSessionsTable,
   scorerTournamentAssignmentsTable,
+  scorerMatchLocksTable,
 } from "@workspace/db";
 import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { signScorerJwt, verifyScorerJwt, type ScorerAuthClaims } from "./jwt";
@@ -612,6 +613,13 @@ export async function createScorerAccountForTournament(
       .where(eq(scorerAccountsTable.id, existing.id))
       .returning();
     account = updated!;
+
+    // Re-provisioning credentials invalidates old sessions so the new PIN is
+    // the only credential accepted by active scoring tabs.
+    await db
+      .update(scorerSessionsTable)
+      .set({ revokedAt: new Date() })
+      .where(eq(scorerSessionsTable.scorerId, existing.id));
   } else {
     const pinHash = await hashScorerPin(pin);
     const [created] = await db
@@ -634,6 +642,74 @@ export async function createScorerAccountForTournament(
     scorerId: account.id,
     tournamentId,
     payload: { mobile, name, tournamentId },
+  });
+
+  return serializeScorerAccountAdmin(account);
+}
+
+/**
+ * Organizer: remove a scorer from a tournament and invalidate all active
+ * sessions for that scorer identity so old browser tabs can no longer score.
+ */
+export async function deleteScorerAccountForTournament(
+  tournamentId: number,
+  scorerId: number,
+): Promise<ScorerAccountAdminRow> {
+  const assigned = await isScorerAssignedToTournament(scorerId, tournamentId);
+  if (!assigned) {
+    throw new ScorerAuthError("Scorer is not assigned to this tournament", "NOT_FOUND", 404);
+  }
+
+  const [account] = await db
+    .select()
+    .from(scorerAccountsTable)
+    .where(eq(scorerAccountsTable.id, scorerId))
+    .limit(1);
+  if (!account) {
+    throw new ScorerAuthError("Scorer not found", "NOT_FOUND", 404);
+  }
+
+  const revokedAt = new Date();
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(scorerTournamentAssignmentsTable)
+      .where(
+        and(
+          eq(scorerTournamentAssignmentsTable.scorerId, scorerId),
+          eq(scorerTournamentAssignmentsTable.tournamentId, tournamentId),
+        ),
+      );
+
+    const remaining = await tx
+      .select({ id: scorerTournamentAssignmentsTable.id })
+      .from(scorerTournamentAssignmentsTable)
+      .where(eq(scorerTournamentAssignmentsTable.scorerId, scorerId))
+      .limit(1);
+
+    // Scorer identity is global. Only destroy it when this was its final
+    // tournament assignment; otherwise preserve credentials for other events.
+    if (remaining.length === 0) {
+      await tx
+        .update(scorerSessionsTable)
+        .set({ revokedAt })
+        .where(eq(scorerSessionsTable.scorerId, scorerId));
+
+      await tx
+        .delete(scorerMatchLocksTable)
+        .where(eq(scorerMatchLocksTable.scorerId, scorerId));
+
+      await tx
+        .delete(scorerAccountsTable)
+        .where(eq(scorerAccountsTable.id, scorerId));
+    }
+  });
+
+  await writeScorerAudit({
+    actorType: "organizer",
+    action: "scorer_account_deleted",
+    scorerId,
+    tournamentId,
+    payload: { mobile: account.mobile, name: account.name },
   });
 
   return serializeScorerAccountAdmin(account);
