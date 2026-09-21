@@ -343,6 +343,18 @@ function Router() {
         <Route path="/cricket/:matchId/score">
           {() => <ScoringFeatureGuard><CricketScorerPage /></ScoringFeatureGuard>}
         </Route>
+        <Route path="/:code/fanpage">
+          {() => <ScoringFeatureGuard><ScoringPublic /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/fan/:id">
+          {() => <ScoringFeatureGuard><ScoringPublic /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/fanpage/:id">
+          {() => <ScoringFeatureGuard><ScoringPublic /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/tournament/:id/fan">
+          {() => <ScoringFeatureGuard><ScoringPublic /></ScoringFeatureGuard>}
+        </Route>
         <Route path="/tournament/:id/cricket">
           {() => <ScoringFeatureGuard><ScoringPublic /></ScoringFeatureGuard>}
         </Route>
