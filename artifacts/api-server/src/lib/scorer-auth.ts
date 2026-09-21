@@ -639,6 +639,60 @@ export async function createScorerAccountForTournament(
   return serializeScorerAccountAdmin(account);
 }
 
+/**
+ * Organizer: remove a scorer from a tournament and invalidate all active
+ * sessions for that scorer identity so old browser tabs can no longer score.
+ */
+export async function deleteScorerAccountForTournament(
+  tournamentId: number,
+  scorerId: number,
+): Promise<ScorerAccountAdminRow> {
+  const assigned = await isScorerAssignedToTournament(scorerId, tournamentId);
+  if (!assigned) {
+    throw new ScorerAuthError("Scorer is not assigned to this tournament", "NOT_FOUND", 404);
+  }
+
+  const [account] = await db
+    .select()
+    .from(scorerAccountsTable)
+    .where(eq(scorerAccountsTable.id, scorerId))
+    .limit(1);
+  if (!account) {
+    throw new ScorerAuthError("Scorer not found", "NOT_FOUND", 404);
+  }
+
+  const revokedAt = new Date();
+  await db.transaction(async (tx) => {
+    await tx
+      .update(scorerSessionsTable)
+      .set({ revokedAt })
+      .where(eq(scorerSessionsTable.scorerId, scorerId));
+
+    await tx
+      .delete(scorerTournamentAssignmentsTable)
+      .where(
+        and(
+          eq(scorerTournamentAssignmentsTable.scorerId, scorerId),
+          eq(scorerTournamentAssignmentsTable.tournamentId, tournamentId),
+        ),
+      );
+
+    await tx
+      .delete(scorerAccountsTable)
+      .where(eq(scorerAccountsTable.id, scorerId));
+  });
+
+  await writeScorerAudit({
+    actorType: "organizer",
+    action: "scorer_account_deleted",
+    scorerId,
+    tournamentId,
+    payload: { mobile: account.mobile, name: account.name, sessionsRevoked: true },
+  });
+
+  return serializeScorerAccountAdmin(account);
+}
+
 /** Update a scorer only if assigned to this tournament. */
 export async function updateScorerAccountForTournament(
   tournamentId: number,
