@@ -110,6 +110,7 @@ export function PreMatchSetup({
   localBowlerId,
   busy,
   onEvent,
+  onResetMatch,
   onBowlerSelected,
   onPrepared,
 }: PreMatchSetupProps) {

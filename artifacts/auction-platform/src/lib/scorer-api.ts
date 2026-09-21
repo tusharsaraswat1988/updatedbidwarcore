@@ -1,3 +1,5 @@
+import { getScorerAuthSession } from "./badminton-scorer-session";
+
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export type ScorerProfile = {
@@ -43,8 +45,6 @@ export async function scorerApiFetch<T = unknown>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
-  // Import lazily to avoid circular dependency (scorer-api ← badminton-scorer-session)
-  const { getScorerAuthSession } = await import("./badminton-scorer-session");
   const session = getScorerAuthSession();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",

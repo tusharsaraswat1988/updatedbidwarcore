@@ -226,6 +226,25 @@ describe("cricket scorer auth — frontend scoring-api.ts mutation transport", (
     expect(src).toContain("/api/tournaments/${tournamentId}/scoring/matches/${matchId}/undo");
     expect(src).toContain("/api/tournaments/${tournamentId}/scoring/matches/${matchId}/reset");
   });
+
+  it("getScoringMatch attaches scorerAuthHeaders() so dedicated scorer is authenticated for read", async () => {
+    const src = await readFile(scoringApiUrl, "utf8");
+    const fnIdx = src.indexOf("export async function getScoringMatch");
+    expect(fnIdx).toBeGreaterThan(-1);
+    const fnSlice = src.slice(fnIdx, fnIdx + 400);
+    expect(fnSlice).toContain("scorerAuthHeaders()");
+  });
+});
+
+describe("cricket scorer render safety — PreMatchSetup", () => {
+  it("PreMatchSetup destructures onResetMatch to prevent ReferenceError at runtime", async () => {
+    const preMatchUrl = new URL("components/scoring/pre-match-setup.tsx", auctionRoot);
+    const src = await readFile(preMatchUrl, "utf8");
+    const fnIdx = src.indexOf("export function PreMatchSetup({");
+    expect(fnIdx).toBeGreaterThan(-1);
+    const fnSignature = src.slice(fnIdx, fnIdx + 300);
+    expect(fnSignature).toContain("onResetMatch,");
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -428,5 +447,26 @@ describe("cricket scorer auth — NEGATIVE: organizer exclusion from mutations",
     expect(src).not.toContain("LiveScoringPad");
     expect(src).not.toContain("appendScoringEvent");
     expect(src).not.toContain("scorerPin");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROUTE & SESSION TRANSPORT: Canonical route and header construction
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("cricket scorer route & transport — canonical path and headers", () => {
+  it("cricket-routes.ts implements cricketScorerConsolePath with /cricket/:matchId/score?tid=:tournamentId", async () => {
+    const src = await readFile(cricketRoutesUrl, "utf8");
+    const fnIdx = src.indexOf("export function cricketScorerConsolePath");
+    expect(fnIdx).toBeGreaterThan(-1);
+    const fnSlice = src.slice(fnIdx, fnIdx + 300);
+    expect(fnSlice).toContain("/cricket/${matchId}/score?tid=${tournamentId}");
+  });
+
+  it("badminton-scorer-session.ts exports scorerAuthHeaders attaching Bearer token", async () => {
+    const sessionUrl = new URL("lib/badminton-scorer-session.ts", auctionRoot);
+    const src = await readFile(sessionUrl, "utf8");
+    expect(src).toContain("export function scorerAuthHeaders()");
+    expect(src).toContain("Authorization: `Bearer ${session.token}`");
   });
 });

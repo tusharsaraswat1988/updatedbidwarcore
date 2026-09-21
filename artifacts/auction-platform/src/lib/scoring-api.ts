@@ -1,5 +1,6 @@
 import { apiFetch } from "@workspace/api-base/api-fetch";
 import { scorerApiFetch } from "./scorer-api";
+import { scorerAuthHeaders } from "./badminton-scorer-session";
 import type {
   CricketFullScorecard,
   CricketMatchSummary,
@@ -228,6 +229,9 @@ export async function getScoringMatch(
 ): Promise<ScoringMatchDetail> {
   const r = await apiFetch(
     `/tournaments/${tournamentId}/scoring/matches/${matchId}`,
+    {
+      headers: scorerAuthHeaders(),
+    },
   );
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
