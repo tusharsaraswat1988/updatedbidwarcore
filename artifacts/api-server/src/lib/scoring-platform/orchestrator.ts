@@ -327,13 +327,46 @@ export async function appendSingleMatchEvent(
         payload: parsed.payload,
       };
 
-      try {
-        adapter.processEvent(currentState, trialEvent, { enforceLiveRules: true });
-      } catch (err) {
-        if (err instanceof InvalidEventPayloadError) {
-          throw new ScoringPlatformError(err.message, 400, "INVALID_PAYLOAD");
+      if (input.eventType === CricketEventType.BALL_UNDONE) {
+        const undoneSequences = new Set<number>();
+        for (const e of events) {
+          if (e.eventType === CricketEventType.BALL_UNDONE) {
+            const p = e.payload as { undoesSequence?: number };
+            if (typeof p?.undoesSequence === "number") {
+              undoneSequences.add(p.undoesSequence);
+            }
+          }
         }
-        throw err;
+
+        const lastActiveBall = [...events]
+          .reverse()
+          .find(
+            (e) =>
+              e.eventType === CricketEventType.BALL_RECORDED &&
+              !undoneSequences.has(e.sequence),
+          );
+
+        if (!lastActiveBall) {
+          throw new ScoringPlatformError("No ball to undo", 400, "NOTHING_TO_UNDO");
+        }
+
+        const undoPayload = parsed.payload as { undoesSequence: number; undoesEventId?: number };
+        if (undoPayload.undoesSequence !== lastActiveBall.sequence) {
+          throw new ScoringPlatformError(
+            `Target ball sequence ${undoPayload.undoesSequence} does not match last active ball ${lastActiveBall.sequence}`,
+            409,
+            "UNDO_TARGET_MISMATCH",
+          );
+        }
+      } else {
+        try {
+          adapter.processEvent(currentState, trialEvent, { enforceLiveRules: true });
+        } catch (err) {
+          if (err instanceof InvalidEventPayloadError) {
+            throw new ScoringPlatformError(err.message, 400, "INVALID_PAYLOAD");
+          }
+          throw err;
+        }
       }
 
       const persisted = await persistScoringEvent(

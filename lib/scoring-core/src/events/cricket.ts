@@ -60,7 +60,7 @@ export const cricketBallRecordedPayloadSchema = z.object({
   strikerId: z.number().int().positive(),
   nonStrikerId: z.number().int().positive().nullable().optional(),
   bowlerId: z.number().int().positive(),
-  runsOffBat: z.number().int().min(0).max(6),
+  runsOffBat: z.number().int().min(0).max(20),
   extras: extrasSchema,
   wicket: wicketSchema,
   isLegalDelivery: z.boolean(),
