@@ -686,83 +686,91 @@ export function LiveScoringPad({
       ) : null}
 
       {/* ─── Scoreboard Strip ─── */}
-      <div className="px-2.5 py-2 sm:px-4 sm:py-3 rounded-xl sm:rounded-2xl border border-border/70 bg-card/60 shadow-sm space-y-1.5 sm:space-y-2.5 shrink-0">
+      <div className="px-3 py-2.5 sm:px-4 sm:py-3.5 rounded-2xl border border-white/10 bg-gradient-to-b from-[#111938]/95 via-[#0c132a]/95 to-[#070b19]/98 shadow-xl shadow-black/40 space-y-2.5 shrink-0 backdrop-blur-md">
         {retireAtRuns != null ? (
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+          <div className="flex items-center justify-between text-[10px] text-white/50 pb-1 border-b border-white/5">
             <span>Retire limit: {retireAtRuns} runs per batter</span>
             {strikerId && batterRuns[strikerId] != null ? (
-              <span className="font-semibold text-amber-400">
+              <span className="font-bold text-amber-400">
                 Striker {batterRuns[strikerId]}/{retireAtRuns}
               </span>
             ) : null}
           </div>
         ) : null}
 
+        {/* Match Score & Team Telemetry Row */}
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[9px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-              Innings {state.currentInnings}
-              {state.target ? ` · Target ${state.target}` : ""}
-            </p>
-            <p className="text-xl sm:text-3xl font-black tabular-nums tracking-tight text-foreground flex items-baseline gap-1.5">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-400/30 text-amber-300 font-bold text-[9px] sm:text-[10px] uppercase tracking-wider">
+                Innings {state.currentInnings}
+                {state.target ? ` · Target ${state.target}` : ""}
+              </span>
+            </div>
+            <p className="text-2xl sm:text-4xl font-black tabular-nums tracking-tight text-white flex items-baseline gap-1.5 font-mono">
               <span>{innings.runs}/{innings.wickets}</span>
-              <span className="text-xs sm:text-base text-muted-foreground font-semibold">
+              <span className="text-xs sm:text-base text-white/60 font-semibold font-sans">
                 ({oversText(innings.over, innings.ball)} / {state.oversLimit} ov)
               </span>
             </p>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] sm:text-xs text-muted-foreground mt-0.5">
-              <span>CRR: <strong className="text-foreground">{rr}</strong></span>
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs text-white/70 mt-1 font-medium">
+              <span className="px-2 py-0.5 rounded bg-white/[0.05] border border-white/10">
+                CRR: <strong className="text-white">{rr}</strong>
+              </span>
               {req ? (
                 <>
-                  <span>•</span>
-                  <span>RRR: <strong className="text-amber-400">{req}</strong></span>
-                  <span>•</span>
-                  <span>Need <strong className="text-foreground">{Math.max(0, state.target! - innings.runs)}</strong> off <strong className="text-foreground">{Math.max(0, state.oversLimit * 6 - (innings.over * 6 + innings.ball))}</strong></span>
+                  <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                    RRR: <strong>{req}</strong>
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-white/[0.05] border border-white/10 text-white/80">
+                    Need <strong className="text-emerald-400">{Math.max(0, state.target! - innings.runs)}</strong> off <strong className="text-white">{Math.max(0, state.oversLimit * 6 - (innings.over * 6 + innings.ball))}b</strong>
+                  </span>
                 </>
               ) : null}
             </div>
           </div>
 
-          <div className="text-right text-xs space-y-0.5 shrink-0">
+          <div className="text-right space-y-0.5 shrink-0 pt-0.5">
             <p
-              className="font-bold text-xs sm:text-sm truncate max-w-[6rem] sm:max-w-[8rem]"
-              style={{ color: battingTeam?.color ?? undefined }}
+              className="font-black text-sm sm:text-base truncate max-w-[7rem] sm:max-w-[9rem] flex items-center justify-end gap-1"
+              style={{ color: battingTeam?.color ?? "#38bdf8" }}
             >
-              {battingTeam?.shortCode ?? "BAT"} 🏏
+              {battingTeam?.shortCode ?? "BAT"}
+              <span className="text-xs">🏏</span>
             </p>
-            <p className="text-muted-foreground text-[11px] sm:text-xs truncate max-w-[6.5rem] sm:max-w-[8rem]">
+            <p className="text-white/50 text-[11px] sm:text-xs truncate max-w-[7rem] sm:max-w-[9rem]">
               vs {bowlingTeam?.shortCode ?? "BOWL"}
             </p>
           </div>
         </div>
 
         {/* ─── Crease / Batters & Bowler Card ─── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 pt-1 border-t border-border/40 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 pt-2 border-t border-white/10 text-xs">
           {/* Striker */}
-          <div className="flex items-center justify-between rounded-xl bg-primary/10 border border-primary/30 px-2.5 py-1.5 sm:px-3 sm:py-2">
+          <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-amber-500/[0.18] to-amber-500/[0.06] border border-amber-400/40 px-2.5 py-1.5 sm:px-3 sm:py-2 shadow-xs">
             <div className="min-w-0">
-              <span className="text-[10px] uppercase font-bold text-primary tracking-wider flex items-center gap-1">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="text-[9.5px] uppercase font-black text-amber-300 tracking-wider flex items-center gap-1 leading-none">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                 Striker *
               </span>
-              <p className="font-bold text-foreground text-xs sm:text-sm truncate mt-0.5">
+              <p className="font-bold text-white text-xs sm:text-sm truncate mt-1">
                 {playerNameById(players, strikerId) || "Select Striker"}
               </p>
             </div>
             {strikerId && batterRuns[strikerId] != null ? (
-              <span className="text-xs font-bold text-primary tabular-nums shrink-0 ml-1">
+              <span className="text-xs font-black text-amber-300 tabular-nums shrink-0 ml-1.5 px-1.5 py-0.5 rounded bg-amber-400/20 border border-amber-400/30">
                 {batterRuns[strikerId]}r
               </span>
             ) : null}
           </div>
 
           {/* Non-Striker & Swap Button */}
-          <div className="flex items-center justify-between rounded-xl bg-muted/30 border border-border/60 px-2.5 py-1.5 sm:px-3 sm:py-2">
+          <div className="flex items-center justify-between rounded-xl bg-white/[0.03] border border-white/10 px-2.5 py-1.5 sm:px-3 sm:py-2">
             <div className="min-w-0">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+              <span className="text-[9.5px] uppercase font-bold text-white/50 tracking-wider leading-none">
                 Non-Striker
               </span>
-              <p className="font-semibold text-foreground text-xs sm:text-sm truncate mt-0.5">
+              <p className="font-semibold text-slate-200 text-xs sm:text-sm truncate mt-1">
                 {playerNameById(players, nonStrikerId) || "Select Non-Striker"}
               </p>
             </div>
@@ -771,7 +779,7 @@ export function LiveScoringPad({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] font-bold text-muted-foreground hover:text-primary gap-0.5 sm:gap-1 shrink-0"
+                className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] font-bold text-slate-300 hover:text-white hover:bg-white/10 gap-0.5 sm:gap-1 shrink-0 rounded-lg"
                 onClick={onSwapStrike}
                 title="Swap Strike (S)"
               >
@@ -782,12 +790,12 @@ export function LiveScoringPad({
           </div>
 
           {/* Active Bowler */}
-          <div className="col-span-2 sm:col-span-1 flex items-center justify-between rounded-xl bg-muted/30 border border-border/60 px-2.5 py-1.5 sm:px-3 sm:py-2">
+          <div className="col-span-2 sm:col-span-1 flex items-center justify-between rounded-xl bg-white/[0.03] border border-white/10 px-2.5 py-1.5 sm:px-3 sm:py-2">
             <div className="min-w-0">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+              <span className="text-[9.5px] uppercase font-bold text-white/50 tracking-wider leading-none">
                 Bowler
               </span>
-              <p className="font-semibold text-foreground text-xs sm:text-sm truncate mt-0.5">
+              <p className="font-semibold text-slate-200 text-xs sm:text-sm truncate mt-1">
                 {playerNameById(players, activeBowlerId) || "Select Bowler"}
               </p>
             </div>
@@ -795,7 +803,7 @@ export function LiveScoringPad({
               type="button"
               variant="outline"
               size="sm"
-              className="h-6 sm:h-7 px-2 text-[10px] font-semibold text-muted-foreground hover:text-foreground shrink-0"
+              className="h-6 sm:h-7 px-2.5 text-[10px] font-bold rounded-lg border-white/15 bg-white/[0.04] text-white/80 hover:text-white hover:bg-white/10 shrink-0"
               onClick={() => setBowlerSheet(true)}
             >
               Change
@@ -804,8 +812,8 @@ export function LiveScoringPad({
         </div>
 
         {/* ─── This Over Ball Strip ─── */}
-        <div className="flex items-center justify-between gap-2 pt-1">
-          <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">
+        <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/5">
+          <span className="text-[10px] sm:text-[11px] font-bold text-white/50 uppercase tracking-wider shrink-0">
             This Over:
           </span>
           <div className="flex flex-wrap items-center gap-1.5 flex-1 justify-end">
@@ -819,16 +827,16 @@ export function LiveScoringPad({
                   <span
                     key={`${b.over}-${b.ball}-${i}`}
                     className={cn(
-                      "inline-flex h-7 min-w-7 px-1.5 items-center justify-center rounded-lg text-xs font-bold tabular-nums shadow-sm border",
+                      "inline-flex h-7 min-w-7 px-1.5 items-center justify-center rounded-lg text-xs font-black tabular-nums shadow-sm border transition-transform",
                       isW
-                        ? "bg-red-500/20 border-red-500/40 text-red-300"
+                        ? "bg-rose-600/40 border-rose-400 text-white shadow-rose-600/30"
                         : isSix
-                          ? "bg-purple-500/20 border-purple-500/40 text-purple-300"
+                          ? "bg-gradient-to-br from-purple-500/40 to-pink-500/40 border-purple-400 text-purple-100 shadow-purple-500/30"
                           : isFour
-                            ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
+                            ? "bg-emerald-500/30 border-emerald-400 text-emerald-200 shadow-emerald-500/20"
                             : isExt
-                              ? "bg-amber-500/20 border-amber-500/40 text-amber-300"
-                              : "bg-muted/50 border-border text-foreground",
+                              ? "bg-amber-500/30 border-amber-400 text-amber-200"
+                              : "bg-white/[0.06] border-white/10 text-slate-200",
                     )}
                   >
                     {b.label}
@@ -836,7 +844,7 @@ export function LiveScoringPad({
                 );
               })
             ) : (
-              <span className="text-xs text-muted-foreground italic">
+              <span className="text-xs text-white/40 italic font-medium">
                 Over started
               </span>
             )}
@@ -896,30 +904,62 @@ export function LiveScoringPad({
 
       {/* ─── Match / Innings Complete State vs Main Keypad ─── */}
       {isMatchCompleteState ? (
-        <div className="p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 border-emerald-500/50 bg-gradient-to-b from-emerald-950/40 via-card to-black flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-3 sm:gap-4 shadow-xl shadow-emerald-950/30">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400/60 flex items-center justify-center shadow-lg shadow-emerald-500/20 animate-bounce">
-            <Trophy className="w-9 h-9 sm:w-11 sm:h-11 text-emerald-400" />
-          </div>
-          <div className="space-y-1">
-            <span className="inline-block text-xs font-black uppercase tracking-[0.25em] text-emerald-400 bg-emerald-500/15 px-3 py-1 rounded-full border border-emerald-500/30 mb-1">
-              {isTargetReached ? "🏆 TARGET REACHED · MATCH WON" : "🏁 CHASE COMPLETE · MATCH FINISHED"}
+        <div className="relative rounded-2xl sm:rounded-3xl border border-emerald-500/30 bg-gradient-to-b from-[#0b211a] via-[#071611] to-[#040b09] p-4 sm:p-6 flex-1 min-h-0 flex flex-col items-center justify-between text-center shadow-2xl shadow-emerald-950/50 overflow-hidden">
+          {/* Ambient Glow */}
+          <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 sm:w-64 sm:h-64 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Top Trophy & Status */}
+          <div className="space-y-2 relative z-10">
+            <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-emerald-300 bg-emerald-500/15 px-3.5 py-1 rounded-full border border-emerald-500/30 shadow-inner">
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              {isTargetReached ? "TARGET REACHED · MATCH WON" : "CHASE COMPLETE · MATCH FINISHED"}
             </span>
-            <h3 className="text-2xl sm:text-4xl font-black text-white tracking-wide">
-              {(() => {
-                const winnerTeam = teams.find((t) => t.id === matchResultPreview?.winnerTeamId);
-                if (matchResultPreview?.isTie) return "Match Tied!";
-                if (winnerTeam) return `${winnerTeam.name} ${matchResultPreview?.resultText ?? "Won"}`;
-                return matchResultPreview?.resultText ?? "Match Complete";
-              })()}
-            </h3>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Final Score: <strong className="text-foreground font-mono">{innings?.runs}/{innings?.wickets}</strong> in <strong className="text-foreground font-mono">{oversText(innings?.over ?? 0, innings?.ball ?? 0)}</strong> ov
-              {state.target != null ? ` (Target: ${state.target})` : ""}
-            </p>
+
+            <div className="w-14 h-14 sm:w-18 sm:h-18 mx-auto rounded-2xl bg-gradient-to-br from-amber-400/20 via-emerald-500/20 to-emerald-600/30 border border-amber-400/40 flex items-center justify-center shadow-xl shadow-amber-500/10 mt-1">
+              <Trophy className="w-7 h-7 sm:w-9 sm:h-9 text-amber-300 drop-shadow-md" />
+            </div>
+
+            <div className="space-y-0.5">
+              <h3 className="text-xl sm:text-3xl font-black text-white tracking-wide leading-tight">
+                {(() => {
+                  const winnerTeam = teams.find((t) => t.id === matchResultPreview?.winnerTeamId);
+                  if (matchResultPreview?.isTie) return "Match Tied!";
+                  if (winnerTeam) return winnerTeam.name;
+                  return "Match Complete";
+                })()}
+              </h3>
+              <p className="text-base sm:text-xl font-extrabold text-emerald-400">
+                {matchResultPreview?.isTie ? "Scores are Level" : (matchResultPreview?.resultText ?? "Won")}
+              </p>
+            </div>
           </div>
-          <div className="flex flex-col sm:flex-row items-center gap-2 w-full max-w-sm mt-1 sm:mt-2">
+
+          {/* Scorecard Stats Grid */}
+          <div className="grid grid-cols-3 gap-2 w-full max-w-xs sm:max-w-sm py-2 relative z-10">
+            <div className="rounded-xl bg-white/[0.04] border border-white/10 p-2 text-center">
+              <span className="text-[9px] uppercase font-bold text-white/50 block">Score</span>
+              <span className="text-sm sm:text-base font-black text-white font-mono tabular-nums">
+                {innings?.runs}/{innings?.wickets}
+              </span>
+            </div>
+            <div className="rounded-xl bg-white/[0.04] border border-white/10 p-2 text-center">
+              <span className="text-[9px] uppercase font-bold text-white/50 block">Overs</span>
+              <span className="text-sm sm:text-base font-black text-white font-mono tabular-nums">
+                {oversText(innings?.over ?? 0, innings?.ball ?? 0)}
+              </span>
+            </div>
+            <div className="rounded-xl bg-white/[0.04] border border-white/10 p-2 text-center">
+              <span className="text-[9px] uppercase font-bold text-white/50 block">Target</span>
+              <span className="text-sm sm:text-base font-black text-amber-300 font-mono tabular-nums">
+                {state.target ?? "—"}
+              </span>
+            </div>
+          </div>
+
+          {/* Action CTAs */}
+          <div className="flex flex-col gap-2 w-full max-w-sm relative z-10">
             <Button
-              className="w-full h-12 text-base font-black bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-lg shadow-emerald-500/30"
+              className="w-full h-11 sm:h-12 text-sm sm:text-base font-black bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/30 rounded-xl active:scale-[0.98] transition-all"
               disabled={busy}
               onClick={async () => {
                 const result = buildMatchResult(state);
@@ -931,12 +971,12 @@ export function LiveScoringPad({
                 });
               }}
             >
-              <Trophy className="w-4 h-4 mr-2" />
+              <Trophy className="w-4 h-4 mr-2 text-slate-950 fill-current" />
               Complete Match Now
             </Button>
             <Button
               variant="outline"
-              className="w-full h-11 text-xs font-bold border-border/80 text-muted-foreground hover:text-foreground"
+              className="w-full h-9 sm:h-10 text-xs font-bold border-white/15 bg-white/[0.04] text-white/70 hover:text-white hover:bg-white/[0.08] rounded-xl active:scale-[0.98]"
               disabled={busy}
               onClick={onUndo}
             >
@@ -946,24 +986,43 @@ export function LiveScoringPad({
           </div>
         </div>
       ) : isInnings1Finished ? (
-        <div className="p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 border-primary/50 bg-gradient-to-b from-primary/10 via-card to-black flex-1 min-h-0 flex flex-col items-center justify-center text-center gap-3 sm:gap-4 shadow-xl">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-primary/20 border-2 border-primary/60 flex items-center justify-center shadow-lg shadow-primary/20">
-            <Flag className="w-9 h-9 sm:w-11 sm:h-11 text-primary" />
-          </div>
-          <div className="space-y-1">
-            <span className="inline-block text-xs font-black uppercase tracking-[0.25em] text-primary bg-primary/15 px-3 py-1 rounded-full border border-primary/30 mb-1">
-              🏁 INNINGS 1 COMPLETE
+        <div className="relative rounded-2xl sm:rounded-3xl border border-sky-500/30 bg-gradient-to-b from-[#0f2038] via-[#091526] to-[#040a14] p-4 sm:p-6 flex-1 min-h-0 flex flex-col items-center justify-between text-center shadow-2xl shadow-sky-950/50 overflow-hidden">
+          {/* Ambient Glow */}
+          <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 sm:w-64 sm:h-64 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Top Flag & Status */}
+          <div className="space-y-2 relative z-10">
+            <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-sky-300 bg-sky-500/15 px-3.5 py-1 rounded-full border border-sky-500/30 shadow-inner">
+              <Flag className="w-3.5 h-3.5 text-sky-400" />
+              INNINGS 1 COMPLETE
             </span>
-            <h3 className="text-2xl sm:text-4xl font-black text-white tracking-wide">
-              {battingTeam?.name ?? "1st Innings"}: {innings?.runs}/{innings?.wickets}
-            </h3>
-            <p className="text-xs sm:text-sm text-primary font-bold">
-              Target for 2nd Innings: {innings?.runs ? innings.runs + 1 : 1} runs in {state.oversLimit} overs
-            </p>
+
+            <div className="w-14 h-14 sm:w-18 sm:h-18 mx-auto rounded-2xl bg-gradient-to-br from-sky-400/20 via-indigo-500/20 to-sky-600/30 border border-sky-400/40 flex items-center justify-center shadow-xl shadow-sky-500/10 mt-1">
+              <Flag className="w-7 h-7 sm:w-9 sm:h-9 text-sky-300" />
+            </div>
+
+            <div className="space-y-0.5">
+              <h3 className="text-xl sm:text-3xl font-black text-white tracking-wide leading-tight">
+                {battingTeam?.name ?? "1st Innings"}
+              </h3>
+              <p className="text-base sm:text-xl font-extrabold text-sky-400 font-mono">
+                {innings?.runs}/{innings?.wickets} in {oversText(innings?.over ?? 0, innings?.ball ?? 0)} ov
+              </p>
+            </div>
           </div>
-          <div className="flex flex-col sm:flex-row items-center gap-2 w-full max-w-sm mt-1 sm:mt-2">
+
+          {/* Chase Target Pill */}
+          <div className="w-full max-w-xs sm:max-w-sm py-2 px-4 rounded-xl bg-sky-500/10 border border-sky-500/30 text-center relative z-10">
+            <span className="text-[10px] uppercase font-bold text-sky-300/80 block">Target for 2nd Innings</span>
+            <span className="text-lg sm:text-xl font-black text-white font-mono">
+              {innings?.runs ? innings.runs + 1 : 1} runs <span className="text-xs text-sky-200 font-semibold">in {state.oversLimit} overs</span>
+            </span>
+          </div>
+
+          {/* Action CTAs */}
+          <div className="flex flex-col gap-2 w-full max-w-sm relative z-10">
             <Button
-              className="w-full h-12 text-base font-black bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg"
+              className="w-full h-11 sm:h-12 text-sm sm:text-base font-black bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white shadow-lg shadow-sky-500/30 rounded-xl active:scale-[0.98] transition-all"
               disabled={busy}
               onClick={async () => {
                 const reason = suggestInningsEndReason(state);
@@ -976,11 +1035,11 @@ export function LiveScoringPad({
                 });
               }}
             >
-              Start 2nd Innings
+              Start 2nd Innings Chase
             </Button>
             <Button
               variant="outline"
-              className="w-full h-11 text-xs font-bold border-border/80 text-muted-foreground hover:text-foreground"
+              className="w-full h-9 sm:h-10 text-xs font-bold border-white/15 bg-white/[0.04] text-white/70 hover:text-white hover:bg-white/[0.08] rounded-xl active:scale-[0.98]"
               disabled={busy}
               onClick={onUndo}
             >
@@ -991,7 +1050,7 @@ export function LiveScoringPad({
         </div>
       ) : (
         /* ─── Main Scorer Keypad Grid ─── */
-        <div className="p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border border-border/70 bg-card/40 flex-1 min-h-0 flex flex-col justify-between gap-1 sm:gap-1.5">
+        <div className="p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c1328]/90 to-[#070b19]/95 flex-1 min-h-0 flex flex-col justify-between gap-1 sm:gap-1.5 shadow-xl">
           {/* Row 1: Primary Runs 0, 1, 2, 3 */}
           <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
             <ScoreButton
@@ -1207,25 +1266,27 @@ export function LiveScoringPad({
         </div>
       )}
 
-      {/* ─── Bottom Actions Bar ─── */}
-      <div className="flex gap-1.5 shrink-0">
-        <Button
-          variant="outline"
-          className="flex-1 h-9 sm:h-10 text-xs font-semibold rounded-xl border-border/70 bg-card/60 hover:bg-card"
-          disabled={busy}
-          onClick={() => setBowlerSheet(true)}
-        >
-          Change Bowler
-        </Button>
-        <Button
-          variant="outline"
-          className="h-9 sm:h-10 px-3 text-xs font-semibold rounded-xl border-border/70 bg-card/60 hover:bg-card"
-          disabled={busy}
-          onClick={() => setSecondaryOpen(true)}
-        >
-          More Actions
-        </Button>
-      </div>
+      {/* ─── Bottom Actions Bar (only when match is active) ─── */}
+      {!isMatchCompleteState && !isInnings1Finished ? (
+        <div className="flex gap-1.5 shrink-0">
+          <Button
+            variant="outline"
+            className="flex-1 h-9 sm:h-10 text-xs font-bold rounded-xl border-white/10 bg-[#121933]/80 hover:bg-[#1a244a] text-slate-200 hover:text-white"
+            disabled={busy}
+            onClick={() => setBowlerSheet(true)}
+          >
+            Change Bowler
+          </Button>
+          <Button
+            variant="outline"
+            className="h-9 sm:h-10 px-3.5 text-xs font-bold rounded-xl border-white/10 bg-[#121933]/80 hover:bg-[#1a244a] text-slate-200 hover:text-white"
+            disabled={busy}
+            onClick={() => setSecondaryOpen(true)}
+          >
+            More Actions
+          </Button>
+        </div>
+      ) : null}
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* ─── Wide Runs Selector Sheet ─── */}

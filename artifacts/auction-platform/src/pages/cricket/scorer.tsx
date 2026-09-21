@@ -176,20 +176,7 @@ export default function CricketScorerPage() {
             if (!lockHeldRef.current) return;
             try {
               await heartbeatScorerMatchLock(matchId, token);
-            } catch {
-              // Try silent reacquire once before marking lock lost
-              try {
-                const reacquire = await acquireScorerMatchLock(matchId, token, {
-                  tournamentId,
-                  sport: "cricket",
-                });
-                if (reacquire.ok) {
-                  lockHeldRef.current = true;
-                  setLockAcquired(true);
-                  setLockLost(false);
-                  return;
-                }
-              } catch {}
+            } catch (e) {
               lockHeldRef.current = false;
               setLockAcquired(false);
               setLockLost(true);
@@ -564,13 +551,13 @@ export default function CricketScorerPage() {
   return (
     <div className="fixed inset-0 h-[100dvh] max-h-[100dvh] w-full bg-[#070b19] text-white flex flex-col overflow-hidden select-none touch-manipulation overscroll-none">
       {/* ─── Fixed Header Bar (44px) ─── */}
-      <header className="h-11 shrink-0 px-3 border-b border-white/10 bg-[#090e21] flex items-center justify-between gap-2 z-20">
+      <header className="h-11 shrink-0 px-3 border-b border-white/[0.08] bg-gradient-to-r from-[#090e24] via-[#0d1433] to-[#090e24] flex items-center justify-between gap-2 z-20 backdrop-blur-md">
         <div className="flex items-center gap-2 min-w-0">
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-white/70 hover:text-white shrink-0 -ml-1"
+            className="h-8 w-8 text-white/70 hover:text-white shrink-0 -ml-1 rounded-lg hover:bg-white/10"
             onClick={() => navigate(cricketScorerHomePath(tournamentId))}
             title="Back to matches"
           >
@@ -579,11 +566,11 @@ export default function CricketScorerPage() {
           <CricketPublicBrandMark variant="scorer-bar" className="h-6 shrink-0" />
           <div className="h-3.5 w-px bg-white/20 shrink-0 hidden xs:block" />
           <div className="min-w-0">
-            <span className="text-xs font-black text-white truncate flex items-center gap-1.5 leading-none">
+            <span className="text-xs font-black text-white truncate flex items-center gap-1.5 leading-none tracking-wide">
               {matchVsText}
               {data?.match.status === "live" ? (
-                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-red-500 text-white flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 flex items-center gap-1.5 shadow-sm shadow-rose-950/40">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
                   LIVE
                 </span>
               ) : null}

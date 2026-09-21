@@ -82,20 +82,11 @@ export function CricketObsStage({ vm, tournamentId = 0, onSetOverlay, onTriggerF
         />
       ) : null}
 
-      {/* 3. BOTTOM FOOTER / SCOREBUG (SOLID / NON-TRANSPARENT) */}
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex flex-col justify-end"
-        style={{
-          paddingLeft: BROADCAST_OVERLAY_SAFE_INSET_X,
-          paddingRight: BROADCAST_OVERLAY_SAFE_INSET_X,
-          paddingBottom: BROADCAST_OVERLAY_SAFE_INSET_Y,
-        }}
-      >
-        <div className="flex w-full flex-col items-stretch gap-2">
+      {/* 3. BOTTOM FOOTER / SCOREBUG (SOLID / NON-TRANSPARENT — DOCKED EDGE-TO-EDGE) */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex w-full flex-col justify-end">
+        <div className="flex w-full flex-col items-stretch">
           {vm.connectionHint === "reconnecting" ? (
-            <p
-              className="self-end text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55 drop-shadow"
-            >
+            <p className="self-end px-6 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70 drop-shadow">
               Live data reconnecting…
             </p>
           ) : null}
@@ -108,8 +99,12 @@ export function CricketObsStage({ vm, tournamentId = 0, onSetOverlay, onTriggerF
         </div>
       </div>
 
-      {/* OPERATOR BROADCAST CONTROLLER DOCK (Visible when previewing, hidden inside pure OBS browser source) */}
-      {!isObs && onSetOverlay && onTriggerFlash ? (
+      {/* OPERATOR BROADCAST CONTROLLER DOCK (Hidden on live stream; only visible if ?dock=1 or ?controls=1 is explicitly passed in URL) */}
+      {typeof window !== "undefined" &&
+      (new URLSearchParams(window.location.search).get("dock") === "1" ||
+        new URLSearchParams(window.location.search).get("controls") === "1") &&
+      onSetOverlay &&
+      onTriggerFlash ? (
         <CricketObsOperatorDock
           currentOverlay={vm.midOverlay}
           onSetOverlay={onSetOverlay}

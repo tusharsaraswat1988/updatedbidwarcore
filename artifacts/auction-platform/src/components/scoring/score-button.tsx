@@ -10,15 +10,15 @@ type ScoreButtonProps = {
 };
 
 const variantClasses: Record<NonNullable<ScoreButtonProps["variant"]>, string> = {
-  default: "bg-card/70 hover:bg-card border-border/80 text-foreground active:bg-muted shadow-sm",
-  run: "bg-primary/10 hover:bg-primary/20 border-primary/30 text-primary active:bg-primary/25 shadow-sm",
-  boundary: "bg-emerald-500/15 hover:bg-emerald-500/25 border-emerald-500/40 text-emerald-400 active:bg-emerald-500/30 shadow-sm font-black",
-  extra: "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/30 text-amber-300 active:bg-amber-500/25 shadow-sm",
-  wicket: "bg-red-500/15 hover:bg-red-500/25 border-red-500/40 text-red-400 active:bg-red-500/30 shadow-sm font-bold",
-  undo: "bg-muted/30 hover:bg-muted/50 border-border/70 text-muted-foreground hover:text-foreground active:bg-muted shadow-sm",
-  super_ball: "bg-gradient-to-br from-amber-400/20 via-yellow-500/20 to-amber-600/20 hover:from-amber-400/30 hover:to-amber-600/30 border-amber-400/60 text-amber-300 shadow-md shadow-amber-500/10 active:scale-[0.98] font-bold",
-  active: "bg-primary text-primary-foreground border-primary shadow-md shadow-primary/20",
-  muted: "bg-muted/15 border-border/40 text-muted-foreground",
+  default: "bg-[#141d3b]/80 hover:bg-[#1c274e] border-white/10 text-white active:scale-[0.96] shadow-sm",
+  run: "bg-gradient-to-b from-[#182652] to-[#0f1938] hover:from-[#20326b] hover:to-[#142149] border-sky-500/30 text-sky-200 active:scale-[0.96] shadow-md shadow-sky-950/20",
+  boundary: "bg-gradient-to-b from-emerald-900/40 to-emerald-950/80 hover:from-emerald-800/50 hover:to-emerald-900/90 border-emerald-500/40 text-emerald-300 active:scale-[0.96] shadow-md shadow-emerald-950/30 font-black",
+  extra: "bg-gradient-to-b from-amber-950/40 to-[#1c1608] hover:from-amber-900/50 hover:to-[#271f0a] border-amber-500/40 text-amber-300 active:scale-[0.96] shadow-sm",
+  wicket: "bg-gradient-to-b from-rose-900/50 to-red-950/90 hover:from-rose-800/60 hover:to-red-900/90 border-rose-500/50 text-rose-200 active:scale-[0.96] shadow-lg shadow-rose-950/40 font-bold",
+  undo: "bg-[#121933]/70 hover:bg-[#1a2345] border-white/10 text-slate-300 hover:text-white active:scale-[0.96] shadow-sm",
+  super_ball: "bg-gradient-to-br from-amber-500/30 via-yellow-500/20 to-amber-600/30 hover:from-amber-500/40 hover:to-amber-600/40 border-amber-400/60 text-amber-300 shadow-md shadow-amber-500/20 active:scale-[0.96] font-bold",
+  active: "bg-sky-500 text-slate-950 border-sky-400 shadow-md shadow-sky-500/30 font-bold",
+  muted: "bg-white/[0.03] border-white/5 text-white/30",
 };
 
 export function ScoreButton({
@@ -35,15 +35,15 @@ export function ScoreButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center justify-center rounded-xl sm:rounded-2xl border min-h-[2.6rem] sm:min-h-[3.75rem] h-full p-1 touch-manipulation select-none transition-all duration-75",
-        "disabled:opacity-40 disabled:pointer-events-none active:scale-[0.95]",
+        "flex flex-col items-center justify-center rounded-xl sm:rounded-2xl border min-h-[2.75rem] sm:min-h-[3.75rem] h-full p-1 touch-manipulation select-none transition-all duration-100 backdrop-blur-xs",
+        "disabled:opacity-30 disabled:pointer-events-none active:scale-[0.94]",
         variantClasses[variant],
         className,
       )}
     >
-      <span className="text-lg sm:text-2xl font-black leading-none tabular-nums">{label}</span>
+      <span className="text-lg sm:text-2xl font-black leading-none tabular-nums tracking-tight">{label}</span>
       {sublabel ? (
-        <span className="text-[8.5px] sm:text-[10px] uppercase font-semibold tracking-wider mt-0.5 opacity-75 truncate max-w-full px-0.5 leading-none">
+        <span className="text-[8.5px] sm:text-[10px] uppercase font-bold tracking-wider mt-1 opacity-80 truncate max-w-full px-0.5 leading-none">
           {sublabel}
         </span>
       ) : null}

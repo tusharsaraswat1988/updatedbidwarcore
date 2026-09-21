@@ -31,7 +31,7 @@ export function CricketObsBranding({ vm }: { vm: CricketObsViewModel }) {
       style={{
         background: "linear-gradient(180deg, #111827 0%, #080c16 100%)",
         borderBottom: "2px solid rgba(255, 255, 255, 0.18)",
-        boxShadow: "0 12px 36px rgba(0, 0, 0, 0.85)",
+        boxShadow: "0 4px 18px rgba(0, 0, 0, 0.55)",
         WebkitFontSmoothing: "antialiased",
         MozOsxFontSmoothing: "grayscale",
         textRendering: "optimizeLegibility",

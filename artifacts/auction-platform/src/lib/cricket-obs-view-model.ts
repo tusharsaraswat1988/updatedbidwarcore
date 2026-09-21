@@ -119,6 +119,9 @@ export type CricketObsViewModel = {
   striker: CricketObsBatterView | null;
   nonStriker: CricketObsBatterView | null;
   bowler: CricketObsBowlerView | null;
+  partnershipRuns: number;
+  partnershipBalls: number;
+  partnershipText: string | null;
   powerplayText: string | null;
   tossText: string | null;
   freeHitActive: boolean;
@@ -448,6 +451,9 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     striker: null,
     nonStriker: null,
     bowler: null,
+    partnershipRuns: 0,
+    partnershipBalls: 0,
+    partnershipText: null,
     powerplayText: null,
     tossText: null,
     freeHitActive: false,
@@ -617,6 +623,12 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     striker,
     nonStriker,
     bowler,
+    partnershipRuns: (striker?.runs ?? 0) + (nonStriker?.runs ?? 0),
+    partnershipBalls: (striker?.balls ?? 0) + (nonStriker?.balls ?? 0),
+    partnershipText:
+      striker || nonStriker
+        ? `${(striker?.runs ?? 0) + (nonStriker?.runs ?? 0)} (${(striker?.balls ?? 0) + (nonStriker?.balls ?? 0)}b)`
+        : null,
     powerplayText,
     tossText,
     freeHitActive: state.freeHitActive === true,

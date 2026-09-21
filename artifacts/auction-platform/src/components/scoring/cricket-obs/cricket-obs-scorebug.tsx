@@ -4,14 +4,14 @@ import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
  * Component 3: Solid Bottom Footer / Scorebug (Non-Transparent)
  * Designed to IPL & International broadcast standards with sharp, clear typography.
  *
- * Sizing & Layout Improvements:
- * - Sharper, non-muddy font weights with antialiased rendering
- * - High contrast across all data points
- * - Sized up all previously small stats (4s, 6s, SR, ECON, balls remaining)
- * - Tightly grouped batter cards (Player Name, Runs, Balls, Boundaries, Strike Rate)
- * - Center space utilized by the Live Match Chase / Rates Hub
- * - 40px large circular over train delivery pills
- * - Bold, easily legible bottom ticker
+ * Professional Improvements:
+ * - 100% Docked edge-to-edge layout flush to screen bottom
+ * - High contrast antialiased typography
+ * - Clean tabular stat capsules for 4s, 6s, and Strike Rates
+ * - De-duplicated Center Hub (Hero Current Partnership & Match Pace)
+ * - Unified Bowler Spell capsule (Figures + Economy)
+ * - Styled circular Opponent Crest matching the batting team frame
+ * - Crisp High-Contrast Bottom Ticker
  */
 export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
   const batting = vm.batting;
@@ -24,9 +24,12 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
   const needRuns = vm.needRuns;
   const ballsLeft = vm.ballsRemaining;
 
+  const partnershipRuns = vm.partnershipRuns;
+  const partnershipBalls = vm.partnershipBalls;
+
   return (
     <div
-      className="relative z-30 w-full overflow-hidden rounded-2xl border-2 border-white/20 shadow-[0_25px_60px_rgba(0,0,0,0.95)]"
+      className="relative z-30 w-full overflow-hidden border-t-2 border-white/20 shadow-[0_-10px_35px_rgba(0,0,0,0.9)]"
       style={{
         background: "linear-gradient(180deg, #131a29 0%, #080c14 100%)",
         fontFamily: "'Barlow Condensed', -apple-system, BlinkMacSystemFont, sans-serif",
@@ -37,15 +40,15 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
     >
       {/* Top metallic IPL gradient accent line */}
       <div
-        className="h-1.5 w-full"
+        className="h-[3px] w-full"
         style={{
           background:
             "linear-gradient(90deg, #3b82f6 0%, #f59e0b 25%, #ef4444 50%, #8b5cf6 75%, #3b82f6 100%)",
         }}
       />
 
-      {/* MAIN BROADCAST STRIP (Height: 106px) */}
-      <div className="flex h-[106px] items-stretch">
+      {/* MAIN BROADCAST STRIP (Height: 104px) */}
+      <div className="flex h-[104px] items-stretch">
         {/* 1. BATTING TEAM & SCORE BLOCK (~340px) */}
         <div
           className="flex min-w-[340px] max-w-[370px] items-center gap-4 px-5"
@@ -55,12 +58,12 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
           }}
         >
           {/* Team Crest */}
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-amber-400/60 bg-black/70 shadow-lg">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-amber-400/70 bg-black/80 shadow-lg">
             {batting?.logoUrl ? (
               <img
                 src={batting.logoUrl}
                 alt=""
-                className="h-full w-full object-contain p-1"
+                className="h-full w-full object-contain p-1.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
               />
             ) : (
               <span className="text-xl font-bold tracking-wider text-amber-400">
@@ -78,7 +81,7 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
                 v {bowling?.shortCode || "BOWL"}
               </span>
             </div>
-            <p className="truncate text-xs font-semibold uppercase tracking-wider text-white/50">
+            <p className="truncate text-xs font-bold uppercase tracking-wider text-white/60">
               {batting?.name || "Batting Team"}
             </p>
           </div>
@@ -119,7 +122,7 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
               </span>
             </div>
 
-            <div className="flex items-center gap-5 tabular-nums">
+            <div className="flex items-center gap-4 tabular-nums">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-3xl font-black text-white">
                   {striker?.runs ?? 0}
@@ -128,10 +131,14 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
                   ({striker?.balls ?? 0})
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-sm font-semibold text-white/80">
-                <span>4s: <strong className="text-white font-bold">{striker?.fours ?? 0}</strong></span>
-                <span>6s: <strong className="text-white font-bold">{striker?.sixes ?? 0}</strong></span>
-                <span className="rounded bg-amber-400/20 px-2 py-0.5 text-xs font-bold text-amber-300 border border-amber-400/30">
+              <div className="flex items-center gap-2 text-xs font-bold">
+                <span className="rounded bg-blue-500/20 px-2 py-0.5 text-blue-300 border border-blue-400/40">
+                  4s: <strong>{striker?.fours ?? 0}</strong>
+                </span>
+                <span className="rounded bg-purple-500/20 px-2 py-0.5 text-purple-300 border border-purple-400/40">
+                  6s: <strong>{striker?.sixes ?? 0}</strong>
+                </span>
+                <span className="rounded bg-amber-400/25 px-2.5 py-0.5 text-amber-300 border border-amber-400/40 font-black">
                   SR {striker?.strikeRate != null ? striker.strikeRate.toFixed(1) : "—"}
                 </span>
               </div>
@@ -147,7 +154,7 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
               </span>
             </div>
 
-            <div className="flex items-center gap-5 tabular-nums">
+            <div className="flex items-center gap-4 tabular-nums">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-3xl font-black text-white/95">
                   {nonStriker?.runs ?? 0}
@@ -156,10 +163,14 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
                   ({nonStriker?.balls ?? 0})
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-sm font-semibold text-white/80">
-                <span>4s: <strong className="text-white/90 font-bold">{nonStriker?.fours ?? 0}</strong></span>
-                <span>6s: <strong className="text-white/90 font-bold">{nonStriker?.sixes ?? 0}</strong></span>
-                <span className="rounded bg-white/10 px-2 py-0.5 text-xs font-bold text-white/80 border border-white/15">
+              <div className="flex items-center gap-2 text-xs font-bold">
+                <span className="rounded bg-white/10 px-2 py-0.5 text-white/90 border border-white/20">
+                  4s: <strong>{nonStriker?.fours ?? 0}</strong>
+                </span>
+                <span className="rounded bg-white/10 px-2 py-0.5 text-white/90 border border-white/20">
+                  6s: <strong>{nonStriker?.sixes ?? 0}</strong>
+                </span>
+                <span className="rounded bg-white/15 px-2.5 py-0.5 text-white/90 border border-white/25 font-black">
                   SR {nonStriker?.strikeRate != null ? nonStriker.strikeRate.toFixed(1) : "—"}
                 </span>
               </div>
@@ -167,7 +178,7 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
           </div>
         </div>
 
-        {/* 3. CENTER MATCH HUB (~280px) — LIVE EQUATION & RUN RATES */}
+        {/* 3. CENTER MATCH HUB (~280px) — DE-DUPLICATED HERO CURRENT PARTNERSHIP / PACE */}
         <div
           className="flex min-w-[270px] max-w-[310px] flex-col items-center justify-center px-4 text-center"
           style={{
@@ -175,39 +186,30 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
             background: "linear-gradient(180deg, rgba(30, 41, 59, 0.55) 0%, rgba(15, 23, 42, 0.75) 100%)",
           }}
         >
-          {isChase && needRuns != null && ballsLeft != null ? (
-            <div className="space-y-1">
-              <span className="rounded-full bg-amber-400/25 px-3 py-0.5 text-xs font-bold uppercase tracking-widest text-amber-300 border border-amber-400/30">
-                CHASE EQUATION
+          <div className="space-y-1">
+            <span className="rounded-full bg-amber-400/20 px-3 py-0.5 text-[11px] font-black uppercase tracking-widest text-amber-300 border border-amber-400/35">
+              CURRENT PARTNERSHIP
+            </span>
+            <div className="flex items-baseline justify-center gap-1.5">
+              <span className="text-4xl font-black text-amber-400 drop-shadow">
+                {partnershipRuns}
               </span>
-              <div className="text-3xl font-black uppercase tracking-tight text-amber-400 drop-shadow">
-                NEED {needRuns} RUNS
-              </div>
-              <div className="text-sm font-bold uppercase tracking-wider text-white">
-                IN {ballsLeft} BALLS · <span className="text-amber-300">RRR {vm.rrr || "—"}</span>
-              </div>
+              <span className="text-sm font-bold uppercase tracking-wider text-white/75">
+                OFF {partnershipBalls} BALLS
+              </span>
             </div>
-          ) : (
-            <div className="space-y-1.5">
-              <span className="rounded-full bg-blue-500/25 px-3 py-0.5 text-xs font-bold uppercase tracking-widest text-blue-300 border border-blue-400/30">
-                INNINGS PACE
-              </span>
-              <div className="flex items-center gap-3 text-xl font-bold uppercase text-white">
-                <span>CRR <strong className="text-amber-400 font-black">{vm.crr || "0.00"}</strong></span>
-                {vm.projectedScore ? (
-                  <span>PROJ <strong className="text-cyan-400 font-black">{vm.projectedScore}</strong></span>
-                ) : null}
-              </div>
-              {vm.powerplayText ? (
-                <div className="text-xs font-bold text-amber-300 uppercase tracking-wide">
-                  {vm.powerplayText}
-                </div>
+            <div className="flex items-center justify-center gap-3 text-xs font-bold uppercase text-white/90">
+              <span>CRR <strong className="text-amber-300">{vm.crr || "0.00"}</strong></span>
+              {isChase && vm.rrr ? (
+                <span>REQ <strong className="text-cyan-300">{vm.rrr}</strong></span>
+              ) : vm.projectedScore ? (
+                <span>PROJ <strong className="text-cyan-300">{vm.projectedScore}</strong></span>
               ) : null}
             </div>
-          )}
+          </div>
         </div>
 
-        {/* 4. BOWLER SPELL & OVER TRAIN SECTION (~430px) */}
+        {/* 4. BOWLER SPELL & OVER TRAIN SECTION (~420px) */}
         <div
           className="flex min-w-[390px] flex-1 flex-col justify-center px-6 gap-2"
           style={{
@@ -225,17 +227,20 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
                 {bowler?.name || "Bowler"}
               </span>
             </div>
-            <div className="flex items-center gap-3 tabular-nums font-bold">
-              <span className="rounded-md bg-black/70 px-3 py-1 text-xl font-black text-amber-400 border border-amber-400/40 shadow-sm">
+
+            {/* Unified Dark Metallic Bowler Stats Capsule */}
+            <div className="flex items-center gap-2.5 rounded-lg bg-black/75 px-3 py-1 border border-white/20 shadow-sm tabular-nums">
+              <span className="text-lg font-black text-amber-400">
                 {bowler ? `${bowler.wickets}-${bowler.runsConceded} (${bowler.overs})` : "0-0 (0.0)"}
               </span>
-              <span className="text-sm font-semibold text-white/70">
+              <span className="h-4 w-[1px] bg-white/25" />
+              <span className="text-xs font-bold text-cyan-300">
                 ECON {bowler?.economy != null ? bowler.economy.toFixed(1) : "—"}
               </span>
             </div>
           </div>
 
-          {/* Over Train with Large 38px Circular Delivery Pills */}
+          {/* Over Train with Large 36px Circular Delivery Pills */}
           <div className="flex items-center gap-3 border-t border-white/10 pt-1.5">
             <span className="text-xs font-bold uppercase tracking-wider text-white/60">
               THIS OVER:
@@ -253,11 +258,11 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
 
                   let chipStyle = "bg-white/15 text-white border-white/30";
                   if (isWicket) {
-                    chipStyle = "bg-red-600 text-white font-black border-red-400 shadow-lg shadow-red-900/70";
+                    chipStyle = "bg-red-600 text-white font-black border-red-400 shadow-md shadow-red-900/60";
                   } else if (isSix) {
-                    chipStyle = "bg-purple-600 text-white font-black border-purple-400 shadow-lg shadow-purple-900/70";
+                    chipStyle = "bg-purple-600 text-white font-black border-purple-400 shadow-md shadow-purple-900/60";
                   } else if (isFour) {
-                    chipStyle = "bg-blue-600 text-white font-black border-blue-400 shadow-lg shadow-blue-900/70";
+                    chipStyle = "bg-blue-600 text-white font-black border-blue-400 shadow-md shadow-blue-900/60";
                   } else if (isExtra) {
                     chipStyle = "bg-amber-600 text-amber-100 font-black border-amber-400";
                   } else if (isDot) {
@@ -278,19 +283,21 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
           </div>
         </div>
 
-        {/* 5. OPPONENT LOGO (~80px) */}
-        <div className="flex w-20 shrink-0 items-center justify-center bg-black/45 px-3">
-          {bowling?.logoUrl ? (
-            <img
-              src={bowling.logoUrl}
-              alt=""
-              className="h-14 w-14 object-contain p-1"
-            />
-          ) : (
-            <span className="text-base font-black uppercase text-white/40">
-              {bowling?.shortCode || "BOWL"}
-            </span>
-          )}
+        {/* 5. OPPONENT CREST (~80px) — MATCHING CIRCULAR FRAME */}
+        <div className="flex w-20 shrink-0 items-center justify-center bg-black/50 px-3">
+          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border-2 border-white/25 bg-black/80 p-1 shadow-md">
+            {bowling?.logoUrl ? (
+              <img
+                src={bowling.logoUrl}
+                alt=""
+                className="h-full w-full object-contain drop-shadow"
+              />
+            ) : (
+              <span className="text-base font-black uppercase text-white/50">
+                {bowling?.shortCode || "BOWL"}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
