@@ -102,6 +102,15 @@ const FLASH_CONFIGS: Record<CricketObsFlashKind, FlashConfig> = {
     glowColor: "rgba(251, 191, 36, 0.5)",
     icon: "🪙",
   },
+  MATCH_WON: {
+    title: "MATCH WON!",
+    subtitle: "CHAMPIONS · VICTORY ACHIEVED",
+    bgGradient: "linear-gradient(135deg, #78350f 0%, #d97706 50%, #451a03 100%)",
+    borderGradient: "#fbbf24",
+    textColor: "#ffffff",
+    glowColor: "rgba(245, 158, 11, 0.9)",
+    icon: "🏆",
+  },
 };
 
 /**

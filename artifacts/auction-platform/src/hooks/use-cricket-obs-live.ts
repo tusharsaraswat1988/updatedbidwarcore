@@ -250,14 +250,37 @@ export function useCricketObsLive(
     );
   }, [mergedLive]);
 
-  // Automatic Event Detection: New Batsman, Free Hit, Superball
+  // Automatic Event Detection: New Batsman, Free Hit, Match Won, Superball
   const seenBatsmenRef = useRef<Set<number>>(new Set());
   const prevFreeHitRef = useRef<boolean>(false);
   const prevTossWinnerRef = useRef<number | null>(null);
+  const prevWonRef = useRef<boolean>(false);
 
   useEffect(() => {
     const state = mergedLive?.state;
-    if (!state || state.matchStatus !== "live") return;
+    if (!state) return;
+
+    // Detect Match Won / Target Reached
+    const innings = getActiveInnings(state);
+    const target = state.target;
+    const runs = innings?.runs ?? 0;
+    const isTargetReached = target != null && runs >= target && (state.currentInnings ?? 1) >= 2;
+    const isCompleted = state.matchStatus === "completed" || isTargetReached;
+
+    if (isCompleted && !prevWonRef.current) {
+      prevWonRef.current = true;
+      if (bootstrappedFlash.current) {
+        const batting = innings ? teams.find((t) => t.id === innings.battingTeamId) : null;
+        const winDesc =
+          state.resultText ||
+          (batting ? `${batting.name} Won` : "Champions · Match Won");
+        triggerFlash("MATCH_WON", winDesc);
+      }
+    } else if (!isCompleted) {
+      prevWonRef.current = false;
+    }
+
+    if (state.matchStatus !== "live") return;
 
     // Detect Free Hit turn-on
     if (state.freeHitActive && !prevFreeHitRef.current) {

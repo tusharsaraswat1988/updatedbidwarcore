@@ -44,7 +44,8 @@ export type CricketObsFlashKind =
   | "WIDE"
   | "WICKET"
   | "NEW_BATSMAN"
-  | "TOSS_WIN";
+  | "TOSS_WIN"
+  | "MATCH_WON";
 
 export type CricketObsMidOverlayKind =
   | "none"
@@ -503,20 +504,30 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   const bowling = innings ? teamView(teams, innings.bowlingTeamId) : null;
   const winner = teamView(teams, state.winnerTeamId ?? match.winnerTeamId);
   const crr = innings && (over > 0 || ball > 0 || runs > 0) ? runRate(runs, over, ball) : null;
-  const target = state.target;
+  const isTargetReached =
+    target != null && runs >= target && (state.currentInnings ?? 1) >= 2;
+  const isMatchFinished =
+    state.matchStatus === "completed" ||
+    state.matchStatus === "abandoned" ||
+    isTargetReached;
+
   const needRuns =
-    target != null && state.matchStatus === "live" ? Math.max(0, target - runs) : null;
+    target != null && !isMatchFinished && state.matchStatus === "live"
+      ? Math.max(0, target - runs)
+      : null;
   const ballsLeft =
-    target != null && state.matchStatus === "live" ? ballsRemaining(oversLimit, over, ball) : null;
+    target != null && !isMatchFinished && state.matchStatus === "live"
+      ? ballsRemaining(oversLimit, over, ball)
+      : null;
   const rrr =
-    target != null && innings
+    target != null && !isMatchFinished && innings
       ? requiredRate(target, runs, oversLimit, over, ball)
       : null;
 
   // Projected Score & PRR (1st innings)
   let projectedScore: number | null = null;
   let prr: string | null = null;
-  if (innings && oversLimit > 0 && (over > 0 || ball > 0)) {
+  if (innings && oversLimit > 0 && (over > 0 || ball > 0) && !isMatchFinished) {
     const ballsBowled = over * 6 + ball;
     const currentRunRate = (runs / ballsBowled) * 6;
     projectedScore = Math.round(currentRunRate * oversLimit);
@@ -547,7 +558,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
 
   // Powerplay indicator
   let powerplayText: string | null = null;
-  if (innings && oversLimit > 0) {
+  if (innings && oversLimit > 0 && !isMatchFinished) {
     const p1Limit = Math.min(6, Math.ceil(oversLimit * 0.3));
     if (over < p1Limit) {
       powerplayText = `P1 (${p1Limit} OV)`;
@@ -575,14 +586,19 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   const flash = overrideFlash !== undefined ? overrideFlash : autoFlash;
   const flashToken = overrideFlashToken !== undefined ? overrideFlashToken : ballFlashToken;
 
-  const resultText = state.resultText ?? match.resultSummary ?? summary?.resultText ?? null;
+  let resultText = state.resultText ?? match.resultSummary ?? summary?.resultText ?? null;
+  if (!resultText && isTargetReached && batting) {
+    const wicketsInHand = Math.max(0, 10 - wickets);
+    resultText = `${batting.name} Won by ${wicketsInHand} wicket${wicketsInHand === 1 ? "" : "s"}`;
+  }
+
   const resultHeadline =
-    state.matchStatus === "completed" || state.matchStatus === "abandoned"
-      ? [winner?.shortCode, resultText].filter(Boolean).join(" · ") || resultText
+    isMatchFinished
+      ? [winner?.shortCode || batting?.shortCode, resultText].filter(Boolean).join(" · ") || resultText
       : null;
 
   let phase: CricketObsPhase = "no_live";
-  if (state.matchStatus === "completed" || state.matchStatus === "abandoned") {
+  if (isMatchFinished) {
     phase = "completed";
   } else if (isInningsBreak(state)) {
     phase = "innings_break";

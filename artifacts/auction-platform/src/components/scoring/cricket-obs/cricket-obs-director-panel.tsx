@@ -150,6 +150,7 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
     { flash: "WIDE", label: "Wide", color: "bg-slate-700 hover:bg-slate-600 text-white" },
     { flash: "NEW_BATSMAN", label: "🏏 New Batsman", color: "bg-emerald-600 hover:bg-emerald-500 text-white" },
     { flash: "TOSS_WIN", label: "🪙 Toss Win", color: "bg-yellow-700 hover:bg-yellow-600 text-white" },
+    { flash: "MATCH_WON", label: "🏆 Match Won (Victory)", color: "bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black" },
   ];
 
   return (
