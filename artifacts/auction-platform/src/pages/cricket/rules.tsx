@@ -37,7 +37,6 @@ import {
   AlertCircle,
   CheckCircle2,
   HelpCircle,
-  Info,
   Loader2,
   Lock,
   PlayCircle,
@@ -145,11 +144,11 @@ const KEY_RULE_LABELS: Record<
   "cricket.tie_break.super_over_trigger": "Super Over trigger",
 };
 
-const BALL_TYPE_OPTIONS: Array<{ id: string; label: string; description: string }> = [
-  { id: "leather", label: "Leather Ball", description: "Standard professional leather cricket ball." },
-  { id: "tennis", label: "Tennis Ball", description: "Heavy or light tennis ball for turf & community games." },
-  { id: "tape", label: "Tape Ball", description: "Fast-action taped tennis ball format." },
-  { id: "indoor", label: "Indoor / Soft", description: "Soft synthetic ball for indoor turf and arena games." },
+const BALL_TYPE_OPTIONS: Array<{ id: string; label: string }> = [
+  { id: "tennis", label: "Tennis Ball" },
+  { id: "leather", label: "Leather Ball" },
+  { id: "tape", label: "Tape Ball" },
+  { id: "indoor", label: "Indoor / Soft" },
 ];
 
 function squadFromConfig(
@@ -272,111 +271,6 @@ function draftToEffectiveValues(
   };
 }
 
-function OptionChips({
-  label,
-  value,
-  options,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: Option[];
-  disabled?: boolean;
-  onChange: (id: string, version?: string) => void;
-}) {
-  const selectedOption = options.find((o) => o.id === value);
-  return (
-    <div className="space-y-2">
-      <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/90 block">
-        {label}
-      </label>
-      {options.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
-          No options available for this selection.
-        </p>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {options.map((o) => {
-            const selected = o.id === value;
-            return (
-              <button
-                key={`${o.id}@${o.version ?? "v"}`}
-                type="button"
-                disabled={disabled}
-                onClick={() => onChange(o.id, o.version)}
-                className={cn(
-                  "relative rounded-lg border px-3.5 py-2 text-xs font-semibold transition-all duration-150 text-left flex items-center gap-2",
-                  selected
-                    ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/40 font-bold"
-                    : "border-border/80 bg-card/60 text-muted-foreground hover:text-foreground hover:bg-card hover:border-border",
-                  disabled && "opacity-60 cursor-not-allowed",
-                )}
-              >
-                {selected ? (
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                ) : null}
-                <span>{o.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {selectedOption?.description ? (
-        <div className="flex items-start gap-2 rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-          <Info className="w-3.5 h-3.5 text-primary/70 shrink-0 mt-0.5" />
-          <span>{selectedOption.description}</span>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function seedCricketDefaults(sportId: string): {
-  variantId: string;
-  competitionTypeId: string;
-  registrationModeId: string;
-  teamFormationStrategyId: string;
-  ruleProfileId: string;
-  ruleProfileVersion: string;
-  presentationProfileId: string;
-  presentationProfileVersion: string;
-} {
-  const variants = CatalogRegistry.listVariants(sportId);
-  const competitions = CatalogRegistry.listCompetitionTypes(sportId);
-  const variantId =
-    variants.find((v) => v.id === "cricket.outdoor")?.id ??
-    variants[0]?.id ??
-    "";
-  const competitionTypeId =
-    competitions.find((c) => c.id === "auction")?.id ??
-    competitions[0]?.id ??
-    "";
-  const registrationModeId =
-    CatalogRegistry.suggestRegistrationModeId(competitionTypeId) ??
-    CatalogRegistry.listRegistrationModes(competitionTypeId)[0]?.id ??
-    "";
-  const teamFormationStrategyId =
-    CatalogRegistry.suggestTeamFormationStrategyId(competitionTypeId) ??
-    CatalogRegistry.listTeamFormationStrategies(competitionTypeId)[0]?.id ??
-    "";
-  const suggested = CatalogRegistry.suggestDefaults({
-    sportId,
-    variantId,
-    competitionTypeId,
-  });
-  return {
-    variantId,
-    competitionTypeId,
-    registrationModeId,
-    teamFormationStrategyId,
-    ruleProfileId: suggested.ruleProfile?.id ?? "",
-    ruleProfileVersion: suggested.ruleProfile?.version ?? "",
-    presentationProfileId: suggested.presentationProfile?.id ?? "",
-    presentationProfileVersion: suggested.presentationProfile?.version ?? "",
-  };
-}
-
 export default function CricketRulesPage() {
   const [, params] = useRoute("/tournament/:id/score/rules");
   const tournamentId = parseInt(params?.id || "0", 10);
@@ -402,18 +296,16 @@ export default function CricketRulesPage() {
   const [locking, setLocking] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
   const [applying, setApplying] = useState(false);
-  const [lastAppliedCount, setLastAppliedCount] = useState<number | null>(null);
   const [error, setError] = useState("");
 
-  const [competitionTypeId, setCompetitionTypeId] = useState("");
-  const [variantId, setVariantId] = useState("");
-  const [registrationModeId, setRegistrationModeId] = useState("");
-  const [teamFormationStrategyId, setTeamFormationStrategyId] = useState("");
-  const [ruleProfileId, setRuleProfileId] = useState("");
-  const [ruleProfileVersion, setRuleProfileVersion] = useState("");
-  const [presentationProfileId, setPresentationProfileId] = useState("");
-  const [presentationProfileVersion, setPresentationProfileVersion] =
-    useState("");
+  const [competitionTypeId, setCompetitionTypeId] = useState("auction");
+  const [variantId, setVariantId] = useState("cricket.box");
+  const [registrationModeId, setRegistrationModeId] = useState("team");
+  const [teamFormationStrategyId, setTeamFormationStrategyId] = useState("manual");
+  const [ruleProfileId, setRuleProfileId] = useState("cricket.box.corporate_standard");
+  const [ruleProfileVersion, setRuleProfileVersion] = useState("1.0.0");
+  const [presentationProfileId, setPresentationProfileId] = useState("cricket.presentation.corporate_box");
+  const [presentationProfileVersion, setPresentationProfileVersion] = useState("1.0.0");
   const [squadRules, setSquadRules] = useState<SquadDraft>(squadFromConfig());
   const [keyRules, setKeyRules] = useState<KeyRulesDraft>(() =>
     draftFromProfileAndOverrides(null, null),
@@ -434,38 +326,33 @@ export default function CricketRulesPage() {
     setError("");
     try {
       const res = await apiFetch(`/tournaments/${tournamentId}/competition`);
-      const body = (await res
-        .json()
-        .catch(() => ({}))) as CompetitionAggregate & {
-        error?: string;
-      };
-      if (!res.ok) throw new Error(body.error || "Failed to load rules");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Failed to load rules (HTTP ${res.status})`);
+      }
+      const body = (await res.json()) as CompetitionAggregate;
       setData(body);
 
       const sid = (body.configuration.sportId || "cricket").toLowerCase();
-      const seeded = seedCricketDefaults(sid);
       const cfg = body.configuration;
 
-      const nextRuleId = cfg.ruleProfileId || seeded.ruleProfileId;
-      const nextRuleVersion =
-        cfg.ruleProfileVersion || seeded.ruleProfileVersion;
-      setVariantId(cfg.variantId || seeded.variantId);
-      setCompetitionTypeId(cfg.competitionTypeId || seeded.competitionTypeId);
-      setRegistrationModeId(
-        cfg.registrationModeId || seeded.registrationModeId,
-      );
-      setTeamFormationStrategyId(
-        cfg.teamFormationStrategyId || seeded.teamFormationStrategyId,
-      );
+      const nextVariant = cfg.variantId || "cricket.box";
+      const nextCompType = cfg.competitionTypeId || "auction";
+      const nextRuleId = cfg.ruleProfileId || "cricket.box.corporate_standard";
+      const nextRuleVersion = cfg.ruleProfileVersion || "1.0.0";
+      const nextPresId = cfg.presentationProfileId || "cricket.presentation.corporate_box";
+      const nextPresVersion = cfg.presentationProfileVersion || "1.0.0";
+
+      setVariantId(nextVariant);
+      setCompetitionTypeId(nextCompType);
+      setRegistrationModeId(cfg.registrationModeId || "team");
+      setTeamFormationStrategyId(cfg.teamFormationStrategyId || "manual");
       setRuleProfileId(nextRuleId);
       setRuleProfileVersion(nextRuleVersion);
-      setPresentationProfileId(
-        cfg.presentationProfileId || seeded.presentationProfileId,
-      );
-      setPresentationProfileVersion(
-        cfg.presentationProfileVersion || seeded.presentationProfileVersion,
-      );
+      setPresentationProfileId(nextPresId);
+      setPresentationProfileVersion(nextPresVersion);
       setSquadRules(squadFromConfig(cfg.squadRules));
+
       const profile =
         CatalogRegistry.getRuleProfile(nextRuleId, nextRuleVersion) ??
         CatalogRegistry.getRuleProfile(nextRuleId) ??
@@ -474,7 +361,7 @@ export default function CricketRulesPage() {
         draftFromProfileAndOverrides(profile, cfg.ruleOverrides ?? null),
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load rules");
+      setError(e instanceof Error ? e.message : "Failed to load tournament rules");
     } finally {
       setLoading(false);
     }
@@ -484,37 +371,16 @@ export default function CricketRulesPage() {
     void load();
   }, [load]);
 
-  // Primary 3 Cricket Variants for clean UI
-  const variantOptions: Option[] = useMemo(() => {
-    const all = CatalogRegistry.listVariants(sportId);
-    const primaryIds = ["cricket.outdoor", "cricket.box", "cricket.custom"];
-    return all
-      .filter((v) => primaryIds.includes(v.id))
-      .map((v) => ({
-        id: v.id,
-        version: v.version,
-        label: v.displayName,
-        description: v.description,
-      }));
-  }, [sportId]);
+  // Primary 3 Cricket Variants
+  const variantOptions: Option[] = useMemo(() => [
+    { id: "cricket.box", label: "Box Cricket", description: "Indoor / turf box cricket with shorter overs." },
+    { id: "cricket.outdoor", label: "Outdoor Cricket", description: "Standard outdoor cricket ground." },
+    { id: "cricket.custom", label: "Custom", description: "Custom organizer rules." },
+  ], []);
 
   const ruleProfileOptions: Option[] = useMemo(() => {
     if (!variantId) return [];
     return CatalogRegistry.listRuleProfiles({
-      sportId,
-      variantId,
-      competitionTypeId: competitionTypeId || "auction",
-    }).map((p) => ({
-      id: p.id,
-      version: p.version,
-      label: p.displayName,
-      description: p.description,
-    }));
-  }, [sportId, variantId, competitionTypeId]);
-
-  const presentationOptions: Option[] = useMemo(() => {
-    if (!variantId) return [];
-    return CatalogRegistry.listPresentationProfiles({
       sportId,
       variantId,
       competitionTypeId: competitionTypeId || "auction",
@@ -548,25 +414,7 @@ export default function CricketRulesPage() {
   );
   const isCustomised = Boolean(pendingOverrides);
 
-  const otherPresetRules = useMemo(() => {
-    if (!selectedRuleProfile) return [];
-    return selectedRuleProfile.values.filter(
-      (entry) =>
-        !CRICKET_KEY_RULE_OVERRIDE_IDS.includes(
-          entry.definitionId as (typeof CRICKET_KEY_RULE_OVERRIDE_IDS)[number],
-        ),
-    );
-  }, [selectedRuleProfile]);
-
-  // Ensure variant is valid
-  useEffect(() => {
-    if (locked) return;
-    if (variantOptions.length > 0 && !variantOptions.some((o) => o.id === variantId)) {
-      setVariantId(variantOptions[0].id);
-    }
-  }, [locked, variantId, variantOptions]);
-
-  // Keep dependent defaults valid
+  // Sync defaults when variant changes
   useEffect(() => {
     if (locked || !variantId) return;
     const compType = competitionTypeId || "auction";
@@ -577,9 +425,9 @@ export default function CricketRulesPage() {
     });
     if (!ruleProfileOptions.some((o) => o.id === ruleProfileId)) {
       const nextId =
-        suggested.ruleProfile?.id ?? ruleProfileOptions[0]?.id ?? "";
+        suggested.ruleProfile?.id ?? ruleProfileOptions[0]?.id ?? "cricket.box.corporate_standard";
       const nextVersion =
-        suggested.ruleProfile?.version ?? ruleProfileOptions[0]?.version ?? "";
+        suggested.ruleProfile?.version ?? ruleProfileOptions[0]?.version ?? "1.0.0";
       setRuleProfileId(nextId);
       setRuleProfileVersion(nextVersion);
       const profile =
@@ -588,15 +436,9 @@ export default function CricketRulesPage() {
         null;
       setKeyRules(draftFromProfileAndOverrides(profile, null));
     }
-    if (!presentationOptions.some((o) => o.id === presentationProfileId)) {
-      setPresentationProfileId(
-        suggested.presentationProfile?.id ?? presentationOptions[0]?.id ?? "",
-      );
-      setPresentationProfileVersion(
-        suggested.presentationProfile?.version ??
-          presentationOptions[0]?.version ??
-          "",
-      );
+    if (suggested.presentationProfile?.id) {
+      setPresentationProfileId(suggested.presentationProfile.id);
+      setPresentationProfileVersion(suggested.presentationProfile.version ?? "1.0.0");
     }
   }, [
     locked,
@@ -604,9 +446,7 @@ export default function CricketRulesPage() {
     variantId,
     competitionTypeId,
     ruleProfileId,
-    presentationProfileId,
     ruleProfileOptions,
-    presentationOptions,
   ]);
 
   function selectRuleProfile(id: string, version?: string) {
@@ -616,7 +456,6 @@ export default function CricketRulesPage() {
       CatalogRegistry.getRuleProfile(id, version) ??
       CatalogRegistry.getRuleProfile(id) ??
       null;
-    // Spec: changing profile clears overrides — reset draft to profile defaults.
     setKeyRules(draftFromProfileAndOverrides(profile, null));
   }
 
@@ -635,12 +474,6 @@ export default function CricketRulesPage() {
       if (min != null && max != null && min > max) {
         throw new Error("Minimum players cannot exceed maximum players.");
       }
-      if (!variantId) {
-        throw new Error("Select a cricket type format.");
-      }
-      if (!ruleProfileId || !presentationProfileId) {
-        throw new Error("Choose playing rules and display look.");
-      }
 
       const overs = parseInt(keyRules.overs, 10);
       const maxWickets = parseInt(keyRules.maxWickets, 10);
@@ -657,6 +490,7 @@ export default function CricketRulesPage() {
         throw new Error("Bench size must be ≥ 0");
       if (!Number.isFinite(ballsPerOver) || ballsPerOver < 1)
         throw new Error("Balls per over must be between 1 and 10");
+
       if (keyRules.retireAtRuns.trim() !== "") {
         const retire = parseInt(keyRules.retireAtRuns, 10);
         if (!Number.isFinite(retire) || retire < 1) {
@@ -664,29 +498,38 @@ export default function CricketRulesPage() {
         }
       }
 
+      const defaultPresId =
+        presentationProfileId ||
+        (variantId === "cricket.outdoor"
+          ? "cricket.presentation.outdoor"
+          : "cricket.presentation.corporate_box");
+
       const res = await apiFetch(
         `/tournaments/${tournamentId}/competition/configuration`,
         {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          json: {
             competitionTypeId: competitionTypeId || "auction",
-            variantId,
+            variantId: variantId || "cricket.box",
             registrationModeId: registrationModeId || "team",
             teamFormationStrategyId: teamFormationStrategyId || "manual",
-            ruleProfileId,
+            ruleProfileId: ruleProfileId || "cricket.box.corporate_standard",
             ruleProfileVersion: ruleProfileVersion || null,
-            presentationProfileId,
+            presentationProfileId: defaultPresId,
             presentationProfileVersion: presentationProfileVersion || null,
             squadRules:
               Object.keys(squadPayload).length > 0 ? squadPayload : null,
             ruleOverrides: pendingOverrides,
-          }),
+          },
         },
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Could not save rules");
       await load();
+      toast({
+        title: "Changes saved",
+        description: "Draft rules have been saved successfully.",
+      });
       return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -759,7 +602,6 @@ export default function CricketRulesPage() {
         throw new Error(body.error || "Could not apply rules to matches");
       const prepared = body.preparedCount ?? 0;
       const failed = body.failedCount ?? 0;
-      setLastAppliedCount(prepared);
       if (failed > 0) {
         const firstError = (
           body.matchResults as Array<{ error?: string }> | undefined
@@ -792,8 +634,7 @@ export default function CricketRulesPage() {
     !locked &&
     Boolean(
       variantId &&
-      ruleProfileId &&
-      presentationProfileId,
+      ruleProfileId,
     );
 
   const playingCount = parseInt(keyRules.playingSquadSize, 10) || 0;
@@ -813,320 +654,220 @@ export default function CricketRulesPage() {
     <CricketOrganizerPageShell tournamentId={tournamentId}>
       <PageHeader
         title="Rules & format"
-        subtitle="Set how this cricket tournament plays, customize standard ICC & local rules, then lock and apply to matches."
+        subtitle="Set tournament format, overs, squad limits and dismissal rules for scoring."
         tournamentId={tournamentId}
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-24 space-y-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-5 py-4 pb-16 space-y-4">
         {loading && !data ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-8 space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-8 space-y-3">
+              <Skeleton className="h-32 w-full rounded-xl" />
               <Skeleton className="h-44 w-full rounded-xl" />
               <Skeleton className="h-56 w-full rounded-xl" />
-              <Skeleton className="h-72 w-full rounded-xl" />
             </div>
-            <div className="lg:col-span-4 space-y-4">
+            <div className="lg:col-span-4 space-y-3">
               <Skeleton className="h-64 w-full rounded-xl" />
             </div>
           </div>
         ) : (
           <>
             {error ? (
-              <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 flex items-start gap-3 text-sm text-destructive">
-                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                <span>{error}</span>
+              <div className="rounded-xl border border-destructive/40 bg-destructive/15 px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-destructive">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void load()}
+                  className="underline font-semibold hover:opacity-80 shrink-0"
+                >
+                  Retry
+                </button>
               </div>
             ) : null}
 
             {/* Top Status Banner */}
             {locked ? (
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-                      Tournament rules are locked
-                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
-                        Active
-                      </span>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Rules are active for scoring. Completed matches remain immutable. Click Unlock to make changes.
-                    </p>
-                  </div>
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap text-xs">
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="font-semibold text-foreground">
+                    Tournament rules are locked (Active)
+                  </span>
+                  <span className="text-muted-foreground hidden sm:inline">
+                    • Completed matches are immutable. Click Unlock to make edits.
+                  </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={unlocking}
-                    onClick={() => void handleUnlock()}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-border/80 bg-background/80 hover:bg-background text-xs font-semibold text-foreground transition-all"
-                  >
-                    {unlocking ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Unlocking…
-                      </>
-                    ) : (
-                      <>
-                        <Unlock className="w-3.5 h-3.5 text-primary" /> Unlock & Edit Rules
-                      </>
-                    )}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  disabled={unlocking}
+                  onClick={() => void handleUnlock()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border/80 bg-background/90 hover:bg-background text-xs font-semibold text-foreground transition-all shrink-0"
+                >
+                  {unlocking ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin" /> Unlocking…
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="w-3 h-3 text-primary" /> Unlock & Edit Rules
+                    </>
+                  )}
+                </button>
               </div>
             ) : (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-3.5 flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-2.5">
-                  <Info className="w-4 h-4 text-amber-400 shrink-0" />
-                  <p className="text-xs text-amber-200">
-                    <b>Draft Mode:</b> All rules and presets below are fully editable. Once finished, click <b>Lock & Finalize Rules</b>.
-                  </p>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="text-amber-200 font-medium">
+                    <b>Draft Mode:</b> All rules are editable. Click <b>Save Draft</b> or <b>Lock & Finalize</b> when done.
+                  </span>
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              {/* Left Column: Rules Config Forms */}
-              <div className="lg:col-span-8 space-y-6">
-                {/* 1. Format & Ball Type */}
-                <section className={cn(hubPanelClass, "space-y-5 p-5 sm:p-6")}>
-                  <div className="flex items-center gap-2.5 pb-2 border-b border-border/50">
-                    <Scale className="w-5 h-5 text-primary" />
-                    <h2 className="text-base font-semibold text-foreground">
-                      1. Cricket Format & Ball Type
-                    </h2>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+              {/* Left Column: Compact Rules Configuration */}
+              <div className="lg:col-span-8 space-y-4">
+                {/* 1. Format & Ball Type (Ultra Compact) */}
+                <section className={cn(hubPanelClass, "p-4 space-y-3.5")}>
+                  <div className="flex items-center justify-between pb-1.5 border-b border-border/50">
+                    <div className="flex items-center gap-2">
+                      <Scale className="w-4 h-4 text-primary" />
+                      <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        1. Cricket Format & Match Ball
+                      </h2>
+                    </div>
                   </div>
-                  
-                  <OptionChips
-                    label="Cricket type"
-                    value={variantId}
-                    options={variantOptions}
-                    disabled={locked}
-                    onChange={(id) => setVariantId(id)}
-                  />
 
-                  {/* Ball Type Selector */}
-                  <div className="space-y-2 pt-1">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/90 block">
-                      Match Ball Type
-                    </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {BALL_TYPE_OPTIONS.map((ball) => {
-                        const selected = keyRules.ballType === ball.id;
-                        return (
-                          <button
-                            key={ball.id}
-                            type="button"
-                            disabled={locked}
-                            onClick={() =>
-                              setKeyRules((p) => ({ ...p, ballType: ball.id }))
-                            }
-                            className={cn(
-                              "rounded-lg border p-2.5 text-left transition-all",
-                              selected
-                                ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/40 font-bold"
-                                : "border-border/80 bg-card/60 text-muted-foreground hover:text-foreground hover:bg-card",
-                              locked && "opacity-60 cursor-not-allowed",
-                            )}
-                          >
-                            <p className="text-xs font-semibold text-foreground">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    {/* Cricket Type Chips */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                        Cricket Type
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {variantOptions.map((o) => {
+                          const sel = o.id === variantId;
+                          return (
+                            <button
+                              key={o.id}
+                              type="button"
+                              disabled={locked}
+                              onClick={() => setVariantId(o.id)}
+                              className={cn(
+                                "px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all",
+                                sel
+                                  ? "border-primary bg-primary/20 text-primary shadow-sm ring-1 ring-primary/40 font-bold"
+                                  : "border-border/70 bg-card/60 text-muted-foreground hover:text-foreground",
+                                locked && "opacity-60 cursor-not-allowed",
+                              )}
+                            >
+                              {o.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Ball Type Chips */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                        Match Ball
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {BALL_TYPE_OPTIONS.map((ball) => {
+                          const sel = keyRules.ballType === ball.id;
+                          return (
+                            <button
+                              key={ball.id}
+                              type="button"
+                              disabled={locked}
+                              onClick={() =>
+                                setKeyRules((p) => ({ ...p, ballType: ball.id }))
+                              }
+                              className={cn(
+                                "px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all",
+                                sel
+                                  ? "border-primary bg-primary/20 text-primary shadow-sm ring-1 ring-primary/40 font-bold"
+                                  : "border-border/70 bg-card/60 text-muted-foreground hover:text-foreground",
+                                locked && "opacity-60 cursor-not-allowed",
+                              )}
+                            >
                               {ball.label}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground leading-tight mt-0.5 line-clamp-2">
-                              {ball.description}
-                            </p>
-                          </button>
-                        );
-                      })}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </section>
 
-                {/* 2. Playing Rules Preset */}
-                <section className={cn(hubPanelClass, "space-y-5 p-5 sm:p-6")}>
-                  <div className="flex items-center justify-between pb-2 border-b border-border/50 flex-wrap gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <Sliders className="w-5 h-5 text-primary" />
-                      <h2 className="text-base font-semibold text-foreground">
-                        2. Playing Rules Preset
+                {/* 2. Preset & Core Match Numbers */}
+                <section className={cn(hubPanelClass, "p-4 space-y-3.5")}>
+                  <div className="flex items-center justify-between pb-1.5 border-b border-border/50 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-primary" />
+                      <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        2. Presets & Core Parameters
                       </h2>
                     </div>
                     {isCustomised ? (
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300">
                         Customised from preset
                       </span>
                     ) : (
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary">
+                      <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary">
                         Preset defaults
                       </span>
                     )}
                   </div>
 
-                  {/* Friendly notice that presets are editable */}
-                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 flex items-start gap-2.5 text-xs text-primary/90">
-                    <Sparkles className="w-4 h-4 shrink-0 mt-0.5 text-primary" />
-                    <span>
-                      <b>Editable Presets:</b> Selecting a preset automatically pre-fills standard ICC/local rules below. You can freely change any value or toggle to match your tournament!
-                    </span>
-                  </div>
-
-                  <OptionChips
-                    label="Choose Preset"
-                    value={ruleProfileId}
-                    options={ruleProfileOptions}
-                    disabled={locked}
-                    onChange={(id, version) => selectRuleProfile(id, version)}
-                  />
-                </section>
-
-                {/* 3. Squad Size Limits & Live Total Calculation */}
-                <section className={cn(hubPanelClass, "space-y-5 p-5 sm:p-6")}>
-                  <div className="flex items-center gap-2.5 pb-2 border-b border-border/50">
-                    <Users className="w-5 h-5 text-primary" />
-                    <h2 className="text-base font-semibold text-foreground">
-                      3. Squad Size Limits
-                    </h2>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div className="rounded-xl border border-border/70 bg-card/40 p-3.5 space-y-1.5 focus-within:border-primary/50">
-                      <label className="text-xs font-medium text-foreground block">
-                        Playing Squad (XI)
+                  {/* Preset Chips */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                        Playing Rules Preset
                       </label>
-                      <input
-                        className={cn(
-                          inputClass,
-                          "h-9 font-semibold text-center text-sm bg-background/80",
-                        )}
-                        inputMode="numeric"
-                        disabled={locked}
-                        value={keyRules.playingSquadSize}
-                        onChange={(e) =>
-                          setKeyRules((prev) => ({
-                            ...prev,
-                            playingSquadSize: e.target.value,
-                          }))
-                        }
-                      />
-                      <p className="text-[10px] text-muted-foreground leading-tight">
-                        Active on field per team
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-border/70 bg-card/40 p-3.5 space-y-1.5 focus-within:border-primary/50">
-                      <label className="text-xs font-medium text-foreground block">
-                        Bench / Substitutes
-                      </label>
-                      <input
-                        className={cn(
-                          inputClass,
-                          "h-9 font-semibold text-center text-sm bg-background/80",
-                        )}
-                        inputMode="numeric"
-                        disabled={locked}
-                        value={keyRules.benchSize}
-                        onChange={(e) =>
-                          setKeyRules((prev) => ({
-                            ...prev,
-                            benchSize: e.target.value,
-                          }))
-                        }
-                      />
-                      <p className="text-[10px] text-muted-foreground leading-tight">
-                        Bench substitute slots
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-border/70 bg-card/40 p-3.5 space-y-1.5 focus-within:border-primary/50">
-                      <label className="text-xs font-medium text-foreground block">
-                        Min Squad Size
-                      </label>
-                      <input
-                        className={cn(
-                          inputClass,
-                          "h-9 font-semibold text-center text-sm bg-background/80",
-                        )}
-                        inputMode="numeric"
-                        disabled={locked}
-                        value={squadRules.minPlayers}
-                        onChange={(e) =>
-                          setSquadRules((prev) => ({
-                            ...prev,
-                            minPlayers: e.target.value,
-                          }))
-                        }
-                      />
-                      <p className="text-[10px] text-muted-foreground leading-tight">
-                        Minimum players for team
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-border/70 bg-card/40 p-3.5 space-y-1.5 focus-within:border-primary/50">
-                      <label className="text-xs font-medium text-foreground block">
-                        Max Squad Size
-                      </label>
-                      <input
-                        className={cn(
-                          inputClass,
-                          "h-9 font-semibold text-center text-sm bg-background/80",
-                        )}
-                        inputMode="numeric"
-                        disabled={locked}
-                        value={squadRules.maxPlayers}
-                        onChange={(e) =>
-                          setSquadRules((prev) => ({
-                            ...prev,
-                            maxPlayers: e.target.value,
-                          }))
-                        }
-                      />
-                      <p className="text-[10px] text-muted-foreground leading-tight">
-                        Max roster limit per team
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Live Total Squad Calculation Summary */}
-                  <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 flex items-center justify-between gap-4 flex-wrap">
-                    <div className="space-y-0.5">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                        Total Acceptable Players in Team
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Sum of playing XI ({playingCount}) and bench substitutes ({benchCount}).
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl font-extrabold text-foreground">
-                        {totalSquadCapacity} Players
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        / team
+                      <span className="text-[10px] text-primary/80">
+                        *Presets pre-fill standard rules & are fully editable
                       </span>
                     </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ruleProfileOptions.map((p) => {
+                        const sel = p.id === ruleProfileId;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            disabled={locked}
+                            onClick={() => selectRuleProfile(p.id, p.version)}
+                            className={cn(
+                              "px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all",
+                              sel
+                                ? "border-primary bg-primary/20 text-primary shadow-sm ring-1 ring-primary/40 font-bold"
+                                : "border-border/70 bg-card/60 text-muted-foreground hover:text-foreground",
+                              locked && "opacity-60 cursor-not-allowed",
+                            )}
+                          >
+                            {p.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </section>
 
-                {/* 4. Match Rules & ICC Parameters */}
-                <section className={cn(hubPanelClass, "space-y-5 p-5 sm:p-6")}>
-                  <div className="flex items-center gap-2.5 pb-2 border-b border-border/50">
-                    <Trophy className="w-5 h-5 text-primary" />
-                    <h2 className="text-base font-semibold text-foreground">
-                      4. Match Rules & Parameters
-                    </h2>
-                  </div>
-
-                  {/* Key Numeric Parameters */}
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/90">
-                      Core Match Settings
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <FormField
-                        label={KEY_RULE_LABELS["cricket.match.overs_per_innings"]}
-                      >
+                  {/* Core Numeric Inputs in Compact 6-col Grid */}
+                  <div className="pt-1">
+                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs">
+                      <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
+                        <label className="text-[10px] font-medium text-muted-foreground block truncate">
+                          Overs/Inn
+                        </label>
                         <input
-                          className={cn(inputClass, "font-medium")}
+                          className={cn(inputClass, "h-8 text-center text-xs font-bold")}
                           inputMode="numeric"
                           disabled={locked}
                           value={keyRules.overs}
@@ -1134,450 +875,410 @@ export default function CricketRulesPage() {
                             setKeyRules((p) => ({ ...p, overs: e.target.value }))
                           }
                         />
-                      </FormField>
+                      </div>
 
-                      <FormField
-                        label={KEY_RULE_LABELS["cricket.match.max_wickets"]}
-                      >
+                      <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
+                        <label className="text-[10px] font-medium text-muted-foreground block truncate">
+                          Max Wickets
+                        </label>
                         <input
-                          className={cn(inputClass, "font-medium")}
+                          className={cn(inputClass, "h-8 text-center text-xs font-bold")}
                           inputMode="numeric"
                           disabled={locked}
                           value={keyRules.maxWickets}
                           onChange={(e) =>
-                            setKeyRules((p) => ({
-                              ...p,
-                              maxWickets: e.target.value,
-                            }))
+                            setKeyRules((p) => ({ ...p, maxWickets: e.target.value }))
                           }
                         />
-                      </FormField>
+                      </div>
 
-                      <FormField
-                        label={KEY_RULE_LABELS["cricket.match.balls_per_over"]}
-                      >
+                      <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
+                        <label className="text-[10px] font-medium text-muted-foreground block truncate">
+                          Balls/Over
+                        </label>
                         <input
-                          className={cn(inputClass, "font-medium")}
+                          className={cn(inputClass, "h-8 text-center text-xs font-bold")}
                           inputMode="numeric"
                           disabled={locked}
                           value={keyRules.ballsPerOver}
                           onChange={(e) =>
-                            setKeyRules((p) => ({
-                              ...p,
-                              ballsPerOver: e.target.value,
-                            }))
+                            setKeyRules((p) => ({ ...p, ballsPerOver: e.target.value }))
                           }
                         />
-                      </FormField>
+                      </div>
 
-                      <FormField
-                        label={KEY_RULE_LABELS["cricket.batting.retire_at_runs"]}
-                      >
+                      <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
+                        <label className="text-[10px] font-medium text-muted-foreground block truncate">
+                          Retire Runs
+                        </label>
                         <input
-                          className={cn(inputClass, "font-medium")}
+                          className={cn(inputClass, "h-8 text-center text-xs font-medium")}
                           inputMode="numeric"
                           disabled={locked}
-                          placeholder="None (Disabled)"
+                          placeholder="None"
                           value={keyRules.retireAtRuns}
                           onChange={(e) =>
-                            setKeyRules((p) => ({
-                              ...p,
-                              retireAtRuns: e.target.value,
-                            }))
+                            setKeyRules((p) => ({ ...p, retireAtRuns: e.target.value }))
                           }
                         />
-                      </FormField>
+                      </div>
+
+                      <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
+                        <label className="text-[10px] font-medium text-muted-foreground block truncate">
+                          Playing (XI)
+                        </label>
+                        <input
+                          className={cn(inputClass, "h-8 text-center text-xs font-bold")}
+                          inputMode="numeric"
+                          disabled={locked}
+                          value={keyRules.playingSquadSize}
+                          onChange={(e) =>
+                            setKeyRules((p) => ({ ...p, playingSquadSize: e.target.value }))
+                          }
+                        />
+                      </div>
+
+                      <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
+                        <label className="text-[10px] font-medium text-muted-foreground block truncate">
+                          Bench Size
+                        </label>
+                        <input
+                          className={cn(inputClass, "h-8 text-center text-xs font-bold")}
+                          inputMode="numeric"
+                          disabled={locked}
+                          value={keyRules.benchSize}
+                          onChange={(e) =>
+                            setKeyRules((p) => ({ ...p, benchSize: e.target.value }))
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* Compact Live Total Squad Pill */}
+                    <div className="mt-2.5 flex items-center justify-between px-3 py-1.5 rounded-lg border border-primary/25 bg-primary/10 text-xs">
+                      <span className="text-muted-foreground text-[11px]">
+                        Squad Capacity ({playingCount} Playing + {benchCount} Bench)
+                      </span>
+                      <span className="font-bold text-primary text-xs">
+                        Total {totalSquadCapacity} Players / team
+                      </span>
                     </div>
                   </div>
+                </section>
 
-                  {/* Special & ICC Rule Toggles */}
-                  <div className="space-y-2 pt-2">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/90">
-                      ICC & Special Match Rules
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                      {[
-                        {
-                          label: "LBW Dismissals",
-                          desc: "Standard ICC LBW dismissals",
-                          active: keyRules.lbwEnabled,
-                          toggle: () =>
-                            setKeyRules((p) => ({ ...p, lbwEnabled: !p.lbwEnabled })),
-                        },
-                        {
-                          label: "Free Hit (No Balls)",
-                          desc: "Award free hit delivery after no balls",
-                          active: keyRules.freeHitEnabled,
-                          toggle: () =>
-                            setKeyRules((p) => ({
-                              ...p,
-                              freeHitEnabled: !p.freeHitEnabled,
-                            })),
-                        },
-                        {
-                          label: "Leg Byes",
-                          desc: "Score runs off batsman body contact",
-                          active: keyRules.legByeEnabled,
-                          toggle: () =>
-                            setKeyRules((p) => ({
-                              ...p,
-                              legByeEnabled: !p.legByeEnabled,
-                            })),
-                        },
-                        {
-                          label: "Powerplay Overs",
-                          desc: "Mandatory fielding restrictions",
-                          active: keyRules.powerplayEnabled,
-                          toggle: () =>
-                            setKeyRules((p) => ({
-                              ...p,
-                              powerplayEnabled: !p.powerplayEnabled,
-                            })),
-                        },
-                        {
-                          label: "Exact Playing XI",
-                          desc: "Strictly enforce roster size before start",
-                          active: keyRules.playingXiEnforced,
-                          toggle: () =>
-                            setKeyRules((p) => ({
-                              ...p,
-                              playingXiEnforced: !p.playingXiEnforced,
-                            })),
-                        },
-                        {
-                          label: "Super Over Tie-Break",
-                          desc: "Play tie-break over on tie score",
-                          active: keyRules.superOverEnabled,
-                          toggle: () =>
-                            setKeyRules((p) => ({
-                              ...p,
-                              superOverEnabled: !p.superOverEnabled,
-                            })),
-                        },
-                        {
-                          label: "Super Ball Feature",
-                          desc: "One pre-declared 2x run ball per innings",
-                          active: keyRules.superBallEnabled,
-                          toggle: () =>
-                            setKeyRules((p) => ({
-                              ...p,
-                              superBallEnabled: !p.superBallEnabled,
-                            })),
-                          gold: true,
-                        },
-                      ].map((item) => (
-                        <button
-                          key={item.label}
-                          type="button"
-                          disabled={locked}
-                          onClick={item.toggle}
+                {/* 3. Match & ICC Rules Toggles with Inline Super Ball */}
+                <section className={cn(hubPanelClass, "p-4 space-y-3.5")}>
+                  <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
+                    <Trophy className="w-4 h-4 text-primary" />
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                      3. ICC & Match Scoring Rules
+                    </h2>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                    {[
+                      {
+                        label: "LBW Dismissals",
+                        active: keyRules.lbwEnabled,
+                        toggle: () => setKeyRules((p) => ({ ...p, lbwEnabled: !p.lbwEnabled })),
+                      },
+                      {
+                        label: "Free Hit (No Balls)",
+                        active: keyRules.freeHitEnabled,
+                        toggle: () => setKeyRules((p) => ({ ...p, freeHitEnabled: !p.freeHitEnabled })),
+                      },
+                      {
+                        label: "Leg Byes",
+                        active: keyRules.legByeEnabled,
+                        toggle: () => setKeyRules((p) => ({ ...p, legByeEnabled: !p.legByeEnabled })),
+                      },
+                      {
+                        label: "Powerplay Overs",
+                        active: keyRules.powerplayEnabled,
+                        toggle: () => setKeyRules((p) => ({ ...p, powerplayEnabled: !p.powerplayEnabled })),
+                      },
+                      {
+                        label: "Exact Playing XI",
+                        active: keyRules.playingXiEnforced,
+                        toggle: () => setKeyRules((p) => ({ ...p, playingXiEnforced: !p.playingXiEnforced })),
+                      },
+                      {
+                        label: "Super Over Tie-Break",
+                        active: keyRules.superOverEnabled,
+                        toggle: () => setKeyRules((p) => ({ ...p, superOverEnabled: !p.superOverEnabled })),
+                      },
+                    ].map((item) => (
+                      <button
+                        key={item.label}
+                        type="button"
+                        disabled={locked}
+                        onClick={item.toggle}
+                        className={cn(
+                          "flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-semibold transition-all",
+                          item.active
+                            ? "border-primary/50 bg-primary/15 text-primary"
+                            : "border-border/60 bg-card/50 text-muted-foreground hover:text-foreground",
+                          locked && "opacity-60 cursor-not-allowed",
+                        )}
+                      >
+                        <span className="truncate">{item.label}</span>
+                        <span
                           className={cn(
-                            "flex flex-col justify-between gap-1.5 rounded-xl border p-3 text-xs text-left transition-all",
+                            "text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded",
                             item.active
-                              ? item.gold
-                                ? "border-amber-500/50 bg-amber-500/15 text-amber-300"
-                                : "border-primary/50 bg-primary/15 text-primary"
-                              : "border-border/60 bg-muted/10 text-muted-foreground hover:text-foreground",
-                            locked && "opacity-60 cursor-not-allowed",
+                              ? "bg-primary/20 text-primary"
+                              : "bg-muted text-muted-foreground",
                           )}
                         >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="font-semibold text-foreground truncate">{item.label}</span>
-                            <span
-                              className={cn(
-                                "text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded",
-                                item.active
-                                  ? "bg-primary/20 text-primary-foreground font-extrabold"
-                                  : "bg-muted text-muted-foreground",
-                              )}
-                            >
-                              {item.active ? "ON" : "OFF"}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground leading-tight">
-                            {item.desc}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
+                          {item.active ? "ON" : "OFF"}
+                        </span>
+                      </button>
+                    ))}
                   </div>
 
-                  {/* Super Over Configuration Card */}
-                  {keyRules.superOverEnabled ? (
-                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+                  {/* Super Ball Card with Inline Segmented Doubling Pill */}
+                  <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-2.5">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-primary" />
-                        <p className="text-xs font-bold uppercase tracking-wider text-primary">
-                          Super Over Configuration
-                        </p>
+                        <Sparkles className="w-4 h-4 text-amber-400" />
+                        <div>
+                          <p className="text-xs font-bold text-amber-200">
+                            Super Ball Feature (2x Run Ball)
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            One pre-declared Super Ball per innings
+                          </p>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <FormField
-                          label={KEY_RULE_LABELS["cricket.tie_break.super_over_overs"]}
-                        >
+                      <button
+                        type="button"
+                        disabled={locked}
+                        onClick={() =>
+                          setKeyRules((p) => ({
+                            ...p,
+                            superBallEnabled: !p.superBallEnabled,
+                          }))
+                        }
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg border text-xs font-bold transition-all",
+                          keyRules.superBallEnabled
+                            ? "border-amber-400 bg-amber-500/30 text-amber-200"
+                            : "border-border/70 bg-card text-muted-foreground",
+                          locked && "opacity-60 cursor-not-allowed",
+                        )}
+                      >
+                        {keyRules.superBallEnabled ? "ENABLED (ON)" : "DISABLED (OFF)"}
+                      </button>
+                    </div>
+
+                    {/* Inline Compact Run Doubling Mode */}
+                    {keyRules.superBallEnabled ? (
+                      <div className="pt-1 flex items-center gap-2 flex-wrap border-t border-amber-500/20">
+                        <span className="text-[11px] font-semibold text-amber-200 shrink-0">
+                          Doubling Mode:
+                        </span>
+                        <div className="inline-flex rounded-lg border border-amber-500/40 bg-background/60 p-0.5 text-xs">
+                          <button
+                            type="button"
+                            disabled={locked}
+                            onClick={() =>
+                              setKeyRules((p) => ({
+                                ...p,
+                                superBallDoublesBoundariesOnly: true,
+                              }))
+                            }
+                            className={cn(
+                              "px-2.5 py-1 rounded-md text-[11px] font-bold transition-all",
+                              keyRules.superBallDoublesBoundariesOnly
+                                ? "bg-amber-500/30 text-amber-200 shadow-sm"
+                                : "text-muted-foreground hover:text-foreground",
+                              locked && "opacity-60 cursor-not-allowed",
+                            )}
+                          >
+                            4 & 6 only (2x)
+                          </button>
+                          <button
+                            type="button"
+                            disabled={locked}
+                            onClick={() =>
+                              setKeyRules((p) => ({
+                                ...p,
+                                superBallDoublesBoundariesOnly: false,
+                              }))
+                            }
+                            className={cn(
+                              "px-2.5 py-1 rounded-md text-[11px] font-bold transition-all",
+                              !keyRules.superBallDoublesBoundariesOnly
+                                ? "bg-amber-500/30 text-amber-200 shadow-sm"
+                                : "text-muted-foreground hover:text-foreground",
+                              locked && "opacity-60 cursor-not-allowed",
+                            )}
+                          >
+                            All Runs (2x)
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Super Over Inline Details if ON */}
+                  {keyRules.superOverEnabled ? (
+                    <div className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 flex items-center justify-between gap-3 flex-wrap text-xs">
+                      <div className="flex items-center gap-1.5 text-primary font-semibold text-[11px]">
+                        <Zap className="w-3.5 h-3.5" />
+                        <span>Super Over Config:</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <span>Overs:</span>
                           <input
-                            className={inputClass}
-                            inputMode="numeric"
+                            className="w-10 h-6 text-center text-xs font-bold rounded border border-border bg-background"
                             disabled={locked}
                             value={keyRules.superOverOvers}
                             onChange={(e) =>
-                              setKeyRules((p) => ({
-                                ...p,
-                                superOverOvers: e.target.value,
-                              }))
+                              setKeyRules((p) => ({ ...p, superOverOvers: e.target.value }))
                             }
                           />
-                        </FormField>
-                        <FormField
-                          label={KEY_RULE_LABELS["cricket.tie_break.super_over_wickets"]}
-                        >
+                        </div>
+                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <span>Wickets:</span>
                           <input
-                            className={inputClass}
-                            inputMode="numeric"
+                            className="w-10 h-6 text-center text-xs font-bold rounded border border-border bg-background"
                             disabled={locked}
                             value={keyRules.superOverWickets}
                             onChange={(e) =>
-                              setKeyRules((p) => ({
-                                ...p,
-                                superOverWickets: e.target.value,
-                              }))
+                              setKeyRules((p) => ({ ...p, superOverWickets: e.target.value }))
                             }
                           />
-                        </FormField>
-                        <FormField
-                          label={KEY_RULE_LABELS["cricket.tie_break.super_over_trigger"]}
+                        </div>
+                        <select
+                          className="h-6 text-[10px] font-medium rounded border border-border bg-background px-1.5"
+                          disabled={locked}
+                          value={keyRules.superOverTrigger}
+                          onChange={(e) =>
+                            setKeyRules((p) => ({ ...p, superOverTrigger: e.target.value }))
+                          }
                         >
-                          <select
-                            className={inputClass}
-                            disabled={locked}
-                            value={keyRules.superOverTrigger}
-                            onChange={(e) =>
-                              setKeyRules((p) => ({
-                                ...p,
-                                superOverTrigger: e.target.value,
-                              }))
-                            }
-                          >
-                            <option value="manual">Manual trigger</option>
-                            <option value="knockout_tie">Knockout tie only</option>
-                          </select>
-                        </FormField>
+                          <option value="manual">Manual trigger</option>
+                          <option value="knockout_tie">Knockout tie only</option>
+                        </select>
                       </div>
                     </div>
                   ) : null}
-
-                  {/* Super Ball Sub-Option Configuration Card */}
-                  {keyRules.superBallEnabled ? (
-                    <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-amber-400" />
-                        <p className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                          Super Ball Run Doubling Mode
-                        </p>
-                      </div>
-                      <p className="text-xs text-amber-200/90">
-                        Choose how runs will be doubled when a team declares the Super Ball:
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          disabled={locked}
-                          onClick={() =>
-                            setKeyRules((p) => ({
-                              ...p,
-                              superBallDoublesBoundariesOnly: true,
-                            }))
-                          }
-                          className={cn(
-                            "rounded-lg border p-3 text-left transition-all",
-                            keyRules.superBallDoublesBoundariesOnly
-                              ? "border-amber-400 bg-amber-500/20 text-amber-200 ring-1 ring-amber-400/40 font-bold"
-                              : "border-border/60 bg-card/40 text-muted-foreground hover:text-foreground",
-                            locked && "opacity-60 cursor-not-allowed",
-                          )}
-                        >
-                          <p className="text-xs font-bold text-foreground">
-                            Only Boundaries (4 & 6 Doubled)
-                          </p>
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            4 becomes 8 runs, 6 becomes 12 runs. Singles and doubles remain normal.
-                          </p>
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={locked}
-                          onClick={() =>
-                            setKeyRules((p) => ({
-                              ...p,
-                              superBallDoublesBoundariesOnly: false,
-                            }))
-                          }
-                          className={cn(
-                            "rounded-lg border p-3 text-left transition-all",
-                            !keyRules.superBallDoublesBoundariesOnly
-                              ? "border-amber-400 bg-amber-500/20 text-amber-200 ring-1 ring-amber-400/40 font-bold"
-                              : "border-border/60 bg-card/40 text-muted-foreground hover:text-foreground",
-                            locked && "opacity-60 cursor-not-allowed",
-                          )}
-                        >
-                          <p className="text-xs font-bold text-foreground">
-                            All Runs Doubled (1, 2, 3, 4, 6)
-                          </p>
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            Any scored run is doubled (1&rarr;2, 2&rarr;4, 3&rarr;6, 4&rarr;8, 6&rarr;12).
-                          </p>
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {/* Collapsible preset inspector */}
-                  {otherPresetRules.length > 0 ? (
-                    <details className="text-xs text-muted-foreground rounded-lg border border-border/40 p-3 bg-muted/10">
-                      <summary className="cursor-pointer font-semibold text-foreground/80 hover:text-primary">
-                        View {otherPresetRules.length} other background rules from preset
-                      </summary>
-                      <ul className="mt-2.5 space-y-1.5 border-t border-border/40 pt-2">
-                        {otherPresetRules.map((entry) => {
-                          const def = CatalogRegistry.getRuleDefinition(
-                            entry.definitionId,
-                            entry.definitionVersion,
-                          );
-                          return (
-                            <li
-                              key={`${entry.definitionId}@${entry.definitionVersion}`}
-                              className="flex justify-between gap-3 text-xs"
-                            >
-                              <span>{def?.name ?? entry.definitionId}</span>
-                              <span className="font-mono text-muted-foreground shrink-0">
-                                {entry.value === null ? "null" : String(entry.value)}
-                              </span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </details>
-                  ) : null}
-
-                  {/* Screen Theme / Look */}
-                  <OptionChips
-                    label="LED / Screen Presentation Theme"
-                    value={presentationProfileId}
-                    options={presentationOptions}
-                    disabled={locked}
-                    onChange={(id, version) => {
-                      setPresentationProfileId(id);
-                      setPresentationProfileVersion(version ?? "");
-                    }}
-                  />
                 </section>
               </div>
 
-              {/* Right Column: Sticky Summary & Actions Sidebar */}
-              <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-6">
-                {/* Status & Actions Card */}
-                <div className={cn(hubPanelClass, "p-5 space-y-5 border-primary/20")}>
-                  <div className="flex items-center justify-between gap-2 pb-3 border-b border-border/50">
-                    <h3 className="text-sm font-bold tracking-tight text-foreground flex items-center gap-2">
-                      <Settings2 className="w-4 h-4 text-primary" />
-                      Tournament Rules Status
-                    </h3>
+              {/* Right Column: Distinct Live Summary & Action Box */}
+              <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-4">
+                <div className="rounded-2xl border-2 border-primary/40 bg-gradient-to-b from-card/90 via-slate-900/90 to-background p-4 sm:p-5 space-y-4 shadow-xl shadow-primary/5">
+                  <div className="flex items-center justify-between pb-2.5 border-b border-primary/20">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
+                        Live Match Summary
+                      </h3>
+                    </div>
                     <span
                       className={cn(
-                        "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                        "text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full",
                         locked
-                          ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
-                          : "bg-amber-500/15 border border-amber-500/30 text-amber-300",
+                          ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-300"
+                          : "bg-amber-500/20 border border-amber-500/40 text-amber-300",
                       )}
                     >
-                      {locked ? "Locked (Active)" : "In Draft"}
+                      {locked ? "Locked (Active)" : "Draft Mode"}
                     </span>
                   </div>
 
-                  {/* Summary Grid */}
+                  {/* Summary Grid with Distinct Styling */}
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-lg border border-border/50 bg-card/40 p-2.5">
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        Cricket Type
+                    <div className="rounded-xl border border-border/80 bg-background/70 p-2.5 space-y-0.5">
+                      <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
+                        Cricket Format
                       </p>
-                      <p className="font-bold text-foreground truncate mt-0.5">
-                        {variantOptions.find((v) => v.id === variantId)?.label || "—"}
+                      <p className="font-extrabold text-foreground truncate text-xs">
+                        {variantOptions.find((v) => v.id === variantId)?.label || "Box Cricket"}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-border/50 bg-card/40 p-2.5">
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+
+                    <div className="rounded-xl border border-border/80 bg-background/70 p-2.5 space-y-0.5">
+                      <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
                         Ball Type
                       </p>
-                      <p className="font-bold text-foreground truncate mt-0.5">
+                      <p className="font-extrabold text-foreground truncate text-xs">
                         {BALL_TYPE_OPTIONS.find((b) => b.id === keyRules.ballType)?.label || "Tennis"}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-border/50 bg-card/40 p-2.5">
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        Overs / Innings
+
+                    <div className="rounded-xl border border-border/80 bg-background/70 p-2.5 space-y-0.5">
+                      <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
+                        Overs / Wickets
                       </p>
-                      <p className="font-bold text-foreground truncate mt-0.5">
-                        {keyRules.overs ? `${keyRules.overs} Overs` : "—"}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-border/50 bg-card/40 p-2.5">
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
-                        Playing / Bench
-                      </p>
-                      <p className="font-bold text-foreground truncate mt-0.5">
-                        {playingCount} XI + {benchCount} B
+                      <p className="font-extrabold text-primary truncate text-xs">
+                        {keyRules.overs} Overs • {keyRules.maxWickets} Wkts
                       </p>
                     </div>
-                    <div className="rounded-lg border border-border/50 bg-card/40 p-2.5">
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+
+                    <div className="rounded-xl border border-border/80 bg-background/70 p-2.5 space-y-0.5">
+                      <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
+                        Squad / Bench
+                      </p>
+                      <p className="font-extrabold text-foreground truncate text-xs">
+                        {playingCount} XI + {benchCount} Bench
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-border/80 bg-background/70 p-2.5 space-y-0.5">
+                      <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
                         Super Over
                       </p>
-                      <p className="font-bold text-foreground truncate mt-0.5">
+                      <p className="font-bold text-foreground truncate text-xs">
                         {keyRules.superOverEnabled ? `${keyRules.superOverOvers} Over (ON)` : "OFF"}
                       </p>
                     </div>
-                    <div className="rounded-lg border border-border/50 bg-card/40 p-2.5">
-                      <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+
+                    <div className="rounded-xl border border-border/80 bg-background/70 p-2.5 space-y-0.5">
+                      <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
                         Super Ball
                       </p>
-                      <p className="font-bold text-foreground truncate mt-0.5">
+                      <p className="font-bold text-amber-300 truncate text-xs">
                         {keyRules.superBallEnabled
                           ? keyRules.superBallDoublesBoundariesOnly
-                            ? "4&6 (2x)"
+                            ? "4 & 6 (2x)"
                             : "All (2x)"
                           : "OFF"}
                       </p>
                     </div>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="space-y-2 pt-2">
+                  {/* Actions */}
+                  <div className="space-y-2 pt-1">
                     {!locked ? (
                       <>
                         <BtnPrimary
-                          className="w-full justify-center h-10"
+                          className="w-full justify-center h-9 text-xs font-bold"
                           disabled={!canLock || locking || saving}
                           onClick={() => void handleLock()}
                         >
                           {locking ? (
                             <>
-                              <Loader2 className="w-4 h-4 animate-spin" /> Locking Rules…
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Finalizing…
                             </>
                           ) : (
                             <>
-                              <Lock className="w-4 h-4" /> Lock & Finalize Rules
+                              <Lock className="w-3.5 h-3.5" /> Lock & Finalize Rules
                             </>
                           )}
                         </BtnPrimary>
+
                         <BtnSecondary
-                          className="w-full justify-center h-9 text-xs"
+                          className="w-full justify-center h-8 text-xs font-semibold"
                           disabled={saving || locking}
                           onClick={() => void persistSetup()}
                         >
                           {saving ? (
                             <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving Draft…
+                              <Loader2 className="w-3 h-3 animate-spin" /> Saving…
                             </>
                           ) : (
                             "Save Draft Changes"
@@ -1587,32 +1288,33 @@ export default function CricketRulesPage() {
                     ) : (
                       <>
                         <BtnPrimary
-                          className="w-full justify-center h-10"
+                          className="w-full justify-center h-9 text-xs font-bold"
                           disabled={applying}
                           onClick={() => void handleApplyToMatches()}
                         >
                           {applying ? (
                             <>
-                              <Loader2 className="w-4 h-4 animate-spin" /> Applying to Matches…
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Applying to Matches…
                             </>
                           ) : (
                             <>
-                              <PlayCircle className="w-4 h-4" /> Apply Rules to Matches
+                              <PlayCircle className="w-3.5 h-3.5" /> Apply Rules to Matches
                             </>
                           )}
                         </BtnPrimary>
+
                         <BtnSecondary
-                          className="w-full justify-center h-9 text-xs"
+                          className="w-full justify-center h-8 text-xs font-semibold"
                           disabled={unlocking}
                           onClick={() => void handleUnlock()}
                         >
                           {unlocking ? (
                             <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Unlocking…
+                              <Loader2 className="w-3 h-3 animate-spin" /> Unlocking…
                             </>
                           ) : (
                             <>
-                              <Unlock className="w-3.5 h-3.5" /> Unlock & Edit Rules
+                              <Unlock className="w-3 h-3 text-primary" /> Unlock & Edit Rules
                             </>
                           )}
                         </BtnSecondary>
@@ -1620,45 +1322,11 @@ export default function CricketRulesPage() {
                     )}
                   </div>
 
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  <p className="text-[10px] text-muted-foreground leading-tight text-center">
                     {locked
-                      ? "Rules are active. Clicking 'Apply' syncs these rules with scheduled matches (completed matches are untouched)."
-                      : "Locking rules finalizes overs, dismissals, and squad capacities before scoring matches."}
+                      ? "Rules active. Apply syncs scheduled matches (completed matches are untouched)."
+                      : "Lock rules to seal settings before starting match scoring."}
                   </p>
-                </div>
-
-                {/* Workflow steps card */}
-                <div className={cn(hubPanelClass, "p-4 space-y-3 text-xs")}>
-                  <p className="font-semibold text-foreground flex items-center gap-1.5">
-                    <HelpCircle className="w-3.5 h-3.5 text-primary" />
-                    Setup Steps
-                  </p>
-                  <ol className="space-y-2 text-muted-foreground">
-                    <li className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
-                        1
-                      </span>
-                      <span>Select Cricket Format & Ball Type.</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
-                        2
-                      </span>
-                      <span>Pick a Preset and customize rules/toggles.</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
-                        3
-                      </span>
-                      <span>Click <b>Lock Rules</b> to finalize configuration.</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center shrink-0">
-                        4
-                      </span>
-                      <span>Click <b>Apply to matches</b> to sync with matches.</span>
-                    </li>
-                  </ol>
                 </div>
               </div>
             </div>
