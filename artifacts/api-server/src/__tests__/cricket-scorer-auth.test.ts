@@ -140,6 +140,29 @@ describe("cricket scorer auth — backend mutation gate (scoring.ts)", () => {
   });
 });
 
+describe("cricket scorer auth — account lifecycle", () => {
+  it("deleting a scorer invalidates sessions and removes only the final tournament identity", async () => {
+    const auth = await readFile(scorerAuthUrl, "utf8");
+    expect(auth).toContain("deleteScorerAccountForTournament");
+    expect(auth).toContain("scorerTournamentAssignmentsTable");
+    expect(auth).toContain("scorerSessionsTable");
+    expect(auth).toContain("scorerMatchLocksTable");
+    expect(auth).toContain("remaining.length === 0");
+    expect(auth).toContain('"scorer_account_deleted"');
+  });
+
+  it("official creation does not persist a scorer row when scorer credentials fail", async () => {
+    const serviceUrl = new URL("../lib/scoring-foundation-service.ts", import.meta.url);
+    const src = await readFile(serviceUrl, "utf8");
+    const fnIdx = src.indexOf("export async function createScoringOfficial");
+    expect(fnIdx).toBeGreaterThan(-1);
+    const fnSlice = src.slice(fnIdx, fnIdx + 1800);
+    expect(fnSlice).toContain("createScorerAccountForTournament");
+    expect(fnSlice).toContain("SCORER_CREDENTIALS_REQUIRED");
+    expect(fnSlice).not.toContain("continue saving official");
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKEND: scorer-auth.ts exports
 // ─────────────────────────────────────────────────────────────────────────────
