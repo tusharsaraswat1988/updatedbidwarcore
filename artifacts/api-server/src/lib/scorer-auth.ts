@@ -10,6 +10,7 @@ import {
   scorerAccountsTable,
   scorerSessionsTable,
   scorerTournamentAssignmentsTable,
+  scorerMatchLocksTable,
 } from "@workspace/db";
 import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { signScorerJwt, verifyScorerJwt, type ScorerAuthClaims } from "./jwt";
@@ -676,6 +677,11 @@ export async function deleteScorerAccountForTournament(
           eq(scorerTournamentAssignmentsTable.tournamentId, tournamentId),
         ),
       );
+
+    // A deleted scorer must immediately stop any active scoring lock.
+    await tx
+      .delete(scorerMatchLocksTable)
+      .where(eq(scorerMatchLocksTable.scorerId, scorerId));
 
     await tx
       .delete(scorerAccountsTable)
