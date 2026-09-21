@@ -387,7 +387,10 @@ function applySuperBallDeclared(
         "Super Ball must be declared for the active batting innings",
       );
     }
-    if (state.superBallPending) {
+    if (
+      state.superBallPending &&
+      state.superBallPending.innings === payload.innings
+    ) {
       throw new InvalidEventPayloadError(
         CricketEventType.SUPER_BALL_DECLARED,
         "Super Ball is already pending",
@@ -530,7 +533,12 @@ function applyInningsEnded(
   }));
 
   if (payload.reason === "super_over_required") {
-    return { ...next, thisOver: [], freeHitActive: false };
+    return {
+      ...next,
+      thisOver: [],
+      freeHitActive: false,
+      superBallPending: null,
+    };
   }
 
   if (payload.innings === 1) {
@@ -556,10 +564,16 @@ function applyInningsEnded(
       nonStrikerId: null,
       bowlerId: null,
       freeHitActive: false,
+      superBallPending: null,
     };
   }
 
-  return { ...next, thisOver: [], freeHitActive: false };
+  return {
+    ...next,
+    thisOver: [],
+    freeHitActive: false,
+    superBallPending: null,
+  };
 }
 
 function applyMatchCompleted(

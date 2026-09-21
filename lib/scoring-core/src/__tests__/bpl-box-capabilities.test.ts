@@ -600,4 +600,144 @@ describe("box cricket configurable capabilities", () => {
     };
     expect(deriveCricketMatchResult(superState).winnerTeamId).toBe(1);
   });
+
+  it("allows both teams to use one Super Ball in their respective innings (2 per match)", () => {
+    let state = started({ superBallEnabled: true, oversLimit: 1 });
+
+    // Innings 1: Team 1 declares and scores Super Ball
+    state = reduceCricket(
+      state,
+      ev(4, CricketEventType.SUPER_BALL_DECLARED, {
+        innings: 1,
+        battingTeamId: 1,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.superBallPending).toEqual({ innings: 1, battingTeamId: 1 });
+    expect(state.superBallUsed[1]).toEqual([1]);
+
+    // Team 1 scores 6 (doubled to 12)
+    state = reduceCricket(
+      state,
+      ev(5, CricketEventType.BALL_RECORDED, {
+        ...fourBall,
+        runsOffBat: 6,
+        over: 0,
+        ball: 1,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.innings[0]?.runs).toBe(12);
+    expect(state.superBallPending).toBeNull();
+
+    // Innings 1 ends
+    state = reduceCricket(
+      state,
+      ev(6, CricketEventType.INNINGS_ENDED, {
+        innings: 1,
+        runs: 12,
+        wickets: 0,
+        overs: "1.0",
+        reason: "overs_complete",
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.currentInnings).toBe(2);
+    expect(state.superBallPending).toBeNull();
+
+    // Set lineup/openers for Innings 2 (Team 2 batting)
+    state = {
+      ...state,
+      strikerId: 21,
+      nonStrikerId: 22,
+      bowlerId: 11,
+    };
+
+    // Innings 2: Team 2 declares Super Ball (should succeed!)
+    state = reduceCricket(
+      state,
+      ev(7, CricketEventType.SUPER_BALL_DECLARED, {
+        innings: 2,
+        battingTeamId: 2,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.superBallPending).toEqual({ innings: 2, battingTeamId: 2 });
+    expect(state.superBallUsed[2]).toEqual([2]);
+
+    // Team 2 scores 4 (doubled to 8)
+    state = reduceCricket(
+      state,
+      ev(8, CricketEventType.BALL_RECORDED, {
+        innings: 2,
+        over: 0,
+        ball: 1,
+        strikerId: 21,
+        nonStrikerId: 22,
+        bowlerId: 11,
+        runsOffBat: 4,
+        extras: { type: null, runs: 0 },
+        wicket: null,
+        isLegalDelivery: true,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.innings[1]?.runs).toBe(8);
+    expect(state.superBallPending).toBeNull();
+
+    // Team 2 duplicate declaration in Innings 2 must be rejected
+    expect(() =>
+      reduceCricket(
+        state,
+        ev(9, CricketEventType.SUPER_BALL_DECLARED, {
+          innings: 2,
+          battingTeamId: 2,
+        }),
+        { enforceLiveRules: true },
+      ),
+    ).toThrow(InvalidEventPayloadError);
+  });
+
+  it("clears unconsumed superBallPending when innings 1 ends and allows innings 2 declaration", () => {
+    let state = started({ superBallEnabled: true, oversLimit: 1 });
+
+    // Team 1 declares Super Ball in Innings 1 but innings ends before bowling
+    state = reduceCricket(
+      state,
+      ev(4, CricketEventType.SUPER_BALL_DECLARED, {
+        innings: 1,
+        battingTeamId: 1,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.superBallPending).not.toBeNull();
+
+    // Innings 1 ends
+    state = reduceCricket(
+      state,
+      ev(5, CricketEventType.INNINGS_ENDED, {
+        innings: 1,
+        runs: 0,
+        wickets: 0,
+        overs: "1.0",
+        reason: "overs_complete",
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.superBallPending).toBeNull();
+
+    // Set Innings 2 batters
+    state = { ...state, strikerId: 21, nonStrikerId: 22, bowlerId: 11 };
+
+    // Innings 2 declaration must succeed
+    state = reduceCricket(
+      state,
+      ev(6, CricketEventType.SUPER_BALL_DECLARED, {
+        innings: 2,
+        battingTeamId: 2,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.superBallPending).toEqual({ innings: 2, battingTeamId: 2 });
+  });
 });

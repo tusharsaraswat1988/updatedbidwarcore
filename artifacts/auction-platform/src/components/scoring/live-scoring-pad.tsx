@@ -194,7 +194,12 @@ export function LiveScoringPad({
   const superBallReason = useMemo(() => {
     if (!superBallEnabled) return "Super Ball is not enabled for this match";
     if (!innings) return "No active innings";
-    if (state.superBallPending) return "Super Ball already declared";
+    if (
+      state.superBallPending &&
+      state.superBallPending.innings === state.currentInnings
+    ) {
+      return "Super Ball already declared";
+    }
     const used = (state.superBallUsed?.[state.currentInnings] ?? []).includes(
       innings.battingTeamId,
     );
@@ -430,7 +435,10 @@ export function LiveScoringPad({
   // Super Ball Toggle
   async function handleToggleSuperBall() {
     if (!superBallEnabled || !battingId || busy) return;
-    if (state.superBallPending) {
+    if (
+      state.superBallPending &&
+      state.superBallPending.innings === state.currentInnings
+    ) {
       setLocalSuperBallArmed(false);
       return;
     }

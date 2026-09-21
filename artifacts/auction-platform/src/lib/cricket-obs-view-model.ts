@@ -649,7 +649,10 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     powerplayText,
     tossText,
     freeHitActive: state.freeHitActive === true,
-    superBallActive: state.superBallPending != null || lastBall?.isSuperBall === true,
+    superBallActive:
+      (state.superBallPending != null &&
+        state.superBallPending.innings === inn.innings) ||
+      lastBall?.isSuperBall === true,
     venueText: match.venue || null,
     resultText,
     resultHeadline,
