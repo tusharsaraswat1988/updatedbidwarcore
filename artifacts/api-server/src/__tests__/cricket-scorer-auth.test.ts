@@ -149,6 +149,8 @@ describe("cricket scorer auth — account lifecycle", () => {
     expect(auth).toContain("scorerMatchLocksTable");
     expect(auth).toContain("remaining.length === 0");
     expect(auth).toContain('"scorer_account_deleted"');
+    expect(auth).toContain("cleanupOrphanScorerAccounts");
+    expect(auth).toContain("orphan_scorer_account_removed");
   });
 
   it("official creation does not persist a scorer row when scorer credentials fail", async () => {
