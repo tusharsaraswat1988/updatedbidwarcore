@@ -665,11 +665,6 @@ export async function deleteScorerAccountForTournament(
   const revokedAt = new Date();
   await db.transaction(async (tx) => {
     await tx
-      .update(scorerSessionsTable)
-      .set({ revokedAt })
-      .where(eq(scorerSessionsTable.scorerId, scorerId));
-
-    await tx
       .delete(scorerTournamentAssignmentsTable)
       .where(
         and(
@@ -678,14 +673,28 @@ export async function deleteScorerAccountForTournament(
         ),
       );
 
-    // A deleted scorer must immediately stop any active scoring lock.
-    await tx
-      .delete(scorerMatchLocksTable)
-      .where(eq(scorerMatchLocksTable.scorerId, scorerId));
+    const remaining = await tx
+      .select({ id: scorerTournamentAssignmentsTable.id })
+      .from(scorerTournamentAssignmentsTable)
+      .where(eq(scorerTournamentAssignmentsTable.scorerId, scorerId))
+      .limit(1);
 
-    await tx
-      .delete(scorerAccountsTable)
-      .where(eq(scorerAccountsTable.id, scorerId));
+    // Scorer identity is global. Only destroy it when this was its final
+    // tournament assignment; otherwise preserve credentials for other events.
+    if (remaining.length === 0) {
+      await tx
+        .update(scorerSessionsTable)
+        .set({ revokedAt })
+        .where(eq(scorerSessionsTable.scorerId, scorerId));
+
+      await tx
+        .delete(scorerMatchLocksTable)
+        .where(eq(scorerMatchLocksTable.scorerId, scorerId));
+
+      await tx
+        .delete(scorerAccountsTable)
+        .where(eq(scorerAccountsTable.id, scorerId));
+    }
   });
 
   await writeScorerAudit({
@@ -693,7 +702,7 @@ export async function deleteScorerAccountForTournament(
     action: "scorer_account_deleted",
     scorerId,
     tournamentId,
-    payload: { mobile: account.mobile, name: account.name, sessionsRevoked: true },
+    payload: { mobile: account.mobile, name: account.name },
   });
 
   return serializeScorerAccountAdmin(account);
