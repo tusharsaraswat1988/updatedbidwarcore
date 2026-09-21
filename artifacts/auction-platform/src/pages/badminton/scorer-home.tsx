@@ -36,6 +36,7 @@ import {
 } from "@/lib/badminton-routes";
 import { TeamPlayerVs } from "@/components/badminton/team-player-card";
 import { identityFromCombinedLabel } from "@/lib/team-player-identity";
+import { ScorerPwaInstallBanner } from "@/components/scoring/scorer-pwa-install-banner";
 import { cn } from "@/lib/utils";
 
 function formatScheduledTime(iso: string | null): string {
@@ -788,6 +789,8 @@ export default function BadmintonScorerHomePage() {
                 </p>
               </div>
 
+              <ScorerPwaInstallBanner className="mb-4" />
+
               <div className="space-y-4">
                 {tidFromQuery <= 0 ? (
                   <div>
@@ -913,6 +916,8 @@ export default function BadmintonScorerHomePage() {
 
         <main className="flex-1 px-4 py-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <div className="max-w-lg mx-auto space-y-3">
+            <ScorerPwaInstallBanner />
+
             {viewOnly ? (
               <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
                 <p className="text-amber-100 text-sm font-semibold">View-only access</p>

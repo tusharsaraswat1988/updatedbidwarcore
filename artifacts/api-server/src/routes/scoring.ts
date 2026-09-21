@@ -21,6 +21,8 @@ import {
   addScoringSseClient,
   getScoringSseClientCount,
   removeScoringSseClient,
+  getCricketObsDirectorState,
+  broadcastCricketObsDirector,
 } from "../lib/scoring-broadcast";
 import { buildCricketMatchSummary, InvalidEventPayloadError } from "@workspace/scoring-core";
 import { db, scoringMatchesTable, tournamentsTable } from "@workspace/db";
@@ -418,6 +420,17 @@ router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
     res.write(`data: ${JSON.stringify({ type: "scoring_state", match: null, state: null, summary: null })}\n\n`);
   }
 
+  const currentObs = getCricketObsDirectorState(tournamentId);
+  if (currentObs && currentObs.overlay && currentObs.overlay !== "none") {
+    res.write(
+      `data: ${JSON.stringify({
+        type: "cricket_obs_director",
+        overlay: currentObs.overlay,
+        timestamp: Date.now(),
+      })}\n\n`,
+    );
+  }
+
   const cleanup = () => {
     clearInterval(heartbeat);
     removeScoringSseClient(client);
@@ -439,6 +452,35 @@ router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
 
   req.on("close", cleanup);
   res.on("close", cleanup);
+});
+
+/** POST /tournaments/:tournamentId/scoring/obs-director — trigger overlay or scoring animation on OBS screens in real time */
+router.post("/tournaments/:tournamentId/scoring/obs-director", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+
+  const body = req.body ?? {};
+  const overlay = typeof body.overlay === "string" ? body.overlay : undefined;
+  const flash = typeof body.flash === "string" ? body.flash : undefined;
+  const detail = typeof body.detail === "string" ? body.detail : undefined;
+
+  broadcastCricketObsDirector(tournamentId, { overlay, flash, detail });
+  res.json({ ok: true, overlay, flash, detail });
+});
+
+/** GET /tournaments/:tournamentId/scoring/obs-director — get current OBS overlay state */
+router.get("/tournaments/:tournamentId/scoring/obs-director", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+
+  const state = getCricketObsDirectorState(tournamentId);
+  res.json(state);
 });
 
 router.get("/tournaments/:tournamentId/scoring/matches", async (req, res) => {

@@ -62,6 +62,13 @@ export function useScoringSocket(
               summary: msg.summary ?? null,
             };
             qc.setQueryData(scoringLiveQueryKey(tournamentId), payload);
+          } else if (msg.type === "cricket_obs_director") {
+            qc.setQueryData(["cricket-obs-director", tournamentId], msg);
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(
+                new CustomEvent("cricket_obs_director", { detail: msg }),
+              );
+            }
           }
         } catch {
           // ignore malformed messages

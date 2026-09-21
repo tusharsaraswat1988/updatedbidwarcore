@@ -13,6 +13,7 @@ import {
 } from "@/lib/cricket-routes";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
 import { ScoringAppDocumentChrome } from "@/components/scoring-app-document-chrome";
+import { ScorerPwaProvider } from "@/contexts/scorer-pwa-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
 import {
@@ -376,9 +377,11 @@ export default function App() {
   return (
     <WouterRouter base={BASE}>
       <ErrorBoundary fallbackTitle="BidWar Sports Platform">
-        <ScoringAppDocumentChrome />
-        <LocalOperatorPinEffects />
-        <Router />
+        <ScorerPwaProvider>
+          <ScoringAppDocumentChrome />
+          <LocalOperatorPinEffects />
+          <Router />
+        </ScorerPwaProvider>
       </ErrorBoundary>
     </WouterRouter>
   );

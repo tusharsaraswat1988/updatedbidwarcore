@@ -41,3 +41,38 @@ export function getScoringSseClientCount(tournamentId: number): number {
 export function getScoringTotalSseClientCount(): number {
   return clients.size;
 }
+
+export interface CricketObsDirectorPayload {
+  type: "cricket_obs_director";
+  overlay?: string;
+  flash?: string;
+  detail?: string;
+  timestamp: number;
+}
+
+const cricketObsStates = new Map<number, { overlay: string; lastUpdated: number }>();
+
+export function getCricketObsDirectorState(tournamentId: number): { overlay: string } {
+  return { overlay: cricketObsStates.get(tournamentId)?.overlay ?? "none" };
+}
+
+export function setCricketObsDirectorState(tournamentId: number, overlay: string) {
+  cricketObsStates.set(tournamentId, { overlay, lastUpdated: Date.now() });
+}
+
+export function broadcastCricketObsDirector(
+  tournamentId: number,
+  command: { overlay?: string; flash?: string; detail?: string },
+) {
+  if (command.overlay !== undefined) {
+    setCricketObsDirectorState(tournamentId, command.overlay);
+  }
+  const payload: CricketObsDirectorPayload = {
+    type: "cricket_obs_director",
+    overlay: command.overlay,
+    flash: command.flash,
+    detail: command.detail,
+    timestamp: Date.now(),
+  };
+  broadcastScoringState(tournamentId, payload);
+}

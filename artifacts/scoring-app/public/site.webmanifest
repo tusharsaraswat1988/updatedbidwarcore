@@ -1,10 +1,11 @@
 {
-  "name": "BidWar Scoring",
-  "short_name": "BidWar Score",
-  "description": "Live match scoring for cricket, badminton, and more — BidWar",
+  "name": "BidWar Scoring Console",
+  "short_name": "BidWar Scorer",
+  "description": "Live match scoring console for cricket, badminton, and tournaments — BidWar",
   "start_url": "/scoring-app/",
   "scope": "/scoring-app/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "background_color": "#1b2044",
   "theme_color": "#1b2044",
   "icons": [

@@ -24,6 +24,7 @@ import { loginScorer, logoutScorer } from "@/lib/scorer-api";
 import { sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { cricketScorerConsolePath, cricketScorerPath } from "@/lib/cricket-routes";
 import { CricketPublicBrandMark } from "@/components/scoring/cricket-branding";
+import { ScorerPwaInstallBanner } from "@/components/scoring/scorer-pwa-install-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -178,11 +179,13 @@ export default function CricketScorerHomePage() {
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 mb-1">
               <KeyRound className="w-6 h-6" />
             </div>
-            <h1 className="text-2xl font-black tracking-tight font-display">Cricket Scorer Portal</h1>
+            <h1 className="text-2xl font-black font-display tracking-wide text-white">Official Scorer Portal</h1>
             <p className="text-xs text-white/50">
-              Sign in with your registered mobile number and 4-digit PIN to start scoring.
+              Sign in with your registered mobile and 4-digit PIN to score matches.
             </p>
           </div>
+
+          <ScorerPwaInstallBanner />
 
           <form onSubmit={handleLogin} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6 space-y-4 shadow-xl backdrop-blur-md">
             {tidFromQuery <= 0 ? (
@@ -350,6 +353,8 @@ export default function CricketScorerHomePage() {
 
       {/* Main Content: Match Lists */}
       <main className="flex-1 max-w-3xl w-full mx-auto px-3 sm:px-6 py-4 space-y-6 pb-12">
+        <ScorerPwaInstallBanner />
+
         {/* Section: Live Matches */}
         <section className="space-y-3">
           <div className="flex items-center justify-between">

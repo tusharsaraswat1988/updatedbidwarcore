@@ -131,6 +131,28 @@ export function useCricketObsLive(
     return "none";
   });
 
+  // Query server for active OBS director state (persisted across reloads/new tabs)
+  const { data: serverObsState } = useQuery<{ overlay?: string }>({
+    queryKey: ["cricket-obs-director", tournamentId],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/tournaments/${tournamentId}/scoring/obs-director`);
+        if (!res.ok) return { overlay: "none" };
+        return await res.json();
+      } catch {
+        return { overlay: "none" };
+      }
+    },
+    enabled: tournamentId > 0,
+    staleTime: 5000,
+  });
+
+  useEffect(() => {
+    if (serverObsState?.overlay) {
+      setMidOverlayState(serverObsState.overlay as CricketObsMidOverlayKind);
+    }
+  }, [serverObsState?.overlay]);
+
   // Manual / Operator / Injected Flash Event
   const [overrideFlash, setOverrideFlash] = useState<{
     kind: CricketObsFlashKind | null;
@@ -146,6 +168,14 @@ export function useCricketObsLive(
   const setMidOverlay = useCallback(
     (overlay: CricketObsMidOverlayKind) => {
       setMidOverlayState(overlay);
+      // 1. Post to server for cross-device SSE broadcast (Phone -> Laptop / OBS Studio)
+      void fetch(`/api/tournaments/${tournamentId}/scoring/obs-director`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ overlay }),
+      }).catch(() => {});
+
+      // 2. BroadcastChannel fallback for same-browser tabs
       if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
         try {
           const ch = new BroadcastChannel(`bidwar_cricket_obs_${tournamentId}`);
@@ -159,7 +189,24 @@ export function useCricketObsLive(
     [tournamentId],
   );
 
-  // Cross-tab / Operator BroadcastChannel listener
+  // Cross-device SSE Director listener (from useScoringSocket)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleSseDirector = (ev: Event) => {
+      const detail = (ev as CustomEvent).detail;
+      if (!detail) return;
+      if (detail.overlay !== undefined) {
+        setMidOverlayState(detail.overlay as CricketObsMidOverlayKind);
+      }
+      if (detail.flash) {
+        triggerFlash(detail.flash, detail.detail);
+      }
+    };
+    window.addEventListener("cricket_obs_director", handleSseDirector);
+    return () => window.removeEventListener("cricket_obs_director", handleSseDirector);
+  }, [triggerFlash]);
+
+  // Cross-tab / Operator BroadcastChannel listener (same-machine fallback)
   useEffect(() => {
     if (typeof window === "undefined" || typeof BroadcastChannel === "undefined" || !tournamentId) {
       return;

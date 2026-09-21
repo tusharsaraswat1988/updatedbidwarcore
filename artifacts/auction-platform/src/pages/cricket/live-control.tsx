@@ -2,7 +2,7 @@
  * Cricket Live Control — organizer match-day board (scoreboard, OBS, queues).
  * Scoring stays on Scorer. Route: /tournament/:id/score/live-control
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -47,6 +47,8 @@ import {
   RefreshCw,
   Tv,
   AlertTriangle,
+  CheckCircle2,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -118,10 +120,23 @@ export default function CricketLiveControlPage() {
     );
   }
 
+  const [copiedObs, setCopiedObs] = useState(false);
+  const obsPath = cricketObsLivePath(tournamentId, tournament?.auctionCode);
+  const obsFullUrl =
+    typeof window !== "undefined"
+      ? scoringAppPublicUrl(window.location.origin, obsPath)
+      : obsPath;
+
   function copyObsLiveLink() {
-    const url = cricketObsLivePath(tournamentId, tournament?.auctionCode);
-    void navigator.clipboard.writeText(url).then(
-      () => toast({ title: "Cricket OBS URL copied to clipboard", description: "Paste as Browser Source (1920×1080) in OBS Studio / vMix" }),
+    void navigator.clipboard.writeText(obsFullUrl).then(
+      () => {
+        setCopiedObs(true);
+        toast({
+          title: "Cricket OBS URL copied to clipboard",
+          description: "Paste into OBS Studio as Browser Source (1920×1080).",
+        });
+        setTimeout(() => setCopiedObs(false), 2500);
+      },
       () => toast({ title: "Could not copy OBS link", variant: "destructive" }),
     );
   }
@@ -203,39 +218,83 @@ export default function CricketLiveControlPage() {
           </div>
         ) : (
           <>
-            <section className={cn(hubPanelClass, "p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4")}>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="flex h-2 w-2 rounded-full bg-red-500 animate-ping" />
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-white">Cricket OBS Broadcast Layer</h2>
-                  <Badge variant="outline" className="text-[10px] uppercase border-amber-400/40 text-amber-400">1920 × 1080 Full HD</Badge>
+            <section className={cn(hubPanelClass, "p-4 sm:p-5 space-y-4")}>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/40 pb-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-2.5 w-2.5 rounded-full bg-red-500 animate-ping" />
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-white">
+                      Cricket OBS Broadcast Screen Link
+                    </h2>
+                    <Badge variant="outline" className="text-[10px] uppercase border-amber-400/50 text-amber-400">
+                      1920 × 1080 Full HD
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+                    Add this link as a <strong>Browser Source</strong> in OBS Studio or vMix over your camera feed. Mid section is 100% transparent. Header (BidWar) and footer scorebug are solid broadcast layers.
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-                  Add this link as a <strong>Browser Source</strong> on top of your camera streaming team&apos;s feed in OBS / vMix. Mid section is 100% transparent. Header (with BidWar branding) and footer scorebug are solid non-transparent. Real-time animations trigger on boundaries, wickets &amp; free hits.
-                </p>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={obsFullUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 shadow-sm transition"
+                  >
+                    <Tv className="w-3.5 h-3.5" />
+                    <span>Open OBS Screen ↗</span>
+                  </a>
+                </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <BtnSecondary className={btnCompactClass} onClick={copyObsLiveLink}>
-                  <Copy className="w-3.5 h-3.5" />
-                  Copy OBS URL
-                </BtnSecondary>
-                <BtnPrimary
-                  className={btnCompactClass}
-                  onClick={() =>
-                    window.open(
-                      cricketObsLivePath(tournamentId, tournament?.auctionCode),
-                      "_blank",
-                      "noopener,noreferrer",
-                    )
-                  }
+
+              {/* Full Visible URL Input Box + One-Click Copy */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    readOnly
+                    value={obsFullUrl}
+                    onFocus={(e) => e.target.select()}
+                    className="w-full rounded-lg border border-border/80 bg-black/60 px-3 py-2 text-xs font-mono text-amber-300 focus:outline-none focus:ring-1 focus:ring-primary shadow-inner"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={copyObsLiveLink}
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2 text-xs font-bold text-foreground hover:bg-muted transition shrink-0"
                 >
-                  <Tv className="w-3.5 h-3.5" />
-                  Launch OBS Screen
-                </BtnPrimary>
+                  {copiedObs ? (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="text-emerald-500">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>Copy OBS URL</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="rounded-lg bg-muted/40 p-3 text-[11px] text-muted-foreground space-y-1">
+                <div className="font-semibold text-foreground flex items-center gap-1.5">
+                  <span>📺 Quick OBS Studio Setup:</span>
+                </div>
+                <p>
+                  1. OBS me <strong>Add Source (+) &gt; Browser</strong> chunein.
+                  2. <strong>URL</strong> me upar ka link paste karein.
+                  3. <strong>Width: 1920</strong>, <strong>Height: 1080</strong>, <strong>FPS: 60</strong> set karein.
+                  4. Mobile se niche diye gaye <strong>Director Buttons</strong> click karke live stream par overlays aur animations trigger karein!
+                </p>
               </div>
             </section>
 
-            <CricketObsDirectorPanel tournamentId={tournamentId} />
+            <CricketObsDirectorPanel
+              tournamentId={tournamentId}
+              auctionCode={tournament?.auctionCode}
+            />
 
             <section>
               <HubSectionHeader
