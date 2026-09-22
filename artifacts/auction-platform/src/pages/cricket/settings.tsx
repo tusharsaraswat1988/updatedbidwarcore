@@ -562,6 +562,7 @@ export default function CricketSettingsPage() {
             desc="Contact BIDWAR for enabling sport scoring module."
           />
         ) : (
+          <div className="space-y-6">
             {/* 1. Tournament identity & Rotating Sponsors */}
             <section className={cn(hubPanelClass, "space-y-6 max-w-3xl")}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">
