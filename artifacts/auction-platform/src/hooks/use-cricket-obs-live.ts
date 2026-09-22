@@ -7,6 +7,7 @@ import {
 import { useScoringLive } from "@/hooks/use-scoring-match";
 import { useScoringSocket } from "@/hooks/use-scoring-socket";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
+import { getActiveInnings } from "@/lib/scoring-ball";
 import {
   getCricketMasterTeams,
   getCricketTournamentRoster,
