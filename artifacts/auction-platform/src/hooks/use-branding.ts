@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { BrandingAssetType } from "@workspace/api-base/branding-assets";
 import {
-  brandingCacheSignature,
   readBrandingCache,
   writeBrandingCache,
 } from "@/lib/branding-cache";
+import { brandingKeys } from "@/lib/initial-data/query-keys";
 
 export interface BrandingSettings {
   id?: number;
@@ -78,75 +79,72 @@ function resolveAsset(
 }
 
 const BRANDING_POLL_MS = 30_000;
+export const PUBLIC_BRANDING_STALE_TIME_MS = 5 * 60 * 1000;
+
+export async function fetchPublicBranding(): Promise<BrandingSettings> {
+  const res = await fetch("/api/branding");
+  if (!res.ok) {
+    throw new Error(`Failed to fetch branding: ${res.status}`);
+  }
+  const data = (await res.json()) as Partial<BrandingSettings>;
+  const merged: BrandingSettings = { ...BRANDING_DEFAULTS, ...data };
+  writeBrandingCache(merged);
+  return merged;
+}
+
+async function fetchIconVersion(currentVersion: number): Promise<{ version: number }> {
+  try {
+    const res = await fetch("/api/branding/icon-version");
+    if (!res.ok) return { version: currentVersion };
+    const payload = (await res.json()) as { version?: number };
+    return { version: payload?.version ?? currentVersion };
+  } catch {
+    return { version: currentVersion };
+  }
+}
 
 /**
- * useBranding — reads global BidWar branding from /api/branding.
+ * useBranding — reads global BidWar branding from /api/branding via TanStack React Query.
+ * All calling components share the cached query result (staleTime 5m).
  * Falls back to BRANDING_DEFAULTS when the row has not been customised yet.
- * Polls icon-version so open LED/OBS screens pick up admin logo changes without refresh.
+ * Polls icon-version in a single shared query so open LED/OBS screens pick up admin changes without refresh.
  */
 export function useBranding() {
-  const [settings, setSettings] = useState<BrandingSettings>(() => {
-    const cached = readBrandingCache();
-    return cached ? { ...BRANDING_DEFAULTS, ...cached } : BRANDING_DEFAULTS;
+  const queryClient = useQueryClient();
+
+  const { data: settings = BRANDING_DEFAULTS, isLoading } = useQuery<BrandingSettings>({
+    queryKey: brandingKeys.public,
+    queryFn: fetchPublicBranding,
+    staleTime: PUBLIC_BRANDING_STALE_TIME_MS,
+    initialData: () => {
+      const cached = readBrandingCache();
+      return cached ? { ...BRANDING_DEFAULTS, ...cached } : undefined;
+    },
   });
-  const [loading, setLoading] = useState(() => !readBrandingCache());
-  const iconVersionRef = useRef(settings.iconVersion ?? 0);
+
+  const iconVersion = settings.iconVersion ?? 0;
+
+  // Single deduplicated background poll for icon/favicon changes across all components
+  const { data: iconData } = useQuery<{ version: number }>({
+    queryKey: brandingKeys.iconVersion,
+    queryFn: () => fetchIconVersion(iconVersion),
+    refetchInterval: BRANDING_POLL_MS,
+    staleTime: 15_000,
+  });
 
   useEffect(() => {
-    let cancelled = false;
-
-    const applyBranding = (data: BrandingSettings) => {
-      const merged = { ...BRANDING_DEFAULTS, ...data };
-      const cached = readBrandingCache();
-      const changed =
-        !cached || brandingCacheSignature(cached) !== brandingCacheSignature(merged);
-      if (changed) {
-        setSettings(merged);
-        writeBrandingCache(merged);
-      }
-      iconVersionRef.current = merged.iconVersion ?? iconVersionRef.current;
-    };
-
-    const fetchBranding = () =>
-      fetch("/api/branding", { cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data: BrandingSettings | null) => {
-          if (!data || cancelled) return;
-          applyBranding(data);
-        });
-
-    void fetchBranding()
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    const poll = window.setInterval(() => {
-      fetch("/api/branding/icon-version", { cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((payload: { version?: number } | null) => {
-          if (cancelled || !payload) return;
-          const nextVersion = payload.version ?? 0;
-          if (nextVersion > iconVersionRef.current) {
-            iconVersionRef.current = nextVersion;
-            void fetchBranding();
-          }
-        })
-        .catch(() => {});
-    }, BRANDING_POLL_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(poll);
-    };
-  }, []);
+    if (iconData?.version !== undefined && iconData.version > iconVersion) {
+      void queryClient.invalidateQueries({ queryKey: brandingKeys.public });
+    }
+  }, [iconData?.version, iconVersion, queryClient]);
 
   const assets = settings.assets;
+  const loading = isLoading && !readBrandingCache();
 
   return {
     loading,
     raw: settings,
-    iconVersion: settings.iconVersion ?? 0,
+    iconVersion,
     brandName: settings.brandName,
     tagline: settings.tagline,
     poweredByText: settings.poweredByText,

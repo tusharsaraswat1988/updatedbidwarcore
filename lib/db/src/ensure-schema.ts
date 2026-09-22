@@ -74,8 +74,10 @@ async function runEnsureCoreSchemaWithClient(pool: pg.Pool): Promise<void> {
     await client.query(`SET lock_timeout = '15s'`);
     await client.query(`SET statement_timeout = '30s'`);
 
-    // Idempotent safe additive bootstrap: ensures all IF NOT EXISTS tables and columns are created
-    await runLegacyBootstrapDdl(client);
+    // Idempotent safe additive bootstrap: ensures all IF NOT EXISTS tables and columns are created (local/staging only)
+    if (autoHeal) {
+      await runLegacyBootstrapDdl(client);
+    }
 
     await runSchemaGovernance(client, {
       autoHeal,
