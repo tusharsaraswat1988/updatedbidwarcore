@@ -270,6 +270,12 @@ function CricketOrganizerLayout({ tournamentId }: { tournamentId: number }) {
 function Router() {
   const [location] = useLocation();
 
+  // Normalize accidental double base prefix (e.g. /scoring-app/scoring-app/... -> /scoring-app/...)
+  if (location === "/scoring-app" || location.startsWith("/scoring-app/")) {
+    const canonical = location.slice("/scoring-app".length) || "/";
+    return <Redirect to={canonical} replace />;
+  }
+
   if (isSportsMissionControlPath(location)) {
     return (
       <SportsMissionControlLayout

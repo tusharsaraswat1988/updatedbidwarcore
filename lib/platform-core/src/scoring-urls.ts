@@ -7,12 +7,13 @@ export const SCORING_APP_BASE = "/scoring-app";
  */
 export const SPORTS_PRODUCT_HOST_BASE = SCORING_APP_BASE;
 
-/** Prefix an auction-platform path for the external scoring app. */
+/** Prefix an auction-platform path for the external scoring app (idempotent). */
 export function scoringAppPath(path: string): string {
   const normalized = path.startsWith("/") ? path : `/${path}`;
   if (
     normalized === SCORING_APP_BASE ||
-    normalized.startsWith(`${SCORING_APP_BASE}/`)
+    normalized.startsWith(`${SCORING_APP_BASE}/`) ||
+    normalized.startsWith(`${SCORING_APP_BASE}?`)
   ) {
     return normalized;
   }

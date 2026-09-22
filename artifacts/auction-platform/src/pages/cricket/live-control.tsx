@@ -306,341 +306,251 @@ export default function CricketLiveControlPage() {
     : cricketScoreHubPath(tournamentId);
 
   return (
-    <CricketOrganizerPageShell tournamentId={tournamentId}>
-      {/* ─── SINGLE SCREEN VIEWPORT CONTAINER (NO PAGE-LEVEL SCROLL) ─── */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-3 min-h-[calc(100vh-4.5rem)] flex flex-col justify-between gap-3">
+    <CricketOrganizerPageShell tournamentId={tournamentId} themeVariant="console">
+      {/* ─── MAIN CONTAINER: FLUID SCROLL ON MOBILE, FIT-VIEWPORT ON DESKTOP ─── */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 w-full flex flex-col gap-3 pb-16 sm:pb-8 lg:pb-0 lg:flex-1 lg:min-h-0 lg:overflow-hidden lg:justify-between">
         
-        {/* ─── 1. TOP HEADER & COMPACT CONSOLIDATED LINKS BAR ─── */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 bg-card/90 border border-border/80 rounded-xl px-3.5 py-2.5 shadow-xs">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2.5 w-2.5 rounded-full bg-red-500 animate-pulse" />
-              <h1 className="text-sm sm:text-base font-black tracking-tight text-foreground uppercase">
-                Live Broadcast Control Console
-              </h1>
-            </div>
-            <Badge
-              variant="outline"
-              className={cn(
-                "text-[10px] uppercase font-bold tracking-wider px-2 py-0.5",
-                currentOverlay === "none"
-                  ? "border-emerald-500/40 text-emerald-400 bg-emerald-500/10"
-                  : "border-amber-500/40 text-amber-400 bg-amber-500/10",
-              )}
-            >
-              Screen: {currentOverlay === "none" ? "CAMERA ONLY" : currentOverlay.toUpperCase()}
-            </Badge>
-          </div>
+        {/* ─── 1. ACTIVE MATCH SCORE CARD (CLEAN 2-LINE DISPLAY) ─── */}
+        <div className="bg-slate-900/85 border border-slate-800/90 rounded-xl p-3 sm:p-3.5 text-xs shadow-sm">
+          {currentMatch ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              {/* Left: 2-Line Scores with Team names & Overs */}
+              <div className="flex-1 min-w-0 space-y-1.5">
+                {/* Meta row: Match #, Overs, Status & Match Switcher */}
+                <div className="flex items-center justify-between gap-2 flex-wrap text-[10px] text-slate-400">
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1 font-bold text-red-400 bg-red-500/10 border border-red-500/25 px-1.5 py-0.5 rounded">
+                      <Radio className="w-2.5 h-2.5 text-red-500 animate-pulse" />
+                      Match #{currentMatch.tournamentMatchNumber ?? currentMatch.id}
+                    </span>
+                    <span>{currentMatch.rules?.overs ?? 20} Overs Match</span>
+                    <span className="text-amber-400 font-semibold capitalize">• {currentMatch.status}</span>
+                  </div>
 
-          {/* Consolidated Links Strip */}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            {/* LED Ground */}
-            <div className="flex items-center rounded-lg border border-border bg-background overflow-hidden">
-              <button
-                type="button"
-                onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
-                className="px-2 py-1 font-semibold hover:bg-muted text-foreground text-[11px] flex items-center gap-1"
-                title="Open LED Ground Scoreboard"
-              >
-                <span>📺 Ground LED</span>
-                <ExternalLink className="w-3 h-3 text-muted-foreground" />
-              </button>
-              <button
-                type="button"
-                onClick={() => copyTextToClipboard(ledDisplayUrl, "LED Ground Link")}
-                className="p-1 border-l border-border hover:bg-muted text-muted-foreground hover:text-foreground"
-                title="Copy LED URL"
-              >
-                <Copy className="w-3 h-3" />
-              </button>
-            </div>
-
-            {/* OBS Stream */}
-            <div className="flex items-center rounded-lg border border-sky-500/30 bg-sky-500/5 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => window.open(obsFullUrl, "_blank", "noopener,noreferrer")}
-                className="px-2 py-1 font-semibold hover:bg-sky-500/10 text-sky-400 text-[11px] flex items-center gap-1"
-                title="Open OBS Overlay Screen"
-              >
-                <span>🎥 OBS Stream</span>
-                <ExternalLink className="w-3 h-3 text-sky-400/70" />
-              </button>
-              <button
-                type="button"
-                onClick={() => copyTextToClipboard(obsFullUrl, "OBS Live Stream Link")}
-                className="p-1 border-l border-sky-500/30 hover:bg-sky-500/15 text-sky-400"
-                title="Copy OBS URL"
-              >
-                <Copy className="w-3 h-3" />
-              </button>
-            </div>
-
-            {/* Fan Page */}
-            <div className="flex items-center rounded-lg border border-border bg-background overflow-hidden">
-              <button
-                type="button"
-                onClick={() => window.open(publicFanUrl, "_blank", "noopener,noreferrer")}
-                className="px-2 py-1 font-semibold hover:bg-muted text-foreground text-[11px] flex items-center gap-1"
-                title="Open Fan Match Page"
-              >
-                <span>📱 Fan Page</span>
-                <ExternalLink className="w-3 h-3 text-muted-foreground" />
-              </button>
-              <button
-                type="button"
-                onClick={() => copyTextToClipboard(publicFanUrl, "Fan Page Link")}
-                className="p-1 border-l border-border hover:bg-muted text-muted-foreground hover:text-foreground"
-                title="Copy Fan Page URL"
-              >
-                <Copy className="w-3 h-3" />
-              </button>
-            </div>
-
-            {/* (i) Help Modal */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setHelpInfoOpen(true)}
-              className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground gap-1 rounded-lg"
-              title="Setup & Help"
-            >
-              <Info className="w-3.5 h-3.5 text-primary" />
-              <span className="hidden sm:inline">Setup (i)</span>
-            </Button>
-
-            {/* Refresh */}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isFetching}
-              onClick={() => void refetch()}
-              className="h-7 px-2 text-[11px] rounded-lg"
-              title="Refresh State"
-            >
-              <RefreshCw className={cn("w-3 h-3", isFetching && "animate-spin")} />
-            </Button>
-
-            {/* Back to Matches */}
-            <Link href={cricketScoreHubPath(tournamentId)}>
-              <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px] rounded-lg text-muted-foreground">
-                Matches Hub
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* ─── 2. MAIN 2-PANE OPERATOR DECK (FITS IN VIEWPORT) ─── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
-          
-          {/* ─── LEFT PANE: ACTIVE MATCH STATION (4 of 12 cols) ─── */}
-          <div className="lg:col-span-4 rounded-xl border border-border/80 bg-card/70 p-3.5 flex flex-col justify-between shadow-xs">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-border/50 pb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Radio className="w-3.5 h-3.5 text-red-500 animate-pulse" />
-                  Active Live Match
-                </span>
-                {currentMatch && (
-                  <Badge variant="outline" className="text-[10px] font-bold border-red-500/40 text-red-400 bg-red-500/10">
-                    Match #{currentMatch.tournamentMatchNumber ?? currentMatch.id}
-                  </Badge>
-                )}
-              </div>
-
-              {currentMatch ? (
-                <div className="space-y-3">
-                  {/* Match selector if multiple matches */}
                   {matches && matches.length > 1 && (
-                    <div className="flex items-center gap-1.5 text-xs">
-                      <span className="text-muted-foreground text-[11px]">Switch:</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-slate-500">Switch:</span>
                       <select
                         value={currentMatch.id}
                         onChange={(e) => setSelectedMatchId(parseInt(e.target.value, 10))}
-                        className="bg-background border border-border rounded px-2 py-1 text-xs text-foreground font-semibold flex-1"
+                        className="bg-slate-950 border border-slate-800 rounded px-1.5 py-0.5 text-[10px] text-slate-300 font-medium focus:outline-none"
                       >
                         {matches.map((m) => (
                           <option key={m.id} value={m.id}>
-                            #{m.tournamentMatchNumber ?? m.id}: {teamLabel(m.homeTeamId)} vs {teamLabel(m.awayTeamId)} ({m.status})
+                            #{m.tournamentMatchNumber ?? m.id}: {teamLabel(m.homeTeamId)} vs {teamLabel(m.awayTeamId)}
                           </option>
                         ))}
                       </select>
                     </div>
                   )}
-
-                  {/* Teams and Scorebox */}
-                  <div className="rounded-xl border border-border/70 bg-background/80 p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-display font-black text-base text-foreground">
-                        {activeHomeTeam?.shortCode ?? activeHomeTeam?.name ?? "Home"}
-                      </span>
-                      <span className="font-mono font-bold text-sm text-foreground">
-                        {currentHomeScore ?? "—"}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between border-t border-border/40 pt-1.5">
-                      <span className="font-display font-black text-base text-foreground">
-                        {activeAwayTeam?.shortCode ?? activeAwayTeam?.name ?? "Away"}
-                      </span>
-                      <span className="font-mono font-bold text-sm text-foreground">
-                        {currentAwayScore ?? "—"}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between border-t border-border/40 pt-1.5 text-[11px] text-muted-foreground">
-                      <span>{currentMatch.rules?.overs ?? 20} Overs Match</span>
-                      <span className="capitalize font-semibold text-primary">{currentMatch.status}</span>
-                    </div>
-                  </div>
-
-                  {/* Scorer Pad Hero Trigger */}
-                  <a
-                    href={scorerPath}
-                    className="flex items-center justify-center gap-2 w-full py-2.5 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-md shadow-amber-400/20"
-                  >
-                    <Radio className="w-4 h-4" />
-                    <span>Open Scorer / Umpire Pad ↗</span>
-                  </a>
                 </div>
-              ) : (
-                <div className="text-center py-8 text-xs text-muted-foreground">
-                  No active match selected.
+
+                {/* Team 1 Score Line */}
+                <div className="flex items-center justify-between pt-0.5">
+                  <span className="font-semibold text-sm sm:text-base text-slate-100 truncate pr-2">
+                    {activeHomeTeam?.name ?? activeHomeTeam?.shortCode ?? "Home Team"}
+                  </span>
+                  <span className="font-mono font-medium text-xs sm:text-sm text-slate-200 shrink-0">
+                    {currentHomeScore ?? "0/0 (0.0 ov)"}
+                  </span>
                 </div>
-              )}
-            </div>
 
-            {/* Quick Secondary Match Links */}
-            <div className="flex items-center gap-2 pt-2 border-t border-border/40 text-xs">
-              <Link href={matchCenterPath} className="flex-1">
-                <Button variant="outline" size="sm" className="w-full h-8 text-[11px] font-semibold">
-                  Match Scorecard
-                </Button>
-              </Link>
-              <a
-                href={publicFanUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1"
-              >
-                <Button variant="outline" size="sm" className="w-full h-8 text-[11px] font-semibold gap-1">
-                  <span>Fan Page</span>
-                  <ExternalLink className="w-3 h-3 text-muted-foreground" />
-                </Button>
-              </a>
-            </div>
-          </div>
+                {/* Team 2 Score Line */}
+                <div className="flex items-center justify-between border-t border-slate-800/40 pt-1">
+                  <span className="font-semibold text-sm sm:text-base text-slate-100 truncate pr-2">
+                    {activeAwayTeam?.name ?? activeAwayTeam?.shortCode ?? "Away Team"}
+                  </span>
+                  <span className="font-mono font-medium text-xs sm:text-sm text-slate-200 shrink-0">
+                    {currentAwayScore ?? "0/0 (0.0 ov)"}
+                  </span>
+                </div>
+              </div>
 
-          {/* ─── RIGHT PANE: SCREEN MODE SELECTOR (8 of 12 cols) ─── */}
-          <div className="lg:col-span-8 rounded-xl border border-border/80 bg-card/70 p-3.5 flex flex-col justify-between shadow-xs">
-            <div className="space-y-2.5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-border/50 pb-2">
+              {/* Right / Bottom on Mobile: Scorer Pad CTA */}
+              <div className="flex sm:flex-col items-center justify-between sm:justify-center gap-2 pt-1.5 sm:pt-0 sm:pl-3.5 border-t sm:border-t-0 sm:border-l border-slate-800/60 shrink-0">
+                <a
+                  href={scorerPath}
+                  className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition shadow-sm active:scale-[0.99] flex-1 sm:flex-none"
+                >
+                  <Radio className="w-3.5 h-3.5" />
+                  <span>Scorer Pad ↗</span>
+                </a>
+                <Link href={matchCenterPath} className="text-slate-400 hover:text-slate-200 text-[11px] underline sm:no-underline">
+                  Full Scorecard ↗
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-3 text-xs text-slate-400">
+              No active match selected.
+            </div>
+          )}
+        </div>
+
+        {/* ─── 2. SCREEN MODE SELECTOR (PRIMARY CONTROL DECK) ─── */}
+        <div className="rounded-xl border border-slate-800/90 bg-slate-900/70 p-3.5 flex flex-col justify-between shadow-sm">
+          <div className="space-y-2.5">
+            {/* Header with Title + Screen Status Badge + Refresh Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/60 pb-2.5">
+              <div className="flex items-center justify-between w-full sm:w-auto gap-2">
                 <div>
-                  <h2 className="text-xs sm:text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <Layers className="w-4 h-4 text-primary" />
+                  <h2 className="text-xs sm:text-sm font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <Layers className="w-4 h-4 text-slate-400" />
                     Screen Mode Selector (LED &amp; OBS Displays)
                   </h2>
-                  <p className="text-[11px] text-muted-foreground">
-                    Click any button to switch the live display mode across Ground LED and OBS Live Stream:
+                  <p className="text-[11px] text-slate-400 hidden sm:block">
+                    Switch the live display mode across Ground LED and OBS Live Stream:
                   </p>
                 </div>
+
+                {/* Mobile-only status & refresh in header */}
+                <div className="flex sm:hidden items-center gap-1.5 shrink-0">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[9px] uppercase font-semibold tracking-wider px-1.5 py-0.5",
+                      currentOverlay === "none"
+                        ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                        : "border-amber-500/30 text-amber-400 bg-amber-500/10",
+                    )}
+                  >
+                    {currentOverlay === "none" ? "CAMERA ONLY" : currentOverlay.toUpperCase()}
+                  </Badge>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={isFetching}
+                    onClick={() => void refetch()}
+                    className="h-6 w-6 p-0 text-slate-400 hover:text-slate-200"
+                    title="Refresh State"
+                  >
+                    <RefreshCw className={cn("w-3 h-3", isFetching && "animate-spin")} />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Desktop status & refresh */}
+              <div className="hidden sm:flex items-center gap-2 shrink-0">
                 {lastTriggeredFlash ? (
-                  <span className="text-[11px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 animate-pulse self-start sm:self-auto">
+                  <span className="text-[11px] font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/25 animate-pulse">
                     Flash: {lastTriggeredFlash}
                   </span>
                 ) : null}
-              </div>
 
-              {/* Tactical 7-Scene Selector Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 pt-1">
-                {OVERLAY_OPTIONS.map((item) => {
-                  const isActive = currentOverlay === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleSetOverlay(item.id, item.label)}
-                      className={cn(
-                        "flex flex-col items-start p-2.5 rounded-xl border text-left transition relative cursor-pointer select-none",
-                        isActive
-                          ? "border-primary bg-primary/15 text-primary ring-2 ring-primary/60 shadow-md"
-                          : "border-border/80 bg-background/90 hover:bg-muted/70 text-foreground hover:border-border",
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[10px] uppercase font-semibold tracking-wider px-2 py-0.5",
+                    currentOverlay === "none"
+                      ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10"
+                      : "border-amber-500/30 text-amber-400 bg-amber-500/10",
+                  )}
+                >
+                  Screen: {currentOverlay === "none" ? "CAMERA ONLY" : currentOverlay.toUpperCase()}
+                </Badge>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isFetching}
+                  onClick={() => void refetch()}
+                  className="h-7 px-2 text-[11px] rounded-lg border-slate-800 bg-slate-950/40 text-slate-300 hover:bg-slate-800/60"
+                  title="Refresh State"
+                >
+                  <RefreshCw className={cn("w-3 h-3", isFetching && "animate-spin")} />
+                </Button>
+              </div>
+            </div>
+
+            {/* Tactical 7-Scene Selector Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 pt-1">
+              {OVERLAY_OPTIONS.map((item) => {
+                const isActive = currentOverlay === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleSetOverlay(item.id, item.label)}
+                    className={cn(
+                      "flex flex-col items-start p-2.5 rounded-xl border text-left transition relative cursor-pointer select-none min-h-[76px]",
+                      isActive
+                        ? "border-emerald-500/70 bg-emerald-950/25 text-emerald-300 ring-1 ring-emerald-500/40 shadow-sm"
+                        : "border-slate-800/80 bg-slate-950/60 hover:bg-slate-800/50 text-slate-300 hover:border-slate-700",
+                    )}
+                  >
+                    <div className="flex items-center justify-between w-full mb-1">
+                      <span className="text-base">{item.icon}</span>
+                      {isActive ? (
+                        <span className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded-full">
+                          <CheckCircle2 className="w-2.5 h-2.5" />
+                          ACTIVE
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-medium text-slate-500 uppercase">
+                          {item.tag}
+                        </span>
                       )}
-                    >
-                      <div className="flex items-center justify-between w-full mb-1">
-                        <span className="text-lg">{item.icon}</span>
-                        {isActive ? (
-                          <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
-                            <CheckCircle2 className="w-2.5 h-2.5" />
-                            ACTIVE
-                          </span>
-                        ) : (
-                          <span className="text-[9px] font-semibold text-muted-foreground/70 uppercase">
-                            {item.tag}
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-xs font-bold leading-tight line-clamp-1">
-                        {item.label}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5 leading-snug">
-                        {item.desc}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-200 leading-tight line-clamp-1">
+                      {item.label}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal line-clamp-2 mt-0.5 leading-snug">
+                      {item.desc}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            {/* Hint Strip */}
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2 border-t border-border/40">
-              <span>All score data is automatically fed by the match scorer.</span>
-              <button
-                type="button"
-                onClick={() => handleSetOverlay("none", "Camera Feed Only")}
-                className="text-primary hover:underline font-semibold flex items-center gap-1"
-              >
-                <RotateCcw className="w-3 h-3" />
-                Reset to Camera Only
-              </button>
-            </div>
+          {/* Hint Strip */}
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2.5 mt-2 border-t border-slate-800/60">
+            <span className="truncate pr-2">Scores auto-sync from match scorer.</span>
+            <button
+              type="button"
+              onClick={() => handleSetOverlay("none", "Camera Feed Only")}
+              className="text-slate-300 hover:text-white hover:underline font-medium flex items-center gap-1 shrink-0"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Reset to Camera
+            </button>
           </div>
         </div>
 
-        {/* ─── 3. BOTTOM OVERRIDE & EMERGENCY DECK ─── */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-card/90 border border-border/80 rounded-xl p-2.5 shadow-xs text-xs">
+        {/* ─── 3. EMERGENCY & MANUAL OVERRIDE TOOLS ─── */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-slate-900/80 border border-slate-800/90 rounded-xl p-3 shadow-sm text-xs">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-foreground flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-amber-400" />
-              Manual Triggers &amp; Emergency Tools:
+            <span className="font-semibold text-slate-200 flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+              Manual Animation &amp; Emergency Tools
             </span>
-            <span className="text-[11px] text-muted-foreground hidden md:inline">
-              (Auto-triggered by Scorer on each ball. Use below buttons only for manual override)
+            <span className="text-[11px] text-slate-400 hidden md:inline">
+              (Scorer auto-triggers boundaries. Use below for manual overrides)
             </span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Hidden/Collapsible Manual Animation Button */}
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+            {/* Manual Animation Button */}
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setAnimationsModalOpen(true)}
-              className="h-8 text-xs font-bold border-amber-500/40 text-amber-400 hover:bg-amber-500/10 gap-1.5 rounded-lg"
+              className="h-8 text-xs font-medium border-amber-500/30 text-amber-400 bg-amber-500/5 hover:bg-amber-500/15 gap-1.5 rounded-lg flex-1 sm:flex-none justify-center"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Manual Animation Overrides (10 triggers) ▾</span>
+              <span>Animation Overrides (10) ▾</span>
             </Button>
 
-            {/* Emergency Blackout Button */}
+            {/* Emergency Reset Button */}
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={() => handleSetOverlay("none", "Emergency Reset (Camera Only)")}
-              className="h-8 text-xs font-bold border-red-500/40 text-red-400 hover:bg-red-500/10 gap-1.5 rounded-lg"
+              className="h-8 text-xs font-medium border-red-500/30 text-red-400 bg-red-500/5 hover:bg-red-500/15 gap-1.5 rounded-lg flex-1 sm:flex-none justify-center"
               title="Instantly clear all screen overlays"
             >
               <ShieldAlert className="w-3.5 h-3.5" />
@@ -649,25 +559,150 @@ export default function CricketLiveControlPage() {
           </div>
         </div>
 
+        {/* ─── 4. SHARABLE BROADCAST LINKS SECTION (BOTTOM) ─── */}
+        <div className="bg-slate-900/80 border border-slate-800/90 rounded-xl p-3.5 shadow-sm text-xs space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-800/60 pb-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+              <Tv className="w-4 h-4 text-slate-400" />
+              Broadcast &amp; Display Screen Links
+            </span>
+            <span className="text-[10px] text-slate-500 hidden sm:inline">
+              Open on external display or copy URL
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {/* Ground LED */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base shrink-0">📺</span>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-200 text-xs truncate">Ground LED Screen</p>
+                  <p className="text-[10px] text-slate-400 truncate">Scoreboard display feed</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
+                  className="px-2.5 py-1 text-[11px] font-medium rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1 transition-colors"
+                  title="Open LED Display"
+                >
+                  <span>Open</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyTextToClipboard(ledDisplayUrl, "LED Ground URL")}
+                  className="p-1.5 text-slate-400 hover:text-slate-200 rounded-md hover:bg-slate-800 transition-colors"
+                  title="Copy Link"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* OBS Live Stream */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl border border-sky-500/25 bg-sky-950/20 gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base shrink-0">🎥</span>
+                <div className="min-w-0">
+                  <p className="font-semibold text-sky-400 text-xs truncate">OBS Live Stream Feed</p>
+                  <p className="text-[10px] text-slate-400 truncate">Browser source for OBS/vMix</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => window.open(obsFullUrl, "_blank", "noopener,noreferrer")}
+                  className="px-2.5 py-1 text-[11px] font-medium rounded-md bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 flex items-center gap-1 transition-colors"
+                  title="Open OBS Feed"
+                >
+                  <span>Open</span>
+                  <ExternalLink className="w-3 h-3 text-sky-400" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyTextToClipboard(obsFullUrl, "OBS Live Stream URL")}
+                  className="p-1.5 text-sky-400 hover:text-sky-200 rounded-md hover:bg-sky-500/20 transition-colors"
+                  title="Copy Link"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Public Fan Center */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-800 bg-slate-950/60 gap-2 sm:col-span-2 lg:col-span-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-base shrink-0">📱</span>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-200 text-xs truncate">Public Fan Center</p>
+                  <p className="text-[10px] text-slate-400 truncate">Mobile viewer match page</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => window.open(publicFanUrl, "_blank", "noopener,noreferrer")}
+                  className="px-2.5 py-1 text-[11px] font-medium rounded-md bg-slate-800 hover:bg-slate-700 text-slate-200 flex items-center gap-1 transition-colors"
+                  title="Open Fan Page"
+                >
+                  <span>Open</span>
+                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => copyTextToClipboard(publicFanUrl, "Fan Page URL")}
+                  className="p-1.5 text-slate-400 hover:text-slate-200 rounded-md hover:bg-slate-800 transition-colors"
+                  title="Copy Link"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Secondary Actions Row */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/60">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setHelpInfoOpen(true)}
+              className="h-8 px-3 text-xs text-slate-300 border-slate-800 bg-slate-950/40 hover:bg-slate-800/60 gap-1.5 rounded-lg flex-1 sm:flex-none justify-center"
+            >
+              <Info className="w-3.5 h-3.5 text-slate-300" />
+              <span>OBS &amp; LED Setup Guide (i)</span>
+            </Button>
+
+            <Link href={cricketScoreHubPath(tournamentId)} className="flex-1 sm:flex-none">
+              <Button variant="ghost" size="sm" className="w-full h-8 px-3 text-xs rounded-lg text-slate-400 hover:text-slate-200 font-medium">
+                Matches Hub ↗
+              </Button>
+            </Link>
+          </div>
+        </div>
+
       </div>
 
       {/* ─── MODAL: MANUAL SCORING ANIMATION OVERRIDES (10 BUTTONS HIDDEN BEHIND MODAL) ─── */}
       <Dialog open={animationsModalOpen} onOpenChange={setAnimationsModalOpen}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-xl bg-slate-900 border-slate-800 text-slate-200">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 text-slate-100 font-semibold text-base">
               <Sparkles className="w-5 h-5 text-amber-400" />
               Manual Scoring Animation Overrides
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-1 text-xs">
-            <div className="rounded-xl border border-border bg-muted/30 p-3 text-muted-foreground">
-              <p className="font-semibold text-foreground mb-0.5">ℹ️ Auto-Trigger Information:</p>
-              <p>
+            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-slate-300">
+              <p className="font-medium text-slate-100 mb-0.5">ℹ️ Auto-Trigger Information:</p>
+              <p className="text-slate-400">
                 Jab scorer match pad par 4, 6, wicket, ya no-ball score karta hai, to yeh animations OBS stream aur LED scoreboard par automatically play ho jati hain.
               </p>
-              <p className="mt-1 text-[11px] text-amber-300">
-                Agar kisi emergency ya testing ke liye aapko manully animation trigger karni ho, tabhi niche diye gaye button par click karein (3.5 second on-screen burst).
+              <p className="mt-1 text-[11px] text-amber-400 font-medium">
+                Agar kisi emergency ya testing ke liye aapko manually animation trigger karni ho, tabhi niche diye gaye button par click karein (3.5 second on-screen burst).
               </p>
             </div>
 
@@ -680,7 +715,7 @@ export default function CricketLiveControlPage() {
                     void handleTriggerFlash(item.flash, item.label);
                   }}
                   className={cn(
-                    "flex flex-col items-start p-2.5 rounded-xl text-left transition active:scale-95 shadow-sm font-bold",
+                    "flex flex-col items-start p-2.5 rounded-xl text-left transition active:scale-95 shadow-sm font-medium",
                     item.color,
                   )}
                 >
@@ -695,19 +730,19 @@ export default function CricketLiveControlPage() {
 
       {/* ─── MODAL: SETUP & BROADCAST HELP GUIDE (i) ─── */}
       <Dialog open={helpInfoOpen} onOpenChange={setHelpInfoOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg bg-slate-900 border-slate-800 text-slate-200">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Tv className="w-5 h-5 text-primary" />
+            <DialogTitle className="flex items-center gap-2 text-slate-100 font-semibold text-base">
+              <Tv className="w-5 h-5 text-sky-400" />
               Live Screen &amp; OBS Setup Guide
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 pt-1 text-xs text-muted-foreground leading-relaxed">
-            <div className="rounded-xl border border-sky-500/30 p-3.5 bg-sky-500/5 space-y-1.5">
-              <p className="font-bold text-sky-400 flex items-center gap-1.5">
+          <div className="space-y-4 pt-1 text-xs text-slate-300 leading-relaxed">
+            <div className="rounded-xl border border-sky-500/25 p-3.5 bg-sky-950/20 space-y-1.5">
+              <p className="font-semibold text-sky-400 flex items-center gap-1.5">
                 <span>🎥 OBS Studio &amp; vMix Live Stream Setup</span>
               </p>
-              <p>
+              <p className="text-slate-300">
                 1. OBS me <strong>Add Source (+) &gt; Browser</strong> chunein.
                 <br />
                 2. Upar ka <strong>OBS Stream URL</strong> copy karke paste karein.
@@ -718,20 +753,20 @@ export default function CricketLiveControlPage() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-border p-3.5 bg-muted/30 space-y-1.5">
-              <p className="font-bold text-foreground flex items-center gap-1.5">
+            <div className="rounded-xl border border-slate-800 p-3.5 bg-slate-950/60 space-y-1.5">
+              <p className="font-semibold text-slate-200 flex items-center gap-1.5">
                 <span>📺 Ground LED Screen &amp; Projector Setup</span>
               </p>
-              <p>
+              <p className="text-slate-400">
                 LED display laptop par Chrome browser me <strong>Ground LED Link</strong> open karein aur keyboard par <strong>F11</strong> press karke full screen mode on karein. Score auto-sync hota hai.
               </p>
             </div>
 
-            <div className="rounded-xl border border-amber-500/30 p-3.5 bg-amber-500/5 space-y-1.5">
-              <p className="font-bold text-amber-400 flex items-center gap-1.5">
+            <div className="rounded-xl border border-amber-500/25 p-3.5 bg-amber-500/10 space-y-1.5">
+              <p className="font-semibold text-amber-400 flex items-center gap-1.5">
                 <span>🎛️ Operator Console Instructions</span>
               </p>
-              <p>
+              <p className="text-slate-300">
                 • Scorer ground se match score karta rahega.
                 <br />
                 • Operator is page se LED &amp; OBS screen ka mode switch karega (Playing XI, Points Table, Sponsors, Match Summary).

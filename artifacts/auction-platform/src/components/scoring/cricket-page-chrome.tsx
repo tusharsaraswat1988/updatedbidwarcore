@@ -173,11 +173,13 @@ export function CricketOrganizerPageShell({
   className,
   tournamentId,
   noPadding = true,
+  themeVariant,
 }: {
   children: ReactNode;
   className?: string;
   tournamentId?: number;
   noPadding?: boolean;
+  themeVariant?: "default" | "console";
 }) {
   const inShell = useInSportsShell();
 
@@ -199,6 +201,7 @@ export function CricketOrganizerPageShell({
       nav={cricketSportNav}
       noPadding={noPadding}
       className={className}
+      themeVariant={themeVariant}
     >
       {children}
     </SportsShell>

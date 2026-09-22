@@ -400,6 +400,12 @@ if (serveStatic) {
         res.redirect(302, `/scoring-app${rest === "/" ? "/" : rest}${qs}`);
         return;
       }
+      if (pathname === "/scoring-app/scoring-app" || pathname.startsWith("/scoring-app/scoring-app/")) {
+        const rest = pathname === "/scoring-app/scoring-app" ? "/" : pathname.slice("/scoring-app/scoring-app".length);
+        const qs = req.url?.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+        res.redirect(301, `/scoring-app${rest === "/" ? "/" : rest}${qs}`);
+        return;
+      }
       next();
     });
 

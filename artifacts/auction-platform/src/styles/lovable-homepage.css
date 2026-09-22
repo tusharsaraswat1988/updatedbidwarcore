@@ -105,15 +105,58 @@
   --color-live: var(--live);
   --color-sold: var(--sold);
   --color-unsold: var(--unsold);
+}
 
-  /* Tokens + typography only. Page chrome (gradient / min-height) is below —
-   * portals also use `.lovable-theme` for token inheritance and must NOT get
-   * full-viewport min-height or the stage gradient (that stretched Select /
-   * menu overlays into tall empty panels on registration). */
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  font-feature-settings: "ss01", "cv11";
-  -webkit-font-smoothing: antialiased;
+/* Serious Broadcast Control Console theme: matte dark obsidian & slate */
+:is(.theme-broadcast-console),
+.dark:is(.theme-broadcast-console),
+:is(.theme-broadcast-console).dark {
+  --background: oklch(0.12 0.015 250);
+  --foreground: oklch(0.90 0.01 240);
+
+  --stage: oklch(0.10 0.01 250);
+  --panel: oklch(0.15 0.015 250);
+  --panel-2: oklch(0.18 0.015 250);
+  --rail: oklch(0.22 0.015 250);
+
+  --card: oklch(0.15 0.015 250);
+  --card-foreground: oklch(0.90 0.01 240);
+  --popover: oklch(0.15 0.015 250);
+  --popover-foreground: oklch(0.90 0.01 240);
+
+  --primary: oklch(0.85 0.17 88);
+  --primary-foreground: oklch(0.12 0.01 250);
+
+  --secondary: oklch(0.18 0.015 250);
+  --secondary-foreground: oklch(0.88 0.01 240);
+
+  --muted: oklch(0.18 0.015 250);
+  --muted-foreground: oklch(0.65 0.02 240);
+
+  --border: oklch(0.24 0.015 250);
+  --input: oklch(0.24 0.015 250);
+  --ring: oklch(0.85 0.17 88);
+
+  --gradient-stage: radial-gradient(ellipse at 50% 0%, rgba(30, 41, 59, 0.35), transparent 70%);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-stage: var(--stage);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-rail: var(--rail);
 }
 
 /*

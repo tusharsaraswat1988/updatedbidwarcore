@@ -63,6 +63,8 @@ interface SportsShellProps {
   className?: string;
   /** Optional custom title override */
   title?: string;
+  /** Optional theme variant: "default" | "console" */
+  themeVariant?: "default" | "console";
 }
 
 function SidebarAccountFooter({
@@ -399,6 +401,7 @@ export function SportsShell({
   noPadding,
   className,
   title,
+  themeVariant = "default",
 }: SportsShellProps) {
   const [location] = useLocation();
   const search = useSearch();
@@ -411,6 +414,12 @@ export function SportsShell({
     cldUrl(logos.appIcon, "appIcon") ||
     cldUrl(logos.mini, "headerLogo") ||
     getBrandLogoSrc(logos, sidebarPreset.logoOrder);
+  const headerLogoSrc =
+    cldUrl(logos.mini, "headerLogo") ||
+    cldUrl(logos.main, "brandWordmark") ||
+    cldUrl(logos.mainReverse, "brandWordmark") ||
+    cldUrl(logos.appIcon, "appIcon") ||
+    getBrandLogoSrc(logos, ["mini", "main", "mainReverse", "appIcon"]);
   const logoAlt = getBrandLogoAlt(brandName);
 
   // Tournament row for title + scoring gate (all sports in this shell).
@@ -575,7 +584,8 @@ export function SportsShell({
     <SportsShellContext.Provider value={true}>
       <div
         className={cn(
-          "lovable-theme flex flex-col lg:flex-row h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark",
+          themeVariant === "console" ? "theme-broadcast-console" : "lovable-theme",
+          "flex flex-col lg:flex-row h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark",
           className,
         )}
       >
@@ -591,13 +601,21 @@ export function SportsShell({
               <Menu className="w-5 h-5" />
             </button>
             {brandingLoading ? (
-              <div className="h-7 w-7 shrink-0" />
+              <div className="h-8 w-8 shrink-0" />
             ) : (
-              <img src={sidebarLogoSrc} alt={logoAlt} className="h-7 w-auto max-w-[5rem] object-contain shrink-0" />
+              <img
+                src={headerLogoSrc}
+                alt={logoAlt}
+                className="h-8 w-auto max-w-[6.5rem] object-contain shrink-0 rounded-sm"
+              />
             )}
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-foreground truncate leading-tight">{tournamentTitle}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold leading-tight">{nav.sportLabel}</p>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs sm:text-sm font-bold text-foreground truncate leading-tight" title={tournamentTitle}>
+                {tournamentTitle}
+              </p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold leading-tight">
+                {nav.sportLabel}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -640,28 +658,39 @@ export function SportsShell({
           className="hidden lg:flex flex-shrink-0 border-r border-border bg-card flex-col z-10 transition-[width] duration-200 ease-in-out overflow-hidden"
           style={{ width: collapsed ? 56 : 256 }}
         >
-          <div className="h-16 flex items-center border-b border-border flex-shrink-0 px-3 gap-2 min-w-0">
+          <div className="h-16 flex items-center border-b border-border flex-shrink-0 px-4 gap-2 min-w-0">
             {collapsed ? (
               <button
                 type="button"
                 onClick={toggleCollapsed}
                 title="Expand sidebar"
-                className="mx-auto text-muted-foreground hover:text-foreground transition-colors"
+                className="mx-auto text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-accent cursor-pointer"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             ) : (
               <>
-                {brandingLoading ? (
-                  <div className="h-9 w-9 flex-shrink-0" />
-                ) : (
-                  <img src={sidebarLogoSrc} alt={logoAlt} className={sidebarPreset.sizeClass} />
-                )}
+                <button
+                  type="button"
+                  onClick={goToTournamentsHome}
+                  className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer group"
+                  title="All Tournaments"
+                >
+                  {brandingLoading ? (
+                    <div className="h-8 w-24 bg-muted/40 animate-pulse rounded" />
+                  ) : (
+                    <img
+                      src={headerLogoSrc}
+                      alt={logoAlt}
+                      className="h-8 w-auto max-w-[140px] sm:max-w-[160px] object-contain object-left shrink-0 transition-opacity group-hover:opacity-90"
+                    />
+                  )}
+                </button>
                 <button
                   type="button"
                   onClick={toggleCollapsed}
                   title="Collapse sidebar"
-                  className="ml-auto flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                  className="ml-auto flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-accent cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
@@ -679,13 +708,70 @@ export function SportsShell({
         </aside>
 
         <main className="flex-1 flex flex-col min-w-0 bg-transparent relative overflow-hidden">
-          <div
-            className="absolute inset-0 pointer-events-none opacity-100"
-            style={{
-              background:
-                "radial-gradient(ellipse at 20% -10%, oklch(0.42 0.15 265 / 0.45), transparent 55%), radial-gradient(ellipse at 90% 0%, oklch(0.85 0.17 88 / 0.08), transparent 50%)",
-            }}
-          />
+          {/* Desktop Top Header Bar (lg+) */}
+          <header className="hidden lg:flex h-14 border-b border-border bg-card/90 backdrop-blur-md px-6 items-center justify-between gap-4 shrink-0 z-10">
+            <div className="flex items-center gap-3 min-w-0">
+              {collapsed && (
+                <div className="flex items-center gap-2 pr-3 border-r border-border shrink-0">
+                  {brandingLoading ? (
+                    <div className="h-7 w-16 bg-muted/40 animate-pulse rounded" />
+                  ) : (
+                    <img
+                      src={headerLogoSrc}
+                      alt={logoAlt}
+                      className="h-7 w-auto max-w-[6.5rem] object-contain shrink-0"
+                    />
+                  )}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-foreground truncate leading-tight" title={tournamentTitle}>
+                  {tournamentTitle}
+                </p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold leading-tight">
+                  {nav.sportLabel}
+                </p>
+              </div>
+              <Badge variant="outline" className="text-[10px] px-2 py-0.5 h-5 border-primary/30 text-primary font-bold uppercase shrink-0">
+                {nav.sportId}
+              </Badge>
+            </div>
+
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-2 pr-3 border-r border-border/60">
+                {brandingLoading ? (
+                  <div className="h-7 w-20 bg-muted/40 animate-pulse rounded" />
+                ) : (
+                  <img
+                    src={headerLogoSrc}
+                    alt={logoAlt}
+                    className="h-7 w-auto max-w-[7rem] object-contain shrink-0 opacity-90 hover:opacity-100 transition-opacity"
+                  />
+                )}
+              </div>
+              {tournamentId && !localVenue ? (
+                <LogoutButton tournamentId={tournamentId} />
+              ) : null}
+            </div>
+          </header>
+
+          {themeVariant === "console" ? (
+            <div
+              className="absolute inset-0 pointer-events-none opacity-100"
+              style={{
+                background:
+                  "radial-gradient(ellipse at 50% 0%, rgba(30, 41, 59, 0.25), transparent 60%)",
+              }}
+            />
+          ) : (
+            <div
+              className="absolute inset-0 pointer-events-none opacity-100"
+              style={{
+                background:
+                  "radial-gradient(ellipse at 20% -10%, oklch(0.42 0.15 265 / 0.45), transparent 55%), radial-gradient(ellipse at 90% 0%, oklch(0.85 0.17 88 / 0.08), transparent 50%)",
+              }}
+            />
+          )}
           {noPadding ? (
             <div className="flex-1 overflow-y-auto z-0 relative flex flex-col min-h-0">
               {scoringDisabled ? <SportsUnavailableView /> : children}
