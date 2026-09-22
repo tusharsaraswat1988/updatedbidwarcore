@@ -68,11 +68,26 @@ import {
   Shield,
   Shuffle,
   Sparkles,
+  Trash2,
   Trophy,
   Users,
 } from "lucide-react";
 
 type DrawFormat = "round_robin" | "knockout" | "league_knockout";
+
+type GroupAllocation = {
+  id: string;
+  name: string;
+  teamIds: number[];
+};
+
+function getDefaultGroupName(index: number) {
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  if (index < letters.length) {
+    return `Group ${letters[index]}`;
+  }
+  return `Group ${index + 1}`;
+}
 
 const FORMAT_OPTIONS: {
   value: DrawFormat;
@@ -99,7 +114,7 @@ const FORMAT_OPTIONS: {
     value: "league_knockout",
     title: "Groups + Knockout",
     badge: "Pool Stage",
-    description: "Teams play round-robin inside Group A and Group B, followed by playoff finals.",
+    description: "Teams play round-robin inside groups (Group A, B, C, D...), followed by playoff finals.",
     icon: Layers,
   },
 ];
@@ -168,8 +183,10 @@ export default function ScoringSchedulePage() {
   const [startDate, setStartDate] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const [groupA, setGroupA] = useState<number[]>([]);
-  const [groupB, setGroupB] = useState<number[]>([]);
+  const [groups, setGroups] = useState<GroupAllocation[]>([
+    { id: "g-0", name: "Group A", teamIds: [] },
+    { id: "g-1", name: "Group B", teamIds: [] },
+  ]);
 
   // Venue management modal state
   const [showAddVenue, setShowAddVenue] = useState(false);
@@ -230,10 +247,14 @@ export default function ScoringSchedulePage() {
     setDrawName(
       tournament?.name ? `${tournament.name} Stage 1` : "League Stage 2026",
     );
-    // Split into groups default 50/50
-    const half = Math.ceil(allTeamIds.length / 2);
-    setGroupA(allTeamIds.slice(0, half));
-    setGroupB(allTeamIds.slice(half));
+    // Determine appropriate initial group count based on team count (>=12 teams -> 4 groups, >=9 -> 3 groups, else 2)
+    const initialGroupCount = allTeamIds.length >= 12 ? 4 : (allTeamIds.length >= 9 ? 3 : 2);
+    const initialGroups: GroupAllocation[] = Array.from({ length: initialGroupCount }, (_, i) => ({
+      id: `g-${i}`,
+      name: getDefaultGroupName(i),
+      teamIds: allTeamIds.filter((_, idx) => idx % initialGroupCount === i),
+    }));
+    setGroups(initialGroups);
     setShowGenerate(true);
   }
 
@@ -242,15 +263,21 @@ export default function ScoringSchedulePage() {
       const next = selected ? (prev.includes(id) ? prev : [...prev, id]) : prev.filter((x) => x !== id);
       // Synchronize groups
       if (!selected) {
-        setGroupA((g) => g.filter((x) => x !== id));
-        setGroupB((g) => g.filter((x) => x !== id));
+        setGroups((gList) => gList.map((g) => ({ ...g, teamIds: g.teamIds.filter((x) => x !== id) })));
       } else {
-        // Add to group with fewer teams
-        if (groupA.length <= groupB.length) {
-          setGroupA((g) => (g.includes(id) ? g : [...g, id]));
-        } else {
-          setGroupB((g) => (g.includes(id) ? g : [...g, id]));
-        }
+        // Add to the group that currently has the fewest teams
+        setGroups((gList) => {
+          if (gList.length === 0) return gList;
+          let minIdx = 0;
+          for (let i = 1; i < gList.length; i++) {
+            if (gList[i]!.teamIds.length < gList[minIdx]!.teamIds.length) {
+              minIdx = i;
+            }
+          }
+          return gList.map((g, idx) =>
+            idx === minIdx ? { ...g, teamIds: g.teamIds.includes(id) ? g.teamIds : [...g.teamIds, id] } : g,
+          );
+        });
       }
       return next;
     });
@@ -259,26 +286,109 @@ export default function ScoringSchedulePage() {
   function selectAllTeams() {
     const allIds = teams.map((t) => t.id);
     setSelectedTeams(allIds);
-    const half = Math.ceil(allIds.length / 2);
-    setGroupA(allIds.slice(0, half));
-    setGroupB(allIds.slice(half));
+    setGroups((gList) => {
+      const count = Math.max(2, gList.length);
+      return gList.map((g, idx) => ({
+        ...g,
+        teamIds: allIds.filter((_, i) => i % count === idx),
+      }));
+    });
   }
 
   function clearAllTeams() {
     setSelectedTeams([]);
-    setGroupA([]);
-    setGroupB([]);
+    setGroups((gList) => gList.map((g) => ({ ...g, teamIds: [] })));
+  }
+
+  function setGroupCount(count: number) {
+    if (count < 2 || count > 8) return;
+    setGroups((prev) => {
+      const next: GroupAllocation[] = [];
+      for (let i = 0; i < count; i++) {
+        if (i < prev.length) {
+          next.push({ ...prev[i]!, teamIds: [] });
+        } else {
+          next.push({
+            id: `g-${Date.now()}-${i}`,
+            name: getDefaultGroupName(i),
+            teamIds: [],
+          });
+        }
+      }
+      const shuffled = [...selectedTeams];
+      return next.map((g, idx) => ({
+        ...g,
+        teamIds: shuffled.filter((_, i) => i % count === idx),
+      }));
+    });
   }
 
   function autoBalanceGroups() {
     const shuffled = [...selectedTeams].sort(() => Math.random() - 0.5);
-    const half = Math.ceil(shuffled.length / 2);
-    setGroupA(shuffled.slice(0, half));
-    setGroupB(shuffled.slice(half));
+    const count = groups.length;
+    if (count === 0) return;
+    setGroups((prev) =>
+      prev.map((g, idx) => ({
+        ...g,
+        teamIds: shuffled.filter((_, i) => i % count === idx),
+      })),
+    );
     toast({
       title: "Groups Balanced",
-      description: `Group A: ${half} teams · Group B: ${shuffled.length - half} teams`,
+      description: `Distributed ${selectedTeams.length} teams evenly across ${count} groups.`,
     });
+  }
+
+  function toggleTeamInGroup(groupId: string, teamId: number) {
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id === groupId) {
+          const isPresent = g.teamIds.includes(teamId);
+          return {
+            ...g,
+            teamIds: isPresent ? g.teamIds.filter((id) => id !== teamId) : [...g.teamIds, teamId],
+          };
+        }
+        return {
+          ...g,
+          teamIds: g.teamIds.filter((id) => id !== teamId),
+        };
+      }),
+    );
+  }
+
+  function addGroup() {
+    if (groups.length >= 8) {
+      toast({
+        title: "Maximum Groups Reached",
+        description: "You can create up to 8 groups.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const newIdx = groups.length;
+    const newG: GroupAllocation = {
+      id: `g-${Date.now()}-${newIdx}`,
+      name: getDefaultGroupName(newIdx),
+      teamIds: [],
+    };
+    setGroups((prev) => [...prev, newG]);
+  }
+
+  function removeGroup(groupId: string) {
+    if (groups.length <= 2) {
+      toast({
+        title: "Minimum 2 Groups",
+        description: "At least 2 groups are required for Groups format.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setGroups((prev) => prev.filter((g) => g.id !== groupId));
+  }
+
+  function updateGroupName(groupId: string, name: string) {
+    setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, name } : g)));
   }
 
   // Estimated fixtures count calculation
@@ -292,13 +402,14 @@ export default function ScoringSchedulePage() {
       return n - 1;
     }
     if (format === "league_knockout") {
-      const a = groupA.length;
-      const b = groupB.length;
-      const groupMatches = (a * (a - 1)) / 2 + (b * (b - 1)) / 2;
-      return groupMatches > 0 ? groupMatches + (a >= 2 && b >= 2 ? 3 : 0) : 0;
+      const groupMatches = groups.reduce((acc, g) => {
+        const len = g.teamIds.length;
+        return acc + (len >= 2 ? (len * (len - 1)) / 2 : 0);
+      }, 0);
+      return groupMatches;
     }
     return 0;
-  }, [selectedTeams.length, format, groupA.length, groupB.length]);
+  }, [selectedTeams.length, format, groups]);
 
   async function handleAddVenue() {
     if (!newVenueName.trim()) return;
@@ -333,10 +444,12 @@ export default function ScoringSchedulePage() {
       return;
     }
     if (format === "league_knockout") {
-      if (groupA.length < 2 || groupB.length < 2) {
+      const incomplete = groups.filter((g) => g.teamIds.length < 2);
+      if (incomplete.length > 0) {
+        const groupNames = incomplete.map((g) => g.name || "Group").join(", ");
         toast({
           title: "Incomplete Groups",
-          description: "Both Group A and Group B must have at least 2 teams assigned.",
+          description: `Each group must have at least 2 teams assigned (${groupNames} has fewer than 2).`,
           variant: "destructive",
         });
         return;
@@ -355,10 +468,10 @@ export default function ScoringSchedulePage() {
         createMatches: true,
       };
       if (format === "league_knockout") {
-        body.groups = [
-          { name: "Group A", teamIds: groupA },
-          { name: "Group B", teamIds: groupB },
-        ];
+        body.groups = groups.map((g) => ({
+          name: g.name.trim() || "Group",
+          teamIds: g.teamIds,
+        }));
       }
       const result = await generateDraw(tournamentId, body);
       toast({
@@ -935,100 +1048,123 @@ export default function ScoringSchedulePage() {
                   <div>
                     <h3 className="font-bold text-xs uppercase tracking-wider text-foreground flex items-center gap-1.5">
                       <Layers className="w-3.5 h-3.5 text-primary" />
-                      Group Stage Allocation
+                      Group Stage Allocation ({groups.length} Groups)
                     </h3>
                     <p className="text-[11px] text-muted-foreground">
-                      Both Group A and Group B must have 2 or more teams
+                      Each group must have 2 or more teams assigned for round-robin matches
                     </p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={autoBalanceGroups}
-                    className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10"
-                  >
-                    <Shuffle className="w-3 h-3" />
-                    Auto-Balance 50/50
-                  </Button>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Quick Group Presets */}
+                    <div className="flex items-center gap-1 bg-background/80 p-0.5 rounded-lg border border-border/70 text-xs">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground px-1.5">Groups:</span>
+                      {[2, 3, 4, 6].map((cnt) => (
+                        <button
+                          key={cnt}
+                          type="button"
+                          onClick={() => setGroupCount(cnt)}
+                          className={cn(
+                            "px-2 py-0.5 rounded text-xs font-semibold transition-all",
+                            groups.length === cnt
+                              ? "bg-primary text-primary-foreground shadow-sm"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                          )}
+                        >
+                          {cnt}
+                        </button>
+                      ))}
+                      {groups.length < 8 ? (
+                        <button
+                          type="button"
+                          onClick={addGroup}
+                          title="Add another group"
+                          className="px-1.5 py-0.5 rounded text-xs font-semibold text-primary hover:bg-primary/10 transition-all flex items-center gap-0.5"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {/* Auto Balance Button */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={autoBalanceGroups}
+                      className="h-7 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10"
+                    >
+                      <Shuffle className="w-3 h-3" />
+                      Auto-Balance Teams
+                    </Button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Group A */}
-                  <div className="rounded-lg border border-border bg-card p-3 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-foreground">
-                      <span>Group A</span>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {groupA.length} Teams
-                      </Badge>
-                    </div>
-                    <ul className="space-y-1 max-h-32 overflow-y-auto">
-                      {selectedTeams.map((id) => {
-                        const t = teamMap.get(id);
-                        const inA = groupA.includes(id);
-                        return (
-                          <li
-                            key={id}
-                            onClick={() => {
-                              setGroupA((prev) =>
-                                inA ? prev.filter((x) => x !== id) : [...prev, id],
-                              );
-                              if (!inA) {
-                                setGroupB((prev) => prev.filter((x) => x !== id));
-                              }
-                            }}
-                            className={cn(
-                              "flex items-center gap-2 p-1.5 rounded text-xs cursor-pointer",
-                              inA
-                                ? "bg-primary/10 font-semibold text-foreground"
-                                : "text-muted-foreground hover:bg-muted/50",
-                            )}
-                          >
-                            <Checkbox checked={inA} />
-                            <span className="truncate">{t?.name || `Team ${id}`}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
+                {/* Dynamic Grid of Groups */}
+                <div
+                  className={cn(
+                    "grid gap-3",
+                    groups.length === 2
+                      ? "grid-cols-1 sm:grid-cols-2"
+                      : groups.length === 3
+                        ? "grid-cols-1 sm:grid-cols-3"
+                        : "grid-cols-1 sm:grid-cols-2 md:grid-cols-4",
+                  )}
+                >
+                  {groups.map((group) => {
+                    return (
+                      <div key={group.id} className="rounded-lg border border-border bg-card p-3 space-y-2 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between gap-1 pb-1.5 border-b border-border/50 text-xs font-bold text-foreground">
+                            <input
+                              type="text"
+                              value={group.name}
+                              onChange={(e) => updateGroupName(group.id, e.target.value)}
+                              className="bg-transparent font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 py-0.5 w-24 truncate text-xs"
+                              placeholder="Group Name"
+                            />
+                            <div className="flex items-center gap-1">
+                              <Badge variant={group.teamIds.length >= 2 ? "secondary" : "outline"} className={cn("text-[10px]", group.teamIds.length < 2 && "border-amber-500/50 text-amber-600 dark:text-amber-400")}>
+                                {group.teamIds.length} Teams
+                              </Badge>
+                              {groups.length > 2 ? (
+                                <button
+                                  type="button"
+                                  onClick={() => removeGroup(group.id)}
+                                  title="Remove group"
+                                  className="text-muted-foreground hover:text-destructive p-0.5 rounded transition-colors"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
 
-                  {/* Group B */}
-                  <div className="rounded-lg border border-border bg-card p-3 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-foreground">
-                      <span>Group B</span>
-                      <Badge variant="secondary" className="text-[10px]">
-                        {groupB.length} Teams
-                      </Badge>
-                    </div>
-                    <ul className="space-y-1 max-h-32 overflow-y-auto">
-                      {selectedTeams.map((id) => {
-                        const t = teamMap.get(id);
-                        const inB = groupB.includes(id);
-                        return (
-                          <li
-                            key={id}
-                            onClick={() => {
-                              setGroupB((prev) =>
-                                inB ? prev.filter((x) => x !== id) : [...prev, id],
+                          <ul className="space-y-1 max-h-36 overflow-y-auto mt-2 pr-1">
+                            {selectedTeams.map((id) => {
+                              const t = teamMap.get(id);
+                              const isAssigned = group.teamIds.includes(id);
+                              return (
+                                <li
+                                  key={id}
+                                  onClick={() => toggleTeamInGroup(group.id, id)}
+                                  className={cn(
+                                    "flex items-center gap-2 p-1.5 rounded text-xs cursor-pointer transition-colors",
+                                    isAssigned
+                                      ? "bg-primary/10 font-semibold text-foreground border border-primary/20"
+                                      : "text-muted-foreground hover:bg-muted/50 border border-transparent",
+                                  )}
+                                >
+                                  <Checkbox checked={isAssigned} />
+                                  <span className="truncate flex-1">{t?.name || `Team ${id}`}</span>
+                                </li>
                               );
-                              if (!inB) {
-                                setGroupA((prev) => prev.filter((x) => x !== id));
-                              }
-                            }}
-                            className={cn(
-                              "flex items-center gap-2 p-1.5 rounded text-xs cursor-pointer",
-                              inB
-                                ? "bg-primary/10 font-semibold text-foreground"
-                                : "text-muted-foreground hover:bg-muted/50",
-                            )}
-                          >
-                            <Checkbox checked={inB} />
-                            <span className="truncate">{t?.name || `Team ${id}`}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
+                            })}
+                          </ul>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ) : null}
