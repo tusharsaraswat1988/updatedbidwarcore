@@ -31,6 +31,8 @@ import {
   LedEventAnimationOverlay,
   type LedMatchEvent,
 } from "@/components/scoring/led-event-animation-overlay";
+import { CricketLedMidOverlays } from "@/components/scoring/cricket-led-mid-overlays";
+import type { CricketObsMidOverlayKind } from "@/lib/cricket-obs-view-model";
 import {
   Wifi,
   WifiOff,
@@ -193,6 +195,78 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
   const state = live?.state;
   const summary = live?.summary;
   const innings = state ? getActiveInnings(state) : null;
+
+  // Broadcast Screen Mode State (Canonical cricket_obs_director)
+  const [currentOverlay, setCurrentOverlay] = useState<CricketObsMidOverlayKind>("none");
+
+  // Initial server state hydration & periodic sync
+  const { data: serverDirectorState } = useQuery<{ overlay?: string }>({
+    queryKey: ["cricket-obs-director", tournamentId],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/tournaments/${tournamentId}/scoring/obs-director`);
+        if (!res.ok) return { overlay: "none" };
+        return await res.json();
+      } catch {
+        return { overlay: "none" };
+      }
+    },
+    enabled: tournamentId > 0,
+    staleTime: 5000,
+  });
+
+  useEffect(() => {
+    if (serverDirectorState?.overlay) {
+      setCurrentOverlay(serverDirectorState.overlay as CricketObsMidOverlayKind);
+    }
+  }, [serverDirectorState?.overlay]);
+
+  // Timestamp tracker to prevent stale/out-of-order SSE director events from overwriting newer state
+  const lastDirectorTimestampRef = useRef<number>(0);
+
+  // SSE event listener (dispatched from useScoringSocket)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleSseDirector = (ev: Event) => {
+      const detail = (ev as CustomEvent).detail;
+      if (!detail) return;
+
+      // Reject stale out-of-order events
+      if (
+        detail.timestamp &&
+        detail.timestamp < lastDirectorTimestampRef.current
+      ) {
+        return;
+      }
+      if (detail.timestamp) {
+        lastDirectorTimestampRef.current = detail.timestamp;
+      }
+
+      if (detail.overlay !== undefined) {
+        setCurrentOverlay(detail.overlay as CricketObsMidOverlayKind);
+      }
+    };
+    window.addEventListener("cricket_obs_director", handleSseDirector);
+    return () => window.removeEventListener("cricket_obs_director", handleSseDirector);
+  }, []);
+
+  // BroadcastChannel listener for 0ms cross-tab updates on same browser/machine
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof BroadcastChannel === "undefined" || !tournamentId) {
+      return;
+    }
+    const channel = new BroadcastChannel(`bidwar_cricket_obs_${tournamentId}`);
+    channel.onmessage = (ev) => {
+      const data = ev.data;
+      if (!data) return;
+      if (data.type === "SET_OVERLAY") {
+        setCurrentOverlay(data.overlay ?? "none");
+      }
+    };
+    return () => {
+      channel.close();
+    };
+  }, [tournamentId]);
 
   // Active event animation state
   const [activeEvent, setActiveEvent] = useState<LedMatchEvent | null>(null);
@@ -781,13 +855,28 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
           </div>
         </footer>
 
-        {/* 4. MODULAR LED EVENT ANIMATION OVERLAY */}
+        {/* 4. GROUND LED MID-SCREEN OVERLAYS (Sponsors, Points Table, Fixtures, Scorecard, Summary, Intro) */}
+        <CricketLedMidOverlays
+          overlay={currentOverlay}
+          tournamentId={tournamentId}
+          tournamentName={tournament?.name}
+          tournamentLogoUrl={tournament?.logoUrl}
+          match={match}
+          state={state}
+          summary={summary}
+          teams={teams}
+          players={players}
+          sponsors={sponsors}
+          onClose={() => setCurrentOverlay("none")}
+        />
+
+        {/* 5. MODULAR LED EVENT ANIMATION OVERLAY */}
         <LedEventAnimationOverlay
           currentEvent={activeEvent}
           onDismiss={() => setActiveEvent(null)}
         />
 
-        {/* 5. INTERACTIVE SIMULATION & TESTING PANEL (collapsible bottom-right tray for stadium rehearsal) */}
+        {/* 6. INTERACTIVE SIMULATION & TESTING PANEL (collapsible bottom-right tray for stadium rehearsal) */}
         <div className="fixed bottom-14 right-4 z-40 flex flex-col items-end">
           {showTestPanel && (
             <div className="mb-2 p-3 rounded-2xl bg-card/95 border border-border shadow-2xl backdrop-blur-md flex flex-col gap-2 max-w-xs">

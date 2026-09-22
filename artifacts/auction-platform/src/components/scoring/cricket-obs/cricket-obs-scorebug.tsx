@@ -1,19 +1,30 @@
+/**
+ * Cricket OBS Master Scorebug (~140px: 104px Primary Strip + 36px Context Ribbon)
+ * Professional linear sports television broadcast chyron.
+ * 
+ * Strict Hierarchy:
+ * 1. SCORE (Dominant Bebas Neue numerals, team insignia & overs)
+ * 2. BATTERS (Two clean, high-contrast player rows with geometric gold striker marker)
+ * 3. BOWLER (Bowler figures, economy & 28px chamfered structural over-train tiles)
+ * 4. ONE CONTEXTUAL METRIC (Single dominant situation metric: Partnership, Target, or Winner)
+ * 
+ * Structural Rail:
+ * - 2px BidWar Gold top rule
+ * - Deep Obsidian (#050508) & Carbon (#0C0D14) physical broadcast chassis
+ * - Subtle vertical section dividers
+ * - Zero emojis, zero circular balls, zero rainbow gradients, zero rounded-xl/2xl cards.
+ */
+
+import { BROADCAST_FONTS } from "@/components/broadcast/tokens";
+import {
+  BIDWAR_BROADCAST_YELLOW,
+  BIDWAR_SCOREBOARD_PANEL,
+  BIDWAR_SCOREBOARD_SHELL,
+  BIDWAR_SCOREBOARD_INSET,
+} from "@/lib/bidwar-broadcast-colors";
+import { BROADCAST_OVERLAY_SAFE_INSET_X } from "@/lib/broadcast-overlay";
 import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
 
-/**
- * Component 3: Solid Bottom Footer / Scorebug (Non-Transparent)
- * Designed to IPL & International broadcast standards with sharp, clear typography.
- *
- * Professional Improvements:
- * - 100% Docked edge-to-edge layout flush to screen bottom
- * - High contrast antialiased typography
- * - Doubled font sizes across all micro-stats (4s, 6s, SR, ECON, CRR, PROJ, etc.)
- * - Instant Victory / Match Conclusion State when target is reached or match completes
- * - De-duplicated Center Hub (Hero Current Partnership & Match Pace)
- * - Unified Bowler Spell capsule (Figures + Economy)
- * - Styled circular Opponent Crest matching the batting team frame
- * - Crisp High-Contrast Bottom Ticker (48px height)
- */
 export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
   const batting = vm.batting;
   const bowling = vm.bowling;
@@ -34,242 +45,201 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
 
   return (
     <div
-      className="relative z-30 w-full overflow-hidden border-t-2 border-white/25 shadow-[0_-12px_40px_rgba(0,0,0,0.95)]"
+      className="relative z-30 w-full select-none shadow-2xl"
       style={{
-        background: "linear-gradient(180deg, #131a29 0%, #080c14 100%)",
-        fontFamily: "'Barlow Condensed', -apple-system, BlinkMacSystemFont, sans-serif",
-        WebkitFontSmoothing: "antialiased",
-        MozOsxFontSmoothing: "grayscale",
-        textRendering: "optimizeLegibility",
+        background: BIDWAR_SCOREBOARD_SHELL,
+        fontFamily: BROADCAST_FONTS.body,
       }}
     >
-      {/* Top metallic IPL gradient accent line */}
+      {/* 2px Continuous Broadcast Gold Structural Rail */}
       <div
-        className="h-[4px] w-full"
+        className="h-[2px] w-full"
         style={{
-          background: isCompleted
-            ? "linear-gradient(90deg, #f59e0b 0%, #fbbf24 35%, #f59e0b 65%, #d97706 100%)"
-            : "linear-gradient(90deg, #3b82f6 0%, #f59e0b 25%, #ef4444 50%, #8b5cf6 75%, #3b82f6 100%)",
+          background: BIDWAR_BROADCAST_YELLOW,
         }}
       />
 
-      {/* MAIN BROADCAST STRIP (Height: 114px) */}
-      <div className="flex h-[114px] items-stretch">
-        {/* 1. BATTING TEAM & SCORE BLOCK (~340px) */}
+      {/* 1. PRIMARY TELEVISION SCORE STRIP (104px) */}
+      <div
+        className="flex h-[104px] items-stretch justify-between"
+        style={{
+          paddingLeft: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
+          paddingRight: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
+        }}
+      >
+        {/* ========================================================= */}
+        {/* A. LEFT: TEAM + DOMINANT SCORE + OVERS (~420px)            */}
+        {/* ========================================================= */}
         <div
-          className="flex min-w-[340px] max-w-[370px] items-center gap-4 px-5"
-          style={{
-            background: "linear-gradient(90deg, #1e293b 0%, #0f172a 100%)",
-            borderRight: "1px solid rgba(255, 255, 255, 0.2)",
-          }}
+          className="flex items-center gap-4 pr-6 border-r border-white/10 min-w-[380px] max-w-[440px]"
+          style={{ background: "rgba(5, 5, 8, 0.4)" }}
         >
-          {/* Team Crest */}
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-amber-400/80 bg-black/80 shadow-lg">
+          {/* Team Crest Badge */}
+          <div
+            className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden border p-1"
+            style={{
+              background: BIDWAR_SCOREBOARD_PANEL,
+              borderColor: batting?.color ? batting.color : "rgba(255, 215, 0, 0.4)",
+            }}
+          >
             {batting?.logoUrl ? (
               <img
                 src={batting.logoUrl}
                 alt=""
-                className="h-full w-full object-contain p-1.5 drop-shadow-[0_2px_6px_rgba(0,0,0,0.9)]"
+                className="h-full w-full object-contain"
               />
             ) : (
-              <span className="text-2xl font-black tracking-wider text-amber-400">
+              <span
+                className="text-2xl font-normal text-[#FFD700]"
+                style={{ fontFamily: BROADCAST_FONTS.display }}
+              >
                 {batting?.shortCode?.slice(0, 3) || "BAT"}
               </span>
             )}
           </div>
 
-          <div className="min-w-0">
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-black uppercase tracking-tight text-white">
-                {batting?.shortCode || "BAT"}
-              </span>
-              <span className="text-base font-bold text-white/70">
-                v {bowling?.shortCode || "BOWL"}
-              </span>
-            </div>
-            <p className="truncate text-sm font-bold uppercase tracking-wider text-white/70">
-              {batting?.name || "Batting Team"}
-            </p>
+          {/* Team Identity & Matchup */}
+          <div className="flex flex-col justify-center min-w-0">
+            <span
+              className="text-3xl font-normal uppercase tracking-wide text-white leading-none"
+              style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
+            >
+              {batting?.shortCode || "BAT"}
+            </span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-white/50 mt-1">
+              v {bowling?.shortCode || "BOWL"}
+            </span>
           </div>
 
-          {/* Large Runs-Wickets Score */}
-          <div className="ml-auto flex flex-col items-end pr-1">
-            <div className="flex items-baseline font-black leading-none tracking-tight text-white">
-              <span className="text-5xl tabular-nums text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+          {/* DOMINANT SCORE NUMERALS + OVERS */}
+          <div className="ml-auto flex flex-col items-end justify-center pl-2 text-right">
+            <div
+              className="flex items-baseline font-normal text-white leading-none tracking-tight"
+              style={{ fontFamily: BROADCAST_FONTS.display }}
+            >
+              <span className="text-5xl tabular-nums text-white drop-shadow">
                 {vm.runs}
               </span>
-              <span className="mx-1 text-4xl font-black text-amber-400">-</span>
-              <span className="text-5xl tabular-nums text-amber-400 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">
+              <span className="mx-1 text-4xl text-[#FFD700] font-light">-</span>
+              <span className="text-5xl tabular-nums text-[#FFD700] drop-shadow">
                 {vm.wickets}
               </span>
             </div>
-            <span className="mt-1 text-lg font-black uppercase tracking-widest text-amber-400">
-              {vm.oversDisplay}
-            </span>
+            <div
+              className="mt-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-[#FFD700]"
+              style={{ fontFamily: BROADCAST_FONTS.mono }}
+            >
+              <span>{vm.oversDisplay}</span>
+              <span className="text-white/40">OV</span>
+            </div>
           </div>
         </div>
 
-        {/* 2. BATSMEN CREASE SECTION (~460px) - HIGH CONTRAST & DOUBLED STAT SIZES */}
-        <div
-          className="flex min-w-[450px] flex-1 flex-col justify-center px-6 gap-2.5"
-          style={{
-            borderRight: "1px solid rgba(255, 255, 255, 0.2)",
-            background: "rgba(15, 23, 42, 0.7)",
-          }}
-        >
-          {/* Striker Row */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 min-w-0 max-w-[210px]">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400 text-xs font-black text-black shadow">
-                *
-              </span>
-              <span className="truncate text-2xl font-black uppercase tracking-wide text-amber-300">
+        {/* ========================================================= */}
+        {/* B. CENTER-LEFT: BATTERS CREASE (~440px)                   */}
+        {/* ========================================================= */}
+        <div className="flex flex-1 flex-col justify-center px-6 border-r border-white/10 min-w-[380px]">
+          {/* Row 1: Striker */}
+          <div className="flex items-center justify-between py-1">
+            <div className="flex items-center gap-2 min-w-0 max-w-[220px]">
+              {/* Geometric Active Striker Marker (No Emojis) */}
+              <span className="h-2 w-2 rotate-45 bg-[#FFD700] shrink-0" />
+              <span className="truncate text-base font-bold uppercase tracking-wide text-[#FFD700]">
                 {striker?.name || "Striker"}
               </span>
             </div>
 
-            <div className="flex items-center gap-4 tabular-nums">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-black text-white">
-                  {striker?.runs ?? 0}
+            <div
+              className="flex items-center gap-2 text-xs font-bold tabular-nums"
+              style={{ fontFamily: BROADCAST_FONTS.mono }}
+            >
+              <span className="text-xl font-bold text-white leading-none">
+                {striker?.runs ?? 0}
+              </span>
+              <span className="text-xs text-white/60 font-medium">
+                ({striker?.balls ?? 0}b)
+              </span>
+              {striker?.strikeRate != null && (
+                <span className="text-[11px] text-white/40 font-normal pl-1">
+                  SR {striker.strikeRate.toFixed(1)}
                 </span>
-                <span className="text-lg font-bold text-white/80">
-                  ({striker?.balls ?? 0})
-                </span>
-              </div>
-              <div className="flex items-center gap-2.5 text-sm font-bold">
-                <span className="rounded bg-blue-500/25 px-2.5 py-0.5 text-blue-200 border border-blue-400/50">
-                  4s: <strong className="text-white">{striker?.fours ?? 0}</strong>
-                </span>
-                <span className="rounded bg-purple-500/25 px-2.5 py-0.5 text-purple-200 border border-purple-400/50">
-                  6s: <strong className="text-white">{striker?.sixes ?? 0}</strong>
-                </span>
-                <span className="rounded bg-amber-400/30 px-3 py-0.5 text-amber-300 border border-amber-400/50 font-black">
-                  SR {striker?.strikeRate != null ? striker.strikeRate.toFixed(1) : "—"}
-                </span>
-              </div>
+              )}
             </div>
           </div>
 
-          {/* Non-Striker Row */}
-          <div className="flex items-center justify-between border-t border-white/15 pt-1.5">
-            <div className="flex items-center gap-2.5 min-w-0 max-w-[210px]">
-              <span className="h-5 w-5 shrink-0" />
-              <span className="truncate text-2xl font-black uppercase tracking-wide text-white/95">
+          <div className="h-[1px] w-full bg-white/5 my-0.5" />
+
+          {/* Row 2: Non-Striker */}
+          <div className="flex items-center justify-between py-1">
+            <div className="flex items-center gap-2 min-w-0 max-w-[220px]">
+              {/* Invisible spacer for alignment */}
+              <span className="h-2 w-2 shrink-0 opacity-0" />
+              <span className="truncate text-base font-bold uppercase tracking-wide text-white/85">
                 {nonStriker?.name || "Non-Striker"}
               </span>
             </div>
 
-            <div className="flex items-center gap-4 tabular-nums">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-3xl font-black text-white/95">
-                  {nonStriker?.runs ?? 0}
+            <div
+              className="flex items-center gap-2 text-xs font-bold tabular-nums"
+              style={{ fontFamily: BROADCAST_FONTS.mono }}
+            >
+              <span className="text-xl font-bold text-white/90 leading-none">
+                {nonStriker?.runs ?? 0}
+              </span>
+              <span className="text-xs text-white/50 font-medium">
+                ({nonStriker?.balls ?? 0}b)
+              </span>
+              {nonStriker?.strikeRate != null && (
+                <span className="text-[11px] text-white/30 font-normal pl-1">
+                  SR {nonStriker.strikeRate.toFixed(1)}
                 </span>
-                <span className="text-lg font-bold text-white/80">
-                  ({nonStriker?.balls ?? 0})
-                </span>
-              </div>
-              <div className="flex items-center gap-2.5 text-sm font-bold">
-                <span className="rounded bg-white/15 px-2.5 py-0.5 text-white border border-white/30">
-                  4s: <strong className="text-white">{nonStriker?.fours ?? 0}</strong>
-                </span>
-                <span className="rounded bg-white/15 px-2.5 py-0.5 text-white border border-white/30">
-                  6s: <strong className="text-white">{nonStriker?.sixes ?? 0}</strong>
-                </span>
-                <span className="rounded bg-white/20 px-3 py-0.5 text-white border border-white/35 font-black">
-                  SR {nonStriker?.strikeRate != null ? nonStriker.strikeRate.toFixed(1) : "—"}
-                </span>
-              </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* 3. CENTER MATCH HUB (~280px) — VICTORY STATE OR CURRENT PARTNERSHIP */}
-        <div
-          className="flex min-w-[280px] max-w-[320px] flex-col items-center justify-center px-4 text-center"
-          style={{
-            borderRight: "1px solid rgba(255, 255, 255, 0.2)",
-            background: isCompleted
-              ? "linear-gradient(180deg, rgba(120, 53, 15, 0.7) 0%, rgba(69, 26, 3, 0.85) 100%)"
-              : "linear-gradient(180deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%)",
-          }}
-        >
-          {isCompleted ? (
-            <div className="space-y-1">
-              <span className="rounded-full bg-amber-400 px-3.5 py-0.5 text-xs font-black uppercase tracking-widest text-black shadow">
-                🏆 MATCH WON
+        {/* ========================================================= */}
+        {/* C. CENTER-RIGHT: BOWLER SPELL & OVER TRAIN (~420px)       */}
+        {/* ========================================================= */}
+        <div className="flex flex-1 flex-col justify-center px-6 border-r border-white/10 min-w-[380px]">
+          {/* Bowler Details */}
+          <div className="flex items-center justify-between py-0.5">
+            <div className="flex items-center gap-2 min-w-0 max-w-[200px]">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#06B6D4]">
+                BOWL
               </span>
-              <div className="text-3xl font-black uppercase tracking-tight text-amber-400 drop-shadow">
-                {vm.winner?.name || batting?.name || "CHAMPIONS"}
-              </div>
-              <div className="text-sm font-black uppercase tracking-wider text-white drop-shadow">
-                {vm.resultText || "TARGET ACHIEVED"}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <span className="rounded-full bg-amber-400/25 px-3.5 py-0.5 text-xs font-black uppercase tracking-widest text-amber-300 border border-amber-400/40">
-                CURRENT PARTNERSHIP
-              </span>
-              <div className="flex items-baseline justify-center gap-1.5">
-                <span className="text-4xl font-black text-amber-400 drop-shadow">
-                  {partnershipRuns}
-                </span>
-                <span className="text-base font-bold uppercase tracking-wider text-white/85">
-                  OFF {partnershipBalls} BALLS
-                </span>
-              </div>
-              <div className="flex items-center justify-center gap-3 text-sm font-bold uppercase text-white">
-                <span>CRR <strong className="text-amber-300 font-black">{vm.crr || "0.00"}</strong></span>
-                {isChase && vm.rrr ? (
-                  <span>REQ <strong className="text-cyan-300 font-black">{vm.rrr}</strong></span>
-                ) : vm.projectedScore ? (
-                  <span>PROJ <strong className="text-cyan-300 font-black">{vm.projectedScore}</strong></span>
-                ) : null}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 4. BOWLER SPELL & OVER TRAIN SECTION (~420px) */}
-        <div
-          className="flex min-w-[390px] flex-1 flex-col justify-center px-6 gap-2.5"
-          style={{
-            borderRight: "1px solid rgba(255, 255, 255, 0.2)",
-            background: "rgba(15, 23, 42, 0.7)",
-          }}
-        >
-          {/* Bowler Name & Figures */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <span className="text-xs font-black uppercase tracking-widest text-cyan-400">
-                BOWLER
-              </span>
-              <span className="truncate text-2xl font-black uppercase tracking-wide text-white">
+              <span className="truncate text-base font-bold uppercase tracking-wide text-white">
                 {bowler?.name || "Bowler"}
               </span>
             </div>
 
-            {/* Unified Dark Metallic Bowler Stats Capsule */}
-            <div className="flex items-center gap-3 rounded-lg bg-black/80 px-3.5 py-1 border border-white/25 shadow-sm tabular-nums">
-              <span className="text-xl font-black text-amber-400">
-                {bowler ? `${bowler.wickets}-${bowler.runsConceded} (${bowler.overs})` : "0-0 (0.0)"}
+            <div
+              className="flex items-center gap-2 text-xs font-bold tabular-nums"
+              style={{ fontFamily: BROADCAST_FONTS.mono }}
+            >
+              <span className="text-base text-[#FFD700]">
+                {bowler ? `${bowler.wickets}-${bowler.runsConceded}` : "0-0"}
               </span>
-              <span className="h-4 w-[1px] bg-white/30" />
-              <span className="text-sm font-black text-cyan-300">
+              <span className="text-xs text-white/60">
+                ({bowler?.overs || "0.0"} ov)
+              </span>
+              <span className="text-white/30">|</span>
+              <span className="text-xs text-[#06B6D4]">
                 ECON {bowler?.economy != null ? bowler.economy.toFixed(1) : "—"}
               </span>
             </div>
           </div>
 
-          {/* Over Train with Large 36px Circular Delivery Pills */}
-          <div className="flex items-center gap-3 border-t border-white/15 pt-1.5">
-            <span className="text-xs font-black uppercase tracking-wider text-white/70">
-              THIS OVER:
+          <div className="h-[1px] w-full bg-white/5 my-0.5" />
+
+          {/* 28px Chamfered Square Over Tiles */}
+          <div className="flex items-center gap-2 py-0.5">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-white/50 mr-1">
+              THIS OVER
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {vm.thisOverLabels.length === 0 ? (
-                <span className="text-base font-bold text-white/50">—</span>
+                <span className="text-xs text-white/40 font-mono">—</span>
               ) : (
                 vm.thisOverLabels.map((ball, idx) => {
                   const isWicket = ball === "W";
@@ -278,23 +248,41 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
                   const isExtra = ball.includes("Wd") || ball.includes("Nb");
                   const isDot = ball === "·" || ball === "0";
 
-                  let chipStyle = "bg-white/20 text-white border-white/35";
+                  let bg = BIDWAR_SCOREBOARD_PANEL;
+                  let color = "#FFFFFF";
+                  let border = "1px solid rgba(255,255,255,0.12)";
+
                   if (isWicket) {
-                    chipStyle = "bg-red-600 text-white font-black border-red-400 shadow-md shadow-red-900/70";
+                    bg = "#E11D48";
+                    color = "#FFFFFF";
+                    border = "1px solid #E11D48";
                   } else if (isSix) {
-                    chipStyle = "bg-purple-600 text-white font-black border-purple-400 shadow-md shadow-purple-900/70";
+                    bg = BIDWAR_BROADCAST_YELLOW;
+                    color = "#050508";
+                    border = "1px solid #FFD700";
                   } else if (isFour) {
-                    chipStyle = "bg-blue-600 text-white font-black border-blue-400 shadow-md shadow-blue-900/70";
+                    bg = BIDWAR_SCOREBOARD_INSET;
+                    color = "#FFD700";
+                    border = "1px solid #FFD700";
                   } else if (isExtra) {
-                    chipStyle = "bg-amber-600 text-amber-100 font-black border-amber-400";
+                    bg = BIDWAR_SCOREBOARD_INSET;
+                    color = "#06B6D4";
+                    border = "1px solid rgba(6,182,212,0.4)";
                   } else if (isDot) {
-                    chipStyle = "bg-black/70 text-white/60 border-white/25";
+                    bg = BIDWAR_SCOREBOARD_INSET;
+                    color = "rgba(255,255,255,0.45)";
                   }
 
                   return (
                     <span
                       key={`${ball}-${idx}`}
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-base font-black tabular-nums shadow-sm ${chipStyle}`}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center text-xs font-bold tabular-nums"
+                      style={{
+                        background: bg,
+                        color: color,
+                        border: border,
+                        fontFamily: BROADCAST_FONTS.mono,
+                      }}
                     >
                       {ball}
                     </span>
@@ -305,115 +293,143 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
           </div>
         </div>
 
-        {/* 5. OPPONENT CREST (~80px) */}
-        <div className="flex w-20 shrink-0 items-center justify-center bg-black/50 px-3">
-          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-white/30 bg-black/80 p-1 shadow-md">
-            {bowling?.logoUrl ? (
-              <img
-                src={bowling.logoUrl}
-                alt=""
-                className="h-full w-full object-contain drop-shadow"
-              />
-            ) : (
-              <span className="text-lg font-black uppercase text-white/50">
-                {bowling?.shortCode || "BOWL"}
+        {/* ========================================================= */}
+        {/* D. RIGHT: ONE CONTEXTUAL INFORMATION BLOCK (~280px)       */}
+        {/* ========================================================= */}
+        <div
+          className="flex flex-col items-center justify-center pl-6 min-w-[240px] max-w-[280px] text-center"
+          style={{ background: "rgba(5, 5, 8, 0.4)" }}
+        >
+          {isCompleted ? (
+            /* CONTEXT 1: MATCH COMPLETED */
+            <div className="space-y-0.5">
+              <span
+                className="text-xs font-bold uppercase tracking-widest text-[#FFD700]"
+                style={{ fontFamily: BROADCAST_FONTS.body }}
+              >
+                MATCH COMPLETED
               </span>
-            )}
-          </div>
+              <div
+                className="text-2xl font-normal uppercase text-[#FFD700] leading-tight"
+                style={{ fontFamily: BROADCAST_FONTS.display }}
+              >
+                {vm.winner?.name || batting?.name || "CHAMPIONS"}
+              </div>
+              <p className="text-[11px] font-semibold text-white/80">
+                {vm.resultText || "VICTORY ACHIEVED"}
+              </p>
+            </div>
+          ) : isChase && needRuns != null && ballsLeft != null ? (
+            /* CONTEXT 2: CHASE TARGET & EQUATION */
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#06B6D4]">
+                TARGET {vm.target}
+              </span>
+              <div
+                className="flex items-baseline justify-center gap-1.5"
+                style={{ fontFamily: BROADCAST_FONTS.mono }}
+              >
+                <span className="text-3xl font-bold text-[#FFD700]">
+                  {needRuns}
+                </span>
+                <span className="text-xs font-semibold text-white/70">
+                  OFF {ballsLeft}B
+                </span>
+              </div>
+              <div
+                className="text-[11px] font-bold uppercase text-[#06B6D4]"
+                style={{ fontFamily: BROADCAST_FONTS.mono }}
+              >
+                REQ RR {vm.rrr || "—"}
+              </div>
+            </div>
+          ) : (
+            /* CONTEXT 3: 1ST INNINGS PARTNERSHIP */
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-white/50">
+                PARTNERSHIP
+              </span>
+              <div
+                className="flex items-baseline justify-center gap-1.5"
+                style={{ fontFamily: BROADCAST_FONTS.mono }}
+              >
+                <span className="text-3xl font-bold text-[#FFD700]">
+                  {partnershipRuns}
+                </span>
+                <span className="text-xs font-medium text-white/70">
+                  OFF {partnershipBalls}B
+                </span>
+              </div>
+              <div
+                className="text-[11px] font-bold uppercase text-[#FFD700]"
+                style={{ fontFamily: BROADCAST_FONTS.mono }}
+              >
+                CRR {vm.crr || "0.00"}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* BOTTOM CONTEXT / TICKER BAR (Height: 44px with large bold font) */}
+      {/* 2. CONTEXTUAL TICKER RIBBON (36px) */}
       <div
-        className="flex h-[44px] items-center justify-between border-t border-white/20 px-6 text-base font-black tracking-wide uppercase text-white"
+        className="flex h-[36px] items-center justify-between border-t border-white/10 text-xs font-bold uppercase tracking-wide text-white"
         style={{
-          background: isCompleted
-            ? "linear-gradient(90deg, #451a03 0%, #1e1b4b 100%)"
-            : "linear-gradient(90deg, #0f1523 0%, #050810 100%)",
+          background: BIDWAR_SCOREBOARD_INSET,
+          paddingLeft: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
+          paddingRight: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
+          fontFamily: BROADCAST_FONTS.body,
         }}
       >
-        {/* Left Side: Context / Target / Toss / Result */}
-        <div className="flex items-center gap-5">
+        {/* Left Side Context Statement */}
+        <div className="flex items-center gap-4">
           {isCompleted ? (
-            <div className="flex items-center gap-3">
-              <span className="rounded bg-gradient-to-r from-amber-400 to-yellow-500 px-3 py-0.5 text-xs font-black text-black shadow">
-                🏆 FINAL RESULT
-              </span>
-              <span className="text-lg font-black text-amber-300 drop-shadow">
-                {vm.resultText || `${batting?.name || "BATTERS"} WON THE MATCH`}
-              </span>
-              {vm.target != null ? (
-                <span className="text-sm font-bold text-white/80">
-                  (TARGET {vm.target} REACHED IN {vm.oversLabel} OV)
-                </span>
-              ) : null}
-            </div>
+            <span className="text-[#FFD700] font-bold">
+              FINAL: {vm.resultText || `${batting?.name || "BATTERS"} WON THE MATCH`}
+            </span>
           ) : isChase && needRuns != null && ballsLeft != null ? (
-            <div className="flex items-center gap-3 text-amber-300">
-              <span className="rounded bg-amber-400 px-3 py-0.5 text-xs font-black text-black">
-                CHASE
-              </span>
-              <span className="text-base font-black">
-                NEED {needRuns} RUNS OFF {ballsLeft} BALLS
-              </span>
-              {vm.target != null ? (
-                <span className="text-sm font-bold text-white/80">(TARGET {vm.target})</span>
-              ) : null}
-            </div>
+            <span className="text-[#FFD700] font-bold">
+              CHASE: NEED {needRuns} RUNS OFF {ballsLeft} BALLS {vm.target != null ? `(TARGET ${vm.target})` : ""}
+            </span>
           ) : vm.firstInningsScoreLine ? (
-            <div className="flex items-center gap-2.5 text-white/95">
-              <span className="text-amber-400 font-black">1ST INNINGS:</span>
-              <span className="text-base font-bold">{vm.firstInningsScoreLine}</span>
-            </div>
+            <span>
+              <strong className="text-[#FFD700]">1ST INNINGS:</strong> {vm.firstInningsScoreLine}
+            </span>
           ) : vm.tossText ? (
-            <div className="flex items-center gap-2.5 text-white">
-              <span className="text-amber-400 font-black">TOSS:</span>
-              <span className="text-base font-bold">{vm.tossText}</span>
-            </div>
+            <span>
+              <strong className="text-[#FFD700]">TOSS:</strong> {vm.tossText}
+            </span>
           ) : (
-            <span className="text-white/85 text-base">BIDWAR CRICKET LIVE BROADCAST</span>
+            <span className="text-white/60">BIDWAR CRICKET BROADCAST</span>
           )}
 
-          {/* Active Free Hit Alert */}
-          {vm.freeHitActive && !isCompleted ? (
-            <span className="animate-pulse rounded bg-red-600 px-3 py-0.5 text-xs font-black text-white shadow">
-              🎯 FREE HIT ON NEXT BALL
+          {/* Special Delivery Alerts */}
+          {vm.freeHitActive && !isCompleted && (
+            <span className="px-2 py-0.5 text-[10px] font-black uppercase text-[#06B6D4] bg-cyan-950/80 border border-cyan-500/40">
+              FREE HIT
             </span>
-          ) : null}
+          )}
 
-          {/* Active Super Ball Alert */}
-          {vm.superBallActive && !isCompleted ? (
-            <span className="rounded bg-gradient-to-r from-amber-500 to-orange-600 px-3 py-0.5 text-xs font-black text-black shadow">
-              🔥 SUPER BALL ACTIVE
+          {vm.superBallActive && !isCompleted && (
+            <span className="px-2 py-0.5 text-[10px] font-black uppercase text-[#FFD700] bg-yellow-950/80 border border-yellow-500/40">
+              SUPER BALL (2X)
             </span>
-          ) : null}
+          )}
         </div>
 
-        {/* Right Side: Rates & Extras */}
-        <div className="flex items-center gap-5 text-base font-black">
-          {vm.crr ? (
-            <span>
-              CRR <span className="text-amber-400">{vm.crr}</span>
-            </span>
-          ) : null}
-
-          {isChase && vm.rrr && !isCompleted ? (
-            <span>
-              RRR <span className="text-red-400">{vm.rrr}</span>
-            </span>
-          ) : null}
-
-          {!isChase && vm.projectedScore && !isCompleted ? (
-            <span>
-              PROJ <span className="text-cyan-400">{vm.projectedScore}</span>
-            </span>
-          ) : null}
-
-          {vm.powerplayText && !isCompleted ? (
-            <span className="rounded bg-white/20 px-3 py-0.5 text-xs font-black tracking-widest text-amber-300">
+        {/* Right Side Rates */}
+        <div
+          className="flex items-center gap-4 text-xs font-bold tabular-nums"
+          style={{ fontFamily: BROADCAST_FONTS.mono }}
+        >
+          {vm.crr && <span>CRR <span className="text-[#FFD700]">{vm.crr}</span></span>}
+          {isChase && vm.rrr && !isCompleted && <span>RRR <span className="text-[#E11D48]">{vm.rrr}</span></span>}
+          {!isChase && vm.projectedScore && !isCompleted && <span>PROJ <span className="text-[#06B6D4]">{vm.projectedScore}</span></span>}
+          {vm.powerplayText && !isCompleted && (
+            <span className="text-[10px] font-bold text-white/70 border-l border-white/20 pl-3">
               {vm.powerplayText}
             </span>
-          ) : null}
+          )}
         </div>
       </div>
     </div>

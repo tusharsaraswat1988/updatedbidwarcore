@@ -72,13 +72,12 @@ export function CricketObsStage({ vm, tournamentId = 0, onSetOverlay, onTriggerF
       {/* 4. REAL-TIME EVENT ANIMATIONS (Come and go) */}
       <CricketObsEventFlash flash={vm.flash} token={vm.flashToken} detail={vm.flashDetail} />
 
-      {/* 5. 80% SCREEN FROSTED OVERLAYS (Sponsors, Points Table, Schedule, Scorecard, Summary) */}
+      {/* 5. 1920x1080 FULL BROADCAST GRAPHIC SLATES */}
       {tournamentId > 0 ? (
         <CricketObsMidOverlays
           vm={vm}
           overlay={vm.midOverlay}
           tournamentId={tournamentId}
-          onClose={() => onSetOverlay?.("none")}
         />
       ) : null}
 

@@ -42,20 +42,30 @@ describe("cricket scorer auth headers & getScoringMatch transport", () => {
   const fakeStorage: Record<string, string> = {};
 
   beforeEach(() => {
-    // Mock browser sessionStorage
-    Object.defineProperty(globalThis, "sessionStorage", {
-      value: {
-        getItem: (k: string) => fakeStorage[k] ?? null,
-        setItem: (k: string, v: string) => {
-          fakeStorage[k] = v;
-        },
-        removeItem: (k: string) => {
-          delete fakeStorage[k];
-        },
-        clear: () => {
-          for (const k in fakeStorage) delete fakeStorage[k];
-        },
+    const storageMock = {
+      getItem: (k: string) => fakeStorage[k] ?? null,
+      setItem: (k: string, v: string) => {
+        fakeStorage[k] = v;
       },
+      removeItem: (k: string) => {
+        delete fakeStorage[k];
+      },
+      clear: () => {
+        for (const k in fakeStorage) delete fakeStorage[k];
+      },
+    };
+    Object.defineProperty(globalThis, "window", {
+      value: { localStorage: storageMock, sessionStorage: storageMock },
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(globalThis, "sessionStorage", {
+      value: storageMock,
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(globalThis, "localStorage", {
+      value: storageMock,
       writable: true,
       configurable: true,
     });

@@ -1,37 +1,63 @@
+/**
+ * Cricket OBS Pre-Match / Waiting Slate
+ * Broadcast waiting plate matching the canonical BidWar dark carbon design system.
+ */
+
+import { BROADCAST_FONTS } from "@/components/broadcast/tokens";
+import {
+  BIDWAR_BROADCAST_YELLOW,
+  BIDWAR_SCOREBOARD_PANEL,
+  BIDWAR_SCOREBOARD_SHELL,
+} from "@/lib/bidwar-broadcast-colors";
+import { BROADCAST_OVERLAY_SAFE_INSET_X } from "@/lib/broadcast-overlay";
 import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
 
 export function CricketObsWaiting({ vm }: { vm: CricketObsViewModel }) {
-  let title = "Waiting for the next match";
-  let subtitle = "BidWar Cricket";
+  let title = "WAITING FOR NEXT MATCH";
+  let subtitle = "BIDWAR CRICKET BROADCAST";
 
   if (vm.phase === "pre_match") {
     title =
       vm.home && vm.away
         ? `${vm.home.shortCode}  VS  ${vm.away.shortCode}`
-        : "Match starting soon";
-    subtitle = "MATCH STARTING SOON";
+        : "MATCH STARTING SOON";
+    subtitle = "PRE-MATCH BUILD UP";
   } else if (vm.phase === "match_unavailable") {
-    title = "This match is not on the live feed";
-    subtitle = "Open Cricket OBS Live for the current match";
+    title = "MATCH NOT ON LIVE FEED";
+    subtitle = "OPEN CRICKET OBS LIVE FOR ACTIVE FIXTURE";
   }
 
   return (
     <div
-      className="max-w-[720px] self-start rounded-xl border border-white/12 px-6 py-5 shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
+      className="w-full flex items-center justify-between border-t border-white/10 shadow-lg py-5"
       style={{
-        background:
-          "linear-gradient(180deg, rgba(12,12,16,0.9) 0%, rgba(5,5,7,0.92) 100%)",
+        background: BIDWAR_SCOREBOARD_SHELL,
+        paddingLeft: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
+        paddingRight: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
+        fontFamily: BROADCAST_FONTS.body,
       }}
     >
-      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[var(--obs-accent)]">
-        {subtitle}
-      </p>
-      <p className="mt-2 text-2xl font-black tracking-wide text-white">{title}</p>
-      {vm.phase === "no_live" ? (
-        <p className="mt-2 text-sm font-medium text-white/55">
-          Scores appear here when a match goes live.
-        </p>
-      ) : null}
+      <div className="flex flex-col justify-center">
+        <span
+          className="text-xs font-bold uppercase tracking-[0.2em]"
+          style={{ color: BIDWAR_BROADCAST_YELLOW }}
+        >
+          {subtitle}
+        </span>
+        <h2
+          className="mt-1 text-3xl font-normal uppercase tracking-wide text-white leading-none"
+          style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
+        >
+          {title}
+        </h2>
+      </div>
+
+      <div
+        className="border border-white/15 px-4 py-2 text-xs font-bold uppercase tracking-wider text-white/70"
+        style={{ background: BIDWAR_SCOREBOARD_PANEL }}
+      >
+        LIVE BROADCAST FEED READY
+      </div>
     </div>
   );
 }

@@ -877,7 +877,7 @@ export function LiveScoringPad({
                   const suggest = suggestInningsEndReason(state);
                   await onInningsEnd({
                     innings: state.currentInnings,
-                    reason: suggest.suggestedReason,
+                    reason: suggest,
                     runs: innings.runs,
                     wickets: innings.wickets,
                     overs: oversText(innings.over, innings.ball),

@@ -2,7 +2,7 @@
  * Cricket Tournament settings — identity, sponsors, venue music/banner + Import from Auction.
  * Route: /tournament/:id/score/settings
  */
-import { Suspense, lazy, useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { useRoute } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";

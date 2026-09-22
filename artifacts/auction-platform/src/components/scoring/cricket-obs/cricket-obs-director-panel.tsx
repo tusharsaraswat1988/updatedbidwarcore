@@ -131,26 +131,26 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
   }, [obsUrl, toast]);
 
   const overlayOptions: { id: CricketObsMidOverlayKind; label: string; desc: string; icon: string }[] = [
-    { id: "none", label: "Camera Feed Only", desc: "No mid overlay. Camera feed 100% visible.", icon: "🎥" },
-    { id: "sponsors", label: "Sponsors Showcase", desc: "80% Screen Sponsor Wall (Title, Powered By, Associate)", icon: "★" },
-    { id: "standings", label: "Points Table", desc: "80% Screen Tournament Standings & Rankings", icon: "📊" },
-    { id: "fixtures", label: "Upcoming Matches", desc: "80% Screen Next Fixtures & Schedule", icon: "📅" },
-    { id: "scorecard", label: "Full Scorecard", desc: "80% Screen Bowling Card & Fall of Wickets", icon: "📋" },
-    { id: "summary", label: "Match Summary", desc: "80% Screen Post-Match Summary & Performers", icon: "🏆" },
-    { id: "intro", label: "Match Intro / VS", desc: "80% Screen 3D Team Badges & Match Details", icon: "⚔️" },
+    { id: "none", label: "Camera Feed Only", desc: "No mid overlay. Camera feed 100% visible.", icon: "CAM" },
+    { id: "sponsors", label: "Sponsors Showcase", desc: "Broadcast Sponsor Slate (Title, Powered By, Associate)", icon: "SPN" },
+    { id: "standings", label: "Points Table", desc: "Tournament Standings & Rankings", icon: "PTS" },
+    { id: "fixtures", label: "Upcoming Matches", desc: "Next Fixtures & Schedule", icon: "FIX" },
+    { id: "scorecard", label: "Full Scorecard", desc: "Bowling Card & Fall of Wickets", icon: "CRD" },
+    { id: "summary", label: "Match Summary", desc: "Post-Match Summary & Top Performers", icon: "SUM" },
+    { id: "intro", label: "Match Intro / VS", desc: "Team Badges & Match Details", icon: "VS" },
   ];
 
   const animationOptions: { flash: CricketObsFlashKind; label: string; color: string }[] = [
-    { flash: "FOUR", label: "⚡ Four (Boundary)", color: "bg-blue-600 hover:bg-blue-500 text-white" },
-    { flash: "SIX", label: "💥 Six (Maximum)", color: "bg-purple-600 hover:bg-purple-500 text-white" },
-    { flash: "SUPERBALL", label: "🔥 Superball", color: "bg-orange-600 hover:bg-orange-500 text-white" },
-    { flash: "WICKET", label: "🚨 Wicket (Out)", color: "bg-red-600 hover:bg-red-500 text-white" },
-    { flash: "FREE_HIT", label: "🎯 Free Hit", color: "bg-cyan-600 hover:bg-cyan-500 text-white" },
-    { flash: "NO_BALL", label: "⚠️ No Ball", color: "bg-amber-600 hover:bg-amber-500 text-white" },
+    { flash: "FOUR", label: "Four (Boundary)", color: "bg-blue-600 hover:bg-blue-500 text-white" },
+    { flash: "SIX", label: "Six (Maximum)", color: "bg-purple-600 hover:bg-purple-500 text-white" },
+    { flash: "SUPERBALL", label: "Superball", color: "bg-orange-600 hover:bg-orange-500 text-white" },
+    { flash: "WICKET", label: "Wicket (Out)", color: "bg-rose-600 hover:bg-rose-500 text-white" },
+    { flash: "FREE_HIT", label: "Free Hit", color: "bg-cyan-600 hover:bg-cyan-500 text-white" },
+    { flash: "NO_BALL", label: "No Ball", color: "bg-amber-600 hover:bg-amber-500 text-white" },
     { flash: "WIDE", label: "Wide", color: "bg-slate-700 hover:bg-slate-600 text-white" },
-    { flash: "NEW_BATSMAN", label: "🏏 New Batsman", color: "bg-emerald-600 hover:bg-emerald-500 text-white" },
-    { flash: "TOSS_WIN", label: "🪙 Toss Win", color: "bg-yellow-700 hover:bg-yellow-600 text-white" },
-    { flash: "MATCH_WON", label: "🏆 Match Won (Victory)", color: "bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-black font-black" },
+    { flash: "NEW_BATSMAN", label: "New Batsman", color: "bg-emerald-600 hover:bg-emerald-500 text-white" },
+    { flash: "TOSS_WIN", label: "Toss Win", color: "bg-yellow-700 hover:bg-yellow-600 text-white" },
+    { flash: "MATCH_WON", label: "Match Won (Victory)", color: "bg-amber-500 hover:bg-amber-400 text-black font-black" },
   ];
 
   return (

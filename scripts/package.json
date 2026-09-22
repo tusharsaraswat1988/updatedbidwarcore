@@ -10,6 +10,8 @@
     "seed:sports": "tsx src/seed-sports.ts",
     "purge:badminton-matches": "tsx --env-file=../.env src/purge-badminton-matches.ts",
     "seed:vnbl3-league": "tsx --env-file=../.env src/seed-vnbl3-league-fixtures.ts",
+    "seed:varanasi": "tsx --env-file=../.env src/seed-varanasi-tournament.ts",
+    "inspect:t10": "tsx --env-file=../.env src/inspect-t10.ts",
     "migrate": "tsx src/migrate.ts",
     "dev": "node ./dev.mjs",
     "dev:stop": "node ./dev-stop.mjs",

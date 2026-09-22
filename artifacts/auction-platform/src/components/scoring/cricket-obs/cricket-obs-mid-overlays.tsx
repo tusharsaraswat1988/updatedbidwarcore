@@ -1,107 +1,131 @@
+/**
+ * Cricket OBS Full-Screen Broadcast Slates (1920×1080)
+ * Replaces modal dialogs with native television graphics slates:
+ * 1. Sponsors Wall (3-Tier Hierarchical Inventory)
+ * 2. Points Table (Television Standings Slate)
+ * 3. Fixtures (Broadcast Match Schedule)
+ * 4. Full Scorecard (Tabular Innings Breakdown)
+ * 5. Match Summary (Result & Top Performers)
+ * 6. Match Intro / VS (Cinematic Clash Slate)
+ *
+ * Absolutely NO "✕ HIDE" buttons. Zero web-card nesting. 100% Broadcast Typography.
+ */
+
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { getScoringStandings, listScoringMatches } from "@/lib/scoring-api";
+import { BROADCAST_FONTS } from "@/components/broadcast/tokens";
+import {
+  BIDWAR_BROADCAST_YELLOW,
+  BIDWAR_SCOREBOARD_PANEL,
+  BIDWAR_SCOREBOARD_SHELL,
+  BIDWAR_SCOREBOARD_INSET,
+} from "@/lib/bidwar-broadcast-colors";
+import {
+  BROADCAST_OVERLAY_SAFE_INSET_X,
+  BROADCAST_OVERLAY_SAFE_INSET_Y,
+} from "@/lib/broadcast-overlay";
 import type { CricketObsViewModel, CricketObsMidOverlayKind } from "@/lib/cricket-obs-view-model";
 
 type Props = {
   vm: CricketObsViewModel;
   overlay: CricketObsMidOverlayKind;
   tournamentId: number;
-  onClose?: () => void;
 };
 
-/**
- * Component 5: Large 80% Screen Overlays (Operator Triggered + 80% Frosted Transparency)
- *
- * Requirements:
- * - Covers ~80% of the screen center
- * - Non-header/footer: 80% transparent frosted glass (`bg-slate-950/85 backdrop-blur-md`)
- * - Live stadium camera feed remains subtly visible underneath
- * - Displays:
- *   1. Sponsors Showcase (Title, Powered By, Associate)
- *   2. Points Table / Standings
- *   3. Upcoming Matches / Schedule (Reference Image 4)
- *   4. Full Innings Bowling Scorecard (Reference Image 3)
- *   5. Match Summary (Reference Image 5)
- *   6. Match Intro / VS Presentation (Reference Image 4)
- */
-export function CricketObsMidOverlays({ vm, overlay, tournamentId, onClose }: Props) {
-  // Query tournament standings
+export function CricketObsMidOverlays({ vm, overlay, tournamentId }: Props) {
+  // Standings query
   const { data: standings } = useQuery({
     queryKey: ["cricket-standings", tournamentId],
     queryFn: () => getScoringStandings(tournamentId),
     enabled: overlay === "standings" && tournamentId > 0,
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 
-  // Query tournament matches/fixtures
+  // Fixtures query
   const { data: matches } = useQuery({
     queryKey: ["scoring-matches", tournamentId],
     queryFn: () => listScoringMatches(tournamentId),
     enabled: (overlay === "fixtures" || overlay === "intro") && tournamentId > 0,
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 
   if (overlay === "none") return null;
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-40 flex items-center justify-center p-12 pointer-events-auto">
+      <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none select-none">
         <motion.div
-          initial={{ opacity: 0, scale: 0.94, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.94, y: 15 }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
-          className="relative flex h-[82vh] w-[86vw] max-w-[1550px] flex-col overflow-hidden rounded-2xl border-2 border-white/20 shadow-[0_25px_60px_rgba(0,0,0,0.9)]"
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.98 }}
+          transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+          className="relative flex h-full w-full flex-col overflow-hidden"
           style={{
-            background: "rgba(10, 14, 24, 0.85)",
-            backdropFilter: "blur(16px)",
-            fontFamily: "'Barlow Condensed', 'Space Grotesk', -apple-system, sans-serif",
+            background: "rgba(5, 5, 8, 0.92)",
+            fontFamily: BROADCAST_FONTS.body,
           }}
         >
-          {/* Top chrome header bar */}
+          {/* Masthead Header Band (60px) */}
           <div
-            className="flex h-14 items-center justify-between px-8 border-b border-white/15"
+            className="flex h-[60px] items-center justify-between border-b border-white/10"
             style={{
-              background: "linear-gradient(180deg, rgba(30,41,59,0.95) 0%, rgba(15,23,42,0.98) 100%)",
+              background: BIDWAR_SCOREBOARD_SHELL,
+              paddingLeft: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
+              paddingRight: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
             }}
           >
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-black tracking-widest text-amber-400 uppercase">
+            <div className="flex items-center gap-4">
+              <span
+                className="text-2xl font-normal uppercase tracking-wider text-[#FFD700]"
+                style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.08em" }}
+              >
                 BIDWAR BROADCAST
               </span>
               <span className="text-white/30">/</span>
-              <span className="text-base font-black tracking-wider text-white uppercase">
+              <span
+                className="text-xl font-normal uppercase tracking-wide text-white"
+                style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
+              >
                 {vm.tournamentName || "CRICKET TOURNAMENT"}
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-white">
-                LIVE OVERLAY
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[#FFD700]" />
+              <span
+                className="text-xs font-bold uppercase tracking-[0.2em] text-[#FFD700]"
+                style={{ fontFamily: BROADCAST_FONTS.body }}
+              >
+                {overlay.toUpperCase()} SLATE
               </span>
-              {onClose ? (
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded border border-white/20 bg-white/10 px-2 py-0.5 text-xs font-bold text-white/70 hover:bg-white/20 hover:text-white"
-                >
-                  ✕ HIDE
-                </button>
-              ) : null}
             </div>
           </div>
 
-          {/* OVERLAY CONTENT */}
-          <div className="flex-1 overflow-y-auto p-8">
-            {/* 1. SPONSORS SHOWCASE (80% Screen) */}
+          {/* MAIN SLATE VIEWPORT */}
+          <div
+            className="flex-1 flex flex-col justify-center overflow-y-auto"
+            style={{
+              paddingTop: `${BROADCAST_OVERLAY_SAFE_INSET_Y}px`,
+              paddingBottom: `${BROADCAST_OVERLAY_SAFE_INSET_Y}px`,
+              paddingLeft: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
+              paddingRight: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
+            }}
+          >
+            {/* 1. SPONSORS SHOWCASE (3-Tier Hierarchical Inventory) */}
             {overlay === "sponsors" && (
-              <div className="flex h-full flex-col justify-between">
-                <div className="text-center">
-                  <span className="text-xs font-black tracking-[0.25em] text-amber-400 uppercase">
+              <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full">
+                <div className="text-center mb-6">
+                  <span
+                    className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
+                    style={{ fontFamily: BROADCAST_FONTS.body }}
+                  >
                     OFFICIAL TOURNAMENT PARTNERS
                   </span>
-                  <h2 className="text-4xl font-black tracking-wide text-white uppercase mt-1">
+                  <h2
+                    className="text-5xl font-normal tracking-wide text-white uppercase mt-1 leading-none"
+                    style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
+                  >
                     OUR VALUED SPONSORS
                   </h2>
                 </div>
@@ -111,92 +135,107 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId, onClose }: Pr
                     {vm.sponsors.map((sp, idx) => (
                       <div
                         key={idx}
-                        className="flex flex-col items-center justify-center rounded-xl border border-white/15 p-6 shadow-xl"
-                        style={{
-                          background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(0,0,0,0.4) 100%)",
-                        }}
+                        className="flex flex-col items-center justify-center border border-white/10 p-6"
+                        style={{ background: BIDWAR_SCOREBOARD_PANEL }}
                       >
-                        <span className="rounded-full bg-amber-400/20 px-3 py-0.5 text-[10px] font-black uppercase tracking-widest text-amber-300 mb-4">
+                        <span
+                          className="text-[10px] font-bold uppercase tracking-widest text-[#FFD700] mb-4"
+                          style={{ fontFamily: BROADCAST_FONTS.body }}
+                        >
                           {sp.tier ? sp.tier.replace(/_/g, " ").toUpperCase() : "PARTNER"}
                         </span>
                         {sp.url ? (
-                          <img
-                            src={sp.url}
-                            alt={sp.name || ""}
-                            className="h-20 max-w-[220px] object-contain drop-shadow"
-                          />
+                          <div className="h-20 w-full flex items-center justify-center p-2">
+                            <img
+                              src={sp.url}
+                              alt={sp.name || ""}
+                              className="max-h-full max-w-[220px] object-contain"
+                            />
+                          </div>
                         ) : null}
-                        <p className="mt-3 text-sm font-bold text-white tracking-wider">
+                        <p className="mt-3 text-sm font-bold text-white tracking-wider uppercase">
                           {sp.name || "Sponsor"}
                         </p>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="my-auto flex flex-col items-center justify-center text-center">
-                    <p className="text-2xl font-black text-amber-400 uppercase">
-                      BIDWAR POWERED BROADCAST
+                  <div className="my-auto flex flex-col items-center justify-center text-center p-12 border border-white/10">
+                    <p
+                      className="text-3xl font-normal text-[#FFD700] uppercase"
+                      style={{ fontFamily: BROADCAST_FONTS.display }}
+                    >
+                      BIDWAR BROADCAST GRAPHICS
                     </p>
-                    <p className="text-sm font-medium text-white/50 mt-1 max-w-md">
-                      Streamed with official BidWar cricket scoring and overlay engine.
+                    <p className="text-sm font-semibold text-white/50 mt-1 uppercase tracking-wider">
+                      Official Tournament Live Stream Inventory
                     </p>
                   </div>
                 )}
 
                 <div className="text-center border-t border-white/10 pt-4">
-                  <p className="text-xs font-semibold tracking-widest text-white/40 uppercase">
-                    BIDWAR BROADCAST GRAPHICS · ALL RIGHTS RESERVED
+                  <p className="text-[11px] font-bold tracking-[0.2em] text-white/40 uppercase">
+                    ALL RIGHTS RESERVED · BIDWAR SPORTS ENGINE
                   </p>
                 </div>
               </div>
             )}
 
-            {/* 2. POINTS TABLE / STANDINGS (80% Screen) */}
+            {/* 2. POINTS TABLE / STANDINGS */}
             {overlay === "standings" && (
-              <div className="flex h-full flex-col">
+              <div className="flex h-full flex-col max-w-6xl mx-auto w-full">
                 <div className="text-center mb-6">
-                  <span className="text-xs font-black tracking-[0.25em] text-amber-400 uppercase">
-                    STANDINGS & RANKINGS
+                  <span
+                    className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
+                    style={{ fontFamily: BROADCAST_FONTS.body }}
+                  >
+                    STANDINGS &amp; RANKINGS
                   </span>
-                  <h2 className="text-3xl font-black tracking-wide text-white uppercase mt-0.5">
-                    POINTS TABLE
+                  <h2
+                    className="text-5xl font-normal tracking-wide text-white uppercase mt-1 leading-none"
+                    style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
+                  >
+                    TOURNAMENT POINTS TABLE
                   </h2>
                 </div>
 
-                <div className="flex-1 overflow-x-auto rounded-xl border border-white/15 shadow-xl bg-black/30">
+                <div
+                  className="flex-1 overflow-x-auto border border-white/10"
+                  style={{ background: BIDWAR_SCOREBOARD_SHELL }}
+                >
                   <table className="w-full border-collapse text-left">
                     <thead>
-                      <tr className="border-b border-white/15 bg-white/5 text-[11px] font-black tracking-widest text-white/60 uppercase">
-                        <th className="py-3 px-5 text-center">POS</th>
-                        <th className="py-3 px-5">TEAM</th>
-                        <th className="py-3 px-4 text-center">P</th>
-                        <th className="py-3 px-4 text-center">W</th>
-                        <th className="py-3 px-4 text-center">L</th>
-                        <th className="py-3 px-4 text-center">NRR</th>
-                        <th className="py-3 px-6 text-right text-amber-400">PTS</th>
+                      <tr
+                        className="border-b border-white/15 text-xs font-bold tracking-widest text-white/60 uppercase"
+                        style={{ background: BIDWAR_SCOREBOARD_PANEL }}
+                      >
+                        <th className="py-3.5 px-6 text-center">POS</th>
+                        <th className="py-3.5 px-6">TEAM</th>
+                        <th className="py-3.5 px-5 text-center">P</th>
+                        <th className="py-3.5 px-5 text-center text-[#06B6D4]">W</th>
+                        <th className="py-3.5 px-5 text-center text-[#E11D48]">L</th>
+                        <th className="py-3.5 px-5 text-center text-white/80">NRR</th>
+                        <th className="py-3.5 px-8 text-right text-[#FFD700]">PTS</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/10 text-sm font-bold">
+                    <tbody className="divide-y divide-white/5 text-base font-bold">
                       {standings && standings.length > 0 ? (
                         standings.map((row, idx) => (
                           <tr
                             key={row.teamId}
-                            className={`transition hover:bg-white/5 ${
-                              idx < 4 ? "bg-amber-500/5" : ""
-                            }`}
+                            className={idx < 4 ? "bg-white/[0.02]" : ""}
                           >
-                            <td className="py-3 px-5 text-center font-black">
+                            <td className="py-3.5 px-6 text-center font-bold">
                               <span
-                                className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-black ${
-                                  idx < 4
-                                    ? "bg-amber-400 text-black shadow-md"
-                                    : "bg-white/10 text-white"
+                                className={`inline-flex h-7 w-7 items-center justify-center text-xs font-bold ${
+                                  idx < 4 ? "bg-[#FFD700] text-black" : "bg-white/10 text-white"
                                 }`}
+                                style={{ fontFamily: BROADCAST_FONTS.mono }}
                               >
                                 {idx + 1}
                               </span>
                             </td>
-                            <td className="py-3 px-5">
+                            <td className="py-3.5 px-6">
                               <div className="flex items-center gap-3">
                                 {row.teamLogoUrl ? (
                                   <img
@@ -205,27 +244,46 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId, onClose }: Pr
                                     className="h-7 w-7 object-contain"
                                   />
                                 ) : null}
-                                <span className="font-black text-white text-base">
+                                <span className="font-bold text-white text-lg uppercase">
                                   {row.teamName}
                                 </span>
-                                <span className="text-xs text-white/40 font-bold uppercase">
-                                  {row.shortCode}
+                                <span className="text-xs text-white/40 font-bold uppercase font-mono">
+                                  ({row.shortCode})
                                 </span>
                               </div>
                             </td>
-                            <td className="py-3 px-4 text-center tabular-nums text-white/80">
+                            <td
+                              className="py-3.5 px-5 text-center tabular-nums text-white/80"
+                              style={{ fontFamily: BROADCAST_FONTS.mono }}
+                            >
                               {row.played}
                             </td>
-                            <td className="py-3 px-4 text-center tabular-nums text-emerald-400">
+                            <td
+                              className="py-3.5 px-5 text-center tabular-nums text-[#06B6D4]"
+                              style={{ fontFamily: BROADCAST_FONTS.mono }}
+                            >
                               {row.won}
                             </td>
-                            <td className="py-3 px-4 text-center tabular-nums text-red-400">
+                            <td
+                              className="py-3.5 px-5 text-center tabular-nums text-[#E11D48]"
+                              style={{ fontFamily: BROADCAST_FONTS.mono }}
+                            >
                               {row.lost}
                             </td>
-                            <td className="py-3 px-4 text-center tabular-nums font-black text-cyan-300">
-                              {row.netRunRate != null ? (row.netRunRate > 0 ? `+${row.netRunRate.toFixed(3)}` : row.netRunRate.toFixed(3)) : "0.000"}
+                            <td
+                              className="py-3.5 px-5 text-center tabular-nums text-white/80 font-mono"
+                              style={{ fontFamily: BROADCAST_FONTS.mono }}
+                            >
+                              {row.netRunRate != null
+                                ? row.netRunRate > 0
+                                  ? `+${row.netRunRate.toFixed(3)}`
+                                  : row.netRunRate.toFixed(3)
+                                : "0.000"}
                             </td>
-                            <td className="py-3 px-6 text-right font-black text-lg tabular-nums text-amber-400">
+                            <td
+                              className="py-3.5 px-8 text-right font-normal text-3xl tabular-nums text-[#FFD700]"
+                              style={{ fontFamily: BROADCAST_FONTS.display }}
+                            >
                               {row.points}
                             </td>
                           </tr>
@@ -243,14 +301,20 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId, onClose }: Pr
               </div>
             )}
 
-            {/* 3. UPCOMING MATCHES / FIXTURES (80% Screen - Reference Image 4) */}
+            {/* 3. UPCOMING MATCHES / FIXTURES */}
             {overlay === "fixtures" && (
-              <div className="flex h-full flex-col">
+              <div className="flex h-full flex-col max-w-6xl mx-auto w-full">
                 <div className="text-center mb-6">
-                  <span className="text-xs font-black tracking-[0.25em] text-amber-400 uppercase">
-                    SCHEDULE & FIXTURES
+                  <span
+                    className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
+                    style={{ fontFamily: BROADCAST_FONTS.body }}
+                  >
+                    SCHEDULE &amp; FIXTURES
                   </span>
-                  <h2 className="text-3xl font-black tracking-wide text-white uppercase mt-0.5">
+                  <h2
+                    className="text-5xl font-normal tracking-wide text-white uppercase mt-1 leading-none"
+                    style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
+                  >
                     UPCOMING MATCHES
                   </h2>
                 </div>
@@ -263,46 +327,50 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId, onClose }: Pr
                       .map((m) => (
                         <div
                           key={m.id}
-                          className="flex flex-col items-center rounded-xl border border-white/15 p-6 shadow-xl"
-                          style={{
-                            background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.5) 100%)",
-                          }}
+                          className="flex flex-col items-center border border-white/10 p-6"
+                          style={{ background: BIDWAR_SCOREBOARD_PANEL }}
                         >
-                          <div className="flex w-full items-center justify-between text-xs font-bold text-amber-400 uppercase tracking-wider pb-3 border-b border-white/10">
+                          <div className="flex w-full items-center justify-between text-xs font-bold text-[#FFD700] uppercase tracking-wider pb-3 border-b border-white/10">
                             <span>{m.roundName || `MATCH #${m.id}`}</span>
                             <span className="text-white/60">{m.venue || "MAIN GROUND"}</span>
                           </div>
 
-                          {/* Teams VS Display */}
                           <div className="flex w-full items-center justify-around py-5">
-                            <div className="flex flex-col items-center gap-2">
-                              <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/20 bg-black/60 shadow">
-                                <span className="text-lg font-black text-white">
-                                  {m.homeTeam?.shortCode || "TM1"}
-                                </span>
-                              </div>
-                              <span className="text-sm font-black text-white uppercase">
+                            {/* Team 1 */}
+                            <div className="flex flex-col items-center gap-2 max-w-[150px] text-center">
+                              <span
+                                className="text-3xl font-normal text-white uppercase"
+                                style={{ fontFamily: BROADCAST_FONTS.display }}
+                              >
+                                {m.homeTeam?.shortCode || "TM1"}
+                              </span>
+                              <span className="text-xs font-bold text-white/80 uppercase truncate w-full">
                                 {m.homeTeam?.name || "Home Team"}
                               </span>
                             </div>
 
-                            <span className="text-3xl font-black italic text-amber-400 drop-shadow">
+                            <span
+                              className="text-3xl font-normal italic text-[#FFD700]"
+                              style={{ fontFamily: BROADCAST_FONTS.display }}
+                            >
                               VS
                             </span>
 
-                            <div className="flex flex-col items-center gap-2">
-                              <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-white/20 bg-black/60 shadow">
-                                <span className="text-lg font-black text-white">
-                                  {m.awayTeam?.shortCode || "TM2"}
-                                </span>
-                              </div>
-                              <span className="text-sm font-black text-white uppercase">
+                            {/* Team 2 */}
+                            <div className="flex flex-col items-center gap-2 max-w-[150px] text-center">
+                              <span
+                                className="text-3xl font-normal text-white uppercase"
+                                style={{ fontFamily: BROADCAST_FONTS.display }}
+                              >
+                                {m.awayTeam?.shortCode || "TM2"}
+                              </span>
+                              <span className="text-xs font-bold text-white/80 uppercase truncate w-full">
                                 {m.awayTeam?.name || "Away Team"}
                               </span>
                             </div>
                           </div>
 
-                          <div className="rounded-full bg-white/10 px-4 py-1 text-xs font-black uppercase tracking-wider text-white">
+                          <div className="border border-white/15 px-4 py-1 text-xs font-bold uppercase tracking-wider text-white">
                             {m.scheduledAt ? new Date(m.scheduledAt).toLocaleDateString() : "SCHEDULED"}
                           </div>
                         </div>
@@ -316,53 +384,80 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId, onClose }: Pr
               </div>
             )}
 
-            {/* 4. FULL INNINGS BOWLING SCORECARD (80% Screen - Reference Image 3) */}
+            {/* 4. FULL INNINGS SCORECARD */}
             {overlay === "scorecard" && (
-              <div className="flex h-full flex-col">
+              <div className="flex h-full flex-col max-w-6xl mx-auto w-full">
                 <div className="flex items-center justify-between border-b border-white/15 pb-4 mb-4">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-amber-400 bg-black shadow">
-                      <span className="text-lg font-black text-amber-400">
+                    <div
+                      className="flex h-12 w-12 items-center justify-center border border-white/20"
+                      style={{ background: BIDWAR_SCOREBOARD_PANEL }}
+                    >
+                      <span
+                        className="text-2xl font-normal text-[#FFD700]"
+                        style={{ fontFamily: BROADCAST_FONTS.display }}
+                      >
                         {vm.batting?.shortCode || "BAT"}
                       </span>
                     </div>
                     <div>
-                      <h2 className="text-3xl font-black tracking-wide text-white uppercase">
+                      <h2
+                        className="text-4xl font-normal tracking-wide text-white uppercase leading-none"
+                        style={{ fontFamily: BROADCAST_FONTS.display }}
+                      >
                         {vm.batting?.name || "INNINGS SCORECARD"}
                       </h2>
-                      <p className="text-xs font-bold text-amber-400 uppercase tracking-widest">
+                      <p className="text-xs font-bold text-[#FFD700] uppercase tracking-widest mt-0.5">
                         {vm.tournamentName}
                       </p>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <span className="text-4xl font-black tabular-nums text-white">
+                  <div className="text-right flex items-baseline gap-2">
+                    <span
+                      className="text-5xl font-normal tabular-nums text-white"
+                      style={{ fontFamily: BROADCAST_FONTS.display }}
+                    >
                       {vm.runs}-{vm.wickets}
                     </span>
-                    <span className="ml-2 text-base font-bold text-amber-400">
+                    <span
+                      className="text-base font-bold text-[#FFD700]"
+                      style={{ fontFamily: BROADCAST_FONTS.mono }}
+                    >
                       ({vm.oversLabel} OV)
                     </span>
                   </div>
                 </div>
 
-                {/* Bowler Figures Table (Matching Ref Image 3) */}
-                <div className="flex-1 overflow-x-auto rounded-xl border border-white/15 bg-black/40 shadow-inner">
+                {/* Bowler Figures Table */}
+                <div
+                  className="flex-1 overflow-x-auto border border-white/10"
+                  style={{ background: BIDWAR_SCOREBOARD_SHELL }}
+                >
                   <table className="w-full border-collapse text-left">
                     <thead>
-                      <tr className="border-b border-white/20 bg-white/10 text-xs font-black tracking-widest text-white/70 uppercase">
+                      <tr
+                        className="border-b border-white/20 text-xs font-bold tracking-widest text-white/70 uppercase"
+                        style={{ background: BIDWAR_SCOREBOARD_PANEL }}
+                      >
                         <th className="py-3 px-6">BOWLER</th>
                         <th className="py-3 px-4 text-center">OVERS</th>
                         <th className="py-3 px-4 text-center">MAIDENS</th>
                         <th className="py-3 px-4 text-center">RUNS</th>
-                        <th className="py-3 px-4 text-center text-amber-400">WICKETS</th>
+                        <th className="py-3 px-4 text-center text-[#FFD700]">WICKETS</th>
                         <th className="py-3 px-6 text-right">ECON</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/10 text-sm font-bold">
+                    <tbody
+                      className="divide-y divide-white/10 text-sm font-bold"
+                      style={{ fontFamily: BROADCAST_FONTS.mono }}
+                    >
                       {vm.bowler ? (
-                        <tr className="bg-amber-500/10">
-                          <td className="py-3.5 px-6 font-black text-white text-base">
+                        <tr>
+                          <td
+                            className="py-3.5 px-6 font-bold text-white text-base"
+                            style={{ fontFamily: BROADCAST_FONTS.body }}
+                          >
                             {vm.bowler.name} *
                           </td>
                           <td className="py-3.5 px-4 text-center tabular-nums text-white/80">
@@ -374,10 +469,10 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId, onClose }: Pr
                           <td className="py-3.5 px-4 text-center tabular-nums text-white/80">
                             {vm.bowler.runsConceded}
                           </td>
-                          <td className="py-3.5 px-4 text-center tabular-nums font-black text-lg text-amber-400">
+                          <td className="py-3.5 px-4 text-center tabular-nums font-bold text-lg text-[#FFD700]">
                             {vm.bowler.wickets}
                           </td>
-                          <td className="py-3.5 px-6 text-right tabular-nums font-black text-cyan-300">
+                          <td className="py-3.5 px-6 text-right tabular-nums font-bold text-[#06B6D4]">
                             {vm.bowler.economy.toFixed(2)}
                           </td>
                         </tr>
@@ -392,137 +487,216 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId, onClose }: Pr
                   </table>
                 </div>
 
-                {/* Bottom Bar: Extras, Overs, Total (Ref Image 3) */}
-                <div className="mt-4 flex items-center justify-between rounded-lg border border-white/15 bg-black/60 px-6 py-3 text-sm font-black uppercase tracking-wider text-white">
+                {/* Bottom Bar: Extras, Overs, Total */}
+                <div
+                  className="mt-4 flex items-center justify-between border border-white/15 px-6 py-3 text-sm font-bold uppercase tracking-wider text-white"
+                  style={{ background: BIDWAR_SCOREBOARD_INSET }}
+                >
                   <div>
-                    <span>EXTRAS: </span>
-                    <span className="text-amber-400">12 (Wd 6, Nb 2, Lb 4)</span>
+                    <span className="text-white/60">CRR: </span>
+                    <span className="text-[#FFD700] font-mono">{vm.crr || "0.00"}</span>
                   </div>
                   <div>
-                    <span>OVERS: </span>
-                    <span className="text-white">{vm.oversLabel}</span>
+                    <span className="text-white/60">OVERS: </span>
+                    <span className="text-white font-mono">{vm.oversLabel}</span>
                   </div>
-                  <div className="text-base">
-                    <span>TOTAL: </span>
-                    <span className="text-amber-400 text-xl font-black">{vm.runs}-{vm.wickets}</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-white/60">TOTAL: </span>
+                    <span
+                      className="text-[#FFD700] text-2xl font-normal"
+                      style={{ fontFamily: BROADCAST_FONTS.display }}
+                    >
+                      {vm.runs}-{vm.wickets}
+                    </span>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* 5. MATCH SUMMARY (80% Screen - Reference Image 5) */}
+            {/* 5. MATCH SUMMARY */}
             {overlay === "summary" && (
-              <div className="flex h-full flex-col justify-between">
+              <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full">
                 <div className="text-center mb-4">
-                  <div className="inline-block rounded-md border border-white/20 bg-white/10 px-6 py-1">
-                    <h2 className="text-2xl font-black tracking-widest text-white uppercase">
-                      MATCH SUMMARY
-                    </h2>
-                  </div>
+                  <span
+                    className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
+                    style={{ fontFamily: BROADCAST_FONTS.body }}
+                  >
+                    OFFICIAL MATCH RESULT
+                  </span>
+                  <h2
+                    className="text-5xl font-normal tracking-wide text-white uppercase mt-1 leading-none"
+                    style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
+                  >
+                    MATCH SUMMARY
+                  </h2>
                 </div>
 
-                {/* Two Inning Cards (Ref Image 5) */}
+                {/* 2 Inning Cards */}
                 <div className="grid grid-cols-2 gap-6 my-auto">
-                  {/* Home Team Card */}
-                  <div className="rounded-xl border border-white/20 bg-black/50 p-5 shadow-xl">
-                    <div className="flex items-center justify-between border-b border-white/15 pb-2.5 mb-3">
-                      <span className="text-xl font-black text-white uppercase">
+                  {/* Home Team */}
+                  <div
+                    className="border border-white/15 p-6"
+                    style={{ background: BIDWAR_SCOREBOARD_PANEL }}
+                  >
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
+                      <span
+                        className="text-2xl font-normal text-white uppercase"
+                        style={{ fontFamily: BROADCAST_FONTS.display }}
+                      >
                         {vm.home?.name || "TEAM 1"}
                       </span>
-                      <span className="text-2xl font-black text-amber-400">
+                      <span
+                        className="text-3xl font-normal text-[#FFD700]"
+                        style={{ fontFamily: BROADCAST_FONTS.display }}
+                      >
                         {vm.phase === "completed" || vm.phase === "chase" ? `${vm.runs}-${vm.wickets}` : "—"}
                       </span>
                     </div>
-                    <p className="text-xs text-white/50 font-bold uppercase mb-2">TOP PERFORMERS</p>
-                    <div className="space-y-1.5 text-xs">
+                    <p className="text-xs text-white/50 font-bold uppercase mb-2">TOP BATTERS</p>
+                    <div className="space-y-2 text-xs">
                       <div className="flex justify-between font-bold">
                         <span className="text-white">{vm.striker?.name || "Striker"}</span>
-                        <span className="text-amber-300 font-black">{vm.striker?.runs || 0} ({vm.striker?.balls || 0})</span>
+                        <span className="text-[#FFD700] font-mono">{vm.striker?.runs || 0} ({vm.striker?.balls || 0}b)</span>
                       </div>
                       <div className="flex justify-between font-bold">
                         <span className="text-white">{vm.nonStriker?.name || "Non-Striker"}</span>
-                        <span className="text-white/70 font-black">{vm.nonStriker?.runs || 0} ({vm.nonStriker?.balls || 0})</span>
+                        <span className="text-white/70 font-mono">{vm.nonStriker?.runs || 0} ({vm.nonStriker?.balls || 0}b)</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Away Team Card */}
-                  <div className="rounded-xl border border-white/20 bg-black/50 p-5 shadow-xl">
-                    <div className="flex items-center justify-between border-b border-white/15 pb-2.5 mb-3">
-                      <span className="text-xl font-black text-white uppercase">
+                  {/* Away Team */}
+                  <div
+                    className="border border-white/15 p-6"
+                    style={{ background: BIDWAR_SCOREBOARD_PANEL }}
+                  >
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
+                      <span
+                        className="text-2xl font-normal text-white uppercase"
+                        style={{ fontFamily: BROADCAST_FONTS.display }}
+                      >
                         {vm.away?.name || "TEAM 2"}
                       </span>
-                      <span className="text-2xl font-black text-amber-400">
-                        {vm.target != null ? `${vm.target - 1} ALL OUT` : "—"}
+                      <span
+                        className="text-3xl font-normal text-[#FFD700]"
+                        style={{ fontFamily: BROADCAST_FONTS.display }}
+                      >
+                        {vm.target != null ? `${vm.target - 1}` : "—"}
                       </span>
                     </div>
-                    <p className="text-xs text-white/50 font-bold uppercase mb-2">TOP PERFORMERS</p>
-                    <div className="space-y-1.5 text-xs">
+                    <p className="text-xs text-white/50 font-bold uppercase mb-2">TOP BOWLERS</p>
+                    <div className="space-y-2 text-xs">
                       <div className="flex justify-between font-bold">
                         <span className="text-white">{vm.bowler?.name || "Bowler"}</span>
-                        <span className="text-cyan-300 font-black">{vm.bowler ? `${vm.bowler.wickets}-${vm.bowler.runsConceded}` : "—"}</span>
+                        <span className="text-[#06B6D4] font-mono">{vm.bowler ? `${vm.bowler.wickets}-${vm.bowler.runsConceded}` : "—"}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Victory Banner (Ref Image 5) */}
-                <div className="rounded-xl border-2 border-amber-400/50 bg-gradient-to-r from-amber-600/30 via-amber-500/20 to-amber-600/30 p-4 text-center shadow-lg">
-                  <p className="text-xl font-black uppercase tracking-widest text-amber-300">
+                {/* Victory Headline Banner */}
+                <div
+                  className="border border-[#FFD700] p-4 text-center"
+                  style={{ background: BIDWAR_SCOREBOARD_SHELL }}
+                >
+                  <p
+                    className="text-3xl font-normal uppercase tracking-widest text-[#FFD700] leading-none"
+                    style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.08em" }}
+                  >
                     {vm.resultHeadline || vm.resultText || "MATCH IN PROGRESS"}
                   </p>
                 </div>
               </div>
             )}
 
-            {/* 6. MATCH INTRO / VS (80% Screen - Reference Image 4) */}
+            {/* 6. MATCH INTRO / VS */}
             {overlay === "intro" && (
-              <div className="flex h-full flex-col justify-between py-6">
+              <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full py-4">
                 <div className="text-center">
-                  <span className="text-xs font-black tracking-[0.25em] text-amber-400 uppercase">
+                  <span
+                    className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
+                    style={{ fontFamily: BROADCAST_FONTS.body }}
+                  >
                     MATCH PRESENTATION
                   </span>
-                  <h2 className="text-4xl font-black tracking-wider text-white uppercase mt-1">
-                    {vm.home?.name || "TEAM 1"} <span className="text-amber-400 italic">VS</span> {vm.away?.name || "TEAM 2"}
+                  <h2
+                    className="text-5xl font-normal tracking-wider text-white uppercase mt-1 leading-none"
+                    style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.06em" }}
+                  >
+                    {vm.home?.name || "TEAM 1"} <span className="text-[#FFD700] italic">VS</span> {vm.away?.name || "TEAM 2"}
                   </h2>
                 </div>
 
-                {/* 3D Circular Team Badges (Ref Image 4) */}
-                <div className="flex items-center justify-center gap-16 my-auto">
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-amber-400 bg-black/80 shadow-[0_0_40px_rgba(251,191,36,0.3)]">
+                {/* Team Badges and VS */}
+                <div className="flex items-center justify-center gap-20 my-auto">
+                  {/* Home Team */}
+                  <div className="flex flex-col items-center gap-4">
+                    <div
+                      className="flex h-36 w-36 items-center justify-center border-2 border-[#FFD700] p-2"
+                      style={{ background: BIDWAR_SCOREBOARD_PANEL }}
+                    >
                       {vm.home?.logoUrl ? (
-                        <img src={vm.home.logoUrl} alt="" className="h-20 w-20 object-contain" />
+                        <img src={vm.home.logoUrl} alt="" className="h-24 w-24 object-contain" />
                       ) : (
-                        <span className="text-3xl font-black text-amber-400">{vm.home?.shortCode || "H"}</span>
+                        <span
+                          className="text-5xl font-normal text-[#FFD700]"
+                          style={{ fontFamily: BROADCAST_FONTS.display }}
+                        >
+                          {vm.home?.shortCode || "H"}
+                        </span>
                       )}
                     </div>
-                    <span className="text-xl font-black text-white uppercase">{vm.home?.name}</span>
+                    <span
+                      className="text-2xl font-normal text-white uppercase text-center max-w-[200px]"
+                      style={{ fontFamily: BROADCAST_FONTS.display }}
+                    >
+                      {vm.home?.name}
+                    </span>
                   </div>
 
-                  <span className="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-white to-amber-400 drop-shadow">
+                  <span
+                    className="text-8xl font-normal italic text-[#FFD700]"
+                    style={{ fontFamily: BROADCAST_FONTS.display }}
+                  >
                     VS
                   </span>
 
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-cyan-400 bg-black/80 shadow-[0_0_40px_rgba(34,211,238,0.3)]">
+                  {/* Away Team */}
+                  <div className="flex flex-col items-center gap-4">
+                    <div
+                      className="flex h-36 w-36 items-center justify-center border-2 border-[#06B6D4] p-2"
+                      style={{ background: BIDWAR_SCOREBOARD_PANEL }}
+                    >
                       {vm.away?.logoUrl ? (
-                        <img src={vm.away.logoUrl} alt="" className="h-20 w-20 object-contain" />
+                        <img src={vm.away.logoUrl} alt="" className="h-24 w-24 object-contain" />
                       ) : (
-                        <span className="text-3xl font-black text-cyan-400">{vm.away?.shortCode || "A"}</span>
+                        <span
+                          className="text-5xl font-normal text-[#06B6D4]"
+                          style={{ fontFamily: BROADCAST_FONTS.display }}
+                        >
+                          {vm.away?.shortCode || "A"}
+                        </span>
                       )}
                     </div>
-                    <span className="text-xl font-black text-white uppercase">{vm.away?.name}</span>
+                    <span
+                      className="text-2xl font-normal text-white uppercase text-center max-w-[200px]"
+                      style={{ fontFamily: BROADCAST_FONTS.display }}
+                    >
+                      {vm.away?.name}
+                    </span>
                   </div>
                 </div>
 
-                {/* Green banner: Match info & Venue (Ref Image 4) */}
-                <div className="rounded-xl border border-emerald-500/40 bg-emerald-950/70 py-3 px-6 text-center shadow-lg">
-                  <p className="text-xs font-black uppercase tracking-widest text-emerald-300">
+                {/* Match Venue / Toss Strip */}
+                <div
+                  className="border border-white/10 py-3 px-6 text-center"
+                  style={{ background: BIDWAR_SCOREBOARD_SHELL }}
+                >
+                  <p className="text-xs font-bold uppercase tracking-widest text-[#06B6D4]">
                     LIVE FROM {vm.venueText || "MAIN VENUE"}
                   </p>
                   {vm.tossText ? (
-                    <p className="mt-1 text-sm font-bold text-white tracking-wider">
+                    <p className="mt-1 text-sm font-semibold text-white uppercase tracking-wider">
                       {vm.tossText}
                     </p>
                   ) : null}

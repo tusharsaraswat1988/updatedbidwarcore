@@ -1,25 +1,31 @@
+/**
+ * Cricket OBS Slimline Broadcast Masthead (52px)
+ * Linear television top bar anchored across the 1920×1080 canvas.
+ * Respects 96px lateral safe area with authoritative tournament identity.
+ */
+
 import { useState, useEffect } from "react";
+import { BROADCAST_FONTS } from "@/components/broadcast/tokens";
+import {
+  BIDWAR_BROADCAST_YELLOW,
+  BIDWAR_SCOREBOARD_PANEL,
+  BIDWAR_SCOREBOARD_SHELL,
+} from "@/lib/bidwar-broadcast-colors";
+import { BROADCAST_OVERLAY_SAFE_INSET_X } from "@/lib/broadcast-overlay";
 import { useCricketBidWarTheme } from "@/components/scoring/cricket-branding";
 import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
 
-/**
- * Component 1: Solid Top Header (Non-Transparent)
- * - Middle: Prominent HERO BidWar Broadcast Branding (large & unmistakably clear)
- * - Left: Tournament Logo + Official Tournament Name
- * - Right: Sponsors Showcase (Logo, Name, Sponsor Type e.g., Title Sponsor, Powered By)
- * - Solid non-transparent background with metallic broadcast chrome finish
- */
 export function CricketObsBranding({ vm }: { vm: CricketObsViewModel }) {
   const { logoSrc, brandName } = useCricketBidWarTheme();
   const sponsors = vm.sponsors ?? [];
   const [activeSponsorIndex, setActiveSponsorIndex] = useState(0);
 
-  // Rotate through sponsors if multiple exist
+  // Rotate sponsors every 7s if multiple exist
   useEffect(() => {
     if (sponsors.length <= 1) return;
     const interval = setInterval(() => {
       setActiveSponsorIndex((prev) => (prev + 1) % sponsors.length);
-    }, 6000);
+    }, 7000);
     return () => clearInterval(interval);
   }, [sponsors.length]);
 
@@ -27,139 +33,119 @@ export function CricketObsBranding({ vm }: { vm: CricketObsViewModel }) {
 
   return (
     <header
-      className="relative z-40 flex h-20 w-full items-center justify-between px-8 shadow-2xl"
+      className="relative z-40 flex h-[52px] w-full items-center justify-between shadow-lg"
       style={{
-        background: "linear-gradient(180deg, #111827 0%, #080c16 100%)",
-        borderBottom: "2px solid rgba(255, 255, 255, 0.18)",
-        boxShadow: "0 4px 18px rgba(0, 0, 0, 0.55)",
-        WebkitFontSmoothing: "antialiased",
-        MozOsxFontSmoothing: "grayscale",
-        textRendering: "optimizeLegibility",
+        background: BIDWAR_SCOREBOARD_SHELL,
+        borderBottom: "1px solid rgba(255, 255, 255, 0.12)",
+        paddingLeft: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
+        paddingRight: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
+        fontFamily: BROADCAST_FONTS.body,
       }}
     >
-      {/* Subtle top golden/cyan broadcast trim */}
+      {/* 2px Solid Top Accent Rail */}
       <div
-        className="absolute top-0 left-0 right-0 h-[3px]"
-        style={{
-          background:
-            "linear-gradient(90deg, #3b82f6 0%, #fbbf24 35%, #f59e0b 65%, #3b82f6 100%)",
-        }}
+        className="absolute top-0 left-0 right-0 h-[2px]"
+        style={{ background: BIDWAR_BROADCAST_YELLOW }}
       />
 
-      {/* LEFT: Tournament Logo & Tournament Name */}
-      <div className="flex min-w-[320px] max-w-[420px] items-center gap-4">
+      {/* LEFT: Strengthened Tournament Identity */}
+      <div className="flex items-center gap-3.5 min-w-0 max-w-[560px]">
         {vm.tournamentLogoUrl ? (
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-black/60 p-1.5 shadow-md">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center p-0.5">
             <img
               src={vm.tournamentLogoUrl}
               alt=""
-              className="h-full w-full object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
+              className="h-full w-full object-contain"
             />
           </div>
-        ) : (
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-amber-400/40 bg-amber-500/15 text-amber-400 shadow-md">
-            <span className="text-lg font-black tracking-wider">IPL</span>
-          </div>
-        )}
+        ) : null}
 
-        <div className="min-w-0 flex-1">
-          <p
-            className="truncate text-lg font-black uppercase tracking-[0.12em] text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]"
-            style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+        <div className="min-w-0 flex flex-col justify-center">
+          <h1
+            className="truncate text-2xl font-normal uppercase tracking-wider text-white leading-none"
+            style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.05em" }}
           >
             {vm.tournamentName || "CRICKET CHAMPIONSHIP"}
-          </p>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="rounded bg-white/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">
-              OFFICIAL STREAM
-            </span>
-            {vm.venueText ? (
-              <span className="truncate text-xs font-medium tracking-wide text-white/60">
-                {vm.venueText}
-              </span>
-            ) : null}
-          </div>
+          </h1>
+          {vm.venueText ? (
+            <p className="truncate text-[10px] font-bold uppercase tracking-widest text-[#FFD700]/90 mt-0.5">
+              {vm.venueText}
+            </p>
+          ) : null}
         </div>
       </div>
 
-      {/* CENTER: HERO BIDWAR BRANDING (Significantly Larger & Crisp) */}
-      <div className="flex items-center justify-center">
-        <div
-          className="relative flex items-center gap-4 rounded-full border-2 border-amber-400/50 px-8 py-2.5 shadow-[0_0_35px_rgba(245,158,11,0.35)]"
-          style={{
-            background:
-              "linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(15, 23, 42, 0.99) 100%)",
-          }}
-        >
-          {/* BidWar Brand Mark / Wordmark */}
-          <div className="flex items-center gap-2.5">
-            {logoSrc ? (
-              <img
-                src={logoSrc}
-                alt={brandName}
-                className="h-10 max-w-[200px] object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]"
-              />
-            ) : (
-              <span
-                className="text-3xl font-black italic tracking-widest text-transparent bg-clip-text"
-                style={{
-                  backgroundImage: "linear-gradient(180deg, #ffffff 0%, #fbbf24 55%, #d97706 100%)",
-                  fontFamily: "'Barlow Condensed', sans-serif",
-                  letterSpacing: "0.14em",
-                }}
-              >
-                BIDWAR
-              </span>
-            )}
-          </div>
-
-          <div className="h-6 w-[1.5px] bg-white/25" />
-
-          {/* Cricket broadcast pill with pulsing live dot */}
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-3 w-3">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-red-600" />
-            </span>
+      {/* CENTER: Restrained BidWar Brand Mark + LIVE Indicator */}
+      <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2">
+          {logoSrc ? (
+            <img
+              src={logoSrc}
+              alt={brandName}
+              className="h-5 max-w-[110px] object-contain"
+            />
+          ) : (
             <span
-              className="text-sm font-black uppercase tracking-[0.24em] text-white"
-              style={{ fontFamily: "'Barlow Condensed', sans-serif" }}
+              className="text-lg font-normal tracking-widest text-[#FFD700]"
+              style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.12em" }}
             >
-              LIVE
+              BIDWAR
             </span>
-          </div>
+          )}
+        </div>
+
+        <div className="h-3.5 w-[1px] bg-white/20" />
+
+        {/* Geometric Live Broadcast Indicator */}
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-[#E11D48] animate-pulse" />
+          <span
+            className="text-[11px] font-bold uppercase tracking-[0.2em] text-white"
+            style={{ fontFamily: BROADCAST_FONTS.body }}
+          >
+            LIVE
+          </span>
         </div>
       </div>
 
-      {/* RIGHT: SPONSORS SHOWCASE (Logo, Name, Sponsor Type) */}
-      <div className="flex min-w-[320px] max-w-[420px] items-center justify-end gap-3.5">
-        {currentSponsor?.url ? (
-          <div className="flex items-center gap-3.5 rounded-xl border border-white/20 bg-black/70 px-4 py-2 shadow-lg">
-            <div className="flex flex-col items-end">
-              <span className="text-[9px] font-black uppercase tracking-[0.22em] text-amber-400">
+      {/* RIGHT: Standardized Sponsor Inventory Slot */}
+      <div className="flex min-w-[240px] max-w-[420px] items-center justify-end gap-3 shrink-0">
+        {currentSponsor ? (
+          <div className="flex items-center gap-2.5">
+            <div className="flex flex-col items-end text-right">
+              <span
+                className="text-[9px] font-bold uppercase tracking-[0.16em]"
+                style={{ color: BIDWAR_BROADCAST_YELLOW }}
+              >
                 {currentSponsor.tier
                   ? currentSponsor.tier.replace(/_/g, " ").toUpperCase()
                   : "OFFICIAL PARTNER"}
               </span>
-              <p className="max-w-[140px] truncate text-xs font-bold text-white/95">
+              <span className="max-w-[160px] truncate text-[11px] font-semibold uppercase tracking-wide text-white/90">
                 {currentSponsor.name || "SPONSOR"}
-              </p>
+              </span>
             </div>
-            <img
-              src={currentSponsor.url}
-              alt={currentSponsor.name || ""}
-              className="h-10 max-w-[130px] object-contain drop-shadow"
-            />
+
+            {currentSponsor.url ? (
+              <div
+                className="flex h-7 max-w-[120px] shrink-0 items-center justify-center px-2 py-0.5 border border-white/10"
+                style={{ background: BIDWAR_SCOREBOARD_PANEL }}
+              >
+                <img
+                  src={currentSponsor.url}
+                  alt={currentSponsor.name || ""}
+                  className="max-h-full max-w-full object-contain"
+                />
+              </div>
+            ) : null}
           </div>
         ) : (
-          <div className="flex items-center gap-2.5 rounded-xl border border-white/15 bg-black/50 px-4 py-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50">
-              POWERED BY
-            </span>
-            <span className="text-sm font-black tracking-wider text-amber-400">
-              BIDWAR SPORTS
-            </span>
-          </div>
+          <span
+            className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/40"
+            style={{ fontFamily: BROADCAST_FONTS.body }}
+          >
+            OFFICIAL BROADCAST
+          </span>
         )}
       </div>
     </header>

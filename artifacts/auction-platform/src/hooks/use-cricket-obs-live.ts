@@ -191,12 +191,27 @@ export function useCricketObsLive(
     [tournamentId],
   );
 
+  // Timestamp tracker to prevent stale/out-of-order SSE director events from overwriting newer state
+  const lastDirectorTimestampRef = useRef<number>(0);
+
   // Cross-device SSE Director listener (from useScoringSocket)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const handleSseDirector = (ev: Event) => {
       const detail = (ev as CustomEvent).detail;
       if (!detail) return;
+
+      // Reject stale out-of-order events
+      if (
+        detail.timestamp &&
+        detail.timestamp < lastDirectorTimestampRef.current
+      ) {
+        return;
+      }
+      if (detail.timestamp) {
+        lastDirectorTimestampRef.current = detail.timestamp;
+      }
+
       if (detail.overlay !== undefined) {
         setMidOverlayState(detail.overlay as CricketObsMidOverlayKind);
       }
