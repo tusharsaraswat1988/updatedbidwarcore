@@ -332,24 +332,21 @@ export default function CricketMatchCenterPage() {
         badge={isLive ? "LIVE" : undefined}
         actions={
           <div className="flex flex-wrap gap-2">
-            <BtnPrimary href={scorerHref} className={btnCompactClass}>
+            <BtnPrimary href={scorerHref} className={cn(btnCompactClass, "bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold")}>
               <Radio className="w-4 h-4" />
-              Open Scorer
+              Open Scorer Pad
             </BtnPrimary>
             <BtnSecondary href={liveControlHref} className={btnCompactClass}>
-              <Tv className="w-4 h-4" />
+              <Tv className="w-4 h-4 text-amber-400" />
               Live Control
-            </BtnSecondary>
-            <BtnSecondary
-              className={btnCompactClass}
-              onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
-            >
-              <Monitor className="w-4 h-4" />
-              LED
             </BtnSecondary>
             <BtnSecondary onClick={handleOpenEdit} className={btnCompactClass}>
               <Edit2 className="w-4 h-4" />
               Edit Details
+            </BtnSecondary>
+            <BtnSecondary onClick={() => window.print()} className={btnCompactClass}>
+              <Printer className="w-4 h-4" />
+              Print Scorecard
             </BtnSecondary>
             {data?.match.status !== "completed" && data?.match.status !== "abandoned" ? (
               <Button
@@ -361,19 +358,6 @@ export default function CricketMatchCenterPage() {
                 Delete
               </Button>
             ) : null}
-            <BtnSecondary
-              className={btnCompactClass}
-              onClick={() =>
-                window.open(
-                  cricketObsLivePath(tournamentId, tournament?.auctionCode),
-                  "_blank",
-                  "noopener,noreferrer",
-                )
-              }
-            >
-              <Tv className="w-4 h-4" />
-              Cricket OBS
-            </BtnSecondary>
           </div>
         }
       />
@@ -441,15 +425,21 @@ export default function CricketMatchCenterPage() {
           />
         </section>
 
-        {/* Primary Actions & Screen Shortcuts */}
+        {/* Primary Actions & Share */}
         <section className="space-y-3">
-          <HubSectionHeader title="Match Actions" subtitle="Scoring, public view, and live screens for this match" />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <HubSectionHeader title="Match Actions" subtitle="Scoring, public view & fan scorecard" />
+            <ShareButtons
+              url={publicMatchUrl}
+              shareText={`${home?.name ?? "Home"} vs ${away?.name ?? "Away"}`}
+            />
+          </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
             {/* 1. Scorer Pad */}
             <a
               href={scorerHref}
-              className="flex items-center gap-3 p-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold transition-all shadow-md shadow-amber-400/20"
+              className="flex items-center gap-3 p-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold transition-all shadow-md shadow-amber-400/20"
             >
               <Radio className="w-5 h-5 shrink-0" />
               <div>
@@ -463,47 +453,27 @@ export default function CricketMatchCenterPage() {
               href={cricketMatchPublicPath(tournamentId, matchId)}
               target="_blank"
               rel="noopener noreferrer"
-              className={cn(hubPanelClass, "flex items-center gap-3 p-4 hover:border-primary/40 transition-all")}
+              className={cn(hubPanelClass, "flex items-center gap-3 p-3.5 hover:border-primary/40 transition-all")}
             >
               <ExternalLink className="w-5 h-5 text-primary shrink-0" />
               <div>
                 <div className="text-sm font-bold text-foreground leading-tight">Public Match Page</div>
-                <div className="text-[11px] text-muted-foreground font-normal">Fan scorecard & ball replay</div>
+                <div className="text-[11px] text-muted-foreground font-normal">Live scorecard & ball replay</div>
               </div>
             </a>
 
-            {/* 3. Ground LED Screen */}
-            <button
-              type="button"
-              onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
-              className={cn(hubPanelClass, "flex items-center gap-3 p-4 hover:border-primary/40 text-left transition-all")}
-            >
-              <Monitor className="w-5 h-5 text-sky-400 shrink-0" />
-              <div>
-                <div className="text-sm font-bold text-foreground leading-tight">Ground LED Scoreboard</div>
-                <div className="text-[11px] text-muted-foreground font-normal">Live fullscreen for stadium</div>
-              </div>
-            </button>
-
-            {/* 4. Print / PDF */}
+            {/* 3. Print / PDF */}
             <button
               type="button"
               onClick={() => window.print()}
-              className={cn(hubPanelClass, "flex items-center gap-3 p-4 hover:border-primary/40 text-left transition-all")}
+              className={cn(hubPanelClass, "flex items-center gap-3 p-3.5 hover:border-primary/40 text-left transition-all")}
             >
               <Printer className="w-5 h-5 text-emerald-400 shrink-0" />
               <div>
-                <div className="text-sm font-bold text-foreground leading-tight">Print / PDF Scorecard</div>
-                <div className="text-[11px] text-muted-foreground font-normal">Official match sheet download</div>
+                <div className="text-sm font-bold text-foreground leading-tight">Print Official Scorecard</div>
+                <div className="text-[11px] text-muted-foreground font-normal">Download printable PDF match sheet</div>
               </div>
             </button>
-          </div>
-
-          <div className="mt-2">
-            <ShareButtons
-              url={publicMatchUrl}
-              shareText={`${home?.name ?? "Home"} vs ${away?.name ?? "Away"}`}
-            />
           </div>
         </section>
 

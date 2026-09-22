@@ -157,7 +157,7 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
   },
   {
     id: "matches",
-    label: "Matches & Live Screens",
+    label: "Matches & Live Control",
     href: cricketScoreHubPath,
     isActive: (path, tid) => isMatchesListPath(path, tid) || scoreSection(path, "live-control"),
     icon: Radio,
@@ -166,6 +166,22 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
       preloadNav("matchCenter");
       preloadNav("liveControl");
     },
+    children: [
+      {
+        id: "matches-hub",
+        label: "Matches Hub",
+        href: cricketScoreHubPath,
+        isActive: (path, tid) => isMatchesListPath(path, tid),
+        preload: () => preloadNav("matches"),
+      },
+      {
+        id: "matches-live-control",
+        label: "Live Control Console",
+        href: cricketLiveControlPath,
+        isActive: (path) => scoreSection(path, "live-control"),
+        preload: () => preloadNav("liveControl"),
+      },
+    ],
   },
   {
     id: "standings",

@@ -1,7 +1,7 @@
 import { apiFetch } from "@workspace/api-base/api-fetch";
 import { scorerApiFetch } from "./scorer-api";
 import { scorerAuthHeaders } from "./badminton-scorer-session";
-import type {
+export type {
   CricketFullScorecard,
   CricketMatchSummary,
   CricketScoreboardState,

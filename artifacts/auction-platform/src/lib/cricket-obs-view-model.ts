@@ -3,15 +3,19 @@
  * No scoring writes. No engine resolution. Paint preservation lives here.
  */
 
-import type { BallDisplayOutcome, CricketScoreboardState } from "@workspace/scoring-core";
-import type { CricketMatchSummary } from "@workspace/scoring-core";
+import type {
+  BallDisplayOutcome,
+  CricketFullScorecard,
+  CricketMatchSummary,
+  CricketScoreboardState,
+} from "@workspace/scoring-core";
 import {
   getActiveInnings,
   oversText,
   requiredRate,
   runRate,
 } from "@/lib/scoring-ball";
-import type { CricketFullScorecard, ScoringLiveDisplay, ScoringMatchJson } from "@/lib/scoring-api";
+import type { ScoringLiveDisplay, ScoringMatchJson } from "@/lib/scoring-api";
 import {
   getDisplayThemeFromPresentationPaint,
   type PresentationPaintJson,
@@ -651,7 +655,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     freeHitActive: state.freeHitActive === true,
     superBallActive:
       (state.superBallPending != null &&
-        state.superBallPending.innings === inn.innings) ||
+        state.superBallPending.innings === (innings?.innings ?? state.currentInnings)) ||
       lastBall?.isSuperBall === true,
     venueText: match.venue || null,
     resultText,
