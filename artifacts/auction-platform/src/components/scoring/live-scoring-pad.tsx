@@ -4,6 +4,16 @@ import { availableDismissalTypes, FREE_HIT_DISMISSALS } from "@workspace/scoring
 import { ScoreButton } from "@/components/scoring/score-button";
 import { Button } from "@/components/ui/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -179,6 +189,7 @@ export function LiveScoringPad({
   const [customRunsValue, setCustomRunsValue] = useState("5");
 
   const [secondaryOpen, setSecondaryOpen] = useState(false);
+  const [abandonConfirmOpen, setAbandonConfirmOpen] = useState(false);
   const [bowlerSheet, setBowlerSheet] = useState(false);
   const [overEndPrompt, setOverEndPrompt] = useState(false);
   const [retireSheet, setRetireSheet] = useState(false);
@@ -2110,11 +2121,9 @@ export function LiveScoringPad({
               variant="ghost"
               className="h-11 text-muted-foreground hover:text-red-400"
               disabled={busy}
-              onClick={async () => {
+              onClick={() => {
                 setSecondaryOpen(false);
-                await onEvent(CricketEventType.MATCH_ABANDONED, {
-                  reason: "Match abandoned — no result",
-                });
+                setAbandonConfirmOpen(true);
               }}
             >
               Abandon Match
@@ -2122,6 +2131,37 @@ export function LiveScoringPad({
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* ─── Abandon Match Confirmation Modal ─── */}
+      <AlertDialog open={abandonConfirmOpen} onOpenChange={setAbandonConfirmOpen}>
+        <AlertDialogContent className="bg-[#0b1026] border border-red-500/40 text-white max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-400 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-400" />
+              Abandon Match?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-white/70 text-xs sm:text-sm">
+              Are you sure you want to abandon this match? This will immediately end the match with <strong>No Result</strong>. Use this only if the match cannot be played due to rain or unavoidable ground conditions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="border-white/20 text-white hover:bg-white/10">
+              Cancel (Keep Playing)
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-500 text-white font-bold"
+              onClick={async () => {
+                setAbandonConfirmOpen(false);
+                await onEvent(CricketEventType.MATCH_ABANDONED, {
+                  reason: "Match abandoned — no result",
+                });
+              }}
+            >
+              Yes, Abandon Match
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* ─── DLS Sheet ─── */}

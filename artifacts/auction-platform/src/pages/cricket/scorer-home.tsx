@@ -186,9 +186,22 @@ export default function CricketScorerHomePage() {
     navigate(cricketScorerConsolePath(tournamentId, match.id));
   }
 
-  const liveMatches = (matches as ScoringMatchJson[]).filter((m: ScoringMatchJson) => m.status === "live");
-  const scheduledMatches = (matches as ScoringMatchJson[]).filter((m: ScoringMatchJson) => m.status === "scheduled");
-  const completedMatches = (matches as ScoringMatchJson[]).filter((m: ScoringMatchJson) => m.status === "completed" || m.status === "abandoned");
+  const getMatchEffectiveStatus = (m: ScoringMatchJson) => {
+    const sessionStatus = (m.stateJson as { matchStatus?: string } | null)?.matchStatus;
+    if (sessionStatus === "completed" || sessionStatus === "abandoned") return sessionStatus;
+    return m.status;
+  };
+
+  const liveMatches = (matches as ScoringMatchJson[]).filter(
+    (m: ScoringMatchJson) => getMatchEffectiveStatus(m) === "live",
+  );
+  const scheduledMatches = (matches as ScoringMatchJson[]).filter(
+    (m: ScoringMatchJson) => getMatchEffectiveStatus(m) === "scheduled",
+  );
+  const completedMatches = (matches as ScoringMatchJson[]).filter((m: ScoringMatchJson) => {
+    const s = getMatchEffectiveStatus(m);
+    return s === "completed" || s === "abandoned";
+  });
 
   // ─── LOGIN SCREEN ───
   if (!session) {

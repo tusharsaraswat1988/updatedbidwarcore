@@ -752,7 +752,7 @@ export default function CricketScorerPage() {
           </div>
         ) : null}
 
-        {readyToScore && data && data.state.matchStatus !== "completed" ? (
+        {readyToScore && data && !isFinished ? (
           <div className="flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
             <LiveScoringPad
               state={data.state}
