@@ -507,8 +507,15 @@ export async function listScoringMatches(tournamentId: number) {
   await ensureTournamentScoring(tournamentId);
   // Fetch ordered by id ASC so sequence numbers reflect creation order
   const rows = await db
-    .select()
+    .select({
+      match: scoringMatchesTable,
+      sessionState: scoringSessionsTable.stateJson,
+    })
     .from(scoringMatchesTable)
+    .leftJoin(
+      scoringSessionsTable,
+      eq(scoringMatchesTable.id, scoringSessionsTable.matchId),
+    )
     .where(
       and(
         eq(scoringMatchesTable.tournamentId, tournamentId),
@@ -518,7 +525,11 @@ export async function listScoringMatches(tournamentId: number) {
     .orderBy(scoringMatchesTable.id); // ascending for numbering
 
   // Assign tournament-scoped sequential match numbers (1-based)
-  const numbered = rows.map((m, idx) => ({ ...m, tournamentMatchNumber: idx + 1 }));
+  const numbered = rows.map((r, idx) => ({
+    ...r.match,
+    stateJson: r.sessionState ?? null,
+    tournamentMatchNumber: idx + 1,
+  }));
 
   // Return newest-first for the match list UI
   return numbered.reverse();

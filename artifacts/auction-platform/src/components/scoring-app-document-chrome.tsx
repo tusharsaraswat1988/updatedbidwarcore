@@ -7,89 +7,189 @@ const DEFAULT_TITLE = "BidWar Scoring";
 
 /** Human-readable browser tab title for scoring-app routes. */
 export function resolveScoringDocumentTitle(pathname: string, search = ""): string {
-  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  const [pathOnly, inlineQuery] = pathname.split("#")[0]?.split("?") ?? ["/", ""];
+  const normalizedPath = (pathOnly ?? "").replace(/\/+$/, "") || "/";
+  const searchStr = search || (inlineQuery ? `?${inlineQuery}` : "");
+  const params = new URLSearchParams(searchStr.startsWith("?") ? searchStr.slice(1) : searchStr);
   const overlayType = (params.get("type") ?? "compact").toLowerCase();
 
-  if (/^\/badminton\/[^/]+\/overlay\/?$/.test(pathname)) {
-    if (overlayType === "full") return "OBS Overlay (Full) — BidWar";
-    if (overlayType === "intro") return "OBS Overlay (Intro) — BidWar";
-    if (overlayType === "winner") return "OBS Overlay (Winner) — BidWar";
-    if (overlayType === "sponsor") return "OBS Overlay (Sponsor) — BidWar";
-    return "OBS Overlay — BidWar";
+  // Login
+  if (normalizedPath === "/login") {
+    return "BidWar Scoring Login";
   }
 
-  if (/^\/badminton\/[^/]+\/display\/?$/.test(pathname)) {
-    return "Venue Scoreboard Display — BidWar";
+  // Mission Control
+  if (/^\/tournament\/\d+\/mission-control$/.test(normalizedPath)) {
+    return "BidWar Mission Control";
   }
 
-  if (/^\/badminton\/[^/]+\/score\/?$/.test(pathname)) {
-    return "Scorer Console — BidWar";
+  // Score Display / Scoreboard
+  if (/^\/tournament\/\d+\/score-display$/.test(normalizedPath)) {
+    return "BidWar Score Display";
   }
 
-  if (/^\/badminton\/scorer\/?$/.test(pathname)) {
-    return "Scorer Home — BidWar";
+  // Cricket OBS Overlay
+  if (/^\/tournament\/\d+\/cricket\/obs(\/.*)?$/.test(normalizedPath)) {
+    return "BidWar Cricket OBS";
   }
 
-  if (/^\/badminton\/standings\/?$/.test(pathname)) {
-    return "Points & Results — BidWar";
+  // Badminton Match Overlay
+  if (/^\/badminton\/[^/]+\/overlay$/.test(normalizedPath)) {
+    if (overlayType === "full") return "BidWar OBS Overlay (Full)";
+    if (overlayType === "intro") return "BidWar OBS Overlay (Intro)";
+    if (overlayType === "winner") return "BidWar OBS Overlay (Winner)";
+    if (overlayType === "sponsor") return "BidWar OBS Overlay (Sponsor)";
+    return "BidWar OBS Overlay";
   }
 
-  if (/\/tournament\/\d+\/score-display\/?$/.test(pathname)) {
-    return "Cricket Score Display — BidWar";
+  // Badminton Match Display
+  if (/^\/badminton\/[^/]+\/display$/.test(normalizedPath)) {
+    return "BidWar Scoreboard Display";
   }
 
-  if (/\/tournament\/\d+\/cricket\/obs(\/|$)/.test(pathname)) {
-    return "Cricket OBS — BidWar";
+  // Badminton Match Score (Umpire Scoring)
+  if (/^\/badminton\/[^/]+\/score$/.test(normalizedPath)) {
+    return "BidWar Scoring";
   }
 
-  if (/\/tournament\/\d+\/cricket(\/|$)/.test(pathname)) {
-    return "Cricket Scoring — BidWar";
+  // Badminton Scorer Home
+  if (normalizedPath === "/badminton/scorer") {
+    return "BidWar Scorer Home";
   }
 
-  if (/\/tournament\/\d+\/score(\/|$)/.test(pathname)) {
-    return "Cricket Match Scoring — BidWar";
+  // Badminton Standings
+  if (normalizedPath === "/badminton/standings") {
+    return "BidWar Standings";
   }
 
-  const badmintonPage = pathname.match(/\/tournament\/\d+\/badminton(?:\/([^/?#]+))?/);
-  if (badmintonPage) {
-    const segment = badmintonPage[1] ?? "";
-    const labels: Record<string, string> = {
-      "": "Tournament Hub",
-      players: "Players",
-      matches: "Matches",
-      courts: "Courts",
-      scorers: "Scorers",
-      categories: "Categories",
-      fixtures: "Fixtures",
-      schedule: "Schedule",
-      control: "Operator Panel",
-      results: "Results",
-      summary: "Summary",
-      "scoring-format": "Scoring Format",
-      analytics: "Analytics",
-      branding: "Branding",
-      broadcast: "Broadcast Director",
-    };
-    if (segment === "matches" && /\/matches\/[^/]+\/control/.test(pathname)) {
-      return "Match Control — BidWar";
+  // Badminton Organizer Hub & Sub-pages: /tournament/:id/badminton/...
+  const badmintonMatch = normalizedPath.match(
+    /^\/tournament\/\d+\/badminton(?:\/([^/?#]+))?(?:\/([^/?#]+))?(?:\/([^/?#]+))?$/,
+  );
+  if (badmintonMatch) {
+    const segment = badmintonMatch[1] ?? "";
+    const action = badmintonMatch[3] ?? "";
+
+    if (segment === "matches" && action === "control") {
+      return "BidWar Match Control";
     }
     if (segment === "control") {
-      const focus = new URLSearchParams(
-        search.startsWith("?") ? search.slice(1) : search,
-      ).get("focus");
-      if (focus === "broadcast") return "Broadcast Director — BidWar";
-      return "Operator Panel — BidWar";
+      const focus = params.get("focus");
+      if (focus === "broadcast") return "BidWar Broadcast Director";
+      return "BidWar Control Center";
     }
-    const label = labels[segment] ?? "Badminton";
-    return `${label} — BidWar`;
+
+    const badmintonLabels: Record<string, string> = {
+      "": "BidWar Tournament Hub",
+      players: "BidWar Players",
+      matches: "BidWar Matches",
+      courts: "BidWar Courts",
+      scorers: "BidWar Scorers",
+      categories: "BidWar Categories",
+      fixtures: "BidWar Fixtures",
+      schedule: "BidWar Schedule",
+      control: "BidWar Control Center",
+      results: "BidWar Results",
+      summary: "BidWar Summary",
+      "scoring-format": "BidWar Scoring Format",
+      analytics: "BidWar Analytics",
+      branding: "BidWar Branding",
+      broadcast: "BidWar Broadcast Director",
+    };
+
+    return badmintonLabels[segment] ?? "BidWar Badminton";
   }
 
-  if (/\/cricket\/leaderboards/.test(pathname)) {
-    return "Cricket Leaderboards — BidWar";
+  // Cricket Organizer Sub-pages: /tournament/:id/score/...
+  const cricketScoreMatch = normalizedPath.match(/^\/tournament\/\d+\/score(?:\/(.*))?$/);
+  if (cricketScoreMatch) {
+    const subpath = (cricketScoreMatch[1] ?? "").trim();
+    if (!subpath) {
+      return "BidWar Matches";
+    }
+
+    const cricketLabels: Record<string, string> = {
+      dashboard: "BidWar Dashboard",
+      "live-control": "BidWar Live Control",
+      schedule: "BidWar Schedule",
+      fixtures: "BidWar Fixtures",
+      teams: "BidWar Teams",
+      players: "BidWar Players",
+      standings: "BidWar Standings",
+      stats: "BidWar Stats",
+      officials: "BidWar Officials",
+      awards: "BidWar Awards",
+      reports: "BidWar Reports",
+      rules: "BidWar Rules",
+      settings: "BidWar Settings",
+      links: "BidWar Links",
+    };
+
+    if (cricketLabels[subpath]) {
+      return cricketLabels[subpath];
+    }
+
+    // Match live scoring under organizer: /tournament/:id/score/:matchId/live
+    if (/^\d+\/live$/.test(subpath)) {
+      return "BidWar Scoring";
+    }
+
+    // Match center under organizer: /tournament/:id/score/:matchId
+    if (/^\d+$/.test(subpath)) {
+      return "BidWar Match Center";
+    }
+
+    return "BidWar Scoring";
   }
 
-  if (/^\/player\//.test(pathname)) {
-    return "Player Profile — BidWar";
+  // Dedicated Cricket Umpire Scoring console: /cricket/:matchId/score
+  if (/^\/cricket\/[^/]+\/score$/.test(normalizedPath)) {
+    return "BidWar Scoring";
+  }
+
+  // Cricket Scorer Home Portal: /cricket/scorer
+  if (normalizedPath === "/cricket/scorer") {
+    return "BidWar Scorer Home";
+  }
+
+  // Cricket Public Tournament Pages: /tournament/:id/cricket/...
+  const cricketPublicMatch = normalizedPath.match(/^\/tournament\/\d+\/cricket(?:\/(.*))?$/);
+  if (cricketPublicMatch) {
+    const subpath = (cricketPublicMatch[1] ?? "").trim();
+    if (!subpath) {
+      return "BidWar Cricket";
+    }
+    if (/^match\//.test(subpath)) return "BidWar Match";
+    if (/^player\//.test(subpath)) return "BidWar Player Profile";
+    if (/^team\//.test(subpath)) return "BidWar Team Profile";
+    if (subpath === "matches") return "BidWar Matches";
+    if (subpath === "standings") return "BidWar Standings";
+    if (subpath === "teams") return "BidWar Teams";
+    if (subpath === "players") return "BidWar Players";
+    if (subpath === "statistics") return "BidWar Statistics";
+    if (subpath === "sponsors") return "BidWar Sponsors";
+    return "BidWar Cricket";
+  }
+
+  // Fan Hub & Leaderboard routes
+  if (
+    normalizedPath === "/cricket/leaderboards" ||
+    /^\/tournament\/\d+\/cricket\/leaderboards$/.test(normalizedPath)
+  ) {
+    return "BidWar Leaderboards";
+  }
+
+  if (/^\/player\//.test(normalizedPath)) {
+    return "BidWar Player Profile";
+  }
+
+  if (
+    /^\/tournament\/\d+\/fan$/.test(normalizedPath) ||
+    /^\/fan\//.test(normalizedPath) ||
+    /^\/fanpage\//.test(normalizedPath) ||
+    /^\/[^/]+\/fanpage$/.test(normalizedPath)
+  ) {
+    return "BidWar Fan Hub";
   }
 
   return DEFAULT_TITLE;

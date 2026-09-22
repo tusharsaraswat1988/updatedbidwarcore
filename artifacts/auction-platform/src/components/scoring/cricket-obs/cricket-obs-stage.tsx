@@ -18,7 +18,15 @@ import { CricketObsOperatorDock } from "@/components/scoring/cricket-obs/cricket
 type Props = {
   vm: CricketObsViewModel;
   tournamentId?: number;
-  onSetOverlay?: (overlay: CricketObsMidOverlayKind) => void;
+  overlayMatchId?: number;
+  overlaySponsorName?: string;
+  overlayStageOrGroup?: string;
+  onSetOverlay?: (
+    overlay: CricketObsMidOverlayKind,
+    matchId?: number,
+    sponsorName?: string,
+    stageOrGroup?: string,
+  ) => void;
   onTriggerFlash?: (flash: CricketObsFlashKind, detail?: string) => void;
 };
 
@@ -30,7 +38,15 @@ type Props = {
  * 4. Real-time Animations (Come and go event alerts: Four, Six, Superball, Wicket, Free Hit, New Batsman)
  * 5. 80% Screen Frosted Overlays (Sponsors, Standings, Schedule, Scorecard, Summary)
  */
-export function CricketObsStage({ vm, tournamentId = 0, onSetOverlay, onTriggerFlash }: Props) {
+export function CricketObsStage({
+  vm,
+  tournamentId = 0,
+  overlayMatchId,
+  overlaySponsorName,
+  overlayStageOrGroup,
+  onSetOverlay,
+  onTriggerFlash,
+}: Props) {
   useObsTransparentDocument();
   const isObs = useObsBrowserSource();
 
@@ -77,6 +93,9 @@ export function CricketObsStage({ vm, tournamentId = 0, onSetOverlay, onTriggerF
         <CricketObsMidOverlays
           vm={vm}
           overlay={vm.midOverlay}
+          overlayMatchId={overlayMatchId}
+          overlaySponsorName={overlaySponsorName}
+          overlayStageOrGroup={overlayStageOrGroup}
           tournamentId={tournamentId}
         />
       ) : null}

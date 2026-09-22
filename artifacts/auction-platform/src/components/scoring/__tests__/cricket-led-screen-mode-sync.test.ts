@@ -127,4 +127,80 @@ describe("Unified Screen Mode Control for Ground LED & OBS", () => {
       expect(seqConsumer.currentOverlay).toBe(mode);
     }
   });
+
+  it("G. getSponsorCategoryLabel correctly resolves custom designations and never outputs NORMAL or STANDARD", async () => {
+    const { getSponsorCategoryLabel } = await import("@/components/scoring/score-display-shell");
+
+    // Standard sponsor with custom designation "BOUNDARY SPONSOR"
+    const sjmaa = {
+      name: "SJMAA",
+      type: "BOUNDARY SPONSOR",
+      priorityType: "NORMAL",
+      isTitleSponsor: false,
+      isCoSponsor: false,
+    };
+    expect(getSponsorCategoryLabel(sjmaa)).toBe("BOUNDARY SPONSOR");
+
+    // Standard sponsor with custom designation "GIFTING SPONSOR"
+    const goodMorning = {
+      name: "GOOD MORNING",
+      type: "GIFTING SPONSOR",
+      priorityType: "NORMAL",
+      isTitleSponsor: false,
+      isCoSponsor: false,
+    };
+    expect(getSponsorCategoryLabel(goodMorning)).toBe("GIFTING SPONSOR");
+
+    // Title sponsor with custom designation "HERITAGE TITLE SPONSOR"
+    const heritage = {
+      name: "HERITAGE HOSPIT",
+      type: "HERITAGE TITLE SPONSOR",
+      priorityType: "TITLE",
+      isTitleSponsor: true,
+      isCoSponsor: false,
+    };
+    expect(getSponsorCategoryLabel(heritage)).toBe("HERITAGE TITLE SPONSOR");
+
+    // Sponsor without custom type falls back gracefully to Title/Co/Partner, never "NORMAL"
+    const normalWithoutType = {
+      name: "LOCAL PARTNER",
+      type: "",
+      priorityType: "NORMAL",
+      isTitleSponsor: false,
+      isCoSponsor: false,
+    };
+    expect(getSponsorCategoryLabel(normalWithoutType)).toBe("Official Partner");
+  });
+
+  it("H. OBS Director state payload correctly encapsulates matchId and overlay", () => {
+    class MockDirectorReceiver {
+      public currentOverlay: CricketObsMidOverlayKind = "none";
+      public overlayMatchId: number | undefined = undefined;
+
+      public handleSseDirector(detail: { overlay?: CricketObsMidOverlayKind; matchId?: number }) {
+        if (detail.overlay !== undefined) {
+          this.currentOverlay = detail.overlay;
+        }
+        if (detail.matchId !== undefined) {
+          this.overlayMatchId = detail.matchId;
+        }
+      }
+    }
+
+    const receiver = new MockDirectorReceiver();
+
+    // 1. Broadcast intro with Match #5
+    receiver.handleSseDirector({ overlay: "intro", matchId: 5 });
+    expect(receiver.currentOverlay).toBe("intro");
+    expect(receiver.overlayMatchId).toBe(5);
+
+    // 2. Broadcast summary with Match #2
+    receiver.handleSseDirector({ overlay: "summary", matchId: 2 });
+    expect(receiver.currentOverlay).toBe("summary");
+    expect(receiver.overlayMatchId).toBe(2);
+
+    // 3. Reset to camera
+    receiver.handleSseDirector({ overlay: "none" });
+    expect(receiver.currentOverlay).toBe("none");
+  });
 });

@@ -77,6 +77,11 @@ export function cricketLiveControlPath(tournamentId: number): string {
   return `${cricketScoreHubPath(tournamentId)}/live-control`;
 }
 
+/** Organizer Broadcast, Screen & Fan Output Links */
+export function cricketLinksPath(tournamentId: number): string {
+  return `${cricketScoreHubPath(tournamentId)}/links`;
+}
+
 /**
  * @deprecated The old organizer-facing scorer pad URL. The scoring pad has been removed
  * from this route — it now shows an Empire Scorer redirect page.
@@ -111,6 +116,8 @@ export const CRICKET_SCORE_STATIC_SEGMENTS = new Set([
   "awards",
   "reports",
   "live-control",
+  "links",
 ]);
 
 export const CRICKET_ROUTE_LOADING_CLASS = "min-h-screen bg-background";
+

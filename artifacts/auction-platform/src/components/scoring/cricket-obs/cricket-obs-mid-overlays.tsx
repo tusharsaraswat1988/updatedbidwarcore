@@ -30,10 +30,20 @@ import type { CricketObsViewModel, CricketObsMidOverlayKind } from "@/lib/cricke
 type Props = {
   vm: CricketObsViewModel;
   overlay: CricketObsMidOverlayKind;
+  overlayMatchId?: number;
+  overlaySponsorName?: string;
+  overlayStageOrGroup?: string;
   tournamentId: number;
 };
 
-export function CricketObsMidOverlays({ vm, overlay, tournamentId }: Props) {
+export function CricketObsMidOverlays({
+  vm,
+  overlay,
+  overlayMatchId,
+  overlaySponsorName,
+  overlayStageOrGroup,
+  tournamentId,
+}: Props) {
   // Standings query
   const { data: standings } = useQuery({
     queryKey: ["cricket-standings", tournamentId],
@@ -46,9 +56,40 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId }: Props) {
   const { data: matches } = useQuery({
     queryKey: ["scoring-matches", tournamentId],
     queryFn: () => listScoringMatches(tournamentId),
-    enabled: (overlay === "fixtures" || overlay === "intro") && tournamentId > 0,
+    enabled: (overlay === "fixtures" || overlay === "intro" || overlay === "summary" || overlay === "scorecard" || overlay === "standings") && tournamentId > 0,
     staleTime: 30_000,
   });
+
+  // Active target match resolution
+  const activeMatch = useMemo(() => {
+    if (overlayMatchId && matches && matches.length > 0) {
+      const found = matches.find((m) => m.id === overlayMatchId);
+      if (found) return found;
+    }
+    return matches && matches.length > 0 ? matches[0] : null;
+  }, [overlayMatchId, matches]);
+
+  const targetHomeTeam = activeMatch?.homeTeam || vm.home;
+  const targetAwayTeam = activeMatch?.awayTeam || vm.away;
+
+  // Sponsor resolution
+  const targetedSponsor = useMemo(() => {
+    if (!overlaySponsorName || overlaySponsorName === "all" || !vm.sponsors) return null;
+    return vm.sponsors.find((s) => s.name?.toLowerCase().trim() === overlaySponsorName.toLowerCase().trim()) ?? null;
+  }, [overlaySponsorName, vm.sponsors]);
+
+  // Group / Stage resolution
+  const matchedGroup = useMemo(() => {
+    if (!overlayStageOrGroup || overlayStageOrGroup === "all" || !standings?.groups) return null;
+    return standings.groups.find(
+      (g) => g.name.toLowerCase().trim() === overlayStageOrGroup.toLowerCase().trim(),
+    );
+  }, [overlayStageOrGroup, standings?.groups]);
+
+  const effectiveStandingsRows = useMemo(() => {
+    if (matchedGroup) return matchedGroup.rows;
+    return standings ?? [];
+  }, [matchedGroup, standings]);
 
   if (overlay === "none") return null;
 
@@ -112,25 +153,57 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId }: Props) {
               paddingRight: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
             }}
           >
-            {/* 1. SPONSORS SHOWCASE (3-Tier Hierarchical Inventory) */}
+            {/* 1. SPONSORS SHOWCASE */}
             {overlay === "sponsors" && (
               <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full">
-                <div className="text-center mb-6">
+                <div className="text-center pt-6 mb-6">
                   <span
                     className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
                     style={{ fontFamily: BROADCAST_FONTS.body }}
                   >
-                    OFFICIAL TOURNAMENT PARTNERS
+                    {targetedSponsor ? "OFFICIAL PARTNER" : "OFFICIAL TOURNAMENT PARTNERS"}
                   </span>
                   <h2
                     className="text-5xl font-normal tracking-wide text-white uppercase mt-1 leading-none"
                     style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
                   >
-                    OUR VALUED SPONSORS
+                    {targetedSponsor ? targetedSponsor.name : "OUR VALUED SPONSORS"}
                   </h2>
                 </div>
 
-                {vm.sponsors && vm.sponsors.length > 0 ? (
+                {targetedSponsor ? (
+                  <div className="my-auto max-w-xl mx-auto w-full">
+                    <div
+                      className="flex flex-col items-center justify-center border-2 border-[#FFD700]/40 p-10 rounded-2xl"
+                      style={{ background: BIDWAR_SCOREBOARD_PANEL }}
+                    >
+                      <span
+                        className="text-xs font-bold uppercase tracking-widest text-[#FFD700] mb-6 px-4 py-1 rounded-full bg-[#FFD700]/10 border border-[#FFD700]/30"
+                        style={{ fontFamily: BROADCAST_FONTS.body }}
+                      >
+                        {targetedSponsor.type?.trim() && !["normal", "standard"].includes(targetedSponsor.type.toLowerCase().trim())
+                          ? targetedSponsor.type.trim().toUpperCase()
+                          : targetedSponsor.isTitleSponsor
+                          ? "TITLE SPONSOR"
+                          : targetedSponsor.isCoSponsor
+                          ? "CO-SPONSOR"
+                          : "OFFICIAL PARTNER"}
+                      </span>
+                      {targetedSponsor.url ? (
+                        <div className="h-44 w-full flex items-center justify-center p-4">
+                          <img
+                            src={targetedSponsor.url}
+                            alt={targetedSponsor.name || ""}
+                            className="max-h-full max-w-[340px] object-contain"
+                          />
+                        </div>
+                      ) : null}
+                      <p className="mt-4 text-2xl font-bold text-white tracking-wider uppercase">
+                        {targetedSponsor.name}
+                      </p>
+                    </div>
+                  </div>
+                ) : vm.sponsors && vm.sponsors.length > 0 ? (
                   <div className="grid grid-cols-3 gap-6 my-auto max-w-5xl mx-auto w-full">
                     {vm.sponsors.map((sp, idx) => (
                       <div
@@ -142,7 +215,13 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId }: Props) {
                           className="text-[10px] font-bold uppercase tracking-widest text-[#FFD700] mb-4"
                           style={{ fontFamily: BROADCAST_FONTS.body }}
                         >
-                          {sp.tier ? sp.tier.replace(/_/g, " ").toUpperCase() : "PARTNER"}
+                          {sp.type?.trim() && !["normal", "standard"].includes(sp.type.toLowerCase().trim())
+                            ? sp.type.trim().toUpperCase()
+                            : sp.isTitleSponsor
+                            ? "TITLE SPONSOR"
+                            : sp.isCoSponsor
+                            ? "CO-SPONSOR"
+                            : "OFFICIAL PARTNER"}
                         </span>
                         {sp.url ? (
                           <div className="h-20 w-full flex items-center justify-center p-2">
@@ -189,13 +268,13 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId }: Props) {
                     className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
                     style={{ fontFamily: BROADCAST_FONTS.body }}
                   >
-                    STANDINGS &amp; RANKINGS
+                    {matchedGroup ? `${matchedGroup.name.toUpperCase()} STANDINGS` : "STANDINGS & RANKINGS"}
                   </span>
                   <h2
                     className="text-5xl font-normal tracking-wide text-white uppercase mt-1 leading-none"
                     style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
                   >
-                    TOURNAMENT POINTS TABLE
+                    {matchedGroup ? `GROUP ${matchedGroup.name.toUpperCase()} POINTS TABLE` : "TOURNAMENT POINTS TABLE"}
                   </h2>
                 </div>
 
@@ -219,8 +298,8 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId }: Props) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 text-base font-bold">
-                      {standings && standings.length > 0 ? (
-                        standings.map((row, idx) => (
+                      {effectiveStandingsRows && effectiveStandingsRows.length > 0 ? (
+                        effectiveStandingsRows.map((row, idx) => (
                           <tr
                             key={row.teamId}
                             className={idx < 4 ? "bg-white/[0.02]" : ""}
@@ -517,12 +596,25 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId }: Props) {
             {overlay === "summary" && (
               <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full">
                 <div className="text-center mb-4">
-                  <span
-                    className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
-                    style={{ fontFamily: BROADCAST_FONTS.body }}
-                  >
-                    OFFICIAL MATCH RESULT
-                  </span>
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <span
+                      className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
+                      style={{ fontFamily: BROADCAST_FONTS.body }}
+                    >
+                      {activeMatch ? `MATCH #${activeMatch.id}${activeMatch.roundName ? ` · ${activeMatch.roundName.toUpperCase()}` : ""}` : "OFFICIAL MATCH RESULT"}
+                    </span>
+                    {activeMatch?.status && (
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                        activeMatch.status === "live"
+                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                          : activeMatch.status === "completed"
+                          ? "bg-purple-500/20 text-purple-300 border border-purple-500/40"
+                          : "bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                      }`}>
+                        {activeMatch.status.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
                   <h2
                     className="text-5xl font-normal tracking-wide text-white uppercase mt-1 leading-none"
                     style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
@@ -543,7 +635,7 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId }: Props) {
                         className="text-2xl font-normal text-white uppercase"
                         style={{ fontFamily: BROADCAST_FONTS.display }}
                       >
-                        {vm.home?.name || "TEAM 1"}
+                        {targetHomeTeam?.name || "TEAM 1"}
                       </span>
                       <span
                         className="text-3xl font-normal text-[#FFD700]"
@@ -575,7 +667,7 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId }: Props) {
                         className="text-2xl font-normal text-white uppercase"
                         style={{ fontFamily: BROADCAST_FONTS.display }}
                       >
-                        {vm.away?.name || "TEAM 2"}
+                        {targetAwayTeam?.name || "TEAM 2"}
                       </span>
                       <span
                         className="text-3xl font-normal text-[#FFD700]"
@@ -603,59 +695,73 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId }: Props) {
                     className="text-3xl font-normal uppercase tracking-widest text-[#FFD700] leading-none"
                     style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.08em" }}
                   >
-                    {vm.resultHeadline || vm.resultText || "MATCH IN PROGRESS"}
+                    {activeMatch?.resultSummary || vm.resultHeadline || vm.resultText || "MATCH IN PROGRESS"}
                   </p>
                 </div>
               </div>
             )}
 
-            {/* 6. MATCH INTRO / VS */}
+            {/* 6. MATCH INTRO / VS (Clean Frameless Broadcast Presentation) */}
             {overlay === "intro" && (
               <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full py-4">
                 <div className="text-center">
-                  <span
-                    className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
-                    style={{ fontFamily: BROADCAST_FONTS.body }}
-                  >
-                    MATCH PRESENTATION
-                  </span>
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <span
+                      className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
+                      style={{ fontFamily: BROADCAST_FONTS.body }}
+                    >
+                      {activeMatch ? `MATCH #${activeMatch.id}${activeMatch.roundName ? ` · ${activeMatch.roundName.toUpperCase()}` : ""}` : "MATCH PRESENTATION"}
+                    </span>
+                    {activeMatch?.status && (
+                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                        activeMatch.status === "live"
+                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                          : activeMatch.status === "completed"
+                          ? "bg-purple-500/20 text-purple-300 border border-purple-500/40"
+                          : "bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                      }`}>
+                        {activeMatch.status.toUpperCase()}
+                      </span>
+                    )}
+                  </div>
                   <h2
                     className="text-5xl font-normal tracking-wider text-white uppercase mt-1 leading-none"
                     style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.06em" }}
                   >
-                    {vm.home?.name || "TEAM 1"} <span className="text-[#FFD700] italic">VS</span> {vm.away?.name || "TEAM 2"}
+                    {targetHomeTeam?.name || "TEAM 1"} <span className="text-[#FFD700] italic">VS</span> {targetAwayTeam?.name || "TEAM 2"}
                   </h2>
                 </div>
 
-                {/* Team Badges and VS */}
+                {/* Team Badges and VS — CLEAN & FRAMELESS */}
                 <div className="flex items-center justify-center gap-20 my-auto">
                   {/* Home Team */}
                   <div className="flex flex-col items-center gap-4">
-                    <div
-                      className="flex h-36 w-36 items-center justify-center border-2 border-[#FFD700] p-2"
-                      style={{ background: BIDWAR_SCOREBOARD_PANEL }}
-                    >
-                      {vm.home?.logoUrl ? (
-                        <img src={vm.home.logoUrl} alt="" className="h-24 w-24 object-contain" />
+                    <div className="flex h-40 w-40 items-center justify-center">
+                      {targetHomeTeam?.logoUrl ? (
+                        <img
+                          src={targetHomeTeam.logoUrl}
+                          alt=""
+                          className="max-h-full max-w-full object-contain filter drop-shadow-[0_12px_35px_rgba(255,215,0,0.35)]"
+                        />
                       ) : (
                         <span
-                          className="text-5xl font-normal text-[#FFD700]"
+                          className="text-7xl font-normal text-[#FFD700] drop-shadow-[0_8px_25px_rgba(255,215,0,0.5)]"
                           style={{ fontFamily: BROADCAST_FONTS.display }}
                         >
-                          {vm.home?.shortCode || "H"}
+                          {targetHomeTeam?.shortCode || "H"}
                         </span>
                       )}
                     </div>
                     <span
-                      className="text-2xl font-normal text-white uppercase text-center max-w-[200px]"
+                      className="text-2xl font-normal text-white uppercase text-center max-w-[220px]"
                       style={{ fontFamily: BROADCAST_FONTS.display }}
                     >
-                      {vm.home?.name}
+                      {targetHomeTeam?.name}
                     </span>
                   </div>
 
                   <span
-                    className="text-8xl font-normal italic text-[#FFD700]"
+                    className="text-8xl font-normal italic text-[#FFD700] drop-shadow-[0_10px_30px_rgba(255,215,0,0.4)]"
                     style={{ fontFamily: BROADCAST_FONTS.display }}
                   >
                     VS
@@ -663,26 +769,27 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId }: Props) {
 
                   {/* Away Team */}
                   <div className="flex flex-col items-center gap-4">
-                    <div
-                      className="flex h-36 w-36 items-center justify-center border-2 border-[#06B6D4] p-2"
-                      style={{ background: BIDWAR_SCOREBOARD_PANEL }}
-                    >
-                      {vm.away?.logoUrl ? (
-                        <img src={vm.away.logoUrl} alt="" className="h-24 w-24 object-contain" />
+                    <div className="flex h-40 w-40 items-center justify-center">
+                      {targetAwayTeam?.logoUrl ? (
+                        <img
+                          src={targetAwayTeam.logoUrl}
+                          alt=""
+                          className="max-h-full max-w-full object-contain filter drop-shadow-[0_12px_35px_rgba(6,182,212,0.35)]"
+                        />
                       ) : (
                         <span
-                          className="text-5xl font-normal text-[#06B6D4]"
+                          className="text-7xl font-normal text-[#06B6D4] drop-shadow-[0_8px_25px_rgba(6,182,212,0.5)]"
                           style={{ fontFamily: BROADCAST_FONTS.display }}
                         >
-                          {vm.away?.shortCode || "A"}
+                          {targetAwayTeam?.shortCode || "A"}
                         </span>
                       )}
                     </div>
                     <span
-                      className="text-2xl font-normal text-white uppercase text-center max-w-[200px]"
+                      className="text-2xl font-normal text-white uppercase text-center max-w-[220px]"
                       style={{ fontFamily: BROADCAST_FONTS.display }}
                     >
-                      {vm.away?.name}
+                      {targetAwayTeam?.name}
                     </span>
                   </div>
                 </div>
@@ -693,7 +800,7 @@ export function CricketObsMidOverlays({ vm, overlay, tournamentId }: Props) {
                   style={{ background: BIDWAR_SCOREBOARD_SHELL }}
                 >
                   <p className="text-xs font-bold uppercase tracking-widest text-[#06B6D4]">
-                    LIVE FROM {vm.venueText || "MAIN VENUE"}
+                    LIVE FROM {activeMatch?.venue || vm.venueText || "MAIN VENUE"}
                   </p>
                   {vm.tossText ? (
                     <p className="mt-1 text-sm font-semibold text-white uppercase tracking-wider">

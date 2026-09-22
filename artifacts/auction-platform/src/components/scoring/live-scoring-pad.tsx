@@ -42,6 +42,8 @@ import {
   Flag,
   Play,
   RotateCcw,
+  RefreshCw,
+  SlidersHorizontal,
   Sparkles,
   Star,
   Trophy,
@@ -694,127 +696,159 @@ export function LiveScoringPad({
       ) : null}
 
       {/* ─── Scoreboard Strip ─── */}
-      <div className="px-3 py-2.5 sm:px-4 sm:py-3.5 rounded-2xl border border-white/10 bg-gradient-to-b from-[#111938]/95 via-[#0c132a]/95 to-[#070b19]/98 shadow-xl shadow-black/40 space-y-2.5 shrink-0 backdrop-blur-md">
-        {retireAtRuns != null ? (
-          <div className="flex items-center justify-between text-[10px] text-white/50 pb-1 border-b border-white/5">
-            <span>Retire limit: {retireAtRuns} runs per batter</span>
-            {strikerId && batterRuns[strikerId] != null ? (
-              <span className="font-bold text-amber-400">
-                Striker {batterRuns[strikerId]}/{retireAtRuns}
+      <div className="px-3 py-2 sm:px-4 sm:py-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#111938]/95 via-[#0c132a]/95 to-[#070b19]/98 shadow-xl shadow-black/40 space-y-2 shrink-0 backdrop-blur-md">
+        {/* Top Meta Row: Innings/Target & Teams Matchup */}
+        <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-white/5">
+          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-400/30 text-amber-300 font-bold text-[9px] sm:text-[10px] uppercase tracking-wider">
+              Innings {state.currentInnings}
+              {state.target ? ` · Target ${state.target}` : ""}
+            </span>
+            {retireAtRuns != null ? (
+              <span className="text-[9.5px] text-white/50 hidden xs:inline">
+                (Retire limit: {retireAtRuns}r)
               </span>
             ) : null}
           </div>
-        ) : null}
 
-        {/* Match Score & Team Telemetry Row */}
-        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-1.5 text-xs shrink-0">
+            <span
+              className="font-black text-xs sm:text-sm flex items-center gap-1"
+              style={{ color: battingTeam?.color ?? "#38bdf8" }}
+            >
+              {battingTeam?.shortCode ?? "BAT"}
+              <span className="text-xs">🏏</span>
+            </span>
+            <span className="text-white/40 text-[10px] sm:text-xs">vs</span>
+            <span className="text-white/70 font-semibold text-xs sm:text-sm">
+              {bowlingTeam?.shortCode ?? "BOWL"}
+            </span>
+          </div>
+        </div>
+
+        {/* Main Score (Left) & CRR / RRR Boxes (Right) */}
+        <div className="flex items-center justify-between gap-2 sm:gap-3">
           <div className="min-w-0">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-400/30 text-amber-300 font-bold text-[9px] sm:text-[10px] uppercase tracking-wider">
-                Innings {state.currentInnings}
-                {state.target ? ` · Target ${state.target}` : ""}
-              </span>
-            </div>
-            <p className="text-2xl sm:text-4xl font-black tabular-nums tracking-tight text-white flex items-baseline gap-1.5 font-mono">
+            <p className="text-2xl sm:text-4xl font-black tabular-nums tracking-tight text-white flex items-baseline gap-1.5 sm:gap-2 font-mono">
               <span>{innings.runs}/{innings.wickets}</span>
               <span className="text-xs sm:text-base text-white/60 font-semibold font-sans">
                 ({oversText(innings.over, innings.ball)} / {state.oversLimit} ov)
               </span>
             </p>
-            <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs text-white/70 mt-1 font-medium">
-              <span className="px-2 py-0.5 rounded bg-white/[0.05] border border-white/10">
-                CRR: <strong className="text-white">{rr}</strong>
-              </span>
-              {req ? (
-                <>
-                  <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300">
-                    RRR: <strong>{req}</strong>
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-white/[0.05] border border-white/10 text-white/80">
-                    Need <strong className="text-emerald-400">{Math.max(0, state.target! - innings.runs)}</strong> off <strong className="text-white">{Math.max(0, state.oversLimit * 6 - (innings.over * 6 + innings.ball))}b</strong>
-                  </span>
-                </>
-              ) : null}
-            </div>
+            {req ? (
+              <p className="text-[10px] sm:text-xs text-white/75 mt-0.5 font-medium leading-tight">
+                Need <strong className="text-emerald-400 font-bold">{Math.max(0, state.target! - innings.runs)}</strong> off <strong className="text-white">{Math.max(0, state.oversLimit * 6 - (innings.over * 6 + innings.ball))}b</strong>
+              </p>
+            ) : null}
           </div>
 
-          <div className="text-right space-y-0.5 shrink-0 pt-0.5">
-            <p
-              className="font-black text-sm sm:text-base truncate max-w-[7rem] sm:max-w-[9rem] flex items-center justify-end gap-1"
-              style={{ color: battingTeam?.color ?? "#38bdf8" }}
-            >
-              {battingTeam?.shortCode ?? "BAT"}
-              <span className="text-xs">🏏</span>
-            </p>
-            <p className="text-white/50 text-[11px] sm:text-xs truncate max-w-[7rem] sm:max-w-[9rem]">
-              vs {bowlingTeam?.shortCode ?? "BOWL"}
-            </p>
+          {/* CRR & RRR displayed to the right of the score */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex flex-col items-center justify-center px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-white/[0.06] border border-white/12 shadow-sm min-w-[50px] sm:min-w-[60px]">
+              <span className="text-[8.5px] sm:text-[9.5px] uppercase font-extrabold text-white/50 tracking-wider leading-none">
+                CRR
+              </span>
+              <span className="text-xs sm:text-sm font-black text-amber-400 font-mono mt-0.5 leading-tight">
+                {rr}
+              </span>
+            </div>
+            {req ? (
+              <div className="flex flex-col items-center justify-center px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl bg-amber-500/15 border border-amber-400/35 shadow-sm min-w-[50px] sm:min-w-[60px]">
+                <span className="text-[8.5px] sm:text-[9.5px] uppercase font-extrabold text-amber-300/80 tracking-wider leading-none">
+                  RRR
+                </span>
+                <span className="text-xs sm:text-sm font-black text-amber-300 font-mono mt-0.5 leading-tight">
+                  {req}
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
 
         {/* ─── Crease / Batters & Bowler Card ─── */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2 pt-2 border-t border-white/10 text-xs">
-          {/* Striker */}
-          <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-amber-500/[0.18] to-amber-500/[0.06] border border-amber-400/40 px-2.5 py-1.5 sm:px-3 sm:py-2 shadow-xs">
-            <div className="min-w-0">
-              <span className="text-[9.5px] uppercase font-black text-amber-300 tracking-wider flex items-center gap-1 leading-none">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                Striker *
-              </span>
-              <p className="font-bold text-white text-xs sm:text-sm truncate mt-1">
-                {playerNameById(players, strikerId) || "Select Striker"}
-              </p>
+        <div className="space-y-1.5 pt-2 border-t border-white/10 text-xs">
+          {/* Row 1: Striker & Non-Striker (2 Equal Columns) */}
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+            {/* Striker */}
+            <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-amber-500/[0.22] via-amber-500/[0.12] to-amber-500/[0.04] border border-amber-400/50 px-2.5 py-1.5 sm:px-3 sm:py-2 shadow-sm shadow-amber-950/20 min-w-0">
+              <div className="min-w-0 flex-1">
+                <span className="text-[9.5px] uppercase font-black text-amber-300 tracking-wider flex items-center gap-1.5 leading-none">
+                  <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse shadow-sm shadow-amber-400/80" />
+                  Striker *
+                </span>
+                {strikerId ? (
+                  <p className="font-bold text-white text-xs sm:text-sm truncate mt-1" title={playerNameById(players, strikerId)}>
+                    {playerNameById(players, strikerId)}
+                  </p>
+                ) : (
+                  <p className="font-black text-amber-300 text-xs sm:text-sm truncate mt-1 flex items-center gap-1 animate-pulse">
+                    <span>Select Batter</span>
+                    <span>👇</span>
+                  </p>
+                )}
+              </div>
+              {strikerId && batterRuns[strikerId] != null ? (
+                <span className="text-xs font-black text-amber-300 tabular-nums shrink-0 ml-1 px-1.5 py-0.5 rounded-lg bg-amber-400/20 border border-amber-400/30">
+                  {batterRuns[strikerId]}r
+                </span>
+              ) : null}
             </div>
-            {strikerId && batterRuns[strikerId] != null ? (
-              <span className="text-xs font-black text-amber-300 tabular-nums shrink-0 ml-1.5 px-1.5 py-0.5 rounded bg-amber-400/20 border border-amber-400/30">
-                {batterRuns[strikerId]}r
-              </span>
-            ) : null}
+
+            {/* Non-Striker & Swap Button */}
+            <div className="flex items-center justify-between rounded-xl bg-white/[0.04] border border-white/10 px-2.5 py-1.5 sm:px-3 sm:py-2 shadow-xs min-w-0">
+              <div className="min-w-0 flex-1 pr-1">
+                <span className="text-[9.5px] uppercase font-bold text-white/50 tracking-wider leading-none block">
+                  Non-Striker
+                </span>
+                <p className="font-semibold text-slate-200 text-xs sm:text-sm truncate mt-1" title={playerNameById(players, nonStrikerId) || "Select Non-Striker"}>
+                  {playerNameById(players, nonStrikerId) || "Select Non-Striker"}
+                </p>
+              </div>
+              {onSwapStrike ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] font-bold text-sky-300 hover:text-white hover:bg-sky-500/20 gap-1 shrink-0 rounded-lg border border-sky-400/20"
+                  onClick={onSwapStrike}
+                  title="Swap Strike (S)"
+                >
+                  <ArrowLeftRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  <span className="hidden xs:inline">Swap</span>
+                </Button>
+              ) : null}
+            </div>
           </div>
 
-          {/* Non-Striker & Swap Button */}
-          <div className="flex items-center justify-between rounded-xl bg-white/[0.03] border border-white/10 px-2.5 py-1.5 sm:px-3 sm:py-2">
-            <div className="min-w-0">
-              <span className="text-[9.5px] uppercase font-bold text-white/50 tracking-wider leading-none">
-                Non-Striker
-              </span>
-              <p className="font-semibold text-slate-200 text-xs sm:text-sm truncate mt-1">
-                {playerNameById(players, nonStrikerId) || "Select Non-Striker"}
-              </p>
-            </div>
-            {onSwapStrike ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] font-bold text-slate-300 hover:text-white hover:bg-white/10 gap-0.5 sm:gap-1 shrink-0 rounded-lg"
-                onClick={onSwapStrike}
-                title="Swap Strike (S)"
-              >
-                <ArrowLeftRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                <span className="hidden xs:inline">Swap</span>
-              </Button>
-            ) : null}
-          </div>
-
-          {/* Active Bowler */}
-          <div className="col-span-2 sm:col-span-1 flex items-center justify-between rounded-xl bg-white/[0.03] border border-white/10 px-2.5 py-1.5 sm:px-3 sm:py-2">
-            <div className="min-w-0">
-              <span className="text-[9.5px] uppercase font-bold text-white/50 tracking-wider leading-none">
-                Bowler
-              </span>
-              <p className="font-semibold text-slate-200 text-xs sm:text-sm truncate mt-1">
-                {playerNameById(players, activeBowlerId) || "Select Bowler"}
-              </p>
+          {/* Row 2: Dedicated Full-Width Bowler Bar (No name truncation!) */}
+          <div className="flex items-center justify-between rounded-xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 px-2.5 py-1.5 sm:px-3 sm:py-2 shadow-xs transition-colors">
+            <div
+              className="min-w-0 flex-1 flex items-center gap-2 cursor-pointer"
+              onClick={() => setBowlerSheet(true)}
+            >
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-[9.5px] uppercase font-bold text-white/50 tracking-wider leading-none flex items-center gap-1">
+                  <span>Bowler</span>
+                </span>
+                <p
+                  className="font-bold text-slate-100 text-xs sm:text-sm mt-1 break-words"
+                  title={playerNameById(players, activeBowlerId) || "Select Bowler"}
+                >
+                  {playerNameById(players, activeBowlerId) || (
+                    <span className="text-amber-400 font-bold italic">Select Bowler 👆</span>
+                  )}
+                </p>
+              </div>
             </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-6 sm:h-7 px-2.5 text-[10px] font-bold rounded-lg border-white/15 bg-white/[0.04] text-white/80 hover:text-white hover:bg-white/10 shrink-0"
+              className="h-7 sm:h-8 px-2.5 sm:px-3 text-[11px] font-bold rounded-lg border-white/20 bg-white/[0.08] text-white hover:bg-white/20 hover:text-white shrink-0 gap-1.5 shadow-xs"
               onClick={() => setBowlerSheet(true)}
             >
-              Change
+              <RefreshCw className="w-3 h-3" />
+              <span>Change Bowler</span>
             </Button>
           </div>
         </div>
@@ -862,11 +896,16 @@ export function LiveScoringPad({
 
       {/* ─── Pending Batter Selection Gate ─── */}
       {pendingNewBatsman ? (
-        <div className="p-3.5 sm:p-4 rounded-2xl border border-primary/40 bg-primary/10 space-y-2.5 shadow-sm">
+        <div className="p-3 sm:p-3.5 rounded-2xl border border-amber-400/50 bg-gradient-to-b from-amber-950/40 via-[#0e162d]/95 to-[#070b18]/95 space-y-2.5 shadow-xl shadow-black/40 backdrop-blur-md">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-primary font-bold text-sm">
-              <UserCheck className="w-4 h-4" />
+            <div className="flex items-center gap-2 text-amber-300 font-black text-xs sm:text-sm tracking-wide">
+              <span className="p-1 rounded-lg bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
+                <UserCheck className="w-3.5 h-3.5 text-amber-300" />
+              </span>
               <span>Select Next Batter to Crease:</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-300">
+                {availableBatsmen.length} Available
+              </span>
             </div>
             {availableBatsmen.length === 0 ? (
               <Button
@@ -889,21 +928,31 @@ export function LiveScoringPad({
             ) : null}
           </div>
           {availableBatsmen.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-0.5">
               {availableBatsmen.map((p) => (
-                <Button
+                <button
                   key={p.id}
-                  variant="outline"
-                  className="h-11 text-sm justify-start truncate bg-card/60 hover:bg-card border-primary/30 hover:border-primary font-semibold"
+                  type="button"
                   disabled={busy}
                   onClick={() => onNewBatsman(p.id)}
+                  className="group flex items-center gap-2 p-2 sm:p-2.5 rounded-xl bg-white/[0.05] hover:bg-amber-500/20 border border-white/10 hover:border-amber-400/50 text-left transition-all duration-150 active:scale-[0.97] cursor-pointer shadow-xs"
                 >
-                  {p.name}
-                </Button>
+                  <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-400/20 border border-amber-400/30 text-amber-300 font-black text-xs flex items-center justify-center shrink-0 uppercase group-hover:bg-amber-400 group-hover:text-slate-950 transition-colors">
+                    {p.name.slice(0, 2)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-white text-xs sm:text-sm leading-tight truncate group-hover:text-amber-200">
+                      {p.name}
+                    </p>
+                    <span className="text-[10px] text-white/50 truncate block mt-0.5 font-medium">
+                      {p.role ? p.role.replace(/_/g, " ") : "Batter"}
+                    </span>
+                  </div>
+                </button>
               ))}
             </div>
           ) : (
-            <div className="text-xs text-amber-300/90 py-1">
+            <div className="text-xs text-amber-300/90 py-1 font-medium">
               No more batters available (all squad members are at crease or dismissed). You can end this innings now.
             </div>
           )}
@@ -1058,7 +1107,7 @@ export function LiveScoringPad({
         </div>
       ) : (
         /* ─── Main Scorer Keypad Grid ─── */
-        <div className="p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c1328]/90 to-[#070b19]/95 flex-1 min-h-0 flex flex-col justify-between gap-1 sm:gap-1.5 shadow-xl">
+        <div className="p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c1328]/95 to-[#070b19]/98 flex-1 min-h-0 flex flex-col justify-between gap-1 sm:gap-1.5 shadow-2xl shadow-black/50 backdrop-blur-md">
           {/* Row 1: Primary Runs 0, 1, 2, 3 */}
           <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
             <ScoreButton
@@ -1119,7 +1168,7 @@ export function LiveScoringPad({
             />
           </div>
 
-          {/* Row 2: Boundaries 4, 6, Custom, Super Ball */}
+          {/* Row 2: Boundaries 4, 6, Custom, Super Ball / Byes */}
           <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
             <ScoreButton
               label="4"
@@ -1138,7 +1187,7 @@ export function LiveScoringPad({
             <ScoreButton
               label="6"
               sublabel="six"
-              variant="boundary"
+              variant="boundarySix"
               disabled={busy || pendingNewBatsman}
               onClick={() =>
                 recordBall({
@@ -1150,7 +1199,7 @@ export function LiveScoringPad({
               }
             />
             <ScoreButton
-              label="+"
+              label={<span className="text-xl sm:text-2xl font-black text-sky-300">+</span>}
               sublabel="custom"
               variant="default"
               disabled={busy || pendingNewBatsman}
@@ -1185,7 +1234,7 @@ export function LiveScoringPad({
             )}
           </div>
 
-          {/* Row 3: Extras (Wide, No Ball, Byes, Leg Byes) */}
+          {/* Row 3: Extras (Wide, No Ball, Byes, Leg Byes / Swap Strike) */}
           <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
             <ScoreButton
               label="Wd"
@@ -1230,7 +1279,7 @@ export function LiveScoringPad({
               />
             ) : (
               <ScoreButton
-                label="⇄"
+                label={<ArrowLeftRight className="w-5 h-5 text-sky-300 mx-auto" />}
                 sublabel="swap strike"
                 variant="default"
                 disabled={busy || pendingNewBatsman || !onSwapStrike}
@@ -1244,7 +1293,11 @@ export function LiveScoringPad({
           {/* Row 4: Wicket & Undo Action Buttons */}
           <div className="grid grid-cols-2 gap-1 sm:gap-1.5 flex-1 min-h-0">
             <ScoreButton
-              label="OUT / WICKET"
+              label={
+                <span className="flex items-center justify-center gap-1.5 text-base sm:text-lg tracking-wider font-black">
+                  <span>⚡</span> OUT / WICKET
+                </span>
+              }
               sublabel="how out?"
               variant="wicket"
               disabled={busy || pendingNewBatsman}
@@ -1262,7 +1315,12 @@ export function LiveScoringPad({
               }}
             />
             <ScoreButton
-              label="↩ UNDO"
+              label={
+                <span className="flex items-center justify-center gap-1.5 text-sm sm:text-base font-black tracking-wider text-slate-100">
+                  <RotateCcw className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-sky-400 shrink-0" />
+                  <span>UNDO</span>
+                </span>
+              }
               sublabel="last ball"
               variant="undo"
               disabled={busy}
@@ -1279,19 +1337,12 @@ export function LiveScoringPad({
         <div className="flex gap-1.5 shrink-0">
           <Button
             variant="outline"
-            className="flex-1 h-9 sm:h-10 text-xs font-bold rounded-xl border-white/10 bg-[#121933]/80 hover:bg-[#1a244a] text-slate-200 hover:text-white"
-            disabled={busy}
-            onClick={() => setBowlerSheet(true)}
-          >
-            Change Bowler
-          </Button>
-          <Button
-            variant="outline"
-            className="h-9 sm:h-10 px-3.5 text-xs font-bold rounded-xl border-white/10 bg-[#121933]/80 hover:bg-[#1a244a] text-slate-200 hover:text-white"
+            className="w-full h-9 sm:h-10 text-xs font-bold rounded-xl border-white/15 bg-gradient-to-r from-[#141e38] to-[#0f172b] hover:from-[#1c2a4f] hover:to-[#16213d] text-slate-200 hover:text-white shadow-sm gap-2"
             disabled={busy}
             onClick={() => setSecondaryOpen(true)}
           >
-            More Actions
+            <SlidersHorizontal className="w-3.5 h-3.5 text-amber-400" />
+            <span>More Actions & Settings</span>
           </Button>
         </div>
       ) : null}

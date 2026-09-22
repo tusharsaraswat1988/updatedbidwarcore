@@ -71,6 +71,8 @@ export type ScoringMatchJson = {
   } | null;
   winnerTeamId: number | null;
   resultSummary: string | null;
+  summaryJson?: CricketMatchSummary | Record<string, unknown> | null;
+  stateJson?: CricketScoreboardState | Record<string, unknown> | null;
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string;

@@ -24,6 +24,7 @@ import {
   type ScheduledFixture,
 } from "@workspace/scoring-core";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { resolveBadmintonSponsorLogos } from "@workspace/sports-badminton";
 import { ScoringServiceError } from "./scoring-service";
 import {
   cricketFranchiseTeamExists,
@@ -773,6 +774,7 @@ export async function getPublicTournamentSchedule(tournamentId: number) {
       logoUrl: tournamentsTable.logoUrl,
       matchDates: tournamentsTable.matchDates,
       sponsorLogos: tournamentsTable.sponsorLogos,
+      scoringSettingsJson: tournamentsTable.scoringSettingsJson,
       mainBannerUrl: tournamentsTable.mainBannerUrl,
       mainBannerEnabled: tournamentsTable.mainBannerEnabled,
       variantId: tournamentsTable.variantId,
@@ -789,6 +791,13 @@ export async function getPublicTournamentSchedule(tournamentId: number) {
       "SCORING_NOT_AVAILABLE",
     );
   }
+
+  const scoringSettings = (tournament.scoringSettingsJson ?? {}) as Record<string, unknown>;
+  const brandingRaw = (scoringSettings.branding ?? {}) as Record<string, unknown>;
+  const resolvedTournament = {
+    ...tournament,
+    sponsorLogos: resolveBadmintonSponsorLogos(brandingRaw, tournament.sponsorLogos),
+  };
 
   const franchiseTeams = await listCricketFranchiseTeams(tournamentId);
   const teams = franchiseTeams.map((t) => ({
@@ -812,5 +821,5 @@ export async function getPublicTournamentSchedule(tournamentId: number) {
     .from(scoringDrawsTable)
     .where(eq(scoringDrawsTable.tournamentId, tournamentId));
 
-  return { tournament, teams, fixtures, matches, draws };
+  return { tournament: resolvedTournament, teams, fixtures, matches, draws };
 }

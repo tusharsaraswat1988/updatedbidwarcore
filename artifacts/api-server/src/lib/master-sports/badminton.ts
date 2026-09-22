@@ -551,6 +551,7 @@ export async function updateBadmintonBranding(
       parseSponsorLogosJson(currentBranding.sponsorLogos),
       parseSponsorLogosJson(input.sponsorLogos),
     );
+    tournamentUpdates.sponsorLogos = input.sponsorLogos;
   }
 
   const nextBranding = { ...currentBrandingRaw };

@@ -35,7 +35,11 @@ export function useScoringMatches(tournamentId: number, enabled = true) {
     queryKey: scoringMatchesQueryKey(tournamentId),
     queryFn: () => listScoringMatches(tournamentId),
     enabled: tournamentId > 0 && enabled,
-    staleTime: 60_000,
+    refetchInterval: (query) => {
+      const list = query.state.data ?? [];
+      const hasLive = list.some((m) => m.status === "live");
+      return hasLive ? 4000 : 30000;
+    },
   });
 }
 

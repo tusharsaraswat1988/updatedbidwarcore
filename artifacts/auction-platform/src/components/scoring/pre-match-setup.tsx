@@ -285,45 +285,14 @@ export function PreMatchSetup({
         </div>
       ) : null}
 
-      {/* Policy banner */}
+      {/* Match Format / Policy Status Bar */}
       {!limits.fromPolicy ? (
-        <div className="text-xs text-amber-200/90 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
-          <p className="font-semibold">
-            {preparing
-              ? "Applying tournament rules to this match…"
-              : "Tournament rules need to lock onto this match before Start."}
-          </p>
-          {prepareError ? (
-            <p className="text-amber-100/95">{prepareError}</p>
-          ) : null}
-          {!preparing ? (
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Button
-                type="button"
-                size="sm"
-                className="h-9 font-semibold"
-                disabled={busy || preparing}
-                onClick={() => {
-                  autoPrepareTried.current = true;
-                  void handlePrepare();
-                }}
-              >
-                Retry Apply
-              </Button>
-              <BtnSecondary
-                href={cricketRulesPath(tournamentId)}
-                className={btnCompactClass}
-              >
-                Open Rules & format
-              </BtnSecondary>
-            </div>
-          ) : (
-            <p className="flex items-center gap-1.5 text-amber-100/80">
-              <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
-              Locking match rules…
-            </p>
-          )}
-        </div>
+        preparing ? (
+          <div className="flex items-center gap-2 text-xs text-amber-200/80 px-1 py-1">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" aria-hidden />
+            <span>Syncing tournament match rules…</span>
+          </div>
+        ) : null
       ) : (
         <div className="flex flex-wrap items-center justify-between text-xs text-muted-foreground px-1">
           <span className="font-medium text-foreground">
@@ -400,7 +369,9 @@ export function PreMatchSetup({
           electedTo={electedTo}
           setElectedTo={setElectedTo}
           oversLimit={oversLimit}
-          busy={busy || preparing}
+          busy={busy}
+          preparing={preparing}
+          prepareError={prepareError}
           policyReady={policyReady}
           onStart={() =>
             onEvent(CricketEventType.MATCH_STARTED, {
@@ -519,6 +490,8 @@ function TossStep({
   setElectedTo,
   oversLimit,
   busy,
+  preparing,
+  prepareError,
   policyReady,
   onStart,
 }: {
@@ -530,12 +503,14 @@ function TossStep({
   setElectedTo: (v: "bat" | "bowl") => void;
   oversLimit: number;
   busy: boolean;
+  preparing?: boolean;
+  prepareError?: string | null;
   policyReady: boolean;
   onStart: () => void | Promise<void>;
 }) {
   const home = teams.find((t) => t.id === match.homeTeamId);
   const away = teams.find((t) => t.id === match.awayTeamId);
-  const startBlocked = busy || !policyReady;
+  const startBlocked = busy || preparing || !policyReady;
 
   const winnerId = parseInt(tossWinner, 10);
   const winnerTeam = teams.find((t) => t.id === winnerId);
@@ -662,28 +637,41 @@ function TossStep({
         </span>
       </div>
 
-      <Button
-        className="w-full h-11 sm:h-13 font-display font-black text-sm sm:text-base rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 shadow-xl shadow-amber-400/20 cursor-pointer transition-all active:scale-[0.98]"
-        disabled={startBlocked}
-        onClick={() => {
-          if (startBlocked) return;
-          void onStart();
-        }}
-      >
-        {!policyReady ? (
-          "Applying Rules…"
-        ) : busy ? (
-          <span className="flex items-center gap-2">
-            <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-            Starting Match…
-          </span>
-        ) : (
-          <span className="flex items-center gap-2">
-            <span>Confirm Toss & Pick Lineups</span>
-            <ArrowRight className="w-4 h-4" />
-          </span>
-        )}
-      </Button>
+      <div className="space-y-2">
+        <Button
+          className="w-full h-11 sm:h-13 font-display font-black text-sm sm:text-base rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 shadow-xl shadow-amber-400/20 cursor-pointer transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={startBlocked}
+          onClick={() => {
+            if (startBlocked) return;
+            void onStart();
+          }}
+        >
+          {preparing ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+              Syncing Match Rules…
+            </span>
+          ) : !policyReady ? (
+            prepareError ? "Start Blocked (Rules Conflict)" : "Applying Rules…"
+          ) : busy ? (
+            <span className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+              Starting Match…
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <span>Confirm Toss & Pick Lineups</span>
+              <ArrowRight className="w-4 h-4" />
+            </span>
+          )}
+        </Button>
+        {prepareError ? (
+          <p className="text-[11px] text-amber-300/90 text-center flex items-center justify-center gap-1.5 px-2">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span>{prepareError}</span>
+          </p>
+        ) : null}
+      </div>
     </section>
   );
 }

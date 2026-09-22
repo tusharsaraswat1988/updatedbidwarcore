@@ -45,31 +45,82 @@ export function getScoringTotalSseClientCount(): number {
 export interface CricketObsDirectorPayload {
   type: "cricket_obs_director";
   overlay?: string;
+  matchId?: number;
+  sponsorName?: string;
+  stageOrGroup?: string;
   flash?: string;
   detail?: string;
   timestamp: number;
 }
 
-const cricketObsStates = new Map<number, { overlay: string; lastUpdated: number }>();
+const cricketObsStates = new Map<
+  number,
+  {
+    overlay: string;
+    matchId?: number;
+    sponsorName?: string;
+    stageOrGroup?: string;
+    lastUpdated: number;
+  }
+>();
 
-export function getCricketObsDirectorState(tournamentId: number): { overlay: string } {
-  return { overlay: cricketObsStates.get(tournamentId)?.overlay ?? "none" };
+export function getCricketObsDirectorState(tournamentId: number): {
+  overlay: string;
+  matchId?: number;
+  sponsorName?: string;
+  stageOrGroup?: string;
+} {
+  const current = cricketObsStates.get(tournamentId);
+  return {
+    overlay: current?.overlay ?? "none",
+    matchId: current?.matchId,
+    sponsorName: current?.sponsorName,
+    stageOrGroup: current?.stageOrGroup,
+  };
 }
 
-export function setCricketObsDirectorState(tournamentId: number, overlay: string) {
-  cricketObsStates.set(tournamentId, { overlay, lastUpdated: Date.now() });
+export function setCricketObsDirectorState(
+  tournamentId: number,
+  overlay: string,
+  matchId?: number,
+  sponsorName?: string,
+  stageOrGroup?: string,
+) {
+  cricketObsStates.set(tournamentId, {
+    overlay,
+    matchId,
+    sponsorName,
+    stageOrGroup,
+    lastUpdated: Date.now(),
+  });
 }
 
 export function broadcastCricketObsDirector(
   tournamentId: number,
-  command: { overlay?: string; flash?: string; detail?: string },
+  command: {
+    overlay?: string;
+    matchId?: number;
+    sponsorName?: string;
+    stageOrGroup?: string;
+    flash?: string;
+    detail?: string;
+  },
 ) {
   if (command.overlay !== undefined) {
-    setCricketObsDirectorState(tournamentId, command.overlay);
+    setCricketObsDirectorState(
+      tournamentId,
+      command.overlay,
+      command.matchId,
+      command.sponsorName,
+      command.stageOrGroup,
+    );
   }
   const payload: CricketObsDirectorPayload = {
     type: "cricket_obs_director",
     overlay: command.overlay,
+    matchId: command.matchId,
+    sponsorName: command.sponsorName,
+    stageOrGroup: command.stageOrGroup,
     flash: command.flash,
     detail: command.detail,
     timestamp: Date.now(),

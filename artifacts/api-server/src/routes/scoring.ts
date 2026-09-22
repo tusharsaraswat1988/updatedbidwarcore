@@ -166,6 +166,8 @@ function matchToJson(m: {
   currentRuntimeVersion?: number | null;
   winnerTeamId: number | null;
   resultSummary: string | null;
+  summaryJson?: Record<string, unknown> | null;
+  stateJson?: Record<string, unknown> | null;
   startedAt: Date | null;
   completedAt: Date | null;
   createdAt: Date;
@@ -233,6 +235,8 @@ function matchToJson(m: {
       : null,
     winnerTeamId: m.winnerTeamId,
     resultSummary: m.resultSummary,
+    summaryJson: m.summaryJson ?? null,
+    stateJson: m.stateJson ?? null,
     startedAt: m.startedAt?.toISOString() ?? null,
     completedAt: m.completedAt?.toISOString() ?? null,
     createdAt: m.createdAt.toISOString(),
@@ -464,11 +468,21 @@ router.post("/tournaments/:tournamentId/scoring/obs-director", async (req, res) 
 
   const body = req.body ?? {};
   const overlay = typeof body.overlay === "string" ? body.overlay : undefined;
+  const matchId = typeof body.matchId === "number" ? body.matchId : typeof body.matchId === "string" ? parseInt(body.matchId, 10) : undefined;
+  const sponsorName = typeof body.sponsorName === "string" ? body.sponsorName : undefined;
+  const stageOrGroup = typeof body.stageOrGroup === "string" ? body.stageOrGroup : undefined;
   const flash = typeof body.flash === "string" ? body.flash : undefined;
   const detail = typeof body.detail === "string" ? body.detail : undefined;
 
-  broadcastCricketObsDirector(tournamentId, { overlay, flash, detail });
-  res.json({ ok: true, overlay, flash, detail });
+  broadcastCricketObsDirector(tournamentId, {
+    overlay,
+    matchId: Number.isFinite(matchId) ? matchId : undefined,
+    sponsorName,
+    stageOrGroup,
+    flash,
+    detail,
+  });
+  res.json({ ok: true, overlay, matchId, sponsorName, stageOrGroup, flash, detail });
 });
 
 /** GET /tournaments/:tournamentId/scoring/obs-director — get current OBS overlay state */

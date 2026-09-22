@@ -366,7 +366,7 @@ export function SportsPageHeader({
   showBrandMark?: boolean;
 }) {
   return (
-    <div className="border-b border-border px-3.5 py-3.5 sm:px-6 sm:py-5">
+    <div className="border-b border-white/[0.05] px-3.5 py-3.5 sm:px-6 sm:py-5">
       <div className="max-w-7xl mx-auto space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div className="space-y-1 min-w-0">

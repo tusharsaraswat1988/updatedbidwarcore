@@ -18,6 +18,7 @@ import {
   cricketAwardsPath,
   cricketDashboardPath,
   cricketFixturesPath,
+  cricketLinksPath,
   cricketLiveControlPath,
   cricketOfficialsPath,
   cricketPlayersPath,
@@ -47,7 +48,7 @@ function isMatchesListPath(path: string, tournamentId: number): boolean {
   const pathname = navPathname(path);
   const base = cricketScoreHubPath(tournamentId);
   if (pathname === base || pathname === `${base}/`) return true;
-  if (scoreSection(path, "live-control")) return false;
+  if (scoreSection(path, "live-control") || scoreSection(path, "links")) return false;
   return new RegExp(`^${base}/\\d+(/live)?/?$`).test(pathname);
 }
 
@@ -72,6 +73,7 @@ const PRELOAD: Record<string, () => Promise<unknown>> = {
   matches: () => import("../pages/scoring-match-list"),
   matchCenter: () => import("../pages/cricket/match-center"),
   liveControl: () => import("../pages/cricket/live-control"),
+  links: () => import("../pages/cricket/links"),
   schedule: () => import("../pages/scoring-schedule"),
   fixtures: () => import("../pages/cricket/fixtures"),
   standings: () => import("../pages/cricket/standings"),
@@ -159,12 +161,16 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
     id: "matches",
     label: "Matches & Live Control",
     href: cricketScoreHubPath,
-    isActive: (path, tid) => isMatchesListPath(path, tid) || scoreSection(path, "live-control"),
+    isActive: (path, tid) =>
+      isMatchesListPath(path, tid) ||
+      scoreSection(path, "live-control") ||
+      scoreSection(path, "links"),
     icon: Radio,
     preload: () => {
       preloadNav("matches");
       preloadNav("matchCenter");
       preloadNav("liveControl");
+      preloadNav("links");
     },
     children: [
       {
@@ -180,6 +186,13 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
         href: cricketLiveControlPath,
         isActive: (path) => scoreSection(path, "live-control"),
         preload: () => preloadNav("liveControl"),
+      },
+      {
+        id: "matches-links",
+        label: "Links",
+        href: cricketLinksPath,
+        isActive: (path) => scoreSection(path, "links"),
+        preload: () => preloadNav("links"),
       },
     ],
   },

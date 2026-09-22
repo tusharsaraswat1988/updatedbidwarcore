@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRoute, useSearch, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { CricketEventType, buildCricketMatchSummary } from "@workspace/scoring-core";
-import { useScoringMatch, useInvalidateScoring } from "@/hooks/use-scoring-match";
+import { useScoringMatch, useScoringMatches, useInvalidateScoring } from "@/hooks/use-scoring-match";
 import {
   appendScoringEvent,
   getCricketMasterTeams,
@@ -125,7 +125,7 @@ export default function CricketScorerPage() {
 
   const dismissedFromScorecard = useMemo(() => {
     if (!scorecardData?.scorecard?.innings) return [];
-    const currentInn = scorecardData.scorecard.innings.find(
+    const currentInn = (scorecardData.scorecard.innings as Array<{ innings: number; batting?: Array<{ notOut?: boolean; playerId: number }> }>).find(
       (inn) => inn.innings === data?.state.currentInnings,
     );
     if (!currentInn?.batting) return [];
@@ -133,6 +133,19 @@ export default function CricketScorerPage() {
       .filter((b) => !b.notOut)
       .map((b) => b.playerId);
   }, [scorecardData, data?.state.currentInnings]);
+
+  const { data: allMatches } = useScoringMatches(tournamentId);
+  const matchRow = useMemo(() => {
+    return allMatches?.find((m) => m.id === matchId);
+  }, [allMatches, matchId]);
+
+  const matchNumber =
+    data?.match.tournamentMatchNumber ??
+    matchRow?.tournamentMatchNumber ??
+    (allMatches && matchId ? allMatches.findIndex((m) => m.id === matchId) + 1 : null) ??
+    (matchId > 0 ? matchId : null);
+
+  const roundOrGroupName = data?.match.roundName || matchRow?.roundName || null;
 
   const [busy, setBusy] = useState(false);
   const [queueDepth, setQueueDepth] = useState(0);
@@ -550,9 +563,9 @@ export default function CricketScorerPage() {
 
   return (
     <div className="fixed inset-0 h-[100dvh] max-h-[100dvh] w-full bg-[#070b19] text-white flex flex-col overflow-hidden select-none touch-manipulation overscroll-none">
-      {/* ─── Fixed Header Bar (44px) ─── */}
-      <header className="h-11 shrink-0 px-3 border-b border-white/[0.08] bg-gradient-to-r from-[#090e24] via-[#0d1433] to-[#090e24] flex items-center justify-between gap-2 z-20 backdrop-blur-md">
-        <div className="flex items-center gap-2 min-w-0">
+      {/* ─── Fixed Header Bar (min 46px) ─── */}
+      <header className="min-h-[46px] py-1 shrink-0 px-2.5 sm:px-3 border-b border-white/[0.08] bg-gradient-to-r from-[#090e24] via-[#0d1433] to-[#090e24] flex items-center justify-between gap-2 z-20 backdrop-blur-md">
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
           <Button
             type="button"
             variant="ghost"
@@ -563,18 +576,42 @@ export default function CricketScorerPage() {
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
-          <CricketPublicBrandMark variant="scorer-bar" className="h-6 shrink-0" />
-          <div className="h-3.5 w-px bg-white/20 shrink-0 hidden xs:block" />
-          <div className="min-w-0">
-            <span className="text-xs font-black text-white truncate flex items-center gap-1.5 leading-none tracking-wide">
-              {matchVsText}
+
+          {/* BidWar Logo Mark */}
+          <CricketPublicBrandMark variant="scorer-bar" className="h-6 sm:h-7 shrink-0" />
+
+          <div className="h-5 w-px bg-white/20 shrink-0" />
+
+          {/* Match Telemetry: Teams + Match Number + Group / Round */}
+          <div className="min-w-0 flex flex-col justify-center">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap leading-tight">
+              <span className="text-xs sm:text-sm font-black text-white truncate tracking-wide">
+                {matchVsText}
+              </span>
               {data?.match.status === "live" ? (
-                <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 flex items-center gap-1.5 shadow-sm shadow-rose-950/40">
+                <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 flex items-center gap-1 shadow-sm shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
                   LIVE
                 </span>
               ) : null}
-            </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[9.5px] sm:text-[10.5px] text-white/60 font-medium leading-none mt-0.5 truncate">
+              {matchNumber != null ? (
+                <span className="text-amber-400 font-bold">Match #{matchNumber}</span>
+              ) : null}
+              {roundOrGroupName ? (
+                <>
+                  <span className="text-white/30">•</span>
+                  <span className="text-slate-300 font-semibold truncate">{roundOrGroupName}</span>
+                </>
+              ) : null}
+              {data?.match.venue ? (
+                <>
+                  <span className="text-white/30 hidden xs:inline">•</span>
+                  <span className="text-white/50 truncate hidden xs:inline">{data.match.venue}</span>
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -810,15 +847,18 @@ export default function CricketScorerPage() {
         ) : null}
 
         {isFinished && summary ? (
-          <div className="flex-1 overflow-y-auto p-2 space-y-4">
-            <MatchSummaryCard summary={summary} teams={teams} compact />
-            <Button
-              type="button"
-              className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold"
-              onClick={() => navigate(cricketScorerHomePath(tournamentId))}
-            >
-              Back to Match Hub
-            </Button>
+          <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-4 max-w-lg mx-auto w-full flex flex-col justify-center">
+            <MatchSummaryCard summary={summary} teams={teams} />
+            <div className="space-y-2 pt-2">
+              <Button
+                type="button"
+                className="w-full h-12 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-amber-500/20 gap-2"
+                onClick={() => navigate(cricketScorerHomePath(tournamentId))}
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Return to Match Hub</span>
+              </Button>
+            </div>
           </div>
         ) : null}
       </main>

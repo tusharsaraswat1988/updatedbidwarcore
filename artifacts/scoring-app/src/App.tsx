@@ -54,6 +54,7 @@ const CricketAwards = lazy(() => import("@/pages/cricket/awards"));
 const CricketReports = lazy(() => import("@/pages/cricket/reports"));
 const CricketMatchCenter = lazy(() => import("@/pages/cricket/match-center"));
 const CricketLiveControl = lazy(() => import("@/pages/cricket/live-control"));
+const CricketLinks = lazy(() => import("@/pages/cricket/links"));
 const ScoringMatchList = lazy(() => import("@/pages/scoring-match-list"));
 const ScoringMatch = lazy(() => import("@/pages/scoring-match"));
 const ScoringSchedule = lazy(() => import("@/pages/scoring-schedule"));
@@ -256,6 +257,7 @@ function CricketOrganizerLayout({ tournamentId }: { tournamentId: number }) {
               <Route path="/tournament/:id/score/reports" component={CricketReports} />
               <Route path="/tournament/:id/score/schedule" component={ScoringSchedule} />
               <Route path="/tournament/:id/score/live-control" component={CricketLiveControl} />
+              <Route path="/tournament/:id/score/links" component={CricketLinks} />
               <Route path="/tournament/:id/score/:matchId/live" component={ScoringMatch} />
               <Route path="/tournament/:id/score/:matchId" component={CricketMatchCenter} />
               <Route path="/tournament/:id/score" component={ScoringMatchList} />

@@ -43,9 +43,11 @@ import {
   MapPin,
   Play,
   RefreshCw,
+  Search,
   Smartphone,
   Trophy,
   User,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +60,9 @@ export default function CricketScorerHomePage() {
   const [session, setSession] = useState(() => getScorerAuthSession());
   const savedTid = session?.tournamentId || getScorerSavedTournamentId();
   const effectiveTid = tidFromQuery > 0 ? tidFromQuery : savedTid;
+
+  const [activeTab, setActiveTab] = useState<"all" | "live" | "scheduled" | "completed">("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [tournamentIdInput, setTournamentIdInput] = useState(
     effectiveTid > 0 ? String(effectiveTid) : "",
@@ -312,263 +317,493 @@ export default function CricketScorerHomePage() {
     );
   }
 
+  // ─── Filter & Search Computation ───
+  const query = searchQuery.trim().toLowerCase();
+
+  const filterMatch = (m: ScoringMatchJson) => {
+    if (!query) return true;
+    const home = teams.find((t) => t.id === m.homeTeamId);
+    const away = teams.find((t) => t.id === m.awayTeamId);
+    const matchNo = String(m.tournamentMatchNumber ?? m.id);
+    const round = (m.roundName || "").toLowerCase();
+    const venue = (m.venue || "").toLowerCase();
+    const homeName = (home?.name || "").toLowerCase();
+    const homeCode = (home?.shortCode || "").toLowerCase();
+    const awayName = (away?.name || "").toLowerCase();
+    const awayCode = (away?.shortCode || "").toLowerCase();
+
+    return (
+      matchNo.includes(query) ||
+      round.includes(query) ||
+      venue.includes(query) ||
+      homeName.includes(query) ||
+      homeCode.includes(query) ||
+      awayName.includes(query) ||
+      awayCode.includes(query)
+    );
+  };
+
+  const filteredLiveMatches = liveMatches.filter(filterMatch);
+  const filteredScheduledMatches = scheduledMatches.filter(filterMatch);
+  const filteredCompletedMatches = completedMatches.filter(filterMatch);
+
+  const totalMatchesCount = (matches as ScoringMatchJson[]).length;
+
   // ─── AUTHENTICATED MATCH SELECTION HUB ───
   return (
     <div className="min-h-[100dvh] bg-[#070b19] text-white flex flex-col">
-      {/* Top Scorer App Header */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#070b19]/90 backdrop-blur-md px-4 py-3 sm:px-6">
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <CricketPublicBrandMark variant="scorer-bar" className="h-7 shrink-0" />
-            <div className="h-4 w-px bg-white/20 shrink-0 hidden sm:block" />
+      {/* ─── Top Scorer App Header ─── */}
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#070b19]/95 backdrop-blur-md px-3 py-2.5 sm:px-6">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <CricketPublicBrandMark variant="scorer-bar" className="h-6 sm:h-7 shrink-0" />
+            <div className="h-5 w-px bg-white/20 shrink-0" />
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-amber-400 font-bold text-xs uppercase tracking-wider flex items-center gap-1">
-                  <Trophy className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-1.5">
+                <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="text-amber-400 font-bold text-xs truncate max-w-[12rem] sm:max-w-sm tracking-wide">
                   {tournament?.name || `Tournament #${tournamentId}`}
                 </span>
               </div>
-              <p className="text-sm font-bold text-white truncate flex items-center gap-1.5 mt-0.5">
-                <User className="w-3.5 h-3.5 text-white/60" />
-                {session.scorer.name}
+              <div className="flex items-center gap-1.5 text-xs text-white/70 truncate mt-0.5">
+                <span className="font-semibold text-slate-200 truncate flex items-center gap-1">
+                  <User className="w-3 h-3 text-white/50" />
+                  {session.scorer.name}
+                </span>
                 {session.canScore ? (
-                  <span className="text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded">
+                  <span className="text-[9.5px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded-full">
                     Active Scorer
                   </span>
                 ) : (
-                  <span className="text-[10px] font-semibold bg-white/10 text-white/60 px-1.5 py-0.5 rounded">
+                  <span className="text-[9.5px] font-semibold bg-white/10 text-white/60 px-1.5 py-0.2 rounded-full">
                     View-only
                   </span>
                 )}
-              </p>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-white/60 hover:text-white"
+              className="h-8 w-8 text-white/70 hover:text-white rounded-lg hover:bg-white/10"
               onClick={() => void refetchMatches()}
               title="Refresh matches"
             >
-              <RefreshCw className={cn("w-4 h-4", matchesLoading && "animate-spin")} />
+              <RefreshCw className={cn("w-3.5 h-3.5", matchesLoading && "animate-spin")} />
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 text-xs font-semibold border-white/15 text-white/80 hover:text-white hover:bg-white/10 gap-1.5"
+              className="h-8 text-xs font-semibold border-white/15 bg-white/[0.04] text-white hover:bg-white/15 gap-1.5 rounded-lg shadow-xs"
               onClick={() => void handleLogout()}
             >
-              <LogOut className="w-3.5 h-3.5" />
-              Sign Out
+              <LogOut className="w-3 h-3 text-rose-400" />
+              <span>Sign Out</span>
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Content: Match Lists */}
-      <main className="flex-1 max-w-3xl w-full mx-auto px-3 sm:px-6 py-4 space-y-6 pb-12">
+      {/* ─── Main Content: Match Hub ─── */}
+      <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 py-4 space-y-4 pb-16">
         <ScorerPwaInstallBanner />
 
-        {/* Section: Live Matches */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping inline-block" />
-              Live Matches ({liveMatches.length})
-            </h2>
+        {/* ─── Navigation Tabs & Search (Sub-options) ─── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+          {/* Segmented Filter Pills */}
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-white/[0.04] border border-white/10 overflow-x-auto scrollbar-none">
+            <button
+              type="button"
+              onClick={() => setActiveTab("all")}
+              className={cn(
+                "px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
+                activeTab === "all"
+                  ? "bg-amber-500 text-slate-950 shadow-sm"
+                  : "text-white/60 hover:text-white hover:bg-white/5",
+              )}
+            >
+              <span>All Matches</span>
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.2 rounded-full font-mono font-black",
+                  activeTab === "all" ? "bg-slate-950/20 text-slate-950" : "bg-white/10 text-white/70",
+                )}
+              >
+                {totalMatchesCount}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("live")}
+              className={cn(
+                "px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
+                activeTab === "live"
+                  ? "bg-rose-600 text-white shadow-sm"
+                  : "text-rose-400 hover:text-rose-300 hover:bg-rose-500/10",
+              )}
+            >
+              <span className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+              <span>Live</span>
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.2 rounded-full font-mono font-black",
+                  activeTab === "live" ? "bg-white/20 text-white" : "bg-rose-500/20 text-rose-300",
+                )}
+              >
+                {liveMatches.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("scheduled")}
+              className={cn(
+                "px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
+                activeTab === "scheduled"
+                  ? "bg-sky-600 text-white shadow-sm"
+                  : "text-sky-400 hover:text-sky-300 hover:bg-sky-500/10",
+              )}
+            >
+              <Calendar className="w-3 h-3" />
+              <span>Scheduled</span>
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.2 rounded-full font-mono font-black",
+                  activeTab === "scheduled" ? "bg-white/20 text-white" : "bg-sky-500/20 text-sky-300",
+                )}
+              >
+                {scheduledMatches.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("completed")}
+              className={cn(
+                "px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5",
+                activeTab === "completed"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10",
+              )}
+            >
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Completed</span>
+              <span
+                className={cn(
+                  "text-[10px] px-1.5 py-0.2 rounded-full font-mono font-black",
+                  activeTab === "completed" ? "bg-white/20 text-white" : "bg-emerald-500/20 text-emerald-300",
+                )}
+              >
+                {completedMatches.length}
+              </span>
+            </button>
           </div>
 
-          {liveMatches.length === 0 ? (
-            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 text-center text-xs text-white/40">
-              No live cricket matches right now.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {liveMatches.map((m) => {
-                const home = teams.find((t) => t.id === m.homeTeamId);
-                const away = teams.find((t) => t.id === m.awayTeamId);
-                return (
-                  <div
-                    key={m.id}
-                    className="rounded-2xl border border-red-500/40 bg-red-500/[0.07] p-4 sm:p-5 space-y-3 shadow-lg ring-1 ring-red-500/20"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-bold text-white/60 uppercase tracking-wide">
-                        {m.roundName || `Match #${m.tournamentMatchNumber ?? m.id}`}
-                      </span>
-                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-500 text-white flex items-center gap-1">
-                        <Activity className="w-3 h-3 animate-pulse" />
-                        LIVE SCORING
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-4 py-1">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-base sm:text-lg font-black text-white truncate">
-                          {home?.name || "Team A"}
-                        </p>
-                        <p className="text-xs text-white/60 font-medium">
-                          {home?.shortCode || "T1"}
-                        </p>
-                      </div>
-                      <div className="text-xs font-bold text-amber-400 px-2 py-1 rounded bg-black/40 border border-white/10 shrink-0">
-                        VS
-                      </div>
-                      <div className="flex-1 min-w-0 text-right">
-                        <p className="text-base sm:text-lg font-black text-white truncate">
-                          {away?.name || "Team B"}
-                        </p>
-                        <p className="text-xs text-white/60 font-medium">
-                          {away?.shortCode || "T2"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {m.venue ? (
-                      <p className="text-xs text-white/50 flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5" />
-                        {m.venue}
-                      </p>
-                    ) : null}
-
-                    <Button
-                      type="button"
-                      className="w-full h-12 bg-red-600 hover:bg-red-500 text-white font-bold text-sm tracking-wide shadow-md gap-2"
-                      onClick={() => handleOpenScoring(m)}
-                    >
-                      <Play className="w-4 h-4 fill-white" />
-                      Resume Live Scoring
-                    </Button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* Section: Scheduled Matches */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5" />
-              Scheduled Matches ({scheduledMatches.length})
-            </h2>
+          {/* Quick Search */}
+          <div className="relative min-w-[160px] sm:w-56">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+            <Input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search team or match #"
+              className="bg-white/5 border-white/10 text-white text-xs pl-8 pr-7 h-9 rounded-xl placeholder:text-white/30 focus-visible:ring-amber-400/40"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            ) : null}
           </div>
+        </div>
 
-          {scheduledMatches.length === 0 ? (
-            <div className="rounded-xl border border-white/5 bg-white/[0.02] p-4 text-center text-xs text-white/40">
-              No upcoming scheduled matches found.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {scheduledMatches.map((m) => {
-                const home = teams.find((t) => t.id === m.homeTeamId);
-                const away = teams.find((t) => t.id === m.awayTeamId);
-                return (
-                  <div
-                    key={m.id}
-                    className="rounded-2xl border border-white/10 bg-white/[0.03] hover:border-amber-500/40 p-4 sm:p-5 space-y-3 transition-colors"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-bold text-white/50 uppercase tracking-wide">
-                        {m.roundName || `Match #${m.tournamentMatchNumber ?? m.id}`}
-                      </span>
-                      {m.scheduledAt ? (
-                        <span className="text-xs text-amber-300 font-medium flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {new Date(m.scheduledAt).toLocaleString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      ) : null}
-                    </div>
+        {/* ─── Match Cards List ─── */}
+        <div className="space-y-6 pt-2">
+          {/* SECTION: LIVE MATCHES */}
+          {(activeTab === "all" || activeTab === "live") && (
+            <section className="space-y-3">
+              {activeTab === "all" && (
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping inline-block" />
+                    Live Matches ({filteredLiveMatches.length})
+                  </h2>
+                </div>
+              )}
 
-                    <div className="flex items-center justify-between gap-4 py-1">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-base font-bold text-white truncate">
-                          {home?.name || "Team A"}
-                        </p>
-                        <p className="text-xs text-white/50">{home?.shortCode || "T1"}</p>
-                      </div>
-                      <div className="text-xs font-semibold text-white/40 shrink-0">vs</div>
-                      <div className="flex-1 min-w-0 text-right">
-                        <p className="text-base font-bold text-white truncate">
-                          {away?.name || "Team B"}
-                        </p>
-                        <p className="text-xs text-white/50">{away?.shortCode || "T2"}</p>
-                      </div>
-                    </div>
-
-                    {m.venue ? (
-                      <p className="text-xs text-white/50 flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5" />
-                        {m.venue}
-                      </p>
-                    ) : null}
-
-                    <Button
-                      type="button"
-                      className="w-full h-11 bg-primary text-primary-foreground font-bold text-sm tracking-wide gap-2"
-                      onClick={() => handleOpenScoring(m)}
-                    >
-                      Start Scoring
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
+              {filteredLiveMatches.length === 0 ? (
+                activeTab === "live" ? (
+                  <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 text-center space-y-2">
+                    <Activity className="w-8 h-8 text-white/30 mx-auto" />
+                    <p className="text-sm font-semibold text-white/70">No live matches in progress</p>
+                    <p className="text-xs text-white/40">Upcoming matches can be started from the Scheduled tab.</p>
                   </div>
-                );
-              })}
-            </div>
+                ) : null
+              ) : (
+                <div className="grid grid-cols-1 gap-3.5">
+                  {filteredLiveMatches.map((m) => {
+                    const home = teams.find((t) => t.id === m.homeTeamId);
+                    const away = teams.find((t) => t.id === m.awayTeamId);
+                    const matchNo = m.tournamentMatchNumber ?? m.id;
+
+                    return (
+                      <div
+                        key={m.id}
+                        className="rounded-2xl border border-rose-500/40 bg-gradient-to-br from-rose-950/40 via-[#0f172b]/95 to-[#070b19]/98 p-4 sm:p-5 space-y-3.5 shadow-xl shadow-rose-950/20 ring-1 ring-rose-500/20 backdrop-blur-md"
+                      >
+                        <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[11px] font-black text-amber-400 bg-amber-400/15 border border-amber-400/30 px-2 py-0.5 rounded-md">
+                              Match #{matchNo}
+                            </span>
+                            {m.roundName ? (
+                              <span className="text-xs font-bold text-slate-200">
+                                {m.roundName}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500 text-white flex items-center gap-1.5 shadow-sm shadow-rose-900/50">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                            LIVE SCORING
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 py-1">
+                          <div className="flex-1 min-w-0">
+                            <span
+                              className="inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider mb-1"
+                              style={{ backgroundColor: `${home?.color ?? "#38bdf8"}22`, color: home?.color ?? "#38bdf8" }}
+                            >
+                              {home?.shortCode || "T1"}
+                            </span>
+                            <p className="text-base sm:text-lg font-black text-white truncate">
+                              {home?.name || "Team A"}
+                            </p>
+                          </div>
+
+                          <div className="text-xs font-black text-amber-300 px-2.5 py-1 rounded-xl bg-black/40 border border-white/10 shrink-0 font-mono shadow-inner">
+                            VS
+                          </div>
+
+                          <div className="flex-1 min-w-0 text-right">
+                            <span
+                              className="inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider mb-1"
+                              style={{ backgroundColor: `${away?.color ?? "#38bdf8"}22`, color: away?.color ?? "#38bdf8" }}
+                            >
+                              {away?.shortCode || "T2"}
+                            </span>
+                            <p className="text-base sm:text-lg font-black text-white truncate">
+                              {away?.name || "Team B"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {m.venue ? (
+                          <div className="flex items-center gap-1.5 text-xs text-white/50 pt-1 border-t border-white/5">
+                            <MapPin className="w-3.5 h-3.5 text-white/40" />
+                            <span className="truncate">{m.venue}</span>
+                          </div>
+                        ) : null}
+
+                        <Button
+                          type="button"
+                          className="w-full h-11 sm:h-12 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-black text-sm tracking-wide shadow-lg shadow-rose-950/40 gap-2 rounded-xl"
+                          onClick={() => handleOpenScoring(m)}
+                        >
+                          <Play className="w-4 h-4 fill-white" />
+                          <span>Resume Live Scoring</span>
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           )}
-        </section>
 
-        {/* Section: Completed Matches */}
-        {completedMatches.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="text-xs font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              Completed Matches ({completedMatches.length})
-            </h2>
+          {/* SECTION: SCHEDULED MATCHES */}
+          {(activeTab === "all" || activeTab === "scheduled") && (
+            <section className="space-y-3">
+              {activeTab === "all" && (
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Scheduled Matches ({filteredScheduledMatches.length})
+                  </h2>
+                </div>
+              )}
 
-            <div className="space-y-2.5">
-              {completedMatches.map((m) => {
-                const home = teams.find((t) => t.id === m.homeTeamId);
-                const away = teams.find((t) => t.id === m.awayTeamId);
-                return (
-                  <div
-                    key={m.id}
-                    className="rounded-xl border border-white/5 bg-white/[0.02] p-3.5 flex items-center justify-between gap-3 text-xs"
-                  >
-                    <div className="min-w-0 space-y-0.5">
-                      <p className="font-bold text-white/90 truncate">
-                        {home?.shortCode || "T1"} vs {away?.shortCode || "T2"}
-                      </p>
-                      <p className="text-emerald-400 font-medium truncate">
-                        {m.resultSummary || "Match Completed"}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs border-white/10 text-white/80 hover:bg-white/10 shrink-0"
-                      onClick={() => handleOpenScoring(m)}
-                    >
-                      View Result
-                    </Button>
+              {filteredScheduledMatches.length === 0 ? (
+                activeTab === "scheduled" ? (
+                  <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 text-center space-y-2">
+                    <Calendar className="w-8 h-8 text-white/30 mx-auto" />
+                    <p className="text-sm font-semibold text-white/70">No scheduled upcoming matches</p>
+                    <p className="text-xs text-white/40">New matches will appear here once fixtures are generated.</p>
                   </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
+                ) : activeTab === "all" && liveMatches.length === 0 && completedMatches.length === 0 ? (
+                  <div className="rounded-xl border border-white/5 bg-white/[0.02] p-6 text-center text-xs text-white/40">
+                    No scheduled matches found.
+                  </div>
+                ) : null
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {filteredScheduledMatches.map((m) => {
+                    const home = teams.find((t) => t.id === m.homeTeamId);
+                    const away = teams.find((t) => t.id === m.awayTeamId);
+                    const matchNo = m.tournamentMatchNumber ?? m.id;
+
+                    return (
+                      <div
+                        key={m.id}
+                        className="rounded-2xl border border-white/10 bg-white/[0.03] hover:border-sky-500/40 p-4 space-y-3 transition-colors flex flex-col justify-between"
+                      >
+                        <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2">
+                          <span className="text-[10.5px] font-black text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-md">
+                            Match #{matchNo}
+                          </span>
+                          {m.scheduledAt ? (
+                            <span className="text-xs text-sky-300 font-medium flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {new Date(m.scheduledAt).toLocaleString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          ) : m.roundName ? (
+                            <span className="text-xs text-white/50 truncate font-semibold">
+                              {m.roundName}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 py-1">
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[10px] font-black text-white/50 block">
+                              {home?.shortCode || "T1"}
+                            </span>
+                            <p className="text-sm font-bold text-white truncate">
+                              {home?.name || "Team A"}
+                            </p>
+                          </div>
+                          <div className="text-xs font-bold text-white/30 shrink-0">vs</div>
+                          <div className="flex-1 min-w-0 text-right">
+                            <span className="text-[10px] font-black text-white/50 block">
+                              {away?.shortCode || "T2"}
+                            </span>
+                            <p className="text-sm font-bold text-white truncate">
+                              {away?.name || "Team B"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {m.venue ? (
+                          <p className="text-[11px] text-white/50 flex items-center gap-1 truncate">
+                            <MapPin className="w-3 h-3 text-white/40 shrink-0" />
+                            <span className="truncate">{m.venue}</span>
+                          </p>
+                        ) : null}
+
+                        <Button
+                          type="button"
+                          className="w-full h-10 bg-primary text-primary-foreground font-bold text-xs tracking-wide gap-1.5 rounded-xl mt-1"
+                          onClick={() => handleOpenScoring(m)}
+                        >
+                          <span>Start Scoring</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* SECTION: COMPLETED MATCHES */}
+          {(activeTab === "all" || activeTab === "completed") && (
+            <section className="space-y-3">
+              {activeTab === "all" && completedMatches.length > 0 && (
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Completed Matches ({filteredCompletedMatches.length})
+                  </h2>
+                </div>
+              )}
+
+              {filteredCompletedMatches.length === 0 ? (
+                activeTab === "completed" ? (
+                  <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-8 text-center space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-white/30 mx-auto" />
+                    <p className="text-sm font-semibold text-white/70">No completed matches yet</p>
+                    <p className="text-xs text-white/40">Matches marked completed will appear here.</p>
+                  </div>
+                ) : null
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {filteredCompletedMatches.map((m) => {
+                    const home = teams.find((t) => t.id === m.homeTeamId);
+                    const away = teams.find((t) => t.id === m.awayTeamId);
+                    const matchNo = m.tournamentMatchNumber ?? m.id;
+
+                    return (
+                      <div
+                        key={m.id}
+                        className="rounded-2xl border border-white/10 bg-white/[0.03] hover:border-emerald-500/30 p-3.5 sm:p-4 space-y-2.5 transition-all shadow-sm"
+                      >
+                        <div className="flex items-center justify-between gap-2 border-b border-white/5 pb-2">
+                          <span className="text-[10px] font-black text-amber-400 bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded">
+                            Match #{matchNo}
+                          </span>
+                          {m.roundName ? (
+                            <span className="text-[11px] text-white/50 font-medium truncate">
+                              {m.roundName}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="space-y-1">
+                          <p className="font-bold text-white text-sm truncate flex items-center justify-between">
+                            <span>{home?.name || "Team A"}</span>
+                            <span className="text-xs text-white/40 font-normal">vs</span>
+                            <span>{away?.name || "Team B"}</span>
+                          </p>
+                          <p className="text-emerald-400 font-semibold text-xs truncate">
+                            {m.resultSummary || "Match Completed"}
+                          </p>
+                        </div>
+
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-8 text-xs font-semibold border-white/15 bg-white/[0.04] text-slate-200 hover:text-white hover:bg-white/10 rounded-xl"
+                          onClick={() => handleOpenScoring(m)}
+                        >
+                          View Result & Scorecard
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+        </div>
       </main>
     </div>
   );
 }
+

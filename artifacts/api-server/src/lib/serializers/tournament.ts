@@ -10,6 +10,7 @@ import {
   type PlatformAudioDefaults,
 } from "@workspace/api-base/platform-audio";
 import { resolveTournamentFeatures } from "@workspace/api-base/tournament-features";
+import { resolveBadmintonSponsorLogos } from "@workspace/sports-badminton";
 import type { tournamentsTable } from "@workspace/db";
 import { catalogBindingSerializerFields } from "../tournament-catalog-bindings";
 
@@ -26,6 +27,10 @@ export function publicTournamentSerializer(
   options?: TournamentSerializerOptions,
 ) {
   const platform = options?.platformDefaults;
+  const scoringSettings = (t.scoringSettingsJson ?? {}) as Record<string, unknown>;
+  const brandingRaw = (scoringSettings.branding ?? {}) as Record<string, unknown>;
+  const resolvedSponsorLogos = resolveBadmintonSponsorLogos(brandingRaw, t.sponsorLogos);
+
   return {
     id: t.id,
     name: t.name,
@@ -38,7 +43,7 @@ export function publicTournamentSerializer(
     auctionTime: t.auctionTime ?? null,
     organizerName: t.organizerName,
     logoUrl: t.logoUrl,
-    sponsorLogos: t.sponsorLogos,
+    sponsorLogos: resolvedSponsorLogos,
     auctionUnit: normalizeAuctionUnit(t.auctionUnit),
     basePurse: t.basePurse,
     minBid: t.minBid,
