@@ -60,6 +60,7 @@ import {
   buildWorkingConfiguration,
   loadLatestPlan,
   loadTournamentCompetitionRow,
+  lockCompetitionSetup,
 } from "./competition-service";
 import { buildCompetitionStatus, validateCompetitionConfiguration } from "@workspace/platform-core/competition";
 import {
@@ -68,6 +69,7 @@ import {
   loadMatchRow,
   loadMatchSides,
   listMatchRows,
+  lockMatchSetup,
   requestMatchLifecycleTransition,
 } from "./match-service";
 import { loadLatestFixtureHistory } from "./fixture-service";
@@ -436,6 +438,78 @@ export type PrepareRuntimeResult =
       validation?: RuntimeValidationResult;
     };
 
+async function ensureCricketPreparationPrerequisites(
+  tournamentId: number,
+  match: typeof scoringMatchesTable.$inferSelect,
+  actor: string | null,
+): Promise<typeof scoringMatchesTable.$inferSelect> {
+  if (match.sportSlug !== "cricket") return match;
+
+  // 1. Ensure competition setup has a frozen plan (if none exists yet)
+  const plan = await loadLatestPlan(tournamentId);
+  if (!plan) {
+    try {
+      await lockCompetitionSetup(tournamentId, actor);
+    } catch {
+      // Best effort; buildRuntimeValidation will catch any structural competition blockers
+    }
+  }
+
+  // 2. Ensure draws and fixtures are ready/locked for cricket execution
+  if (match.fixtureId != null) {
+    const [fixture] = await db
+      .select({ drawId: scoringFixturesTable.drawId })
+      .from(scoringFixturesTable)
+      .where(
+        and(
+          eq(scoringFixturesTable.tournamentId, tournamentId),
+          eq(scoringFixturesTable.id, match.fixtureId),
+        ),
+      )
+      .limit(1);
+    if (fixture?.drawId) {
+      await db
+        .update(scoringDrawsTable)
+        .set({
+          configurationLocked: true,
+          lifecycleStatus: "ready",
+          schedulingConfigurationLocked: true,
+          schedulingLifecycleStatus: "ready",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(scoringDrawsTable.id, fixture.drawId),
+            eq(scoringDrawsTable.tournamentId, tournamentId),
+          ),
+        );
+    }
+  }
+
+  // Also ensure any tournament-level scoring draws are ready
+  await db
+    .update(scoringDrawsTable)
+    .set({
+      configurationLocked: true,
+      lifecycleStatus: "ready",
+      schedulingConfigurationLocked: true,
+      schedulingLifecycleStatus: "ready",
+      updatedAt: new Date(),
+    })
+    .where(eq(scoringDrawsTable.tournamentId, tournamentId));
+
+  // 3. Ensure match configuration is locked
+  if (!match.configurationLocked) {
+    const lockRes = await lockMatchSetup(tournamentId, match.id, actor);
+    if (lockRes.ok || lockRes.status === 409) {
+      const refreshed = await loadMatchRow(tournamentId, match.id);
+      if (refreshed) return refreshed;
+    }
+  }
+
+  return match;
+}
+
 /**
  * Runtime Prepare (EPIC-11 + EPIC-12 Phase 1):
  * validate → freeze Snapshot (refs only)
@@ -451,8 +525,10 @@ export async function prepareRuntimeMatch(
   matchId: number,
   actor: string | null,
 ): Promise<PrepareRuntimeResult> {
-  const match = await loadMatchRow(tournamentId, matchId);
+  let match = await loadMatchRow(tournamentId, matchId);
   if (!match) return { ok: false, status: 404, error: "Match not found" };
+
+  match = await ensureCricketPreparationPrerequisites(tournamentId, match, actor);
 
   const validation = await buildRuntimeValidation(tournamentId, match);
   if (validation.errorCount > 0) {

@@ -14,6 +14,7 @@ import { CricketPublicBrandMark, useCricketBidWarTheme } from "@/components/scor
 import {
   getCricketMasterTeams,
   getCricketTournamentRoster,
+  getPublicMatchScorecard,
   type ScoringMatchJson,
 } from "@/lib/scoring-api";
 import {
@@ -32,7 +33,11 @@ import {
   type LedMatchEvent,
 } from "@/components/scoring/led-event-animation-overlay";
 import { CricketLedMidOverlays } from "@/components/scoring/cricket-led-mid-overlays";
-import type { CricketObsMidOverlayKind } from "@/lib/cricket-obs-view-model";
+import {
+  resolveBatterView,
+  resolveBowlerView,
+  type CricketObsMidOverlayKind,
+} from "@/lib/cricket-obs-view-model";
 import {
   Wifi,
   WifiOff,
@@ -82,7 +87,7 @@ function ConnectionBadge({
   );
 }
 
-/** Top-Right Showcase Box: Displays sponsors prominently with auto-rotation */
+/** Top-Right Showcase Box: Displays sponsors prominently with integrated broadcast styling */
 function HeaderSponsorShowcase({ sponsors }: { sponsors: SponsorLogo[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -90,21 +95,21 @@ function HeaderSponsorShowcase({ sponsors }: { sponsors: SponsorLogo[] }) {
     if (sponsors.length <= 1) return;
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % sponsors.length);
-    }, 7000);
+    }, 8000);
     return () => clearInterval(interval);
   }, [sponsors.length]);
 
   if (sponsors.length === 0) {
     return (
-      <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-card/60 border border-border/70 backdrop-blur-sm min-w-[200px]">
-        <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
+      <div className="flex items-center gap-3.5 px-4 py-2 rounded-2xl bg-black/40 border border-primary/30 min-w-[220px] max-w-[340px] h-14">
+        <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
           <Award className="w-5 h-5 text-primary" />
         </div>
-        <div className="text-left">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-primary/80">
-            Tournament Partner
+        <div className="text-left min-w-0">
+          <p className="text-[11px] font-black uppercase tracking-widest text-primary">
+            Official Sponsor
           </p>
-          <p className="text-sm font-black uppercase text-foreground">Official Sponsor</p>
+          <p className="text-sm font-black uppercase text-white truncate">BidWar Arena</p>
         </div>
       </div>
     );
@@ -114,12 +119,12 @@ function HeaderSponsorShowcase({ sponsors }: { sponsors: SponsorLogo[] }) {
   const typeText =
     current.priorityType ||
     current.type ||
-    (current.isTitleSponsor ? "Title Sponsor" : current.isCoSponsor ? "Co Sponsor" : "Sponsor");
+    (current.isTitleSponsor ? "Title Sponsor" : current.isCoSponsor ? "Co Sponsor" : "Official Partner");
 
   return (
-    <div className="flex items-center gap-3.5 px-4 py-2 rounded-2xl bg-card/80 border border-border/80 backdrop-blur-md shadow-md min-w-[220px] max-w-[320px] transition-all duration-300">
+    <div className="flex items-center gap-3.5 px-4 py-2 rounded-2xl bg-card/90 border border-primary/35 shadow-lg min-w-[220px] max-w-[340px] h-14 transition-all duration-300">
       {current.url ? (
-        <div className="w-16 h-12 rounded-lg bg-black/40 border border-border/50 flex items-center justify-center p-1 shrink-0 overflow-hidden">
+        <div className="w-14 h-10 rounded-lg bg-black/50 border border-border/60 flex items-center justify-center p-1 shrink-0 overflow-hidden">
           <img
             src={current.url}
             alt={current.name || "Sponsor"}
@@ -127,30 +132,17 @@ function HeaderSponsorShowcase({ sponsors }: { sponsors: SponsorLogo[] }) {
           />
         </div>
       ) : (
-        <div className="w-12 h-12 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
-          <Award className="w-6 h-6 text-primary" />
+        <div className="w-10 h-10 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
+          <Award className="w-5 h-5 text-primary" />
         </div>
       )}
-      <div className="text-left min-w-0">
-        <span className="inline-block text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20 mb-0.5">
+      <div className="text-left min-w-0 flex-1">
+        <span className="inline-block text-[11px] font-black uppercase tracking-widest text-primary bg-primary/15 px-2 py-0.5 rounded border border-primary/25 mb-0.5">
           {typeText}
         </span>
-        <h4 className="text-base font-black uppercase tracking-wide text-foreground truncate">
+        <h4 className="text-sm sm:text-base font-black uppercase tracking-wide text-white truncate">
           {current.name || "Tournament Partner"}
         </h4>
-        {sponsors.length > 1 && (
-          <div className="flex gap-1 mt-1">
-            {sponsors.map((_, i) => (
-              <span
-                key={i}
-                className={cn(
-                  "h-1 rounded-full transition-all duration-300",
-                  i === currentIndex ? "w-3 bg-primary" : "w-1 bg-muted-foreground/30",
-                )}
-              />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -195,6 +187,46 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
   const state = live?.state;
   const summary = live?.summary;
   const innings = state ? getActiveInnings(state) : null;
+
+  const matchId = match?.id;
+  const { data: scorecardData } = useQuery({
+    queryKey: ["public-match-scorecard", tournamentId, matchId],
+    queryFn: () => getPublicMatchScorecard(tournamentId, matchId!),
+    enabled: !!tournamentId && !!matchId,
+    staleTime: 2000,
+  });
+
+  const strikerStats = useMemo(() => {
+    if (!state?.strikerId) return null;
+    return resolveBatterView(
+      state.strikerId,
+      true,
+      players,
+      scorecardData?.scorecard,
+      innings?.innings ?? 1,
+    );
+  }, [state?.strikerId, players, scorecardData?.scorecard, innings?.innings]);
+
+  const nonStrikerStats = useMemo(() => {
+    if (!state?.nonStrikerId) return null;
+    return resolveBatterView(
+      state.nonStrikerId,
+      false,
+      players,
+      scorecardData?.scorecard,
+      innings?.innings ?? 1,
+    );
+  }, [state?.nonStrikerId, players, scorecardData?.scorecard, innings?.innings]);
+
+  const bowlerStats = useMemo(() => {
+    if (!state?.bowlerId) return null;
+    return resolveBowlerView(
+      state.bowlerId,
+      players,
+      scorecardData?.scorecard,
+      innings?.innings ?? 1,
+    );
+  }, [state?.bowlerId, players, scorecardData?.scorecard, innings?.innings]);
 
   // Broadcast Screen Mode State (Canonical cricket_obs_director)
   const [currentOverlay, setCurrentOverlay] = useState<CricketObsMidOverlayKind>("none");
@@ -531,7 +563,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/15 via-[#07090e] to-[#040507] pointer-events-none" />
 
         {/* 1. TOP HEADER: Tournament Logo (Left) | BidWar + Title (Center) | Sponsor Showcase (Right) */}
-        <header className="relative z-20 flex items-center justify-between px-6 sm:px-8 py-3.5 border-b border-border/60 bg-card/90 backdrop-blur-md">
+        <header className="relative z-20 h-24 flex items-center justify-between px-6 sm:px-8 border-b border-border/60 bg-card/90 backdrop-blur-md shrink-0">
           {/* Top Left: Tournament Logo */}
           <div className="flex items-center gap-3 shrink-0">
             {tournament?.logoUrl ? (
@@ -586,9 +618,9 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
         </header>
 
         {/* 2. MAIN SCORING ARENA */}
-        <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 sm:px-12 py-6 gap-6">
+        <main className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-between px-4 sm:px-8 py-3 sm:py-4 gap-3 sm:gap-4 overflow-hidden">
           {isIdle ? (
-            <div className="text-center space-y-4 max-w-xl p-10 rounded-3xl bg-card/60 border border-border/80 backdrop-blur-md">
+            <div className="text-center space-y-4 max-w-xl p-10 rounded-3xl bg-card/60 border border-border/80 backdrop-blur-md my-auto">
               <Trophy className="w-16 h-16 text-primary/60 mx-auto animate-pulse" />
               <h2 className="text-3xl font-display font-black uppercase tracking-wide text-foreground">
                 Match Waiting To Begin
@@ -598,7 +630,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
               </p>
             </div>
           ) : isComplete && summary ? (
-            <div className="w-full max-w-4xl space-y-6">
+            <div className="w-full max-w-4xl space-y-6 my-auto">
               <div className="flex items-center justify-center gap-3">
                 <Trophy className="w-8 h-8 text-primary" />
                 <h2 className="text-center text-3xl font-display font-black uppercase tracking-widest text-primary">
@@ -608,185 +640,242 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
               <MatchSummaryCard summary={summary} teams={teams} />
             </div>
           ) : (
-            <div className="w-full max-w-6xl flex flex-col items-center gap-6">
-              {/* Team Match Bar: Batting vs Bowling */}
-              <div className="w-full flex items-center justify-between px-8 py-3.5 rounded-2xl bg-card/85 border border-border/80 backdrop-blur-md shadow-xl">
+            <div className="w-full max-w-7xl flex-1 min-h-0 flex flex-col items-center justify-between gap-3 sm:gap-4">
+              {/* Unified Match Context & Teams Strip (h-[76px]) */}
+              <div className="w-full min-h-[72px] max-h-[80px] flex items-center justify-between px-6 py-2.5 rounded-2xl bg-card/90 border border-border/80 backdrop-blur-md shadow-xl gap-4 shrink-0">
                 {/* Batting Team Badge */}
-                <div className="flex items-center gap-4">
-                  <span className="px-2.5 py-1 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-black uppercase tracking-widest animate-pulse">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="px-3 py-1 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs sm:text-sm font-black uppercase tracking-widest animate-pulse">
                     BAT
                   </span>
-                  <div className="text-left">
-                    <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-wider text-white">
+                  <div className="text-left min-w-0">
+                    <h3 className="text-lg sm:text-2xl font-black uppercase tracking-wider text-white truncate">
                       {battingTeam?.name || home?.name || "Batting Team"}
                     </h3>
                     <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">
-                      Short: {battingTeam?.shortCode || home?.shortCode}
+                      {battingTeam?.shortCode || home?.shortCode}
                     </p>
                   </div>
                 </div>
 
-                <div className="text-center">
-                  <span className="text-xl sm:text-2xl font-black font-display text-muted-foreground/60">
-                    VS
-                  </span>
+                {/* Center Match Equation / Free Hit Alert */}
+                <div className="flex items-center justify-center text-center px-2">
+                  {state?.freeHitActive ? (
+                    <div className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 border-2 border-fuchsia-300 text-white flex items-center gap-2 shadow-[0_0_25px_rgba(192,38,211,0.6)] animate-pulse">
+                      <Flame className="w-4 h-4 text-yellow-300 animate-bounce" />
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-[0.2em]">
+                        ⚡ FREE HIT ACTIVE ⚡
+                      </span>
+                    </div>
+                  ) : targetRuns != null ? (
+                    <div className="flex items-center gap-3 sm:gap-5 px-4 py-1.5 rounded-xl bg-primary/15 border border-primary/30">
+                      <div className="text-xs sm:text-sm font-black uppercase text-primary/90">
+                        TARGET: <span className="text-white font-mono text-base sm:text-lg font-black ml-0.5">{targetRuns}</span>
+                      </div>
+                      <div className="text-xs sm:text-sm font-black uppercase text-white">
+                        NEED <span className="text-primary font-mono text-base sm:text-lg font-black">{needRuns}</span> IN <span className="text-primary font-mono text-base sm:text-lg font-black">{ballsRemaining}B</span>
+                      </div>
+                      {rrr && (
+                        <div className="text-xs sm:text-sm font-black uppercase text-amber-300 hidden sm:block">
+                          RRR: <span className="font-mono text-base sm:text-lg font-black ml-0.5">{rrr}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="px-4 py-1.5 rounded-xl bg-black/40 border border-border/60">
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-muted-foreground">
+                        1ST INNINGS IN PROGRESS
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Bowling Team Badge */}
-                <div className="flex items-center gap-4 text-right">
-                  <div>
-                    <h3 className="text-2xl sm:text-3xl font-black uppercase tracking-wider text-white">
+                <div className="flex items-center gap-3 min-w-0 text-right justify-end">
+                  <div className="text-right min-w-0">
+                    <h3 className="text-lg sm:text-2xl font-black uppercase tracking-wider text-white truncate">
                       {bowlingTeam?.name || away?.name || "Bowling Team"}
                     </h3>
                     <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">
-                      Short: {bowlingTeam?.shortCode || away?.shortCode}
+                      {bowlingTeam?.shortCode || away?.shortCode}
                     </p>
                   </div>
-                  <span className="px-2.5 py-1 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-black uppercase tracking-widest">
+                  <span className="px-3 py-1 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs sm:text-sm font-black uppercase tracking-widest">
                     BOWL
                   </span>
                 </div>
               </div>
 
-              {/* Free Hit Alert Banner */}
-              {state?.freeHitActive && (
-                <div className="w-full py-2.5 px-6 rounded-2xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 border-2 border-fuchsia-300 text-white flex items-center justify-center gap-3 shadow-[0_0_40px_rgba(192,38,211,0.6)] animate-pulse">
-                  <Flame className="w-6 h-6 text-yellow-300 animate-bounce" />
-                  <span className="text-xl sm:text-2xl font-black uppercase tracking-[0.25em]">
-                    ⚡ FREE HIT ACTIVE THIS BALL ⚡
-                  </span>
-                </div>
-              )}
-
-              {/* Target / Equation Strip */}
-              {targetRuns != null && (
-                <div className="w-full py-3 px-6 rounded-2xl bg-primary/15 border-2 border-primary/40 flex items-center justify-between flex-wrap gap-4 text-center">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black uppercase tracking-widest text-primary/80">
-                      TARGET:
+              {/* HERO SCORING ARENA */}
+              <div className="w-full flex-1 min-h-0 p-4 sm:p-6 rounded-3xl bg-gradient-to-b from-card/95 via-card/85 to-background/90 border-2 border-border/80 backdrop-blur-md shadow-2xl flex flex-col items-center justify-between gap-3">
+                {/* Hero Numerals + Overs Bar */}
+                <div className="flex flex-col items-center justify-center my-auto">
+                  {/* Total Score Numerals with Optical Slash */}
+                  <div className="text-7xl sm:text-8xl md:text-9xl lg:text-[10.5rem] font-black font-mono tabular-nums tracking-tight text-white leading-none drop-shadow-[0_10px_35px_rgba(0,0,0,0.95)] flex items-center justify-center">
+                    <span>{innings?.runs ?? 0}</span>
+                    <span className="text-amber-400/50 font-light text-[0.75em] mx-2 sm:mx-3 select-none">
+                      /
                     </span>
-                    <span className="text-2xl sm:text-3xl font-black font-mono text-white">
-                      {targetRuns}
-                    </span>
-                  </div>
-                  <div className="text-lg sm:text-xl font-black uppercase tracking-wide text-primary">
-                    Need{" "}
-                    <span className="text-white font-mono text-2xl font-black">{needRuns}</span> Runs in{" "}
-                    <span className="text-white font-mono text-2xl font-black">{ballsRemaining}</span>{" "}
-                    Balls
-                  </div>
-                  {rrr && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">
-                        RRR:
-                      </span>
-                      <span className="text-xl sm:text-2xl font-black font-mono text-amber-300">
-                        {rrr}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* GIANT SCORING CORE */}
-              <div className="w-full p-8 sm:p-12 rounded-3xl bg-gradient-to-b from-card/95 via-card/80 to-background/90 border-2 border-border/80 backdrop-blur-md shadow-2xl flex flex-col items-center justify-center gap-6">
-                <div className="flex flex-col items-center">
-                  {/* Total Score Numerals: Runs / Wickets */}
-                  <div className="text-8xl sm:text-9xl md:text-[11rem] lg:text-[13rem] font-black font-mono tabular-nums tracking-tight text-white leading-none drop-shadow-[0_10px_35px_rgba(0,0,0,0.95)]">
-                    {innings?.runs ?? 0}
-                    <span className="text-primary/75 mx-1">/</span>
-                    {innings?.wickets ?? 0}
+                    <span>{innings?.wickets ?? 0}</span>
                   </div>
 
                   {/* Overs & Rates Bar */}
-                  <div className="flex items-center gap-4 sm:gap-6 mt-4 flex-wrap justify-center">
-                    <div className="px-6 py-2 rounded-2xl bg-amber-500/15 border-2 border-amber-500/40 shadow-lg">
-                      <span className="text-xs font-bold uppercase tracking-widest text-amber-300/80 mr-2">
-                        Overs
+                  <div className="flex items-center gap-3 sm:gap-5 mt-2 flex-wrap justify-center">
+                    <div className="px-5 py-1.5 rounded-xl bg-amber-500/15 border-2 border-amber-500/40 shadow-lg flex items-center gap-2">
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-amber-300/80">
+                        OVERS
                       </span>
-                      <span className="text-3xl sm:text-4xl md:text-5xl font-mono font-black text-amber-400">
+                      <span className="text-2xl sm:text-3xl font-mono font-black text-amber-400">
                         {innings ? oversText(innings.over, innings.ball) : "0.0"}
-                        <span className="text-xl sm:text-2xl text-muted-foreground font-normal ml-1.5">
+                        <span className="text-base sm:text-lg text-muted-foreground font-normal ml-1.5">
                           / {state?.oversLimit ?? 0}
                         </span>
                       </span>
                     </div>
 
                     {rr && (
-                      <div className="px-5 py-2 rounded-2xl bg-card border border-border">
-                        <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground mr-2">
+                      <div className="px-4 py-1.5 rounded-xl bg-card border border-border flex items-center gap-2">
+                        <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-muted-foreground">
                           CRR
                         </span>
-                        <span className="text-2xl sm:text-3xl font-mono font-black text-white">
+                        <span className="text-xl sm:text-2xl font-mono font-black text-white">
                           {rr}
+                        </span>
+                      </div>
+                    )}
+
+                    {rrr && (
+                      <div className="px-4 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
+                        <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-amber-300/80">
+                          REQ RR
+                        </span>
+                        <span className="text-xl sm:text-2xl font-mono font-black text-amber-300">
+                          {rrr}
                         </span>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* Crease Cards: Active Batsmen & Bowler */}
-                <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                  {/* Batsmen Card */}
-                  <div className="p-5 rounded-2xl bg-black/40 border border-border/70 flex flex-col justify-between gap-3">
-                    <span className="text-xs font-black uppercase tracking-widest text-primary/80">
-                      🏏 Batter at Crease
-                    </span>
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-emerald-400 font-bold">*</span>
-                          <span className="text-xl font-black uppercase text-white truncate max-w-[200px]">
-                            {strikerPlayer?.name || "Striker"}
+                {/* Crease Cards: Live Batters & Bowler Figures */}
+                <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 my-auto">
+                  {/* Batters Card */}
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-black/45 border border-border/80 flex flex-col justify-between gap-2 shadow-lg">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-border/40">
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
+                        🏏 Batters at Crease
+                      </span>
+                      <span className="text-[11px] uppercase font-bold text-muted-foreground">
+                        R (B) · 4s/6s · SR
+                      </span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {/* Striker */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-emerald-400 font-black text-lg sm:text-xl">*</span>
+                          <span className="text-base sm:text-xl md:text-2xl font-black uppercase text-white tracking-wide truncate max-w-[200px] sm:max-w-[280px]">
+                            {strikerStats?.name || strikerPlayer?.name || "Striker"}
                           </span>
                         </div>
-                        <span className="text-sm font-bold text-muted-foreground uppercase">
-                          (Striker)
-                        </span>
+                        <div className="text-right shrink-0">
+                          {strikerStats?.hasStats ? (
+                            <>
+                              <span className="text-lg sm:text-2xl font-mono font-black text-amber-300">
+                                {strikerStats.runs}* ({strikerStats.balls})
+                              </span>
+                              <span className="text-xs sm:text-sm font-mono text-muted-foreground ml-2 hidden sm:inline-block">
+                                {strikerStats.fours}x4 · {strikerStats.sixes}x6 · SR {strikerStats.strikeRate.toFixed(1)}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xs sm:text-sm font-medium text-muted-foreground/70 italic">
+                              {strikerPlayer?.role || "Striker"}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center justify-between text-muted-foreground">
-                        <span className="text-lg font-bold uppercase text-white/80 truncate max-w-[200px]">
-                          {nonStrikerPlayer?.name || "Non-Striker"}
-                        </span>
-                        <span className="text-xs uppercase font-semibold">(Non-Striker)</span>
+
+                      {/* Non-Striker */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-muted-foreground/50 font-black text-lg sm:text-xl">·</span>
+                          <span className="text-base sm:text-xl md:text-2xl font-bold uppercase text-white/90 tracking-wide truncate max-w-[200px] sm:max-w-[280px]">
+                            {nonStrikerStats?.name || nonStrikerPlayer?.name || "Non-Striker"}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          {nonStrikerStats?.hasStats ? (
+                            <>
+                              <span className="text-lg sm:text-2xl font-mono font-bold text-white/90">
+                                {nonStrikerStats.runs} ({nonStrikerStats.balls})
+                              </span>
+                              <span className="text-xs sm:text-sm font-mono text-muted-foreground ml-2 hidden sm:inline-block">
+                                {nonStrikerStats.fours}x4 · {nonStrikerStats.sixes}x6 · SR {nonStrikerStats.strikeRate.toFixed(1)}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xs sm:text-sm font-medium text-muted-foreground/70 italic">
+                              {nonStrikerPlayer?.role || "Non-Striker"}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
 
                   {/* Bowler Card */}
-                  <div className="p-5 rounded-2xl bg-black/40 border border-border/70 flex flex-col justify-between gap-3">
-                    <span className="text-xs font-black uppercase tracking-widest text-amber-400/90">
-                      🎯 Active Bowler
-                    </span>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-2xl font-black uppercase text-white">
-                          {bowlerPlayer?.name || "Current Bowler"}
+                  <div className="p-3.5 sm:p-4 rounded-2xl bg-black/45 border border-border/80 flex flex-col justify-between gap-2 shadow-lg">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-border/40">
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-amber-400 flex items-center gap-1.5">
+                        🎯 Active Bowler
+                      </span>
+                      <span className="text-[11px] uppercase font-bold text-muted-foreground">
+                        O-M-R-W · ECON
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <h4 className="text-base sm:text-xl md:text-2xl font-black uppercase text-white tracking-wide truncate max-w-[200px] sm:max-w-[280px]">
+                          {bowlerStats?.name || bowlerPlayer?.name || "Current Bowler"}
                         </h4>
-                        <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                        <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold truncate">
                           {bowlerPlayer?.role || "Right-Arm Pace"}
                         </p>
                       </div>
-                      <div className="text-right">
-                        <span className="text-xs font-bold uppercase text-muted-foreground">
-                          Over Progress
-                        </span>
-                        <p className="text-lg font-mono font-bold text-amber-300">
-                          Ball {innings?.ball ?? 0} of 6
-                        </p>
+                      <div className="text-right shrink-0">
+                        {bowlerStats?.hasStats ? (
+                          <>
+                            <div className="text-lg sm:text-2xl font-mono font-black text-amber-300">
+                              {bowlerStats.overs}-{bowlerStats.maidens}-{bowlerStats.runsConceded}-{bowlerStats.wickets}
+                            </div>
+                            <div className="text-xs sm:text-sm font-mono text-muted-foreground">
+                              Econ {bowlerStats.economy.toFixed(2)} · Ball {innings?.ball ?? 0}/6
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-sm sm:text-base font-mono font-bold text-amber-300/80">
+                              Ball {innings?.ball ?? 0} of 6
+                            </div>
+                            <div className="text-xs font-mono text-muted-foreground">
+                              {bowlerPlayer?.role || "Active Bowler"}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* This Over Ball-by-Ball Strip */}
-                {state && state.thisOver.length > 0 && (
-                  <div className="w-full flex flex-col items-center gap-3 pt-2 border-t border-border/50">
-                    <span className="text-xs font-black uppercase tracking-[0.25em] text-muted-foreground">
-                      This Over Deliveries
-                    </span>
-                    <div className="flex items-center justify-center flex-wrap gap-3">
-                      {state.thisOver.map((b, i) => {
+                {/* This Over Deliveries Strip */}
+                <div className="w-full flex flex-col items-center gap-1.5 pt-2 border-t border-border/50 shrink-0">
+                  <span className="text-xs font-black uppercase tracking-[0.25em] text-muted-foreground">
+                    This Over Deliveries
+                  </span>
+                  <div className="flex items-center justify-center flex-wrap gap-2.5 min-h-[48px]">
+                    {state && state.thisOver.length > 0 ? (
+                      state.thisOver.map((b, i) => {
                         const isSix = b.runsOffBat === 6 || b.label === "6";
                         const isFour = b.runsOffBat === 4 || b.label === "4";
                         const isWkt = b.isWicket || b.label.includes("W");
@@ -799,7 +888,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                           <span
                             key={`${b.over}-${b.ball}-${i}`}
                             className={cn(
-                              "inline-flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl text-xl sm:text-2xl font-mono font-black border-2 transition-all shadow-md",
+                              "inline-flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl text-lg sm:text-xl font-mono font-black border-2 transition-all shadow-md",
                               isSix
                                 ? "bg-amber-500 text-black border-yellow-200 shadow-[0_0_20px_rgba(245,158,11,0.6)]"
                                 : isFour
@@ -814,21 +903,25 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                             {b.label}
                           </span>
                         );
-                      })}
-                    </div>
+                      })
+                    ) : (
+                      <span className="text-xs uppercase tracking-widest text-muted-foreground/60 italic font-semibold">
+                        Over commencing...
+                      </span>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           )}
         </main>
 
-        {/* 3. FOOTER: Sponsor Trail in matching color combination (Text & Type, Not Logo) */}
-        <footer className="relative z-20 h-12 bg-[#05070a] border-t border-border/70 overflow-hidden flex items-center select-none shadow-2xl">
+        {/* 3. FOOTER: 96px Broadcast Sponsor Marquee */}
+        <footer className="relative z-20 h-24 bg-[#05070a] border-t border-border/70 overflow-hidden flex items-center select-none shadow-2xl shrink-0">
           {/* Static Title Tag */}
-          <div className="flex items-center gap-2 px-5 py-1.5 bg-primary/20 border-r border-border shrink-0 z-20 h-full">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-xs font-black uppercase tracking-[0.2em] text-primary whitespace-nowrap">
+          <div className="flex items-center gap-2.5 px-6 sm:px-8 bg-primary/20 border-r border-border shrink-0 z-20 h-full">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <span className="text-xs sm:text-sm font-black uppercase tracking-[0.25em] text-primary whitespace-nowrap">
               OFFICIAL SPONSORS
             </span>
           </div>
@@ -837,14 +930,14 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
           <div className="flex-1 overflow-hidden relative">
             <div className="flex animate-marquee whitespace-nowrap will-change-transform py-2">
               {[0, 1].map((copyIdx) => (
-                <div key={copyIdx} className="flex items-center shrink-0 gap-10 pr-10">
+                <div key={copyIdx} className="flex items-center shrink-0 gap-12 pr-12">
                   {sponsorTrailItems.map((item, idx) => (
-                    <div key={`${copyIdx}-${idx}`} className="inline-flex items-center gap-2.5">
-                      <span className="text-primary font-black text-sm">✦</span>
-                      <span className="text-[11px] uppercase font-black tracking-widest text-primary bg-primary/15 px-2 py-0.5 rounded border border-primary/25">
+                    <div key={`${copyIdx}-${idx}`} className="inline-flex items-center gap-3.5">
+                      <span className="text-primary font-black text-base">✦</span>
+                      <span className="text-xs sm:text-sm uppercase font-black tracking-widest text-primary bg-primary/15 px-3 py-1 rounded border border-primary/25">
                         {item.type}
                       </span>
-                      <span className="text-sm font-black uppercase tracking-wider text-white">
+                      <span className="text-xl sm:text-2xl font-black uppercase tracking-wider text-white drop-shadow">
                         {item.name}
                       </span>
                     </div>

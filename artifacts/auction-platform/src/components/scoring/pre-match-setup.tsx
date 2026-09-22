@@ -302,7 +302,7 @@ export function PreMatchSetup({
                 type="button"
                 size="sm"
                 className="h-9 font-semibold"
-                disabled={busy}
+                disabled={busy || preparing}
                 onClick={() => {
                   autoPrepareTried.current = true;
                   void handlePrepare();

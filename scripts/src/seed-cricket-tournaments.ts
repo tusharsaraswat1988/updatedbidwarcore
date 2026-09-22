@@ -304,6 +304,10 @@ async function main() {
       name: "Group Stage & Finals",
       format: "round_robin",
       status: "in_progress",
+      lifecycleStatus: "ready",
+      configurationLocked: true,
+      schedulingLifecycleStatus: "ready",
+      schedulingConfigurationLocked: true,
     })
     .returning();
 

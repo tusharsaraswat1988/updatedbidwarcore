@@ -390,6 +390,10 @@ async function main() {
       name: "Inter-School League Stage (2 Groups)",
       format: "group_stage",
       status: "in_progress",
+      lifecycleStatus: "ready",
+      configurationLocked: true,
+      schedulingLifecycleStatus: "ready",
+      schedulingConfigurationLocked: true,
     })
     .returning();
 

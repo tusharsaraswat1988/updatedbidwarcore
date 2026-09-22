@@ -69,6 +69,7 @@ export type CricketObsBatterView = {
   sixes: number;
   strikeRate: number;
   isOnStrike: boolean;
+  hasStats?: boolean;
 };
 
 export type CricketObsBowlerView = {
@@ -79,6 +80,7 @@ export type CricketObsBowlerView = {
   runsConceded: number;
   wickets: number;
   economy: number;
+  hasStats?: boolean;
 };
 
 export type CricketObsTeamView = {
@@ -309,7 +311,7 @@ function firstInningsScoreLine(
   return `${bat?.shortCode ?? "T1"}  ${first.runs}/${first.wickets} (${overs}/${limit})`;
 }
 
-function resolveBatterView(
+export function resolveBatterView(
   playerId: number | null | undefined,
   isOnStrike: boolean,
   players?: CricketScorerPlayer[],
@@ -325,6 +327,7 @@ function resolveBatterView(
   let fours = 0;
   let sixes = 0;
   let strikeRate = 0;
+  let hasStats = false;
 
   if (scorecard?.innings && currentInningsNum != null) {
     const inn = scorecard.innings.find((i) => i.innings === currentInningsNum);
@@ -335,6 +338,7 @@ function resolveBatterView(
       fours = row.fours;
       sixes = row.sixes;
       strikeRate = row.strikeRate;
+      hasStats = true;
     }
   }
 
@@ -347,10 +351,11 @@ function resolveBatterView(
     sixes,
     strikeRate,
     isOnStrike,
+    hasStats,
   };
 }
 
-function resolveBowlerView(
+export function resolveBowlerView(
   playerId: number | null | undefined,
   players?: CricketScorerPlayer[],
   scorecard?: CricketFullScorecard | null,
@@ -365,6 +370,7 @@ function resolveBowlerView(
   let runsConceded = 0;
   let wickets = 0;
   let economy = 0;
+  let hasStats = false;
 
   if (scorecard?.innings && currentInningsNum != null) {
     const inn = scorecard.innings.find((i) => i.innings === currentInningsNum);
@@ -375,6 +381,7 @@ function resolveBowlerView(
       runsConceded = row.runs;
       wickets = row.wickets;
       economy = row.economy;
+      hasStats = true;
     }
   }
 
@@ -386,6 +393,7 @@ function resolveBowlerView(
     runsConceded,
     wickets,
     economy,
+    hasStats,
   };
 }
 
