@@ -100,11 +100,17 @@ function buildBrandingPatchPayload(
     logoPublicId: form.logoPublicId.trim() || null,
     sponsorLogos: JSON.stringify(
       sponsorLogos
-        .filter((l) => l.url.trim())
+        .filter((l) => l.url && l.url.trim())
         .map((l, idx) => ({
           url: l.url.trim(),
           publicId: l.publicId?.trim() || null,
-          priority: l.priority ?? idx,
+          name: l.name?.trim() || "",
+          type: l.type?.trim() || "",
+          isTitleSponsor: Boolean(l.isTitleSponsor),
+          isCoSponsor: Boolean(l.isCoSponsor),
+          priorityType: l.priorityType || undefined,
+          sponsorPriority: l.sponsorPriority ?? idx,
+          priority: (l as unknown as { priority?: number }).priority ?? idx,
         })),
     ),
     venue: form.venue.trim() || null,

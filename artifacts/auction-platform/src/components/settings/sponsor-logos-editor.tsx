@@ -293,9 +293,9 @@ export function SponsorLogosEditor({
 
   return (
     <div className="space-y-4">
-      {/* Top Controls: Search & Filter Tabs */}
+      {/* Top Controls: Search, Filter Tabs & Add Button */}
       {logos.length > 0 ? (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/50">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-border/50">
           <div className="relative flex-1 max-w-sm">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -305,51 +305,54 @@ export function SponsorLogosEditor({
               className="h-8 pl-8 text-xs bg-muted/15 border-border/60"
             />
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setFilterTier("all")}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                filterTier === "all"
-                  ? "bg-primary/20 text-primary border border-primary/30"
-                  : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
-              }`}
-            >
-              All ({logos.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterTier("title")}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
-                filterTier === "title"
-                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                  : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
-              }`}
-            >
-              <Crown className="w-3 h-3 text-amber-400" /> Title ({titleCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterTier("co")}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
-                filterTier === "co"
-                  ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
-                  : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
-              }`}
-            >
-              <Star className="w-3 h-3 text-violet-400" /> Co ({coCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterTier("standard")}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                filterTier === "standard"
-                  ? "bg-muted/40 text-foreground border border-border"
-                  : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
-              }`}
-            >
-              Standard ({logos.length - titleCount - coCount})
-            </button>
+          <div className="flex flex-wrap items-center justify-between md:justify-end gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setFilterTier("all")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  filterTier === "all"
+                    ? "bg-primary/20 text-primary border border-primary/30"
+                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                All ({logos.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTier("title")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                  filterTier === "title"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                <Crown className="w-3 h-3 text-amber-400" /> Title ({titleCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTier("co")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                  filterTier === "co"
+                    ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
+                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                <Star className="w-3 h-3 text-violet-400" /> Co ({coCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTier("standard")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  filterTier === "standard"
+                    ? "bg-muted/40 text-foreground border border-border"
+                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                Standard ({logos.length - titleCount - coCount})
+              </button>
+            </div>
+            <SponsorAddLogoButton onUploadFile={onUploadFile} uploadingIdx={uploadingIdx} />
           </div>
         </div>
       ) : null}
@@ -574,6 +577,43 @@ export function SponsorLogosEditor({
               </div>
             );
           })}
+
+          {/* Prominent "+ Add Another Sponsor Logo" bar below the list */}
+          <div className="pt-1">
+            <label
+              className="w-full flex items-center justify-center p-3 rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary hover:border-primary transition-all cursor-pointer text-xs font-semibold gap-2 shadow-xs group"
+              title={`Upload up to ${SPONSOR_LOGO_BULK_UPLOAD_MAX} sponsor logos at once`}
+            >
+              {uploadingIdx === "new" ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Uploading sponsors...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 group-hover:scale-110 transition-transform" /> + Add Another Sponsor Logo (Upload JPG, PNG, WEBP)
+                </>
+              )}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                className="hidden"
+                onChange={e => {
+                  const picked = Array.from(e.target.files ?? []);
+                  e.target.value = "";
+                  if (picked.length === 0) return;
+                  if (picked.length > SPONSOR_LOGO_BULK_UPLOAD_MAX) {
+                    window.alert(
+                      `You can upload up to ${SPONSOR_LOGO_BULK_UPLOAD_MAX} sponsor logos at once. Only the first ${SPONSOR_LOGO_BULK_UPLOAD_MAX} will be added.`,
+                    );
+                  }
+                  const files = picked.slice(0, SPONSOR_LOGO_BULK_UPLOAD_MAX);
+                  onUploadFile(files.length === 1 ? files[0] : files, "new");
+                }}
+                disabled={uploadingIdx !== null}
+              />
+            </label>
+          </div>
         </div>
       ) : null}
 

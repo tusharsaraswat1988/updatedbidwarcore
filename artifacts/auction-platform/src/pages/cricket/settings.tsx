@@ -138,10 +138,16 @@ function buildBrandingPatchPayload(
     logoPublicId: form.logoPublicId.trim() || null,
     sponsorLogos: JSON.stringify(
       sponsorLogos
-        .filter((l) => l.url.trim())
+        .filter((l) => l.url && l.url.trim())
         .map((l, idx) => ({
           url: l.url.trim(),
           publicId: l.publicId?.trim() || null,
+          name: l.name?.trim() || "",
+          type: l.type?.trim() || "",
+          isTitleSponsor: Boolean(l.isTitleSponsor),
+          isCoSponsor: Boolean(l.isCoSponsor),
+          priorityType: l.priorityType || undefined,
+          sponsorPriority: l.sponsorPriority ?? idx,
           priority: (l as unknown as { priority?: number }).priority ?? idx,
         })),
     ),
@@ -210,7 +216,6 @@ export default function CricketSettingsPage() {
   });
   const [sponsorLogos, setSponsorLogos] = useState<SponsorLogo[]>([]);
   const [scoreBoardSponsor, setScoreBoardSponsor] = useState<ScoreBoardSponsor>(EMPTY_SCOREBOARD_SPONSOR);
-  const [scoreBoardExpanded, setScoreBoardExpanded] = useState(false);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
   const [scoreBoardLogoEditorOpen, setScoreBoardLogoEditorOpen] = useState(false);
   const [sponsorUploadIdx, setSponsorUploadIdx] = useState<number | "new" | null>(null);
@@ -306,7 +311,6 @@ export default function CricketSettingsPage() {
         setScoreBoardSponsor,
         lastSavedPayloadRef,
       });
-      setScoreBoardExpanded(hasScoreBoardSponsor(data.scoreBoardSponsor ?? EMPTY_SCOREBOARD_SPONSOR));
       hydratedTournamentRef.current = tournamentId;
       qc.setQueryData(brandingKey, data);
       setImportMessage(
@@ -339,7 +343,6 @@ export default function CricketSettingsPage() {
       setScoreBoardSponsor,
       lastSavedPayloadRef,
     });
-    setScoreBoardExpanded(hasScoreBoardSponsor(branding.scoreBoardSponsor ?? EMPTY_SCOREBOARD_SPONSOR));
     hydratedTournamentRef.current = tournamentId;
     autoSaveReadyRef.current = false;
     const timer = window.setTimeout(() => {
@@ -559,13 +562,23 @@ export default function CricketSettingsPage() {
             desc="Contact BIDWAR for enabling sport scoring module."
           />
         ) : (
-          <div className="space-y-6">
-            <section className={cn(hubPanelClass, "space-y-5 max-w-3xl")}>
-              <div>
-                <h2 className="text-foreground font-display font-bold text-lg">Tournament identity</h2>
-                <p className="text-muted-foreground text-sm mt-0.5">
-                  Name, venue, and organizer used on scoreboards and broadcasts.
-                </p>
+            {/* 1. Tournament identity & Rotating Sponsors */}
+            <section className={cn(hubPanelClass, "space-y-6 max-w-3xl")}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">
+                <div>
+                  <h2 className="text-foreground font-display font-bold text-lg">Tournament Identity &amp; Sponsors</h2>
+                  <p className="text-muted-foreground text-sm mt-0.5">
+                    Name, venue, colors, and rotating sponsor logos for LED screens, live streams, and match broadcasts.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => persistBranding(true)}
+                  disabled={saveMutation.isPending || isLoading || !form.displayName.trim()}
+                  className="shrink-0 gap-1.5"
+                >
+                  {saveMutation.isPending ? "Saving…" : justSaved ? "Saved" : "Save Details & Sponsors"}
+                </Button>
               </div>
 
               <FormField label="Tournament Name" required htmlFor="cricket-branding-display-name">
@@ -651,135 +664,153 @@ export default function CricketSettingsPage() {
                 </FormField>
               </div>
 
-              <FormField label="Sponsor Logos">
+              <div className="pt-2">
+                <div className="mb-2">
+                  <label className="text-foreground text-sm font-semibold block">Tournament Sponsor Logos</label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Add brand logos below. Logos rotate on live LED screens and appear on stream headers, broadcast overlays, and reports.
+                  </p>
+                </div>
                 <SponsorLogosEditor
                   logos={sponsorLogos}
                   onChange={setSponsorLogos}
                   onUploadFile={handleSponsorUpload}
                   uploadingIdx={sponsorUploadIdx}
                 />
-                <p className="text-muted-foreground text-xs mt-2">
-                  Used on cricket Sports displays — changes here do not affect Auction panel sponsors.
-                </p>
-              </FormField>
-
-              {/* Compact optional scoreboard sponsor — expands only when chosen */}
-              <div
-                className={cn(
-                  "rounded-lg border border-border/50 bg-muted/10",
-                  scoreBoardExpanded ? "p-4 space-y-4" : "px-3 py-2.5",
-                )}
-              >
-                <div className="flex items-center justify-between gap-3 min-h-9">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">Scoreboard sponsor</p>
-                    {!scoreBoardExpanded ? (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {hasScoreBoardSponsor(scoreBoardSponsor)
-                          ? ([scoreBoardSponsor.title, scoreBoardSponsor.name].filter(Boolean).join(" · ")
-                            || "Configured")
-                          : "Optional — add for live scoreboard / OBS"}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        Shown on live scoreboard / OBS chrome, separate from rotating logos.
-                      </p>
-                    )}
-                  </div>
-                  {!scoreBoardExpanded ? (
-                    <BtnSecondary
-                      type="button"
-                      className="shrink-0 h-8"
-                      onClick={() => setScoreBoardExpanded(true)}
-                    >
-                      {hasScoreBoardSponsor(scoreBoardSponsor) ? "Edit" : "Add"}
-                    </BtnSecondary>
-                  ) : null}
-                </div>
-
-                {scoreBoardExpanded ? (
-                  <div className="space-y-4">
-                    <FormField label="Title (e.g. Official Scoreboard Partner)">
-                      <input
-                        value={scoreBoardSponsor.title ?? ""}
-                        onChange={(e) =>
-                          setScoreBoardSponsor((s) => ({ ...s, title: e.target.value || null }))
-                        }
-                        placeholder="Official Scoreboard Partner"
-                        className={inputClass}
-                      />
-                    </FormField>
-
-                    <FormField label="Sponsor Name">
-                      <input
-                        value={scoreBoardSponsor.name ?? ""}
-                        onChange={(e) =>
-                          setScoreBoardSponsor((s) => ({ ...s, name: e.target.value || null }))
-                        }
-                        placeholder="Acme Sports Ltd."
-                        className={inputClass}
-                      />
-                    </FormField>
-
-                    <FormField label="Sponsor Logo">
-                      <div className="flex items-center gap-4">
-                        {scoreBoardSponsor.logoUrl ? (
-                          <img
-                            src={scoreBoardSponsor.logoUrl}
-                            alt={scoreBoardSponsor.name?.trim() || "Scoreboard sponsor logo"}
-                            className="w-16 h-16 rounded-xl object-contain bg-white p-2 border border-[#ffd700]/30"
-                          />
-                        ) : (
-                          <div className="w-16 h-16 rounded-xl bg-white/5 border border-dashed border-[#ffd700]/25 flex items-center justify-center text-white/30 text-xs">
-                            No logo
-                          </div>
-                        )}
-                        <div className="flex flex-wrap gap-2">
-                          <BtnSecondary type="button" onClick={() => setScoreBoardLogoEditorOpen(true)}>
-                            {scoreBoardSponsor.logoUrl ? "Change Logo" : "Upload Logo"}
-                          </BtnSecondary>
-                          {scoreBoardSponsor.logoUrl ? (
-                            <BtnSecondary
-                              type="button"
-                              onClick={() =>
-                                setScoreBoardSponsor((s) => ({
-                                  ...s,
-                                  logoUrl: null,
-                                  logoPublicId: null,
-                                }))
-                              }
-                            >
-                              Remove
-                            </BtnSecondary>
-                          ) : null}
-                        </div>
-                      </div>
-                    </FormField>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setScoreBoardExpanded(false)}
-                        className="text-muted-foreground hover:text-foreground text-xs underline"
-                      >
-                        Done
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setScoreBoardSponsor(EMPTY_SCOREBOARD_SPONSOR);
-                          setScoreBoardExpanded(false);
-                        }}
-                        className="text-white/40 hover:text-white/60 text-xs underline"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
               </div>
 
-              {saveError ? <p className="text-red-400 text-sm">{saveError}</p> : null}
+              {saveError ? <p className="text-destructive text-sm font-medium">{saveError}</p> : null}
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-border/40">
+                <p className="text-xs text-muted-foreground">
+                  {saveError
+                    ? saveError
+                    : saveMutation.isPending
+                      ? "Saving changes…"
+                      : justSaved
+                        ? "✓ All changes saved"
+                        : "Changes save automatically as you edit."}
+                </p>
+                <Button
+                  type="button"
+                  onClick={() => persistBranding(true)}
+                  disabled={saveMutation.isPending || isLoading || !form.displayName.trim()}
+                  className="w-full sm:w-auto"
+                >
+                  {saveMutation.isPending ? "Saving…" : justSaved ? "Saved" : "Save Details & Sponsors"}
+                </Button>
+              </div>
+            </section>
+
+            {/* 2. Standalone Scoreboard Sponsor Panel */}
+            <section className={cn(hubPanelClass, "space-y-5 max-w-3xl border-primary/25")}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">
+                <div>
+                  <h2 className="text-foreground font-display font-bold text-lg flex items-center gap-2">
+                    Scoreboard Sponsor
+                    <Badge variant="outline" className="text-[11px] font-normal border-amber-500/40 text-amber-300 bg-amber-500/10">
+                      Match Overlays &amp; Scorebug
+                    </Badge>
+                  </h2>
+                  <p className="text-muted-foreground text-sm mt-0.5">
+                    Optional fixed sponsor shown permanently on the live match scoreboard bar and OBS scorebug during cricket matches.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => persistBranding(true)}
+                  disabled={saveMutation.isPending || isLoading}
+                  className="shrink-0 gap-1.5"
+                >
+                  {saveMutation.isPending ? "Saving…" : justSaved ? "Saved" : "Save Scoreboard Sponsor"}
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField label="Partner Designation / Title">
+                    <input
+                      value={scoreBoardSponsor.title ?? ""}
+                      onChange={(e) =>
+                        setScoreBoardSponsor((s) => ({ ...s, title: e.target.value || null }))
+                      }
+                      placeholder="e.g. Official Scoreboard Partner"
+                      className={inputClass}
+                    />
+                  </FormField>
+
+                  <FormField label="Sponsor / Brand Name">
+                    <input
+                      value={scoreBoardSponsor.name ?? ""}
+                      onChange={(e) =>
+                        setScoreBoardSponsor((s) => ({ ...s, name: e.target.value || null }))
+                      }
+                      placeholder="e.g. VNS LIVE STUDIO"
+                      className={inputClass}
+                    />
+                  </FormField>
+                </div>
+
+                <FormField label="Scoreboard Sponsor Logo">
+                  <div className="flex items-center gap-4">
+                    {scoreBoardSponsor.logoUrl ? (
+                      <img
+                        src={scoreBoardSponsor.logoUrl}
+                        alt={scoreBoardSponsor.name?.trim() || "Scoreboard sponsor logo"}
+                        className="w-20 h-16 rounded-xl object-contain bg-white p-2 border border-amber-400/40 shadow-xs"
+                      />
+                    ) : (
+                      <div className="w-20 h-16 rounded-xl bg-white/5 border border-dashed border-border/80 flex items-center justify-center text-muted-foreground text-xs">
+                        No logo
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <BtnSecondary type="button" onClick={() => setScoreBoardLogoEditorOpen(true)}>
+                        {scoreBoardSponsor.logoUrl ? "Change Logo" : "Upload Logo"}
+                      </BtnSecondary>
+                      {scoreBoardSponsor.logoUrl ? (
+                        <BtnSecondary
+                          type="button"
+                          onClick={() =>
+                            setScoreBoardSponsor((s) => ({
+                              ...s,
+                              logoUrl: null,
+                              logoPublicId: null,
+                            }))
+                          }
+                        >
+                          Remove Logo
+                        </BtnSecondary>
+                      ) : null}
+                      {hasScoreBoardSponsor(scoreBoardSponsor) ? (
+                        <BtnSecondary
+                          type="button"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setScoreBoardSponsor(EMPTY_SCOREBOARD_SPONSOR)}
+                        >
+                          Clear All
+                        </BtnSecondary>
+                      ) : null}
+                    </div>
+                  </div>
+                </FormField>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border/40">
+                <p className="text-xs text-muted-foreground">
+                  Scoreboard sponsor appears fixed in the match scorebug and overlay header.
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => persistBranding(true)}
+                  disabled={saveMutation.isPending || isLoading}
+                  className="w-full sm:w-auto"
+                >
+                  {saveMutation.isPending ? "Saving…" : justSaved ? "Saved" : "Save Scoreboard Sponsor"}
+                </Button>
+              </div>
             </section>
 
             {/* Player Registration Settings Panel */}
