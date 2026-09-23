@@ -100,7 +100,9 @@ function resolveClientBootstrapProps(): Pick<AppProps, "pageData" | "dehydratedS
 function BrandingEffects() {
   const [location] = useLocation();
   const { logos, brandName, iconVersion } = useBranding();
-  const googleSiteVerification = import.meta.env.VITE_GOOGLE_SITE_VERIFICATION?.trim();
+  const googleSiteVerification =
+    import.meta.env.VITE_GOOGLE_SITE_VERIFICATION?.trim() ||
+    "YMq945swDMCEyo1vcxXqlp9ijR_U7T2413i33dj7TKA";
   const manifestHref = isScorerPwaRoute(location)
     ? SCORER_MANIFEST_HREF
     : isAdminPwaRoute(location)
