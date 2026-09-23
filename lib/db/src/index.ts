@@ -1079,3 +1079,4 @@ export * from "./tournament-participation";
 export * from "./member-sport-profiles";
 export * from "./legacy-compatibility";
 export * from "./runtime-context";
+export * from "./migrator";

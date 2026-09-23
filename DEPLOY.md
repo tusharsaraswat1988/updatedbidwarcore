@@ -164,7 +164,7 @@ Vite proxies all `/api` traffic (REST, SSE, uploads, OAuth) to `API_DEV_PROXY_TA
    PORT=3000
    ```
 4. **Settings → Deploy → Build command**: `pnpm run build`
-5. **Start command**: `node --enable-source-maps artifacts/api-server/dist/index.mjs`
+5. **Start command**: `pnpm run start:prod` (applies pending versioned migrations, validates schema, then boots HTTP server)
 6. Deploy. Railway exposes the app on the `.up.railway.app` domain automatically.
 
 ---

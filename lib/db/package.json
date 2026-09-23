@@ -15,7 +15,9 @@
     "./tournament-participation": "./src/tournament-participation/index.ts",
     "./member-sport-profiles": "./src/member-sport-profiles/index.ts",
     "./legacy-compatibility": "./src/legacy-compatibility/index.ts",
-    "./runtime-context": "./src/runtime-context/index.ts"
+    "./runtime-context": "./src/runtime-context/index.ts",
+    "./migrator": "./src/migrator.ts",
+    "./repo-root": "./src/repo-root.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
