@@ -1074,3 +1074,7 @@ void systemCQuery(`
 finalizeSystemCTracking();
 
 export * from "./schema";
+export * from "./member-auth";
+export * from "./tournament-participation";
+export * from "./member-sport-profiles";
+export * from "./legacy-compatibility";

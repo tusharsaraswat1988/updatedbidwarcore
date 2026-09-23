@@ -19,6 +19,9 @@
     "verify:local": "tsx src/verify-local.ts",
     "verify:production": "tsx src/verify-production.ts",
     "verify:root-cause-rcv": "tsx --env-file=../.env src/verify-root-cause-rcv.ts",
+    "identity:dry-run": "tsx --env-file=../.env src/identity-linking-cli.ts",
+    "identity:apply": "tsx --env-file=../.env src/identity-linking-cli.ts --apply",
+    "identity:rollback": "tsx --env-file=../.env src/identity-linking-cli.ts --rollback",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -9,7 +9,12 @@
     "./database-url": "./src/database-url.ts",
     "./load-app-env": "./src/load-app-env.ts",
     "./boot-metrics": "./src/boot-metrics.ts",
-    "./schema-governance": "./src/schema-governance/index.ts"
+    "./schema-governance": "./src/schema-governance/index.ts",
+    "./identity-linking": "./src/identity-linking/index.ts",
+    "./member-auth": "./src/member-auth/index.ts",
+    "./tournament-participation": "./src/tournament-participation/index.ts",
+    "./member-sport-profiles": "./src/member-sport-profiles/index.ts",
+    "./legacy-compatibility": "./src/legacy-compatibility/index.ts"
   },
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
