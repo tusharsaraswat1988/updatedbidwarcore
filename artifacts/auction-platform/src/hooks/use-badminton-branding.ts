@@ -11,59 +11,15 @@ import {
   parseVenueScene,
 } from "@/lib/badminton-broadcast-director";
 import { mergeFetchedBrandingWithLivePresentation } from "@/lib/badminton-presentation-mutation";
+import type {
+  SportsBranding,
+  ScoreBoardSponsor,
+  SportsBannerFit,
+} from "@/lib/sports-branding-types";
 
-export interface ScoreBoardSponsor {
-  logoUrl: string | null;
-  logoPublicId?: string | null;
-  name: string | null;
-  title: string | null;
-}
-
-export type BadmintonBannerFit = "cover" | "contain";
-
-export interface BadmintonBranding {
-  displayName: string;
-  logoUrl: string | null;
-  sponsorLogos: string | null;
-  venue: string | null;
-  organizerName: string | null;
-  primaryColor: string;
-  accentColor: string;
-  scoreBoardSponsor: ScoreBoardSponsor | null;
-  /** Organizer-selected LIVE match for persistent Venue/OBS follow URLs. */
-  primaryBroadcastMatchId?: number | null;
-  /** Operator Broadcast Director — OBS scene (`auto` = URL type + live follow). */
-  overlayScene?: BadmintonOverlayScene;
-  /** Operator Broadcast Director — Venue Scoreboard scene. */
-  venueScene?: BadmintonVenueScene;
-  /** Operator-selected upcoming match for the Next moment. */
-  upNextMatchId?: number | null;
-  /** Operator-selected sponsor URL for the full-screen Sponsor moment. */
-  spotlightSponsorUrl?: string | null;
-  /** Operator-pinned sponsor URL on live venue/OBS chrome until unpin. */
-  pinnedSponsorUrl?: string | null;
-  /** Control Center On/Pause for venue LED loop music. */
-  venueMusicPlaying?: boolean;
-  /** Badminton override track (null = auction/platform fallthrough). */
-  venueMusicUrl?: string | null;
-  /** Display name for the override track. */
-  venueMusicFileName?: string | null;
-  venueMusicVolume?: number;
-  /** Resolved loop URL for venue LED playback. */
-  resolvedVenueMusicUrl?: string | null;
-  /** Badminton banner override (null = auction main banner fallthrough). */
-  venueBannerUrl?: string | null;
-  venueBannerPublicId?: string | null;
-  venueBannerFit?: BadmintonBannerFit;
-  auctionMainBannerUrl?: string | null;
-  resolvedVenueBannerUrl?: string | null;
-  resolvedVenueBannerFit?: BadmintonBannerFit;
-  /**
-   * Client-only: last SSE / optimistic presentation patch time.
-   * Used so a racing GET /branding cannot wipe a fresher music/scene flag.
-   */
-  _presentationPatchedAt?: number;
-}
+export type { ScoreBoardSponsor };
+export type BadmintonBannerFit = SportsBannerFit;
+export type BadmintonBranding = SportsBranding;
 
 function normalizeBannerFit(raw: unknown): BadmintonBannerFit {
   return raw === "contain" ? "contain" : "cover";

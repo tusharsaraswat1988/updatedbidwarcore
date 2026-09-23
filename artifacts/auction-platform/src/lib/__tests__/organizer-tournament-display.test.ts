@@ -60,37 +60,39 @@ describe("getOrganizerAuctionStatusLabel", () => {
 });
 
 describe("resolveOrganizerScoringCta", () => {
-  it("asks admin only when scoringEnabled is explicitly false", () => {
+  it("returns active only when scoringEnabled is explicitly true", () => {
     expect(
       resolveOrganizerScoringCta({
         sport: "cricket",
         scoringEnabled: true,
       }),
     ).toBe("active");
+    // Explicitly disabled — coming-soon (admin intentionally omitted, no false warning)
     expect(
       resolveOrganizerScoringCta({
         sport: "cricket",
         scoringEnabled: false,
       }),
-    ).toBe("needs-admin");
+    ).toBe("coming-soon");
     // Older /me payloads omit the field — do not show a false admin warning
     expect(
       resolveOrganizerScoringCta({
         sport: "cricket",
         scoringEnabled: undefined,
       }),
-    ).toBe("active");
+    ).toBe("coming-soon");
     expect(
       resolveOrganizerScoringCta({
         sport: "badminton",
         scoringEnabled: null,
       }),
-    ).toBe("active");
+    ).toBe("coming-soon");
+    // scoringEnabled is the gate, not sport; a sport-gate is a separate concern
     expect(
       resolveOrganizerScoringCta({
         sport: "football",
         scoringEnabled: true,
       }),
-    ).toBe("coming-soon");
+    ).toBe("active");
   });
 });

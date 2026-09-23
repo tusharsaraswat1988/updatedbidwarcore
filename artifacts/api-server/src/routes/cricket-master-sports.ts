@@ -7,13 +7,17 @@ import {
 } from "../lib/master-sports/cricket-roster";
 import { requireTournamentOrganizer } from "../middleware/require-organizer";
 import {
-  loadBadmintonBranding,
-  updateBadmintonBranding,
+  loadSportsBranding,
+  updateSportsBranding,
   updateBroadcastPresentation,
-  importTournamentBrandingToBadminton,
-} from "../lib/master-sports/badminton";
+  importTournamentBrandingToSports,
+} from "../lib/sports-branding";
 import { parseValidatedSponsorLogos } from "../lib/sponsor-validation";
-import { broadcastTournamentUpdate } from "../lib/badminton-broadcast";
+import { broadcastScoringState } from "../lib/scoring-broadcast";
+
+import { eq } from "drizzle-orm";
+import { db, tournamentsTable } from "@workspace/db";
+import { requireSportModule } from "../middleware/require-module";
 
 const router = Router({ mergeParams: true });
 
@@ -21,6 +25,27 @@ function tid(req: { params: Record<string, string> }): number | null {
   const n = parseInt(req.params.id, 10);
   return Number.isNaN(n) ? null : n;
 }
+
+router.use(async (req, res, next) => {
+  const tournamentId = tid(req);
+  if (tournamentId == null) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      sport: tournamentsTable.sport,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!requireSportModule(res, tournament, "cricket")) return;
+  next();
+});
 
 function parseAuctionTeamFilter(req: { query: Record<string, unknown> }): number | undefined {
   const teamIdRaw = req.query.teamId;
@@ -97,7 +122,7 @@ router.get("/branding", async (req, res) => {
     return;
   }
 
-  const branding = await loadBadmintonBranding(tournamentId);
+  const branding = await loadSportsBranding(tournamentId);
   if (!branding) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -176,7 +201,7 @@ router.patch("/branding", async (req, res) => {
               title: parsed.data.scoreBoardSponsor.title ?? null,
             },
     };
-    const branding = await updateBadmintonBranding(tournamentId, brandingInput, req.log);
+    const branding = await updateSportsBranding(tournamentId, brandingInput, req.log);
     res.json(branding);
   } catch (e) {
     res.status(404).json({ error: e instanceof Error ? e.message : "Update failed" });
@@ -261,7 +286,8 @@ router.patch("/broadcast-presentation", async (req, res) => {
       venueBannerFit: parsed.data.venueBannerFit,
       importAuctionBanner: parsed.data.importAuctionBanner,
     });
-    broadcastTournamentUpdate(tournamentId, {
+    broadcastScoringState(tournamentId, {
+      type: "broadcast_presentation",
       kind: "broadcast_presentation",
       primaryBroadcastMatchId: branding.primaryBroadcastMatchId,
       overlayScene: branding.overlayScene,
@@ -299,7 +325,7 @@ router.post("/import-tournament-branding", async (req, res) => {
   if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   try {
-    const branding = await importTournamentBrandingToBadminton(tournamentId);
+    const branding = await importTournamentBrandingToSports(tournamentId);
     res.json(branding);
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : "Import failed" });

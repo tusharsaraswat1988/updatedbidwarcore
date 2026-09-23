@@ -4,11 +4,13 @@ import { db } from "@workspace/db";
 import {
   purseBoostersTable,
   teamsTable,
+  tournamentsTable,
   auctionSessionsTable,
 } from "@workspace/db";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
+import { requireAuctionModule } from "../middleware/require-module";
 import { validateTeamBelongsToTournament } from "../lib/team-tournament-guard";
 import {
   defaultPurseBoosterApplyReason,
@@ -80,6 +82,12 @@ router.get("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
+
   const teamIdParam = req.query.teamId;
   const statusParam = typeof req.query.status === "string" ? req.query.status : undefined;
 
@@ -112,6 +120,12 @@ router.get("/tournaments/:tournamentId/teams/:teamId/purse-boosters", async (req
   const teamId = parseInt(req.params.teamId);
   if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
+
   const [team] = await db
     .select()
     .from(teamsTable)
@@ -133,6 +147,12 @@ router.post("/tournaments/:tournamentId/purse-boosters", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
 
   const schema = z.object({
     target: z.enum(["single", "all"]),
@@ -304,6 +324,12 @@ router.post("/tournaments/:tournamentId/purse-boosters/replay-led", async (req, 
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
+
   const [session] = await db
     .select()
     .from(auctionSessionsTable)
@@ -332,6 +358,12 @@ router.post("/tournaments/:tournamentId/purse-boosters/:boosterId/cancel", async
   const boosterId = parseInt(req.params.boosterId);
   if (isNaN(tid) || isNaN(boosterId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
 
   const cancelReasonResult = parseAuditReason(req.body, true);
   if (!cancelReasonResult.ok) {

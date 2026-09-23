@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { collectSpecColumnLabels } from "@workspace/api-base/player-spec-export";
-import { exportPlayersToExcel } from "../../export-players-excel";
+import { exportPlayersToExcel } from "../export-players-excel";
 
 describe("exportPlayersToExcel", () => {
   it("builds dynamic spec columns per sport", async () => {

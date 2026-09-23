@@ -17,6 +17,11 @@ import {
 import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { ScoringPlatformError } from "./scoring-platform/errors";
 import {
+  assertSportModule,
+  ModuleAuthorizationError,
+} from "../middleware/require-module";
+import { InvalidTournamentModuleStateError } from "@workspace/platform-core";
+import {
   listCricketFranchisePlayers,
   listCricketFranchiseTeamIds,
   listCricketFranchiseTeams,
@@ -166,7 +171,10 @@ type CacheItem<T> = {
 
 const standingsCache = new Map<number, CacheItem<Awaited<ReturnType<typeof getScoringStandingsRaw>>>>();
 const squadReadinessCache = new Map<number, CacheItem<SquadReadinessRow[]>>();
-const scoringGateCache = new Map<number, CacheItem<{ scoringEnabled: boolean; sport: string | null }>>();
+const scoringGateCache = new Map<
+  number,
+  CacheItem<{ auctionEnabled?: boolean | null; scoringEnabled?: boolean | null; sport: string | null }>
+>();
 
 const STANDINGS_CACHE_TTL_MS = 30_000;
 const SQUAD_CACHE_TTL_MS = 30_000;
@@ -421,13 +429,15 @@ export async function getSquadReadiness(tournamentId: number): Promise<SquadRead
 export async function ensureScoringEnabled(tournamentId: number) {
   const now = Date.now();
   const cached = scoringGateCache.get(tournamentId);
-  let tournament: { scoringEnabled: boolean; sport: string | null } | undefined;
+  let tournament: { auctionEnabled?: boolean | null; scoringEnabled?: boolean | null; sport: string | null } | undefined;
 
   if (cached && cached.expiresAt > now) {
     tournament = cached.data;
   } else {
     const [row] = await db
       .select({
+        id: tournamentsTable.id,
+        auctionEnabled: tournamentsTable.auctionEnabled,
         scoringEnabled: tournamentsTable.scoringEnabled,
         sport: tournamentsTable.sport,
       })
@@ -436,7 +446,11 @@ export async function ensureScoringEnabled(tournamentId: number) {
       .limit(1);
 
     if (row) {
-      tournament = { scoringEnabled: Boolean(row.scoringEnabled), sport: row.sport ?? null };
+      tournament = {
+        auctionEnabled: row.auctionEnabled,
+        scoringEnabled: row.scoringEnabled,
+        sport: row.sport ?? null,
+      };
       scoringGateCache.set(tournamentId, {
         data: tournament,
         expiresAt: now + SCORING_GATE_CACHE_TTL_MS,
@@ -444,13 +458,19 @@ export async function ensureScoringEnabled(tournamentId: number) {
     }
   }
 
-  if (!tournament) {
-    throw new ScoringPlatformError("Tournament not found", 404, "TOURNAMENT_NOT_FOUND");
-  }
-  if (!tournament.scoringEnabled) {
-    throw new ScoringPlatformError("Scoring is not enabled for this tournament", 403, "SCORING_DISABLED");
-  }
-  if (tournament.sport !== CRICKET_SPORT_SLUG) {
-    throw new ScoringPlatformError("Only cricket scoring is supported in V1", 400, "UNSUPPORTED_SPORT");
+  try {
+    assertSportModule(tournament, CRICKET_SPORT_SLUG);
+  } catch (err) {
+    if (err instanceof ModuleAuthorizationError) {
+      throw new ScoringPlatformError(err.message, err.status, err.code);
+    }
+    if (err instanceof InvalidTournamentModuleStateError) {
+      throw new ScoringPlatformError(
+        "A tournament must have at least one enabled product module (auction or scoring).",
+        400,
+        "INVALID_MODULE_STATE",
+      );
+    }
+    throw err;
   }
 }

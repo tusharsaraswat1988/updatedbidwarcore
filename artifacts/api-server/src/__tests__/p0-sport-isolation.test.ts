@@ -4,7 +4,7 @@ import {
   buildScoringSideFromBadmintonSide,
   ensureBadmintonTournament,
 } from "../lib/badminton-service";
-import { ensureScoringEnabled } from "../lib/scoring-standings";
+import { ensureScoringEnabled, invalidateTournamentScoringGateCache } from "../lib/scoring-standings";
 import { ScoringServiceError } from "../lib/scoring-service";
 
 const mockSelect = vi.fn();
@@ -72,17 +72,17 @@ describe("P0 — badminton tournament sport guard", () => {
     vi.clearAllMocks();
   });
 
-  it("rejects non-badminton tournaments", async () => {
+  it("rejects non-badminton tournaments (sport mismatch)", async () => {
     mockLimit.mockResolvedValueOnce([{ sport: "cricket", scoringEnabled: true }]);
 
     await expect(ensureBadmintonTournament(42)).rejects.toMatchObject({
-      code: "BADMINTON_SPORT_REQUIRED",
-      status: 400,
+      code: "SPORT_MISMATCH",
+      status: 403,
     });
   });
 
   it("rejects badminton tournaments when scoring is disabled", async () => {
-    mockLimit.mockResolvedValueOnce([{ sport: "badminton", scoringEnabled: false }]);
+    mockLimit.mockResolvedValueOnce([{ sport: "badminton", scoringEnabled: false, auctionEnabled: true }]);
 
     await expect(ensureBadmintonTournament(42)).rejects.toMatchObject({
       code: "SCORING_DISABLED",
@@ -100,11 +100,23 @@ describe("P0 — badminton tournament sport guard", () => {
 describe("P0 — cricket scoring sport guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    invalidateTournamentScoringGateCache(99);
   });
 
-  it("rejects non-cricket tournaments when scoring is enabled", async () => {
+  it("rejects non-cricket tournaments when scoring is enabled (sport mismatch)", async () => {
     mockLimit.mockResolvedValueOnce([
       { scoringEnabled: true, sport: "badminton" },
+    ]);
+
+    await expect(ensureScoringEnabled(99)).rejects.toMatchObject({
+      code: "SPORT_MISMATCH",
+      status: 403,
+    });
+  });
+
+  it("rejects unsupported sport tournaments when scoring is enabled", async () => {
+    mockLimit.mockResolvedValueOnce([
+      { scoringEnabled: true, sport: "football" },
     ]);
 
     await expect(ensureScoringEnabled(99)).rejects.toMatchObject({

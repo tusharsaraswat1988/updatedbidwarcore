@@ -163,6 +163,47 @@ const tournamentInputSchema = z.object({
   playerRegistrationMode: z.enum(["auction", "scoring"]).optional(),
 }).merge(tournamentCatalogBindingSchema);
 
+export const AUCTION_SPECIFIC_UPDATE_FIELDS = [
+  "auctionDate",
+  "auctionTime",
+  "auctionUnit",
+  "basePurse",
+  "minBid",
+  "bidIncrement",
+  "bidTier1UpTo",
+  "bidTier1Increment",
+  "bidTier2UpTo",
+  "bidTier2Increment",
+  "bidTier3Increment",
+  "bidTiers",
+  "timerSeconds",
+  "bidTimerSeconds",
+  "bidExtensionEnabled",
+  "bidExtensionThresholdSeconds",
+  "bidExtensionSeconds",
+  "ownerBiddingEnabled",
+  "playerSelectionMode",
+  "minimumSquadSize",
+  "maximumSquadSize",
+  "bidValueMode",
+  "bidValueOptions",
+  "audioEnabled",
+  "masterVolume",
+  "countdownSoundEnabled",
+  "countdownSoundUrl",
+  "countdownSoundVolume",
+  "soldSoundEnabled",
+  "soldSoundUrl",
+  "soldSoundVolume",
+  "breakEndMusicEnabled",
+  "breakEndMusicUrl",
+  "breakEndMusicVolume",
+  "mainBannerUrl",
+  "mainBannerPublicId",
+  "mainBannerEnabled",
+  "mainBannerFit",
+] as const;
+
 router.post("/tournaments", async (req, res) => {
   if (!isAccountOrAdmin(req)) { res.status(401).json({ error: "Authentication required" }); return; }
   const parsed = tournamentInputSchema.safeParse(req.body);
@@ -412,6 +453,43 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (!beforeTournament) { res.status(404).json({ error: "Tournament not found" }); return; }
   const isAdminCaller = req.jwtUser?.isAdmin === true;
 
+  const nextSport = d.sport ?? beforeTournament.sport;
+  const nextAuctionEnabled =
+    isAdminCaller && d.auctionEnabled !== undefined
+      ? d.auctionEnabled
+      : beforeTournament.auctionEnabled;
+  const nextScoringEnabled =
+    isAdminCaller && d.scoringEnabled !== undefined
+      ? d.scoringEnabled
+      : beforeTournament.scoringEnabled;
+
+  if (!nextAuctionEnabled && !nextScoringEnabled) {
+    res.status(400).json({
+      error: "A tournament must have at least one enabled product module (auction or scoring).",
+      code: "INVALID_MODULE_STATE",
+    });
+    return;
+  }
+
+  if (nextScoringEnabled && !isScoringSupportedSport(nextSport)) {
+    res.status(400).json({
+      error: "Match scoring can only be enabled for cricket or badminton tournaments.",
+      code: "UNSUPPORTED_SPORT",
+    });
+    return;
+  }
+
+  const hasAuctionMutations = AUCTION_SPECIFIC_UPDATE_FIELDS.some(
+    (field) => (d as Record<string, unknown>)[field] !== undefined,
+  );
+  if (hasAuctionMutations && !nextAuctionEnabled) {
+    res.status(403).json({
+      error: "Auction module is not enabled for this tournament",
+      code: "AUCTION_DISABLED",
+    });
+    return;
+  }
+
   const nextMinimumSquadSize = d.minimumSquadSize !== undefined ? (d.minimumSquadSize ?? 0) : beforeTournament.minimumSquadSize;
   const nextMaximumSquadSize = d.maximumSquadSize !== undefined ? (d.maximumSquadSize ?? 0) : beforeTournament.maximumSquadSize;
   if (nextMinimumSquadSize > 0 && nextMaximumSquadSize > 0 && nextMaximumSquadSize < nextMinimumSquadSize) {
@@ -450,30 +528,6 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
         return;
       }
     }
-  }
-
-  const nextSport = d.sport ?? beforeTournament.sport;
-  const nextAuctionEnabled =
-    isAdminCaller && d.auctionEnabled !== undefined
-      ? d.auctionEnabled
-      : beforeTournament.auctionEnabled;
-  const nextScoringEnabled =
-    isAdminCaller && d.scoringEnabled !== undefined
-      ? d.scoringEnabled
-      : beforeTournament.scoringEnabled;
-
-  if (!nextAuctionEnabled && !nextScoringEnabled) {
-    res.status(400).json({
-      error: "A tournament must have at least one enabled product module (auction or scoring).",
-    });
-    return;
-  }
-
-  if (nextScoringEnabled && !isScoringSupportedSport(nextSport)) {
-    res.status(400).json({
-      error: "Match scoring can only be enabled for cricket or badminton tournaments.",
-    });
-    return;
   }
 
   const updates: Record<string, unknown> = {};

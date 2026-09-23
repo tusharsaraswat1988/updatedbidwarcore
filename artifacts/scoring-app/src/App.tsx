@@ -185,7 +185,7 @@ function SportsMissionControlLayout({ tournamentId }: { tournamentId: number }) 
 
   return (
     <ScoringFeatureGuard>
-      <OrganizerGuard tournamentId={tournamentId}>
+      <OrganizerGuard tournamentId={tournamentId} requiredModule="scoring">
         <SportsShell tournamentId={tournamentId} nav={nav} noPadding>
           <Suspense fallback={<RouteSuspenseFallback />}>
             <SportsMissionControlPage />
@@ -204,7 +204,7 @@ function BadmintonOrganizerLayout({ tournamentId }: { tournamentId: number }) {
   const nav = useMemo(() => getBadmintonSportNav(), []);
   return (
     <ScoringFeatureGuard>
-      <OrganizerGuard tournamentId={tournamentId}>
+      <OrganizerGuard tournamentId={tournamentId} requiredModule="scoring" requiredSport="badminton">
         <SportsShell tournamentId={tournamentId} nav={nav} noPadding>
           <Suspense fallback={<RouteSuspenseFallback />}>
             <Switch>
@@ -240,7 +240,7 @@ function CricketOrganizerLayout({ tournamentId }: { tournamentId: number }) {
   const nav = useMemo(() => getCricketSportNav(), []);
   return (
     <ScoringFeatureGuard>
-      <OrganizerGuard tournamentId={tournamentId}>
+      <OrganizerGuard tournamentId={tournamentId} requiredModule="scoring" requiredSport="cricket">
         <SportsShell tournamentId={tournamentId} nav={nav} noPadding>
           <Suspense fallback={<RouteSuspenseFallback />}>
             <Switch>

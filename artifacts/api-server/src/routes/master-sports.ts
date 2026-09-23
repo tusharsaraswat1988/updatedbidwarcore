@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { tournamentsTable } from "@workspace/db";
 import { requireTournamentOrganizer } from "../middleware/require-organizer";
+import { requireSportModule } from "../middleware/require-module";
 import {
   listMasterPlayersForBadminton,
   importMasterPlayersToBadminton,
@@ -39,6 +40,27 @@ function tid(req: { params: Record<string, string> }): number | null {
   const n = parseInt(req.params.id, 10);
   return Number.isNaN(n) ? null : n;
 }
+
+router.use(async (req, res, next) => {
+  const tournamentId = tid(req);
+  if (tournamentId == null) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      sport: tournamentsTable.sport,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!requireSportModule(res, tournament, "badminton")) return;
+  next();
+});
 
 /** GET auction franchise teams for player team assignment. */
 router.get("/franchise-teams", async (req, res) => {

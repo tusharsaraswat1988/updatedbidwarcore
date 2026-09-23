@@ -79,13 +79,22 @@ export default function ObsV2Overlay() {
     };
   }, []);
 
-  const { connectionStatus } = useAuctionSocket(tournamentId);
+  const { data: tournament } = useGetTournament(tournamentId, {
+    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
+  });
+
+  const isAuctionDisabled = tournament && tournament.auctionEnabled === false;
+  const isInvalidModuleState = tournament && tournament.auctionEnabled === false && tournament.scoringEnabled === false;
+
+  const { connectionStatus } = useAuctionSocket(tournamentId, {
+    enabled: !!tournamentId && !isAuctionDisabled,
+  });
 
   const { data: state } = useGetAuctionState(tournamentId, {
     query: {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
-      enabled: !!tournamentId,
-      refetchInterval: sseAwareRefetchInterval(connectionStatus, 10000),
+      enabled: !!tournamentId && !isAuctionDisabled,
+      refetchInterval: isAuctionDisabled ? false : sseAwareRefetchInterval(connectionStatus, 10000),
     },
   });
 
@@ -100,8 +109,8 @@ export default function ObsV2Overlay() {
   const { data: teamPursesFromQuery } = useGetTeamPurses(tournamentId, {
     query: {
       queryKey: getGetTeamPursesQueryKey(tournamentId),
-      enabled: !!tournamentId && !embeddedPurses?.length,
-      refetchInterval: sseAwareRefetchInterval(connectionStatus, 30000),
+      enabled: !!tournamentId && !isAuctionDisabled && !embeddedPurses?.length,
+      refetchInterval: isAuctionDisabled ? false : sseAwareRefetchInterval(connectionStatus, 30000),
       staleTime: 15000,
     },
   });
@@ -110,15 +119,12 @@ export default function ObsV2Overlay() {
   const { data: players } = useListPlayers(tournamentId, {
     query: {
       queryKey: getListPlayersQueryKey(tournamentId),
-      enabled: !!tournamentId,
-      refetchInterval: sseAwareRefetchInterval(connectionStatus, 15000),
+      enabled: !!tournamentId && !isAuctionDisabled,
+      refetchInterval: isAuctionDisabled ? false : sseAwareRefetchInterval(connectionStatus, 15000),
       staleTime: 10000,
     },
   });
 
-  const { data: tournament } = useGetTournament(tournamentId, {
-    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
-  });
   const { formatAmount } = useAuctionUnit(tournament);
 
   const sponsorLogos = useMemo(
@@ -133,6 +139,17 @@ export default function ObsV2Overlay() {
   }, [tournament?.auctionDate, tournament?.auctionTime]);
 
   if (!tournamentId) return null;
+
+  if (isInvalidModuleState || isAuctionDisabled) {
+    if (isObsMode) {
+      return <div style={{ width: "100%", height: "100%", background: "transparent" }} />;
+    }
+    return (
+      <div className="flex items-center justify-center min-h-[160px] text-white/50 text-sm font-medium bg-black/40 rounded-xl border border-white/10 m-4 p-6">
+        Auction module is not enabled for this tournament
+      </div>
+    );
+  }
 
   return (
     <BroadcastLabLayout

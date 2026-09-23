@@ -25,9 +25,15 @@ import {
   broadcastCricketObsDirector,
 } from "../lib/scoring-broadcast";
 import { buildCricketMatchSummary, InvalidEventPayloadError } from "@workspace/scoring-core";
+import { InvalidTournamentModuleStateError } from "@workspace/platform-core";
 import { db, scoringMatchesTable, tournamentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import {
+  requireSportModule,
+  assertSportModule,
+  ModuleAuthorizationError,
+} from "../middleware/require-module";
 import { ensureScoringEnabled, getScoringStandings, getSquadReadiness } from "../lib/scoring-standings";
 import {
   getPublicMatchScorecard,
@@ -82,6 +88,19 @@ async function requireScorerForMutation(
   tournamentId: number,
   matchId: number,
 ) {
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      sport: tournamentsTable.sport,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  assertSportModule(tournament, "cricket");
+
   const scorerAuth = await requireScorerFromRequest(req);
   assertScorerCanScore(scorerAuth);
   await assertScorerMayAccessTournament(scorerAuth.scorerId, tournamentId);
@@ -122,6 +141,17 @@ async function requireScorerForMutation(
 
 /** Map ScorerAuthError to HTTP response. Returns true if handled. */
 function sendScorerAuthError(res: import("express").Response, e: unknown): boolean {
+  if (e instanceof ModuleAuthorizationError) {
+    res.status(e.status).json({ error: e.message, code: e.code });
+    return true;
+  }
+  if (e instanceof InvalidTournamentModuleStateError) {
+    res.status(400).json({
+      error: "A tournament must have at least one enabled product module (auction or scoring).",
+      code: "INVALID_MODULE_STATE",
+    });
+    return true;
+  }
   if (e instanceof ScorerAuthError) {
     logger.warn(
       { code: e.code, status: e.status, message: e.message },
@@ -266,6 +296,27 @@ const LEADERBOARD_CATEGORIES = new Set<LeaderboardCategory>([
   "catches",
   "stumpings",
 ]);
+
+router.use("/tournaments/:tournamentId/scoring", async (req, res, next) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      sport: tournamentsTable.sport,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!requireSportModule(res, tournament, "cricket")) return;
+  next();
+});
 
 /** Public tournament leaderboards (no auth). */
 router.get("/tournaments/:tournamentId/scoring/leaderboards/:category", async (req, res) => {

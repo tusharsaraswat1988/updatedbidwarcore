@@ -20,6 +20,9 @@ import {
 } from "../lib/scoring-foundation-service";
 import { ScoringServiceError } from "../lib/scoring-service";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
+import { eq } from "drizzle-orm";
+import { db, tournamentsTable } from "@workspace/db";
+import { requireSportModule } from "../middleware/require-module";
 
 const router = Router({ mergeParams: true });
 
@@ -29,6 +32,27 @@ function tid(req: { params: Record<string, string> }): number | null {
   const n = parseInt(req.params.tournamentId ?? req.params.id, 10);
   return Number.isNaN(n) ? null : n;
 }
+
+router.use(async (req, res, next) => {
+  const tournamentId = tid(req);
+  if (tournamentId == null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      sport: tournamentsTable.sport,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!requireSportModule(res, tournament, "cricket")) return;
+  next();
+});
 
 function handleError(res: import("express").Response, err: unknown) {
   if (err instanceof ScoringServiceError) {

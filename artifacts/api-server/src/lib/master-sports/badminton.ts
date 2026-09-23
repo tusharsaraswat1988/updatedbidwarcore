@@ -40,25 +40,21 @@ import {
   syncBadmintonShortNameFromProfile,
 } from "./tournament-profile";
 import {
-  type BadmintonBranding,
-  type BadmintonOverlayScene,
-  type BadmintonVenueScene,
+  type SportsBranding,
+  type SportsOverlayScene,
+  type SportsVenueScene,
   type ScoreBoardSponsor,
-  getBadmintonBranding,
-  resolveBadmintonSponsorLogos,
-} from "@workspace/sports-badminton/branding";
-import {
-  commitBatchCloudinaryImageWrites,
-  destroyRemovedCloudinaryImages,
-} from "../cloudinary-media-service";
-import {
-  listRemovedSponsorLogos,
-  parseSponsorLogosJson,
-} from "../sponsor-logo-cleanup";
-import {
-  queueImageFieldChange,
-  type ImageFieldChange,
-} from "../cloudinary-image-fields";
+  type SportsBrandingInput,
+  type BroadcastPresentationInput,
+  getSportsBranding,
+  resolveSportsSponsorLogos,
+  loadSportsBranding,
+  updateSportsBranding,
+  updateBroadcastPresentation as updateSportsBroadcastPresentation,
+  updateBroadcastSettings as updateSportsBroadcastSettings,
+  importTournamentBrandingToSports,
+  importBrandingFromTournament as importSportsBrandingFromTournament,
+} from "../sports-branding";
 import {
   assignPlayerToFranchiseRoster,
   endActiveRosterAssignment,
@@ -68,13 +64,12 @@ import {
 } from "./sync";
 import { ensureBadmintonPlayerLinkedToMaster } from "./migrate-badminton";
 
-export type {
-  BadmintonBranding,
-  BadmintonOverlayScene,
-  BadmintonVenueScene,
-  ScoreBoardSponsor,
-};
-export { getBadmintonBranding, resolveBadmintonSponsorLogos };
+export type BadmintonBranding = SportsBranding;
+export type BadmintonOverlayScene = SportsOverlayScene;
+export type BadmintonVenueScene = SportsVenueScene;
+export type { ScoreBoardSponsor, SportsBrandingInput, BroadcastPresentationInput };
+export const getBadmintonBranding = getSportsBranding;
+export const resolveBadmintonSponsorLogos = resolveSportsSponsorLogos;
 
 export type MasterPlayerListItem = {
   id: string;
@@ -471,152 +466,14 @@ export async function saveBadmintonScoringFormat(
   return updated;
 }
 
-export async function loadBadmintonBranding(
-  tournamentId: number,
-): Promise<BadmintonBranding | null> {
-  const [tournament] = await db
-    .select({
-      name: tournamentsTable.name,
-      logoUrl: tournamentsTable.logoUrl,
-      sponsorLogos: tournamentsTable.sponsorLogos,
-      venue: tournamentsTable.venue,
-      organizerName: tournamentsTable.organizerName,
-      breakEndMusicUrl: tournamentsTable.breakEndMusicUrl,
-      mainBannerUrl: tournamentsTable.mainBannerUrl,
-      mainBannerFit: tournamentsTable.mainBannerFit,
-      scoringSettingsJson: tournamentsTable.scoringSettingsJson,
-    })
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId))
-    .limit(1);
-
-  if (!tournament) return null;
-  const { getPlatformDefaultAudioCached } = await import("../platform-audio-defaults");
-  const platformAudio = await getPlatformDefaultAudioCached();
-  return getBadmintonBranding(
-    tournament,
-    tournament.scoringSettingsJson as Record<string, unknown>,
-    platformAudio.breakEndMusicUrl,
-  );
-}
-
-export async function updateBadmintonBranding(
-  tournamentId: number,
-  input: {
-    displayName?: string;
-    logoUrl?: string | null;
-    logoPublicId?: string | null;
-    sponsorLogos?: string | null;
-    venue?: string | null;
-    organizerName?: string | null;
-    primaryColor?: string;
-    accentColor?: string;
-    scoreBoardSponsor?: ScoreBoardSponsor | null;
-  },
-  logger?: { error?: (obj: unknown, msg?: string) => void; warn?: (obj: unknown, msg?: string) => void },
-): Promise<BadmintonBranding> {
-  const [tournament] = await db
-    .select()
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId))
-    .limit(1);
-
-  if (!tournament) throw new Error("Tournament not found");
-
-  const currentBranding = getBadmintonBranding(
-    tournament,
-    tournament.scoringSettingsJson as Record<string, unknown>,
-  );
-  const currentSettings = (tournament.scoringSettingsJson ?? {}) as Record<string, unknown>;
-  const currentBrandingRaw = (currentSettings.branding ?? {}) as Record<string, unknown>;
-
-  const tournamentUpdates: Record<string, unknown> = {};
-  const imageChanges: ImageFieldChange[] = [];
-  let removedSponsorLogos: ReturnType<typeof listRemovedSponsorLogos> = [];
-
-  if (input.venue !== undefined) tournamentUpdates.venue = input.venue;
-  if (input.organizerName !== undefined) tournamentUpdates.organizerName = input.organizerName;
-
-  queueImageFieldChange(imageChanges, tournamentUpdates, {
-    label: "logoUrl",
-    urlKey: "logoUrl",
-    publicIdKey: "logoPublicId",
-    existing: { url: tournament.logoUrl, publicId: tournament.logoPublicId },
-    nextUrl: input.logoUrl,
-    nextPublicId: input.logoPublicId,
-  });
-
-  if (input.sponsorLogos !== undefined) {
-    removedSponsorLogos = listRemovedSponsorLogos(
-      parseSponsorLogosJson(currentBranding.sponsorLogos),
-      parseSponsorLogosJson(input.sponsorLogos),
-    );
-    tournamentUpdates.sponsorLogos = input.sponsorLogos;
-  }
-
-  const nextBranding = { ...currentBrandingRaw };
-  if (input.displayName !== undefined) nextBranding.displayName = input.displayName;
-  if (input.sponsorLogos !== undefined) nextBranding.sponsorLogos = input.sponsorLogos;
-  if (input.primaryColor !== undefined) nextBranding.primaryColor = input.primaryColor;
-  if (input.accentColor !== undefined) nextBranding.accentColor = input.accentColor;
-
-  if (input.scoreBoardSponsor !== undefined) {
-    const previous = currentBranding.scoreBoardSponsor;
-    const next = input.scoreBoardSponsor;
-    imageChanges.push({
-      label: "scoreBoardSponsor.logoUrl",
-      previous: {
-        url: previous?.logoUrl ?? null,
-        publicId: previous?.logoPublicId ?? null,
-      },
-      next: {
-        url: next?.logoUrl ?? null,
-        publicId: next?.logoPublicId ?? null,
-      },
-    });
-    nextBranding.scoreBoardSponsor = next;
-  }
-
-  const nextSettings = { ...currentSettings, branding: nextBranding };
-
-  const persistBrandingUpdate = async () => {
-    await db
-      .update(tournamentsTable)
-      .set({
-        ...tournamentUpdates,
-        scoringSettingsJson: nextSettings,
-      })
-      .where(eq(tournamentsTable.id, tournamentId));
-  };
-
-  if (imageChanges.length > 0) {
-    await commitBatchCloudinaryImageWrites({
-      changes: imageChanges,
-      persist: persistBrandingUpdate,
-      logger,
-      context: { route: "badminton.updateBranding", tournamentId },
-    });
-  } else {
-    await persistBrandingUpdate();
-  }
-
-  if (removedSponsorLogos.length > 0) {
-    await destroyRemovedCloudinaryImages(removedSponsorLogos, logger, {
-      route: "badminton.updateBranding.sponsorLogos",
-      tournamentId,
-    });
-  }
-
-  const [updated] = await db
-    .select()
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId))
-    .limit(1);
-
-  const loaded = await loadBadmintonBranding(tournamentId);
-  if (!loaded) throw new Error("Tournament not found");
-  return loaded;
-}
+export const loadBadmintonBranding = loadSportsBranding;
+export const updateBadmintonBranding = updateSportsBranding;
+export const updateBroadcastPresentation = updateSportsBroadcastPresentation;
+export const updateBroadcastSettings = updateSportsBroadcastSettings;
+export const importBrandingFromTournament = importSportsBrandingFromTournament;
+export const importTournamentBrandingToBadminton = importTournamentBrandingToSports;
+/** @deprecated Prefer importTournamentBrandingToBadminton */
+export const importAuctionBrandingToBadminton = importTournamentBrandingToBadminton;
 
 /** Set which LIVE match persistent Venue/OBS URLs follow (multi-court Primary Broadcast). */
 export async function updatePrimaryBroadcastMatchId(
@@ -626,116 +483,6 @@ export async function updatePrimaryBroadcastMatchId(
   return updateBroadcastSettings(tournamentId, {
     primaryMatchId: primaryMatchId && primaryMatchId > 0 ? primaryMatchId : null,
   });
-}
-
-/** Operator Broadcast Director — overlay/venue scene overrides for persistent screens. */
-export async function updateBroadcastPresentation(
-  tournamentId: number,
-  input: {
-    overlayScene?: BadmintonOverlayScene;
-    venueScene?: BadmintonVenueScene;
-    upNextMatchId?: number | null;
-    spotlightSponsorUrl?: string | null;
-    pinnedSponsorUrl?: string | null;
-    venueMusicPlaying?: boolean;
-    venueMusicUrl?: string | null;
-    venueMusicFileName?: string | null;
-    venueMusicVolume?: number;
-    /** Copy tournament auction break music into badminton override. */
-    importAuctionMusic?: boolean;
-    venueBannerUrl?: string | null;
-    venueBannerPublicId?: string | null;
-    venueBannerFit?: "cover" | "contain";
-    /** Copy tournament auction main banner into badminton override. */
-    importAuctionBanner?: boolean;
-  },
-): Promise<BadmintonBranding> {
-  const patch: Record<string, unknown> = {
-    ...(input.overlayScene !== undefined ? { overlayScene: input.overlayScene } : {}),
-    ...(input.venueScene !== undefined ? { venueScene: input.venueScene } : {}),
-    ...(input.upNextMatchId !== undefined
-      ? {
-          upNextMatchId:
-            input.upNextMatchId && input.upNextMatchId > 0
-              ? Math.floor(input.upNextMatchId)
-              : null,
-        }
-      : {}),
-    ...(input.spotlightSponsorUrl !== undefined
-      ? {
-          spotlightSponsorUrl: input.spotlightSponsorUrl?.trim() || null,
-        }
-      : {}),
-    ...(input.pinnedSponsorUrl !== undefined
-      ? {
-          pinnedSponsorUrl: input.pinnedSponsorUrl?.trim() || null,
-        }
-      : {}),
-    ...(input.venueMusicPlaying !== undefined
-      ? { venueMusicPlaying: input.venueMusicPlaying }
-      : {}),
-    ...(input.venueMusicUrl !== undefined ? { venueMusicUrl: input.venueMusicUrl } : {}),
-    ...(input.venueMusicFileName !== undefined
-      ? { venueMusicFileName: input.venueMusicFileName }
-      : {}),
-    ...(input.venueMusicVolume !== undefined
-      ? { venueMusicVolume: input.venueMusicVolume }
-      : {}),
-  };
-
-  if (input.venueMusicUrl === null) {
-    patch.venueMusicFileName = null;
-  }
-
-  if (input.importAuctionMusic) {
-    const [tournament] = await db
-      .select({ breakEndMusicUrl: tournamentsTable.breakEndMusicUrl })
-      .from(tournamentsTable)
-      .where(eq(tournamentsTable.id, tournamentId))
-      .limit(1);
-    let url = tournament?.breakEndMusicUrl?.trim() || null;
-    if (!url) {
-      const { getPlatformDefaultAudioCached } = await import("../platform-audio-defaults");
-      const platformAudio = await getPlatformDefaultAudioCached();
-      url = platformAudio.breakEndMusicUrl?.trim() || null;
-    }
-    if (!url) throw new Error("No auction break music set for this tournament");
-    patch.venueMusicUrl = url;
-    patch.venueMusicFileName = "Auction break music";
-  }
-
-  if (input.importAuctionBanner) {
-    const [tournament] = await db
-      .select({
-        mainBannerUrl: tournamentsTable.mainBannerUrl,
-        mainBannerPublicId: tournamentsTable.mainBannerPublicId,
-        mainBannerFit: tournamentsTable.mainBannerFit,
-      })
-      .from(tournamentsTable)
-      .where(eq(tournamentsTable.id, tournamentId))
-      .limit(1);
-    const url = tournament?.mainBannerUrl?.trim() || null;
-    if (!url) throw new Error("No auction banner set for this tournament");
-    patch.venueBannerUrl = url;
-    patch.venueBannerPublicId = tournament?.mainBannerPublicId?.trim() || null;
-    patch.venueBannerFit =
-      tournament?.mainBannerFit === "contain" ? "contain" : "cover";
-  } else if (input.venueBannerUrl !== undefined) {
-    const nextUrl = input.venueBannerUrl?.trim() || null;
-    patch.venueBannerUrl = nextUrl;
-    patch.venueBannerPublicId = nextUrl
-      ? (input.venueBannerPublicId?.trim() || null)
-      : null;
-  } else if (input.venueBannerPublicId !== undefined) {
-    patch.venueBannerPublicId = input.venueBannerPublicId;
-  }
-
-  // Apply after import so an explicit fit wins (e.g. import + change fit).
-  if (input.venueBannerFit !== undefined) {
-    patch.venueBannerFit = input.venueBannerFit;
-  }
-
-  return updateBroadcastSettings(tournamentId, patch);
 }
 
 const RALLY_UNSAFE_OVERLAY: ReadonlySet<BadmintonOverlayScene> = new Set([
@@ -781,87 +528,6 @@ export async function clearRallyUnsafeBroadcastScenes(
     ...(venueNeedsClear ? { venueScene: "auto" as const } : {}),
   });
 }
-
-async function updateBroadcastSettings(
-  tournamentId: number,
-  patch: Record<string, unknown>,
-): Promise<BadmintonBranding> {
-  const [tournament] = await db
-    .select()
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId))
-    .limit(1);
-
-  if (!tournament) throw new Error("Tournament not found");
-
-  const currentSettings = (tournament.scoringSettingsJson ?? {}) as Record<string, unknown>;
-  const currentBroadcast = (currentSettings.broadcast ?? {}) as Record<string, unknown>;
-  const nextBroadcast = { ...currentBroadcast, ...patch };
-  const nextSettings = { ...currentSettings, broadcast: nextBroadcast };
-
-  await db
-    .update(tournamentsTable)
-    .set({ scoringSettingsJson: nextSettings })
-    .where(eq(tournamentsTable.id, tournamentId));
-
-  return loadBadmintonBranding(tournamentId).then((b) => {
-    if (!b) throw new Error("Tournament not found");
-    return b;
-  });
-}
-
-export async function importBrandingFromTournament(
-  targetTournamentId: number,
-  sourceTournamentId: number,
-): Promise<BadmintonBranding> {
-  const [source] = await db
-    .select()
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, sourceTournamentId))
-    .limit(1);
-
-  if (!source) throw new Error("Source tournament not found");
-
-  const sourceBranding = getBadmintonBranding(
-    source,
-    source.scoringSettingsJson as Record<string, unknown>,
-  );
-
-  return updateBadmintonBranding(targetTournamentId, {
-    displayName: sourceBranding.displayName,
-    logoUrl: sourceBranding.logoUrl,
-    sponsorLogos: sourceBranding.sponsorLogos,
-    venue: sourceBranding.venue,
-    organizerName: sourceBranding.organizerName,
-    primaryColor: sourceBranding.primaryColor,
-    accentColor: sourceBranding.accentColor,
-    scoreBoardSponsor: sourceBranding.scoreBoardSponsor,
-  });
-}
-
-/** Copy this tournament's platform branding into badminton LED/OBS settings. */
-export async function importTournamentBrandingToBadminton(
-  tournamentId: number,
-): Promise<BadmintonBranding> {
-  const [tournament] = await db
-    .select()
-    .from(tournamentsTable)
-    .where(eq(tournamentsTable.id, tournamentId))
-    .limit(1);
-
-  if (!tournament) throw new Error("Tournament not found");
-
-  return updateBadmintonBranding(tournamentId, {
-    displayName: tournament.name,
-    logoUrl: tournament.logoUrl ?? null,
-    venue: tournament.venue ?? null,
-    organizerName: tournament.organizerName ?? null,
-    sponsorLogos: tournament.sponsorLogos ?? null,
-  });
-}
-
-/** @deprecated Prefer importTournamentBrandingToBadminton */
-export const importAuctionBrandingToBadminton = importTournamentBrandingToBadminton;
 
 async function copyBadmintonPlayersFromTournament(
   targetTournamentId: number,

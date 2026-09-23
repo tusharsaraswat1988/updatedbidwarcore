@@ -16,7 +16,7 @@ import { useAuctionSocket, type CheerMessage } from "@/hooks/use-auction-socket"
 import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame, ChevronRight, SlidersHorizontal, Check, Sparkles } from "lucide-react";
+import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame, ChevronRight, SlidersHorizontal, Check, Sparkles, Lock, AlertTriangle } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { resolveRetainedSpend } from "@workspace/api-base";
 import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
@@ -1162,10 +1162,15 @@ export default function LiveViewerPage() {
   }, [play, triggerFloatingReaction]);
 
   // ── Data ─────────────────────────────────────────────────────────────────
-  const { connectionStatus } = useAuctionSocket(tournamentId, handleCheerMessage);
-
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId, staleTime: 15000 },
+  });
+
+  const isAuctionDisabled = tournament && tournament.auctionEnabled === false;
+  const isInvalidModuleState = tournament && tournament.auctionEnabled === false && tournament.scoringEnabled === false;
+
+  const { connectionStatus } = useAuctionSocket(tournamentId, handleCheerMessage, {
+    enabled: !!tournamentId && !isAuctionDisabled,
   });
   const { formatAmount, formatShort } = useAuctionUnit(tournament);
 
@@ -1174,8 +1179,8 @@ export default function LiveViewerPage() {
   const { data: state } = useGetAuctionState(tournamentId, {
     query: {
       queryKey: getGetAuctionStateQueryKey(tournamentId),
-      enabled: !!tournamentId,
-      refetchInterval: isCompleted ? false : sseAwareRefetchInterval(connectionStatus, 30000),
+      enabled: !!tournamentId && !isAuctionDisabled,
+      refetchInterval: isCompleted || isAuctionDisabled ? false : sseAwareRefetchInterval(connectionStatus, 30000),
       staleTime: 15000,
     },
   });
@@ -1203,8 +1208,8 @@ export default function LiveViewerPage() {
   const { data: queriedTeamPurses } = useGetTeamPurses(tournamentId, {
     query: {
       queryKey: getGetTeamPursesQueryKey(tournamentId),
-      enabled: !!tournamentId && !embeddedPurses?.length,
-      refetchInterval: isCompleted ? false : sseAwareRefetchInterval(connectionStatus, 30000),
+      enabled: !!tournamentId && !isAuctionDisabled && !embeddedPurses?.length,
+      refetchInterval: isCompleted || isAuctionDisabled ? false : sseAwareRefetchInterval(connectionStatus, 30000),
       staleTime: 15000,
     },
   });
@@ -1213,7 +1218,7 @@ export default function LiveViewerPage() {
   const { data: players } = useListPlayers(tournamentId, {
     query: {
       queryKey: getListPlayersQueryKey(tournamentId),
-      enabled: !!tournamentId,
+      enabled: !!tournamentId && !isAuctionDisabled,
       staleTime: 60000,
     },
   });
@@ -1519,6 +1524,72 @@ export default function LiveViewerPage() {
     : isPaused
     ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
     : "bg-border/15 text-muted-foreground border-border/30";
+
+  if (isInvalidModuleState) {
+    return (
+      <div className="lovable-theme dark min-h-screen flex flex-col items-center justify-center px-6 bg-background selection:bg-primary selection:text-primary-foreground">
+        <div className="w-full max-w-md space-y-6 text-center">
+          <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-red-500/15 border-2 border-red-500/40">
+            <AlertTriangle className="w-8 h-8 text-red-400" />
+          </div>
+          <div>
+            <h1 className="font-display font-black text-2xl text-white">Invalid Tournament State</h1>
+            <p className="text-[#a1a1aa] text-sm mt-2">
+              A tournament must have at least one enabled product module (auction or scoring).
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-2 pt-4">
+            {miniLogoSrc && <img src={miniLogoSrc} alt={logoAlt} className="h-6 w-auto opacity-40" />}
+            <p className="text-[11px] text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuctionDisabled) {
+    return (
+      <div className="lovable-theme dark min-h-screen flex flex-col items-center justify-center px-6 bg-background selection:bg-primary selection:text-primary-foreground">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent pointer-events-none" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.4, type: "spring" }}
+          className="relative w-full max-w-md space-y-6 text-center"
+        >
+          <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-amber-500/15 border-2 border-amber-500/40">
+            <Lock className="w-8 h-8 text-amber-400" />
+          </div>
+          <div>
+            <h1 className="font-display font-black text-2xl text-white">Auction Not Enabled</h1>
+            <p className="text-[#a1a1aa] text-sm mt-2">
+              The Auction module is not enabled for this tournament.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <a
+              href={`/tournament/${tournamentId}`}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#27272a] text-white hover:bg-[#3f3f46] transition-colors text-sm font-semibold"
+            >
+              Tournament Home
+            </a>
+            {tournament?.scoringEnabled && (
+              <a
+                href={tournament?.sport === "badminton" ? `/tournament/${tournamentId}/badminton` : `/tournament/${tournamentId}/cricket`}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 transition-colors text-sm font-semibold"
+              >
+                Sports Scoring
+              </a>
+            )}
+          </div>
+          <div className="flex flex-col items-center gap-2 pt-4">
+            {miniLogoSrc && <img src={miniLogoSrc} alt={logoAlt} className="h-6 w-auto opacity-40" />}
+            <p className="text-[11px] text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="lovable-theme dark h-[100dvh] bg-background relative flex flex-col overflow-hidden">

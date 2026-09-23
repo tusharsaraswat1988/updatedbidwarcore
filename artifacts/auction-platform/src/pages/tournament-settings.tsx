@@ -28,6 +28,7 @@ import { FieldTooltip } from "@/components/ui/field-tooltip";
 import { HintLabel } from "@/components/ui/hint-label";
 import type { SettingsFocusField, SettingsTab } from "@/lib/settings-navigation";
 import { resolveSettingsTabFromSearch, settingsPath } from "@/lib/settings-navigation";
+import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
 import { auctionResetPath } from "@/lib/tournament-navigation";
 import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -95,8 +96,22 @@ export default function TournamentSettings() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
+  const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
+    query: {
+      queryKey: getGetTournamentQueryKey(tournamentId),
+      enabled: !!tournamentId,
+      staleTime: 30_000,
+    },
+  });
+  const { data: players = [] } = useListPlayers(tournamentId, {
+    query: { queryKey: getListPlayersQueryKey(tournamentId), enabled: !!tournamentId, staleTime: 30_000 },
+  });
+
+  const isAuction = tournament ? isAuctionEnabled(tournament) : true;
+  const isScoring = tournament ? isScoringEnabled(tournament) : false;
+
   const [initialized, setInitialized] = useState(false);
-  const activeSection = resolveSettingsTabFromSearch(search);
+  const activeSection = resolveSettingsTabFromSearch(search, tournament);
   const [editForm, setEditForm] = useState<Record<string, string | number | boolean>>({});
   const audioPreviewRef = useRef<AuctionAudioManager | null>(null);
   const [countdownFileName, setCountdownFileName] = useState("");
@@ -120,18 +135,15 @@ export default function TournamentSettings() {
   const [highlightField, setHighlightField] = useState<SettingsFocusField | null>(null);
   const [baselineSnapshot, setBaselineSnapshot] = useState("");
 
-  const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
-    query: {
-      queryKey: getGetTournamentQueryKey(tournamentId),
-      enabled: !!tournamentId,
-      staleTime: 30_000,
-    },
-  });
-  const { data: players = [] } = useListPlayers(tournamentId, {
-    query: { queryKey: getListPlayersQueryKey(tournamentId), enabled: !!tournamentId, staleTime: 30_000 },
-  });
   const updateTournament = useUpdateTournament();
   const sportLocked = players.length > 0;
+
+  useEffect(() => {
+    if (!tournament) return;
+    if (!isAuction && (activeSection === "auction" || activeSection === "broadcast" || activeSection === "recovery")) {
+      navigate(settingsPath(tournamentId, "identity"), { replace: true });
+    }
+  }, [tournament, isAuction, activeSection, navigate, tournamentId]);
 
   const notifySportLocked = useCallback(() => {
     toast({
@@ -516,31 +528,33 @@ export default function TournamentSettings() {
     if (!(editForm.city as string)?.trim()) {
       return "City is required";
     }
-    if (!Number(editForm.basePurse) || Number(editForm.basePurse) <= 0) {
-      return "Team budget is required";
-    }
-    if (!Number(editForm.minBid) || Number(editForm.minBid) <= 0) {
-      return "Minimum player value is required";
-    }
-    if (!bidTiers.some(t => t.increment > 0)) {
-      return "Bid increase amount is required";
-    }
-    if (openingTimerError) {
-      return openingTimerError;
-    }
-    if (bidTimerError) {
-      return bidTimerError;
-    }
-    if (squadSizeError) {
-      return squadSizeError;
+    if (isAuction) {
+      if (!Number(editForm.basePurse) || Number(editForm.basePurse) <= 0) {
+        return "Team budget is required";
+      }
+      if (!Number(editForm.minBid) || Number(editForm.minBid) <= 0) {
+        return "Minimum player value is required";
+      }
+      if (!bidTiers.some(t => t.increment > 0)) {
+        return "Bid increase amount is required";
+      }
+      if (openingTimerError) {
+        return openingTimerError;
+      }
+      if (bidTimerError) {
+        return bidTimerError;
+      }
+      if (squadSizeError) {
+        return squadSizeError;
+      }
     }
     if (sportLocked && tournament && (editForm.sport as string) !== tournament.sport) {
       return "Sport cannot be changed while players exist in the pool.";
     }
-    if (audioUploadingField) {
+    if (isAuction && audioUploadingField) {
       return "Wait for audio upload to finish";
     }
-    if (editForm.enableRegistrationPayment === true && editForm.playerRegistrationMode !== "scoring") {
+    if (editForm.enableRegistrationPayment === true && (!isAuction || editForm.playerRegistrationMode !== "scoring")) {
       const fee = editForm.registrationFee !== "" ? Number(editForm.registrationFee) : NaN;
       const upi = (editForm.upiId as string).trim();
       if (!Number.isFinite(fee) || fee <= 0) {
@@ -560,7 +574,8 @@ export default function TournamentSettings() {
       }
     }
     if (
-      editForm.playerRegistrationMode !== "scoring"
+      isAuction
+      && editForm.playerRegistrationMode !== "scoring"
       && editForm.bidValueMode === "player"
       && bidValueOptions.filter((n) => n > 0).length === 0
     ) {
@@ -571,7 +586,7 @@ export default function TournamentSettings() {
       return sponsorValidation.error;
     }
     return null;
-  }, [editForm, bidTiers, bidValueOptions, squadSizeError, sportLocked, tournament, sponsorLogos, audioUploadingField, openingTimerError, bidTimerError]);
+  }, [editForm, bidTiers, bidValueOptions, squadSizeError, sportLocked, tournament, sponsorLogos, audioUploadingField, openingTimerError, bidTimerError, isAuction]);
 
   const performSave = useCallback(async (options?: { notify?: boolean }): Promise<boolean> => {
     const blockReason = getSaveBlockReason();
@@ -583,73 +598,80 @@ export default function TournamentSettings() {
     }
 
     const filteredLogos = sponsorLogos.filter(l => l.url.trim());
+    const dataPayload: Record<string, unknown> = {
+      reason: DEFAULT_SETTINGS_AUDIT_REASON,
+      name: editForm.name as string,
+      sport: editForm.sport as string,
+      city: (editForm.city as string).trim() || undefined,
+      venue: editForm.venue as string || undefined,
+      logoUrl: editForm.logoUrl as string || undefined,
+      logoPublicId: (editForm.logoPublicId as string) || undefined,
+      sponsorLogos: JSON.stringify(filteredLogos),
+      matchDates: (editForm.matchDates as string)?.trim() || null,
+      registrationDeadline: editForm.registrationDeadline ? (editForm.registrationDeadline as string) : null,
+      registrationLimit: editForm.registrationLimit !== "" && editForm.registrationLimit != null
+        ? Number(editForm.registrationLimit) || null
+        : null,
+      enableRegistrationPayment: editForm.enableRegistrationPayment === true,
+      registrationFee:
+        editForm.enableRegistrationPayment === true && editForm.registrationFee !== ""
+          ? Number(editForm.registrationFee)
+          : null,
+      upiId: editForm.enableRegistrationPayment === true ? ((editForm.upiId as string).trim() || null) : null,
+      paymentVerificationMethod: editForm.enableRegistrationPayment === true
+        ? (editForm.paymentVerificationMethod as import("@workspace/api-client-react").TournamentUpdatePaymentVerificationMethod)
+        : null,
+      paymentCollectionMode: "manual_verification",
+      enableRegistrationDeclaration: editForm.enableRegistrationDeclaration === true,
+      registrationDeclarationText: ((editForm.registrationDeclarationText as string)?.trim() || null),
+      playerRegistrationMode: isAuction
+        ? parsePlayerRegistrationMode(editForm.playerRegistrationMode as string)
+        : "scoring",
+      registrationCategoryMode: parseRegistrationCategoryMode(editForm.registrationCategoryMode as string),
+      registrationFields: serializeRegistrationFieldsConfig(registrationFieldsHidden),
+    };
+
+    if (isAuction) {
+      dataPayload.auctionDate = editForm.auctionDate as string || undefined;
+      dataPayload.auctionTime = editForm.auctionTime as string || undefined;
+      dataPayload.auctionUnit = normalizeAuctionUnit(editForm.auctionUnit as string);
+      dataPayload.basePurse = Number(editForm.basePurse) || undefined;
+      dataPayload.minBid = Number(editForm.minBid) || undefined;
+      dataPayload.bidTiers = JSON.stringify(bidTiers.filter(t => t.increment > 0));
+      dataPayload.timerSeconds = openingTimerParsed!;
+      dataPayload.bidTimerSeconds = bidTimerParsed!;
+      dataPayload.bidExtensionEnabled = editForm.bidExtensionEnabled === true;
+      dataPayload.bidExtensionThresholdSeconds = Number(editForm.bidExtensionThresholdSeconds) || undefined;
+      dataPayload.bidExtensionSeconds = Number(editForm.bidExtensionSeconds) || undefined;
+      dataPayload.playerSelectionMode = (editForm.playerSelectionMode as string || undefined) as import("@workspace/api-client-react").TournamentUpdatePlayerSelectionMode | undefined;
+      dataPayload.minimumSquadSize = editForm.minimumSquadSize !== "" && editForm.minimumSquadSize != null ? Number(editForm.minimumSquadSize) : 0;
+      dataPayload.maximumSquadSize = editForm.maximumSquadSize !== "" && editForm.maximumSquadSize != null ? Number(editForm.maximumSquadSize) : 0;
+      dataPayload.bidValueMode = (editForm.bidValueMode as "system" | "player") || "system";
+      dataPayload.bidValueOptions = bidValueOptions.filter((n) => n > 0);
+      dataPayload.audioEnabled =
+        editForm.countdownSoundEnabled === true
+        || editForm.soldSoundEnabled === true
+        || editForm.breakEndMusicEnabled === true;
+      dataPayload.masterVolume = 100;
+      dataPayload.countdownSoundEnabled = editForm.countdownSoundEnabled === true;
+      dataPayload.countdownSoundUrl = sanitizePersistedMediaUrl(editForm.countdownSoundUrl);
+      dataPayload.countdownSoundVolume = Number(editForm.countdownSoundVolume) || 70;
+      dataPayload.soldSoundEnabled = editForm.soldSoundEnabled === true;
+      dataPayload.soldSoundUrl = sanitizePersistedMediaUrl(editForm.soldSoundUrl);
+      dataPayload.soldSoundVolume = Number(editForm.soldSoundVolume) || 80;
+      dataPayload.breakEndMusicEnabled = editForm.breakEndMusicEnabled === true;
+      dataPayload.breakEndMusicUrl = sanitizePersistedMediaUrl(editForm.breakEndMusicUrl);
+      dataPayload.breakEndMusicVolume = Number(editForm.breakEndMusicVolume) || 80;
+      dataPayload.mainBannerUrl = sanitizePersistedMediaUrl(editForm.mainBannerUrl);
+      dataPayload.mainBannerPublicId = (editForm.mainBannerPublicId as string) || null;
+      dataPayload.mainBannerEnabled = editForm.mainBannerEnabled === true;
+      dataPayload.mainBannerFit = ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain";
+    }
+
     try {
       const saved = await updateTournament.mutateAsync({
         tournamentId,
-        data: {
-          reason: DEFAULT_SETTINGS_AUDIT_REASON,
-          name: editForm.name as string,
-          sport: editForm.sport as string,
-          city: (editForm.city as string).trim() || undefined,
-          venue: editForm.venue as string || undefined,
-          auctionDate: editForm.auctionDate as string || undefined,
-          auctionTime: editForm.auctionTime as string || undefined,
-          logoUrl: editForm.logoUrl as string || undefined,
-          logoPublicId: (editForm.logoPublicId as string) || undefined,
-          sponsorLogos: JSON.stringify(filteredLogos),
-          auctionUnit: normalizeAuctionUnit(editForm.auctionUnit as string),
-          basePurse: Number(editForm.basePurse) || undefined,
-          minBid: Number(editForm.minBid) || undefined,
-          bidTiers: JSON.stringify(bidTiers.filter(t => t.increment > 0)),
-          timerSeconds: openingTimerParsed!,
-          bidTimerSeconds: bidTimerParsed!,
-          bidExtensionEnabled: editForm.bidExtensionEnabled === true,
-          bidExtensionThresholdSeconds: Number(editForm.bidExtensionThresholdSeconds) || undefined,
-          bidExtensionSeconds: Number(editForm.bidExtensionSeconds) || undefined,
-          playerSelectionMode: (editForm.playerSelectionMode as string || undefined) as import("@workspace/api-client-react").TournamentUpdatePlayerSelectionMode | undefined,
-          minimumSquadSize: editForm.minimumSquadSize !== "" && editForm.minimumSquadSize != null ? Number(editForm.minimumSquadSize) : 0,
-          maximumSquadSize: editForm.maximumSquadSize !== "" && editForm.maximumSquadSize != null ? Number(editForm.maximumSquadSize) : 0,
-          registrationDeadline: editForm.registrationDeadline ? (editForm.registrationDeadline as string) : null,
-          registrationLimit: editForm.registrationLimit !== "" && editForm.registrationLimit != null
-            ? Number(editForm.registrationLimit) || null
-            : null,
-          enableRegistrationPayment: editForm.enableRegistrationPayment === true,
-          registrationFee:
-            editForm.enableRegistrationPayment === true && editForm.registrationFee !== ""
-              ? Number(editForm.registrationFee)
-              : null,
-          upiId: editForm.enableRegistrationPayment === true ? ((editForm.upiId as string).trim() || null) : null,
-          paymentVerificationMethod: editForm.enableRegistrationPayment === true
-            ? (editForm.paymentVerificationMethod as import("@workspace/api-client-react").TournamentUpdatePaymentVerificationMethod)
-            : null,
-          paymentCollectionMode: "manual_verification",
-          enableRegistrationDeclaration: editForm.enableRegistrationDeclaration === true,
-          registrationDeclarationText: ((editForm.registrationDeclarationText as string).trim() || null),
-          bidValueMode: (editForm.bidValueMode as "system" | "player") || "system",
-          bidValueOptions: bidValueOptions.filter((n) => n > 0),
-          playerRegistrationMode: parsePlayerRegistrationMode(editForm.playerRegistrationMode as string),
-          registrationCategoryMode: parseRegistrationCategoryMode(editForm.registrationCategoryMode as string),
-          audioEnabled:
-            editForm.countdownSoundEnabled === true
-            || editForm.soldSoundEnabled === true
-            || editForm.breakEndMusicEnabled === true,
-          masterVolume: 100,
-          countdownSoundEnabled: editForm.countdownSoundEnabled === true,
-          countdownSoundUrl: sanitizePersistedMediaUrl(editForm.countdownSoundUrl),
-          countdownSoundVolume: Number(editForm.countdownSoundVolume) || 70,
-          soldSoundEnabled: editForm.soldSoundEnabled === true,
-          soldSoundUrl: sanitizePersistedMediaUrl(editForm.soldSoundUrl),
-          soldSoundVolume: Number(editForm.soldSoundVolume) || 80,
-          breakEndMusicEnabled: editForm.breakEndMusicEnabled === true,
-          breakEndMusicUrl: sanitizePersistedMediaUrl(editForm.breakEndMusicUrl),
-          breakEndMusicVolume: Number(editForm.breakEndMusicVolume) || 80,
-          mainBannerUrl: sanitizePersistedMediaUrl(editForm.mainBannerUrl),
-          mainBannerPublicId: (editForm.mainBannerPublicId as string) || null,
-          mainBannerEnabled: editForm.mainBannerEnabled === true,
-          mainBannerFit: ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain",
-          matchDates: (editForm.matchDates as string).trim() || null,
-          registrationFields: serializeRegistrationFieldsConfig(registrationFieldsHidden),
-        } as import("@workspace/api-client-react").TournamentUpdate & {
+        data: dataPayload as import("@workspace/api-client-react").TournamentUpdate & {
           reason: string;
           logoPublicId?: string;
           mainBannerPublicId?: string | null;
@@ -657,11 +679,16 @@ export default function TournamentSettings() {
       });
       qc.setQueryData(getGetTournamentQueryKey(tournamentId), saved);
       qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
-      qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
-      qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
+      if (isAuction) {
+        qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+        qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
+      }
       setBaselineSnapshot(buildSnapshot(editForm, bidTiers, filteredLogos, bidValueOptions.filter((n) => n > 0), registrationFieldsHidden));
       if (options?.notify) {
-        toast({ title: "Settings saved", description: "Your auction rules have been updated." });
+        toast({
+          title: "Settings saved",
+          description: isAuction ? "Your auction rules have been updated." : "Tournament settings updated successfully.",
+        });
       }
       return true;
     } catch (err: unknown) {
@@ -677,6 +704,9 @@ export default function TournamentSettings() {
     buildSnapshot,
     editForm,
     getSaveBlockReason,
+    isAuction,
+    openingTimerParsed,
+    bidTimerParsed,
     qc,
     sponsorLogos,
     registrationFieldsHidden,
@@ -712,19 +742,24 @@ export default function TournamentSettings() {
       if (!ok && saveBlockReason) {
         toast({ title: "Cannot save yet", description: saveBlockReason, variant: "destructive" });
       } else if (ok) {
-        toast({ title: "Settings saved", description: "Your auction rules have been updated." });
+        toast({
+          title: "Settings saved",
+          description: isAuction ? "Your auction rules have been updated." : "Tournament settings updated successfully.",
+        });
       }
     });
   }
 
-  const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
-    { id: "identity", label: "Basic Info", icon: Building2 },
-    { id: "playerRegistration", label: "Player Registration", icon: UserPlus },
-    { id: "auction", label: "Auction Rules", icon: Gavel },
-    { id: "sponsors", label: "Sponsors", icon: Handshake },
-    { id: "broadcast", label: "Screen & Sound", icon: Megaphone },
-    { id: "recovery", label: "Reset", icon: ShieldAlert },
+  const allTabs: { id: SettingsTab; label: string; icon: React.ElementType; module: "core" | "auction" }[] = [
+    { id: "identity", label: "Basic Info", icon: Building2, module: "core" },
+    { id: "playerRegistration", label: "Player Registration", icon: UserPlus, module: "core" },
+    { id: "auction", label: "Auction Rules", icon: Gavel, module: "auction" },
+    { id: "sponsors", label: "Sponsors", icon: Handshake, module: "core" },
+    { id: "broadcast", label: "Screen & Sound", icon: Megaphone, module: "auction" },
+    { id: "recovery", label: "Reset", icon: ShieldAlert, module: "auction" },
   ];
+
+  const tabs = allTabs.filter(tab => tab.module === "core" || isAuction);
 
   const showInitialLoading = !initialized || (loadingTournament && !tournament);
 
@@ -919,7 +954,7 @@ export default function TournamentSettings() {
               {/* Event Details */}
               <SettingsCard
                 title="Event Details"
-                description="City, venue, and auction schedule for your live event."
+                description={isAuction ? "City, venue, and auction schedule for your live event." : "City and venue for your tournament."}
                 icon={<Building2 className="w-4 h-4 text-primary" />}
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -944,24 +979,28 @@ export default function TournamentSettings() {
                       className="h-9 text-sm"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-foreground/90">Auction Date</Label>
-                    <DatePicker
-                      value={editForm.auctionDate as string || ""}
-                      onChange={auctionDate => setEditForm(f => ({ ...f, auctionDate }))}
-                      placeholder="Select auction date"
-                      disablePastDates
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-foreground/90">Auction Time</Label>
-                    <TimePicker
-                      value={editForm.auctionTime as string || ""}
-                      onChange={auctionTime => setEditForm(f => ({ ...f, auctionTime }))}
-                      placeholder="Select time"
-                    />
-                    <p className="text-[10px] text-muted-foreground">Used for 24h WhatsApp consent blast scheduling.</p>
-                  </div>
+                  {isAuction && (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-foreground/90">Auction Date</Label>
+                        <DatePicker
+                          value={editForm.auctionDate as string || ""}
+                          onChange={auctionDate => setEditForm(f => ({ ...f, auctionDate }))}
+                          placeholder="Select auction date"
+                          disablePastDates
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-foreground/90">Auction Time</Label>
+                        <TimePicker
+                          value={editForm.auctionTime as string || ""}
+                          onChange={auctionTime => setEditForm(f => ({ ...f, auctionTime }))}
+                          placeholder="Select time"
+                        />
+                        <p className="text-[10px] text-muted-foreground">Used for 24h WhatsApp consent blast scheduling.</p>
+                      </div>
+                    </>
+                  )}
                 </div>
               </SettingsCard>
 
@@ -1247,130 +1286,132 @@ export default function TournamentSettings() {
                 </div>
               </SettingsCard>
 
-              {/* Card 4: Bid Value Mode */}
-              <SettingsCard
-                title="Player Base Price Mode"
-                description="System-wide minimum bid or custom player-selected base price options."
-                icon={<IndianRupee className="w-4 h-4 text-amber-400" />}
-              >
-                <div className="space-y-3.5">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-medium text-foreground/90">Assignment Mode</Label>
-                    <Select
-                      value={(editForm.bidValueMode as string) || "system"}
-                      onValueChange={(v) => setEditForm(f => ({ ...f, bidValueMode: v }))}
-                    >
-                      <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent className="dark">
-                        <SelectItem value="system">System Default (Tournament Min Bid)</SelectItem>
-                        <SelectItem value="player">Player Selected (Choice of Base Values)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-[10px] text-muted-foreground">
-                      {editForm.bidValueMode === "player"
-                        ? "Players choose their base price from allowed values during registration."
-                        : "Every player starts at tournament minimum bid price."}
-                    </p>
-                  </div>
-
-                  {editForm.bidValueMode === "player" ? (
-                    <div className="space-y-2.5 pt-2 border-t border-border/50">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-semibold text-foreground">Allowed Base Values (₹)</Label>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs gap-1"
-                          onClick={() => {
-                            const last = bidValueOptions[bidValueOptions.length - 1] ?? 500;
-                            setBidValueOptions((opts) => [...opts, last + 500]);
-                          }}
-                        >
-                          <Plus className="w-3 h-3" />
-                          Add Value
-                        </Button>
-                      </div>
-
-                      {bidValueOptions.length === 0 ? (
-                        <p className="text-xs text-amber-400/90 italic">
-                          Add at least one base value option for players to choose.
-                        </p>
-                      ) : (
-                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                          {bidValueOptions.map((val, i) => (
-                            <div key={i} className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground w-5 text-right shrink-0">
-                                #{i + 1}
-                              </span>
-                              <div className="relative flex-1">
-                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">
-                                  ₹
-                                </span>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  value={val}
-                                  onChange={(e) => {
-                                    const num = Math.max(0, parseInt(e.target.value, 10) || 0);
-                                    setBidValueOptions((opts) => {
-                                      const next = [...opts];
-                                      next[i] = num;
-                                      return next;
-                                    });
-                                  }}
-                                  className="h-8 pl-6 text-xs font-mono"
-                                />
-                              </div>
-                              <div className="flex items-center gap-0.5 shrink-0">
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7"
-                                  disabled={i === 0}
-                                  onClick={() => setBidValueOptions((opts) => {
-                                    if (i === 0) return opts;
-                                    const next = [...opts];
-                                    [next[i - 1], next[i]] = [next[i], next[i - 1]];
-                                    return next;
-                                  })}
-                                >
-                                  <ArrowUp className="w-3 h-3" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7"
-                                  disabled={i === bidValueOptions.length - 1}
-                                  onClick={() => setBidValueOptions((opts) => {
-                                    if (i === bidValueOptions.length - 1) return opts;
-                                    const next = [...opts];
-                                    [next[i], next[i + 1]] = [next[i + 1], next[i]];
-                                    return next;
-                                  })}
-                                >
-                                  <ArrowDown className="w-3 h-3" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                                  onClick={() => setBidValueOptions((opts) => opts.filter((_, j) => j !== i))}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+              {/* Card 4: Bid Value Mode (Auction only) */}
+              {isAuction && (
+                <SettingsCard
+                  title="Player Base Price Mode"
+                  description="System-wide minimum bid or custom player-selected base price options."
+                  icon={<IndianRupee className="w-4 h-4 text-amber-400" />}
+                >
+                  <div className="space-y-3.5">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-foreground/90">Assignment Mode</Label>
+                      <Select
+                        value={(editForm.bidValueMode as string) || "system"}
+                        onValueChange={(v) => setEditForm(f => ({ ...f, bidValueMode: v }))}
+                      >
+                        <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent className="dark">
+                          <SelectItem value="system">System Default (Tournament Min Bid)</SelectItem>
+                          <SelectItem value="player">Player Selected (Choice of Base Values)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-muted-foreground">
+                        {editForm.bidValueMode === "player"
+                          ? "Players choose their base price from allowed values during registration."
+                          : "Every player starts at tournament minimum bid price."}
+                      </p>
                     </div>
-                  ) : null}
-                </div>
-              </SettingsCard>
+
+                    {editForm.bidValueMode === "player" ? (
+                      <div className="space-y-2.5 pt-2 border-t border-border/50">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold text-foreground">Allowed Base Values (₹)</Label>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1"
+                            onClick={() => {
+                              const last = bidValueOptions[bidValueOptions.length - 1] ?? 500;
+                              setBidValueOptions((opts) => [...opts, last + 500]);
+                            }}
+                          >
+                            <Plus className="w-3 h-3" />
+                            Add Value
+                          </Button>
+                        </div>
+
+                        {bidValueOptions.length === 0 ? (
+                          <p className="text-xs text-amber-400/90 italic">
+                            Add at least one base value option for players to choose.
+                          </p>
+                        ) : (
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                            {bidValueOptions.map((val, i) => (
+                              <div key={i} className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground w-5 text-right shrink-0">
+                                  #{i + 1}
+                                </span>
+                                <div className="relative flex-1">
+                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">
+                                    ₹
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    value={val}
+                                    onChange={(e) => {
+                                      const num = Math.max(0, parseInt(e.target.value, 10) || 0);
+                                      setBidValueOptions((opts) => {
+                                        const next = [...opts];
+                                        next[i] = num;
+                                        return next;
+                                      });
+                                    }}
+                                    className="h-8 pl-6 text-xs font-mono"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-0.5 shrink-0">
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                    disabled={i === 0}
+                                    onClick={() => setBidValueOptions((opts) => {
+                                      if (i === 0) return opts;
+                                      const next = [...opts];
+                                      [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                                      return next;
+                                    })}
+                                  >
+                                    <ArrowUp className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7"
+                                    disabled={i === bidValueOptions.length - 1}
+                                    onClick={() => setBidValueOptions((opts) => {
+                                      if (i === bidValueOptions.length - 1) return opts;
+                                      const next = [...opts];
+                                      [next[i], next[i + 1]] = [next[i + 1], next[i]];
+                                      return next;
+                                    })}
+                                  >
+                                    <ArrowDown className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                    onClick={() => setBidValueOptions((opts) => opts.filter((_, j) => j !== i))}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                </SettingsCard>
+              )}
 
               {/* Card 5: Declaration & Consent (Full Width) */}
               <SettingsCard
@@ -1442,7 +1483,7 @@ export default function TournamentSettings() {
         )}
 
         {/* ── AUCTION RULES ── */}
-        {activeSection === "auction" && (
+        {isAuction && activeSection === "auction" && (
           <SettingsTabPanel>
             {(() => {
               const currentUnit = normalizeAuctionUnit(editForm.auctionUnit as string);
@@ -1818,7 +1859,7 @@ export default function TournamentSettings() {
         )}
 
         {/* ── BROADCAST ── */}
-        {activeSection === "broadcast" && (
+        {isAuction && activeSection === "broadcast" && (
           <SettingsTabPanel>
             <div className="space-y-4">
               {/* LED Marquee Banner Card */}
@@ -2142,7 +2183,7 @@ export default function TournamentSettings() {
         )}
 
         {/* ── RECOVERY ── */}
-        {activeSection === "recovery" && (
+        {isAuction && activeSection === "recovery" && (
           <SettingsTabPanel className="max-w-3xl">
             <SettingsCard
               title="Danger Zone"

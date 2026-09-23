@@ -191,6 +191,7 @@ import {
   publicBadmintonPlayerSerializer,
   serializeBadmintonPlayerForAudience,
 } from "../lib/serializers/badminton-player";
+import { requireSportModule } from "../middleware/require-module";
 
 const router = Router({ mergeParams: true });
 
@@ -209,6 +210,27 @@ function parseId(v: string | undefined): number | null {
 function tid(req: Request): number | null {
   return parseId((req.params as MergedParams).id);
 }
+
+router.use(async (req, res, next) => {
+  const tournamentId = tid(req);
+  if (tournamentId == null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      sport: tournamentsTable.sport,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!requireSportModule(res, tournament, "badminton")) return;
+  next();
+});
 
 type ScoringActorContext =
   | { kind: "organizer_or_admin"; usedScorer: false }

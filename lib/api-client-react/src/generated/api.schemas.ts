@@ -118,6 +118,18 @@ export const TournamentLicenseStatus = {
 } as const;
 
 /**
+ * Derived product mode based on auctionEnabled and scoringEnabled flags
+ */
+export type TournamentProductMode =
+  (typeof TournamentProductMode)[keyof typeof TournamentProductMode];
+
+export const TournamentProductMode = {
+  auction_only: "auction_only",
+  scoring_only: "scoring_only",
+  both: "both",
+} as const;
+
+/**
  * Scoring lifecycle phase
  */
 export type TournamentScoringPhase =
@@ -263,6 +275,10 @@ export interface Tournament {
    * @nullable
    */
   matchDates?: string | null;
+  /** Whether the Auction product module is enabled for this tournament */
+  auctionEnabled?: boolean;
+  /** Derived product mode based on auctionEnabled and scoringEnabled flags */
+  productMode?: TournamentProductMode;
   /** Whether mobile cricket scoring is enabled for this tournament */
   scoringEnabled?: boolean;
   /** Scoring lifecycle phase */
@@ -940,7 +956,6 @@ export const PlayerInputPlayerTag = {
 } as const;
 
 export interface PlayerInput {
-  serialNo?: number;
   categoryId?: number;
   name: string;
   city?: string;
@@ -1017,7 +1032,6 @@ export const PlayerUpdateRegistrationPaymentStatus = {
 } as const;
 
 export interface PlayerUpdate {
-  serialNo?: number;
   categoryId?: number;
   name?: string;
   city?: string;

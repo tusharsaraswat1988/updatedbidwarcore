@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
+import { requireAuctionModule } from "../middleware/require-module";
 import { db } from "@workspace/db";
-import { categoriesTable, playersTable } from "@workspace/db";
+import { categoriesTable, playersTable, tournamentsTable } from "@workspace/db";
 import { eq, and, asc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { auditLog } from "../lib/audit-service";
@@ -30,6 +31,13 @@ const catToJson = (c: typeof categoriesTable.$inferSelect) => ({
 router.get("/tournaments/:tournamentId/categories", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
+
   const categories = await db
     .select()
     .from(categoriesTable)
@@ -42,6 +50,12 @@ router.post("/tournaments/:tournamentId/categories", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
   const schema = z.object({
     name: z.string().min(1),
     minBid: z.number().int().nullable().optional(),
@@ -83,6 +97,13 @@ router.patch("/tournaments/:tournamentId/categories/:categoryId", async (req, re
   const catId = parseInt(req.params.categoryId);
   if (isNaN(tid) || isNaN(catId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
+
   const schema = z.object({
     name: z.string().optional(),
     minBid: z.number().int().nullable().optional(),
@@ -139,6 +160,12 @@ router.delete("/tournaments/:tournamentId/categories/:categoryId", async (req, r
   const catId = parseInt(req.params.categoryId);
   if (isNaN(tid) || isNaN(catId)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
   const [beforeCat] = await db
     .select()
     .from(categoriesTable)

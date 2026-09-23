@@ -56,10 +56,12 @@ function scoringLoginUrl(returnTo: string): string {
 export function OrganizerGuard({
   tournamentId,
   requiredModule,
+  requiredSport,
   children,
 }: {
   tournamentId: number;
   requiredModule?: "auction" | "scoring";
+  requiredSport?: "cricket" | "badminton" | string;
   children: ReactNode;
 }) {
   const { isLoggedIn, isLoading, refetch } = useOrganizerAuth(tournamentId);
@@ -71,7 +73,7 @@ export function OrganizerGuard({
   const { data: tournament } = useGetTournament(tournamentId, {
     query: {
       queryKey: getGetTournamentQueryKey(tournamentId),
-      enabled: !!tournamentId && !!requiredModule,
+      enabled: !!tournamentId && (!!requiredModule || !!requiredSport),
     },
   });
 
@@ -237,7 +239,7 @@ export function OrganizerGuard({
     );
   }
 
-  if (tournament && requiredModule === "scoring" && !isScoringEnabled(tournament)) {
+  if (tournament && (requiredModule === "scoring" || requiredSport) && !isScoringEnabled(tournament)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
         <div className="max-w-md w-full rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center space-y-4">
@@ -259,6 +261,38 @@ export function OrganizerGuard({
         </div>
       </div>
     );
+  }
+
+  if (tournament && requiredSport) {
+    const currentSport = (tournament.sport || "").toLowerCase().trim();
+    const targetSport = requiredSport.toLowerCase().trim();
+    if (currentSport !== targetSport) {
+      const displaySport = tournament.sport
+        ? tournament.sport.charAt(0).toUpperCase() + tournament.sport.slice(1)
+        : "Unknown";
+      const requiredDisplay = requiredSport.charAt(0).toUpperCase() + requiredSport.slice(1);
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center p-6">
+          <div className="max-w-md w-full rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center space-y-4">
+            <AlertCircle className="w-10 h-10 text-destructive mx-auto" />
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-foreground">{requiredDisplay} Workspace Unavailable</h2>
+              <p className="text-sm text-muted-foreground">
+                This tournament is configured for {displaySport}, not {requiredDisplay}.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/tournament/${tournamentId}`)}
+              className="gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Go to Tournament Home
+            </Button>
+          </div>
+        </div>
+      );
+    }
   }
 
   return (

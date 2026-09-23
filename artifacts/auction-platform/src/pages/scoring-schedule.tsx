@@ -47,7 +47,7 @@ import {
   getCricketBranding,
   getCricketMasterTeams,
 } from "@/lib/scoring-api";
-import type { BadmintonBranding } from "@/hooks/use-badminton-branding";
+import type { SportsBranding } from "@/lib/sports-branding-types";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
@@ -160,7 +160,7 @@ export default function ScoringSchedulePage() {
 
   const { data: branding } = useQuery({
     queryKey: cricketBrandingQueryKey(tournamentId),
-    queryFn: () => getCricketBranding<BadmintonBranding>(tournamentId),
+    queryFn: () => getCricketBranding<SportsBranding>(tournamentId),
     enabled: scoringActive && !!tournamentId,
   });
 

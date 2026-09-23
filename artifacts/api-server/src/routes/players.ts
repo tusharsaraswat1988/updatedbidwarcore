@@ -96,15 +96,34 @@ import {
   connectAndSyncTournamentGoogleSheet,
 } from "../lib/google-sheets-sync-service.js";
 import { scheduleGoogleSheetSync } from "../lib/google-sheets-sync-queue.js";
+import { isAuctionEnabled } from "@workspace/platform-core";
 import { broadcastState, invalidateAuctionBuildCache, invalidateStateCache } from "./auction";
 
-function afterPlayerDataChanged(tournamentId: number, log?: import("pino").Logger) {
+async function afterPlayerDataChanged(
+  tournamentId: number,
+  log?: import("pino").Logger,
+  tournamentObj?: { auctionEnabled?: boolean | null } | null,
+) {
   scheduleGoogleSheetSync(tournamentId, log);
-  invalidateAuctionBuildCache(tournamentId, "all");
-  invalidateStateCache(tournamentId);
-  void broadcastState(tournamentId, ["players", "purses"]).catch((err) => {
-    log?.warn({ err, tournamentId }, "broadcastState failed in afterPlayerDataChanged");
-  });
+  try {
+    let t = tournamentObj;
+    if (!t) {
+      const [found] = await db
+        .select({ auctionEnabled: tournamentsTable.auctionEnabled })
+        .from(tournamentsTable)
+        .where(eq(tournamentsTable.id, tournamentId));
+      t = found;
+    }
+    if (t && isAuctionEnabled(t)) {
+      invalidateAuctionBuildCache(tournamentId, "all");
+      invalidateStateCache(tournamentId);
+      void broadcastState(tournamentId, ["players", "purses"]).catch((err) => {
+        log?.warn({ err, tournamentId }, "broadcastState failed in afterPlayerDataChanged");
+      });
+    }
+  } catch (err) {
+    log?.warn({ err, tournamentId }, "afterPlayerDataChanged auction invalidation failed");
+  }
 }
 
 async function resolveSheetOrganizerId(req: Request, tournamentId: number): Promise<number | null> {

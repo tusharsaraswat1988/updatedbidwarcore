@@ -3,7 +3,7 @@ import {
   CHYRON_TICKER_PX_PER_SEC,
   chyronTickerDurationFromWidth,
   chyronTickerContentKey,
-} from "./chyron-ticker";
+} from "../chyron-ticker";
 
 describe("chyronTickerDurationFromWidth", () => {
   it("scales duration with content width for constant px/s", () => {

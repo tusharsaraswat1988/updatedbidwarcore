@@ -54,7 +54,7 @@ import {
   validateSponsorList,
   type SponsorLogo,
 } from "@/lib/sponsor-logo";
-import type { BadmintonBranding, ScoreBoardSponsor } from "@/hooks/use-badminton-branding";
+import type { SportsBranding, ScoreBoardSponsor } from "@/lib/sports-branding-types";
 import { cn } from "@/lib/utils";
 import {
   Calendar,
@@ -98,7 +98,7 @@ type BrandingFormState = {
   accentColor: string;
 };
 
-function brandingFromApi(branding: BadmintonBranding): {
+function brandingFromApi(branding: SportsBranding): {
   form: BrandingFormState;
   sponsorLogos: SponsorLogo[];
   scoreBoardSponsor: ScoreBoardSponsor;
@@ -168,7 +168,7 @@ function brandingPayloadSignature(
 }
 
 function applyBrandingState(
-  branding: BadmintonBranding,
+  branding: SportsBranding,
   setters: {
     setForm: (form: BrandingFormState) => void;
     setSponsorLogos: (logos: SponsorLogo[]) => void;
@@ -201,7 +201,7 @@ export default function CricketSettingsPage() {
 
   const { data: branding, isLoading } = useQuery({
     queryKey: brandingKey,
-    queryFn: () => getCricketBranding<BadmintonBranding>(tournamentId),
+    queryFn: () => getCricketBranding<SportsBranding>(tournamentId),
     enabled: scoringActive && !!tournamentId,
   });
 
@@ -303,7 +303,7 @@ export default function CricketSettingsPage() {
   }
 
   const importBrandingMutation = useMutation({
-    mutationFn: () => importCricketTournamentBranding<BadmintonBranding>(tournamentId),
+    mutationFn: () => importCricketTournamentBranding<SportsBranding>(tournamentId),
     onSuccess: (data) => {
       applyBrandingState(data, {
         setForm,
@@ -353,7 +353,7 @@ export default function CricketSettingsPage() {
 
   const saveMutation = useMutation({
     mutationFn: (payload: ReturnType<typeof buildBrandingPatchPayload>) =>
-      patchCricketBranding<BadmintonBranding>(tournamentId, payload),
+      patchCricketBranding<SportsBranding>(tournamentId, payload),
     onSuccess: (data, variables) => {
       qc.setQueryData(brandingKey, data);
       lastSavedPayloadRef.current = JSON.stringify(variables);
@@ -1008,7 +1008,7 @@ export default function CricketSettingsPage() {
               sportLabel="cricket"
               brandingQueryKey={brandingKey}
               patchPresentation={(body) =>
-                patchCricketBroadcastPresentation<BadmintonBranding>(tournamentId, body)
+                patchCricketBroadcastPresentation<SportsBranding>(tournamentId, body)
               }
             />
 
@@ -1018,7 +1018,7 @@ export default function CricketSettingsPage() {
               sportLabel="cricket"
               brandingQueryKey={brandingKey}
               patchPresentation={(body) =>
-                patchCricketBroadcastPresentation<BadmintonBranding>(tournamentId, body)
+                patchCricketBroadcastPresentation<SportsBranding>(tournamentId, body)
               }
             />
           </div>

@@ -14,12 +14,34 @@ import {
   patchTeamConfiguration,
 } from "../lib/team-service";
 
+import { db, tournamentsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { requireScoringModule } from "../middleware/require-module";
+
 const router: IRouter = Router();
 
 function parseId(raw: string): number | null {
   const id = parseInt(raw, 10);
   return Number.isFinite(id) ? id : null;
 }
+
+router.use("/tournaments/:tournamentId", async (req, res, next) => {
+  const tid = parseId(req.params.tournamentId);
+  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      sport: tournamentsTable.sport,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid))
+    .limit(1);
+
+  if (!requireScoringModule(res, tournament)) return;
+  next();
+});
 
 const patchSchema = z.object({
   name: z.string().min(1).optional(),

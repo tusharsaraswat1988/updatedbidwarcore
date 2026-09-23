@@ -44,7 +44,7 @@ export function isPlayerBidValueMode(config: Pick<BidValueTournamentConfig, "bid
 
 /** Normalize organizer bid options from API (array) or DB (JSON string). */
 export function getOrganizerBidOptions(
-  config: Pick<BidValueTournamentConfig, "bidValueOptions"> & {
+  config: {
     bidValueOptions?: number[] | string | null;
   },
 ): number[] {
@@ -57,7 +57,8 @@ export function getOrganizerBidOptions(
 
 /** Player self-selection UI is shown only when mode is player and options are configured. */
 export function shouldShowPlayerBidValueSelector(
-  config: Pick<BidValueTournamentConfig, "bidValueMode" | "bidValueOptions"> & {
+  config: {
+    bidValueMode?: string | null;
     bidValueOptions?: number[] | string | null;
   },
 ): boolean {

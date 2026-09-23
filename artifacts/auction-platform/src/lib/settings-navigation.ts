@@ -1,6 +1,19 @@
+import { isAuctionEnabled, type TournamentModuleFlags } from "@workspace/platform-core";
 import type { AuctionReadinessCheckId } from "@workspace/api-base/auction-readiness";
 
 export type SettingsTab = "identity" | "playerRegistration" | "auction" | "sponsors" | "broadcast" | "recovery";
+
+export const CORE_SETTINGS_TABS: readonly SettingsTab[] = [
+  "identity",
+  "playerRegistration",
+  "sponsors",
+];
+
+export const AUCTION_SETTINGS_TABS: readonly SettingsTab[] = [
+  "auction",
+  "broadcast",
+  "recovery",
+];
 
 export const SETTINGS_TABS: readonly SettingsTab[] = [
   "identity",
@@ -11,17 +24,31 @@ export const SETTINGS_TABS: readonly SettingsTab[] = [
   "recovery",
 ];
 
-export function parseSettingsTab(raw: string | null | undefined): SettingsTab | null {
-  if (raw && (SETTINGS_TABS as readonly string[]).includes(raw)) {
+export function getAvailableSettingsTabs(tournament?: TournamentModuleFlags | null): readonly SettingsTab[] {
+  if (tournament && !isAuctionEnabled(tournament)) {
+    return CORE_SETTINGS_TABS;
+  }
+  return SETTINGS_TABS;
+}
+
+export function parseSettingsTab(
+  raw: string | null | undefined,
+  tournament?: TournamentModuleFlags | null,
+): SettingsTab | null {
+  const available = getAvailableSettingsTabs(tournament);
+  if (raw && (available as readonly string[]).includes(raw)) {
     return raw as SettingsTab;
   }
   return null;
 }
 
-export function resolveSettingsTabFromSearch(search: string): SettingsTab {
+export function resolveSettingsTabFromSearch(
+  search: string,
+  tournament?: TournamentModuleFlags | null,
+): SettingsTab {
   const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
   if (params.get("focus") === "registration") return "playerRegistration";
-  return parseSettingsTab(params.get("tab")) ?? "identity";
+  return parseSettingsTab(params.get("tab"), tournament) ?? "identity";
 }
 
 export type SettingsFocusField =

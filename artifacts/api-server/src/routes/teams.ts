@@ -35,6 +35,8 @@ import {
 } from "../lib/cloudinary-image-fields";
 
 import { broadcastState, invalidateAuctionBuildCache, invalidateStateCache } from "./auction";
+import { isAuctionEnabled } from "@workspace/platform-core";
+import { requireAuctionModule } from "../middleware/require-module";
 
 const cloudinaryLogoUrl = z
   .string()
@@ -44,12 +46,30 @@ const cloudinaryLogoUrl = z
     "Logo URL must be a Cloudinary HTTPS URL (https://res.cloudinary.com/...)",
   );
 
-function afterTeamDataChanged(tournamentId: number, log?: import("pino").Logger) {
-  invalidateAuctionBuildCache(tournamentId, "all");
-  invalidateStateCache(tournamentId);
-  void broadcastState(tournamentId, ["purses"]).catch((err) => {
-    log?.warn({ err, tournamentId }, "broadcastState failed in afterTeamDataChanged");
-  });
+async function afterTeamDataChanged(
+  tournamentId: number,
+  log?: import("pino").Logger,
+  tournamentObj?: { auctionEnabled?: boolean | null } | null,
+) {
+  try {
+    let t = tournamentObj;
+    if (!t) {
+      const [found] = await db
+        .select({ auctionEnabled: tournamentsTable.auctionEnabled })
+        .from(tournamentsTable)
+        .where(eq(tournamentsTable.id, tournamentId));
+      t = found;
+    }
+    if (t && isAuctionEnabled(t)) {
+      invalidateAuctionBuildCache(tournamentId, "all");
+      invalidateStateCache(tournamentId);
+      void broadcastState(tournamentId, ["purses"]).catch((err) => {
+        log?.warn({ err, tournamentId }, "broadcastState failed in afterTeamDataChanged");
+      });
+    }
+  } catch (err) {
+    log?.warn({ err, tournamentId }, "afterTeamDataChanged auction invalidation failed");
+  }
 }
 
 const router = Router();
@@ -251,7 +271,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     after: snapshotTeam(team),
   });
 
-  afterTeamDataChanged(tid, req.log);
+  afterTeamDataChanged(tid, req.log, tournament);
   res.status(201).json(teamToJson(team));
 });
 
@@ -260,6 +280,12 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
 router.get("/tournaments/:tournamentId/teams/scout", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
 
   const [teams, allPlayers, categories] = await Promise.all([
     db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tid)).orderBy(teamsTable.name),

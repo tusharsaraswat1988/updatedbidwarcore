@@ -201,6 +201,18 @@ export const ListTournamentsResponseItem = zod.object({
     .describe(
       "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty\/null hides availability everywhere.",
     ),
+  auctionEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Whether the Auction product module is enabled for this tournament",
+    ),
+  productMode: zod
+    .enum(["auction_only", "scoring_only", "both"])
+    .optional()
+    .describe(
+      "Derived product mode based on auctionEnabled and scoringEnabled flags",
+    ),
   scoringEnabled: zod
     .boolean()
     .optional()
@@ -448,6 +460,18 @@ export const GetTournamentResponse = zod.object({
     .nullish()
     .describe(
       "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty\/null hides availability everywhere.",
+    ),
+  auctionEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Whether the Auction product module is enabled for this tournament",
+    ),
+  productMode: zod
+    .enum(["auction_only", "scoring_only", "both"])
+    .optional()
+    .describe(
+      "Derived product mode based on auctionEnabled and scoringEnabled flags",
     ),
   scoringEnabled: zod
     .boolean()
@@ -735,6 +759,18 @@ export const UpdateTournamentResponse = zod.object({
     .describe(
       "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty\/null hides availability everywhere.",
     ),
+  auctionEnabled: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Whether the Auction product module is enabled for this tournament",
+    ),
+  productMode: zod
+    .enum(["auction_only", "scoring_only", "both"])
+    .optional()
+    .describe(
+      "Derived product mode based on auctionEnabled and scoringEnabled flags",
+    ),
   scoringEnabled: zod
     .boolean()
     .optional()
@@ -955,6 +991,18 @@ export const ExportTournamentForLocalResponse = zod.object({
       .nullish()
       .describe(
         "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty\/null hides availability everywhere.",
+      ),
+    auctionEnabled: zod
+      .boolean()
+      .optional()
+      .describe(
+        "Whether the Auction product module is enabled for this tournament",
+      ),
+    productMode: zod
+      .enum(["auction_only", "scoring_only", "both"])
+      .optional()
+      .describe(
+        "Derived product mode based on auctionEnabled and scoringEnabled flags",
       ),
     scoringEnabled: zod
       .boolean()

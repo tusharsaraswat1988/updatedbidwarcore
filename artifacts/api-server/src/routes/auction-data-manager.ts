@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { bulkImportJobsTable, tournamentsTable } from "@workspace/db";
 import { requireMasterAdmin } from "../middleware/require-admin";
+import { requireAuctionModule } from "../middleware/require-module";
 import { auditLog } from "../lib/audit-service";
 import {
   exportAuctionDataExcel,
@@ -44,13 +45,17 @@ function performedBy(req: Request): string {
   return req.jwtUser?.adminLevel === "master" ? "master_admin" : "data_entry_admin";
 }
 
-async function assertTournamentExists(tournamentId: number): Promise<boolean> {
+async function assertTournamentAuction(res: Response, tournamentId: number): Promise<boolean> {
   const [t] = await db
-    .select({ id: tournamentsTable.id })
+    .select({
+      id: tournamentsTable.id,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+    })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
-  return !!t;
+  return requireAuctionModule(res, t);
 }
 
 /** GET /tournaments/:id/auction-data/export */
@@ -63,10 +68,7 @@ router.get(
       res.status(400).json({ error: "Invalid tournament ID" });
       return;
     }
-    if (!(await assertTournamentExists(tournamentId))) {
-      res.status(404).json({ error: "Tournament not found" });
-      return;
-    }
+    if (!(await assertTournamentAuction(res, tournamentId))) return;
 
     try {
       const buffer = await exportAuctionDataExcel(tournamentId);
@@ -100,6 +102,7 @@ router.post(
       res.status(400).json({ error: "Invalid tournament ID" });
       return;
     }
+    if (!(await assertTournamentAuction(res, tournamentId))) return;
     if (!req.file) {
       res.status(400).json({ error: "Excel file required" });
       return;
@@ -152,6 +155,7 @@ router.post(
       res.status(400).json({ error: "tournamentId and jobId required" });
       return;
     }
+    if (!(await assertTournamentAuction(res, tournamentId))) return;
 
     const [job] = await db
       .select()
@@ -220,6 +224,7 @@ router.get(
       res.status(400).json({ error: "Invalid tournament ID" });
       return;
     }
+    if (!(await assertTournamentAuction(res, tournamentId))) return;
 
     const jobs = await listImportHistory(tournamentId);
     res.json({ jobs: jobs.sort((a, b) => {
@@ -235,6 +240,13 @@ router.get(
   "/import/jobs/:jobId",
   requireMasterAdmin,
   async (req: Request, res: Response) => {
+    const tournamentId = Number(req.params.id);
+    if (!Number.isFinite(tournamentId)) {
+      res.status(400).json({ error: "Invalid tournament ID" });
+      return;
+    }
+    if (!(await assertTournamentAuction(res, tournamentId))) return;
+
     const jobId = Number(req.params.jobId);
     const detail = await getImportJobDetail(jobId);
     if (!detail) {
@@ -250,8 +262,14 @@ router.post(
   "/import/jobs/:jobId/rollback",
   requireMasterAdmin,
   async (req: Request, res: Response) => {
-    const jobId = Number(req.params.jobId);
     const tournamentId = Number(req.params.id);
+    if (!Number.isFinite(tournamentId)) {
+      res.status(400).json({ error: "Invalid tournament ID" });
+      return;
+    }
+    if (!(await assertTournamentAuction(res, tournamentId))) return;
+
+    const jobId = Number(req.params.jobId);
 
     try {
       const result = await rollbackBulkImportJob(jobId, performedBy(req), clientMeta(req));
@@ -273,7 +291,11 @@ router.post(
 router.post(
   "/import/error-report",
   requireMasterAdmin,
-  (req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
+    const tournamentId = Number(req.params.id);
+    if (Number.isFinite(tournamentId)) {
+      if (!(await assertTournamentAuction(res, tournamentId))) return;
+    }
     const { issues } = req.body as { issues?: unknown };
     if (!Array.isArray(issues)) {
       res.status(400).json({ error: "issues array required" });

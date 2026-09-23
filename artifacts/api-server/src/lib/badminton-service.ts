@@ -25,6 +25,11 @@ import {
   type ScoringSideJson,
 } from "@workspace/db";
 import {
+  assertSportModule,
+  ModuleAuthorizationError,
+} from "../middleware/require-module";
+import { InvalidTournamentModuleStateError } from "@workspace/platform-core";
+import {
   isBadmintonTerminalMatchStatus,
   mapBadmintonStatusToFixtureStatus,
   mapBadmintonStatusToScoringMatchStatus,
@@ -137,29 +142,29 @@ function replayBadmintonViaPlatform(
 export async function ensureBadmintonTournament(tournamentId: number): Promise<void> {
   const [tournament] = await db
     .select({
+      id: tournamentsTable.id,
       sport: tournamentsTable.sport,
+      auctionEnabled: tournamentsTable.auctionEnabled,
       scoringEnabled: tournamentsTable.scoringEnabled,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
 
-  if (!tournament) {
-    throw new BadmintonServiceError("TOURNAMENT_NOT_FOUND", "Tournament not found", 404);
-  }
-  if (tournament.sport !== BADMINTON_SPORT) {
-    throw new BadmintonServiceError(
-      "BADMINTON_SPORT_REQUIRED",
-      "Tournament sport must be badminton",
-      400,
-    );
-  }
-  if (!tournament.scoringEnabled) {
-    throw new BadmintonServiceError(
-      "SCORING_DISABLED",
-      "Scoring is not enabled for this tournament",
-      403,
-    );
+  try {
+    assertSportModule(tournament, BADMINTON_SPORT);
+  } catch (err) {
+    if (err instanceof ModuleAuthorizationError) {
+      throw new BadmintonServiceError(err.code, err.message, err.status);
+    }
+    if (err instanceof InvalidTournamentModuleStateError) {
+      throw new BadmintonServiceError(
+        "INVALID_MODULE_STATE",
+        "A tournament must have at least one enabled product module (auction or scoring).",
+        400,
+      );
+    }
+    throw err;
   }
 }
 
