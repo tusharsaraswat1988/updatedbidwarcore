@@ -27,9 +27,12 @@ export function resolveReturnPath(from: string | null | undefined, tournamentId:
 /** Short label for the reset page back button. */
 export function returnPathBackLabel(path: string): string {
   if (path.includes("/settings")) return "Back to Settings";
+  if (path.includes("/auction-overview") || path.includes("/overview")) {
+    return "Back to Auction Overview";
+  }
   if (path.includes("/auction")) return "Back to Auction Room";
   if (/^\/tournament\/\d+\/?$/.test(path.replace(/\?.*$/, ""))) {
-    return "Back to Auction Overview";
+    return "Back to Tournament Home";
   }
   if (path.includes("/mission-control")) {
     return "Back to Tournament Dashboard";
@@ -46,11 +49,18 @@ export function openAuctionRoom(tournamentId: number): void {
 }
 
 /**
- * Auction Overview — Auction product home (not Sports Mission Control).
- * Historical name `tournamentMissionControlPath` kept as alias for Auction Overview.
+ * Generic Tournament Home — neutral tournament home for all modules.
+ */
+export function tournamentHomePath(tournamentId: number): string {
+  return `/tournament/${tournamentId}`;
+}
+
+/**
+ * Auction Overview — Dedicated Auction workspace overview.
+ * Canonical path: `/tournament/${tournamentId}/auction-overview`
  */
 export function auctionOverviewPath(tournamentId: number): string {
-  return `/tournament/${tournamentId}`;
+  return `/tournament/${tournamentId}/auction-overview`;
 }
 
 /**

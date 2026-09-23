@@ -1,6 +1,7 @@
 export type AdminNotificationPriority = "info" | "warning" | "critical";
 
 export type AdminNotificationCategory =
+  | "License"
   | "Registration"
   | "Tournament"
   | "Contact"
@@ -21,18 +22,31 @@ export type AdminNotificationItem = {
   entityId: number | null;
   actionUrl: string | null;
   isRead: boolean;
+  resolutionStatus: "pending" | "resolved" | "dismissed";
   createdAt: string;
   readAt: string | null;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
   metadata: Record<string, unknown> | null;
+  actionMetadata: Record<string, unknown> | null;
 };
 
 export type AdminNotificationListResponse = {
   items: AdminNotificationItem[];
   total: number;
+  actionRequiredCount?: number;
   page: number;
   limit: number;
   totalPages: number;
 };
+
+export type AdminNotificationRecentResponse = {
+  items: AdminNotificationItem[];
+  actionRequired: AdminNotificationItem[];
+  unreadCount: number;
+  actionRequiredCount: number;
+};
+
 
 export type AdminNotificationSettings = {
   adminName: string;
@@ -108,3 +122,33 @@ export function navigateToNotificationAction(
     navigate("/admin/notifications");
   }
 }
+
+export function cleanIndianMobileForWhatsApp(mobile?: string | null): string {
+  if (!mobile) return "";
+  const digits = mobile.replace(/\D/g, "");
+  if (digits.length === 10) return `91${digits}`;
+  if (digits.length === 12 && digits.startsWith("91")) return digits;
+  return digits;
+}
+
+export function buildWhatsAppLink(mobile: string, text: string): string {
+  const cleaned = cleanIndianMobileForWhatsApp(mobile);
+  if (!cleaned) return "#";
+  return `https://wa.me/${cleaned}?text=${encodeURIComponent(text)}`;
+}
+
+export function buildLicenseRequestWhatsAppMessage(item: AdminNotificationItem): string {
+  const meta = item.actionMetadata || item.metadata || {};
+  const orgName = (meta.organizerName as string) || "Organizer";
+  const tName = (meta.tournamentName as string) || item.title;
+  const modules = (meta.requestedModules as string) || "Auction";
+  return `Hi ${orgName},\n\nWe received your request for *${modules.toUpperCase()} License* for *"${tName}"* on BidWar.\n\nPlease share your payment screenshot or UTR here so we can verify and activate your live license immediately.\n\nThanks,\nBidWar Admin Team`;
+}
+
+export function buildInquiryWhatsAppMessage(item: AdminNotificationItem): string {
+  const meta = item.actionMetadata || item.metadata || {};
+  const name = (meta.name as string) || "there";
+  const subject = (meta.subject as string) || "your inquiry";
+  return `Hi ${name},\n\nThank you for contacting BidWar regarding *"${subject}"*.\n\nHow can we help you further?\n\nBest regards,\nBidWar Support Team`;
+}
+

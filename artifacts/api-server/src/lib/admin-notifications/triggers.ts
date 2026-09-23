@@ -37,3 +37,22 @@ export function notifyAdminContactFormSubmission(params: {
 }): void {
   sendAdminNotificationAsync("CONTACT_FORM_SUBMISSION", params);
 }
+
+export function notifyAdminLicenseRequested(params: {
+  requestId: number;
+  tournamentId: number;
+  tournamentName: string;
+  sport: string;
+  organizerId: number;
+  organizerName: string;
+  organizerMobile: string;
+  requestedModules: "auction" | "scoring" | "both";
+  notes?: string | null;
+  requestedAt?: string;
+}): void {
+  sendAdminNotificationAsync("LICENSE_REQUESTED", {
+    ...params,
+    requestedAt: params.requestedAt ?? new Date().toISOString(),
+  });
+}
+

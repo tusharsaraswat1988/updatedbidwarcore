@@ -18,6 +18,10 @@ import {
   syncOrganizerAccountAuth,
 } from "@/lib/organizer-account-auth-cache";
 import { useQueryClient } from "@tanstack/react-query";
+import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
+import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 
 function OrganizerAccessLoading({ badmintonRoute }: { badmintonRoute: boolean }) {
   if (badmintonRoute) {
@@ -49,12 +53,27 @@ function scoringLoginUrl(returnTo: string): string {
   return `${SCORING_APP_BASE}/login?next=${encodeURIComponent(returnTo)}`;
 }
 
-export function OrganizerGuard({ tournamentId, children }: { tournamentId: number; children: ReactNode }) {
+export function OrganizerGuard({
+  tournamentId,
+  requiredModule,
+  children,
+}: {
+  tournamentId: number;
+  requiredModule?: "auction" | "scoring";
+  children: ReactNode;
+}) {
   const { isLoggedIn, isLoading, refetch } = useOrganizerAuth(tournamentId);
   const { isLoading: accountLoading } = useOrganizerAccountAuth();
   const [location, navigate] = useLocation();
   const search = useSearch();
   const queryClient = useQueryClient();
+
+  const { data: tournament } = useGetTournament(tournamentId, {
+    query: {
+      queryKey: getGetTournamentQueryKey(tournamentId),
+      enabled: !!tournamentId && !!requiredModule,
+    },
+  });
 
   const badmintonRoute = isBadmintonOrganizerPath(location);
   const inScoringApp =
@@ -190,6 +209,54 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6 text-sm text-muted-foreground">
         Redirecting to sign in…
+      </div>
+    );
+  }
+
+  if (tournament && requiredModule === "auction" && !isAuctionEnabled(tournament)) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="max-w-md w-full rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center space-y-4">
+          <AlertCircle className="w-10 h-10 text-destructive mx-auto" />
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold text-foreground">Auction Workspace Not Enabled</h2>
+            <p className="text-sm text-muted-foreground">
+              This tournament is configured for Sports Scoring only. The Auction module is disabled.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/tournament/${tournamentId}`)}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Go to Tournament Home
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (tournament && requiredModule === "scoring" && !isScoringEnabled(tournament)) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="max-w-md w-full rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center space-y-4">
+          <AlertCircle className="w-10 h-10 text-destructive mx-auto" />
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold text-foreground">Sports Scoring Not Enabled</h2>
+            <p className="text-sm text-muted-foreground">
+              This tournament is configured for Auction only. The Sports Scoring module is disabled.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/tournament/${tournamentId}`)}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Go to Tournament Home
+          </Button>
+        </div>
       </div>
     );
   }

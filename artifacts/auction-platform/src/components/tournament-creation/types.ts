@@ -1,4 +1,6 @@
-export type WizardStepId = "details" | "experience";
+import type { TournamentProductMode } from "@workspace/platform-core";
+
+export type WizardStepId = "details" | "products" | "configuration";
 
 export type LicenseOptionId = "auction_only" | "scoring_only" | "auction_and_scoring";
 
@@ -7,7 +9,9 @@ export type TournamentCreationDraft = {
   city: string;
   venue: string;
   sportId: string;
-  licenseType: LicenseOptionId;
+  productMode: TournamentProductMode;
+  /** Legacy compatibility alias */
+  licenseType?: LicenseOptionId;
   basePurse: string;
   minBid: string;
   bidIncrement: string;
@@ -20,13 +24,18 @@ export type TournamentCreationDraft = {
 export const WIZARD_STEPS: { id: WizardStepId; title: string; job: string }[] = [
   {
     id: "details",
-    title: "Tournament Setup",
-    job: "Enter basic details to get started",
+    title: "1. Tournament Setup",
+    job: "Enter basic details and choose a sport",
   },
   {
-    id: "experience",
-    title: "License Type",
-    job: "Select the features you want for this tournament",
+    id: "products",
+    title: "2. Product Modules",
+    job: "Select Auction, Sports Scoring, or Both",
+  },
+  {
+    id: "configuration",
+    title: "3. Configuration",
+    job: "Configure rules and economics for selected products",
   },
 ];
 
@@ -38,6 +47,7 @@ export function emptyTournamentCreationDraft(
     city: "",
     venue: "",
     sportId: "cricket",
+    productMode: "auction_only",
     licenseType: "auction_only",
     basePurse: "10000000",
     minBid: "100000",

@@ -15,7 +15,8 @@ import { BootSplash } from "@/components/boot-splash";
 const TournamentSettings = lazy(() => import("@/pages/tournament-settings"));
 const AuctionOperator = lazy(() => import("@/pages/auction-operator"));
 const NewTournament = lazy(() => import("@/pages/tournament-new"));
-const TournamentHub = lazy(() => import("@/pages/tournament-hub"));
+const TournamentHome = lazy(() => import("@/pages/tournament-home"));
+const AuctionOverview = lazy(() => import("@/pages/auction-overview"));
 const Teams = lazy(() => import("@/pages/teams"));
 const Categories = lazy(() => import("@/pages/categories"));
 const Players = lazy(() => import("@/pages/players"));
@@ -256,73 +257,85 @@ function PlatformRouter() {
         <Route path="/tournament/:id">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><TournamentHub /></OrganizerGuard>;
+            return <OrganizerGuard tournamentId={tid}><TournamentHome /></OrganizerGuard>;
+          }}
+        </Route>
+        <Route path="/tournament/:id/auction-overview">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><AuctionOverview /></OrganizerGuard>;
+          }}
+        </Route>
+        <Route path="/tournament/:id/overview">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><AuctionOverview /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/teams">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><Teams /></OrganizerGuard>;
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><Teams /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/categories">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><Categories /></OrganizerGuard>;
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><Categories /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/players">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><Players /></OrganizerGuard>;
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><Players /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/auction">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><AuctionOperator /></OrganizerGuard>;
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><AuctionOperator /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/reset">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><AuctionReset /></OrganizerGuard>;
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><AuctionReset /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/reports">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><Reports /></OrganizerGuard>;
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><Reports /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/team-reports">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><TeamReports /></OrganizerGuard>;
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><TeamReports /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/links">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><LinksPage /></OrganizerGuard>;
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><LinksPage /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/fortune-wheel">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><FortuneWheel /></OrganizerGuard>;
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><FortuneWheel /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/break-timer">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><BreakTimerPage /></OrganizerGuard>;
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><BreakTimerPage /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/local-mode">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><LocalModePage /></OrganizerGuard>;
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><LocalModePage /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/settings">
@@ -332,7 +345,12 @@ function PlatformRouter() {
           }}
         </Route>
         {/* Sports Mission Control — temporary host under scoring-app */}
-        <Route path="/tournament/:id/mission-control" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/mission-control">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid} requiredModule="scoring"><RedirectToScoringApp /></OrganizerGuard>;
+          }}
+        </Route>
         <Route path="/tournament/:id/cricket/match/:matchId" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/cricket/player/:playerId" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/cricket/team/:teamId" component={RedirectToScoringApp} />
@@ -356,7 +374,12 @@ function PlatformRouter() {
         <Route path="/tournament/:id/score/links" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/score/:matchId/live" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/score/:matchId" component={RedirectToScoringApp} />
-        <Route path="/tournament/:id/score" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid} requiredModule="scoring"><RedirectToScoringApp /></OrganizerGuard>;
+          }}
+        </Route>
         <Route path="/tournament/:id/badminton/players" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/matches/:matchId/control" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/matches" component={RedirectToScoringApp} />
@@ -371,7 +394,12 @@ function PlatformRouter() {
         <Route path="/tournament/:id/badminton/analytics" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/branding" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/broadcast" component={RedirectToScoringApp} />
-        <Route path="/tournament/:id/badminton" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid} requiredModule="scoring"><RedirectToScoringApp /></OrganizerGuard>;
+          }}
+        </Route>
 
         <Route component={NotFound} />
       </Switch>

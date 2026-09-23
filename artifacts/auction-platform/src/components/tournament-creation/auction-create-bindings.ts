@@ -1,6 +1,7 @@
 import { CatalogRegistry } from "@workspace/platform-core/catalog";
+import type { TournamentProductMode } from "@workspace/platform-core";
 
-/** Silent catalog bindings for auction-platform create. Sports entry questions are deferred. */
+/** Silent catalog bindings for tournament create. */
 export type AuctionCreateCatalogBindings = {
   variantId: string;
   competitionTypeId: string;
@@ -13,13 +14,16 @@ export type AuctionCreateCatalogBindings = {
 const AUCTION_COMPETITION_TYPE_ID = "auction";
 
 /**
- * Resolve create-time catalog bindings for the auction product.
- * Always prefers competition type `auction` when the sport supports it.
- * Does not set registration mode / team formation / squad rules — those belong
- * to Sports Mission Control Competition setup.
+ * Resolve create-time catalog bindings for tournament creation.
+ * - When productMode is scoring_only: prefers "registered_teams" if supported by the sport.
+ * - When productMode is auction_only or both: reuses existing "auction" competition type.
+ *
+ * NOTE: Following Phase 2 architectural rules, productMode and competitionType are decoupled.
+ * We reuse existing competition types and do not invent new ones.
  */
 export function resolveAuctionCreateCatalogBindings(
   sportId: string,
+  productMode: TournamentProductMode = "auction_only",
 ): AuctionCreateCatalogBindings | { error: string } {
   const sport = CatalogRegistry.getSport(sportId);
   if (!sport) return { error: `Unknown sport: ${sportId}` };
@@ -32,14 +36,17 @@ export function resolveAuctionCreateCatalogBindings(
     variants.find((v) => v.recommendation === "auto_suggested") ??
     variants[0]!;
 
-  const competitionTypeId = sport.supportedCompetitionTypes.includes(
-    AUCTION_COMPETITION_TYPE_ID,
-  )
-    ? AUCTION_COMPETITION_TYPE_ID
-    : (sport.supportedCompetitionTypes[0] ?? AUCTION_COMPETITION_TYPE_ID);
+  let competitionTypeId: string;
+  if (productMode === "scoring_only" && sport.supportedCompetitionTypes.includes("registered_teams")) {
+    competitionTypeId = "registered_teams";
+  } else if (sport.supportedCompetitionTypes.includes(AUCTION_COMPETITION_TYPE_ID)) {
+    competitionTypeId = AUCTION_COMPETITION_TYPE_ID;
+  } else {
+    competitionTypeId = sport.supportedCompetitionTypes[0] ?? AUCTION_COMPETITION_TYPE_ID;
+  }
 
   if (!sport.supportedCompetitionTypes.includes(competitionTypeId)) {
-    return { error: "Sport does not support an auction competition type." };
+    return { error: `Sport does not support ${competitionTypeId} competition type.` };
   }
 
   const suggested = CatalogRegistry.suggestDefaults({

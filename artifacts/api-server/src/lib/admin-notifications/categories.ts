@@ -1,6 +1,7 @@
 import type { AdminNotificationEventType } from "./types.js";
 
 export const ADMIN_NOTIFICATION_CATEGORIES = [
+  "License",
   "Registration",
   "Tournament",
   "Contact",
@@ -14,6 +15,7 @@ export const ADMIN_NOTIFICATION_CATEGORIES = [
 export type AdminNotificationCategory = (typeof ADMIN_NOTIFICATION_CATEGORIES)[number];
 
 const EVENT_CATEGORY_MAP: Record<AdminNotificationEventType, AdminNotificationCategory> = {
+  LICENSE_REQUESTED: "License",
   NEW_ORGANISER_REGISTERED: "Registration",
   NEW_TOURNAMENT_CREATED: "Tournament",
   CONTACT_FORM_SUBMISSION: "Contact",

@@ -37,6 +37,7 @@ import { AuditReasonDialog } from "@/components/audit-reason-dialog";
 import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
 import { payloadHasTournamentConfigFields } from "@/lib/audit-reason";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { isScoringSupportedSport, type TournamentProductMode } from "@workspace/platform-core";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -183,6 +184,7 @@ export function CreateTournamentModal({
   const [form, setForm] = useState({
     name: "",
     sport: "cricket",
+    productMode: "auction_only" as TournamentProductMode,
     city: "",
     venue: "",
     auctionDate: "",
@@ -197,6 +199,10 @@ export function CreateTournamentModal({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const scoringSupported = isScoringSupportedSport(form.sport);
+  const isAuction = form.productMode === "auction_only" || form.productMode === "both";
+  const isScoring = form.productMode === "scoring_only" || form.productMode === "both";
 
   function f(k: string) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -226,17 +232,19 @@ export function CreateTournamentModal({
     const r = await createAdminTournament({
       name: form.name.trim(),
       sport: form.sport,
+      auctionEnabled: isAuction,
+      scoringEnabled: isScoring,
       city: form.city.trim(),
       venue: form.venue || undefined,
-      auctionDate: form.auctionDate || undefined,
-      auctionTime: form.auctionTime || undefined,
+      auctionDate: isAuction ? (form.auctionDate || undefined) : undefined,
+      auctionTime: isAuction ? (form.auctionTime || undefined) : undefined,
       organizerName: form.organizerName || undefined,
       organizerMobile,
       organizerEmail: form.organizerEmail || undefined,
-      basePurse: Number(form.basePurse) || 10000000,
-      minBid: Number(form.minBid) || 100000,
-      timerSeconds: Number(form.timerSeconds) || 30,
-      bidTimerSeconds: Number(form.bidTimerSeconds) || 15,
+      basePurse: isAuction ? (Number(form.basePurse) || 10000000) : 10000000,
+      minBid: isAuction ? (Number(form.minBid) || 100000) : 100000,
+      timerSeconds: isAuction ? (Number(form.timerSeconds) || 30) : 30,
+      bidTimerSeconds: isAuction ? (Number(form.bidTimerSeconds) || 15) : 15,
     });
     setLoading(false);
     if (r.success) {
@@ -275,7 +283,14 @@ export function CreateTournamentModal({
                 <Label className="text-xs text-muted-foreground">Sport</Label>
                 <SportSelect
                   value={form.sport}
-                  onValueChange={(v) => setForm((p) => ({ ...p, sport: v }))}
+                  onValueChange={(v) => {
+                    const scoringOk = isScoringSupportedSport(v);
+                    setForm((p) => ({
+                      ...p,
+                      sport: v,
+                      productMode: !scoringOk && p.productMode !== "auction_only" ? "auction_only" : p.productMode,
+                    }));
+                  }}
                 />
               </div>
               <div className="space-y-1.5">
@@ -288,6 +303,58 @@ export function CreateTournamentModal({
                   showHint={false}
                 />
               </div>
+
+              <div className="col-span-2 space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Product Modules *</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setForm((p) => ({ ...p, productMode: "auction_only" }))}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all text-xs",
+                      form.productMode === "auction_only"
+                        ? "border-primary bg-primary/10 text-primary font-medium shadow-sm"
+                        : "border-border/60 hover:border-border text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Gavel className="w-4 h-4 mb-1" />
+                    <span>Auction Only</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!scoringSupported}
+                    onClick={() => setForm((p) => ({ ...p, productMode: "scoring_only" }))}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all text-xs",
+                      !scoringSupported && "opacity-40 cursor-not-allowed",
+                      form.productMode === "scoring_only"
+                        ? "border-primary bg-primary/10 text-primary font-medium shadow-sm"
+                        : "border-border/60 hover:border-border text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Trophy className="w-4 h-4 mb-1" />
+                    <span>Scoring Only</span>
+                    {!scoringSupported && <span className="text-[9px] text-muted-foreground">Coming Soon</span>}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!scoringSupported}
+                    onClick={() => setForm((p) => ({ ...p, productMode: "both" }))}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all text-xs",
+                      !scoringSupported && "opacity-40 cursor-not-allowed",
+                      form.productMode === "both"
+                        ? "border-primary bg-primary/10 text-primary font-medium shadow-sm"
+                        : "border-border/60 hover:border-border text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <CircleDot className="w-4 h-4 mb-1" />
+                    <span>Both</span>
+                    {!scoringSupported && <span className="text-[9px] text-muted-foreground">Coming Soon</span>}
+                  </button>
+                </div>
+              </div>
+
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Venue</Label>
                 <Input
@@ -296,39 +363,48 @@ export function CreateTournamentModal({
                   placeholder="Stadium / ground name"
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">
-                  Auction Date
-                </Label>
-                <DatePicker
-                  value={form.auctionDate}
-                  onChange={auctionDate => setForm(p => ({ ...p, auctionDate }))}
-                  placeholder="Select auction date"
-                  disablePastDates
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">
-                  Auction Time
-                </Label>
-                <Input
-                  type="time"
-                  value={form.auctionTime}
-                  onChange={f("auctionTime")}
-                  placeholder="14:00"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">
-                  Base Purse (₹)
-                </Label>
-                <Input
-                  type="number"
-                  value={form.basePurse}
-                  onChange={f("basePurse")}
-                />
-                <IndianAmountHint value={form.basePurse} />
-              </div>
+
+              {isAuction ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">
+                      Auction Date
+                    </Label>
+                    <DatePicker
+                      value={form.auctionDate}
+                      onChange={auctionDate => setForm(p => ({ ...p, auctionDate }))}
+                      placeholder="Select auction date"
+                      disablePastDates
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">
+                      Auction Time
+                    </Label>
+                    <Input
+                      type="time"
+                      value={form.auctionTime}
+                      onChange={f("auctionTime")}
+                      placeholder="14:00"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">
+                      Base Purse (₹)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={form.basePurse}
+                      onChange={f("basePurse")}
+                    />
+                    <IndianAmountHint value={form.basePurse} />
+                  </div>
+                </>
+              ) : (
+                <div className="col-span-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground">Sports Scoring Tournament:</span> Direct team and player registration will be configured in the match center. Auction economics are omitted.
+                </div>
+              )}
             </div>
 
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">
@@ -373,33 +449,37 @@ export function CreateTournamentModal({
               </div>
             </div>
 
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">
-              Auction Settings
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Timer className="w-3 h-3" />
-                  First Bid Timer (s)
-                </Label>
-                <Input
-                  type="number"
-                  value={form.timerSeconds}
-                  onChange={f("timerSeconds")}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Timer className="w-3 h-3" />
-                  Subsequent Bid Timer (s)
-                </Label>
-                <Input
-                  type="number"
-                  value={form.bidTimerSeconds}
-                  onChange={f("bidTimerSeconds")}
-                />
-              </div>
-            </div>
+            {isAuction && (
+              <>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">
+                  Auction Settings
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Timer className="w-3 h-3" />
+                      First Bid Timer (s)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={form.timerSeconds}
+                      onChange={f("timerSeconds")}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Timer className="w-3 h-3" />
+                      Subsequent Bid Timer (s)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={form.bidTimerSeconds}
+                      onChange={f("bidTimerSeconds")}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
         <DialogFooter className="pt-2">

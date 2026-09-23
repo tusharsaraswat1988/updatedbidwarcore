@@ -3,15 +3,15 @@ import { describe, it } from "node:test";
 import { resolveAuctionCreateCatalogBindings } from "../../components/tournament-creation/auction-create-bindings.ts";
 import { WIZARD_STEPS } from "../../components/tournament-creation/types.ts";
 
-describe("auction create wizard steps", () => {
-  it("keeps only auction-platform steps", () => {
+describe("tournament create wizard steps", () => {
+  it("uses the 3-step module-driven creation workflow", () => {
     assert.deepEqual(
       WIZARD_STEPS.map((s) => s.id),
-      ["details", "experience"],
+      ["details", "products", "configuration"],
     );
   });
 
-  it("does not include sports catalog steps", () => {
+  it("does not include sports catalog sub-steps", () => {
     const ids = new Set(WIZARD_STEPS.map((s) => s.id));
     for (const sportsStep of [
       "variant",
@@ -28,8 +28,8 @@ describe("auction create wizard steps", () => {
 });
 
 describe("resolveAuctionCreateCatalogBindings", () => {
-  it("defaults cricket create to auction competition", () => {
-    const bindings = resolveAuctionCreateCatalogBindings("cricket");
+  it("defaults cricket create to auction competition when auction_only", () => {
+    const bindings = resolveAuctionCreateCatalogBindings("cricket", "auction_only");
     assert.equal("error" in bindings, false);
     if ("error" in bindings) return;
     assert.equal(bindings.competitionTypeId, "auction");
@@ -38,12 +38,34 @@ describe("resolveAuctionCreateCatalogBindings", () => {
     assert.ok(bindings.presentationProfileId);
   });
 
-  it("defaults badminton create to auction when supported", () => {
-    const bindings = resolveAuctionCreateCatalogBindings("badminton");
+  it("resolves scoring_only to registered_teams without requiring auction economics", () => {
+    const bindings = resolveAuctionCreateCatalogBindings("cricket", "scoring_only");
+    assert.equal("error" in bindings, false);
+    if ("error" in bindings) return;
+    assert.equal(bindings.competitionTypeId, "registered_teams");
+    assert.match(bindings.variantId, /^cricket\./);
+  });
+
+  it("resolves both to auction competition type (reusing existing competition type)", () => {
+    const bindings = resolveAuctionCreateCatalogBindings("cricket", "both");
+    assert.equal("error" in bindings, false);
+    if ("error" in bindings) return;
+    assert.equal(bindings.competitionTypeId, "auction");
+  });
+
+  it("defaults badminton create to auction when auction_only", () => {
+    const bindings = resolveAuctionCreateCatalogBindings("badminton", "auction_only");
     assert.equal("error" in bindings, false);
     if ("error" in bindings) return;
     assert.equal(bindings.competitionTypeId, "auction");
     assert.equal(bindings.variantId, "badminton.standard");
+  });
+
+  it("resolves badminton scoring_only to registered_teams", () => {
+    const bindings = resolveAuctionCreateCatalogBindings("badminton", "scoring_only");
+    assert.equal("error" in bindings, false);
+    if ("error" in bindings) return;
+    assert.equal(bindings.competitionTypeId, "registered_teams");
   });
 
   it("rejects unknown sports", () => {

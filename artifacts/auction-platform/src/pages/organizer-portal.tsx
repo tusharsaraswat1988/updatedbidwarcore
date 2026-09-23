@@ -57,6 +57,7 @@ import { SITE_CONTACT } from "@/lib/public-site-links";
 import { useToast } from "@/hooks/use-toast";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { TrialLicenseBadge } from "@/components/trial-license-badge";
+import { RequestTournamentLicenseModal } from "@/components/request-tournament-license-modal";
 import { isOrganizerAccountLocked } from "@workspace/api-base/organizer-account";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
@@ -1542,6 +1543,47 @@ function OrganizerDashboard({
   const [sportFilter, setSportFilter] = useState<string>("all");
   const [downloadingRulesTid, setDownloadingRulesTid] = useState<number | null>(null);
 
+  const [licenseModalOpen, setLicenseModalOpen] = useState(false);
+  const [selectedTournamentForLicense, setSelectedTournamentForLicense] = useState<Tournament | null>(null);
+  const [pendingLicenseRequests, setPendingLicenseRequests] = useState<Record<number, boolean>>({});
+
+  const fetchPendingLicenseRequests = useCallback(async () => {
+    if (!tournaments || tournaments.length === 0) return;
+    const trialTournaments = tournaments.filter((t) => t.licenseStatus !== "active");
+    if (trialTournaments.length === 0) return;
+
+    try {
+      const results = await Promise.all(
+        trialTournaments.map(async (t) => {
+          try {
+            const res = await fetch(`/api/tournaments/${t.id}/license-request`, { credentials: "include" });
+            if (!res.ok) return null;
+            const data = (await res.json()) as { request?: { status?: string } | null };
+            return data?.request?.status === "pending" ? t.id : null;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      const map: Record<number, boolean> = {};
+      results.forEach((id) => {
+        if (id) map[id] = true;
+      });
+      setPendingLicenseRequests(map);
+    } catch {
+      // non-critical
+    }
+  }, [tournaments]);
+
+  useEffect(() => {
+    void fetchPendingLicenseRequests();
+  }, [fetchPendingLicenseRequests]);
+
+  function handleOpenLicenseRequest(t: Tournament) {
+    setSelectedTournamentForLicense(t);
+    setLicenseModalOpen(true);
+  }
+
   const [spDismissed, setSpDismissed] = useState(false);
   const [spPassword, setSpPassword] = useState("");
   const [spConfirm, setSpConfirm] = useState("");
@@ -2060,6 +2102,28 @@ function OrganizerDashboard({
                               }`} />
                               {getOrganizerAuctionStatusLabel(t.status)}
                             </span>
+
+                            {t.licenseStatus !== "active" && !isCompleted && (
+                              pendingLicenseRequests[t.id] ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                  <Clock className="w-2.5 h-2.5 animate-pulse" />
+                                  License Requested
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenLicenseRequest(t);
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-amber-500/20 to-amber-600/20 text-amber-300 border border-amber-500/40 hover:border-amber-400 hover:bg-amber-500/30 transition-all cursor-pointer shadow-sm"
+                                  title="Upgrade tournament from Trial to Live license"
+                                >
+                                  <Zap className="w-2.5 h-2.5 text-amber-400" />
+                                  Need License
+                                </button>
+                              )
+                            )}
                           </div>
 
                           <h3
@@ -2083,6 +2147,16 @@ function OrganizerDashboard({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48 dark">
+                            {t.licenseStatus !== "active" && !isCompleted && (
+                              <DropdownMenuItem
+                                disabled={isLocked}
+                                onClick={() => handleOpenLicenseRequest(t)}
+                                className="gap-2 cursor-pointer text-amber-300 font-semibold"
+                              >
+                                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                                {pendingLicenseRequests[t.id] ? "License Under Review" : "Request Live License"}
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => navigate(`/tournament/${t.id}/settings`)} className="gap-2 cursor-pointer">
                               <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" /> Settings
                             </DropdownMenuItem>
@@ -2219,6 +2293,20 @@ function OrganizerDashboard({
         onClose={() => setCreateOpen(false)}
         onCreated={(tournamentId) => {
           if (!tournamentId) setCreateOpen(false);
+          onRefresh();
+        }}
+      />
+
+      <RequestTournamentLicenseModal
+        open={licenseModalOpen}
+        onClose={() => {
+          setLicenseModalOpen(false);
+          setSelectedTournamentForLicense(null);
+        }}
+        tournament={selectedTournamentForLicense}
+        initialMobile={organizer.mobile}
+        onSuccess={() => {
+          void fetchPendingLicenseRequests();
           onRefresh();
         }}
       />

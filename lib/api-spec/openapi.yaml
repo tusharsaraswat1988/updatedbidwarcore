@@ -2426,6 +2426,13 @@ components:
         matchDates:
           type: ["string", "null"]
           description: "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty/null hides availability everywhere."
+        auctionEnabled:
+          type: boolean
+          description: "Whether the Auction product module is enabled for this tournament"
+        productMode:
+          type: string
+          enum: [auction_only, scoring_only, both]
+          description: "Derived product mode based on auctionEnabled and scoringEnabled flags"
         scoringEnabled:
           type: boolean
           description: "Whether mobile cricket scoring is enabled for this tournament"

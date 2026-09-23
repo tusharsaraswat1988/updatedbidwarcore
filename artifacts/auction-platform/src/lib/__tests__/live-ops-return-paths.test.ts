@@ -38,8 +38,14 @@ describe("Live Ops return + cricket path helpers", () => {
     assert.equal(resolveReturnPath("https://evil.example", TID), AUCTION_OVERVIEW);
   });
 
-  it("returnPathBackLabel names Auction Overview for auction hub paths", () => {
+  it("returnPathBackLabel names Auction Overview for auction overview and alias paths", () => {
     assert.match(returnPathBackLabel(AUCTION_OVERVIEW), /Auction Overview/i);
+    assert.match(returnPathBackLabel(`/tournament/${TID}/overview`), /Auction Overview/i);
+  });
+
+  it("returnPathBackLabel names Tournament Home for root tournament path", () => {
+    assert.match(returnPathBackLabel(`/tournament/${TID}`), /Tournament Home/i);
+    assert.match(returnPathBackLabel(`/tournament/${TID}/`), /Tournament Home/i);
   });
 
   it("returnPathBackLabel names Tournament Dashboard for Sports home paths", () => {

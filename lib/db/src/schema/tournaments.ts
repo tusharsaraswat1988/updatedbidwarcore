@@ -124,6 +124,13 @@ export const tournamentsTable = pgTable("tournaments", {
    * `hidden` | `player_select` | `organizer_assign`
    */
   registrationCategoryMode: text("registration_category_mode").notNull().default("hidden"),
+  // Product modules (orthogonal capabilities)
+  /**
+   * Auction module enablement flag.
+   * NOTE: default(true) is strictly a backward-compatibility database bridge for legacy rows.
+   * It is NOT a permanent business default for newly created tournaments.
+   */
+  auctionEnabled: boolean("auction_enabled").notNull().default(true),
   // Scoring module (orthogonal to auction status)
   scoringEnabled: boolean("scoring_enabled").notNull().default(false),
   scoringPhase: text("scoring_phase").notNull().default("disabled"),

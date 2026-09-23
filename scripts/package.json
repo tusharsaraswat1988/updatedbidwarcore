@@ -12,6 +12,7 @@
     "seed:vnbl3-league": "tsx --env-file=../.env src/seed-vnbl3-league-fixtures.ts",
     "seed:varanasi": "tsx --env-file=../.env src/seed-varanasi-tournament.ts",
     "inspect:t10": "tsx --env-file=../.env src/inspect-t10.ts",
+    "audit:modules": "tsx --env-file=../.env src/audit-tournament-modules.ts",
     "migrate": "tsx src/migrate.ts",
     "dev": "node ./dev.mjs",
     "dev:stop": "node ./dev-stop.mjs",

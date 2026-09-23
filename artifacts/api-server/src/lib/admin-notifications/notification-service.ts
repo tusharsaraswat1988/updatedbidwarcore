@@ -40,6 +40,28 @@ type EventDefinition<E extends AdminNotificationEventType> = {
 const EVENT_DEFINITIONS: {
   [E in AdminNotificationEventType]: EventDefinition<E>;
 } = {
+  LICENSE_REQUESTED: {
+    priority: "warning",
+    category: "License",
+    title: "License Requested",
+    buildMessage: (p) =>
+      `${p.organizerName} requested ${p.requestedModules.toUpperCase()} license for "${p.tournamentName}".`,
+    entityType: "tournament",
+    entityId: (p) => p.tournamentId,
+    actionUrl: (p, appUrl) => `${appUrl}/admin/tournaments/${p.tournamentId}`,
+    metadata: (p) => ({
+      requestId: p.requestId,
+      tournamentId: p.tournamentId,
+      tournamentName: p.tournamentName,
+      sport: p.sport,
+      organizerId: p.organizerId,
+      organizerName: p.organizerName,
+      organizerMobile: p.organizerMobile,
+      requestedModules: p.requestedModules,
+      notes: p.notes ?? null,
+      requestedAt: p.requestedAt,
+    }),
+  },
   NEW_ORGANISER_REGISTERED: {
     priority: "info",
     category: "Registration",
@@ -178,6 +200,8 @@ async function publishNotificationCreated(
       actionUrl: dto.actionUrl,
       createdAt: dto.createdAt,
       isRead: dto.isRead,
+      resolutionStatus: dto.resolutionStatus,
+      actionMetadata: dto.actionMetadata,
     },
     unreadCount,
   });
@@ -191,6 +215,7 @@ async function insertInAppNotification<E extends AdminNotificationEventType>(
   const definition = EVENT_DEFINITIONS[eventType];
   const appUrl = getAppUrl();
   const category = definition.category ?? resolveNotificationCategory(eventType);
+  const actionMeta = definition.metadata(payload);
 
   const [row] = await db
     .insert(adminNotificationsTable)
@@ -203,7 +228,9 @@ async function insertInAppNotification<E extends AdminNotificationEventType>(
       entityType: definition.entityType,
       entityId: definition.entityId(payload),
       actionUrl: definition.actionUrl(payload, appUrl),
-      metadata: definition.metadata(payload),
+      resolutionStatus: "pending",
+      metadata: actionMeta,
+      actionMetadata: actionMeta,
     })
     .returning();
 

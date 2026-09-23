@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { CatalogRegistry } from "@workspace/platform-core/catalog";
+import { isScoringSupportedSport } from "@workspace/platform-core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CityAutocomplete } from "@/components/city-autocomplete";
+import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import {
   Loader2,
   Trophy,
@@ -13,9 +15,12 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  Lock,
   Gavel,
-  Zap,
+  Coins,
+  Calendar,
+  Layers,
+  Sparkles,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveAuctionCreateCatalogBindings } from "./auction-create-bindings";
@@ -37,12 +42,13 @@ export type TournamentCreationPayload = {
   ruleProfileVersion: string;
   presentationProfileId: string;
   presentationProfileVersion: string;
-  basePurse: number;
-  minBid: number;
-  bidIncrement: number;
+  auctionEnabled: boolean;
+  scoringEnabled: boolean;
+  basePurse?: number;
+  minBid?: number;
+  bidIncrement?: number;
   auctionDate?: string;
   auctionTime?: string;
-  scoringEnabled?: boolean;
   playerRegistrationMode?: string;
 };
 
@@ -64,15 +70,12 @@ function getSportEmoji(id: string) {
   const s = (id || "").toLowerCase();
   if (s.includes("cricket")) return "🏏";
   if (s.includes("badminton")) return "🏸";
-  if (s.includes("football") || s.includes("soccer")) return "⚽";
-  if (s.includes("tennis") || s.includes("pickleball")) return "🎾";
+  if (s.includes("football")) return "⚽";
   if (s.includes("kabaddi")) return "🤼";
   if (s.includes("volleyball")) return "🏐";
   if (s.includes("basketball")) return "🏀";
   return "🏆";
 }
-
-const STEP_LABELS = ["1. Tournament Setup", "2. License & Launch"];
 
 export function TournamentCreationWizard({
   mode = "page",
@@ -91,8 +94,17 @@ export function TournamentCreationWizard({
   const sports = CatalogRegistry.listSportsForCreation();
   const isDialog = mode === "dialog";
 
+  const sportSupportsScoring = isScoringSupportedSport(draft.sportId);
+
   function patch(partial: Partial<TournamentCreationDraft>) {
-    setDraft((d) => ({ ...d, ...partial }));
+    setDraft((d) => {
+      const next = { ...d, ...partial };
+      // If sport changed to one that doesn't support scoring, reset productMode to auction_only
+      if (partial.sportId && !isScoringSupportedSport(partial.sportId) && next.productMode !== "auction_only") {
+        next.productMode = "auction_only";
+      }
+      return next;
+    });
     setError("");
   }
 
@@ -103,8 +115,27 @@ export function TournamentCreationWizard({
         if (!draft.sportId) return "Select a sport to continue.";
         if (!draft.city.trim()) return "City is required.";
         return null;
-      case "experience": {
-        const bindings = resolveAuctionCreateCatalogBindings(draft.sportId);
+      case "products":
+        if (!draft.productMode) return "Select a product module combination to continue.";
+        if (
+          (draft.productMode === "scoring_only" || draft.productMode === "both") &&
+          !isScoringSupportedSport(draft.sportId)
+        ) {
+          return `Sports scoring is currently only supported for Cricket and Badminton. Choose Live Auction Only for ${draft.sportId}.`;
+        }
+        return null;
+      case "configuration": {
+        const auctionEnabled = draft.productMode === "auction_only" || draft.productMode === "both";
+        if (auctionEnabled) {
+          const basePurse = parseInt(draft.basePurse || "0", 10);
+          const minBid = parseInt(draft.minBid || "0", 10);
+          const bidIncrement = parseInt(draft.bidIncrement || "0", 10);
+          if (isNaN(basePurse) || basePurse < 1) return "Team budget (base purse) must be at least 1.";
+          if (isNaN(minBid) || minBid < 1) return "Minimum player bid must be at least 1.";
+          if (isNaN(bidIncrement) || bidIncrement < 1) return "Bid increment must be at least 1.";
+          if (minBid > basePurse) return "Minimum bid cannot exceed the total team budget.";
+        }
+        const bindings = resolveAuctionCreateCatalogBindings(draft.sportId, draft.productMode);
         if ("error" in bindings) return bindings.error;
         return null;
       }
@@ -129,13 +160,13 @@ export function TournamentCreationWizard({
   }
 
   async function handleCreate() {
-    const err = validateStep("experience");
+    const err = validateStep("configuration");
     if (err) {
       setError(err);
       return;
     }
 
-    const bindings = resolveAuctionCreateCatalogBindings(draft.sportId);
+    const bindings = resolveAuctionCreateCatalogBindings(draft.sportId, draft.productMode);
     if ("error" in bindings) {
       setError(bindings.error);
       return;
@@ -144,10 +175,8 @@ export function TournamentCreationWizard({
     setLoading(true);
     setError("");
 
-    const isScoring =
-      draft.licenseType === "scoring_only" ||
-      draft.licenseType === "auction_and_scoring";
-    const isScoringOnly = draft.licenseType === "scoring_only";
+    const auctionEnabled = draft.productMode === "auction_only" || draft.productMode === "both";
+    const scoringEnabled = draft.productMode === "scoring_only" || draft.productMode === "both";
 
     const payload: TournamentCreationPayload = {
       name: draft.name.trim(),
@@ -160,11 +189,13 @@ export function TournamentCreationWizard({
       ruleProfileVersion: bindings.ruleProfileVersion,
       presentationProfileId: bindings.presentationProfileId,
       presentationProfileVersion: bindings.presentationProfileVersion,
-      basePurse: parseInt(draft.basePurse || "10000000", 10),
-      minBid: parseInt(draft.minBid || "100000", 10),
-      bidIncrement: parseInt(draft.bidIncrement || "50000", 10),
-      scoringEnabled: isScoring,
-      playerRegistrationMode: isScoringOnly ? "scoring" : "auction",
+      auctionEnabled,
+      scoringEnabled,
+      basePurse: auctionEnabled ? parseInt(draft.basePurse || "10000000", 10) : undefined,
+      minBid: auctionEnabled ? parseInt(draft.minBid || "100000", 10) : undefined,
+      bidIncrement: auctionEnabled ? parseInt(draft.bidIncrement || "50000", 10) : undefined,
+      auctionDate: auctionEnabled && draft.auctionDate ? draft.auctionDate : undefined,
+      playerRegistrationMode: scoringEnabled && !auctionEnabled ? "scoring" : "auction",
     };
 
     const result = await submit(payload);
@@ -208,7 +239,7 @@ export function TournamentCreationWizard({
                   >
                     {isPast ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : idx + 1}
                   </div>
-                  <span className="tracking-tight truncate">{STEP_LABELS[idx]}</span>
+                  <span className="tracking-tight truncate">{s.title}</span>
                 </div>
                 {idx < WIZARD_STEPS.length - 1 && (
                   <div
@@ -315,48 +346,15 @@ export function TournamentCreationWizard({
           </div>
         )}
 
-        {/* ════════════════════ STEP 2: PURPOSE & LICENSE SELECTION ════════════════════ */}
-        {step.id === "experience" && (
+        {/* ════════════════════ STEP 2: SELECT PRODUCT MODULES ════════════════════ */}
+        {step.id === "products" && (
           <div className="space-y-3">
-            {/* Option 1: Standalone Match Scoring */}
+            {/* Option 1: Live Auction Only */}
             <div
-              onClick={() => patch({ licenseType: "scoring_only" })}
+              onClick={() => patch({ productMode: "auction_only" })}
               className={cn(
                 "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all cursor-pointer",
-                draft.licenseType === "scoring_only"
-                  ? "border-sky-500/80 bg-sky-500/10 shadow-md shadow-sky-500/10 ring-1 ring-sky-500/50"
-                  : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border",
-              )}
-            >
-              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-2xl shrink-0">
-                📊
-              </div>
-              <div className="flex-1 min-w-0 pr-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-bold text-sm text-foreground">
-                    Standalone Match Scoring (No Auction)
-                  </p>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sky-500/15 text-sky-400 border border-sky-500/30">
-                    Live Ready
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  Fast setup for leagues, box cricket, and knockout tournaments. Ball-by-ball live scoring pad, points table, NRR, stats, and public fan match center.
-                </p>
-              </div>
-              {draft.licenseType === "scoring_only" ? (
-                <CheckCircle2 className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
-              ) : (
-                <div className="w-5 h-5 rounded-full border border-border/80 shrink-0 mt-0.5" />
-              )}
-            </div>
-
-            {/* Option 2: Live Auction Suite */}
-            <div
-              onClick={() => patch({ licenseType: "auction_only" })}
-              className={cn(
-                "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all cursor-pointer",
-                draft.licenseType === "auction_only"
+                draft.productMode === "auction_only"
                   ? "border-amber-500/80 bg-amber-500/10 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/50"
                   : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border",
               )}
@@ -367,31 +365,82 @@ export function TournamentCreationWizard({
               <div className="flex-1 min-w-0 pr-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-bold text-sm text-foreground">
-                    Live Auction Suite (Auction Only)
+                    Live Auction Only
                   </p>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                    Popular
+                    Auction Only
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  Host-controlled player auction console, LED big screen projector view, team owner mobile bidding, and instant purse tracking.
+                  Host-controlled player auction console, LED big screen projector view, team owner mobile bidding, and instant purse tracking. No match scoring required.
                 </p>
               </div>
-              {draft.licenseType === "auction_only" ? (
+              {draft.productMode === "auction_only" ? (
                 <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
               ) : (
                 <div className="w-5 h-5 rounded-full border border-border/80 shrink-0 mt-0.5" />
               )}
             </div>
 
-            {/* Option 3: Auction + Match Scoring Bundle */}
+            {/* Option 2: Standalone Sports Scoring */}
             <div
-              onClick={() => patch({ licenseType: "auction_and_scoring" })}
+              onClick={() => {
+                if (sportSupportsScoring) patch({ productMode: "scoring_only" });
+              }}
               className={cn(
-                "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all cursor-pointer",
-                draft.licenseType === "auction_and_scoring"
+                "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all",
+                sportSupportsScoring ? "cursor-pointer" : "opacity-60 cursor-not-allowed bg-muted/20 border-dashed border-border/40",
+                draft.productMode === "scoring_only"
+                  ? "border-sky-500/80 bg-sky-500/10 shadow-md shadow-sky-500/10 ring-1 ring-sky-500/50"
+                  : sportSupportsScoring
+                    ? "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border"
+                    : "",
+              )}
+            >
+              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-2xl shrink-0">
+                📊
+              </div>
+              <div className="flex-1 min-w-0 pr-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-bold text-sm text-foreground">
+                    Sports Scoring Only (No Auction)
+                  </p>
+                  {sportSupportsScoring ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                      Live Ready
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border/50">
+                      Coming Soon
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  {sportSupportsScoring
+                    ? "Complete match scoring for leagues and tournaments. Ball-by-ball scoring pad, points table, NRR, player stats, and public match center."
+                    : `Live match scoring is currently available for Cricket and Badminton. Support for ${draft.sportId} is coming soon.`}
+                </p>
+              </div>
+              {draft.productMode === "scoring_only" ? (
+                <CheckCircle2 className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
+              ) : (
+                <div className="w-5 h-5 rounded-full border border-border/80 shrink-0 mt-0.5" />
+              )}
+            </div>
+
+            {/* Option 3: Both (Auction + Sports Scoring) */}
+            <div
+              onClick={() => {
+                if (sportSupportsScoring) patch({ productMode: "both" });
+              }}
+              className={cn(
+                "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all",
+                sportSupportsScoring ? "cursor-pointer" : "opacity-60 cursor-not-allowed bg-muted/20 border-dashed border-border/40",
+                draft.productMode === "both"
                   ? "border-primary/80 bg-primary/10 shadow-md shadow-primary/10 ring-1 ring-primary/50"
-                  : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border",
+                  : sportSupportsScoring
+                    ? "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border"
+                    : "",
               )}
             >
               <div className="w-11 h-11 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-2xl shrink-0">
@@ -400,22 +449,148 @@ export function TournamentCreationWizard({
               <div className="flex-1 min-w-0 pr-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-bold text-sm text-foreground">
-                    Auction + Match Scoring Bundle (All-in-One)
+                    Both: Auction + Sports Scoring
                   </p>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary border border-primary/30">
-                    Complete OS
-                  </span>
+                  {sportSupportsScoring ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary border border-primary/30">
+                      Complete Platform
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border/50">
+                      Coming Soon
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  Run the player auction first, then 1-click transition sold squads into tournament fixtures, live match scoring, leaderboards, and OBS streaming.
+                  {sportSupportsScoring
+                    ? "Run the player auction first, then seamlessly transition sold squads into tournament fixtures, live match scoring, and leaderboards."
+                    : `Requires match scoring support for ${draft.sportId}. Choose Live Auction Only for this sport.`}
                 </p>
               </div>
-              {draft.licenseType === "auction_and_scoring" ? (
+              {draft.productMode === "both" ? (
                 <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
               ) : (
                 <div className="w-5 h-5 rounded-full border border-border/80 shrink-0 mt-0.5" />
               )}
             </div>
+          </div>
+        )}
+
+        {/* ════════════════════ STEP 3: CONFIGURE SELECTED PRODUCTS ════════════════════ */}
+        {step.id === "configuration" && (
+          <div className="space-y-4">
+            {/* If Auction is enabled, show Auction Economics */}
+            {(draft.productMode === "auction_only" || draft.productMode === "both") && (
+              <div className="space-y-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+                <div className="flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-amber-400" />
+                  <h3 className="font-bold text-sm text-foreground">Auction Economics</h3>
+                  <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                    Required for Auction
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground">Team Budget (₹)</Label>
+                    <Input
+                      type="number"
+                      value={draft.basePurse}
+                      onChange={(e) => patch({ basePurse: e.target.value })}
+                      placeholder="10000000"
+                      className="h-10 text-sm font-medium"
+                    />
+                    <IndianAmountHint value={draft.basePurse} className="text-[10px]" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground">Min Player Bid (₹)</Label>
+                    <Input
+                      type="number"
+                      value={draft.minBid}
+                      onChange={(e) => patch({ minBid: e.target.value })}
+                      placeholder="100000"
+                      className="h-10 text-sm font-medium"
+                    />
+                    <IndianAmountHint value={draft.minBid} className="text-[10px]" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground">Bid Increment (₹)</Label>
+                    <Input
+                      type="number"
+                      value={draft.bidIncrement}
+                      onChange={(e) => patch({ bidIncrement: e.target.value })}
+                      placeholder="50000"
+                      className="h-10 text-sm font-medium"
+                    />
+                    <IndianAmountHint value={draft.bidIncrement} className="text-[10px]" />
+                  </div>
+                </div>
+
+                <div className="space-y-1 pt-1">
+                  <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Auction Date</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">(optional)</span>
+                  </Label>
+                  <Input
+                    type="date"
+                    value={draft.auctionDate}
+                    onChange={(e) => patch({ auctionDate: e.target.value })}
+                    className="h-10 text-sm font-medium max-w-xs"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* If Scoring is enabled, show Sports Scoring Overview */}
+            {(draft.productMode === "scoring_only" || draft.productMode === "both") && (
+              <div className="space-y-2.5 rounded-2xl border border-sky-500/20 bg-sky-500/5 p-4">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-sky-400" />
+                  <h3 className="font-bold text-sm text-foreground">Sports Scoring Setup</h3>
+                  <span className="text-[10px] font-semibold text-sky-400 uppercase tracking-wider bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20">
+                    {draft.sportId.toUpperCase()}
+                  </span>
+                </div>
+
+                {draft.productMode === "scoring_only" && (
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    No auction economics required. Teams can register complete squads directly, and match fixtures can be scheduled immediately.
+                  </p>
+                )}
+
+                {draft.productMode === "both" && (
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Sold players from the auction will automatically populate team squads for match scoring once the auction concludes.
+                  </p>
+                )}
+
+                <div className="rounded-xl border border-border/50 bg-background/50 p-3 text-xs space-y-1 text-muted-foreground">
+                  <div className="flex items-center gap-1.5 font-medium text-foreground">
+                    <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Included Match Capabilities:</span>
+                  </div>
+                  {draft.sportId.toLowerCase() === "cricket" ? (
+                    <ul className="list-disc list-inside space-y-0.5 pl-1 text-[11px]">
+                      <li>Ball-by-ball digital scoring pad with overs, wickets, boundaries, and extras</li>
+                      <li>Automated Net Run Rate (NRR) calculation and tournament points table</li>
+                      <li>Match Center with live spectator updates and player statistics</li>
+                    </ul>
+                  ) : (
+                    <ul className="list-disc list-inside space-y-0.5 pl-1 text-[11px]">
+                      <li>Standard BWF scoring engine with point-by-point tracking and service rotation</li>
+                      <li>Category management (Singles, Doubles, Mixed) and court allocation</li>
+                      <li>Tournament draw progression, standings, and player profiles</li>
+                    </ul>
+                  )}
+                  <p className="text-[10px] text-muted-foreground/80 pt-1 italic">
+                    Note: Detailed match rules and squad limits can be fine-tuned inside the Match Command Center after creation.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -446,7 +621,7 @@ export function TournamentCreationWizard({
         </div>
 
         <div className="w-full sm:w-auto">
-          {step.id === "experience" ? (
+          {stepIndex === WIZARD_STEPS.length - 1 ? (
             <Button
               type="button"
               className="w-full sm:w-auto h-12 px-8 rounded-xl font-display font-black text-base tracking-wide bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 shadow-xl shadow-amber-400/25 hover:shadow-amber-400/40 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
@@ -458,7 +633,7 @@ export function TournamentCreationWizard({
               ) : (
                 <Gavel className="w-5 h-5 text-slate-950 stroke-[2.5]" />
               )}
-              <span>Let&apos;s Go Inside →</span>
+              <span>Create Tournament →</span>
             </Button>
           ) : (
             <Button
@@ -466,7 +641,7 @@ export function TournamentCreationWizard({
               className="w-full sm:w-auto h-11 px-7 rounded-xl font-display font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 gap-2 cursor-pointer transition-all active:scale-[0.98]"
               onClick={goNext}
             >
-              <span>Continue to License</span>
+              <span>Continue →</span>
               <ArrowRight className="w-4 h-4" />
             </Button>
           )}

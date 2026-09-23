@@ -529,13 +529,29 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     minBid: z.number().int().optional(),
     timerSeconds: z.number().int().optional(),
     bidTimerSeconds: z.number().int().optional(),
+    auctionEnabled: z.boolean().optional(),
+    scoringEnabled: z.boolean().optional(),
+    playerRegistrationMode: z.enum(["auction", "scoring"]).optional(),
   }).merge(tournamentCatalogBindingSchema);
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
 
+  const auctionEnabled = d.auctionEnabled !== undefined ? d.auctionEnabled : true;
+  const scoringEnabled = d.scoringEnabled !== undefined ? d.scoringEnabled : false;
+
+  if (!auctionEnabled && !scoringEnabled) {
+    res.status(400).json({ error: "A tournament must have at least one enabled product module (auction or scoring)." });
+    return;
+  }
+
   if (!await isKnownActiveSportSlug(d.sport)) {
     res.status(400).json({ error: "Unknown or inactive sport" });
+    return;
+  }
+
+  if (scoringEnabled && !isScoringSupportedSport(d.sport)) {
+    res.status(400).json({ error: "Match scoring is only supported for cricket and badminton." });
     return;
   }
 
@@ -589,6 +605,10 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     playerSelectionMode: DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
     minimumSquadSize: 0,
     maximumSquadSize: 0,
+    auctionEnabled,
+    scoringEnabled,
+    scoringPhase: scoringEnabled ? "active" : "disabled",
+    playerRegistrationMode: d.playerRegistrationMode ?? (scoringEnabled && !auctionEnabled ? "scoring" : "auction"),
   }).returning();
 
   notifyAsync("TOURNAMENT_CREATED", {
@@ -872,6 +892,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     status: z.enum(TOURNAMENT_LIFECYCLE_STATUSES).optional(),
     bidTiers: z.string().optional(),
     localModeEnabled: z.boolean().optional(),
+    auctionEnabled: z.boolean().optional(),
     scoringEnabled: z.boolean().optional(),
     features: z.object({
       buzzStudio: z.boolean().optional(),
@@ -905,10 +926,20 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   }
   const nextSport =
     typeof updates.sport === "string" ? updates.sport : (beforeTournament?.sport ?? "cricket");
+  const nextAuctionEnabled =
+    d.auctionEnabled !== undefined
+      ? d.auctionEnabled
+      : (beforeTournament?.auctionEnabled ?? true);
   const nextScoringEnabled =
     d.scoringEnabled !== undefined
       ? d.scoringEnabled
       : (beforeTournament?.scoringEnabled ?? false);
+  if (!nextAuctionEnabled && !nextScoringEnabled) {
+    res.status(400).json({
+      error: "A tournament must have at least one enabled product module (auction or scoring).",
+    });
+    return;
+  }
   if (nextScoringEnabled && !isScoringSupportedSport(nextSport)) {
     res.status(400).json({
       error: "Match scoring can only be enabled for cricket or badminton tournaments.",
@@ -941,6 +972,9 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (d.playerSelectionMode !== undefined) updates.playerSelectionMode = d.playerSelectionMode;
   if (d.bidTiers !== undefined) updates.bidTiers = d.bidTiers;
   if (d.localModeEnabled !== undefined) updates.localModeEnabled = d.localModeEnabled;
+  if (d.auctionEnabled !== undefined) {
+    updates.auctionEnabled = d.auctionEnabled;
+  }
   if (d.scoringEnabled !== undefined) {
     updates.scoringEnabled = d.scoringEnabled;
     updates.scoringPhase = d.scoringEnabled ? "active" : "disabled";
@@ -1633,12 +1667,15 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     registrationLimit: z.number().int().min(0).nullable().optional(),
     enableRegistrationPayment: z.boolean().optional(),
     registrationFee: z.number().int().min(0).nullable().optional(),
+    auctionEnabled: z.boolean().optional(),
     scoringEnabled: z.boolean().optional(),
     playerRegistrationMode: z.string().optional(),
   }).merge(tournamentCatalogBindingSchema);
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
+
+  const auctionEnabled = d.auctionEnabled !== undefined ? d.auctionEnabled : true;
 
   if (!await isKnownActiveSportSlug(d.sport)) {
     res.status(400).json({ error: "Unknown or inactive sport" });
@@ -1651,13 +1688,34 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     return;
   }
 
-  const needsAuctionEconomics =
-    !!catalogBindings.columns.competitionTypeId &&
-    CatalogRegistry.requiresAuctionEconomics(catalogBindings.columns.competitionTypeId);
+  const legacyScoringDefault =
+    !auctionEnabled ||
+    (
+      !!catalogBindings.columns.competitionTypeId &&
+      !CatalogRegistry.requiresAuctionEconomics(catalogBindings.columns.competitionTypeId)
+    );
+  const scoringEnabled = d.scoringEnabled !== undefined ? d.scoringEnabled : (legacyScoringDefault && !!catalogBindings.columns.competitionTypeId);
 
-  // Legacy path (no catalog bindings): keep requiring purse/bid fields.
+  if (!auctionEnabled && !scoringEnabled) {
+    res.status(400).json({ error: "A tournament must have at least one enabled product module (auction or scoring)." });
+    return;
+  }
+
+  if (scoringEnabled && !isScoringSupportedSport(d.sport)) {
+    res.status(400).json({ error: "Match scoring is only supported for cricket and badminton." });
+    return;
+  }
+
+  const needsAuctionEconomics =
+    auctionEnabled &&
+    (
+      !catalogBindings.columns.competitionTypeId ||
+      CatalogRegistry.requiresAuctionEconomics(catalogBindings.columns.competitionTypeId)
+    );
+
+  // Legacy path (no catalog bindings): keep requiring purse/bid fields if auctionEnabled.
   // Catalog path: require economics only for auction/hybrid.
-  if (!catalogBindings.columns.competitionTypeId || needsAuctionEconomics) {
+  if (needsAuctionEconomics) {
     if (d.basePurse == null || d.basePurse < 1) {
       res.status(400).json({ error: "Team budget (purse) is required" });
       return;
@@ -1692,8 +1750,6 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     auctionCode = buildOrgCode(d.name, d.auctionDate);
   }
 
-  const isScoringActive = d.scoringEnabled ?? (!needsAuctionEconomics && !!catalogBindings.columns.competitionTypeId);
-
   const [tournament] = await db.insert(tournamentsTable).values({
     organizerId: organizer.id,
     name: d.name,
@@ -1720,9 +1776,10 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     registrationLimit: d.registrationLimit ?? null,
     enableRegistrationPayment: d.enableRegistrationPayment ?? false,
     registrationFee: d.registrationFee ?? null,
-    playerRegistrationMode: d.playerRegistrationMode ?? (isScoringActive && !needsAuctionEconomics ? "scoring" : "auction"),
-    scoringEnabled: isScoringActive,
-    scoringPhase: isScoringActive ? "active" : "disabled",
+    auctionEnabled,
+    scoringEnabled,
+    scoringPhase: scoringEnabled ? "active" : "disabled",
+    playerRegistrationMode: d.playerRegistrationMode ?? (scoringEnabled && !auctionEnabled ? "scoring" : "auction"),
     licenseStatus: "trial",
     variantId: catalogBindings.columns.variantId,
     competitionTypeId: catalogBindings.columns.competitionTypeId,

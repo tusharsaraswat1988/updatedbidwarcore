@@ -23,6 +23,18 @@ export {
 } from "./tournament-features.ts";
 
 export {
+  type TournamentProductMode,
+  type TournamentModuleFlags,
+  InvalidTournamentModuleStateError,
+  isValidTournamentModuleState,
+  isAuctionEnabled,
+  isScoringEnabled,
+  isScoringSupportedSport,
+  resolveTournamentProductMode,
+  tryResolveTournamentProductMode,
+} from "./tournament-modules.ts";
+
+export {
   SCORING_APP_BASE,
   SPORTS_PRODUCT_HOST_BASE,
   scoringAppPath,

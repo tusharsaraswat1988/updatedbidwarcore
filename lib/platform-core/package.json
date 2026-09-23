@@ -18,6 +18,7 @@
     "./presentation-engine": "./src/presentation-engine/index.ts",
 
     "./tournament-features": "./src/tournament-features.ts",
+    "./tournament-modules": "./src/tournament-modules.ts",
     "./scoring-urls": "./src/scoring-urls.ts",
     "./tournament-identity": "./src/tournament-identity.ts",
     "./sport-capabilities": "./src/sport-capabilities.ts",

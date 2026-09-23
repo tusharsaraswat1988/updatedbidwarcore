@@ -88,6 +88,7 @@ export async function createAdminTournament(data: {
   organizerName?: string; organizerMobile?: string; organizerEmail?: string;
   organizerPassword?: string; basePurse?: number; minBid?: number;
   timerSeconds?: number; bidTimerSeconds?: number;
+  auctionEnabled?: boolean; scoringEnabled?: boolean;
 }): Promise<{ success: boolean; id?: number; error?: string }> {
   try {
     const r = await apiFetch("/auth/admin/tournaments", { method: "POST", body: JSON.stringify(data) });
@@ -511,7 +512,7 @@ export async function createOrganizerTournament(data: {
   presentationProfileId?: string; presentationProfileVersion?: string;
   registrationDeadline?: string; registrationLimit?: number;
   enableRegistrationPayment?: boolean; registrationFee?: number;
-  scoringEnabled?: boolean; playerRegistrationMode?: string;
+  auctionEnabled?: boolean; scoringEnabled?: boolean; playerRegistrationMode?: string;
 }): Promise<{ success: boolean; error?: string; tournament?: { id: number; name: string; auctionCode?: string | null } }> {
   try {
     const r = await apiFetch("/auth/organizer-account/tournaments", {

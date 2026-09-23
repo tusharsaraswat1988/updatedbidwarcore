@@ -12,6 +12,11 @@ import {
 import { resolveTournamentFeatures } from "@workspace/api-base/tournament-features";
 import { resolveBadmintonSponsorLogos } from "@workspace/sports-badminton";
 import type { tournamentsTable } from "@workspace/db";
+import {
+  isAuctionEnabled,
+  isScoringEnabled,
+  tryResolveTournamentProductMode,
+} from "@workspace/platform-core";
 import { catalogBindingSerializerFields } from "../tournament-catalog-bindings";
 
 type TournamentRow = typeof tournamentsTable.$inferSelect;
@@ -93,7 +98,9 @@ export function publicTournamentSerializer(
     registrationFields: parseRegistrationFieldsConfig(t.registrationFieldsJson),
     playerRegistrationMode: parsePlayerRegistrationMode(t.playerRegistrationMode),
     registrationCategoryMode: parseRegistrationCategoryMode(t.registrationCategoryMode),
-    scoringEnabled: t.scoringEnabled ?? false,
+    auctionEnabled: isAuctionEnabled(t),
+    scoringEnabled: isScoringEnabled(t),
+    productMode: tryResolveTournamentProductMode(t) ?? "auction_only",
     scoringPhase: t.scoringPhase ?? "disabled",
     features: resolveTournamentFeatures(t.featuresJson),
     ...catalogBindingSerializerFields(t),

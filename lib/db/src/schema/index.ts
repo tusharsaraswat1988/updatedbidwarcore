@@ -58,6 +58,7 @@ export * from "./runtime-match-history";
 
 export * from "./contact_inquiries";
 export * from "./intelligence_archive";
+export * from "./tournament_license_requests";
 export * from "./communication";
 export * from "./academy";
 export * from "./clients";

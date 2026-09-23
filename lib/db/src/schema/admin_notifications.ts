@@ -23,12 +23,17 @@ export const adminNotificationsTable = pgTable(
     entityId: integer("entity_id"),
     actionUrl: text("action_url"),
     isRead: boolean("is_read").notNull().default(false),
+    resolutionStatus: text("resolution_status").notNull().default("pending"), // 'pending' | 'resolved' | 'dismissed'
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     readAt: timestamp("read_at", { withTimezone: true }),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    resolvedBy: text("resolved_by"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+    actionMetadata: jsonb("action_metadata").$type<Record<string, unknown>>(),
   },
   (t) => [
     index("ix_admin_notifications_is_read").on(t.isRead),
+    index("ix_admin_notifications_resolution_status").on(t.resolutionStatus),
     index("ix_admin_notifications_priority").on(t.priority),
     index("ix_admin_notifications_type").on(t.type),
     index("ix_admin_notifications_created_at").on(t.createdAt),

@@ -6,12 +6,14 @@ import {
   HelpCircle,
   Printer,
   Settings,
+  ShieldCheck,
   Trophy,
   UserPlus,
 } from "lucide-react";
 import type { AdminNotificationCategory } from "@/lib/admin-notifications";
 
 const CATEGORY_ICONS: Record<AdminNotificationCategory, LucideIcon> = {
+  License: ShieldCheck,
   Registration: UserPlus,
   Tournament: Trophy,
   Contact: HelpCircle,

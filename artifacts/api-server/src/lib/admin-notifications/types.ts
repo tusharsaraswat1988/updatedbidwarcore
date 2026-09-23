@@ -2,6 +2,7 @@ export const ADMIN_NOTIFICATION_PRIORITIES = ["info", "warning", "critical"] as 
 export type AdminNotificationPriority = (typeof ADMIN_NOTIFICATION_PRIORITIES)[number];
 
 export const ADMIN_NOTIFICATION_CATEGORIES = [
+  "License",
   "Registration",
   "Tournament",
   "Contact",
@@ -14,6 +15,7 @@ export const ADMIN_NOTIFICATION_CATEGORIES = [
 export type AdminNotificationCategory = (typeof ADMIN_NOTIFICATION_CATEGORIES)[number];
 
 export const ADMIN_NOTIFICATION_EVENT_TYPES = [
+  "LICENSE_REQUESTED",
   "NEW_ORGANISER_REGISTERED",
   "NEW_TOURNAMENT_CREATED",
   "CONTACT_FORM_SUBMISSION",
@@ -25,6 +27,19 @@ export const ADMIN_NOTIFICATION_EVENT_TYPES = [
 ] as const;
 
 export type AdminNotificationEventType = (typeof ADMIN_NOTIFICATION_EVENT_TYPES)[number];
+
+export type LicenseRequestedPayload = {
+  requestId: number;
+  tournamentId: number;
+  tournamentName: string;
+  sport: string;
+  organizerId: number;
+  organizerName: string;
+  organizerMobile: string;
+  requestedModules: "auction" | "scoring" | "both";
+  notes?: string | null;
+  requestedAt: string;
+};
 
 export type NewOrganiserRegisteredPayload = {
   organizerId: number;
@@ -76,6 +91,7 @@ export type SystemFailurePayload = {
 };
 
 export type AdminNotificationPayloadMap = {
+  LICENSE_REQUESTED: LicenseRequestedPayload;
   NEW_ORGANISER_REGISTERED: NewOrganiserRegisteredPayload;
   NEW_TOURNAMENT_CREATED: NewTournamentCreatedPayload;
   CONTACT_FORM_SUBMISSION: ContactFormSubmissionPayload;
@@ -108,9 +124,13 @@ export type AdminNotificationDto = {
   entityId: number | null;
   actionUrl: string | null;
   isRead: boolean;
+  resolutionStatus: "pending" | "resolved" | "dismissed";
   createdAt: string;
   readAt: string | null;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
   metadata: Record<string, unknown> | null;
+  actionMetadata: Record<string, unknown> | null;
 };
 
 /** SSE payload when a new admin notification is created. */
@@ -125,6 +145,9 @@ export type AdminNotificationCreatedPayload = {
     actionUrl: string | null;
     createdAt: string;
     isRead: boolean;
+    resolutionStatus: "pending" | "resolved" | "dismissed";
+    actionMetadata?: Record<string, unknown> | null;
   };
   unreadCount: number;
 };
+
