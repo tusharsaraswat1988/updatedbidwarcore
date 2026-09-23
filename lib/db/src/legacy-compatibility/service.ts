@@ -65,7 +65,7 @@ export async function resolveLegacyIdentity(
   if (link.status === "pending_review" || link.status === "disputed" || link.confidenceScore < 100) {
     return {
       status: "review_required",
-      memberId: link.memberId,
+      memberId: null,
       member: null,
       sourceTable,
       sourceRecordId: recordIdStr,
@@ -87,7 +87,7 @@ export async function resolveLegacyIdentity(
     if (!member) {
       return {
         status: "unresolved",
-        memberId: link.memberId,
+        memberId: null,
         member: null,
         sourceTable,
         sourceRecordId: recordIdStr,
@@ -101,7 +101,7 @@ export async function resolveLegacyIdentity(
     if (member.accountStatus === "suspended" || member.accountStatus === "deactivated") {
       return {
         status: "unresolved",
-        memberId: member.id,
+        memberId: null,
         member: null,
         sourceTable,
         sourceRecordId: recordIdStr,

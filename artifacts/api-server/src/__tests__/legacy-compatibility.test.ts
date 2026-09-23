@@ -142,7 +142,7 @@ describe("Phase 5H — Legacy Identity Compatibility & Migration Readiness Tests
       const result = await resolveLegacyOrganizer(mockDb as any, 15);
 
       expect(result.status).toBe("review_required");
-      expect(result.memberId).toBe("mem_cand_01");
+      expect(result.memberId).toBeNull();
       expect(result.member).toBeNull();
       expect(result.confidenceScore).toBe(75);
       expect(result.provenance).toEqual({ matchedOn: "email_similarity_collision" });

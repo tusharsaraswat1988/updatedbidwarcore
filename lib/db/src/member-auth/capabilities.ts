@@ -37,6 +37,12 @@ export const ROLE_CAPABILITIES_MAP: Record<string, string[]> = {
     "push:receive",
     "team:edit",
   ],
+  owner: [
+    "auction:bid",
+    "team:roster_view",
+    "push:receive",
+    "team:edit",
+  ],
   coach: [
     "team:roster_view",
     "team:squad_manage",
@@ -67,6 +73,18 @@ export const ROLE_CAPABILITIES_MAP: Record<string, string[]> = {
 };
 
 /**
+ * Normalizes a role name to canonical vocabulary.
+ * Maps legacy or variant role names like 'owner' -> 'team_owner'.
+ */
+export function normalizeRoleName(role: string): string {
+  const normalized = (role || "").trim().toLowerCase();
+  if (normalized === "owner") {
+    return "team_owner";
+  }
+  return normalized;
+}
+
+/**
  * Resolves aggregated capabilities for a list of member roles.
  * Optionally evaluates scope constraints (global, tournament, team, match).
  */
@@ -81,7 +99,8 @@ export function resolveMemberCapabilities(
       continue;
     }
 
-    const caps = ROLE_CAPABILITIES_MAP[roleRow.role.toLowerCase()] || [];
+    const normalizedRole = normalizeRoleName(roleRow.role);
+    const caps = ROLE_CAPABILITIES_MAP[normalizedRole] || [];
     for (const cap of caps) {
       capabilitySet.add(cap);
     }

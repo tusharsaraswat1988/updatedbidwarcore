@@ -2,6 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   resolveMemberRuntimeContext,
 } from "@workspace/db/runtime-context";
+import {
+  normalizeRoleName,
+  resolveMemberCapabilities,
+} from "@workspace/db/member-auth";
 import type {
   Member,
   MemberRole,
@@ -10,7 +14,7 @@ import type {
   MemberIdentityLink,
 } from "@workspace/db";
 
-describe("Phase 5I — Canonical Member Runtime Adoption Tests", () => {
+describe("Phase 5I — Canonical Member Runtime Adoption & Identity Resolution Hardening Tests", () => {
   const mockMember: Member = {
     id: "mem_rt_01",
     displayName: "Runtime Active Member",
@@ -18,6 +22,28 @@ describe("Phase 5I — Canonical Member Runtime Adoption Tests", () => {
     lastName: "Member",
     primaryMobile: "9876543210",
     primaryEmail: "runtime@example.com",
+    isMobileVerified: true,
+    isEmailVerified: true,
+    dob: null,
+    gender: null,
+    country: "IND",
+    state: null,
+    city: null,
+    avatarUrl: null,
+    avatarPublicId: null,
+    accountStatus: "active",
+    metadataJson: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const mockMemberB: Member = {
+    id: "mem_rt_02_collision",
+    displayName: "Collision Member B",
+    firstName: "Collision",
+    lastName: "Member",
+    primaryMobile: "9988776655",
+    primaryEmail: "collision@example.com",
     isMobileVerified: true,
     isEmailVerified: true,
     dob: null,
@@ -110,8 +136,8 @@ describe("Phase 5I — Canonical Member Runtime Adoption Tests", () => {
     });
   });
 
-  describe("2. Legacy Identity Read-Through & Resolution", () => {
-    it("resolves Category A organizer to canonical Member context", async () => {
+  describe("2. Legacy Identity Read-Through & Resolution (Category A)", () => {
+    it("resolves Category A organizer to canonical Member context via member_identity_links", async () => {
       const mockLink: MemberIdentityLink = {
         id: 10,
         memberId: "mem_rt_01",
@@ -167,7 +193,7 @@ describe("Phase 5I — Canonical Member Runtime Adoption Tests", () => {
       expect(ctx.hasCapability("tournament:manage", { teamId: undefined })).toBe(true);
     });
 
-    it("resolves Category A scorer to canonical Member context", async () => {
+    it("resolves Category A scorer to canonical Member context via member_identity_links", async () => {
       const mockLink: MemberIdentityLink = {
         id: 11,
         memberId: "mem_rt_01",
@@ -213,16 +239,21 @@ describe("Phase 5I — Canonical Member Runtime Adoption Tests", () => {
     });
   });
 
-  describe("3. Fallback for Unresolved & Review_Required Identities", () => {
-    it("unresolved organizer continues operating smoothly without canonical Member", async () => {
+  describe("3. Identity Resolution Hardening — Collision & Integrity Protections", () => {
+    // Case A: Organizer email matches Member B email, but NO row in member_identity_links
+    it("Case A: Organizer email collision without identity link MUST NOT resolve to Member B", async () => {
       let selectIdx = 0;
       const mockDb = {
         select: vi.fn().mockImplementation(() => ({
           from: vi.fn().mockImplementation(() => ({
             where: vi.fn().mockImplementation(() => {
               selectIdx++;
-              if (selectIdx === 1) return { limit: () => [{ id: 99, name: "Unlinked Org", email: "unlinked@org.com", mobile: "9000000000" }] };
-              return { limit: () => [] }; // Unlinked (no member_identity_links)
+              if (selectIdx === 1) {
+                // Legacy organizer has collision@example.com (same as Member B)
+                return { limit: () => [{ id: 404, name: "Collision Org", email: "collision@example.com", mobile: "9111111111" }] };
+              }
+              // No link in member_identity_links
+              return { limit: () => [] };
             }),
           })),
         })),
@@ -230,32 +261,32 @@ describe("Phase 5I — Canonical Member Runtime Adoption Tests", () => {
 
       const ctx = await resolveMemberRuntimeContext(
         mockDb as any,
-        {
-          organizerAccountId: 99,
-          organizerTournaments: { "50": true },
-        },
-        { tournamentId: 50 },
+        { organizerAccountId: 404 },
+        { tournamentId: 10 },
       );
 
+      // Must remain unresolved and NOT hijack Member B's identity
       expect(ctx.identitySource).toBe("legacy_organizer");
       expect(ctx.canonicalResolutionStatus).toBe("unresolved");
       expect(ctx.isCanonical).toBe(false);
       expect(ctx.member).toBeNull();
       expect(ctx.memberId).toBeNull();
-
-      // Legacy authorization remains fully functional for owned tournament
-      expect(ctx.hasCapability("tournament:manage")).toBe(true);
     });
 
-    it("unresolved scorer continues operating with legacy scoring capabilities", async () => {
+    // Case B: Scorer phone matches Member B phone, but NO row in member_identity_links
+    it("Case B: Scorer mobile collision without identity link MUST NOT resolve to Member B", async () => {
       let selectIdx = 0;
       const mockDb = {
         select: vi.fn().mockImplementation(() => ({
           from: vi.fn().mockImplementation(() => ({
             where: vi.fn().mockImplementation(() => {
               selectIdx++;
-              if (selectIdx === 1) return { limit: () => [{ id: 88, name: "Legacy Scorer", mobile: "9888888888", isActive: true }] };
-              return { limit: () => [] }; // Unlinked
+              if (selectIdx === 1) {
+                // Legacy scorer has 9988776655 (same as Member B)
+                return { limit: () => [{ id: 505, name: "Collision Scorer", mobile: "9988776655", isActive: true }] };
+              }
+              // No link in member_identity_links
+              return { limit: () => [] };
             }),
           })),
         })),
@@ -263,20 +294,120 @@ describe("Phase 5I — Canonical Member Runtime Adoption Tests", () => {
 
       const ctx = await resolveMemberRuntimeContext(
         mockDb as any,
-        { scorerId: 88 },
-        { tournamentId: 70 },
+        { scorerId: 505 },
+        { tournamentId: 10 },
       );
 
+      // Must remain unresolved and NOT hijack Member B's identity
       expect(ctx.identitySource).toBe("legacy_scorer");
       expect(ctx.canonicalResolutionStatus).toBe("unresolved");
       expect(ctx.isCanonical).toBe(false);
       expect(ctx.member).toBeNull();
-
-      // Legacy scorer capabilities preserved for tournament 70
-      expect(ctx.hasCapability("scoring:live")).toBe(true);
+      expect(ctx.memberId).toBeNull();
     });
 
-    it("Category B review_required candidate identity is NOT automatically promoted to Member", async () => {
+    // Case C: Organizer email changed / differs from Member email, but Category A link exists
+    it("Case C: Organizer email differs from Member email but Category A link exists -> resolves correctly", async () => {
+      const mockLink: MemberIdentityLink = {
+        id: 301,
+        memberId: "mem_rt_01",
+        sourceTable: "organizers",
+        sourceRecordId: "606",
+        linkType: "direct_fk",
+        confidenceScore: 100,
+        provenanceJson: null,
+        status: "active",
+        reviewedBy: null,
+        reviewedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      let selectIdx = 0;
+      const mockDb = {
+        select: vi.fn().mockImplementation(() => ({
+          from: vi.fn().mockImplementation(() => ({
+            where: vi.fn().mockImplementation(() => {
+              selectIdx++;
+              if (selectIdx === 1) {
+                // Organizer has old email that differs from Member's runtime@example.com
+                return { limit: () => [{ id: 606, name: "Old Email Org", email: "old_org@legacy.com", mobile: "9876543210" }] };
+              }
+              if (selectIdx === 2) return { limit: () => [mockLink] }; // link
+              if (selectIdx === 3) return { limit: () => [mockMember] }; // member
+              if (selectIdx === 4) return []; // roles
+              return []; // sport profiles
+            }),
+          })),
+        })),
+      };
+
+      const ctx = await resolveMemberRuntimeContext(
+        mockDb as any,
+        { organizerAccountId: 606 },
+        { tournamentId: 10 },
+      );
+
+      // Authoritative link succeeds regardless of email discrepancy
+      expect(ctx.identitySource).toBe("legacy_organizer");
+      expect(ctx.canonicalResolutionStatus).toBe("resolved");
+      expect(ctx.isCanonical).toBe(true);
+      expect(ctx.memberId).toBe("mem_rt_01");
+      expect(ctx.member?.id).toBe("mem_rt_01");
+    });
+
+    // Case D: Scorer phone changed / differs from Member phone, but Category A link exists
+    it("Case D: Scorer mobile differs from Member mobile but Category A link exists -> resolves correctly", async () => {
+      const mockLink: MemberIdentityLink = {
+        id: 302,
+        memberId: "mem_rt_01",
+        sourceTable: "scorer_accounts",
+        sourceRecordId: "707",
+        linkType: "direct_fk",
+        confidenceScore: 100,
+        provenanceJson: null,
+        status: "active",
+        reviewedBy: null,
+        reviewedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      let selectIdx = 0;
+      const mockDb = {
+        select: vi.fn().mockImplementation(() => ({
+          from: vi.fn().mockImplementation(() => ({
+            where: vi.fn().mockImplementation(() => {
+              selectIdx++;
+              if (selectIdx === 1) {
+                // Scorer has old mobile that differs from Member's 9876543210
+                return { limit: () => [{ id: 707, name: "Old Mobile Scorer", mobile: "1111111111", isActive: true }] };
+              }
+              if (selectIdx === 2) return { limit: () => [mockLink] }; // link
+              if (selectIdx === 3) return { limit: () => [mockMember] }; // member
+              if (selectIdx === 4) return []; // roles
+              return []; // sport profiles
+            }),
+          })),
+        })),
+      };
+
+      const ctx = await resolveMemberRuntimeContext(
+        mockDb as any,
+        { scorerId: 707 },
+        { tournamentId: 10 },
+      );
+
+      // Authoritative link succeeds regardless of phone discrepancy
+      expect(ctx.identitySource).toBe("legacy_scorer");
+      expect(ctx.canonicalResolutionStatus).toBe("resolved");
+      expect(ctx.isCanonical).toBe(true);
+      expect(ctx.memberId).toBe("mem_rt_01");
+      expect(ctx.member?.id).toBe("mem_rt_01");
+    });
+
+    // Case E: Category B link exists (<= 90% confidence or pending_review)
+    it("Case E: Category B link (pending_review / <=90%) -> review_required, memberId = null", async () => {
       const mockReviewLink: MemberIdentityLink = {
         id: 77,
         memberId: "mem_cand_01",
@@ -312,9 +443,82 @@ describe("Phase 5I — Canonical Member Runtime Adoption Tests", () => {
       expect(ctx.member).toBeNull();
       expect(ctx.memberId).toBeNull();
     });
+
+    // Case F: Category C / unlinked
+    it("Case F: Category C (unlinked) -> unresolved, memberId = null", async () => {
+      let selectIdx = 0;
+      const mockDb = {
+        select: vi.fn().mockImplementation(() => ({
+          from: vi.fn().mockImplementation(() => ({
+            where: vi.fn().mockImplementation(() => {
+              selectIdx++;
+              if (selectIdx === 1) return { limit: () => [{ id: 88, name: "Unlinked Scorer", mobile: "9888888888", isActive: true }] };
+              return { limit: () => [] }; // Unlinked
+            }),
+          })),
+        })),
+      };
+
+      const ctx = await resolveMemberRuntimeContext(
+        mockDb as any,
+        { scorerId: 88 },
+        { tournamentId: 70 },
+      );
+
+      expect(ctx.identitySource).toBe("legacy_scorer");
+      expect(ctx.canonicalResolutionStatus).toBe("unresolved");
+      expect(ctx.isCanonical).toBe(false);
+      expect(ctx.member).toBeNull();
+      expect(ctx.memberId).toBeNull();
+      // Legacy scorer capabilities preserved for tournament 70
+      expect(ctx.hasCapability("scoring:live")).toBe(true);
+    });
   });
 
-  describe("4. Tournament Isolation & Privilege Escalation Prevention", () => {
+  describe("4. Owner Role Normalization & Capabilities", () => {
+    it("Case G: normalizes 'owner' and 'team_owner' to canonical vocabulary with identical capabilities", () => {
+      expect(normalizeRoleName("owner")).toBe("team_owner");
+      expect(normalizeRoleName("OWNER")).toBe("team_owner");
+      expect(normalizeRoleName("  owner  ")).toBe("team_owner");
+      expect(normalizeRoleName("team_owner")).toBe("team_owner");
+      expect(normalizeRoleName("organizer")).toBe("organizer");
+
+      const ownerRoleRow: MemberRole = {
+        id: 1,
+        memberId: "mem_owner_01",
+        role: "owner",
+        scope: "team",
+        tournamentId: 10,
+        teamId: 20,
+        matchId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const teamOwnerRoleRow: MemberRole = {
+        id: 2,
+        memberId: "mem_owner_01",
+        role: "team_owner",
+        scope: "team",
+        tournamentId: 10,
+        teamId: 20,
+        matchId: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const ownerCaps = resolveMemberCapabilities([ownerRoleRow], { tournamentId: 10, teamId: 20 });
+      const teamOwnerCaps = resolveMemberCapabilities([teamOwnerRoleRow], { tournamentId: 10, teamId: 20 });
+
+      expect(ownerCaps).toEqual(teamOwnerCaps);
+      expect(ownerCaps).toContain("auction:bid");
+      expect(ownerCaps).toContain("team:roster_view");
+      expect(ownerCaps).toContain("push:receive");
+      expect(ownerCaps).toContain("team:edit");
+    });
+  });
+
+  describe("5. Tournament Isolation & Privilege Escalation Prevention", () => {
     it("preserves tournament boundary isolation", async () => {
       let selectIdx = 0;
       const mockDb = {
@@ -392,8 +596,8 @@ describe("Phase 5I — Canonical Member Runtime Adoption Tests", () => {
     });
   });
 
-  describe("5. No-Write Safety Invariant", () => {
-    it("executes runtime resolution with ZERO database writes or mutations", async () => {
+  describe("6. No-Write Safety Invariant", () => {
+    it("Case H: executes runtime resolution with ZERO database writes or mutations", async () => {
       const mockDb = {
         select: vi.fn().mockReturnValue({
           from: vi.fn().mockReturnValue({

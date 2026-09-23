@@ -16,12 +16,21 @@ import { runVersionedMigrations } from "@workspace/db/migrator";
 
 const env = loadAppEnv();
 if (!env.loaded) {
-  console.error(
-    `[migrate] Missing ${env.file} at ${env.path} (NODE_ENV=${env.nodeEnv}).`,
+  const hasDbUrl = Boolean(
+    process.env.NEON_DATABASE_URL?.trim() || process.env.DATABASE_URL?.trim(),
   );
-  process.exit(1);
+  if (!hasDbUrl) {
+    console.error(
+      `[migrate] Missing ${env.file} at ${env.path} and no DATABASE_URL in process.env (NODE_ENV=${env.nodeEnv}).`,
+    );
+    process.exit(1);
+  }
+  console.log(
+    `[migrate] No ${env.file} file at ${env.path} — using host-injected environment variables (NODE_ENV=${env.nodeEnv}).`,
+  );
+} else {
+  console.log(`[migrate] using ${env.file} (${env.nodeEnv})`);
 }
-console.log(`[migrate] using ${env.file} (${env.nodeEnv})`);
 
 const { Client } = pg;
 
