@@ -6,7 +6,8 @@ export type ScoringMatchStatus =
   | "live"
   | "completed"
   | "abandoned"
-  | "cancelled";
+  | "cancelled"
+  | "walkover";
 
 export type ScoringSessionStatus = "idle" | "live" | "paused" | "break";
 

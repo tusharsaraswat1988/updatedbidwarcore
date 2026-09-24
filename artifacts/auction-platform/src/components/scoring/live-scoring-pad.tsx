@@ -14,6 +14,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -48,8 +57,10 @@ import {
   AlertCircle,
   ArrowLeftRight,
   Check,
+  CheckCircle2,
   CloudRain,
   Flag,
+  Loader2,
   Play,
   RotateCcw,
   RefreshCw,
@@ -190,6 +201,10 @@ export function LiveScoringPad({
 
   const [secondaryOpen, setSecondaryOpen] = useState(false);
   const [abandonConfirmOpen, setAbandonConfirmOpen] = useState(false);
+  const [walkoverConfirmOpen, setWalkoverConfirmOpen] = useState(false);
+  const [walkoverWinnerTeamId, setWalkoverWinnerTeamId] = useState<number>(state.homeTeamId);
+  const [walkoverReason, setWalkoverReason] = useState<string>("");
+  const [awardingWalkover, setAwardingWalkover] = useState(false);
   const [bowlerSheet, setBowlerSheet] = useState(false);
   const [overEndPrompt, setOverEndPrompt] = useState(false);
   const [retireSheet, setRetireSheet] = useState(false);
@@ -2118,6 +2133,20 @@ export function LiveScoringPad({
               </Button>
             ) : null}
             <Button
+              variant="outline"
+              className="h-12 font-bold border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+              disabled={busy || awardingWalkover}
+              onClick={() => {
+                setSecondaryOpen(false);
+                setWalkoverWinnerTeamId(state.homeTeamId);
+                setWalkoverReason("");
+                setWalkoverConfirmOpen(true);
+              }}
+            >
+              <Trophy className="w-4 h-4 mr-2" />
+              Award Walkover
+            </Button>
+            <Button
               variant="ghost"
               className="h-11 text-muted-foreground hover:text-red-400"
               disabled={busy}
@@ -2162,6 +2191,128 @@ export function LiveScoringPad({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ─── Walkover Confirmation Dialog ─── */}
+      <Dialog open={walkoverConfirmOpen} onOpenChange={setWalkoverConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-400">
+              <Trophy className="w-5 h-5 text-amber-400" />
+              Award Cricket Walkover
+            </DialogTitle>
+            <DialogDescription className="space-y-2 pt-2 text-left">
+              <p>
+                Awarding a walkover immediately concludes the match and declares the chosen team as the winner.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                The winning team receives 2 tournament standings points, the losing team receives 0 points, and no individual statistics or NRR adjustments are added.
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Select Winning Team
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div
+                  onClick={() => setWalkoverWinnerTeamId(state.homeTeamId)}
+                  className={cn(
+                    "p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-1 select-none",
+                    walkoverWinnerTeamId === state.homeTeamId
+                      ? "border-amber-400/80 bg-amber-500/15 shadow-md ring-2 ring-amber-400/50"
+                      : "border-border/70 bg-card/40 hover:bg-card/80",
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground">
+                      Home
+                    </span>
+                    {walkoverWinnerTeamId === state.homeTeamId ? (
+                      <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                    ) : null}
+                  </div>
+                  <p className="font-bold text-xs text-foreground truncate mt-1">
+                    {(teams ?? []).find((t) => t.id === state.homeTeamId)?.name ?? `Team ${state.homeTeamId}`}
+                  </p>
+                </div>
+
+                <div
+                  onClick={() => setWalkoverWinnerTeamId(state.awayTeamId)}
+                  className={cn(
+                    "p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-1 select-none",
+                    walkoverWinnerTeamId === state.awayTeamId
+                      ? "border-amber-400/80 bg-amber-500/15 shadow-md ring-2 ring-amber-400/50"
+                      : "border-border/70 bg-card/40 hover:bg-card/80",
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted-foreground/20 text-muted-foreground">
+                      Away
+                    </span>
+                    {walkoverWinnerTeamId === state.awayTeamId ? (
+                      <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                    ) : null}
+                  </div>
+                  <p className="font-bold text-xs text-foreground truncate mt-1">
+                    {(teams ?? []).find((t) => t.id === state.awayTeamId)?.name ?? `Team ${state.awayTeamId}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Reason / Note (Optional)
+              </Label>
+              <Input
+                placeholder="e.g. Team conceded / Forfeited"
+                value={walkoverReason}
+                onChange={(e) => setWalkoverReason(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-row justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={awardingWalkover}
+              onClick={() => setWalkoverConfirmOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold"
+              disabled={awardingWalkover || !walkoverWinnerTeamId}
+              onClick={async () => {
+                setAwardingWalkover(true);
+                try {
+                  await onEvent(CricketEventType.WALKOVER_AWARDED, {
+                    winnerTeamId: walkoverWinnerTeamId,
+                    reason: walkoverReason.trim() || undefined,
+                  });
+                  setWalkoverConfirmOpen(false);
+                } finally {
+                  setAwardingWalkover(false);
+                }
+              }}
+            >
+              {awardingWalkover ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+                  Awarding…
+                </>
+              ) : (
+                "Confirm Walkover"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* ─── DLS Sheet ─── */}

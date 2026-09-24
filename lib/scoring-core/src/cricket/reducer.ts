@@ -14,6 +14,7 @@ import {
   type CricketPlayerRetiredPayload,
   type CricketSuperBallDeclaredPayload,
   type CricketSuperOverStartedPayload,
+  type CricketWalkoverAwardedPayload,
 } from "../events/cricket";
 import { InvalidEventPayloadError } from "../projector/errors";
 import { replayEvents } from "../projector/replay";
@@ -184,6 +185,12 @@ function applyBallRecorded(
   payload: CricketBallRecordedPayload,
   enforceLiveRules = false,
 ): CricketScoreboardState {
+  if (enforceLiveRules && state.matchStatus !== "live") {
+    throw new InvalidEventPayloadError(
+      CricketEventType.BALL_RECORDED,
+      `cannot record ball: match is not live (status: ${state.matchStatus})`,
+    );
+  }
   if (state.sessionStatus === "paused") {
     throw new InvalidEventPayloadError(
       CricketEventType.BALL_RECORDED,
@@ -742,6 +749,17 @@ function applyMatchAbandoned(
   state: CricketScoreboardState,
   payload: CricketMatchAbandonedPayload,
 ): CricketScoreboardState {
+  if (
+    state.matchStatus === "completed" ||
+    state.matchStatus === "abandoned" ||
+    state.matchStatus === "walkover" ||
+    state.matchStatus === "cancelled"
+  ) {
+    throw new InvalidEventPayloadError(
+      CricketEventType.MATCH_ABANDONED,
+      `cannot abandon match: match is already terminal (${state.matchStatus})`,
+    );
+  }
   return {
     ...state,
     matchStatus: "abandoned",
@@ -749,6 +767,49 @@ function applyMatchAbandoned(
     abandonedReason: payload.reason,
     interruptionReason: null,
     freeHitActive: false,
+  };
+}
+
+function applyWalkoverAwarded(
+  state: CricketScoreboardState,
+  payload: CricketWalkoverAwardedPayload,
+): CricketScoreboardState {
+  if (
+    state.matchStatus === "completed" ||
+    state.matchStatus === "abandoned" ||
+    state.matchStatus === "walkover" ||
+    state.matchStatus === "cancelled"
+  ) {
+    throw new InvalidEventPayloadError(
+      CricketEventType.WALKOVER_AWARDED,
+      `cannot award walkover: match is already terminal (${state.matchStatus})`,
+    );
+  }
+  if (
+    payload.winnerTeamId !== state.homeTeamId &&
+    payload.winnerTeamId !== state.awayTeamId
+  ) {
+    throw new InvalidEventPayloadError(
+      CricketEventType.WALKOVER_AWARDED,
+      `winnerTeamId ${payload.winnerTeamId} is not a valid team for this match (home: ${state.homeTeamId}, away: ${state.awayTeamId})`,
+    );
+  }
+  const resultText = payload.reason
+    ? `Won by Walkover (${payload.reason})`
+    : "Won by Walkover";
+  return {
+    ...state,
+    matchStatus: "walkover",
+    sessionStatus: "idle",
+    winnerTeamId: payload.winnerTeamId,
+    resultText,
+    freeHitActive: false,
+    interruptionReason: null,
+    innings: state.innings.map((inn) =>
+      inn.phase === "in_progress"
+        ? { ...inn, phase: "completed" as const }
+        : inn,
+    ),
   };
 }
 
@@ -969,6 +1030,12 @@ export function reduceCricket(
       next = applyMatchAbandoned(
         state,
         parsed.payload as CricketMatchAbandonedPayload,
+      );
+      break;
+    case CricketEventType.WALKOVER_AWARDED:
+      next = applyWalkoverAwarded(
+        state,
+        parsed.payload as CricketWalkoverAwardedPayload,
       );
       break;
     case CricketEventType.MATCH_INTERRUPTED:

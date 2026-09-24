@@ -7,6 +7,7 @@ export const TERMINAL_SCORING_MATCH_STATUSES = [
   "completed",
   "abandoned",
   "walkover",
+  "cancelled",
   "retired",
   "disqualified",
 ] as const;
@@ -16,6 +17,7 @@ export function isTerminalScoringMatchStatus(status: string): boolean {
     status === "completed" ||
     status === "abandoned" ||
     status === "walkover" ||
+    status === "cancelled" ||
     status === "retired" ||
     status === "disqualified"
   );

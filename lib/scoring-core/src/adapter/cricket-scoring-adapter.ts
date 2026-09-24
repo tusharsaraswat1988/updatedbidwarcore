@@ -49,7 +49,10 @@ export const cricketScoringAdapter: SportScoringAdapter<
     }
   },
   projectMatchFromState(state) {
-    const terminal = state.matchStatus === "completed" || state.matchStatus === "abandoned";
+    const terminal =
+      state.matchStatus === "completed" ||
+      state.matchStatus === "abandoned" ||
+      state.matchStatus === "walkover";
     return {
       matchStatus: state.matchStatus,
       sessionStatus: state.sessionStatus,
@@ -62,6 +65,21 @@ export const cricketScoringAdapter: SportScoringAdapter<
     };
   },
   validateBeforeAppend(ctx: AppendValidationContext) {
+    if (ctx.eventType === CricketEventType.WALKOVER_AWARDED) {
+      if (
+        ctx.matchStatus === "completed" ||
+        ctx.matchStatus === "abandoned" ||
+        ctx.matchStatus === "walkover" ||
+        ctx.matchStatus === "cancelled"
+      ) {
+        return {
+          ok: false,
+          error: `Cannot award walkover: match is already terminal (status: ${ctx.matchStatus})`,
+          code: "MATCH_ALREADY_TERMINAL",
+        };
+      }
+      return { ok: true };
+    }
     if (ctx.eventType === CricketEventType.MATCH_STARTED) {
       if (ctx.matchStatus !== "scheduled") {
         return {
@@ -82,7 +100,12 @@ export const cricketScoringAdapter: SportScoringAdapter<
       }
       return { ok: true };
     }
-    if (ctx.matchStatus === "completed" || ctx.matchStatus === "abandoned") {
+    if (
+      ctx.matchStatus === "completed" ||
+      ctx.matchStatus === "abandoned" ||
+      ctx.matchStatus === "walkover" ||
+      ctx.matchStatus === "cancelled"
+    ) {
       return { ok: false, error: "Match is no longer live", code: "MATCH_CLOSED" };
     }
     return { ok: true };

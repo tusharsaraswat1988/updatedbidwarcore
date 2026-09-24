@@ -531,7 +531,9 @@ export default function CricketScorerPage() {
     (pendingNewBatsman || creaseFilledForScoring);
 
   const isFinished =
-    data?.state.matchStatus === "completed" || data?.state.matchStatus === "abandoned";
+    data?.state.matchStatus === "completed" ||
+    data?.state.matchStatus === "abandoned" ||
+    data?.state.matchStatus === "walkover";
   const summary =
     data?.summary ?? (data && isFinished ? buildCricketMatchSummary(data.state) : null);
 

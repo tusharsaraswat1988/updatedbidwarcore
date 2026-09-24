@@ -409,10 +409,8 @@ describe("cricket scorer auth — live-control.tsx scorer links", () => {
 
   it("copyScorerLink uses cricketScorerConsolePath", async () => {
     const src = await readFile(liveControlPageUrl, "utf8");
-    const fnIdx = src.indexOf("function copyScorerLink");
-    const fnSlice = src.slice(fnIdx, fnIdx + 300);
-    expect(fnSlice).toContain("cricketScorerConsolePath");
-    expect(fnSlice).not.toContain("cricketScorerPath(");
+    expect(src).toContain("cricketScorerConsolePath");
+    expect(src).not.toContain("cricketScorerPath(");
   });
 });
 

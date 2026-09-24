@@ -65,6 +65,7 @@ export async function rebuildTournamentStandings(tournamentId: number) {
           or(
             eq(scoringMatchesTable.status, "completed"),
             eq(scoringMatchesTable.status, "abandoned"),
+            eq(scoringMatchesTable.status, "walkover"),
           ),
         ),
       ),
@@ -106,7 +107,7 @@ export async function rebuildTournamentStandings(tournamentId: number) {
 
   const inputs: StandingsMatchInput[] = leagueFinished.map((m) => ({
     matchId: m.id,
-    status: m.status as "completed" | "abandoned",
+    status: m.status as "completed" | "abandoned" | "walkover",
     homeTeamId: m.homeTeamId,
     awayTeamId: m.awayTeamId,
     summary: (m.summaryJson as CricketMatchSummary | null) ?? null,
@@ -225,6 +226,7 @@ async function getScoringStandingsRaw(tournamentId: number) {
           or(
             eq(scoringMatchesTable.status, "completed"),
             eq(scoringMatchesTable.status, "abandoned"),
+            eq(scoringMatchesTable.status, "walkover"),
           ),
         ),
       ),
@@ -309,7 +311,7 @@ async function getScoringStandingsRaw(tournamentId: number) {
 
       const inputs: StandingsMatchInput[] = groupMatches.map((m) => ({
         matchId: m.id,
-        status: m.status as "completed" | "abandoned",
+        status: m.status as "completed" | "abandoned" | "walkover",
         homeTeamId: m.homeTeamId,
         awayTeamId: m.awayTeamId,
         summary: (m.summaryJson as CricketMatchSummary | null) ?? null,

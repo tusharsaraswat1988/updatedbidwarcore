@@ -27,7 +27,7 @@ export function MatchSummaryCard({ summary, teams, compact }: MatchSummaryCardPr
       <div className="text-center space-y-2 pb-2 border-b border-white/10">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/30 text-amber-300 text-[11px] font-bold uppercase tracking-wider shadow-sm">
           <Trophy className="w-3.5 h-3.5 text-amber-400" />
-          <span>Match Completed</span>
+          <span>{summary.matchStatus === "walkover" ? "Walkover Awarded" : "Match Completed"}</span>
         </div>
 
         {summary.resultText ? (
@@ -46,11 +46,12 @@ export function MatchSummaryCard({ summary, teams, compact }: MatchSummaryCardPr
         ) : null}
       </div>
 
-      {/* ─── Innings Score Breakdown ─── */}
-      <div className="space-y-2.5">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-white/50 block px-1">
-          Innings Breakdown
-        </span>
+      {/* ─── Innings Score Breakdown (if played) ─── */}
+      {summary.innings.length > 0 ? (
+        <div className="space-y-2.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-white/50 block px-1">
+            Innings Breakdown
+          </span>
 
         {summary.innings.map((inn) => {
           const team = getTeam(teams, inn.battingTeamId);
@@ -100,6 +101,7 @@ export function MatchSummaryCard({ summary, teams, compact }: MatchSummaryCardPr
           );
         })}
       </div>
+      ) : null}
 
       {/* ─── Target / Additional Info ─── */}
       {summary.target ? (

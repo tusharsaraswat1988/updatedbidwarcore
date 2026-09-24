@@ -2,7 +2,7 @@ import type { CricketMatchSummary } from "./summary";
 
 export type StandingsMatchInput = {
   matchId: number;
-  status: "completed" | "abandoned";
+  status: "completed" | "abandoned" | "walkover" | string;
   homeTeamId: number;
   awayTeamId: number;
   summary: CricketMatchSummary | null;
@@ -161,7 +161,9 @@ export function buildStandingsFromMatches(
       away.points += 2;
     }
 
-    if (match.summary) applyNrrFromSummary(map, match.summary);
+    if (match.status !== "walkover" && match.summary) {
+      applyNrrFromSummary(map, match.summary);
+    }
   }
 
   const rows = [...map.values()].map((row) => ({

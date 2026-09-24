@@ -545,7 +545,11 @@ export async function getLiveScoringDisplay(tournamentId: number) {
         and(
           eq(scoringMatchesTable.tournamentId, tournamentId),
           eq(scoringMatchesTable.sportSlug, CRICKET_SPORT_SLUG),
-          inArray(scoringMatchesTable.status, ["completed", "abandoned"]),
+          inArray(scoringMatchesTable.status, [
+            "completed",
+            "abandoned",
+            "walkover",
+          ]),
         ),
       )
       .orderBy(desc(scoringMatchesTable.completedAt))
@@ -850,9 +854,13 @@ export async function resetCricketMatchSetup(
 ) {
   const { match, state } = await getScoringMatch(tournamentId, matchId);
 
-  if (match.status === "completed" || match.status === "abandoned") {
+  if (
+    match.status === "completed" ||
+    match.status === "abandoned" ||
+    match.status === "walkover"
+  ) {
     throw new ScoringServiceError(
-      "Cannot reset a completed or abandoned match",
+      "Cannot reset a completed, abandoned, or walkover match",
       400,
       "MATCH_CLOSED",
     );

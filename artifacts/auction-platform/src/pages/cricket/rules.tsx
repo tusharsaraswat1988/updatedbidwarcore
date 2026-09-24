@@ -33,6 +33,7 @@ import {
   useGetTournament,
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
+import { RuleHelpTooltip } from "@/components/ui/rule-help-tooltip";
 import {
   AlertCircle,
   CheckCircle2,
@@ -126,19 +127,19 @@ const KEY_RULE_LABELS: Record<
 > = {
   "cricket.match.overs_per_innings": "Overs per innings",
   "cricket.match.max_wickets": "Max wickets",
-  "cricket.match.playing_squad_size": "Playing squad size",
+  "cricket.match.playing_squad_size": "Playing XI size",
   "cricket.match.playing_xi_enforced": "Exact Playing XI",
-  "cricket.match.bench_size": "Bench size",
+  "cricket.match.bench_size": "Bench / substitute players",
   "cricket.match.balls_per_over": "Balls per over",
-  "cricket.match.ball_type": "Ball type",
+  "cricket.match.ball_type": "Match ball",
   "cricket.batting.retire_at_runs": "Retire at runs",
-  "cricket.dismissal.lbw_enabled": "LBW",
-  "cricket.extras.leg_bye_enabled": "Leg bye",
-  "cricket.bowling.free_hit_enabled": "Free hit",
-  "cricket.powerplay.enabled": "Powerplay",
+  "cricket.dismissal.lbw_enabled": "LBW dismissals",
+  "cricket.extras.leg_bye_enabled": "Leg byes",
+  "cricket.bowling.free_hit_enabled": "Free hit (no balls)",
+  "cricket.powerplay.enabled": "Powerplay overs",
   "cricket.special.super_ball_enabled": "Super Ball",
-  "cricket.special.super_ball_doubles_boundaries_only": "Super Ball Doubling Mode",
-  "cricket.tie_break.super_over_enabled": "Super Over",
+  "cricket.special.super_ball_doubles_boundaries_only": "Super Ball doubling mode",
+  "cricket.tie_break.super_over_enabled": "Super Over tie-break",
   "cricket.tie_break.super_over_overs": "Super Over overs",
   "cricket.tie_break.super_over_wickets": "Super Over wickets",
   "cricket.tie_break.super_over_trigger": "Super Over trigger",
@@ -743,10 +744,15 @@ export default function CricketRulesPage() {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    {/* Cricket Type Chips */}
+                    {/* Cricket Format Chips */}
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block">
-                        Cricket Type
+                      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center">
+                        <span>Cricket Format</span>
+                        <RuleHelpTooltip
+                          title="Cricket Format"
+                          content="Select the match environment: Box Cricket for indoor/turf arenas with boundary netting, Outdoor Cricket for standard open grounds, or Custom for local match conditions."
+                          category="cricket"
+                        />
                       </label>
                       <div className="flex flex-wrap gap-1.5">
                         {variantOptions.map((o) => {
@@ -772,10 +778,15 @@ export default function CricketRulesPage() {
                       </div>
                     </div>
 
-                    {/* Ball Type Chips */}
+                    {/* Match Ball Chips */}
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block">
-                        Match Ball
+                      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center">
+                        <span>Match Ball</span>
+                        <RuleHelpTooltip
+                          title="Match Ball"
+                          content="The type of cricket ball used for the tournament (Tennis, Leather, Tape, or Indoor Soft). This appears on match cards and score sheets."
+                          category="cricket"
+                        />
                       </label>
                       <div className="flex flex-wrap gap-1.5">
                         {BALL_TYPE_OPTIONS.map((ball) => {
@@ -828,8 +839,13 @@ export default function CricketRulesPage() {
                   {/* Preset Chips */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block">
-                        Playing Rules Preset
+                      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center">
+                        <span>Playing Rules Preset</span>
+                        <RuleHelpTooltip
+                          title="Playing Rules Preset"
+                          content="Pre-configured rule packs (e.g. Corporate Standard, Society Box). Selecting a preset populates recommended match defaults while keeping all fields below fully editable."
+                          category="bidwar"
+                        />
                       </label>
                       <span className="text-[10px] text-primary/80">
                         *Presets pre-fill standard rules & are fully editable
@@ -863,9 +879,16 @@ export default function CricketRulesPage() {
                   <div className="pt-1">
                     <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs">
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
-                        <label className="text-[10px] font-medium text-muted-foreground block truncate">
-                          Overs/Inn
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-medium text-muted-foreground truncate">
+                            Overs / Innings
+                          </label>
+                          <RuleHelpTooltip
+                            title="Overs per Innings"
+                            content="The maximum number of overs scheduled for each batting team per innings, unless all out earlier."
+                            category="cricket"
+                          />
+                        </div>
                         <input
                           className={cn(inputClass, "h-8 text-center text-xs font-bold")}
                           inputMode="numeric"
@@ -878,9 +901,16 @@ export default function CricketRulesPage() {
                       </div>
 
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
-                        <label className="text-[10px] font-medium text-muted-foreground block truncate">
-                          Max Wickets
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-medium text-muted-foreground truncate">
+                            Max Wickets
+                          </label>
+                          <RuleHelpTooltip
+                            title="Max Wickets (All-Out Threshold)"
+                            content="The number of wickets after which the batting innings is declared all out (e.g. 10 for standard 11-player cricket, 7 or 8 for box cricket)."
+                            category="cricket"
+                          />
+                        </div>
                         <input
                           className={cn(inputClass, "h-8 text-center text-xs font-bold")}
                           inputMode="numeric"
@@ -893,9 +923,16 @@ export default function CricketRulesPage() {
                       </div>
 
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
-                        <label className="text-[10px] font-medium text-muted-foreground block truncate">
-                          Balls/Over
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-medium text-muted-foreground truncate">
+                            Balls / Over
+                          </label>
+                          <RuleHelpTooltip
+                            title="Balls per Over"
+                            content="The number of legal deliveries required to complete one over. Standard cricket uses 6 balls per over."
+                            category="cricket"
+                          />
+                        </div>
                         <input
                           className={cn(inputClass, "h-8 text-center text-xs font-bold")}
                           inputMode="numeric"
@@ -908,9 +945,16 @@ export default function CricketRulesPage() {
                       </div>
 
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
-                        <label className="text-[10px] font-medium text-muted-foreground block truncate">
-                          Retire Runs
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-medium text-muted-foreground truncate">
+                            Retire Runs
+                          </label>
+                          <RuleHelpTooltip
+                            title="Batter Auto-Retire Runs"
+                            content="The individual score threshold at which a batter must retire to allow teammates to bat (popular in box/corporate leagues). Leave empty (None) for no limit."
+                            category="bidwar"
+                          />
+                        </div>
                         <input
                           className={cn(inputClass, "h-8 text-center text-xs font-medium")}
                           inputMode="numeric"
@@ -924,9 +968,16 @@ export default function CricketRulesPage() {
                       </div>
 
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
-                        <label className="text-[10px] font-medium text-muted-foreground block truncate">
-                          Playing (XI)
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-medium text-muted-foreground truncate">
+                            Playing XI
+                          </label>
+                          <RuleHelpTooltip
+                            title="Playing XI / Active Squad"
+                            content="Number of active players per team taking the field during the match (e.g. 11 for standard outdoor cricket, 7 or 8 for box cricket)."
+                            category="cricket"
+                          />
+                        </div>
                         <input
                           className={cn(inputClass, "h-8 text-center text-xs font-bold")}
                           inputMode="numeric"
@@ -939,9 +990,16 @@ export default function CricketRulesPage() {
                       </div>
 
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
-                        <label className="text-[10px] font-medium text-muted-foreground block truncate">
-                          Bench Size
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-medium text-muted-foreground truncate">
+                            Bench / Subs
+                          </label>
+                          <RuleHelpTooltip
+                            title="Bench / Substitute Players"
+                            content="Number of reserve or substitute players available for the team in addition to the active Playing XI."
+                            category="cricket"
+                          />
+                        </div>
                         <input
                           className={cn(inputClass, "h-8 text-center text-xs font-bold")}
                           inputMode="numeric"
@@ -981,58 +1039,100 @@ export default function CricketRulesPage() {
                         label: "LBW Dismissals",
                         active: keyRules.lbwEnabled,
                         toggle: () => setKeyRules((p) => ({ ...p, lbwEnabled: !p.lbwEnabled })),
+                        help: {
+                          title: "LBW (Leg Before Wicket)",
+                          content: "When enabled, umpires can award LBW dismissals. Usually turned OFF for tennis ball and box cricket matches where accurate tracking is not practical.",
+                          category: "cricket" as const,
+                        },
                       },
                       {
                         label: "Free Hit (No Balls)",
                         active: keyRules.freeHitEnabled,
                         toggle: () => setKeyRules((p) => ({ ...p, freeHitEnabled: !p.freeHitEnabled })),
+                        help: {
+                          title: "Free Hit (No Balls)",
+                          content: "After a bowling no-ball, the next delivery is a Free Hit. The batter cannot be dismissed by most modes (only Run Out, Obstructing the Field, or Hit Ball Twice).",
+                          category: "cricket" as const,
+                        },
                       },
                       {
                         label: "Leg Byes",
                         active: keyRules.legByeEnabled,
                         toggle: () => setKeyRules((p) => ({ ...p, legByeEnabled: !p.legByeEnabled })),
+                        help: {
+                          title: "Leg Byes",
+                          content: "Runs scored when the ball deflects off the batter's body/protective gear without touching the bat. Turn OFF for formats where body deflections do not count.",
+                          category: "cricket" as const,
+                        },
                       },
                       {
                         label: "Powerplay Overs",
                         active: keyRules.powerplayEnabled,
                         toggle: () => setKeyRules((p) => ({ ...p, powerplayEnabled: !p.powerplayEnabled })),
+                        help: {
+                          title: "Powerplay Overs",
+                          content: "Designated mandatory fielding restriction overs at the start of an innings where fewer fielders are permitted outside the inner circle.",
+                          category: "cricket" as const,
+                        },
                       },
                       {
                         label: "Exact Playing XI",
                         active: keyRules.playingXiEnforced,
                         toggle: () => setKeyRules((p) => ({ ...p, playingXiEnforced: !p.playingXiEnforced })),
+                        help: {
+                          title: "Exact Playing XI Enforcement",
+                          content: "When ON, team lineups must strictly match the exact configured number of players before match scoring can begin. When OFF, teams may play with fewer players if agreed.",
+                          category: "enforcement" as const,
+                        },
                       },
                       {
                         label: "Super Over Tie-Break",
                         active: keyRules.superOverEnabled,
                         toggle: () => setKeyRules((p) => ({ ...p, superOverEnabled: !p.superOverEnabled })),
+                        help: {
+                          title: "Super Over Tie-Break",
+                          content: "An extra tie-break over bowled by each team if scores are level at the end of regular overs to determine a definitive match winner.",
+                          category: "cricket" as const,
+                        },
                       },
                     ].map((item) => (
-                      <button
+                      <div
                         key={item.label}
-                        type="button"
-                        disabled={locked}
-                        onClick={item.toggle}
+                        onClick={locked ? undefined : item.toggle}
                         className={cn(
-                          "flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-semibold transition-all",
+                          "flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-semibold transition-all select-none",
+                          locked ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
                           item.active
                             ? "border-primary/50 bg-primary/15 text-primary"
                             : "border-border/60 bg-card/50 text-muted-foreground hover:text-foreground",
-                          locked && "opacity-60 cursor-not-allowed",
                         )}
                       >
-                        <span className="truncate">{item.label}</span>
-                        <span
+                        <div className="flex items-center gap-0.5 min-w-0 pr-1">
+                          <span className="truncate">{item.label}</span>
+                          <RuleHelpTooltip
+                            title={item.help.title}
+                            content={item.help.content}
+                            category={item.help.category}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          disabled={locked}
+                          aria-label={`Toggle ${item.label}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!locked) item.toggle();
+                          }}
                           className={cn(
-                            "text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded",
+                            "text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded shrink-0 transition-colors",
                             item.active
-                              ? "bg-primary/20 text-primary"
-                              : "bg-muted text-muted-foreground",
+                              ? "bg-primary/20 text-primary hover:bg-primary/30"
+                              : "bg-muted text-muted-foreground hover:text-foreground",
                           )}
                         >
                           {item.active ? "ON" : "OFF"}
-                        </span>
-                      </button>
+                        </button>
+                      </div>
                     ))}
                   </div>
 
@@ -1040,11 +1140,18 @@ export default function CricketRulesPage() {
                   <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-2.5">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-amber-400" />
+                        <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
                         <div>
-                          <p className="text-xs font-bold text-amber-200">
-                            Super Ball Feature (2x Run Ball)
-                          </p>
+                          <div className="flex items-center">
+                            <p className="text-xs font-bold text-amber-200">
+                              Super Ball Feature (2x Run Ball)
+                            </p>
+                            <RuleHelpTooltip
+                              title="Super Ball Feature"
+                              content="A BIDWAR tournament superpower where the batting team can declare one designated delivery per innings as their Super Ball before it is bowled. All runs scored off the bat on this ball are doubled (2x)."
+                              category="bidwar"
+                            />
+                          </div>
                           <p className="text-[10px] text-muted-foreground">
                             One pre-declared Super Ball per innings
                           </p>
@@ -1074,9 +1181,16 @@ export default function CricketRulesPage() {
                     {/* Inline Compact Run Doubling Mode */}
                     {keyRules.superBallEnabled ? (
                       <div className="pt-1 flex items-center gap-2 flex-wrap border-t border-amber-500/20">
-                        <span className="text-[11px] font-semibold text-amber-200 shrink-0">
-                          Doubling Mode:
-                        </span>
+                        <div className="flex items-center">
+                          <span className="text-[11px] font-semibold text-amber-200 shrink-0">
+                            Doubling Mode:
+                          </span>
+                          <RuleHelpTooltip
+                            title="Super Ball Doubling Mode"
+                            content="Controls which runs receive double value on a Super Ball. '4 & 6 only' doubles boundaries only (4 becomes 8, 6 becomes 12). 'All Runs' doubles singles, twos, and boundaries alike."
+                            category="bidwar"
+                          />
+                        </div>
                         <div className="inline-flex rounded-lg border border-amber-500/40 bg-background/60 p-0.5 text-xs">
                           <button
                             type="button"
@@ -1127,6 +1241,11 @@ export default function CricketRulesPage() {
                       <div className="flex items-center gap-1.5 text-primary font-semibold text-[11px]">
                         <Zap className="w-3.5 h-3.5" />
                         <span>Super Over Config:</span>
+                        <RuleHelpTooltip
+                          title="Super Over Configuration"
+                          content="Configure tie-break parameters: overs per side (default 1), max wickets allowed (default 2), and trigger condition (Automatic prompt on knockout tie, or manual trigger by scorer)."
+                          category="bidwar"
+                        />
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <div className="flex items-center gap-1 text-[11px] text-muted-foreground">

@@ -1,15 +1,21 @@
 import { apiFetch } from "@workspace/api-base/api-fetch";
 import { scorerApiFetch } from "./scorer-api";
 import { scorerAuthHeaders } from "./badminton-scorer-session";
-export type {
+import type {
   CricketFullScorecard,
   CricketMatchSummary,
   CricketScoreboardState,
   LeaderboardCategory,
 } from "@workspace/scoring-core";
+export type {
+  CricketFullScorecard,
+  CricketMatchSummary,
+  CricketScoreboardState,
+  LeaderboardCategory,
+};
 
 export function isTerminalCricketMatchStatus(status: string): boolean {
-  return status === "completed" || status === "abandoned";
+  return status === "completed" || status === "abandoned" || status === "walkover";
 }
 
 export type ScoringMatchRulesJson = {
