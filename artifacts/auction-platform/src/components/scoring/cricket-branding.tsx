@@ -1,25 +1,30 @@
 import type { CSSProperties, ReactNode } from "react";
 import { useBranding } from "@/hooks/use-branding";
 import { cldUrl } from "@/lib/cloudinary";
-import { getBrandLogoAlt, getBrandLogoSrc, getBrandWordmarkSrc } from "@/lib/brand-assets";
+import { getBrandLogoAlt, getBrandLogoSrc, getBrandWordmarkSrc, getPublicBrandLogoSrc } from "@/lib/brand-assets";
 import { cn } from "@/lib/utils";
 
 const BIDWAR_HOME_URL = "https://bidwar.in/";
 
 /** Shared BidWar theme tokens for cricket surfaces (organizer + public). */
 export function useCricketBidWarTheme() {
-  const { logos, brandName, colors, fonts, poweredByText, visibility, tagline } = useBranding();
+  const { logos, brandName, colors, fonts, poweredByText, visibility, tagline, iconVersion } = useBranding();
 
-  const rawWordmark = logos.mainReverse || logos.main;
+  // Cricket broadcast surfaces (OBS overlay masthead, dark scoreboards) use a dark theme.
+  // We MUST consistently resolve to the high-contrast white & gold reverse wordmark across ALL devices.
+  // Never fall back to square "B" icon (mini/appIcon) or dark primary logo for wordmark positions.
+  const rawWordmark = logos.obsWatermark || logos.mainReverse || logos.main;
   const logoSrc =
     (rawWordmark && cldUrl(rawWordmark, "brandWordmark")) ||
     rawWordmark ||
-    getBrandWordmarkSrc(logos, ["mainReverse", "main"]) ||
-    getBrandLogoSrc(logos, ["mini", "appIcon"]);
+    getBrandWordmarkSrc(logos, ["obsWatermark", "mainReverse"]) ||
+    getPublicBrandLogoSrc(["mainReverse", "main"], iconVersion);
+
+  const rawMini = logos.mini || logos.appIcon;
   const miniSrc =
-    cldUrl(logos.mini, "headerLogo") ||
-    getBrandWordmarkSrc(logos, ["mainReverse", "main"]) ||
-    getBrandLogoSrc(logos, ["mini", "appIcon"]);
+    (rawMini && cldUrl(rawMini, "headerLogo")) ||
+    rawMini ||
+    getBrandLogoSrc(logos, ["mini", "appIcon"], iconVersion);
 
   const shellStyle = {
     "--bw-primary": colors.primary,

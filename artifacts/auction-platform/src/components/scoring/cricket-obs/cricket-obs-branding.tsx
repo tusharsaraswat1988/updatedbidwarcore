@@ -17,6 +17,7 @@ import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
 
 export function CricketObsBranding({ vm }: { vm: CricketObsViewModel }) {
   const { logoSrc, brandName } = useCricketBidWarTheme();
+  const [logoFailed, setLogoFailed] = useState(false);
   const sponsors = vm.sponsors ?? [];
   const [activeSponsorIndex, setActiveSponsorIndex] = useState(0);
 
@@ -78,11 +79,13 @@ export function CricketObsBranding({ vm }: { vm: CricketObsViewModel }) {
       {/* CENTER: Restrained BidWar Brand Mark + LIVE Indicator */}
       <div className="flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-2">
-          {logoSrc ? (
+          {logoSrc && !logoFailed ? (
             <img
               src={logoSrc}
               alt={brandName}
-              className="h-5 max-w-[110px] object-contain"
+              className="h-6 max-w-[130px] object-contain"
+              loading="eager"
+              onError={() => setLogoFailed(true)}
             />
           ) : (
             <span
