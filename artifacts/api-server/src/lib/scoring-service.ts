@@ -40,6 +40,7 @@ import { cricketFranchiseTeamExists } from "./master-sports/cricket-franchise-re
 import { listCricketMasterTeams } from "./master-sports/cricket-roster";
 import { prepareRuntimeMatch } from "./runtime-match-service";
 import { getCricketRulePreset } from "./cricket-rule-presets-service";
+import { assertAuthoritativeScorerLease } from "./scorer-match-locks";
 
 export type { ScoringActor };
 
@@ -659,6 +660,13 @@ export async function getScoringMatch(tournamentId: number, matchId: number) {
   return { match, state, events };
 }
 
+export type ScoringLeaseContext = {
+  scorerId: number;
+  sessionId: string;
+  leaseId?: string | null;
+  leaseVersion?: number | null;
+};
+
 export async function appendScoringEvent(
   tournamentId: number,
   matchId: number,
@@ -668,6 +676,7 @@ export async function appendScoringEvent(
     expectedSequence: number;
     actor: ScoringActor;
     correlationId?: string | null;
+    lease?: ScoringLeaseContext;
   },
 ) {
   await ensureTournamentScoring(tournamentId);
@@ -837,6 +846,7 @@ export async function appendScoringEvent(
         actor: input.actor,
         correlationId: input.correlationId,
         matchMeta,
+        lease: input.lease,
       },
       match,
     ),
@@ -846,7 +856,11 @@ export async function appendScoringEvent(
 export async function undoLastScoringEvent(
   tournamentId: number,
   matchId: number,
-  input: { expectedSequence: number; actor: ScoringActor },
+  input: {
+    expectedSequence: number;
+    actor: ScoringActor;
+    lease?: ScoringLeaseContext;
+  },
 ) {
   const { match } = await getScoringMatch(tournamentId, matchId);
 
@@ -877,6 +891,7 @@ export async function undoLastScoringEvent(
     },
     expectedSequence: input.expectedSequence,
     actor: input.actor,
+    lease: input.lease,
   });
 }
 
@@ -887,6 +902,7 @@ export async function resetCricketMatchSetup(
   tournamentId: number,
   matchId: number,
   actor: ScoringActor,
+  lease?: ScoringLeaseContext,
 ) {
   const { match, state } = await getScoringMatch(tournamentId, matchId);
 
@@ -923,6 +939,16 @@ export async function resetCricketMatchSetup(
   const initialState = createInitialCricketState(matchMetaFromRow(match));
 
   const [updatedMatch] = await db.transaction(async (tx) => {
+    if (lease) {
+      await assertAuthoritativeScorerLease(tx, {
+        matchId,
+        scorerId: lease.scorerId,
+        sessionId: lease.sessionId,
+        leaseId: lease.leaseId,
+        leaseVersion: lease.leaseVersion,
+      });
+    }
+
     // 1. Delete setup events for this match
     await tx
       .delete(scoringEventsTable)

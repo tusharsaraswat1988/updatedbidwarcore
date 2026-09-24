@@ -75,11 +75,22 @@ export async function logoutScorer(token: string): Promise<void> {
   }).catch(() => undefined);
 }
 
+export type ScorerMatchLockDto = {
+  matchId: number;
+  scorerId: number;
+  sessionId: string;
+  leaseId?: string;
+  leaseVersion?: number;
+  lockedAt?: string;
+  lastHeartbeatAt?: string;
+  expiresAt?: string;
+};
+
 export async function acquireScorerMatchLock(
   matchId: number,
   token: string,
   meta?: { tournamentId?: number; sport?: string; forceTakeover?: boolean },
-): Promise<{ ok: true; reacquired?: boolean } | { ok: false; code: string; message: string }> {
+): Promise<{ ok: true; reacquired?: boolean; lock?: ScorerMatchLockDto } | { ok: false; code: string; message: string }> {
   const res = await fetch(`${API_BASE}/api/scorer/matches/${matchId}/lock`, {
     method: "POST",
     headers: {
@@ -116,7 +127,7 @@ export async function acquireScorerMatchLock(
   }
   if (!res.ok) throw await parseError(res);
   const data = await res.json().catch(() => ({ ok: true }));
-  return { ok: true, reacquired: data?.reacquired };
+  return { ok: true, reacquired: data?.reacquired, lock: data?.lock };
 }
 
 export async function heartbeatScorerMatchLock(matchId: number, token: string): Promise<void> {

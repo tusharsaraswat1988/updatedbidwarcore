@@ -664,7 +664,7 @@ export function LedEventAnimationOverlay({
                 </p>
               </div>
 
-              {currentEvent.target != null && (
+              {currentEvent.innings === 1 && currentEvent.target != null && (
                 <div className="mt-8 p-6 -skew-x-6 rounded-2xl bg-gradient-to-r from-primary/20 via-primary/30 to-primary/20 border-2 border-primary/50 shadow-xl">
                   <div className="skew-x-6">
                     <p className="text-base font-black uppercase tracking-[0.25em] text-primary">

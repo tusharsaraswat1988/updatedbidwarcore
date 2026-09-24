@@ -59,14 +59,20 @@ export const scorerMatchLocksTable = pgTable(
     matchId: integer("match_id").primaryKey(),
     scorerId: integer("scorer_id").notNull(),
     sessionId: text("session_id").notNull(),
+    leaseId: text("lease_id").notNull().$defaultFn(() => crypto.randomUUID()),
+    leaseVersion: integer("lease_version").notNull().default(1),
     lockedAt: timestamp("locked_at", { withTimezone: true }).notNull().defaultNow(),
     lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true })
+      .notNull()
+      .$defaultFn(() => new Date(Date.now() + 180_000)),
   },
   (t) => [
     index("ix_scorer_match_locks_session_id").on(t.sessionId),
     index("ix_scorer_match_locks_last_heartbeat").on(t.lastHeartbeatAt),
+    index("ix_scorer_match_locks_lease_id").on(t.leaseId),
   ],
 );
 

@@ -11,10 +11,12 @@ import { getActiveInnings, oversText, requiredRate, runRate } from "@/lib/scorin
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { CricketPublicBrandMark, useCricketBidWarTheme } from "@/components/scoring/cricket-branding";
+import { buildCricketMatchSummary } from "@workspace/scoring-core";
 import {
   getCricketMasterTeams,
   getCricketTournamentRoster,
   getPublicMatchScorecard,
+  isTerminalCricketMatchStatus,
   type ScoringMatchJson,
 } from "@/lib/scoring-api";
 import {
@@ -247,7 +249,11 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
 
   const match = live?.match;
   const state = live?.state;
-  const summary = live?.summary;
+  const isComplete =
+    (state?.matchStatus ? isTerminalCricketMatchStatus(state.matchStatus) : false) ||
+    (match?.status ? isTerminalCricketMatchStatus(match.status) : false);
+  const summary =
+    live?.summary ?? (state && isComplete ? buildCricketMatchSummary(state) : null);
   const innings = state ? getActiveInnings(state) : null;
 
   const matchId = match?.id;
@@ -447,7 +453,6 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
       ? requiredRate(state.target, innings.runs, state.oversLimit, innings.over, innings.ball)
       : null;
 
-  const isComplete = state?.matchStatus === "completed" || state?.matchStatus === "abandoned";
   const isIdle = !match || !state || state.matchStatus === "scheduled";
 
   const targetRuns = state?.target ?? null;
@@ -593,8 +598,11 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
     lastWicketsRef.current = currentWickets;
     lastRetiredHurtCountRef.current = currentRetiredCount;
 
-    // 5. Detect Innings Complete
+    const isTerminalMatch = state.matchStatus ? isTerminalCricketMatchStatus(state.matchStatus) : false;
+
+    // 5. Detect Innings Complete (ONLY during live match transition, NEVER on walkover / abandonment / completed)
     if (
+      !isTerminalMatch &&
       innings &&
       innings.phase === "completed" &&
       lastInningsPhaseRef.current !== "completed"
@@ -606,22 +614,22 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
         runs: innings.runs,
         wickets: innings.wickets,
         overs: oversText(innings.over, innings.ball),
-        target: state.target ?? (innings.innings === 1 ? innings.runs + 1 : null),
+        target: innings.innings === 1 ? (state.target ?? innings.runs + 1) : null,
         battingTeam: battingTeam?.name,
       });
     }
 
-    // 6. Detect Match Result
+    // 6. Detect Match Result (Completed, Walkover, Abandoned)
     if (
-      state.matchStatus === "completed" &&
-      lastMatchStatusRef.current !== "completed"
+      isTerminalMatch &&
+      lastMatchStatusRef.current !== state.matchStatus
     ) {
       lastMatchStatusRef.current = state.matchStatus;
       const winner = teams.find((t) => t.id === state.winnerTeamId);
       setActiveEvent({
         type: "MATCH_RESULT",
-        winnerName: winner?.name || "Champions",
-        marginText: state.resultText || match.resultSummary || "Match Completed",
+        winnerName: winner?.name || (state.matchStatus === "abandoned" ? "Match Abandoned" : "Champions"),
+        marginText: state.resultText || match.resultSummary || (state.matchStatus === "walkover" ? "Won by Walkover" : "Match Completed"),
       });
     }
   }, [
@@ -767,7 +775,11 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
               <div className="flex items-center justify-center gap-3">
                 <Trophy className="w-8 h-8 text-primary" />
                 <h2 className="text-center text-3xl font-display font-black uppercase tracking-widest text-primary">
-                  Match Completed
+                  {state?.matchStatus === "walkover" || match?.status === "walkover"
+                    ? "Walkover Awarded"
+                    : state?.matchStatus === "abandoned" || match?.status === "abandoned"
+                    ? "Match Abandoned"
+                    : "Match Completed"}
                 </h2>
               </div>
               <MatchSummaryCard summary={summary} teams={teams} />

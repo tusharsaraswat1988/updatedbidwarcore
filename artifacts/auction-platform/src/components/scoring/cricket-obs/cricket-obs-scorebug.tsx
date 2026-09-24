@@ -307,7 +307,7 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
                 className="text-xs font-bold uppercase tracking-widest text-[#FFD700]"
                 style={{ fontFamily: BROADCAST_FONTS.body }}
               >
-                MATCH COMPLETED
+                {vm.resultText?.toLowerCase().includes("walkover") ? "WALKOVER AWARDED" : "MATCH COMPLETED"}
               </span>
               <div
                 className="text-2xl font-normal uppercase text-[#FFD700] leading-tight"

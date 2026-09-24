@@ -840,6 +840,8 @@ export function CricketLedMidOverlays({
                         "text-[10px] sm:text-xs font-black uppercase px-2.5 py-0.5 rounded-full border tracking-wider",
                         activeMatch.status === "live"
                           ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 animate-pulse"
+                          : activeMatch.status === "walkover"
+                          ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
                           : activeMatch.status === "completed"
                           ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
                           : "bg-blue-500/20 text-blue-300 border-blue-500/40"
@@ -930,6 +932,8 @@ export function CricketLedMidOverlays({
                         "text-[10px] sm:text-xs font-black uppercase px-2.5 py-0.5 rounded-full border tracking-wider",
                         activeMatch.status === "live"
                           ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 animate-pulse"
+                          : activeMatch.status === "walkover"
+                          ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
                           : activeMatch.status === "completed"
                           ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
                           : "bg-blue-500/20 text-blue-300 border-blue-500/40"

@@ -12,7 +12,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { CricketObsFlashKind, CricketObsMidOverlayKind } from "@/lib/cricket-obs-view-model";
 import { cricketObsLivePath } from "@/lib/tournament-navigation";
-import { listScoringMatches, getScoringStandings } from "@/lib/scoring-api";
+import { listScoringMatches, getScoringStandings, isTerminalCricketMatchStatus } from "@/lib/scoring-api";
 import { parseTournamentSponsors } from "@/components/scoring/public-sponsors-strip";
 import { CricketObsBroadcastMessageControl } from "@/components/scoring/cricket-obs/cricket-obs-broadcast-message-control";
 import { Tv, Radio, Sparkles, Eye, CheckCircle2, Copy, ExternalLink, Calendar, Trophy, Handshake, Table, Zap } from "lucide-react";
@@ -92,7 +92,7 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
 
   const liveMatches = useMemo(() => (matches ?? []).filter((m) => m.status === "live"), [matches]);
   const upcomingMatches = useMemo(() => (matches ?? []).filter((m) => m.status === "upcoming" || m.status === "scheduled"), [matches]);
-  const completedMatches = useMemo(() => (matches ?? []).filter((m) => m.status === "completed"), [matches]);
+  const completedMatches = useMemo(() => (matches ?? []).filter((m) => isTerminalCricketMatchStatus(m.status)), [matches]);
 
   const filteredMatches = useMemo(() => {
     if (!matches) return [];
@@ -484,6 +484,8 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
                 const statusBadge =
                   m.status === "live"
                     ? "bg-emerald-50 text-emerald-700 border-emerald-300 font-black ring-1 ring-emerald-400/40 animate-pulse"
+                    : m.status === "walkover"
+                    ? "bg-amber-50 text-amber-700 border-amber-300 font-semibold"
                     : m.status === "completed"
                     ? "bg-purple-50 text-purple-700 border-purple-300 font-semibold"
                     : "bg-blue-50 text-blue-700 border-blue-300 font-semibold";

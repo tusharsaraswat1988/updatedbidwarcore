@@ -155,6 +155,8 @@ export default function CricketScorerPage() {
   const [localNonStrikerId, setLocalNonStrikerId] = useState<number | null>(null);
   const sequenceRef = useRef(0);
   const sendInFlightRef = useRef(false);
+  const leaseVersionRef = useRef<number | undefined>(undefined);
+  const leaseIdRef = useRef<string | undefined>(undefined);
 
   // ─── Scorer Session Check & Lock Acquisition ───
   useEffect(() => {
@@ -183,6 +185,10 @@ export default function CricketScorerPage() {
           setLockLost(false);
           lockHeldRef.current = true;
           setLockError("");
+          if (lockRes.lock) {
+            leaseVersionRef.current = lockRes.lock.leaseVersion;
+            leaseIdRef.current = lockRes.lock.leaseId;
+          }
 
           if (heartbeatTimer) clearInterval(heartbeatTimer);
           heartbeatTimer = setInterval(async () => {
@@ -294,6 +300,8 @@ export default function CricketScorerPage() {
               payload: item.payload,
               expectedSequence: sequenceRef.current,
               correlationId: item.correlationId,
+              leaseVersion: leaseVersionRef.current,
+              leaseId: leaseIdRef.current,
             });
             sequenceRef.current = result.state.lastSequence;
             await removeQueuedScoringEvent(item.id);
@@ -305,7 +313,29 @@ export default function CricketScorerPage() {
             });
             synced = true;
           } catch (e) {
-            const err = e as Error & { status?: number };
+            const err = e as Error & { status?: number; code?: string };
+            if (
+              err.status === 409 &&
+              (err.code === "MATCH_LOCKED" ||
+                err.code === "MATCH_LOCK_REQUIRED" ||
+                err.code === "SCORER_LEASE_REVOKED" ||
+                err.code === "SCORER_LEASE_STALE" ||
+                err.code === "SCORER_LEASE_EXPIRED" ||
+                err.code === "SCORER_LEASE_REQUIRED")
+            ) {
+              lockHeldRef.current = false;
+              setLockAcquired(false);
+              setLockLost(true);
+              toast({
+                title:
+                  err.code === "MATCH_LOCKED" || err.code === "SCORER_LEASE_REVOKED" || err.code === "SCORER_LEASE_STALE"
+                    ? "Match locked by another scorer"
+                    : "Match lock lost",
+                description: "Cannot drain offline queue because your match lock is no longer active. Reacquire before continuing.",
+                variant: "destructive",
+              });
+              break;
+            }
             if (err.status === 409) {
               const refreshed = await refetch();
               if (refreshed.data) {
@@ -346,6 +376,8 @@ export default function CricketScorerPage() {
             payload,
             expectedSequence: sequenceRef.current,
             correlationId,
+            leaseVersion: leaseVersionRef.current,
+            leaseId: leaseIdRef.current,
           });
         } catch (initialError) {
           const err = initialError as Error & { status?: number };
@@ -365,6 +397,8 @@ export default function CricketScorerPage() {
               payload,
               expectedSequence: nextSeq,
               correlationId: crypto.randomUUID(),
+              leaseVersion: leaseVersionRef.current,
+              leaseId: leaseIdRef.current,
             });
           } else {
             throw initialError;
@@ -410,15 +444,26 @@ export default function CricketScorerPage() {
           });
           return;
         }
-        if (err.status === 409 && (err.code === "MATCH_LOCKED" || err.code === "MATCH_LOCK_REQUIRED")) {
+        if (
+          err.status === 409 &&
+          (err.code === "MATCH_LOCKED" ||
+            err.code === "MATCH_LOCK_REQUIRED" ||
+            err.code === "SCORER_LEASE_REVOKED" ||
+            err.code === "SCORER_LEASE_STALE" ||
+            err.code === "SCORER_LEASE_EXPIRED" ||
+            err.code === "SCORER_LEASE_REQUIRED")
+        ) {
           // Lock was lost or taken by another scorer.
           lockHeldRef.current = false;
           setLockAcquired(false);
           setLockLost(true);
           toast({
-            title: err.code === "MATCH_LOCKED" ? "Match locked by another scorer" : "Match lock lost",
+            title:
+              err.code === "MATCH_LOCKED" || err.code === "SCORER_LEASE_REVOKED" || err.code === "SCORER_LEASE_STALE"
+                ? "Match locked by another scorer"
+                : "Match lock lost",
             description:
-              err.code === "MATCH_LOCKED"
+              err.code === "MATCH_LOCKED" || err.code === "SCORER_LEASE_REVOKED" || err.code === "SCORER_LEASE_STALE"
                 ? "This match is being scored by another active session."
                 : "Your match lock expired. Reacquire the lock to continue scoring.",
             variant: "destructive",

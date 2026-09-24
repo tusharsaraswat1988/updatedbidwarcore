@@ -340,6 +340,8 @@ export async function appendScoringEvent(
     payload: Record<string, unknown>;
     expectedSequence: number;
     correlationId?: string;
+    leaseId?: string;
+    leaseVersion?: number;
   },
 ): Promise<
   ScoringMatchDetail & {

@@ -177,10 +177,23 @@ function sendScorerLockError(res: import("express").Response, e: unknown): boole
     // MATCH_LOCKED   → 409 MATCH_LOCKED (another session owns it)
     // LOCK_NOT_OWNED → 409 MATCH_LOCK_REQUIRED (own lock but stale)
     const code =
-      e.code === "MATCH_LOCKED" ? "MATCH_LOCKED" : "MATCH_LOCK_REQUIRED";
+      e.code === "MATCH_LOCKED" || e.code === "SCORER_LEASE_REVOKED"
+        ? "MATCH_LOCKED"
+        : e.code === "SCORER_LEASE_STALE"
+          ? "SCORER_LEASE_STALE"
+          : e.code === "SCORER_LEASE_EXPIRED"
+            ? "SCORER_LEASE_EXPIRED"
+            : e.code === "SCORER_LEASE_REQUIRED"
+              ? "SCORER_LEASE_REQUIRED"
+              : "MATCH_LOCK_REQUIRED";
     const status = 409;
     logger.warn({ code, lockCode: e.code, message: e.message }, "SCORING_LOCK_DENIED");
-    res.status(status).json({ error: e.message, code });
+    res.status(status).json({
+      error: e.message,
+      code,
+      leaseCode: e.code,
+      message: e.message,
+    });
     return true;
   }
   return false;
@@ -1129,6 +1142,8 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async 
     payload: z.record(z.unknown()),
     expectedSequence: z.number().int().min(0),
     correlationId: z.string().uuid().optional(),
+    leaseId: z.string().optional(),
+    leaseVersion: z.number().int().positive().optional(),
     // scorerPin is intentionally NOT accepted — legacy field removed from mutation path.
   });
 
@@ -1154,6 +1169,12 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async 
       expectedSequence: parsed.data.expectedSequence,
       correlationId: parsed.data.correlationId,
       actor: { type: "scorer", id: String(scorerAuth.scorerId) },
+      lease: {
+        scorerId: scorerAuth.scorerId,
+        sessionId: scorerAuth.sessionId,
+        leaseId: parsed.data.leaseId,
+        leaseVersion: parsed.data.leaseVersion,
+      },
     });
     res.status(201).json({
       event: {
@@ -1166,6 +1187,7 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async 
       match: matchToJson(result.match),
     });
   } catch (err) {
+    if (sendScorerLockError(res, err)) return;
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });
       return;
@@ -1189,6 +1211,8 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (r
 
   const schema = z.object({
     expectedSequence: z.number().int().min(0),
+    leaseId: z.string().optional(),
+    leaseVersion: z.number().int().positive().optional(),
     // scorerPin intentionally NOT accepted.
   });
   const parsed = schema.safeParse(req.body);
@@ -1210,6 +1234,12 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (r
     const result = await undoLastScoringEvent(tournamentId, matchId, {
       expectedSequence: parsed.data.expectedSequence,
       actor: { type: "scorer", id: String(scorerAuth.scorerId) },
+      lease: {
+        scorerId: scorerAuth.scorerId,
+        sessionId: scorerAuth.sessionId,
+        leaseId: parsed.data.leaseId,
+        leaseVersion: parsed.data.leaseVersion,
+      },
     });
     res.status(201).json({
       event: {
@@ -1222,6 +1252,7 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (r
       match: matchToJson(result.match),
     });
   } catch (err) {
+    if (sendScorerLockError(res, err)) return;
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });
       return;
@@ -1243,8 +1274,16 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/reset", async (
     return;
   }
 
-  // No body required for reset, but parse gracefully.
+  // Optional lease meta for reset.
   // scorerPin is intentionally NOT accepted.
+  const schema = z
+    .object({
+      leaseId: z.string().optional(),
+      leaseVersion: z.number().int().positive().optional(),
+    })
+    .optional();
+  const parsed = schema?.safeParse(req.body ?? {});
+  const leaseMeta = parsed?.success ? parsed.data : undefined;
 
   let scorerAuth: Awaited<ReturnType<typeof requireScorerForMutation>>;
   try {
@@ -1256,10 +1295,20 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/reset", async (
   }
 
   try {
-    const result = await resetCricketMatchSetup(tournamentId, matchId, {
-      type: "scorer",
-      id: String(scorerAuth.scorerId),
-    });
+    const result = await resetCricketMatchSetup(
+      tournamentId,
+      matchId,
+      {
+        type: "scorer",
+        id: String(scorerAuth.scorerId),
+      },
+      {
+        scorerId: scorerAuth.scorerId,
+        sessionId: scorerAuth.sessionId,
+        leaseId: leaseMeta?.leaseId,
+        leaseVersion: leaseMeta?.leaseVersion,
+      },
+    );
     res.json({
       match: matchToJson(result.match),
       state: result.state,
@@ -1268,6 +1317,7 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/reset", async (
       lastSequence: 0,
     });
   } catch (err) {
+    if (sendScorerLockError(res, err)) return;
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });
       return;

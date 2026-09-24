@@ -43,6 +43,7 @@ import {
   type CricketScorerPlayer,
   type CricketScorerTeam,
 } from "@/lib/scoring-squad";
+import { isTerminalCricketMatchStatus } from "@/lib/scoring-api";
 import { CricketEventType } from "@workspace/scoring-core";
 import {
   battingTeamId,
@@ -297,7 +298,7 @@ export function LiveScoringPad({
       innings.over >= state.oversLimit);
 
   const isMatchCompleteState =
-    state.matchStatus === "completed" || isInnings2Finished;
+    isTerminalCricketMatchStatus(state.matchStatus) || isInnings2Finished;
 
   const matchResultPreview = useMemo(() => {
     try {
@@ -631,8 +632,7 @@ export function LiveScoringPad({
 
   if (
     !innings ||
-    state.matchStatus === "completed" ||
-    state.matchStatus === "abandoned"
+    isTerminalCricketMatchStatus(state.matchStatus)
   ) {
     return (
       <div className="p-6 text-center space-y-2">

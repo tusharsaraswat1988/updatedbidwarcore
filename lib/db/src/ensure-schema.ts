@@ -886,11 +886,21 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
       match_id INTEGER PRIMARY KEY,
       scorer_id INTEGER NOT NULL,
       session_id TEXT NOT NULL,
+      lease_id TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+      lease_version INTEGER NOT NULL DEFAULT 1,
       locked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      last_heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      last_heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '180 seconds')
     );
     CREATE INDEX IF NOT EXISTS ix_scorer_match_locks_session_id ON scorer_match_locks (session_id);
     CREATE INDEX IF NOT EXISTS ix_scorer_match_locks_last_heartbeat ON scorer_match_locks (last_heartbeat_at);
+    CREATE INDEX IF NOT EXISTS ix_scorer_match_locks_lease_id ON scorer_match_locks (lease_id);
+
+    ALTER TABLE scorer_match_locks ADD COLUMN IF NOT EXISTS lease_id TEXT;
+    ALTER TABLE scorer_match_locks ADD COLUMN IF NOT EXISTS lease_version INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE scorer_match_locks ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+    UPDATE scorer_match_locks SET lease_id = gen_random_uuid()::text WHERE lease_id IS NULL;
+    UPDATE scorer_match_locks SET expires_at = last_heartbeat_at + INTERVAL '180 seconds' WHERE expires_at IS NULL;
 
     CREATE TABLE IF NOT EXISTS scorer_audit_log (
       id SERIAL PRIMARY KEY,

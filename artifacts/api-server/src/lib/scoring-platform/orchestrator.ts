@@ -29,6 +29,7 @@ import {
 import { getScoringAdapter, runPostMatchProjectionPipeline } from "./projections";
 import { parseScoringEvent, replayScoringMatchState } from "../scoring-platform";
 import { isTerminalScoringMatchStatus } from "../scoring-match-terminal";
+import { assertAuthoritativeScorerLease, ScorerLockError } from "../scorer-match-locks";
 
 export type ScoringActor = {
   /** 'scorer' = dedicated Empire scorer acting on a locked match. */
@@ -46,6 +47,12 @@ export type AppendSingleEventInput = {
   actor: ScoringActor;
   correlationId?: string | null;
   matchMeta: unknown;
+  lease?: {
+    scorerId: number;
+    sessionId: string;
+    leaseId?: string | null;
+    leaseVersion?: number | null;
+  };
 };
 
 export type AppendEventBatchInput = {
@@ -238,36 +245,6 @@ export async function appendSingleMatchEvent(
     throw new ScoringPlatformError(adapterValidation.error, 409, adapterValidation.code);
   }
 
-  // Idempotent replay of offline-queued events (same correlationId).
-  if (input.correlationId) {
-    const existing = await findMatchEventByCorrelationId(input.matchId, input.correlationId);
-    if (existing) {
-      const events = await loadMatchEvents(input.matchId);
-      const replayedState = replayScoringMatchState(input.sportSlug, input.matchMeta, events);
-      const lastSeq = events.length > 0 ? events[events.length - 1]!.sequence : 0;
-      const state = {
-        ...(replayedState as Record<string, unknown>),
-        lastSequence: lastSeq,
-      };
-      const [session] = await db
-        .select()
-        .from(scoringSessionsTable)
-        .where(eq(scoringSessionsTable.matchId, input.matchId))
-        .limit(1);
-      const [freshMatch] = await db
-        .select()
-        .from(scoringMatchesTable)
-        .where(eq(scoringMatchesTable.id, input.matchId))
-        .limit(1);
-      return {
-        event: existing,
-        state: session?.stateJson ?? state,
-        match: freshMatch ?? match,
-        idempotentReplay: true as const,
-      };
-    }
-  }
-
   if (
     input.eventType === CricketEventType.MATCH_STARTED ||
     input.eventType === CricketEventType.MATCH_RESUMED
@@ -282,7 +259,50 @@ export async function appendSingleMatchEvent(
 
   try {
     const committed = await db.transaction(async (tx) => {
-      // Serialize concurrent appends for this match.
+      // 1. Authoritative lease fencing at the transaction write boundary.
+      // Row is locked FOR UPDATE in Postgres to prevent TOCTOU takeover races.
+      if (input.lease) {
+        await assertAuthoritativeScorerLease(tx, {
+          matchId: input.matchId,
+          scorerId: input.lease.scorerId,
+          sessionId: input.lease.sessionId,
+          leaseId: input.lease.leaseId,
+          leaseVersion: input.lease.leaseVersion,
+        });
+      }
+
+      // 2. Idempotent replay of offline-queued events (same correlationId).
+      // Checked AFTER verifying lease to prevent stale scorers from replaying or mutating.
+      if (input.correlationId) {
+        const existing = await findMatchEventByCorrelationId(input.matchId, input.correlationId, tx);
+        if (existing) {
+          const events = await loadMatchEvents(input.matchId, undefined, tx);
+          const replayedState = replayScoringMatchState(input.sportSlug, input.matchMeta, events);
+          const lastSeq = events.length > 0 ? events[events.length - 1]!.sequence : 0;
+          const replayState = {
+            ...(replayedState as Record<string, unknown>),
+            lastSequence: lastSeq,
+          };
+          const [session] = await tx
+            .select()
+            .from(scoringSessionsTable)
+            .where(eq(scoringSessionsTable.matchId, input.matchId))
+            .limit(1);
+          const [freshMatch] = await tx
+            .select()
+            .from(scoringMatchesTable)
+            .where(eq(scoringMatchesTable.id, input.matchId))
+            .limit(1);
+          return {
+            event: existing,
+            state: session?.stateJson ?? replayState,
+            match: freshMatch ?? match,
+            idempotentReplay: true as const,
+          };
+        }
+      }
+
+      // 3. Serialize concurrent appends for this match.
       await tx.execute(
         sql`SELECT id FROM scoring_sessions WHERE match_id = ${input.matchId} FOR UPDATE`,
       );
@@ -403,6 +423,10 @@ export async function appendSingleMatchEvent(
         projection: nextProjection,
       };
     });
+
+    if ("idempotentReplay" in committed && committed.idempotentReplay) {
+      return committed;
+    }
 
     eventRow = committed.eventRow;
     state = committed.state;

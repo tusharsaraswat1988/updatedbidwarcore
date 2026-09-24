@@ -1,6 +1,7 @@
 /**
  * Sport-agnostic scorer match lock service.
  * Locks by canonical match_id only — never inspects sport tables.
+ * Hardened with server-authoritative lease fencing and generation tokens.
  */
 
 import { and, eq, lt } from "drizzle-orm";
@@ -14,16 +15,27 @@ export const SCORER_HEARTBEAT_INTERVAL_SEC = 20;
 /** Lock is stale if last_heartbeat_at is older than this (seconds). */
 export const SCORER_LOCK_TIMEOUT_SEC = 180;
 
+export type ScorerLockErrorCode =
+  | "MATCH_LOCKED"
+  | "LOCK_NOT_OWNED"
+  | "LOCK_NOT_FOUND"
+  | "SCORER_LEASE_REQUIRED"
+  | "SCORER_LEASE_EXPIRED"
+  | "SCORER_LEASE_REVOKED"
+  | "SCORER_LEASE_STALE";
+
 export class ScorerLockError extends Error {
   constructor(
     message: string,
-    public readonly code: "MATCH_LOCKED" | "LOCK_NOT_OWNED" | "LOCK_NOT_FOUND",
+    public readonly code: ScorerLockErrorCode,
     public readonly status: number,
   ) {
     super(message);
     this.name = "ScorerLockError";
   }
 }
+
+export type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 function staleCutoff(now = new Date()): Date {
   return new Date(now.getTime() - SCORER_LOCK_TIMEOUT_SEC * 1000);
@@ -46,126 +58,165 @@ export async function acquireMatchLock(input: {
   forceTakeover?: boolean;
 }): Promise<AcquireLockResult> {
   const now = new Date();
-  const existing = await db
-    .select()
-    .from(scorerMatchLocksTable)
-    .where(eq(scorerMatchLocksTable.matchId, input.matchId))
-    .limit(1)
-    .then((rows) => rows[0] ?? null);
+  const expiresAt = new Date(now.getTime() + SCORER_LOCK_TIMEOUT_SEC * 1000);
 
-  if (!existing) {
-    const [lock] = await db
-      .insert(scorerMatchLocksTable)
-      .values({
-        matchId: input.matchId,
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .select()
+      .from(scorerMatchLocksTable)
+      .where(eq(scorerMatchLocksTable.matchId, input.matchId))
+      .for("update");
+    const existing = rows[0] ?? null;
+
+    if (!existing) {
+      const leaseId = crypto.randomUUID();
+      const leaseVersion = 1;
+      const [lock] = await tx
+        .insert(scorerMatchLocksTable)
+        .values({
+          matchId: input.matchId,
+          scorerId: input.scorerId,
+          sessionId: input.sessionId,
+          leaseId,
+          leaseVersion,
+          lockedAt: now,
+          lastHeartbeatAt: now,
+          expiresAt,
+        })
+        .returning();
+
+      await writeScorerAudit({
+        actorType: "scorer",
+        actorId: String(input.scorerId),
         scorerId: input.scorerId,
         sessionId: input.sessionId,
-        lockedAt: now,
-        lastHeartbeatAt: now,
-      })
-      .returning();
-    await writeScorerAudit({
-      actorType: "scorer",
-      actorId: String(input.scorerId),
-      scorerId: input.scorerId,
-      sessionId: input.sessionId,
-      tournamentId: input.tournamentId,
-      matchId: input.matchId,
-      sport: input.sport,
-      action: "lock_acquired",
-    });
-    return { ok: true, reacquired: false, lock: lock! };
-  }
-
-  if (existing.sessionId === input.sessionId) {
-    const [lock] = await db
-      .update(scorerMatchLocksTable)
-      .set({ lastHeartbeatAt: now, scorerId: input.scorerId })
-      .where(eq(scorerMatchLocksTable.matchId, input.matchId))
-      .returning();
-    return { ok: true, reacquired: false, lock: lock! };
-  }
-
-  if (input.forceTakeover || isStale(existing.lastHeartbeatAt, now)) {
-    const action = input.forceTakeover ? "lock_force_takeover" : "lock_reacquired";
-
-    if (!input.forceTakeover) {
-      await writeScorerAudit({
-        actorType: "system",
-        actorId: "system",
-        scorerId: existing.scorerId,
-        sessionId: existing.sessionId,
         tournamentId: input.tournamentId,
         matchId: input.matchId,
         sport: input.sport,
-        action: "lock_expired",
-        payload: { reason: "stale_on_acquire", previousSessionId: existing.sessionId },
+        action: "lock_acquired",
+        payload: { leaseId, leaseVersion },
       });
+      return { ok: true, reacquired: false, lock: lock! };
     }
 
-    const [lock] = await db
-      .update(scorerMatchLocksTable)
-      .set({
+    // Same session reacquisition / heartbeat refresh
+    if (existing.sessionId === input.sessionId && !input.forceTakeover && !isStale(existing.lastHeartbeatAt, now)) {
+      const [lock] = await tx
+        .update(scorerMatchLocksTable)
+        .set({
+          lastHeartbeatAt: now,
+          expiresAt,
+          scorerId: input.scorerId,
+        })
+        .where(eq(scorerMatchLocksTable.matchId, input.matchId))
+        .returning();
+      return { ok: true, reacquired: false, lock: lock! };
+    }
+
+    if (input.forceTakeover || isStale(existing.lastHeartbeatAt, now)) {
+      const action = input.forceTakeover ? "lock_force_takeover" : "lock_reacquired";
+      const newVersion = (existing.leaseVersion ?? 0) + 1;
+      const newLeaseId = crypto.randomUUID();
+
+      if (!input.forceTakeover) {
+        await writeScorerAudit({
+          actorType: "system",
+          actorId: "system",
+          scorerId: existing.scorerId,
+          sessionId: existing.sessionId,
+          tournamentId: input.tournamentId,
+          matchId: input.matchId,
+          sport: input.sport,
+          action: "lock_expired",
+          payload: {
+            reason: "stale_on_acquire",
+            previousSessionId: existing.sessionId,
+            previousLeaseVersion: existing.leaseVersion,
+          },
+        });
+      }
+
+      const [lock] = await tx
+        .update(scorerMatchLocksTable)
+        .set({
+          scorerId: input.scorerId,
+          sessionId: input.sessionId,
+          leaseId: newLeaseId,
+          leaseVersion: newVersion,
+          lockedAt: now,
+          lastHeartbeatAt: now,
+          expiresAt,
+        })
+        .where(eq(scorerMatchLocksTable.matchId, input.matchId))
+        .returning();
+
+      await writeScorerAudit({
+        actorType: "scorer",
+        actorId: String(input.scorerId),
         scorerId: input.scorerId,
         sessionId: input.sessionId,
-        lockedAt: now,
-        lastHeartbeatAt: now,
-      })
-      .where(eq(scorerMatchLocksTable.matchId, input.matchId))
-      .returning();
+        tournamentId: input.tournamentId,
+        matchId: input.matchId,
+        sport: input.sport,
+        action,
+        payload: {
+          previousSessionId: existing.sessionId,
+          previousScorerId: existing.scorerId,
+          previousLeaseVersion: existing.leaseVersion,
+          newLeaseVersion: newVersion,
+          newLeaseId,
+        },
+      });
 
-    await writeScorerAudit({
-      actorType: "scorer",
-      actorId: String(input.scorerId),
-      scorerId: input.scorerId,
-      sessionId: input.sessionId,
-      tournamentId: input.tournamentId,
-      matchId: input.matchId,
-      sport: input.sport,
-      action,
-      payload: { previousSessionId: existing.sessionId, previousScorerId: existing.scorerId },
-    });
+      return { ok: true, reacquired: true, lock: lock! };
+    }
 
-    return { ok: true, reacquired: true, lock: lock! };
-  }
-
-  return { ok: false, code: "MATCH_LOCKED" };
+    return { ok: false, code: "MATCH_LOCKED" };
+  });
 }
 
 export async function heartbeatMatchLock(input: {
   matchId: number;
   sessionId: string;
 }): Promise<void> {
-  const existing = await db
-    .select()
-    .from(scorerMatchLocksTable)
-    .where(eq(scorerMatchLocksTable.matchId, input.matchId))
-    .limit(1)
-    .then((rows) => rows[0] ?? null);
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + SCORER_LOCK_TIMEOUT_SEC * 1000);
 
-  if (!existing) {
-    throw new ScorerLockError("No lock for this match", "LOCK_NOT_FOUND", 404);
-  }
-  if (existing.sessionId !== input.sessionId) {
-    throw new ScorerLockError(
-      "This match is currently being scored by another active session.",
-      "MATCH_LOCKED",
-      409,
-    );
-  }
-  if (isStale(existing.lastHeartbeatAt)) {
-    throw new ScorerLockError("Match lock expired", "LOCK_NOT_OWNED", 403);
-  }
+  await db.transaction(async (tx) => {
+    const rows = await tx
+      .select()
+      .from(scorerMatchLocksTable)
+      .where(eq(scorerMatchLocksTable.matchId, input.matchId))
+      .for("update");
+    const existing = rows[0] ?? null;
 
-  await db
-    .update(scorerMatchLocksTable)
-    .set({ lastHeartbeatAt: new Date() })
-    .where(
-      and(
-        eq(scorerMatchLocksTable.matchId, input.matchId),
-        eq(scorerMatchLocksTable.sessionId, input.sessionId),
-      ),
-    );
+    if (!existing) {
+      throw new ScorerLockError("No lock for this match", "LOCK_NOT_FOUND", 404);
+    }
+    if (existing.sessionId !== input.sessionId) {
+      throw new ScorerLockError(
+        "This match is currently being scored by another active session.",
+        "MATCH_LOCKED",
+        409,
+      );
+    }
+    if (isStale(existing.lastHeartbeatAt, now)) {
+      throw new ScorerLockError("Match lock expired", "LOCK_NOT_OWNED", 403);
+    }
+
+    await tx
+      .update(scorerMatchLocksTable)
+      .set({
+        lastHeartbeatAt: now,
+        expiresAt,
+      })
+      .where(
+        and(
+          eq(scorerMatchLocksTable.matchId, input.matchId),
+          eq(scorerMatchLocksTable.sessionId, input.sessionId),
+        ),
+      );
+  });
 }
 
 export async function releaseMatchLock(input: {
@@ -175,34 +226,36 @@ export async function releaseMatchLock(input: {
   tournamentId?: number | null;
   sport?: string | null;
 }): Promise<boolean> {
-  const existing = await db
-    .select()
-    .from(scorerMatchLocksTable)
-    .where(eq(scorerMatchLocksTable.matchId, input.matchId))
-    .limit(1)
-    .then((rows) => rows[0] ?? null);
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .select()
+      .from(scorerMatchLocksTable)
+      .where(eq(scorerMatchLocksTable.matchId, input.matchId))
+      .for("update");
+    const existing = rows[0] ?? null;
 
-  if (!existing) return false;
-  if (existing.sessionId !== input.sessionId) {
-    throw new ScorerLockError(
-      "Only the session that owns the lock can release it",
-      "LOCK_NOT_OWNED",
-      403,
-    );
-  }
+    if (!existing) return false;
+    if (existing.sessionId !== input.sessionId) {
+      throw new ScorerLockError(
+        "Only the session that owns the lock can release it",
+        "LOCK_NOT_OWNED",
+        403,
+      );
+    }
 
-  await db.delete(scorerMatchLocksTable).where(eq(scorerMatchLocksTable.matchId, input.matchId));
-  await writeScorerAudit({
-    actorType: "scorer",
-    actorId: String(input.scorerId),
-    scorerId: input.scorerId,
-    sessionId: input.sessionId,
-    tournamentId: input.tournamentId,
-    matchId: input.matchId,
-    sport: input.sport,
-    action: "lock_released",
+    await tx.delete(scorerMatchLocksTable).where(eq(scorerMatchLocksTable.matchId, input.matchId));
+    await writeScorerAudit({
+      actorType: "scorer",
+      actorId: String(input.scorerId),
+      scorerId: input.scorerId,
+      sessionId: input.sessionId,
+      tournamentId: input.tournamentId,
+      matchId: input.matchId,
+      sport: input.sport,
+      action: "lock_released",
+    });
+    return true;
   });
-  return true;
 }
 
 export async function forceUnlockMatch(input: {
@@ -212,28 +265,34 @@ export async function forceUnlockMatch(input: {
   tournamentId?: number | null;
   sport?: string | null;
 }): Promise<boolean> {
-  const existing = await db
-    .select()
-    .from(scorerMatchLocksTable)
-    .where(eq(scorerMatchLocksTable.matchId, input.matchId))
-    .limit(1)
-    .then((rows) => rows[0] ?? null);
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .select()
+      .from(scorerMatchLocksTable)
+      .where(eq(scorerMatchLocksTable.matchId, input.matchId))
+      .for("update");
+    const existing = rows[0] ?? null;
 
-  if (!existing) return false;
+    if (!existing) return false;
 
-  await db.delete(scorerMatchLocksTable).where(eq(scorerMatchLocksTable.matchId, input.matchId));
-  await writeScorerAudit({
-    actorType: input.actorType,
-    actorId: input.actorId,
-    scorerId: existing.scorerId,
-    sessionId: existing.sessionId,
-    tournamentId: input.tournamentId,
-    matchId: input.matchId,
-    sport: input.sport,
-    action: "force_unlock",
-    payload: { previousSessionId: existing.sessionId, previousScorerId: existing.scorerId },
+    await tx.delete(scorerMatchLocksTable).where(eq(scorerMatchLocksTable.matchId, input.matchId));
+    await writeScorerAudit({
+      actorType: input.actorType,
+      actorId: input.actorId,
+      scorerId: existing.scorerId,
+      sessionId: existing.sessionId,
+      tournamentId: input.tournamentId,
+      matchId: input.matchId,
+      sport: input.sport,
+      action: "force_unlock",
+      payload: {
+        previousSessionId: existing.sessionId,
+        previousScorerId: existing.scorerId,
+        previousLeaseVersion: existing.leaseVersion,
+      },
+    });
+    return true;
   });
-  return true;
 }
 
 /** Return a non-stale lock for the match, or null if none / expired. */
@@ -256,7 +315,10 @@ export async function getFreshMatchLock(
 export async function assertSessionOwnsMatchLock(input: {
   matchId: number;
   sessionId: string;
-}): Promise<void> {
+  scorerId?: number;
+  leaseId?: string | null;
+  leaseVersion?: number | null;
+}): Promise<typeof scorerMatchLocksTable.$inferSelect> {
   const existing = await db
     .select()
     .from(scorerMatchLocksTable)
@@ -274,9 +336,105 @@ export async function assertSessionOwnsMatchLock(input: {
       409,
     );
   }
+  if (typeof input.scorerId === "number" && existing.scorerId !== input.scorerId) {
+    throw new ScorerLockError(
+      "This match is currently being scored by another active session.",
+      "MATCH_LOCKED",
+      409,
+    );
+  }
+  if (typeof input.leaseVersion === "number" && existing.leaseVersion !== input.leaseVersion) {
+    throw new ScorerLockError(
+      `Stale scorer lease version: expected ${input.leaseVersion}, active is ${existing.leaseVersion}`,
+      "SCORER_LEASE_STALE",
+      409,
+    );
+  }
+  if (input.leaseId && existing.leaseId !== input.leaseId) {
+    throw new ScorerLockError(
+      "Stale scorer lease token: lease has been superseded",
+      "SCORER_LEASE_STALE",
+      409,
+    );
+  }
   if (isStale(existing.lastHeartbeatAt)) {
     throw new ScorerLockError("Match lock expired — re-acquire before scoring", "LOCK_NOT_OWNED", 403);
   }
+
+  return existing;
+}
+
+/**
+ * Server-authoritative lease verification at the mutation transaction write boundary.
+ * Locks the row FOR UPDATE in Postgres to prevent TOCTOU races with takeover or heartbeat.
+ */
+export async function assertAuthoritativeScorerLease(
+  tx: DbTx,
+  input: {
+    matchId: number;
+    scorerId: number;
+    sessionId: string;
+    leaseId?: string | null;
+    leaseVersion?: number | null;
+  },
+  now = new Date(),
+): Promise<typeof scorerMatchLocksTable.$inferSelect> {
+  const rows = await tx
+    .select()
+    .from(scorerMatchLocksTable)
+    .where(eq(scorerMatchLocksTable.matchId, input.matchId))
+    .for("update");
+  const lock = rows[0] ?? null;
+
+  if (!lock) {
+    throw new ScorerLockError(
+      "Match lock required before scoring",
+      "SCORER_LEASE_REQUIRED",
+      409,
+    );
+  }
+
+  if (lock.sessionId !== input.sessionId) {
+    throw new ScorerLockError(
+      "This match is currently being scored by another active session.",
+      "SCORER_LEASE_REVOKED",
+      409,
+    );
+  }
+
+  if (lock.scorerId !== input.scorerId) {
+    throw new ScorerLockError(
+      "Scorer identity does not match current lease owner",
+      "SCORER_LEASE_REVOKED",
+      409,
+    );
+  }
+
+  if (typeof input.leaseVersion === "number" && lock.leaseVersion !== input.leaseVersion) {
+    throw new ScorerLockError(
+      `Stale scorer lease version: expected ${input.leaseVersion}, active is ${lock.leaseVersion}`,
+      "SCORER_LEASE_STALE",
+      409,
+    );
+  }
+
+  if (input.leaseId && lock.leaseId !== input.leaseId) {
+    throw new ScorerLockError(
+      "Stale scorer lease token: lease has been superseded",
+      "SCORER_LEASE_STALE",
+      409,
+    );
+  }
+
+  if (isStale(lock.lastHeartbeatAt, now)) {
+    throw new ScorerLockError(
+      "Match lock expired — re-acquire before scoring",
+      "SCORER_LEASE_EXPIRED",
+      409,
+    );
+  }
+
+  return lock;
 }
 
 export async function releaseLockOnMatchFinish(input: {

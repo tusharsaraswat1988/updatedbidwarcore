@@ -12,6 +12,7 @@ import {
   getCricketMasterTeams,
   getCricketTournamentRoster,
   getPublicMatchScorecard,
+  isTerminalCricketMatchStatus,
   type ScoringLiveDisplay,
 } from "@/lib/scoring-api";
 import {
@@ -448,15 +449,26 @@ export function useCricketObsLive(
     const target = state.target;
     const runs = innings?.runs ?? 0;
     const isTargetReached = target != null && runs >= target && (state.currentInnings ?? 1) >= 2;
-    const isCompleted = state.matchStatus === "completed" || isTargetReached;
+    const isCompleted =
+      isTerminalCricketMatchStatus(state.matchStatus) ||
+      (match.status ? isTerminalCricketMatchStatus(match.status) : false) ||
+      isTargetReached;
 
     if (isCompleted && !prevWonRef.current) {
       prevWonRef.current = true;
       if (bootstrappedFlash.current) {
         const batting = innings ? teams.find((t) => t.id === innings.battingTeamId) : null;
+        const winner = teams.find((t) => t.id === state.winnerTeamId || t.id === match.winnerTeamId);
         const winDesc =
           state.resultText ||
-          (batting ? `${batting.name} Won` : "Champions · Match Won");
+          match.resultSummary ||
+          (winner
+            ? state.matchStatus === "walkover" || match.status === "walkover"
+              ? `${winner.name} · Won by Walkover`
+              : `${winner.name} Won`
+            : batting
+            ? `${batting.name} Won`
+            : "Champions · Match Won");
         triggerFlash("MATCH_WON", winDesc);
       }
     } else if (!isCompleted) {

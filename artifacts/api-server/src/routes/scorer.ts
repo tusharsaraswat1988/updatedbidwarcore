@@ -218,8 +218,11 @@ router.post("/matches/:matchId/lock", async (req, res) => {
         matchId: result.lock.matchId,
         scorerId: result.lock.scorerId,
         sessionId: result.lock.sessionId,
+        leaseId: result.lock.leaseId,
+        leaseVersion: result.lock.leaseVersion,
         lockedAt: result.lock.lockedAt,
         lastHeartbeatAt: result.lock.lastHeartbeatAt,
+        expiresAt: result.lock.expiresAt,
       },
     });
   } catch (e) {

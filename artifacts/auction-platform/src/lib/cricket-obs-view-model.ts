@@ -15,7 +15,11 @@ import {
   requiredRate,
   runRate,
 } from "@/lib/scoring-ball";
-import type { ScoringLiveDisplay, ScoringMatchJson } from "@/lib/scoring-api";
+import {
+  isTerminalCricketMatchStatus,
+  type ScoringLiveDisplay,
+  type ScoringMatchJson,
+} from "@/lib/scoring-api";
 import {
   getDisplayThemeFromPresentationPaint,
   type PresentationPaintJson,
@@ -530,8 +534,8 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   const isTargetReached =
     target != null && runs >= target && (state.currentInnings ?? 1) >= 2;
   const isMatchFinished =
-    state.matchStatus === "completed" ||
-    state.matchStatus === "abandoned" ||
+    isTerminalCricketMatchStatus(state.matchStatus) ||
+    (match.status ? isTerminalCricketMatchStatus(match.status) : false) ||
     isTargetReached;
 
   const needRuns =
@@ -613,6 +617,8 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   if (!resultText && isTargetReached && batting) {
     const wicketsInHand = Math.max(0, 10 - wickets);
     resultText = `${batting.name} Won by ${wicketsInHand} wicket${wicketsInHand === 1 ? "" : "s"}`;
+  } else if (!resultText && (state.matchStatus === "walkover" || match.status === "walkover")) {
+    resultText = "Won by Walkover";
   }
 
   const resultHeadline =

@@ -303,6 +303,58 @@ describe("cricket-obs-view-model", () => {
     expect(vm.resultHeadline).toContain("Won by 9 wickets");
   });
 
+  it("shows walkover result and winner in terminal walkover state", () => {
+    const state = baseState({
+      matchStatus: "walkover",
+      winnerTeamId: 1,
+      resultText: "Won by Walkover (Opposition forfeited)",
+      target: 32,
+      currentInnings: 2,
+      innings: [
+        {
+          innings: 1,
+          battingTeamId: 2,
+          bowlingTeamId: 1,
+          runs: 31,
+          wickets: 10,
+          over: 5,
+          ball: 0,
+          phase: "completed",
+          kind: "normal",
+          oversLimit: 5,
+        },
+        {
+          innings: 2,
+          battingTeamId: 1,
+          bowlingTeamId: 2,
+          runs: 27,
+          wickets: 0,
+          over: 1,
+          ball: 3,
+          phase: "completed",
+          kind: "normal",
+          oversLimit: 5,
+        },
+      ],
+      thisOver: [],
+    });
+    const live = liveFromState(state);
+    live.match!.status = "walkover";
+    const vm = buildCricketObsViewModel({
+      live,
+      teams,
+      tournamentName: "Box Cup",
+      tournamentLogoUrl: null,
+      sponsors: [],
+      pinnedMatchId: null,
+      connectionStatus: "connected",
+    });
+    expect(vm.phase).toBe("completed");
+    expect(vm.winner?.shortCode).toBe("RR");
+    expect(vm.resultText).toBe("Won by Walkover (Opposition forfeited)");
+    expect(vm.resultHeadline).toContain("Won by Walkover");
+  });
+
   it("exposes this-over trail labels", () => {
     const vm = buildCricketObsViewModel({
       live: liveFromState(baseState()),
