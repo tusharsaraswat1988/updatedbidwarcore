@@ -628,8 +628,8 @@ describe("P0 #6 — Super Over lifecycle integrity", () => {
     expect(state.winnerTeamId).toBe(20);
   });
 
-  // O: Super Over tie → repository-defined behavior (returns tie result; allows another SO)
-  it("O: Super Over tie produces isTie=true result and allows another Super Over pair", () => {
+  // O: Super Over tie → match remains live; allows starting next Super Over pair (innings 5)
+  it("O: Super Over tie produces isTie=true result, rejects MATCH_COMPLETED, and allows another Super Over pair (innings 5)", () => {
     const tieState = buildTieState();
     let state = reduceCricket(tieState, mkSuperOverStarted(BASE_META, {
       innings: 3, battingTeamId: 10, bowlingTeamId: 20,
@@ -653,13 +653,18 @@ describe("P0 #6 — Super Over lifecycle integrity", () => {
     expect(result.winnerTeamId).toBeNull();
     expect(result.resultText).toBe("Super Over tied");
 
-    // The repository schema restricts innings to max 4 (one Super Over pair: innings 3 & 4).
-    // An additional Super Over (innings 5) is rejected by event payload schema validation.
+    // Tied Super Over must NOT allow MATCH_COMPLETED
     expect(() =>
-      reduceCricket(state, mkSuperOverStarted(BASE_META, {
-        innings: 5, battingTeamId: 10, bowlingTeamId: 20,
-      }), { enforceLiveRules: true }),
-    ).toThrow(InvalidEventPayloadError);
+      reduceCricket(state, mkMatchCompleted(BASE_META, null)),
+    ).toThrow(/Super Over is tied, another Super Over is required/);
+
+    // Starting a second Super Over pair (innings 5) succeeds!
+    const withPair2 = reduceCricket(state, mkSuperOverStarted(BASE_META, {
+      innings: 5, battingTeamId: 10, bowlingTeamId: 20,
+    }), { enforceLiveRules: true });
+
+    expect(withPair2.currentInnings).toBe(5);
+    expect(withPair2.innings.find(i => i.innings === 5)!.phase).toBe("in_progress");
   });
 
   // P: MATCH_COMPLETED during active Super Over → rejected
@@ -713,7 +718,7 @@ describe("P0 #6 — Super Over lifecycle integrity", () => {
   });
 
   // Super Over tie: prevent another Super Over from starting if there's a decisive result
-  it("prevents starting a third Super Over when previous SO pair was decisive or exceeds innings schema", () => {
+  it("prevents starting a third Super Over when previous SO pair was decisive", () => {
     const tieState = buildTieState();
     let state = reduceCricket(tieState, mkSuperOverStarted(BASE_META, {
       innings: 3, battingTeamId: 10, bowlingTeamId: 20,
@@ -733,7 +738,7 @@ describe("P0 #6 — Super Over lifecycle integrity", () => {
       reduceCricket(state, mkSuperOverStarted(BASE_META, {
         innings: 5, battingTeamId: 10, bowlingTeamId: 20,
       }), { enforceLiveRules: true }),
-    ).toThrow(InvalidEventPayloadError);
+    ).toThrow(/the previous Super Over already produced a decisive result/);
   });
 });
 

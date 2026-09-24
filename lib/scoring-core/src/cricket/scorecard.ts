@@ -218,6 +218,15 @@ export function buildCricketScorecardFromEvents(
       continue;
     }
 
+    if (event.eventType === CricketEventType.INNINGS_ENDED) {
+      const p = event.payload as { innings: number };
+      if (!inningsMap.has(p.innings) && innings1Batting != null && innings1Bowling != null) {
+        if (p.innings === 1) ensureInnings(1, innings1Batting, innings1Bowling);
+        else if (p.innings === 2) ensureInnings(2, innings1Bowling, innings1Batting);
+      }
+      continue;
+    }
+
     if (event.eventType === CricketEventType.PENALTY_AWARDED) {
       const p = event.payload as { innings: number; battingTeamId: number; runs: number };
       const inn = inningsMap.get(p.innings);

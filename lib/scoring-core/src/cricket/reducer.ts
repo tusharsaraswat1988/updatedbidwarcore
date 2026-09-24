@@ -586,11 +586,13 @@ function applySuperOverStarted(
           "Super Over cannot start: the previous Super Over innings is not yet completed",
         );
       }
-      // After two Super Over innings have completed, if the result is decisive, no more Super Over
-      if (existingSuperOvers.length >= 2) {
-        const soFirst = existingSuperOvers[existingSuperOvers.length - 2]!;
-        const soSecond = existingSuperOvers[existingSuperOvers.length - 1]!;
-        if (soFirst.runs !== soSecond.runs) {
+      // When starting the 1st innings of a new Super Over pair (length is even: 2, 4, 6...),
+      // the immediately preceding Super Over pair must have been tied.
+      // If the preceding pair produced a decisive result, no more Super Overs are allowed.
+      if (existingSuperOvers.length % 2 === 0) {
+        const prevFirst = existingSuperOvers[existingSuperOvers.length - 2]!;
+        const prevSecond = existingSuperOvers[existingSuperOvers.length - 1]!;
+        if (prevFirst.runs !== prevSecond.runs) {
           throw new InvalidEventPayloadError(
             CricketEventType.SUPER_OVER_STARTED,
             "Super Over cannot start: the previous Super Over already produced a decisive result",

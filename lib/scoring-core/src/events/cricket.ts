@@ -54,7 +54,7 @@ const wicketSchema = z
   .nullable();
 
 export const cricketBallRecordedPayloadSchema = z.object({
-  innings: z.number().int().min(1).max(4),
+  innings: z.number().int().min(1),
   over: z.number().int().min(0),
   ball: z.number().int().min(1).max(6),
   strikerId: z.number().int().positive(),
@@ -68,7 +68,7 @@ export const cricketBallRecordedPayloadSchema = z.object({
 });
 
 export const cricketInningsEndedPayloadSchema = z.object({
-  innings: z.number().int().min(1).max(4),
+  innings: z.number().int().min(1),
   reason: z.enum([
     "all_out",
     "overs_complete",
@@ -104,7 +104,7 @@ export const cricketMatchInterruptedPayloadSchema = z.object({
 export const cricketMatchResumedPayloadSchema = z.object({});
 
 export const cricketDlsAppliedPayloadSchema = z.object({
-  innings: z.number().int().min(1).max(4),
+  innings: z.number().int().min(1),
   revisedOvers: z.number().int().positive(),
   parScore: z.number().min(0),
   target: z.number().int().positive(),
@@ -112,26 +112,26 @@ export const cricketDlsAppliedPayloadSchema = z.object({
 });
 
 export const cricketPenaltyAwardedPayloadSchema = z.object({
-  innings: z.number().int().min(1).max(4),
+  innings: z.number().int().min(1),
   battingTeamId: z.number().int().positive(),
   runs: z.number().int().positive(),
   reason: z.string().optional(),
 });
 
 export const cricketPlayerRetiredPayloadSchema = z.object({
-  innings: z.number().int().min(1).max(4),
+  innings: z.number().int().min(1),
   teamId: z.number().int().positive(),
   playerId: z.number().int().positive(),
   type: z.enum(["hurt", "out"]),
 });
 
 export const cricketSuperBallDeclaredPayloadSchema = z.object({
-  innings: z.number().int().min(1).max(4),
+  innings: z.number().int().min(1),
   battingTeamId: z.number().int().positive(),
 });
 
 export const cricketSuperOverStartedPayloadSchema = z.object({
-  innings: z.number().int().min(3).max(4),
+  innings: z.number().int().min(3),
   battingTeamId: z.number().int().positive(),
   bowlingTeamId: z.number().int().positive(),
   oversLimit: z.number().int().positive().default(1),

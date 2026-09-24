@@ -8,6 +8,25 @@ export type CricketDerivedMatchResult = {
 };
 
 /**
+ * Calculates the 1-based Super Over pair index for a given innings number.
+ * Innings 3 & 4 -> Pair 1
+ * Innings 5 & 6 -> Pair 2
+ * Innings 7 & 8 -> Pair 3
+ * Returns null if innings < 3.
+ */
+export function getSuperOverPairNumber(innings: number): number | null {
+  if (innings < 3) return null;
+  return Math.floor((innings - 3) / 2) + 1;
+}
+
+/**
+ * Checks whether an innings number belongs to a Super Over (innings >= 3).
+ */
+export function isSuperOverInnings(innings: number): boolean {
+  return innings >= 3;
+}
+
+/**
  * Derive match result from authoritative scoreboard state.
  * Prefers chase `target` (incl. DLS) over raw first-innings total when set.
  */
@@ -15,7 +34,15 @@ export function deriveCricketMatchResult(
   state: CricketScoreboardState,
 ): CricketDerivedMatchResult {
   const superOvers = state.innings.filter((i) => i.kind === "super_over");
-  if (superOvers.length >= 2) {
+  if (superOvers.length > 0) {
+    if (superOvers.length % 2 !== 0) {
+      return {
+        winnerTeamId: null,
+        margin: "",
+        resultText: "Super Over in progress",
+        isTie: false,
+      };
+    }
     const firstSuper = superOvers[superOvers.length - 2]!;
     const secondSuper = superOvers[superOvers.length - 1]!;
     if (secondSuper.runs > firstSuper.runs) {
@@ -156,7 +183,7 @@ export function isCricketMatchTerminalState(
 
   const superOvers = state.innings.filter((i) => i.kind === "super_over");
   if (superOvers.length > 0) {
-    if (superOvers.length < 2) {
+    if (superOvers.length % 2 !== 0) {
       return {
         valid: false,
         reason: "Match cannot be completed: Super Over is in progress",
@@ -185,6 +212,14 @@ export function isCricketMatchTerminalState(
         valid: false,
         reason:
           "Match cannot be completed: second Super Over innings is still in progress",
+      };
+    }
+
+    if (firstSuper.runs === secondSuper.runs) {
+      return {
+        valid: false,
+        reason:
+          "Match cannot be completed: Super Over is tied, another Super Over is required",
       };
     }
 
