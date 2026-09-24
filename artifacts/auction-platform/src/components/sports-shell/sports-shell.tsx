@@ -45,12 +45,8 @@ function goToPostLogoutHome() {
   window.location.href = "/organizer";
 }
 
-/** Tournament list / portal entry — scoring-safe when hosted under scoring-app. */
+/** Tournament list / portal entry — takes the organizer to the tournaments dashboard */
 function goToTournamentsHome() {
-  if (isScoringAppHost()) {
-    window.location.href = `${SCORING_APP_BASE}/login`;
-    return;
-  }
   window.location.href = "/organizer";
 }
 
