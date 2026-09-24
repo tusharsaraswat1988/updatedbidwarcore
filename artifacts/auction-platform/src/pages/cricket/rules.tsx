@@ -750,7 +750,7 @@ export default function CricketRulesPage() {
                         <span>Cricket Format</span>
                         <RuleHelpTooltip
                           title="Cricket Format"
-                          content="Select the match environment: Box Cricket for indoor/turf arenas with boundary netting, Outdoor Cricket for standard open grounds, or Custom for local match conditions."
+                          content="Choose the match environment: Box Cricket for indoor/turf arenas with boundary nets, Outdoor Cricket for open grounds and standard pitches, or Custom for local tournament rules."
                           category="cricket"
                         />
                       </label>
@@ -784,7 +784,7 @@ export default function CricketRulesPage() {
                         <span>Match Ball</span>
                         <RuleHelpTooltip
                           title="Match Ball"
-                          content="The type of cricket ball used for the tournament (Tennis, Leather, Tape, or Indoor Soft). This appears on match cards and score sheets."
+                          content="The type of ball used for this tournament (Tennis, Leather, Tape, or Indoor Soft). Displayed on match cards and scorecards."
                           category="cricket"
                         />
                       </label>
@@ -843,7 +843,7 @@ export default function CricketRulesPage() {
                         <span>Playing Rules Preset</span>
                         <RuleHelpTooltip
                           title="Playing Rules Preset"
-                          content="Pre-configured rule packs (e.g. Corporate Standard, Society Box). Selecting a preset populates recommended match defaults while keeping all fields below fully editable."
+                          content="Pre-configured rule templates (e.g. Corporate Standard, Society Box). Selecting a preset populates recommended defaults while keeping all fields below fully editable."
                           category="bidwar"
                         />
                       </label>
@@ -906,8 +906,8 @@ export default function CricketRulesPage() {
                             Max Wickets
                           </label>
                           <RuleHelpTooltip
-                            title="Max Wickets (All-Out Threshold)"
-                            content="The number of wickets after which the batting innings is declared all out (e.g. 10 for standard 11-player cricket, 7 or 8 for box cricket)."
+                            title="Max Wickets"
+                            content="The number of wickets after which the batting innings is declared all out (e.g. 10 for standard 11-player cricket, or fewer for box cricket)."
                             category="cricket"
                           />
                         </div>
@@ -950,8 +950,8 @@ export default function CricketRulesPage() {
                             Retire Runs
                           </label>
                           <RuleHelpTooltip
-                            title="Batter Auto-Retire Runs"
-                            content="The individual score threshold at which a batter must retire to allow teammates to bat (popular in box/corporate leagues). Leave empty (None) for no limit."
+                            title="Retire Runs"
+                            content="The individual score threshold at which a batter is required to retire. When a batter reaches this score during live scoring, the app prompts the scorer to retire them so teammates get a turn to bat. Leave empty for no limit."
                             category="bidwar"
                           />
                         </div>
@@ -973,8 +973,8 @@ export default function CricketRulesPage() {
                             Playing XI
                           </label>
                           <RuleHelpTooltip
-                            title="Playing XI / Active Squad"
-                            content="Number of active players per team taking the field during the match (e.g. 11 for standard outdoor cricket, 7 or 8 for box cricket)."
+                            title="Playing XI"
+                            content="Number of players allowed on the field in the active playing group for each team during the match (e.g. 11 for outdoor cricket, 7 or 8 for box cricket)."
                             category="cricket"
                           />
                         </div>
@@ -1050,8 +1050,8 @@ export default function CricketRulesPage() {
                         active: keyRules.freeHitEnabled,
                         toggle: () => setKeyRules((p) => ({ ...p, freeHitEnabled: !p.freeHitEnabled })),
                         help: {
-                          title: "Free Hit (No Balls)",
-                          content: "After a bowling no-ball, the next delivery is a Free Hit. The batter cannot be dismissed by most modes (only Run Out, Obstructing the Field, or Hit Ball Twice).",
+                          title: "Free Hit",
+                          content: "After a bowling no-ball, the next legal delivery is a Free Hit. The batter cannot be dismissed by most dismissal modes (can only be out via Run Out, Obstructing the Field, or Hit Ball Twice).",
                           category: "cricket" as const,
                         },
                       },
@@ -1071,7 +1071,7 @@ export default function CricketRulesPage() {
                         toggle: () => setKeyRules((p) => ({ ...p, powerplayEnabled: !p.powerplayEnabled })),
                         help: {
                           title: "Powerplay Overs",
-                          content: "Designated mandatory fielding restriction overs at the start of an innings where fewer fielders are permitted outside the inner circle.",
+                          content: "Designated opening overs where mandatory fielding restrictions apply, limiting how many fielders are permitted outside the inner circle.",
                           category: "cricket" as const,
                         },
                       },
@@ -1081,7 +1081,7 @@ export default function CricketRulesPage() {
                         toggle: () => setKeyRules((p) => ({ ...p, playingXiEnforced: !p.playingXiEnforced })),
                         help: {
                           title: "Exact Playing XI Enforcement",
-                          content: "When ON, team lineups must strictly match the exact configured number of players before match scoring can begin. When OFF, teams may play with fewer players if agreed.",
+                          content: "When enabled, team lineups must strictly contain the exact configured number of active players before match scoring can begin. When disabled, matches can proceed with a smaller playing group if agreed.",
                           category: "enforcement" as const,
                         },
                       },
@@ -1091,7 +1091,7 @@ export default function CricketRulesPage() {
                         toggle: () => setKeyRules((p) => ({ ...p, superOverEnabled: !p.superOverEnabled })),
                         help: {
                           title: "Super Over Tie-Break",
-                          content: "An extra tie-break over bowled by each team if scores are level at the end of regular overs to determine a definitive match winner.",
+                          content: "An extra tie-break over bowled by each team if regulation scores are level to determine a definitive match winner.",
                           category: "cricket" as const,
                         },
                       },
@@ -1148,7 +1148,7 @@ export default function CricketRulesPage() {
                             </p>
                             <RuleHelpTooltip
                               title="Super Ball Feature"
-                              content="A BIDWAR tournament superpower where the batting team can declare one designated delivery per innings as their Super Ball before it is bowled. All runs scored off the bat on this ball are doubled (2x)."
+                              content="A special BIDWAR delivery that can be designated before it is bowled. Depending on the selected doubling mode, eligible runs scored from that delivery are counted at double value."
                               category="bidwar"
                             />
                           </div>
@@ -1187,7 +1187,7 @@ export default function CricketRulesPage() {
                           </span>
                           <RuleHelpTooltip
                             title="Super Ball Doubling Mode"
-                            content="Controls which runs receive double value on a Super Ball. '4 & 6 only' doubles boundaries only (4 becomes 8, 6 becomes 12). 'All Runs' doubles singles, twos, and boundaries alike."
+                            content="Controls which runs receive double value on a Super Ball. '4 & 6 only' doubles only boundary shots (4 becomes 8, 6 becomes 12). 'All Runs' doubles all runs scored off the bat (1 becomes 2, 2 becomes 4, 4 becomes 8, 6 becomes 12). Extras are not doubled."
                             category="bidwar"
                           />
                         </div>
@@ -1243,7 +1243,7 @@ export default function CricketRulesPage() {
                         <span>Super Over Config:</span>
                         <RuleHelpTooltip
                           title="Super Over Configuration"
-                          content="Configure tie-break parameters: overs per side (default 1), max wickets allowed (default 2), and trigger condition (Automatic prompt on knockout tie, or manual trigger by scorer)."
+                          content="Tie-break parameters: configure overs per side (default 1), max wickets allowed (default 2), and trigger condition (Automatic prompt on knockout tie, or manual trigger by the scorer)."
                           category="bidwar"
                         />
                       </div>
