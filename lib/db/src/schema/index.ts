@@ -55,6 +55,7 @@ export * from "./match-configuration-history";
 export * from "./fixture-configuration-history";
 export * from "./scheduling-configuration-history";
 export * from "./runtime-match-history";
+export * from "./cricket-rule-presets";
 
 export * from "./contact_inquiries";
 export * from "./intelligence_archive";

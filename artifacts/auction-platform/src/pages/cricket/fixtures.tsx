@@ -41,7 +41,9 @@ import {
   deleteScoringMatch,
   getCricketMasterTeams,
   isTerminalCricketMatchStatus,
+  listCricketRulePresets,
   updateScoringMatch,
+  type CricketRulePresetJson,
   type ScoringMatchRow,
 } from "@/lib/scoring-api";
 import { listFixtures } from "@/lib/scoring-foundation-api";
@@ -59,7 +61,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, CheckCircle2, ChevronRight, Edit2, ListOrdered, Plus, Radio, Trash2, Trophy } from "lucide-react";
+import { Calendar, CheckCircle2, ChevronRight, Edit2, ListOrdered, Plus, Radio, Sliders, Trash2, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type FilterKey = "all" | "today" | "upcoming" | "live" | "completed";
@@ -97,6 +99,11 @@ export default function CricketFixturesPage() {
   const { data: masterTeams } = useQuery({
     queryKey: ["cricket-master-teams", tournamentId],
     queryFn: () => getCricketMasterTeams(tournamentId),
+    enabled: scoringActive && !!tournamentId,
+  });
+  const { data: presets } = useQuery({
+    queryKey: ["cricket-rule-presets", tournamentId],
+    queryFn: () => listCricketRulePresets(tournamentId),
     enabled: scoringActive && !!tournamentId,
   });
 
@@ -146,6 +153,7 @@ export default function CricketFixturesPage() {
   const [createHomeId, setCreateHomeId] = useState("");
   const [createAwayId, setCreateAwayId] = useState("");
   const [createRoundName, setCreateRoundName] = useState("Semi Final 1");
+  const [createPresetId, setCreatePresetId] = useState<string>("");
   const [createOvers, setCreateOvers] = useState(6);
   const [createVenue, setCreateVenue] = useState("");
   const [createScheduledAt, setCreateScheduledAt] = useState(""); // datetime-local string
@@ -153,6 +161,7 @@ export default function CricketFixturesPage() {
 
   const [editMatch, setEditMatch] = useState<ScoringMatchRow | null>(null);
   const [editRoundName, setEditRoundName] = useState("");
+  const [editPresetId, setEditPresetId] = useState<string>("");
   const [editOvers, setEditOvers] = useState(6);
   const [editVenue, setEditVenue] = useState("");
   const [editResultSummary, setEditResultSummary] = useState("");
@@ -162,9 +171,37 @@ export default function CricketFixturesPage() {
   const [matchToDelete, setMatchToDelete] = useState<ScoringMatchRow | null>(null);
   const [deletingMatch, setDeletingMatch] = useState(false);
 
+  function handleOpenCreate() {
+    const defaultP = (presets ?? []).find((p) => p.isDefault) || presets?.[0];
+    if (defaultP) {
+      setCreatePresetId(String(defaultP.id));
+      const pOvers = (defaultP.ruleOverridesJson?.values as Record<string, any> | undefined)?.[
+        "cricket.match.overs_per_innings"
+      ];
+      if (typeof pOvers === "number") setCreateOvers(pOvers);
+    } else {
+      setCreatePresetId("");
+    }
+    setCreateOpen(true);
+  }
+
+  function handleSelectCreatePreset(presetIdStr: string) {
+    setCreatePresetId(presetIdStr);
+    const p = (presets ?? []).find((x) => String(x.id) === presetIdStr);
+    if (p) {
+      const pOvers = (p.ruleOverridesJson?.values as Record<string, any> | undefined)?.[
+        "cricket.match.overs_per_innings"
+      ];
+      if (typeof pOvers === "number") {
+        setCreateOvers(pOvers);
+      }
+    }
+  }
+
   function handleOpenEdit(m: ScoringMatchRow) {
     setEditMatch(m);
     setEditRoundName(m.roundName || "");
+    setEditPresetId(m.rulePresetId ? String(m.rulePresetId) : "");
     setEditOvers(m.rules?.overs ?? 6);
     setEditVenue(m.venue || "");
     setEditResultSummary(m.resultSummary || "");
@@ -182,12 +219,14 @@ export default function CricketFixturesPage() {
     if (!editMatch) return;
     setSavingEdit(true);
     try {
+      const isPreStart = !editMatch.startedAt && (editMatch.status === "scheduled" || editMatch.status === "draft");
       await updateScoringMatch(tournamentId, editMatch.id, {
         roundName: editRoundName.trim() || null,
         oversLimit: editOvers || 6,
         venue: editVenue.trim() || null,
         resultSummary: editResultSummary.trim() || null,
         scheduledAt: editScheduledAt ? new Date(editScheduledAt).toISOString() : null,
+        ...(isPreStart && editPresetId ? { rulePresetId: parseInt(editPresetId, 10) } : {}),
       });
       toast({
         title: "Match updated",
@@ -246,6 +285,7 @@ export default function CricketFixturesPage() {
         oversLimit: createOvers || 6,
         venue: createVenue.trim() || undefined,
         scheduledAt: createScheduledAt ? new Date(createScheduledAt).toISOString() : undefined,
+        rulePresetId: createPresetId ? parseInt(createPresetId, 10) : undefined,
       });
       toast({
         title: "Match created",
@@ -283,7 +323,7 @@ export default function CricketFixturesPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               className={cn(btnCompactClass, "font-semibold text-xs gap-1.5")}
-              onClick={() => setCreateOpen(true)}
+              onClick={handleOpenCreate}
               disabled={!scoringActive}
             >
               <Plus className="w-4 h-4" />
@@ -416,6 +456,11 @@ export default function CricketFixturesPage() {
                             {isLive && liveState?.currentInnings ? (
                               <Badge variant="outline" className="text-[10px] font-semibold text-amber-400 border-amber-500/30 bg-amber-500/10">
                                 {liveState.currentInnings === 1 ? "1st Innings" : "2nd Innings"}
+                              </Badge>
+                            ) : null}
+                            {m.rulePresetName ? (
+                              <Badge variant="outline" className="text-[10px] font-semibold text-primary border-primary/30 bg-primary/5">
+                                {m.rulePresetName}
                               </Badge>
                             ) : null}
                           </div>
@@ -652,6 +697,22 @@ export default function CricketFixturesPage() {
                   />
                 </div>
 
+                <div className="space-y-1.5">
+                  <Label>Rule Preset</Label>
+                  <Select value={createPresetId} onValueChange={handleSelectCreatePreset}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Rule Preset (Default)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(presets ?? []).map((p) => (
+                        <SelectItem key={p.id} value={String(p.id)}>
+                          {p.name} {p.isDefault ? "(Default)" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Home Team</Label>
@@ -751,6 +812,31 @@ export default function CricketFixturesPage() {
                     onChange={(e) => setEditRoundName(e.target.value)}
                     placeholder="e.g. Semi Final 1, Final"
                   />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label>Rule Preset</Label>
+                    {editMatch.startedAt ? (
+                      <span className="text-[10px] text-amber-500 font-semibold">Rules Locked (Scoring started)</span>
+                    ) : null}
+                  </div>
+                  <Select
+                    value={editPresetId}
+                    onValueChange={setEditPresetId}
+                    disabled={Boolean(editMatch.startedAt)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Tournament Default Preset" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(presets ?? []).map((p) => (
+                        <SelectItem key={p.id} value={String(p.id)}>
+                          {p.name} {p.isDefault ? "(Default)" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">

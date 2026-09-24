@@ -75,6 +75,7 @@ import {
 } from "./match-service";
 import { loadLatestFixtureHistory } from "./fixture-service";
 import { loadLatestSchedulingHistory } from "./scheduling-service";
+import { resolveMatchRulePreset } from "./cricket-rule-presets-service";
 
 
 
@@ -288,6 +289,19 @@ async function buildSnapshotRefInput(
   const officials = loadMatchOfficials(match);
   const linked = await resolveLinkedPlanRefs(match);
 
+  let ruleProfileId = competition?.ruleProfileId ?? null;
+  let ruleProfileVersion = competition?.ruleProfileVersion ?? null;
+
+  if (match.sportSlug === "cricket") {
+    try {
+      const preset = await resolveMatchRulePreset(match.tournamentId, match);
+      if (preset?.ruleProfileId) ruleProfileId = preset.ruleProfileId;
+      if (preset?.ruleProfileVersion) ruleProfileVersion = preset.ruleProfileVersion;
+    } catch {
+      // fallback to competition bindings
+    }
+  }
+
   return {
     competition,
     linked,
@@ -297,8 +311,8 @@ async function buildSnapshotRefInput(
     } satisfies MatchConfigStateForRuntime,
     refInput: {
       matchId: String(match.id),
-      ruleProfileId: competition?.ruleProfileId ?? null,
-      ruleProfileVersion: competition?.ruleProfileVersion ?? null,
+      ruleProfileId,
+      ruleProfileVersion,
       presentationProfileId: competition?.presentationProfileId ?? null,
       presentationProfileVersion: competition?.presentationProfileVersion ?? null,
       competitionId: String(match.tournamentId),
@@ -597,18 +611,24 @@ export async function prepareRuntimeMatch(
   let presentationResolutionId: string | null = null;
   let presentationHash: string | null = null;
   let presentationVersion: string | null = null;
+  let resolvedPresetId: number | null = null;
+  let resolvedPresetName: string | null = null;
 
   if (match.sportSlug === "cricket") {
     const tournament = await loadTournamentCompetitionRow(tournamentId);
     if (!tournament) {
       return { ok: false, status: 404, error: "Tournament not found" };
     }
+    const preset = await resolveMatchRulePreset(tournamentId, match);
+    resolvedPresetId = preset.id;
+    resolvedPresetName = preset.name;
+
     const bindings = resolvePrepareCatalogBindings({
       sportId: tournament.sport ?? "cricket",
-      variantId: tournament.variantId,
+      variantId: preset.variantId || tournament.variantId,
       competitionTypeId: tournament.competitionTypeId,
-      ruleProfileId: tournament.ruleProfileId,
-      ruleProfileVersion: tournament.ruleProfileVersion,
+      ruleProfileId: preset.ruleProfileId || tournament.ruleProfileId,
+      ruleProfileVersion: preset.ruleProfileVersion || tournament.ruleProfileVersion,
       presentationProfileId: tournament.presentationProfileId,
       presentationProfileVersion: tournament.presentationProfileVersion,
     });
@@ -636,7 +656,7 @@ export async function prepareRuntimeMatch(
     const engineInput = buildPrepareRuleEngineInput(
       snapshot,
       bindings,
-      parseRuleOverrides(tournament.ruleOverridesJson),
+      parseRuleOverrides(preset.ruleOverridesJson || tournament.ruleOverridesJson),
     );
     const engineResult = RuleEngine.resolve(engineInput);
 
@@ -679,6 +699,17 @@ export async function prepareRuntimeMatch(
       },
       prepMetadata,
     );
+    if (prepMetadata && typeof prepMetadata === "object") {
+      const ruleRes = (prepMetadata.ruleResolution as Record<string, unknown>) || {};
+      prepMetadata = {
+        ...prepMetadata,
+        ruleResolution: {
+          ...ruleRes,
+          rulePresetId: resolvedPresetId,
+          rulePresetName: resolvedPresetName,
+        },
+      };
+    }
 
     // ── EPIC-12 Phase 1: sole PresentationEngine.resolve(PREPARE) site ──
     // Engines never call each other. Presentation resolve is independent of Rule resolve.
@@ -759,6 +790,8 @@ export async function prepareRuntimeMatch(
           presentationHash,
           presentationVersion,
           presentationExecutionPolicy,
+          rulePresetId: resolvedPresetId,
+          rulePresetName: resolvedPresetName,
         }
       : null,
   });
@@ -771,6 +804,9 @@ export async function prepareRuntimeMatch(
       ...(rulesJsonUpdate ? { rulesJson: rulesJsonUpdate } : {}),
       ...(brandingJsonUpdate ? { brandingJson: brandingJsonUpdate } : {}),
       ...(prepMetadata ? { runtimePrepMetadataJson: prepMetadata } : {}),
+      ...(resolvedPresetId && match.rulePresetId !== resolvedPresetId
+        ? { rulePresetId: resolvedPresetId }
+        : {}),
       updatedAt: new Date(),
     })
     .where(

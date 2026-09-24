@@ -33,7 +33,13 @@ import {
   useGetTournament,
 } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
-import { RuleHelpTooltip } from "@/components/ui/rule-help-tooltip";
+import {
+  listCricketRulePresets,
+  createCricketRulePreset,
+  updateCricketRulePreset,
+  deleteCricketRulePreset,
+  type CricketRulePresetJson,
+} from "@/lib/scoring-api";
 import {
   AlertCircle,
   CheckCircle2,
@@ -41,10 +47,13 @@ import {
   Loader2,
   Lock,
   PlayCircle,
+  Plus,
   Scale,
   Settings2,
   Sliders,
   Sparkles,
+  Tag,
+  Trash2,
   Trophy,
   Unlock,
   Users,
@@ -151,6 +160,24 @@ const BALL_TYPE_OPTIONS: Array<{ id: string; label: string }> = [
   { id: "tape", label: "Tape Ball" },
   { id: "indoor", label: "Indoor / Soft" },
 ];
+
+function RuleHelpTooltip({
+  title,
+  content,
+}: {
+  title: string;
+  content: string;
+  category?: string;
+}) {
+  return (
+    <span
+      className="inline-flex items-center ml-1 text-muted-foreground/70 hover:text-foreground cursor-help"
+      title={`${title}: ${content}`}
+    >
+      <HelpCircle className="w-3.5 h-3.5" />
+    </span>
+  );
+}
 
 function squadFromConfig(
   squadRules?: CompetitionAggregate["configuration"]["squadRules"],
@@ -299,6 +326,13 @@ export default function CricketRulesPage() {
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState("");
 
+  const [presets, setPresets] = useState<CricketRulePresetJson[]>([]);
+  const [activePresetId, setActivePresetId] = useState<number | null>(null);
+  const [createPresetOpen, setCreatePresetOpen] = useState(false);
+  const [newPresetName, setNewPresetName] = useState("");
+  const [newPresetDesc, setNewPresetDesc] = useState("");
+  const [deletingPreset, setDeletingPreset] = useState(false);
+
   const [competitionTypeId, setCompetitionTypeId] = useState("auction");
   const [variantId, setVariantId] = useState("cricket.box");
   const [registrationModeId, setRegistrationModeId] = useState("team");
@@ -326,13 +360,23 @@ export default function CricketRulesPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await apiFetch(`/tournaments/${tournamentId}/competition`);
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `Failed to load rules (HTTP ${res.status})`);
+      const [compRes, presetList] = await Promise.all([
+        apiFetch(`/tournaments/${tournamentId}/competition`),
+        listCricketRulePresets(tournamentId).catch(() => [] as CricketRulePresetJson[]),
+      ]);
+      if (!compRes.ok) {
+        const body = await compRes.json().catch(() => ({}));
+        throw new Error(body.error || `Failed to load rules (HTTP ${compRes.status})`);
       }
-      const body = (await res.json()) as CompetitionAggregate;
+      const body = (await compRes.json()) as CompetitionAggregate;
       setData(body);
+      setPresets(presetList);
+
+      if (presetList.length > 0) {
+        const currentActive = presetList.find((p) => p.id === activePresetId);
+        const active = currentActive || presetList.find((p) => p.isDefault) || presetList[0];
+        setActivePresetId(active.id);
+      }
 
       const sid = (body.configuration.sportId || "cricket").toLowerCase();
       const cfg = body.configuration;
@@ -366,7 +410,7 @@ export default function CricketRulesPage() {
     } finally {
       setLoading(false);
     }
-  }, [tournamentId]);
+  }, [tournamentId, activePresetId]);
 
   useEffect(() => {
     void load();
@@ -505,6 +549,16 @@ export default function CricketRulesPage() {
           ? "cricket.presentation.outdoor"
           : "cricket.presentation.corporate_box");
 
+      if (activePresetId) {
+        await updateCricketRulePreset(tournamentId, activePresetId, {
+          variantId: variantId || "cricket.box",
+          ruleProfileId: ruleProfileId || "cricket.box.corporate_standard",
+          ruleProfileVersion: ruleProfileVersion || "1.0.0",
+          ruleOverridesJson: pendingOverrides ? { values: pendingOverrides.values } : null,
+          squadRulesJson: Object.keys(squadPayload).length > 0 ? squadPayload : null,
+        });
+      }
+
       const res = await apiFetch(
         `/tournaments/${tournamentId}/competition/configuration`,
         {
@@ -529,7 +583,7 @@ export default function CricketRulesPage() {
       await load();
       toast({
         title: "Changes saved",
-        description: "Draft rules have been saved successfully.",
+        description: "Rule settings have been saved successfully.",
       });
       return true;
     } catch (e) {
@@ -537,6 +591,74 @@ export default function CricketRulesPage() {
       return false;
     } finally {
       setSaving(false);
+    }
+  }
+
+  function handleSelectPreset(p: CricketRulePresetJson) {
+    setActivePresetId(p.id);
+    const nextVar = p.variantId || "cricket.box";
+    const nextRuleId = p.ruleProfileId || "cricket.box.corporate_standard";
+    const nextRuleVer = p.ruleProfileVersion || "1.0.0";
+    setVariantId(nextVar);
+    setRuleProfileId(nextRuleId);
+    setRuleProfileVersion(nextRuleVer);
+    if (p.squadRulesJson) {
+      setSquadRules(squadFromConfig(p.squadRulesJson as Record<string, unknown>));
+    }
+    const profile =
+      CatalogRegistry.getRuleProfile(nextRuleId, nextRuleVer) ??
+      CatalogRegistry.getRuleProfile(nextRuleId) ??
+      null;
+    setKeyRules(
+      draftFromProfileAndOverrides(profile, (p.ruleOverridesJson as RuleOverridesDocument) ?? null),
+    );
+  }
+
+  async function handleCreatePreset() {
+    const trimmed = newPresetName.trim();
+    if (!trimmed) {
+      toast({ title: "Name required", description: "Please enter a preset name.", variant: "destructive" });
+      return;
+    }
+    try {
+      const created = await createCricketRulePreset(tournamentId, {
+        name: trimmed,
+        description: newPresetDesc.trim() || null,
+        variantId: variantId || "cricket.box",
+        ruleProfileId: ruleProfileId || "cricket.box.corporate_standard",
+        ruleProfileVersion: ruleProfileVersion || "1.0.0",
+        ruleOverridesJson: pendingOverrides ? { values: pendingOverrides.values } : null,
+        squadRulesJson: Object.keys(squadRules).length > 0 ? {
+          minPlayers: squadRules.minPlayers ? parseInt(squadRules.minPlayers, 10) : null,
+          maxPlayers: squadRules.maxPlayers ? parseInt(squadRules.maxPlayers, 10) : null,
+          substitutes: squadRules.substitutes ? parseInt(squadRules.substitutes, 10) : null,
+        } : null,
+      });
+      setCreatePresetOpen(false);
+      setNewPresetName("");
+      setNewPresetDesc("");
+      await load();
+      setActivePresetId(created.id);
+      toast({ title: "Rule Preset Created", description: `"${created.name}" is now available for fixtures and matches.` });
+    } catch (e) {
+      toast({ title: "Failed to create preset", description: e instanceof Error ? e.message : "Error creating preset", variant: "destructive" });
+    }
+  }
+
+  async function handleDeletePreset(presetId: number) {
+    setDeletingPreset(true);
+    try {
+      await deleteCricketRulePreset(tournamentId, presetId);
+      await load();
+      toast({ title: "Rule Preset Deleted" });
+    } catch (e) {
+      toast({
+        title: "Cannot Delete Preset",
+        description: e instanceof Error ? e.message : "Preset is in use by fixtures or matches.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingPreset(false);
     }
   }
 
@@ -728,6 +850,70 @@ export default function CricketRulesPage() {
                 </div>
               </div>
             )}
+
+            {/* Rule Presets Selector Bar */}
+            <div className="rounded-xl border border-border/70 bg-card/70 p-3.5 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                    Tournament Rule Presets
+                  </span>
+                  <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                    (Assign presets to matches & fixtures)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCreatePresetOpen(true)}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-lg border border-primary/20 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  New Rule Preset
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {presets.map((p) => {
+                  const isActive = p.id === activePresetId;
+                  return (
+                    <div
+                      key={p.id}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all",
+                        isActive
+                          ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/40 font-bold"
+                          : "border-border/70 bg-background text-muted-foreground hover:text-foreground hover:border-border",
+                      )}
+                      onClick={() => handleSelectPreset(p)}
+                    >
+                      <span>{p.name}</span>
+                      {p.isDefault ? (
+                        <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-primary/20 text-primary font-bold">
+                          Default
+                        </span>
+                      ) : null}
+                      {isActive && !p.isDefault && presets.length > 1 ? (
+                        <button
+                          type="button"
+                          disabled={deletingPreset}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Delete preset "${p.name}"?`)) {
+                              void handleDeletePreset(p.id);
+                            }
+                          }}
+                          className="text-muted-foreground hover:text-destructive ml-1 p-0.5"
+                          title="Delete this preset"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
               {/* Left Column: Compact Rules Configuration */}
@@ -1449,6 +1635,65 @@ export default function CricketRulesPage() {
                 </div>
               </div>
             </div>
+
+            {/* Create Rule Preset Modal */}
+            {createPresetOpen ? (
+              <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+                <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-5 space-y-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-border/60">
+                    <div className="flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-primary" />
+                      <h3 className="font-bold text-base">New Cricket Rule Preset</h3>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Create a custom named preset (e.g. <em>&quot;League 12 Overs&quot;</em>, <em>&quot;Playoff 20 Overs&quot;</em>, <em>&quot;Rain Reduced Rules&quot;</em>) based on current configuration.
+                  </p>
+
+                  <div className="space-y-3 text-sm">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-foreground">Preset Name</label>
+                      <input
+                        type="text"
+                        value={newPresetName}
+                        onChange={(e) => setNewPresetName(e.target.value)}
+                        placeholder="e.g. Semi-Finals & Finals (15 Overs)"
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground">Description (Optional)</label>
+                      <input
+                        type="text"
+                        value={newPresetDesc}
+                        onChange={(e) => setNewPresetDesc(e.target.value)}
+                        placeholder="e.g. Standard knockout round rules with 15 overs per side"
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2 border-t border-border/40">
+                    <button
+                      type="button"
+                      onClick={() => void handleCreatePreset()}
+                      className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition-all"
+                    >
+                      Create Preset
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCreatePresetOpen(false)}
+                      className="px-4 py-2 rounded-lg border border-border bg-muted/30 text-foreground text-xs font-semibold hover:bg-muted/60 transition-all"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </>
         )}
       </div>

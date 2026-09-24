@@ -31,6 +31,8 @@ export const scoringFixturesTable = pgTable(
     venueId: integer("venue_id"),
     venue: text("venue"),
     status: text("status").notNull().default("scheduled"),
+    /** EPIC-Rule-Presets — Explicit reference to selected Cricket Rule Preset. */
+    rulePresetId: integer("rule_preset_id"),
     formatJson: jsonb("format_json").$type<Record<string, unknown>>(),
     homeTeamId: integer("home_team_id").notNull(),
     awayTeamId: integer("away_team_id").notNull(),

@@ -39,6 +39,7 @@ import { loadMatchEvents } from "./scoring-platform/event-store";
 import { cricketFranchiseTeamExists } from "./master-sports/cricket-franchise-registry";
 import { listCricketMasterTeams } from "./master-sports/cricket-roster";
 import { prepareRuntimeMatch } from "./runtime-match-service";
+import { getCricketRulePreset } from "./cricket-rule-presets-service";
 
 export type { ScoringActor };
 
@@ -163,6 +164,7 @@ export async function createScoringMatch(
     homeTeamId: number;
     awayTeamId: number;
     fixtureId?: number | null;
+    rulePresetId?: number | null;
     oversLimit?: number;
     roundName?: string | null;
     scheduledAt?: string | null;
@@ -176,6 +178,16 @@ export async function createScoringMatch(
       400,
       "INVALID_TEAMS",
     );
+  }
+  if (input.rulePresetId != null) {
+    const preset = await getCricketRulePreset(tournamentId, input.rulePresetId);
+    if (!preset) {
+      throw new ScoringServiceError(
+        "Rule Preset not found or does not belong to this tournament",
+        400,
+        "INVALID_RULE_PRESET",
+      );
+    }
   }
   await assertCricketSportsRosterReady(tournamentId);
   await ensureTeamInTournament(tournamentId, input.homeTeamId);
@@ -194,6 +206,7 @@ export async function createScoringMatch(
     .values({
       tournamentId,
       fixtureId: input.fixtureId ?? null,
+      rulePresetId: input.rulePresetId ?? null,
       sportSlug: "cricket",
       matchKind: "team_match",
       homeTeamId: input.homeTeamId,
@@ -248,6 +261,7 @@ export async function updateScoringMatch(
   tournamentId: number,
   matchId: number,
   input: {
+    rulePresetId?: number | null;
     oversLimit?: number;
     roundName?: string | null;
     venue?: string | null;
@@ -316,6 +330,25 @@ export async function updateScoringMatch(
       );
     }
 
+    if (started && input.rulePresetId !== undefined && input.rulePresetId !== matchRow.rulePresetId) {
+      throw new ScoringServiceError(
+        "Scoring rules are locked after match start. Cannot change Rule Preset on a match that has already started.",
+        409,
+        "SCORING_RULES_LOCKED",
+      );
+    }
+
+    if (!started && input.rulePresetId !== undefined && input.rulePresetId !== null) {
+      const preset = await getCricketRulePreset(tournamentId, input.rulePresetId);
+      if (!preset) {
+        throw new ScoringServiceError(
+          "Rule Preset not found or does not belong to this tournament",
+          400,
+          "INVALID_RULE_PRESET",
+        );
+      }
+    }
+
     const patch: Partial<typeof scoringMatchesTable.$inferInsert> = {
       updatedAt: new Date(),
     };
@@ -335,6 +368,9 @@ export async function updateScoringMatch(
       await ensureTeamInTournament(tournamentId, input.awayTeamId);
       patch.awayTeamId = input.awayTeamId;
       patch.awaySideJson = { teamId: input.awayTeamId };
+    }
+    if (!started && input.rulePresetId !== undefined) {
+      patch.rulePresetId = input.rulePresetId;
     }
 
     if (!started && input.oversLimit !== undefined && input.oversLimit > 0) {

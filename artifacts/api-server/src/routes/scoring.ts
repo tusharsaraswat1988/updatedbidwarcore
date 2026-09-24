@@ -59,6 +59,13 @@ import {
   assertSessionOwnsMatchLock,
   ScorerLockError,
 } from "../lib/scorer-match-locks";
+import {
+  listCricketRulePresets,
+  getCricketRulePreset,
+  createCricketRulePreset,
+  updateCricketRulePreset,
+  deleteCricketRulePreset,
+} from "../lib/cricket-rule-presets-service";
 
 const router = Router();
 
@@ -264,6 +271,9 @@ function matchToJson(m: {
         }
       : null,
     winnerTeamId: m.winnerTeamId,
+    /** EPIC-Rule-Presets — selected rule preset */
+    rulePresetId: (m as { rulePresetId?: number | null }).rulePresetId ?? (bind as { rulePresetId?: number } | undefined)?.rulePresetId ?? null,
+    rulePresetName: (bind as { rulePresetName?: string } | undefined)?.rulePresetName ?? null,
     resultSummary: m.resultSummary,
     summaryJson: m.summaryJson ?? null,
     stateJson: m.stateJson ?? null,
@@ -568,6 +578,143 @@ router.get("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
   }
 });
 
+// ─── Rule Presets (EPIC-Rule-Presets) ──────────────────────────────────────────
+
+router.get("/tournaments/:tournamentId/scoring/rule-presets", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const presets = await listCricketRulePresets(tournamentId);
+    res.json(presets);
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+router.post("/tournaments/:tournamentId/scoring/rule-presets", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const schema = z.object({
+    name: z.string().min(1),
+    description: z.string().nullable().optional(),
+    variantId: z.string().optional(),
+    ruleProfileId: z.string().optional(),
+    ruleProfileVersion: z.string().optional(),
+    ruleOverridesJson: z.record(z.unknown()).nullable().optional(),
+    squadRulesJson: z.record(z.unknown()).nullable().optional(),
+    isDefault: z.boolean().optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  try {
+    const preset = await createCricketRulePreset(tournamentId, parsed.data);
+    res.status(201).json(preset);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to create rule preset";
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.get("/tournaments/:tournamentId/scoring/rule-presets/:presetId", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const presetId = parseId(req.params.presetId);
+  if (tournamentId === null || presetId === null) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const preset = await getCricketRulePreset(tournamentId, presetId);
+    if (!preset) {
+      res.status(404).json({ error: "Rule Preset not found" });
+      return;
+    }
+    res.json(preset);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to get rule preset";
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.patch("/tournaments/:tournamentId/scoring/rule-presets/:presetId", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const presetId = parseId(req.params.presetId);
+  if (tournamentId === null || presetId === null) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const schema = z.object({
+    name: z.string().min(1).optional(),
+    description: z.string().nullable().optional(),
+    variantId: z.string().optional(),
+    ruleProfileId: z.string().optional(),
+    ruleProfileVersion: z.string().optional(),
+    ruleOverridesJson: z.record(z.unknown()).nullable().optional(),
+    squadRulesJson: z.record(z.unknown()).nullable().optional(),
+    isDefault: z.boolean().optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  try {
+    const updated = await updateCricketRulePreset(tournamentId, presetId, parsed.data);
+    res.json(updated);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to update rule preset";
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.delete("/tournaments/:tournamentId/scoring/rule-presets/:presetId", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const presetId = parseId(req.params.presetId);
+  if (tournamentId === null || presetId === null) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const result = await deleteCricketRulePreset(tournamentId, presetId);
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+    res.status(204).send();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to delete rule preset";
+    res.status(400).json({ error: msg });
+  }
+});
+
+// ─── Scoring Matches ──────────────────────────────────────────────────────────
+
 router.post("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
   if (tournamentId === null) {
@@ -580,6 +727,7 @@ router.post("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
     homeTeamId: z.number().int().positive(),
     awayTeamId: z.number().int().positive(),
     fixtureId: z.number().int().positive().nullable().optional(),
+    rulePresetId: z.number().int().positive().nullable().optional(),
     oversLimit: z.number().int().positive().max(50).optional(),
     roundName: z.string().nullable().optional(),
     scheduledAt: z.string().datetime().nullable().optional(),
@@ -619,6 +767,7 @@ router.patch("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, 
   const schema = z.object({
     homeTeamId: z.number().int().positive().optional(),
     awayTeamId: z.number().int().positive().optional(),
+    rulePresetId: z.number().int().positive().nullable().optional(),
     oversLimit: z.number().int().positive().max(50).optional(),
     roundName: z.string().nullable().optional(),
     scheduledAt: z.string().datetime().nullable().optional(),

@@ -41,6 +41,7 @@ export type ScoringFixture = {
   tournamentId: number;
   drawId: number | null;
   groupId: number | null;
+  rulePresetId?: number | null;
   fixtureNumber: number | null;
   roundName: string | null;
   scheduledAt: string | null;
@@ -175,6 +176,7 @@ export async function generateDraw(
     format: "round_robin" | "league" | "knockout" | "league_knockout";
     teamIds: number[];
     groups?: Array<{ name: string; teamIds: number[] }>;
+    rulePresetId?: number | null;
     oversLimit?: number;
     venueId?: number | null;
     startDate?: string | null;

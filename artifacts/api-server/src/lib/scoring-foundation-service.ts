@@ -32,6 +32,7 @@ import {
 } from "./master-sports/cricket-franchise-registry";
 import { prepareRuntimeMatch } from "./runtime-match-service";
 import { deleteScorerAccountForTournament } from "./scorer-auth";
+import { getCricketRulePreset } from "./cricket-rule-presets-service";
 
 async function ensureScoringTournament(tournamentId: number) {
   const [tournament] = await db
@@ -434,6 +435,7 @@ export async function generateScoringDraw(input: {
   format: ScoringDrawFormat;
   teamIds: number[];
   groups?: Array<{ name: string; teamIds: number[] }>;
+  rulePresetId?: number | null;
   oversLimit?: number;
   venueId?: number | null;
   startDate?: string | null;
@@ -443,6 +445,17 @@ export async function generateScoringDraw(input: {
 }) {
   await ensureScoringTournament(input.tournamentId);
   await ensureTeamsInTournament(input.tournamentId, input.teamIds);
+
+  if (input.rulePresetId != null) {
+    const preset = await getCricketRulePreset(input.tournamentId, input.rulePresetId);
+    if (!preset) {
+      throw new ScoringServiceError(
+        "Rule Preset not found or does not belong to this tournament",
+        400,
+        "INVALID_RULE_PRESET",
+      );
+    }
+  }
 
   const config: ScoringDrawConfigJson = {
     // Non-authoritative draw default — Runtime Prepare overwrites match rulesJson.
@@ -522,6 +535,7 @@ export async function generateScoringDraw(input: {
       .values({
         tournamentId: input.tournamentId,
         drawId: draw.id,
+        rulePresetId: input.rulePresetId ?? null,
         groupId: f.groupName ? (groupIdByName.get(f.groupName) ?? null) : null,
         bracketRound: f.bracketRound ?? null,
         bracketSlot: f.bracketSlot ?? null,
@@ -543,6 +557,7 @@ export async function generateScoringDraw(input: {
         .values({
           tournamentId: input.tournamentId,
           fixtureId: fixture.id,
+          rulePresetId: input.rulePresetId ?? null,
           sportSlug: "cricket",
           homeTeamId: f.homeTeamId,
           awayTeamId: f.awayTeamId,

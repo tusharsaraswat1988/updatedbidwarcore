@@ -46,6 +46,8 @@ import {
   cricketBrandingQueryKey,
   getCricketBranding,
   getCricketMasterTeams,
+  listCricketRulePresets,
+  type CricketRulePresetJson,
 } from "@/lib/scoring-api";
 import type { SportsBranding } from "@/lib/sports-branding-types";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
@@ -152,6 +154,12 @@ export default function ScoringSchedulePage() {
     enabled: scoringActive,
   });
 
+  const { data: presets } = useQuery({
+    queryKey: ["cricket-rule-presets", tournamentId],
+    queryFn: () => listCricketRulePresets(tournamentId),
+    enabled: scoringActive && !!tournamentId,
+  });
+
   const { data: venues, refetch: refetchVenues, isLoading: venuesLoading } = useQuery({
     queryKey: ["scoring-venues", tournamentId],
     queryFn: () => listVenues(tournamentId),
@@ -178,6 +186,7 @@ export default function ScoringSchedulePage() {
   const [drawName, setDrawName] = useState("");
   const [format, setFormat] = useState<DrawFormat>("round_robin");
   const [selectedTeams, setSelectedTeams] = useState<number[]>([]);
+  const [rulePresetId, setRulePresetId] = useState<string>("");
   const [oversLimit, setOversLimit] = useState(20);
   const [venueId, setVenueId] = useState<string>("");
   const [startDate, setStartDate] = useState("");
@@ -194,6 +203,47 @@ export default function ScoringSchedulePage() {
   const [newVenueCity, setNewVenueCity] = useState("");
   const [venueBusy, setVenueBusy] = useState(false);
   const seededVenueRef = useRef(false);
+
+  function handleSelectPreset(presetIdStr: string) {
+    setRulePresetId(presetIdStr);
+    const p = (presets ?? []).find((x) => String(x.id) === presetIdStr);
+    if (p) {
+      const pOvers = (p.ruleOverridesJson?.values as Record<string, any> | undefined)?.[
+        "cricket.match.overs_per_innings"
+      ];
+      if (typeof pOvers === "number") {
+        setOversLimit(pOvers);
+      }
+    }
+  }
+
+  // Handle opening the generate dialog
+  function openGenerateDialog() {
+    const allTeamIds = teams.map((t) => t.id);
+    setSelectedTeams(allTeamIds);
+    setDrawName(
+      tournament?.name ? `${tournament.name} Stage 1` : "League Stage 2026",
+    );
+    const defaultP = (presets ?? []).find((p) => p.isDefault) || presets?.[0];
+    if (defaultP) {
+      setRulePresetId(String(defaultP.id));
+      const pOvers = (defaultP.ruleOverridesJson?.values as Record<string, any> | undefined)?.[
+        "cricket.match.overs_per_innings"
+      ];
+      if (typeof pOvers === "number") setOversLimit(pOvers);
+    } else {
+      setRulePresetId("");
+    }
+    // Determine appropriate initial group count based on team count (>=12 teams -> 4 groups, >=9 -> 3 groups, else 2)
+    const initialGroupCount = allTeamIds.length >= 12 ? 4 : (allTeamIds.length >= 9 ? 3 : 2);
+    const initialGroups: GroupAllocation[] = Array.from({ length: initialGroupCount }, (_, i) => ({
+      id: `g-${i}`,
+      name: getDefaultGroupName(i),
+      teamIds: allTeamIds.filter((_, idx) => idx % initialGroupCount === i),
+    }));
+    setGroups(initialGroups);
+    setShowGenerate(true);
+  }
 
   // Auto-seed venue from settings when venue list is empty
   useEffect(() => {
@@ -239,24 +289,6 @@ export default function ScoringSchedulePage() {
     if (!newVenueName && settingsVenueName) setNewVenueName(settingsVenueName);
     if (!newVenueCity && settingsCity) setNewVenueCity(settingsCity);
   }, [showAddVenue, settingsVenueName, settingsCity, newVenueName, newVenueCity]);
-
-  // Handle opening the generate dialog
-  function openGenerateDialog() {
-    const allTeamIds = teams.map((t) => t.id);
-    setSelectedTeams(allTeamIds);
-    setDrawName(
-      tournament?.name ? `${tournament.name} Stage 1` : "League Stage 2026",
-    );
-    // Determine appropriate initial group count based on team count (>=12 teams -> 4 groups, >=9 -> 3 groups, else 2)
-    const initialGroupCount = allTeamIds.length >= 12 ? 4 : (allTeamIds.length >= 9 ? 3 : 2);
-    const initialGroups: GroupAllocation[] = Array.from({ length: initialGroupCount }, (_, i) => ({
-      id: `g-${i}`,
-      name: getDefaultGroupName(i),
-      teamIds: allTeamIds.filter((_, idx) => idx % initialGroupCount === i),
-    }));
-    setGroups(initialGroups);
-    setShowGenerate(true);
-  }
 
   function setTeamSelected(id: number, selected: boolean) {
     setSelectedTeams((prev) => {
@@ -466,6 +498,7 @@ export default function ScoringSchedulePage() {
         startDate: startDate ? new Date(startDate).toISOString() : null,
         matchesPerDay: 2,
         createMatches: true,
+        rulePresetId: rulePresetId ? parseInt(rulePresetId, 10) : undefined,
       };
       if (format === "league_knockout") {
         body.groups = groups.map((g) => ({
@@ -1170,86 +1203,109 @@ export default function ScoringSchedulePage() {
             ) : null}
 
             {/* Match & Schedule Parameters */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-              {/* Overs */}
+            <div className="space-y-3 pt-1">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Overs per Match
+                  Cricket Rule Preset
                 </Label>
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={oversLimit}
-                    onChange={(e) => setOversLimit(parseInt(e.target.value, 10) || 20)}
-                    className="h-10 text-sm font-semibold"
-                  />
-                </div>
-                <div className="flex gap-1 pt-1">
-                  {[6, 10, 15, 20].map((num) => (
-                    <button
-                      key={num}
-                      type="button"
-                      onClick={() => setOversLimit(num)}
-                      className={cn(
-                        "flex-1 py-1 rounded text-[10px] font-bold border transition-colors",
-                        oversLimit === num
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "border-border bg-muted/40 text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {num}T
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Start Date */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Start Date
-                </Label>
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="h-10 text-sm"
-                />
-                <span className="text-[10px] text-muted-foreground">
-                  Batched by 2 matches / day
-                </span>
-              </div>
-
-              {/* Venue */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Venue Ground
-                  </Label>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddVenue(true)}
-                    className="text-[10px] text-primary font-medium hover:underline"
-                  >
-                    + New
-                  </button>
-                </div>
-                <Select value={venueId} onValueChange={setVenueId}>
+                <Select value={rulePresetId} onValueChange={handleSelectPreset}>
                   <SelectTrigger className="h-10 text-sm">
-                    <SelectValue placeholder="Select Venue (Optional)" />
+                    <SelectValue placeholder="Select Rule Preset (Default)" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(venues ?? []).map((v) => (
-                      <SelectItem key={v.id} value={String(v.id)}>
-                        {v.name} {v.city ? `(${v.city})` : ""}
+                    {(presets ?? []).map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {p.name} {p.isDefault ? "(Tournament Default)" : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 <span className="text-[10px] text-muted-foreground">
-                  Applied to generated fixtures
+                  Rule preset applied to all fixtures generated in this draw stage.
                 </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Overs */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Overs per Match
+                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={oversLimit}
+                      onChange={(e) => setOversLimit(parseInt(e.target.value, 10) || 20)}
+                      className="h-10 text-sm font-semibold"
+                    />
+                  </div>
+                  <div className="flex gap-1 pt-1">
+                    {[6, 10, 15, 20].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setOversLimit(num)}
+                        className={cn(
+                          "flex-1 py-1 rounded text-[10px] font-bold border transition-colors",
+                          oversLimit === num
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-border bg-muted/40 text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {num}T
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Start Date */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Start Date
+                  </Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="h-10 text-sm"
+                  />
+                  <span className="text-[10px] text-muted-foreground">
+                    Batched by 2 matches / day
+                  </span>
+                </div>
+
+                {/* Venue */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Venue Ground
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddVenue(true)}
+                      className="text-[10px] text-primary font-medium hover:underline"
+                    >
+                      + New
+                    </button>
+                  </div>
+                  <Select value={venueId} onValueChange={setVenueId}>
+                    <SelectTrigger className="h-10 text-sm">
+                      <SelectValue placeholder="Select Venue (Optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(venues ?? []).map((v) => (
+                        <SelectItem key={v.id} value={String(v.id)}>
+                          {v.name} {v.city ? `(${v.city})` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-[10px] text-muted-foreground">
+                    Applied to generated fixtures
+                  </span>
+                </div>
               </div>
             </div>
           </div>

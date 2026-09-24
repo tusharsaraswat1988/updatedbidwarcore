@@ -97,6 +97,8 @@ export const scoringMatchesTable = pgTable(
     homeSideJson: jsonb("home_side_json").$type<ScoringSideJson>(),
     awaySideJson: jsonb("away_side_json").$type<ScoringSideJson>(),
     rulesJson: jsonb("rules_json").$type<ScoringMatchRulesJson>(),
+    /** EPIC-Rule-Presets — Explicit reference to selected Cricket Rule Preset. */
+    rulePresetId: integer("rule_preset_id"),
     winnerTeamId: integer("winner_team_id"),
     resultSummary: text("result_summary"),
     /** Match Summary projection — derived from events (PR-5). */

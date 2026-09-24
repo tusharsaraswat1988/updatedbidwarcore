@@ -61,6 +61,9 @@ export type ScoringMatchJson = {
   scheduledAt: string | null;
   venue: string | null;
   rules: ScoringMatchRulesJson | null;
+  /** EPIC-Rule-Presets — selected rule preset */
+  rulePresetId?: number | null;
+  rulePresetName?: string | null;
   /**
    * EPIC-12 Phase 1 — Compatibility Adapter paint when Prepare-bound
    * (source === "presentation_execution_policy").
@@ -184,6 +187,88 @@ export async function getScoringLive(
   return r.json();
 }
 
+export type CricketRulePresetJson = {
+  id: number;
+  tournamentId: number;
+  name: string;
+  description?: string | null;
+  variantId: string;
+  ruleProfileId: string;
+  ruleProfileVersion: string;
+  ruleOverridesJson?: Record<string, unknown> | null;
+  squadRulesJson?: Record<string, unknown> | null;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function listCricketRulePresets(
+  tournamentId: number,
+): Promise<CricketRulePresetJson[]> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/rule-presets`);
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function createCricketRulePreset(
+  tournamentId: number,
+  body: {
+    name: string;
+    description?: string | null;
+    variantId?: string;
+    ruleProfileId?: string;
+    ruleProfileVersion?: string;
+    ruleOverridesJson?: Record<string, unknown> | null;
+    squadRulesJson?: Record<string, unknown> | null;
+    isDefault?: boolean;
+  },
+): Promise<CricketRulePresetJson> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/rule-presets`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw await parseErrorWithCode(r);
+  return r.json();
+}
+
+export async function updateCricketRulePreset(
+  tournamentId: number,
+  presetId: number,
+  body: {
+    name?: string;
+    description?: string | null;
+    variantId?: string;
+    ruleProfileId?: string;
+    ruleProfileVersion?: string;
+    ruleOverridesJson?: Record<string, unknown> | null;
+    squadRulesJson?: Record<string, unknown> | null;
+    isDefault?: boolean;
+  },
+): Promise<CricketRulePresetJson> {
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/rule-presets/${presetId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    },
+  );
+  if (!r.ok) throw await parseErrorWithCode(r);
+  return r.json();
+}
+
+export async function deleteCricketRulePreset(
+  tournamentId: number,
+  presetId: number,
+): Promise<void> {
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/rule-presets/${presetId}`,
+    {
+      method: "DELETE",
+    },
+  );
+  if (!r.ok) throw await parseErrorWithCode(r);
+}
+
 export async function listScoringMatches(
   tournamentId: number,
 ): Promise<ScoringMatchJson[]> {
@@ -197,6 +282,8 @@ export async function createScoringMatch(
   body: {
     homeTeamId: number;
     awayTeamId: number;
+    fixtureId?: number | null;
+    rulePresetId?: number | null;
     oversLimit?: number;
     roundName?: string | null;
     scheduledAt?: string | null;
@@ -299,6 +386,7 @@ export async function updateScoringMatch(
   body: {
     homeTeamId?: number;
     awayTeamId?: number;
+    rulePresetId?: number | null;
     oversLimit?: number;
     roundName?: string | null;
     scheduledAt?: string | null;

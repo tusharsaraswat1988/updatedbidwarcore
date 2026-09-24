@@ -312,6 +312,7 @@ router.post("/draws/generate", async (req, res) => {
     format: z.enum(["round_robin", "league", "knockout", "league_knockout"]),
     teamIds: z.array(z.number().int().positive()).min(2),
     groups: z.array(groupSchema).optional(),
+    rulePresetId: z.number().int().positive().nullable().optional(),
     oversLimit: z.number().int().positive().max(50).optional(),
     venueId: z.number().int().positive().nullable().optional(),
     startDate: z.string().datetime().nullable().optional(),
