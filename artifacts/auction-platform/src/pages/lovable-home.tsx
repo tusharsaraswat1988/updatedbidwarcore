@@ -578,16 +578,17 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
           </div>
         </nav>
 
-        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 ml-auto xl:ml-4">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto xl:ml-4">
           <a
             href="https://bpl.bidwar.in/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-300 shadow-sm transition hover:border-amber-400 hover:bg-amber-400/25 hover:text-white whitespace-nowrap"
+            className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/20 px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-amber-300 shadow-sm transition hover:border-amber-400 hover:bg-amber-400/25 hover:text-white whitespace-nowrap"
           >
             <span className="text-amber-400">🏏</span>
             <span className="hidden 2xl:inline">BPL Team Registration</span>
-            <span className="inline 2xl:hidden">BPL Registration</span>
+            <span className="hidden sm:inline 2xl:hidden">BPL Registration</span>
+            <span className="inline sm:hidden">BPL</span>
           </a>
           <PublicAuthCta variant="homepage" />
           <button
@@ -620,8 +621,8 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
 }) {
   const [solutionsOpen, setSolutionsOpen] = useState(false);
   return (
-    <div className="fixed inset-0 z-50 bg-stage/98 backdrop-blur-lg xl:hidden">
-      <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+    <div className="fixed inset-0 z-50 bg-stage/98 backdrop-blur-lg xl:hidden flex flex-col">
+      <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 shrink-0">
         <span className="font-display text-lg font-bold tracking-wider">MENU</span>
         <button
           type="button"
@@ -632,7 +633,12 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
           Close ✕
         </button>
       </div>
-      <nav className="flex flex-col overflow-y-auto p-5 text-base font-display">
+      <nav className="flex-1 flex flex-col overflow-y-auto p-5 text-base font-display">
+        {/* Prominent Auth CTAs at top of mobile menu */}
+        <div className="mb-4">
+          <PublicAuthCta variant="drawer" onBeforeNavigate={onClose} />
+        </div>
+
         <a
           href="https://bpl.bidwar.in/"
           target="_blank"

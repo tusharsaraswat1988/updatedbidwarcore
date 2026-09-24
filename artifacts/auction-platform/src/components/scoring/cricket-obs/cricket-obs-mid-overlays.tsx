@@ -11,6 +11,7 @@
  * Absolutely NO "✕ HIDE" buttons. Zero web-card nesting. 100% Broadcast Typography.
  */
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { getScoringStandings, listScoringMatches } from "@/lib/scoring-api";

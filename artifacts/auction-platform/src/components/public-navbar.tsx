@@ -263,16 +263,17 @@ export function PublicNavbar() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 ml-auto xl:ml-4">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto xl:ml-4">
             <a
               href="https://bpl.bidwar.in/"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/20 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-300 shadow-sm transition hover:border-amber-400 hover:bg-amber-400/25 hover:text-white whitespace-nowrap"
+              className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/20 px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-amber-300 shadow-sm transition hover:border-amber-400 hover:bg-amber-400/25 hover:text-white whitespace-nowrap"
             >
               <span className="text-amber-400">🏏</span>
               <span className="hidden 2xl:inline">BPL Team Registration</span>
-              <span className="inline 2xl:hidden">BPL Registration</span>
+              <span className="hidden sm:inline 2xl:hidden">BPL Registration</span>
+              <span className="inline sm:hidden">BPL</span>
             </a>
             <PublicAuthCta
               variant="navbar"
@@ -298,8 +299,16 @@ export function PublicNavbar() {
               className="xl:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200"
               aria-label="Close mobile navigation"
             />
-            <div className="xl:hidden fixed top-0 right-0 bottom-0 z-50 w-[86vw] max-w-sm bg-stage shadow-2xl border-l border-white/10 p-6 pt-20 overflow-y-auto animate-in slide-in-from-right duration-200">
+            <div className="xl:hidden fixed top-0 right-0 bottom-0 z-50 w-[86vw] max-w-sm bg-stage shadow-2xl border-l border-white/10 p-6 pt-20 overflow-y-auto animate-in slide-in-from-right duration-200 flex flex-col justify-between">
               <div className="space-y-1.5">
+                <div className="mb-4">
+                  <PublicAuthCta
+                    variant="drawer"
+                    onBeforeNavigate={closeMobileMenu}
+                    primaryColor={colors.primary || undefined}
+                  />
+                </div>
+
                 <a
                   href="https://bpl.bidwar.in/"
                   target="_blank"

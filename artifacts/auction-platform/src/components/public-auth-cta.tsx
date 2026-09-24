@@ -33,13 +33,13 @@ export function PublicAuthCta({
       return <span className="opacity-0 pointer-events-none select-none" aria-hidden>Dashboard</span>;
     }
     if (variant === "drawer") {
-      return <div className="h-12" aria-hidden />;
+      return <div className="h-10" aria-hidden />;
     }
     if (variant === "homepage") {
-      return <div className="hidden md:block w-[168px] h-9" aria-hidden />;
+      return <div className="w-[60px] sm:w-[150px] h-8" aria-hidden />;
     }
-    // navbar: Get Started is visible on all breakpoints today — reserve that slot.
-    return <div className="w-[108px] h-9" aria-hidden />;
+    // navbar
+    return <div className="w-[60px] sm:w-[150px] h-8" aria-hidden />;
   }
 
   if (isLoggedIn) {
@@ -62,10 +62,10 @@ export function PublicAuthCta({
         <button
           type="button"
           onClick={() => go("/organizer")}
-          className="gold-button w-full rounded-lg px-4 py-3 text-sm"
+          className="gold-button gold-button-hover w-full rounded-lg px-4 py-3 text-sm font-bold flex items-center justify-center gap-2"
           style={primaryColor ? { background: primaryColor } : undefined}
         >
-          Dashboard
+          Dashboard →
         </button>
       );
     }
@@ -74,18 +74,18 @@ export function PublicAuthCta({
         <button
           type="button"
           onClick={() => go("/organizer")}
-          className="gold-button gold-button-hover hidden rounded-md px-4 py-2 text-xs md:inline-block"
+          className="gold-button gold-button-hover rounded-md px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold whitespace-nowrap"
         >
           Dashboard
         </button>
       );
     }
-    // navbar — always visible (replaces Get Started on small screens)
+    // navbar — always visible
     return (
       <button
         type="button"
         onClick={() => go("/organizer")}
-        className="gold-button gold-button-hover rounded-md px-4 py-2 text-xs"
+        className="gold-button gold-button-hover rounded-md px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold whitespace-nowrap"
         style={primaryColor ? { background: primaryColor } : undefined}
       >
         Dashboard
@@ -110,18 +110,18 @@ export function PublicAuthCta({
 
   if (variant === "drawer") {
     return (
-      <div className="grid grid-cols-1 gap-3">
+      <div className="grid grid-cols-2 gap-2.5">
         <button
           type="button"
           onClick={() => go("/organizer")}
-          className="ghost-button w-full rounded-lg px-4 py-3 text-sm"
+          className="ghost-button ghost-button-hover border border-white/20 hover:border-white/40 hover:bg-white/10 w-full rounded-lg px-3 py-2.5 text-sm font-semibold text-center transition-colors"
         >
           Sign In
         </button>
         <button
           type="button"
           onClick={() => go("/organizer?tab=signup")}
-          className="gold-button w-full rounded-lg px-4 py-3 text-sm"
+          className="gold-button gold-button-hover w-full rounded-lg px-3 py-2.5 text-sm font-semibold text-center"
           style={primaryColor ? { background: primaryColor } : undefined}
         >
           Get Started
@@ -136,14 +136,14 @@ export function PublicAuthCta({
         <button
           type="button"
           onClick={() => go("/organizer")}
-          className="ghost-button ghost-button-hover hidden rounded-lg px-3 py-1.5 text-xs font-medium md:inline-block whitespace-nowrap"
+          className="ghost-button ghost-button-hover rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium whitespace-nowrap"
         >
           Sign in
         </button>
         <button
           type="button"
           onClick={() => go("/organizer?tab=signup")}
-          className="gold-button gold-button-hover hidden rounded-lg px-3.5 py-1.5 text-xs font-semibold md:inline-block whitespace-nowrap"
+          className="gold-button gold-button-hover hidden sm:inline-block rounded-lg px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap"
         >
           Get Started
         </button>
@@ -157,14 +157,14 @@ export function PublicAuthCta({
       <button
         type="button"
         onClick={() => go("/organizer")}
-        className="ghost-button ghost-button-hover hidden rounded-lg px-3 py-1.5 text-xs font-medium lg:inline-block whitespace-nowrap"
+        className="ghost-button ghost-button-hover rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium whitespace-nowrap"
       >
         Sign in
       </button>
       <button
         type="button"
         onClick={() => go("/organizer?tab=signup")}
-        className="gold-button gold-button-hover rounded-lg px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap"
+        className="gold-button gold-button-hover hidden sm:inline-block rounded-lg px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap"
         style={primaryColor ? { background: primaryColor } : undefined}
       >
         Get Started
