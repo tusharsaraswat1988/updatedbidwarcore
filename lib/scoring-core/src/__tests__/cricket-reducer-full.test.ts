@@ -118,15 +118,52 @@ describe("cricket reducer PR-2", () => {
     expect(afterInnings.innings[1]?.battingTeamId).toBe(2);
   });
 
-  it("completes match with result", () => {
+  it("completes match with result after valid innings progression", () => {
+    const live = startedState();
+    const inn1Done = reduceCricket(
+      live,
+      createEventEnvelope({
+        matchId: 100,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.INNINGS_ENDED,
+        sequence: 2,
+        payload: {
+          innings: 1,
+          reason: "overs_complete",
+          runs: 150,
+          wickets: 5,
+          overs: "20.0",
+        },
+        actorType: "organizer",
+      }),
+    );
+    const inn2Done = reduceCricket(
+      inn1Done,
+      createEventEnvelope({
+        matchId: 100,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.INNINGS_ENDED,
+        sequence: 3,
+        payload: {
+          innings: 2,
+          reason: "overs_complete",
+          runs: 125,
+          wickets: 8,
+          overs: "20.0",
+        },
+        actorType: "organizer",
+      }),
+    );
     const done = reduceCricket(
-      startedState(),
+      inn2Done,
       createEventEnvelope({
         matchId: 100,
         tournamentId: 10,
         sportSlug: "cricket",
         eventType: CricketEventType.MATCH_COMPLETED,
-        sequence: 2,
+        sequence: 4,
         payload: {
           winnerTeamId: 1,
           margin: "25 runs",
@@ -137,6 +174,27 @@ describe("cricket reducer PR-2", () => {
     );
     expect(done.matchStatus).toBe("completed");
     expect(done.resultText).toBe("Team 1 won by 25 runs");
+  });
+
+  it("rejects premature MATCH_COMPLETED when match is not in terminal state", () => {
+    expect(() =>
+      reduceCricket(
+        startedState(),
+        createEventEnvelope({
+          matchId: 100,
+          tournamentId: 10,
+          sportSlug: "cricket",
+          eventType: CricketEventType.MATCH_COMPLETED,
+          sequence: 2,
+          payload: {
+            winnerTeamId: 1,
+            margin: "25 runs",
+            resultText: "Team 1 won by 25 runs",
+          },
+          actorType: "organizer",
+        }),
+      ),
+    ).toThrow(/Match cannot be completed/);
   });
 
   it("replays with undo removing a ball", () => {

@@ -18,6 +18,7 @@ import {
   buildMatchMetaFromRules,
   createInitialCricketState,
   deriveCricketMatchResult,
+  isCricketMatchTerminalState,
   type MatchMeta,
   type CricketScoreboardState,
   type CricketMatchSummary,
@@ -592,6 +593,13 @@ export async function appendScoringEvent(
   // EPIC-11 Phase 1 — Match Start verifies Prepare bind only; never RuleEngine.resolve().
   // EPIC-12 Phase 1 — also verifies presentation bind; never PresentationEngine.resolve().
   if (input.eventType === CricketEventType.MATCH_STARTED) {
+    if (match.status !== "scheduled") {
+      throw new ScoringServiceError(
+        `Cannot start match: current status is '${match.status}'`,
+        409,
+        "MATCH_ALREADY_STARTED",
+      );
+    }
     const verified = verifyMatchStartContract({
       currentRuntimeVersion: match.currentRuntimeVersion,
       runtimePrepMetadata: match.runtimePrepMetadataJson as Record<
@@ -661,7 +669,14 @@ export async function appendScoringEvent(
         overs: `${inn.over}.${inn.ball}`,
       };
     } else {
-      // Ensure second innings is marked completed before deriving result when chase finished.
+      const terminalCheck = isCricketMatchTerminalState(currentState);
+      if (!terminalCheck.valid) {
+        throw new ScoringServiceError(
+          terminalCheck.reason,
+          400,
+          "MATCH_NOT_TERMINAL",
+        );
+      }
       const derived = deriveCricketMatchResult(currentState);
       payload = {
         ...input.payload,

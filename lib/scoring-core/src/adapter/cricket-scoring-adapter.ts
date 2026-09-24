@@ -62,7 +62,24 @@ export const cricketScoringAdapter: SportScoringAdapter<
     };
   },
   validateBeforeAppend(ctx: AppendValidationContext) {
-    if (ctx.eventType !== CricketEventType.MATCH_STARTED) {
+    if (ctx.eventType === CricketEventType.MATCH_STARTED) {
+      if (ctx.matchStatus !== "scheduled") {
+        return {
+          ok: false,
+          error: `Cannot start match: current status is '${ctx.matchStatus}'`,
+          code: "MATCH_ALREADY_STARTED",
+        };
+      }
+      return { ok: true };
+    }
+    if (ctx.eventType === CricketEventType.MATCH_COMPLETED) {
+      if (ctx.matchStatus !== "live") {
+        return {
+          ok: false,
+          error: `Cannot complete match: current status is '${ctx.matchStatus}'`,
+          code: "MATCH_NOT_LIVE",
+        };
+      }
       return { ok: true };
     }
     if (ctx.matchStatus === "completed" || ctx.matchStatus === "abandoned") {

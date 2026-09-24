@@ -33,6 +33,7 @@ import {
   type CricketScoreboardState,
 } from "./state";
 import { FREE_HIT_DISMISSALS, SUPER_BALL_BLOCKED_DISMISSALS } from "./types";
+import { isCricketMatchTerminalState } from "./result";
 
 function battingBowlingTeamIds(
   state: CricketScoreboardState,
@@ -84,11 +85,33 @@ function applyMatchStarted(
   state: CricketScoreboardState,
   payload: CricketMatchStartedPayload,
 ): CricketScoreboardState {
+  if (
+    state.matchStatus !== "scheduled" ||
+    state.currentInnings > 0 ||
+    state.innings.length > 0
+  ) {
+    throw new InvalidEventPayloadError(
+      CricketEventType.MATCH_STARTED,
+      "cannot start match: match has already started",
+    );
+  }
   const { battingTeamId, bowlingTeamId } = battingBowlingTeamIds(
     state,
     payload.electedTo,
     payload.tossWinnerTeamId,
   );
+  const existingBattingLineup = state.lineups[battingTeamId];
+  let strikerId = state.strikerId;
+  let nonStrikerId = state.nonStrikerId;
+  if (
+    existingBattingLineup &&
+    existingBattingLineup.length >= 2 &&
+    strikerId == null &&
+    nonStrikerId == null
+  ) {
+    strikerId = existingBattingLineup[0] ?? null;
+    nonStrikerId = existingBattingLineup[1] ?? null;
+  }
   return {
     ...state,
     matchStatus: "live",
@@ -103,6 +126,8 @@ function applyMatchStarted(
     thisOver: [],
     powerplayOvers: payload.powerplayOvers ?? [],
     freeHitActive: false,
+    strikerId,
+    nonStrikerId,
   };
 }
 
@@ -580,6 +605,13 @@ function applyMatchCompleted(
   state: CricketScoreboardState,
   payload: CricketMatchCompletedPayload,
 ): CricketScoreboardState {
+  const terminalCheck = isCricketMatchTerminalState(state);
+  if (!terminalCheck.valid) {
+    throw new InvalidEventPayloadError(
+      CricketEventType.MATCH_COMPLETED,
+      terminalCheck.reason,
+    );
+  }
   return {
     ...state,
     matchStatus: "completed",
@@ -587,6 +619,11 @@ function applyMatchCompleted(
     winnerTeamId: payload.winnerTeamId,
     resultText: payload.resultText,
     freeHitActive: false,
+    innings: state.innings.map((inn) =>
+      inn.phase === "in_progress"
+        ? { ...inn, phase: "completed" as const }
+        : inn,
+    ),
   };
 }
 

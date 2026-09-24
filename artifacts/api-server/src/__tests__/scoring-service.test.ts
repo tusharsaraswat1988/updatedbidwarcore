@@ -361,4 +361,164 @@ describe("scoring event engine (unit)", () => {
     expect(state.matchStatus).toBe("scheduled");
     expect(state.lastSequence).toBe(0);
   });
+
+  it("rejects second MATCH_STARTED in event replay and preserves state", () => {
+    const events = [
+      createEventEnvelope({
+        matchId: 1,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.MATCH_STARTED,
+        sequence: 1,
+        payload: { tossWinnerTeamId: 100, electedTo: "bat", oversLimit: 20 },
+        actorType: "organizer",
+      }),
+      createEventEnvelope({
+        matchId: 1,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.BALL_RECORDED,
+        sequence: 2,
+        payload: {
+          innings: 1,
+          over: 0,
+          ball: 1,
+          strikerId: 1,
+          nonStrikerId: 2,
+          bowlerId: 9,
+          runsOffBat: 4,
+          extras: { type: null, runs: 0 },
+          wicket: null,
+          isLegalDelivery: true,
+        },
+        actorType: "organizer",
+      }),
+      createEventEnvelope({
+        matchId: 1,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.MATCH_STARTED,
+        sequence: 3,
+        payload: { tossWinnerTeamId: 100, electedTo: "bat", oversLimit: 20 },
+        actorType: "organizer",
+      }),
+    ];
+
+    expect(() => replayCricketEvents(meta, events)).toThrow(
+      /match has already started/,
+    );
+  });
+
+  it("rejects premature MATCH_COMPLETED during replay", () => {
+    const events = [
+      createEventEnvelope({
+        matchId: 1,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.MATCH_STARTED,
+        sequence: 1,
+        payload: { tossWinnerTeamId: 100, electedTo: "bat", oversLimit: 20 },
+        actorType: "organizer",
+      }),
+      createEventEnvelope({
+        matchId: 1,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.BALL_RECORDED,
+        sequence: 2,
+        payload: {
+          innings: 1,
+          over: 0,
+          ball: 1,
+          strikerId: 1,
+          nonStrikerId: 2,
+          bowlerId: 9,
+          runsOffBat: 4,
+          extras: { type: null, runs: 0 },
+          wicket: null,
+          isLegalDelivery: true,
+        },
+        actorType: "organizer",
+      }),
+      createEventEnvelope({
+        matchId: 1,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.MATCH_COMPLETED,
+        sequence: 3,
+        payload: {
+          winnerTeamId: 100,
+          margin: "4 runs",
+          resultText: "Won by 4 runs",
+        },
+        actorType: "organizer",
+      }),
+    ];
+
+    expect(() => replayCricketEvents(meta, events)).toThrow(
+      /first innings is still in progress/,
+    );
+  });
+
+  it("replays full valid match completion flow", () => {
+    const events = [
+      createEventEnvelope({
+        matchId: 1,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.MATCH_STARTED,
+        sequence: 1,
+        payload: { tossWinnerTeamId: 100, electedTo: "bat", oversLimit: 20 },
+        actorType: "organizer",
+      }),
+      createEventEnvelope({
+        matchId: 1,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.INNINGS_ENDED,
+        sequence: 2,
+        payload: {
+          innings: 1,
+          reason: "overs_complete",
+          runs: 120,
+          wickets: 4,
+          overs: "20.0",
+        },
+        actorType: "organizer",
+      }),
+      createEventEnvelope({
+        matchId: 1,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.INNINGS_ENDED,
+        sequence: 3,
+        payload: {
+          innings: 2,
+          reason: "overs_complete",
+          runs: 100,
+          wickets: 8,
+          overs: "20.0",
+        },
+        actorType: "organizer",
+      }),
+      createEventEnvelope({
+        matchId: 1,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.MATCH_COMPLETED,
+        sequence: 4,
+        payload: {
+          winnerTeamId: 100,
+          margin: "20 runs",
+          resultText: "Team 100 won by 20 runs",
+        },
+        actorType: "organizer",
+      }),
+    ];
+
+    const state = replayCricketEvents(meta, events);
+    expect(state.matchStatus).toBe("completed");
+    expect(state.winnerTeamId).toBe(100);
+    expect(state.resultText).toBe("Team 100 won by 20 runs");
+  });
 });

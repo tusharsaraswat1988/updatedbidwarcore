@@ -120,3 +120,99 @@ export function deriveCricketMatchResult(
     isTie: false,
   };
 }
+
+export type CricketTerminalStateValidation =
+  | { valid: true }
+  | { valid: false; reason: string };
+
+/**
+ * Validates if the cricket scoreboard is in an authoritative terminal state
+ * eligible for MATCH_COMPLETED.
+ */
+export function isCricketMatchTerminalState(
+  state: CricketScoreboardState,
+): CricketTerminalStateValidation {
+  if (state.matchStatus !== "live") {
+    return {
+      valid: false,
+      reason: `Match is not in progress (current status: ${state.matchStatus})`,
+    };
+  }
+
+  const first = state.innings.find((i) => i.innings === 1);
+  if (!first) {
+    return {
+      valid: false,
+      reason: "Match cannot be completed: first innings has not started",
+    };
+  }
+
+  if (first.phase !== "completed") {
+    return {
+      valid: false,
+      reason: "Match cannot be completed: first innings is still in progress",
+    };
+  }
+
+  const superOvers = state.innings.filter((i) => i.kind === "super_over");
+  if (superOvers.length > 0) {
+    if (superOvers.length < 2) {
+      return {
+        valid: false,
+        reason: "Match cannot be completed: Super Over is in progress",
+      };
+    }
+    const firstSuper = superOvers[superOvers.length - 2]!;
+    const secondSuper = superOvers[superOvers.length - 1]!;
+
+    if (firstSuper.phase !== "completed") {
+      return {
+        valid: false,
+        reason:
+          "Match cannot be completed: first Super Over innings is still in progress",
+      };
+    }
+
+    const secondSuperTerminal =
+      secondSuper.phase === "completed" ||
+      secondSuper.runs > firstSuper.runs ||
+      secondSuper.wickets >= state.superOverWickets ||
+      (secondSuper.over >= secondSuper.oversLimit &&
+        (secondSuper.over > secondSuper.oversLimit || secondSuper.ball >= 6));
+
+    if (!secondSuperTerminal) {
+      return {
+        valid: false,
+        reason:
+          "Match cannot be completed: second Super Over innings is still in progress",
+      };
+    }
+
+    return { valid: true };
+  }
+
+  const second = state.innings.find((i) => i.innings === 2);
+  if (!second) {
+    return {
+      valid: false,
+      reason: "Match cannot be completed: second innings has not started",
+    };
+  }
+
+  const secondTerminal =
+    second.phase === "completed" ||
+    (state.target != null && second.runs >= state.target) ||
+    second.wickets >= state.maxWickets ||
+    (second.over >= second.oversLimit &&
+      (second.over > second.oversLimit || second.ball >= 6));
+
+  if (!secondTerminal) {
+    return {
+      valid: false,
+      reason: "Match cannot be completed: second innings is still in progress",
+    };
+  }
+
+  return { valid: true };
+}
+
