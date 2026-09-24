@@ -44,6 +44,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
+import { CricketObsBroadcastMessageControl } from "@/components/scoring/cricket-obs/cricket-obs-broadcast-message-control";
 import {
   cricketMatchCenterPath,
   cricketScoreHubPath,
@@ -911,6 +912,9 @@ export default function CricketLiveControlPage() {
             </span>
           </div>
         </div>
+
+        {/* ─── 3. BROADCAST MESSAGE LOWER-THIRD CHYRON CONTROLS ─── */}
+        <CricketObsBroadcastMessageControl tournamentId={tournamentId} />
 
       </div>
 

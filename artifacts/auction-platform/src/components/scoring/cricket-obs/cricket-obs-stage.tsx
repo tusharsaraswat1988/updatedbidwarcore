@@ -14,6 +14,7 @@ import { CricketObsBranding } from "@/components/scoring/cricket-obs/cricket-obs
 import { CricketObsWaiting } from "@/components/scoring/cricket-obs/cricket-obs-waiting";
 import { CricketObsMidOverlays } from "@/components/scoring/cricket-obs/cricket-obs-mid-overlays";
 import { CricketObsOperatorDock } from "@/components/scoring/cricket-obs/cricket-obs-operator-dock";
+import { CricketObsBroadcastMessage } from "@/components/scoring/cricket-obs/cricket-obs-broadcast-message";
 
 type Props = {
   vm: CricketObsViewModel;
@@ -37,6 +38,7 @@ type Props = {
  * 3. Solid Bottom Footer / Scorebug (Non-Transparent) with batsman figures, bowler spell, over train, and run rates
  * 4. Real-time Animations (Come and go event alerts: Four, Six, Superball, Wicket, Free Hit, New Batsman)
  * 5. 80% Screen Frosted Overlays (Sponsors, Standings, Schedule, Scorecard, Summary)
+ * 6. Broadcast Message Lower-Third chyron card (VIP guests, sponsors, officials, etc.)
  */
 export function CricketObsStage({
   vm,
@@ -84,6 +86,9 @@ export function CricketObsStage({
 
       {/* 2. MID SECTION (100% TRANSPARENT CAMERA VIEWPORT)
           Kept completely clear so live video feed shines through */}
+
+      {/* 6. BROADCAST MESSAGE LOWER-THIRD CARD (VIP Guests / Officials / Sponsors) */}
+      <CricketObsBroadcastMessage broadcastMessage={vm.broadcastMessage} />
 
       {/* 4. REAL-TIME EVENT ANIMATIONS (Come and go) */}
       <CricketObsEventFlash flash={vm.flash} token={vm.flashToken} detail={vm.flashDetail} />

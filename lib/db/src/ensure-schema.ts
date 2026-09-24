@@ -6,6 +6,7 @@ import {
   resolveEnvironment,
   runSchemaGovernance,
 } from "./schema-governance/index.js";
+import { runVersionedMigrations } from "./migrator.js";
 import {
   assertEnvironmentDatabaseIsolation,
   classifyDatabaseRole,
@@ -73,6 +74,20 @@ async function runEnsureCoreSchemaWithClient(pool: pg.Pool): Promise<void> {
   try {
     await client.query(`SET lock_timeout = '15s'`);
     await client.query(`SET statement_timeout = '30s'`);
+
+    // Canonical versioned migrations: execute pending versioned migrations across all environments (including production)
+    try {
+      const migResult = await runVersionedMigrations(client, {
+        log: (msg) => console.info(`[schema] ${msg}`),
+      });
+      console.info("[schema] versioned migrations result:", {
+        applied: migResult.appliedCount,
+        alreadyApplied: migResult.alreadyAppliedCount,
+        files: migResult.appliedFiles,
+      });
+    } catch (migErr) {
+      console.error("[schema] versioned migrations execution error:", migErr);
+    }
 
     // Idempotent safe additive bootstrap: ensures all IF NOT EXISTS tables and columns are created (local/staging only)
     if (autoHeal) {
@@ -625,6 +640,17 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS ix_cricket_rule_presets_tournament_id
       ON cricket_rule_presets (tournament_id);
+
+    CREATE TABLE IF NOT EXISTS cricket_broadcast_message_templates (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      name text NOT NULL,
+      details text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS ix_cricket_broadcast_message_templates_tournament_id
+      ON cricket_broadcast_message_templates (tournament_id);
 
     CREATE TABLE IF NOT EXISTS runtime_match_history (
       id serial PRIMARY KEY,

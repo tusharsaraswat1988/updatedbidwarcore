@@ -11,6 +11,70 @@ export type MigrationResult = {
   appliedFiles: string[];
 };
 
+const EMBEDDED_MIGRATIONS: Record<string, string> = {
+  "0022_cricket_rule_presets.sql": `
+    ALTER TABLE scoring_fixtures ADD COLUMN IF NOT EXISTS rule_preset_id integer;
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS rule_preset_id integer;
+
+    CREATE TABLE IF NOT EXISTS cricket_rule_presets (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      name text NOT NULL,
+      description text,
+      variant_id text NOT NULL DEFAULT 'cricket.box',
+      rule_profile_id text NOT NULL DEFAULT 'cricket.box.corporate_standard',
+      rule_profile_version text NOT NULL DEFAULT '1.0.0',
+      rule_overrides_json jsonb,
+      squad_rules_json jsonb,
+      is_default boolean NOT NULL DEFAULT false,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS ix_cricket_rule_presets_tournament_id
+      ON cricket_rule_presets (tournament_id);
+  `,
+  "0023_cricket_broadcast_message_templates.sql": `
+    CREATE TABLE IF NOT EXISTS cricket_broadcast_message_templates (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      name text NOT NULL,
+      details text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS ix_cricket_broadcast_message_templates_tournament_id
+      ON cricket_broadcast_message_templates (tournament_id);
+  `,
+};
+
+function resolveMigrationsDirectory(explicit?: string): string | null {
+  if (explicit && fs.existsSync(explicit)) return explicit;
+
+  const candidates: string[] = [
+    path.resolve(process.cwd(), "lib/db/migrations"),
+    "/app/lib/db/migrations",
+    path.resolve(process.cwd(), "migrations"),
+  ];
+
+  try {
+    const currentDir = path.dirname(fileURLToPath(import.meta.url));
+    const repoRoot = findRepoRoot(currentDir);
+    candidates.unshift(path.resolve(repoRoot, "lib/db/migrations"));
+  } catch {
+    // ignore repoRoot walk error if run from single-bundle environment
+  }
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 export async function runVersionedMigrations(
   client: pg.Client | pg.PoolClient,
   options: {
@@ -20,14 +84,11 @@ export async function runVersionedMigrations(
 ): Promise<MigrationResult> {
   const log = options.log ?? console.log;
 
-  const repoRoot = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
-  const migrationsDir =
-    options.migrationsDir ?? path.resolve(repoRoot, "lib/db/migrations");
-
-  if (!fs.existsSync(migrationsDir)) {
-    throw new Error(
-      `[migrate] Migrations directory not found at: ${migrationsDir}`,
-    );
+  const migrationsDir = resolveMigrationsDirectory(options.migrationsDir);
+  if (!migrationsDir) {
+    log("[migrate] Migrations directory not found on disk — using embedded migrations.");
+  } else {
+    log(`[migrate] Using migrations directory at: ${migrationsDir}`);
   }
 
   // 1. Ensure migration ledger tables exist in both drizzle schema and public schema
@@ -57,16 +118,41 @@ export async function runVersionedMigrations(
   for (const r of drizzleRows.rows) appliedSet.add(r.hash);
   for (const r of publicRows.rows) appliedSet.add(r.hash);
 
-  // 3. Read and sort all versioned migration files
-  const files = fs
-    .readdirSync(migrationsDir)
-    .filter((f) => f.endsWith(".sql"))
-    .sort();
+  // 3. Read and sort all versioned migration files or fall back to embedded migrations
+  const migrationItems: { file: string; sql: string }[] = [];
+
+  if (migrationsDir) {
+    try {
+      const files = fs
+        .readdirSync(migrationsDir)
+        .filter((f) => f.endsWith(".sql"))
+        .sort();
+
+      for (const file of files) {
+        migrationItems.push({
+          file,
+          sql: fs.readFileSync(path.join(migrationsDir, file), "utf8"),
+        });
+      }
+    } catch (readErr) {
+      log(`[migrate] Warning reading migrations directory: ${readErr}`);
+    }
+  }
+
+  // Ensure embedded migrations are always present as fallback
+  for (const [file, sql] of Object.entries(EMBEDDED_MIGRATIONS)) {
+    if (!migrationItems.some((item) => item.file === file)) {
+      migrationItems.push({ file, sql });
+    }
+  }
+
+  migrationItems.sort((a, b) => a.file.localeCompare(b.file));
 
   const appliedFiles: string[] = [];
   let alreadyAppliedCount = 0;
 
-  for (const file of files) {
+  for (const item of migrationItems) {
+    const { file, sql } = item;
     const fileBase = file.replace(/\.sql$/, "");
     const isApplied = appliedSet.has(file) || appliedSet.has(fileBase);
 
@@ -74,9 +160,6 @@ export async function runVersionedMigrations(
       alreadyAppliedCount++;
       continue;
     }
-
-    const filePath = path.join(migrationsDir, file);
-    const sql = fs.readFileSync(filePath, "utf8");
 
     try {
       await client.query("BEGIN");
@@ -105,11 +188,11 @@ export async function runVersionedMigrations(
   }
 
   log(
-    `[migrate] complete. Total: ${files.length}, Newly applied: ${appliedFiles.length}, Already up-to-date: ${alreadyAppliedCount}`,
+    `[migrate] complete. Total: ${migrationItems.length}, Newly applied: ${appliedFiles.length}, Already up-to-date: ${alreadyAppliedCount}`,
   );
 
   return {
-    totalMigrations: files.length,
+    totalMigrations: migrationItems.length,
     appliedCount: appliedFiles.length,
     alreadyAppliedCount,
     appliedFiles,

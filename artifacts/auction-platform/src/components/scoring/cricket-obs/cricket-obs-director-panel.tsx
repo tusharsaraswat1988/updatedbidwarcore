@@ -14,6 +14,7 @@ import type { CricketObsFlashKind, CricketObsMidOverlayKind } from "@/lib/cricke
 import { cricketObsLivePath } from "@/lib/tournament-navigation";
 import { listScoringMatches, getScoringStandings } from "@/lib/scoring-api";
 import { parseTournamentSponsors } from "@/components/scoring/public-sponsors-strip";
+import { CricketObsBroadcastMessageControl } from "@/components/scoring/cricket-obs/cricket-obs-broadcast-message-control";
 import { Tv, Radio, Sparkles, Eye, CheckCircle2, Copy, ExternalLink, Calendar, Trophy, Handshake, Table, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -419,6 +420,11 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* 3. BROADCAST MESSAGE CARD CONTROL */}
+      <div className="pt-2 border-t border-border/40">
+        <CricketObsBroadcastMessageControl tournamentId={tournamentId} />
       </div>
 
       {/* MATCH SELECTION DIALOG FOR OBS DIRECTOR */}

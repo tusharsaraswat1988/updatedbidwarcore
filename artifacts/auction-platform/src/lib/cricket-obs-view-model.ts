@@ -100,6 +100,12 @@ export type CricketObsTheme = {
   sponsorStripEnabled: boolean;
 };
 
+export type CricketBroadcastMessage = {
+  active: boolean;
+  name: string;
+  details: string;
+};
+
 export type CricketObsViewModel = {
   phase: CricketObsPhase;
   matchId: number | null;
@@ -146,6 +152,7 @@ export type CricketObsViewModel = {
   flashToken: string | null;
   flashDetail?: string | null;
   midOverlay: CricketObsMidOverlayKind;
+  broadcastMessage: CricketBroadcastMessage | null;
 };
 
 const DEFAULT_THEME: CricketObsTheme = {
@@ -414,6 +421,7 @@ export type BuildCricketObsViewModelInput = {
   overrideFlashToken?: string | null;
   overrideFlashDetail?: string | null;
   midOverlay?: CricketObsMidOverlayKind;
+  broadcastMessage?: CricketBroadcastMessage | null;
 };
 
 export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): CricketObsViewModel {
@@ -431,6 +439,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     overrideFlashToken,
     overrideFlashDetail,
     midOverlay = "none",
+    broadcastMessage = null,
   } = input;
 
   const paint = (live?.match?.branding as PresentationPaintJson | null | undefined) ?? null;
@@ -484,6 +493,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     flashToken: overrideFlashToken ?? null,
     flashDetail: overrideFlashDetail ?? null,
     midOverlay,
+    broadcastMessage,
   };
 
   if (!live?.match || !live.state) {

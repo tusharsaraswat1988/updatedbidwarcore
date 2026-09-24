@@ -29,6 +29,7 @@ import {
   flashTokenForBall,
   mapBallToFlash,
   mergeLiveDisplayPreserveBranding,
+  type CricketBroadcastMessage,
   type CricketObsFlashKind,
   type CricketObsMidOverlayKind,
   type CricketObsViewModel,
@@ -60,6 +61,9 @@ export function useCricketObsLive(
     stageOrGroup?: string,
   ) => void;
   triggerFlash: (flash: CricketObsFlashKind, detail?: string) => void;
+  broadcastMessage: CricketBroadcastMessage | null;
+  pushBroadcastMessage: (name: string, details: string) => void;
+  closeBroadcastMessage: () => void;
 } {
   const { data: tournament, isLoading: tournamentLoading } = useGetTournament(tournamentId, {
     query: {
@@ -181,21 +185,24 @@ export function useCricketObsLive(
     return undefined;
   });
 
+  const [broadcastMessage, setBroadcastMessage] = useState<CricketBroadcastMessage | null>(null);
+
   // Query server for active OBS director state (persisted across reloads/new tabs)
   const { data: serverObsState } = useQuery<{
     overlay?: string;
     matchId?: number;
     sponsorName?: string;
     stageOrGroup?: string;
+    broadcastMessage?: CricketBroadcastMessage | null;
   }>({
     queryKey: ["cricket-obs-director", tournamentId],
     queryFn: async () => {
       try {
         const res = await fetch(`/api/tournaments/${tournamentId}/scoring/obs-director`);
-        if (!res.ok) return { overlay: "none" };
+        if (!res.ok) return { overlay: "none", broadcastMessage: null };
         return await res.json();
       } catch {
-        return { overlay: "none" };
+        return { overlay: "none", broadcastMessage: null };
       }
     },
     enabled: tournamentId > 0,
@@ -215,11 +222,15 @@ export function useCricketObsLive(
     if (serverObsState?.stageOrGroup !== undefined) {
       setOverlayStageOrGroup(serverObsState.stageOrGroup);
     }
+    if (serverObsState?.broadcastMessage !== undefined) {
+      setBroadcastMessage(serverObsState.broadcastMessage);
+    }
   }, [
     serverObsState?.overlay,
     serverObsState?.matchId,
     serverObsState?.sponsorName,
     serverObsState?.stageOrGroup,
+    serverObsState?.broadcastMessage,
   ]);
 
   // Manual / Operator / Injected Flash Event
@@ -233,6 +244,59 @@ export function useCricketObsLive(
     const token = `flash-${Date.now()}-${flash}`;
     setOverrideFlash({ kind: flash, token, detail });
   }, []);
+
+  const pushBroadcastMessage = useCallback(
+    (name: string, details: string) => {
+      const msg: CricketBroadcastMessage = {
+        active: true,
+        name: name.trim(),
+        details: details.trim(),
+      };
+      setBroadcastMessage(msg);
+
+      // 1. Post to server for cross-device SSE broadcast
+      void fetch(`/api/tournaments/${tournamentId}/scoring/obs-director`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageType: "broadcast_message", broadcastMessage: msg }),
+      }).catch(() => {});
+
+      // 2. BroadcastChannel fallback for same-browser tabs
+      if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
+        try {
+          const ch = new BroadcastChannel(`bidwar_cricket_obs_${tournamentId}`);
+          ch.postMessage({ type: "SET_BROADCAST_MESSAGE", broadcastMessage: msg });
+          ch.close();
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [tournamentId],
+  );
+
+  const closeBroadcastMessage = useCallback(() => {
+    const msg: CricketBroadcastMessage = { active: false, name: "", details: "" };
+    setBroadcastMessage(null);
+
+    // 1. Post to server for cross-device SSE broadcast
+    void fetch(`/api/tournaments/${tournamentId}/scoring/obs-director`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageType: "broadcast_message", broadcastMessage: msg }),
+    }).catch(() => {});
+
+    // 2. BroadcastChannel fallback for same-browser tabs
+    if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined") {
+      try {
+        const ch = new BroadcastChannel(`bidwar_cricket_obs_${tournamentId}`);
+        ch.postMessage({ type: "CLEAR_BROADCAST_MESSAGE" });
+        ch.close();
+      } catch {
+        // ignore
+      }
+    }
+  }, [tournamentId]);
 
   const setMidOverlay = useCallback(
     (
@@ -303,6 +367,9 @@ export function useCricketObsLive(
       if (detail.flash) {
         triggerFlash(detail.flash, detail.detail);
       }
+      if (detail.broadcastMessage !== undefined) {
+        setBroadcastMessage(detail.broadcastMessage);
+      }
     };
     window.addEventListener("cricket_obs_director", handleSseDirector);
     return () => window.removeEventListener("cricket_obs_director", handleSseDirector);
@@ -330,6 +397,10 @@ export function useCricketObsLive(
         }
       } else if (data.type === "TRIGGER_FLASH") {
         triggerFlash(data.flash, data.detail);
+      } else if (data.type === "SET_BROADCAST_MESSAGE") {
+        setBroadcastMessage(data.broadcastMessage ?? null);
+      } else if (data.type === "CLEAR_BROADCAST_MESSAGE") {
+        setBroadcastMessage(null);
       }
     };
     return () => {
@@ -498,6 +569,7 @@ export function useCricketObsLive(
         overrideFlashToken: overrideFlash.token,
         overrideFlashDetail: overrideFlash.detail,
         midOverlay,
+        broadcastMessage,
       }),
     [
       mergedLive,
@@ -512,6 +584,7 @@ export function useCricketObsLive(
       seenFlashToken,
       overrideFlash,
       midOverlay,
+      broadcastMessage,
     ],
   );
 
@@ -535,5 +608,8 @@ export function useCricketObsLive(
     overlayStageOrGroup,
     setMidOverlay,
     triggerFlash,
+    broadcastMessage,
+    pushBroadcastMessage,
+    closeBroadcastMessage,
   };
 }

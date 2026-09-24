@@ -26,8 +26,8 @@ import {
 } from "../lib/scoring-broadcast";
 import { buildCricketMatchSummary, InvalidEventPayloadError } from "@workspace/scoring-core";
 import { InvalidTournamentModuleStateError } from "@workspace/platform-core";
-import { db, scoringMatchesTable, tournamentsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, scoringMatchesTable, tournamentsTable, cricketBroadcastMessageTemplatesTable } from "@workspace/db";
+import { eq, and, desc, asc } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import {
   requireSportModule,
@@ -519,7 +519,7 @@ router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
   res.on("close", cleanup);
 });
 
-/** POST /tournaments/:tournamentId/scoring/obs-director — trigger overlay or scoring animation on OBS screens in real time */
+/** POST /tournaments/:tournamentId/scoring/obs-director — trigger overlay, scoring animation, or broadcast message on OBS screens in real time */
 router.post("/tournaments/:tournamentId/scoring/obs-director", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
   if (tournamentId === null) {
@@ -534,6 +534,35 @@ router.post("/tournaments/:tournamentId/scoring/obs-director", async (req, res) 
   const stageOrGroup = typeof body.stageOrGroup === "string" ? body.stageOrGroup : undefined;
   const flash = typeof body.flash === "string" ? body.flash : undefined;
   const detail = typeof body.detail === "string" ? body.detail : undefined;
+  const messageType = typeof body.messageType === "string" ? body.messageType : undefined;
+
+  let broadcastMessage: { active: boolean; name: string; details: string } | null | undefined = undefined;
+  if (body.broadcastMessage !== undefined) {
+    if (body.broadcastMessage === null) {
+      broadcastMessage = null;
+    } else if (typeof body.broadcastMessage === "object") {
+      const bm = body.broadcastMessage;
+      const active = Boolean(bm.active);
+      const name = typeof bm.name === "string" ? bm.name.trim() : "";
+      const details = typeof bm.details === "string" ? bm.details.trim() : "";
+
+      if (active) {
+        if (!name || name.length > 100) {
+          res.status(400).json({ error: "Broadcast message name must be between 1 and 100 characters" });
+          return;
+        }
+        if (!details || details.length > 180) {
+          res.status(400).json({ error: "Broadcast message details must be between 1 and 180 characters" });
+          return;
+        }
+      }
+      broadcastMessage = {
+        active,
+        name: name.slice(0, 100),
+        details: details.slice(0, 180),
+      };
+    }
+  }
 
   broadcastCricketObsDirector(tournamentId, {
     overlay,
@@ -542,8 +571,10 @@ router.post("/tournaments/:tournamentId/scoring/obs-director", async (req, res) 
     stageOrGroup,
     flash,
     detail,
+    messageType,
+    broadcastMessage,
   });
-  res.json({ ok: true, overlay, matchId, sponsorName, stageOrGroup, flash, detail });
+  res.json({ ok: true, overlay, matchId, sponsorName, stageOrGroup, flash, detail, messageType, broadcastMessage });
 });
 
 /** GET /tournaments/:tournamentId/scoring/obs-director — get current OBS overlay state */
@@ -556,6 +587,152 @@ router.get("/tournaments/:tournamentId/scoring/obs-director", async (req, res) =
 
   const state = getCricketObsDirectorState(tournamentId);
   res.json(state);
+});
+
+/** GET /tournaments/:tournamentId/scoring/broadcast-message-templates — list saved templates */
+router.get("/tournaments/:tournamentId/scoring/broadcast-message-templates", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const templates = await db
+      .select()
+      .from(cricketBroadcastMessageTemplatesTable)
+      .where(eq(cricketBroadcastMessageTemplatesTable.tournamentId, tournamentId))
+      .orderBy(asc(cricketBroadcastMessageTemplatesTable.id));
+
+    res.json(templates);
+  } catch (err) {
+    logger.error("Failed to list broadcast message templates", { error: err, tournamentId });
+    res.status(500).json({ error: "Failed to list broadcast message templates" });
+  }
+});
+
+/** POST /tournaments/:tournamentId/scoring/broadcast-message-templates — create template */
+router.post("/tournaments/:tournamentId/scoring/broadcast-message-templates", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const body = req.body ?? {};
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const details = typeof body.details === "string" ? body.details.trim() : "";
+
+  if (!name || name.length > 100) {
+    res.status(400).json({ error: "Name must be between 1 and 100 characters" });
+    return;
+  }
+  if (!details || details.length > 180) {
+    res.status(400).json({ error: "Details must be between 1 and 180 characters" });
+    return;
+  }
+
+  try {
+    const [template] = await db
+      .insert(cricketBroadcastMessageTemplatesTable)
+      .values({
+        tournamentId,
+        name: name.slice(0, 100),
+        details: details.slice(0, 180),
+      })
+      .returning();
+
+    res.status(201).json(template);
+  } catch (err) {
+    logger.error("Failed to create broadcast message template", { error: err, tournamentId });
+    res.status(500).json({ error: "Failed to create broadcast message template" });
+  }
+});
+
+/** PUT /tournaments/:tournamentId/scoring/broadcast-message-templates/:id — update template */
+router.put("/tournaments/:tournamentId/scoring/broadcast-message-templates/:id", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const templateId = parseId(req.params.id);
+  if (tournamentId === null || templateId === null) {
+    res.status(400).json({ error: "Invalid tournament or template ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const body = req.body ?? {};
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const details = typeof body.details === "string" ? body.details.trim() : "";
+
+  if (!name || name.length > 100) {
+    res.status(400).json({ error: "Name must be between 1 and 100 characters" });
+    return;
+  }
+  if (!details || details.length > 180) {
+    res.status(400).json({ error: "Details must be between 1 and 180 characters" });
+    return;
+  }
+
+  try {
+    const [updated] = await db
+      .update(cricketBroadcastMessageTemplatesTable)
+      .set({
+        name: name.slice(0, 100),
+        details: details.slice(0, 180),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(cricketBroadcastMessageTemplatesTable.id, templateId),
+          eq(cricketBroadcastMessageTemplatesTable.tournamentId, tournamentId),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+
+    res.json(updated);
+  } catch (err) {
+    logger.error("Failed to update broadcast message template", { error: err, tournamentId, templateId });
+    res.status(500).json({ error: "Failed to update broadcast message template" });
+  }
+});
+
+/** DELETE /tournaments/:tournamentId/scoring/broadcast-message-templates/:id — delete template */
+router.delete("/tournaments/:tournamentId/scoring/broadcast-message-templates/:id", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const templateId = parseId(req.params.id);
+  if (tournamentId === null || templateId === null) {
+    res.status(400).json({ error: "Invalid tournament or template ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const [deleted] = await db
+      .delete(cricketBroadcastMessageTemplatesTable)
+      .where(
+        and(
+          eq(cricketBroadcastMessageTemplatesTable.id, templateId),
+          eq(cricketBroadcastMessageTemplatesTable.tournamentId, tournamentId),
+        ),
+      )
+      .returning({ id: cricketBroadcastMessageTemplatesTable.id });
+
+    if (!deleted) {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error("Failed to delete broadcast message template", { error: err, tournamentId, templateId });
+    res.status(500).json({ error: "Failed to delete broadcast message template" });
+  }
 });
 
 router.get("/tournaments/:tournamentId/scoring/matches", async (req, res) => {

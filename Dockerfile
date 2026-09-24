@@ -49,6 +49,9 @@ COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 # API server bundle (esbuild output + pino worker threads)
 COPY --from=builder /app/artifacts/api-server/dist ./artifacts/api-server/dist
 
+# Versioned SQL migrations for boot-time schema migration runner
+COPY --from=builder /app/lib/db/migrations ./lib/db/migrations
+
 # Pre-built Vite frontends (Brotli + Gzip compressed assets)
 COPY --from=builder /app/artifacts/auction-platform/dist/public ./artifacts/auction-platform/dist/public
 COPY --from=builder /app/artifacts/owner-app/dist/public        ./artifacts/owner-app/dist/public

@@ -781,3 +781,69 @@ export async function resetScoringMatch(
     },
   );
 }
+
+export type CricketBroadcastMessageTemplate = {
+  id: number;
+  tournamentId: number;
+  name: string;
+  details: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export async function getCricketBroadcastMessageTemplates(
+  tournamentId: number,
+): Promise<CricketBroadcastMessageTemplate[]> {
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/broadcast-message-templates`,
+  );
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function createCricketBroadcastMessageTemplate(
+  tournamentId: number,
+  name: string,
+  details: string,
+): Promise<CricketBroadcastMessageTemplate> {
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/broadcast-message-templates`,
+    {
+      method: "POST",
+      body: JSON.stringify({ name, details }),
+    },
+  );
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function updateCricketBroadcastMessageTemplate(
+  tournamentId: number,
+  id: number,
+  name: string,
+  details: string,
+): Promise<CricketBroadcastMessageTemplate> {
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/broadcast-message-templates/${id}`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ name, details }),
+    },
+  );
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function deleteCricketBroadcastMessageTemplate(
+  tournamentId: number,
+  id: number,
+): Promise<{ ok: boolean }> {
+  const r = await apiFetch(
+    `/tournaments/${tournamentId}/scoring/broadcast-message-templates/${id}`,
+    {
+      method: "DELETE",
+    },
+  );
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}

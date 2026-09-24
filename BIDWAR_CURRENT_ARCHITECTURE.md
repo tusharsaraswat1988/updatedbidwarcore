@@ -1655,6 +1655,7 @@ Located in `lib/db/migrations/`:
 0020_canonical_member_auth.sql
 0021_tournament_licensing.sql
 0022_cricket_rule_presets.sql
+0023_cricket_broadcast_message_templates.sql
 ```
 
 ### Migration Governance — Hybrid Mode

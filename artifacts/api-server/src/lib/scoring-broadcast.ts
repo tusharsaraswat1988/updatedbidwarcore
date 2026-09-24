@@ -42,6 +42,12 @@ export function getScoringTotalSseClientCount(): number {
   return clients.size;
 }
 
+export interface CricketBroadcastMessage {
+  active: boolean;
+  name: string;
+  details: string;
+}
+
 export interface CricketObsDirectorPayload {
   type: "cricket_obs_director";
   overlay?: string;
@@ -50,6 +56,8 @@ export interface CricketObsDirectorPayload {
   stageOrGroup?: string;
   flash?: string;
   detail?: string;
+  messageType?: string;
+  broadcastMessage?: CricketBroadcastMessage | null;
   timestamp: number;
 }
 
@@ -60,6 +68,7 @@ const cricketObsStates = new Map<
     matchId?: number;
     sponsorName?: string;
     stageOrGroup?: string;
+    broadcastMessage?: CricketBroadcastMessage | null;
     lastUpdated: number;
   }
 >();
@@ -69,6 +78,7 @@ export function getCricketObsDirectorState(tournamentId: number): {
   matchId?: number;
   sponsorName?: string;
   stageOrGroup?: string;
+  broadcastMessage?: CricketBroadcastMessage | null;
 } {
   const current = cricketObsStates.get(tournamentId);
   return {
@@ -76,21 +86,25 @@ export function getCricketObsDirectorState(tournamentId: number): {
     matchId: current?.matchId,
     sponsorName: current?.sponsorName,
     stageOrGroup: current?.stageOrGroup,
+    broadcastMessage: current?.broadcastMessage ?? null,
   };
 }
 
 export function setCricketObsDirectorState(
   tournamentId: number,
-  overlay: string,
+  overlay?: string,
   matchId?: number,
   sponsorName?: string,
   stageOrGroup?: string,
+  broadcastMessage?: CricketBroadcastMessage | null,
 ) {
+  const current = cricketObsStates.get(tournamentId);
   cricketObsStates.set(tournamentId, {
-    overlay,
-    matchId,
-    sponsorName,
-    stageOrGroup,
+    overlay: overlay !== undefined ? overlay : (current?.overlay ?? "none"),
+    matchId: matchId !== undefined ? matchId : current?.matchId,
+    sponsorName: sponsorName !== undefined ? sponsorName : current?.sponsorName,
+    stageOrGroup: stageOrGroup !== undefined ? stageOrGroup : current?.stageOrGroup,
+    broadcastMessage: broadcastMessage !== undefined ? broadcastMessage : (current?.broadcastMessage ?? null),
     lastUpdated: Date.now(),
   });
 }
@@ -104,15 +118,24 @@ export function broadcastCricketObsDirector(
     stageOrGroup?: string;
     flash?: string;
     detail?: string;
+    messageType?: string;
+    broadcastMessage?: CricketBroadcastMessage | null;
   },
 ) {
-  if (command.overlay !== undefined) {
+  if (
+    command.overlay !== undefined ||
+    command.broadcastMessage !== undefined ||
+    command.matchId !== undefined ||
+    command.sponsorName !== undefined ||
+    command.stageOrGroup !== undefined
+  ) {
     setCricketObsDirectorState(
       tournamentId,
       command.overlay,
       command.matchId,
       command.sponsorName,
       command.stageOrGroup,
+      command.broadcastMessage,
     );
   }
   const payload: CricketObsDirectorPayload = {
@@ -123,6 +146,8 @@ export function broadcastCricketObsDirector(
     stageOrGroup: command.stageOrGroup,
     flash: command.flash,
     detail: command.detail,
+    messageType: command.messageType,
+    broadcastMessage: command.broadcastMessage,
     timestamp: Date.now(),
   };
   broadcastScoringState(tournamentId, payload);
