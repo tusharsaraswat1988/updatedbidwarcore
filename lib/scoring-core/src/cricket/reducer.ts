@@ -510,27 +510,96 @@ function applySuperOverStarted(
   payload: CricketSuperOverStartedPayload,
   enforceLiveRules = false,
 ): CricketScoreboardState {
-  if (enforceLiveRules && !state.superOverEnabled) {
-    throw new InvalidEventPayloadError(
-      CricketEventType.SUPER_OVER_STARTED,
-      "Super Over is disabled by match rules",
-    );
-  }
-  if (enforceLiveRules && state.superOverTrigger === "knockout_tie") {
+  if (enforceLiveRules) {
+    if (!state.superOverEnabled) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_OVER_STARTED,
+        "Super Over is disabled by match rules",
+      );
+    }
+
+    // Match must be live
+    if (state.matchStatus !== "live") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_OVER_STARTED,
+        `Super Over cannot start: match is not live (status: ${state.matchStatus})`,
+      );
+    }
+
+    // Both regulation innings must be complete before any Super Over can start
     const first = state.innings.find((i) => i.innings === 1);
     const second = state.innings.find((i) => i.innings === 2);
-    if (
-      !isKnockoutMatchType(state) ||
-      !first ||
-      !second ||
-      first.runs !== second.runs
-    ) {
+
+    if (!first || first.phase !== "completed") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_OVER_STARTED,
+        "Super Over cannot start: first innings is not yet completed",
+      );
+    }
+    if (!second || second.phase !== "completed") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_OVER_STARTED,
+        "Super Over cannot start: second innings is not yet completed",
+      );
+    }
+
+    // Regulation match must have been tied (target not reached, no clear winner)
+    // A Super Over can only begin if the regulation match ended in a tie.
+    // Tie means: second innings runs === (first innings runs) when target was set to first.runs + 1,
+    // i.e., second.runs === state.target - 1  OR  second.runs === first.runs (no target path).
+    const regulationIsTie = state.target != null
+      ? second.runs === state.target - 1
+      : second.runs === first.runs;
+
+    if (!regulationIsTie) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_OVER_STARTED,
+        "Super Over cannot start: regulation match was not a tie",
+      );
+    }
+
+    // For knockout_tie trigger, also enforce the match type constraint
+    if (state.superOverTrigger === "knockout_tie" && !isKnockoutMatchType(state)) {
       throw new InvalidEventPayloadError(
         CricketEventType.SUPER_OVER_STARTED,
         "Super Over is only available for configured knockout ties",
       );
     }
+
+    // The innings number in the payload must be sequentially correct
+    // (next after the last existing innings in the list)
+    const expectedInnings = state.innings.length + 1;
+    if (payload.innings !== expectedInnings) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_OVER_STARTED,
+        `Super Over innings number must be ${expectedInnings}, got ${payload.innings}`,
+      );
+    }
+
+    // The last Super Over innings (if any) must be completed before starting another
+    const existingSuperOvers = state.innings.filter((i) => i.kind === "super_over");
+    if (existingSuperOvers.length > 0) {
+      const lastSuperOver = existingSuperOvers[existingSuperOvers.length - 1]!;
+      if (lastSuperOver.phase !== "completed") {
+        throw new InvalidEventPayloadError(
+          CricketEventType.SUPER_OVER_STARTED,
+          "Super Over cannot start: the previous Super Over innings is not yet completed",
+        );
+      }
+      // After two Super Over innings have completed, if the result is decisive, no more Super Over
+      if (existingSuperOvers.length >= 2) {
+        const soFirst = existingSuperOvers[existingSuperOvers.length - 2]!;
+        const soSecond = existingSuperOvers[existingSuperOvers.length - 1]!;
+        if (soFirst.runs !== soSecond.runs) {
+          throw new InvalidEventPayloadError(
+            CricketEventType.SUPER_OVER_STARTED,
+            "Super Over cannot start: the previous Super Over already produced a decisive result",
+          );
+        }
+      }
+    }
   }
+
   const inn = createInningsState(
     payload.innings,
     payload.battingTeamId,
@@ -558,7 +627,38 @@ function applySuperOverStarted(
 function applyInningsEnded(
   state: CricketScoreboardState,
   payload: CricketInningsEndedPayload,
+  enforceLiveRules = false,
 ): CricketScoreboardState {
+  if (enforceLiveRules) {
+    // The innings being ended must be the current active innings
+    if (payload.innings !== state.currentInnings) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.INNINGS_ENDED,
+        `Cannot end innings ${payload.innings}: current active innings is ${state.currentInnings}`,
+      );
+    }
+    const currentInn = state.innings.find((i) => i.innings === payload.innings);
+    if (!currentInn) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.INNINGS_ENDED,
+        `Cannot end innings ${payload.innings}: innings not found`,
+      );
+    }
+    if (currentInn.phase !== "in_progress") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.INNINGS_ENDED,
+        `Cannot end innings ${payload.innings}: innings is already ${currentInn.phase}`,
+      );
+    }
+    // Match must be live
+    if (state.matchStatus !== "live") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.INNINGS_ENDED,
+        `Cannot end innings: match is not live (status: ${state.matchStatus})`,
+      );
+    }
+  }
+
   let next = updateInnings(state, payload.innings, (inn) => ({
     ...inn,
     runs: payload.runs,
@@ -676,7 +776,86 @@ function applyMatchResumed(
 function applyDlsApplied(
   state: CricketScoreboardState,
   payload: CricketDlsAppliedPayload,
+  enforceLiveRules = false,
 ): CricketScoreboardState {
+  if (enforceLiveRules) {
+    // DLS can only be applied to a live match
+    if (state.matchStatus !== "live") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.DLS_APPLIED,
+        `DLS cannot be applied: match is not live (status: ${state.matchStatus})`,
+      );
+    }
+
+    // DLS cannot be applied after match is in terminal state
+    const terminalCheck = isCricketMatchTerminalState(state);
+    if (terminalCheck.valid) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.DLS_APPLIED,
+        "DLS cannot be applied: match is already in a terminal state",
+      );
+    }
+
+    // DLS can only target a regulation innings (1 or 2), not a Super Over innings
+    if (payload.innings > 2) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.DLS_APPLIED,
+        "DLS cannot be applied to a Super Over innings",
+      );
+    }
+
+    // DLS cannot be applied during a Super Over phase
+    const superOvers = state.innings.filter((i) => i.kind === "super_over");
+    if (superOvers.length > 0) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.DLS_APPLIED,
+        "DLS cannot be applied during a Super Over",
+      );
+    }
+
+    // DLS cannot be applied to a innings that has already completed
+    const targetInnings = state.innings.find((i) => i.innings === payload.innings);
+    if (targetInnings && targetInnings.phase === "completed") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.DLS_APPLIED,
+        `DLS cannot be applied: innings ${payload.innings} is already completed`,
+      );
+    }
+
+    // DLS cannot be applied if the target has already been reached in the current innings
+    if (
+      payload.innings === 2 &&
+      state.target != null
+    ) {
+      const secondInn = state.innings.find((i) => i.innings === 2);
+      if (secondInn && secondInn.runs >= state.target) {
+        throw new InvalidEventPayloadError(
+          CricketEventType.DLS_APPLIED,
+          "DLS cannot be applied: the chase target has already been reached",
+        );
+      }
+    }
+
+    // DLS target innings must be the current or the upcoming second innings
+    // (innings 1 DLS is allowed during 1st innings; innings 2 DLS is allowed
+    //  when innings 1 is complete or when 2nd innings is in progress)
+    if (payload.innings === 1 && state.currentInnings > 1) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.DLS_APPLIED,
+        "DLS cannot be applied to a completed first innings",
+      );
+    }
+    if (payload.innings === 2) {
+      const firstInn = state.innings.find((i) => i.innings === 1);
+      if (!firstInn) {
+        throw new InvalidEventPayloadError(
+          CricketEventType.DLS_APPLIED,
+          "DLS for innings 2 requires first innings to have started",
+        );
+      }
+    }
+  }
+
   let next: CricketScoreboardState = {
     ...state,
     target: payload.target,
@@ -775,6 +954,7 @@ export function reduceCricket(
       next = applyInningsEnded(
         state,
         parsed.payload as CricketInningsEndedPayload,
+        enforceLiveRules,
       );
       break;
     case CricketEventType.MATCH_COMPLETED:
@@ -799,7 +979,7 @@ export function reduceCricket(
       next = applyMatchResumed(state);
       break;
     case CricketEventType.DLS_APPLIED:
-      next = applyDlsApplied(state, parsed.payload as CricketDlsAppliedPayload);
+      next = applyDlsApplied(state, parsed.payload as CricketDlsAppliedPayload, enforceLiveRules);
       break;
     case CricketEventType.BALL_UNDONE:
       throw new InvalidEventPayloadError(

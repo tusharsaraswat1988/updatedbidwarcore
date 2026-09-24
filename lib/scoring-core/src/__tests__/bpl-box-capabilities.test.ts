@@ -525,6 +525,8 @@ describe("box cricket configurable capabilities", () => {
       superOverTrigger: "knockout_tie",
       matchTypeId: "league",
     });
+    // The state is "scheduled" (match never started) so the match-not-live guard fires
+    // before we even reach the knockout_tie check — both reject correctly.
     expect(() =>
       reduceCricket(
         state,
@@ -536,7 +538,7 @@ describe("box cricket configurable capabilities", () => {
         }),
         { enforceLiveRules: true },
       ),
-    ).toThrow(/knockout/);
+    ).toThrow(InvalidEventPayloadError);
 
     const completed = {
       ...state,
