@@ -452,8 +452,8 @@ export default function CricketLiveControlPage() {
 
   return (
     <CricketOrganizerPageShell tournamentId={tournamentId} themeVariant="console">
-      {/* ─── MAIN CONTAINER: FLUID SCROLL ON MOBILE, FIT-VIEWPORT ON DESKTOP ─── */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 w-full flex flex-col gap-3 pb-16 sm:pb-8 lg:pb-0 lg:flex-1 lg:min-h-0 lg:overflow-hidden lg:justify-between">
+      {/* ─── MAIN CONTAINER: FULLY SCROLLABLE CONSOLE LAYOUT ─── */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 w-full flex flex-col gap-4 pb-20 sm:pb-16">
         
         {/* ─── 1. ACTIVE MATCH SCORE CARD (DETAILED REALTIME OVERVIEW) ─── */}
         <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5 sm:p-4 text-xs shadow-sm space-y-3">
