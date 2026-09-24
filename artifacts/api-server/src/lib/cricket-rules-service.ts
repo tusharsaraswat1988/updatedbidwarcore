@@ -77,11 +77,14 @@ export async function applyCricketRulesToMatches(
   let failedCount = 0;
 
   for (const match of matches) {
-    if (
-      match.lifecycleStatus === "completed" ||
-      match.lifecycleStatus === "abandoned"
-    ) {
-      // Completed and abandoned historical matches are immutable and unaffected by rule updates.
+    const isStarted =
+      (match.status !== "scheduled" && match.status !== "draft") ||
+      (match.lifecycleStatus !== null &&
+        match.lifecycleStatus !== "draft" &&
+        match.lifecycleStatus !== "ready") ||
+      match.startedAt !== null;
+    if (isStarted) {
+      // Started, active, completed, or abandoned matches are immutable and unaffected by rule updates.
       continue;
     }
     const steps = { drawsReady: true, matchLocked: false, prepared: false };

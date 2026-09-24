@@ -287,17 +287,15 @@ export function buildCricketScorecardFromEvents(
     } else if (extraType === "bye") {
       inn.extras.byes += extraRuns;
       inn.extras.total += extraRuns;
-      runsToBowler += extraRuns;
     } else if (extraType === "leg_bye") {
       inn.extras.legByes += extraRuns;
       inn.extras.total += extraRuns;
-      runsToBowler += extraRuns;
     } else if (extraType === "penalty") {
       inn.extras.penalties += extraRuns;
       inn.extras.total += extraRuns;
     }
 
-    const totalBallRuns = effectiveBatRuns + (extraType === "bye" || extraType === "leg_bye" ? 0 : extraRuns);
+    const totalBallRuns = effectiveBatRuns + extraRuns;
     inn.totalRuns += totalBallRuns;
 
     if (batsmanFacesBall(payload)) {
@@ -307,12 +305,12 @@ export function buildCricketScorecardFromEvents(
       if (payload.runsOffBat === 6) batStriker.sixes += 1;
     }
 
-    bowl.runs += runsToBowler + (extraType === "bye" || extraType === "leg_bye" ? extraRuns : 0);
+    bowl.runs += runsToBowler;
+    bowl.runsThisOver += runsToBowler;
 
     if (payload.isLegalDelivery) {
       bowl.legalBalls += 1;
       bowl.legalBallsThisOver += 1;
-      bowl.runsThisOver += totalBallRuns;
       inn.lastOver = payload.over;
       inn.lastBall = payload.ball;
       if (payload.ball === 6) {

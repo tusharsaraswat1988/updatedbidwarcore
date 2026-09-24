@@ -1,5 +1,17 @@
 import type { CricketBallRecordedPayload } from "../events/cricket";
-import type { BallDisplayOutcome } from "./state";
+import type { BallDisplayOutcome, CricketInningsState } from "./state";
+
+/**
+ * Authoritative next delivery position (over and legal-ball index) for an innings.
+ * Both legal deliveries and extras/illegal deliveries are bowled into the upcoming slot.
+ * Illegal deliveries do not advance legal ball count; legal deliveries do.
+ */
+export function expectedNextBall(innings: CricketInningsState): { over: number; ball: number } {
+  if (innings.ball >= 6) {
+    return { over: innings.over + 1, ball: 1 };
+  }
+  return { over: innings.over, ball: innings.ball + 1 };
+}
 
 export function totalRunsOnBall(payload: CricketBallRecordedPayload): number {
   const batRuns = payload.isSuperBall

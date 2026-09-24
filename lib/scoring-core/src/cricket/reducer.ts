@@ -20,6 +20,7 @@ import { replayEvents } from "../projector/replay";
 import { resolveEventsForReplay } from "../projector/resolve-undo";
 import type { ScoringEventEnvelope } from "../types";
 import {
+  expectedNextBall,
   formatBallLabel,
   shouldSwapStrike,
   toBallDisplay,
@@ -248,10 +249,17 @@ function applyBallRecorded(
         "target already reached — end innings or complete the match",
       );
     }
-    if (payload.isLegalDelivery && payload.over >= currentInn.oversLimit) {
+    const expected = expectedNextBall(currentInn);
+    if (expected.over >= currentInn.oversLimit) {
       throw new InvalidEventPayloadError(
         CricketEventType.BALL_RECORDED,
         `overs limit (${currentInn.oversLimit}) already complete`,
+      );
+    }
+    if (payload.over !== expected.over || payload.ball !== expected.ball) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BALL_RECORDED,
+        `invalid delivery sequence: expected over ${expected.over} ball ${expected.ball}, received over ${payload.over} ball ${payload.ball}`,
       );
     }
     if (state.strikerId == null && state.nonStrikerId == null) {
@@ -344,8 +352,9 @@ function applyBallRecorded(
       wickets: payload.wicket ? inn.wickets + 1 : inn.wickets,
     };
     if (payload.isLegalDelivery) {
-      updated.over = payload.over;
-      updated.ball = payload.ball;
+      const nextPos = expectedNextBall(inn);
+      updated.over = nextPos.over;
+      updated.ball = nextPos.ball;
     }
     return updated;
   });
@@ -693,14 +702,11 @@ function appendThisOver(
   payload: CricketBallRecordedPayload,
   display: ReturnType<typeof toBallDisplay>,
 ): BallDisplayOutcome[] {
-  if (payload.isLegalDelivery && payload.ball === 1) {
+  const activeOver = current[0]?.over;
+  if (activeOver !== undefined && payload.over !== activeOver) {
     return [display];
   }
-  const activeOver = current[0]?.over;
-  if (activeOver !== undefined && payload.over === activeOver) {
-    return [...current, display];
-  }
-  return current.length > 0 ? [...current, display] : [display];
+  return [...current, display];
 }
 
 export type ReduceCricketOptions = {

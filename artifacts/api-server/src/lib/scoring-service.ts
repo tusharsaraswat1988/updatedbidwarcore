@@ -259,67 +259,103 @@ export async function updateScoringMatch(
 ) {
   await ensureTournamentScoring(tournamentId);
 
-  const [existing] = await db
-    .select()
-    .from(scoringMatchesTable)
-    .where(
-      and(
-        eq(scoringMatchesTable.id, matchId),
-        eq(scoringMatchesTable.tournamentId, tournamentId),
-      ),
-    )
-    .limit(1);
-
-  if (!existing) {
-    throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
-  }
-
-  // If match has already started or toss made, teams cannot be altered (as player lineups and toss are tied to teams)
-  const isStarted = existing.status !== "scheduled" && existing.status !== "draft";
-  if (isStarted && (input.homeTeamId !== undefined || input.awayTeamId !== undefined)) {
-    throw new ScoringServiceError(
-      "Cannot change teams after the match has started or toss has been made. Display metadata (overs, venue, round name, scheduled time, result summary) can still be edited.",
-      400,
-      "TEAMS_LOCKED_AFTER_START",
+  const { existing, isStarted } = await db.transaction(async (tx) => {
+    // Serialize concurrent updates/appends for this match
+    await tx.execute(
+      sql`SELECT id FROM scoring_sessions WHERE match_id = ${matchId} FOR UPDATE`,
     );
-  }
 
-  const patch: Partial<typeof scoringMatchesTable.$inferInsert> = {
-    updatedAt: new Date(),
-  };
+    const [matchRow] = await tx
+      .select()
+      .from(scoringMatchesTable)
+      .where(
+        and(
+          eq(scoringMatchesTable.id, matchId),
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
 
-  if (input.roundName !== undefined) patch.roundName = input.roundName;
-  if (input.venue !== undefined) patch.venue = input.venue;
-  if (input.resultSummary !== undefined) patch.resultSummary = input.resultSummary;
-  if (input.scheduledAt !== undefined) {
-    patch.scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
-  }
-  if (input.homeTeamId !== undefined) {
-    await ensureTeamInTournament(tournamentId, input.homeTeamId);
-    patch.homeTeamId = input.homeTeamId;
-    patch.homeSideJson = { teamId: input.homeTeamId };
-  }
-  if (input.awayTeamId !== undefined) {
-    await ensureTeamInTournament(tournamentId, input.awayTeamId);
-    patch.awayTeamId = input.awayTeamId;
-    patch.awaySideJson = { teamId: input.awayTeamId };
-  }
+    if (!matchRow) {
+      throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
+    }
 
-  if (input.oversLimit !== undefined && input.oversLimit > 0) {
-    const prevRules = (existing.rulesJson ?? {}) as Record<string, unknown>;
-    patch.rulesJson = {
-      ...prevRules,
-      overs: input.oversLimit,
+    const [hasEventRow] = await tx
+      .select({ id: scoringEventsTable.id })
+      .from(scoringEventsTable)
+      .where(eq(scoringEventsTable.matchId, matchId))
+      .limit(1);
+
+    const started =
+      (matchRow.status !== "scheduled" && matchRow.status !== "draft") ||
+      (matchRow.lifecycleStatus !== null &&
+        matchRow.lifecycleStatus !== "draft" &&
+        matchRow.lifecycleStatus !== "ready") ||
+      matchRow.startedAt !== null ||
+      !!hasEventRow;
+
+    // If match has already started or toss made, teams cannot be altered
+    if (started && (input.homeTeamId !== undefined || input.awayTeamId !== undefined)) {
+      throw new ScoringServiceError(
+        "Cannot change teams after the match has started or toss has been made. Display metadata (venue, round name, scheduled time, result summary) can still be edited.",
+        400,
+        "TEAMS_LOCKED_AFTER_START",
+      );
+    }
+
+    const currentRules = (matchRow.rulesJson ?? {}) as Record<string, unknown>;
+    const currentOvers = currentRules.overs as number | undefined;
+
+    // Domain integrity: Once a match has started recording scoring events,
+    // execution rules (overs limit, etc.) are strictly immutable.
+    if (started && input.oversLimit !== undefined && input.oversLimit !== currentOvers) {
+      throw new ScoringServiceError(
+        "Scoring rules are locked after match start. Cannot change overs limit on a match that has already started.",
+        409,
+        "SCORING_RULES_LOCKED",
+      );
+    }
+
+    const patch: Partial<typeof scoringMatchesTable.$inferInsert> = {
+      updatedAt: new Date(),
     };
+
+    if (input.roundName !== undefined) patch.roundName = input.roundName;
+    if (input.venue !== undefined) patch.venue = input.venue;
+    if (input.resultSummary !== undefined) patch.resultSummary = input.resultSummary;
+    if (input.scheduledAt !== undefined) {
+      patch.scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
+    }
+    if (!started && input.homeTeamId !== undefined) {
+      await ensureTeamInTournament(tournamentId, input.homeTeamId);
+      patch.homeTeamId = input.homeTeamId;
+      patch.homeSideJson = { teamId: input.homeTeamId };
+    }
+    if (!started && input.awayTeamId !== undefined) {
+      await ensureTeamInTournament(tournamentId, input.awayTeamId);
+      patch.awayTeamId = input.awayTeamId;
+      patch.awaySideJson = { teamId: input.awayTeamId };
+    }
+
+    if (!started && input.oversLimit !== undefined && input.oversLimit > 0) {
+      patch.rulesJson = {
+        ...currentRules,
+        overs: input.oversLimit,
+      };
+    }
+
+    await tx
+      .update(scoringMatchesTable)
+      .set(patch)
+      .where(eq(scoringMatchesTable.id, matchId));
+
+    return { existing: matchRow, isStarted: started };
+  });
+
+  // Re-run runtime prepare to freeze/refresh rules & sessions ONLY when match has not started!
+  if (!isStarted) {
+    await prepareRuntimeMatch(tournamentId, matchId, null);
   }
-
-  await db
-    .update(scoringMatchesTable)
-    .set(patch)
-    .where(eq(scoringMatchesTable.id, matchId));
-
-  // Re-run runtime prepare to freeze/refresh rules & sessions
-  await prepareRuntimeMatch(tournamentId, matchId, null);
 
   const [refreshed] = await db
     .select()
@@ -340,10 +376,12 @@ export async function updateScoringMatch(
     );
   }
 
-  await db
-    .update(scoringSessionsTable)
-    .set({ stateJson: refreshedState, updatedAt: new Date() })
-    .where(eq(scoringSessionsTable.matchId, matchId));
+  if (!isStarted) {
+    await db
+      .update(scoringSessionsTable)
+      .set({ stateJson: refreshedState, updatedAt: new Date() })
+      .where(eq(scoringSessionsTable.matchId, matchId));
+  }
 
   const summary = summaryFromMatch(targetMatch, refreshedState);
 
@@ -363,7 +401,7 @@ export async function updateScoringMatch(
     summary,
   });
 
-  return { match: targetMatch, state: refreshedState };
+  return { match: targetMatch, state: refreshedState, summary };
 }
 
 /**
@@ -401,26 +439,46 @@ export async function deleteCricketMatch(
     throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
   }
 
-  // Completed / abandoned matches cannot be deleted via this API
-  if (match.status === "completed" || match.status === "abandoned") {
+  // Pre-toss constraint: only scheduled matches with no start time
+  if (match.status !== "scheduled" || match.startedAt !== null) {
     throw new ScoringServiceError(
-      "Cannot delete a match that has been completed or abandoned.",
+      "Cannot delete a match that has already started or been completed. Matches can only be deleted prior to the toss.",
       409,
-      "MATCH_ALREADY_COMPLETED",
+      "MATCH_ALREADY_STARTED",
     );
   }
 
-  // For matches that have started (toss/live/paused), only allow deletion if 0 balls recorded
+  // Check if any match started/toss or ball events exist
   const events = await loadMatchEvents(matchId);
-  const hasBallRecorded = events.some(
-    (e) => e.eventType === CricketEventType.BALL_RECORDED,
+  const hasStartedEvent = events.some(
+    (e) =>
+      e.eventType === CricketEventType.MATCH_STARTED ||
+      e.eventType === CricketEventType.BALL_RECORDED,
   );
-  if (hasBallRecorded) {
+  if (hasStartedEvent) {
     throw new ScoringServiceError(
-      "Cannot delete a match where balls have already been recorded. Matches can only be deleted if no balls have been bowled.",
+      "Cannot delete a match where the toss has already occurred. Matches can only be deleted prior to the toss.",
       409,
-      "BALLS_ALREADY_RECORDED",
+      "TOSS_ALREADY_CONDUCTED",
     );
+  }
+
+  // Check session state for recorded toss
+  const [session] = await db
+    .select()
+    .from(scoringSessionsTable)
+    .where(eq(scoringSessionsTable.matchId, matchId))
+    .limit(1);
+
+  if (session?.stateJson) {
+    const state = session.stateJson as unknown as CricketScoreboardState;
+    if (state.tossWinnerTeamId != null || (state.innings && state.innings.length > 0)) {
+      throw new ScoringServiceError(
+        "Cannot delete a match where the toss has already occurred.",
+        409,
+        "TOSS_ALREADY_CONDUCTED",
+      );
+    }
   }
 
   // Transactionally delete all dependent rows and the match row itself

@@ -5,6 +5,7 @@ import {
   db,
   runtimeMatchHistoryTable,
   scoringDrawsTable,
+  scoringEventsTable,
   scoringFixturesTable,
   scoringMatchesTable,
   scoringSessionsTable,
@@ -527,6 +528,29 @@ export async function prepareRuntimeMatch(
 ): Promise<PrepareRuntimeResult> {
   let match = await loadMatchRow(tournamentId, matchId);
   if (!match) return { ok: false, status: 404, error: "Match not found" };
+
+  const [hasEventRow] = await db
+    .select({ id: scoringEventsTable.id })
+    .from(scoringEventsTable)
+    .where(eq(scoringEventsTable.matchId, matchId))
+    .limit(1);
+
+  const isStarted =
+    (match.status !== "scheduled" && match.status !== "draft") ||
+    (match.lifecycleStatus !== null &&
+      match.lifecycleStatus !== "draft" &&
+      match.lifecycleStatus !== "ready") ||
+    match.startedAt !== null ||
+    !!hasEventRow;
+
+  if (isStarted) {
+    return {
+      ok: false,
+      status: 409,
+      error:
+        "Runtime execution rules are locked after match start. Cannot re-prepare an active or completed match.",
+    };
+  }
 
   match = await ensureCricketPreparationPrerequisites(tournamentId, match, actor);
 

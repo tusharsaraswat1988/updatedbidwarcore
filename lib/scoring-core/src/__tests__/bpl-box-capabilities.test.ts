@@ -73,7 +73,7 @@ function started(
 
 const fourBall = {
   innings: 1,
-  over: 1,
+  over: 0,
   ball: 1,
   strikerId: 11,
   nonStrikerId: 12,

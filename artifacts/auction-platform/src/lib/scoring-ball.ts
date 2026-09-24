@@ -1,25 +1,13 @@
 import type { CricketInningsState, CricketScoreboardState } from "@workspace/scoring-core";
+import { expectedNextBall } from "@workspace/scoring-core";
 
 export function nextLegalBallPosition(innings: CricketInningsState): { over: number; ball: number } {
-  if (innings.over === 0 && innings.ball === 0) {
-    return { over: 0, ball: 1 };
-  }
-  if (innings.ball >= 6) {
-    return { over: innings.over + 1, ball: 1 };
-  }
-  return { over: innings.over, ball: innings.ball + 1 };
+  return expectedNextBall(innings);
 }
 
 /** Illegal deliveries attach to the upcoming legal ball slot. */
 export function illegalBallPosition(innings: CricketInningsState): { over: number; ball: number } {
-  const next = nextLegalBallPosition(innings);
-  if (innings.ball === 0 && innings.over === 0 && innings.runs === 0) {
-    return { over: 0, ball: 1 };
-  }
-  if (innings.ball >= 6) {
-    return { over: innings.over + 1, ball: 1 };
-  }
-  return { over: innings.over, ball: innings.ball === 0 ? 1 : innings.ball };
+  return expectedNextBall(innings);
 }
 
 export function getActiveInnings(state?: CricketScoreboardState | null) {
