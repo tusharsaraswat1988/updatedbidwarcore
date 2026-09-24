@@ -486,11 +486,19 @@ router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
   }
 
   const currentObs = getCricketObsDirectorState(tournamentId);
-  if (currentObs && currentObs.overlay && currentObs.overlay !== "none") {
+  if (
+    currentObs &&
+    ((currentObs.overlay && currentObs.overlay !== "none") ||
+      (currentObs.broadcastMessage && currentObs.broadcastMessage.active))
+  ) {
     res.write(
       `data: ${JSON.stringify({
         type: "cricket_obs_director",
         overlay: currentObs.overlay,
+        matchId: currentObs.matchId,
+        sponsorName: currentObs.sponsorName,
+        stageOrGroup: currentObs.stageOrGroup,
+        broadcastMessage: currentObs.broadcastMessage,
         timestamp: Date.now(),
       })}\n\n`,
     );
@@ -525,6 +533,32 @@ router.post("/tournaments/:tournamentId/scoring/obs-director", async (req, res) 
   if (tournamentId === null) {
     res.status(400).json({ error: "Invalid tournament ID" });
     return;
+  }
+
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      organizerId: tournamentsTable.organizerId,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!tournament) {
+    res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+
+  const callerIsOrganizer = isTournamentOrganizer(req, tournamentId, tournament.organizerId);
+  if (!callerIsOrganizer) {
+    try {
+      const scorerAuth = await requireScorerFromRequest(req);
+      await assertScorerMayAccessTournament(scorerAuth.scorerId, tournamentId);
+    } catch (e) {
+      if (sendScorerAuthError(res, e)) return;
+      res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
+      return;
+    }
   }
 
   const body = req.body ?? {};

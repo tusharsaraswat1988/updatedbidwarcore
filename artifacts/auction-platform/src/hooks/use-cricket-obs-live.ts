@@ -410,12 +410,11 @@ export function useCricketObsLive(
 
   // Flash auto-clear timer
   useEffect(() => {
-    if (overrideFlash.kind && overrideFlash.token) {
-      const timer = window.setTimeout(() => {
-        setOverrideFlash({ kind: null, token: null });
-      }, 3500);
-      return () => window.clearTimeout(timer);
-    }
+    if (!overrideFlash.kind || !overrideFlash.token) return undefined;
+    const timer = window.setTimeout(() => {
+      setOverrideFlash({ kind: null, token: null });
+    }, 3500);
+    return () => window.clearTimeout(timer);
   }, [overrideFlash.token, overrideFlash.kind]);
 
   const [seenFlashToken, setSeenFlashToken] = useState<string | null>(null);

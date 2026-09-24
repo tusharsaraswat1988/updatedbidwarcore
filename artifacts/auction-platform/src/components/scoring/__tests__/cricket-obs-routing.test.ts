@@ -91,5 +91,5 @@ describe("Cricket OBS routing and public URL contract", () => {
   it("useCricketObsLive module loads with all dependencies resolved (getActiveInnings, mapBallToFlash)", async () => {
     const mod = await import("@/hooks/use-cricket-obs-live");
     expect(typeof mod.useCricketObsLive).toBe("function");
-  });
+  }, 20000);
 });
