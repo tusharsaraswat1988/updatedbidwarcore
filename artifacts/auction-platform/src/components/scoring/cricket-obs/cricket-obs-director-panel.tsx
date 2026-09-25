@@ -200,6 +200,10 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
       void handleSetOverlay("none", "Camera Feed Only");
       return;
     }
+    if (item.id === "neutral") {
+      void handleSetOverlay("neutral", "Neutral Screen");
+      return;
+    }
     if (item.id === "sponsors") {
       setSponsorSelectModalOpen(true);
       return;
@@ -259,6 +263,7 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
 
   const overlayOptions: { id: CricketObsMidOverlayKind; label: string; desc: string; icon: string }[] = [
     { id: "none", label: "Camera Feed Only", desc: "No mid overlay. Camera feed 100% visible.", icon: "🎥" },
+    { id: "neutral", label: "Neutral Screen", desc: "Tournament & Sponsor plate between matches / intervals", icon: "⏸️" },
     { id: "sponsors", label: "Sponsor Showcase", desc: "All sponsors or single sponsor spotlight", icon: "★" },
     { id: "standings", label: "Points Table", desc: "Overall, group-wise, or stage rankings", icon: "📊" },
     { id: "fixtures", label: "Upcoming Matches", desc: "Next Fixtures & Schedule", icon: "📅" },

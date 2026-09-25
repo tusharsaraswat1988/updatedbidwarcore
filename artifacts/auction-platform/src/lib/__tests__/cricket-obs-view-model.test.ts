@@ -639,4 +639,77 @@ describe("cricket-obs-view-model", () => {
     expect(src).not.toMatch(/POST/);
     expect(src).not.toMatch(/useAuctionSocket/);
   });
+
+  describe("Neutral Screen Activation (Intervals & Walkover)", () => {
+    it("activates neutral screen when match is completed or walkover and overlay is none", () => {
+      const walkoverState = baseState({
+        matchStatus: "walkover",
+        sessionStatus: "completed",
+      });
+      const vm = buildCricketObsViewModel({
+        live: liveFromState(walkoverState),
+        teams,
+        tournamentName: "BidWar Premier League",
+        tournamentLogoUrl: null,
+        sponsors: [],
+        pinnedMatchId: null,
+        connectionStatus: "connected",
+        midOverlay: "none",
+      });
+      expect(vm.isNeutralActive).toBe(true);
+    });
+
+    it("activates neutral screen when midOverlay is explicitly neutral even during live match", () => {
+      const liveState = baseState({
+        matchStatus: "live",
+      });
+      const vm = buildCricketObsViewModel({
+        live: liveFromState(liveState),
+        teams,
+        tournamentName: "BidWar Premier League",
+        tournamentLogoUrl: null,
+        sponsors: [],
+        pinnedMatchId: null,
+        connectionStatus: "connected",
+        midOverlay: "neutral",
+      });
+      expect(vm.isNeutralActive).toBe(true);
+    });
+
+    it("does not activate neutral screen during active live match when midOverlay is none", () => {
+      const liveState = baseState({
+        matchStatus: "live",
+      });
+      const vm = buildCricketObsViewModel({
+        live: liveFromState(liveState),
+        teams,
+        tournamentName: "BidWar Premier League",
+        tournamentLogoUrl: null,
+        sponsors: [],
+        pinnedMatchId: null,
+        connectionStatus: "connected",
+        midOverlay: "none",
+      });
+      expect(vm.isNeutralActive).toBe(false);
+    });
+
+    it("does not activate neutral screen when a specific overlay (e.g. summary or standings) is chosen", () => {
+      const walkoverState = baseState({
+        matchStatus: "walkover",
+        sessionStatus: "completed",
+      });
+      const vm = buildCricketObsViewModel({
+        live: liveFromState(walkoverState),
+        teams,
+        tournamentName: "BidWar Premier League",
+        tournamentLogoUrl: null,
+        sponsors: [],
+        pinnedMatchId: null,
+        connectionStatus: "connected",
+        midOverlay: "summary",
+      });
+      expect(vm.isNeutralActive).toBe(false);
+      expect(vm.midOverlay).toBe("summary");
+    });
+  });
 });

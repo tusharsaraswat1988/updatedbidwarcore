@@ -8,6 +8,7 @@ import {
 import { useObsBrowserSource } from "@/components/broadcast/use-obs-browser-source";
 import { useObsTransparentDocument } from "@/components/scoring/cricket-obs/use-obs-transparent-document";
 import type { CricketObsFlashKind, CricketObsMidOverlayKind, CricketObsViewModel } from "@/lib/cricket-obs-view-model";
+import { AnimatePresence, motion } from "framer-motion";
 import { CricketObsScorebug } from "@/components/scoring/cricket-obs/cricket-obs-scorebug";
 import { CricketObsEventFlash } from "@/components/scoring/cricket-obs/cricket-obs-event-flash";
 import { CricketObsBranding } from "@/components/scoring/cricket-obs/cricket-obs-branding";
@@ -15,6 +16,7 @@ import { CricketObsWaiting } from "@/components/scoring/cricket-obs/cricket-obs-
 import { CricketObsMidOverlays } from "@/components/scoring/cricket-obs/cricket-obs-mid-overlays";
 import { CricketObsOperatorDock } from "@/components/scoring/cricket-obs/cricket-obs-operator-dock";
 import { CricketObsBroadcastMessage } from "@/components/scoring/cricket-obs/cricket-obs-broadcast-message";
+import { CricketObsNeutralFooter } from "@/components/scoring/cricket-obs/cricket-obs-neutral-footer";
 
 type Props = {
   vm: CricketObsViewModel;
@@ -66,11 +68,13 @@ export function CricketObsStage({
     ["--obs-text" as string]: vm.theme.text,
   } as CSSProperties;
 
+  const isNeutral = vm.isNeutralActive;
+
   const showScorebug =
-    vm.phase === "live" ||
-    vm.phase === "chase" ||
-    vm.phase === "innings_break" ||
-    vm.phase === "completed";
+    !isNeutral &&
+    (vm.phase === "live" ||
+      vm.phase === "chase" ||
+      vm.phase === "innings_break");
 
   return (
     <div
@@ -88,7 +92,10 @@ export function CricketObsStage({
           Kept completely clear so live video feed shines through */}
 
       {/* 6. BROADCAST MESSAGE LOWER-THIRD CARD (VIP Guests / Officials / Sponsors) */}
-      <CricketObsBroadcastMessage broadcastMessage={vm.broadcastMessage} />
+      <CricketObsBroadcastMessage
+        broadcastMessage={vm.broadcastMessage}
+        alignRight={isNeutral}
+      />
 
       {/* 4. REAL-TIME EVENT ANIMATIONS (Come and go) */}
       <CricketObsEventFlash flash={vm.flash} token={vm.flashToken} detail={vm.flashDetail} />
@@ -114,11 +121,33 @@ export function CricketObsStage({
             </p>
           ) : null}
 
-          {showScorebug ? (
-            <CricketObsScorebug vm={vm} />
-          ) : (
-            <CricketObsWaiting vm={vm} />
-          )}
+          <AnimatePresence mode="wait">
+            {isNeutral ? (
+              <CricketObsNeutralFooter key="neutral-footer" vm={vm} />
+            ) : showScorebug ? (
+              <motion.div
+                key={`scorebug-${vm.matchId}`}
+                initial={{ y: 0, opacity: 1 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 140, opacity: 0 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="w-full"
+              >
+                <CricketObsScorebug vm={vm} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="waiting-slate"
+                initial={{ y: 140, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 140, opacity: 0 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="w-full"
+              >
+                <CricketObsWaiting vm={vm} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

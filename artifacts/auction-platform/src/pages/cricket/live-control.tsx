@@ -81,6 +81,7 @@ import { cn } from "@/lib/utils";
 
 const OVERLAY_OPTIONS: { id: CricketObsMidOverlayKind; label: string; desc: string; icon: string; tag: string }[] = [
   { id: "none", label: "Camera Feed Only", desc: "Transparent feed with lower scorebug", icon: "🎥", tag: "LIVE STREAM" },
+  { id: "neutral", label: "Neutral Screen", desc: "Tournament & Sponsor plate between matches / intervals", icon: "⏸️", tag: "INTERVAL" },
   { id: "sponsors", label: "Sponsor Showcase", desc: "All sponsors or single sponsor spotlight", icon: "★", tag: "COMMERCIAL" },
   { id: "standings", label: "Points Table", desc: "Overall, group-wise, or stage rankings", icon: "📊", tag: "STANDINGS" },
   { id: "fixtures", label: "Upcoming Matches", desc: "Next fixtures & tournament schedule", icon: "📅", tag: "SCHEDULE" },
@@ -337,6 +338,10 @@ export default function CricketLiveControlPage() {
       void handleSetOverlay("none", item.label);
       return;
     }
+    if (item.id === "neutral") {
+      void handleSetOverlay("neutral", item.label);
+      return;
+    }
     if (item.id === "sponsors") {
       setSponsorSelectModalOpen(true);
       return;
@@ -435,11 +440,11 @@ export default function CricketLiveControlPage() {
   const matchState = currentMatchDetail?.state;
 
   const currentHomeScore = matchState && matchState.homeTeamId
-    ? `${matchState.innings[1]?.runs ?? 0}/${matchState.innings[1]?.wickets ?? 0} (${Math.floor((matchState.innings[1]?.balls ?? 0) / 6)}.${(matchState.innings[1]?.balls ?? 0) % 6} ov)`
+    ? `${matchState.innings[1]?.runs ?? 0}/${matchState.innings[1]?.wickets ?? 0} (${matchState.innings[1]?.over ?? 0}.${matchState.innings[1]?.ball ?? 0} ov)`
     : null;
 
   const currentAwayScore = matchState && matchState.awayTeamId
-    ? `${matchState.innings[2]?.runs ?? 0}/${matchState.innings[2]?.wickets ?? 0} (${Math.floor((matchState.innings[2]?.balls ?? 0) / 6)}.${(matchState.innings[2]?.balls ?? 0) % 6} ov)`
+    ? `${matchState.innings[2]?.runs ?? 0}/${matchState.innings[2]?.wickets ?? 0} (${matchState.innings[2]?.over ?? 0}.${matchState.innings[2]?.ball ?? 0} ov)`
     : null;
 
   const scorerPath = currentMatch

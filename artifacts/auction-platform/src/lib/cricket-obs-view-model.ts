@@ -57,6 +57,7 @@ export type CricketObsFlashKind =
 
 export type CricketObsMidOverlayKind =
   | "none"
+  | "neutral"
   | "sponsors"
   | "standings"
   | "fixtures"
@@ -157,6 +158,7 @@ export type CricketObsViewModel = {
   flashDetail?: string | null;
   midOverlay: CricketObsMidOverlayKind;
   broadcastMessage: CricketBroadcastMessage | null;
+  isNeutralActive: boolean;
 };
 
 const DEFAULT_THEME: CricketObsTheme = {
@@ -498,6 +500,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     flashDetail: overrideFlashDetail ?? null,
     midOverlay,
     broadcastMessage,
+    isNeutralActive: midOverlay === "neutral" || midOverlay === "none",
   };
 
   if (!live?.match || !live.state) {
@@ -643,9 +646,18 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     phase = "pre_match";
   }
 
+  const isLiveMatch =
+    state.matchStatus === "live" &&
+    !isMatchFinished;
+
+  const isNeutralActive =
+    midOverlay === "neutral" ||
+    (midOverlay === "none" && !isLiveMatch);
+
   return {
     ...base,
     phase,
+    isNeutralActive,
     matchId: match.id,
     home,
     away,

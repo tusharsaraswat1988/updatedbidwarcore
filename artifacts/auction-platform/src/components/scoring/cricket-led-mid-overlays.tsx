@@ -261,7 +261,7 @@ export function CricketLedMidOverlays({
     "OFFICIAL PARTNER"
   ).toUpperCase();
 
-  if (overlay === "none") return null;
+  if (overlay === "none" || overlay === "neutral") return null;
 
   return (
     <AnimatePresence>

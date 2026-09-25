@@ -40,6 +40,7 @@ import {
   type LedMatchEvent,
 } from "@/components/scoring/led-event-animation-overlay";
 import { CricketLedMidOverlays } from "@/components/scoring/cricket-led-mid-overlays";
+import { CricketLedNeutralScreen } from "@/components/scoring/cricket-led-neutral-screen";
 import {
   resolveBatterView,
   resolveBowlerView,
@@ -685,6 +686,54 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
     if (len > 25) return "text-lg sm:text-xl md:text-2xl lg:text-[1.85rem]";
     return "text-xl sm:text-2xl md:text-3xl lg:text-4xl";
   }, [tournamentTitle]);
+
+  const isLiveMatch =
+    Boolean(match && state && state.matchStatus === "live" && !isComplete);
+
+  const isNeutralActive =
+    currentOverlay === "neutral" ||
+    (currentOverlay === "none" && !isLiveMatch);
+
+  if (isNeutralActive) {
+    return (
+      <FullscreenLayout>
+        <CricketLedNeutralScreen
+          tournamentName={tournament?.name || "Cricket Championship"}
+          tournamentLogoUrl={tournament?.logoUrl}
+          sponsors={sponsors}
+          scoreBoardSponsor={branding?.scoreBoardSponsor}
+          connectionStatus={connectionStatus}
+          logoSrc={logoSrc}
+          logoAlt={logoAlt}
+          displayShellStyle={displayShellStyle}
+        />
+
+        {/* 4. GROUND LED MID-SCREEN OVERLAYS (Sponsors, Points Table, Fixtures, Scorecard, Summary, Intro) */}
+        <CricketLedMidOverlays
+          overlay={currentOverlay}
+          overlayMatchId={overlayMatchId}
+          overlaySponsorName={overlaySponsorName}
+          overlayStageOrGroup={overlayStageOrGroup}
+          tournamentId={tournamentId}
+          tournamentName={tournament?.name}
+          tournamentLogoUrl={tournament?.logoUrl}
+          match={match}
+          state={state}
+          summary={summary}
+          teams={teams}
+          players={players}
+          sponsors={sponsors}
+          onClose={() => setCurrentOverlay("none")}
+        />
+
+        {/* 5. MODULAR LED EVENT ANIMATION OVERLAY */}
+        <LedEventAnimationOverlay
+          currentEvent={activeEvent}
+          onDismiss={() => setActiveEvent(null)}
+        />
+      </FullscreenLayout>
+    );
+  }
 
   return (
     <FullscreenLayout>

@@ -24,17 +24,19 @@ import type { CricketBroadcastMessage } from "@/lib/cricket-obs-view-model";
 
 interface Props {
   broadcastMessage?: CricketBroadcastMessage | null;
+  alignRight?: boolean;
 }
 
-export function CricketObsBroadcastMessage({ broadcastMessage }: Props) {
+export function CricketObsBroadcastMessage({ broadcastMessage, alignRight = false }: Props) {
   const isVisible = Boolean(broadcastMessage?.active && broadcastMessage?.name);
 
   return (
     <div
       className="pointer-events-none absolute z-35 flex flex-col justify-end"
       style={{
-        bottom: "164px",
-        left: `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
+        bottom: alignRight ? "148px" : "164px",
+        left: alignRight ? undefined : `${BROADCAST_OVERLAY_SAFE_INSET_X}px`,
+        right: alignRight ? `${BROADCAST_OVERLAY_SAFE_INSET_X}px` : undefined,
         maxWidth: "600px",
       }}
     >
@@ -42,9 +44,9 @@ export function CricketObsBroadcastMessage({ broadcastMessage }: Props) {
         {isVisible && broadcastMessage ? (
           <motion.div
             key={`broadcast-msg-${broadcastMessage.name}`}
-            initial={{ opacity: 0, x: -36, scale: 0.98 }}
+            initial={{ opacity: 0, x: alignRight ? 36 : -36, scale: 0.98 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: -24, scale: 0.98 }}
+            exit={{ opacity: 0, x: alignRight ? 24 : -24, scale: 0.98 }}
             transition={{
               duration: 0.26,
               ease: [0.16, 1, 0.3, 1],
@@ -53,7 +55,8 @@ export function CricketObsBroadcastMessage({ broadcastMessage }: Props) {
             style={{
               background: BIDWAR_SCOREBOARD_SHELL,
               borderColor: "rgba(255, 255, 255, 0.14)",
-              borderLeft: `4px solid ${BIDWAR_BROADCAST_YELLOW}`,
+              borderLeft: alignRight ? undefined : `4px solid ${BIDWAR_BROADCAST_YELLOW}`,
+              borderRight: alignRight ? `4px solid ${BIDWAR_BROADCAST_YELLOW}` : undefined,
             }}
           >
             {/* Content Container */}

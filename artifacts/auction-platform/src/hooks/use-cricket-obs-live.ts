@@ -145,6 +145,7 @@ export function useCricketObsLive(
       const sp = new URLSearchParams(window.location.search);
       const ov = sp.get("overlay")?.toLowerCase();
       if (
+        ov === "neutral" ||
         ov === "sponsors" ||
         ov === "standings" ||
         ov === "fixtures" ||

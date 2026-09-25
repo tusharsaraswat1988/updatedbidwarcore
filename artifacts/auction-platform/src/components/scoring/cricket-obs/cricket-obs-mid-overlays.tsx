@@ -92,7 +92,7 @@ export function CricketObsMidOverlays({
     return standings ?? [];
   }, [matchedGroup, standings]);
 
-  if (overlay === "none") return null;
+  if (overlay === "none" || overlay === "neutral") return null;
 
   return (
     <AnimatePresence>
