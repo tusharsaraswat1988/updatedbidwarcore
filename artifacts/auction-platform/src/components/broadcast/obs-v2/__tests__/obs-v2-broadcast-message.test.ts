@@ -58,13 +58,13 @@ describe("OBS V2 Broadcast Message Visual Prototype (Layer 1)", () => {
     });
 
     it("preserves central camera visibility without spanning full width", () => {
-      // Scorebug is full width inside safe margins (1728px), while chyron max width is 680px
-      const maxChyronWidth = 680;
+      // Scorebug is full width inside safe margins (1728px), while chyron max width is 720px
+      const maxChyronWidth = 720;
       const safeCanvasWidth = OBS_V2.canvas.safeWidth;
       const clearCameraSpan = safeCanvasWidth - maxChyronWidth;
 
       expect(clearCameraSpan).toBeGreaterThan(1000);
-      expect(clearCameraSpan).toBe(1048);
+      expect(clearCameraSpan).toBe(1008);
     });
   });
 

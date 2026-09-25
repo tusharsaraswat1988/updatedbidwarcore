@@ -14,20 +14,15 @@ export interface ObsV2BroadcastMessageProps extends HTMLAttributes<HTMLDivElemen
 /**
  * ObsV2BroadcastMessage — Television Broadcast Lower-Third Chyron Plate
  *
- * Visual Architecture (Layer 1 Refinement):
- * 1. Base Stage: Action-safe alignment (96px left, 156px bottom dock).
- * 2. Deep Broadcast Shadow: Multi-tier directional occlusion (45px blur).
- * 3. Outer Structural Rim: 1px metallic/gold chamfered perimeter clip.
- * 4. Obsidian Chassis: Deep multi-stop gradient (#13151E -> #0D0E15 -> #08080C).
- * 5. Structural Accent Rail: 3.5px BidWar Gold (#FFD700) left vertical beam with glow.
- * 6. Geometric Rail Terminals: Angled top cap (56px) and bottom return notch.
- * 7. Top Specular Hairline: Directional top-edge light reflection.
- * 8. Secondary Structural Guide: Subtle vertical divider separating rail from text.
- * 9. Television Typography:
- *    - Eyebrow: 10px uppercase gold metadata label with wide 0.18em tracking.
- *    - Headline: 28px condensed Bebas display type, commanding line-height (0.96).
- *    - Supporting Text: 12px Inter body text in high-legibility secondary white.
- * 10. Integrated Brand Anchor: Angular top-right BIDWAR platform mark.
+ * Graphic Pass 2 Architecture:
+ * - Substantial visual mass: 560–720px width, 92–102px height.
+ * - Solid 4.5px Gold Structural Spine with 72px top cap and 36px bottom return bracket.
+ * - Engineered angular broadcast chassis with 24px top-right diagonal terminal and 12px bottom cuts.
+ * - Multi-plate tonal depth: Obsidian base (#07080D) -> Navy-tinted inset (#0D0F17) -> Content surface (#111420).
+ * - Secondary cyan/ice-blue structural edge on the opposite flank (#12CFFF).
+ * - Top directional metallic specular sheen.
+ * - Commanding 32px condensed display headline (Bebas Neue) with 0.92 line-height.
+ * - Integrated structural BIDWAR brand anchor badge plate.
  */
 export const ObsV2BroadcastMessage = forwardRef<HTMLDivElement, ObsV2BroadcastMessageProps>(
   function ObsV2BroadcastMessage({ message, className = "", style, ...rest }, ref) {
@@ -57,182 +52,216 @@ export const ObsV2BroadcastMessage = forwardRef<HTMLDivElement, ObsV2BroadcastMe
                 duration: 0.22,
                 ease: [0.16, 1, 0.3, 1],
               }}
-              className="relative w-max min-w-[440px] max-w-[680px]"
+              className="relative w-max min-w-[560px] max-w-[720px]"
             >
-              {/* LAYER 1: Deep Broadcast Drop Shadow & Ambient Floor Reflection */}
+              {/* LAYER 1: Deep Broadcast Drop Shadow & Directional Grounding */}
               <div
-                className="absolute -inset-1 pointer-events-none"
+                className="absolute -inset-2 pointer-events-none"
                 style={{
-                  filter: "blur(18px)",
-                  background: "radial-gradient(ellipse at 20% 50%, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 75%)",
-                  transform: "translateY(8px)",
+                  filter: "blur(22px)",
+                  background:
+                    "radial-gradient(ellipse at 25% 60%, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0) 75%)",
+                  transform: "translateY(10px)",
                 }}
               />
 
-              {/* LAYER 2: Outer Structural Frame with Asymmetrical Chamfer Cuts */}
-              {/* Top-right diagonal 20px cut + Bottom-right subtle 8px bevel */}
+              {/* LAYER 2: Outer Structural Chassis (Asymmetrical Sports Broadcast Silhouette) */}
+              {/* 24px top-right diagonal terminal + 12px bottom-right bevel + 12px bottom-left notch */}
               <div
-                className="relative p-[1px] transition-all"
+                className="relative p-[1.5px] transition-all"
                 style={{
-                  clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%)",
+                  clipPath:
+                    "polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% calc(100% - 12px), calc(100% - 16px) 100%, 14px 100%, 0 calc(100% - 12px))",
                   background:
-                    "linear-gradient(135deg, rgba(255, 215, 0, 0.60) 0%, rgba(255, 255, 255, 0.22) 18%, rgba(255, 255, 255, 0.08) 60%, rgba(255, 215, 0, 0.35) 100%)",
+                    "linear-gradient(135deg, rgba(255, 215, 0, 0.75) 0%, rgba(255, 255, 255, 0.28) 20%, rgba(18, 207, 255, 0.25) 55%, rgba(255, 215, 0, 0.45) 100%)",
                   boxShadow:
-                    "0 20px 40px -8px rgba(0, 0, 0, 0.85), 0 6px 16px -2px rgba(0, 0, 0, 0.70)",
+                    "0 24px 48px -10px rgba(0, 0, 0, 0.88), 0 8px 20px -4px rgba(0, 0, 0, 0.75)",
                 }}
               >
-                {/* LAYER 3: Primary Obsidian Plate Interior */}
+                {/* LAYER 3: Primary Dark Obsidian Chassis (#07080D Base) */}
                 <div
-                  className="relative overflow-hidden"
+                  className="relative p-[1px] overflow-hidden"
                   style={{
-                    clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%)",
-                    background:
-                      "linear-gradient(180deg, #13151E 0%, #0D0F16 38%, #08080C 100%)",
+                    clipPath:
+                      "polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% calc(100% - 12px), calc(100% - 16px) 100%, 14px 100%, 0 calc(100% - 12px))",
+                    background: "#07080D",
                   }}
                 >
-                  {/* LAYER 4: Inner Specular Top Hairline */}
+                  {/* LAYER 4: Secondary Navy/Carbon Inset Well (#0D0F17 with Cool Undertone) */}
                   <div
-                    className="absolute inset-x-0 top-0 h-[1px] pointer-events-none z-20"
+                    className="relative overflow-hidden"
                     style={{
+                      clipPath:
+                        "polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% calc(100% - 12px), calc(100% - 16px) 100%, 14px 100%, 0 calc(100% - 12px))",
                       background:
-                        "linear-gradient(90deg, rgba(255,215,0,0.8) 0%, rgba(255,255,255,0.4) 15%, rgba(255,255,255,0.12) 65%, transparent 100%)",
+                        "linear-gradient(180deg, #131724 0%, #0D101A 42%, #080A10 100%)",
+                      minHeight: "94px",
                     }}
-                  />
+                  >
+                    {/* LAYER 5: Directional Top Specular Sheen */}
+                    <div
+                      className="absolute inset-x-0 top-0 h-[1.5px] pointer-events-none z-20"
+                      style={{
+                        background:
+                          "linear-gradient(90deg, rgba(255,215,0,0.95) 0%, rgba(255,255,255,0.55) 18%, rgba(255,255,255,0.15) 60%, transparent 100%)",
+                      }}
+                    />
 
-                  {/* LAYER 5: Directional Top-Left Glaze Inset */}
-                  <div
-                    className="absolute inset-0 pointer-events-none z-10"
-                    style={{
-                      background:
-                        "radial-gradient(ellipse at 0% 0%, rgba(255, 215, 0, 0.06) 0%, transparent 55%)",
-                    }}
-                  />
+                    {/* LAYER 6: Directional Ambient Light Spill (Top-Left Corner) */}
+                    <div
+                      className="absolute inset-0 pointer-events-none z-10"
+                      style={{
+                        background:
+                          "radial-gradient(ellipse at 0% 0%, rgba(255, 215, 0, 0.08) 0%, rgba(18, 207, 255, 0.03) 40%, transparent 65%)",
+                      }}
+                    />
 
-                  {/* LAYER 6: Structural Left Accent Rail (3.5px BidWar Gold with Glow) */}
-                  <div
-                    className="absolute left-0 top-0 bottom-0 w-[3.5px] z-30 pointer-events-none"
-                    style={{
-                      background: OBS_V2.color.brand,
-                      boxShadow: `0 0 14px ${OBS_V2.color.brandGlow}, 0 0 4px ${OBS_V2.color.brand}`,
-                    }}
-                  />
+                    {/* LAYER 7: Structural Left Gold Spine (4.5px BidWar Gold Beam) */}
+                    <div
+                      className="absolute left-0 top-0 bottom-0 w-[4.5px] z-30 pointer-events-none"
+                      style={{
+                        background: OBS_V2.color.brand,
+                        boxShadow: `0 0 16px ${OBS_V2.color.brandGlow}, 0 0 5px ${OBS_V2.color.brand}`,
+                      }}
+                    />
 
-                  {/* LAYER 7: Top-Left Designed Gold Terminal Return Cap */}
-                  <div
-                    className="absolute left-0 top-0 h-[3px] w-[56px] z-30 pointer-events-none"
-                    style={{
-                      background: OBS_V2.color.brand,
-                      clipPath: "polygon(0 0, 100% 0, 82% 100%, 0 100%)",
-                    }}
-                  />
+                    {/* LAYER 8: Top Gold Spine Terminal (72px Angled Header Cap) */}
+                    <div
+                      className="absolute left-0 top-0 h-[3.5px] w-[72px] z-30 pointer-events-none"
+                      style={{
+                        background: OBS_V2.color.brand,
+                        clipPath: "polygon(0 0, 100% 0, 84% 100%, 0 100%)",
+                      }}
+                    />
 
-                  {/* LAYER 8: Bottom-Left Micro Return Notch */}
-                  <div
-                    className="absolute left-0 bottom-0 h-[2.5px] w-[24px] z-30 pointer-events-none"
-                    style={{
-                      background: OBS_V2.color.brand,
-                      clipPath: "polygon(0 0, 80% 0, 100% 100%, 0 100%)",
-                    }}
-                  />
+                    {/* LAYER 9: Bottom Gold Return Notch (36px Structural Bracket) */}
+                    <div
+                      className="absolute left-0 bottom-0 h-[3px] w-[36px] z-30 pointer-events-none"
+                      style={{
+                        background: OBS_V2.color.brand,
+                        clipPath: "polygon(0 0, 78% 0, 100% 100%, 0 100%)",
+                      }}
+                    />
 
-                  {/* LAYER 9: Subtle Secondary Vertical Guide Line */}
-                  <div
-                    className="absolute left-[12px] top-2 bottom-2 w-[1px] z-20 pointer-events-none"
-                    style={{
-                      background: "rgba(255, 255, 255, 0.04)",
-                    }}
-                  />
+                    {/* LAYER 10: Secondary Cyan Structural Edge (Opposite Right Flank) */}
+                    <div
+                      className="absolute right-0 top-6 bottom-4 w-[2px] z-30 pointer-events-none"
+                      style={{
+                        background: OBS_V2.color.info,
+                        boxShadow: `0 0 10px ${OBS_V2.color.infoGlow}`,
+                      }}
+                    />
 
-                  {/* LAYER 10: Content Presentation Layout */}
-                  <div className="relative z-20 pl-6 pr-8 pt-3 pb-3.5 flex flex-col gap-1">
-                    {/* Header Row: Eyebrow Tag + Brand Anchor Badge */}
-                    <div className="flex items-center justify-between gap-6">
-                      {/* Eyebrow / Metadata Capsule */}
-                      <div className="flex items-center gap-2">
-                        {/* Micro Accent Slanted Tick */}
-                        <div
-                          className="h-[8px] w-[3px] rounded-xs"
-                          style={{
-                            background: OBS_V2.color.brand,
-                            transform: "skewX(-15deg)",
-                          }}
-                        />
+                    {/* LAYER 11: Subtle Vertical Interior Guide Rule */}
+                    <div
+                      className="absolute left-[14px] top-2.5 bottom-2.5 w-[1px] z-20 pointer-events-none"
+                      style={{
+                        background: "rgba(255, 255, 255, 0.05)",
+                      }}
+                    />
 
-                        {message.eyebrow ? (
-                          <ObsV2Label
-                            className="font-bold uppercase leading-none tracking-[0.18em]"
+                    {/* LAYER 12: Content Presentation Layout */}
+                    <div className="relative z-20 pl-7 pr-9 pt-3.5 pb-4 flex flex-col justify-center gap-1.5">
+                      {/* Header Row: Eyebrow Capsule + Integrated Brand Anchor */}
+                      <div className="flex items-center justify-between gap-6">
+                        {/* Eyebrow Lockup */}
+                        <div className="flex items-center gap-2">
+                          {/* Micro Gold Accent Parallelogram */}
+                          <div
+                            className="h-[9px] w-[3.5px] rounded-xs"
                             style={{
-                              color: OBS_V2.color.brand,
-                              fontSize: "10px",
-                              fontFamily: OBS_V2.typography.family.body,
-                              textShadow: "0 1px 2px rgba(0, 0, 0, 0.8)",
+                              background: OBS_V2.color.brand,
+                              transform: "skewX(-18deg)",
+                              boxShadow: `0 0 6px ${OBS_V2.color.brandGlow}`,
                             }}
-                          >
-                            {message.eyebrow}
-                          </ObsV2Label>
-                        ) : null}
-                      </div>
+                          />
 
-                      {/* Integrated Structural Brand Anchor */}
-                      <div
-                        className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-xs"
-                        style={{
-                          background: "rgba(255, 255, 255, 0.04)",
-                          border: "1px solid rgba(255, 255, 255, 0.08)",
-                          clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))",
-                        }}
-                      >
-                        <span
-                          className="font-mono text-[9px] uppercase font-bold tracking-[0.24em]"
-                          style={{ color: "rgba(255, 255, 255, 0.45)" }}
-                        >
-                          BIDWAR
-                        </span>
-                      </div>
-                    </div>
+                          {message.eyebrow ? (
+                            <ObsV2Label
+                              className="font-extrabold uppercase leading-none tracking-[0.20em]"
+                              style={{
+                                color: OBS_V2.color.brand,
+                                fontSize: "10px",
+                                fontFamily: OBS_V2.typography.family.body,
+                                textShadow: "0 1px 3px rgba(0, 0, 0, 0.9)",
+                              }}
+                            >
+                              {message.eyebrow}
+                            </ObsV2Label>
+                          ) : null}
+                        </div>
 
-                    {/* Dominant Headline (28px Condensed Display) */}
-                    <div className="pt-0.5">
-                      <ObsV2Text
-                        variant="headline"
-                        className="font-normal uppercase tracking-[0.025em]"
-                        style={{
-                          color: "#FFFFFF",
-                          fontSize: "28px",
-                          lineHeight: "0.95",
-                          textShadow: "0 2px 8px rgba(0, 0, 0, 0.9)",
-                        }}
-                      >
-                        {message.message}
-                      </ObsV2Text>
-                    </div>
-
-                    {/* Supporting Narrative Detail (12px Inter Secondary) */}
-                    {message.supportingText ? (
-                      <div className="pt-0.5">
-                        <ObsV2Text
-                          variant="bodySm"
-                          className="font-medium tracking-normal"
+                        {/* Integrated Structural Brand Anchor Badge */}
+                        <div
+                          className="flex items-center gap-2 px-3 py-0.5 rounded-xs"
                           style={{
-                            color: "rgba(248, 250, 252, 0.72)",
-                            fontSize: "12px",
-                            lineHeight: "1.25",
+                            background: "rgba(255, 255, 255, 0.05)",
+                            border: "1px solid rgba(255, 255, 255, 0.10)",
+                            clipPath:
+                              "polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 7px 100%, 0 calc(100% - 7px))",
                           }}
                         >
-                          {message.supportingText}
+                          {/* Micro Cyan Broadcast Indicator */}
+                          <span
+                            className="h-[4px] w-[4px] rounded-full"
+                            style={{
+                              background: OBS_V2.color.info,
+                              boxShadow: `0 0 6px ${OBS_V2.color.infoGlow}`,
+                            }}
+                          />
+                          <span
+                            className="font-mono text-[9.5px] uppercase font-bold tracking-[0.26em]"
+                            style={{ color: "rgba(255, 255, 255, 0.50)" }}
+                          >
+                            BIDWAR
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Dominant Headline (32px Bebas Neue Display Type) */}
+                      <div>
+                        <ObsV2Text
+                          variant="headline"
+                          className="font-normal uppercase tracking-[0.025em]"
+                          style={{
+                            color: "#FFFFFF",
+                            fontSize: "32px",
+                            lineHeight: "0.92",
+                            textShadow: "0 2px 10px rgba(0, 0, 0, 0.95)",
+                          }}
+                        >
+                          {message.message}
                         </ObsV2Text>
                       </div>
-                    ) : null}
-                  </div>
 
-                  {/* Corner Accent Bevel Tick (Top-Right Angle Frame) */}
-                  <div
-                    className="absolute top-0 right-0 w-[24px] h-[24px] pointer-events-none z-30"
-                    style={{
-                      background:
-                        "linear-gradient(225deg, rgba(255, 215, 0, 0.45) 0%, transparent 60%)",
-                    }}
-                  />
+                      {/* Supporting Narrative Detail (13.5px Inter Secondary) */}
+                      {message.supportingText ? (
+                        <div className="pt-0.5">
+                          <ObsV2Text
+                            variant="body"
+                            className="font-medium tracking-normal"
+                            style={{
+                              color: "rgba(248, 250, 252, 0.78)",
+                              fontSize: "13.5px",
+                              lineHeight: "1.3",
+                              textShadow: "0 1px 4px rgba(0, 0, 0, 0.8)",
+                            }}
+                          >
+                            {message.supportingText}
+                          </ObsV2Text>
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {/* Top-Right Chamfered Bevel Frame Accent */}
+                    <div
+                      className="absolute top-0 right-0 w-[28px] h-[28px] pointer-events-none z-30"
+                      style={{
+                        background:
+                          "linear-gradient(225deg, rgba(255, 215, 0, 0.55) 0%, rgba(18, 207, 255, 0.25) 40%, transparent 70%)",
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </motion.div>
