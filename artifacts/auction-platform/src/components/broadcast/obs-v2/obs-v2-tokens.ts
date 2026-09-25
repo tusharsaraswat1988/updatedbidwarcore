@@ -100,7 +100,7 @@ export const OBS_V2 = {
     gradient: {
       chassis: "linear-gradient(180deg, #08080C 0%, #050507 100%)",
       panel: "linear-gradient(180deg, #0E0F15 0%, #0A0A0E 100%)",
-      elevated: "linear-gradient(180deg, #141722 0%, #0E1018 100%)",
+      elevated: "linear-gradient(180deg, #141722 0%, #11131A 100%)",
       hero: "linear-gradient(180deg, #1A1D2B 0%, #11131E 100%)",
       inset: "linear-gradient(180deg, #050508 0%, #07080C 100%)",
       brandGleam: "linear-gradient(90deg, transparent 0%, rgba(255, 215, 0, 0.18) 50%, transparent 100%)",

@@ -67,6 +67,14 @@ export function normalizeCricketFlashToObsV2Event(
       title = `MILESTONE ${milestoneValue}`;
       subtitle = batter ? `${batter.trim()} · ${milestoneValue} RUNS` : "MILESTONE REACHED";
     }
+  } else if (eventType === "NEW_BATSMAN") {
+    // NEW_BATSMAN: show the incoming batter name prominently
+    if (batter && batter.trim().length > 0) {
+      title = "NEW BATTER";
+      subtitle = `${batter.trim()} · ARRIVING AT THE CREASE`;
+    } else if (detail && detail.trim().length > 0) {
+      subtitle = detail.trim();
+    }
   } else if (detail && detail.trim().length > 0) {
     // Detail override from production scorer payload (e.g. "Virat Kohli · OUT")
     subtitle = detail.trim();
