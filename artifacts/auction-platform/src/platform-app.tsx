@@ -49,6 +49,7 @@ const ObsV2Overlay = lazy(() => import("@/pages/obs-v2-overlay"));
 /** @deprecated Prefer /obs/v2 — kept for bookmarks during rollout */
 const ObsLabOverlayPreview = lazy(() => import("@/pages/obs-v2-overlay-preview"));
 const ObsLabOverlay = lazy(() => import("@/pages/obs-v2-overlay"));
+const CricketObsV2Preview = lazy(() => import("@/pages/cricket-obs-v2-preview"));
 const OrganizerPortal = lazy(() => import("@/pages/organizer-portal"));
 const OrganizerProfile = lazy(() => import("@/pages/organizer-profile"));
 const LiveViewer = lazy(() => import("@/pages/liveviewer"));
@@ -161,6 +162,10 @@ function PlatformRouter() {
         <Route path="/tournament/:id/register" component={PlayerRegisterLegacy} />
         <Route path="/tournament/:id/obs/v2/preview" component={ObsV2OverlayPreview} />
         <Route path="/tournament/:id/obs/v2" component={ObsV2Overlay} />
+        <Route path="/tournament/:id/cricket/obs/v2/preview" component={CricketObsV2Preview} />
+        <Route path="/tournament/:id/cricket/obs/v2" component={CricketObsV2Preview} />
+        <Route path="/cricket/obs/v2/preview" component={CricketObsV2Preview} />
+        <Route path="/cricket/obs/v2" component={CricketObsV2Preview} />
         <Route path="/tournament/:id/obs/lab/preview" component={ObsLabOverlayPreview} />
         <Route path="/tournament/:id/obs/lab" component={ObsLabOverlay} />
         <Route path="/tournament/:id/obs/preview" component={ObsOverlayPreview} />
