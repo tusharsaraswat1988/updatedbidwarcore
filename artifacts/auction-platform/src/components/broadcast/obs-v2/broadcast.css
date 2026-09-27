@@ -130,12 +130,66 @@
 .bw-slash-a { left: 1270px; background: var(--bw-gold); opacity: 0.9; }
 .bw-slash-b { left: 1296px; background: var(--bw-blue); opacity: 0.8; }
 
-.bw-tournament { position: relative; display: flex; align-items: center; gap: 22px; }
-.bw-tournament-name { display: flex; gap: 12px; font-style: italic; font-weight: 800; font-size: 50px; line-height: 1; letter-spacing: 0.01em; }
-.bw-tn-main { color: var(--bw-ink); }
-.bw-tn-accent { color: var(--bw-gold); }
+.bw-tournament {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 680px;
+  min-width: 0;
+  flex-shrink: 1;
+}
+.bw-tournament-name {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-style: italic;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  min-width: 0;
+  max-width: 100%;
+}
+.bw-tournament-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 42px;
+}
+.bw-tournament-name[data-long="lg"] .bw-tournament-title-row {
+  font-size: 34px;
+}
+.bw-tournament-name[data-long="xl"] .bw-tournament-title-row {
+  font-size: 28px;
+}
+.bw-tn-main {
+  color: var(--bw-ink);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.bw-tn-accent {
+  color: var(--bw-gold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
 
-.bw-livebrand { position: absolute; left: 50%; top: 18px; transform: translateX(-50%); display: flex; align-items: center; gap: 18px; }
+.bw-livebrand {
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  z-index: 10;
+}
 .bw-wordmark { font-family: var(--bw-font-display); text-transform: none; font-weight: 700; font-size: 48px; letter-spacing: -0.01em; line-height: 1; }
 .bw-wordmark b { color: var(--bw-gold); font-weight: 700; }
 .bw-divider { width: 2px; height: 36px; background: var(--bw-line); }

@@ -233,6 +233,8 @@ export default function CricketLinksPage() {
     tournament?.scoringEnabled,
   );
 
+  const base = typeof window !== "undefined" ? window.location.origin : "";
+
   // Core Cricket Links
   const ledDisplayUrl = scoreDisplayPath(tournamentId, tournament?.auctionCode);
   const obsStreamUrl = cricketObsLivePath(tournamentId, tournament?.auctionCode);

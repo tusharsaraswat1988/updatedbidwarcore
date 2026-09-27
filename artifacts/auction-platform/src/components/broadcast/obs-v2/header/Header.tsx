@@ -30,11 +30,15 @@ export function HeaderAccents() {
 }
 
 export function TournamentBrand({ branding }: { branding: BroadcastBranding }) {
+  const fullName = `${branding.tournamentName || ""} ${branding.tournamentAccent || ""}`.trim();
+  const isVeryLong = fullName.length > 30;
+  const isMedium = fullName.length > 20;
+
   return (
     <div className="bw-tournament">
       <Crest text={branding.tournamentShort} logoUrl={branding.tournamentLogoUrl} size={58} />
-      <div className="bw-tournament-name">
-        <div>
+      <div className="bw-tournament-name" data-long={isVeryLong ? "xl" : isMedium ? "lg" : "md"}>
+        <div className="bw-tournament-title-row">
           <span className="bw-tn-main">{branding.tournamentName}</span>
           {branding.tournamentAccent && (
             <span className="bw-tn-accent">{branding.tournamentAccent}</span>
@@ -52,6 +56,9 @@ export function TournamentBrand({ branding }: { branding: BroadcastBranding }) {
               marginTop: 1,
               fontFamily: "'Inter', sans-serif",
               fontWeight: 600,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
           >
             {branding.venue}

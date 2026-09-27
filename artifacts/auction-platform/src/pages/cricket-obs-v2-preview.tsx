@@ -168,8 +168,12 @@ export default function CricketObsV2Page() {
 
   // ── Frame resolution ─────────────────────────────────────────────────────
   const activeFrame: BroadcastFrame = useMemo(() => {
-    if (tournamentId > 0 && vm && selectedScene === "CRICKET" && vm.phase !== "no_live") {
-      return adaptCricketToBroadcastFrame({ vm });
+    if (tournamentId > 0 && vm && selectedScene === "CRICKET") {
+      return adaptCricketToBroadcastFrame({
+        vm,
+        tournamentLogoUrl: vm.tournamentLogoUrl,
+        sponsorLogos: vm.sponsors,
+      });
     }
     return makeFrame(selectedScene);
   }, [tournamentId, vm, selectedScene]);
@@ -352,7 +356,11 @@ export default function CricketObsV2Page() {
   const CricketV2Canvas = (
     <>
       {/* 1. Master Broadcast Stage (BroadcastStage) */}
-      <BroadcastStage frame={activeFrame} />
+      <BroadcastStage
+        frame={activeFrame}
+        hideLower={isNeutralActive}
+        hideFooter={isNeutralActive}
+      />
 
       {/* 2. Mid-Screen Slates (z-40) — rendered ABOVE the stage */}
       <MidScreenSlatesV2
@@ -382,7 +390,12 @@ export default function CricketObsV2Page() {
         }}
       >
         <NeutralFooterV2
-          tournamentName={activeFrame.branding?.tournamentName || vm?.tournamentName || ""}
+          tournamentName={
+            vm?.tournamentName ||
+            (activeFrame.branding?.tournamentAccent
+              ? `${activeFrame.branding.tournamentName} ${activeFrame.branding.tournamentAccent}`
+              : activeFrame.branding?.tournamentName || "")
+          }
           tournamentLogoUrl={activeFrame.branding?.tournamentLogoUrl}
           sponsors={neutralSponsors}
           isActive={isNeutralActive}

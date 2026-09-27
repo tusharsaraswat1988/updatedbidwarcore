@@ -36,6 +36,8 @@ export interface BroadcastStageProps {
   frame?: BroadcastFrame;
   activeEvent?: ObsV2BroadcastEvent | null;
   className?: string;
+  hideLower?: boolean;
+  hideFooter?: boolean;
 }
 
 /**
@@ -44,23 +46,45 @@ export interface BroadcastStageProps {
  *   CAMERA SAFE AREA 96–880 — intentionally no element rendered here
  *   lower third 880–1040, footer 1040–1080
  */
-export function BroadcastStage({ frame, activeEvent, className }: BroadcastStageProps = {}) {
+export function BroadcastStage({
+  frame,
+  activeEvent,
+  className,
+  hideLower = false,
+  hideFooter = false,
+}: BroadcastStageProps = {}) {
   if (frame) {
     return (
       <BroadcastFrameProvider frame={frame}>
-        <BroadcastStageInner activeEvent={activeEvent} className={className} />
+        <BroadcastStageInner
+          activeEvent={activeEvent}
+          className={className}
+          hideLower={hideLower}
+          hideFooter={hideFooter}
+        />
       </BroadcastFrameProvider>
     );
   }
-  return <BroadcastStageInner activeEvent={activeEvent} className={className} />;
+  return (
+    <BroadcastStageInner
+      activeEvent={activeEvent}
+      className={className}
+      hideLower={hideLower}
+      hideFooter={hideFooter}
+    />
+  );
 }
 
 function BroadcastStageInner({
   activeEvent,
   className,
+  hideLower = false,
+  hideFooter = false,
 }: {
   activeEvent?: ObsV2BroadcastEvent | null;
   className?: string;
+  hideLower?: boolean;
+  hideFooter?: boolean;
 }) {
   const frame = useBroadcastDirector();
   const title = frame.sponsors.find((s) => s.tier === "title");
@@ -98,27 +122,31 @@ function BroadcastStageInner({
         </div>
       )}
 
-      <section className="bw-lower">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={frame.scene}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            className="bw-scene-enter"
-            style={{ width: "100%", height: "100%" }}
-          >
-            <SceneSwitch frame={frame} />
-          </motion.div>
-        </AnimatePresence>
-      </section>
+      {!hideLower && (
+        <section className="bw-lower">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={frame.scene}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="bw-scene-enter"
+              style={{ width: "100%", height: "100%" }}
+            >
+              <SceneSwitch frame={frame} />
+            </motion.div>
+          </AnimatePresence>
+        </section>
+      )}
 
-      <FooterBar
-        left={<FooterLeft frame={frame} />}
-        center={frame.settings.showTicker ? <FooterTicker frame={frame} /> : null}
-        right={<FooterRight frame={frame} />}
-      />
+      {!hideFooter && (
+        <FooterBar
+          left={<FooterLeft frame={frame} />}
+          center={frame.settings.showTicker ? <FooterTicker frame={frame} /> : null}
+          right={<FooterRight frame={frame} />}
+        />
+      )}
     </div>
   );
 }
