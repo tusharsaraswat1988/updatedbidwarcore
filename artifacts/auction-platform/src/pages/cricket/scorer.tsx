@@ -85,8 +85,10 @@ export default function CricketScorerPage() {
   const [session, setSession] = useState(() => getScorerAuthSession());
   const [lockAcquired, setLockAcquired] = useState(false);
   const [lockError, setLockError] = useState("");
+  const [lockErrorCode, setLockErrorCode] = useState("");
   const [lockLost, setLockLost] = useState(false);
   const lockHeldRef = useRef(false);
+  const obtainLockRef = useRef<(forceTakeover?: boolean) => Promise<void>>(() => Promise.resolve());
 
   const { data, isLoading, isError, error, refetch, isFetching } = useScoringMatch(
     tournamentId,
@@ -187,6 +189,7 @@ export default function CricketScorerPage() {
           setLockLost(false);
           lockHeldRef.current = true;
           setLockError("");
+          setLockErrorCode("");
           if (lockRes.lock) {
             leaseVersionRef.current = lockRes.lock.leaseVersion;
             leaseIdRef.current = lockRes.lock.leaseId;
@@ -209,13 +212,17 @@ export default function CricketScorerPage() {
           }, HEARTBEAT_INTERVAL_MS);
         } else {
           setLockError(lockRes.message);
+          setLockErrorCode(lockRes.code || "");
         }
       } catch (e) {
         const message = e instanceof Error ? e.message : "Match lock could not be acquired";
+        const code = (e as any)?.code || "ERROR";
         setLockError(message);
+        setLockErrorCode(code);
       }
     }
 
+    obtainLockRef.current = obtainLock;
     void obtainLock();
 
     const onVisibilityChange = () => {
@@ -378,6 +385,11 @@ export default function CricketScorerPage() {
       sendInFlightRef.current = true;
       setBusy(true);
       const correlationId = crypto.randomUUID();
+      if (process.env.NODE_ENV !== "production") {
+        if (eventType === CricketEventType.BALL_RECORDED) {
+          console.log(`[SCORER] BALL_RECORDED seq=${sequenceRef.current}`);
+        }
+      }
       try {
         let result: (ScoringMatchDetail & { event: { id: number; eventType: string; sequence: number } }) | null = null;
         try {
@@ -681,9 +693,21 @@ export default function CricketScorerPage() {
           ) : null}
 
           {lockError ? (
-            <span className="text-[10px] bg-red-500/20 text-red-300 border border-red-500/40 px-1.5 py-0.5 rounded flex items-center gap-1" title={lockError}>
+            <span
+              className={cn(
+                "text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1",
+                lockErrorCode === "MATCH_LOCKED"
+                  ? "bg-red-500/20 text-red-300 border border-red-500/40"
+                  : "bg-amber-500/20 text-amber-300 border border-amber-500/40",
+              )}
+              title={lockError}
+            >
               <Lock className="w-3 h-3" />
-              Lock busy
+              {lockErrorCode === "MATCH_LOCKED"
+                ? "Lock busy"
+                : lockErrorCode === "TOURNAMENT_NOT_ASSIGNED"
+                  ? "Not Assigned"
+                  : "Lock issue"}
             </span>
           ) : null}
 
@@ -703,48 +727,96 @@ export default function CricketScorerPage() {
 
       {/* ─── Lock Error / Takeover Banner ─── */}
       {lockError ? (
-        <div className="shrink-0 px-3 py-2 bg-amber-950/90 border-b border-amber-500/50 flex flex-wrap items-center justify-between gap-2 z-10">
+        <div
+          className={cn(
+            "shrink-0 px-3 py-2 border-b flex flex-wrap items-center justify-between gap-2 z-10",
+            lockErrorCode === "TOURNAMENT_NOT_ASSIGNED"
+              ? "bg-amber-950/95 border-amber-500/60"
+              : "bg-amber-950/90 border-amber-500/50",
+          )}
+        >
           <div className="flex items-center gap-2 min-w-0">
             <Lock className="w-4 h-4 text-amber-400 shrink-0" />
-            <span className="text-xs text-amber-200 truncate">
-              {lockError}
+            <span className="text-xs text-amber-200">
+              {lockErrorCode === "TOURNAMENT_NOT_ASSIGNED" ? (
+                <>
+                  Logged in as <span className="font-semibold text-white">{session?.scorer?.name || session?.scorer?.mobile || "Scorer"}</span>, but not assigned to Tournament #{tournamentId}.
+                </>
+              ) : (
+                lockError
+              )}
             </span>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-black font-semibold shrink-0"
-            onClick={async () => {
-              const currentSession = getScorerAuthSession();
-              if (!currentSession?.token) {
-                navigate(cricketScorerHomePath(tournamentId));
-                return;
-              }
-              try {
-                const lockRes = await acquireScorerMatchLock(matchId, currentSession.token, {
-                  tournamentId,
-                  sport: "cricket",
-                  forceTakeover: true,
-                });
-                if (lockRes.ok) {
-                  setLockAcquired(true);
-                  setLockLost(false);
-                  lockHeldRef.current = true;
-                  setLockError("");
-                  toast({
-                    title: "Lock acquired",
-                    description: "Scoring has been transferred to this device.",
-                  });
-                } else {
-                  setLockError(lockRes.message);
-                }
-              } catch (e) {
-                setLockError(e instanceof Error ? e.message : "Takeover failed");
-              }
-            }}
-          >
-            Take Over on This Device
-          </Button>
+
+          <div className="flex items-center gap-2">
+            {lockErrorCode === "TOURNAMENT_NOT_ASSIGNED" ? (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs border-amber-500/50 text-amber-300 hover:bg-amber-500/20 shrink-0"
+                  onClick={() => {
+                    void obtainLockRef.current(false);
+                  }}
+                  title="Re-check tournament assignment"
+                >
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Retry
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-black font-semibold shrink-0"
+                  onClick={() => {
+                    clearScorerAuthSession();
+                    navigate(cricketScorerHomePath(tournamentId));
+                  }}
+                >
+                  Switch Account / Log In
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                className="h-7 text-xs bg-amber-500 hover:bg-amber-600 text-black font-semibold shrink-0"
+                onClick={async () => {
+                  const currentSession = getScorerAuthSession();
+                  if (!currentSession?.token) {
+                    navigate(cricketScorerHomePath(tournamentId));
+                    return;
+                  }
+                  try {
+                    const lockRes = await acquireScorerMatchLock(matchId, currentSession.token, {
+                      tournamentId,
+                      sport: "cricket",
+                      forceTakeover: true,
+                    });
+                    if (lockRes.ok) {
+                      setLockAcquired(true);
+                      setLockLost(false);
+                      lockHeldRef.current = true;
+                      setLockError("");
+                      setLockErrorCode("");
+                      toast({
+                        title: "Lock acquired",
+                        description: "Scoring has been transferred to this device.",
+                      });
+                    } else {
+                      setLockError(lockRes.message);
+                      setLockErrorCode(lockRes.code || "");
+                    }
+                  } catch (e) {
+                    setLockError(e instanceof Error ? e.message : "Takeover failed");
+                    setLockErrorCode((e as any)?.code || "ERROR");
+                  }
+                }}
+              >
+                Take Over on This Device
+              </Button>
+            )}
+          </div>
         </div>
       ) : lockLost ? (
         <div className="shrink-0 px-3 py-2 bg-red-900/80 border-b border-red-500/40 flex items-center gap-3 z-10">

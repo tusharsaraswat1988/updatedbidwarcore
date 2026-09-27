@@ -37,6 +37,7 @@ import {
   deleteOfficial,
   listOfficials,
   resetOfficialLockout,
+  unlockOfficialScorer,
   updateOfficial,
   type ScoringOfficial,
 } from "@/lib/scoring-foundation-api";
@@ -207,6 +208,28 @@ export default function CricketOfficialsPage() {
         description: e instanceof Error ? e.message : String(e),
         variant: "destructive",
       });
+    }
+  }
+
+  const [unlockingId, setUnlockingId] = useState<number | null>(null);
+
+  async function handleUnlockScorer(official: ScoringOfficial) {
+    setUnlockingId(official.id);
+    try {
+      const res = await unlockOfficialScorer(tournamentId, official.id);
+      await qc.invalidateQueries({ queryKey: ["scoring-officials", tournamentId] });
+      toast({
+        title: "Scorer Unlocked",
+        description: res.message || "Match locks cleared and tournament access verified.",
+      });
+    } catch (e) {
+      toast({
+        title: "Failed to unlock scorer",
+        description: e instanceof Error ? e.message : String(e),
+        variant: "destructive",
+      });
+    } finally {
+      setUnlockingId(null);
     }
   }
 
@@ -515,6 +538,21 @@ export default function CricketOfficialsPage() {
                                   Copy Access & Link
                                 </>
                               )}
+                            </Button>
+                          )}
+
+                          {isScorer && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={unlockingId === o.id}
+                              className="text-xs font-semibold text-amber-300 border-amber-500/40 hover:bg-amber-500/10 gap-1.5"
+                              onClick={() => void handleUnlockScorer(o)}
+                              title="Clear active match locks, reset session deadlocks, and verify tournament access for this scorer"
+                            >
+                              <LockOpen className={cn("w-3.5 h-3.5", unlockingId === o.id && "animate-spin")} />
+                              {unlockingId === o.id ? "Unlocking..." : "Unlock Scorer"}
                             </Button>
                           )}
 

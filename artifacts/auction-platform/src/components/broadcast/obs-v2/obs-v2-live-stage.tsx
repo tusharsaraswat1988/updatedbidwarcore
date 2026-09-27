@@ -32,7 +32,7 @@ export function ObsV2LiveStage({
   style,
   ...rest
 }: ObsV2LiveStageProps) {
-  const { data, scoringActive, rawVm } = useObsV2Live(tournamentId, pinnedMatchId);
+  const { data, scoringActive, rawVm, broadcastEvent } = useObsV2Live(tournamentId, pinnedMatchId);
 
   // Detect individual batter milestones from live striker stats
   const strikerRuns = rawVm?.striker?.runs;
@@ -41,6 +41,7 @@ export function ObsV2LiveStage({
 
   // Manage transient broadcast event lifecycle with deduplication and priority handling
   const { activeEvent } = useObsV2Events({
+    authoritativeEvent: broadcastEvent ?? rawVm?.broadcastEvent ?? null,
     rawFlash: rawVm?.flash ?? null,
     flashToken: rawVm?.flashToken ?? null,
     flashDetail: rawVm?.flashDetail ?? null,
@@ -49,6 +50,12 @@ export function ObsV2LiveStage({
     batterName: rawVm?.striker?.name ?? null,
     milestoneValue: milestone,
   });
+
+  if (process.env.NODE_ENV !== "production") {
+    if (activeEvent) {
+      console.log(`[OBS V2] render activeEvent=${activeEvent.type}`);
+    }
+  }
 
   if (!scoringActive && tournamentId > 0) {
     return (

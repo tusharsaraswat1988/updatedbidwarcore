@@ -5,6 +5,7 @@
 
 import type {
   BallDisplayOutcome,
+  CricketAuthoritativeBroadcastEvent,
   CricketFullScorecard,
   CricketMatchSummary,
   CricketScoreboardState,
@@ -159,6 +160,7 @@ export type CricketObsViewModel = {
   flashDetail?: string | null;
   midOverlay: CricketObsMidOverlayKind;
   broadcastMessage: CricketBroadcastMessage | null;
+  broadcastEvent: CricketAuthoritativeBroadcastEvent | null;
   isNeutralActive: boolean;
 };
 
@@ -244,6 +246,7 @@ export function mergeLiveDisplayPreserveBranding(
       match: previous?.match ?? null,
       state: incoming.state ?? previous?.state ?? null,
       summary: incoming.summary ?? previous?.summary ?? null,
+      broadcastEvent: incoming.broadcastEvent ?? null,
     };
   }
 
@@ -269,6 +272,7 @@ export function mergeLiveDisplayPreserveBranding(
     match: mergedMatch,
     state: incoming.state ?? previous?.state ?? null,
     summary: incoming.summary ?? previous?.summary ?? null,
+    broadcastEvent: incoming.broadcastEvent ?? null,
   };
 }
 
@@ -501,6 +505,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     flashDetail: overrideFlashDetail ?? null,
     midOverlay,
     broadcastMessage,
+    broadcastEvent: live?.broadcastEvent ?? null,
     isNeutralActive: midOverlay === "neutral" || midOverlay === "none",
   };
 

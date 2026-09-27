@@ -286,11 +286,18 @@ export async function updateScoringOfficial(
         await removeScorerFromTournament(tournamentId, existing.mobile);
       }
 
-      if (patch.pin && patch.pin.trim().length >= 4) {
+      const effectivePin =
+        patch.pin && patch.pin.trim().length >= 4
+          ? patch.pin.trim()
+          : existing.pin && existing.pin.trim().length >= 4
+            ? existing.pin.trim()
+            : null;
+
+      if (effectivePin) {
         await createScorerAccountForTournament(tournamentId, {
           name: targetName,
           mobile: targetMobile,
-          pin: patch.pin.trim(),
+          pin: effectivePin,
         });
       } else {
         clearAllScorerLoginLockouts(targetMobile);

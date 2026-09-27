@@ -5,11 +5,14 @@ const scorerAuthUrl = new URL("../lib/scorer-auth.ts", import.meta.url);
 const scorerLockUrl = new URL("../lib/scorer-match-locks.ts", import.meta.url);
 const scoringFoundationServiceUrl = new URL("../lib/scoring-foundation-service.ts", import.meta.url);
 const scorerRouteUrl = new URL("../routes/scorer.ts", import.meta.url);
+const scoringFoundationRouteUrl = new URL("../routes/scoring-foundation.ts", import.meta.url);
 
 const auctionRoot = new URL("../../../auction-platform/src/", import.meta.url);
 const scorerApiUrl = new URL("lib/scorer-api.ts", auctionRoot);
+const scoringFoundationApiUrl = new URL("lib/scoring-foundation-api.ts", auctionRoot);
 const cricketScorerPageUrl = new URL("pages/cricket/scorer.tsx", auctionRoot);
 const cricketScorerHomePageUrl = new URL("pages/cricket/scorer-home.tsx", auctionRoot);
+const cricketOfficialsPageUrl = new URL("pages/cricket/officials.tsx", auctionRoot);
 
 describe("Scorer Lifecycle, Delete Invalidation, PIN Sync & Lock Takeover", () => {
   it("scorer-auth.ts exports removeScorerFromTournament that revokes sessions and unassigns", async () => {
@@ -66,5 +69,40 @@ describe("Scorer Lifecycle, Delete Invalidation, PIN Sync & Lock Takeover", () =
   it("frontend scorer-home.tsx normalizes 10-digit mobile number", async () => {
     const src = await readFile(cricketScorerHomePageUrl, "utf8");
     expect(src).toContain('.slice(-10)');
+  });
+
+  it("scorer-auth.ts exports unlockScorerForTournament and auto-heals assignments from scoring_officials", async () => {
+    const src = await readFile(scorerAuthUrl, "utf8");
+    expect(src).toContain("export async function unlockScorerForTournament");
+    expect(src).toContain("scoringOfficialsTable");
+    expect(src).toContain("scorerMatchLocksTable");
+    expect(src).toContain("scorerSessionsTable");
+    expect(src).toContain("Auto-healed missing scorer tournament assignment from scoring_officials roster");
+  });
+
+  it("routes/scoring-foundation.ts mounts /officials/:officialId/unlock-scorer", async () => {
+    const src = await readFile(scoringFoundationRouteUrl, "utf8");
+    expect(src).toContain('router.post("/officials/:officialId/unlock-scorer"');
+    expect(src).toContain("unlockScorerForTournament");
+  });
+
+  it("frontend scoring-foundation-api.ts exports unlockOfficialScorer", async () => {
+    const src = await readFile(scoringFoundationApiUrl, "utf8");
+    expect(src).toContain("export async function unlockOfficialScorer");
+    expect(src).toContain("/unlock-scorer");
+  });
+
+  it("frontend cricket officials.tsx renders Unlock Scorer button on scorer cards", async () => {
+    const src = await readFile(cricketOfficialsPageUrl, "utf8");
+    expect(src).toContain("unlockOfficialScorer");
+    expect(src).toContain("Unlock Scorer");
+    expect(src).toContain("handleUnlockScorer");
+  });
+
+  it("frontend scorer.tsx handles TOURNAMENT_NOT_ASSIGNED with Switch Account and Retry actions", async () => {
+    const src = await readFile(cricketScorerPageUrl, "utf8");
+    expect(src).toContain("TOURNAMENT_NOT_ASSIGNED");
+    expect(src).toContain("Switch Account / Log In");
+    expect(src).toContain("Not Assigned");
   });
 });

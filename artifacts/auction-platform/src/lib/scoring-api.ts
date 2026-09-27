@@ -2,12 +2,14 @@ import { apiFetch } from "@workspace/api-base/api-fetch";
 import { scorerApiFetch } from "./scorer-api";
 import { scorerAuthHeaders } from "./badminton-scorer-session";
 import type {
+  CricketAuthoritativeBroadcastEvent,
   CricketFullScorecard,
   CricketMatchSummary,
   CricketScoreboardState,
   LeaderboardCategory,
 } from "@workspace/scoring-core";
 export type {
+  CricketAuthoritativeBroadcastEvent,
   CricketFullScorecard,
   CricketMatchSummary,
   CricketScoreboardState,
@@ -103,6 +105,7 @@ export type ScoringLiveDisplay = {
   match: ScoringMatchJson | null;
   state: CricketScoreboardState | null;
   summary: CricketMatchSummary | null;
+  broadcastEvent?: CricketAuthoritativeBroadcastEvent | null;
 };
 
 export type ScoringStandingRow = {

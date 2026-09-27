@@ -1,5 +1,6 @@
 import { db } from "@workspace/db";
 import {
+  playersTable,
   scoringDlsCalculationsTable,
   scoringMatchesTable,
   scoringSessionsTable,
@@ -7,6 +8,8 @@ import {
 import {
   CricketEventType,
   buildCricketMatchSummary,
+  buildAuthoritativeCricketBroadcastEvent,
+  type CricketAuthoritativeBroadcastEvent,
   assertExpectedSequence,
   getCurrentSequence,
   nextSequence,
@@ -15,7 +18,7 @@ import {
   type ScoringSportSlug,
   type CricketScoreboardState,
 } from "@workspace/scoring-core";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { broadcastScoringState } from "../scoring-broadcast";
 import { ScoringPlatformError } from "./errors";
 import {
@@ -195,6 +198,7 @@ function publishCricketState(
   match: typeof scoringMatchesTable.$inferSelect,
   state: unknown,
   summary: unknown,
+  broadcastEvent?: CricketAuthoritativeBroadcastEvent | null,
 ) {
   broadcastScoringState(tournamentId, {
     type: "scoring_state",
@@ -209,6 +213,7 @@ function publishCricketState(
     },
     state,
     summary,
+    broadcastEvent: broadcastEvent ?? null,
   });
 }
 
@@ -256,6 +261,7 @@ export async function appendSingleMatchEvent(
   let state: Record<string, unknown>;
   let updatedMatch: typeof scoringMatchesTable.$inferSelect;
   let projection: MatchProjection;
+  let broadcastEvent: CricketAuthoritativeBroadcastEvent | null = null;
 
   try {
     const committed = await db.transaction(async (tx) => {
@@ -416,11 +422,43 @@ export async function appendSingleMatchEvent(
 
       const nextMatch = await updateCricketMatchAndSession(match, nextState, nextProjection, tx);
 
+      let batterName: string | undefined;
+      let bowlerName: string | undefined;
+      const ballPayload = parsed.payload as Record<string, unknown>;
+      const pIds: number[] = [];
+      if (typeof ballPayload.strikerId === "number") pIds.push(ballPayload.strikerId);
+      if (typeof ballPayload.bowlerId === "number") pIds.push(ballPayload.bowlerId);
+      if (pIds.length > 0) {
+        try {
+          const pRows = await tx
+            .select({ id: playersTable.id, name: playersTable.name })
+            .from(playersTable)
+            .where(inArray(playersTable.id, pIds));
+          for (const pr of pRows) {
+            if (pr.id === ballPayload.strikerId) batterName = pr.name;
+            if (pr.id === ballPayload.bowlerId) bowlerName = pr.name;
+          }
+        } catch {
+          // ignore lookup failure in test environments
+        }
+      }
+
+      const authoritativeBroadcastEvent = buildAuthoritativeCricketBroadcastEvent({
+        matchId: input.matchId,
+        sequence: newSeq,
+        eventType: input.eventType,
+        payload: parsed.payload,
+        state: nextState as unknown as CricketScoreboardState,
+        batterName,
+        bowlerName,
+      });
+
       return {
         eventRow: persisted,
         state: nextState,
         updatedMatch: nextMatch,
         projection: nextProjection,
+        broadcastEvent: authoritativeBroadcastEvent,
       };
     });
 
@@ -432,6 +470,7 @@ export async function appendSingleMatchEvent(
     state = committed.state;
     updatedMatch = committed.updatedMatch;
     projection = committed.projection;
+    broadcastEvent = committed.broadcastEvent ?? null;
   } catch (err) {
     if (err instanceof ScoringPlatformError) throw err;
     if (isUniqueViolation(err)) {
@@ -449,7 +488,14 @@ export async function appendSingleMatchEvent(
     (updatedMatch.summaryJson && typeof updatedMatch.summaryJson === "object"
       ? updatedMatch.summaryJson
       : buildCricketMatchSummary(state as CricketScoreboardState));
-  publishCricketState(input.tournamentId, updatedMatch, state, summary);
+
+  if (process.env.NODE_ENV !== "production" || process.env.DEBUG_SCORING === "true") {
+    if (broadcastEvent) {
+      console.log(`[SERVER] broadcastEvent=${broadcastEvent.type} seq=${broadcastEvent.sequence}`);
+    }
+  }
+
+  publishCricketState(input.tournamentId, updatedMatch, state, summary, broadcastEvent);
 
   if (input.eventType === CricketEventType.DLS_APPLIED) {
     await persistDlsCalculation(input.matchId, input.tournamentId, parsed.payload);

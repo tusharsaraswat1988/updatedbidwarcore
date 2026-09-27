@@ -60,8 +60,16 @@ export function useScoringSocket(
               match: msg.match ?? null,
               state: msg.state ?? null,
               summary: msg.summary ?? null,
+              broadcastEvent: msg.broadcastEvent ?? null,
             };
             qc.setQueryData(scoringLiveQueryKey(tournamentId), payload);
+            if (msg.broadcastEvent && typeof window !== "undefined") {
+              window.dispatchEvent(
+                new CustomEvent("cricket_scoring_broadcast_event", {
+                  detail: msg.broadcastEvent,
+                }),
+              );
+            }
           } else if (msg.type === "cricket_obs_director") {
             qc.setQueryData(["cricket-obs-director", tournamentId], msg);
             if (typeof window !== "undefined") {

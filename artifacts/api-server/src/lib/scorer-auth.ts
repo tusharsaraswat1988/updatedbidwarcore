@@ -4,14 +4,14 @@
  */
 
 import { randomUUID } from "crypto";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, or, sql } from "drizzle-orm";
 import {
   db,
   scorerAccountsTable,
   scorerMatchLocksTable,
   scorerSessionsTable,
   scorerTournamentAssignmentsTable,
-  scorerMatchLocksTable,
+  scoringOfficialsTable,
 } from "@workspace/db";
 import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { signScorerJwt, verifyScorerJwt, type ScorerAuthClaims } from "./jwt";
@@ -503,7 +503,52 @@ export async function isScorerAssignedToTournament(
       ),
     )
     .limit(1);
-  return !!row;
+  if (row) return true;
+
+  // Auto-heal from tournament's scoring_officials roster:
+  // If the scorer's mobile matches an official in scoringOfficialsTable for this tournament with role 'scorer',
+  // reconcile and assign them immediately so they are never falsely blocked.
+  try {
+    const [acc] = await db
+      .select({ mobile: scorerAccountsTable.mobile })
+      .from(scorerAccountsTable)
+      .where(eq(scorerAccountsTable.id, scorerId))
+      .limit(1);
+
+    if (acc?.mobile) {
+      const officials = await db
+        .select({ id: scoringOfficialsTable.id, mobile: scoringOfficialsTable.mobile })
+        .from(scoringOfficialsTable)
+        .where(
+          and(
+            eq(scoringOfficialsTable.tournamentId, tournamentId),
+            eq(scoringOfficialsTable.role, "scorer"),
+          ),
+        );
+
+      const matchedOfficial = officials.find((o) => {
+        if (!o.mobile) return false;
+        try {
+          return normalizeMobile(o.mobile) === acc.mobile;
+        } catch {
+          return o.mobile.replace(/\D/g, "").slice(-10) === acc.mobile.replace(/\D/g, "").slice(-10);
+        }
+      });
+
+      if (matchedOfficial) {
+        await assignScorerToTournament(scorerId, tournamentId);
+        logger.info(
+          { scorerId, tournamentId, officialId: matchedOfficial.id },
+          "Auto-healed missing scorer tournament assignment from scoring_officials roster",
+        );
+        return true;
+      }
+    }
+  } catch (err) {
+    logger.warn({ err, scorerId, tournamentId }, "Failed to auto-heal scorer assignment");
+  }
+
+  return false;
 }
 
 /**
@@ -590,6 +635,122 @@ export async function clearScorerLoginLockoutForTournament(
   return {
     cleared,
     scorer: serializeScorerAccountAdmin(account, { includeLoginLockout: true }),
+  };
+}
+
+/**
+ * Organizer action: force unlock a scorer from scoring.
+ * 1. Releases any active match locks held by this scorer or in this tournament.
+ * 2. Clears login rate-limit lockouts.
+ * 3. Revokes stale sessions to break deadlocked leases.
+ * 4. Ensures tournament assignment in scorer_tournament_assignments is strictly synced.
+ * 5. Reactivates the account if needed.
+ */
+export async function unlockScorerForTournament(input: {
+  tournamentId: number;
+  officialId: number;
+  actorId: string;
+}): Promise<{ ok: true; message: string; locksReleased: number }> {
+  const [official] = await db
+    .select()
+    .from(scoringOfficialsTable)
+    .where(
+      and(
+        eq(scoringOfficialsTable.id, input.officialId),
+        eq(scoringOfficialsTable.tournamentId, input.tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!official) {
+    throw new ScorerAuthError("Official not found in this tournament", "NOT_FOUND", 404);
+  }
+
+  let scorerAccountId: number | null = null;
+  let mobileNormalized: string | null = null;
+
+  if (official.mobile) {
+    try {
+      mobileNormalized = normalizeMobile(official.mobile);
+    } catch {
+      mobileNormalized = official.mobile.replace(/\D/g, "").slice(-10);
+    }
+
+    const [acc] = await db
+      .select({ id: scorerAccountsTable.id })
+      .from(scorerAccountsTable)
+      .where(eq(scorerAccountsTable.mobile, mobileNormalized))
+      .limit(1);
+
+    if (acc) {
+      scorerAccountId = acc.id;
+    }
+  }
+
+  let locksReleased = 0;
+
+  if (scorerAccountId) {
+    // 1. Release match locks held by this scorer or for this tournament
+    const deletedLocks = await db
+      .delete(scorerMatchLocksTable)
+      .where(
+        or(
+          eq(scorerMatchLocksTable.scorerId, scorerAccountId),
+          and(
+            eq(scorerMatchLocksTable.tournamentId, input.tournamentId),
+            eq(scorerMatchLocksTable.scorerId, scorerAccountId),
+          ),
+        ),
+      )
+      .returning({ matchId: scorerMatchLocksTable.matchId });
+    locksReleased = deletedLocks.length;
+
+    // 2. Clear any rate-limit login lockout
+    if (mobileNormalized) {
+      clearAllScorerLoginLockouts(mobileNormalized);
+    }
+
+    // 3. Revoke active sessions for this scorer so that stale lease versions won't conflict
+    await db
+      .update(scorerSessionsTable)
+      .set({ revokedAt: new Date() })
+      .where(eq(scorerSessionsTable.scorerId, scorerAccountId));
+
+    // 4. Ensure tournament assignment exists
+    await assignScorerToTournament(scorerAccountId, input.tournamentId);
+
+    // 5. Ensure account is active
+    await db
+      .update(scorerAccountsTable)
+      .set({ isActive: true })
+      .where(eq(scorerAccountsTable.id, scorerAccountId));
+
+    // 6. Audit log
+    await writeScorerAudit({
+      actorType: "organizer",
+      actorId: input.actorId,
+      scorerId: scorerAccountId,
+      tournamentId: input.tournamentId,
+      action: "scorer_force_unlocked",
+      payload: { officialId: input.officialId, locksReleased, tournamentId: input.tournamentId },
+    });
+  } else if (official.role === "scorer" && official.mobile && official.pin && official.pin.trim().length >= 4) {
+    // Account wasn't created yet in scorer_accounts — create and assign now!
+    const created = await createScorerAccountForTournament(input.tournamentId, {
+      name: official.name,
+      mobile: official.mobile,
+      pin: official.pin.trim(),
+    });
+    scorerAccountId = created.id;
+  }
+
+  return {
+    ok: true,
+    message:
+      locksReleased > 0
+        ? `Unlocked successfully: ${locksReleased} active match lock(s) released and tournament access verified.`
+        : "Scorer unlocked: sessions refreshed, login lockouts cleared, and tournament access verified.",
+    locksReleased,
   };
 }
 

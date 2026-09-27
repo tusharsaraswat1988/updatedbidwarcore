@@ -247,6 +247,28 @@ router.post("/officials/:officialId/reset-login-lockout", async (req, res) => {
   }
 });
 
+router.post("/officials/:officialId/unlock-scorer", async (req, res) => {
+  const tournamentId = tid(req);
+  const officialId = parseInt(req.params.officialId, 10);
+  if (!tournamentId || Number.isNaN(officialId)) {
+    return void res.status(400).json({ error: "Invalid ID" });
+  }
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const { unlockScorerForTournament } = await import("../lib/scorer-auth");
+    const actorId = String((req as any).user?.id || (req as any).session?.organizerId || "organizer");
+    const result = await unlockScorerForTournament({
+      tournamentId,
+      officialId,
+      actorId,
+    });
+    res.json(result);
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
 router.delete("/officials/:officialId", async (req, res) => {
   const tournamentId = tid(req);
   const officialId = parseInt(req.params.officialId, 10);

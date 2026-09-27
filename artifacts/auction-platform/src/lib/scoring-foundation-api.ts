@@ -143,6 +143,20 @@ export async function resetOfficialLockout(
     method: "POST",
     body: JSON.stringify({}),
   });
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function unlockOfficialScorer(
+  tournamentId: number,
+  officialId: number,
+): Promise<{ ok: boolean; message: string; locksReleased?: number }> {
+  const r = await apiFetch(`${base(tournamentId)}/officials/${officialId}/unlock-scorer`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
 }
 
 export async function deleteOfficial(

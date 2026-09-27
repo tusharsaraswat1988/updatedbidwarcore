@@ -6,6 +6,7 @@
  * Side-effect free, deterministic, and enforces anti-fabrication rules.
  */
 
+import type { CricketAuthoritativeBroadcastEvent } from "@workspace/scoring-core";
 import type { CricketObsFlashKind } from "@/lib/cricket-obs-view-model";
 import {
   OBS_V2_EVENT_CONFIGS,
@@ -105,5 +106,44 @@ export function normalizeCricketFlashToObsV2Event(
     runs: runs != null ? runs : undefined,
     milestoneValue: milestoneValue != null ? milestoneValue : undefined,
     detail: detail?.trim() || undefined,
+  };
+}
+
+/**
+ * Normalizes an authoritative server-broadcast cricket event into an ObsV2BroadcastEvent.
+ * Side-effect free, deterministic, and preserves server-authoritative event ID for deduplication.
+ */
+export function normalizeAuthoritativeBroadcastEvent(
+  event: CricketAuthoritativeBroadcastEvent,
+): ObsV2BroadcastEvent | null {
+  if (!event || !event.type || !event.id) return null;
+
+  const eventType = event.type as ObsV2EventType;
+  const config = OBS_V2_EVENT_CONFIGS[eventType];
+  if (!config) return null;
+
+  let title = config.title;
+  let subtitle = config.subtitle;
+
+  if (event.detail && event.detail.trim().length > 0) {
+    subtitle = event.detail.trim();
+  } else if (event.batter && event.batter.trim().length > 0) {
+    subtitle = `${event.batter.trim()} · ${config.subtitle}`;
+  }
+
+  return {
+    id: event.id,
+    type: eventType,
+    matchId: event.matchId,
+    timestamp: event.timestamp || Date.now(),
+    title,
+    subtitle,
+    accentColor: config.accentColor,
+    borderColor: config.borderColor,
+    priority: config.priority,
+    batter: event.batter?.trim() || undefined,
+    bowler: event.bowler?.trim() || undefined,
+    runs: event.runs != null ? event.runs : undefined,
+    detail: event.detail?.trim() || undefined,
   };
 }

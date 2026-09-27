@@ -12,14 +12,19 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { CricketAuthoritativeBroadcastEvent } from "@workspace/scoring-core";
 import type { CricketObsFlashKind } from "@/lib/cricket-obs-view-model";
 import { OBS_V2 } from "./obs-v2-tokens";
 import type { ObsV2BroadcastEvent } from "./obs-v2-events";
-import { normalizeCricketFlashToObsV2Event } from "./obs-v2-event-adapter";
+import {
+  normalizeAuthoritativeBroadcastEvent,
+  normalizeCricketFlashToObsV2Event,
+} from "./obs-v2-event-adapter";
 
 export interface UseObsV2EventsParams {
-  rawFlash: CricketObsFlashKind | null;
-  flashToken: string | null;
+  authoritativeEvent?: CricketAuthoritativeBroadcastEvent | null;
+  rawFlash?: CricketObsFlashKind | null;
+  flashToken?: string | null;
   flashDetail?: string | null;
   matchId: number | null;
   phase?: string;
@@ -36,6 +41,7 @@ export interface UseObsV2EventsResult {
 }
 
 export function useObsV2Events({
+  authoritativeEvent,
   rawFlash,
   flashToken,
   flashDetail,
@@ -66,26 +72,109 @@ export function useObsV2Events({
   useEffect(() => {
     if (!bootstrappedRef.current) {
       bootstrappedRef.current = true;
+      if (authoritativeEvent?.id) {
+        seenTokensRef.current.add(authoritativeEvent.id);
+      }
       if (flashToken) {
         seenTokensRef.current.add(flashToken);
       }
     }
-  }, [flashToken]);
+  }, [authoritativeEvent?.id, flashToken]);
 
-  // 2. Incoming Event Processing
+  const dispatchEvent = useCallback(
+    (newEvent: ObsV2BroadcastEvent, token: string) => {
+      // Match Identity Guard: Ensure event belongs to the active match
+      if (newEvent.matchId != null && matchId != null && newEvent.matchId !== matchId) {
+        seenTokensRef.current.add(token);
+        return;
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[OBS V2] normalized event id=${newEvent.id}`);
+      }
+
+      // Collision & Priority Resolution
+      setActiveEvent((current) => {
+        if (current && newEvent.priority < current.priority) {
+          seenTokensRef.current.add(token);
+          return current;
+        }
+
+        seenTokensRef.current.add(token);
+        if (seenTokensRef.current.size > 100) {
+          const [first] = seenTokensRef.current;
+          seenTokensRef.current.delete(first);
+        }
+
+        if (dismissTimerRef.current) {
+          clearTimeout(dismissTimerRef.current);
+        }
+
+        const totalDuration = OBS_V2.motion.duration.eventTotal || 2000;
+        dismissTimerRef.current = setTimeout(() => {
+          setActiveEvent(null);
+        }, totalDuration);
+
+        return newEvent;
+      });
+    },
+    [matchId],
+  );
+
+  // 2. Authoritative Server Event Processing (P0 Primary Path)
+  useEffect(() => {
+    if (!authoritativeEvent || !authoritativeEvent.id) return;
+    const token = authoritativeEvent.id;
+    if (seenTokensRef.current.has(token)) return;
+
+    if (phase === "completed" && authoritativeEvent.type !== "MATCH_WON") {
+      seenTokensRef.current.add(token);
+      return;
+    }
+
+    const newEvent = normalizeAuthoritativeBroadcastEvent(authoritativeEvent);
+    if (!newEvent) return;
+
+    dispatchEvent(newEvent, token);
+  }, [authoritativeEvent, phase, dispatchEvent]);
+
+  // Window Event Listener for Real-Time SSE Event Dispatch
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleBroadcastEvent = (ev: Event) => {
+      const detail = (ev as CustomEvent).detail as CricketAuthoritativeBroadcastEvent;
+      if (!detail || !detail.id) return;
+      const token = detail.id;
+      if (seenTokensRef.current.has(token)) return;
+
+      if (phase === "completed" && detail.type !== "MATCH_WON") {
+        seenTokensRef.current.add(token);
+        return;
+      }
+
+      const newEvent = normalizeAuthoritativeBroadcastEvent(detail);
+      if (!newEvent) return;
+
+      dispatchEvent(newEvent, token);
+    };
+
+    window.addEventListener("cricket_scoring_broadcast_event", handleBroadcastEvent);
+    return () => {
+      window.removeEventListener("cricket_scoring_broadcast_event", handleBroadcastEvent);
+    };
+  }, [phase, dispatchEvent]);
+
+  // 3. Fallback / Manual Director Flash Processing
   useEffect(() => {
     if (!rawFlash || !flashToken) return;
-
-    // Check if token has already been processed
     if (seenTokensRef.current.has(flashToken)) return;
 
-    // Lifecycle Gating: Suppress scoring events only if match is completed and not terminal victory
     if (phase === "completed" && rawFlash !== "MATCH_WON") {
       seenTokensRef.current.add(flashToken);
       return;
     }
 
-    // Normalize event
     const newEvent = normalizeCricketFlashToObsV2Event({
       flash: rawFlash,
       token: flashToken,
@@ -98,45 +187,7 @@ export function useObsV2Events({
     });
 
     if (!newEvent) return;
-
-    // Match Identity Guard: Ensure event belongs to the active match
-    if (newEvent.matchId != null && matchId != null && newEvent.matchId !== matchId) {
-      seenTokensRef.current.add(flashToken);
-      return;
-    }
-
-    // Collision & Priority Resolution
-    setActiveEvent((current) => {
-      // If an event is currently active, resolve priority
-      if (current) {
-        if (newEvent.priority < current.priority) {
-          // Lower priority event is suppressed
-          seenTokensRef.current.add(flashToken);
-          return current;
-        }
-      }
-
-      // Mark token as seen
-      seenTokensRef.current.add(flashToken);
-      if (seenTokensRef.current.size > 100) {
-        // Keep memory bounded
-        const [first] = seenTokensRef.current;
-        seenTokensRef.current.delete(first);
-      }
-
-      // Reset auto-dismiss timer
-      if (dismissTimerRef.current) {
-        clearTimeout(dismissTimerRef.current);
-      }
-
-      const totalDuration = OBS_V2.motion.duration.eventTotal || 2000;
-
-      dismissTimerRef.current = setTimeout(() => {
-        setActiveEvent(null);
-      }, totalDuration);
-
-      return newEvent;
-    });
+    dispatchEvent(newEvent, flashToken);
   }, [
     rawFlash,
     flashToken,
@@ -146,6 +197,7 @@ export function useObsV2Events({
     batterName,
     bowlerName,
     milestoneValue,
+    dispatchEvent,
   ]);
 
   // Cleanup timers on unmount

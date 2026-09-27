@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useCricketObsLive } from "@/hooks/use-cricket-obs-live";
 import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
+import type { CricketAuthoritativeBroadcastEvent } from "@workspace/scoring-core";
 import { cricketVmToObsV2StageData } from "./obs-v2-live-adapter";
 import type { ObsV2StageData } from "./types";
 
@@ -15,6 +16,8 @@ export interface UseObsV2LiveResult {
   connectionStatus: string;
   /** Raw underlying CricketObsViewModel reference for specialized needs */
   rawVm: CricketObsViewModel;
+  /** Authoritative broadcast event pushed from server */
+  broadcastEvent: CricketAuthoritativeBroadcastEvent | null;
 }
 
 /**
@@ -48,11 +51,20 @@ export function useObsV2Live(
     return cricketVmToObsV2StageData(vm, isLoading);
   }, [vm, isLoading]);
 
+  const broadcastEvent = vm.broadcastEvent ?? null;
+
+  if (process.env.NODE_ENV !== "production") {
+    if (broadcastEvent) {
+      console.log(`[OBS V2] received event ${broadcastEvent.type} seq=${broadcastEvent.sequence}`);
+    }
+  }
+
   return {
     data: stageData,
     isLoading,
     scoringActive,
     connectionStatus: vm.connectionHint === "reconnecting" ? "reconnecting" : "connected",
     rawVm: vm,
+    broadcastEvent,
   };
 }
