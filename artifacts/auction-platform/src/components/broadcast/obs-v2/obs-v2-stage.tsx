@@ -11,6 +11,7 @@ import {
   type ObsV2BroadcastMessageData,
 } from "./types";
 import { deriveBranding } from "./branding";
+import { OBS_V2 } from "./obs-v2-tokens";
 
 export interface ObsV2StageProps extends HTMLAttributes<HTMLDivElement> {
   /** Master Lovable BroadcastFrame (if already adapted) */
@@ -163,9 +164,19 @@ export const ObsV2Stage = forwardRef<HTMLDivElement, ObsV2StageProps>(
           {/* Master Lovable Broadcast Stage */}
           <BroadcastStage frame={resolvedFrame} />
 
-          {/* Real-time Transient Event Graphic (docked above lower-third, safely outside camera safe zone) */}
+          {/* Real-time Transient Event Graphic (Camera Safe Area: 96–880px, strictly centered) */}
           {activeEvent && (
-            <div style={{ position: "absolute", left: 0, right: 0, bottom: 200, zIndex: 30 }}>
+            <div
+              style={{
+                position: "absolute",
+                top: OBS_V2.canvas.headerHeight,
+                left: 0,
+                right: 0,
+                height: OBS_V2.canvas.cameraHeight,
+                zIndex: 60,
+                pointerEvents: "none",
+              }}
+            >
               <ObsV2EventGraphic event={activeEvent} />
             </div>
           )}
