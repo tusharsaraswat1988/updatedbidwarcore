@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { loginScorer, logoutScorer, type ScorerAssignedTournament, type ScorerLoginResult } from "@/lib/scorer-api";
 import { sanitizeMobileInput } from "@workspace/api-base/mobile";
-import { cricketScorerConsolePath, cricketScorerPath } from "@/lib/cricket-routes";
+import { cricketScorerConsolePath, cricketScorerHomePath } from "@/lib/cricket-routes";
 import { CricketPublicBrandMark } from "@/components/scoring/cricket-branding";
 import { ScorerPwaInstallBanner } from "@/components/scoring/scorer-pwa-install-banner";
 import { Button } from "@/components/ui/button";
@@ -163,7 +163,7 @@ export default function CricketScorerHomePage() {
     setSession(getScorerAuthSession());
     setShowTournamentPicker(false);
     setPendingLogin(null);
-    navigate(cricketScorerPath(targetTid), { replace: true });
+    navigate(cricketScorerHomePath(targetTid), { replace: true });
   }
 
   function handleSwitchTournament(targetTid: number) {
@@ -176,7 +176,7 @@ export default function CricketScorerHomePage() {
     setScorerSavedTournamentId(targetTid);
     setSession(getScorerAuthSession());
     setShowTournamentPicker(false);
-    navigate(cricketScorerPath(targetTid), { replace: true });
+    navigate(cricketScorerHomePath(targetTid), { replace: true });
   }
 
   async function handleLogin(e?: React.FormEvent) {
