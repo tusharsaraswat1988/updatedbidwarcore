@@ -3,7 +3,7 @@ import type { BroadcastFrame, CricketScoreModel } from "./contracts";
 import type { ObsV2BroadcastEvent } from "./obs-v2-events";
 import { ObsV2EventGraphic } from "./obs-v2-event-graphic";
 import {
-  AssociateSponsorRail,
+  AssociateSponsorScorebug,
   BidWarLiveBrand,
   HeaderAccents,
   HeaderEnergy,
@@ -37,8 +37,9 @@ export interface CricketBroadcastStageProps {
  * Zero dependency on Auction scenes or Auction scene switching.
  *
  * Protected Zones:
- * - HEADER (0–96px, z-30): Tournament Branding, Centered BidWar Logo, Right-anchored Sponsors
+ * - HEADER (0–96px, z-30): Tournament Branding, Centered BidWar Logo, Right-anchored Title Sponsor
  * - LIVE BUG (y: 102px, right: 72px): Compact television live broadcast bug just below header
+ * - ASSOCIATE SPONSOR (y: 844px, right: 72px): Frameless associate sponsor directly above scorebug on the right
  * - CAMERA SAFE AREA (96–880px, z-40/z-50): 100% transparent live viewport.
  *   Hosts transient Central Event Impact & temporary Mid-Screen Slates.
  * - LOWER THIRD / SCOREBUG (880–1040px, z-20): Persistent live Cricket scorebug with CRR next to Overs
@@ -75,7 +76,7 @@ export function CricketBroadcastStage({
         <TournamentBrand branding={frame.branding} />
         <BidWarLiveBrand feed={frame.feed.status} showLive={false} />
 
-        {/* Right-aligned sponsors: strictly anchored to the right side */}
+        {/* Right-aligned title sponsor strictly anchored to the right side */}
         <div
           className="bw-header-sponsors-right"
           style={{
@@ -86,7 +87,6 @@ export function CricketBroadcastStage({
             zIndex: 10,
           }}
         >
-          {associates.length > 0 && <AssociateSponsorRail sponsors={associates} />}
           {title && <TitleSponsor sponsor={title} />}
         </div>
       </HeaderFrame>
@@ -107,6 +107,11 @@ export function CricketBroadcastStage({
       >
         <ObsV2EventGraphic event={activeEvent ?? null} />
       </div>
+
+      {/* Frameless Associate Sponsor docked right above footer scoreboard on the right */}
+      {!hideLower && associates.length > 0 && (
+        <AssociateSponsorScorebug sponsors={associates} />
+      )}
 
       {/* ── ZONE 3: LOWER THIRD / SCOREBUG (880–1040px, z-20, Protected Zone) ── */}
       {!hideLower && (

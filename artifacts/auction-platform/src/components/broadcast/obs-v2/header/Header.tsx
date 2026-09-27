@@ -239,3 +239,100 @@ export function AssociateSponsorRail({
     </div>
   );
 }
+
+/**
+ * Frameless Associate Sponsor display docked just above the lower third scorebug on the right.
+ * No box or card background — clean text and logo.
+ */
+export function AssociateSponsorScorebug({
+  sponsors,
+  intervalMs = 5000,
+}: {
+  sponsors: SponsorLogo[];
+  intervalMs?: number;
+}) {
+  const [i, setI] = useState(0);
+
+  useEffect(() => {
+    if (sponsors.length < 2) return;
+    const t = setInterval(() => setI((v) => (v + 1) % sponsors.length), intervalMs);
+    return () => clearInterval(t);
+  }, [sponsors.length, intervalMs]);
+
+  if (!sponsors.length) return null;
+  const s = sponsors[i % sponsors.length];
+  if (!s) return null;
+
+  const label = s.label || (s.tier ? s.tier.replace(/_/g, " ").toUpperCase() : "ASSOCIATE");
+
+  return (
+    <div
+      className="bw-scorebug-assoc"
+      style={{
+        position: "absolute",
+        top: "844px",
+        right: "72px",
+        zIndex: 25,
+        display: "flex",
+        alignItems: "center",
+        gap: "10px",
+        background: "transparent",
+        border: "none",
+        padding: 0,
+        boxShadow: "none",
+      }}
+    >
+      <span
+        style={{
+          fontSize: "12px",
+          fontWeight: 700,
+          letterSpacing: "0.14em",
+          color: "var(--bw-cyan)",
+          fontFamily: "var(--bw-font-display)",
+          textTransform: "uppercase",
+          textShadow: "0 1px 3px rgba(0, 0, 0, 0.85)",
+        }}
+      >
+        {label}
+      </span>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={s.id || s.name}
+          initial={{ opacity: 0, x: 6 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -6 }}
+          transition={{ duration: 0.22 }}
+          style={{ display: "flex", alignItems: "center", gap: "8px" }}
+        >
+          {s.logoUrl && (
+            <img
+              src={s.logoUrl}
+              alt={s.name}
+              style={{
+                height: "28px",
+                width: "auto",
+                maxWidth: "70px",
+                objectFit: "contain",
+                display: "block",
+                filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.75))",
+              }}
+            />
+          )}
+          <span
+            style={{
+              fontSize: "18px",
+              fontWeight: 800,
+              color: "var(--bw-ink)",
+              letterSpacing: "0.02em",
+              fontFamily: "var(--bw-font-display)",
+              textShadow: "0 1px 4px rgba(0, 0, 0, 0.85)",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {s.name}
+          </span>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
