@@ -18,8 +18,6 @@ import {
   FooterBar,
   FooterStat,
   FooterStatus,
-  SponsorTicker,
-  TeamTicker,
 } from "./footer/Footer";
 import { OBS_V2 } from "./obs-v2-tokens";
 
@@ -163,20 +161,15 @@ export function CricketBroadcastStage({
                 />
               )
             }
-            center={
-              frame.settings.showTicker ? (
-                frame.teams && frame.teams.length > 0 ? (
-                  <TeamTicker teams={frame.teams} />
-                ) : (
-                  <SponsorTicker sponsors={frame.sponsors} />
-                )
-              ) : null
-            }
+            center={null}
             right={
               <>
                 <ConnectionStatus status={frame.feed.status} seconds={frame.feed.secondsSinceUpdate} />
                 {isCricketScene && cricketModel && (
                   <FooterStat label="CRR" value={cricketModel.crr.toFixed(2)} />
+                )}
+                {isCricketScene && cricketModel?.rrr != null && (
+                  <FooterStat label="RRR" value={cricketModel.rrr.toFixed(2)} />
                 )}
               </>
             }

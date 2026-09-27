@@ -83,13 +83,12 @@ export const ObsV2EventGraphic = forwardRef<HTMLDivElement, ObsV2EventGraphicPro
               <div className="relative z-10 flex items-center justify-between w-full pb-3 border-b border-white/10 mb-3">
                 <div className="flex items-center gap-2.5">
                   <img
-                    src="/assets/broadcast/bidwar-obs-crest-badge.png"
+                    src="/assets/branding/bidwar-reverse-logo-official.png"
                     alt="BidWar"
-                    className="w-6 h-6 object-contain filter drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]"
+                    className="h-5 w-auto object-contain filter drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]"
                     onError={(e) => {
-                      // Fallback to official reverse logo if crest image is missing
                       const target = e.currentTarget;
-                      if (!target.src.includes("bidwar-reverse-logo-official")) {
+                      if (!target.src.includes("broadcast/bidwar-reverse-logo-official")) {
                         target.src = "/assets/broadcast/bidwar-reverse-logo-official.png";
                       }
                     }}
@@ -98,7 +97,7 @@ export const ObsV2EventGraphic = forwardRef<HTMLDivElement, ObsV2EventGraphicPro
                     className="text-[11px] font-black uppercase tracking-[0.2em]"
                     style={{ color: event.accentColor || OBS_V2.color.brand }}
                   >
-                    BIDWAR BROADCAST IMPACT
+                    LIVE IMPACT
                   </span>
                 </div>
 

@@ -73,9 +73,24 @@ export function BidWarLiveBrand({ feed }: { feed: FeedStatus }) {
   const label = feed === "disconnected" ? "OFFLINE" : "LIVE";
   return (
     <div className="bw-livebrand">
-      <span className="bw-wordmark">
-        <b>bid</b>war
-      </span>
+      <img
+        src="/assets/branding/bidwar-reverse-logo-official.png"
+        alt="BidWar"
+        className="bw-brand-logo"
+        style={{
+          height: "36px",
+          width: "auto",
+          maxWidth: "140px",
+          objectFit: "contain",
+          display: "block",
+        }}
+        onError={(e) => {
+          const target = e.currentTarget;
+          if (!target.src.includes("broadcast/bidwar-reverse-logo-official")) {
+            target.src = "/assets/broadcast/bidwar-reverse-logo-official.png";
+          }
+        }}
+      />
       <span className="bw-divider" />
       <span className="bw-live" data-feed={feed}>
         <i />

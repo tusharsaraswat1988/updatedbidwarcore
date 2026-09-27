@@ -123,30 +123,9 @@ export function adaptCricketToBroadcastFrame(
     (vm.sponsors && vm.sponsors.length > 0) ? vm.sponsors : sponsorLogos,
   );
 
-  // Teams for ticker
+  // CRICKET V2 CONTRACT: Zero auction purse/slots contamination.
+  // Teams array for generic BroadcastFrame contract is empty; showTicker is disabled.
   const teams: TeamPurse[] = [];
-  if (vm.home) {
-    teams.push({
-      teamId: String(vm.home.id),
-      name: vm.home.name,
-      short: vm.home.shortCode,
-      logoUrl: vm.home.logoUrl || undefined,
-      purseRemaining: 0,
-      playersBought: 0,
-      slotsRemaining: 0,
-    });
-  }
-  if (vm.away) {
-    teams.push({
-      teamId: String(vm.away.id),
-      name: vm.away.name,
-      short: vm.away.shortCode,
-      logoUrl: vm.away.logoUrl || undefined,
-      purseRemaining: 0,
-      playersBought: 0,
-      slotsRemaining: 0,
-    });
-  }
 
   const feedStatus: FeedStatus =
     vm.connectionHint === "reconnecting" ? "stale" : "live";
@@ -157,7 +136,7 @@ export function adaptCricketToBroadcastFrame(
     teams,
     settings: {
       performanceMode,
-      showTicker: teams.length > 0,
+      showTicker: false,
     },
     feed: {
       status: feedStatus,

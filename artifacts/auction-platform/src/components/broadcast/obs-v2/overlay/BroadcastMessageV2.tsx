@@ -37,17 +37,19 @@ export interface BroadcastMessageV2Props {
   alignRight?: boolean;
 }
 
-export function BroadcastMessageV2({ message, alignRight = false }: BroadcastMessageV2Props) {
+export function BroadcastMessageV2({ message, alignRight = true }: BroadcastMessageV2Props) {
   const isVisible = Boolean(message?.active && message?.name);
+
+  // Position: Immediately above the 160px scorebug (zones.camera.bottom = 200px)
+  // Right-entry within 96px action-safe bounds
+  const bottomPosition = OBS_V2.canvas.zones.camera.bottom + 8; // 208px from bottom
 
   return (
     <div
       className="pointer-events-none absolute z-[35] flex flex-col justify-end"
       style={{
-        // Position safely above scorebug (scorebugHeight + some breathing room)
-        bottom: `${OBS_V2.canvas.scorebugHeight + 16}px`,
-        left: alignRight ? undefined : `${OBS_V2.canvas.safeX}px`,
-        right: alignRight ? `${OBS_V2.canvas.safeX}px` : undefined,
+        bottom: `${bottomPosition}px`,
+        right: `${OBS_V2.canvas.safeX}px`,
         maxWidth: "640px",
       }}
     >
@@ -55,11 +57,11 @@ export function BroadcastMessageV2({ message, alignRight = false }: BroadcastMes
         {isVisible && message ? (
           <motion.div
             key={`bw-msg-${message.name}`}
-            initial={{ opacity: 0, x: alignRight ? 36 : -36 }}
+            initial={{ opacity: 0, x: 80 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: alignRight ? 24 : -24 }}
+            exit={{ opacity: 0, x: 80 }}
             transition={{
-              duration: 0.22,
+              duration: 0.24,
               ease: OBS_V2.motion.easing.snappy,
             }}
             className="relative flex items-stretch overflow-hidden select-none"
@@ -68,13 +70,9 @@ export function BroadcastMessageV2({ message, alignRight = false }: BroadcastMes
               background: OBS_V2.color.panel,
               borderTop: `1px solid ${OBS_V2.color.standard}`,
               borderBottom: `1px solid ${OBS_V2.color.standard}`,
-              // V2 gold accent rail — left or right depending on alignment
-              borderLeft: alignRight
-                ? `1px solid ${OBS_V2.color.standard}`
-                : `3px solid ${OBS_V2.color.brand}`,
-              borderRight: alignRight
-                ? `3px solid ${OBS_V2.color.brand}`
-                : `1px solid ${OBS_V2.color.standard}`,
+              borderLeft: `1px solid ${OBS_V2.color.standard}`,
+              borderRight: `3px solid ${OBS_V2.color.brand}`,
+              borderRadius: "6px 0 0 6px",
             }}
           >
             {/* Content Container */}
@@ -86,19 +84,31 @@ export function BroadcastMessageV2({ message, alignRight = false }: BroadcastMes
                 maxWidth: "600px",
               }}
             >
-              {/* Kicker label */}
-              <div
-                style={{
-                  fontSize: OBS_V2.typography.scale.label.fontSize,
-                  fontFamily: OBS_V2.typography.family.body,
-                  letterSpacing: OBS_V2.typography.tracking.wider,
-                  color: OBS_V2.color.brand,
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  marginBottom: 3,
-                }}
-              >
-                BIDWAR BROADCAST
+              {/* Kicker bar with real BidWar logo */}
+              <div className="flex items-center gap-2 mb-1">
+                <img
+                  src="/assets/branding/bidwar-reverse-logo-official.png"
+                  alt="BidWar"
+                  className="h-3.5 w-auto object-contain"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (!target.src.includes("broadcast/bidwar-reverse-logo-official")) {
+                      target.src = "/assets/broadcast/bidwar-reverse-logo-official.png";
+                    }
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: OBS_V2.typography.scale.micro.fontSize,
+                    fontFamily: OBS_V2.typography.family.body,
+                    letterSpacing: OBS_V2.typography.tracking.widest,
+                    color: OBS_V2.color.brand,
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  BROADCAST
+                </span>
               </div>
 
               {/* Primary Dominant Name — Bebas Neue display */}
@@ -142,11 +152,10 @@ export function BroadcastMessageV2({ message, alignRight = false }: BroadcastMes
             {/* Right structural accent notch */}
             <div
               style={{
-                width: "6px",
+                width: "4px",
                 flexShrink: 0,
                 alignSelf: "stretch",
-                background: OBS_V2.color.carbon,
-                borderLeft: `1px solid ${OBS_V2.color.hairline}`,
+                background: OBS_V2.color.brand,
               }}
             />
           </motion.div>

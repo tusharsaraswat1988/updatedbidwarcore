@@ -24,7 +24,7 @@
  * 6. VS_INTRO  — Cinematic head-to-head pre-match clash (~46% width)
  */
 
-import { useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { OBS_V2 } from "../obs-v2-tokens";
@@ -50,15 +50,23 @@ export interface BroadcastSideSlateProps {
   className?: string;
 }
 
-// ─── Width Configurations per Variant (Content-Driven 38%–54%) ──────────────
-
-const VARIANT_WIDTHS: Record<BroadcastSideSlateVariant, { widthPx: number; widthPercent: string; label: string; kicker: string }> = {
-  SUMMARY: { widthPx: 1040, widthPercent: "54%", label: "MATCH SUMMARY", kicker: "OFFICIAL MATCH VERDICT" },
-  SCORECARD: { widthPx: 940, widthPercent: "49%", label: "SCORECARD", kicker: "LIVE INNINGS BREAKDOWN" },
-  STANDINGS: { widthPx: 860, widthPercent: "45%", label: "POINTS TABLE", kicker: "TOURNAMENT STANDINGS" },
-  FIXTURES: { widthPx: 800, widthPercent: "42%", label: "SESSION SCHEDULE", kicker: "UPCOMING FIXTURES" },
-  SPONSORS: { widthPx: 760, widthPercent: "40%", label: "COMMERCIAL PARTNERS", kicker: "OFFICIAL SPONSOR SHOWCASE" },
-  VS_INTRO: { widthPx: 880, widthPercent: "46%", label: "MATCH PREVIEW", kicker: "HEAD TO HEAD CLASH" },
+// ─── Content-Driven Configurations per Variant ──────────────────────────────
+export const VARIANT_CONFIGS: Record<
+  BroadcastSideSlateVariant,
+  {
+    widthPx: number;
+    heightMode: "fill" | "compact";
+    heightPx?: number;
+    label: string;
+    kicker: string;
+  }
+> = {
+  STANDINGS: { widthPx: 860, heightMode: "fill", label: "POINTS TABLE", kicker: "TOURNAMENT STANDINGS" },
+  FIXTURES: { widthPx: 820, heightMode: "fill", label: "SESSION SCHEDULE", kicker: "UPCOMING FIXTURES" },
+  SCORECARD: { widthPx: 940, heightMode: "fill", label: "SCORECARD", kicker: "LIVE INNINGS BREAKDOWN" },
+  SUMMARY: { widthPx: 680, heightMode: "compact", heightPx: 440, label: "MATCH SUMMARY", kicker: "OFFICIAL MATCH VERDICT" },
+  VS_INTRO: { widthPx: 660, heightMode: "compact", heightPx: 310, label: "MATCH PREVIEW", kicker: "HEAD TO HEAD CLASH" },
+  SPONSORS: { widthPx: 600, heightMode: "compact", heightPx: 290, label: "COMMERCIAL PARTNER", kicker: "OFFICIAL SPONSOR" },
 };
 
 // ─── Reusable Side Slate Shell ───────────────────────────────────────────────
@@ -68,6 +76,7 @@ interface SideSlateShellProps {
   tournamentName: string;
   title: string;
   kicker: string;
+  shellKey?: string;
   children: React.ReactNode;
 }
 
@@ -76,9 +85,10 @@ function SideSlateShell({
   tournamentName,
   title,
   kicker,
+  shellKey,
   children,
 }: SideSlateShellProps) {
-  const config = VARIANT_WIDTHS[variant];
+  const config = VARIANT_CONFIGS[variant];
 
   return (
     <div
@@ -93,7 +103,7 @@ function SideSlateShell({
       }}
     >
       <motion.div
-        key={`side-slate-${variant}`}
+        key={shellKey || `side-slate-${variant}`}
         initial={{ x: "-108%", opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: "-108%", opacity: 0 }}
@@ -105,7 +115,7 @@ function SideSlateShell({
         style={{
           width: `${config.widthPx}px`,
           maxWidth: "60%",
-          height: "94%",
+          height: config.heightMode === "fill" ? "92%" : `${config.heightPx}px`,
           maxHeight: `${OBS_V2.canvas.cameraHeight - 24}px`,
           background: "linear-gradient(180deg, rgba(8, 14, 28, 0.97) 0%, rgba(5, 8, 17, 0.98) 100%)",
           backdropFilter: "blur(24px)",
@@ -117,31 +127,28 @@ function SideSlateShell({
           fontFamily: "'Inter', sans-serif",
         }}
       >
-        {/* ── 1. Top Sub-Masthead Bar (46px) ── */}
+        {/* ── 1. Top Sub-Masthead Bar (44px) with Real BidWar Logo Asset ── */}
         <div
           className="flex items-center justify-between shrink-0 px-5 py-2"
           style={{
-            height: "46px",
+            height: "44px",
             background: "linear-gradient(90deg, rgba(18, 28, 52, 0.95) 0%, rgba(10, 16, 32, 0.95) 100%)",
             borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
           }}
         >
-          {/* Left: Real BidWar Logo Badge & Tournament Name */}
+          {/* Left: Real Official BidWar Logo Asset & Tournament Name */}
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex items-center gap-1.5 bg-[#FFD700] text-black px-2 py-0.5 rounded font-black text-[11px] uppercase tracking-wider shrink-0 shadow-sm">
-              <img
-                src="/assets/broadcast/bidwar-obs-crest-badge.png"
-                alt="BidWar"
-                className="w-3.5 h-3.5 object-contain"
-                onError={(e) => {
-                  const target = e.currentTarget;
-                  if (!target.src.includes("bidwar-reverse-logo-official")) {
-                    target.src = "/assets/broadcast/bidwar-reverse-logo-official.png";
-                  }
-                }}
-              />
-              <span>BIDWAR</span>
-            </div>
+            <img
+              src="/assets/branding/bidwar-reverse-logo-official.png"
+              alt="BidWar"
+              className="h-4 w-auto object-contain"
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (!target.src.includes("broadcast/bidwar-reverse-logo-official")) {
+                  target.src = "/assets/broadcast/bidwar-reverse-logo-official.png";
+                }
+              }}
+            />
             <span className="text-slate-300 text-xs font-bold tracking-wide uppercase truncate">
               {tournamentName || "CRICKET BROADCAST"}
             </span>
@@ -158,7 +165,7 @@ function SideSlateShell({
 
         {/* ── 2. Headline Strip ── */}
         <div
-          className="px-5 py-2.5 shrink-0 flex items-center justify-between"
+          className="px-5 py-2 shrink-0 flex items-center justify-between"
           style={{
             background: "rgba(255, 255, 255, 0.02)",
             borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
@@ -168,12 +175,12 @@ function SideSlateShell({
             <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#FFD700]">
               {kicker}
             </div>
-            <div className="text-xl sm:text-2xl font-black italic tracking-wide text-white uppercase font-sans">
+            <div className="text-lg sm:text-xl font-black italic tracking-wide text-white uppercase font-sans">
               {title}
             </div>
           </div>
           <div
-            className="h-1.5 w-12 rounded-full"
+            className="h-1.5 w-10 rounded-full"
             style={{
               background: "linear-gradient(90deg, #FFD700 0%, #12CFFF 100%)",
             }}
@@ -181,7 +188,7 @@ function SideSlateShell({
         </div>
 
         {/* ── 3. Content Viewport ── */}
-        <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-5">
+        <div className="flex-1 flex flex-col overflow-hidden p-3.5 sm:p-4">
           {children}
         </div>
       </motion.div>
@@ -573,60 +580,52 @@ function FixturesVariant({ tournamentId }: { tournamentId?: number }) {
   );
 }
 
-// ─── 5. VARIANT: SPONSORS SLATE (Partner Grid 40% Width) ─────────────────────
+// ─── 5. VARIANT: SPONSORS SLATE (Single Partner Card ~290px Height) ──────────
 
 function SponsorsVariant({
-  sponsors,
-  sponsorName,
+  currentSponsor,
 }: {
-  sponsors?: BidWarSponsorLogo[];
-  sponsorName?: string;
+  currentSponsor?: BidWarSponsorLogo | null;
 }) {
-  const targeted = useMemo(() => {
-    if (!sponsorName || sponsorName === "all" || !sponsors) return null;
-    return sponsors.find((s) => s.name?.toLowerCase().trim() === sponsorName.toLowerCase().trim()) ?? null;
-  }, [sponsorName, sponsors]);
+  if (!currentSponsor) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+        <span className="text-xs text-slate-400">Official Commercial Partner</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex-1 flex flex-col gap-3 overflow-y-auto">
-      {targeted ? (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 rounded-xl border border-amber-400/30 bg-amber-500/5 text-center">
-          <span className="text-[10px] font-black uppercase tracking-widest text-[#FFD700] mb-3">
-            {targeted.isTitleSponsor ? "TITLE SPONSOR" : "OFFICIAL PARTNER"}
-          </span>
-          {targeted.url && (
-            <img src={targeted.url} alt="" className="max-h-24 max-w-full object-contain mb-3" />
-          )}
-          <h3 className="text-2xl font-black italic text-white uppercase">{targeted.name}</h3>
-        </div>
-      ) : sponsors && sponsors.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3">
-          {sponsors.slice(0, 6).map((sp, idx) => (
-            <div
-              key={idx}
-              className="p-3 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col items-center justify-center text-center h-28"
-            >
-              {sp.url ? (
-                <img src={sp.url} alt="" className="max-h-12 max-w-full object-contain mb-1.5" />
-              ) : (
-                <span className="text-xl font-bold text-amber-400">{sp.name?.slice(0, 2)}</span>
-              )}
-              <span className="font-bold text-xs text-white uppercase truncate w-full">
-                {sp.name}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="py-12 text-center text-xs text-slate-400">
-          No sponsor showcase configured.
-        </div>
-      )}
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-4 py-2">
+      {/* Prominent Sponsor Logo Asset */}
+      <div className="h-24 w-full flex items-center justify-center">
+        {currentSponsor.url ? (
+          <img
+            src={currentSponsor.url}
+            alt={currentSponsor.name}
+            className="max-h-24 max-w-[280px] object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+          />
+        ) : (
+          <div className="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl font-black text-[#FFD700]">
+            {currentSponsor.name?.slice(0, 2).toUpperCase()}
+          </div>
+        )}
+      </div>
+
+      {/* Prominent Name & Secondary Category */}
+      <div className="flex flex-col items-center">
+        <h3 className="text-2xl font-black italic text-white uppercase tracking-wide font-sans leading-tight">
+          {currentSponsor.name}
+        </h3>
+        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#12CFFF] mt-0.5">
+          {currentSponsor.type || (currentSponsor.isTitleSponsor ? "TITLE SPONSOR" : "OFFICIAL PARTNER")}
+        </span>
+      </div>
     </div>
   );
 }
 
-// ─── 6. VARIANT: VS INTRO SLATE (Head-to-Head 46% Width) ─────────────────────
+// ─── 6. VARIANT: VS INTRO SLATE (Compact Match Preview ~310px Height) ─────────
 
 function VsIntroVariant({
   vm,
@@ -656,44 +655,54 @@ function VsIntroVariant({
   const awayTeam = activeMatch?.awayTeam || vm.away;
 
   return (
-    <div className="flex-1 flex flex-col justify-between py-2">
-      {/* Team vs Team Badges */}
-      <div className="flex items-center justify-around py-4">
-        <div className="flex flex-col items-center gap-2 max-w-[140px] text-center">
-          <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/15 flex items-center justify-center font-black text-2xl text-white">
+    <div className="flex-1 flex flex-col justify-between py-1 px-2">
+      {/* Team vs Team Card Row */}
+      <div className="flex items-center justify-around py-2">
+        {/* Team A */}
+        <div className="flex flex-col items-center gap-1.5 max-w-[150px] text-center">
+          <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/15 flex items-center justify-center font-black text-xl text-white shadow-inner">
             {homeTeam?.logoUrl ? (
-              <img src={homeTeam.logoUrl} alt="" className="max-h-14 max-w-14 object-contain" />
+              <img src={homeTeam.logoUrl} alt="" className="max-h-12 max-w-12 object-contain" />
             ) : (
               homeTeam?.shortCode || "HOME"
             )}
           </div>
-          <span className="font-bold text-sm text-white uppercase truncate w-full">
+          <span className="font-black text-sm text-white uppercase truncate w-full tracking-wide">
             {homeTeam?.name || "HOME SQUAD"}
           </span>
         </div>
 
-        <span className="text-4xl font-black italic text-[#FFD700] drop-shadow-[0_0_15px_rgba(255,215,0,0.5)]">
-          VS
-        </span>
+        {/* VS Indicator */}
+        <div className="flex flex-col items-center px-2">
+          <span className="text-3xl font-black italic text-[#FFD700] drop-shadow-[0_0_12px_rgba(255,215,0,0.5)]">
+            VS
+          </span>
+          <span className="text-[9px] font-mono font-bold uppercase text-slate-400 tracking-wider">
+            MATCH PREVIEW
+          </span>
+        </div>
 
-        <div className="flex flex-col items-center gap-2 max-w-[140px] text-center">
-          <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/15 flex items-center justify-center font-black text-2xl text-cyan-400">
+        {/* Team B */}
+        <div className="flex flex-col items-center gap-1.5 max-w-[150px] text-center">
+          <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/15 flex items-center justify-center font-black text-xl text-cyan-400 shadow-inner">
             {awayTeam?.logoUrl ? (
-              <img src={awayTeam.logoUrl} alt="" className="max-h-14 max-w-14 object-contain" />
+              <img src={awayTeam.logoUrl} alt="" className="max-h-12 max-w-12 object-contain" />
             ) : (
               awayTeam?.shortCode || "AWAY"
             )}
           </div>
-          <span className="font-bold text-sm text-white uppercase truncate w-full">
+          <span className="font-black text-sm text-white uppercase truncate w-full tracking-wide">
             {awayTeam?.name || "AWAY SQUAD"}
           </span>
         </div>
       </div>
 
-      {/* Toss & Conditions Strip */}
-      <div className="p-3 rounded-xl border border-white/10 bg-black/40 text-xs text-slate-300 font-mono flex items-center justify-between">
-        <span>🪙 {vm.tossText || "TOSS PENDING"}</span>
-        <span className="text-cyan-400 font-bold uppercase">{activeMatch?.venue || "MATCH LIVE"}</span>
+      {/* Match Info Strip at bottom of card */}
+      <div className="p-2.5 rounded-lg border border-white/10 bg-black/40 text-xs text-slate-300 font-mono flex items-center justify-between mt-1">
+        <span className="truncate max-w-[50%]">🪙 {vm.tossText || "TOSS PENDING"}</span>
+        <span className="text-cyan-400 font-bold uppercase truncate max-w-[45%] text-right">
+          📍 {activeMatch?.venue || vm.venueText || "LIVE MATCH"}
+        </span>
       </div>
     </div>
   );
@@ -709,7 +718,33 @@ export function BroadcastSideSlate({
   sponsorName,
   stageOrGroup,
 }: BroadcastSideSlateProps) {
-  const config = VARIANT_WIDTHS[variant];
+  const config = VARIANT_CONFIGS[variant];
+
+  // ── Sponsor Selection & Sequential Cycling ─────────────────────────────────
+  const sponsors = vm.sponsors || [];
+  const isAllSponsors = !sponsorName || sponsorName === "all";
+
+  const [cycleIndex, setCycleIndex] = useState(0);
+
+  useEffect(() => {
+    if (variant !== "SPONSORS" || !isAllSponsors || sponsors.length <= 1) return;
+    const timer = setInterval(() => {
+      setCycleIndex((prev) => (prev + 1) % sponsors.length);
+    }, 4200); // 4.2s per sponsor: 320ms enter, ~3.5s hold, 320ms exit
+    return () => clearInterval(timer);
+  }, [variant, isAllSponsors, sponsors.length]);
+
+  const activeSponsor = useMemo(() => {
+    if (variant !== "SPONSORS") return null;
+    if (!sponsors || sponsors.length === 0) return null;
+    if (!isAllSponsors) {
+      const found = sponsors.find(
+        (s) => s.name?.toLowerCase().trim() === sponsorName?.toLowerCase().trim(),
+      );
+      return found || sponsors[0];
+    }
+    return sponsors[cycleIndex % sponsors.length];
+  }, [variant, sponsors, isAllSponsors, sponsorName, cycleIndex]);
 
   const title = useMemo(() => {
     switch (variant) {
@@ -722,14 +757,21 @@ export function BroadcastSideSlate({
       case "FIXTURES":
         return "MATCH SCHEDULE";
       case "SPONSORS":
-        return sponsorName ? `PARTNER · ${sponsorName.toUpperCase()}` : "OFFICIAL SPONSORS";
+        return activeSponsor?.isTitleSponsor ? "TITLE PARTNER" : "OFFICIAL PARTNER";
       case "VS_INTRO":
         return `${vm.home?.shortCode || "HOME"} VS ${vm.away?.shortCode || "AWAY"}`;
     }
-  }, [variant, vm, stageOrGroup, sponsorName]);
+  }, [variant, vm, stageOrGroup, activeSponsor]);
+
+  const shellKey =
+    variant === "SPONSORS" && isAllSponsors
+      ? `side-slate-sponsors-${cycleIndex}`
+      : `side-slate-${variant}`;
 
   return (
     <SideSlateShell
+      key={shellKey}
+      shellKey={shellKey}
       variant={variant}
       tournamentName={vm.tournamentName || "BIDWAR CRICKET"}
       title={title}
@@ -748,7 +790,7 @@ export function BroadcastSideSlate({
         <FixturesVariant tournamentId={tournamentId} />
       )}
       {variant === "SPONSORS" && (
-        <SponsorsVariant sponsors={vm.sponsors} sponsorName={sponsorName} />
+        <SponsorsVariant currentSponsor={activeSponsor} />
       )}
       {variant === "VS_INTRO" && (
         <VsIntroVariant vm={vm} tournamentId={tournamentId} matchId={matchId} />

@@ -63,11 +63,17 @@ export default function CricketObsV2Page() {
   // ── Live data from SSE / Database ────────────────────────────────────────
   const {
     vm,
+    overlayMatchId: liveOverlayMatchId,
+    overlaySponsorName: liveOverlaySponsorName,
+    overlayStageOrGroup: liveOverlayStageOrGroup,
   } = useCricketObsLive(tournamentId > 0 ? tournamentId : 0, null);
 
   // ── Sync states (driven by Live Control via BroadcastChannel / SSE) ──
   const [syncOverlay, setSyncOverlay] = useState<CricketObsMidOverlayKind | null>(null);
   const [syncNeutral, setSyncNeutral] = useState<boolean | null>(null);
+  const [syncMatchId, setSyncMatchId] = useState<number | undefined>(undefined);
+  const [syncSponsorName, setSyncSponsorName] = useState<string | undefined>(undefined);
+  const [syncStageOrGroup, setSyncStageOrGroup] = useState<string | undefined>(undefined);
   const [syncMessage, setSyncMessage] = useState<{ name: string; details: string; active: boolean } | null>(null);
   const [syncEvent, setSyncEvent] = useState<ObsV2BroadcastEvent | null>(null);
 
@@ -91,9 +97,15 @@ export default function CricketObsV2Page() {
     } else if (msg.type === "SET_OVERLAY") {
       setSyncOverlay(msg.overlay);
       setSyncNeutral(msg.overlay === "neutral");
+      setSyncMatchId(msg.matchId);
+      setSyncSponsorName(msg.sponsorName);
+      setSyncStageOrGroup(msg.stageOrGroup);
     } else if (msg.type === "CLEAR_OVERLAY") {
       setSyncOverlay("none");
       setSyncNeutral(false);
+      setSyncMatchId(undefined);
+      setSyncSponsorName(undefined);
+      setSyncStageOrGroup(undefined);
     } else if (msg.type === "SET_BROADCAST_MESSAGE") {
       setSyncMessage({
         name: msg.broadcastMessage.name,
@@ -107,10 +119,16 @@ export default function CricketObsV2Page() {
       if (msg.scene === "CRICKET") {
         setSyncOverlay("none");
         setSyncNeutral(false);
+        setSyncMatchId(undefined);
+        setSyncSponsorName(undefined);
+        setSyncStageOrGroup(undefined);
       }
     } else if (msg.type === "DISMISS") {
       setSyncOverlay("none");
       setSyncNeutral(false);
+      setSyncMatchId(undefined);
+      setSyncSponsorName(undefined);
+      setSyncStageOrGroup(undefined);
       setSyncMessage(null);
       setSyncEvent(null);
       setActiveEvent(null);
@@ -352,6 +370,11 @@ export default function CricketObsV2Page() {
     }, OBS_V2.motion.duration.eventTotal);
   };
 
+  // ── Overlay Parameter Resolution ─────────────────────────────────────────
+  const effectiveOverlayMatchId = syncMatchId ?? liveOverlayMatchId;
+  const effectiveOverlaySponsorName = syncSponsorName ?? liveOverlaySponsorName;
+  const effectiveOverlayStageOrGroup = syncStageOrGroup ?? liveOverlayStageOrGroup;
+
   // ── Render Helpers ────────────────────────────────────────────────────────
 
   /** The core Cricket V2 canvas with all overlay layers */
@@ -361,24 +384,23 @@ export default function CricketObsV2Page() {
       <CricketBroadcastStage
         frame={activeFrame}
         activeEvent={effectiveActiveEvent}
-        hideLower={isNeutralActive || currentOverlay !== "none"}
-        hideFooter={isNeutralActive || currentOverlay !== "none"}
+        hideLower={isNeutralActive}
+        hideFooter={isNeutralActive}
       />
 
       {/* 2. Mid-Screen Slates (z-40) — rendered inside camera area above the stage */}
       <MidScreenSlatesV2
         vm={vm || fallbackVm}
         overlay={currentOverlay}
-        overlayMatchId={undefined}
-        overlaySponsorName={undefined}
-        overlayStageOrGroup={undefined}
+        overlayMatchId={effectiveOverlayMatchId}
+        overlaySponsorName={effectiveOverlaySponsorName}
+        overlayStageOrGroup={effectiveOverlayStageOrGroup}
         tournamentId={tournamentId || 10}
       />
 
-      {/* 3. Broadcast Message Chyron (z-35) — above scorebug, below slates */}
+      {/* 3. Broadcast Message Chyron (z-35) — above scorebug, right-entry */}
       <BroadcastMessageV2
         message={effectiveBroadcastMessage}
-        alignRight={isNeutralActive}
       />
 
       {/* 4. Neutral Footer (z-22, replaces scorebug when neutral is active) */}
@@ -537,6 +559,76 @@ export default function CricketObsV2Page() {
                 {btn.label}
               </button>
             ))}
+          </div>
+
+          {/* Side Slate Overlays */}
+          <div className="flex items-center gap-1 pl-2 border-l border-white/10">
+            <span className="text-slate-400">Slates:</span>
+            {(
+              [
+                { id: "none", label: "Off" },
+                { id: "summary", label: "Summary" },
+                { id: "scorecard", label: "Card" },
+                { id: "standings", label: "Points" },
+                { id: "fixtures", label: "Fixtures" },
+                { id: "sponsors-all", label: "Sponsors (All)" },
+                { id: "sponsors-single", label: "Sponsor (1)" },
+                { id: "intro", label: "VS" },
+              ] as const
+            ).map((s) => (
+              <button
+                key={s.id}
+                onClick={() => {
+                  if (s.id === "none") {
+                    setSyncOverlay("none");
+                    setSyncSponsorName(undefined);
+                  } else if (s.id === "sponsors-all") {
+                    setSyncOverlay("sponsors");
+                    setSyncSponsorName("all");
+                  } else if (s.id === "sponsors-single") {
+                    setSyncOverlay("sponsors");
+                    setSyncSponsorName("Heritage Hospital");
+                  } else {
+                    setSyncOverlay(s.id as CricketObsMidOverlayKind);
+                    setSyncSponsorName(undefined);
+                  }
+                }}
+                className={`px-2 py-0.5 rounded font-semibold transition ${
+                  (currentOverlay === s.id ||
+                    (s.id === "sponsors-all" && currentOverlay === "sponsors" && (!syncSponsorName || syncSponsorName === "all")) ||
+                    (s.id === "sponsors-single" && currentOverlay === "sponsors" && syncSponsorName && syncSponsorName !== "all"))
+                    ? "bg-cyan-400 text-black"
+                    : "bg-white/5 hover:bg-white/10 text-white"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Broadcast Message Chyron Toggle */}
+          <div className="flex items-center gap-1 pl-2 border-l border-white/10">
+            <button
+              onClick={() => {
+                if (effectiveBroadcastMessage?.active) {
+                  setSyncMessage(null);
+                  setBroadcastMessage(null);
+                } else {
+                  setSyncMessage({
+                    name: "HON. SHRI ANURAG THAKUR",
+                    details: "CHIEF GUEST · INAUGURAL ADDRESS",
+                    active: true,
+                  });
+                }
+              }}
+              className={`px-2 py-1 font-bold rounded border transition ${
+                effectiveBroadcastMessage?.active
+                  ? "bg-amber-400/20 border-amber-400 text-amber-300"
+                  : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+              }`}
+            >
+              Msg: {effectiveBroadcastMessage?.active ? "ON" : "OFF"}
+            </button>
           </div>
         </div>
       </header>
