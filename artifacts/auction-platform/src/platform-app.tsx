@@ -48,6 +48,7 @@ const ObsV2OverlayPreview = lazy(() => import("@/pages/obs-v2-overlay-preview"))
 const ObsV2Overlay = lazy(() => import("@/pages/obs-v2-overlay"));
 /** @deprecated Prefer /obs/v2 — kept for bookmarks during rollout */
 const ObsLabOverlayPreview = lazy(() => import("@/pages/obs-v2-overlay-preview"));
+const ObsLabOverlay = lazy(() => import("@/pages/obs-v2-overlay"));
 const CricketObsV2Preview = lazy(() => import("@/pages/cricket-obs-v2-preview"));
 const OrganizerPortal = lazy(() => import("@/pages/organizer-portal"));
 const OrganizerProfile = lazy(() => import("@/pages/organizer-profile"));
