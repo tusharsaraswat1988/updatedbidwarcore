@@ -358,8 +358,8 @@ export default function CricketObsV2Page() {
       {/* 1. Master Broadcast Stage (BroadcastStage) */}
       <BroadcastStage
         frame={activeFrame}
-        hideLower={isNeutralActive}
-        hideFooter={isNeutralActive}
+        hideLower={isNeutralActive || currentOverlay !== "none"}
+        hideFooter={isNeutralActive || currentOverlay !== "none"}
       />
 
       {/* 2. Mid-Screen Slates (z-40) — rendered ABOVE the stage */}

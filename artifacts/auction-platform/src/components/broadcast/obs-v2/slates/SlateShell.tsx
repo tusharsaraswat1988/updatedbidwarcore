@@ -1,21 +1,12 @@
 /**
  * SlateShell — Shared V2 Full-Screen Broadcast Slate Chrome
  *
- * Visual Design: NEW V2 Lovable Design System
- * Provides the consistent masthead, dark backdrop, and padding
- * for all mid-screen broadcast slates.
- *
- * Used by: SponsorSlateV2, StandingsSlateV2, FixturesSlateV2,
- *          ScorecardSlateV2, SummarySlateV2, VsIntroSlateV2
- *
- * Functional Behaviour: Preserved from CricketObsMidOverlays
- * - Covers full 1920×1080 canvas (fixed inset-0)
- * - Masthead: 64px top bar with tournament name + slate title
- * - Backdrop: dark obsidian (#050507) at 0.94 opacity
- * - Content area: safe-padded flex column
- * - Framer Motion: scale+fade entrance/exit (0.26s)
- * - Pointer-events: none (operator cannot accidentally click through)
- * - SELECT-NONE (broadcast-only display)
+ * Visual Design: LOVABLE V2 DESIGN SYSTEM
+ * - Sits below the persistent V2 Header (top: 96px, bottom: 0)
+ * - Deep navy obsidian radial gradient with cinematic blur
+ * - 3px glowing electric gold top rule
+ * - Chamfered badges & gold/cyan accent lines
+ * - Barlow Condensed display typography with bold italic headers
  */
 
 import { motion } from "framer-motion";
@@ -32,78 +23,52 @@ export function SlateShell({ tournamentName, slateTitle, children }: SlateShellP
   return (
     <motion.div
       key={`slate-${slateTitle}`}
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.98 }}
-      transition={{ duration: 0.26, ease: OBS_V2.motion.easing.snappy }}
-      className="fixed inset-0 z-40 flex flex-col overflow-hidden pointer-events-none select-none"
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -16 }}
+      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      className="absolute inset-x-0 z-40 flex flex-col overflow-hidden pointer-events-none select-none"
       style={{
-        background: "rgba(5, 5, 7, 0.94)",
-        fontFamily: OBS_V2.typography.family.body,
-        width: "1920px",
-        height: "1080px",
+        top: "96px",
+        bottom: 0,
+        background: "radial-gradient(ellipse at 50% 20%, rgba(15, 23, 42, 0.96) 0%, rgba(8, 12, 22, 0.99) 100%)",
+        backdropFilter: "blur(24px)",
+        borderTop: "3px solid #FFD700",
+        boxShadow: "0 0 24px rgba(255, 215, 0, 0.35)",
+        fontFamily: "'Barlow Condensed', sans-serif",
       }}
     >
-      {/* ─── Masthead Header Band (64px) ─────────────────────────────── */}
+      {/* ─── V2 Sub-Masthead Bar (54px) ─────────────────────────────── */}
       <div
         className="flex items-center justify-between shrink-0"
         style={{
-          height: "64px",
-          background: OBS_V2.color.panel,
-          borderBottom: `2px solid ${OBS_V2.color.brand}`,
-          paddingLeft: `${OBS_V2.canvas.safeX}px`,
-          paddingRight: `${OBS_V2.canvas.safeX}px`,
-          boxShadow: OBS_V2.depth.shadow.standard,
+          height: "54px",
+          background: "linear-gradient(180deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+          paddingLeft: "72px",
+          paddingRight: "72px",
         }}
       >
-        {/* Left: BIDWAR BROADCAST / Tournament Name */}
-        <div className="flex items-center gap-4">
+        {/* Left: Tournament context */}
+        <div className="flex items-center gap-3">
           <span
+            className="px-3 py-0.5 text-[12px] font-black uppercase tracking-wider text-slate-950"
             style={{
-              ...OBS_V2.typography.scale.headline,
-              color: OBS_V2.color.brand,
-              letterSpacing: "0.08em",
+              background: "#FFD700",
+              clipPath: "polygon(0 0, 100% 0, calc(100% - 10px) 100%, 0 100%)",
             }}
           >
-            BIDWAR BROADCAST
+            BIDWAR OBS
           </span>
-          <span
-            style={{
-              width: 1,
-              height: 24,
-              background: OBS_V2.color.divider,
-              display: "block",
-            }}
-          />
-          <span
-            style={{
-              ...OBS_V2.typography.scale.headline,
-              color: OBS_V2.color.textSecondary,
-              letterSpacing: "0.04em",
-            }}
-          >
-            {tournamentName || "CRICKET TOURNAMENT"}
+          <span className="text-slate-300 text-sm font-semibold tracking-wide uppercase">
+            {tournamentName || "TOURNAMENT"}
           </span>
         </div>
 
         {/* Right: Slate title badge */}
         <div className="flex items-center gap-2">
-          <span
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: OBS_V2.color.brand,
-              display: "inline-block",
-            }}
-          />
-          <span
-            style={{
-              ...OBS_V2.typography.scale.label,
-              color: OBS_V2.color.brand,
-              letterSpacing: "0.2em",
-            }}
-          >
+          <span className="w-2 h-2 rounded-full bg-[#FFD700] animate-pulse" />
+          <span className="text-[#FFD700] font-black text-sm uppercase tracking-[0.2em]">
             {slateTitle.toUpperCase()} SLATE
           </span>
         </div>
@@ -113,10 +78,7 @@ export function SlateShell({ tournamentName, slateTitle, children }: SlateShellP
       <div
         className="flex-1 flex flex-col overflow-hidden"
         style={{
-          paddingTop: `${OBS_V2.canvas.safeY}px`,
-          paddingBottom: `${OBS_V2.canvas.safeY}px`,
-          paddingLeft: `${OBS_V2.canvas.safeX}px`,
-          paddingRight: `${OBS_V2.canvas.safeX}px`,
+          padding: "24px 72px 32px 72px",
         }}
       >
         {children}
@@ -137,25 +99,22 @@ export function SlateHeading({
   title: string;
 }) {
   return (
-    <div className="text-center mb-6 shrink-0">
+    <div className="text-center mb-5 shrink-0 flex flex-col items-center">
       <div
-        style={{
-          ...OBS_V2.typography.scale.label,
-          color: OBS_V2.color.brand,
-          marginBottom: 4,
-        }}
+        className="text-[13px] font-bold tracking-[0.22em] text-[#FFD700] uppercase mb-1"
+        style={{ letterSpacing: "0.22em" }}
       >
         {kicker}
       </div>
-      <div
-        style={{
-          ...OBS_V2.typography.scale.hero,
-          color: OBS_V2.color.text,
-          letterSpacing: "0.04em",
-        }}
-      >
+      <div className="text-4xl sm:text-5xl font-black italic tracking-wide text-white uppercase drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
         {title}
       </div>
+      <div
+        className="mt-2.5 h-[2px] w-24"
+        style={{
+          background: "linear-gradient(90deg, transparent, #FFD700 20%, #12CFFF 80%, transparent)",
+        }}
+      />
     </div>
   );
 }
@@ -166,14 +125,11 @@ export function SlateHeading({
 export function SlateEmptyState({ message }: { message: string }) {
   return (
     <div className="flex-1 flex items-center justify-center">
-      <p
-        style={{
-          ...OBS_V2.typography.scale.body,
-          color: OBS_V2.color.textMuted,
-        }}
-      >
-        {message}
-      </p>
+      <div className="rounded-xl border border-white/10 bg-slate-900/60 backdrop-blur-md px-8 py-6 text-center shadow-lg">
+        <p className="text-base text-slate-300 font-semibold tracking-wide uppercase">
+          {message}
+        </p>
+      </div>
     </div>
   );
 }
