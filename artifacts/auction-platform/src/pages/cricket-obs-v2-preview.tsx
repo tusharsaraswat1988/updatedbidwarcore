@@ -162,6 +162,7 @@ export default function CricketObsV2Page() {
   const milestone = strikerRuns === 50 ? 50 : strikerRuns === 100 ? 100 : null;
 
   const { activeEvent: realEvent } = useObsV2Events({
+    authoritativeEvent: vm?.broadcastEvent ?? null,
     rawFlash: vm?.flash ?? null,
     flashToken: vm?.flashToken ?? null,
     flashDetail: vm?.flashDetail ?? null,
@@ -386,6 +387,7 @@ export default function CricketObsV2Page() {
         activeEvent={effectiveActiveEvent}
         hideLower={isNeutralActive}
         hideFooter={isNeutralActive}
+        hideAssociateSponsor={Boolean(effectiveBroadcastMessage?.active && effectiveBroadcastMessage?.name)}
       />
 
       {/* 2. Mid-Screen Slates (z-40) — rendered inside camera area above the stage */}
