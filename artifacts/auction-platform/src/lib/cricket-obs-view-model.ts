@@ -52,6 +52,7 @@ export type CricketObsFlashKind =
   | "WIDE"
   | "WICKET"
   | "NEW_BATSMAN"
+  | "NEW_BOWLER"
   | "TOSS_WIN"
   | "MATCH_WON";
 

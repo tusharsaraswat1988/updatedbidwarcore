@@ -12,7 +12,7 @@ import type {
   TeamPurse,
   WaitingSceneModel,
 } from "./contracts";
-import { deriveBranding, mapSponsors } from "./auction-v2-adapter";
+import { deriveBranding, mapSponsors } from "./branding";
 
 /**
  * Maps live cricket ball strings into Lovable presentation categories:

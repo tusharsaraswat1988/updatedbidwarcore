@@ -75,6 +75,14 @@ export function normalizeCricketFlashToObsV2Event(
     } else if (detail && detail.trim().length > 0) {
       subtitle = detail.trim();
     }
+  } else if (eventType === "NEW_BOWLER") {
+    // NEW_BOWLER: show incoming bowler name prominently
+    if (bowler && bowler.trim().length > 0) {
+      title = "NEW BOWLER";
+      subtitle = `${bowler.trim()} · INTO THE ATTACK`;
+    } else if (detail && detail.trim().length > 0) {
+      subtitle = detail.trim();
+    }
   } else if (detail && detail.trim().length > 0) {
     // Detail override from production scorer payload (e.g. "Virat Kohli · OUT")
     subtitle = detail.trim();

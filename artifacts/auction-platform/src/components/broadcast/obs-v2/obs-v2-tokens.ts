@@ -30,12 +30,22 @@ export const OBS_V2 = {
     safeHeight: 972, // 1080 - (54 * 2)
 
     /** Standard layout vertical allocations */
-    headerHeight: 64,
-    scorebugHeight: 140,
-    scorebugStripHeight: 104,
-    scorebugRibbonHeight: 36,
+    headerHeight: 96,
+    cameraHeight: 784, // 1080 - 96 (header) - 160 (lowerThird) - 40 (footer) = 784
+    scorebugHeight: 160,
+    footerHeight: 40,
+    scorebugStripHeight: 120,
+    scorebugRibbonHeight: 40,
     slateWidth: 1728,
-    slateMaxHeight: 880,
+    slateMaxHeight: 784,
+
+    /** Explicit broadcast zone geometry and z-indexes */
+    zones: {
+      header: { top: 0, height: 96, bottom: 984, zIndex: 30 },
+      camera: { top: 96, height: 784, bottom: 200, zIndex: 40 },
+      lowerThird: { top: 880, height: 160, bottom: 40, zIndex: 20 },
+      footer: { top: 1040, height: 40, bottom: 0, zIndex: 20 },
+    },
   },
 
   /**
@@ -316,8 +326,10 @@ export const OBS_V2 = {
       standard: 300, // Standard transitions, panel expands
       broadcast: 450, // Television lower-third reveals
       major: 700, // Full slate takeovers, major milestone reveals
-      exit: 220, // Crisp wipe collapse
-      hold: 2600, // Viewer comprehension hold for takeovers
+      entrance: 220, // Snappy broadcast event impact entrance (0–220ms)
+      hold: 1280, // Readable comprehension hold (220–1500ms)
+      exit: 500, // Controlled broadcast exit (1500–2000ms)
+      eventTotal: 2000, // Total event animation budget ≈ 2.0s
     },
 
     easing: {

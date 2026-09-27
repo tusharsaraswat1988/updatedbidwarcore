@@ -48,9 +48,7 @@ const ObsV2OverlayPreview = lazy(() => import("@/pages/obs-v2-overlay-preview"))
 const ObsV2Overlay = lazy(() => import("@/pages/obs-v2-overlay"));
 /** @deprecated Prefer /obs/v2 — kept for bookmarks during rollout */
 const ObsLabOverlayPreview = lazy(() => import("@/pages/obs-v2-overlay-preview"));
-const ObsLabOverlay = lazy(() => import("@/pages/obs-v2-overlay"));
 const CricketObsV2Preview = lazy(() => import("@/pages/cricket-obs-v2-preview"));
-const CricketObsV2Control = lazy(() => import("@/pages/cricket-obs-v2-control"));
 const OrganizerPortal = lazy(() => import("@/pages/organizer-portal"));
 const OrganizerProfile = lazy(() => import("@/pages/organizer-profile"));
 const LiveViewer = lazy(() => import("@/pages/liveviewer"));
@@ -151,14 +149,14 @@ function PlatformRouter() {
         <Route path="/dashboard">{() => <Redirect to="/organizer" />}</Route>
         <Route path="/tournament/new" component={NewTournament} />
         <Route path="/tournament/:id/login" component={OrganizerLogin} />
+        <Route path="/live/:id" component={LiveViewer} />
+        <Route path="/tournament/:id/liveviewer" component={LiveViewer} />
         <Route path="/tournament/:id/display" component={DisplayView} />
         <Route path="/tournament/:id/side-display" component={SideDisplayView} />
         <Route path="/tournament/:id/score-display" component={RedirectToScoringApp} />
-        {/* V2 Broadcast Overlays & Live Test Control (Must precede legacy :matchId wildcard) */}
-        <Route path="/tournament/:id/cricket/obs/v2/control" component={CricketObsV2Control} />
+        {/* V2 Broadcast Overlays (Must precede legacy :matchId wildcard) */}
         <Route path="/tournament/:id/cricket/obs/v2/preview" component={CricketObsV2Preview} />
         <Route path="/tournament/:id/cricket/obs/v2" component={CricketObsV2Preview} />
-        <Route path="/cricket/obs/v2/control" component={CricketObsV2Control} />
         <Route path="/cricket/obs/v2/preview" component={CricketObsV2Preview} />
         <Route path="/cricket/obs/v2" component={CricketObsV2Preview} />
         <Route path="/tournament/:id/obs/v2/preview" component={ObsV2OverlayPreview} />

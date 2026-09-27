@@ -10,25 +10,22 @@ describe("OBS V2 Master Broadcast Composition (Step 2)", () => {
       expect(OBS_V2.canvas.aspect).toBe("16:9");
     });
 
-    it("reserves 64px for top structural header", () => {
-      expect(OBS_V2.canvas.headerHeight).toBe(64);
+    it("reserves 96px for top structural header", () => {
+      expect(OBS_V2.canvas.headerHeight).toBe(96);
     });
 
-    it("reserves 140px for docked scorebug (104px strip + 36px ribbon)", () => {
-      expect(OBS_V2.canvas.scorebugHeight).toBe(140);
-      expect(OBS_V2.canvas.scorebugStripHeight).toBe(104);
-      expect(OBS_V2.canvas.scorebugRibbonHeight).toBe(36);
-      expect(OBS_V2.canvas.scorebugStripHeight + OBS_V2.canvas.scorebugRibbonHeight).toBe(
-        OBS_V2.canvas.scorebugHeight,
-      );
+    it("reserves 160px for docked scorebug and 40px for footer bar", () => {
+      expect(OBS_V2.canvas.scorebugHeight).toBe(160);
+      expect(OBS_V2.canvas.footerHeight).toBe(40);
     });
 
-    it("preserves exactly 876px transparent camera-safe viewport", () => {
+    it("preserves exactly 784px transparent camera-safe viewport", () => {
       const topOffset = OBS_V2.canvas.headerHeight;
-      const bottomOffset = OBS_V2.canvas.scorebugHeight;
+      const bottomOffset = OBS_V2.canvas.scorebugHeight + OBS_V2.canvas.footerHeight;
       const cameraHeight = OBS_V2.canvas.height - topOffset - bottomOffset;
 
-      expect(cameraHeight).toBe(876);
+      expect(cameraHeight).toBe(784);
+      expect(OBS_V2.canvas.cameraHeight).toBe(784);
       expect(topOffset + cameraHeight + bottomOffset).toBe(1080);
     });
 

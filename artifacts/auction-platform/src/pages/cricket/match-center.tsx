@@ -66,7 +66,7 @@ import {
   cricketFixturesPath,
   cricketLiveControlPath,
   cricketScoreHubPath,
-  cricketScorerPath,
+  cricketScorerConsolePath,
 } from "@/lib/cricket-routes";
 import {
   cricketMatchPublicPath,
@@ -272,7 +272,7 @@ export default function CricketMatchCenterPage() {
       ? `${window.location.origin}${cricketMatchPublicPath(tournamentId, matchId)}`
       : cricketMatchPublicPath(tournamentId, matchId);
 
-  const scorerHref = cricketScorerPath(tournamentId, matchId);
+  const scorerHref = cricketScorerConsolePath(tournamentId, matchId);
   const liveControlHref = cricketLiveControlPath(tournamentId);
 
   if (tournament?.sport === "badminton") {

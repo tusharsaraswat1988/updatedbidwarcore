@@ -30,7 +30,8 @@ export type ObsV2EventType =
   | "SUPER_OVER"
   | "TOSS_WIN"
   | "MATCH_WON"
-  | "NEW_BATSMAN";
+  | "NEW_BATSMAN"
+  | "NEW_BOWLER";
 
 export interface ObsV2BroadcastEvent {
   /** Unique deterministic identifier for deduplication (e.g. "matchId-seq-type") */
@@ -77,6 +78,7 @@ export const OBS_V2_EVENT_PRIORITY: Record<ObsV2EventType, number> = {
   MILESTONE: 80, // Individual 50 / 100 achievement
   SIX: 70, // Maximum boundary
   NEW_BATSMAN: 65, // New batter arrival at the crease
+  NEW_BOWLER: 64, // New bowler introduced into attack
   FOUR: 60, // Standard boundary
   SUPERBALL: 55, // Active 2x multiplier delivery
   SUPER_OVER: 50, // Tie-break decider
@@ -181,5 +183,12 @@ export const OBS_V2_EVENT_CONFIGS: Record<ObsV2EventType, ObsV2EventConfig> = {
     accentColor: OBS_V2.color.info,
     borderColor: OBS_V2.color.infoBorder,
     priority: OBS_V2_EVENT_PRIORITY.NEW_BATSMAN,
+  },
+  NEW_BOWLER: {
+    title: "NEW BOWLER",
+    subtitle: "INTO THE BOWLING ATTACK",
+    accentColor: OBS_V2.color.success,
+    borderColor: OBS_V2.color.successBorder,
+    priority: OBS_V2_EVENT_PRIORITY.NEW_BOWLER,
   },
 };

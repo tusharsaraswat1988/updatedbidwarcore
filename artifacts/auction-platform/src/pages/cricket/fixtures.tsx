@@ -50,7 +50,7 @@ import { listFixtures } from "@/lib/scoring-foundation-api";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
-import { cricketScheduleOpsPath, cricketScorerPath, cricketMatchCenterPath, cricketRulesPath } from "@/lib/cricket-routes";
+import { cricketScheduleOpsPath, cricketScorerConsolePath, cricketMatchCenterPath, cricketRulesPath } from "@/lib/cricket-routes";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -457,7 +457,7 @@ export default function CricketFixturesPage() {
                   const isLive = m.status === "live";
                   const isCompleted = isTerminalCricketMatchStatus(m.status);
                   const isScheduled = m.status === "scheduled";
-                  const scorerUrl = cricketScorerPath(tournamentId, m.id);
+                  const scorerUrl = cricketScorerConsolePath(tournamentId, m.id);
                   const centerUrl = cricketMatchCenterPath(tournamentId, m.id);
 
                   // Extract live scoreboard

@@ -17,9 +17,10 @@ describe("OBS V2 Foundation Design Tokens", () => {
     });
 
     it("defines standard layout vertical allocations", () => {
-      expect(OBS_V2.canvas.scorebugHeight).toBe(140);
-      expect(OBS_V2.canvas.scorebugStripHeight).toBe(104);
-      expect(OBS_V2.canvas.scorebugRibbonHeight).toBe(36);
+      expect(OBS_V2.canvas.headerHeight).toBe(96);
+      expect(OBS_V2.canvas.scorebugHeight).toBe(160);
+      expect(OBS_V2.canvas.footerHeight).toBe(40);
+      expect(OBS_V2.canvas.cameraHeight).toBe(784);
     });
   });
 
@@ -145,8 +146,10 @@ describe("OBS V2 Foundation Design Tokens", () => {
       expect(OBS_V2.motion.duration.standard).toBe(300);
       expect(OBS_V2.motion.duration.broadcast).toBe(450);
       expect(OBS_V2.motion.duration.major).toBe(700);
-      expect(OBS_V2.motion.duration.exit).toBe(220);
-      expect(OBS_V2.motion.duration.hold).toBe(2600);
+      expect(OBS_V2.motion.duration.entrance).toBe(220);
+      expect(OBS_V2.motion.duration.exit).toBe(500);
+      expect(OBS_V2.motion.duration.hold).toBe(1280);
+      expect(OBS_V2.motion.duration.eventTotal).toBe(2000);
     });
 
     it("defines snappy broadcast easing curves", () => {

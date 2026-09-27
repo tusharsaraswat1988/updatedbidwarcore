@@ -10,7 +10,7 @@ import {
   type ObsV2StageData,
   type ObsV2BroadcastMessageData,
 } from "./types";
-import { deriveBranding } from "./auction-v2-adapter";
+import { deriveBranding } from "./branding";
 
 export interface ObsV2StageProps extends HTMLAttributes<HTMLDivElement> {
   /** Master Lovable BroadcastFrame (if already adapted) */

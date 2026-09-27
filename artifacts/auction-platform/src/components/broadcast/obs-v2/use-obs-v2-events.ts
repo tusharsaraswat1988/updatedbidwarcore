@@ -24,6 +24,7 @@ export interface UseObsV2EventsParams {
   matchId: number | null;
   phase?: string;
   batterName?: string | null;
+  bowlerName?: string | null;
   milestoneValue?: number | null;
 }
 
@@ -41,6 +42,7 @@ export function useObsV2Events({
   matchId,
   phase = "live",
   batterName,
+  bowlerName,
   milestoneValue,
 }: UseObsV2EventsParams): UseObsV2EventsResult {
   const [activeEvent, setActiveEvent] = useState<ObsV2BroadcastEvent | null>(null);
@@ -93,6 +95,7 @@ export function useObsV2Events({
       matchId,
       timestamp: Date.now(),
       batter: batterName,
+      bowler: bowlerName,
       milestoneValue,
     });
 
@@ -128,10 +131,7 @@ export function useObsV2Events({
         clearTimeout(dismissTimerRef.current);
       }
 
-      const totalDuration =
-        OBS_V2.motion.duration.broadcast +
-        OBS_V2.motion.duration.hold +
-        OBS_V2.motion.duration.exit;
+      const totalDuration = OBS_V2.motion.duration.eventTotal || 2000;
 
       dismissTimerRef.current = setTimeout(() => {
         setActiveEvent(null);
@@ -146,6 +146,7 @@ export function useObsV2Events({
     matchId,
     phase,
     batterName,
+    bowlerName,
     milestoneValue,
   ]);
 

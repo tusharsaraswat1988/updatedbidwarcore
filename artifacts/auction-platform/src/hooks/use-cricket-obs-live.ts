@@ -435,6 +435,7 @@ export function useCricketObsLive(
 
   // Automatic Event Detection: Real-time ball-by-ball triggers from Scorer actions
   const seenBatsmenRef = useRef<Set<number>>(new Set());
+  const prevBowlerIdRef = useRef<number | null>(null);
   const prevFreeHitRef = useRef<boolean>(false);
   const prevTossWinnerRef = useRef<number | null>(null);
   const prevWonRef = useRef<boolean>(false);
@@ -481,6 +482,7 @@ export function useCricketObsLive(
       prevSequenceRef.current = state.lastSequence ?? 0;
       if (state.strikerId) seenBatsmenRef.current.add(state.strikerId);
       if (state.nonStrikerId) seenBatsmenRef.current.add(state.nonStrikerId);
+      prevBowlerIdRef.current = state.bowlerId ?? null;
       prevFreeHitRef.current = !!state.freeHitActive;
       prevTossWinnerRef.current = state.tossWinnerTeamId ?? null;
       return;
@@ -552,6 +554,20 @@ export function useCricketObsLive(
     } else {
       if (state.strikerId) seenBatsmenRef.current.add(state.strikerId);
       if (state.nonStrikerId) seenBatsmenRef.current.add(state.nonStrikerId);
+    }
+
+    // 6. Detect New Bowler Coming On to Bowl
+    if (bootstrappedFlash.current) {
+      const bowlerId = state.bowlerId;
+      if (bowlerId && prevBowlerIdRef.current !== null && prevBowlerIdRef.current !== bowlerId) {
+        const player = players.find((p) => p.id === bowlerId);
+        if (player) {
+          triggerFlash("NEW_BOWLER", `${player.name} · INTO THE ATTACK`);
+        }
+      }
+      prevBowlerIdRef.current = bowlerId ?? null;
+    } else {
+      prevBowlerIdRef.current = state.bowlerId ?? null;
     }
   }, [
     mergedLive?.state,

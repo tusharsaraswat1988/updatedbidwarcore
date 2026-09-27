@@ -22,6 +22,8 @@ export * from "./auction-v2-adapter";
 export * from "./cricket-v2-adapter";
 
 // Core stage and live stages
+export * from "./branding";
+export * from "./CricketBroadcastStage";
 export * from "./obs-v2-stage";
 export * from "./obs-v2-live-stage";
 export * from "./obs-v2-live-adapter";
@@ -54,10 +56,8 @@ export * from "./overlay/NeutralFooterV2";
 
 // Mid-screen broadcast slates (6 types)
 export * from "./slates/SlateShell";
+export * from "./slates/BroadcastSideSlate";
 export * from "./slates/MidScreenSlatesV2";
-
-// Operator Dock (director controls, ?dock=1)
-export * from "./OperatorDockV2";
 
 // Real-time synchronization transport (Control <-> Display)
 export * from "./obs-v2-sync";

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRoute, useSearch } from "wouter";
 import {
-  BroadcastStage,
+  CricketBroadcastStage,
   type BroadcastFrame,
   type BroadcastSceneId,
   makeFrame,
@@ -9,38 +9,35 @@ import {
 } from "../components/broadcast/obs-v2";
 import { useCricketObsLive } from "@/hooks/use-cricket-obs-live";
 import { useObsV2Events } from "../components/broadcast/obs-v2/use-obs-v2-events";
-import { ObsV2EventGraphic } from "../components/broadcast/obs-v2/obs-v2-event-graphic";
 import type { ObsV2BroadcastEvent } from "../components/broadcast/obs-v2/obs-v2-events";
 import { OBS_V2 } from "../components/broadcast/obs-v2/obs-v2-tokens";
 import { BroadcastMessageV2 } from "../components/broadcast/obs-v2/overlay/BroadcastMessageV2";
 import { NeutralFooterV2 } from "../components/broadcast/obs-v2/overlay/NeutralFooterV2";
 import { MidScreenSlatesV2 } from "../components/broadcast/obs-v2/slates/MidScreenSlatesV2";
-import { OperatorDockV2 } from "../components/broadcast/obs-v2/OperatorDockV2";
-import type { CricketObsMidOverlayKind, CricketObsFlashKind } from "@/lib/cricket-obs-view-model";
+import type { CricketObsMidOverlayKind } from "@/lib/cricket-obs-view-model";
 import type { SponsorLogo } from "../components/broadcast/obs-v2/contracts";
 
 import { useV2Sync, type V2SyncMessage } from "../components/broadcast/obs-v2/obs-v2-sync";
 import { normalizeCricketFlashToObsV2Event } from "../components/broadcast/obs-v2/obs-v2-event-adapter";
 
 /**
- * Cricket Broadcast Overlay V2 — Full-Featured Production Page
+ * Cricket Broadcast Overlay V2 — Production Display & Visual Review Page
  *
  * Routes:
- * - OBS Browser Source:
- *     /tournament/:id/cricket/obs/v2       (transparent canvas mode)
+ * - OBS Browser Source (transparent canvas):
+ *     /tournament/:id/cricket/obs/v2
+ *     /cricket/obs/v2
  * - Interactive Visual Review:
- *     /tournament/:id/cricket/obs/v2/preview  (preview UI)
+ *     /tournament/:id/cricket/obs/v2/preview
+ *     /cricket/obs/v2/preview
  *
- * Features (V2):
+ * Architecture:
  * - Real live cricket data via useCricketObsLive → adaptCricketToBroadcastFrame
- * - Live event flash system (FOUR, SIX, WICKET, MILESTONE, NEW_BATSMAN, etc.)
- * - Mid-screen broadcast slates (Sponsors, Standings, Fixtures, Scorecard, Summary, VS Intro)
- * - Broadcast Message Chyron (operator-controlled lower-third)
- * - Neutral / Interval Footer (sponsor rotation 4.5s)
- * - Cross-Window V2 Live Control synchronization (BroadcastChannel + LocalStorage + SSE)
- * - Operator Dock (?dock=1 or ?controls=1)
- * - Correct phase-aware scenes (WAITING for no_live, CRICKET for all live phases)
- * - Extended scorebug (RRR, NEED X OFF Y, partnership, FREE HIT, SUPERBALL)
+ * - Protected 4-zone vertical composition (Header 0-96, Safe 96-880, Scorebug 880-1040, Footer 1040-1080)
+ * - Central Event Impact System (single authoritative render point inside camera zone)
+ * - Mid-Screen Slates (left-takeover inside camera zone)
+ * - Broadcast Message Chyron (lower-third)
+ * - Real BidWar logo badge assets (never hardcoded text)
  */
 export default function CricketObsV2Page() {
   const [, tParams] = useRoute("/tournament/:id/cricket/obs/v2");
@@ -52,10 +49,6 @@ export default function CricketObsV2Page() {
   const isPreviewMode =
     searchParams.get("preview") === "1" ||
     (typeof window !== "undefined" && window.location.pathname.indexOf("/preview") !== -1);
-
-  const showOperatorDock =
-    typeof window !== "undefined" &&
-    (searchParams.get("dock") === "1" || searchParams.get("controls") === "1");
 
   // ── Preview UI state ─────────────────────────────────────────────────────
   const [scale, setScale] = useState<number>(0.65);
@@ -70,13 +63,9 @@ export default function CricketObsV2Page() {
   // ── Live data from SSE / Database ────────────────────────────────────────
   const {
     vm,
-    scoringActive,
-    isLoading,
-    setMidOverlay,
-    triggerFlash,
   } = useCricketObsLive(tournamentId > 0 ? tournamentId : 0, null);
 
-  // ── Sync states (driven by V2 Test Control via BroadcastChannel / SSE) ──
+  // ── Sync states (driven by Live Control via BroadcastChannel / SSE) ──
   const [syncOverlay, setSyncOverlay] = useState<CricketObsMidOverlayKind | null>(null);
   const [syncNeutral, setSyncNeutral] = useState<boolean | null>(null);
   const [syncMessage, setSyncMessage] = useState<{ name: string; details: string; active: boolean } | null>(null);
@@ -97,7 +86,7 @@ export default function CricketObsV2Page() {
         setSyncEvent(normalized);
         window.setTimeout(() => {
           setSyncEvent((curr) => (curr?.id === normalized.id ? null : curr));
-        }, OBS_V2.motion.duration.hold + 500);
+        }, OBS_V2.motion.duration.eventTotal);
       }
     } else if (msg.type === "SET_OVERLAY") {
       setSyncOverlay(msg.overlay);
@@ -211,7 +200,7 @@ export default function CricketObsV2Page() {
   // ── Neutral mode ─────────────────────────────────────────────────────────
   const isNeutralActive = syncNeutral !== null ? syncNeutral : (vm?.isNeutralActive ?? false);
 
-  // ── Overlay state (from sync, vm, or operator dock) ──────────────────────
+  // ── Overlay state (from sync or vm) ──────────────────────────────────────
   const currentOverlay: CricketObsMidOverlayKind = syncOverlay ?? vm?.midOverlay ?? "none";
 
   // ── OBS Browser Source: enforce transparent document ────────────────────
@@ -257,7 +246,7 @@ export default function CricketObsV2Page() {
   }, [isPreviewMode]);
 
   // ── Preview simulated events ─────────────────────────────────────────────
-  const triggerSimulatedEvent = (type: "FOUR" | "SIX" | "WICKET" | "50" | "NEW_BATSMAN") => {
+  const triggerSimulatedEvent = (type: "FOUR" | "SIX" | "WICKET" | "50" | "100" | "NEW_BATSMAN" | "NEW_BOWLER" | "FREE_HIT") => {
     let event: ObsV2BroadcastEvent;
     if (type === "FOUR") {
       event = {
@@ -307,6 +296,42 @@ export default function CricketObsV2Page() {
         borderColor: OBS_V2.color.infoBorder,
         priority: 65,
       };
+    } else if (type === "NEW_BOWLER") {
+      event = {
+        id: `preview-${Date.now()}`,
+        matchId: 1,
+        timestamp: Date.now(),
+        type: "NEW_BOWLER",
+        title: "NEW BOWLER",
+        subtitle: "Jasprit Bumrah · Into the Attack",
+        accentColor: OBS_V2.color.info,
+        borderColor: OBS_V2.color.infoBorder,
+        priority: 64,
+      };
+    } else if (type === "FREE_HIT") {
+      event = {
+        id: `preview-${Date.now()}`,
+        matchId: 1,
+        timestamp: Date.now(),
+        type: "FREE_HIT",
+        title: "FREE HIT",
+        subtitle: "Cannot be Out Bowled or Caught",
+        accentColor: OBS_V2.color.info,
+        borderColor: OBS_V2.color.infoBorder,
+        priority: 62,
+      };
+    } else if (type === "100") {
+      event = {
+        id: `preview-${Date.now()}`,
+        matchId: 1,
+        timestamp: Date.now(),
+        type: "MILESTONE",
+        title: "CENTURY 100",
+        subtitle: "Masterclass Ton · 62 Balls (11×4, 5×6)",
+        accentColor: OBS_V2.color.success,
+        borderColor: OBS_V2.color.successBorder,
+        priority: 85,
+      };
     } else {
       event = {
         id: `preview-${Date.now()}`,
@@ -324,45 +349,23 @@ export default function CricketObsV2Page() {
     setActiveEvent(event);
     setTimeout(() => {
       setActiveEvent((current) => (current?.id === event.id ? null : current));
-    }, OBS_V2.motion.duration.hold);
-  };
-
-  // ── Operator dock handlers (preview simulated) ───────────────────────────
-  const handleSetOverlay = (overlay: CricketObsMidOverlayKind) => {
-    if (tournamentId > 0 && setMidOverlay) {
-      setMidOverlay(overlay);
-    }
-  };
-
-  const handleTriggerFlash = (flash: CricketObsFlashKind) => {
-    if (tournamentId > 0 && triggerFlash) {
-      triggerFlash(flash);
-    } else {
-      // Preview fallback
-      if (flash === "FOUR") triggerSimulatedEvent("FOUR");
-      else if (flash === "SIX") triggerSimulatedEvent("SIX");
-      else if (flash === "WICKET") triggerSimulatedEvent("WICKET");
-      else if (flash === "NEW_BATSMAN") triggerSimulatedEvent("NEW_BATSMAN");
-    }
-  };
-
-  const handleSetBroadcastMessage = (name: string, details: string, active: boolean) => {
-    setBroadcastMessage(active ? { name, details, active } : null);
+    }, OBS_V2.motion.duration.eventTotal);
   };
 
   // ── Render Helpers ────────────────────────────────────────────────────────
 
-  /** The core V2 canvas with all overlay layers */
+  /** The core Cricket V2 canvas with all overlay layers */
   const CricketV2Canvas = (
     <>
-      {/* 1. Master Broadcast Stage (BroadcastStage) */}
-      <BroadcastStage
+      {/* 1. Authoritative Cricket Broadcast Stage (contains Header, Camera-Safe Zone with Event Impact, Scorebug, and Footer) */}
+      <CricketBroadcastStage
         frame={activeFrame}
+        activeEvent={effectiveActiveEvent}
         hideLower={isNeutralActive || currentOverlay !== "none"}
         hideFooter={isNeutralActive || currentOverlay !== "none"}
       />
 
-      {/* 2. Mid-Screen Slates (z-40) — rendered ABOVE the stage */}
+      {/* 2. Mid-Screen Slates (z-40) — rendered inside camera area above the stage */}
       <MidScreenSlatesV2
         vm={vm || fallbackVm}
         overlay={currentOverlay}
@@ -378,7 +381,7 @@ export default function CricketObsV2Page() {
         alignRight={isNeutralActive}
       />
 
-      {/* 4. Neutral Footer (z-20, replaces scorebug) */}
+      {/* 4. Neutral Footer (z-22, replaces scorebug when neutral is active) */}
       <div
         style={{
           position: "absolute",
@@ -402,29 +405,11 @@ export default function CricketObsV2Page() {
         />
       </div>
 
-      {/* 5. Event Graphic Flash Bar (z-50, above scorebug) */}
-      {effectiveActiveEvent && (
-        <div style={{ position: "absolute", left: 0, right: 0, bottom: 200, zIndex: OBS_V2.layer.eventFlash }}>
-          <ObsV2EventGraphic event={effectiveActiveEvent} />
-        </div>
-      )}
-
-      {/* 6. Safe Guides (debug only) */}
+      {/* 5. Safe Guides (debug visual overlay) */}
       {showSafeGuides && (
         <div className="bw-safe-guide" aria-hidden>
           CAMERA SAFE AREA — 100% TRANSPARENT (Y: 96px → 880px)
         </div>
-      )}
-
-      {/* 7. Operator Dock (?dock=1 or ?controls=1) */}
-      {showOperatorDock && (
-        <OperatorDockV2
-          currentOverlay={currentOverlay}
-          onSetOverlay={handleSetOverlay}
-          onTriggerFlash={handleTriggerFlash}
-          onSetBroadcastMessage={handleSetBroadcastMessage}
-          currentBroadcastMessage={effectiveBroadcastMessage}
-        />
       )}
     </>
   );
@@ -456,14 +441,14 @@ export default function CricketObsV2Page() {
         <div>
           <div className="flex items-center gap-3">
             <span className="px-2.5 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase bg-[#FFD700] text-black">
-              BIDWAR V2
+              BIDWAR CRICKET V2
             </span>
             <h1 className="text-lg font-bold tracking-wide text-white">
-              Cricket Broadcast Overlay V2 — Full Preview
+              Cricket Broadcast Overlay V2 — Production Preview
             </h1>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            V2 Design System · 1920×1080 · All features: slates, chyron, events, neutral footer, operator dock
+            V2 Cricket Architecture · 1920×1080 · Central Event Impact · Camera-Safe Slates · Live Control Driven
           </p>
         </div>
 
@@ -472,7 +457,7 @@ export default function CricketObsV2Page() {
           {/* Scene */}
           <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-lg border border-white/10">
             <span className="text-slate-400 mr-1">Scene:</span>
-            {(["CRICKET", "WAITING", "AUCTION", "SOLD", "UNSOLD", "BREAK", "SUMMARY", "TOP5", "TEAM"] as const).map((s) => (
+            {(["CRICKET", "WAITING"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setSelectedScene(s)}
@@ -538,13 +523,16 @@ export default function CricketObsV2Page() {
                 { id: "SIX", label: "6", color: "bg-yellow-400/20 hover:bg-yellow-400/30 text-yellow-300 border-yellow-400/40" },
                 { id: "WICKET", label: "WKT", color: "bg-red-500/20 hover:bg-red-500/30 text-red-300 border-red-500/40" },
                 { id: "50", label: "50", color: "bg-green-500/20 hover:bg-green-500/30 text-green-300 border-green-500/40" },
-                { id: "NEW_BATSMAN", label: "NB", color: "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border-cyan-500/40" },
+                { id: "100", label: "100", color: "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border-emerald-500/40" },
+                { id: "NEW_BATSMAN", label: "BAT", color: "bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border-cyan-500/40" },
+                { id: "NEW_BOWLER", label: "BOWL", color: "bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border-teal-500/40" },
+                { id: "FREE_HIT", label: "FH", color: "bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border-indigo-500/40" },
               ] as const
             ).map((btn) => (
               <button
                 key={btn.id}
                 onClick={() => triggerSimulatedEvent(btn.id as any)}
-                className={`px-2.5 py-1 font-bold rounded border transition ${btn.color}`}
+                className={`px-2 py-1 font-bold rounded border transition ${btn.color}`}
               >
                 {btn.label}
               </button>
@@ -586,7 +574,6 @@ export default function CricketObsV2Page() {
               ? `http://localhost:3000/tournament/${tournamentId}/cricket/obs/v2`
               : "http://localhost:3000/cricket/obs/v2"}
           </code>
-          <span className="ml-3 text-slate-500">· Add ?dock=1 for operator controls</span>
         </div>
         <div className="text-slate-500">
           V2 Architecture: <code className="font-mono text-slate-300">components/broadcast/obs-v2</code>

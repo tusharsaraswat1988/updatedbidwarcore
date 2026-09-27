@@ -40,9 +40,9 @@ describe("OBS V2 Broadcast Message Visual Prototype (Layer 1)", () => {
   });
 
   describe("2. Coordinate Space & Lower-Third Docking Constraints", () => {
-    it("docks exactly 16px (OBS_V2.spacing.lg) above the 140px scorebug", () => {
+    it("docks exactly 16px (OBS_V2.spacing.lg) above the 160px scorebug", () => {
       const bottomDock = OBS_V2.canvas.scorebugHeight + OBS_V2.spacing.lg;
-      expect(bottomDock).toBe(156);
+      expect(bottomDock).toBe(176);
       expect(bottomDock).toBeGreaterThan(OBS_V2.canvas.scorebugHeight);
     });
 

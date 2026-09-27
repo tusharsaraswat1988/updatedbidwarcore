@@ -77,7 +77,12 @@ import {
   scoreDisplayPath,
   cricketObsLivePath,
 } from "@/lib/tournament-navigation";
-import { cricketLiveControlPath, cricketRulesPath } from "@/lib/cricket-routes";
+import {
+  cricketLiveControlPath,
+  cricketRulesPath,
+  cricketScorerConsolePath,
+  cricketMatchCenterPath,
+} from "@/lib/cricket-routes";
 import { CricketFilterPill } from "@/components/scoring/cricket-page-chrome";
 import { isTerminalCricketMatchStatus } from "@/lib/scoring-api";
 import { cn } from "@/lib/utils";
@@ -442,8 +447,8 @@ export default function ScoringMatchListPage() {
                     const isCompleted = isTerminalCricketMatchStatus(m.status);
                     const isScheduled = m.status === "scheduled";
                     const canDelete = !isCompleted;
-                    const scorerPath = `/tournament/${tournamentId}/score/${m.id}/live`;
-                    const matchCenterPath = `/tournament/${tournamentId}/score/${m.id}`;
+                    const scorerPath = cricketScorerConsolePath(tournamentId, m.id);
+                    const matchCenterPath = cricketMatchCenterPath(tournamentId, m.id);
                     const matchLabel = m.tournamentMatchNumber != null
                       ? `Match #${m.tournamentMatchNumber}`
                       : `Match #${m.id}`;
