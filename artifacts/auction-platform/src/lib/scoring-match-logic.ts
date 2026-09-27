@@ -1,5 +1,5 @@
 import type { CricketScoreboardState } from "@workspace/scoring-core";
-import { deriveCricketMatchResult } from "@workspace/scoring-core";
+import { deriveCricketMatchResult, isOversComplete } from "@workspace/scoring-core";
 import {
   calculateDlsChaseTarget,
   calculateDlsMidChasePar,
@@ -34,8 +34,8 @@ export function suggestInningsEndReason(
   if (!inn) return "overs_complete";
   if (state.target != null && inn.runs >= state.target) return "target_reached";
   if (inn.wickets >= state.maxWickets) return "all_out";
-  if (inn.over >= state.oversLimit && inn.ball >= 6) return "overs_complete";
-  if (inn.over >= state.oversLimit) return "overs_complete";
+  const limit = inn.oversLimit || state.oversLimit;
+  if (isOversComplete(inn, limit)) return "overs_complete";
   return "overs_complete";
 }
 

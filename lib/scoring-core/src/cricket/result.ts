@@ -1,4 +1,5 @@
 import type { CricketScoreboardState } from "./state";
+import { isOversComplete } from "./ball";
 
 export type CricketDerivedMatchResult = {
   winnerTeamId: number | null;
@@ -200,12 +201,12 @@ export function isCricketMatchTerminalState(
       };
     }
 
+    const secondSuperLimit = secondSuper.oversLimit || state.superOverOvers || 1;
     const secondSuperTerminal =
       secondSuper.phase === "completed" ||
       secondSuper.runs > firstSuper.runs ||
       secondSuper.wickets >= state.superOverWickets ||
-      (secondSuper.over >= secondSuper.oversLimit &&
-        (secondSuper.over > secondSuper.oversLimit || secondSuper.ball >= 6));
+      isOversComplete(secondSuper, secondSuperLimit);
 
     if (!secondSuperTerminal) {
       return {
@@ -234,12 +235,12 @@ export function isCricketMatchTerminalState(
     };
   }
 
+  const secondOversLimit = second.oversLimit || state.oversLimit;
   const secondTerminal =
     second.phase === "completed" ||
     (state.target != null && second.runs >= state.target) ||
     second.wickets >= state.maxWickets ||
-    (second.over >= second.oversLimit &&
-      (second.over > second.oversLimit || second.ball >= 6));
+    isOversComplete(second, secondOversLimit);
 
   if (!secondTerminal) {
     return {

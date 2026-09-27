@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CricketScoreboardState } from "@workspace/scoring-core";
-import { availableDismissalTypes, FREE_HIT_DISMISSALS } from "@workspace/scoring-core";
+import { availableDismissalTypes, FREE_HIT_DISMISSALS, isOversComplete } from "@workspace/scoring-core";
 import { ScoreButton } from "@/components/scoring/score-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -275,6 +275,10 @@ export function LiveScoringPad({
     battingLineup.length > 0 &&
     battingLineup.length - innings.wickets <= 1;
 
+  const inningsOversLimit = innings?.oversLimit ?? state.oversLimit;
+  const isOversLimitReached =
+    !!innings && isOversComplete(innings, inningsOversLimit);
+
   const isTargetReached =
     state.target != null &&
     !!innings &&
@@ -284,21 +288,26 @@ export function LiveScoringPad({
   const isInnings1Finished =
     state.currentInnings === 1 &&
     !!innings &&
-    innings.phase === "in_progress" &&
-    (innings.wickets >= state.maxWickets ||
-      (innings.over >= state.oversLimit && innings.ball >= 6) ||
-      innings.over >= state.oversLimit);
+    (innings.phase === "completed" ||
+      innings.wickets >= state.maxWickets ||
+      isOversLimitReached);
 
   const isInnings2Finished =
     state.currentInnings >= 2 &&
     !!innings &&
-    (isTargetReached ||
+    (innings.phase === "completed" ||
+      isTargetReached ||
       innings.wickets >= state.maxWickets ||
-      (innings.over >= state.oversLimit && innings.ball >= 6) ||
-      innings.over >= state.oversLimit);
+      isOversLimitReached);
 
   const isMatchCompleteState =
     isTerminalCricketMatchStatus(state.matchStatus) || isInnings2Finished;
+
+  useEffect(() => {
+    if (isInnings1Finished || isMatchCompleteState) {
+      setOverEndPrompt(false);
+    }
+  }, [isInnings1Finished, isMatchCompleteState]);
 
   const matchResultPreview = useMemo(() => {
     try {
@@ -370,7 +379,11 @@ export function LiveScoringPad({
       !innings ||
       !strikerId ||
       (!nonStrikerId && !onlyOneBatsmanAvailable) ||
-      !activeBowlerId
+      !activeBowlerId ||
+      isOversLimitReached ||
+      isInnings1Finished ||
+      isInnings2Finished ||
+      isMatchCompleteState
     )
       return;
 
@@ -419,8 +432,14 @@ export function LiveScoringPad({
       });
     }
 
-    // Check if over completed (legal ball 6) to trigger new bowler prompt
-    if (input.isLegalDelivery && pos.ball === 6) {
+    // Check if over completed (legal ball 6) to trigger new bowler prompt (only if innings continues)
+    const willOversComplete = pos.over + 1 >= inningsOversLimit;
+    const willAllOut = input.wicket ? innings.wickets + 1 >= state.maxWickets : false;
+    const addedTotalRuns = (isSuperBall ? input.runsOffBat * 2 : input.runsOffBat) + input.extras.runs;
+    const willTargetReach = state.currentInnings >= 2 && state.target != null && innings.runs + addedTotalRuns >= state.target;
+    const willInningsFinish = willOversComplete || willAllOut || willTargetReach;
+
+    if (input.isLegalDelivery && pos.ball === 6 && !willInningsFinish) {
       setOverEndPrompt(true);
     }
   }

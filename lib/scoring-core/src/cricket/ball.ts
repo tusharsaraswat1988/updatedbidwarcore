@@ -13,6 +13,21 @@ export function expectedNextBall(innings: CricketInningsState): { over: number; 
   return { over: innings.over, ball: innings.ball + 1 };
 }
 
+/**
+ * Authoritatively determines whether the quota of overs for an innings has completed.
+ * In CricketInningsState, over is 0-indexed (e.g. over 0..4 for a 5-over match).
+ * When over 4 finishes with 6 legal balls, innings.over is 4 and innings.ball is 6.
+ */
+export function isOversComplete(innings: CricketInningsState, oversLimit?: number): boolean {
+  const limit = oversLimit ?? innings.oversLimit;
+  if (!limit || limit <= 0) return false;
+  return (
+    innings.over >= limit ||
+    (innings.over === limit - 1 && innings.ball >= 6) ||
+    expectedNextBall(innings).over >= limit
+  );
+}
+
 export function totalRunsOnBall(payload: CricketBallRecordedPayload): number {
   const batRuns = payload.isSuperBall
     ? payload.runsOffBat * 2

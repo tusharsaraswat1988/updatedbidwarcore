@@ -6,6 +6,8 @@ import {
   reduceCricket,
   replayCricketEvents,
   expectedNextBall,
+  isOversComplete,
+  isCricketMatchTerminalState,
   assertExpectedSequence,
   SequenceConflictError,
   InvalidEventPayloadError,
@@ -485,5 +487,111 @@ describe("Server-Authoritative Cricket Ball & Over Sequencing (P0 Fix #3)", () =
     expect(() =>
       reduceCricket(state, ball(4, { over: 0, ball: 3, isLegalDelivery: true }), { enforceLiveRules: true }),
     ).toThrow(/invalid delivery sequence: expected over 0 ball 1, received over 0 ball 3/);
+  });
+
+  it("N. isOversComplete authoritatively detects overs quota completion across 0-indexed over structures", () => {
+    // 5-over match: over 0..4
+    const inProgressInn = {
+      innings: 1,
+      battingTeamId: 1,
+      bowlingTeamId: 2,
+      runs: 110,
+      wickets: 0,
+      over: 4,
+      ball: 5,
+      phase: "in_progress" as const,
+      kind: "normal" as const,
+      oversLimit: 5,
+    };
+    expect(isOversComplete(inProgressInn, 5)).toBe(false);
+
+    // Over 4, ball 6 = exactly 5.0 overs completed
+    const completedInn = {
+      ...inProgressInn,
+      over: 4,
+      ball: 6,
+    };
+    expect(isOversComplete(completedInn, 5)).toBe(true);
+
+    // 1-over Super Over: over 0, ball 6 = 1.0 over completed
+    const superOverCompleted = {
+      ...inProgressInn,
+      over: 0,
+      ball: 6,
+      oversLimit: 1,
+    };
+    expect(isOversComplete(superOverCompleted, 1)).toBe(true);
+
+    // 20-over match: over 19, ball 6 = 20.0 overs completed
+    const t20Completed = {
+      ...inProgressInn,
+      over: 19,
+      ball: 6,
+      oversLimit: 20,
+    };
+    expect(isOversComplete(t20Completed, 20)).toBe(true);
+  });
+
+  it("O. isCricketMatchTerminalState recognizes 2nd innings reaching overs quota as terminal", () => {
+    const state: CricketScoreboardState = {
+      matchId: 100,
+      tournamentId: 10,
+      homeTeamId: 1,
+      awayTeamId: 2,
+      matchStatus: "live",
+      sessionStatus: "live",
+      currentInnings: 2,
+      oversLimit: 5,
+      maxWickets: 10,
+      tossWinnerTeamId: 1,
+      electedTo: "bat",
+      target: 122,
+      superOverOvers: 1,
+      superOverWickets: 2,
+      powerplayOvers: 1,
+      freeHitEnabled: true,
+      legByeEnabled: true,
+      lbwEnabled: true,
+      superBallEnabled: false,
+      playingXiEnforced: false,
+      lineups: {},
+      strikerId: 201,
+      nonStrikerId: 202,
+      bowlerId: 101,
+      freeHitActive: false,
+      superBallPending: null,
+      superBallUsed: { 1: false, 2: false },
+      thisOver: [],
+      lastSequence: 65,
+      innings: [
+        {
+          innings: 1,
+          battingTeamId: 1,
+          bowlingTeamId: 2,
+          runs: 121,
+          wickets: 0,
+          over: 4,
+          ball: 6,
+          phase: "completed",
+          kind: "normal",
+          oversLimit: 5,
+        },
+        {
+          innings: 2,
+          battingTeamId: 2,
+          bowlingTeamId: 1,
+          runs: 100,
+          wickets: 3,
+          over: 4,
+          ball: 6, // 5 overs completed, short of 122 target
+          phase: "in_progress",
+          kind: "normal",
+          oversLimit: 5,
+        },
+      ],
+    };
+
+    const terminal = isCricketMatchTerminalState(state);
+    expect(terminal.valid).toBe(true);
   });
 });
