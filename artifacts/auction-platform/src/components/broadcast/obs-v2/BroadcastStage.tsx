@@ -2,7 +2,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BroadcastFrameProvider, useBroadcastDirector } from "./director";
 import type { BroadcastFrame } from "./contracts";
 import type { ObsV2BroadcastEvent } from "./obs-v2-events";
-import { ObsV2EventGraphic } from "./obs-v2-event-graphic";
 import {
   AssociateSponsorRail,
   BidWarLiveBrand,
@@ -107,20 +106,6 @@ function BroadcastStageInner({
 
       {/* CAMERA SAFE AREA: nothing is rendered between y=96 and y=880. */}
 
-      {/* Layer: Event Graphic (Transient Flash / Overlay) */}
-      {activeEvent && (
-        <div
-          style={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 200,
-            zIndex: 50,
-          }}
-        >
-          <ObsV2EventGraphic event={activeEvent} />
-        </div>
-      )}
 
       {!hideLower && (
         <section className="bw-lower">
