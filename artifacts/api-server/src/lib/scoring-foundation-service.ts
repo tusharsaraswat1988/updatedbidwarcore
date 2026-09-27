@@ -210,6 +210,29 @@ export async function createScoringOfficial(
 ) {
   await ensureScoringTournament(tournamentId);
   const role = input.role ?? "scorer";
+
+  if (input.mobile && input.mobile.trim()) {
+    const rawDigits = input.mobile.replace(/\D/g, "").slice(-10);
+    if (rawDigits.length >= 10) {
+      const existingInTournament = await db
+        .select({ id: scoringOfficialsTable.id, mobile: scoringOfficialsTable.mobile })
+        .from(scoringOfficialsTable)
+        .where(eq(scoringOfficialsTable.tournamentId, tournamentId));
+
+      const isDuplicate = existingInTournament.some((o) => {
+        if (!o.mobile) return false;
+        return o.mobile.replace(/\D/g, "").slice(-10) === rawDigits;
+      });
+
+      if (isDuplicate) {
+        throw new ScoringServiceError(
+          "An official with this mobile number is already registered in this tournament.",
+          409,
+          "OFFICIAL_ALREADY_REGISTERED",
+        );
+      }
+    }
+  }
   
   if (role === "scorer") {
     if (!input.mobile || !input.pin || input.pin.trim().length < 4) {
@@ -271,6 +294,29 @@ export async function updateScoringOfficial(
       404,
       "OFFICIAL_NOT_FOUND",
     );
+  }
+
+  if (patch.mobile !== undefined && patch.mobile && patch.mobile.trim()) {
+    const rawDigits = patch.mobile.replace(/\D/g, "").slice(-10);
+    if (rawDigits.length >= 10) {
+      const existingInTournament = await db
+        .select({ id: scoringOfficialsTable.id, mobile: scoringOfficialsTable.mobile })
+        .from(scoringOfficialsTable)
+        .where(eq(scoringOfficialsTable.tournamentId, tournamentId));
+
+      const isDuplicate = existingInTournament.some((o) => {
+        if (o.id === officialId || !o.mobile) return false;
+        return o.mobile.replace(/\D/g, "").slice(-10) === rawDigits;
+      });
+
+      if (isDuplicate) {
+        throw new ScoringServiceError(
+          "An official with this mobile number is already registered in this tournament.",
+          409,
+          "OFFICIAL_ALREADY_REGISTERED",
+        );
+      }
+    }
   }
 
   const targetRole = patch.role ?? existing.role;

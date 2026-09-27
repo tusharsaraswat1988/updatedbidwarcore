@@ -9,11 +9,20 @@ export type ScorerProfile = {
   isActive?: boolean;
 };
 
+export type ScorerAssignedTournament = {
+  id: number;
+  name: string;
+  sport: string | null;
+  status: string;
+  hasLiveMatch: boolean;
+};
+
 export type ScorerLoginResult = {
   token: string;
   scorer: ScorerProfile;
   canScore?: boolean;
   expiresAt: string;
+  tournaments?: ScorerAssignedTournament[];
 };
 
 export class ScorerApiError extends Error {
@@ -58,11 +67,19 @@ export async function scorerApiFetch<T = unknown>(
   return res.json() as Promise<T>;
 }
 
-export async function loginScorer(mobile: string, pin: string): Promise<ScorerLoginResult> {
+export async function loginScorer(
+  mobile: string,
+  pin: string,
+  tournamentId?: number | null,
+): Promise<ScorerLoginResult> {
   const res = await fetch(`${API_BASE}/api/scorer/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mobile, pin }),
+    body: JSON.stringify({
+      mobile,
+      pin,
+      ...(tournamentId ? { tournamentId } : {}),
+    }),
   });
   if (!res.ok) throw await parseError(res);
   return res.json() as Promise<ScorerLoginResult>;

@@ -85,6 +85,7 @@ router.post("/login", async (req, res) => {
     mobile: z.string().min(10).max(20),
     pin: z.string().min(4).max(32),
     deviceName: z.string().max(120).optional(),
+    tournamentId: z.number().int().positive().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
@@ -95,6 +96,7 @@ router.post("/login", async (req, res) => {
     const result = await loginScorer({
       mobile: parsed.data.mobile,
       pin: parsed.data.pin,
+      tournamentId: parsed.data.tournamentId ?? null,
       deviceName: parsed.data.deviceName ?? null,
       ipAddress: clientIp(req),
       userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : null,
@@ -104,6 +106,7 @@ router.post("/login", async (req, res) => {
       scorer: result.scorer,
       canScore: result.canScore,
       expiresAt: result.expiresAt,
+      tournaments: result.tournaments,
     });
   } catch (e) {
     if (sendAuthError(res, e)) return;

@@ -14,6 +14,7 @@ export type ScorerAuthSession = {
   expiresAt: string;
   verifiedAt: number;
   tournamentId?: number;
+  tournaments?: import("./scorer-api").ScorerAssignedTournament[];
 };
 
 export function getScorerSavedTournamentId(): number {
@@ -77,6 +78,7 @@ export function getScorerAuthSession(): ScorerAuthSession | null {
       expiresAt: typeof parsed.expiresAt === "string" ? parsed.expiresAt : "",
       verifiedAt: typeof parsed.verifiedAt === "number" ? parsed.verifiedAt : Date.now(),
       tournamentId: savedTid > 0 ? savedTid : undefined,
+      tournaments: Array.isArray(parsed.tournaments) ? parsed.tournaments : undefined,
     };
     // Keep storages in sync if read from one but missing from another
     try {

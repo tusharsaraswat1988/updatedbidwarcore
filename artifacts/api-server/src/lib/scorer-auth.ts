@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from "crypto";
-import { and, asc, eq, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
 import {
   db,
   scorerAccountsTable,
@@ -12,6 +12,8 @@ import {
   scorerSessionsTable,
   scorerTournamentAssignmentsTable,
   scoringOfficialsTable,
+  scoringMatchesTable,
+  tournamentsTable,
 } from "@workspace/db";
 import { parseIndianMobile } from "@workspace/api-base/mobile";
 import { signScorerJwt, verifyScorerJwt, type ScorerAuthClaims } from "./jwt";
@@ -144,13 +146,28 @@ export async function cleanupOrphanScorerAccounts(): Promise<number> {
   if (orphaned.length > 0) logger.info({ count: orphaned.length }, "Removed orphaned scorer accounts at startup");
   return orphaned.length;
 }
+export type ScorerAssignedTournamentDto = {
+  id: number;
+  name: string;
+  sport: string | null;
+  status: string;
+  hasLiveMatch: boolean;
+};
+
 export async function loginScorer(input: {
   mobile: string;
   pin: string;
+  tournamentId?: number | null;
   ipAddress?: string | null;
   userAgent?: string | null;
   deviceName?: string | null;
-}): Promise<{ token: string; scorer: ScorerProfile; expiresAt: string }> {
+}): Promise<{
+  token: string;
+  scorer: ScorerProfile;
+  canScore: boolean;
+  expiresAt: string;
+  tournaments: ScorerAssignedTournamentDto[];
+}> {
   const mobile = normalizeMobile(input.mobile);
   const pin = input.pin.trim();
   if (pin.length < 4) {
@@ -177,23 +194,67 @@ export async function loginScorer(input: {
     throw new ScorerAuthError("Invalid mobile or PIN", "AUTH_FAILED", 401);
   };
 
-  const [account] = await db
+  let [account] = await db
     .select()
     .from(scorerAccountsTable)
     .where(eq(scorerAccountsTable.mobile, mobile))
     .limit(1);
 
-  // Inactive accounts may still log in for view-only Scorer Home access.
-  if (!account) {
+  let pinOk = false;
+  if (account) {
+    pinOk = await verifyScorerPin(pin, account.pinHash);
+  }
+
+  // Cross-tournament PIN tolerance:
+  // If the entered PIN did not match the global account pinHash, check if it matches
+  // ANY tournament's PIN in scoring_officials where this mobile is registered as a scorer.
+  if (!pinOk) {
+    const rawDigits = mobile.replace(/\D/g, "").slice(-10);
+    const officials = await db
+      .select({
+        id: scoringOfficialsTable.id,
+        tournamentId: scoringOfficialsTable.tournamentId,
+        name: scoringOfficialsTable.name,
+        pin: scoringOfficialsTable.pin,
+        mobile: scoringOfficialsTable.mobile,
+      })
+      .from(scoringOfficialsTable)
+      .where(eq(scoringOfficialsTable.role, "scorer"));
+
+    const matchedOfficial = officials.find((o) => {
+      if (!o.mobile || !o.pin) return false;
+      const oDigits = o.mobile.replace(/\D/g, "").slice(-10);
+      return oDigits === rawDigits && o.pin.trim() === pin;
+    });
+
+    if (matchedOfficial) {
+      pinOk = true;
+      const newPinHash = await hashScorerPin(pin);
+      if (!account) {
+        const [created] = await db
+          .insert(scorerAccountsTable)
+          .values({
+            name: matchedOfficial.name,
+            mobile,
+            pinHash: newPinHash,
+            isActive: true,
+          })
+          .returning();
+        account = created!;
+      } else {
+        await db
+          .update(scorerAccountsTable)
+          .set({ pinHash: newPinHash })
+          .where(eq(scorerAccountsTable.id, account.id));
+      }
+    }
+  }
+
+  if (!account || !pinOk) {
     failAuth();
   }
 
   const scorerAccount = account!;
-  const pinOk = await verifyScorerPin(pin, scorerAccount.pinHash);
-  if (!pinOk) {
-    failAuth();
-  }
-
   clearScorerLoginFailures(mobile, input.ipAddress);
 
   const sessionId = randomUUID();
@@ -217,6 +278,86 @@ export async function loginScorer(input: {
     .set({ lastLoginAt: now })
     .where(eq(scorerAccountsTable.id, scorerAccount.id));
 
+  // Find all tournaments this scorer is registered/assigned to
+  const rawDigits = mobile.replace(/\D/g, "").slice(-10);
+
+  // 1. From scorer_tournament_assignments
+  const assignedRows = await db
+    .select({ tournamentId: scorerTournamentAssignmentsTable.tournamentId })
+    .from(scorerTournamentAssignmentsTable)
+    .where(eq(scorerTournamentAssignmentsTable.scorerId, scorerAccount.id));
+
+  // 2. From scoring_officials roster
+  const officialRows = await db
+    .select({ tournamentId: scoringOfficialsTable.tournamentId, mobile: scoringOfficialsTable.mobile })
+    .from(scoringOfficialsTable)
+    .where(eq(scoringOfficialsTable.role, "scorer"));
+
+  const matchedTournamentIds = new Set<number>();
+  for (const r of assignedRows) {
+    if (r.tournamentId) matchedTournamentIds.add(r.tournamentId);
+  }
+  for (const o of officialRows) {
+    if (o.mobile && o.mobile.replace(/\D/g, "").slice(-10) === rawDigits) {
+      matchedTournamentIds.add(o.tournamentId);
+      // Auto-heal the assignment link
+      await assignScorerToTournament(scorerAccount.id, o.tournamentId);
+    }
+  }
+
+  // If a specific tournamentId was requested on login, verify assignment
+  if (input.tournamentId && !matchedTournamentIds.has(input.tournamentId)) {
+    throw new ScorerAuthError(
+      `You are not registered as a scorer for Tournament #${input.tournamentId}. Please ask the tournament organizer to add your mobile number in Officials & Scorers.`,
+      "TOURNAMENT_NOT_ASSIGNED",
+      403,
+    );
+  }
+
+  // Fetch details for non-ended tournaments (live / upcoming / active)
+  let activeTournaments: ScorerAssignedTournamentDto[] = [];
+  const assignedTournamentIds = Array.from(matchedTournamentIds);
+
+  if (assignedTournamentIds.length > 0) {
+    const tRows = await db
+      .select({
+        id: tournamentsTable.id,
+        name: tournamentsTable.name,
+        sport: tournamentsTable.sport,
+        status: tournamentsTable.status,
+      })
+      .from(tournamentsTable)
+      .where(inArray(tournamentsTable.id, assignedTournamentIds));
+
+    // Filter out ended tournaments (completed / archived / ended)
+    const nonEnded = tRows.filter((t) => {
+      const s = (t.status || "").toLowerCase();
+      return s !== "completed" && s !== "archived" && s !== "ended";
+    });
+
+    let liveTids = new Set<number>();
+    if (nonEnded.length > 0) {
+      const liveMatches = await db
+        .select({ tournamentId: scoringMatchesTable.tournamentId })
+        .from(scoringMatchesTable)
+        .where(
+          and(
+            inArray(scoringMatchesTable.tournamentId, nonEnded.map((t) => t.id)),
+            eq(scoringMatchesTable.status, "live"),
+          ),
+        );
+      liveTids = new Set(liveMatches.map((m) => m.tournamentId));
+    }
+
+    activeTournaments = nonEnded.map((t) => ({
+      id: t.id,
+      name: t.name,
+      sport: t.sport,
+      status: t.status,
+      hasLiveMatch: liveTids.has(t.id),
+    }));
+  }
+
   const token = signScorerJwt({
     purpose: "scorer",
     scorerId: scorerAccount.id,
@@ -229,7 +370,7 @@ export async function loginScorer(input: {
     scorerId: scorerAccount.id,
     sessionId,
     action: "login",
-    payload: { mobile, canScore: scorerAccount.isActive },
+    payload: { mobile, canScore: scorerAccount.isActive, tournamentCount: activeTournaments.length },
   });
 
   return {
@@ -242,6 +383,7 @@ export async function loginScorer(input: {
     },
     canScore: scorerAccount.isActive,
     expiresAt: expiresAt.toISOString(),
+    tournaments: activeTournaments,
   };
 }
 

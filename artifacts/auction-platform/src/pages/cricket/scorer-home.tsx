@@ -22,7 +22,14 @@ import {
   getScorerSavedTournamentId,
   setScorerSavedTournamentId,
 } from "@/lib/badminton-scorer-session";
-import { loginScorer, logoutScorer } from "@/lib/scorer-api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { loginScorer, logoutScorer, type ScorerAssignedTournament, type ScorerLoginResult } from "@/lib/scorer-api";
 import { sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { cricketScorerConsolePath, cricketScorerPath } from "@/lib/cricket-routes";
 import { CricketPublicBrandMark } from "@/components/scoring/cricket-branding";
@@ -33,6 +40,7 @@ import {
   Activity,
   Calendar,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Clock,
   Eye,
@@ -44,6 +52,7 @@ import {
   Play,
   RefreshCw,
   Search,
+  ShieldAlert,
   Smartphone,
   Trophy,
   User,
@@ -58,6 +67,8 @@ export default function CricketScorerHomePage() {
   const tidFromQuery = parseInt(searchParams.get("tid") ?? "0", 10);
 
   const [session, setSession] = useState(() => getScorerAuthSession());
+  const [showTournamentPicker, setShowTournamentPicker] = useState(false);
+  const [pendingLogin, setPendingLogin] = useState<ScorerLoginResult | null>(null);
   const savedTid = session?.tournamentId || getScorerSavedTournamentId();
   const effectiveTid = tidFromQuery > 0 ? tidFromQuery : savedTid;
 
@@ -92,17 +103,24 @@ export default function CricketScorerHomePage() {
     },
   );
 
+  const isUnassignedToCurrentTournament = Boolean(
+    session?.tournaments &&
+      session.tournaments.length > 0 &&
+      tournamentId > 0 &&
+      !session.tournaments.some((t) => t.id === tournamentId),
+  );
+
   const { data: matches = [], isLoading: matchesLoading, refetch: refetchMatches } = useQuery({
     queryKey: ["cricket-scoring-matches", tournamentId],
     queryFn: () => listScoringMatches(tournamentId),
-    enabled: tournamentId > 0 && !!session,
+    enabled: tournamentId > 0 && !!session && !isUnassignedToCurrentTournament,
     refetchInterval: 10_000,
   });
 
   const { data: masterTeams = [] } = useQuery({
     queryKey: ["cricket-master-teams", tournamentId],
     queryFn: () => getCricketMasterTeams(tournamentId),
-    enabled: tournamentId > 0 && !!session,
+    enabled: tournamentId > 0 && !!session && !isUnassignedToCurrentTournament,
   });
 
   const teams = masterTeams.map(cricketMasterTeamToScorerTeam);
@@ -126,12 +144,43 @@ export default function CricketScorerHomePage() {
     };
   }, [tournamentIdInput, tidFromQuery]);
 
+  function selectTournamentAndCompleteLogin(loginData: ScorerLoginResult, targetTid: number) {
+    const authPayload = {
+      token: loginData.token,
+      scorer: {
+        id: loginData.scorer.id,
+        name: loginData.scorer.name,
+        mobile: loginData.scorer.mobile,
+        isActive: loginData.canScore ?? loginData.scorer.isActive !== false,
+      },
+      canScore: loginData.canScore ?? loginData.scorer.isActive !== false,
+      expiresAt: loginData.expiresAt,
+      tournamentId: targetTid,
+      tournaments: loginData.tournaments,
+    };
+    setScorerAuthSession(authPayload);
+    setScorerSavedTournamentId(targetTid);
+    setSession(getScorerAuthSession());
+    setShowTournamentPicker(false);
+    setPendingLogin(null);
+    navigate(cricketScorerPath(targetTid), { replace: true });
+  }
+
+  function handleSwitchTournament(targetTid: number) {
+    if (!session) return;
+    const updated = {
+      ...session,
+      tournamentId: targetTid,
+    };
+    setScorerAuthSession(updated);
+    setScorerSavedTournamentId(targetTid);
+    setSession(getScorerAuthSession());
+    setShowTournamentPicker(false);
+    navigate(cricketScorerPath(targetTid), { replace: true });
+  }
+
   async function handleLogin(e?: React.FormEvent) {
     if (e) e.preventDefault();
-    if (!tournamentId) {
-      setAuthError("Enter a valid Tournament ID or use the link sent by your organizer");
-      return;
-    }
     const cleanMobile = mobileInput.replace(/\D/g, "").slice(-10);
     if (cleanMobile.length < 10) {
       setAuthError("Enter a valid 10-digit registered mobile number");
@@ -146,21 +195,24 @@ export default function CricketScorerHomePage() {
     setAuthError("");
     try {
       const login = await loginScorer(cleanMobile, pinInput.trim());
-      const authPayload = {
-        token: login.token,
-        scorer: {
-          id: login.scorer.id,
-          name: login.scorer.name,
-          mobile: login.scorer.mobile,
-          isActive: login.canScore ?? login.scorer.isActive !== false,
-        },
-        canScore: login.canScore ?? login.scorer.isActive !== false,
-        expiresAt: login.expiresAt,
-        tournamentId,
-      };
-      setScorerAuthSession(authPayload);
-      setScorerSavedTournamentId(tournamentId);
-      setSession(getScorerAuthSession());
+      const nonEndedTournaments = login.tournaments ?? [];
+
+      if (nonEndedTournaments.length === 0) {
+        setAuthError(
+          "You are not registered as an official scorer in any live or upcoming tournament. If your tournament has ended or not yet registered, please contact your tournament organizer."
+        );
+        return;
+      }
+
+      // If registered for exactly 1 tournament -> direct login
+      if (nonEndedTournaments.length === 1) {
+        selectTournamentAndCompleteLogin(login, nonEndedTournaments[0].id);
+        return;
+      }
+
+      // If registered for multiple tournaments (>1) -> show tournament selector modal
+      setPendingLogin(login);
+      setShowTournamentPicker(true);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : "Authentication failed. Check your mobile number and PIN.");
     } finally {
@@ -224,26 +276,11 @@ export default function CricketScorerHomePage() {
           <ScorerPwaInstallBanner />
 
           <form onSubmit={handleLogin} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6 space-y-4 shadow-xl backdrop-blur-md">
-            {tidFromQuery <= 0 ? (
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider">
-                  Tournament ID
-                </label>
-                <Input
-                  type="tel"
-                  inputMode="numeric"
-                  value={tournamentIdInput}
-                  onChange={(e) => setTournamentIdInput(e.target.value.replace(/\D/g, ""))}
-                  placeholder="e.g. 25"
-                  className="bg-white/5 border-white/15 text-white font-mono text-center h-12 text-lg"
-                  required
-                />
-              </div>
-            ) : (
+            {tidFromQuery > 0 ? (
               <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center text-xs text-white/70">
-                Tournament: <span className="font-bold text-white">{tournament?.name || `#${tournamentId}`}</span>
+                Tournament: <span className="font-bold text-white">{tournament?.name || `#${tidFromQuery}`}</span>
               </div>
-            )}
+            ) : null}
 
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5">
@@ -326,6 +363,60 @@ export default function CricketScorerHomePage() {
             Don't have a PIN? Contact the tournament organizer to get registered as an official scorer.
           </p>
         </div>
+
+        {/* Modal when registered for multiple tournaments during login */}
+        <Dialog
+          open={showTournamentPicker && !!pendingLogin}
+          onOpenChange={(open) => {
+            setShowTournamentPicker(open);
+            if (!open) setPendingLogin(null);
+          }}
+        >
+          <DialogContent className="bg-[#0b1026] border border-white/15 text-white max-w-md w-full">
+            <DialogHeader className="text-left space-y-1">
+              <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
+                <Trophy className="w-5 h-5 text-amber-400" />
+                Select Tournament to Score
+              </DialogTitle>
+              <DialogDescription className="text-xs text-white/60">
+                You are registered as a scorer for multiple tournaments. Choose which live or upcoming tournament you want to score:
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-2.5 max-h-[60vh] overflow-y-auto py-2 pr-1">
+              {(pendingLogin?.tournaments ?? []).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => selectTournamentAndCompleteLogin(pendingLogin!, t.id)}
+                  className="w-full text-left p-3.5 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] hover:border-amber-400/40 text-white transition-all flex items-center justify-between gap-3 group"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-white group-hover:text-amber-300 truncate transition-colors">
+                        {t.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-white/60">
+                      <span className="capitalize">{t.sport || "Cricket"}</span>
+                      <span>•</span>
+                      {t.hasLiveMatch ? (
+                        <span className="text-rose-400 font-semibold flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping inline-block" />
+                          Live Match Ongoing
+                        </span>
+                      ) : (
+                        <span className="text-white/50 capitalize">{t.status || "Upcoming"}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-amber-400 shrink-0 transition-colors" />
+                </button>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -373,10 +464,28 @@ export default function CricketScorerHomePage() {
             <div className="h-5 w-px bg-white/20 shrink-0" />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span className="text-amber-400 font-bold text-xs truncate max-w-[12rem] sm:max-w-sm tracking-wide">
-                  {tournament?.name || `Tournament #${tournamentId}`}
-                </span>
+                {session.tournaments && session.tournaments.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowTournamentPicker(true)}
+                    className="flex items-center gap-1.5 text-amber-400 hover:text-amber-300 font-bold text-xs truncate max-w-[12rem] sm:max-w-sm tracking-wide group text-left"
+                    title="Switch Tournament"
+                  >
+                    <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="truncate">{tournament?.name || `Tournament #${tournamentId}`}</span>
+                    <span className="text-[10px] bg-amber-500/20 border border-amber-500/30 text-amber-300 px-1 rounded font-mono group-hover:bg-amber-500/30 flex items-center gap-0.5 shrink-0">
+                      <span>{session.tournaments.length}</span>
+                      <ChevronDown className="w-2.5 h-2.5" />
+                    </span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="text-amber-400 font-bold text-xs truncate max-w-[12rem] sm:max-w-sm tracking-wide">
+                      {tournament?.name || `Tournament #${tournamentId}`}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-1.5 text-xs text-white/70 truncate mt-0.5">
                 <span className="font-semibold text-slate-200 truncate flex items-center gap-1">
@@ -424,6 +533,53 @@ export default function CricketScorerHomePage() {
       {/* ─── Main Content: Match Hub ─── */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 py-4 space-y-4 pb-16">
         <ScorerPwaInstallBanner />
+
+        {isUnassignedToCurrentTournament ? (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-6 text-center space-y-4 max-w-lg mx-auto my-8">
+            <div className="w-12 h-12 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center mx-auto">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-white">Not Assigned to This Tournament</h3>
+              <p className="text-xs text-white/70">
+                You are signed in as <strong className="text-white">{session.scorer.name}</strong> ({session.scorer.mobile}), but you are not registered as an official scorer for Tournament #{tournamentId}.
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400">
+                Switch to your registered tournament:
+              </p>
+              <div className="space-y-2">
+                {session.tournaments!.map((t) => (
+                  <Button
+                    key={t.id}
+                    type="button"
+                    onClick={() => handleSwitchTournament(t.id)}
+                    className="w-full justify-between bg-white/10 hover:bg-white/20 text-white border border-white/15 h-11"
+                  >
+                    <span className="font-bold truncate">{t.name}</span>
+                    <span className="text-xs text-amber-400 flex items-center gap-1.5 font-semibold shrink-0">
+                      {t.hasLiveMatch && <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />}
+                      <span>Open Tournament &rarr;</span>
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="text-xs text-white/50 hover:text-white"
+              >
+                Sign in with a different scorer account
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
 
         {/* ─── Navigation Tabs & Search (Sub-options) ─── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
@@ -815,7 +971,70 @@ export default function CricketScorerHomePage() {
             </section>
           )}
         </div>
+        </>
+      )}
       </main>
+
+      {/* Modal to switch tournament when already logged in */}
+      <Dialog open={showTournamentPicker} onOpenChange={setShowTournamentPicker}>
+        <DialogContent className="bg-[#0b1026] border border-white/15 text-white max-w-md w-full">
+          <DialogHeader className="text-left space-y-1">
+            <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-amber-400" />
+              Switch Tournament
+            </DialogTitle>
+            <DialogDescription className="text-xs text-white/60">
+              Select another live or upcoming tournament assigned to your account:
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2.5 max-h-[60vh] overflow-y-auto py-2 pr-1">
+            {(session?.tournaments ?? []).map((t) => {
+              const isCurrent = t.id === tournamentId;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => handleSwitchTournament(t.id)}
+                  className={cn(
+                    "w-full text-left p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 group",
+                    isCurrent
+                      ? "border-amber-500/60 bg-amber-500/10 text-white shadow-md shadow-amber-500/5"
+                      : "border-white/10 bg-white/[0.03] hover:bg-white/[0.08] hover:border-amber-400/40 text-white",
+                  )}
+                >
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-white group-hover:text-amber-300 truncate transition-colors">
+                        {t.name}
+                      </span>
+                      {isCurrent && (
+                        <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded-full font-semibold">
+                          Current
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-white/60">
+                      <span className="capitalize">{t.sport || "Cricket"}</span>
+                      <span>•</span>
+                      {t.hasLiveMatch ? (
+                        <span className="text-rose-400 font-semibold flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping inline-block" />
+                          Live Match Ongoing
+                        </span>
+                      ) : (
+                        <span className="text-white/50 capitalize">{t.status || "Upcoming"}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <ChevronRight className="w-4 h-4 text-white/40 group-hover:text-amber-400 shrink-0 transition-colors" />
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
