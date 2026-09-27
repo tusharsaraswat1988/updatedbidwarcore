@@ -16,6 +16,7 @@ export const CricketEventType = {
   PENALTY_AWARDED: "cricket.penalty.awarded",
   PLAYER_RETIRED: "cricket.player.retired",
   SUPER_BALL_DECLARED: "cricket.super_ball.declared",
+  SUPER_BALL_CANCELLED: "cricket.super_ball.cancelled",
   SUPER_OVER_STARTED: "cricket.super_over.started",
   WALKOVER_AWARDED: "cricket.walkover.awarded",
 } as const;
@@ -131,6 +132,12 @@ export const cricketSuperBallDeclaredPayloadSchema = z.object({
   battingTeamId: z.number().int().positive(),
 });
 
+export const cricketSuperBallCancelledPayloadSchema = z.object({
+  innings: z.number().int().min(1),
+  battingTeamId: z.number().int().positive(),
+  reason: z.string().optional(),
+});
+
 export const cricketSuperOverStartedPayloadSchema = z.object({
   innings: z.number().int().min(3),
   battingTeamId: z.number().int().positive(),
@@ -182,6 +189,9 @@ export type CricketPlayerRetiredPayload = z.infer<
 export type CricketSuperBallDeclaredPayload = z.infer<
   typeof cricketSuperBallDeclaredPayloadSchema
 >;
+export type CricketSuperBallCancelledPayload = z.infer<
+  typeof cricketSuperBallCancelledPayloadSchema
+>;
 export type CricketSuperOverStartedPayload = z.infer<
   typeof cricketSuperOverStartedPayloadSchema
 >;
@@ -206,6 +216,7 @@ const cricketPayloadSchemas: Record<
   [CricketEventType.PENALTY_AWARDED]: cricketPenaltyAwardedPayloadSchema,
   [CricketEventType.PLAYER_RETIRED]: cricketPlayerRetiredPayloadSchema,
   [CricketEventType.SUPER_BALL_DECLARED]: cricketSuperBallDeclaredPayloadSchema,
+  [CricketEventType.SUPER_BALL_CANCELLED]: cricketSuperBallCancelledPayloadSchema,
   [CricketEventType.SUPER_OVER_STARTED]: cricketSuperOverStartedPayloadSchema,
   [CricketEventType.WALKOVER_AWARDED]: cricketWalkoverAwardedPayloadSchema,
 };

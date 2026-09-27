@@ -1,3 +1,4 @@
+import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BroadcastFrameProvider, useBroadcastDirector } from "./director";
 import type { BroadcastFrame } from "./contracts";

@@ -17,6 +17,7 @@ import { CricketObsMidOverlays } from "@/components/scoring/cricket-obs/cricket-
 import { CricketObsOperatorDock } from "@/components/scoring/cricket-obs/cricket-obs-operator-dock";
 import { CricketObsBroadcastMessage } from "@/components/scoring/cricket-obs/cricket-obs-broadcast-message";
 import { CricketObsNeutralFooter } from "@/components/scoring/cricket-obs/cricket-obs-neutral-footer";
+import { SuperBallActivationOverlay } from "@/components/scoring/super-ball-activation-overlay";
 
 type Props = {
   vm: CricketObsViewModel;
@@ -99,6 +100,11 @@ export function CricketObsStage({
 
       {/* 4. REAL-TIME EVENT ANIMATIONS (Come and go) */}
       <CricketObsEventFlash flash={vm.flash} token={vm.flashToken} detail={vm.flashDetail} />
+
+      {/* SUPER BALL BROADCAST ACTIVATION FULL-SCREEN ANIMATION */}
+      {tournamentId > 0 ? (
+        <SuperBallActivationOverlay tournamentId={tournamentId} />
+      ) : null}
 
       {/* 5. 1920x1080 FULL BROADCAST GRAPHIC SLATES */}
       {tournamentId > 0 ? (

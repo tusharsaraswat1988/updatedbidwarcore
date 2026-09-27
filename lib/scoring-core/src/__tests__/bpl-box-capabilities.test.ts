@@ -205,6 +205,43 @@ describe("box cricket configurable capabilities", () => {
     expect(next.superBallPending).toEqual({ innings: 1, battingTeamId: 1 });
   });
 
+  it("allows Super Ball declaration -> cancellation -> re-declaration", () => {
+    let state = started({ superBallEnabled: true }, []);
+    // 1. Declare
+    state = reduceCricket(
+      state,
+      ev(4, CricketEventType.SUPER_BALL_DECLARED, {
+        innings: 1,
+        battingTeamId: 1,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.superBallPending).toEqual({ innings: 1, battingTeamId: 1 });
+
+    // 2. Cancel
+    state = reduceCricket(
+      state,
+      ev(5, CricketEventType.SUPER_BALL_CANCELLED, {
+        innings: 1,
+        battingTeamId: 1,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.superBallPending).toBeNull();
+    expect(state.superBallUsed[1]).not.toContain(1);
+
+    // 3. Re-declare
+    state = reduceCricket(
+      state,
+      ev(6, CricketEventType.SUPER_BALL_DECLARED, {
+        innings: 1,
+        battingTeamId: 1,
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.superBallPending).toEqual({ innings: 1, battingTeamId: 1 });
+  });
+
   it("rejects Super Ball declaration when only one batsman remains", () => {
     const state = {
       ...started({ superBallEnabled: true, maxWickets: 6 }),

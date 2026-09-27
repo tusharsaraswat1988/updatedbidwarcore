@@ -1,3 +1,4 @@
+import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { BroadcastFrame, CricketScoreModel } from "./contracts";
 import type { ObsV2BroadcastEvent } from "./obs-v2-events";

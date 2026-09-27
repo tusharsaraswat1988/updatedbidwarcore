@@ -68,12 +68,15 @@ export function useObsV2Events({
     setActiveEvent(null);
   }, []);
 
+  // Timestamp when hook mounted to reject events that happened before the viewer opened the overlay
+  const mountTimeRef = useRef<number>(Date.now());
+
   // 1. Initial Mount / Stale Event Rejection
   useEffect(() => {
     if (!bootstrappedRef.current) {
-      bootstrappedRef.current = true;
       if (authoritativeEvent?.id) {
         seenTokensRef.current.add(authoritativeEvent.id);
+        bootstrappedRef.current = true;
       }
       if (flashToken) {
         seenTokensRef.current.add(flashToken);
@@ -126,6 +129,15 @@ export function useObsV2Events({
     if (!authoritativeEvent || !authoritativeEvent.id) return;
     const token = authoritativeEvent.id;
     if (seenTokensRef.current.has(token)) return;
+
+    // Suppress stale historical events that occurred prior to hook mount
+    if (
+      authoritativeEvent.timestamp &&
+      authoritativeEvent.timestamp < mountTimeRef.current - 4000
+    ) {
+      seenTokensRef.current.add(token);
+      return;
+    }
 
     if (phase === "completed" && authoritativeEvent.type !== "MATCH_WON") {
       seenTokensRef.current.add(token);

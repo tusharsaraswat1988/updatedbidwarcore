@@ -461,14 +461,35 @@ export function LiveScoringPad({
     });
   }
 
+  // Super Ball Cancel
+  async function handleCancelSuperBall() {
+    if (!superBallEnabled || !battingId || busy) return;
+    try {
+      if (
+        state.superBallPending &&
+        state.superBallPending.innings === state.currentInnings
+      ) {
+        await onEvent(CricketEventType.SUPER_BALL_CANCELLED, {
+          innings: state.currentInnings,
+          battingTeamId: battingId,
+        });
+      }
+    } catch (e) {
+      toast({
+        title: "Could not cancel Super Ball",
+        description: e instanceof Error ? e.message : "Error cancelling Super Ball",
+        variant: "destructive",
+      });
+    } finally {
+      setLocalSuperBallArmed(false);
+    }
+  }
+
   // Super Ball Toggle
   async function handleToggleSuperBall() {
     if (!superBallEnabled || !battingId || busy) return;
-    if (
-      state.superBallPending &&
-      state.superBallPending.innings === state.currentInnings
-    ) {
-      setLocalSuperBallArmed(false);
+    if (isSuperBallActive) {
+      await handleCancelSuperBall();
       return;
     }
     if (!canUseSuperBall) {
@@ -480,23 +501,19 @@ export function LiveScoringPad({
       }
       return;
     }
-    if (!localSuperBallArmed) {
-      try {
-        await onEvent(CricketEventType.SUPER_BALL_DECLARED, {
-          innings: state.currentInnings,
-          battingTeamId: battingId,
-        });
-        setLocalSuperBallArmed(true);
-      } catch (e) {
-        // Server rejected — ensure we don't show stale "ACTIVE" banner.
-        toast({
-          title: "Super Ball declaration failed",
-          description: e instanceof Error ? e.message : "Could not declare Super Ball",
-          variant: "destructive",
-        });
-        setLocalSuperBallArmed(false);
-      }
-    } else {
+    try {
+      await onEvent(CricketEventType.SUPER_BALL_DECLARED, {
+        innings: state.currentInnings,
+        battingTeamId: battingId,
+      });
+      setLocalSuperBallArmed(true);
+    } catch (e) {
+      // Server rejected — ensure we don't show stale "ACTIVE" banner.
+      toast({
+        title: "Super Ball declaration failed",
+        description: e instanceof Error ? e.message : "Could not declare Super Ball",
+        variant: "destructive",
+      });
       setLocalSuperBallArmed(false);
     }
   }
@@ -705,8 +722,8 @@ export function LiveScoringPad({
           </div>
           <button
             type="button"
-            onClick={() => setLocalSuperBallArmed(false)}
-            className="text-[10px] uppercase font-bold text-muted-foreground hover:text-amber-200 ml-2"
+            onClick={() => void handleCancelSuperBall()}
+            className="text-[10px] uppercase font-bold text-muted-foreground hover:text-amber-200 ml-2 cursor-pointer"
           >
             Cancel
           </button>

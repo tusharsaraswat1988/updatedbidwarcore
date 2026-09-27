@@ -265,5 +265,58 @@ describe("Authoritative Cricket Broadcast Events", () => {
       expect(event?.type).toBe("MATCH_WON");
       expect(event?.detail).toBe("Titans Won by 5 wickets");
     });
+
+    it("builds SUPER_BALL_ACTIVATED on SUPER_BALL_DECLARED event with unique activationId", () => {
+      const event1 = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 12,
+        eventType: CricketEventType.SUPER_BALL_DECLARED,
+        payload: {
+          innings: 1,
+          battingTeamId: 2,
+        },
+        timestamp: 1700000000000,
+      });
+
+      expect(event1).not.toBeNull();
+      expect(event1?.id).toBe("123:12:SUPER_BALL_ACTIVATED");
+      expect(event1?.type).toBe("SUPER_BALL_ACTIVATED");
+      expect(event1?.sequence).toBe(12);
+      expect(event1?.matchId).toBe(123);
+      expect(event1?.detail).toBe("SUPER BALL ACTIVATED");
+      expect(event1?.activationId).toBe("123:12:super_ball_1700000000000");
+
+      // Reactivation after cancel/undo gets a distinct sequence and distinct ID
+      const event2 = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 14,
+        eventType: CricketEventType.SUPER_BALL_DECLARED,
+        payload: {
+          innings: 1,
+          battingTeamId: 2,
+        },
+        timestamp: 1700000005000,
+      });
+
+      expect(event2).not.toBeNull();
+      expect(event2?.id).toBe("123:14:SUPER_BALL_ACTIVATED");
+      expect(event2?.sequence).toBe(14);
+      expect(event2?.activationId).toBe("123:14:super_ball_1700000005000");
+      expect(event2?.id).not.toBe(event1?.id);
+    });
+
+    it("returns null for SUPER_BALL_CANCELLED (no activation broadcast)", () => {
+      const event = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 13,
+        eventType: CricketEventType.SUPER_BALL_CANCELLED,
+        payload: {
+          innings: 1,
+          battingTeamId: 2,
+        },
+      });
+
+      expect(event).toBeNull();
+    });
   });
 });

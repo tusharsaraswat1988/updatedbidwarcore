@@ -13,6 +13,7 @@ import {
   type CricketPenaltyAwardedPayload,
   type CricketPlayerRetiredPayload,
   type CricketSuperBallDeclaredPayload,
+  type CricketSuperBallCancelledPayload,
   type CricketSuperOverStartedPayload,
   type CricketWalkoverAwardedPayload,
 } from "../events/cricket";
@@ -467,6 +468,28 @@ function applySuperBallDeclared(
     payload.battingTeamId,
   ];
   return { ...state, superBallPending: payload, superBallUsed: used };
+}
+
+function applySuperBallCancelled(
+  state: CricketScoreboardState,
+  payload: CricketSuperBallCancelledPayload,
+  enforceLiveRules = false,
+): CricketScoreboardState {
+  if (enforceLiveRules) {
+    if (!state.superBallPending) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_BALL_CANCELLED,
+        "No Super Ball is currently pending to cancel",
+      );
+    }
+  }
+  const used = { ...state.superBallUsed };
+  if (used[payload.innings]) {
+    used[payload.innings] = used[payload.innings].filter(
+      (id) => id !== payload.battingTeamId,
+    );
+  }
+  return { ...state, superBallPending: null, superBallUsed: used };
 }
 
 function applyPenaltyAwarded(
@@ -1003,6 +1026,13 @@ export function reduceCricket(
       next = applySuperBallDeclared(
         state,
         parsed.payload as CricketSuperBallDeclaredPayload,
+        enforceLiveRules,
+      );
+      break;
+    case CricketEventType.SUPER_BALL_CANCELLED:
+      next = applySuperBallCancelled(
+        state,
+        parsed.payload as CricketSuperBallCancelledPayload,
         enforceLiveRules,
       );
       break;

@@ -440,6 +440,30 @@ export default function CricketScorerPage() {
           if (result.state.strikerId == null || result.state.nonStrikerId == null) {
             setPendingNewBatsman(true);
           }
+
+          if (eventType === CricketEventType.SUPER_BALL_DECLARED) {
+            try {
+              if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined" && tournamentId) {
+                const channel = new BroadcastChannel(`bidwar_cricket_obs_${tournamentId}`);
+                channel.postMessage({
+                  type: "SUPER_BALL_ACTIVATED",
+                  broadcastEvent: {
+                    id: `cricket-broadcast-${matchId}-${result.state.lastSequence}-SUPER_BALL_ACTIVATED`,
+                    sequence: result.state.lastSequence,
+                    type: "SUPER_BALL_ACTIVATED",
+                    matchId,
+                    timestamp: Date.now(),
+                    detail: "SUPER BALL ACTIVATED",
+                    activationId: `super-ball-act-${matchId}-${result.state.lastSequence}-${Date.now()}`,
+                  },
+                });
+                channel.close();
+              }
+            } catch (err) {
+              console.warn("[SCORER] BroadcastChannel sync failed", err);
+            }
+          }
+
           await drainQueue();
         }
       } catch (e) {

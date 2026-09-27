@@ -1,4 +1,4 @@
-import { forwardRef, useMemo, type CSSProperties, type HTMLAttributes } from "react";
+import React, { forwardRef, useMemo, type CSSProperties, type HTMLAttributes } from "react";
 import "./broadcast.css";
 import { BroadcastStage } from "./BroadcastStage";
 import type { BroadcastFrame, CricketScoreModel } from "./contracts";

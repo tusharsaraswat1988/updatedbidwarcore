@@ -39,6 +39,7 @@ import {
   LedEventAnimationOverlay,
   type LedMatchEvent,
 } from "@/components/scoring/led-event-animation-overlay";
+import { SuperBallActivationOverlay } from "@/components/scoring/super-ball-activation-overlay";
 import { CricketLedMidOverlays } from "@/components/scoring/cricket-led-mid-overlays";
 import { CricketLedNeutralScreen } from "@/components/scoring/cricket-led-neutral-screen";
 import {
@@ -771,6 +772,11 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
           currentEvent={activeEvent}
           onDismiss={() => setActiveEvent(null)}
         />
+
+        {/* 6. SUPER BALL FULL-SCREEN BROADCAST ACTIVATION */}
+        {tournamentId > 0 ? (
+          <SuperBallActivationOverlay tournamentId={tournamentId} />
+        ) : null}
       </FullscreenLayout>
     );
   }
@@ -1197,6 +1203,11 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
           currentEvent={activeEvent}
           onDismiss={() => setActiveEvent(null)}
         />
+
+        {/* 6. SUPER BALL FULL-SCREEN BROADCAST ACTIVATION */}
+        {tournamentId > 0 ? (
+          <SuperBallActivationOverlay tournamentId={tournamentId} />
+        ) : null}
       </div>
     </FullscreenLayout>
   );

@@ -19,6 +19,7 @@ import type { SponsorLogo } from "../components/broadcast/obs-v2/contracts";
 
 import { useV2Sync, type V2SyncMessage } from "../components/broadcast/obs-v2/obs-v2-sync";
 import { normalizeCricketFlashToObsV2Event } from "../components/broadcast/obs-v2/obs-v2-event-adapter";
+import { SuperBallActivationOverlay } from "@/components/scoring/super-ball-activation-overlay";
 
 /**
  * Cricket Broadcast Overlay V2 — Production Display & Visual Review Page
@@ -435,6 +436,11 @@ export default function CricketObsV2Page() {
           CAMERA SAFE AREA — 100% TRANSPARENT (Y: 96px → 880px)
         </div>
       )}
+
+      {/* 6. SUPER BALL FULL-SCREEN BROADCAST ACTIVATION */}
+      <SuperBallActivationOverlay
+        tournamentId={tournamentId > 0 ? tournamentId : (isPreviewMode ? 1 : 0)}
+      />
     </>
   );
 
@@ -561,6 +567,28 @@ export default function CricketObsV2Page() {
                 {btn.label}
               </button>
             ))}
+            <button
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(
+                    new CustomEvent("cricket_scoring_broadcast_event", {
+                      detail: {
+                        id: `preview-super-ball-${Date.now()}`,
+                        sequence: (vm?.lastSequence ?? 10) + 1,
+                        type: "SUPER_BALL_ACTIVATED",
+                        matchId: vm?.matchId ?? 1,
+                        timestamp: Date.now(),
+                        detail: "SUPER BALL ACTIVATED",
+                      },
+                    }),
+                  );
+                }
+              }}
+              className="px-2 py-1 font-black rounded border border-amber-400 bg-gradient-to-r from-amber-400 to-yellow-500 text-black shadow-[0_0_10px_rgba(251,191,36,0.5)] hover:scale-105 active:scale-95 transition"
+              title="Test Full-Screen Super Ball Broadcast Activation Animation"
+            >
+              ⚡ SUPER BALL
+            </button>
           </div>
 
           {/* Side Slate Overlays */}

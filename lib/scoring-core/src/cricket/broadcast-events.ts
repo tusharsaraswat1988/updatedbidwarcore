@@ -8,6 +8,7 @@ export type CricketAuthoritativeBroadcastEventType =
   | "NO_BALL"
   | "WICKET"
   | "SUPERBALL"
+  | "SUPER_BALL_ACTIVATED"
   | "MATCH_WON";
 
 export interface CricketAuthoritativeBroadcastEvent {
@@ -21,6 +22,7 @@ export interface CricketAuthoritativeBroadcastEvent {
   bowler?: string;
   runs?: number;
   detail?: string;
+  activationId?: string;
 }
 
 export function buildCricketBroadcastEventId(
@@ -205,6 +207,21 @@ export function buildAuthoritativeCricketBroadcastEvent(
       matchId,
       timestamp,
       detail: p.resultText || "MATCH COMPLETED",
+    };
+  }
+
+  if (eventType === CricketEventType.SUPER_BALL_DECLARED) {
+    const type: CricketAuthoritativeBroadcastEventType = "SUPER_BALL_ACTIVATED";
+    const p = payload as { activationId?: string };
+    const activationId = p?.activationId || `${matchId}:${sequence}:super_ball_${timestamp}`;
+    return {
+      id: buildCricketBroadcastEventId(matchId, sequence, type),
+      sequence,
+      type,
+      matchId,
+      timestamp,
+      detail: "SUPER BALL ACTIVATED",
+      activationId,
     };
   }
 
