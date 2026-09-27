@@ -53,7 +53,11 @@ import {
 import {
   cricketMatchPublicPath,
   cricketObsLivePath,
+  cricketObsV2Path,
+  cricketObsV2PreviewPath,
   cricketPublicPath,
+  openCricketObsV2,
+  openCricketObsV2Preview,
   openScoreDisplay,
   scoreDisplayPath,
 } from "@/lib/tournament-navigation";
@@ -67,6 +71,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ExternalLink,
+  Eye,
   Info,
   Sparkles,
   Layers,
@@ -386,6 +391,8 @@ export default function CricketLiveControlPage() {
   // Link URLs
   const ledDisplayUrl = scoreDisplayPath(tournamentId, tournament?.auctionCode);
   const obsStreamUrl = cricketObsLivePath(tournamentId, tournament?.auctionCode);
+  const obsV2Url = cricketObsV2Path(tournamentId);
+  const obsV2PreviewUrl = cricketObsV2PreviewPath(tournamentId);
   const publicFanUrl = currentMatch
     ? cricketMatchPublicPath(tournamentId, currentMatch.id)
     : cricketPublicPath(tournamentId);
@@ -394,6 +401,19 @@ export default function CricketLiveControlPage() {
     typeof window !== "undefined"
       ? scoringAppPublicUrl(window.location.origin, obsStreamUrl)
       : obsStreamUrl;
+
+  const obsV2FullUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${obsV2Url}`
+      : obsV2Url;
+
+  const [copiedV2, setCopiedV2] = useState(false);
+
+  function handleCopyObsV2() {
+    copyTextToClipboard(obsV2Url, "OBS V2 Broadcast Overlay Link");
+    setCopiedV2(true);
+    setTimeout(() => setCopiedV2(false), 2000);
+  }
 
   function copyTextToClipboard(text: string, label: string) {
     const fullUrl =
@@ -784,6 +804,91 @@ export default function CricketLiveControlPage() {
               No active match selected.
             </div>
           )}
+        </div>
+
+        {/* ─── BROADCAST OUTPUT: OBS V2 UTILITY PANEL ─── */}
+        <div className="rounded-2xl border border-amber-500/25 bg-gradient-to-r from-amber-500/[0.08] via-slate-900/70 to-slate-950/90 p-3.5 sm:p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+          <div className="space-y-1.5 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                Broadcast Output
+              </span>
+              <Badge
+                variant="outline"
+                className="border-amber-500/40 bg-amber-500/15 text-amber-300 text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                OBS V2 BROADCAST
+              </Badge>
+              <Badge
+                variant="outline"
+                className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold px-1.5 py-0.2 rounded"
+              >
+                ACTIVE
+              </Badge>
+            </div>
+
+            <div className="flex items-center gap-2 max-w-xl">
+              <span className="text-[11px] font-medium text-slate-400 shrink-0 hidden sm:inline">
+                Audience Display:
+              </span>
+              <div className="flex items-center bg-black/40 border border-white/10 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-200 truncate select-all">
+                <span className="truncate">{obsV2FullUrl}</span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400 pt-0.5">
+              <span className="flex items-center gap-1">
+                <span className="text-slate-500">Operator:</span>
+                <strong className="text-slate-200 font-semibold">This Live Control Console</strong>
+              </span>
+              <span className="text-slate-600 hidden sm:inline">•</span>
+              <span className="flex items-center gap-1">
+                <span className="text-slate-500">Display:</span>
+                <strong className="text-slate-200 font-semibold">OBS V2 Browser Source</strong>
+                <span className="text-slate-400 text-[10px]">(1920×1080 Transparent)</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0 self-start md:self-center">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleCopyObsV2}
+              className="h-8 px-3 text-xs font-semibold rounded-lg border-white/15 hover:bg-white/10 text-slate-200 gap-1.5"
+              title="Copy OBS V2 Browser Source URL"
+            >
+              <Copy className="w-3.5 h-3.5 text-slate-400" />
+              {copiedV2 ? "Copied!" : "Copy URL"}
+            </Button>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => openCricketObsV2Preview(tournamentId)}
+              className="h-8 px-3 text-xs font-semibold rounded-lg border-amber-500/30 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 gap-1.5"
+              title="Open V2 Broadcast Preview with Diagnostics"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              Preview
+            </Button>
+
+            <Button
+              type="button"
+              size="sm"
+              variant="default"
+              onClick={() => openCricketObsV2(tournamentId)}
+              className="h-8 px-3.5 text-xs font-bold rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-sm gap-1.5"
+              title="Open V2 Overlay in New Tab"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              Open V2 Display
+            </Button>
+          </div>
         </div>
 
         {/* ─── 2. SCREEN MODE SELECTOR (PRIMARY CONTROL DECK) ─── */}

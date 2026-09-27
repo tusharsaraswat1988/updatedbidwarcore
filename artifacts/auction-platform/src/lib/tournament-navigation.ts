@@ -274,6 +274,29 @@ export function openScoreDisplay(
   );
 }
 
+/** In-app Cricket OBS V2 Broadcast Overlay path (transparent 1920x1080). */
+export function cricketObsV2Path(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/obs/v2`;
+}
+
+/** In-app Cricket OBS V2 Broadcast Preview path. */
+export function cricketObsV2PreviewPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/obs/v2/preview`;
+}
+
+/** In-app Cricket OBS V2 Test Control path (QA only). */
+export function cricketObsV2ControlPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/obs/v2/control`;
+}
+
+export function openCricketObsV2(tournamentId: number): void {
+  window.open(cricketObsV2Path(tournamentId), "_blank", "noopener,noreferrer");
+}
+
+export function openCricketObsV2Preview(tournamentId: number): void {
+  window.open(cricketObsV2PreviewPath(tournamentId), "_blank", "noopener,noreferrer");
+}
+
 /** Open setup in the opener tab when launched from Setup; otherwise new tab. */
 export function openSetupArea(tournamentId: number): void {
   const path = setupAreaPath(tournamentId);
