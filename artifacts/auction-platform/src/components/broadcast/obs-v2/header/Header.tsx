@@ -69,8 +69,8 @@ export function TournamentBrand({ branding }: { branding: BroadcastBranding }) {
   );
 }
 
-export function BidWarLiveBrand({ feed }: { feed: FeedStatus }) {
-  const label = feed === "disconnected" ? "OFFLINE" : "LIVE";
+export function BidWarLiveBrand({ feed = "live" }: { feed?: FeedStatus }) {
+  const label = feed === "disconnected" ? "OFFLINE" : feed === "stale" ? "DELAYED" : "LIVE";
   return (
     <div className="bw-livebrand">
       <img
@@ -78,11 +78,12 @@ export function BidWarLiveBrand({ feed }: { feed: FeedStatus }) {
         alt="BidWar"
         className="bw-brand-logo"
         style={{
-          height: "36px",
+          height: "46px",
           width: "auto",
-          maxWidth: "140px",
+          maxWidth: "200px",
           objectFit: "contain",
           display: "block",
+          filter: "drop-shadow(0 0 12px rgba(255, 215, 0, 0.35))",
         }}
         onError={(e) => {
           const target = e.currentTarget;
@@ -100,46 +101,77 @@ export function BidWarLiveBrand({ feed }: { feed: FeedStatus }) {
   );
 }
 
+/** Legacy alias for BidWarLiveBrand */
+export const BidWarHeaderBrand = BidWarLiveBrand;
+
+/**
+ * Title Sponsor / Official Partner docked on the right side of the header.
+ */
 export function TitleSponsor({ sponsor }: { sponsor?: SponsorLogo | undefined }) {
-  if (!sponsor) return <div className="bw-title-sponsor" />;
+  if (!sponsor) return null;
+  const tierLabel = sponsor.label || (sponsor.tier ? sponsor.tier.replace(/_/g, " ").toUpperCase() : "OFFICIAL PARTNER");
   return (
     <div className="bw-title-sponsor">
       <div className="bw-ts-text">
-        <span>{sponsor.label ?? "Official Partner"}</span>
+        <span style={{ color: "var(--bw-gold)" }}>{tierLabel}</span>
         <strong>{sponsor.name}</strong>
       </div>
       <div className="bw-ts-logo">
-        {sponsor.logoUrl ? <img src={sponsor.logoUrl} alt={sponsor.name} /> : <span>{sponsor.name.slice(0, 2)}</span>}
+        {sponsor.logoUrl ? (
+          <img src={sponsor.logoUrl} alt={sponsor.name} />
+        ) : (
+          <span>{sponsor.name.slice(0, 2)}</span>
+        )}
       </div>
     </div>
   );
 }
 
-/** Rotates associate sponsors one at a time (~7s interval); cross-fade scoped to this box. */
-export function AssociateSponsorRail({ sponsors, intervalMs = 7000 }: { sponsors: SponsorLogo[]; intervalMs?: number }) {
+/**
+ * Rotates through associate sponsors (~5s interval) with smooth fade/slide.
+ */
+export function AssociateSponsorRail({
+  sponsors,
+  intervalMs = 5000,
+}: {
+  sponsors: SponsorLogo[];
+  intervalMs?: number;
+}) {
   const [i, setI] = useState(0);
+
   useEffect(() => {
     if (sponsors.length < 2) return;
     const t = setInterval(() => setI((v) => (v + 1) % sponsors.length), intervalMs);
     return () => clearInterval(t);
   }, [sponsors.length, intervalMs]);
+
   if (!sponsors.length) return null;
   const s = sponsors[i % sponsors.length];
   if (!s) return null;
+
+  const label = s.label || (s.tier ? s.tier.replace(/_/g, " ").toUpperCase() : "ASSOCIATE");
+
   return (
     <div className="bw-assoc">
-      <span className="bw-assoc-label">Associate</span>
+      <span className="bw-assoc-label">{label}</span>
       <AnimatePresence mode="wait">
-        <motion.span
-          key={s.id}
+        <motion.div
+          key={s.id || s.name}
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.3 }}
-          className="bw-assoc-item"
+          transition={{ duration: 0.25 }}
+          className="bw-assoc-item flex items-center gap-2"
         >
-          {s.logoUrl ? <img src={s.logoUrl} alt={s.name} /> : s.name}
-        </motion.span>
+          {s.logoUrl && (
+            <img
+              src={s.logoUrl}
+              alt={s.name}
+              style={{ height: "24px", maxWidth: "60px", objectFit: "contain", borderRadius: "3px" }}
+            />
+          )}
+          <span>{s.name}</span>
+        </motion.div>
       </AnimatePresence>
     </div>
   );

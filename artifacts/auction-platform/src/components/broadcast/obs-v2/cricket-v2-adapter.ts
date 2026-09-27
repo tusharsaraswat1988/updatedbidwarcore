@@ -218,7 +218,7 @@ export function adaptCricketToBroadcastFrame(
     bowlingTeamShort,
     runs: vm.runs || 0,
     wickets: vm.wickets || 0,
-    overs: vm.oversDisplay || "0.0",
+    overs: vm.oversLabel || (vm.oversDisplay ? vm.oversDisplay.split("/")[0].trim() : "0.0"),
     maxOvers: vm.oversLimit > 0 ? vm.oversLimit : 20,
     crr: parseFloat(vm.crr || "0") || 0,
     striker,

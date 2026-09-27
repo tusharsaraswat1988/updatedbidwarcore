@@ -1,7 +1,9 @@
+import React from "react";
 import { describe, expect, it } from "vitest";
 import { OBS_V2 } from "../obs-v2-tokens";
 import { VARIANT_CONFIGS } from "../slates/BroadcastSideSlate";
 import { adaptCricketToBroadcastFrame } from "../cricket-v2-adapter";
+import { Crest } from "../primitives";
 import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
 
 function createMockCricketVm(): CricketObsViewModel {
@@ -149,6 +151,56 @@ describe("OBS V2 Cricket Presentation Refactor Contract", () => {
       expect(OBS_V2.layer.slates).toBe(40);
       // Central Event Impact is z-50 (hero layer)
       expect(OBS_V2.layer.eventFlash).toBe(50);
+    });
+  });
+
+  describe("5. User Requested OBS Broadcast Enhancements", () => {
+    it("formats overs as clean string without duplicate /OV for single-line display", () => {
+      const vm = createMockCricketVm();
+      vm.oversDisplay = "0.3/6 OV";
+      vm.oversLabel = "0.3";
+      vm.oversLimit = 6;
+
+      const frame = adaptCricketToBroadcastFrame({ vm });
+      const model = frame.model as any;
+      expect(model.overs).toBe("0.3");
+      expect(model.maxOvers).toBe(6);
+    });
+
+    it("ensures Crest renders with square dimensions", () => {
+      const element = Crest({ text: "WHS", size: 74 });
+      expect(element.props.style.width).toBe(74);
+      expect(element.props.style.height).toBe(74);
+    });
+
+    it("preserves autoFlash when overrideFlash is not active in buildCricketObsViewModel", async () => {
+      const { buildCricketObsViewModel } = await import("@/lib/cricket-obs-view-model");
+      const vm = buildCricketObsViewModel({
+        live: {
+          match: { id: 10, status: "live" } as any,
+          state: {
+            matchStatus: "live",
+            lastSequence: 5,
+            innings: [],
+            thisOver: [{ over: 0, ball: 3, runsOffBat: 4, label: "4", isWicket: false, isSuperBall: false }],
+          } as any,
+        },
+        teams: [],
+        players: [],
+        scorecard: null,
+        tournamentName: "Test Trophy",
+        tournamentLogoUrl: null,
+        sponsors: [],
+        pinnedMatchId: null,
+        connectionStatus: "connected",
+        previousFlashToken: null,
+        overrideFlash: null,
+        overrideFlashToken: null,
+        overrideFlashDetail: null,
+      });
+
+      expect(vm.flash).toBe("FOUR");
+      expect(vm.flashToken).toContain("10:5:0.3:4");
     });
   });
 });

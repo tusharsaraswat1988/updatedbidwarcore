@@ -70,6 +70,25 @@ export const ObsV2EventGraphic = forwardRef<HTMLDivElement, ObsV2EventGraphicPro
                 }}
               />
 
+              {/* Broadcast light sweep reflection sheen */}
+              <div
+                className="pointer-events-none absolute inset-0 overflow-hidden"
+                style={{ borderRadius: "16px" }}
+              >
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    bottom: 0,
+                    width: "240px",
+                    left: "-280px",
+                    background: `linear-gradient(90deg, transparent, ${event.accentColor ? `${event.accentColor}55` : "rgba(255, 255, 255, 0.4)"}, transparent)`,
+                    transform: "skewX(-24deg)",
+                    animation: "bw-sweep 2s ease-in-out infinite",
+                  }}
+                />
+              </div>
+
               {/* Decorative top corner slashes */}
               <div
                 className="absolute top-0 right-0 w-16 h-16 pointer-events-none opacity-40"

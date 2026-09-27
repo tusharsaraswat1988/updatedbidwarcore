@@ -372,8 +372,9 @@ export const BRANDING_ICON_STATIC_FALLBACKS: Record<BrandingIconPath, string> = 
   [BRANDING_ICON_PATHS.pwaIcon512]: "/assets/branding/pwa-icon-512.png",
 };
 
-/** Boot splash preload target — matches canonical favicon.svg resolver path. */
-export const BRANDING_BOOT_SPLASH_ICON_PATH = BRANDING_ICON_PATHS.faviconSvg;
+/** Boot splash preload target — matches canonical reverse platform logo resolver path. */
+export const BRANDING_BOOT_SPLASH_LOGO_PATH = BRANDING_LOGO_PATHS.reverse;
+export const BRANDING_BOOT_SPLASH_ICON_PATH = BRANDING_BOOT_SPLASH_LOGO_PATH;
 
 export const PLATFORM_BASE_URL = "https://bidwar.in";
 

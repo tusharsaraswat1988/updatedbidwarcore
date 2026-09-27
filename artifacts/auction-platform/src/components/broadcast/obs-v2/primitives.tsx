@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import React, { type CSSProperties, type ReactNode } from "react";
 import { initials } from "./format";
 
 /**
@@ -25,7 +25,7 @@ export function Crest({
   logoUrl?: string | undefined;
   size?: number;
 }) {
-  const style: CSSProperties = { width: size, height: size * 1.12 };
+  const style: CSSProperties = { width: size, height: size };
   return (
     <div className="bw-crest" style={style}>
       {logoUrl ? <img src={logoUrl} alt={text} /> : <span>{text}</span>}

@@ -36,11 +36,31 @@ export function TeamTicker({ teams }: { teams: TeamPurse[] }) {
 }
 
 export function SponsorTicker({ sponsors }: { sponsors: SponsorLogo[] }) {
+  if (!sponsors || sponsors.length === 0) return null;
+  // If fewer than 4 sponsors, repeat so marquee track has sufficient length for smooth scrolling
+  const displaySponsors = sponsors.length < 4 ? [...sponsors, ...sponsors, ...sponsors, ...sponsors] : sponsors;
   return (
     <Marquee>
-      {sponsors.map((s) => (
-        <span key={s.id} className="bw-tick-item">
-          {s.logoUrl ? <img src={s.logoUrl} alt={s.name} /> : <b>{s.name}</b>}
+      {displaySponsors.map((s, idx) => (
+        <span key={`${s.id || s.name}-${idx}`} className="bw-tick-item">
+          {s.logoUrl && (
+            <img
+              src={s.logoUrl}
+              alt={s.name}
+              style={{
+                height: "20px",
+                width: "auto",
+                maxWidth: "60px",
+                objectFit: "contain",
+                display: "inline-block",
+                verticalAlign: "middle",
+                marginRight: "6px",
+              }}
+            />
+          )}
+          <b>{s.name}</b>
+          {s.label && <small style={{ marginLeft: "4px" }}>({s.label})</small>}
+          <span style={{ color: "var(--bw-ink-mute)", margin: "0 8px", opacity: 0.6 }}>•</span>
         </span>
       ))}
     </Marquee>

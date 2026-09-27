@@ -614,8 +614,8 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   const autoFlash =
     ballFlashToken && ballFlashToken !== input.previousFlashToken ? mapBallToFlash(lastBall) : null;
 
-  const flash = overrideFlash !== undefined ? overrideFlash : autoFlash;
-  const flashToken = overrideFlashToken !== undefined ? overrideFlashToken : ballFlashToken;
+  const flash = overrideFlash || autoFlash;
+  const flashToken = overrideFlash ? overrideFlashToken : (autoFlash ? ballFlashToken : null);
 
   let resultText = state.resultText ?? match.resultSummary ?? summary?.resultText ?? null;
   if (!resultText && isTargetReached && batting) {

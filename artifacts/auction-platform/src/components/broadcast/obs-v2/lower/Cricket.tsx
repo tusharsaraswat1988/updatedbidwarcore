@@ -5,9 +5,12 @@ import { AnimatedValue, Crest } from "../primitives";
 import { OBS_V2 } from "../obs-v2-tokens";
 
 export function TeamScorePanel({ model }: { model: CricketScoreModel }) {
+  const rawOvers = String(model.overs || "0.0");
+  const cleanOvers = rawOvers.includes("/") ? rawOvers.split("/")[0].trim() : rawOvers.replace(/OV/i, "").trim();
+
   return (
     <div className="bw-teamscore">
-      <Crest text={model.battingTeam.short} logoUrl={model.battingTeam.logoUrl} size={78} />
+      <Crest text={model.battingTeam.short} logoUrl={model.battingTeam.logoUrl} size={74} />
       <div className="bw-ts-id">
         <strong>{model.battingTeam.short}</strong>
         <span>V {model.bowlingTeamShort}</span>
@@ -18,34 +21,51 @@ export function TeamScorePanel({ model }: { model: CricketScoreModel }) {
           <em>-</em>
           <AnimatedValue value={model.wickets} className="bw-gold" />
         </div>
-        <div className="bw-ts-overs">
-          <AnimatedValue value={model.overs} className="bw-gold" /> / {model.maxOvers} <small>OV</small>
+        <div
+          className="bw-ts-overs"
+          style={{
+            display: "flex",
+            alignItems: "baseline",
+            gap: "8px",
+            marginTop: "2px",
+            flexWrap: "nowrap",
+          }}
+        >
+          <span>
+            <AnimatedValue value={cleanOvers} className="bw-gold" />{" "}
+            <small style={{ fontSize: "16px", color: "var(--bw-ink-dim)", letterSpacing: "0.05em", fontWeight: 700 }}>
+              ({model.maxOvers} OV)
+            </small>
+          </span>
+          {model.crr != null && model.crr > 0 && (
+            <span
+              style={{
+                fontSize: "15px",
+                color: "var(--bw-cyan)",
+                letterSpacing: "0.06em",
+                fontWeight: 800,
+                fontFamily: "var(--bw-font-mono)",
+                whiteSpace: "nowrap",
+                marginLeft: "2px",
+              }}
+            >
+              CRR {model.crr.toFixed(2)}
+            </span>
+          )}
         </div>
-        {/* First innings score in chase */}
-        {model.firstInningsScore && (
-          <div
-            className="bw-ts-1st"
-            style={{
-              fontSize: 11,
-              color: OBS_V2.color.textMuted,
-              letterSpacing: "0.08em",
-              fontFamily: OBS_V2.typography.family.mono,
-              marginTop: 2,
-            }}
-          >
-            {model.firstInningsScore}
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
 function BatterRow({ b }: { b: BatterLine }) {
+  const isLong = b.name.length > 16;
+  const fontSize = b.name.length > 22 ? 20 : isLong ? 23 : undefined;
+
   return (
     <div className="bw-batter" data-strike={b.onStrike}>
       <i className="bw-strike-mark" />
-      <span className="bw-bname">{b.name}</span>
+      <span className="bw-bname" style={fontSize ? { fontSize } : undefined}>{b.name}</span>
       <span className="bw-bruns">
         <AnimatedValue value={b.runs} /> <small>({b.balls}b)</small>
       </span>
@@ -69,10 +89,13 @@ export function BatterPanel({ striker, nonStriker }: { striker: BatterLine; nonS
 }
 
 export function BowlerPanel({ bowler }: { bowler: BowlerLine }) {
+  const isLong = bowler.name.length > 13;
+  const fontSize = bowler.name.length > 20 ? 19 : isLong ? 22 : undefined;
+
   return (
     <div className="bw-bowler" key={bowler.name}>
       <span className="bw-cyan-label">BOWL</span>
-      <span className="bw-bowl-name">{bowler.name}</span>
+      <span className="bw-bowl-name" style={fontSize ? { fontSize } : undefined}>{bowler.name}</span>
       <span className="bw-bowl-fig">
         <AnimatedValue value={`${bowler.wickets}-${bowler.runs}`} className="bw-gold" />
         <small>({bowler.overs} ov)</small>

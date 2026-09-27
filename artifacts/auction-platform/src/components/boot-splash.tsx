@@ -1,13 +1,22 @@
 import {
-  BRANDING_BOOT_SPLASH_ICON_PATH,
+  BRANDING_BOOT_SPLASH_LOGO_PATH,
   withBrandingAssetVersion,
 } from "@workspace/api-base/branding-assets";
 import { useBranding } from "@/hooks/use-branding";
 
 /** Branded startup loader — matches index.html #bidwar-boot-splash (inline critical CSS). */
 export function BootSplash({ label = "Loading BidWar" }: { label?: string }) {
-  const { iconVersion } = useBranding();
-  const logoSrc = withBrandingAssetVersion(BRANDING_BOOT_SPLASH_ICON_PATH, iconVersion);
+  const { logos, brandName, iconVersion } = useBranding();
+  const fallbackLogo = withBrandingAssetVersion(
+    BRANDING_BOOT_SPLASH_LOGO_PATH,
+    iconVersion,
+  );
+  // Prefer Admin Branding: Reverse Logo (dark background) -> Primary Logo -> Splash Logo -> fallback
+  const logoSrc =
+    logos.mainReverse ||
+    logos.main ||
+    logos.splash ||
+    fallbackLogo;
 
   return (
     <div
@@ -17,7 +26,21 @@ export function BootSplash({ label = "Loading BidWar" }: { label?: string }) {
       aria-busy="true"
       aria-label={label}
     >
-      <img src={logoSrc} alt="" width={64} height={64} decoding="async" />
+      <img
+        className="bidwar-boot-logo"
+        src={logoSrc}
+        alt={brandName ? `${brandName} logo` : "BidWar logo"}
+        height={48}
+        decoding="async"
+        onError={(e) => {
+          if (
+            e.currentTarget.src !== fallbackLogo &&
+            !e.currentTarget.src.includes("bidwar-reverse-logo")
+          ) {
+            e.currentTarget.src = "/assets/branding/bidwar-reverse-logo-official.png";
+          }
+        }}
+      />
       <div className="bidwar-boot-spinner" aria-hidden="true" />
       <div className="bidwar-boot-text">{label}</div>
     </div>

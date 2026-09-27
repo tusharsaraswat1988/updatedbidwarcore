@@ -16,8 +16,8 @@ import { WaitingScene } from "./lower/Scenes";
 import {
   ConnectionStatus,
   FooterBar,
-  FooterStat,
   FooterStatus,
+  SponsorTicker,
 } from "./footer/Footer";
 import { OBS_V2 } from "./obs-v2-tokens";
 
@@ -36,11 +36,11 @@ export interface CricketBroadcastStageProps {
  * Zero dependency on Auction scenes or Auction scene switching.
  *
  * Protected Zones:
- * - HEADER (0–96px, z-30): Tournament Branding, BidWar Live Brand, Associate Rail, Title Sponsor
+ * - HEADER (0–96px, z-30): Tournament Branding, Centered BidWar Logo + LIVE badge, Right-anchored Sponsors
  * - CAMERA SAFE AREA (96–880px, z-40/z-50): 100% transparent live viewport.
  *   Hosts transient Central Event Impact & temporary Mid-Screen Slates.
- * - LOWER THIRD / SCOREBUG (880–1040px, z-20): Persistent live Cricket scorebug
- * - FOOTER BAR (1040–1080px, z-20): Match status chip, Sponsor ticker, CRR stat, Connection monitor
+ * - LOWER THIRD / SCOREBUG (880–1040px, z-20): Persistent live Cricket scorebug with CRR next to Overs
+ * - FOOTER BAR (1040–1080px, z-20): Match status chip, Running Sponsor ticker patti, Connection monitor
  */
 export function CricketBroadcastStage({
   frame,
@@ -49,8 +49,8 @@ export function CricketBroadcastStage({
   hideLower = false,
   hideFooter = false,
 }: CricketBroadcastStageProps) {
-  const title = frame.sponsors.find((s) => s.tier === "title");
-  const associates = frame.sponsors.filter((s) => s.tier === "associate");
+  const title = frame.sponsors.find((s) => s.tier === "title") || frame.sponsors[0];
+  const associates = frame.sponsors.filter((s) => s.id !== title?.id);
   const isCricketScene = frame.scene === "CRICKET";
   const cricketModel = isCricketScene ? (frame.model as CricketScoreModel) : null;
 
@@ -72,8 +72,21 @@ export function CricketBroadcastStage({
         <HeaderAccents />
         <TournamentBrand branding={frame.branding} />
         <BidWarLiveBrand feed={frame.feed.status} />
-        <AssociateSponsorRail sponsors={associates} />
-        <TitleSponsor sponsor={title} />
+
+        {/* Right-aligned sponsors: strictly anchored to the right side */}
+        <div
+          className="bw-header-sponsors-right"
+          style={{
+            marginLeft: "auto",
+            display: "flex",
+            alignItems: "center",
+            gap: "24px",
+            zIndex: 10,
+          }}
+        >
+          {associates.length > 0 && <AssociateSponsorRail sponsors={associates} />}
+          {title && <TitleSponsor sponsor={title} />}
+        </div>
       </HeaderFrame>
 
       {/* ── ZONE 2: CAMERA SAFE AREA (96–880px) ── */}
@@ -161,17 +174,9 @@ export function CricketBroadcastStage({
                 />
               )
             }
-            center={null}
+            center={<SponsorTicker sponsors={frame.sponsors} />}
             right={
-              <>
-                <ConnectionStatus status={frame.feed.status} seconds={frame.feed.secondsSinceUpdate} />
-                {isCricketScene && cricketModel && (
-                  <FooterStat label="CRR" value={cricketModel.crr.toFixed(2)} />
-                )}
-                {isCricketScene && cricketModel?.rrr != null && (
-                  <FooterStat label="RRR" value={cricketModel.rrr.toFixed(2)} />
-                )}
-              </>
+              <ConnectionStatus status={frame.feed.status} seconds={frame.feed.secondsSinceUpdate} />
             }
           />
         </div>
