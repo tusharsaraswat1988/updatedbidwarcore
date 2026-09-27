@@ -101,10 +101,13 @@ export function CricketBroadcastStage({
       <div
         className="bw-camera-impact-zone pointer-events-none absolute inset-x-0"
         style={{
+          position: "absolute",
           top: `${OBS_V2.canvas.headerHeight}px`,
-          bottom: `${OBS_V2.canvas.lowerThirdHeight + OBS_V2.canvas.footerHeight}px`,
-          zIndex: OBS_V2.layer.eventFlash,
-          overflow: "hidden",
+          left: 0,
+          right: 0,
+          height: `${OBS_V2.canvas.cameraHeight}px`,
+          zIndex: 60,
+          pointerEvents: "none",
         }}
       >
         <ObsV2EventGraphic event={activeEvent ?? null} />
