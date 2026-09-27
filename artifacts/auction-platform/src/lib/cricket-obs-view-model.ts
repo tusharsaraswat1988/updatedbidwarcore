@@ -630,14 +630,18 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
       ? [winner?.shortCode || batting?.shortCode, resultText].filter(Boolean).join(" · ") || resultText
       : null;
 
+  const hasActivePlay =
+    (innings && (innings.runs > 0 || innings.wickets > 0 || innings.over > 0 || innings.ball > 0)) ||
+    state.thisOver.length > 0;
+
   let phase: CricketObsPhase = "no_live";
   if (isMatchFinished) {
     phase = "completed";
   } else if (isInningsBreak(state)) {
     phase = "innings_break";
-  } else if (state.matchStatus === "live" && target != null && innings) {
+  } else if ((state.matchStatus === "live" || hasActivePlay) && target != null && innings) {
     phase = "chase";
-  } else if (state.matchStatus === "live" && innings) {
+  } else if ((state.matchStatus === "live" || hasActivePlay) && innings) {
     phase = "live";
   } else if (
     state.matchStatus === "scheduled" ||
@@ -648,7 +652,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   }
 
   const isLiveMatch =
-    state.matchStatus === "live" &&
+    (state.matchStatus === "live" || hasActivePlay) &&
     !isMatchFinished;
 
   const isNeutralActive =

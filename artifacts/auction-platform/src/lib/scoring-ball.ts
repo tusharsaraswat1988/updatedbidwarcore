@@ -16,7 +16,14 @@ export function getActiveInnings(state?: CricketScoreboardState | null) {
 }
 
 export function oversText(over?: number | null, ball?: number | null): string {
-  return `${over ?? 0}.${ball ?? 0}`;
+  const o = over ?? 0;
+  const b = ball ?? 0;
+  if (b >= 6) {
+    const full = o + Math.floor(b / 6);
+    const rem = b % 6;
+    return rem > 0 ? `${full}.${rem}` : `${full}`;
+  }
+  return `${o}.${b}`;
 }
 
 export function runRate(runs?: number | null, over?: number | null, ball?: number | null): string {

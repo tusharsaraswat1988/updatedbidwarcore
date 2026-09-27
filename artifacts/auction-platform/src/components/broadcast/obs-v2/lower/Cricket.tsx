@@ -6,7 +6,17 @@ import { OBS_V2 } from "../obs-v2-tokens";
 
 export function TeamScorePanel({ model }: { model: CricketScoreModel }) {
   const rawOvers = String(model.overs || "0.0");
-  const cleanOvers = rawOvers.includes("/") ? rawOvers.split("/")[0].trim() : rawOvers.replace(/OV/i, "").trim();
+  let cleanOvers = rawOvers.includes("/") ? rawOvers.split("/")[0].trim() : rawOvers.replace(/OV/i, "").trim();
+  const parts = cleanOvers.split(".");
+  if (parts.length === 2) {
+    const o = parseInt(parts[0], 10) || 0;
+    const b = parseInt(parts[1], 10) || 0;
+    if (b >= 6) {
+      const full = o + Math.floor(b / 6);
+      const rem = b % 6;
+      cleanOvers = rem > 0 ? `${full}.${rem}` : `${full}`;
+    }
+  }
 
   return (
     <div className="bw-teamscore">
@@ -22,9 +32,9 @@ export function TeamScorePanel({ model }: { model: CricketScoreModel }) {
           <AnimatedValue value={model.wickets} className="bw-gold" />
         </div>
         <div className="bw-ts-overs">
-          <AnimatedValue value={cleanOvers} className="bw-gold" />{" "}
+          <AnimatedValue value={cleanOvers} className="bw-gold" /> OVER{" "}
           <small style={{ fontSize: "18px", color: "var(--bw-ink-dim)", letterSpacing: "0.05em", fontWeight: 700 }}>
-            ({model.maxOvers} OV)
+            ({model.maxOvers} OVER)
           </small>
         </div>
         {model.crr != null && model.crr > 0 && (

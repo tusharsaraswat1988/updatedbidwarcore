@@ -79,10 +79,8 @@ export function useObsV2Events({
     // Check if token has already been processed
     if (seenTokensRef.current.has(flashToken)) return;
 
-    // Lifecycle Gating: Only display transient scoring events during live innings or chase
-    const isLiveMatchPhase = phase === "live" || phase === "chase";
-    const isTerminalVictory = rawFlash === "MATCH_WON";
-    if (!isLiveMatchPhase && !isTerminalVictory) {
+    // Lifecycle Gating: Suppress scoring events only if match is completed and not terminal victory
+    if (phase === "completed" && rawFlash !== "MATCH_WON") {
       seenTokensRef.current.add(flashToken);
       return;
     }

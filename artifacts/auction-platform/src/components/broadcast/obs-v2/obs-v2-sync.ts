@@ -178,9 +178,18 @@ export function useV2Sync(
 
     // 1. Primary V2 BroadcastChannel Listener
     let v2Channel: BroadcastChannel | null = null;
+    let legChannel: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== "undefined") {
       v2Channel = new BroadcastChannel(channelName);
       v2Channel.onmessage = (ev) => {
+        if (ev.data && typeof ev.data === "object" && "type" in ev.data) {
+          onMessageRef.current(ev.data as V2SyncMessage);
+        }
+      };
+
+      // Also listen to legacy channel for Live Control compatibility
+      legChannel = new BroadcastChannel(`bidwar_cricket_obs_${tid}`);
+      legChannel.onmessage = (ev) => {
         if (ev.data && typeof ev.data === "object" && "type" in ev.data) {
           onMessageRef.current(ev.data as V2SyncMessage);
         }
@@ -205,6 +214,9 @@ export function useV2Sync(
     return () => {
       if (v2Channel) {
         v2Channel.close();
+      }
+      if (legChannel) {
+        legChannel.close();
       }
       window.removeEventListener("storage", handleStorage);
     };

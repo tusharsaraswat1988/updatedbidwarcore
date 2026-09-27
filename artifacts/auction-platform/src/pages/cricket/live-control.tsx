@@ -284,6 +284,13 @@ export default function CricketLiveControlPage() {
     }) => {
       if (typeof window === "undefined" || typeof BroadcastChannel === "undefined") return;
       try {
+        const v2Chan = new BroadcastChannel(`bidwar_v2_${tournamentId}`);
+        v2Chan.postMessage(message);
+        v2Chan.close();
+      } catch (err) {
+        console.error("Failed to broadcast to V2 channel:", err);
+      }
+      try {
         const channel = new BroadcastChannel(`bidwar_cricket_obs_${tournamentId}`);
         channel.postMessage(message);
         channel.close();

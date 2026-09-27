@@ -202,5 +202,13 @@ describe("OBS V2 Cricket Presentation Refactor Contract", () => {
       expect(vm.flash).toBe("FOUR");
       expect(vm.flashToken).toContain("10:5:0.3:4");
     });
+
+    it("rolls over 6 balls into whole over in oversText", async () => {
+      const { oversText } = await import("@/lib/scoring-ball");
+      expect(oversText(0, 6)).toBe("1");
+      expect(oversText(1, 6)).toBe("2");
+      expect(oversText(0, 5)).toBe("0.5");
+      expect(oversText(2, 0)).toBe("2.0");
+    });
   });
 });
