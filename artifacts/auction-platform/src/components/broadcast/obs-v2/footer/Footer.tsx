@@ -3,11 +3,14 @@ import type { FeedStatus, SponsorLogo, TeamPurse } from "../contracts";
 import { formatAmount } from "../format";
 
 /** Left status chip + text, e.g. FINAL / WON BY WALKOVER */
-export function FooterStatus({ chip, text }: { chip: string; text: string }) {
+export function FooterStatus({ chip, text }: { chip?: string; text: string }) {
+  const isLiveChip = !chip || chip.trim().toUpperCase() === "LIVE";
   return (
     <div className="bw-fstatus">
-      <span className="bw-fchip">{chip}</span>
-      <span className="bw-ftext">{text}</span>
+      {!isLiveChip && <span className="bw-fchip">{chip}</span>}
+      <span className="bw-ftext" style={isLiveChip ? { paddingLeft: "30px" } : undefined}>
+        {text}
+      </span>
     </div>
   );
 }

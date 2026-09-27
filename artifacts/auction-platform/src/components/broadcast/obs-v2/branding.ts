@@ -44,12 +44,13 @@ export function mapSponsors(sponsorLogos: BidWarSponsorLogo[]): LovableSponsorLo
   return sponsorLogos.map((s, idx) => {
     const isTitle = Boolean(s.isTitleSponsor || s.priorityType === "title" || idx === 0);
     const name = s.name || s.type || `Sponsor ${idx + 1}`;
+    const sponsorType = s.type || (s as any).label || (isTitle ? "Official Partner" : undefined);
     return {
       id: s.publicId || `sponsor-${idx}`,
       name,
       logoUrl: s.url || undefined,
       tier: isTitle ? ("title" as const) : ("associate" as const),
-      label: isTitle ? "Official Partner" : undefined,
+      label: sponsorType,
     };
   });
 }

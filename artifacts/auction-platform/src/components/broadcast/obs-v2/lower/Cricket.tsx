@@ -21,38 +21,29 @@ export function TeamScorePanel({ model }: { model: CricketScoreModel }) {
           <em>-</em>
           <AnimatedValue value={model.wickets} className="bw-gold" />
         </div>
-        <div
-          className="bw-ts-overs"
-          style={{
-            display: "flex",
-            alignItems: "baseline",
-            gap: "8px",
-            marginTop: "2px",
-            flexWrap: "nowrap",
-          }}
-        >
-          <span>
-            <AnimatedValue value={cleanOvers} className="bw-gold" />{" "}
-            <small style={{ fontSize: "16px", color: "var(--bw-ink-dim)", letterSpacing: "0.05em", fontWeight: 700 }}>
-              ({model.maxOvers} OV)
-            </small>
-          </span>
-          {model.crr != null && model.crr > 0 && (
-            <span
-              style={{
-                fontSize: "15px",
-                color: "var(--bw-cyan)",
-                letterSpacing: "0.06em",
-                fontWeight: 800,
-                fontFamily: "var(--bw-font-mono)",
-                whiteSpace: "nowrap",
-                marginLeft: "2px",
-              }}
-            >
-              CRR {model.crr.toFixed(2)}
-            </span>
-          )}
+        <div className="bw-ts-overs">
+          <AnimatedValue value={cleanOvers} className="bw-gold" />{" "}
+          <small style={{ fontSize: "18px", color: "var(--bw-ink-dim)", letterSpacing: "0.05em", fontWeight: 700 }}>
+            ({model.maxOvers} OV)
+          </small>
         </div>
+        {model.crr != null && model.crr > 0 && (
+          <div
+            className="bw-ts-crr"
+            style={{
+              fontSize: "15px",
+              color: "var(--bw-cyan)",
+              letterSpacing: "0.08em",
+              fontWeight: 800,
+              fontFamily: "var(--bw-font-mono)",
+              lineHeight: 1.1,
+              marginTop: "3px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            CRR {model.crr.toFixed(2)}
+          </div>
+        )}
       </div>
     </div>
   );

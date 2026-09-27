@@ -301,10 +301,11 @@
 .bw-ts-id strong { font-size: 38px; font-weight: 800; }
 .bw-ts-id span { font-size: 18px; color: var(--bw-ink-mute); letter-spacing: 0.1em; margin-top: 4px; }
 .bw-ts-score { margin-left: 8px; display: flex; flex-direction: column; align-items: flex-start; line-height: 1; }
-.bw-ts-big { display: flex; align-items: baseline; font-size: 76px; font-weight: 800; letter-spacing: -0.01em; }
+.bw-ts-big { display: flex; align-items: baseline; font-size: 68px; font-weight: 800; letter-spacing: -0.01em; line-height: 0.95; }
 .bw-ts-big em { font-style: normal; color: var(--bw-gold); margin: 0 4px; }
-.bw-ts-overs { font-size: 24px; font-weight: 700; color: var(--bw-ink-dim); margin-top: 2px; }
-.bw-ts-overs small { font-size: 18px; }
+.bw-ts-overs { font-size: 22px; font-weight: 700; color: var(--bw-ink-dim); margin-top: 3px; white-space: nowrap; line-height: 1.1; }
+.bw-ts-overs small { font-size: 17px; }
+.bw-ts-crr { font-size: 15px; font-weight: 800; color: var(--bw-cyan); font-family: var(--bw-font-mono); letter-spacing: 0.08em; line-height: 1.1; margin-top: 3px; white-space: nowrap; }
 
 .bw-batters { display: flex; flex-direction: column; width: 100%; }
 .bw-batter {

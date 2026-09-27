@@ -263,74 +263,81 @@ export function AssociateSponsorScorebug({
   const s = sponsors[i % sponsors.length];
   if (!s) return null;
 
-  const label = s.label || (s.tier ? s.tier.replace(/_/g, " ").toUpperCase() : "ASSOCIATE");
+  const sponsorType = s.label && !/^associate$/i.test(s.label.trim())
+    ? s.label.toUpperCase()
+    : "OFFICIAL PARTNER";
 
   return (
     <div
       className="bw-scorebug-assoc"
       style={{
         position: "absolute",
-        top: "844px",
+        bottom: "206px",
         right: "72px",
         zIndex: 25,
         display: "flex",
         alignItems: "center",
-        gap: "10px",
         background: "transparent",
         border: "none",
         padding: 0,
         boxShadow: "none",
+        pointerEvents: "none",
       }}
     >
-      <span
-        style={{
-          fontSize: "12px",
-          fontWeight: 700,
-          letterSpacing: "0.14em",
-          color: "var(--bw-cyan)",
-          fontFamily: "var(--bw-font-display)",
-          textTransform: "uppercase",
-          textShadow: "0 1px 3px rgba(0, 0, 0, 0.85)",
-        }}
-      >
-        {label}
-      </span>
       <AnimatePresence mode="wait">
         <motion.div
           key={s.id || s.name}
-          initial={{ opacity: 0, x: 6 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -6 }}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.22 }}
-          style={{ display: "flex", alignItems: "center", gap: "8px" }}
+          style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", textAlign: "right" }}
         >
-          {s.logoUrl && (
-            <img
-              src={s.logoUrl}
-              alt={s.name}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            {s.logoUrl && (
+              <img
+                src={s.logoUrl}
+                alt={s.name}
+                style={{
+                  height: "38px",
+                  width: "auto",
+                  maxWidth: "96px",
+                  objectFit: "contain",
+                  display: "block",
+                  filter: "drop-shadow(0 2px 6px rgba(0, 0, 0, 0.85))",
+                }}
+              />
+            )}
+            <span
               style={{
-                height: "28px",
-                width: "auto",
-                maxWidth: "70px",
-                objectFit: "contain",
-                display: "block",
-                filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.75))",
+                fontSize: "24px",
+                fontWeight: 800,
+                color: "var(--bw-ink)",
+                letterSpacing: "0.02em",
+                fontFamily: "var(--bw-font-display)",
+                textShadow: "0 2px 6px rgba(0, 0, 0, 0.9)",
+                whiteSpace: "nowrap",
               }}
-            />
+            >
+              {s.name}
+            </span>
+          </div>
+          {sponsorType && (
+            <span
+              style={{
+                fontSize: "12px",
+                fontWeight: 700,
+                letterSpacing: "0.14em",
+                color: "var(--bw-gold)",
+                fontFamily: "var(--bw-font-display)",
+                textTransform: "uppercase",
+                textShadow: "0 1px 3px rgba(0, 0, 0, 0.9)",
+                marginTop: "2px",
+              }}
+            >
+              {sponsorType}
+            </span>
           )}
-          <span
-            style={{
-              fontSize: "18px",
-              fontWeight: 800,
-              color: "var(--bw-ink)",
-              letterSpacing: "0.02em",
-              fontFamily: "var(--bw-font-display)",
-              textShadow: "0 1px 4px rgba(0, 0, 0, 0.85)",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {s.name}
-          </span>
         </motion.div>
       </AnimatePresence>
     </div>
