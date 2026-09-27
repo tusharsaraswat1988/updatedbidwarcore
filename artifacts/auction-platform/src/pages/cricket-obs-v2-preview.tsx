@@ -19,6 +19,9 @@ import { OperatorDockV2 } from "../components/broadcast/obs-v2/OperatorDockV2";
 import type { CricketObsMidOverlayKind, CricketObsFlashKind } from "@/lib/cricket-obs-view-model";
 import type { SponsorLogo } from "../components/broadcast/obs-v2/contracts";
 
+import { useV2Sync, type V2SyncMessage } from "../components/broadcast/obs-v2/obs-v2-sync";
+import { normalizeCricketFlashToObsV2Event } from "../components/broadcast/obs-v2/obs-v2-event-adapter";
+
 /**
  * Cricket Broadcast Overlay V2 — Full-Featured Production Page
  *
@@ -34,6 +37,7 @@ import type { SponsorLogo } from "../components/broadcast/obs-v2/contracts";
  * - Mid-screen broadcast slates (Sponsors, Standings, Fixtures, Scorecard, Summary, VS Intro)
  * - Broadcast Message Chyron (operator-controlled lower-third)
  * - Neutral / Interval Footer (sponsor rotation 4.5s)
+ * - Cross-Window V2 Live Control synchronization (BroadcastChannel + LocalStorage + SSE)
  * - Operator Dock (?dock=1 or ?controls=1)
  * - Correct phase-aware scenes (WAITING for no_live, CRICKET for all live phases)
  * - Extended scorebug (RRR, NEED X OFF Y, partnership, FREE HIT, SUPERBALL)
@@ -63,7 +67,7 @@ export default function CricketObsV2Page() {
   // Test background param support
   const testBgParam = searchParams.get("test_bg") || (searchParams.get("test") === "1" ? "smpte" : null);
 
-  // ── Live data ────────────────────────────────────────────────────────────
+  // ── Live data from SSE / Database ────────────────────────────────────────
   const {
     vm,
     scoringActive,
@@ -72,7 +76,59 @@ export default function CricketObsV2Page() {
     triggerFlash,
   } = useCricketObsLive(tournamentId > 0 ? tournamentId : 0, null);
 
-  // ── Broadcast message (operator-controlled) ──────────────────────────────
+  // ── Sync states (driven by V2 Test Control via BroadcastChannel / SSE) ──
+  const [syncOverlay, setSyncOverlay] = useState<CricketObsMidOverlayKind | null>(null);
+  const [syncNeutral, setSyncNeutral] = useState<boolean | null>(null);
+  const [syncMessage, setSyncMessage] = useState<{ name: string; details: string; active: boolean } | null>(null);
+  const [syncEvent, setSyncEvent] = useState<ObsV2BroadcastEvent | null>(null);
+
+  // Cross-Window V2 Synchronization Listener
+  useV2Sync(tournamentId, (msg: V2SyncMessage) => {
+    if (msg.type === "TRIGGER_FLASH") {
+      const normalized = normalizeCricketFlashToObsV2Event({
+        flash: msg.flash as any,
+        token: `v2-sync-${Date.now()}-${msg.flash}`,
+        detail: msg.detail,
+        matchId: vm?.matchId ?? 1,
+        batter: msg.batter ?? vm?.striker?.name ?? "Striker",
+        milestoneValue: msg.milestoneValue,
+      });
+      if (normalized) {
+        setSyncEvent(normalized);
+        window.setTimeout(() => {
+          setSyncEvent((curr) => (curr?.id === normalized.id ? null : curr));
+        }, OBS_V2.motion.duration.hold + 500);
+      }
+    } else if (msg.type === "SET_OVERLAY") {
+      setSyncOverlay(msg.overlay);
+      setSyncNeutral(msg.overlay === "neutral");
+    } else if (msg.type === "CLEAR_OVERLAY") {
+      setSyncOverlay("none");
+      setSyncNeutral(false);
+    } else if (msg.type === "SET_BROADCAST_MESSAGE") {
+      setSyncMessage({
+        name: msg.broadcastMessage.name,
+        details: msg.broadcastMessage.details || "",
+        active: msg.broadcastMessage.active,
+      });
+    } else if (msg.type === "CLEAR_BROADCAST_MESSAGE") {
+      setSyncMessage(null);
+    } else if (msg.type === "SET_SCENE") {
+      setSelectedScene(msg.scene);
+      if (msg.scene === "CRICKET") {
+        setSyncOverlay("none");
+        setSyncNeutral(false);
+      }
+    } else if (msg.type === "DISMISS") {
+      setSyncOverlay("none");
+      setSyncNeutral(false);
+      setSyncMessage(null);
+      setSyncEvent(null);
+      setActiveEvent(null);
+    }
+  });
+
+  // ── Broadcast message (operator-controlled / SSE fallback) ────────────────
   const [broadcastMessage, setBroadcastMessage] = useState<{
     name: string;
     details: string;
@@ -88,9 +144,11 @@ export default function CricketObsV2Page() {
         active: true,
       });
     } else if (vm?.broadcastMessage && !vm.broadcastMessage.active) {
-      setBroadcastMessage((prev) => prev ? { ...prev, active: false } : null);
+      setBroadcastMessage((prev) => (prev ? { ...prev, active: false } : null));
     }
   }, [vm?.broadcastMessage]);
+
+  const effectiveBroadcastMessage = syncMessage ?? broadcastMessage;
 
   // ── Event system ─────────────────────────────────────────────────────────
   const strikerRuns = vm?.striker?.runs;
@@ -106,15 +164,39 @@ export default function CricketObsV2Page() {
     milestoneValue: milestone,
   });
 
-  const effectiveActiveEvent = realEvent || activeEvent;
+  const effectiveActiveEvent = syncEvent || realEvent || activeEvent;
 
   // ── Frame resolution ─────────────────────────────────────────────────────
   const activeFrame: BroadcastFrame = useMemo(() => {
-    if (tournamentId > 0 && vm && selectedScene === "CRICKET") {
+    if (tournamentId > 0 && vm && selectedScene === "CRICKET" && vm.phase !== "no_live") {
       return adaptCricketToBroadcastFrame({ vm });
     }
     return makeFrame(selectedScene);
   }, [tournamentId, vm, selectedScene]);
+
+  // Fallback ViewModel for Mid-Screen Slates when no DB match is running
+  const fallbackVm = useMemo(() => ({
+    tournamentName: activeFrame.branding?.tournamentName || "BIDWAR CRICKET",
+    venueText: activeFrame.branding?.venue || "NATIONAL CRICKET STADIUM",
+    runs: 164,
+    wickets: 4,
+    oversLabel: "17.4",
+    crr: "9.28",
+    batting: { id: 1, name: "DELHI PANTHERS", shortCode: "DPS" },
+    bowling: { id: 2, name: "SUNBEAMS ANAADIS", shortCode: "SUN" },
+    striker: { id: 101, name: "Mayank Pahuja", runs: 58, balls: 32, fours: 6, sixes: 3, strikeRate: "181.2" },
+    nonStriker: { id: 102, name: "Siddharth Singh", runs: 24, balls: 14, fours: 2, sixes: 1, strikeRate: "171.4" },
+    bowler: { id: 201, name: "Anubhav Bassi", overs: "3.4", maidens: 0, runsConceded: 31, wickets: 2, economy: 8.45 },
+    home: { id: 1, name: "DELHI PANTHERS", shortCode: "DPS" },
+    away: { id: 2, name: "SUNBEAMS ANAADIS", shortCode: "SUN" },
+    sponsors: (activeFrame.sponsors?.map((s) => ({
+      publicId: s.id,
+      name: s.name,
+      url: s.logoUrl,
+      isTitleSponsor: s.tier === "title",
+    })) as any) || [],
+    phase: "live" as const,
+  } as any), [activeFrame]);
 
   // ── V2 sponsors for neutral footer (from frame branding + vm) ───────────
   const neutralSponsors: SponsorLogo[] = useMemo(() => {
@@ -123,10 +205,10 @@ export default function CricketObsV2Page() {
   }, [activeFrame.sponsors]);
 
   // ── Neutral mode ─────────────────────────────────────────────────────────
-  const isNeutralActive = vm?.isNeutralActive ?? false;
+  const isNeutralActive = syncNeutral !== null ? syncNeutral : (vm?.isNeutralActive ?? false);
 
-  // ── Overlay state (from vm or operator dock) ─────────────────────────────
-  const currentOverlay: CricketObsMidOverlayKind = vm?.midOverlay ?? "none";
+  // ── Overlay state (from sync, vm, or operator dock) ──────────────────────
+  const currentOverlay: CricketObsMidOverlayKind = syncOverlay ?? vm?.midOverlay ?? "none";
 
   // ── OBS Browser Source: enforce transparent document ────────────────────
   useEffect(() => {
@@ -273,20 +355,18 @@ export default function CricketObsV2Page() {
       <BroadcastStage frame={activeFrame} />
 
       {/* 2. Mid-Screen Slates (z-40) — rendered ABOVE the stage */}
-      {tournamentId > 0 && vm && (
-        <MidScreenSlatesV2
-          vm={vm}
-          overlay={currentOverlay}
-          overlayMatchId={undefined}
-          overlaySponsorName={undefined}
-          overlayStageOrGroup={undefined}
-          tournamentId={tournamentId}
-        />
-      )}
+      <MidScreenSlatesV2
+        vm={vm || fallbackVm}
+        overlay={currentOverlay}
+        overlayMatchId={undefined}
+        overlaySponsorName={undefined}
+        overlayStageOrGroup={undefined}
+        tournamentId={tournamentId || 10}
+      />
 
       {/* 3. Broadcast Message Chyron (z-35) — above scorebug, below slates */}
       <BroadcastMessageV2
-        message={broadcastMessage}
+        message={effectiveBroadcastMessage}
         alignRight={isNeutralActive}
       />
 
@@ -324,13 +404,13 @@ export default function CricketObsV2Page() {
       )}
 
       {/* 7. Operator Dock (?dock=1 or ?controls=1) */}
-      {showOperatorDock && vm && (
+      {showOperatorDock && (
         <OperatorDockV2
           currentOverlay={currentOverlay}
           onSetOverlay={handleSetOverlay}
           onTriggerFlash={handleTriggerFlash}
           onSetBroadcastMessage={handleSetBroadcastMessage}
-          currentBroadcastMessage={broadcastMessage}
+          currentBroadcastMessage={effectiveBroadcastMessage}
         />
       )}
     </>
@@ -338,33 +418,6 @@ export default function CricketObsV2Page() {
 
   // ── OBS Browser Source Mode (transparent canvas) ─────────────────────────
   if (!isPreviewMode) {
-    if (tournamentId > 0 && !scoringActive) {
-      return (
-        <div
-          className="bw-obs-root relative overflow-hidden"
-          style={{ width: "1920px", height: "1080px", background: "transparent" }}
-        >
-          <div className="flex h-full w-full items-center justify-center">
-            <p
-              style={{
-                background: "rgba(0,0,0,0.7)",
-                border: `1px solid ${OBS_V2.color.standard}`,
-                color: OBS_V2.color.textMuted,
-                fontFamily: OBS_V2.typography.family.body,
-                fontSize: 12,
-                fontWeight: 700,
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-                padding: "16px 24px",
-              }}
-            >
-              Cricket scoring is not enabled for this tournament
-            </p>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div
         className="bw-obs-root relative overflow-hidden"

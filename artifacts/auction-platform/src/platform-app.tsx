@@ -50,6 +50,7 @@ const ObsV2Overlay = lazy(() => import("@/pages/obs-v2-overlay"));
 const ObsLabOverlayPreview = lazy(() => import("@/pages/obs-v2-overlay-preview"));
 const ObsLabOverlay = lazy(() => import("@/pages/obs-v2-overlay"));
 const CricketObsV2Preview = lazy(() => import("@/pages/cricket-obs-v2-preview"));
+const CricketObsV2Control = lazy(() => import("@/pages/cricket-obs-v2-control"));
 const OrganizerPortal = lazy(() => import("@/pages/organizer-portal"));
 const OrganizerProfile = lazy(() => import("@/pages/organizer-profile"));
 const LiveViewer = lazy(() => import("@/pages/liveviewer"));
@@ -153,21 +154,20 @@ function PlatformRouter() {
         <Route path="/tournament/:id/display" component={DisplayView} />
         <Route path="/tournament/:id/side-display" component={SideDisplayView} />
         <Route path="/tournament/:id/score-display" component={RedirectToScoringApp} />
-        <Route path="/tournament/:id/cricket/obs/:matchId" component={RedirectToScoringApp} />
-        {/* Public live viewer — no auction code gate; share /live/:id with fans */}
-        <Route path="/live/:id" component={LiveViewer} />
-        <Route path="/live" component={LegacyLiveRedirect} />
-        <Route path="/tournament/:id/liveviewer" component={LiveViewer} />
-        <Route path="/register/:code" component={PlayerRegister} />
-        <Route path="/tournament/:id/register" component={PlayerRegisterLegacy} />
-        <Route path="/tournament/:id/obs/v2/preview" component={ObsV2OverlayPreview} />
-        <Route path="/tournament/:id/obs/v2" component={ObsV2Overlay} />
+        {/* V2 Broadcast Overlays & Live Test Control (Must precede legacy :matchId wildcard) */}
+        <Route path="/tournament/:id/cricket/obs/v2/control" component={CricketObsV2Control} />
         <Route path="/tournament/:id/cricket/obs/v2/preview" component={CricketObsV2Preview} />
         <Route path="/tournament/:id/cricket/obs/v2" component={CricketObsV2Preview} />
+        <Route path="/cricket/obs/v2/control" component={CricketObsV2Control} />
         <Route path="/cricket/obs/v2/preview" component={CricketObsV2Preview} />
         <Route path="/cricket/obs/v2" component={CricketObsV2Preview} />
+        <Route path="/tournament/:id/obs/v2/preview" component={ObsV2OverlayPreview} />
+        <Route path="/tournament/:id/obs/v2" component={ObsV2Overlay} />
         <Route path="/tournament/:id/obs/lab/preview" component={ObsLabOverlayPreview} />
         <Route path="/tournament/:id/obs/lab" component={ObsLabOverlay} />
+
+        {/* Legacy / Production OBS routes (Preserved untouched) */}
+        <Route path="/tournament/:id/cricket/obs/:matchId" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/obs/preview" component={ObsOverlayPreview} />
         <Route path="/tournament/:id/obs" component={ObsOverlay} />
 

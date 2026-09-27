@@ -58,3 +58,6 @@ export * from "./slates/MidScreenSlatesV2";
 
 // Operator Dock (director controls, ?dock=1)
 export * from "./OperatorDockV2";
+
+// Real-time synchronization transport (Control <-> Display)
+export * from "./obs-v2-sync";
