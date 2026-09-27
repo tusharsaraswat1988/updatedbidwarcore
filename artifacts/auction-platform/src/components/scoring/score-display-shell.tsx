@@ -486,44 +486,83 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
     }
 
     // 2. Detect New Ball
-    if (state.lastSequence > lastSeqRef.current && state.thisOver.length > 0) {
-      const lastBall = state.thisOver[state.thisOver.length - 1];
-      lastSeqRef.current = state.lastSequence;
+    if (state.lastSequence > lastSeqRef.current) {
+      const authEvent = live?.broadcastEvent;
+      if (authEvent && authEvent.sequence === state.lastSequence) {
+        lastSeqRef.current = state.lastSequence;
+        if (authEvent.type === "SUPERBALL") {
+          const totalRuns = authEvent.totalRuns ?? authEvent.runs ?? 0;
+          const baseRuns = Math.round(totalRuns / 2);
+          setActiveEvent({
+            type: "SUPER_BALL",
+            runsOffBat: baseRuns,
+            totalRuns: totalRuns,
+            batsmanName: authEvent.batsmanName || strikerPlayer?.name || "Batter",
+            battingTeam: battingTeam?.name,
+          });
+        } else if (authEvent.type === "WICKET") {
+          setActiveEvent({
+            type: "WICKET",
+            dismissal: authEvent.dismissal || "OUT",
+            batsmanName: authEvent.batsmanName || strikerPlayer?.name || "Batter",
+            bowlerName: authEvent.bowlerName || bowlerPlayer?.name || "Bowler",
+          });
+        } else if (authEvent.type === "SIX") {
+          setActiveEvent({
+            type: "SIX",
+            runs: 6,
+            batsmanName: authEvent.batsmanName || strikerPlayer?.name,
+          });
+        } else if (authEvent.type === "FOUR") {
+          setActiveEvent({
+            type: "FOUR",
+            runs: 4,
+            batsmanName: authEvent.batsmanName || strikerPlayer?.name,
+          });
+        } else if (authEvent.type === "NO_BALL") {
+          setActiveEvent({ type: "NO_BALL" });
+        } else if (authEvent.type === "WIDE") {
+          setActiveEvent({ type: "WIDE", runs: authEvent.runs });
+        }
+      } else if (state.thisOver.length > 0) {
+        const lastBall = state.thisOver[state.thisOver.length - 1];
+        lastSeqRef.current = state.lastSequence;
 
-      if (lastBall.isSuperBall) {
-        // lastBall.runsOffBat from toBallDisplay is already the doubled total (e.g. 12 on 6-hit)
-        const totalRuns = lastBall.runsOffBat || 0;
-        const baseRuns = Math.round(totalRuns / 2);
-        setActiveEvent({
-          type: "SUPER_BALL",
-          runsOffBat: baseRuns,
-          totalRuns: totalRuns,
-          batsmanName: strikerPlayer?.name || "Batter",
-          battingTeam: battingTeam?.name,
-        });
-      } else if (lastBall.isWicket) {
-        setActiveEvent({
-          type: "WICKET",
-          dismissal: lastBall.label.includes("W") ? "WICKET" : "OUT",
-          batsmanName: strikerPlayer?.name || "Batter",
-          bowlerName: bowlerPlayer?.name || "Bowler",
-        });
-      } else if (lastBall.runsOffBat === 6 || lastBall.label === "6") {
-        setActiveEvent({
-          type: "SIX",
-          runs: 6,
-          batsmanName: strikerPlayer?.name,
-        });
-      } else if (lastBall.runsOffBat === 4 || lastBall.label === "4") {
-        setActiveEvent({
-          type: "FOUR",
-          runs: 4,
-          batsmanName: strikerPlayer?.name,
-        });
-      } else if (lastBall.extrasType === "no_ball" || lastBall.label.toLowerCase().includes("nb")) {
-        setActiveEvent({ type: "NO_BALL" });
-      } else if (lastBall.extrasType === "wide" || lastBall.label.toLowerCase().includes("wd")) {
-        setActiveEvent({ type: "WIDE", runs: lastBall.extrasRuns });
+        if (lastBall.isSuperBall) {
+          // lastBall.runsOffBat from toBallDisplay is already the doubled total (e.g. 12 on 6-hit)
+          const totalRuns = lastBall.runsOffBat || 0;
+          const baseRuns = Math.round(totalRuns / 2);
+          setActiveEvent({
+            type: "SUPER_BALL",
+            runsOffBat: baseRuns,
+            totalRuns: totalRuns,
+            batsmanName: strikerPlayer?.name || "Batter",
+            battingTeam: battingTeam?.name,
+          });
+        } else if (lastBall.isWicket) {
+          setActiveEvent({
+            type: "WICKET",
+            dismissal: lastBall.label.includes("W") ? "WICKET" : "OUT",
+            batsmanName: strikerPlayer?.name || "Batter",
+            bowlerName: bowlerPlayer?.name || "Bowler",
+          });
+        } else if (lastBall.runsOffBat === 6 || lastBall.label === "6") {
+          setActiveEvent({
+            type: "SIX",
+            runs: 6,
+            batsmanName: strikerPlayer?.name,
+          });
+        } else if (lastBall.runsOffBat === 4 || lastBall.label === "4") {
+          setActiveEvent({
+            type: "FOUR",
+            runs: 4,
+            batsmanName: strikerPlayer?.name,
+          });
+        } else if (lastBall.extrasType === "no_ball" || lastBall.label.toLowerCase().includes("nb")) {
+          setActiveEvent({ type: "NO_BALL" });
+        } else if (lastBall.extrasType === "wide" || lastBall.label.toLowerCase().includes("wd")) {
+          setActiveEvent({ type: "WIDE", runs: lastBall.extrasRuns });
+        }
       }
     }
 
@@ -642,6 +681,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
     bowlerPlayer?.name,
     players,
     teams,
+    live?.broadcastEvent,
   ]);
 
   // Sponsor Trail list for footer marquee

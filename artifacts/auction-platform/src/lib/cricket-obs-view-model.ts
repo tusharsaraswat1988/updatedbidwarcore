@@ -620,7 +620,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     ballFlashToken && ballFlashToken !== input.previousFlashToken ? mapBallToFlash(lastBall) : null;
 
   const flash = overrideFlash || autoFlash;
-  const flashToken = overrideFlash ? overrideFlashToken : (autoFlash ? ballFlashToken : null);
+  const flashToken = overrideFlash ? (overrideFlashToken ?? null) : (autoFlash ? ballFlashToken : null);
 
   let resultText = state.resultText ?? match.resultSummary ?? summary?.resultText ?? null;
   if (!resultText && isTargetReached && batting) {
@@ -709,7 +709,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     firstInningsScoreLine: firstInningsScoreLine(state, summary, teams),
     flash,
     flashToken,
-    flashDetail: overrideFlashDetail,
+    flashDetail: overrideFlashDetail ?? null,
     midOverlay,
   };
 }
