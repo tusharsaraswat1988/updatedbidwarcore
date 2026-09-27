@@ -40,56 +40,64 @@ export interface BroadcastMessageV2Props {
 export function BroadcastMessageV2({ message, alignRight = true }: BroadcastMessageV2Props) {
   const isVisible = Boolean(message?.active && message?.name);
 
-  // Position: Immediately above the 160px scorebug (zones.camera.bottom = 200px)
-  // Right-entry within 96px action-safe bounds
-  const bottomPosition = OBS_V2.canvas.zones.camera.bottom + 8; // 208px from bottom
+  // Position: Anchored directly above scorebug on the right, occupying exact associate sponsor territory
+  const bottomPosition = 206; // 206px from bottom (same as AssociateSponsorScorebug)
 
   return (
     <div
       className="pointer-events-none absolute z-[35] flex flex-col justify-end"
       style={{
         bottom: `${bottomPosition}px`,
-        right: `${OBS_V2.canvas.safeX}px`,
-        maxWidth: "640px",
+        right: "72px",
+        maxWidth: "680px",
       }}
     >
       <AnimatePresence mode="wait">
         {isVisible && message ? (
           <motion.div
             key={`bw-msg-${message.name}`}
-            initial={{ opacity: 0, x: 80 }}
+            initial={{ opacity: 0, x: 60 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 80 }}
+            exit={{ opacity: 0, x: 60 }}
             transition={{
-              duration: 0.24,
+              duration: 0.22,
               ease: OBS_V2.motion.easing.snappy,
             }}
-            className="relative flex items-stretch overflow-hidden select-none"
+            className="relative flex items-stretch select-none"
             style={{
-              boxShadow: OBS_V2.depth.shadow.elevated,
-              background: OBS_V2.color.panel,
-              borderTop: `1px solid ${OBS_V2.color.standard}`,
-              borderBottom: `1px solid ${OBS_V2.color.standard}`,
-              borderLeft: `1px solid ${OBS_V2.color.standard}`,
-              borderRight: `3px solid ${OBS_V2.color.brand}`,
-              borderRadius: "6px 0 0 6px",
+              clipPath:
+                "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 10px), calc(100% - 12px) 100%, 0 100%)",
+              background: "linear-gradient(180deg, #11131A 0%, #0C0C10 60%, #08080C 100%)",
+              borderTop: "1px solid rgba(255, 255, 255, 0.16)",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+              borderLeft: "1px solid rgba(255, 255, 255, 0.08)",
+              boxShadow: "0 20px 48px rgba(0, 0, 0, 0.95), 0 4px 16px rgba(0, 0, 0, 0.75)",
             }}
           >
+            {/* Top directional metallic specular sheen */}
+            <div
+              className="absolute inset-x-0 top-0 h-[1.5px] pointer-events-none z-20"
+              style={{
+                background:
+                  "linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 215, 0, 0.6) 70%, #FFD700 100%)",
+              }}
+            />
+
             {/* Content Container */}
             <div
               className="flex flex-col justify-center"
               style={{
-                padding: `${OBS_V2.spacing.sm}px ${OBS_V2.spacing.xl}px`,
-                minWidth: "280px",
-                maxWidth: "600px",
+                padding: "12px 28px 14px 22px",
+                minWidth: "340px",
+                maxWidth: "640px",
               }}
             >
-              {/* Kicker bar with real BidWar logo */}
-              <div className="flex items-center gap-2 mb-1">
+              {/* Kicker bar with official BidWar logo */}
+              <div className="flex items-center gap-2.5 mb-1.5">
                 <img
                   src="/assets/branding/bidwar-reverse-logo-official.png"
                   alt="BidWar"
-                  className="h-3.5 w-auto object-contain"
+                  className="h-4 w-auto object-contain"
                   onError={(e) => {
                     const target = e.currentTarget;
                     if (!target.src.includes("broadcast/bidwar-reverse-logo-official")) {
@@ -99,29 +107,33 @@ export function BroadcastMessageV2({ message, alignRight = true }: BroadcastMess
                 />
                 <span
                   style={{
-                    fontSize: OBS_V2.typography.scale.micro.fontSize,
+                    fontSize: "12px",
                     fontFamily: OBS_V2.typography.family.body,
-                    letterSpacing: OBS_V2.typography.tracking.widest,
+                    letterSpacing: "0.22em",
                     color: OBS_V2.color.brand,
                     fontWeight: 800,
                     textTransform: "uppercase",
+                    lineHeight: 1,
                   }}
                 >
-                  BROADCAST
+                  OFFICIAL BROADCAST
                 </span>
               </div>
 
               {/* Primary Dominant Name — Bebas Neue display */}
               <div
                 style={{
-                  ...OBS_V2.typography.scale.headline,
-                  color: OBS_V2.color.text,
-                  letterSpacing: "0.05em",
-                  lineHeight: 1,
+                  fontSize: "36px",
+                  fontFamily: OBS_V2.typography.family.display,
+                  color: "#FFFFFF",
+                  letterSpacing: "0.04em",
+                  lineHeight: 1.02,
+                  textTransform: "uppercase",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
-                  maxWidth: "560px",
+                  maxWidth: "580px",
+                  textShadow: "0 2px 8px rgba(0, 0, 0, 0.95)",
                 }}
               >
                 {message.name}
@@ -131,13 +143,14 @@ export function BroadcastMessageV2({ message, alignRight = true }: BroadcastMess
               {message.details && (
                 <div
                   style={{
-                    fontSize: OBS_V2.typography.scale.body.fontSize,
+                    fontSize: "16px",
                     fontFamily: OBS_V2.typography.family.body,
-                    color: OBS_V2.color.textSecondary,
+                    color: "rgba(248, 250, 252, 0.82)",
+                    fontWeight: 600,
                     letterSpacing: "0.04em",
                     textTransform: "uppercase",
-                    marginTop: 3,
-                    lineHeight: 1.35,
+                    marginTop: 4,
+                    lineHeight: 1.3,
                     overflow: "hidden",
                     display: "-webkit-box",
                     WebkitLineClamp: 2,
@@ -149,13 +162,14 @@ export function BroadcastMessageV2({ message, alignRight = true }: BroadcastMess
               )}
             </div>
 
-            {/* Right structural accent notch */}
+            {/* Right solid gold structural spine */}
             <div
               style={{
-                width: "4px",
+                width: "4.5px",
                 flexShrink: 0,
                 alignSelf: "stretch",
                 background: OBS_V2.color.brand,
+                boxShadow: `0 0 12px ${OBS_V2.color.brandGlow}`,
               }}
             />
           </motion.div>

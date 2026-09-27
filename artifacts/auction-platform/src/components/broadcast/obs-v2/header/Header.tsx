@@ -48,12 +48,12 @@ export function TournamentBrand({ branding }: { branding: BroadcastBranding }) {
           <span
             className="bw-tn-venue"
             style={{
-              fontSize: 10,
-              color: "rgba(248, 250, 252, 0.55)",
+              fontSize: 13,
+              color: "rgba(248, 250, 252, 0.65)",
               letterSpacing: "0.14em",
               textTransform: "uppercase",
               display: "block",
-              marginTop: 1,
+              marginTop: 2,
               fontFamily: "'Inter', sans-serif",
               fontWeight: 600,
               whiteSpace: "nowrap",
@@ -155,7 +155,7 @@ export function LiveBroadcastBug({ feed = "live" }: { feed?: FeedStatus }) {
       />
       <span
         style={{
-          fontSize: "12px",
+          fontSize: "14px",
           fontWeight: 800,
           letterSpacing: "0.15em",
           lineHeight: 1,
@@ -247,9 +247,11 @@ export function AssociateSponsorRail({
 export function AssociateSponsorScorebug({
   sponsors,
   intervalMs = 5000,
+  hidden = false,
 }: {
   sponsors: SponsorLogo[];
   intervalMs?: number;
+  hidden?: boolean;
 }) {
   const [i, setI] = useState(0);
 
@@ -285,60 +287,62 @@ export function AssociateSponsorScorebug({
       }}
     >
       <AnimatePresence mode="wait">
-        <motion.div
-          key={s.id || s.name}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.22 }}
-          style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", textAlign: "right" }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            {s.logoUrl && (
-              <img
-                src={s.logoUrl}
-                alt={s.name}
+        {!hidden && (
+          <motion.div
+            key={s.id || s.name}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.22 }}
+            style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", textAlign: "right" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              {s.logoUrl && (
+                <img
+                  src={s.logoUrl}
+                  alt={s.name}
+                  style={{
+                    height: "40px",
+                    width: "auto",
+                    maxWidth: "110px",
+                    objectFit: "contain",
+                    display: "block",
+                    filter: "drop-shadow(0 2px 6px rgba(0, 0, 0, 0.85))",
+                  }}
+                />
+              )}
+              <span
                 style={{
-                  height: "38px",
-                  width: "auto",
-                  maxWidth: "96px",
-                  objectFit: "contain",
-                  display: "block",
-                  filter: "drop-shadow(0 2px 6px rgba(0, 0, 0, 0.85))",
+                  fontSize: "28px",
+                  fontWeight: 800,
+                  color: "var(--bw-ink)",
+                  letterSpacing: "0.02em",
+                  fontFamily: "var(--bw-font-display)",
+                  textShadow: "0 2px 6px rgba(0, 0, 0, 0.9)",
+                  whiteSpace: "nowrap",
                 }}
-              />
+              >
+                {s.name}
+              </span>
+            </div>
+            {sponsorType && (
+              <span
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  letterSpacing: "0.14em",
+                  color: "var(--bw-gold)",
+                  fontFamily: "var(--bw-font-display)",
+                  textTransform: "uppercase",
+                  textShadow: "0 1px 3px rgba(0, 0, 0, 0.9)",
+                  marginTop: "2px",
+                }}
+              >
+                {sponsorType}
+              </span>
             )}
-            <span
-              style={{
-                fontSize: "24px",
-                fontWeight: 800,
-                color: "var(--bw-ink)",
-                letterSpacing: "0.02em",
-                fontFamily: "var(--bw-font-display)",
-                textShadow: "0 2px 6px rgba(0, 0, 0, 0.9)",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {s.name}
-            </span>
-          </div>
-          {sponsorType && (
-            <span
-              style={{
-                fontSize: "12px",
-                fontWeight: 700,
-                letterSpacing: "0.14em",
-                color: "var(--bw-gold)",
-                fontFamily: "var(--bw-font-display)",
-                textTransform: "uppercase",
-                textShadow: "0 1px 3px rgba(0, 0, 0, 0.9)",
-                marginTop: "2px",
-              }}
-            >
-              {sponsorType}
-            </span>
-          )}
-        </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

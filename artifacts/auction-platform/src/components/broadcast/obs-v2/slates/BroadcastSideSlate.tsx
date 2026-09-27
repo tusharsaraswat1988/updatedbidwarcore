@@ -64,9 +64,9 @@ export const VARIANT_CONFIGS: Record<
   STANDINGS: { widthPx: 860, heightMode: "fill", label: "POINTS TABLE", kicker: "TOURNAMENT STANDINGS" },
   FIXTURES: { widthPx: 820, heightMode: "fill", label: "SESSION SCHEDULE", kicker: "UPCOMING FIXTURES" },
   SCORECARD: { widthPx: 940, heightMode: "fill", label: "SCORECARD", kicker: "LIVE INNINGS BREAKDOWN" },
-  SUMMARY: { widthPx: 680, heightMode: "compact", heightPx: 440, label: "MATCH SUMMARY", kicker: "OFFICIAL MATCH VERDICT" },
-  VS_INTRO: { widthPx: 660, heightMode: "compact", heightPx: 310, label: "MATCH PREVIEW", kicker: "HEAD TO HEAD CLASH" },
-  SPONSORS: { widthPx: 600, heightMode: "compact", heightPx: 290, label: "COMMERCIAL PARTNER", kicker: "OFFICIAL SPONSOR" },
+  SUMMARY: { widthPx: 680, heightMode: "compact", heightPx: 460, label: "MATCH SUMMARY", kicker: "OFFICIAL MATCH VERDICT" },
+  VS_INTRO: { widthPx: 680, heightMode: "compact", heightPx: 340, label: "MATCH PREVIEW", kicker: "HEAD TO HEAD CLASH" },
+  SPONSORS: { widthPx: 600, heightMode: "compact", heightPx: 300, label: "COMMERCIAL PARTNER", kicker: "OFFICIAL SPONSOR" },
 };
 
 // ─── Reusable Side Slate Shell ───────────────────────────────────────────────
@@ -77,6 +77,7 @@ interface SideSlateShellProps {
   title: string;
   kicker: string;
   shellKey?: string;
+  heightPx?: number;
   children: React.ReactNode;
 }
 
@@ -86,13 +87,15 @@ function SideSlateShell({
   title,
   kicker,
   shellKey,
+  heightPx,
   children,
 }: SideSlateShellProps) {
   const config = VARIANT_CONFIGS[variant];
+  const targetHeight = heightPx ?? config.heightPx;
 
   return (
     <div
-      className="absolute inset-x-0 pointer-events-none select-none flex items-center"
+      className="absolute inset-x-0 pointer-events-none select-none flex items-end pb-4"
       style={{
         top: `${OBS_V2.canvas.headerHeight}px`,
         height: `${OBS_V2.canvas.cameraHeight}px`,
@@ -108,31 +111,31 @@ function SideSlateShell({
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: "-108%", opacity: 0 }}
         transition={{
-          duration: 0.32,
+          duration: 0.30,
           ease: [0.16, 1, 0.3, 1],
         }}
         className="flex flex-col overflow-hidden pointer-events-none"
         style={{
           width: `${config.widthPx}px`,
           maxWidth: "60%",
-          height: config.heightMode === "fill" ? "92%" : `${config.heightPx}px`,
-          maxHeight: `${OBS_V2.canvas.cameraHeight - 24}px`,
-          background: "linear-gradient(180deg, rgba(8, 14, 28, 0.97) 0%, rgba(5, 8, 17, 0.98) 100%)",
+          height: targetHeight ? `${targetHeight}px` : "auto",
+          maxHeight: `${OBS_V2.canvas.cameraHeight - 32}px`,
+          background: "linear-gradient(180deg, rgba(14, 16, 24, 0.98) 0%, rgba(8, 8, 12, 0.99) 100%)",
           backdropFilter: "blur(24px)",
-          border: "1px solid rgba(255, 215, 0, 0.3)",
-          borderLeft: "3px solid #FFD700",
-          borderTop: "2px solid rgba(255, 215, 0, 0.4)",
-          borderRadius: "14px",
-          boxShadow: "0 0 35px rgba(0, 0, 0, 0.85), 0 0 25px rgba(255, 215, 0, 0.15)",
+          border: "1px solid rgba(255, 255, 255, 0.10)",
+          borderLeft: "3.5px solid #FFD700",
+          borderTop: "1.5px solid rgba(255, 215, 0, 0.4)",
+          borderRadius: "12px",
+          boxShadow: "0 18px 45px rgba(0, 0, 0, 0.92), 0 0 20px rgba(0, 0, 0, 0.7)",
           fontFamily: "'Inter', sans-serif",
         }}
       >
-        {/* ── 1. Top Sub-Masthead Bar (44px) with Real BidWar Logo Asset ── */}
+        {/* ── 1. Top Sub-Masthead Bar with Real BidWar Logo Asset ── */}
         <div
-          className="flex items-center justify-between shrink-0 px-5 py-2"
+          className="flex items-center justify-between shrink-0 px-5 py-2.5"
           style={{
-            height: "44px",
-            background: "linear-gradient(90deg, rgba(18, 28, 52, 0.95) 0%, rgba(10, 16, 32, 0.95) 100%)",
+            height: "46px",
+            background: "linear-gradient(90deg, rgba(20, 24, 36, 0.98) 0%, rgba(12, 14, 20, 0.98) 100%)",
             borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
           }}
         >
@@ -149,7 +152,7 @@ function SideSlateShell({
                 }
               }}
             />
-            <span className="text-slate-300 text-xs font-bold tracking-wide uppercase truncate">
+            <span className="text-white text-[15px] font-bold tracking-wide uppercase truncate">
               {tournamentName || "CRICKET BROADCAST"}
             </span>
           </div>
@@ -157,7 +160,7 @@ function SideSlateShell({
           {/* Right: Slate Tag Indicator */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="w-2 h-2 rounded-full bg-[#FFD700] animate-pulse" />
-            <span className="text-[#FFD700] font-mono font-black text-[11px] uppercase tracking-[0.16em]">
+            <span className="text-[#FFD700] font-mono font-black text-[13px] uppercase tracking-[0.16em]">
               {config.label}
             </span>
           </div>
@@ -168,19 +171,19 @@ function SideSlateShell({
           className="px-5 py-2 shrink-0 flex items-center justify-between"
           style={{
             background: "rgba(255, 255, 255, 0.02)",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+            borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
           }}
         >
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#FFD700]">
+            <div className="text-[12px] font-bold uppercase tracking-[0.2em] text-[#FFD700]">
               {kicker}
             </div>
-            <div className="text-lg sm:text-xl font-black italic tracking-wide text-white uppercase font-sans">
+            <div className="text-xl sm:text-2xl font-black italic tracking-wide text-white uppercase font-sans">
               {title}
             </div>
           </div>
           <div
-            className="h-1.5 w-10 rounded-full"
+            className="h-1.5 w-12 rounded-full"
             style={{
               background: "linear-gradient(90deg, #FFD700 0%, #12CFFF 100%)",
             }}
@@ -188,7 +191,7 @@ function SideSlateShell({
         </div>
 
         {/* ── 3. Content Viewport ── */}
-        <div className="flex-1 flex flex-col overflow-hidden p-3.5 sm:p-4">
+        <div className="flex flex-col p-4">
           {children}
         </div>
       </motion.div>
@@ -231,27 +234,28 @@ function SummaryVariant({
     "MATCH IN PROGRESS";
 
   return (
-    <div className="flex-1 flex flex-col gap-3.5 overflow-hidden">
+    <div className="flex flex-col gap-3">
       {/* Result Badge */}
       <div
-        className="p-3.5 rounded-xl border border-amber-400/30 flex items-center justify-between"
+        className="p-3.5 rounded-xl border border-white/10 flex items-center justify-between"
         style={{
-          background: "linear-gradient(90deg, rgba(255, 215, 0, 0.12) 0%, rgba(18, 207, 255, 0.05) 100%)",
+          background: "linear-gradient(90deg, rgba(255, 215, 0, 0.12) 0%, rgba(255, 255, 255, 0.03) 100%)",
+          borderLeft: "3.5px solid #FFD700",
         }}
       >
-        <div className="flex items-center gap-2.5">
-          <span className="text-xl">🏆</span>
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">🏆</span>
           <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#FFD700] block">
+            <span className="text-[12px] font-black uppercase tracking-widest text-[#FFD700] block">
               MATCH RESULT
             </span>
-            <span className="text-lg font-black italic text-white uppercase">
+            <span className="text-xl font-black italic text-white uppercase">
               {resultText}
             </span>
           </div>
         </div>
         {vm.venueText && (
-          <span className="text-xs font-semibold text-slate-300">
+          <span className="text-[14px] font-semibold text-slate-300">
             📍 {vm.venueText}
           </span>
         )}
@@ -264,15 +268,15 @@ function SummaryVariant({
           className="p-3.5 rounded-xl border border-white/10 flex flex-col justify-between"
           style={{ background: "rgba(255, 255, 255, 0.03)" }}
         >
-          <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
-            <span className="font-bold text-xs text-white uppercase truncate">
+          <div className="flex items-center justify-between pb-2 border-b border-white/10">
+            <span className="font-bold text-[16px] text-white uppercase truncate">
               {homeTeam?.name || "1ST INNINGS"}
             </span>
-            <span className="font-mono text-lg font-black text-[#FFD700]">
+            <span className="font-mono text-xl font-black text-[#FFD700]">
               {vm.runs}-{vm.wickets}
             </span>
           </div>
-          <div className="pt-2 flex items-center justify-between text-xs font-mono text-slate-400">
+          <div className="pt-2 flex items-center justify-between text-[14px] font-mono text-slate-300">
             <span>OVERS: <strong className="text-white">{vm.oversLabel}</strong></span>
             <span>CRR: <strong className="text-cyan-400">{vm.crr ?? "0.00"}</strong></span>
           </div>
@@ -283,32 +287,32 @@ function SummaryVariant({
           className="p-3.5 rounded-xl border border-white/10 flex flex-col justify-between"
           style={{ background: "rgba(255, 255, 255, 0.03)" }}
         >
-          <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
-            <span className="font-bold text-xs text-white uppercase truncate">
+          <div className="flex items-center justify-between pb-2 border-b border-white/10">
+            <span className="font-bold text-[16px] text-white uppercase truncate">
               {awayTeam?.name || "2ND INNINGS"}
             </span>
-            <span className="font-mono text-lg font-black text-cyan-400">
+            <span className="font-mono text-xl font-black text-cyan-400">
               {vm.target != null ? `${vm.target - 1}` : "—"}
             </span>
           </div>
-          <div className="pt-2 flex items-center justify-between text-xs font-mono text-slate-400">
-            <span>TARGET: <strong className="text-amber-300">{vm.target != null ? `${vm.target} RUNS` : "N/A"}</strong></span>
+          <div className="pt-2 flex items-center justify-between text-[14px] font-mono text-slate-300">
+            <span>TARGET: <strong className="text-[#FFD700]">{vm.target != null ? `${vm.target} RUNS` : "N/A"}</strong></span>
             <span>STATUS: <strong className="text-emerald-400 uppercase">{vm.phase}</strong></span>
           </div>
         </div>
       </div>
 
       {/* Key Performers Strip */}
-      <div className="flex-1 grid grid-cols-2 gap-3 overflow-hidden">
+      <div className="grid grid-cols-2 gap-3">
         {/* Top Batters */}
         <div className="p-3 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col">
-          <span className="text-[10px] font-black uppercase tracking-widest text-[#FFD700] pb-1.5 border-b border-white/10 mb-2">
+          <span className="text-[12px] font-black uppercase tracking-widest text-[#FFD700] pb-1.5 border-b border-white/10 mb-2">
             TOP BATTERS
           </span>
-          <div className="flex-1 space-y-2 overflow-y-auto">
+          <div className="space-y-2">
             {[vm.striker, vm.nonStriker].map((b, i) =>
               b ? (
-                <div key={i} className="flex items-center justify-between text-xs">
+                <div key={i} className="flex items-center justify-between text-[15px]">
                   <span className="font-bold text-white truncate">{b.name}</span>
                   <span className="font-mono font-bold text-[#FFD700]">
                     {b.runs} ({b.balls}b)
@@ -321,21 +325,21 @@ function SummaryVariant({
 
         {/* Top Bowler */}
         <div className="p-3 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col">
-          <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400 pb-1.5 border-b border-white/10 mb-2">
+          <span className="text-[12px] font-black uppercase tracking-widest text-cyan-400 pb-1.5 border-b border-white/10 mb-2">
             KEY BOWLER
           </span>
           {vm.bowler ? (
-            <div className="flex items-center justify-between text-xs pt-1">
+            <div className="flex items-center justify-between text-[15px] pt-0.5">
               <div>
                 <span className="font-bold text-white block">{vm.bowler.name}</span>
-                <span className="text-[11px] text-slate-400 font-mono">Econ: {vm.bowler.economy?.toFixed(2)}</span>
+                <span className="text-[13px] text-slate-400 font-mono">Econ: {vm.bowler.economy?.toFixed(2)}</span>
               </div>
-              <span className="font-mono text-base font-black text-rose-400">
+              <span className="font-mono text-lg font-black text-rose-400">
                 {vm.bowler.wickets}-{vm.bowler.runsConceded}
               </span>
             </div>
           ) : (
-            <div className="text-[11px] text-slate-500 pt-2">No bowler spell active</div>
+            <div className="text-[13px] text-slate-400 pt-2">No bowler spell active</div>
           )}
         </div>
       </div>
@@ -347,23 +351,23 @@ function SummaryVariant({
 
 function ScorecardVariant({ vm }: { vm: CricketObsViewModel }) {
   return (
-    <div className="flex-1 flex flex-col gap-3.5 overflow-hidden">
+    <div className="flex flex-col gap-3">
       {/* Live Inning Score Banner */}
       <div
         className="p-3.5 rounded-xl border border-[#FFD700]/30 flex items-center justify-between"
         style={{
-          background: "linear-gradient(90deg, rgba(255, 215, 0, 0.12) 0%, rgba(10, 16, 32, 0.8) 100%)",
+          background: "linear-gradient(90deg, rgba(255, 215, 0, 0.12) 0%, rgba(14, 16, 24, 0.9) 100%)",
         }}
       >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[#FFD700] text-black font-black flex items-center justify-center text-sm font-mono">
+          <div className="w-12 h-12 rounded-xl bg-[#FFD700] text-black font-black flex items-center justify-center text-base font-mono">
             {vm.batting?.shortCode || "BAT"}
           </div>
           <div>
-            <span className="text-base font-black italic text-white uppercase block">
+            <span className="text-lg font-black italic text-white uppercase block">
               {vm.batting?.name || "BATTING TEAM"}
             </span>
-            <span className="text-xs text-slate-300 font-semibold">
+            <span className="text-[14px] text-slate-300 font-semibold">
               {vm.phase.toUpperCase()} • CRR: {vm.crr ?? "0.00"}
             </span>
           </div>
@@ -372,24 +376,24 @@ function ScorecardVariant({ vm }: { vm: CricketObsViewModel }) {
           <span className="text-3xl font-black text-[#FFD700] block drop-shadow-[0_0_10px_rgba(255,215,0,0.35)]">
             {vm.runs}-{vm.wickets}
           </span>
-          <span className="text-xs text-slate-300">({vm.oversLabel} OV)</span>
+          <span className="text-[14px] text-slate-300 font-bold">({vm.oversLabel} OV)</span>
         </div>
       </div>
 
       {/* Batters List */}
-      <div className="p-3 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col">
-        <span className="text-[10px] font-black uppercase tracking-widest text-[#FFD700] pb-1.5 border-b border-white/10 mb-2">
+      <div className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col">
+        <span className="text-[12px] font-black uppercase tracking-widest text-[#FFD700] pb-1.5 border-b border-white/10 mb-2">
           CREASE BATTERS
         </span>
         <div className="space-y-2">
           {[vm.striker, vm.nonStriker].map((b, i) =>
             b ? (
-              <div key={i} className="flex items-center justify-between text-xs p-2 rounded-lg bg-white/[0.03] border border-white/5">
-                <span className="font-bold text-white">
+              <div key={i} className="flex items-center justify-between text-[15px] p-2.5 rounded-lg bg-white/[0.03] border border-white/5">
+                <span className="font-bold text-white text-[16px]">
                   {b.name} {i === 0 && <span className="text-[#FFD700] font-black">*</span>}
                 </span>
-                <span className="font-mono text-sm font-black text-[#FFD700]">
-                  {b.runs} <span className="text-xs text-slate-400 font-normal">({b.balls}b • 4s:{b.fours} 6s:{b.sixes})</span>
+                <span className="font-mono text-[17px] font-black text-[#FFD700]">
+                  {b.runs} <span className="text-[13px] text-slate-400 font-normal">({b.balls}b • 4s:{b.fours} 6s:{b.sixes})</span>
                 </span>
               </div>
             ) : null,
@@ -399,19 +403,19 @@ function ScorecardVariant({ vm }: { vm: CricketObsViewModel }) {
 
       {/* Bowler Details */}
       {vm.bowler && (
-        <div className="p-3 rounded-xl border border-white/10 bg-white/[0.02] flex items-center justify-between">
+        <div className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02] flex items-center justify-between">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-cyan-400 block mb-0.5">
+            <span className="text-[12px] font-black uppercase tracking-widest text-cyan-400 block mb-0.5">
               ACTIVE BOWLER
             </span>
-            <span className="font-bold text-white text-sm">{vm.bowler.name}</span>
-            <span className="text-xs text-slate-400 font-mono block">Econ: {vm.bowler.economy?.toFixed(2)}</span>
+            <span className="font-bold text-white text-[17px]">{vm.bowler.name}</span>
+            <span className="text-[14px] text-slate-300 font-mono block">Econ: {vm.bowler.economy?.toFixed(2)}</span>
           </div>
           <div className="text-right font-mono">
             <span className="text-2xl font-black text-rose-400 block">
               {vm.bowler.wickets}-{vm.bowler.runsConceded}
             </span>
-            <span className="text-xs text-slate-400">({vm.bowler.overs} ov)</span>
+            <span className="text-[14px] text-slate-300">({vm.bowler.overs} ov)</span>
           </div>
         </div>
       )}
@@ -419,7 +423,7 @@ function ScorecardVariant({ vm }: { vm: CricketObsViewModel }) {
   );
 }
 
-// ─── 3. VARIANT: STANDINGS SLATE (Points Table Rows 45% Width) ────────────────
+// ─── 3. VARIANT: STANDINGS SLATE (Points Table Rows) ─────────────────────────
 
 function StandingsVariant({
   tournamentId,
@@ -449,72 +453,77 @@ function StandingsVariant({
     return standings ?? [];
   }, [matchedGroup, standings]);
 
+  const displayRows = rows?.slice(0, 8) || [];
+  const isFewTeams = displayRows.length <= 4;
+
   return (
-    <div className="flex-1 flex flex-col overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]">
+    <div className="flex flex-col rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
       {/* Table Header Strip */}
       <div
-        className="grid grid-cols-12 items-center px-4 py-2 text-[10px] font-black tracking-widest uppercase text-slate-300 border-b border-[#FFD700]/40"
-        style={{ background: "rgba(18, 28, 52, 0.9)" }}
+        className="grid grid-cols-12 items-center px-5 py-2.5 text-[12px] font-black tracking-widest uppercase text-slate-300 border-b border-[#FFD700]/30"
+        style={{ background: "rgba(18, 22, 32, 0.95)" }}
       >
         <div className="col-span-1 text-center">#</div>
         <div className="col-span-6 pl-1">TEAM</div>
         <div className="col-span-1 text-center font-mono">P</div>
         <div className="col-span-1 text-center font-mono">W</div>
         <div className="col-span-1 text-center font-mono">L</div>
-        <div className="col-span-2 text-right font-mono pr-1">PTS</div>
+        <div className="col-span-2 text-right font-mono pr-2">PTS</div>
       </div>
 
-      {/* Row Strips (Bornan-style clean rows) */}
-      <div className="flex-1 overflow-y-auto divide-y divide-white/5">
-        {rows && rows.length > 0 ? (
-          rows.slice(0, 8).map((row, idx) => {
+      {/* Row Strips (Content-aware sizing, larger padding for few teams) */}
+      <div className="divide-y divide-white/5">
+        {displayRows.length > 0 ? (
+          displayRows.map((row, idx) => {
             const isTopZone = idx < 4;
             return (
               <div
                 key={row.teamId}
-                className="grid grid-cols-12 items-center px-4 py-2 text-xs transition-colors hover:bg-white/[0.04]"
+                className={`grid grid-cols-12 items-center px-5 ${
+                  isFewTeams ? "py-3.5 text-[16px]" : "py-2.5 text-[15px]"
+                } transition-colors hover:bg-white/[0.04]`}
                 style={{
                   background: idx % 2 === 0 ? "transparent" : "rgba(255, 255, 255, 0.015)",
                 }}
               >
                 <div className="col-span-1 flex justify-center">
                   <span
-                    className={`w-5 h-5 rounded flex items-center justify-center font-mono font-black text-[10px] ${
+                    className={`w-6 h-6 rounded flex items-center justify-center font-mono font-black text-[12px] ${
                       isTopZone ? "bg-[#FFD700] text-black" : "bg-white/10 text-white"
                     }`}
                   >
                     {idx + 1}
                   </span>
                 </div>
-                <div className="col-span-6 pl-1 font-bold text-white uppercase truncate">
-                  {row.teamName} <span className="text-[#FFD700] font-mono text-[10px]">({row.shortCode})</span>
+                <div className="col-span-6 pl-2 font-bold text-white uppercase truncate">
+                  {row.teamName} <span className="text-[#FFD700] font-mono text-[13px] ml-1">({row.shortCode})</span>
                 </div>
-                <div className="col-span-1 text-center font-mono text-slate-300">{row.played}</div>
-                <div className="col-span-1 text-center font-mono font-bold text-emerald-400">{row.won}</div>
-                <div className="col-span-1 text-center font-mono text-rose-400">{row.lost}</div>
-                <div className="col-span-2 text-right font-mono font-black text-sm text-[#FFD700] pr-1">
+                <div className="col-span-1 text-center font-mono text-slate-300 font-bold">{row.played}</div>
+                <div className="col-span-1 text-center font-mono font-bold text-white">{row.won}</div>
+                <div className="col-span-1 text-center font-mono text-slate-400">{row.lost}</div>
+                <div className="col-span-2 text-right font-mono font-black text-lg text-[#FFD700] pr-2">
                   {row.points}
                 </div>
               </div>
             );
           })
         ) : (
-          <div className="py-12 text-center text-xs text-slate-400">
+          <div className="py-8 text-center text-sm text-slate-400">
             No standings data available.
           </div>
         )}
       </div>
 
       {/* Footer Tag */}
-      <div className="px-4 py-1.5 border-t border-white/10 bg-black/40 text-[10px] text-slate-400 flex justify-between">
+      <div className="px-5 py-2 border-t border-white/10 bg-black/50 text-[12px] text-slate-400 font-semibold flex justify-between">
         <span>TOP 4 ADVANCE TO PLAYOFFS</span>
-        <span className="font-mono">LIVE SYNCED</span>
+        <span className="font-mono text-[#FFD700]">LIVE SYNCED</span>
       </div>
     </div>
   );
 }
 
-// ─── 4. VARIANT: FIXTURES SLATE (Session Schedule 42% Width) ─────────────────
+// ─── 4. VARIANT: FIXTURES SLATE (Session Schedule) ───────────────────────────
 
 function FixturesVariant({ tournamentId }: { tournamentId?: number }) {
   const { data: matches } = useQuery({
@@ -530,15 +539,15 @@ function FixturesVariant({ tournamentId }: { tournamentId?: number }) {
   );
 
   return (
-    <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto">
+    <div className="flex flex-col gap-3">
       {upcoming.length > 0 ? (
         upcoming.map((m: any, i) => (
           <div
             key={m.id || i}
-            className="p-3 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col gap-1.5"
+            className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col gap-2"
           >
             {/* Header: Match # and Venue */}
-            <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 border-b border-white/5 pb-1">
+            <div className="flex items-center justify-between text-[12px] font-mono text-slate-300 border-b border-white/10 pb-1.5">
               <span className="text-[#FFD700] font-bold">
                 {m.roundName || `MATCH #${m.tournamentMatchNumber ?? m.id}`}
               </span>
@@ -547,32 +556,32 @@ function FixturesVariant({ tournamentId }: { tournamentId?: number }) {
 
             {/* Teams Line */}
             <div className="flex items-center justify-between py-1">
-              <span className="font-bold text-sm text-white uppercase truncate max-w-[42%]">
+              <span className="font-bold text-lg text-white uppercase truncate max-w-[42%]">
                 {m.homeTeam?.name || "HOME TEAM"}
               </span>
-              <span className="font-black italic text-[#FFD700] text-xs px-2 py-0.5 rounded bg-black/40 border border-white/10">
+              <span className="font-black italic text-[#FFD700] text-[14px] px-3 py-0.5 rounded bg-black/50 border border-white/10">
                 VS
               </span>
-              <span className="font-bold text-sm text-white uppercase truncate max-w-[42%] text-right">
+              <span className="font-bold text-lg text-white uppercase truncate max-w-[42%] text-right">
                 {m.awayTeam?.name || "AWAY TEAM"}
               </span>
             </div>
 
             {/* Time / Status */}
-            <div className="flex items-center justify-between text-[11px] pt-1 border-t border-white/5 font-mono text-slate-300">
+            <div className="flex items-center justify-between text-[13px] pt-1.5 border-t border-white/5 font-mono text-slate-300">
               <span>
                 {m.scheduledAt
                   ? new Date(m.scheduledAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })
                   : "SCHEDULED"}
               </span>
-              <span className="text-amber-400 font-bold uppercase text-[10px]">
+              <span className="text-amber-400 font-bold uppercase text-[12px]">
                 {m.status || "UPCOMING"}
               </span>
             </div>
           </div>
         ))
       ) : (
-        <div className="py-12 text-center text-xs text-slate-400">
+        <div className="py-8 text-center text-sm text-slate-400">
           No upcoming fixtures scheduled.
         </div>
       )}
@@ -580,7 +589,7 @@ function FixturesVariant({ tournamentId }: { tournamentId?: number }) {
   );
 }
 
-// ─── 5. VARIANT: SPONSORS SLATE (Single Partner Card ~290px Height) ──────────
+// ─── 5. VARIANT: SPONSORS SLATE (Single Partner Card) ────────────────────────
 
 function SponsorsVariant({
   currentSponsor,
@@ -589,24 +598,24 @@ function SponsorsVariant({
 }) {
   if (!currentSponsor) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-        <span className="text-xs text-slate-400">Official Commercial Partner</span>
+      <div className="flex flex-col items-center justify-center p-6 text-center">
+        <span className="text-sm text-slate-400">Official Commercial Partner</span>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-4 py-2">
+    <div className="flex flex-col items-center justify-center gap-3.5 text-center px-4 py-2">
       {/* Prominent Sponsor Logo Asset */}
-      <div className="h-24 w-full flex items-center justify-center">
+      <div className="h-28 w-full flex items-center justify-center">
         {currentSponsor.url ? (
           <img
             src={currentSponsor.url}
             alt={currentSponsor.name}
-            className="max-h-24 max-w-[280px] object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+            className="max-h-28 max-w-[300px] object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
           />
         ) : (
-          <div className="w-20 h-20 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl font-black text-[#FFD700]">
+          <div className="w-22 h-22 rounded-2xl bg-white/5 border border-white/15 flex items-center justify-center text-4xl font-black text-[#FFD700]">
             {currentSponsor.name?.slice(0, 2).toUpperCase()}
           </div>
         )}
@@ -617,7 +626,7 @@ function SponsorsVariant({
         <h3 className="text-2xl font-black italic text-white uppercase tracking-wide font-sans leading-tight">
           {currentSponsor.name}
         </h3>
-        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#12CFFF] mt-0.5">
+        <span className="text-[13px] font-bold uppercase tracking-[0.2em] text-[#FFD700] mt-1">
           {currentSponsor.type || (currentSponsor.isTitleSponsor ? "TITLE SPONSOR" : "OFFICIAL PARTNER")}
         </span>
       </div>
@@ -625,7 +634,7 @@ function SponsorsVariant({
   );
 }
 
-// ─── 6. VARIANT: VS INTRO SLATE (Compact Match Preview ~310px Height) ─────────
+// ─── 6. VARIANT: VS INTRO SLATE (Match Preview) ──────────────────────────────
 
 function VsIntroVariant({
   vm,
@@ -655,52 +664,58 @@ function VsIntroVariant({
   const awayTeam = activeMatch?.awayTeam || vm.away;
 
   return (
-    <div className="flex-1 flex flex-col justify-between py-1 px-2">
+    <div className="flex flex-col justify-between gap-3 py-1 px-1">
       {/* Team vs Team Card Row */}
       <div className="flex items-center justify-around py-2">
         {/* Team A */}
-        <div className="flex flex-col items-center gap-1.5 max-w-[150px] text-center">
-          <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/15 flex items-center justify-center font-black text-xl text-white shadow-inner">
+        <div className="flex flex-col items-center gap-2 max-w-[180px] text-center">
+          <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/20 flex items-center justify-center font-black text-2xl text-white shadow-inner p-2">
             {homeTeam?.logoUrl ? (
-              <img src={homeTeam.logoUrl} alt="" className="max-h-12 max-w-12 object-contain" />
+              <img src={homeTeam.logoUrl} alt="" className="max-h-16 max-w-16 object-contain" />
             ) : (
               homeTeam?.shortCode || "HOME"
             )}
           </div>
-          <span className="font-black text-sm text-white uppercase truncate w-full tracking-wide">
+          <span className="font-black text-base text-white uppercase truncate w-full tracking-wide">
             {homeTeam?.name || "HOME SQUAD"}
+          </span>
+          <span className="text-[#FFD700] font-mono text-[13px] font-bold">
+            {homeTeam?.shortCode || "HOM"}
           </span>
         </div>
 
         {/* VS Indicator */}
-        <div className="flex flex-col items-center px-2">
-          <span className="text-3xl font-black italic text-[#FFD700] drop-shadow-[0_0_12px_rgba(255,215,0,0.5)]">
+        <div className="flex flex-col items-center px-4">
+          <span className="text-4xl font-black italic text-[#FFD700] drop-shadow-[0_0_16px_rgba(255,215,0,0.5)]">
             VS
           </span>
-          <span className="text-[9px] font-mono font-bold uppercase text-slate-400 tracking-wider">
+          <span className="text-[11px] font-mono font-bold uppercase text-slate-300 tracking-wider mt-1">
             MATCH PREVIEW
           </span>
         </div>
 
         {/* Team B */}
-        <div className="flex flex-col items-center gap-1.5 max-w-[150px] text-center">
-          <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/15 flex items-center justify-center font-black text-xl text-cyan-400 shadow-inner">
+        <div className="flex flex-col items-center gap-2 max-w-[180px] text-center">
+          <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/20 flex items-center justify-center font-black text-2xl text-cyan-400 shadow-inner p-2">
             {awayTeam?.logoUrl ? (
-              <img src={awayTeam.logoUrl} alt="" className="max-h-12 max-w-12 object-contain" />
+              <img src={awayTeam.logoUrl} alt="" className="max-h-16 max-w-16 object-contain" />
             ) : (
               awayTeam?.shortCode || "AWAY"
             )}
           </div>
-          <span className="font-black text-sm text-white uppercase truncate w-full tracking-wide">
+          <span className="font-black text-base text-white uppercase truncate w-full tracking-wide">
             {awayTeam?.name || "AWAY SQUAD"}
+          </span>
+          <span className="text-cyan-400 font-mono text-[13px] font-bold">
+            {awayTeam?.shortCode || "AWY"}
           </span>
         </div>
       </div>
 
       {/* Match Info Strip at bottom of card */}
-      <div className="p-2.5 rounded-lg border border-white/10 bg-black/40 text-xs text-slate-300 font-mono flex items-center justify-between mt-1">
+      <div className="p-3 rounded-xl border border-white/10 bg-black/60 text-[14px] text-slate-200 font-mono flex items-center justify-between">
         <span className="truncate max-w-[50%]">🪙 {vm.tossText || "TOSS PENDING"}</span>
-        <span className="text-cyan-400 font-bold uppercase truncate max-w-[45%] text-right">
+        <span className="text-cyan-400 font-bold uppercase truncate max-w-[48%] text-right">
           📍 {activeMatch?.venue || vm.venueText || "LIVE MATCH"}
         </span>
       </div>

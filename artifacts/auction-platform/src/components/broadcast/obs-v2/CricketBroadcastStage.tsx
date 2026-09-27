@@ -28,6 +28,7 @@ export interface CricketBroadcastStageProps {
   className?: string;
   hideLower?: boolean;
   hideFooter?: boolean;
+  hideAssociateSponsor?: boolean;
 }
 
 /**
@@ -51,6 +52,7 @@ export function CricketBroadcastStage({
   className = "",
   hideLower = false,
   hideFooter = false,
+  hideAssociateSponsor = false,
 }: CricketBroadcastStageProps) {
   const title = frame.sponsors.find((s) => s.tier === "title") || frame.sponsors[0];
   const associates = frame.sponsors.filter((s) => s.id !== title?.id);
@@ -110,7 +112,7 @@ export function CricketBroadcastStage({
 
       {/* Frameless Associate Sponsor docked right above footer scoreboard on the right */}
       {!hideLower && associates.length > 0 && (
-        <AssociateSponsorScorebug sponsors={associates} />
+        <AssociateSponsorScorebug sponsors={associates} hidden={hideAssociateSponsor} />
       )}
 
       {/* ── ZONE 3: LOWER THIRD / SCOREBUG (880–1040px, z-20, Protected Zone) ── */}

@@ -41,13 +41,13 @@ export function TeamScorePanel({ model }: { model: CricketScoreModel }) {
           <div
             className="bw-ts-crr"
             style={{
-              fontSize: "15px",
+              fontSize: "17px",
               color: "var(--bw-cyan)",
               letterSpacing: "0.08em",
               fontWeight: 800,
               fontFamily: "var(--bw-font-mono)",
               lineHeight: 1.1,
-              marginTop: "3px",
+              marginTop: "4px",
               whiteSpace: "nowrap",
             }}
           >
@@ -61,7 +61,7 @@ export function TeamScorePanel({ model }: { model: CricketScoreModel }) {
 
 function BatterRow({ b }: { b: BatterLine }) {
   const isLong = b.name.length > 16;
-  const fontSize = b.name.length > 22 ? 20 : isLong ? 23 : undefined;
+  const fontSize = b.name.length > 22 ? 22 : isLong ? 25 : undefined;
 
   return (
     <div className="bw-batter" data-strike={b.onStrike}>
@@ -91,7 +91,7 @@ export function BatterPanel({ striker, nonStriker }: { striker: BatterLine; nonS
 
 export function BowlerPanel({ bowler }: { bowler: BowlerLine }) {
   const isLong = bowler.name.length > 13;
-  const fontSize = bowler.name.length > 20 ? 19 : isLong ? 22 : undefined;
+  const fontSize = bowler.name.length > 20 ? 22 : isLong ? 25 : undefined;
 
   return (
     <div className="bw-bowler" key={bowler.name}>
@@ -161,11 +161,11 @@ function ExtendedStatsPanel({ model }: { model: CricketScoreModel }) {
       {hasChaseInfo && (
         <div
           style={{
-            fontSize: 13,
+            fontSize: 18,
             fontFamily: OBS_V2.typography.family.mono,
             color: OBS_V2.color.brand,
-            fontWeight: 700,
-            letterSpacing: "0.06em",
+            fontWeight: 800,
+            letterSpacing: "0.04em",
             lineHeight: 1.1,
           }}
         >
@@ -177,11 +177,11 @@ function ExtendedStatsPanel({ model }: { model: CricketScoreModel }) {
       {hasRrr && (
         <div
           style={{
-            fontSize: 11,
+            fontSize: 16,
             fontFamily: OBS_V2.typography.family.mono,
             color: OBS_V2.color.textSecondary,
             fontWeight: 700,
-            letterSpacing: "0.08em",
+            letterSpacing: "0.06em",
           }}
         >
           <span style={{ color: OBS_V2.color.textMuted }}>RRR </span>
@@ -193,10 +193,11 @@ function ExtendedStatsPanel({ model }: { model: CricketScoreModel }) {
       {hasPartnership && (
         <div
           style={{
-            fontSize: 11,
+            fontSize: 15,
             fontFamily: OBS_V2.typography.family.body,
             color: OBS_V2.color.textMuted,
-            letterSpacing: "0.05em",
+            letterSpacing: "0.04em",
+            fontWeight: 600,
           }}
         >
           {model.partnership}
@@ -207,7 +208,7 @@ function ExtendedStatsPanel({ model }: { model: CricketScoreModel }) {
       {model.freeHitActive && (
         <div
           style={{
-            fontSize: 12,
+            fontSize: 16,
             fontFamily: OBS_V2.typography.family.body,
             color: OBS_V2.color.info,
             fontWeight: 800,
@@ -221,7 +222,7 @@ function ExtendedStatsPanel({ model }: { model: CricketScoreModel }) {
       {model.superBallActive && (
         <div
           style={{
-            fontSize: 12,
+            fontSize: 16,
             fontFamily: OBS_V2.typography.family.body,
             color: OBS_V2.color.brand,
             fontWeight: 800,
