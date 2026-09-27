@@ -50,7 +50,7 @@ import { listFixtures } from "@/lib/scoring-foundation-api";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
-import { cricketScheduleOpsPath, cricketScorerPath, cricketMatchCenterPath } from "@/lib/cricket-routes";
+import { cricketScheduleOpsPath, cricketScorerPath, cricketMatchCenterPath, cricketRulesPath } from "@/lib/cricket-routes";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,7 +61,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, CheckCircle2, ChevronRight, Edit2, ListOrdered, Plus, Radio, Sliders, Trash2, Trophy } from "lucide-react";
+import { Calendar, CheckCircle2, ChevronRight, Edit2, ListOrdered, Plus, Radio, Settings, Sliders, Trash2, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type FilterKey = "all" | "today" | "upcoming" | "live" | "completed";
@@ -76,6 +76,27 @@ function isSameLocalDay(iso: string | null | undefined): boolean {
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate()
   );
+}
+
+function getPresetDetails(p?: CricketRulePresetJson | null) {
+  if (!p) return { overs: 20, wickets: 10, squadSize: 11 };
+  const overrides = (p.ruleOverridesJson ?? {}) as Record<string, any>;
+  const nestedValues = overrides.values as Record<string, any> | undefined;
+  const overs = typeof overrides.overs === "number"
+    ? overrides.overs
+    : typeof nestedValues?.["cricket.match.overs_per_innings"] === "number"
+      ? nestedValues["cricket.match.overs_per_innings"]
+      : 20;
+  const wickets = typeof overrides.maxWickets === "number"
+    ? overrides.maxWickets
+    : typeof nestedValues?.["cricket.match.wickets_per_innings"] === "number"
+      ? nestedValues["cricket.match.wickets_per_innings"]
+      : 10;
+  const squadRules = (p.squadRulesJson ?? {}) as Record<string, any>;
+  const squadSize = typeof squadRules.playingSquadSize === "number"
+    ? squadRules.playingSquadSize
+    : 11;
+  return { overs, wickets, squadSize };
 }
 
 export default function CricketFixturesPage() {
@@ -112,6 +133,11 @@ export default function CricketFixturesPage() {
     [masterTeams],
   );
   const teamMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
+
+  const defaultPreset = useMemo(
+    () => (presets ?? []).find((p) => p.isDefault) || presets?.[0],
+    [presets],
+  );
 
   const stats = useMemo(() => {
     const list = matches ?? [];
@@ -154,7 +180,7 @@ export default function CricketFixturesPage() {
   const [createAwayId, setCreateAwayId] = useState("");
   const [createRoundName, setCreateRoundName] = useState("Semi Final 1");
   const [createPresetId, setCreatePresetId] = useState<string>("");
-  const [createOvers, setCreateOvers] = useState(6);
+  const [createOvers, setCreateOvers] = useState(20);
   const [createVenue, setCreateVenue] = useState("");
   const [createScheduledAt, setCreateScheduledAt] = useState(""); // datetime-local string
   const [creating, setCreating] = useState(false);
@@ -162,25 +188,33 @@ export default function CricketFixturesPage() {
   const [editMatch, setEditMatch] = useState<ScoringMatchRow | null>(null);
   const [editRoundName, setEditRoundName] = useState("");
   const [editPresetId, setEditPresetId] = useState<string>("");
-  const [editOvers, setEditOvers] = useState(6);
+  const [editOvers, setEditOvers] = useState(20);
   const [editVenue, setEditVenue] = useState("");
   const [editResultSummary, setEditResultSummary] = useState("");
   const [editScheduledAt, setEditScheduledAt] = useState(""); // datetime-local string
   const [savingEdit, setSavingEdit] = useState(false);
 
+  const activeCreatePreset = useMemo(
+    () => (presets ?? []).find((p) => String(p.id) === createPresetId) || defaultPreset,
+    [presets, createPresetId, defaultPreset],
+  );
+
+  const activeEditPreset = useMemo(
+    () => (presets ?? []).find((p) => String(p.id) === editPresetId) || defaultPreset,
+    [presets, editPresetId, defaultPreset],
+  );
+
   const [matchToDelete, setMatchToDelete] = useState<ScoringMatchRow | null>(null);
   const [deletingMatch, setDeletingMatch] = useState(false);
 
   function handleOpenCreate() {
-    const defaultP = (presets ?? []).find((p) => p.isDefault) || presets?.[0];
-    if (defaultP) {
-      setCreatePresetId(String(defaultP.id));
-      const pOvers = (defaultP.ruleOverridesJson?.values as Record<string, any> | undefined)?.[
-        "cricket.match.overs_per_innings"
-      ];
-      if (typeof pOvers === "number") setCreateOvers(pOvers);
+    if (defaultPreset) {
+      setCreatePresetId(String(defaultPreset.id));
+      const details = getPresetDetails(defaultPreset);
+      setCreateOvers(details.overs);
     } else {
       setCreatePresetId("");
+      setCreateOvers(20);
     }
     setCreateOpen(true);
   }
@@ -189,20 +223,19 @@ export default function CricketFixturesPage() {
     setCreatePresetId(presetIdStr);
     const p = (presets ?? []).find((x) => String(x.id) === presetIdStr);
     if (p) {
-      const pOvers = (p.ruleOverridesJson?.values as Record<string, any> | undefined)?.[
-        "cricket.match.overs_per_innings"
-      ];
-      if (typeof pOvers === "number") {
-        setCreateOvers(pOvers);
-      }
+      const details = getPresetDetails(p);
+      setCreateOvers(details.overs);
     }
   }
 
   function handleOpenEdit(m: ScoringMatchRow) {
     setEditMatch(m);
     setEditRoundName(m.roundName || "");
-    setEditPresetId(m.rulePresetId ? String(m.rulePresetId) : "");
-    setEditOvers(m.rules?.overs ?? 6);
+    const presetId = m.rulePresetId ? String(m.rulePresetId) : defaultPreset ? String(defaultPreset.id) : "";
+    setEditPresetId(presetId);
+    const resolvedP = (presets ?? []).find((x) => String(x.id) === presetId) || defaultPreset;
+    const details = getPresetDetails(resolvedP);
+    setEditOvers(m.rules?.overs ?? details.overs);
     setEditVenue(m.venue || "");
     setEditResultSummary(m.resultSummary || "");
     // Convert ISO to datetime-local string (YYYY-MM-DDTHH:MM) in local time
@@ -212,6 +245,15 @@ export default function CricketFixturesPage() {
       setEditScheduledAt(local.toISOString().slice(0, 16));
     } else {
       setEditScheduledAt("");
+    }
+  }
+
+  function handleSelectEditPreset(presetIdStr: string) {
+    setEditPresetId(presetIdStr);
+    const p = (presets ?? []).find((x) => String(x.id) === presetIdStr);
+    if (p) {
+      const details = getPresetDetails(p);
+      setEditOvers(details.overs);
     }
   }
 
@@ -698,19 +740,55 @@ export default function CricketFixturesPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>Rule Preset</Label>
-                  <Select value={createPresetId} onValueChange={handleSelectCreatePreset}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Rule Preset (Default)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(presets ?? []).map((p) => (
-                        <SelectItem key={p.id} value={String(p.id)}>
-                          {p.name} {p.isDefault ? "(Default)" : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Rules & Match Format
+                    </Label>
+                    <Link
+                      href={cricketRulesPath(tournamentId)}
+                      className="text-xs text-primary font-medium hover:underline inline-flex items-center gap-1"
+                    >
+                      <Settings className="w-3 h-3" />
+                      Manage Rules
+                    </Link>
+                  </div>
+                  {presets && presets.length > 0 ? (
+                    <Select
+                      value={createPresetId || (defaultPreset ? String(defaultPreset.id) : "")}
+                      onValueChange={handleSelectCreatePreset}
+                    >
+                      <SelectTrigger className="font-semibold text-foreground">
+                        <SelectValue placeholder="Select tournament rule preset" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {presets.map((p) => {
+                          const details = getPresetDetails(p);
+                          return (
+                            <SelectItem key={p.id} value={String(p.id)}>
+                              {p.name} {p.isDefault ? "(Default)" : ""} — {details.overs} Overs · {details.wickets} Wkts · {details.squadSize} Players
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="p-2.5 rounded-lg border border-border bg-card/40 text-xs text-muted-foreground flex items-center justify-between">
+                      <span>Using tournament default rules</span>
+                      <Link href={cricketRulesPath(tournamentId)} className="text-primary font-medium hover:underline">
+                        Configure Rules
+                      </Link>
+                    </div>
+                  )}
+                  {activeCreatePreset ? (
+                    <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground/80 flex flex-wrap gap-2 items-center">
+                      <span className="font-bold text-amber-400">Rules applied:</span>
+                      <span>{getPresetDetails(activeCreatePreset).overs} Overs</span>
+                      <span>•</span>
+                      <span>{getPresetDetails(activeCreatePreset).wickets} Wickets</span>
+                      <span>•</span>
+                      <span>{getPresetDetails(activeCreatePreset).squadSize} Players / Side</span>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -746,25 +824,13 @@ export default function CricketFixturesPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Overs per Inning</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={50}
-                      value={createOvers}
-                      onChange={(e) => setCreateOvers(parseInt(e.target.value, 10) || 6)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Venue (Optional)</Label>
-                    <Input
-                      value={createVenue}
-                      onChange={(e) => setCreateVenue(e.target.value)}
-                      placeholder="Stadium / Ground"
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <Label>Venue (Optional)</Label>
+                  <Input
+                    value={createVenue}
+                    onChange={(e) => setCreateVenue(e.target.value)}
+                    placeholder="Stadium / Ground"
+                  />
                 </div>
               </div>
 
@@ -816,48 +882,51 @@ export default function CricketFixturesPage() {
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <Label>Rule Preset</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Rules & Match Format
+                    </Label>
                     {editMatch.startedAt ? (
                       <span className="text-[10px] text-amber-500 font-semibold">Rules Locked (Scoring started)</span>
                     ) : null}
                   </div>
                   <Select
                     value={editPresetId}
-                    onValueChange={setEditPresetId}
+                    onValueChange={handleSelectEditPreset}
                     disabled={Boolean(editMatch.startedAt)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="font-medium text-foreground">
                       <SelectValue placeholder="Tournament Default Preset" />
                     </SelectTrigger>
                     <SelectContent>
-                      {(presets ?? []).map((p) => (
-                        <SelectItem key={p.id} value={String(p.id)}>
-                          {p.name} {p.isDefault ? "(Default)" : ""}
-                        </SelectItem>
-                      ))}
+                      {(presets ?? []).map((p) => {
+                        const details = getPresetDetails(p);
+                        return (
+                          <SelectItem key={p.id} value={String(p.id)}>
+                            {p.name} {p.isDefault ? "(Default)" : ""} — {details.overs} Overs · {details.wickets} Wkts · {details.squadSize} Players
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
+                  {activeEditPreset ? (
+                    <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground/80 flex flex-wrap gap-2 items-center">
+                      <span className="font-bold text-amber-400">Rules applied:</span>
+                      <span>{getPresetDetails(activeEditPreset).overs} Overs</span>
+                      <span>•</span>
+                      <span>{getPresetDetails(activeEditPreset).wickets} Wickets</span>
+                      <span>•</span>
+                      <span>{getPresetDetails(activeEditPreset).squadSize} Players / Side</span>
+                    </div>
+                  ) : null}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Overs per Inning</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={50}
-                      value={editOvers}
-                      onChange={(e) => setEditOvers(parseInt(e.target.value, 10) || 6)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Venue (Optional)</Label>
-                    <Input
-                      value={editVenue}
-                      onChange={(e) => setEditVenue(e.target.value)}
-                      placeholder="Stadium / Ground"
-                    />
-                  </div>
+                <div className="space-y-1.5">
+                  <Label>Venue (Optional)</Label>
+                  <Input
+                    value={editVenue}
+                    onChange={(e) => setEditVenue(e.target.value)}
+                    placeholder="Stadium / Ground"
+                  />
                 </div>
 
                 <div className="space-y-1.5">

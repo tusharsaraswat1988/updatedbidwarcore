@@ -171,6 +171,7 @@ export default function CricketScorerPage() {
     if (!matchId || !tournamentId || !currentSession.token) return;
 
     let heartbeatTimer: NodeJS.Timeout | null = null;
+    let consecutiveHeartbeatFailures = 0;
     const token = currentSession.token;
 
     async function obtainLock(forceTakeover = false) {
@@ -181,6 +182,7 @@ export default function CricketScorerPage() {
           forceTakeover,
         });
         if (lockRes.ok) {
+          consecutiveHeartbeatFailures = 0;
           setLockAcquired(true);
           setLockLost(false);
           lockHeldRef.current = true;
@@ -217,10 +219,18 @@ export default function CricketScorerPage() {
     void obtainLock();
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible" && lockHeldRef.current) {
-        void heartbeatScorerMatchLock(matchId, token).catch(() => {
-          void obtainLock();
-        });
+      if (document.visibilityState === "visible") {
+        if (lockHeldRef.current) {
+          void heartbeatScorerMatchLock(matchId, token)
+            .then(() => {
+              consecutiveHeartbeatFailures = 0;
+            })
+            .catch(() => {
+              void obtainLock(false);
+            });
+        } else {
+          void obtainLock(false);
+        }
       }
     };
     document.addEventListener("visibilitychange", onVisibilityChange);

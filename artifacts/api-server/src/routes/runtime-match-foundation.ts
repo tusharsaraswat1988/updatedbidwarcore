@@ -1,5 +1,11 @@
 import { Router, type IRouter } from "express";
-import { requireTournamentOrganizer } from "../middleware/require-organizer";
+import { requireTournamentOrganizer, isTournamentOrganizer } from "../middleware/require-organizer";
+import {
+  requireScorerFromRequest,
+  assertScorerCanScore,
+  assertScorerMayAccessTournament,
+  ScorerAuthError,
+} from "../lib/scorer-auth";
 import {
   buildExecutionPhaseState,
   buildRuntimeIdentity,
@@ -185,9 +191,35 @@ router.post(
     const tid = parseId(req.params.tournamentId);
     const matchId = parseId(req.params.matchId);
     if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
-    if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
-    const result = await prepareRuntimeMatch(tid, matchId, actorFromReq(req));
+    const [tournament] = await db
+      .select({ organizerId: tournamentsTable.organizerId })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid))
+      .limit(1);
+
+    let actor: string | null = null;
+    const isOrganizer = !!tournament && isTournamentOrganizer(req, tid, tournament.organizerId);
+
+    if (isOrganizer) {
+      actor = actorFromReq(req);
+    } else {
+      try {
+        const scorerAuth = await requireScorerFromRequest(req);
+        assertScorerCanScore(scorerAuth);
+        await assertScorerMayAccessTournament(scorerAuth.scorerId, tid);
+        actor = `scorer:${scorerAuth.scorerId}`;
+      } catch (e) {
+        if (e instanceof ScorerAuthError) {
+          res.status(e.status).json({ error: e.message, code: e.code });
+          return;
+        }
+        res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
+        return;
+      }
+    }
+
+    const result = await prepareRuntimeMatch(tid, matchId, actor);
     if (!result.ok) {
       return res.status(result.status).json({
         error: result.error,

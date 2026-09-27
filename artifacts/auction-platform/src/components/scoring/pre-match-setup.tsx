@@ -124,30 +124,47 @@ export function PreMatchSetup({
   const [prepareError, setPrepareError] = useState<string | null>(null);
   const autoPrepareTried = useRef(false);
   const limits = executionLimitsFromMatch(match);
+  const isMatchStarted =
+    (match.status !== "scheduled" && match.status !== "draft") ||
+    match.startedAt !== null ||
+    (state?.innings?.length ?? 0) > 0;
 
-  const oversLimit = limits.oversLimit ?? state.oversLimit ?? 20;
+  const oversLimit = limits.oversLimit ?? match.rules?.overs ?? state.oversLimit ?? 20;
+  const playingSquadSize = limits.playingSquadSize ?? match.rules?.playingSquadSize ?? 11;
+  const benchSize = limits.benchSize ?? match.rules?.benchSize ?? 4;
   const policyReady =
-    limits.fromPolicy &&
-    typeof limits.oversLimit === "number" &&
-    typeof limits.playingSquadSize === "number" &&
-    typeof limits.benchSize === "number";
-  const playingSquadSize = limits.playingSquadSize ?? 11;
-  const benchSize = limits.benchSize ?? 4;
+    !preparing &&
+    !prepareError &&
+    (limits.fromPolicy ||
+      autoPrepareTried.current ||
+      isMatchStarted ||
+      (typeof oversLimit === "number" && typeof playingSquadSize === "number"));
 
   async function handlePrepare() {
-    if (preparing || busy) return;
+    if (preparing || busy || isMatchStarted) return;
     setPreparing(true);
     setPrepareError(null);
     try {
+      const { scorerAuthHeaders } = await import("@/lib/badminton-scorer-session");
       const res = await apiFetch(
         `/tournaments/${tournamentId}/runtime-matches/${match.id}/prepare`,
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: {
+            ...scorerAuthHeaders(),
+          },
+        },
       );
       const body = (await res.json().catch(() => ({}))) as {
         error?: string;
         validation?: { issues?: Array<{ severity: string; message: string }> };
       };
       if (!res.ok) {
+        if (res.status === 409) {
+          // Match already started or rules already frozen — treat as ready
+          await onPrepared?.();
+          return;
+        }
         const blockers = (body.validation?.issues ?? [])
           .filter((i) => i.severity === "ERROR")
           .map((i) => i.message)
@@ -168,13 +185,13 @@ export function PreMatchSetup({
     }
   }
 
-  // Auto prepare match rules once on mount
+  // Auto prepare match rules once on mount if match has not started yet
   useEffect(() => {
-    if (limits.fromPolicy || autoPrepareTried.current) return;
+    if (limits.fromPolicy || autoPrepareTried.current || isMatchStarted) return;
     autoPrepareTried.current = true;
     void handlePrepare();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [limits.fromPolicy, match.id]);
+  }, [limits.fromPolicy, match.id, isMatchStarted]);
 
   const { battingId, bowlingId } = resolveCricketSideTeamIds(state, match);
   const needsToss =
@@ -522,8 +539,15 @@ export function PreMatchSetup({
             setWalkoverReason("");
             setWalkoverDialogOpen(true);
           }}
-          onStart={() =>
-            onEvent(CricketEventType.MATCH_STARTED, {
+          onStart={async () => {
+            if (!limits.fromPolicy && !isMatchStarted) {
+              try {
+                await handlePrepare();
+              } catch {
+                // proceed with event if prepare threw
+              }
+            }
+            await onEvent(CricketEventType.MATCH_STARTED, {
               tossWinnerTeamId: parseInt(tossWinner, 10),
               electedTo,
               oversLimit,
@@ -532,8 +556,8 @@ export function PreMatchSetup({
                 (match.rules?.superBallEnabled && match.rules?.powerplayEnabled
                   ? [1]
                   : undefined),
-            })
-          }
+            });
+          }}
         />
       ) : null}
 

@@ -198,6 +198,8 @@ export async function getMatchSquads(tournamentId: number, matchId: number) {
   return r.json();
 }
 
+import { scorerAuthHeaders } from "./badminton-scorer-session";
+
 export async function setMatchSquad(
   tournamentId: number,
   matchId: number,
@@ -206,6 +208,9 @@ export async function setMatchSquad(
 ) {
   const r = await apiFetch(`${base(tournamentId)}/matches/${matchId}/squads/${teamId}`, {
     method: "PUT",
+    headers: {
+      ...scorerAuthHeaders(),
+    },
     body: JSON.stringify(squad),
   });
   if (!r.ok) throw new Error(await parseError(r));

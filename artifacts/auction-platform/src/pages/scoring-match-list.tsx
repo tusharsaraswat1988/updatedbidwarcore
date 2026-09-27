@@ -40,6 +40,7 @@ import {
   deleteScoringMatch,
   getCricketMasterTeams,
   handoffAuctionParticipantsToSports,
+  listCricketRulePresets,
   ScoringApiError,
 } from "@/lib/scoring-api";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
@@ -76,7 +77,7 @@ import {
   scoreDisplayPath,
   cricketObsLivePath,
 } from "@/lib/tournament-navigation";
-import { cricketLiveControlPath } from "@/lib/cricket-routes";
+import { cricketLiveControlPath, cricketRulesPath } from "@/lib/cricket-routes";
 import { CricketFilterPill } from "@/components/scoring/cricket-page-chrome";
 import { isTerminalCricketMatchStatus } from "@/lib/scoring-api";
 import { cn } from "@/lib/utils";
@@ -197,14 +198,33 @@ export default function ScoringMatchListPage() {
     };
   }, [matches]);
 
+  const { data: rulePresets } = useQuery({
+    queryKey: ["cricket-rule-presets", tournamentId],
+    queryFn: () => listCricketRulePresets(tournamentId),
+    enabled: scoringActive && !!tournamentId,
+  });
+
   const [createOpen, setCreateOpen] = useState(false);
   const [homeTeamId, setHomeTeamId] = useState("");
   const [awayTeamId, setAwayTeamId] = useState("");
-  const [overs, setOvers] = useState("20");
+  const [selectedRulePresetId, setSelectedRulePresetId] = useState("");
   const [matchDateTime, setMatchDateTime] = useState(""); // datetime-local string
   const [creating, setCreating] = useState(false);
   const [filter, setFilter] = useState<MatchFilter>("live");
   const [deletingMatchId, setDeletingMatchId] = useState<number | null>(null);
+
+  const defaultPreset = useMemo(() => {
+    if (!rulePresets?.length) return null;
+    return rulePresets.find((p) => p.isDefault) ?? rulePresets[0];
+  }, [rulePresets]);
+
+  const activePreset = useMemo(() => {
+    if (!rulePresets?.length) return null;
+    if (selectedRulePresetId) {
+      return rulePresets.find((p) => String(p.id) === selectedRulePresetId) ?? defaultPreset;
+    }
+    return defaultPreset;
+  }, [rulePresets, selectedRulePresetId, defaultPreset]);
 
   const filteredMatches = useMemo(() => {
     const list = matches ?? [];
@@ -231,7 +251,6 @@ export default function ScoringMatchListPage() {
   async function handleCreate() {
     const home = parseInt(homeTeamId, 10);
     const away = parseInt(awayTeamId, 10);
-    const oversLimit = parseInt(overs, 10);
     if (!home || !away || home === away) {
       toast({ title: "Pick two different teams", variant: "destructive" });
       return;
@@ -245,7 +264,7 @@ export default function ScoringMatchListPage() {
       const detail = await createScoringMatch(tournamentId, {
         homeTeamId: home,
         awayTeamId: away,
-        oversLimit: oversLimit || 20,
+        rulePresetId: activePreset?.id ?? undefined,
         scheduledAt: scheduledAtIso,
       });
       setCreateOpen(false);
@@ -889,9 +908,65 @@ export default function ScoringMatchListPage() {
                 RuntimeExecutionPolicy after Runtime Prepare.
               </p>
             ) : null}
+            {/* Tournament Rules / Match Format Selector */}
             <div className="space-y-2">
-              <Label>Overs</Label>
-              <Input value={overs} onChange={(e) => setOvers(e.target.value)} inputMode="numeric" />
+              <div className="flex items-center justify-between">
+                <Label>Tournament Rules &amp; Format</Label>
+                <Link
+                  href={cricketRulesPath(tournamentId)}
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  <Sliders className="w-3 h-3" />
+                  Manage Rules
+                </Link>
+              </div>
+              {rulePresets && rulePresets.length > 0 ? (
+                <Select
+                  value={selectedRulePresetId || (defaultPreset ? String(defaultPreset.id) : "")}
+                  onValueChange={setSelectedRulePresetId}
+                >
+                  <SelectTrigger className="font-semibold text-foreground">
+                    <SelectValue placeholder="Select tournament rule preset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {rulePresets.map((p) => {
+                      const overrides = (p.ruleOverridesJson ?? {}) as Record<string, unknown>;
+                      const oversCount = overrides.overs ?? 5;
+                      const wktsCount = overrides.maxWickets ?? 6;
+                      const squadRules = (p.squadRulesJson ?? {}) as Record<string, unknown>;
+                      const squadSize = squadRules.playingSquadSize ?? 7;
+                      return (
+                        <SelectItem key={p.id} value={String(p.id)}>
+                          {p.name} {p.isDefault ? "(Default)" : ""} — {oversCount} Overs · {wktsCount} Wkts · {squadSize} Players
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="p-2.5 rounded-lg border border-border bg-card/40 text-xs text-muted-foreground flex items-center justify-between">
+                  <span>Using tournament default rules</span>
+                  <Link href={cricketRulesPath(tournamentId)} className="text-primary font-medium hover:underline">
+                    Configure Rules
+                  </Link>
+                </div>
+              )}
+              {activePreset ? (
+                <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground/80 flex flex-wrap gap-2 items-center">
+                  <span className="font-bold text-amber-400">Rules applied:</span>
+                  <span>
+                    {((activePreset.ruleOverridesJson ?? {}) as Record<string, unknown>).overs ?? 5} Overs
+                  </span>
+                  <span>•</span>
+                  <span>
+                    {((activePreset.ruleOverridesJson ?? {}) as Record<string, unknown>).maxWickets ?? 6} Wickets
+                  </span>
+                  <span>•</span>
+                  <span>
+                    {((activePreset.squadRulesJson ?? {}) as Record<string, unknown>).playingSquadSize ?? 7} Players / Side
+                  </span>
+                </div>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label>Match Date & Time <span className="text-muted-foreground font-normal">(optional)</span></Label>

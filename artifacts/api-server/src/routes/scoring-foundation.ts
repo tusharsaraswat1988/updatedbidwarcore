@@ -1,6 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireTournamentOrganizer } from "../middleware/require-organizer";
+import { requireTournamentOrganizer, isTournamentOrganizer } from "../middleware/require-organizer";
+import {
+  requireScorerFromRequest,
+  assertScorerCanScore,
+  assertScorerMayAccessTournament,
+  ScorerAuthError,
+} from "../lib/scorer-auth";
 import {
   createScoringOfficial,
   createScoringVenue,
@@ -364,7 +370,26 @@ router.put("/matches/:matchId/squads/:teamId", async (req, res) => {
   if (!tournamentId || Number.isNaN(matchId) || Number.isNaN(teamId)) {
     return void res.status(400).json({ error: "Invalid ID" });
   }
-  if (!(await requireOrganizer(req, res, tournamentId))) return;
+
+  const [tournament] = await db
+    .select({ organizerId: tournamentsTable.organizerId })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  const isOrganizer = !!tournament && isTournamentOrganizer(req, tournamentId, tournament.organizerId);
+  if (!isOrganizer) {
+    try {
+      const scorerAuth = await requireScorerFromRequest(req);
+      assertScorerCanScore(scorerAuth);
+      await assertScorerMayAccessTournament(scorerAuth.scorerId, tournamentId);
+    } catch (e) {
+      if (e instanceof ScorerAuthError) {
+        return void res.status(e.status).json({ error: e.message, code: e.code });
+      }
+      return void res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
+    }
+  }
 
   const schema = z.object({
     playingXi: z.array(z.number().int().positive()).min(1).max(20),

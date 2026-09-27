@@ -99,18 +99,35 @@ export async function acquireMatchLock(input: {
       return { ok: true, reacquired: false, lock: lock! };
     }
 
-    // Same session reacquisition / heartbeat refresh
-    if (existing.sessionId === input.sessionId && !input.forceTakeover && !isStale(existing.lastHeartbeatAt, now)) {
+    // Same session reacquisition / heartbeat refresh OR same scorer re-login takeover
+    if (
+      (existing.sessionId === input.sessionId || existing.scorerId === input.scorerId) &&
+      !input.forceTakeover &&
+      !isStale(existing.lastHeartbeatAt, now)
+    ) {
+      const newVersion = (existing.leaseVersion ?? 0) + 1;
+      const newLeaseId =
+        existing.sessionId === input.sessionId
+          ? (existing.leaseId ?? crypto.randomUUID())
+          : crypto.randomUUID();
+
       const [lock] = await tx
         .update(scorerMatchLocksTable)
         .set({
+          sessionId: input.sessionId,
+          leaseId: newLeaseId,
+          leaseVersion: newVersion,
           lastHeartbeatAt: now,
           expiresAt,
           scorerId: input.scorerId,
         })
         .where(eq(scorerMatchLocksTable.matchId, input.matchId))
         .returning();
-      return { ok: true, reacquired: false, lock: lock! };
+      return {
+        ok: true,
+        reacquired: existing.sessionId !== input.sessionId,
+        lock: lock!,
+      };
     }
 
     if (input.forceTakeover || isStale(existing.lastHeartbeatAt, now)) {

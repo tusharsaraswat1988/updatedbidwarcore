@@ -54,7 +54,7 @@ import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { cricketPublicPath } from "@/lib/tournament-navigation";
-import { cricketFixturesPath, cricketSettingsPath } from "@/lib/cricket-routes";
+import { cricketFixturesPath, cricketRulesPath, cricketSettingsPath } from "@/lib/cricket-routes";
 import {
   Calendar,
   Check,
@@ -67,6 +67,7 @@ import {
   Plus,
   Repeat,
   RotateCcw,
+  Settings,
   Shield,
   Shuffle,
   Sparkles,
@@ -204,16 +205,43 @@ export default function ScoringSchedulePage() {
   const [venueBusy, setVenueBusy] = useState(false);
   const seededVenueRef = useRef(false);
 
+  const defaultPreset = useMemo(
+    () => (presets ?? []).find((p) => p.isDefault) || presets?.[0],
+    [presets],
+  );
+
+  const activeSchedulePreset = useMemo(
+    () => (presets ?? []).find((p) => String(p.id) === rulePresetId) || defaultPreset,
+    [presets, rulePresetId, defaultPreset],
+  );
+
+  function getPresetDetails(p?: CricketRulePresetJson | null) {
+    if (!p) return { overs: 20, wickets: 10, squadSize: 11 };
+    const overrides = (p.ruleOverridesJson ?? {}) as Record<string, any>;
+    const nestedValues = overrides.values as Record<string, any> | undefined;
+    const overs = typeof overrides.overs === "number"
+      ? overrides.overs
+      : typeof nestedValues?.["cricket.match.overs_per_innings"] === "number"
+        ? nestedValues["cricket.match.overs_per_innings"]
+        : 20;
+    const wickets = typeof overrides.maxWickets === "number"
+      ? overrides.maxWickets
+      : typeof nestedValues?.["cricket.match.wickets_per_innings"] === "number"
+        ? nestedValues["cricket.match.wickets_per_innings"]
+        : 10;
+    const squadRules = (p.squadRulesJson ?? {}) as Record<string, any>;
+    const squadSize = typeof squadRules.playingSquadSize === "number"
+      ? squadRules.playingSquadSize
+      : 11;
+    return { overs, wickets, squadSize };
+  }
+
   function handleSelectPreset(presetIdStr: string) {
     setRulePresetId(presetIdStr);
     const p = (presets ?? []).find((x) => String(x.id) === presetIdStr);
     if (p) {
-      const pOvers = (p.ruleOverridesJson?.values as Record<string, any> | undefined)?.[
-        "cricket.match.overs_per_innings"
-      ];
-      if (typeof pOvers === "number") {
-        setOversLimit(pOvers);
-      }
+      const details = getPresetDetails(p);
+      setOversLimit(details.overs);
     }
   }
 
@@ -224,15 +252,13 @@ export default function ScoringSchedulePage() {
     setDrawName(
       tournament?.name ? `${tournament.name} Stage 1` : "League Stage 2026",
     );
-    const defaultP = (presets ?? []).find((p) => p.isDefault) || presets?.[0];
-    if (defaultP) {
-      setRulePresetId(String(defaultP.id));
-      const pOvers = (defaultP.ruleOverridesJson?.values as Record<string, any> | undefined)?.[
-        "cricket.match.overs_per_innings"
-      ];
-      if (typeof pOvers === "number") setOversLimit(pOvers);
+    if (defaultPreset) {
+      setRulePresetId(String(defaultPreset.id));
+      const details = getPresetDetails(defaultPreset);
+      setOversLimit(details.overs);
     } else {
       setRulePresetId("");
+      setOversLimit(20);
     }
     // Determine appropriate initial group count based on team count (>=12 teams -> 4 groups, >=9 -> 3 groups, else 2)
     const initialGroupCount = allTeamIds.length >= 12 ? 4 : (allTeamIds.length >= 9 ? 3 : 2);
@@ -1205,61 +1231,58 @@ export default function ScoringSchedulePage() {
             {/* Match & Schedule Parameters */}
             <div className="space-y-3 pt-1">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Cricket Rule Preset
-                </Label>
-                <Select value={rulePresetId} onValueChange={handleSelectPreset}>
-                  <SelectTrigger className="h-10 text-sm">
-                    <SelectValue placeholder="Select Rule Preset (Default)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {(presets ?? []).map((p) => (
-                      <SelectItem key={p.id} value={String(p.id)}>
-                        {p.name} {p.isDefault ? "(Tournament Default)" : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <span className="text-[10px] text-muted-foreground">
-                  Rule preset applied to all fixtures generated in this draw stage.
-                </span>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Rules & Match Format
+                  </Label>
+                  <Link
+                    href={cricketRulesPath(tournamentId)}
+                    className="text-xs text-primary font-medium hover:underline inline-flex items-center gap-1"
+                  >
+                    <Settings className="w-3 h-3" />
+                    Manage Rules
+                  </Link>
+                </div>
+                {presets && presets.length > 0 ? (
+                  <Select
+                    value={rulePresetId || (defaultPreset ? String(defaultPreset.id) : "")}
+                    onValueChange={handleSelectPreset}
+                  >
+                    <SelectTrigger className="h-10 text-sm font-semibold">
+                      <SelectValue placeholder="Select tournament rule preset" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {presets.map((p) => {
+                        const details = getPresetDetails(p);
+                        return (
+                          <SelectItem key={p.id} value={String(p.id)}>
+                            {p.name} {p.isDefault ? "(Tournament Default)" : ""} — {details.overs} Overs · {details.wickets} Wkts · {details.squadSize} Players
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="p-2.5 rounded-lg border border-border bg-card/40 text-xs text-muted-foreground flex items-center justify-between">
+                    <span>Using tournament default rules</span>
+                    <Link href={cricketRulesPath(tournamentId)} className="text-primary font-medium hover:underline">
+                      Configure Rules
+                    </Link>
+                  </div>
+                )}
+                {activeSchedulePreset ? (
+                  <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground/80 flex flex-wrap gap-2 items-center">
+                    <span className="font-bold text-amber-400">Rules applied:</span>
+                    <span>{getPresetDetails(activeSchedulePreset).overs} Overs</span>
+                    <span>•</span>
+                    <span>{getPresetDetails(activeSchedulePreset).wickets} Wickets</span>
+                    <span>•</span>
+                    <span>{getPresetDetails(activeSchedulePreset).squadSize} Players / Side</span>
+                  </div>
+                ) : null}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Overs */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Overs per Match
-                  </Label>
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      type="number"
-                      min={1}
-                      max={50}
-                      value={oversLimit}
-                      onChange={(e) => setOversLimit(parseInt(e.target.value, 10) || 20)}
-                      className="h-10 text-sm font-semibold"
-                    />
-                  </div>
-                  <div className="flex gap-1 pt-1">
-                    {[6, 10, 15, 20].map((num) => (
-                      <button
-                        key={num}
-                        type="button"
-                        onClick={() => setOversLimit(num)}
-                        className={cn(
-                          "flex-1 py-1 rounded text-[10px] font-bold border transition-colors",
-                          oversLimit === num
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "border-border bg-muted/40 text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        {num}T
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Start Date */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

@@ -305,7 +305,9 @@ export async function updateScoringMatch(
       (matchRow.status !== "scheduled" && matchRow.status !== "draft") ||
       (matchRow.lifecycleStatus !== null &&
         matchRow.lifecycleStatus !== "draft" &&
-        matchRow.lifecycleStatus !== "ready") ||
+        matchRow.lifecycleStatus !== "ready" &&
+        matchRow.lifecycleStatus !== "locked" &&
+        matchRow.lifecycleStatus !== "scheduled") ||
       matchRow.startedAt !== null ||
       !!hasEventRow;
 

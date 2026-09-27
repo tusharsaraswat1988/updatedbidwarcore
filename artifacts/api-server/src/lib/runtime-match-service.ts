@@ -553,7 +553,9 @@ export async function prepareRuntimeMatch(
     (match.status !== "scheduled" && match.status !== "draft") ||
     (match.lifecycleStatus !== null &&
       match.lifecycleStatus !== "draft" &&
-      match.lifecycleStatus !== "ready") ||
+      match.lifecycleStatus !== "ready" &&
+      match.lifecycleStatus !== "locked" &&
+      match.lifecycleStatus !== "scheduled") ||
     match.startedAt !== null ||
     !!hasEventRow;
 

@@ -81,7 +81,9 @@ export async function applyCricketRulesToMatches(
       (match.status !== "scheduled" && match.status !== "draft") ||
       (match.lifecycleStatus !== null &&
         match.lifecycleStatus !== "draft" &&
-        match.lifecycleStatus !== "ready") ||
+        match.lifecycleStatus !== "ready" &&
+        match.lifecycleStatus !== "locked" &&
+        match.lifecycleStatus !== "scheduled") ||
       match.startedAt !== null;
     if (isStarted) {
       // Started, active, completed, or abandoned matches are immutable and unaffected by rule updates.
