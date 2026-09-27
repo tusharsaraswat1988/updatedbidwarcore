@@ -69,7 +69,13 @@ export function TournamentBrand({ branding }: { branding: BroadcastBranding }) {
   );
 }
 
-export function BidWarLiveBrand({ feed = "live" }: { feed?: FeedStatus }) {
+export function BidWarLiveBrand({
+  feed = "live",
+  showLive = true,
+}: {
+  feed?: FeedStatus;
+  showLive?: boolean;
+}) {
   const label = feed === "disconnected" ? "OFFLINE" : feed === "stale" ? "DELAYED" : "LIVE";
   return (
     <div className="bw-livebrand">
@@ -92,17 +98,74 @@ export function BidWarLiveBrand({ feed = "live" }: { feed?: FeedStatus }) {
           }
         }}
       />
-      <span className="bw-divider" />
-      <span className="bw-live" data-feed={feed}>
-        <i />
-        {label}
-      </span>
+      {showLive && (
+        <>
+          <span className="bw-divider" />
+          <span className="bw-live" data-feed={feed}>
+            <i />
+            {label}
+          </span>
+        </>
+      )}
     </div>
   );
 }
 
 /** Legacy alias for BidWarLiveBrand */
 export const BidWarHeaderBrand = BidWarLiveBrand;
+
+/**
+ * Compact LIVE broadcast badge positioned just below the top header on the right.
+ */
+export function LiveBroadcastBug({ feed = "live" }: { feed?: FeedStatus }) {
+  const label = feed === "disconnected" ? "OFFLINE" : feed === "stale" ? "DELAYED" : "LIVE";
+  return (
+    <div
+      className="bw-live-bug"
+      style={{
+        position: "absolute",
+        top: "102px",
+        right: "72px",
+        zIndex: 30,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
+        padding: "3px 10px",
+        borderRadius: "4px",
+        background:
+          feed === "disconnected"
+            ? "var(--bw-navy-700)"
+            : feed === "stale"
+            ? "var(--bw-amber)"
+            : "var(--bw-live)",
+        color: feed === "stale" ? "var(--bw-navy-950)" : "#fff",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.45)",
+        fontFamily: "var(--bw-font-display)",
+      }}
+    >
+      <i
+        style={{
+          width: "6px",
+          height: "6px",
+          borderRadius: "50%",
+          backgroundColor: feed === "stale" ? "var(--bw-navy-950)" : "#fff",
+          display: "inline-block",
+          animation: feed === "disconnected" ? "none" : "bw-blink 1.4s ease-in-out infinite",
+        }}
+      />
+      <span
+        style={{
+          fontSize: "12px",
+          fontWeight: 800,
+          letterSpacing: "0.15em",
+          lineHeight: 1,
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
 
 /**
  * Title Sponsor / Official Partner docked on the right side of the header.

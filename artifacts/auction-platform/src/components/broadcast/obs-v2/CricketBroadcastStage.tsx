@@ -8,6 +8,7 @@ import {
   HeaderAccents,
   HeaderEnergy,
   HeaderFrame,
+  LiveBroadcastBug,
   TitleSponsor,
   TournamentBrand,
 } from "./header/Header";
@@ -36,7 +37,8 @@ export interface CricketBroadcastStageProps {
  * Zero dependency on Auction scenes or Auction scene switching.
  *
  * Protected Zones:
- * - HEADER (0–96px, z-30): Tournament Branding, Centered BidWar Logo + LIVE badge, Right-anchored Sponsors
+ * - HEADER (0–96px, z-30): Tournament Branding, Centered BidWar Logo, Right-anchored Sponsors
+ * - LIVE BUG (y: 102px, right: 72px): Compact television live broadcast bug just below header
  * - CAMERA SAFE AREA (96–880px, z-40/z-50): 100% transparent live viewport.
  *   Hosts transient Central Event Impact & temporary Mid-Screen Slates.
  * - LOWER THIRD / SCOREBUG (880–1040px, z-20): Persistent live Cricket scorebug with CRR next to Overs
@@ -71,7 +73,7 @@ export function CricketBroadcastStage({
         <HeaderEnergy />
         <HeaderAccents />
         <TournamentBrand branding={frame.branding} />
-        <BidWarLiveBrand feed={frame.feed.status} />
+        <BidWarLiveBrand feed={frame.feed.status} showLive={false} />
 
         {/* Right-aligned sponsors: strictly anchored to the right side */}
         <div
@@ -88,6 +90,9 @@ export function CricketBroadcastStage({
           {title && <TitleSponsor sponsor={title} />}
         </div>
       </HeaderFrame>
+
+      {/* Compact LIVE bug just below header on the right */}
+      <LiveBroadcastBug feed={frame.feed.status} />
 
       {/* ── ZONE 2: CAMERA SAFE AREA (96–880px) ── */}
       {/* Central Event Impact Layer (Authoritative Single Render Location) */}
