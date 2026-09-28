@@ -35,10 +35,10 @@ export type LedMatchEvent =
       target?: number | null;
       battingTeam?: string;
     }
-  | { type: "MATCH_RESULT"; winnerName: string; marginText?: string }
+  | { type: "MATCH_RESULT" | "MATCH_WON"; winnerName: string; marginText?: string }
   | { type: "TOSS_WIN"; teamName: string; electedTo: "bat" | "bowl" }
-  | { type: "BOWLER_CHANGE"; bowlerName: string; figures?: string }
-  | { type: "NEW_BATSMAN"; batsmanName: string; role?: string };
+  | { type: "BOWLER_CHANGE" | "NEW_BOWLER"; bowlerName: string; figures?: string }
+  | { type: "NEW_BATSMAN" | "NEW_BATTER"; batsmanName: string; role?: string };
 
 type LedEventAnimationOverlayProps = {
   currentEvent: LedMatchEvent | null;
@@ -683,7 +683,7 @@ export function LedEventAnimationOverlay({
         {/* ============================================================
             10. MATCH RESULT - CHAMPIONS VICTORY CELEBRATION
         ============================================================ */}
-        {currentEvent.type === "MATCH_RESULT" && (
+        {(currentEvent.type === "MATCH_RESULT" || currentEvent.type === "MATCH_WON") && (
           <motion.div
             initial={{ scale: 0.85, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -750,7 +750,10 @@ export function LedEventAnimationOverlay({
         {/* ============================================================
             12. BOWLER CHANGE & NEW BATSMAN - LOWER-THIRD BROADCAST STRIP
         ============================================================ */}
-        {(currentEvent.type === "BOWLER_CHANGE" || currentEvent.type === "NEW_BATSMAN") && (
+        {(currentEvent.type === "BOWLER_CHANGE" ||
+          currentEvent.type === "NEW_BOWLER" ||
+          currentEvent.type === "NEW_BATSMAN" ||
+          currentEvent.type === "NEW_BATTER") && (
           <motion.div
             initial={{ x: -120, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
@@ -763,15 +766,17 @@ export function LedEventAnimationOverlay({
             </div>
             <div className="skew-x-12 min-w-0">
               <span className="inline-block text-xs font-black uppercase tracking-[0.25em] text-primary bg-primary/10 px-2.5 py-0.5 rounded border border-primary/30 mb-1">
-                {currentEvent.type === "BOWLER_CHANGE" ? "BOWLING CHANGE" : "NEW BATTER AT CREASE"}
+                {currentEvent.type === "BOWLER_CHANGE" || currentEvent.type === "NEW_BOWLER"
+                  ? "BOWLING CHANGE"
+                  : "NEW BATTER AT CREASE"}
               </span>
               <h4 className="text-2xl sm:text-4xl font-black uppercase text-white truncate">
-                {currentEvent.type === "BOWLER_CHANGE"
+                {currentEvent.type === "BOWLER_CHANGE" || currentEvent.type === "NEW_BOWLER"
                   ? currentEvent.bowlerName
                   : currentEvent.batsmanName}
               </h4>
               <p className="text-sm sm:text-base text-primary font-bold">
-                {currentEvent.type === "BOWLER_CHANGE"
+                {currentEvent.type === "BOWLER_CHANGE" || currentEvent.type === "NEW_BOWLER"
                   ? currentEvent.figures || "Right Arm Fast"
                   : currentEvent.role || "Right Handed Batter"}
               </p>

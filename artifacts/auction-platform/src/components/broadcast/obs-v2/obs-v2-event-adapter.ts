@@ -145,5 +145,12 @@ export function normalizeAuthoritativeBroadcastEvent(
     bowler: event.bowler?.trim() || undefined,
     runs: event.runs != null ? event.runs : undefined,
     detail: event.detail?.trim() || undefined,
+    innings: event.innings,
+    wickets: event.wickets,
+    overs: event.overs,
+    target: event.target,
+    battingTeam: event.battingTeam,
+    winnerName: event.winnerName,
+    marginText: event.marginText,
   };
 }

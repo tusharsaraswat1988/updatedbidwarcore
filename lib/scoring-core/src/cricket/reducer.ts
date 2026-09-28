@@ -16,6 +16,8 @@ import {
   type CricketSuperBallCancelledPayload,
   type CricketSuperOverStartedPayload,
   type CricketWalkoverAwardedPayload,
+  type CricketBatterSelectedPayload,
+  type CricketBowlerChangedPayload,
 } from "../events/cricket";
 import { InvalidEventPayloadError } from "../projector/errors";
 import { replayEvents } from "../projector/replay";
@@ -533,6 +535,101 @@ function applyPlayerRetired(
     };
   }
   return next;
+}
+
+function applyBatterSelected(
+  state: CricketScoreboardState,
+  payload: CricketBatterSelectedPayload,
+  enforceLiveRules = false,
+): CricketScoreboardState {
+  if (enforceLiveRules) {
+    if (state.matchStatus !== "live") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BATTER_SELECTED,
+        `cannot select batter: match is not live (status: ${state.matchStatus})`,
+      );
+    }
+    const currentInn = getCurrentInnings(state);
+    if (!currentInn || currentInn.phase !== "in_progress") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BATTER_SELECTED,
+        "innings is not in progress",
+      );
+    }
+    if (
+      state.strikerId === payload.playerId ||
+      state.nonStrikerId === payload.playerId
+    ) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BATTER_SELECTED,
+        "player is already at the crease",
+      );
+    }
+    if (state.playingXiEnforced) {
+      const battingLineup = state.lineups[currentInn.battingTeamId] ?? [];
+      if (!battingLineup.includes(payload.playerId)) {
+        throw new InvalidEventPayloadError(
+          CricketEventType.BATTER_SELECTED,
+          "batter must belong to the configured Playing XI",
+        );
+      }
+    }
+  }
+
+  let strikerId = state.strikerId;
+  let nonStrikerId = state.nonStrikerId;
+
+  if (strikerId == null) {
+    strikerId = payload.playerId;
+  } else if (nonStrikerId == null) {
+    nonStrikerId = payload.playerId;
+  } else if (payload.position === "non_striker") {
+    nonStrikerId = payload.playerId;
+  } else {
+    strikerId = payload.playerId;
+  }
+
+  return {
+    ...state,
+    strikerId,
+    nonStrikerId,
+  };
+}
+
+function applyBowlerChanged(
+  state: CricketScoreboardState,
+  payload: CricketBowlerChangedPayload,
+  enforceLiveRules = false,
+): CricketScoreboardState {
+  if (enforceLiveRules) {
+    if (state.matchStatus !== "live") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BOWLER_CHANGED,
+        `cannot change bowler: match is not live (status: ${state.matchStatus})`,
+      );
+    }
+    const currentInn = getCurrentInnings(state);
+    if (!currentInn || currentInn.phase !== "in_progress") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BOWLER_CHANGED,
+        "innings is not in progress",
+      );
+    }
+    if (state.playingXiEnforced) {
+      const bowlingLineup = state.lineups[currentInn.bowlingTeamId] ?? [];
+      if (!bowlingLineup.includes(payload.bowlerId)) {
+        throw new InvalidEventPayloadError(
+          CricketEventType.BOWLER_CHANGED,
+          "bowler must belong to the configured Playing XI",
+        );
+      }
+    }
+  }
+
+  return {
+    ...state,
+    bowlerId: payload.bowlerId,
+  };
 }
 
 function applySuperOverStarted(
@@ -1079,6 +1176,20 @@ export function reduceCricket(
       break;
     case CricketEventType.DLS_APPLIED:
       next = applyDlsApplied(state, parsed.payload as CricketDlsAppliedPayload, enforceLiveRules);
+      break;
+    case CricketEventType.BATTER_SELECTED:
+      next = applyBatterSelected(
+        state,
+        parsed.payload as CricketBatterSelectedPayload,
+        enforceLiveRules,
+      );
+      break;
+    case CricketEventType.BOWLER_CHANGED:
+      next = applyBowlerChanged(
+        state,
+        parsed.payload as CricketBowlerChangedPayload,
+        enforceLiveRules,
+      );
       break;
     case CricketEventType.BALL_UNDONE:
       throw new InvalidEventPayloadError(

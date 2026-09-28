@@ -4,6 +4,7 @@ import {
   scoringDlsCalculationsTable,
   scoringMatchesTable,
   scoringSessionsTable,
+  teamsTable,
 } from "@workspace/db";
 import {
   CricketEventType,
@@ -424,10 +425,13 @@ export async function appendSingleMatchEvent(
 
       let batterName: string | undefined;
       let bowlerName: string | undefined;
-      const ballPayload = parsed.payload as Record<string, unknown>;
+      let battingTeamName: string | undefined;
+      let winnerTeamName: string | undefined;
+      const eventPayload = parsed.payload as Record<string, unknown>;
       const pIds: number[] = [];
-      if (typeof ballPayload.strikerId === "number") pIds.push(ballPayload.strikerId);
-      if (typeof ballPayload.bowlerId === "number") pIds.push(ballPayload.bowlerId);
+      if (typeof eventPayload.strikerId === "number") pIds.push(eventPayload.strikerId);
+      if (typeof eventPayload.bowlerId === "number") pIds.push(eventPayload.bowlerId);
+      if (typeof eventPayload.playerId === "number") pIds.push(eventPayload.playerId);
       if (pIds.length > 0) {
         try {
           const pRows = await tx
@@ -435,8 +439,30 @@ export async function appendSingleMatchEvent(
             .from(playersTable)
             .where(inArray(playersTable.id, pIds));
           for (const pr of pRows) {
-            if (pr.id === ballPayload.strikerId) batterName = pr.name;
-            if (pr.id === ballPayload.bowlerId) bowlerName = pr.name;
+            if (pr.id === eventPayload.strikerId || pr.id === eventPayload.playerId) batterName = pr.name;
+            if (pr.id === eventPayload.bowlerId) bowlerName = pr.name;
+          }
+        } catch {
+          // ignore lookup failure in test environments
+        }
+      }
+
+      // Resolve team names for innings complete / match won presentation events
+      const tIds: number[] = [];
+      const currentInn = (nextState as unknown as CricketScoreboardState)?.innings?.find(
+        (i) => i.innings === (nextState as unknown as CricketScoreboardState)?.currentInnings,
+      );
+      if (currentInn?.battingTeamId) tIds.push(currentInn.battingTeamId);
+      if (typeof eventPayload.winnerTeamId === "number") tIds.push(eventPayload.winnerTeamId);
+      if (tIds.length > 0) {
+        try {
+          const tRows = await tx
+            .select({ id: teamsTable.id, name: teamsTable.name })
+            .from(teamsTable)
+            .where(inArray(teamsTable.id, tIds));
+          for (const tr of tRows) {
+            if (tr.id === currentInn?.battingTeamId) battingTeamName = tr.name;
+            if (tr.id === eventPayload.winnerTeamId) winnerTeamName = tr.name;
           }
         } catch {
           // ignore lookup failure in test environments
@@ -451,7 +477,15 @@ export async function appendSingleMatchEvent(
         state: nextState as unknown as CricketScoreboardState,
         batterName,
         bowlerName,
+        battingTeamName,
+        winnerTeamName,
       });
+
+      if (authoritativeBroadcastEvent) {
+        console.log(
+          `[PRESENTATION_EVENT] matchId=${input.matchId} sequence=${newSeq} eventId=${authoritativeBroadcastEvent.id} type=${authoritativeBroadcastEvent.type} source=authoritative_scoring_event`,
+        );
+      }
 
       return {
         eventRow: persisted,

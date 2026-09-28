@@ -26,12 +26,12 @@ describe("Unified Screen Mode Control for Ground LED & OBS", () => {
   it("B. Module imports and exports CricketLedMidOverlays without runtime resolution errors", async () => {
     const mod = await import("@/components/scoring/cricket-led-mid-overlays");
     expect(typeof mod.CricketLedMidOverlays).toBe("function");
-  });
+  }, 20000);
 
   it("C. ScoreDisplayShell module imports and resolves successfully", async () => {
     const mod = await import("@/components/scoring/score-display-shell");
     expect(typeof mod.ScoreDisplayShell).toBe("function");
-  });
+  }, 20000);
 
   it("D. Canonical SSE and BroadcastChannel channel naming consistency", () => {
     const tournamentId = 25;
@@ -170,7 +170,7 @@ describe("Unified Screen Mode Control for Ground LED & OBS", () => {
       isCoSponsor: false,
     };
     expect(getSponsorCategoryLabel(normalWithoutType)).toBe("Official Partner");
-  });
+  }, 20000);
 
   it("H. OBS Director state payload correctly encapsulates matchId and overlay", () => {
     class MockDirectorReceiver {

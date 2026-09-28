@@ -31,7 +31,9 @@ export type ObsV2EventType =
   | "TOSS_WIN"
   | "MATCH_WON"
   | "NEW_BATSMAN"
-  | "NEW_BOWLER";
+  | "NEW_BATTER"
+  | "NEW_BOWLER"
+  | "INNINGS_COMPLETE";
 
 export interface ObsV2BroadcastEvent {
   /** Unique deterministic identifier for deduplication (e.g. "matchId-seq-type") */
@@ -62,6 +64,15 @@ export interface ObsV2BroadcastEvent {
   milestoneValue?: number;
   /** Optional detailed context (e.g. dismissal method, strike rate) */
   detail?: string;
+  /** Optional innings complete fields */
+  innings?: number;
+  wickets?: number;
+  overs?: string;
+  target?: number | null;
+  battingTeam?: string;
+  /** Optional match won / completion fields */
+  winnerName?: string;
+  marginText?: string;
 }
 
 /**
@@ -74,10 +85,12 @@ export interface ObsV2BroadcastEvent {
  */
 export const OBS_V2_EVENT_PRIORITY: Record<ObsV2EventType, number> = {
   MATCH_WON: 100, // Terminal victory announcement
+  INNINGS_COMPLETE: 95, // Innings conclusion
   WICKET: 90, // Major breakthrough / dismissal
   MILESTONE: 80, // Individual 50 / 100 achievement
   SIX: 70, // Maximum boundary
-  NEW_BATSMAN: 65, // New batter arrival at the crease
+  NEW_BATTER: 65, // New batter arrival at the crease
+  NEW_BATSMAN: 65, // Legacy alias for new batter
   NEW_BOWLER: 64, // New bowler introduced into attack
   FOUR: 60, // Standard boundary
   SUPERBALL: 55, // Active 2x multiplier delivery
@@ -177,12 +190,26 @@ export const OBS_V2_EVENT_CONFIGS: Record<ObsV2EventType, ObsV2EventConfig> = {
     borderColor: OBS_V2.color.brandBorder,
     priority: OBS_V2_EVENT_PRIORITY.MATCH_WON,
   },
+  INNINGS_COMPLETE: {
+    title: "INNINGS COMPLETE",
+    subtitle: "INNINGS CONCLUDED",
+    accentColor: OBS_V2.color.brand,
+    borderColor: OBS_V2.color.brandBorder,
+    priority: OBS_V2_EVENT_PRIORITY.INNINGS_COMPLETE,
+  },
   NEW_BATSMAN: {
     title: "NEW BATTER",
     subtitle: "NEXT BATTER ARRIVES AT THE CREASE",
     accentColor: OBS_V2.color.info,
     borderColor: OBS_V2.color.infoBorder,
     priority: OBS_V2_EVENT_PRIORITY.NEW_BATSMAN,
+  },
+  NEW_BATTER: {
+    title: "NEW BATTER",
+    subtitle: "NEXT BATTER ARRIVES AT THE CREASE",
+    accentColor: OBS_V2.color.info,
+    borderColor: OBS_V2.color.infoBorder,
+    priority: OBS_V2_EVENT_PRIORITY.NEW_BATTER,
   },
   NEW_BOWLER: {
     title: "NEW BOWLER",

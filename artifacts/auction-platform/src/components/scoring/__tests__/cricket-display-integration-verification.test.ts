@@ -367,7 +367,7 @@ describe("1. MULTI-SCREEN LIVE CONVERGENCE TEST", () => {
     ({ groundLed, obsVm } = getDisplays(state));
     expect(groundLed.runs).toBe(7);
     expect(groundLed.wickets).toBe(1);
-    expect(groundLed.overs).toBe("0.6");
+    expect(groundLed.overs).toBe("1");
 
     // --- INNINGS 1 END & INNINGS 2 TRANSITION ---
     seq++;

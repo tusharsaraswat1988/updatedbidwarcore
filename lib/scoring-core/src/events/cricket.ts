@@ -19,6 +19,8 @@ export const CricketEventType = {
   SUPER_BALL_CANCELLED: "cricket.super_ball.cancelled",
   SUPER_OVER_STARTED: "cricket.super_over.started",
   WALKOVER_AWARDED: "cricket.walkover.awarded",
+  BATTER_SELECTED: "cricket.batter.selected",
+  BOWLER_CHANGED: "cricket.bowler.changed",
 } as const;
 
 export type CricketEventTypeName =
@@ -150,6 +152,18 @@ export const cricketWalkoverAwardedPayloadSchema = z.object({
   reason: z.string().optional(),
 });
 
+export const cricketBatterSelectedPayloadSchema = z.object({
+  innings: z.number().int().min(1),
+  playerId: z.number().int().positive(),
+  position: z.enum(["striker", "non_striker"]).optional(),
+});
+
+export const cricketBowlerChangedPayloadSchema = z.object({
+  innings: z.number().int().min(1),
+  bowlerId: z.number().int().positive(),
+  over: z.number().int().min(0).optional(),
+});
+
 export type CricketMatchStartedPayload = z.infer<
   typeof cricketMatchStartedPayloadSchema
 >;
@@ -198,6 +212,12 @@ export type CricketSuperOverStartedPayload = z.infer<
 export type CricketWalkoverAwardedPayload = z.infer<
   typeof cricketWalkoverAwardedPayloadSchema
 >;
+export type CricketBatterSelectedPayload = z.infer<
+  typeof cricketBatterSelectedPayloadSchema
+>;
+export type CricketBowlerChangedPayload = z.infer<
+  typeof cricketBowlerChangedPayloadSchema
+>;
 
 const cricketPayloadSchemas: Record<
   CricketEventTypeName,
@@ -219,6 +239,8 @@ const cricketPayloadSchemas: Record<
   [CricketEventType.SUPER_BALL_CANCELLED]: cricketSuperBallCancelledPayloadSchema,
   [CricketEventType.SUPER_OVER_STARTED]: cricketSuperOverStartedPayloadSchema,
   [CricketEventType.WALKOVER_AWARDED]: cricketWalkoverAwardedPayloadSchema,
+  [CricketEventType.BATTER_SELECTED]: cricketBatterSelectedPayloadSchema,
+  [CricketEventType.BOWLER_CHANGED]: cricketBowlerChangedPayloadSchema,
 };
 
 export function isCricketEventType(type: string): type is CricketEventTypeName {

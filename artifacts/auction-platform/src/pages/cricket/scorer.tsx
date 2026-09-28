@@ -976,7 +976,15 @@ export default function CricketScorerPage() {
               onMatchComplete={(payload) =>
                 sendEvent(CricketEventType.MATCH_COMPLETED, payload)
               }
-              onBowlerChange={setLocalBowlerId}
+              onBowlerChange={(bowlerId) => {
+                setLocalBowlerId(bowlerId);
+                if (data.state.matchStatus === "live" && data.state.innings.length > 0) {
+                  void sendEvent(CricketEventType.BOWLER_CHANGED, {
+                    innings: data.state.currentInnings,
+                    bowlerId,
+                  });
+                }
+              }}
               onNewBatsman={(playerId) => {
                 if (playerId < 0) {
                   setPendingNewBatsman(true);
@@ -994,6 +1002,12 @@ export default function CricketScorerPage() {
                   title: "New batter selected",
                   description: `${playerNameById(players, playerId)} is at the crease.`,
                 });
+                if (data.state.matchStatus === "live" && data.state.innings.length > 0) {
+                  void sendEvent(CricketEventType.BATTER_SELECTED, {
+                    innings: data.state.currentInnings,
+                    playerId,
+                  });
+                }
               }}
             />
           </div>

@@ -9,7 +9,10 @@ export type CricketAuthoritativeBroadcastEventType =
   | "WICKET"
   | "SUPERBALL"
   | "SUPER_BALL_ACTIVATED"
-  | "MATCH_WON";
+  | "MATCH_WON"
+  | "NEW_BATTER"
+  | "NEW_BOWLER"
+  | "INNINGS_COMPLETE";
 
 export interface CricketAuthoritativeBroadcastEvent {
   /** Deterministic event identity: `${matchId}:${sequence}:${type}` */
@@ -21,8 +24,19 @@ export interface CricketAuthoritativeBroadcastEvent {
   batter?: string;
   bowler?: string;
   runs?: number;
+  totalRuns?: number;
   detail?: string;
   activationId?: string;
+  innings?: number;
+  wickets?: number;
+  overs?: string;
+  target?: number | null;
+  battingTeam?: string;
+  bowlingTeam?: string;
+  winnerTeamId?: number | null;
+  winnerName?: string;
+  marginText?: string;
+  dismissal?: string;
 }
 
 export function buildCricketBroadcastEventId(
@@ -41,6 +55,8 @@ export interface BuildBroadcastEventParams {
   state?: CricketScoreboardState | null;
   batterName?: string;
   bowlerName?: string;
+  battingTeamName?: string;
+  winnerTeamName?: string;
   timestamp?: number;
 }
 
@@ -58,6 +74,9 @@ export function buildAuthoritativeCricketBroadcastEvent(
     payload,
     batterName,
     bowlerName,
+    battingTeamName,
+    winnerTeamName,
+    state,
     timestamp = Date.now(),
   } = params;
 
@@ -87,6 +106,7 @@ export function buildAuthoritativeCricketBroadcastEvent(
         batter: batterName,
         bowler: bowlerName,
         runs: ball.runsOffBat ?? 0,
+        dismissal: dismissalText,
         detail,
       };
     }
@@ -94,7 +114,8 @@ export function buildAuthoritativeCricketBroadcastEvent(
     // 2. Super Ball (when active super ball multiplier delivery)
     if (ball.isSuperBall) {
       const type: CricketAuthoritativeBroadcastEventType = "SUPERBALL";
-      const runs = ball.runsOffBat ?? 0;
+      const baseRuns = ball.runsOffBat ?? 0;
+      const totalRuns = baseRuns * 2;
       const detail = batterName
         ? `${batterName} · 2X RUNS SCORED`
         : "2X RUNS MULTIPLIER";
@@ -106,7 +127,8 @@ export function buildAuthoritativeCricketBroadcastEvent(
         timestamp,
         batter: batterName,
         bowler: bowlerName,
-        runs,
+        runs: baseRuns,
+        totalRuns,
         detail,
       };
     }
@@ -197,8 +219,68 @@ export function buildAuthoritativeCricketBroadcastEvent(
     return null;
   }
 
+  if (eventType === CricketEventType.BATTER_SELECTED) {
+    const type: CricketAuthoritativeBroadcastEventType = "NEW_BATTER";
+    const detail = batterName
+      ? `${batterName} · ARRIVING AT THE CREASE`
+      : "NEW BATTER AT CREASE";
+    return {
+      id: buildCricketBroadcastEventId(matchId, sequence, type),
+      sequence,
+      type,
+      matchId,
+      timestamp,
+      batter: batterName,
+      detail,
+    };
+  }
+
+  if (eventType === CricketEventType.BOWLER_CHANGED) {
+    const type: CricketAuthoritativeBroadcastEventType = "NEW_BOWLER";
+    const detail = bowlerName
+      ? `${bowlerName} · INTO THE ATTACK`
+      : "NEW BOWLER";
+    return {
+      id: buildCricketBroadcastEventId(matchId, sequence, type),
+      sequence,
+      type,
+      matchId,
+      timestamp,
+      bowler: bowlerName,
+      detail,
+    };
+  }
+
+  if (eventType === CricketEventType.INNINGS_ENDED) {
+    const p = payload as {
+      innings: number;
+      reason: string;
+      runs: number;
+      wickets: number;
+      overs: string;
+    };
+    const type: CricketAuthoritativeBroadcastEventType = "INNINGS_COMPLETE";
+    const target =
+      state?.target ?? (p.innings === 1 ? p.runs + 1 : null);
+    const detail = `INNINGS ${p.innings} COMPLETE · ${p.runs}/${p.wickets} (${p.overs} OV)`;
+    return {
+      id: buildCricketBroadcastEventId(matchId, sequence, type),
+      sequence,
+      type,
+      matchId,
+      timestamp,
+      innings: p.innings,
+      runs: p.runs,
+      wickets: p.wickets,
+      overs: p.overs,
+      target,
+      battingTeam: battingTeamName,
+      detail,
+    };
+  }
+
   if (eventType === CricketEventType.MATCH_COMPLETED) {
-    const p = payload as { resultText?: string; winnerTeamId?: number | null };
+    const p = payload as { resultText?: string; winnerTeamId?: number | null; margin?: string };
     const type: CricketAuthoritativeBroadcastEventType = "MATCH_WON";
     return {
       id: buildCricketBroadcastEventId(matchId, sequence, type),
@@ -206,6 +288,9 @@ export function buildAuthoritativeCricketBroadcastEvent(
       type,
       matchId,
       timestamp,
+      winnerTeamId: p.winnerTeamId,
+      winnerName: winnerTeamName,
+      marginText: p.resultText || p.margin || "Match Won",
       detail: p.resultText || "MATCH COMPLETED",
     };
   }

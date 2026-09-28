@@ -305,18 +305,101 @@ describe("Authoritative Cricket Broadcast Events", () => {
       expect(event2?.id).not.toBe(event1?.id);
     });
 
-    it("returns null for SUPER_BALL_CANCELLED (no activation broadcast)", () => {
+    it("builds NEW_BATTER on BATTER_SELECTED event", () => {
       const event = buildAuthoritativeCricketBroadcastEvent({
         matchId,
-        sequence: 13,
-        eventType: CricketEventType.SUPER_BALL_CANCELLED,
+        sequence: 60,
+        eventType: CricketEventType.BATTER_SELECTED,
         payload: {
           innings: 1,
-          battingTeamId: 2,
+          playerId: 104,
         },
+        batterName: "Virat Kohli",
       });
 
-      expect(event).toBeNull();
+      expect(event).not.toBeNull();
+      expect(event?.id).toBe("123:60:NEW_BATTER");
+      expect(event?.type).toBe("NEW_BATTER");
+      expect(event?.sequence).toBe(60);
+      expect(event?.batter).toBe("Virat Kohli");
+      expect(event?.detail).toBe("Virat Kohli · ARRIVING AT THE CREASE");
+    });
+
+    it("builds NEW_BOWLER on BOWLER_CHANGED event", () => {
+      const event = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 61,
+        eventType: CricketEventType.BOWLER_CHANGED,
+        payload: {
+          innings: 1,
+          bowlerId: 205,
+        },
+        bowlerName: "Jasprit Bumrah",
+      });
+
+      expect(event).not.toBeNull();
+      expect(event?.id).toBe("123:61:NEW_BOWLER");
+      expect(event?.type).toBe("NEW_BOWLER");
+      expect(event?.sequence).toBe(61);
+      expect(event?.bowler).toBe("Jasprit Bumrah");
+      expect(event?.detail).toBe("Jasprit Bumrah · INTO THE ATTACK");
+    });
+
+    it("builds INNINGS_COMPLETE on INNINGS_ENDED event with rich metadata", () => {
+      const event = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 80,
+        eventType: CricketEventType.INNINGS_ENDED,
+        payload: {
+          innings: 1,
+          reason: "overs_complete",
+          runs: 175,
+          wickets: 6,
+          overs: "20.0",
+        },
+        battingTeamName: "Mumbai Indians",
+      });
+
+      expect(event).not.toBeNull();
+      expect(event?.id).toBe("123:80:INNINGS_COMPLETE");
+      expect(event?.type).toBe("INNINGS_COMPLETE");
+      expect(event?.sequence).toBe(80);
+      expect(event?.innings).toBe(1);
+      expect(event?.runs).toBe(175);
+      expect(event?.wickets).toBe(6);
+      expect(event?.overs).toBe("20.0");
+      expect(event?.battingTeam).toBe("Mumbai Indians");
+      expect(event?.target).toBe(176);
+      expect(event?.detail).toBe("INNINGS 1 COMPLETE · 175/6 (20.0 OV)");
+    });
+
+    it("returns null for MATCH_STARTED, LINEUP_SET, TOSS_RECORDED to prevent opening presentation flashes", () => {
+      expect(
+        buildAuthoritativeCricketBroadcastEvent({
+          matchId,
+          sequence: 1,
+          eventType: CricketEventType.TOSS_RECORDED,
+          payload: { tossWinnerTeamId: 1, electedTo: "bat" },
+        }),
+      ).toBeNull();
+
+      expect(
+        buildAuthoritativeCricketBroadcastEvent({
+          matchId,
+          sequence: 2,
+          eventType: CricketEventType.LINEUP_SET,
+          payload: { teamId: 1, playingXI: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+        }),
+      ).toBeNull();
+
+      expect(
+        buildAuthoritativeCricketBroadcastEvent({
+          matchId,
+          sequence: 3,
+          eventType: CricketEventType.MATCH_STARTED,
+          payload: { innings: 1, battingTeamId: 1, bowlingTeamId: 2, strikerId: 1, nonStrikerId: 2 },
+        }),
+      ).toBeNull();
     });
   });
 });

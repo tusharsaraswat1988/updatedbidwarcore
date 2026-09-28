@@ -413,17 +413,10 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
   // Active event animation state
   const [activeEvent, setActiveEvent] = useState<LedMatchEvent | null>(null);
 
-  // Sequence and ball tracker for automatic event animation triggers
-  const lastSeqRef = useRef<number | null>(null);
-  const lastBowlerIdRef = useRef<number | null>(null);
-  const lastCreaseIdsRef = useRef<{ strikerId: number | null; nonStrikerId: number | null }>({
-    strikerId: null,
-    nonStrikerId: null,
-  });
-  const lastWicketsRef = useRef<number | null>(null);
-  const lastRetiredHurtCountRef = useRef<number | null>(null);
-  const lastInningsPhaseRef = useRef<string | null>(null);
-  const lastMatchStatusRef = useRef<string | null>(null);
+  // Set of already-seen event tokens to prevent replaying on reconnect / re-render
+  const seenEventTokensRef = useRef<Set<string>>(new Set());
+  const bootstrappedRef = useRef<boolean>(false);
+  const mountTimeRef = useRef<number>(Date.now());
 
   // Presentation theme paint
   const presentationPaint = match?.branding as PresentationPaintJson | null | undefined;
@@ -464,226 +457,141 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
       ? Math.max(0, state.oversLimit * 6 - (innings.over * 6 + innings.ball))
       : null;
 
-  // Watch for live cricket events to animate
+  // 1. Bootstrap: Record current event as seen on initial mount to suppress historical replay
   useEffect(() => {
-    if (!state || !match) return;
-
-    // 1. Initial sequence skip to avoid firing past ball on first load
-    if (lastSeqRef.current === null) {
-      lastSeqRef.current = state.lastSequence;
-      lastBowlerIdRef.current = state.bowlerId;
-      lastCreaseIdsRef.current = {
-        strikerId: state.strikerId,
-        nonStrikerId: state.nonStrikerId,
-      };
-      lastWicketsRef.current = innings?.wickets ?? 0;
-      lastRetiredHurtCountRef.current = Object.values(state.retiredHurt || {}).reduce(
-        (sum, list) => sum + (Array.isArray(list) ? list.length : 0),
-        0,
-      );
-      lastInningsPhaseRef.current = innings?.phase || null;
-      lastMatchStatusRef.current = state.matchStatus;
-      return;
+    if (!bootstrappedRef.current) {
+      if (live?.broadcastEvent?.id) {
+        seenEventTokensRef.current.add(live.broadcastEvent.id);
+      }
+      bootstrappedRef.current = true;
     }
+  }, [live?.broadcastEvent?.id]);
 
-    // 2. Detect New Ball
-    if (state.lastSequence > lastSeqRef.current) {
-      const authEvent = live?.broadcastEvent;
-      if (authEvent && authEvent.sequence === state.lastSequence) {
-        lastSeqRef.current = state.lastSequence;
-        if (authEvent.type === "SUPERBALL") {
-          const totalRuns = authEvent.totalRuns ?? authEvent.runs ?? 0;
-          const baseRuns = Math.round(totalRuns / 2);
+  const dispatchAuthoritativeEvent = useCallback(
+    (ev: import("@workspace/scoring-core").CricketAuthoritativeBroadcastEvent) => {
+      if (!ev || !ev.id) return;
+      if (ev.matchId != null && matchId != null && ev.matchId !== matchId) return;
+      if (seenEventTokensRef.current.has(ev.id)) return;
+
+      // Suppress stale historical events that occurred prior to hook mount
+      if (ev.timestamp && ev.timestamp < mountTimeRef.current - 4000) {
+        seenEventTokensRef.current.add(ev.id);
+        return;
+      }
+
+      seenEventTokensRef.current.add(ev.id);
+      if (seenEventTokensRef.current.size > 100) {
+        const [first] = seenEventTokensRef.current;
+        seenEventTokensRef.current.delete(first);
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[SCOREBOARD] Authoritative presentation event=${ev.type} id=${ev.id}`);
+      }
+
+      switch (ev.type) {
+        case "NEW_BATTER":
           setActiveEvent({
-            type: "SUPER_BALL",
-            runsOffBat: baseRuns,
-            totalRuns: totalRuns,
-            batsmanName: authEvent.batsmanName || strikerPlayer?.name || "Batter",
-            battingTeam: battingTeam?.name,
+            type: "NEW_BATTER",
+            batsmanName: ev.batter || strikerPlayer?.name || "Batter",
+            role: ev.detail || "New Batter at Crease",
           });
-        } else if (authEvent.type === "WICKET") {
+          break;
+        case "NEW_BOWLER":
+          setActiveEvent({
+            type: "BOWLER_CHANGE",
+            bowlerName: ev.bowler || bowlerPlayer?.name || "Bowler",
+            figures: ev.detail || "Into the Attack",
+          });
+          break;
+        case "INNINGS_COMPLETE":
+          setActiveEvent({
+            type: "INNINGS_COMPLETE",
+            innings: ev.innings ?? (innings?.innings ?? 1),
+            runs: ev.runs ?? (innings?.runs ?? 0),
+            wickets: ev.wickets ?? (innings?.wickets ?? 0),
+            overs: ev.overs ?? (innings ? oversText(innings.over, innings.ball) : "0.0"),
+            target: ev.target,
+            battingTeam: ev.battingTeam || battingTeam?.name,
+          });
+          break;
+        case "MATCH_WON":
+          setActiveEvent({
+            type: "MATCH_RESULT",
+            winnerName:
+              ev.winnerName ||
+              (teams.find((t) => t.id === ev.winnerTeamId)?.name) ||
+              "Champions",
+            marginText: ev.marginText || ev.detail || "Match Completed",
+          });
+          break;
+        case "WICKET":
           setActiveEvent({
             type: "WICKET",
-            dismissal: authEvent.dismissal || "OUT",
-            batsmanName: authEvent.batsmanName || strikerPlayer?.name || "Batter",
-            bowlerName: authEvent.bowlerName || bowlerPlayer?.name || "Bowler",
+            dismissal: ev.dismissal || ev.detail || "OUT",
+            batsmanName: ev.batter || strikerPlayer?.name || "Batter",
+            bowlerName: ev.bowler || bowlerPlayer?.name || "Bowler",
           });
-        } else if (authEvent.type === "SIX") {
+          break;
+        case "SIX":
           setActiveEvent({
             type: "SIX",
             runs: 6,
-            batsmanName: authEvent.batsmanName || strikerPlayer?.name,
+            batsmanName: ev.batter || strikerPlayer?.name,
           });
-        } else if (authEvent.type === "FOUR") {
+          break;
+        case "FOUR":
           setActiveEvent({
             type: "FOUR",
             runs: 4,
-            batsmanName: authEvent.batsmanName || strikerPlayer?.name,
+            batsmanName: ev.batter || strikerPlayer?.name,
           });
-        } else if (authEvent.type === "NO_BALL") {
-          setActiveEvent({ type: "NO_BALL" });
-        } else if (authEvent.type === "WIDE") {
-          setActiveEvent({ type: "WIDE", runs: authEvent.runs });
-        }
-      } else if (state.thisOver.length > 0) {
-        const lastBall = state.thisOver[state.thisOver.length - 1];
-        lastSeqRef.current = state.lastSequence;
-
-        if (lastBall.isSuperBall) {
-          // lastBall.runsOffBat from toBallDisplay is already the doubled total (e.g. 12 on 6-hit)
-          const totalRuns = lastBall.runsOffBat || 0;
-          const baseRuns = Math.round(totalRuns / 2);
+          break;
+        case "SUPERBALL":
           setActiveEvent({
             type: "SUPER_BALL",
-            runsOffBat: baseRuns,
-            totalRuns: totalRuns,
-            batsmanName: strikerPlayer?.name || "Batter",
-            battingTeam: battingTeam?.name,
+            runsOffBat: ev.runs ?? 0,
+            totalRuns: ev.totalRuns ?? ((ev.runs ?? 0) * 2),
+            batsmanName: ev.batter || strikerPlayer?.name || "Batter",
+            battingTeam: ev.battingTeam || battingTeam?.name,
           });
-        } else if (lastBall.isWicket) {
-          setActiveEvent({
-            type: "WICKET",
-            dismissal: lastBall.label.includes("W") ? "WICKET" : "OUT",
-            batsmanName: strikerPlayer?.name || "Batter",
-            bowlerName: bowlerPlayer?.name || "Bowler",
-          });
-        } else if (lastBall.runsOffBat === 6 || lastBall.label === "6") {
-          setActiveEvent({
-            type: "SIX",
-            runs: 6,
-            batsmanName: strikerPlayer?.name,
-          });
-        } else if (lastBall.runsOffBat === 4 || lastBall.label === "4") {
-          setActiveEvent({
-            type: "FOUR",
-            runs: 4,
-            batsmanName: strikerPlayer?.name,
-          });
-        } else if (lastBall.extrasType === "no_ball" || lastBall.label.toLowerCase().includes("nb")) {
+          break;
+        case "NO_BALL":
           setActiveEvent({ type: "NO_BALL" });
-        } else if (lastBall.extrasType === "wide" || lastBall.label.toLowerCase().includes("wd")) {
-          setActiveEvent({ type: "WIDE", runs: lastBall.extrasRuns });
-        }
+          break;
+        case "WIDE":
+          setActiveEvent({ type: "WIDE", runs: ev.runs });
+          break;
+        default:
+          break;
       }
-    }
+    },
+    [matchId, strikerPlayer?.name, bowlerPlayer?.name, innings, battingTeam?.name, teams],
+  );
 
-    // 3. Detect Bowler Change
-    if (
-      state.bowlerId &&
-      lastBowlerIdRef.current !== null &&
-      state.bowlerId !== lastBowlerIdRef.current
-    ) {
-      lastBowlerIdRef.current = state.bowlerId;
-      const newBowler = players.find((p) => p.id === state.bowlerId);
-      if (newBowler) {
-        setActiveEvent({
-          type: "BOWLER_CHANGE",
-          bowlerName: newBowler.name,
-          figures: newBowler.role || "Bowler",
-        });
+  // 2. Consume live.broadcastEvent from REST/SSE query snapshot
+  useEffect(() => {
+    if (live?.broadcastEvent) {
+      dispatchAuthoritativeEvent(live.broadcastEvent);
+    }
+  }, [live?.broadcastEvent, dispatchAuthoritativeEvent]);
+
+  // 3. Consume real-time SSE broadcast event via window custom event
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleBroadcastEvent = (ev: Event) => {
+      const detail = (ev as CustomEvent).detail as import("@workspace/scoring-core").CricketAuthoritativeBroadcastEvent;
+      if (detail) {
+        dispatchAuthoritativeEvent(detail);
       }
-    } else {
-      lastBowlerIdRef.current = state.bowlerId;
-    }
-
-    // 4. Detect True New Batsman (ONLY when a batsman is retired by umpire, or wicket falls, NEVER on normal strike rotation)
-    const prevStriker = lastCreaseIdsRef.current.strikerId;
-    const prevNonStriker = lastCreaseIdsRef.current.nonStrikerId;
-    const prevCrease = new Set([prevStriker, prevNonStriker].filter((id): id is number => id != null));
-
-    const currentStriker = state.strikerId;
-    const currentNonStriker = state.nonStrikerId;
-
-    // Check if any brand-new player arrived at the crease (not existing batsmen swapping ends on 1s, 3s or over end)
-    let incomingNewBatterId: number | null = null;
-    if (currentStriker && !prevCrease.has(currentStriker)) {
-      incomingNewBatterId = currentStriker;
-    } else if (currentNonStriker && !prevCrease.has(currentNonStriker)) {
-      incomingNewBatterId = currentNonStriker;
-    }
-
-    const currentRetiredCount = Object.values(state.retiredHurt || {}).reduce(
-      (sum, list) => sum + (Array.isArray(list) ? list.length : 0),
-      0,
-    );
-    const prevRetiredCount = lastRetiredHurtCountRef.current;
-    const hasNewRetirement = prevRetiredCount !== null && currentRetiredCount > prevRetiredCount;
-
-    const currentWickets = innings?.wickets ?? 0;
-    const prevWickets = lastWicketsRef.current;
-    const hasWicketFell = prevWickets !== null && currentWickets > prevWickets;
-
-    // Only fire if:
-    // - There is an incoming batsman who was NOT already at the crease, AND
-    // - Either a retirement occurred, a wicket fell, or a crease slot was vacated
-    if (prevCrease.size > 0 && incomingNewBatterId !== null) {
-      const newBatter = players.find((p) => p.id === incomingNewBatterId);
-      if (newBatter) {
-        setActiveEvent({
-          type: "NEW_BATSMAN",
-          batsmanName: newBatter.name,
-          role: hasNewRetirement
-            ? "New Batter (Umpire Retirement)"
-            : hasWicketFell
-            ? "New Batter (Wicket Replacement)"
-            : newBatter.role || "New Batter In",
-        });
-      }
-    }
-
-    // Sync crease, wickets, and retirement tracking
-    lastCreaseIdsRef.current = {
-      strikerId: state.strikerId,
-      nonStrikerId: state.nonStrikerId,
     };
-    lastWicketsRef.current = currentWickets;
-    lastRetiredHurtCountRef.current = currentRetiredCount;
 
-    const isTerminalMatch = state.matchStatus ? isTerminalCricketMatchStatus(state.matchStatus) : false;
-
-    // 5. Detect Innings Complete (ONLY during live match transition, NEVER on walkover / abandonment / completed)
-    if (
-      !isTerminalMatch &&
-      innings &&
-      innings.phase === "completed" &&
-      lastInningsPhaseRef.current !== "completed"
-    ) {
-      lastInningsPhaseRef.current = innings.phase;
-      setActiveEvent({
-        type: "INNINGS_COMPLETE",
-        innings: innings.innings,
-        runs: innings.runs,
-        wickets: innings.wickets,
-        overs: oversText(innings.over, innings.ball),
-        target: innings.innings === 1 ? (state.target ?? innings.runs + 1) : null,
-        battingTeam: battingTeam?.name,
-      });
-    }
-
-    // 6. Detect Match Result (Completed, Walkover, Abandoned)
-    if (
-      isTerminalMatch &&
-      lastMatchStatusRef.current !== state.matchStatus
-    ) {
-      lastMatchStatusRef.current = state.matchStatus;
-      const winner = teams.find((t) => t.id === state.winnerTeamId);
-      setActiveEvent({
-        type: "MATCH_RESULT",
-        winnerName: winner?.name || (state.matchStatus === "abandoned" ? "Match Abandoned" : "Champions"),
-        marginText: state.resultText || match.resultSummary || (state.matchStatus === "walkover" ? "Won by Walkover" : "Match Completed"),
-      });
-    }
-  }, [
-    state,
-    match,
-    innings,
-    battingTeam?.name,
-    strikerPlayer?.name,
-    bowlerPlayer?.name,
-    players,
-    teams,
-    live?.broadcastEvent,
-  ]);
+    window.addEventListener("cricket_scoring_broadcast_event", handleBroadcastEvent);
+    return () => {
+      window.removeEventListener("cricket_scoring_broadcast_event", handleBroadcastEvent);
+    };
+  }, [dispatchAuthoritativeEvent]);
 
   // Sponsor Trail list for footer marquee
   const sponsorTrailItems = useMemo(() => {
