@@ -463,29 +463,6 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
 
       {/* OPERATOR INPUT CONTROLS */}
       <div className="space-y-3">
-        {/* Template Quick Picker */}
-        {templates.length > 0 ? (
-          <div className="flex items-center gap-2">
-            <label htmlFor="broadcast-msg-template-select" className="text-xs font-semibold text-muted-foreground shrink-0">
-              Template:
-            </label>
-            <select
-              id="broadcast-msg-template-select"
-              aria-label="Select saved template"
-              value={selectedTemplateId ?? "none"}
-              onChange={(e) => handleSelectTemplate(e.target.value)}
-              className="h-8 flex-1 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground focus:outline-none focus:border-primary"
-            >
-              <option value="none">-- Select a saved template --</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({t.details})
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-
         {/* Name Input */}
         <div className="space-y-1">
           <div className="flex items-center justify-between">
@@ -568,6 +545,79 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
             </Button>
           </div>
         </div>
+
+        {/* Saved Templates Quick List / Dropdown */}
+        {templates.length > 0 ? (
+          <div className="space-y-1.5 pt-2.5 border-t border-border/50">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground pb-0.5">
+              <span className="flex items-center gap-1.5">
+                <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+                <span className="text-foreground font-bold">Quick Templates ({templates.length})</span>
+              </span>
+              <span className="text-[10px] text-muted-foreground">Click to fill inputs</span>
+            </div>
+
+            {templates.length <= 6 ? (
+              /* Compact Interactive List for <= 6 templates */
+              <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-0.5">
+                {templates.map((t) => {
+                  const isSelected = selectedTemplateId === t.id || (name === t.name && details === t.details);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => handleSelectTemplate(String(t.id))}
+                      className={cn(
+                        "flex items-center justify-between p-2 rounded-lg border text-left transition-all text-xs group cursor-pointer",
+                        isSelected
+                          ? "border-amber-500/60 bg-amber-500/10 text-amber-200 ring-1 ring-amber-500/30"
+                          : "border-border/60 bg-background/50 hover:bg-muted/70 hover:border-border text-foreground"
+                      )}
+                    >
+                      <div className="min-w-0 flex-1 pr-2">
+                        <div className="font-bold text-xs truncate group-hover:text-amber-400 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                          <span className="truncate">{t.name}</span>
+                        </div>
+                        {t.details && (
+                          <div className="text-[10px] text-muted-foreground truncate pl-3 mt-0.5">
+                            {t.details}
+                          </div>
+                        )}
+                      </div>
+                      <span className={cn(
+                        "text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 transition-colors",
+                        isSelected
+                          ? "bg-amber-500 text-black font-black"
+                          : "bg-muted text-muted-foreground group-hover:bg-amber-500/20 group-hover:text-amber-300"
+                      )}>
+                        {isSelected ? "Active" : "Use"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Dropdown if > 6 templates to prevent layout overflow */
+              <div className="space-y-1">
+                <select
+                  id="broadcast-msg-template-select"
+                  aria-label="Select saved template"
+                  value={selectedTemplateId ?? "none"}
+                  onChange={(e) => handleSelectTemplate(e.target.value)}
+                  className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground focus:outline-none focus:border-primary"
+                >
+                  <option value="none">-- Select from {templates.length} saved templates --</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.details})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {/* TEMPLATE MANAGEMENT MODAL */}

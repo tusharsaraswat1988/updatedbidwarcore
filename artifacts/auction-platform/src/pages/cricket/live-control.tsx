@@ -650,78 +650,269 @@ export default function CricketLiveControlPage() {
       {/* ─── MAIN CONTAINER: FULLY SCROLLABLE CONSOLE LAYOUT ─── */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 w-full flex flex-col gap-4 pb-20 sm:pb-16">
         
-        {/* ─── 1. ACTIVE MATCH SCORE CARD (DETAILED REALTIME OVERVIEW) ─── */}
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5 sm:p-4 text-xs shadow-sm space-y-3">
-          {currentMatch ? (
-            (() => {
-              const liveState = (
-                (liveData?.match?.id === currentMatch.id ? liveData.state : null) ||
-                currentMatchDetail?.state ||
-                currentMatch?.stateJson
-              ) as any;
-              const summary = (
-                (liveData?.match?.id === currentMatch.id ? liveData.summary : null) ||
-                currentMatchDetail?.summary ||
-                currentMatch?.summaryJson
-              );
-              const isLive = currentMatch.status === "live";
-              const isCompleted = currentMatch.status === "completed" || isTerminalCricketMatchStatus(currentMatch.status);
+        {/* ─── 1. ACTIVE MATCH SCORE CARD / COMPLETED HALF-WIDTH SUMMARY ─── */}
+        {currentMatch ? (
+          (() => {
+            const liveState = (
+              (liveData?.match?.id === currentMatch.id ? liveData.state : null) ||
+              currentMatchDetail?.state ||
+              currentMatch?.stateJson
+            ) as any;
+            const summary = (
+              (liveData?.match?.id === currentMatch.id ? liveData.summary : null) ||
+              currentMatchDetail?.summary ||
+              currentMatch?.summaryJson
+            );
+            const isLive = currentMatch.status === "live";
+            const isCompleted = currentMatch.status === "completed" || isTerminalCricketMatchStatus(currentMatch.status);
 
-              const home = activeHomeTeam;
-              const away = activeAwayTeam;
+            const home = activeHomeTeam;
+            const away = activeAwayTeam;
 
-              const inn1 = Array.isArray(liveState?.innings)
-                ? liveState.innings.find((i: any) => i && i.innings === 1) || liveState.innings[0]
-                : (summary as any)?.innings?.[0];
-              const inn2 = Array.isArray(liveState?.innings)
-                ? liveState.innings.find((i: any) => i && i.innings === 2) || liveState.innings[1]
-                : (summary as any)?.innings?.[1];
+            const inn1 = Array.isArray(liveState?.innings)
+              ? liveState.innings.find((i: any) => i && i.innings === 1) || liveState.innings[0]
+              : (summary as any)?.innings?.[0];
+            const inn2 = Array.isArray(liveState?.innings)
+              ? liveState.innings.find((i: any) => i && i.innings === 2) || liveState.innings[1]
+              : (summary as any)?.innings?.[1];
 
-              // Toss text
-              const tossWinnerId = liveState?.tossWinnerTeamId;
-              const tossWinner = tossWinnerId ? teamMap.get(tossWinnerId) : null;
-              const tossDecision = liveState?.electedTo || liveState?.tossDecision;
-              const tossText = tossWinner && tossDecision
-                ? `${tossWinner.shortCode || tossWinner.name} won toss & chose to ${tossDecision}`
-                : null;
+            // Toss text
+            const tossWinnerId = liveState?.tossWinnerTeamId;
+            const tossWinner = tossWinnerId ? teamMap.get(tossWinnerId) : null;
+            const tossDecision = liveState?.electedTo || liveState?.tossDecision;
+            const tossText = tossWinner && tossDecision
+              ? `${tossWinner.shortCode || tossWinner.name} won toss & chose to ${tossDecision}`
+              : null;
+
+            /* ─── CASE A: LIVE MATCH REAL-TIME DETAILS (FULL WIDTH COLORFUL) ─── */
+            if (isLive) {
+              const currentInningsNum = liveState?.currentInnings || (inn2 ? 2 : 1);
+              const activeInn = currentInningsNum === 2 ? (inn2 || inn1) : (inn1 || inn2);
+
+              const battingTeamId =
+                activeInn?.battingTeamId ||
+                liveState?.battingTeamId ||
+                currentMatch.homeTeamId;
+
+              const battingTeam = teamMap.get(battingTeamId) || home;
+              const bowlingTeam =
+                battingTeamId === home?.id ? away : home;
+
+              const currentRuns = activeInn?.runs ?? 0;
+              const currentWickets = activeInn?.wickets ?? 0;
+              const currentOver =
+                activeInn?.over ?? (activeInn?.balls != null ? Math.floor(activeInn.balls / 6) : 0);
+              const currentBall =
+                activeInn?.ball ?? (activeInn?.balls != null ? activeInn.balls % 6 : 0);
+              const oversLimit =
+                currentMatch.rules?.overs ?? activeInn?.oversLimit ?? liveState?.oversLimit ?? 20;
+
+              const ballsBowled = currentOver * 6 + currentBall;
+              const crr =
+                ballsBowled > 0
+                  ? ((currentRuns / ballsBowled) * 6).toFixed(2)
+                  : "0.00";
+
+              const isChase = currentInningsNum >= 2;
+              const target = liveState?.target ?? (inn1 ? inn1.runs + 1 : null);
+              const totalBalls = oversLimit * 6;
+              const ballsRemaining = Math.max(0, totalBalls - ballsBowled);
+              const runsNeeded =
+                target != null ? Math.max(0, target - currentRuns) : null;
+              const rrr =
+                runsNeeded != null && ballsRemaining > 0
+                  ? ((runsNeeded / ballsRemaining) * 6).toFixed(2)
+                  : null;
+
+              // Active Batters & Bowler
+              const striker = liveState?.strikerId ? playerMap.get(liveState.strikerId) : null;
+              const nonStriker = liveState?.nonStrikerId ? playerMap.get(liveState.nonStrikerId) : null;
+              const bowler = liveState?.bowlerId ? playerMap.get(liveState.bowlerId) : null;
 
               return (
-                <div className="space-y-2.5">
-                  {/* Meta row: Match #, Overs, Status & Match Switcher */}
-                  <div className="flex items-center justify-between gap-2 flex-wrap text-[11px] text-slate-400 border-b border-white/[0.05] pb-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={cn(
-                        "flex items-center gap-1 font-bold px-2 py-0.5 rounded-full border text-[10px] uppercase tracking-wider",
-                        isLive
-                          ? "text-red-400 bg-red-500/15 border-red-500/30"
-                          : isCompleted
-                          ? "text-emerald-400 bg-emerald-500/15 border-emerald-500/30"
-                          : "text-amber-400 bg-amber-500/15 border-amber-500/30"
-                      )}>
-                        {isLive && <Radio className="w-2.5 h-2.5 text-red-500 animate-pulse" />}
-                        Match #{currentMatch.tournamentMatchNumber ?? currentMatch.id}
-                      </span>
-                      <span className="text-slate-300 font-medium">
-                        {currentMatch.rules?.overs ?? 20} Overs Match
-                      </span>
-                      {currentMatch.roundName ? (
-                        <span className="text-slate-400">• {currentMatch.roundName}</span>
-                      ) : null}
-                      <span className="capitalize font-semibold text-amber-400">
-                        • {currentMatch.status}
-                      </span>
-                      {tossText && (
-                        <span className="text-slate-400 hidden sm:inline">• 🪙 {tossText}</span>
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5 sm:p-4 text-xs shadow-sm space-y-3">
+                  <div className="space-y-2.5">
+                    {/* Meta row: Match #, Overs, Status & Match Switcher */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap text-[11px] text-slate-400 border-b border-white/[0.05] pb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="flex items-center gap-1 font-bold px-2 py-0.5 rounded-full border text-[10px] uppercase tracking-wider text-red-400 bg-red-500/15 border-red-500/30">
+                          <Radio className="w-2.5 h-2.5 text-red-500 animate-pulse" />
+                          Match #{currentMatch.tournamentMatchNumber ?? currentMatch.id}
+                        </span>
+                        <span className="text-slate-300 font-medium">
+                          {currentMatch.rules?.overs ?? 20} Overs Match
+                        </span>
+                        {currentMatch.roundName ? (
+                          <span className="text-slate-400">• {currentMatch.roundName}</span>
+                        ) : null}
+                        <span className="capitalize font-semibold text-amber-400">
+                          • Live
+                        </span>
+                        {tossText && (
+                          <span className="text-slate-400 hidden sm:inline">• 🪙 {tossText}</span>
+                        )}
+                      </div>
+
+                      {matches && matches.length > 1 && (
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-slate-400 text-xs font-medium">Switch Match:</span>
+                          <select
+                            value={currentMatch.id}
+                            onChange={(e) => setSelectedMatchId(parseInt(e.target.value, 10))}
+                            className="bg-black/40 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-slate-200 font-medium focus:outline-none focus:border-primary/50"
+                          >
+                            {matches.map((m) => (
+                              <option key={m.id} value={m.id} className="bg-slate-900 text-white">
+                                #{m.tournamentMatchNumber ?? m.id}: {teamLabel(m.homeTeamId)} vs {teamLabel(m.awayTeamId)} ({m.status})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       )}
+                    </div>
+
+                    {/* Batting Team Live Score Header */}
+                    <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-3 sm:p-3.5 space-y-2.5">
+                      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className="w-4 h-4 rounded-full shrink-0 ring-1 ring-white/20"
+                            style={{ backgroundColor: battingTeam?.color || "#f59e0b" }}
+                          />
+                          <span className="font-display font-black text-lg sm:text-xl text-foreground tracking-tight truncate">
+                            {battingTeam?.name || "Batting"}
+                          </span>
+                          <span className="font-display font-black text-2xl sm:text-3xl text-amber-400 tracking-tight ml-1 shrink-0 tabular-nums">
+                            {currentRuns}/{currentWickets}
+                          </span>
+                          <span className="text-xs font-semibold text-slate-300 shrink-0">
+                            ({currentOver}.{currentBall} / {oversLimit} ov)
+                          </span>
+                        </div>
+
+                        {/* Innings 1 / Bowling Team info */}
+                        <div className="flex items-center gap-3 text-xs text-slate-300">
+                          <span className="font-medium">
+                            CRR: <strong className="text-amber-400">{crr}</strong>
+                          </span>
+                          {isChase && inn1 ? (
+                            <span className="text-[11px] text-slate-300 bg-white/5 px-2 py-0.5 rounded border border-white/10">
+                              1st Inn: {teamLabel(inn1.battingTeamId || bowlingTeam?.id || 0)} {inn1.runs}/{inn1.wickets} ({inn1.over ?? Math.floor((inn1.balls || 0)/6)}.{inn1.ball ?? ((inn1.balls || 0)%6)} ov)
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">
+                              vs {bowlingTeam?.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Chase Required Equation Banner */}
+                      {isChase && target != null ? (
+                        <div className="rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-1.5 text-xs flex items-center justify-between text-amber-300 font-semibold gap-2">
+                          <span className="flex items-center gap-1.5 shrink-0">
+                            <span>🎯 Target: <strong>{target}</strong></span>
+                          </span>
+                          <span className="truncate text-right">
+                            Need <strong>{runsNeeded}</strong> runs in <strong>{ballsRemaining}</strong> balls{rrr ? ` (RRR: ${rrr})` : ""}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {/* Crease Batters & Active Bowler */}
+                      {(striker || nonStriker || bowler) && (
+                        <div className="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-white/[0.06] text-xs text-slate-300">
+                          <div className="flex items-center gap-3">
+                            <span className="text-slate-400 text-[11px] font-semibold">Batters:</span>
+                            {striker && (
+                              <span className="font-semibold text-white flex items-center gap-1">
+                                <span className="text-emerald-400 font-bold">🏏</span> {striker.name} <span className="text-amber-400 font-bold">*</span>
+                              </span>
+                            )}
+                            {nonStriker && (
+                              <span className="text-slate-300">
+                                {nonStriker.name}
+                              </span>
+                            )}
+                          </div>
+                          {bowler && (
+                            <div className="flex items-center gap-1.5 text-[11px]">
+                              <span className="text-slate-400 font-semibold">Bowler:</span>
+                              <span className="text-amber-300 font-bold">⚾ {bowler.name}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Recent Deliveries of Current Over */}
+                      {liveState?.thisOver && liveState.thisOver.length > 0 ? (
+                        <div className="flex items-center gap-2 pt-0.5 text-xs">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">
+                            This Over:
+                          </span>
+                          <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none">
+                            {liveState.thisOver.map((b: any, bIdx: number) => {
+                              const isWkt = b.isWicket;
+                              const isSix = b.runsOffBat === 6;
+                              const isFour = b.runsOffBat === 4;
+                              const isDot = b.runsOffBat === 0 && !b.extrasType && !b.isWicket;
+                              const isExtra = Boolean(b.extrasType);
+                              return (
+                                <span
+                                  key={bIdx}
+                                  className={cn(
+                                    "min-w-6 h-6 px-1.5 rounded-md flex items-center justify-center font-bold text-[11px] shrink-0 border shadow-xs",
+                                    isWkt && "bg-red-500/30 text-red-300 border-red-500/50 font-black",
+                                    isSix && "bg-purple-500/30 text-purple-300 border-purple-500/50 font-black",
+                                    isFour && "bg-sky-500/30 text-sky-300 border-sky-500/50 font-black",
+                                    isDot && "bg-white/5 text-slate-400 border-white/10",
+                                    isExtra && "bg-amber-500/30 text-amber-300 border-amber-500/50",
+                                    !isWkt && !isSix && !isFour && !isDot && !isExtra && "bg-white/10 text-white border-white/20",
+                                  )}
+                                >
+                                  {b.label || (isWkt ? "W" : b.runsOffBat)}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
+            /* ─── CASE B: COMPLETED MATCH (GREYSCALE & HALF-WIDTH SUMMARY) ─── */
+            if (isCompleted) {
+              const t1 = teamMap.get(inn1?.battingTeamId) || home;
+              const t2 = teamMap.get(inn2?.battingTeamId) || away;
+              const isT1Winner = currentMatch.winnerTeamId === t1?.id;
+              const isT2Winner = currentMatch.winnerTeamId === t2?.id;
+
+              return (
+                <div className="w-full md:max-w-2xl rounded-2xl border border-white/[0.08] bg-slate-900/60 p-3 sm:p-3.5 text-xs shadow-sm space-y-2.5 grayscale opacity-85 hover:grayscale-0 hover:opacity-100 transition-all">
+                  {/* Meta row */}
+                  <div className="flex items-center justify-between gap-2 flex-wrap text-[11px] text-slate-400 border-b border-white/[0.06] pb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold px-2 py-0.5 rounded-full border border-slate-600 bg-slate-800 text-slate-300 text-[10px] uppercase tracking-wider">
+                        🏁 Last Match Completed
+                      </span>
+                      <span className="text-slate-400 font-medium">
+                        Match #{currentMatch.tournamentMatchNumber ?? currentMatch.id} • {currentMatch.rules?.overs ?? 20} Ov
+                      </span>
+                      <span className="text-slate-500 text-[10px]">
+                        (Standby until next match begins)
+                      </span>
                     </div>
 
                     {matches && matches.length > 1 && (
                       <div className="flex items-center gap-1.5 shrink-0">
-                        <span className="text-slate-400 text-xs font-medium">Switch Match:</span>
+                        <span className="text-slate-400 text-xs">Switch:</span>
                         <select
                           value={currentMatch.id}
                           onChange={(e) => setSelectedMatchId(parseInt(e.target.value, 10))}
-                          className="bg-black/40 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-slate-200 font-medium focus:outline-none focus:border-primary/50"
+                          className="bg-black/40 border border-white/10 rounded px-2 py-0.5 text-xs text-slate-300 font-medium focus:outline-none"
                         >
                           {matches.map((m) => (
                             <option key={m.id} value={m.id} className="bg-slate-900 text-white">
@@ -733,333 +924,77 @@ export default function CricketLiveControlPage() {
                     )}
                   </div>
 
-                  {/* ─── CASE A: LIVE MATCH REAL-TIME DETAILS ─── */}
-                  {isLive ? (
-                    (() => {
-                      const currentInningsNum = liveState?.currentInnings || (inn2 ? 2 : 1);
-                      const activeInn = currentInningsNum === 2 ? (inn2 || inn1) : (inn1 || inn2);
-
-                      const battingTeamId =
-                        activeInn?.battingTeamId ||
-                        liveState?.battingTeamId ||
-                        currentMatch.homeTeamId;
-
-                      const battingTeam = teamMap.get(battingTeamId) || home;
-                      const bowlingTeam =
-                        battingTeamId === home?.id ? away : home;
-
-                      const currentRuns = activeInn?.runs ?? 0;
-                      const currentWickets = activeInn?.wickets ?? 0;
-                      const currentOver =
-                        activeInn?.over ?? (activeInn?.balls != null ? Math.floor(activeInn.balls / 6) : 0);
-                      const currentBall =
-                        activeInn?.ball ?? (activeInn?.balls != null ? activeInn.balls % 6 : 0);
-                      const oversLimit =
-                        currentMatch.rules?.overs ?? activeInn?.oversLimit ?? liveState?.oversLimit ?? 20;
-
-                      const ballsBowled = currentOver * 6 + currentBall;
-                      const crr =
-                        ballsBowled > 0
-                          ? ((currentRuns / ballsBowled) * 6).toFixed(2)
-                          : "0.00";
-
-                      const isChase = currentInningsNum >= 2;
-                      const target = liveState?.target ?? (inn1 ? inn1.runs + 1 : null);
-                      const totalBalls = oversLimit * 6;
-                      const ballsRemaining = Math.max(0, totalBalls - ballsBowled);
-                      const runsNeeded =
-                        target != null ? Math.max(0, target - currentRuns) : null;
-                      const rrr =
-                        runsNeeded != null && ballsRemaining > 0
-                          ? ((runsNeeded / ballsRemaining) * 6).toFixed(2)
-                          : null;
-
-                      // Active Batters & Bowler
-                      const striker = liveState?.strikerId ? playerMap.get(liveState.strikerId) : null;
-                      const nonStriker = liveState?.nonStrikerId ? playerMap.get(liveState.nonStrikerId) : null;
-                      const bowler = liveState?.bowlerId ? playerMap.get(liveState.bowlerId) : null;
-
-                      return (
-                        <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-3 sm:p-3.5 space-y-2.5">
-                          {/* Batting Team Live Score Header */}
-                          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div
-                                className="w-4 h-4 rounded-full shrink-0 ring-1 ring-white/20"
-                                style={{ backgroundColor: battingTeam?.color || "#f59e0b" }}
-                              />
-                              <span className="font-display font-black text-lg sm:text-xl text-foreground tracking-tight truncate">
-                                {battingTeam?.name || "Batting"}
-                              </span>
-                              <span className="font-display font-black text-2xl sm:text-3xl text-amber-400 tracking-tight ml-1 shrink-0 tabular-nums">
-                                {currentRuns}/{currentWickets}
-                              </span>
-                              <span className="text-xs font-semibold text-slate-300 shrink-0">
-                                ({currentOver}.{currentBall} / {oversLimit} ov)
-                              </span>
-                            </div>
-
-                            {/* Innings 1 / Bowling Team info */}
-                            <div className="flex items-center gap-3 text-xs text-slate-300">
-                              <span className="font-medium">
-                                CRR: <strong className="text-amber-400">{crr}</strong>
-                              </span>
-                              {isChase && inn1 ? (
-                                <span className="text-[11px] text-slate-300 bg-white/5 px-2 py-0.5 rounded border border-white/10">
-                                  1st Inn: {teamLabel(inn1.battingTeamId || bowlingTeam?.id || 0)} {inn1.runs}/{inn1.wickets} ({inn1.over ?? Math.floor((inn1.balls || 0)/6)}.{inn1.ball ?? ((inn1.balls || 0)%6)} ov)
-                                </span>
-                              ) : (
-                                <span className="text-[11px] text-slate-400">
-                                  vs {bowlingTeam?.name}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Chase Required Equation Banner */}
-                          {isChase && target != null ? (
-                            <div className="rounded-lg bg-amber-500/15 border border-amber-500/30 px-3 py-1.5 text-xs flex items-center justify-between text-amber-300 font-semibold gap-2">
-                              <span className="flex items-center gap-1.5 shrink-0">
-                                <span>🎯 Target: <strong>{target}</strong></span>
-                              </span>
-                              <span className="truncate text-right">
-                                Need <strong>{runsNeeded}</strong> runs in <strong>{ballsRemaining}</strong> balls{rrr ? ` (RRR: ${rrr})` : ""}
-                              </span>
-                            </div>
-                          ) : null}
-
-                          {/* Crease Batters & Active Bowler */}
-                          {(striker || nonStriker || bowler) && (
-                            <div className="flex items-center justify-between gap-2 flex-wrap pt-1 border-t border-white/[0.06] text-xs text-slate-300">
-                              <div className="flex items-center gap-3">
-                                <span className="text-slate-400 text-[11px] font-semibold">Batters:</span>
-                                {striker && (
-                                  <span className="font-semibold text-white flex items-center gap-1">
-                                    <span className="text-emerald-400 font-bold">🏏</span> {striker.name} <span className="text-amber-400 font-bold">*</span>
-                                  </span>
-                                )}
-                                {nonStriker && (
-                                  <span className="text-slate-300">
-                                    {nonStriker.name}
-                                  </span>
-                                )}
-                              </div>
-                              {bowler && (
-                                <div className="flex items-center gap-1.5 text-[11px]">
-                                  <span className="text-slate-400 font-semibold">Bowler:</span>
-                                  <span className="text-amber-300 font-bold">⚾ {bowler.name}</span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Recent Deliveries of Current Over */}
-                          {liveState?.thisOver && liveState.thisOver.length > 0 ? (
-                            <div className="flex items-center gap-2 pt-0.5 text-xs">
-                              <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">
-                                This Over:
-                              </span>
-                              <div className="flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none">
-                                {liveState.thisOver.map((b: any, bIdx: number) => {
-                                  const isWkt = b.isWicket;
-                                  const isSix = b.runsOffBat === 6;
-                                  const isFour = b.runsOffBat === 4;
-                                  const isDot = b.runsOffBat === 0 && !b.extrasType && !b.isWicket;
-                                  const isExtra = Boolean(b.extrasType);
-                                  return (
-                                    <span
-                                      key={bIdx}
-                                      className={cn(
-                                        "min-w-6 h-6 px-1.5 rounded-md flex items-center justify-center font-bold text-[11px] shrink-0 border shadow-xs",
-                                        isWkt && "bg-red-500/30 text-red-300 border-red-500/50 font-black",
-                                        isSix && "bg-purple-500/30 text-purple-300 border-purple-500/50 font-black",
-                                        isFour && "bg-sky-500/30 text-sky-300 border-sky-500/50 font-black",
-                                        isDot && "bg-white/5 text-slate-400 border-white/10",
-                                        isExtra && "bg-amber-500/30 text-amber-300 border-amber-500/50",
-                                        !isWkt && !isSix && !isFour && !isDot && !isExtra && "bg-white/10 text-white border-white/20",
-                                      )}
-                                    >
-                                      {b.label || (isWkt ? "W" : b.runsOffBat)}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })()
-
-                  /* ─── CASE B: COMPLETED MATCH SUMMARY ─── */
-                  ) : isCompleted ? (
-                    <div className="space-y-2.5">
-                      <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 space-y-1.5">
-                        {(() => {
-                          const t1 = teamMap.get(inn1?.battingTeamId) || home;
-                          const t2 = teamMap.get(inn2?.battingTeamId) || away;
-                          const isT1Winner = currentMatch.winnerTeamId === t1?.id;
-                          const isT2Winner = currentMatch.winnerTeamId === t2?.id;
-
-                          return (
-                            <>
-                              <div className="flex items-center justify-between gap-2 text-sm">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div
-                                    className="w-3.5 h-3.5 rounded-full shrink-0"
-                                    style={{ backgroundColor: t1?.color || "#3b82f6" }}
-                                  />
-                                  <span className={cn("font-bold truncate", isT1Winner ? "text-foreground font-black" : "text-muted-foreground")}>
-                                    {t1?.name ?? "Team 1"}
-                                  </span>
-                                  {isT1Winner && <span className="text-amber-400 font-bold text-xs shrink-0">🏆 WINNER</span>}
-                                </div>
-                                <div className="font-mono font-bold text-foreground text-sm shrink-0 tabular-nums">
-                                  {inn1 ? `${inn1.runs}/${inn1.wickets} (${inn1.overs || `${inn1.over}.${inn1.ball}`} ov)` : "—"}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center justify-between gap-2 text-sm">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <div
-                                    className="w-3.5 h-3.5 rounded-full shrink-0"
-                                    style={{ backgroundColor: t2?.color || "#10b981" }}
-                                  />
-                                  <span className={cn("font-bold truncate", isT2Winner ? "text-foreground font-black" : "text-muted-foreground")}>
-                                    {t2?.name ?? "Team 2"}
-                                  </span>
-                                  {isT2Winner && <span className="text-amber-400 font-bold text-xs shrink-0">🏆 WINNER</span>}
-                                </div>
-                                <div className="font-mono font-bold text-foreground text-sm shrink-0 tabular-nums">
-                                  {inn2 ? `${inn2.runs}/${inn2.wickets} (${inn2.overs || `${inn2.over}.${inn2.ball}`} ov)` : "—"}
-                                </div>
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </div>
-
-                      {/* Result Highlight Banner */}
-                      <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 flex items-center gap-2 text-xs text-emerald-300 font-semibold">
-                        <span>🏆</span>
-                        <span className="truncate">
-                          {currentMatch.resultSummary || (summary as any)?.resultText || "Match Finished"}
+                  {/* Summary Scores Box */}
+                  <div className="rounded-xl border border-white/[0.06] bg-black/20 p-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className="w-3.5 h-3.5 rounded-full shrink-0"
+                          style={{ backgroundColor: t1?.color || "#3b82f6" }}
+                        />
+                        <span className={cn("font-bold truncate", isT1Winner ? "text-foreground font-black" : "text-muted-foreground")}>
+                          {t1?.name ?? "Team 1"}
                         </span>
+                        {isT1Winner && <span className="text-amber-400 font-bold text-xs shrink-0">🏆 WINNER</span>}
+                      </div>
+                      <div className="font-mono font-bold text-foreground text-sm shrink-0 tabular-nums">
+                        {inn1 ? `${inn1.runs}/${inn1.wickets} (${inn1.overs || `${inn1.over}.${inn1.ball}`} ov)` : "—"}
                       </div>
                     </div>
 
-                  /* ─── CASE C: SCHEDULED MATCH ─── */
-                  ) : (
-                    <div className="space-y-1.5 py-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-display font-bold text-base text-foreground">
-                          {home?.name ?? "Home Team"} vs {away?.name ?? "Away Team"}
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className="w-3.5 h-3.5 rounded-full shrink-0"
+                          style={{ backgroundColor: t2?.color || "#10b981" }}
+                        />
+                        <span className={cn("font-bold truncate", isT2Winner ? "text-foreground font-black" : "text-muted-foreground")}>
+                          {t2?.name ?? "Team 2"}
                         </span>
-                        <span className="text-xs text-amber-400 font-medium">Scheduled</span>
+                        {isT2Winner && <span className="text-amber-400 font-bold text-xs shrink-0">🏆 WINNER</span>}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {currentMatch.scheduledAt ? (
-                          <>Starts: {new Date(currentMatch.scheduledAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</>
-                        ) : (
-                          "Match schedule pending toss & start"
-                        )}
-                        {currentMatch.venue ? ` • Venue: ${currentMatch.venue}` : ""}
-                      </p>
+                      <div className="font-mono font-bold text-foreground text-sm shrink-0 tabular-nums">
+                        {inn2 ? `${inn2.runs}/${inn2.wickets} (${inn2.overs || `${inn2.over}.${inn2.ball}`} ov)` : "—"}
+                      </div>
                     </div>
-                  )}
+                  </div>
+
+                  {/* Result Highlight Banner */}
+                  <div className="rounded-lg bg-white/[0.04] border border-white/10 px-2.5 py-1 flex items-center gap-2 text-xs text-slate-300 font-semibold">
+                    <span>🏆</span>
+                    <span className="truncate">
+                      {currentMatch.resultSummary || (summary as any)?.resultText || "Match Finished"}
+                    </span>
+                  </div>
                 </div>
               );
-            })()
-          ) : (
-            <div className="text-center py-3 text-xs text-slate-400">
-              No active match selected.
-            </div>
-          )}
-        </div>
+            }
 
-        {/* ─── BROADCAST OUTPUT: OBS V2 UTILITY PANEL ─── */}
-        <div className="rounded-2xl border border-amber-500/25 bg-gradient-to-r from-amber-500/[0.08] via-slate-900/70 to-slate-950/90 p-3.5 sm:p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3.5">
-          <div className="space-y-1.5 min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                Broadcast Output
-              </span>
-              <Badge
-                variant="outline"
-                className="border-amber-500/40 bg-amber-500/15 text-amber-300 text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                OBS V2 BROADCAST
-              </Badge>
-              <Badge
-                variant="outline"
-                className="border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-semibold px-1.5 py-0.2 rounded"
-              >
-                ACTIVE
-              </Badge>
-            </div>
-
-            <div className="flex items-center gap-2 max-w-xl">
-              <span className="text-[11px] font-medium text-slate-400 shrink-0 hidden sm:inline">
-                Audience Display:
-              </span>
-              <div className="flex items-center bg-black/40 border border-white/10 rounded-lg px-2.5 py-1 text-xs font-mono text-slate-200 truncate select-all">
-                <span className="truncate">{obsV2FullUrl}</span>
+            /* ─── CASE C: SCHEDULED / UPCOMING MATCH (HALF-WIDTH) ─── */
+            return (
+              <div className="w-full md:max-w-2xl rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3.5 sm:p-4 text-xs shadow-sm space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-display font-bold text-base text-foreground">
+                    {home?.name ?? "Home Team"} vs {away?.name ?? "Away Team"}
+                  </span>
+                  <span className="text-xs text-amber-400 font-medium">Scheduled</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {currentMatch.scheduledAt ? (
+                    <>Starts: {new Date(currentMatch.scheduledAt).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</>
+                  ) : (
+                    "Match schedule pending toss & start"
+                  )}
+                  {currentMatch.venue ? ` • Venue: ${currentMatch.venue}` : ""}
+                </p>
               </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-400 pt-0.5">
-              <span className="flex items-center gap-1">
-                <span className="text-slate-500">Operator:</span>
-                <strong className="text-slate-200 font-semibold">This Live Control Console</strong>
-              </span>
-              <span className="text-slate-600 hidden sm:inline">•</span>
-              <span className="flex items-center gap-1">
-                <span className="text-slate-500">Display:</span>
-                <strong className="text-slate-200 font-semibold">OBS V2 Browser Source</strong>
-                <span className="text-slate-400 text-[10px]">(1920×1080 Transparent)</span>
-              </span>
-            </div>
+            );
+          })()
+        ) : (
+          <div className="text-center py-3 text-xs text-slate-400">
+            No active match selected.
           </div>
-
-          <div className="flex flex-wrap items-center gap-2 shrink-0 self-start md:self-center">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={handleCopyObsV2}
-              className="h-8 px-3 text-xs font-semibold rounded-lg border-white/15 hover:bg-white/10 text-slate-200 gap-1.5"
-              title="Copy OBS V2 Browser Source URL"
-            >
-              <Copy className="w-3.5 h-3.5 text-slate-400" />
-              {copiedV2 ? "Copied!" : "Copy URL"}
-            </Button>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => openCricketObsV2Preview(tournamentId)}
-              className="h-8 px-3 text-xs font-semibold rounded-lg border-amber-500/30 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 gap-1.5"
-              title="Open V2 Broadcast Preview with Diagnostics"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              Preview
-            </Button>
-
-            <Button
-              type="button"
-              size="sm"
-              variant="default"
-              onClick={() => openCricketObsV2(tournamentId)}
-              className="h-8 px-3.5 text-xs font-bold rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 shadow-sm gap-1.5"
-              title="Open V2 Overlay in New Tab"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              Open V2 Display
-            </Button>
-          </div>
-        </div>
+        )}
 
         {/* ─── 2. DIRECTOR WORKSPACE: SIDE-BY-SIDE (LEFT: SCREEN MODES, RIGHT: BROADCAST CHYRON) ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
