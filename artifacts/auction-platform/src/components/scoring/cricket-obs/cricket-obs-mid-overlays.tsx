@@ -14,7 +14,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
-import { getScoringStandings, listScoringMatches } from "@/lib/scoring-api";
+import { getScoringStandings, listScoringMatches, getCricketMasterTeams } from "@/lib/scoring-api";
+import { cricketMasterTeamToScorerTeam, type CricketScorerTeam } from "@/lib/scoring-squad";
 import { BROADCAST_FONTS } from "@/components/broadcast/tokens";
 import {
   BIDWAR_BROADCAST_YELLOW,
@@ -45,6 +46,20 @@ export function CricketObsMidOverlays({
   overlayStageOrGroup,
   tournamentId,
 }: Props) {
+  // Master teams query for reliable logos and team names
+  const { data: masterTeams } = useQuery({
+    queryKey: ["cricket-master-teams", tournamentId],
+    queryFn: () => getCricketMasterTeams(tournamentId),
+    enabled: tournamentId > 0,
+    staleTime: 60_000,
+  });
+
+  const effectiveTeams: CricketScorerTeam[] = useMemo(() => {
+    return (masterTeams ?? []).map(cricketMasterTeamToScorerTeam);
+  }, [masterTeams]);
+
+  const teamMap = useMemo(() => new Map(effectiveTeams.map((t) => [t.id, t])), [effectiveTeams]);
+
   // Standings query
   const { data: standings } = useQuery({
     queryKey: ["cricket-standings", tournamentId],
@@ -70,8 +85,28 @@ export function CricketObsMidOverlays({
     return matches && matches.length > 0 ? matches[0] : null;
   }, [overlayMatchId, matches]);
 
-  const targetHomeTeam = activeMatch?.homeTeam || vm.home;
-  const targetAwayTeam = activeMatch?.awayTeam || vm.away;
+  // Fixtures Match: Targeted single match (if selected in live control / director) or first upcoming match
+  const activeFixtureMatch = useMemo(() => {
+    if (overlayMatchId && matches && matches.length > 0) {
+      const found = matches.find((m) => m.id === overlayMatchId);
+      if (found) return found;
+    }
+    const upcoming = (matches ?? []).filter((m) => m.status === "upcoming" || m.status === "scheduled" || m.status !== "completed");
+    return upcoming[0] ?? (matches && matches.length > 0 ? matches[0] : null);
+  }, [overlayMatchId, matches]);
+
+  const fixtureHomeTeam = useMemo(() => {
+    if (!activeFixtureMatch) return null;
+    return teamMap.get(activeFixtureMatch.homeTeamId) || (activeFixtureMatch as any).homeTeam || null;
+  }, [activeFixtureMatch, teamMap]);
+
+  const fixtureAwayTeam = useMemo(() => {
+    if (!activeFixtureMatch) return null;
+    return teamMap.get(activeFixtureMatch.awayTeamId) || (activeFixtureMatch as any).awayTeam || null;
+  }, [activeFixtureMatch, teamMap]);
+
+  const targetHomeTeam = teamMap.get(activeMatch?.homeTeamId ?? 0) || activeMatch?.homeTeam || vm.home;
+  const targetAwayTeam = teamMap.get(activeMatch?.awayTeamId ?? 0) || activeMatch?.awayTeam || vm.away;
 
   // Sponsor resolution
   const targetedSponsor = useMemo(() => {
@@ -473,85 +508,164 @@ export function CricketObsMidOverlays({
               </div>
             )}
 
-            {/* 3. UPCOMING MATCHES / FIXTURES */}
+            {/* 3. UPCOMING MATCH / FIXTURES (Broadcast Single Match Showcase) */}
             {overlay === "fixtures" && (
-              <div className="flex h-full flex-col max-w-6xl mx-auto w-full">
-                <div className="text-center mb-6">
+              <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full py-4">
+                {/* Header Subtitle & Title */}
+                <div className="text-center mb-4">
                   <span
                     className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
                     style={{ fontFamily: BROADCAST_FONTS.body }}
                   >
-                    SCHEDULE &amp; FIXTURES
+                    {activeFixtureMatch?.roundName
+                      ? `UPCOMING MATCH · ${activeFixtureMatch.roundName.toUpperCase()}`
+                      : "UPCOMING MATCH"}
                   </span>
                   <h2
                     className="text-5xl font-normal tracking-wide text-white uppercase mt-1 leading-none"
                     style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
                   >
-                    UPCOMING MATCHES
+                    {activeFixtureMatch
+                      ? `MATCH #${activeFixtureMatch.tournamentMatchNumber || activeFixtureMatch.id}`
+                      : "UPCOMING FIXTURES"}
                   </h2>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6 my-auto">
-                  {matches && matches.filter((m) => m.status !== "completed").length > 0 ? (
-                    matches
-                      .filter((m) => m.status !== "completed")
-                      .slice(0, 4)
-                      .map((m) => (
-                        <div
-                          key={m.id}
-                          className="flex flex-col items-center border border-white/10 p-6"
-                          style={{ background: BIDWAR_SCOREBOARD_PANEL }}
-                        >
-                          <div className="flex w-full items-center justify-between text-xs font-bold text-[#FFD700] uppercase tracking-wider pb-3 border-b border-white/10">
-                            <span>{m.roundName || `MATCH #${m.id}`}</span>
-                            <span className="text-white/60">{m.venue || "MAIN GROUND"}</span>
-                          </div>
-
-                          <div className="flex w-full items-center justify-around py-5">
-                            {/* Team 1 */}
-                            <div className="flex flex-col items-center gap-2 max-w-[150px] text-center">
-                              <span
-                                className="text-3xl font-normal text-white uppercase"
-                                style={{ fontFamily: BROADCAST_FONTS.display }}
-                              >
-                                {m.homeTeam?.shortCode || "TM1"}
-                              </span>
-                              <span className="text-xs font-bold text-white/80 uppercase truncate w-full">
-                                {m.homeTeam?.name || "Home Team"}
-                              </span>
-                            </div>
-
+                {activeFixtureMatch ? (
+                  <div className="my-auto flex flex-col items-center justify-center w-full">
+                    <div
+                      className="w-full grid grid-cols-11 items-center gap-6 p-8 border border-white/10 shadow-2xl"
+                      style={{ background: BIDWAR_SCOREBOARD_PANEL }}
+                    >
+                      {/* HOME TEAM (Left - Col Span 4) */}
+                      <div className="col-span-4 flex flex-col items-center text-center space-y-3">
+                        <div className="h-36 w-36 rounded-2xl border-2 border-[#FFD700]/70 bg-black/60 p-3 flex items-center justify-center shadow-lg overflow-hidden">
+                          {fixtureHomeTeam?.logoUrl ? (
+                            <img
+                              src={fixtureHomeTeam.logoUrl}
+                              alt=""
+                              className="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]"
+                            />
+                          ) : (
                             <span
-                              className="text-3xl font-normal italic text-[#FFD700]"
+                              className="text-4xl font-normal text-[#FFD700] uppercase"
                               style={{ fontFamily: BROADCAST_FONTS.display }}
                             >
-                              VS
+                              {fixtureHomeTeam?.shortCode || "HOME"}
                             </span>
-
-                            {/* Team 2 */}
-                            <div className="flex flex-col items-center gap-2 max-w-[150px] text-center">
-                              <span
-                                className="text-3xl font-normal text-white uppercase"
-                                style={{ fontFamily: BROADCAST_FONTS.display }}
-                              >
-                                {m.awayTeam?.shortCode || "TM2"}
-                              </span>
-                              <span className="text-xs font-bold text-white/80 uppercase truncate w-full">
-                                {m.awayTeam?.name || "Away Team"}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="border border-white/15 px-4 py-1 text-xs font-bold uppercase tracking-wider text-white">
-                            {m.scheduledAt ? new Date(m.scheduledAt).toLocaleDateString() : "SCHEDULED"}
-                          </div>
+                          )}
                         </div>
-                      ))
-                  ) : (
-                    <div className="col-span-2 text-center py-12 text-white/50">
-                      No upcoming fixtures scheduled.
+
+                        <div className="space-y-1 max-w-xs">
+                          <h3
+                            className="text-3xl font-normal text-white uppercase truncate"
+                            style={{ fontFamily: BROADCAST_FONTS.display }}
+                          >
+                            {fixtureHomeTeam?.name || "HOME TEAM"}
+                          </h3>
+                          {fixtureHomeTeam?.shortCode && (
+                            <span
+                              className="inline-block px-3 py-0.5 text-xs font-mono font-bold uppercase tracking-wider text-[#FFD700] border border-[#FFD700]/40 bg-[#FFD700]/10"
+                            >
+                              {fixtureHomeTeam.shortCode}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* VS CENTERPIECE (Center - Col Span 3) */}
+                      <div className="col-span-3 flex flex-col items-center justify-center text-center space-y-3">
+                        <span
+                          className="text-7xl font-normal italic text-[#FFD700] drop-shadow-[0_0_25px_rgba(255,215,0,0.5)]"
+                          style={{ fontFamily: BROADCAST_FONTS.display }}
+                        >
+                          VS
+                        </span>
+
+                        <div className="border border-white/20 px-3.5 py-1 bg-black/50 text-xs font-mono font-bold text-white uppercase tracking-wider">
+                          MATCH #{activeFixtureMatch.tournamentMatchNumber || activeFixtureMatch.id}
+                        </div>
+
+                        {activeFixtureMatch.rules?.overs ? (
+                          <span className="text-[11px] font-mono font-bold uppercase text-white/60 tracking-wider">
+                            {activeFixtureMatch.rules.overs} OVERS MATCH
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {/* AWAY TEAM (Right - Col Span 4) */}
+                      <div className="col-span-4 flex flex-col items-center text-center space-y-3">
+                        <div className="h-36 w-36 rounded-2xl border-2 border-cyan-400/70 bg-black/60 p-3 flex items-center justify-center shadow-lg overflow-hidden">
+                          {fixtureAwayTeam?.logoUrl ? (
+                            <img
+                              src={fixtureAwayTeam.logoUrl}
+                              alt=""
+                              className="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)]"
+                            />
+                          ) : (
+                            <span
+                              className="text-4xl font-normal text-cyan-400 uppercase"
+                              style={{ fontFamily: BROADCAST_FONTS.display }}
+                            >
+                              {fixtureAwayTeam?.shortCode || "AWAY"}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="space-y-1 max-w-xs">
+                          <h3
+                            className="text-3xl font-normal text-white uppercase truncate"
+                            style={{ fontFamily: BROADCAST_FONTS.display }}
+                          >
+                            {fixtureAwayTeam?.name || "AWAY TEAM"}
+                          </h3>
+                          {fixtureAwayTeam?.shortCode && (
+                            <span
+                              className="inline-block px-3 py-0.5 text-xs font-mono font-bold uppercase tracking-wider text-cyan-300 border border-cyan-400/40 bg-cyan-500/10"
+                            >
+                              {fixtureAwayTeam.shortCode}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  )}
+
+                    {/* Schedule & Venue Strip */}
+                    <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm font-mono text-white/90">
+                      <div className="border border-white/15 px-4 py-1.5 bg-black/40">
+                        <span className="text-[#FFD700] mr-1.5 font-bold">📍 VENUE:</span>
+                        <span className="uppercase">{activeFixtureMatch.venue || "MAIN GROUND"}</span>
+                      </div>
+
+                      <div className="border border-white/15 px-4 py-1.5 bg-black/40">
+                        <span className="text-[#FFD700] mr-1.5 font-bold">🕒 TIME:</span>
+                        <span className="uppercase">
+                          {activeFixtureMatch.scheduledAt
+                            ? new Date(activeFixtureMatch.scheduledAt).toLocaleString([], {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })
+                            : "SCHEDULED"}
+                        </span>
+                      </div>
+
+                      {activeFixtureMatch.roundName && (
+                        <div className="border border-[#FFD700]/30 px-4 py-1.5 bg-[#FFD700]/10 text-[#FFD700] font-bold">
+                          STAGE: {activeFixtureMatch.roundName.toUpperCase()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="my-auto text-center py-16 text-white/50 text-xl">
+                    No upcoming match scheduled.
+                  </div>
+                )}
+
+                <div className="text-center border-t border-white/10 pt-3">
+                  <p className="text-[11px] font-bold tracking-[0.2em] text-white/40 uppercase">
+                    ALL RIGHTS RESERVED · BIDWAR SPORTS ENGINE
+                  </p>
                 </div>
               </div>
             )}

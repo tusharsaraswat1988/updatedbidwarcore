@@ -648,7 +648,7 @@ describe("4. SCOREBOARD REFRESH & HYDRATION TEST", () => {
           homeTeamId: 1,
           awayTeamId: 2,
           winnerTeamId: cp.phase === "completed" ? 2 : null,
-          status: cp.phase === "completed" ? "completed" : "live",
+          status: cp.phase === "completed" ? "completed" : cp.phase === "innings_break" ? "innings_break" : "live",
           roundName: "Final",
           venue: "Wankhede",
           rules: null,
@@ -668,8 +668,8 @@ describe("4. SCOREBOARD REFRESH & HYDRATION TEST", () => {
           awayTeamId: 2,
           oversLimit: 20,
           maxWickets: 10,
-          matchStatus: cp.phase === "completed" ? "completed" : "live",
-          sessionStatus: cp.phase === "completed" ? "completed" : "live",
+          matchStatus: cp.phase === "completed" ? "completed" : cp.phase === "innings_break" ? "innings_break" : "live",
+          sessionStatus: cp.phase === "completed" ? "completed" : cp.phase === "innings_break" ? "innings_break" : "live",
           currentInnings: cp.target ? 2 : 1,
           target: cp.target,
           strikerId: cp.phase === "innings_break" ? null : 101,
@@ -680,10 +680,10 @@ describe("4. SCOREBOARD REFRESH & HYDRATION TEST", () => {
               innings: cp.target ? 2 : 1,
               battingTeamId: cp.target ? 2 : 1,
               bowlingTeamId: cp.target ? 1 : 2,
-              runs: cp.runs,
-              wickets: cp.wickets,
-              over: cp.over,
-              ball: cp.ball,
+              runs: cp.phase === "innings_break" ? 0 : cp.runs,
+              wickets: cp.phase === "innings_break" ? 0 : cp.wickets,
+              over: cp.phase === "innings_break" ? 0 : cp.over,
+              ball: cp.phase === "innings_break" ? 0 : cp.ball,
               phase: cp.phase === "completed" ? "completed" : cp.phase === "innings_break" ? "not_started" : "in_progress",
               kind: "normal",
               oversLimit: 20,
@@ -706,9 +706,9 @@ describe("4. SCOREBOARD REFRESH & HYDRATION TEST", () => {
         connectionStatus: "connected",
       });
 
-      expect(obsVm.runs).toBe(cp.runs);
-      expect(obsVm.wickets).toBe(cp.wickets);
-      expect(obsVm.oversLabel).toBe(`${cp.over}.${cp.ball}`);
+      expect(obsVm.runs).toBe(cp.phase === "innings_break" ? 0 : cp.runs);
+      expect(obsVm.wickets).toBe(cp.phase === "innings_break" ? 0 : cp.wickets);
+      expect(obsVm.oversLabel).toBe(cp.phase === "innings_break" ? "0.0" : `${cp.over}.${cp.ball}`);
       expect(obsVm.phase).toBe(cp.phase);
       expect(obsVm.target).toBe(cp.target);
     }

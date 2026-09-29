@@ -28,7 +28,8 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { OBS_V2 } from "../obs-v2-tokens";
-import { getScoringStandings, listScoringMatches } from "@/lib/scoring-api";
+import { getScoringStandings, listScoringMatches, getCricketMasterTeams } from "@/lib/scoring-api";
+import { cricketMasterTeamToScorerTeam, type CricketScorerTeam } from "@/lib/scoring-squad";
 import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
 import type { SponsorLogo as BidWarSponsorLogo } from "@/lib/sponsor-logo";
 
@@ -594,7 +595,13 @@ function StandingsVariant({
 
 // ─── 4. VARIANT: FIXTURES SLATE (Session Schedule) ───────────────────────────
 
-function FixturesVariant({ tournamentId }: { tournamentId?: number }) {
+function FixturesVariant({
+  tournamentId,
+  matchId,
+}: {
+  tournamentId?: number;
+  matchId?: number;
+}) {
   const { data: matches } = useQuery({
     queryKey: ["scoring-matches", tournamentId],
     queryFn: () => listScoringMatches(tournamentId || 0),
@@ -602,53 +609,98 @@ function FixturesVariant({ tournamentId }: { tournamentId?: number }) {
     staleTime: 30_000,
   });
 
-  const upcoming = useMemo(
-    () => (matches || []).filter((m) => m.status !== "completed").slice(0, 4),
-    [matches],
-  );
+  const { data: masterTeams } = useQuery({
+    queryKey: ["cricket-master-teams", tournamentId],
+    queryFn: () => getCricketMasterTeams(tournamentId || 0),
+    enabled: !!tournamentId && tournamentId > 0,
+    staleTime: 60_000,
+  });
+
+  const effectiveTeams: CricketScorerTeam[] = useMemo(() => {
+    return (masterTeams ?? []).map(cricketMasterTeamToScorerTeam);
+  }, [masterTeams]);
+
+  const teamMap = useMemo(() => new Map(effectiveTeams.map((t) => [t.id, t])), [effectiveTeams]);
+
+  // If a specific match was chosen, spotlight that match; otherwise list upcoming
+  const targetMatch = useMemo(() => {
+    if (matchId && matches && matches.length > 0) {
+      return matches.find((m) => m.id === matchId) || null;
+    }
+    return null;
+  }, [matchId, matches]);
+
+  const upcoming = useMemo(() => {
+    if (targetMatch) return [targetMatch];
+    return (matches || []).filter((m) => m.status !== "completed").slice(0, 4);
+  }, [targetMatch, matches]);
 
   return (
     <div className="flex flex-col gap-3">
       {upcoming.length > 0 ? (
-        upcoming.map((m: any, i) => (
-          <div
-            key={m.id || i}
-            className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col gap-2"
-          >
-            {/* Header: Match # and Venue */}
-            <div className="flex items-center justify-between text-[12px] font-mono text-slate-300 border-b border-white/10 pb-1.5">
-              <span className="text-[#FFD700] font-bold">
-                {m.roundName || `MATCH #${m.tournamentMatchNumber ?? m.id}`}
-              </span>
-              <span>{m.venue ? `📍 ${m.venue}` : "SESSION SCHEDULE"}</span>
-            </div>
+        upcoming.map((m: any, i) => {
+          const home = teamMap.get(m.homeTeamId) || m.homeTeam;
+          const away = teamMap.get(m.awayTeamId) || m.awayTeam;
 
-            {/* Teams Line */}
-            <div className="flex items-center justify-between py-1">
-              <span className="font-bold text-lg text-white uppercase truncate max-w-[42%]">
-                {m.homeTeam?.name || "HOME TEAM"}
-              </span>
-              <span className="font-black italic text-[#FFD700] text-[14px] px-3 py-0.5 rounded bg-black/50 border border-white/10">
-                VS
-              </span>
-              <span className="font-bold text-lg text-white uppercase truncate max-w-[42%] text-right">
-                {m.awayTeam?.name || "AWAY TEAM"}
-              </span>
-            </div>
+          return (
+            <div
+              key={m.id || i}
+              className="p-4 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col gap-3 shadow-lg"
+            >
+              {/* Header: Match # and Venue */}
+              <div className="flex items-center justify-between text-[12px] font-mono text-slate-300 border-b border-white/10 pb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-[#FFD700] font-bold">
+                    {m.roundName || `MATCH #${m.tournamentMatchNumber ?? m.id}`}
+                  </span>
+                  {m.roundName && (
+                    <span className="text-[10px] text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded font-black uppercase">
+                      {m.roundName}
+                    </span>
+                  )}
+                </div>
+                <span>{m.venue ? `📍 ${m.venue}` : "SESSION SCHEDULE"}</span>
+              </div>
 
-            {/* Time / Status */}
-            <div className="flex items-center justify-between text-[13px] pt-1.5 border-t border-white/5 font-mono text-slate-300">
-              <span>
-                {m.scheduledAt
-                  ? new Date(m.scheduledAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })
-                  : "SCHEDULED"}
-              </span>
-              <span className="text-amber-400 font-bold uppercase text-[12px]">
-                {m.status || "UPCOMING"}
-              </span>
+              {/* Teams Line with Logos */}
+              <div className="flex items-center justify-between py-1">
+                <div className="flex items-center gap-2.5 max-w-[44%] min-w-0">
+                  {home?.logoUrl ? (
+                    <img src={home.logoUrl} alt="" className="w-8 h-8 object-contain shrink-0" />
+                  ) : null}
+                  <span className="font-bold text-lg text-white uppercase truncate">
+                    {home?.name || "HOME TEAM"}
+                  </span>
+                </div>
+
+                <span className="font-black italic text-[#FFD700] text-[13px] px-3 py-0.5 rounded bg-black/50 border border-white/10 shrink-0">
+                  VS
+                </span>
+
+                <div className="flex items-center justify-end gap-2.5 max-w-[44%] min-w-0 text-right">
+                  <span className="font-bold text-lg text-white uppercase truncate">
+                    {away?.name || "AWAY TEAM"}
+                  </span>
+                  {away?.logoUrl ? (
+                    <img src={away.logoUrl} alt="" className="w-8 h-8 object-contain shrink-0" />
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Time / Status */}
+              <div className="flex items-center justify-between text-[13px] pt-2 border-t border-white/5 font-mono text-slate-300">
+                <span>
+                  {m.scheduledAt
+                    ? new Date(m.scheduledAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })
+                    : "SCHEDULED"}
+                </span>
+                <span className="text-amber-400 font-bold uppercase text-[12px]">
+                  {m.status || "UPCOMING"}
+                </span>
+              </div>
             </div>
-          </div>
-        ))
+          );
+        })
       ) : (
         <div className="py-8 text-center text-sm text-slate-400">
           No upcoming fixtures scheduled.
@@ -905,7 +957,7 @@ export function BroadcastSideSlate({
         <StandingsVariant tournamentId={tournamentId} stageOrGroup={stageOrGroup} />
       )}
       {variant === "FIXTURES" && (
-        <FixturesVariant tournamentId={tournamentId} />
+        <FixturesVariant tournamentId={tournamentId} matchId={matchId} />
       )}
       {variant === "SPONSORS" && (
         <SponsorsVariant currentSponsor={activeSponsor} />

@@ -291,6 +291,7 @@ function themeFromPaint(paint: PresentationPaintJson | null | undefined): Cricke
 }
 
 function isInningsBreak(state: CricketScoreboardState): boolean {
+  if (state.matchStatus === "innings_break" || (state as any).sessionStatus === "innings_break") return true;
   if (state.matchStatus !== "live") return false;
   const current = getActiveInnings(state);
   if (!current) return false;
