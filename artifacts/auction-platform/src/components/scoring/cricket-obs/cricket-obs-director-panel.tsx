@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
@@ -139,6 +139,15 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
     [tournamentId],
   );
 
+  const autoCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearAutoCloseTimers = useCallback(() => {
+    if (autoCloseTimerRef.current) {
+      clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
+  }, []);
+
   const handleSetOverlay = useCallback(
     async (
       overlay: CricketObsMidOverlayKind,
@@ -150,6 +159,49 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
       setOverlayMatchId(matchId);
       setOverlaySponsorName(options?.sponsorName);
       setOverlayStageOrGroup(options?.stageOrGroup);
+
+      clearAutoCloseTimers();
+
+      let dur: number | undefined = undefined;
+      if (overlay === "none" || overlay === "neutral" || overlay === "banner") {
+        dur = undefined;
+      } else if (overlay === "intro") {
+        dur = 10;
+      } else if (overlay === "fixtures") {
+        dur = 10;
+      } else if (overlay === "summary") {
+        dur = 15;
+      } else if (overlay === "scorecard") {
+        dur = 15;
+      } else if (overlay === "sponsors") {
+        if (!options?.sponsorName || options.sponsorName === "all") {
+          const sponsorCount = Math.max(1, sponsors.length);
+          dur = Math.max(15, sponsorCount * 5);
+        } else {
+          dur = 10;
+        }
+      } else if (overlay === "standings") {
+        dur = 15;
+      }
+
+      if (dur && dur > 0) {
+        autoCloseTimerRef.current = setTimeout(() => {
+          clearAutoCloseTimers();
+          setCurrentOverlay("none");
+          try {
+            void fetch(`/api/tournaments/${tournamentId}/scoring/obs-director`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ overlay: "none" }),
+            });
+          } catch {}
+          broadcastCommand({ type: "SET_OVERLAY", overlay: "none" });
+          toast({
+            title: "Screen Returned to Camera",
+            description: `${label} timed out (${dur}s) & returned to Camera Feed.`,
+          });
+        }, dur * 1000);
+      }
 
       // 1. Send to server so remote OBS Studio on streaming PC updates via SSE
       try {
@@ -189,11 +241,17 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
         description:
           overlay === "none"
             ? "Overlay closed. Camera feed 100% visible."
-            : `Pushed ${label}${extraText} to OBS screen in real time.`,
+            : `Pushed ${label}${extraText} to OBS screen in real time.${dur ? ` (Auto-closes in ${dur}s)` : ""}`,
       });
     },
-    [tournamentId, broadcastCommand, toast],
+    [tournamentId, broadcastCommand, toast, clearAutoCloseTimers, sponsors.length],
   );
+
+  useEffect(() => {
+    return () => {
+      clearAutoCloseTimers();
+    };
+  }, [clearAutoCloseTimers]);
 
   const handleOverlayButtonClick = (item: { id: CricketObsMidOverlayKind; label: string; icon: string }) => {
     if (item.id === "none") {
@@ -202,6 +260,10 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
     }
     if (item.id === "neutral") {
       void handleSetOverlay("neutral", "Neutral Screen");
+      return;
+    }
+    if (item.id === "banner") {
+      void handleSetOverlay("banner", "Tournament Banner");
       return;
     }
     if (item.id === "sponsors") {
@@ -264,6 +326,7 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
   const overlayOptions: { id: CricketObsMidOverlayKind; label: string; desc: string; icon: string }[] = [
     { id: "none", label: "Camera Feed Only", desc: "No mid overlay. Camera feed 100% visible.", icon: "🎥" },
     { id: "neutral", label: "Neutral Screen", desc: "Tournament & Sponsor plate between matches / intervals", icon: "⏸️" },
+    { id: "banner", label: "Tournament Banner", desc: "Full-screen branding banner on LED scoreboard", icon: "🖼️" },
     { id: "sponsors", label: "Sponsor Showcase", desc: "All sponsors or single sponsor spotlight", icon: "★" },
     { id: "standings", label: "Points Table", desc: "Overall, group-wise, or stage rankings", icon: "📊" },
     { id: "fixtures", label: "Upcoming Matches", desc: "Next Fixtures & Schedule", icon: "📅" },
@@ -374,10 +437,27 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
                     {item.icon}
                   </div>
                   {isActive ? (
-                    <span className="text-[10px] font-black uppercase tracking-wider bg-white/25 px-2 py-0.5 rounded-md text-white flex items-center gap-1 border border-white/30">
-                      <CheckCircle2 className="w-3 h-3 text-emerald-200" />
-                      {overlayMatchId ? `#${overlayMatchId}` : overlaySponsorName ? "SPONSOR" : overlayStageOrGroup ? "GROUP" : "ACTIVE"}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider bg-white/25 px-2 py-0.5 rounded-md text-white flex items-center gap-1 border border-white/30">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-200" />
+                        {overlayMatchId ? `#${overlayMatchId}` : overlaySponsorName ? "SPONSOR" : overlayStageOrGroup ? "GROUP" : "ACTIVE"}
+                      </span>
+                      {item.id !== "none" && (
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleSetOverlay("none", "Camera Feed Only");
+                          }}
+                          className="h-5 w-5 rounded-full bg-red-600 hover:bg-red-500 text-white font-black flex items-center justify-center text-[11px] shadow-md transition-all hover:scale-110 active:scale-95 cursor-pointer ring-1 ring-white/40"
+                          title="Close & return to Camera View"
+                          aria-label="Close & return to Camera View"
+                        >
+                          ✕
+                        </span>
+                      )}
+                    </div>
                   ) : isMatchSpecific ? (
                     <span className="text-[9px] font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border uppercase">▾ Match</span>
                   ) : item.id === "sponsors" ? (

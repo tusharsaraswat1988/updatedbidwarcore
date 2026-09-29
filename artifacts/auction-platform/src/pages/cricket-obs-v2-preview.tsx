@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRoute, useSearch } from "wouter";
 import {
   CricketBroadcastStage,
@@ -78,6 +78,32 @@ export default function CricketObsV2Page() {
   const [syncMessage, setSyncMessage] = useState<{ name: string; details: string; active: boolean } | null>(null);
   const [syncEvent, setSyncEvent] = useState<ObsV2BroadcastEvent | null>(null);
 
+  // ── Auto Match Summary on Match Completion (Hold for 15s before transitioning to neutral) ──
+  const [autoSummaryActive, setAutoSummaryActive] = useState<boolean>(false);
+  const autoSummaryMatchIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!vm || !vm.matchId) return;
+
+    const isCompleted = vm.phase === "completed";
+
+    if (isCompleted) {
+      if (autoSummaryMatchIdRef.current !== vm.matchId) {
+        autoSummaryMatchIdRef.current = vm.matchId;
+        setAutoSummaryActive(true);
+
+        const timer = setTimeout(() => {
+          setAutoSummaryActive(false);
+        }, 15000); // 15 seconds auto match summary hold
+
+        return () => clearTimeout(timer);
+      }
+    } else {
+      autoSummaryMatchIdRef.current = null;
+      setAutoSummaryActive(false);
+    }
+  }, [vm?.matchId, vm?.phase]);
+
   // Cross-Window V2 Synchronization Listener
   useV2Sync(tournamentId, (msg: V2SyncMessage) => {
     if (msg.type === "TRIGGER_FLASH") {
@@ -96,12 +122,14 @@ export default function CricketObsV2Page() {
         }, OBS_V2.motion.duration.eventTotal);
       }
     } else if (msg.type === "SET_OVERLAY") {
+      setAutoSummaryActive(false);
       setSyncOverlay(msg.overlay);
       setSyncNeutral(msg.overlay === "neutral");
       setSyncMatchId(msg.matchId);
       setSyncSponsorName(msg.sponsorName);
       setSyncStageOrGroup(msg.stageOrGroup);
     } else if (msg.type === "CLEAR_OVERLAY") {
+      setAutoSummaryActive(false);
       setSyncOverlay("none");
       setSyncNeutral(false);
       setSyncMatchId(undefined);
@@ -125,6 +153,7 @@ export default function CricketObsV2Page() {
         setSyncStageOrGroup(undefined);
       }
     } else if (msg.type === "DISMISS") {
+      setAutoSummaryActive(false);
       setSyncOverlay("none");
       setSyncNeutral(false);
       setSyncMatchId(undefined);
@@ -218,10 +247,14 @@ export default function CricketObsV2Page() {
   }, [activeFrame.sponsors]);
 
   // ── Neutral mode ─────────────────────────────────────────────────────────
-  const isNeutralActive = syncNeutral !== null ? syncNeutral : (vm?.isNeutralActive ?? false);
+  const isNeutralActive =
+    syncNeutral !== null
+      ? syncNeutral
+      : (autoSummaryActive ? false : (vm?.isNeutralActive ?? false));
 
-  // ── Overlay state (from sync or vm) ──────────────────────────────────────
-  const currentOverlay: CricketObsMidOverlayKind = syncOverlay ?? vm?.midOverlay ?? "none";
+  // ── Overlay state (from sync, auto-summary, or vm) ───────────────────────
+  const currentOverlay: CricketObsMidOverlayKind =
+    syncOverlay ?? (autoSummaryActive ? "summary" : (vm?.midOverlay ?? "none"));
 
   // ── OBS Browser Source: enforce transparent document ────────────────────
   useEffect(() => {
@@ -373,7 +406,8 @@ export default function CricketObsV2Page() {
   };
 
   // ── Overlay Parameter Resolution ─────────────────────────────────────────
-  const effectiveOverlayMatchId = syncMatchId ?? liveOverlayMatchId;
+  const effectiveOverlayMatchId =
+    syncMatchId ?? (autoSummaryActive ? (vm?.matchId ?? undefined) : liveOverlayMatchId);
   const effectiveOverlaySponsorName = syncSponsorName ?? liveOverlaySponsorName;
   const effectiveOverlayStageOrGroup = syncStageOrGroup ?? liveOverlayStageOrGroup;
 

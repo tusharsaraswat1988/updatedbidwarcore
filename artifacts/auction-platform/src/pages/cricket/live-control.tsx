@@ -3,7 +3,7 @@
  * Controls what is shown on LED scoreboards and OBS Live Stream.
  * Route: /tournament/:id/score/live-control
  */
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -84,15 +84,16 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const OVERLAY_OPTIONS: { id: CricketObsMidOverlayKind; label: string; desc: string; icon: string; tag: string }[] = [
+const OVERLAY_OPTIONS: { id: CricketObsMidOverlayKind; label: string; desc: string; icon: string; tag: string; defaultDurationSec?: number }[] = [
   { id: "none", label: "Camera Feed Only", desc: "Transparent feed with lower scorebug", icon: "🎥", tag: "LIVE STREAM" },
   { id: "neutral", label: "Neutral Screen", desc: "Tournament & Sponsor plate between matches / intervals", icon: "⏸️", tag: "INTERVAL" },
-  { id: "sponsors", label: "Sponsor Showcase", desc: "All sponsors or single sponsor spotlight", icon: "★", tag: "COMMERCIAL" },
+  { id: "banner", label: "Tournament Banner", desc: "Full-screen branding banner on LED scoreboard", icon: "🖼️", tag: "BANNER" },
+  { id: "sponsors", label: "Sponsor Showcase", desc: "All sponsors (auto-rotation) or single spotlight", icon: "★", tag: "COMMERCIAL" },
   { id: "standings", label: "Points Table", desc: "Overall, group-wise, or stage rankings", icon: "📊", tag: "STANDINGS" },
-  { id: "fixtures", label: "Upcoming Matches", desc: "Next fixtures & tournament schedule", icon: "📅", tag: "SCHEDULE" },
-  { id: "scorecard", label: "Full Scorecard", desc: "Detailed innings & bowling figures", icon: "📋", tag: "SCORECARD" },
-  { id: "summary", label: "Match Summary", desc: "Post-match result & top performers", icon: "🏆", tag: "RESULT" },
-  { id: "intro", label: "Match Intro / VS", desc: "3D team badges & pre-match build-up", icon: "⚔️", tag: "PRE-MATCH" },
+  { id: "fixtures", label: "Upcoming Matches", desc: "Next fixtures & tournament schedule", icon: "📅", tag: "SCHEDULE", defaultDurationSec: 10 },
+  { id: "scorecard", label: "Full Scorecard", desc: "Detailed innings & bowling figures", icon: "📋", tag: "SCORECARD", defaultDurationSec: 15 },
+  { id: "summary", label: "Match Summary", desc: "Post-match result & top performers", icon: "🏆", tag: "RESULT", defaultDurationSec: 15 },
+  { id: "intro", label: "Match Intro / VS", desc: "3D team badges & pre-match build-up", icon: "⚔️", tag: "PRE-MATCH", defaultDurationSec: 10 },
 ];
 
 const ANIMATION_OPTIONS: { flash: CricketObsFlashKind; label: string; color: string; desc: string }[] = [
@@ -301,6 +302,22 @@ export default function CricketLiveControlPage() {
     [tournamentId],
   );
 
+  const [autoCloseSecondsRemaining, setAutoCloseSecondsRemaining] = useState<number | null>(null);
+  const autoCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoCloseIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearAutoCloseTimers = useCallback(() => {
+    if (autoCloseTimerRef.current) {
+      clearTimeout(autoCloseTimerRef.current);
+      autoCloseTimerRef.current = null;
+    }
+    if (autoCloseIntervalRef.current) {
+      clearInterval(autoCloseIntervalRef.current);
+      autoCloseIntervalRef.current = null;
+    }
+    setAutoCloseSecondsRemaining(null);
+  }, []);
+
   const handleSetOverlay = useCallback(
     async (
       overlay: CricketObsMidOverlayKind,
@@ -313,6 +330,67 @@ export default function CricketLiveControlPage() {
       setOverlayMatchId(matchId);
       setOverlaySponsorName(sponsorName);
       setOverlayStageOrGroup(stageOrGroup);
+
+      clearAutoCloseTimers();
+
+      // Calculate exact dynamic duration based on selection mode
+      let dur: number | undefined = undefined;
+      if (overlay === "none" || overlay === "neutral" || overlay === "banner") {
+        dur = undefined;
+      } else if (overlay === "intro") {
+        dur = 10;
+      } else if (overlay === "fixtures") {
+        dur = 10;
+      } else if (overlay === "summary") {
+        dur = 15;
+      } else if (overlay === "scorecard") {
+        dur = 15;
+      } else if (overlay === "sponsors") {
+        if (!sponsorName || sponsorName === "all") {
+          // All sponsors: show every sponsor for 5s, then close after full rotation
+          const sponsorCount = Math.max(1, sponsors.length);
+          dur = Math.max(15, sponsorCount * 5);
+        } else {
+          dur = 10;
+        }
+      } else if (overlay === "standings") {
+        if (!stageOrGroup || stageOrGroup === "all") {
+          // Standings paginates every 8s (up to 12 teams/page)
+          const totalTeams = teams.length || standings?.groups?.reduce((acc, g) => acc + (g.rows?.length || 0), 0) || 8;
+          const pages = Math.max(1, Math.ceil(totalTeams / 12));
+          dur = Math.max(15, pages * 8);
+        } else {
+          dur = 15;
+        }
+      }
+
+      if (dur && dur > 0) {
+        setAutoCloseSecondsRemaining(dur);
+
+        autoCloseIntervalRef.current = setInterval(() => {
+          setAutoCloseSecondsRemaining((prev) => {
+            if (prev === null || prev <= 1) return 0;
+            return prev - 1;
+          });
+        }, 1000);
+
+        autoCloseTimerRef.current = setTimeout(() => {
+          clearAutoCloseTimers();
+          setCurrentOverlay("none");
+          try {
+            void fetch(`/api/tournaments/${tournamentId}/scoring/obs-director`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ overlay: "none" }),
+            });
+          } catch {}
+          broadcastCommand({ type: "SET_OVERLAY", overlay: "none" });
+          toast({
+            title: "Screen Returned to Camera",
+            description: `${label} cycle completed (${dur}s) & automatically returned to Camera View.`,
+          });
+        }, dur * 1000);
+      }
 
       try {
         await fetch(`/api/tournaments/${tournamentId}/scoring/obs-director`, {
@@ -339,11 +417,17 @@ export default function CricketLiveControlPage() {
         description:
           overlay === "none"
             ? "Camera feed active. Overlays hidden."
-            : `Pushed ${label}${extraText} to live displays.`,
+            : `Pushed ${label}${extraText} to live displays.${targetOption?.defaultDurationSec ? ` (Auto-closes in ${targetOption.defaultDurationSec}s)` : ""}`,
       });
     },
-    [tournamentId, broadcastCommand, toast],
+    [tournamentId, broadcastCommand, toast, clearAutoCloseTimers],
   );
+
+  useEffect(() => {
+    return () => {
+      clearAutoCloseTimers();
+    };
+  }, [clearAutoCloseTimers]);
 
   const handleOverlayButtonClick = (item: typeof OVERLAY_OPTIONS[0]) => {
     if (item.id === "none") {
@@ -352,6 +436,10 @@ export default function CricketLiveControlPage() {
     }
     if (item.id === "neutral") {
       void handleSetOverlay("neutral", item.label);
+      return;
+    }
+    if (item.id === "banner") {
+      void handleSetOverlay("banner", item.label);
       return;
     }
     if (item.id === "sponsors") {
@@ -998,10 +1086,30 @@ export default function CricketLiveControlPage() {
                         {item.icon}
                       </div>
                       {isActive ? (
-                        <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-white text-emerald-900 px-2 py-0.5 rounded-full shadow-sm">
-                          <CheckCircle2 className="w-2.5 h-2.5 text-emerald-700" />
-                          LIVE{overlayMatchId ? ` (#${overlayMatchId})` : ""}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-white text-emerald-900 px-2 py-0.5 rounded-full shadow-sm">
+                            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-700" />
+                            LIVE{overlayMatchId ? ` (#${overlayMatchId})` : ""}
+                            {autoCloseSecondsRemaining != null && item.id !== "none" && item.id !== "neutral" && (
+                              <span className="ml-1 text-emerald-800 font-bold">({autoCloseSecondsRemaining}s)</span>
+                            )}
+                          </span>
+                          {item.id !== "none" && (
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleSetOverlay("none", "Camera Only");
+                              }}
+                              className="h-6 w-6 rounded-full bg-red-600 hover:bg-red-500 text-white font-black flex items-center justify-center text-xs shadow-md transition-all hover:scale-110 active:scale-95 cursor-pointer ring-1 ring-white/50"
+                              title="Close & return to Camera View"
+                              aria-label="Close & return to Camera View"
+                            >
+                              ✕
+                            </span>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-[9px] font-bold text-slate-400 uppercase group-hover:text-amber-300 flex items-center gap-0.5 bg-slate-950/60 px-1.5 py-0.5 rounded border border-slate-700/50">
                           {item.tag}

@@ -33,7 +33,7 @@ export function MidScreenSlatesV2({
   overlayStageOrGroup,
   tournamentId,
 }: MidScreenSlatesV2Props) {
-  if (overlay === "none" || overlay === "neutral") return null;
+  if (overlay === "none" || overlay === "neutral" || overlay === "banner") return null;
 
   const variantMap: Record<string, BroadcastSideSlateVariant | null> = {
     summary: "SUMMARY",

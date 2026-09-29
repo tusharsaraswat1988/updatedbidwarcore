@@ -3,12 +3,13 @@
  * No scoring writes. No engine resolution. Paint preservation lives here.
  */
 
-import type {
-  BallDisplayOutcome,
-  CricketAuthoritativeBroadcastEvent,
-  CricketFullScorecard,
-  CricketMatchSummary,
-  CricketScoreboardState,
+import {
+  deriveCricketMatchResult,
+  type BallDisplayOutcome,
+  type CricketAuthoritativeBroadcastEvent,
+  type CricketFullScorecard,
+  type CricketMatchSummary,
+  type CricketScoreboardState,
 } from "@workspace/scoring-core";
 import {
   getActiveInnings,
@@ -60,6 +61,7 @@ export type CricketObsFlashKind =
 export type CricketObsMidOverlayKind =
   | "none"
   | "neutral"
+  | "banner"
   | "sponsors"
   | "standings"
   | "fixtures"
@@ -537,15 +539,37 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   const oversLabel = oversText(over, ball);
   const batting = innings ? teamView(teams, innings.battingTeamId) : null;
   const bowling = innings ? teamView(teams, innings.bowlingTeamId) : null;
-  const winner = teamView(teams, state.winnerTeamId ?? match.winnerTeamId);
   const crr = innings && (over > 0 || ball > 0 || runs > 0) ? runRate(runs, over, ball) : null;
   const target = state.target ?? null;
   const isTargetReached =
     target != null && runs >= target && (state.currentInnings ?? 1) >= 2;
+  const isOversLimitReached =
+    !!innings && oversLimit > 0 && (over >= oversLimit || (over === oversLimit - 1 && ball >= 6));
+  const isInnings2Finished =
+    (state.currentInnings ?? 1) >= 2 &&
+    !!innings &&
+    (innings.phase === "completed" ||
+      isTargetReached ||
+      (state.maxWickets > 0 && innings.wickets >= state.maxWickets) ||
+      isOversLimitReached);
+
   const isMatchFinished =
     isTerminalCricketMatchStatus(state.matchStatus) ||
     (match.status ? isTerminalCricketMatchStatus(match.status) : false) ||
-    isTargetReached;
+    isTargetReached ||
+    isInnings2Finished;
+
+  let derivedResult: ReturnType<typeof deriveCricketMatchResult> | null = null;
+  if (isMatchFinished) {
+    try {
+      derivedResult = deriveCricketMatchResult(state);
+    } catch {
+      // Fallback to basic derivation
+    }
+  }
+
+  const winnerTeamId = state.winnerTeamId ?? match.winnerTeamId ?? derivedResult?.winnerTeamId;
+  const winner = teamView(teams, winnerTeamId);
 
   const needRuns =
     target != null && !isMatchFinished && state.matchStatus === "live"
@@ -622,7 +646,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   const flash = overrideFlash || autoFlash;
   const flashToken = overrideFlash ? (overrideFlashToken ?? null) : (autoFlash ? ballFlashToken : null);
 
-  let resultText = state.resultText ?? match.resultSummary ?? summary?.resultText ?? null;
+  let resultText = state.resultText ?? match.resultSummary ?? summary?.resultText ?? derivedResult?.resultText ?? null;
   if (!resultText && isTargetReached && batting) {
     const wicketsInHand = Math.max(0, 10 - wickets);
     resultText = `${batting.name} Won by ${wicketsInHand} wicket${wicketsInHand === 1 ? "" : "s"}`;

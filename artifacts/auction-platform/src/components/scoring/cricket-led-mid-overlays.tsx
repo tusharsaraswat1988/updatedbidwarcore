@@ -19,8 +19,15 @@ import {
   getScoringStandings,
   listScoringMatches,
   getPublicMatchScorecard,
+  cricketBrandingQueryKey,
+  getCricketBranding,
   type ScoringMatchJson,
 } from "@/lib/scoring-api";
+import {
+  useGetTournament,
+  getGetTournamentQueryKey,
+} from "@workspace/api-client-react";
+import type { BadmintonBranding } from "@/hooks/use-badminton-branding";
 import {
   resolveBatterView,
   resolveBowlerView,
@@ -261,16 +268,92 @@ export function CricketLedMidOverlays({
     "OFFICIAL PARTNER"
   ).toUpperCase();
 
+  // Tournament details for banner
+  const { data: tournamentData } = useGetTournament(tournamentId, {
+    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: overlay === "banner" && tournamentId > 0 },
+  });
+
+  // Branding query for custom venue banner
+  const { data: brandingData } = useQuery<BadmintonBranding>({
+    queryKey: cricketBrandingQueryKey(tournamentId),
+    queryFn: () => getCricketBranding<BadmintonBranding>(tournamentId),
+    enabled: overlay === "banner" && tournamentId > 0,
+    staleTime: 10_000,
+  });
+
+  const resolvedBannerUrl =
+    brandingData?.resolvedVenueBannerUrl ||
+    brandingData?.venueBannerUrl ||
+    tournamentData?.mainBannerUrl ||
+    brandingData?.auctionMainBannerUrl ||
+    null;
+
+  const resolvedBannerFit =
+    brandingData?.resolvedVenueBannerFit ||
+    tournamentData?.mainBannerFit ||
+    "cover";
+
   if (overlay === "none" || overlay === "neutral") return null;
+
+  // 0. FULL SCREEN ZERO MARGIN TOURNAMENT BANNER
+  if (overlay === "banner") {
+    return (
+      <AnimatePresence>
+        <motion.div
+          key="led-banner-fullscreen"
+          initial={{ opacity: 0, x: "-100%" }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: "-100%" }}
+          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          className="fixed inset-0 z-50 bg-black flex items-center justify-center p-0 m-0 w-screen h-screen overflow-hidden select-none"
+        >
+          {resolvedBannerUrl ? (
+            <img
+              src={resolvedBannerUrl}
+              alt={tournamentName || "Tournament Banner"}
+              className="w-full h-full"
+              style={{ objectFit: (resolvedBannerFit as "cover" | "contain") || "cover" }}
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center text-center p-8 text-white space-y-4 max-w-xl">
+              <div className="w-20 h-20 rounded-2xl bg-amber-500/20 border-2 border-amber-500/40 flex items-center justify-center text-4xl">
+                🖼️
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-display font-black uppercase tracking-wider text-amber-400">
+                {tournamentName || "Tournament Banner"}
+              </h2>
+              <p className="text-slate-400 text-sm font-medium leading-relaxed">
+                No banner uploaded yet. Upload a 16:9 banner in Tournament Settings &gt; Branding.
+              </p>
+            </div>
+          )}
+
+          {/* Close button in top-right corner */}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute top-6 right-6 h-11 w-11 rounded-full border-2 border-white/30 bg-black/60 hover:bg-black/90 text-white flex items-center justify-center text-xl font-black transition shadow-2xl hover:scale-110 active:scale-95 z-50 backdrop-blur-md"
+              title="Close Banner & Return to Scoreboard"
+              aria-label="Close Banner"
+            >
+              ✕
+            </button>
+          )}
+        </motion.div>
+      </AnimatePresence>
+    );
+  }
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-3 md:p-4 pointer-events-auto select-none bg-black/90 backdrop-blur-xl">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-3 md:p-4 pointer-events-auto select-none bg-black/90 backdrop-blur-xl overflow-hidden">
         <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.96, y: 20 }}
-          transition={{ duration: 0.28, ease: "easeOut" }}
+          key={`led-overlay-${overlay}`}
+          initial={{ opacity: 0, x: "-100%" }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: "-100%" }}
+          transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
           className="relative flex h-[96vh] w-[98vw] max-w-[1880px] flex-col overflow-hidden rounded-3xl border-2 border-border/80 bg-[#07090e]/95 shadow-[0_30px_90px_rgba(0,0,0,0.95)]"
         >
           {/* Top LED Header Bar — Centered Tournament Identity */}
