@@ -45,7 +45,7 @@ export default function ScoreDisplayPage() {
   }
 
   return (
-    <TournamentCodeGate tournamentId={tournamentId}>
+    <TournamentCodeGate tournamentId={tournamentId} requiredModule="scoring">
       <ScoreDisplayShell tournamentId={tournamentId} />
     </TournamentCodeGate>
   );
