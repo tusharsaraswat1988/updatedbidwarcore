@@ -66,8 +66,32 @@ export const VARIANT_CONFIGS: Record<
   SCORECARD: { widthPx: 940, heightMode: "fill", label: "SCORECARD", kicker: "LIVE INNINGS BREAKDOWN" },
   SUMMARY: { widthPx: 680, heightMode: "compact", heightPx: 460, label: "MATCH SUMMARY", kicker: "OFFICIAL MATCH VERDICT" },
   VS_INTRO: { widthPx: 680, heightMode: "compact", heightPx: 340, label: "MATCH PREVIEW", kicker: "HEAD TO HEAD CLASH" },
-  SPONSORS: { widthPx: 600, heightMode: "compact", heightPx: 300, label: "COMMERCIAL PARTNER", kicker: "OFFICIAL SPONSOR" },
+  SPONSORS: { widthPx: 560, heightMode: "compact", heightPx: 275, label: "", kicker: "" },
 };
+
+export type SponsorTier = "TITLE" | "CO_SPONSOR" | "NORMAL";
+
+/**
+ * Resolves the sponsor priority tier (TITLE, CO_SPONSOR, NORMAL)
+ * for broadcast visual hierarchy & dynamic glow effects.
+ */
+export function resolveSponsorTier(
+  sponsor?: BidWarSponsorLogo | null,
+): SponsorTier {
+  if (!sponsor) return "NORMAL";
+  if (sponsor.isTitleSponsor) return "TITLE";
+  if (sponsor.isCoSponsor) return "CO_SPONSOR";
+
+  const priorityType = (sponsor.priorityType || "").toLowerCase();
+  if (priorityType.includes("title") || priorityType.includes("gold")) return "TITLE";
+  if (priorityType.includes("co") || priorityType.includes("silver")) return "CO_SPONSOR";
+
+  const typeStr = (sponsor.type || "").toLowerCase().trim();
+  if (/title\s*sponsor|title\s*partner/i.test(typeStr)) return "TITLE";
+  if (/co[\s-]*sponsor|co[\s-]*partner|powered\s*by/i.test(typeStr)) return "CO_SPONSOR";
+
+  return "NORMAL";
+}
 
 // ─── Reusable Side Slate Shell ───────────────────────────────────────────────
 
@@ -78,6 +102,8 @@ interface SideSlateShellProps {
   kicker: string;
   shellKey?: string;
   heightPx?: number;
+  hideHeadline?: boolean;
+  sponsorTier?: SponsorTier;
   children: React.ReactNode;
 }
 
@@ -88,10 +114,49 @@ function SideSlateShell({
   kicker,
   shellKey,
   heightPx,
+  hideHeadline = false,
+  sponsorTier = "NORMAL",
   children,
 }: SideSlateShellProps) {
   const config = VARIANT_CONFIGS[variant];
   const targetHeight = heightPx ?? config.heightPx;
+
+  // Dynamic border, glow, and chassis styling based on tier
+  let borderStyle = "1px solid rgba(255, 255, 255, 0.10)";
+  let borderLeftStyle = "3.5px solid #FFD700";
+  let borderTopStyle = "1.5px solid rgba(255, 215, 0, 0.4)";
+  let boxShadowStyle = "0 18px 45px rgba(0, 0, 0, 0.92), 0 0 20px rgba(0, 0, 0, 0.7)";
+  let backgroundStyle = "linear-gradient(180deg, rgba(14, 16, 24, 0.98) 0%, rgba(8, 8, 12, 0.99) 100%)";
+
+  if (variant === "SPONSORS") {
+    if (sponsorTier === "TITLE") {
+      // Extra radiant gold glow for Title Sponsor
+      borderStyle = "1.5px solid rgba(255, 215, 0, 0.75)";
+      borderLeftStyle = "4px solid #FFD700";
+      borderTopStyle = "2.5px solid #FFD700";
+      boxShadowStyle =
+        "0 0 38px rgba(255, 215, 0, 0.45), 0 0 75px rgba(255, 215, 0, 0.20), 0 18px 45px rgba(0, 0, 0, 0.95)";
+      backgroundStyle =
+        "linear-gradient(180deg, rgba(28, 22, 10, 0.98) 0%, rgba(10, 12, 18, 0.99) 100%)";
+    } else if (sponsorTier === "CO_SPONSOR") {
+      // Moderate cyan glow for Co-Sponsor (less than title)
+      borderStyle = "1.5px solid rgba(18, 207, 255, 0.55)";
+      borderLeftStyle = "4px solid #12CFFF";
+      borderTopStyle = "2px solid #12CFFF";
+      boxShadowStyle =
+        "0 0 22px rgba(18, 207, 255, 0.32), 0 0 45px rgba(18, 207, 255, 0.12), 0 18px 45px rgba(0, 0, 0, 0.92)";
+      backgroundStyle =
+        "linear-gradient(180deg, rgba(10, 20, 32, 0.98) 0%, rgba(8, 10, 16, 0.99) 100%)";
+    } else {
+      // Standard clean styling for regular sponsors
+      borderStyle = "1px solid rgba(255, 255, 255, 0.12)";
+      borderLeftStyle = "3.5px solid rgba(255, 255, 255, 0.45)";
+      borderTopStyle = "1.5px solid rgba(255, 255, 255, 0.2)";
+      boxShadowStyle = "0 18px 45px rgba(0, 0, 0, 0.92), 0 0 15px rgba(0, 0, 0, 0.6)";
+      backgroundStyle =
+        "linear-gradient(180deg, rgba(14, 16, 24, 0.98) 0%, rgba(8, 8, 12, 0.99) 100%)";
+    }
+  }
 
   return (
     <div
@@ -120,13 +185,13 @@ function SideSlateShell({
           maxWidth: "60%",
           height: targetHeight ? `${targetHeight}px` : "auto",
           maxHeight: `${OBS_V2.canvas.cameraHeight - 32}px`,
-          background: "linear-gradient(180deg, rgba(14, 16, 24, 0.98) 0%, rgba(8, 8, 12, 0.99) 100%)",
+          background: backgroundStyle,
           backdropFilter: "blur(24px)",
-          border: "1px solid rgba(255, 255, 255, 0.10)",
-          borderLeft: "3.5px solid #FFD700",
-          borderTop: "1.5px solid rgba(255, 215, 0, 0.4)",
+          border: borderStyle,
+          borderLeft: borderLeftStyle,
+          borderTop: borderTopStyle,
           borderRadius: "12px",
-          boxShadow: "0 18px 45px rgba(0, 0, 0, 0.92), 0 0 20px rgba(0, 0, 0, 0.7)",
+          boxShadow: boxShadowStyle,
           fontFamily: "'Inter', sans-serif",
         }}
       >
@@ -134,7 +199,7 @@ function SideSlateShell({
         <div
           className="flex items-center justify-between shrink-0 px-5 py-2.5"
           style={{
-            height: "46px",
+            height: "44px",
             background: "linear-gradient(90deg, rgba(20, 24, 36, 0.98) 0%, rgba(12, 14, 20, 0.98) 100%)",
             borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
           }}
@@ -157,41 +222,45 @@ function SideSlateShell({
             </span>
           </div>
 
-          {/* Right: Slate Tag Indicator */}
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="w-2 h-2 rounded-full bg-[#FFD700] animate-pulse" />
-            <span className="text-[#FFD700] font-mono font-black text-[13px] uppercase tracking-[0.16em]">
-              {config.label}
-            </span>
-          </div>
+          {/* Right: Slate Tag Indicator (only when label exists) */}
+          {config.label ? (
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="w-2 h-2 rounded-full bg-[#FFD700] animate-pulse" />
+              <span className="text-[#FFD700] font-mono font-black text-[13px] uppercase tracking-[0.16em]">
+                {config.label}
+              </span>
+            </div>
+          ) : null}
         </div>
 
-        {/* ── 2. Headline Strip ── */}
-        <div
-          className="px-5 py-2 shrink-0 flex items-center justify-between"
-          style={{
-            background: "rgba(255, 255, 255, 0.02)",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
-          }}
-        >
-          <div>
-            <div className="text-[12px] font-bold uppercase tracking-[0.2em] text-[#FFD700]">
-              {kicker}
-            </div>
-            <div className="text-xl sm:text-2xl font-black italic tracking-wide text-white uppercase font-sans">
-              {title}
-            </div>
-          </div>
+        {/* ── 2. Headline Strip (Omitted for SPONSORS) ── */}
+        {!hideHeadline && variant !== "SPONSORS" && (
           <div
-            className="h-1.5 w-12 rounded-full"
+            className="px-5 py-2 shrink-0 flex items-center justify-between"
             style={{
-              background: "linear-gradient(90deg, #FFD700 0%, #12CFFF 100%)",
+              background: "rgba(255, 255, 255, 0.02)",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
             }}
-          />
-        </div>
+          >
+            <div>
+              <div className="text-[12px] font-bold uppercase tracking-[0.2em] text-[#FFD700]">
+                {kicker}
+              </div>
+              <div className="text-xl sm:text-2xl font-black italic tracking-wide text-white uppercase font-sans">
+                {title}
+              </div>
+            </div>
+            <div
+              className="h-1.5 w-12 rounded-full"
+              style={{
+                background: "linear-gradient(90deg, #FFD700 0%, #12CFFF 100%)",
+              }}
+            />
+          </div>
+        )}
 
         {/* ── 3. Content Viewport ── */}
-        <div className="flex flex-col p-4">
+        <div className="flex flex-col p-3.5">
           {children}
         </div>
       </motion.div>
@@ -598,37 +667,64 @@ function SponsorsVariant({
 }) {
   if (!currentSponsor) {
     return (
-      <div className="flex flex-col items-center justify-center p-6 text-center">
-        <span className="text-sm text-slate-400">Official Commercial Partner</span>
+      <div className="flex flex-col items-center justify-center p-8 text-center">
+        <span className="text-sm text-slate-400 font-bold uppercase tracking-wider">
+          Official Partner
+        </span>
       </div>
     );
   }
 
+  const tier = resolveSponsorTier(currentSponsor);
+  const customType = currentSponsor.type?.trim();
+  const typeLabel = (
+    (customType && !["normal", "standard"].includes(customType.toLowerCase()) ? customType : null) ||
+    (tier === "TITLE" ? "TITLE SPONSOR" : null) ||
+    (tier === "CO_SPONSOR" ? "CO-SPONSOR" : null) ||
+    "OFFICIAL PARTNER"
+  ).toUpperCase();
+
   return (
-    <div className="flex flex-col items-center justify-center gap-3.5 text-center px-4 py-2">
-      {/* Prominent Sponsor Logo Asset */}
+    <div className="flex flex-col items-center justify-center gap-2.5 text-center px-3 py-1 w-full">
+      {/* 1. Sponsor Logo (Clean frameless container with soft backdrop) */}
       <div className="h-28 w-full flex items-center justify-center">
         {currentSponsor.url ? (
-          <img
-            src={currentSponsor.url}
-            alt={currentSponsor.name}
-            className="max-h-28 max-w-[300px] object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
-          />
+          <div className="max-h-28 max-w-[320px] p-2.5 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-center backdrop-blur-sm shadow-inner">
+            <img
+              src={currentSponsor.url}
+              alt={currentSponsor.name || "Sponsor"}
+              className="max-h-24 max-w-[300px] object-contain drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]"
+            />
+          </div>
         ) : (
-          <div className="w-22 h-22 rounded-2xl bg-white/5 border border-white/15 flex items-center justify-center text-4xl font-black text-[#FFD700]">
+          <div className="w-20 h-20 rounded-2xl bg-white/5 border border-white/15 flex items-center justify-center text-3xl font-black text-[#FFD700]">
             {currentSponsor.name?.slice(0, 2).toUpperCase()}
           </div>
         )}
       </div>
 
-      {/* Prominent Name & Secondary Category */}
-      <div className="flex flex-col items-center">
-        <h3 className="text-2xl font-black italic text-white uppercase tracking-wide font-sans leading-tight">
-          {currentSponsor.name}
+      {/* 2. Sponsor Name (Directly Below Logo) */}
+      <div className="flex flex-col items-center gap-1.5 w-full mt-1">
+        <h3 className="text-2xl sm:text-[26px] font-black italic text-white uppercase tracking-wide font-sans leading-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)] truncate max-w-full">
+          {currentSponsor.name || "OFFICIAL SPONSOR"}
         </h3>
-        <span className="text-[13px] font-bold uppercase tracking-[0.2em] text-[#FFD700] mt-1">
-          {currentSponsor.type || (currentSponsor.isTitleSponsor ? "TITLE SPONSOR" : "OFFICIAL PARTNER")}
-        </span>
+
+        {/* 3. Sponsor Type (Directly Below Sponsor Name) */}
+        <div>
+          {tier === "TITLE" ? (
+            <span className="inline-flex items-center px-4 py-1 rounded-full text-[12px] font-mono font-black uppercase tracking-[0.2em] bg-gradient-to-r from-amber-500/25 to-yellow-500/25 text-[#FFD700] border border-[#FFD700]/60 shadow-[0_0_15px_rgba(255,215,0,0.35)]">
+              ★ {typeLabel} ★
+            </span>
+          ) : tier === "CO_SPONSOR" ? (
+            <span className="inline-flex items-center px-4 py-1 rounded-full text-[12px] font-mono font-black uppercase tracking-[0.2em] bg-cyan-500/20 text-cyan-300 border border-cyan-400/50 shadow-[0_0_12px_rgba(18,207,255,0.25)]">
+              ◆ {typeLabel} ◆
+            </span>
+          ) : (
+            <span className="inline-flex items-center px-4 py-1 rounded-full text-[11px] font-mono font-bold uppercase tracking-[0.16em] bg-white/10 text-slate-300 border border-white/15">
+              {typeLabel}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -761,6 +857,11 @@ export function BroadcastSideSlate({
     return sponsors[cycleIndex % sponsors.length];
   }, [variant, sponsors, isAllSponsors, sponsorName, cycleIndex]);
 
+  const activeSponsorTier = useMemo(() => {
+    if (variant !== "SPONSORS") return "NORMAL";
+    return resolveSponsorTier(activeSponsor);
+  }, [variant, activeSponsor]);
+
   const title = useMemo(() => {
     switch (variant) {
       case "SUMMARY":
@@ -772,11 +873,11 @@ export function BroadcastSideSlate({
       case "FIXTURES":
         return "MATCH SCHEDULE";
       case "SPONSORS":
-        return activeSponsor?.isTitleSponsor ? "TITLE PARTNER" : "OFFICIAL PARTNER";
+        return "";
       case "VS_INTRO":
         return `${vm.home?.shortCode || "HOME"} VS ${vm.away?.shortCode || "AWAY"}`;
     }
-  }, [variant, vm, stageOrGroup, activeSponsor]);
+  }, [variant, vm, stageOrGroup]);
 
   const shellKey =
     variant === "SPONSORS" && isAllSponsors
@@ -791,6 +892,8 @@ export function BroadcastSideSlate({
       tournamentName={vm.tournamentName || "BIDWAR CRICKET"}
       title={title}
       kicker={config.kicker}
+      hideHeadline={variant === "SPONSORS"}
+      sponsorTier={activeSponsorTier}
     >
       {variant === "SUMMARY" && (
         <SummaryVariant vm={vm} tournamentId={tournamentId} matchId={matchId} />

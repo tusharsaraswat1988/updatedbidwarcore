@@ -21,6 +21,7 @@ import {
   getPublicMatchScorecard,
   cricketBrandingQueryKey,
   getCricketBranding,
+  getCricketMasterTeams,
   type ScoringMatchJson,
 } from "@/lib/scoring-api";
 import {
@@ -33,7 +34,11 @@ import {
   resolveBowlerView,
   type CricketObsMidOverlayKind,
 } from "@/lib/cricket-obs-view-model";
-import type { CricketScorerPlayer, CricketScorerTeam } from "@/lib/scoring-squad";
+import {
+  cricketMasterTeamToScorerTeam,
+  type CricketScorerPlayer,
+  type CricketScorerTeam,
+} from "@/lib/scoring-squad";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import type {
   CricketMatchSummary,
@@ -179,27 +184,40 @@ export function CricketLedMidOverlays({
     return () => clearInterval(interval);
   }, [overlay, totalStandingsPages]);
 
-  // Fixtures State: Up to 12 matches with auto-pagination of 6 per page
-  const [fixturesPage, setFixturesPage] = useState(0);
-  const upcomingMatches = useMemo(() => {
-    return (matches ?? []).filter((m) => m.status !== "completed").slice(0, 12);
-  }, [matches]);
+  // Master teams fallback query if teams prop is empty
+  const { data: fetchedMasterTeams } = useQuery({
+    queryKey: ["cricket-master-teams", tournamentId],
+    queryFn: () => getCricketMasterTeams(tournamentId),
+    enabled: (!teams || teams.length === 0) && tournamentId > 0,
+    staleTime: 60_000,
+  });
 
-  const FIXTURES_PAGE_SIZE = 6;
-  const totalFixturesPages = Math.ceil(upcomingMatches.length / FIXTURES_PAGE_SIZE) || 1;
-  const paginatedFixtures = useMemo(() => {
-    const start = (fixturesPage % totalFixturesPages) * FIXTURES_PAGE_SIZE;
-    return upcomingMatches.slice(start, start + FIXTURES_PAGE_SIZE);
-  }, [upcomingMatches, fixturesPage, totalFixturesPages]);
+  const effectiveTeams: CricketScorerTeam[] = useMemo(() => {
+    if (teams && teams.length > 0) return teams;
+    return (fetchedMasterTeams ?? []).map(cricketMasterTeamToScorerTeam);
+  }, [teams, fetchedMasterTeams]);
 
-  // Auto-cycle Fixtures pages
-  useEffect(() => {
-    if (overlay !== "fixtures" || totalFixturesPages <= 1) return;
-    const interval = setInterval(() => {
-      setFixturesPage((prev) => (prev + 1) % totalFixturesPages);
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [overlay, totalFixturesPages]);
+  const teamMap = useMemo(() => new Map(effectiveTeams.map((t) => [t.id, t])), [effectiveTeams]);
+
+  // Fixtures Match: Targeted single match (if selected in live control / director) or first upcoming match
+  const activeFixtureMatch = useMemo(() => {
+    if (overlayMatchId && matches && matches.length > 0) {
+      const found = matches.find((m) => m.id === overlayMatchId);
+      if (found) return found;
+    }
+    const upcoming = (matches ?? []).filter((m) => m.status === "upcoming" || m.status === "scheduled" || m.status !== "completed");
+    return upcoming[0] ?? (matches && matches.length > 0 ? matches[0] : null);
+  }, [overlayMatchId, matches]);
+
+  const fixtureHomeTeam = useMemo(() => {
+    if (!activeFixtureMatch) return null;
+    return teamMap.get(activeFixtureMatch.homeTeamId) || (activeFixtureMatch as any).homeTeam || null;
+  }, [activeFixtureMatch, teamMap]);
+
+  const fixtureAwayTeam = useMemo(() => {
+    if (!activeFixtureMatch) return null;
+    return teamMap.get(activeFixtureMatch.awayTeamId) || (activeFixtureMatch as any).awayTeam || null;
+  }, [activeFixtureMatch, teamMap]);
 
   // Active sponsor for focal showcase
   const targetedSponsor = useMemo(() => {
@@ -207,8 +225,8 @@ export function CricketLedMidOverlays({
     return sponsors.find((s) => s.name?.toLowerCase().trim() === overlaySponsorName.toLowerCase().trim()) ?? null;
   }, [overlaySponsorName, sponsors]);
 
-  const homeTeam = teams.find((t) => t.id === activeMatch?.homeTeamId) || activeMatch?.homeTeam;
-  const awayTeam = teams.find((t) => t.id === activeMatch?.awayTeamId) || activeMatch?.awayTeam;
+  const homeTeam = teamMap.get(activeMatch?.homeTeamId ?? 0) || (activeMatch as any)?.homeTeam;
+  const awayTeam = teamMap.get(activeMatch?.awayTeamId ?? 0) || (activeMatch as any)?.awayTeam;
   const innings = state ? getActiveInnings(state) : null;
   const battingTeam = teams.find((t) => t.id === innings?.battingTeamId) || homeTeam;
   const bowlingTeam = teams.find((t) => t.id === innings?.bowlingTeamId) || awayTeam;

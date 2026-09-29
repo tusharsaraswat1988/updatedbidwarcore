@@ -173,71 +173,163 @@ export function CricketObsMidOverlays({
                 </div>
 
                 {targetedSponsor ? (
-                  <div className="my-auto max-w-xl mx-auto w-full">
-                    <div
-                      className="flex flex-col items-center justify-center border-2 border-[#FFD700]/40 p-10 rounded-2xl"
-                      style={{ background: BIDWAR_SCOREBOARD_PANEL }}
-                    >
-                      <span
-                        className="text-xs font-bold uppercase tracking-widest text-[#FFD700] mb-6 px-4 py-1 rounded-full bg-[#FFD700]/10 border border-[#FFD700]/30"
-                        style={{ fontFamily: BROADCAST_FONTS.body }}
-                      >
-                        {targetedSponsor.type?.trim() && !["normal", "standard"].includes(targetedSponsor.type.toLowerCase().trim())
-                          ? targetedSponsor.type.trim().toUpperCase()
-                          : targetedSponsor.isTitleSponsor
-                          ? "TITLE SPONSOR"
-                          : targetedSponsor.isCoSponsor
-                          ? "CO-SPONSOR"
-                          : "OFFICIAL PARTNER"}
-                      </span>
-                      {targetedSponsor.url ? (
-                        <div className="h-44 w-full flex items-center justify-center p-4">
-                          <img
-                            src={targetedSponsor.url}
-                            alt={targetedSponsor.name || ""}
-                            className="max-h-full max-w-[340px] object-contain"
-                          />
+                  (() => {
+                    const priorityType = (targetedSponsor.priorityType || "").toLowerCase();
+                    const customType = targetedSponsor.type?.trim() || "";
+                    const isTitle =
+                      Boolean(targetedSponsor.isTitleSponsor) ||
+                      priorityType.includes("title") ||
+                      priorityType.includes("gold") ||
+                      /title\s*sponsor|title\s*partner/i.test(customType);
+                    const isCo =
+                      Boolean(targetedSponsor.isCoSponsor) ||
+                      priorityType.includes("co") ||
+                      priorityType.includes("silver") ||
+                      /co[\s-]*sponsor|co[\s-]*partner|powered\s*by/i.test(customType);
+                    const tierLabel = (
+                      (customType && !["normal", "standard"].includes(customType.toLowerCase()) ? customType : null) ||
+                      (isTitle ? "TITLE SPONSOR" : null) ||
+                      (isCo ? "CO-SPONSOR" : null) ||
+                      "OFFICIAL PARTNER"
+                    ).toUpperCase();
+
+                    return (
+                      <div className="my-auto max-w-xl mx-auto w-full">
+                        <div
+                          className="flex flex-col items-center justify-center p-10 rounded-2xl transition-all duration-300"
+                          style={{
+                            background: isTitle
+                              ? "linear-gradient(180deg, rgba(28, 22, 10, 0.98) 0%, rgba(10, 12, 18, 0.99) 100%)"
+                              : isCo
+                              ? "linear-gradient(180deg, rgba(10, 20, 32, 0.98) 0%, rgba(8, 10, 16, 0.99) 100%)"
+                              : BIDWAR_SCOREBOARD_PANEL,
+                            border: isTitle
+                              ? "2px solid rgba(255, 215, 0, 0.75)"
+                              : isCo
+                              ? "1.5px solid rgba(18, 207, 255, 0.6)"
+                              : "1px solid rgba(255, 255, 255, 0.12)",
+                            boxShadow: isTitle
+                              ? "0 0 38px rgba(255, 215, 0, 0.45), 0 0 75px rgba(255, 215, 0, 0.20), 0 18px 45px rgba(0, 0, 0, 0.95)"
+                              : isCo
+                              ? "0 0 22px rgba(18, 207, 255, 0.32), 0 18px 45px rgba(0, 0, 0, 0.92)"
+                              : "0 18px 45px rgba(0, 0, 0, 0.92)",
+                          }}
+                        >
+                          {/* 1. Sponsor Logo */}
+                          {targetedSponsor.url ? (
+                            <div className="h-44 w-full flex items-center justify-center p-3 rounded-xl bg-white/[0.04] border border-white/10 backdrop-blur-sm shadow-inner">
+                              <img
+                                src={targetedSponsor.url}
+                                alt={targetedSponsor.name || ""}
+                                className="max-h-full max-w-[340px] object-contain drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]"
+                              />
+                            </div>
+                          ) : null}
+
+                          {/* 2. Sponsor Name (Below Logo) */}
+                          <p className="mt-6 text-3xl font-black italic text-white tracking-wider uppercase font-sans text-center">
+                            {targetedSponsor.name || "OFFICIAL SPONSOR"}
+                          </p>
+
+                          {/* 3. Sponsor Type (Below Name) */}
+                          <div className="mt-3">
+                            {isTitle ? (
+                              <span className="inline-flex items-center px-5 py-1.5 rounded-full text-xs font-mono font-black uppercase tracking-[0.2em] bg-gradient-to-r from-amber-500/25 to-yellow-500/25 text-[#FFD700] border border-[#FFD700]/60 shadow-[0_0_15px_rgba(255,215,0,0.35)]">
+                                ★ {tierLabel} ★
+                              </span>
+                            ) : isCo ? (
+                              <span className="inline-flex items-center px-5 py-1.5 rounded-full text-xs font-mono font-black uppercase tracking-[0.2em] bg-cyan-500/20 text-cyan-300 border border-cyan-400/50 shadow-[0_0_12px_rgba(18,207,255,0.25)]">
+                                ◆ {tierLabel} ◆
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-4 py-1.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-[0.16em] bg-white/10 text-slate-300 border border-white/15">
+                                {tierLabel}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      ) : null}
-                      <p className="mt-4 text-2xl font-bold text-white tracking-wider uppercase">
-                        {targetedSponsor.name}
-                      </p>
-                    </div>
-                  </div>
+                      </div>
+                    );
+                  })()
                 ) : vm.sponsors && vm.sponsors.length > 0 ? (
                   <div className="grid grid-cols-3 gap-6 my-auto max-w-5xl mx-auto w-full">
-                    {vm.sponsors.map((sp, idx) => (
-                      <div
-                        key={idx}
-                        className="flex flex-col items-center justify-center border border-white/10 p-6"
-                        style={{ background: BIDWAR_SCOREBOARD_PANEL }}
-                      >
-                        <span
-                          className="text-[10px] font-bold uppercase tracking-widest text-[#FFD700] mb-4"
-                          style={{ fontFamily: BROADCAST_FONTS.body }}
+                    {vm.sponsors.map((sp, idx) => {
+                      const priorityType = (sp.priorityType || "").toLowerCase();
+                      const customType = sp.type?.trim() || "";
+                      const isTitle =
+                        Boolean(sp.isTitleSponsor) ||
+                        priorityType.includes("title") ||
+                        priorityType.includes("gold") ||
+                        /title\s*sponsor|title\s*partner/i.test(customType);
+                      const isCo =
+                        Boolean(sp.isCoSponsor) ||
+                        priorityType.includes("co") ||
+                        priorityType.includes("silver") ||
+                        /co[\s-]*sponsor|co[\s-]*partner|powered\s*by/i.test(customType);
+                      const tierLabel = (
+                        (customType && !["normal", "standard"].includes(customType.toLowerCase()) ? customType : null) ||
+                        (isTitle ? "TITLE SPONSOR" : null) ||
+                        (isCo ? "CO-SPONSOR" : null) ||
+                        "OFFICIAL PARTNER"
+                      ).toUpperCase();
+
+                      return (
+                        <div
+                          key={idx}
+                          className="flex flex-col items-center justify-center p-6 rounded-xl transition-all duration-300"
+                          style={{
+                            background: isTitle
+                              ? "linear-gradient(180deg, rgba(28, 22, 10, 0.98) 0%, rgba(10, 12, 18, 0.99) 100%)"
+                              : isCo
+                              ? "linear-gradient(180deg, rgba(10, 20, 32, 0.98) 0%, rgba(8, 10, 16, 0.99) 100%)"
+                              : BIDWAR_SCOREBOARD_PANEL,
+                            border: isTitle
+                              ? "2px solid rgba(255, 215, 0, 0.7)"
+                              : isCo
+                              ? "1.5px solid rgba(18, 207, 255, 0.55)"
+                              : "1px solid rgba(255, 255, 255, 0.10)",
+                            boxShadow: isTitle
+                              ? "0 0 25px rgba(255, 215, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.9)"
+                              : isCo
+                              ? "0 0 16px rgba(18, 207, 255, 0.25), 0 10px 30px rgba(0, 0, 0, 0.9)"
+                              : "0 10px 25px rgba(0, 0, 0, 0.8)",
+                          }}
                         >
-                          {sp.type?.trim() && !["normal", "standard"].includes(sp.type.toLowerCase().trim())
-                            ? sp.type.trim().toUpperCase()
-                            : sp.isTitleSponsor
-                            ? "TITLE SPONSOR"
-                            : sp.isCoSponsor
-                            ? "CO-SPONSOR"
-                            : "OFFICIAL PARTNER"}
-                        </span>
-                        {sp.url ? (
-                          <div className="h-20 w-full flex items-center justify-center p-2">
-                            <img
-                              src={sp.url}
-                              alt={sp.name || ""}
-                              className="max-h-full max-w-[220px] object-contain"
-                            />
+                          {/* 1. Sponsor Logo */}
+                          {sp.url ? (
+                            <div className="h-20 w-full flex items-center justify-center p-2 rounded-lg bg-white/[0.03] border border-white/5">
+                              <img
+                                src={sp.url}
+                                alt={sp.name || ""}
+                                className="max-h-full max-w-[220px] object-contain drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)]"
+                              />
+                            </div>
+                          ) : null}
+
+                          {/* 2. Sponsor Name (Below Logo) */}
+                          <p className="mt-3 text-base font-black italic text-white tracking-wider uppercase font-sans text-center truncate max-w-full">
+                            {sp.name || "Sponsor"}
+                          </p>
+
+                          {/* 3. Sponsor Type (Below Name) */}
+                          <div className="mt-1.5">
+                            {isTitle ? (
+                              <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[10px] font-mono font-black uppercase tracking-wider bg-gradient-to-r from-amber-500/25 to-yellow-500/25 text-[#FFD700] border border-[#FFD700]/60 shadow-[0_0_10px_rgba(255,215,0,0.3)]">
+                                ★ {tierLabel} ★
+                              </span>
+                            ) : isCo ? (
+                              <span className="inline-flex items-center px-3 py-0.5 rounded-full text-[10px] font-mono font-black uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-400/50 shadow-[0_0_8px_rgba(18,207,255,0.2)]">
+                                ◆ {tierLabel} ◆
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider bg-white/10 text-slate-300 border border-white/15">
+                                {tierLabel}
+                              </span>
+                            )}
                           </div>
-                        ) : null}
-                        <p className="mt-3 text-sm font-bold text-white tracking-wider uppercase">
-                          {sp.name || "Sponsor"}
-                        </p>
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="my-auto flex flex-col items-center justify-center text-center p-12 border border-white/10">

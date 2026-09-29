@@ -124,15 +124,48 @@ export function CurrentOverPanel({ balls }: { balls: BallEvent[] }) {
 }
 
 export function ResultPanel({ result }: { result?: CricketScoreModel["result"] }) {
+  if (!result) return <div className="bw-result" />;
+
+  const headline = result.headline || "";
+  const len = headline.length;
+  const headlineFontSize =
+    len > 28 ? "17px" : len > 22 ? "20px" : len > 17 ? "23px" : len > 12 ? "26px" : "32px";
+
   return (
     <div className="bw-result">
-      {result && (
-        <div key={result.headline} className="bw-result-inner">
-          <span className="bw-result-kicker">{result.kicker}</span>
-          <strong>{result.headline}</strong>
-          {result.detail && <small>{result.detail}</small>}
-        </div>
-      )}
+      <div key={result.headline} className="bw-result-inner">
+        <span className="bw-result-kicker">{result.kicker || "MATCH RESULT"}</span>
+        <strong
+          style={{
+            fontSize: headlineFontSize,
+            lineHeight: 1.15,
+            maxWidth: "100%",
+            textAlign: "center",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            display: "block",
+          }}
+          title={headline}
+        >
+          {headline}
+        </strong>
+        {result.detail && (
+          <small
+            style={{
+              fontSize: len > 20 ? "16px" : "18px",
+              maxWidth: "100%",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              display: "block",
+            }}
+            title={result.detail}
+          >
+            {result.detail}
+          </small>
+        )}
+      </div>
     </div>
   );
 }

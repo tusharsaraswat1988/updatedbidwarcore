@@ -289,11 +289,10 @@
 .bw-sub { font-size: 20px; font-weight: 500; color: var(--bw-ink-dim); letter-spacing: 0.06em; }
 .bw-stagger { animation: bw-fade-up var(--bw-dur) var(--bw-ease) both; }
 
-/* cricket */
 .bw-seg-team { width: 395px; flex: none; background: var(--bw-panel-hi); }
 .bw-seg-bat { flex: 1; min-width: 0; }
-.bw-seg-bowl { width: 660px; flex: none; flex-direction: column; align-items: stretch; justify-content: center; gap: 12px; padding-left: 36px; padding-right: 20px; }
-.bw-seg-result { width: 310px; flex: none; justify-content: center; background: linear-gradient(180deg, var(--bw-navy-800), var(--bw-navy-950)); }
+.bw-seg-bowl { width: 640px; flex: none; flex-direction: column; align-items: stretch; justify-content: center; gap: 12px; padding-left: 36px; padding-right: 20px; }
+.bw-seg-result { width: 340px; flex: none; justify-content: center; background: linear-gradient(180deg, var(--bw-navy-800), var(--bw-navy-950)); padding-left: 32px; padding-right: 20px; }
 .bw-seg-result::after { content: ""; position: absolute; inset: 0 0 auto 30px; height: 3px; background: var(--bw-gold); }
 
 .bw-teamscore { display: flex; align-items: center; gap: 16px; }
@@ -348,11 +347,24 @@
 .bw-ball[data-latest="true"][data-kind="wicket"] { box-shadow: var(--bw-glow-live); }
 @keyframes bw-pop { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
 
-.bw-result { width: 100%; }
-.bw-result-inner { display: flex; flex-direction: column; align-items: center; text-align: center; line-height: 1.1; animation: bw-fade-up var(--bw-dur) var(--bw-ease) both; }
-.bw-result-kicker { font-size: 18px; letter-spacing: 0.14em; color: var(--bw-gold); font-weight: 600; }
-.bw-result-inner strong { font-size: 38px; font-weight: 800; color: var(--bw-gold); white-space: nowrap; }
-.bw-result-inner small { font-size: 20px; color: var(--bw-ink-dim); text-transform: none; margin-top: 2px; }
+.bw-result { width: 100%; min-width: 0; overflow: hidden; }
+.bw-result-inner {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; line-height: 1.1;
+  animation: bw-fade-up var(--bw-dur) var(--bw-ease) both;
+  width: 100%; min-width: 0;
+}
+.bw-result-kicker { font-size: 16px; letter-spacing: 0.14em; color: var(--bw-gold); font-weight: 700; text-transform: uppercase; white-space: nowrap; }
+.bw-result-inner strong {
+  font-size: 26px; font-weight: 800; color: var(--bw-gold);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%; display: block;
+}
+.bw-result-inner small {
+  font-size: 17px; color: var(--bw-ink-dim); text-transform: none; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%; display: block;
+}
 
 /* auction & other scenes */
 .bw-seg-player { width: 560px; flex: none; background: var(--bw-panel-hi); }
