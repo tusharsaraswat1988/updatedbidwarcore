@@ -323,16 +323,22 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
     );
   }, [obsUrl, toast]);
 
-  const overlayOptions: { id: CricketObsMidOverlayKind; label: string; desc: string; icon: string }[] = [
-    { id: "none", label: "Camera Feed Only", desc: "No mid overlay. Camera feed 100% visible.", icon: "🎥" },
-    { id: "neutral", label: "Neutral Screen", desc: "Tournament & Sponsor plate between matches / intervals", icon: "⏸️" },
-    { id: "banner", label: "Tournament Banner", desc: "Full-screen branding banner on LED scoreboard", icon: "🖼️" },
-    { id: "sponsors", label: "Sponsor Showcase", desc: "All sponsors or single sponsor spotlight", icon: "★" },
-    { id: "standings", label: "Points Table", desc: "Overall, group-wise, or stage rankings", icon: "📊" },
-    { id: "fixtures", label: "Upcoming Matches", desc: "Next Fixtures & Schedule", icon: "📅" },
-    { id: "scorecard", label: "Full Scorecard", desc: "Bowling Card & Fall of Wickets", icon: "📋" },
-    { id: "summary", label: "Match Summary", desc: "Post-Match Summary & Top Performers", icon: "🏆" },
-    { id: "intro", label: "Match Intro / VS", desc: "Team Badges & Match Details", icon: "⚔️" },
+  const overlayOptions: { 
+    id: CricketObsMidOverlayKind; 
+    label: string; 
+    desc: string; 
+    activatesOn: string;
+    icon: string; 
+  }[] = [
+    { id: "none", label: "Camera Feed Only", desc: "No mid overlay. Camera feed 100% visible with lower bug.", activatesOn: "OBS Live Stream + Bug", icon: "🎥" },
+    { id: "neutral", label: "Neutral Screen", desc: "Tournament & Sponsor plate between matches / intervals", activatesOn: "LED & OBS Displays", icon: "⏸️" },
+    { id: "banner", label: "Tournament Banner", desc: "Full-screen branding banner on LED scoreboard", activatesOn: "LED Scoreboard ONLY", icon: "🖼️" },
+    { id: "sponsors", label: "Sponsor Showcase", desc: "All sponsors or single sponsor spotlight", activatesOn: "LED & OBS Displays", icon: "★" },
+    { id: "standings", label: "Points Table", desc: "Overall, group-wise, or stage rankings", activatesOn: "LED & OBS Displays", icon: "📊" },
+    { id: "fixtures", label: "Upcoming Matches", desc: "Next Fixtures & Schedule", activatesOn: "LED & OBS Displays", icon: "📅" },
+    { id: "scorecard", label: "Full Scorecard", desc: "Bowling Card & Fall of Wickets", activatesOn: "LED & OBS Displays", icon: "📋" },
+    { id: "summary", label: "Match Summary", desc: "Post-Match Summary & Top Performers", activatesOn: "LED & OBS Displays", icon: "🏆" },
+    { id: "intro", label: "Match Intro / VS", desc: "Team Badges & Match Details", activatesOn: "LED & OBS Displays", icon: "⚔️" },
   ];
 
   const animationOptions: { flash: CricketObsFlashKind; label: string; color: string }[] = [
@@ -424,52 +430,68 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
                 key={item.id}
                 type="button"
                 onClick={() => handleOverlayButtonClick(item)}
-                className={`relative flex flex-col items-start p-3.5 rounded-xl border-2 text-left transition-all duration-150 active:scale-[0.98] shadow-sm ${
+                className={`relative flex flex-col justify-between p-3.5 rounded-xl border-2 text-left transition-all duration-150 active:scale-[0.98] shadow-sm min-h-[105px] ${
                   isActive
                     ? "border-emerald-400 bg-gradient-to-b from-emerald-600 via-emerald-700 to-emerald-800 text-white shadow-emerald-500/20 shadow-md ring-2 ring-emerald-400/40"
                     : "border-border bg-card hover:bg-muted/70 text-foreground hover:border-primary/40"
                 }`}
               >
-                <div className="flex items-center justify-between w-full">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black shadow-inner ${
-                    isActive ? "bg-white/20 text-white border border-white/30" : "bg-muted text-foreground border border-border"
-                  }`}>
-                    {item.icon}
-                  </div>
-                  {isActive ? (
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-black uppercase tracking-wider bg-white/25 px-2 py-0.5 rounded-md text-white flex items-center gap-1 border border-white/30">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-200" />
-                        {overlayMatchId ? `#${overlayMatchId}` : overlaySponsorName ? "SPONSOR" : overlayStageOrGroup ? "GROUP" : "ACTIVE"}
-                      </span>
-                      {item.id !== "none" && (
-                        <span
-                          role="button"
-                          tabIndex={0}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleSetOverlay("none", "Camera Feed Only");
-                          }}
-                          className="h-5 w-5 rounded-full bg-red-600 hover:bg-red-500 text-white font-black flex items-center justify-center text-[11px] shadow-md transition-all hover:scale-110 active:scale-95 cursor-pointer ring-1 ring-white/40"
-                          title="Close & return to Camera View"
-                          aria-label="Close & return to Camera View"
-                        >
-                          ✕
-                        </span>
-                      )}
+                <div className="w-full">
+                  <div className="flex items-center justify-between w-full">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black shadow-inner ${
+                      isActive ? "bg-white/20 text-white border border-white/30" : "bg-muted text-foreground border border-border"
+                    }`}>
+                      {item.icon}
                     </div>
-                  ) : isMatchSpecific ? (
-                    <span className="text-[9px] font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border uppercase">▾ Match</span>
-                  ) : item.id === "sponsors" ? (
-                    <span className="text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-800 uppercase">▾ Choose</span>
-                  ) : item.id === "standings" ? (
-                    <span className="text-[9px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-300 dark:border-blue-800 uppercase">▾ Choose</span>
-                  ) : null}
+                    {isActive ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-white/25 px-2 py-0.5 rounded-md text-white flex items-center gap-1 border border-white/30">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-200" />
+                          {overlayMatchId ? `#${overlayMatchId}` : overlaySponsorName ? "SPONSOR" : overlayStageOrGroup ? "GROUP" : "ACTIVE"}
+                        </span>
+                        {item.id !== "none" && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleSetOverlay("none", "Camera Feed Only");
+                            }}
+                            className="h-5 w-5 rounded-full bg-red-600 hover:bg-red-500 text-white font-black flex items-center justify-center text-[11px] shadow-md transition-all hover:scale-110 active:scale-95 cursor-pointer ring-1 ring-white/40"
+                            title="Close & return to Camera View"
+                            aria-label="Close & return to Camera View"
+                          >
+                            ✕
+                          </span>
+                        )}
+                      </div>
+                    ) : isMatchSpecific ? (
+                      <span className="text-[9px] font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border uppercase">▾ Match</span>
+                    ) : item.id === "sponsors" ? (
+                      <span className="text-[9px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-300 dark:border-amber-800 uppercase">▾ Choose</span>
+                    ) : item.id === "standings" ? (
+                      <span className="text-[9px] font-bold text-blue-600 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-300 dark:border-blue-800 uppercase">▾ Choose</span>
+                    ) : null}
+                  </div>
+                  <span className={`text-xs font-bold mt-2 line-clamp-1 block ${isActive ? "text-white" : "text-foreground"}`}>{item.label}</span>
+                  <span className={`text-[10px] line-clamp-2 mt-0.5 leading-snug block ${isActive ? "text-emerald-100" : "text-muted-foreground"}`}>
+                    {item.desc}
+                  </span>
                 </div>
-                <span className={`text-xs font-bold mt-2 line-clamp-1 ${isActive ? "text-white" : "text-foreground"}`}>{item.label}</span>
-                <span className={`text-[10px] line-clamp-2 mt-0.5 leading-snug ${isActive ? "text-emerald-100" : "text-muted-foreground"}`}>
-                  {item.desc}
-                </span>
+
+                {/* Micro-badge for Displays / Activation */}
+                <div className={`w-full mt-2 pt-1.5 border-t flex items-center justify-between text-[9.5px] ${
+                  isActive ? "border-white/20 text-emerald-100" : "border-border/60 text-muted-foreground"
+                }`}>
+                  <span className="flex items-center gap-1 truncate font-medium">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      item.id === "banner" ? "bg-purple-400" : item.id === "none" ? "bg-blue-400" : "bg-emerald-400"
+                    }`} />
+                    <span className={isActive ? "text-white font-semibold" : "text-foreground/80 font-medium"}>
+                      {item.activatesOn}
+                    </span>
+                  </span>
+                </div>
               </button>
             );
           })}

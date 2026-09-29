@@ -84,16 +84,91 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const OVERLAY_OPTIONS: { id: CricketObsMidOverlayKind; label: string; desc: string; icon: string; tag: string; defaultDurationSec?: number }[] = [
-  { id: "none", label: "Camera Feed Only", desc: "Transparent feed with lower scorebug", icon: "🎥", tag: "LIVE STREAM" },
-  { id: "neutral", label: "Neutral Screen", desc: "Tournament & Sponsor plate between matches / intervals", icon: "⏸️", tag: "INTERVAL" },
-  { id: "banner", label: "Tournament Banner", desc: "Full-screen branding banner on LED scoreboard", icon: "🖼️", tag: "BANNER" },
-  { id: "sponsors", label: "Sponsor Showcase", desc: "All sponsors (auto-rotation) or single spotlight", icon: "★", tag: "COMMERCIAL" },
-  { id: "standings", label: "Points Table", desc: "Overall, group-wise, or stage rankings", icon: "📊", tag: "STANDINGS" },
-  { id: "fixtures", label: "Upcoming Matches", desc: "Next fixtures & tournament schedule", icon: "📅", tag: "SCHEDULE", defaultDurationSec: 10 },
-  { id: "scorecard", label: "Full Scorecard", desc: "Detailed innings & bowling figures", icon: "📋", tag: "SCORECARD", defaultDurationSec: 15 },
-  { id: "summary", label: "Match Summary", desc: "Post-match result & top performers", icon: "🏆", tag: "RESULT", defaultDurationSec: 15 },
-  { id: "intro", label: "Match Intro / VS", desc: "3D team badges & pre-match build-up", icon: "⚔️", tag: "PRE-MATCH", defaultDurationSec: 10 },
+const OVERLAY_OPTIONS: { 
+  id: CricketObsMidOverlayKind; 
+  label: string; 
+  desc: string; 
+  activatesOn: string;
+  icon: string; 
+  tag: string; 
+  defaultDurationSec?: number; 
+}[] = [
+  { 
+    id: "none", 
+    label: "Camera Feed Only", 
+    desc: "Live stream camera feed with lower transparent scorebug", 
+    activatesOn: "OBS Live Stream + Scorebug",
+    icon: "🎥", 
+    tag: "LIVE STREAM" 
+  },
+  { 
+    id: "neutral", 
+    label: "Neutral Screen", 
+    desc: "Standby graphic plate between matches and innings", 
+    activatesOn: "LED Scoreboard & OBS",
+    icon: "⏸️", 
+    tag: "INTERVAL" 
+  },
+  { 
+    id: "banner", 
+    label: "Tournament Banner", 
+    desc: "100% full-screen zero-margin branding banner", 
+    activatesOn: "LED Scoreboard ONLY",
+    icon: "🖼️", 
+    tag: "BANNER" 
+  },
+  { 
+    id: "sponsors", 
+    label: "Sponsor Showcase", 
+    desc: "Sponsor brand ads (auto-loop all or single spotlight)", 
+    activatesOn: "LED Scoreboard & OBS",
+    icon: "★", 
+    tag: "COMMERCIAL" 
+  },
+  { 
+    id: "standings", 
+    label: "Points Table", 
+    desc: "Points table, stage rankings & group standings board", 
+    activatesOn: "LED Scoreboard & OBS",
+    icon: "📊", 
+    tag: "STANDINGS" 
+  },
+  { 
+    id: "fixtures", 
+    label: "Upcoming Matches", 
+    desc: "Upcoming match schedule & next fixtures card", 
+    activatesOn: "LED Scoreboard & OBS",
+    icon: "📅", 
+    tag: "SCHEDULE", 
+    defaultDurationSec: 10 
+  },
+  { 
+    id: "scorecard", 
+    label: "Full Scorecard", 
+    desc: "Complete innings batting, bowling & fall of wickets card", 
+    activatesOn: "LED Scoreboard & OBS",
+    icon: "📋", 
+    tag: "SCORECARD", 
+    defaultDurationSec: 15 
+  },
+  { 
+    id: "summary", 
+    label: "Match Summary", 
+    desc: "Post-match result summary & top performers spotlight", 
+    activatesOn: "LED Scoreboard & OBS",
+    icon: "🏆", 
+    tag: "RESULT", 
+    defaultDurationSec: 15 
+  },
+  { 
+    id: "intro", 
+    label: "Match Intro / VS", 
+    desc: "Pre-match 3D team badges build-up & match details card", 
+    activatesOn: "LED Scoreboard & OBS",
+    icon: "⚔️", 
+    tag: "PRE-MATCH", 
+    defaultDurationSec: 10 
+  },
 ];
 
 const ANIMATION_OPTIONS: { flash: CricketObsFlashKind; label: string; color: string; desc: string }[] = [
@@ -1075,54 +1150,85 @@ export default function CricketLiveControlPage() {
                     type="button"
                     onClick={() => handleOverlayButtonClick(item)}
                     className={cn(
-                      "group flex flex-col items-start p-3 rounded-xl border-2 text-left transition-all duration-150 relative cursor-pointer select-none min-h-[82px] shadow-sm",
+                      "group flex flex-col justify-between p-3 rounded-xl border-2 text-left transition-all duration-150 relative cursor-pointer select-none min-h-[105px] shadow-sm",
                       isActive
                         ? "border-emerald-400 bg-gradient-to-b from-emerald-600 via-emerald-700 to-emerald-800 text-white shadow-[0_0_20px_rgba(16,185,129,0.35)] ring-2 ring-emerald-400/30 font-bold scale-[1.01]"
                         : "border-slate-700/80 bg-gradient-to-b from-slate-800 to-slate-900/95 hover:from-slate-750 hover:to-slate-850 hover:border-amber-400/70 text-slate-100 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98]"
                     )}
                   >
-                    <div className="flex items-center justify-between w-full mb-1.5">
-                      <div className="h-7 w-7 rounded-lg bg-black/30 border border-white/10 flex items-center justify-center text-sm shrink-0 shadow-inner">
-                        {item.icon}
-                      </div>
-                      {isActive ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-white text-emerald-900 px-2 py-0.5 rounded-full shadow-sm">
-                            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-700" />
-                            LIVE{overlayMatchId ? ` (#${overlayMatchId})` : ""}
-                            {autoCloseSecondsRemaining != null && item.id !== "none" && item.id !== "neutral" && (
-                              <span className="ml-1 text-emerald-800 font-bold">({autoCloseSecondsRemaining}s)</span>
-                            )}
-                          </span>
-                          {item.id !== "none" && (
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleSetOverlay("none", "Camera Only");
-                              }}
-                              className="h-6 w-6 rounded-full bg-red-600 hover:bg-red-500 text-white font-black flex items-center justify-center text-xs shadow-md transition-all hover:scale-110 active:scale-95 cursor-pointer ring-1 ring-white/50"
-                              title="Close & return to Camera View"
-                              aria-label="Close & return to Camera View"
-                            >
-                              ✕
-                            </span>
-                          )}
+                    <div className="w-full">
+                      <div className="flex items-center justify-between w-full mb-1.5">
+                        <div className="h-7 w-7 rounded-lg bg-black/30 border border-white/10 flex items-center justify-center text-sm shrink-0 shadow-inner">
+                          {item.icon}
                         </div>
-                      ) : (
-                        <span className="text-[9px] font-bold text-slate-400 uppercase group-hover:text-amber-300 flex items-center gap-0.5 bg-slate-950/60 px-1.5 py-0.5 rounded border border-slate-700/50">
-                          {item.tag}
-                          {isSpecialSelector && <span className="text-[9px]">▾</span>}
-                        </span>
-                      )}
+                        {isActive ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider bg-white text-emerald-900 px-2 py-0.5 rounded-full shadow-sm">
+                              <CheckCircle2 className="w-2.5 h-2.5 text-emerald-700" />
+                              LIVE{overlayMatchId ? ` (#${overlayMatchId})` : ""}
+                              {autoCloseSecondsRemaining != null && item.id !== "none" && item.id !== "neutral" && (
+                                <span className="ml-1 text-emerald-800 font-bold">({autoCloseSecondsRemaining}s)</span>
+                              )}
+                            </span>
+                            {item.id !== "none" && (
+                              <span
+                                role="button"
+                                tabIndex={0}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleSetOverlay("none", "Camera Only");
+                                }}
+                                className="h-6 w-6 rounded-full bg-red-600 hover:bg-red-500 text-white font-black flex items-center justify-center text-xs shadow-md transition-all hover:scale-110 active:scale-95 cursor-pointer ring-1 ring-white/50"
+                                title="Close & return to Camera View"
+                                aria-label="Close & return to Camera View"
+                              >
+                                ✕
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-[9px] font-bold text-slate-400 uppercase group-hover:text-amber-300 flex items-center gap-0.5 bg-slate-950/60 px-1.5 py-0.5 rounded border border-slate-700/50">
+                            {item.tag}
+                            {isSpecialSelector && <span className="text-[9px]">▾</span>}
+                          </span>
+                        )}
+                      </div>
+                      <span className={cn("text-xs font-bold leading-tight line-clamp-1", isActive ? "text-white" : "text-slate-100 group-hover:text-amber-300")}>
+                        {item.label}
+                      </span>
+                      <span className={cn("text-[10px] font-normal line-clamp-2 mt-0.5 leading-snug", isActive ? "text-emerald-100" : "text-slate-400")}>
+                        {item.desc}
+                      </span>
                     </div>
-                    <span className={cn("text-xs font-bold leading-tight line-clamp-1", isActive ? "text-white" : "text-slate-100 group-hover:text-amber-300")}>
-                      {item.label}
-                    </span>
-                    <span className={cn("text-[10px] font-normal line-clamp-2 mt-0.5 leading-snug", isActive ? "text-emerald-100" : "text-slate-400")}>
-                      {item.desc}
-                    </span>
+
+                    {/* Displays / Activates Micro-Badge */}
+                    <div className={cn(
+                      "w-full mt-2 pt-1.5 border-t flex items-center justify-between text-[9.5px]",
+                      isActive ? "border-white/20 text-emerald-100" : "border-white/[0.07] text-slate-400"
+                    )}>
+                      <span className="flex items-center gap-1 truncate">
+                        <span className={cn(
+                          "w-1.5 h-1.5 rounded-full shrink-0",
+                          item.id === "banner"
+                            ? "bg-purple-400 ring-2 ring-purple-400/30"
+                            : item.id === "none"
+                            ? "bg-blue-400"
+                            : "bg-emerald-400"
+                        )} />
+                        <span className={cn("truncate font-semibold", isActive ? "text-white" : item.id === "banner" ? "text-purple-300" : "text-slate-300")}>
+                          {item.activatesOn}
+                        </span>
+                      </span>
+                      {item.defaultDurationSec ? (
+                        <span className={cn("text-[9px] px-1 py-0.2 rounded font-mono shrink-0 font-bold ml-1", isActive ? "bg-black/30 text-white" : "bg-black/50 text-amber-300/90")}>
+                          ⏱ {item.defaultDurationSec}s
+                        </span>
+                      ) : item.id === "sponsors" || item.id === "standings" ? (
+                        <span className={cn("text-[9px] px-1 py-0.2 rounded font-mono shrink-0 ml-1", isActive ? "bg-black/30 text-white" : "bg-black/50 text-blue-300/90")}>
+                          🔄 Loop
+                        </span>
+                      ) : null}
+                    </div>
                   </button>
                 );
               })}
