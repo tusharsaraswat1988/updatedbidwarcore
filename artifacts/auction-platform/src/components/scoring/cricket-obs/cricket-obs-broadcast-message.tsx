@@ -80,13 +80,13 @@ export function CricketObsBroadcastMessage({
             <div
               className="flex flex-col justify-center"
               style={{
-                padding: "12px 28px 14px 22px",
+                padding: "14px 28px 16px 22px",
                 minWidth: "320px",
                 maxWidth: "640px",
               }}
             >
               {/* Kicker bar with official BidWar logo + Tournament Name in WHITE */}
-              <div className="flex items-center gap-2.5 mb-1.5">
+              <div className="flex items-center gap-2.5 mb-3">
                 <img
                   src="/assets/branding/bidwar-reverse-logo-official.png"
                   alt="BidWar"
