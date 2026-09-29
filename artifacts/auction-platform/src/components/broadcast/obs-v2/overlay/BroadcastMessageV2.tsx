@@ -33,11 +33,17 @@ export interface BroadcastMessageV2Props {
     name: string;
     details?: string;
   } | null;
-  /** Position — defaults to left-aligned above scorebug */
+  /** Position — defaults to right-aligned above scorebug */
   alignRight?: boolean;
+  /** Tournament name to display in the kicker bar (in clean white) */
+  tournamentName?: string;
 }
 
-export function BroadcastMessageV2({ message, alignRight = true }: BroadcastMessageV2Props) {
+export function BroadcastMessageV2({
+  message,
+  alignRight = true,
+  tournamentName,
+}: BroadcastMessageV2Props) {
   const isVisible = Boolean(message?.active && message?.name);
 
   // Position: Anchored directly above scorebug on the right, occupying exact associate sponsor territory
@@ -48,7 +54,8 @@ export function BroadcastMessageV2({ message, alignRight = true }: BroadcastMess
       className="pointer-events-none absolute z-[35] flex flex-col justify-end"
       style={{
         bottom: `${bottomPosition}px`,
-        right: "72px",
+        right: alignRight ? "72px" : undefined,
+        left: alignRight ? undefined : "72px",
         maxWidth: "680px",
       }}
     >
@@ -56,12 +63,12 @@ export function BroadcastMessageV2({ message, alignRight = true }: BroadcastMess
         {isVisible && message ? (
           <motion.div
             key={`bw-msg-${message.name}`}
-            initial={{ opacity: 0, x: 60 }}
+            initial={{ opacity: 0, x: alignRight ? 320 : -320 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 60 }}
+            exit={{ opacity: 0, x: alignRight ? 320 : -320 }}
             transition={{
-              duration: 0.22,
-              ease: OBS_V2.motion.easing.snappy,
+              duration: 0.45,
+              ease: [0.16, 1, 0.3, 1],
             }}
             className="relative flex items-stretch select-none"
             style={{
@@ -92,7 +99,7 @@ export function BroadcastMessageV2({ message, alignRight = true }: BroadcastMess
                 maxWidth: "640px",
               }}
             >
-              {/* Kicker bar with official BidWar logo */}
+              {/* Kicker bar with official BidWar logo + Tournament Name in WHITE */}
               <div className="flex items-center gap-2.5 mb-1.5">
                 <img
                   src="/assets/branding/bidwar-reverse-logo-official.png"
@@ -109,14 +116,14 @@ export function BroadcastMessageV2({ message, alignRight = true }: BroadcastMess
                   style={{
                     fontSize: "12px",
                     fontFamily: OBS_V2.typography.family.body,
-                    letterSpacing: "0.22em",
-                    color: OBS_V2.color.brand,
+                    letterSpacing: "0.20em",
+                    color: "#FFFFFF",
                     fontWeight: 800,
                     textTransform: "uppercase",
                     lineHeight: 1,
                   }}
                 >
-                  OFFICIAL BROADCAST
+                  {tournamentName || "BIDWAR PREMIER LEAGUE"}
                 </span>
               </div>
 
@@ -139,15 +146,15 @@ export function BroadcastMessageV2({ message, alignRight = true }: BroadcastMess
                 {message.name}
               </div>
 
-              {/* Secondary Details Line */}
+              {/* Secondary Details Line in YELLOW */}
               {message.details && (
                 <div
                   style={{
-                    fontSize: "16px",
+                    fontSize: "15px",
                     fontFamily: OBS_V2.typography.family.body,
-                    color: "rgba(248, 250, 252, 0.82)",
-                    fontWeight: 600,
-                    letterSpacing: "0.04em",
+                    color: OBS_V2.color.brand,
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
                     textTransform: "uppercase",
                     marginTop: 4,
                     lineHeight: 1.3,
@@ -155,6 +162,7 @@ export function BroadcastMessageV2({ message, alignRight = true }: BroadcastMess
                     display: "-webkit-box",
                     WebkitLineClamp: 2,
                     WebkitBoxOrient: "vertical",
+                    textShadow: "0 1px 4px rgba(0, 0, 0, 0.9)",
                   }}
                 >
                   {message.details}

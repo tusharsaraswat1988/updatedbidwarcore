@@ -404,6 +404,12 @@ export default function CricketObsV2Page() {
       {/* 3. Broadcast Message Chyron (z-35) — above scorebug, right-entry */}
       <BroadcastMessageV2
         message={effectiveBroadcastMessage}
+        tournamentName={
+          vm?.tournamentName ||
+          (activeFrame.branding?.tournamentAccent
+            ? `${activeFrame.branding.tournamentName} ${activeFrame.branding.tournamentAccent}`
+            : activeFrame.branding?.tournamentName || "BIDWAR PREMIER LEAGUE")
+        }
       />
 
       {/* 4. Neutral Footer (z-22, replaces scorebug when neutral is active) */}

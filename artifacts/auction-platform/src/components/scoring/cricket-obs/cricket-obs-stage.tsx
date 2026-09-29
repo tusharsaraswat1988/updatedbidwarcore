@@ -95,7 +95,8 @@ export function CricketObsStage({
       {/* 6. BROADCAST MESSAGE LOWER-THIRD CARD (VIP Guests / Officials / Sponsors) */}
       <CricketObsBroadcastMessage
         broadcastMessage={vm.broadcastMessage}
-        alignRight={isNeutral}
+        tournamentName={vm.tournamentName}
+        alignRight={true}
       />
 
       {/* 4. REAL-TIME EVENT ANIMATIONS (Come and go) */}
