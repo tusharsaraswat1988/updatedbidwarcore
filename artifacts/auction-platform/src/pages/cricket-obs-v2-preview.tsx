@@ -467,6 +467,23 @@ export default function CricketObsV2Page() {
           tournamentLogoUrl={activeFrame.branding?.tournamentLogoUrl}
           sponsors={neutralSponsors}
           isActive={isNeutralActive}
+          statusText={
+            vm?.resultHeadline ||
+            vm?.resultText ||
+            vm?.firstInningsScoreLine ||
+            (vm?.phase === "innings_break" ? `INNINGS BREAK · TARGET ${vm.target ?? (vm.runs + 1)}` : null) ||
+            (vm?.phase === "pre_match" ? (vm?.tossText || "MATCH STARTING SOON") : null) ||
+            "MATCH INTERVAL"
+          }
+          statusChip={
+            vm?.phase === "innings_break"
+              ? "INNINGS BREAK"
+              : vm?.phase === "completed"
+              ? "FINAL"
+              : vm?.phase === "pre_match"
+              ? "STANDBY"
+              : "INTERVAL"
+          }
         />
       </div>
 

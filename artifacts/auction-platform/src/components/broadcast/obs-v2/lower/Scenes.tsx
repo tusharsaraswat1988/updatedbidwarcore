@@ -27,15 +27,34 @@ export function WaitingScene({ model }: { model: WaitingSceneModel }) {
   );
 }
 
+function getHeadlinePlayerFontSize(name: string): string {
+  const len = (name || "").trim().length;
+  if (len <= 14) return "44px";
+  if (len <= 18) return "36px";
+  if (len <= 22) return "30px";
+  if (len <= 26) return "25px";
+  return "21px";
+}
+
 export function AuctionScene({ model }: { model: AuctionSceneModel }) {
   const { player } = model;
   return (
     <div className="bw-lt-row">
       <div className="bw-seg bw-seg-player">
         <Avatar name={player.name} photoUrl={player.photoUrl} />
-        <div className="bw-stack">
+        <div className="bw-stack" style={{ minWidth: 0, flex: 1 }}>
           <span className="bw-kicker">{player.category ?? "ON THE BLOCK"}</span>
-          <strong className="bw-headline">{player.name}</strong>
+          <strong
+            className="bw-headline"
+            style={{
+              fontSize: getHeadlinePlayerFontSize(player.name),
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+            }}
+            title={player.name}
+          >
+            {player.name}
+          </strong>
           <small className="bw-sub">{player.role}</small>
         </div>
       </div>
@@ -78,9 +97,19 @@ export function SoldScene({ model }: { model: SoldSceneModel }) {
     <div className="bw-lt-row">
       <div className="bw-seg bw-seg-player">
         <Avatar name={model.player.name} photoUrl={model.player.photoUrl} />
-        <div className="bw-stack">
+        <div className="bw-stack" style={{ minWidth: 0, flex: 1 }}>
           <span className="bw-kicker">{model.player.role}</span>
-          <strong className="bw-headline">{model.player.name}</strong>
+          <strong
+            className="bw-headline"
+            style={{
+              fontSize: getHeadlinePlayerFontSize(model.player.name),
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+            }}
+            title={model.player.name}
+          >
+            {model.player.name}
+          </strong>
         </div>
       </div>
       <div className="bw-seg bw-seg-grow bw-center">
@@ -105,9 +134,19 @@ export function UnsoldScene({ model }: { model: UnsoldSceneModel }) {
     <div className="bw-lt-row" data-muted>
       <div className="bw-seg bw-seg-player">
         <Avatar name={model.player.name} photoUrl={model.player.photoUrl} />
-        <div className="bw-stack">
+        <div className="bw-stack" style={{ minWidth: 0, flex: 1 }}>
           <span className="bw-kicker">{model.player.role}</span>
-          <strong className="bw-headline">{model.player.name}</strong>
+          <strong
+            className="bw-headline"
+            style={{
+              fontSize: getHeadlinePlayerFontSize(model.player.name),
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+            }}
+            title={model.player.name}
+          >
+            {model.player.name}
+          </strong>
         </div>
       </div>
       <div className="bw-seg bw-seg-grow bw-center">

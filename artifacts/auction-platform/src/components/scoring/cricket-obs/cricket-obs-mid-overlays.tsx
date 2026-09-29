@@ -800,115 +800,225 @@ export function CricketObsMidOverlays({
             )}
 
             {/* 5. MATCH SUMMARY */}
-            {overlay === "summary" && (
-              <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full">
-                <div className="text-center mb-4">
-                  <div className="flex items-center justify-center gap-2 mb-1">
-                    <span
-                      className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
-                      style={{ fontFamily: BROADCAST_FONTS.body }}
+            {overlay === "summary" && (() => {
+              const winnerTeamId = (activeMatch as any)?.winnerTeamId ?? vm.winner?.id ?? null;
+              const rawResult =
+                (activeMatch as any)?.resultSummary ||
+                vm.resultHeadline ||
+                vm.resultText ||
+                "MATCH IN PROGRESS";
+
+              const isHomeWinner = Boolean(
+                (winnerTeamId != null && targetHomeTeam?.id === winnerTeamId) ||
+                (targetHomeTeam?.name && rawResult.toLowerCase().includes(targetHomeTeam.name.toLowerCase()))
+              );
+              const isAwayWinner = Boolean(
+                (winnerTeamId != null && targetAwayTeam?.id === winnerTeamId) ||
+                (targetAwayTeam?.name && rawResult.toLowerCase().includes(targetAwayTeam.name.toLowerCase()))
+              );
+              const winnerTeam = isHomeWinner ? targetHomeTeam : isAwayWinner ? targetAwayTeam : null;
+
+              let formattedResult = rawResult;
+              if (winnerTeam && rawResult.toLowerCase().startsWith("won by")) {
+                formattedResult = `${winnerTeam.name.toUpperCase()} ${rawResult.toUpperCase()}`;
+              }
+
+              const groupOrRoundText =
+                (activeMatch as any)?.groupName ||
+                overlayStageOrGroup ||
+                activeMatch?.roundName ||
+                "";
+
+              const getInitials = (name?: string | null) => {
+                if (!name) return "P";
+                const parts = name.trim().split(/\s+/);
+                if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+                return name.slice(0, 2).toUpperCase();
+              };
+
+              return (
+                <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full">
+                  <div className="text-center mb-4">
+                    <div className="flex items-center justify-center gap-2 mb-1 flex-wrap">
+                      <span
+                        className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
+                        style={{ fontFamily: BROADCAST_FONTS.body }}
+                      >
+                        {activeMatch ? `MATCH #${activeMatch.id}${groupOrRoundText ? ` · ${groupOrRoundText.toUpperCase()}` : ""}` : "OFFICIAL MATCH RESULT"}
+                      </span>
+                      {activeMatch?.status && (
+                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                          activeMatch.status === "live"
+                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                            : activeMatch.status === "walkover"
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                            : activeMatch.status === "completed"
+                            ? "bg-purple-500/20 text-purple-300 border border-purple-500/40"
+                            : "bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                        }`}>
+                          {activeMatch.status.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <h2
+                      className="text-5xl font-normal tracking-wide text-white uppercase mt-1 leading-none"
+                      style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
                     >
-                      {activeMatch ? `MATCH #${activeMatch.id}${activeMatch.roundName ? ` · ${activeMatch.roundName.toUpperCase()}` : ""}` : "OFFICIAL MATCH RESULT"}
-                    </span>
-                    {activeMatch?.status && (
-                      <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                        activeMatch.status === "live"
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                          : activeMatch.status === "walkover"
-                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                          : activeMatch.status === "completed"
-                          ? "bg-purple-500/20 text-purple-300 border border-purple-500/40"
-                          : "bg-blue-500/20 text-blue-300 border border-blue-500/40"
-                      }`}>
-                        {activeMatch.status.toUpperCase()}
-                      </span>
-                    )}
+                      MATCH RESULT &amp; HIGHLIGHTS
+                    </h2>
                   </div>
-                  <h2
-                    className="text-5xl font-normal tracking-wide text-white uppercase mt-1 leading-none"
-                    style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
-                  >
-                    MATCH SUMMARY
-                  </h2>
-                </div>
 
-                {/* 2 Inning Cards */}
-                <div className="grid grid-cols-2 gap-6 my-auto">
-                  {/* Home Team */}
+                  {/* 2 Inning Cards */}
+                  <div className="grid grid-cols-2 gap-6 my-auto">
+                    {/* Home Team */}
+                    <div
+                      className="p-6 relative overflow-hidden transition-all"
+                      style={{
+                        background: isHomeWinner
+                          ? "linear-gradient(180deg, rgba(255, 215, 0, 0.14) 0%, rgba(14, 16, 24, 0.95) 100%)"
+                          : BIDWAR_SCOREBOARD_PANEL,
+                        border: isHomeWinner ? "2px solid #FFD700" : "1px solid rgba(255, 255, 255, 0.15)",
+                        boxShadow: isHomeWinner ? "0 0 25px rgba(255, 215, 0, 0.3)" : "none",
+                      }}
+                    >
+                      {isHomeWinner && (
+                        <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-yellow-400 text-black text-[11px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-wider shadow z-10 animate-pulse">
+                          👑 WINNER
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4 gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 p-1 flex items-center justify-center shrink-0">
+                            {targetHomeTeam?.logoUrl ? (
+                              <img src={targetHomeTeam.logoUrl} alt="" className="max-h-full max-w-full object-contain" />
+                            ) : (
+                              <span className="text-sm font-black text-[#FFD700]">{targetHomeTeam?.shortCode || "H"}</span>
+                            )}
+                          </div>
+                          <span
+                            className="text-2xl font-normal text-white uppercase truncate"
+                            style={{ fontFamily: BROADCAST_FONTS.display }}
+                          >
+                            {targetHomeTeam?.name || "TEAM 1"}
+                          </span>
+                        </div>
+                        <span
+                          className="text-4xl font-normal text-[#FFD700] shrink-0"
+                          style={{ fontFamily: BROADCAST_FONTS.display }}
+                        >
+                          {vm.phase === "completed" || vm.phase === "chase" ? `${vm.runs}-${vm.wickets}` : "—"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-white/50 font-bold uppercase mb-2">TOP BATTERS</p>
+                      <div className="space-y-2 text-xs">
+                        {vm.striker && (
+                          <div className="flex items-center justify-between font-bold gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-md bg-white/10 border border-amber-400/40 overflow-hidden shrink-0 flex items-center justify-center">
+                                {vm.striker.photoUrl ? (
+                                  <img src={vm.striker.photoUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-[9px] font-black text-[#FFD700]">{getInitials(vm.striker.name)}</span>
+                                )}
+                              </div>
+                              <span className="text-white truncate">{vm.striker.name}</span>
+                            </div>
+                            <span className="text-[#FFD700] font-mono shrink-0">{vm.striker.runs || 0} ({vm.striker.balls || 0}b)</span>
+                          </div>
+                        )}
+                        {vm.nonStriker && (
+                          <div className="flex items-center justify-between font-bold gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-md bg-white/10 border border-white/20 overflow-hidden shrink-0 flex items-center justify-center">
+                                {vm.nonStriker.photoUrl ? (
+                                  <img src={vm.nonStriker.photoUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-[9px] font-black text-white/80">{getInitials(vm.nonStriker.name)}</span>
+                                )}
+                              </div>
+                              <span className="text-white truncate">{vm.nonStriker.name}</span>
+                            </div>
+                            <span className="text-white/70 font-mono shrink-0">{vm.nonStriker.runs || 0} ({vm.nonStriker.balls || 0}b)</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Away Team */}
+                    <div
+                      className="p-6 relative overflow-hidden transition-all"
+                      style={{
+                        background: isAwayWinner
+                          ? "linear-gradient(180deg, rgba(255, 215, 0, 0.14) 0%, rgba(14, 16, 24, 0.95) 100%)"
+                          : BIDWAR_SCOREBOARD_PANEL,
+                        border: isAwayWinner ? "2px solid #FFD700" : "1px solid rgba(255, 255, 255, 0.15)",
+                        boxShadow: isAwayWinner ? "0 0 25px rgba(255, 215, 0, 0.3)" : "none",
+                      }}
+                    >
+                      {isAwayWinner && (
+                        <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-yellow-400 text-black text-[11px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-wider shadow z-10 animate-pulse">
+                          👑 WINNER
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4 gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 p-1 flex items-center justify-center shrink-0">
+                            {targetAwayTeam?.logoUrl ? (
+                              <img src={targetAwayTeam.logoUrl} alt="" className="max-h-full max-w-full object-contain" />
+                            ) : (
+                              <span className="text-sm font-black text-cyan-400">{targetAwayTeam?.shortCode || "A"}</span>
+                            )}
+                          </div>
+                          <span
+                            className="text-2xl font-normal text-white uppercase truncate"
+                            style={{ fontFamily: BROADCAST_FONTS.display }}
+                          >
+                            {targetAwayTeam?.name || "TEAM 2"}
+                          </span>
+                        </div>
+                        <span
+                          className="text-4xl font-normal text-cyan-400 shrink-0"
+                          style={{ fontFamily: BROADCAST_FONTS.display }}
+                        >
+                          {vm.target != null ? `${vm.target - 1}` : "—"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-white/50 font-bold uppercase mb-2">TOP BOWLERS</p>
+                      <div className="space-y-2 text-xs">
+                        {vm.bowler && (
+                          <div className="flex items-center justify-between font-bold gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-md bg-white/10 border border-cyan-400/40 overflow-hidden shrink-0 flex items-center justify-center">
+                                {vm.bowler.photoUrl ? (
+                                  <img src={vm.bowler.photoUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-[9px] font-black text-cyan-300">{getInitials(vm.bowler.name)}</span>
+                                )}
+                              </div>
+                              <span className="text-white truncate">{vm.bowler.name}</span>
+                            </div>
+                            <span className="text-[#06B6D4] font-mono shrink-0">{vm.bowler ? `${vm.bowler.wickets}-${vm.bowler.runsConceded}` : "—"}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Victory Headline Banner */}
                   <div
-                    className="border border-white/15 p-6"
-                    style={{ background: BIDWAR_SCOREBOARD_PANEL }}
+                    className="border border-[#FFD700] p-4 text-center rounded-xl shadow-[0_0_25px_rgba(255,215,0,0.25)]"
+                    style={{ background: BIDWAR_SCOREBOARD_SHELL }}
                   >
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
-                      <span
-                        className="text-2xl font-normal text-white uppercase"
-                        style={{ fontFamily: BROADCAST_FONTS.display }}
-                      >
-                        {targetHomeTeam?.name || "TEAM 1"}
-                      </span>
-                      <span
-                        className="text-3xl font-normal text-[#FFD700]"
-                        style={{ fontFamily: BROADCAST_FONTS.display }}
-                      >
-                        {vm.phase === "completed" || vm.phase === "chase" ? `${vm.runs}-${vm.wickets}` : "—"}
-                      </span>
-                    </div>
-                    <p className="text-xs text-white/50 font-bold uppercase mb-2">TOP BATTERS</p>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between font-bold">
-                        <span className="text-white">{vm.striker?.name || "Striker"}</span>
-                        <span className="text-[#FFD700] font-mono">{vm.striker?.runs || 0} ({vm.striker?.balls || 0}b)</span>
-                      </div>
-                      <div className="flex justify-between font-bold">
-                        <span className="text-white">{vm.nonStriker?.name || "Non-Striker"}</span>
-                        <span className="text-white/70 font-mono">{vm.nonStriker?.runs || 0} ({vm.nonStriker?.balls || 0}b)</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Away Team */}
-                  <div
-                    className="border border-white/15 p-6"
-                    style={{ background: BIDWAR_SCOREBOARD_PANEL }}
-                  >
-                    <div className="flex items-center justify-between border-b border-white/10 pb-3 mb-4">
-                      <span
-                        className="text-2xl font-normal text-white uppercase"
-                        style={{ fontFamily: BROADCAST_FONTS.display }}
-                      >
-                        {targetAwayTeam?.name || "TEAM 2"}
-                      </span>
-                      <span
-                        className="text-3xl font-normal text-[#FFD700]"
-                        style={{ fontFamily: BROADCAST_FONTS.display }}
-                      >
-                        {vm.target != null ? `${vm.target - 1}` : "—"}
-                      </span>
-                    </div>
-                    <p className="text-xs text-white/50 font-bold uppercase mb-2">TOP BOWLERS</p>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between font-bold">
-                        <span className="text-white">{vm.bowler?.name || "Bowler"}</span>
-                        <span className="text-[#06B6D4] font-mono">{vm.bowler ? `${vm.bowler.wickets}-${vm.bowler.runsConceded}` : "—"}</span>
-                      </div>
-                    </div>
+                    <p
+                      className="text-3xl font-normal uppercase tracking-widest text-[#FFD700] leading-none"
+                      style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.08em" }}
+                    >
+                      🏆 {formattedResult}
+                    </p>
                   </div>
                 </div>
-
-                {/* Victory Headline Banner */}
-                <div
-                  className="border border-[#FFD700] p-4 text-center"
-                  style={{ background: BIDWAR_SCOREBOARD_SHELL }}
-                >
-                  <p
-                    className="text-3xl font-normal uppercase tracking-widest text-[#FFD700] leading-none"
-                    style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.08em" }}
-                  >
-                    {activeMatch?.resultSummary || vm.resultHeadline || vm.resultText || "MATCH IN PROGRESS"}
-                  </p>
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* 6. MATCH INTRO / VS (Clean Frameless Broadcast Presentation) */}
             {overlay === "intro" && (

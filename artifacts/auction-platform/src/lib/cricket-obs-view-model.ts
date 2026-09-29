@@ -72,6 +72,7 @@ export type CricketObsMidOverlayKind =
 export type CricketObsBatterView = {
   id: number;
   name: string;
+  photoUrl?: string | null;
   runs: number;
   balls: number;
   fours: number;
@@ -84,6 +85,7 @@ export type CricketObsBatterView = {
 export type CricketObsBowlerView = {
   id: number;
   name: string;
+  photoUrl?: string | null;
   overs: string;
   maidens: number;
   runsConceded: number;
@@ -342,6 +344,7 @@ export function resolveBatterView(
   if (playerId == null) return null;
   const player = players?.find((p) => p.id === playerId);
   const name = player?.name || `Player #${playerId}`;
+  const photoUrl = player?.photoUrl ?? null;
 
   let runs = 0;
   let balls = 0;
@@ -366,6 +369,7 @@ export function resolveBatterView(
   return {
     id: playerId,
     name,
+    photoUrl,
     runs,
     balls,
     fours,
@@ -385,6 +389,7 @@ export function resolveBowlerView(
   if (playerId == null) return null;
   const player = players?.find((p) => p.id === playerId);
   const name = player?.name || `Bowler #${playerId}`;
+  const photoUrl = player?.photoUrl ?? null;
 
   let overs = "0.0";
   let maidens = 0;
@@ -409,6 +414,7 @@ export function resolveBowlerView(
   return {
     id: playerId,
     name,
+    photoUrl,
     overs,
     maidens,
     runsConceded,
@@ -719,7 +725,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     partnershipBalls: (striker?.balls ?? 0) + (nonStriker?.balls ?? 0),
     partnershipText:
       striker || nonStriker
-        ? `${(striker?.runs ?? 0) + (nonStriker?.runs ?? 0)} (${(striker?.balls ?? 0) + (nonStriker?.balls ?? 0)}b)`
+        ? `${(striker?.runs ?? 0) + (nonStriker?.runs ?? 0)} (${(striker?.balls ?? 0) + (nonStriker?.balls ?? 0)} ${(striker?.balls ?? 0) + (nonStriker?.balls ?? 0) === 1 ? "ball" : "balls"})`
         : null,
     powerplayText,
     tossText,

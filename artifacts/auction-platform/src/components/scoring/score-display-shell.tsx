@@ -920,9 +920,12 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                     <div className="space-y-1.5">
                       {/* Striker */}
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-emerald-400 font-black text-lg sm:text-xl">*</span>
-                          <span className="text-base sm:text-xl md:text-2xl font-black uppercase text-white tracking-wide truncate max-w-[200px] sm:max-w-[280px]">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-emerald-400 font-black text-lg sm:text-xl shrink-0">*</span>
+                          <span
+                            className="text-base sm:text-xl md:text-2xl font-black uppercase text-white tracking-wide truncate"
+                            title={strikerStats?.name || strikerPlayer?.name}
+                          >
                             {strikerStats?.name || strikerPlayer?.name || "Striker"}
                           </span>
                         </div>
@@ -946,9 +949,12 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
 
                       {/* Non-Striker */}
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-muted-foreground/50 font-black text-lg sm:text-xl">·</span>
-                          <span className="text-base sm:text-xl md:text-2xl font-bold uppercase text-white/90 tracking-wide truncate max-w-[200px] sm:max-w-[280px]">
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="text-muted-foreground/50 font-black text-lg sm:text-xl shrink-0">·</span>
+                          <span
+                            className="text-base sm:text-xl md:text-2xl font-bold uppercase text-white/90 tracking-wide truncate"
+                            title={nonStrikerStats?.name || nonStrikerPlayer?.name}
+                          >
                             {nonStrikerStats?.name || nonStrikerPlayer?.name || "Non-Striker"}
                           </span>
                         </div>
@@ -983,8 +989,11 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <h4 className="text-base sm:text-xl md:text-2xl font-black uppercase text-white tracking-wide truncate max-w-[200px] sm:max-w-[280px]">
+                      <div className="min-w-0 flex-1">
+                        <h4
+                          className="text-base sm:text-xl md:text-2xl font-black uppercase text-white tracking-wide truncate"
+                          title={bowlerStats?.name || bowlerPlayer?.name}
+                        >
                           {bowlerStats?.name || bowlerPlayer?.name || "Current Bowler"}
                         </h4>
                         <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold truncate">

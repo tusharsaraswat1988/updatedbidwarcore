@@ -85,9 +85,6 @@ export function deriveCricketStatus(vm: CricketObsViewModel): { chip: string; te
   if (vm.superBallActive) {
     return { chip: "SUPERBALL", text: "SUPERBALL 2X RUNS" };
   }
-  if (vm.partnershipText) {
-    return { chip: "LIVE", text: vm.partnershipText.toUpperCase() };
-  }
   return { chip: "LIVE", text: "1ST INNINGS" };
 }
 
@@ -207,7 +204,13 @@ export function adaptCricketToBroadcastFrame(
   const rrr = isChase && vm.rrr ? parseFloat(vm.rrr) || null : null;
   const needRuns = isChase && vm.needRuns != null ? vm.needRuns : null;
   const ballsRemaining = isChase && vm.ballsRemaining != null ? vm.ballsRemaining : null;
-  const partnership = vm.partnershipText || null;
+  const partnershipRuns = vm.partnershipRuns ?? (striker.runs + nonStriker.runs);
+  const partnershipBalls = vm.partnershipBalls ?? (striker.balls + nonStriker.balls);
+  const partnership = vm.partnershipText || (
+    partnershipRuns > 0 || partnershipBalls > 0
+      ? `${partnershipRuns} (${partnershipBalls} ${partnershipBalls === 1 ? "ball" : "balls"})`
+      : null
+  );
   const freeHitActive = vm.freeHitActive || false;
   const superBallActive = vm.superBallActive || false;
   const powerplayText = vm.powerplayText || null;
@@ -232,6 +235,8 @@ export function adaptCricketToBroadcastFrame(
     needRuns,
     ballsRemaining,
     partnership,
+    partnershipRuns,
+    partnershipBalls,
     freeHitActive,
     superBallActive,
     powerplayText,

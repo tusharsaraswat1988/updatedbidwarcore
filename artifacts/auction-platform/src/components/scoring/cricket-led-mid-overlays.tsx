@@ -19,6 +19,7 @@ import {
   getScoringStandings,
   listScoringMatches,
   getPublicMatchScorecard,
+  getCricketTournamentRoster,
   cricketBrandingQueryKey,
   getCricketBranding,
   getCricketMasterTeams,
@@ -34,8 +35,10 @@ import {
   resolveBowlerView,
   type CricketObsMidOverlayKind,
 } from "@/lib/cricket-obs-view-model";
+import { useCricketBidWarTheme } from "@/components/scoring/cricket-branding";
 import {
   cricketMasterTeamToScorerTeam,
+  cricketRosterToScorerPlayer,
   type CricketScorerPlayer,
   type CricketScorerTeam,
 } from "@/lib/scoring-squad";
@@ -90,6 +93,8 @@ export function CricketLedMidOverlays({
   sponsors = [],
   onClose,
 }: CricketLedMidOverlaysProps) {
+  const { logoSrc, logoAlt } = useCricketBidWarTheme();
+
   // Standings data query
   const { data: standings } = useQuery({
     queryKey: ["cricket-standings", tournamentId],
@@ -225,20 +230,33 @@ export function CricketLedMidOverlays({
     return sponsors.find((s) => s.name?.toLowerCase().trim() === overlaySponsorName.toLowerCase().trim()) ?? null;
   }, [overlaySponsorName, sponsors]);
 
+  // Fallback tournament roster query if players prop is empty
+  const { data: fallbackRosterData } = useQuery({
+    queryKey: ["cricket-tournament-roster", tournamentId],
+    queryFn: () => getCricketTournamentRoster(tournamentId),
+    enabled: (!players || players.length === 0) && tournamentId > 0,
+    staleTime: 120_000,
+  });
+
+  const effectivePlayers: CricketScorerPlayer[] = useMemo(() => {
+    if (players && players.length > 0) return players;
+    return Array.isArray(fallbackRosterData) ? fallbackRosterData.map(cricketRosterToScorerPlayer) : [];
+  }, [players, fallbackRosterData]);
+
   const homeTeam = teamMap.get(activeMatch?.homeTeamId ?? 0) || (activeMatch as any)?.homeTeam;
   const awayTeam = teamMap.get(activeMatch?.awayTeamId ?? 0) || (activeMatch as any)?.awayTeam;
   const innings = state ? getActiveInnings(state) : null;
   const battingTeam = teams.find((t) => t.id === innings?.battingTeamId) || homeTeam;
   const bowlingTeam = teams.find((t) => t.id === innings?.bowlingTeamId) || awayTeam;
-  const strikerPlayer = players.find((p) => p.id === state?.strikerId);
-  const nonStrikerPlayer = players.find((p) => p.id === state?.nonStrikerId);
-  const bowlerPlayer = players.find((p) => p.id === state?.bowlerId);
+  const strikerPlayer = effectivePlayers.find((p) => p.id === state?.strikerId);
+  const nonStrikerPlayer = effectivePlayers.find((p) => p.id === state?.nonStrikerId);
+  const bowlerPlayer = effectivePlayers.find((p) => p.id === state?.bowlerId);
 
   const strikerStats = strikerPlayer
     ? resolveBatterView(
         strikerPlayer.id,
         true,
-        players,
+        effectivePlayers,
         fullScorecard?.scorecard,
         innings?.innings ?? 1,
       )
@@ -248,7 +266,7 @@ export function CricketLedMidOverlays({
     ? resolveBatterView(
         nonStrikerPlayer.id,
         false,
-        players,
+        effectivePlayers,
         fullScorecard?.scorecard,
         innings?.innings ?? 1,
       )
@@ -257,11 +275,58 @@ export function CricketLedMidOverlays({
   const bowlerStats = bowlerPlayer
     ? resolveBowlerView(
         bowlerPlayer.id,
-        players,
+        effectivePlayers,
         fullScorecard?.scorecard,
         innings?.innings ?? 1,
       )
     : null;
+
+  // Scorecard innings breakdown for match summary & top performers
+  const scorecardInnings = fullScorecard?.scorecard?.innings || [];
+
+  const getTopBatterFromInnings = (inn?: any) => {
+    if (!inn?.batting || inn.batting.length === 0) return null;
+    const sorted = [...inn.batting].sort((a, b) => {
+      if (b.runs !== a.runs) return b.runs - a.runs;
+      if (b.strikeRate !== a.strikeRate) return b.strikeRate - a.strikeRate;
+      return a.balls - b.balls;
+    });
+    const best = sorted[0];
+    if (!best) return null;
+    const pl = effectivePlayers.find((p) => p.id === best.playerId);
+    return {
+      id: best.playerId,
+      name: pl?.name || `Batter #${best.playerId}`,
+      photoUrl: pl?.photoUrl || null,
+      runs: best.runs,
+      balls: best.balls,
+      fours: best.fours,
+      sixes: best.sixes,
+      strikeRate: best.strikeRate,
+    };
+  };
+
+  const getTopBowlerFromInnings = (inn?: any) => {
+    if (!inn?.bowling || inn.bowling.length === 0) return null;
+    const sorted = [...inn.bowling].sort((a, b) => {
+      if (b.wickets !== a.wickets) return b.wickets - a.wickets;
+      if (a.runs !== b.runs) return a.runs - b.runs;
+      return a.economy - b.economy;
+    });
+    const best = sorted[0];
+    if (!best) return null;
+    const pl = effectivePlayers.find((p) => p.id === best.playerId);
+    return {
+      id: best.playerId,
+      name: pl?.name || `Bowler #${best.playerId}`,
+      photoUrl: pl?.photoUrl || null,
+      overs: best.overs,
+      maidens: best.maidens,
+      runsConceded: best.runs,
+      wickets: best.wickets,
+      economy: best.economy,
+    };
+  };
 
   const activeSponsor = targetedSponsor ?? (sponsors.length > 0 ? sponsors[currentSponsorIndex % sponsors.length] : null);
   const customType = activeSponsor?.type?.trim() || "";
@@ -346,6 +411,22 @@ export function CricketLedMidOverlays({
             </div>
           )}
 
+          {/* Top-left BidWar watermark brand mark */}
+          <div className="absolute top-5 left-6 z-50 flex items-center gap-2 bg-black/70 border border-white/20 px-3.5 py-1.5 rounded-full backdrop-blur-md shadow-2xl">
+            {logoSrc ? (
+              <img
+                src={logoSrc}
+                alt={logoAlt || "BidWar"}
+                className="h-6 sm:h-7 w-auto object-contain"
+                loading="eager"
+              />
+            ) : (
+              <span className="text-xs font-black uppercase tracking-widest text-amber-400 font-display">
+                BIDWAR
+              </span>
+            )}
+          </div>
+
           {/* Close button in top-right corner */}
           {onClose && (
             <button
@@ -374,13 +455,23 @@ export function CricketLedMidOverlays({
           transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
           className="relative flex h-[96vh] w-[98vw] max-w-[1880px] flex-col overflow-hidden rounded-3xl border-2 border-border/80 bg-[#07090e]/95 shadow-[0_30px_90px_rgba(0,0,0,0.95)]"
         >
-          {/* Top LED Header Bar — Centered Tournament Identity */}
+          {/* Top LED Header Bar — Official BidWar Logo (Left) | Tournament Identity (Center) | Live Status (Right) */}
           <div className="relative flex h-16 sm:h-20 items-center justify-between px-4 sm:px-8 border-b border-border/80 bg-card/90 backdrop-blur-md shrink-0">
-            {/* Left Badge */}
-            <div className="flex items-center gap-2 w-28 sm:w-44">
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-400 text-xs font-display font-black uppercase tracking-widest">
-                BIDWAR LIVE
-              </span>
+            {/* Left Brand Identity: Official BidWar Logo */}
+            <div className="flex items-center gap-2.5 w-36 sm:w-56 md:w-64 shrink-0">
+              {logoSrc ? (
+                <img
+                  src={logoSrc}
+                  alt={logoAlt || "BidWar"}
+                  className="h-7 sm:h-8 md:h-9 w-auto max-w-[130px] sm:max-w-[180px] md:max-w-[210px] object-contain object-left filter drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
+                  loading="eager"
+                  decoding="sync"
+                />
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-400 text-xs font-display font-black uppercase tracking-widest">
+                  BIDWAR
+                </span>
+              )}
             </div>
 
             {/* Centered Tournament Name & Logo */}
@@ -400,7 +491,7 @@ export function CricketLedMidOverlays({
             </div>
 
             {/* Right Status & Actions */}
-            <div className="flex items-center justify-end gap-3 w-28 sm:w-44 shrink-0">
+            <div className="flex items-center justify-end gap-3 w-36 sm:w-56 md:w-64 shrink-0">
               <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-black uppercase tracking-widest animate-pulse">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
                 LIVE
@@ -994,96 +1085,355 @@ export function CricketLedMidOverlays({
             )}
 
             {/* 5. MATCH SUMMARY (LED Optimized) */}
-            {overlay === "summary" && (
-              <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full">
-                <div className="text-center mb-4">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <span className="text-xs sm:text-sm font-black uppercase tracking-[0.25em] text-amber-400 font-display">
-                      {activeMatch ? `MATCH #${activeMatch.id}${activeMatch.roundName ? ` · ${activeMatch.roundName.toUpperCase()}` : ""}` : "OFFICIAL MATCH RESULT"}
-                    </span>
-                    {activeMatch?.status && (
-                      <span className={cn(
-                        "text-[10px] sm:text-xs font-black uppercase px-2.5 py-0.5 rounded-full border tracking-wider",
-                        activeMatch.status === "live"
-                          ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 animate-pulse"
-                          : activeMatch.status === "walkover"
-                          ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                          : activeMatch.status === "completed"
-                          ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
-                          : "bg-blue-500/20 text-blue-300 border-blue-500/40"
-                      )}>
-                        {activeMatch.status.toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                  <h2 className="text-3xl sm:text-5xl font-display font-black tracking-wider text-white uppercase drop-shadow">
-                    MATCH RESULT &amp; HIGHLIGHTS
-                  </h2>
-                </div>
+            {overlay === "summary" && (() => {
+              const groupOrRoundText =
+                (activeMatch as any)?.groupName ||
+                overlayStageOrGroup ||
+                activeMatch?.roundName ||
+                "";
 
-                {/* 2 Inning Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
-                  {/* Home Team Card */}
-                  <div className="rounded-3xl border-2 border-border/80 bg-card/90 p-6 shadow-2xl backdrop-blur-md">
-                    <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4">
-                      <h3 className="text-2xl font-display font-black text-white uppercase">
-                        {homeTeam?.name || "HOME TEAM"}
-                      </h3>
-                      <span className="text-3xl sm:text-4xl font-black font-mono text-amber-400">
-                        {summary?.homeTeam?.score || `${innings?.runs ?? 0}/${innings?.wickets ?? 0}`}
+              const winnerTeamId =
+                activeMatch?.winnerTeamId ??
+                state?.winnerTeamId ??
+                summary?.winnerTeamId ??
+                null;
+
+              const rawResult =
+                activeMatch?.resultSummary ||
+                state?.resultText ||
+                match?.resultSummary ||
+                summary?.resultText ||
+                "MATCH COMPLETED";
+
+              const isHomeWinner = Boolean(
+                (winnerTeamId != null && homeTeam?.id === winnerTeamId) ||
+                (homeTeam?.name && rawResult.toLowerCase().includes(homeTeam.name.toLowerCase()))
+              );
+
+              const isAwayWinner = Boolean(
+                (winnerTeamId != null && awayTeam?.id === winnerTeamId) ||
+                (awayTeam?.name && rawResult.toLowerCase().includes(awayTeam.name.toLowerCase()))
+              );
+
+              const winnerTeam = isHomeWinner ? homeTeam : isAwayWinner ? awayTeam : null;
+
+              let formattedResult = rawResult;
+              if (winnerTeam && rawResult.toLowerCase().startsWith("won by")) {
+                formattedResult = `${winnerTeam.name} ${rawResult}`;
+              }
+
+              // Inning match derivations
+              const homeBattingInn = scorecardInnings.find((i: any) => i.battingTeamId === homeTeam?.id);
+              const awayBattingInn = scorecardInnings.find((i: any) => i.battingTeamId === awayTeam?.id);
+              const homeBowlingInn = scorecardInnings.find((i: any) => i.bowlingTeamId === homeTeam?.id);
+              const awayBowlingInn = scorecardInnings.find((i: any) => i.bowlingTeamId === awayTeam?.id);
+
+              const homeScore = homeBattingInn
+                ? `${homeBattingInn.totalRuns}/${homeBattingInn.totalWickets}`
+                : summary?.homeTeam?.score || `${innings?.runs ?? 0}/${innings?.wickets ?? 0}`;
+
+              const homeOvers = homeBattingInn
+                ? `${homeBattingInn.overs} OV`
+                : summary?.homeTeam?.overs || (innings ? `${oversText(innings.over, innings.ball)} OV` : "20.0 OV");
+
+              const awayScore = awayBattingInn
+                ? `${awayBattingInn.totalRuns}/${awayBattingInn.totalWickets}`
+                : summary?.awayTeam?.score || (state?.target ? `${state.target - 1}` : "—");
+
+              const awayOvers = awayBattingInn
+                ? `${awayBattingInn.overs} OV`
+                : summary?.awayTeam?.overs || `${state?.oversLimit ?? 20}.0 OV`;
+
+              const homeTopBatter =
+                getTopBatterFromInnings(homeBattingInn) ||
+                (strikerStats?.hasStats ? { ...strikerStats, photoUrl: strikerPlayer?.photoUrl } : null) ||
+                (strikerPlayer ? { name: strikerPlayer.name, photoUrl: strikerPlayer.photoUrl, runs: 0, balls: 0 } : null);
+
+              const homeTopBowler =
+                getTopBowlerFromInnings(homeBowlingInn) ||
+                (bowlerStats?.hasStats && bowlingTeam?.id === homeTeam?.id ? { ...bowlerStats, photoUrl: bowlerPlayer?.photoUrl } : null);
+
+              const awayTopBatter =
+                getTopBatterFromInnings(awayBattingInn) ||
+                (nonStrikerStats?.hasStats ? { ...nonStrikerStats, photoUrl: nonStrikerPlayer?.photoUrl } : null);
+
+              const awayTopBowler =
+                getTopBowlerFromInnings(awayBowlingInn) ||
+                (bowlerStats?.hasStats ? { ...bowlerStats, photoUrl: bowlerPlayer?.photoUrl } : null) ||
+                (bowlerPlayer ? { name: bowlerPlayer.name, photoUrl: bowlerPlayer.photoUrl, wickets: 0, runsConceded: 0, overs: "0.0" } : null);
+
+              const getInitials = (name?: string | null) => {
+                if (!name) return "P";
+                const parts = name.trim().split(/\s+/);
+                if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+                return name.slice(0, 2).toUpperCase();
+              };
+
+              return (
+                <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full">
+                  <div className="text-center mb-3">
+                    <div className="flex items-center justify-center gap-2 mb-2 flex-wrap">
+                      <span className="text-sm sm:text-base font-black uppercase tracking-[0.22em] text-amber-400 font-display">
+                        {activeMatch ? `MATCH #${activeMatch.id}${groupOrRoundText ? ` · ${groupOrRoundText.toUpperCase()}` : ""}` : "OFFICIAL MATCH RESULT"}
                       </span>
+                      {activeMatch?.status && (
+                        <span className={cn(
+                          "text-xs font-black uppercase px-3 py-0.5 rounded-full border tracking-wider",
+                          activeMatch.status === "live"
+                            ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 animate-pulse"
+                            : activeMatch.status === "walkover"
+                            ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                            : activeMatch.status === "completed"
+                            ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+                            : "bg-blue-500/20 text-blue-300 border-blue-500/40"
+                        )}>
+                          {activeMatch.status.toUpperCase()}
+                        </span>
+                      )}
                     </div>
-                    <div className="space-y-2 text-sm font-bold">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground uppercase">Top Batter:</span>
-                        <span className="text-white font-black">
-                          {strikerPlayer?.name || "Striker"}
-                        </span>
+                    <h2 className="text-3xl sm:text-5xl lg:text-6xl font-display font-black tracking-wider text-white uppercase drop-shadow">
+                      MATCH RESULT &amp; HIGHLIGHTS
+                    </h2>
+                  </div>
+
+                  {/* 2 Inning Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+                    {/* Home Team Card */}
+                    <div className={cn(
+                      "rounded-3xl p-6 shadow-2xl backdrop-blur-md relative overflow-hidden transition-all",
+                      isHomeWinner
+                        ? "border-2 border-amber-400 bg-gradient-to-br from-amber-500/15 via-card/95 to-card/90 shadow-[0_0_35px_rgba(251,191,36,0.35)]"
+                        : "border-2 border-border/80 bg-card/90"
+                    )}>
+                      {/* Winner Ribbon Tag */}
+                      {isHomeWinner && (
+                        <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 via-amber-400 to-yellow-400 text-black px-4 py-1.5 rounded-bl-2xl font-display font-black text-xs sm:text-sm uppercase tracking-widest shadow-lg flex items-center gap-1.5 z-10 animate-pulse">
+                          <span>👑 WINNER</span>
+                        </div>
+                      )}
+
+                      {/* Team Logo & Score Header */}
+                      <div className="flex items-center justify-between border-b border-border/60 pb-4 mb-4 gap-4">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/5 border-2 border-white/10 p-2 flex items-center justify-center shrink-0 shadow-lg">
+                            {homeTeam?.logoUrl ? (
+                              <img
+                                src={homeTeam.logoUrl}
+                                alt={homeTeam.name}
+                                className="max-h-full max-w-full object-contain filter drop-shadow"
+                              />
+                            ) : (
+                              <span className="text-2xl sm:text-3xl font-display font-black text-amber-400">
+                                {homeTeam?.shortCode || "H"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-display font-black text-white uppercase truncate">
+                              {homeTeam?.name || "HOME TEAM"}
+                            </h3>
+                            <span className="text-xs sm:text-sm font-mono uppercase font-bold text-slate-400">
+                              OVERS: <strong className="text-white">{homeOvers}</strong>
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className={cn(
+                            "text-4xl sm:text-5xl lg:text-6xl font-black font-mono tracking-tight block",
+                            isHomeWinner ? "text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.4)]" : "text-white"
+                          )}>
+                            {homeScore}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground uppercase">Overs:</span>
-                        <span className="text-white font-mono">
-                          {summary?.homeTeam?.overs || (innings ? oversText(innings.over, innings.ball) : "20.0")}
-                        </span>
+
+                      {/* Performers Strip */}
+                      <div className="space-y-2.5">
+                        {/* Top Batter */}
+                        {homeTopBatter && (
+                          <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-black/40 border border-white/10">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white/10 border border-amber-400/40 overflow-hidden shrink-0 flex items-center justify-center">
+                                {homeTopBatter.photoUrl ? (
+                                  <img src={homeTopBatter.photoUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="font-display font-black text-amber-300 text-sm">
+                                    {getInitials(homeTopBatter.name)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-400/90 block">
+                                  TOP BATTER
+                                </span>
+                                <p className="text-sm sm:text-base font-black text-white truncate">
+                                  {homeTopBatter.name}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-base sm:text-lg font-mono font-black text-amber-300">
+                                {homeTopBatter.runs != null ? `${homeTopBatter.runs} (${homeTopBatter.balls ?? 0}b)` : "—"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Top Bowler */}
+                        {homeTopBowler && (
+                          <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-black/40 border border-white/10">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white/10 border border-cyan-400/40 overflow-hidden shrink-0 flex items-center justify-center">
+                                {homeTopBowler.photoUrl ? (
+                                  <img src={homeTopBowler.photoUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="font-display font-black text-cyan-300 text-sm">
+                                    {getInitials(homeTopBowler.name)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-cyan-400/90 block">
+                                  KEY BOWLER
+                                </span>
+                                <p className="text-sm sm:text-base font-black text-white truncate">
+                                  {homeTopBowler.name}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-base sm:text-lg font-mono font-black text-cyan-300">
+                                {homeTopBowler.wickets != null ? `${homeTopBowler.wickets}-${homeTopBowler.runsConceded}` : "—"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Away Team Card */}
+                    <div className={cn(
+                      "rounded-3xl p-6 shadow-2xl backdrop-blur-md relative overflow-hidden transition-all",
+                      isAwayWinner
+                        ? "border-2 border-amber-400 bg-gradient-to-br from-amber-500/15 via-card/95 to-card/90 shadow-[0_0_35px_rgba(251,191,36,0.35)]"
+                        : "border-2 border-border/80 bg-card/90"
+                    )}>
+                      {/* Winner Ribbon Tag */}
+                      {isAwayWinner && (
+                        <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 via-amber-400 to-yellow-400 text-black px-4 py-1.5 rounded-bl-2xl font-display font-black text-xs sm:text-sm uppercase tracking-widest shadow-lg flex items-center gap-1.5 z-10 animate-pulse">
+                          <span>👑 WINNER</span>
+                        </div>
+                      )}
+
+                      {/* Team Logo & Score Header */}
+                      <div className="flex items-center justify-between border-b border-border/60 pb-4 mb-4 gap-4">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/5 border-2 border-white/10 p-2 flex items-center justify-center shrink-0 shadow-lg">
+                            {awayTeam?.logoUrl ? (
+                              <img
+                                src={awayTeam.logoUrl}
+                                alt={awayTeam.name}
+                                className="max-h-full max-w-full object-contain filter drop-shadow"
+                              />
+                            ) : (
+                              <span className="text-2xl sm:text-3xl font-display font-black text-cyan-300">
+                                {awayTeam?.shortCode || "A"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-display font-black text-white uppercase truncate">
+                              {awayTeam?.name || "AWAY TEAM"}
+                            </h3>
+                            <span className="text-xs sm:text-sm font-mono uppercase font-bold text-slate-400">
+                              OVERS: <strong className="text-white">{awayOvers}</strong>
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className={cn(
+                            "text-4xl sm:text-5xl lg:text-6xl font-black font-mono tracking-tight block",
+                            isAwayWinner ? "text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.4)]" : "text-cyan-300"
+                          )}>
+                            {awayScore}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Performers Strip */}
+                      <div className="space-y-2.5">
+                        {/* Top Batter */}
+                        {awayTopBatter && (
+                          <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-black/40 border border-white/10">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white/10 border border-amber-400/40 overflow-hidden shrink-0 flex items-center justify-center">
+                                {awayTopBatter.photoUrl ? (
+                                  <img src={awayTopBatter.photoUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="font-display font-black text-amber-300 text-sm">
+                                    {getInitials(awayTopBatter.name)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-400/90 block">
+                                  TOP BATTER
+                                </span>
+                                <p className="text-sm sm:text-base font-black text-white truncate">
+                                  {awayTopBatter.name}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-base sm:text-lg font-mono font-black text-amber-300">
+                                {awayTopBatter.runs != null ? `${awayTopBatter.runs} (${awayTopBatter.balls ?? 0}b)` : "—"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Top Bowler */}
+                        {awayTopBowler && (
+                          <div className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-black/40 border border-white/10">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white/10 border border-cyan-400/40 overflow-hidden shrink-0 flex items-center justify-center">
+                                {awayTopBowler.photoUrl ? (
+                                  <img src={awayTopBowler.photoUrl} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="font-display font-black text-cyan-300 text-sm">
+                                    {getInitials(awayTopBowler.name)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-cyan-400/90 block">
+                                  KEY BOWLER
+                                </span>
+                                <p className="text-sm sm:text-base font-black text-white truncate">
+                                  {awayTopBowler.name}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-base sm:text-lg font-mono font-black text-cyan-300">
+                                {awayTopBowler.wickets != null ? `${awayTopBowler.wickets}-${awayTopBowler.runsConceded}` : "—"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Away Team Card */}
-                  <div className="rounded-3xl border-2 border-border/80 bg-card/90 p-6 shadow-2xl backdrop-blur-md">
-                    <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4">
-                      <h3 className="text-2xl font-display font-black text-white uppercase">
-                        {awayTeam?.name || "AWAY TEAM"}
-                      </h3>
-                      <span className="text-3xl sm:text-4xl font-black font-mono text-cyan-300">
-                        {summary?.awayTeam?.score || (state?.target ? `${state.target - 1}` : "—")}
-                      </span>
-                    </div>
-                    <div className="space-y-2 text-sm font-bold">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground uppercase">Top Bowler:</span>
-                        <span className="text-white font-black">
-                          {bowlerPlayer?.name || "Bowler"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground uppercase">Overs:</span>
-                        <span className="text-white font-mono">
-                          {summary?.awayTeam?.overs || `${state?.oversLimit ?? 20}.0`}
-                        </span>
-                      </div>
-                    </div>
+                  {/* Champion Result Banner */}
+                  <div className="rounded-2xl border-2 border-amber-400 bg-gradient-to-r from-amber-600/40 via-amber-500/25 to-amber-600/40 p-5 text-center shadow-[0_0_30px_rgba(251,191,36,0.3)]">
+                    <p className="text-2xl sm:text-4xl font-display font-black uppercase tracking-widest text-amber-300 drop-shadow">
+                      🏆 {formattedResult}
+                    </p>
                   </div>
                 </div>
-
-                {/* Champion Result Banner */}
-                <div className="rounded-2xl border-2 border-amber-400 bg-gradient-to-r from-amber-600/30 via-amber-500/20 to-amber-600/30 p-5 text-center shadow-xl">
-                  <p className="text-2xl sm:text-3xl font-display font-black uppercase tracking-widest text-amber-300">
-                    {activeMatch?.resultSummary || state?.resultText || match?.resultSummary || summary?.resultText || "MATCH IN PROGRESS"}
-                  </p>
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* 6. MATCH INTRO / VS (Clean Frameless Broadcast Presentation) */}
             {overlay === "intro" && (

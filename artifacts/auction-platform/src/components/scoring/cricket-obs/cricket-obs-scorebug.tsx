@@ -25,6 +25,15 @@ import {
 import { BROADCAST_OVERLAY_SAFE_INSET_X } from "@/lib/broadcast-overlay";
 import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
 
+function getScorebugPlayerFontSize(name: string): string {
+  const len = (name || "").trim().length;
+  if (len <= 12) return "16px";
+  if (len <= 16) return "14px";
+  if (len <= 20) return "12.5px";
+  if (len <= 25) return "11px";
+  return "10px";
+}
+
 export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
   const batting = vm.batting;
   const bowling = vm.bowling;
@@ -42,6 +51,10 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
   const isTargetReached =
     vm.target != null && vm.runs >= vm.target && (needRuns === 0 || needRuns == null);
   const isCompleted = vm.phase === "completed" || isTargetReached;
+
+  const strikerLen = (striker?.name || "").trim().length;
+  const nonStrikerLen = (nonStriker?.name || "").trim().length;
+  const bowlerLen = (bowler?.name || "").trim().length;
 
   return (
     <div
@@ -138,26 +151,33 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
         {/* ========================================================= */}
         {/* B. CENTER-LEFT: BATTERS CREASE (~440px)                   */}
         {/* ========================================================= */}
-        <div className="flex flex-1 flex-col justify-center px-6 border-r border-white/10 min-w-[380px]">
+        <div className="flex flex-1 flex-col justify-center px-6 border-r border-white/10 min-w-[340px]">
           {/* Row 1: Striker */}
-          <div className="flex items-center justify-between py-1">
-            <div className="flex items-center gap-2 min-w-0 max-w-[220px]">
+          <div className="flex items-center justify-between py-1 gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               {/* Geometric Active Striker Marker (No Emojis) */}
               <span className="h-2 w-2 rotate-45 bg-[#FFD700] shrink-0" />
-              <span className="truncate text-base font-bold uppercase tracking-wide text-[#FFD700]">
+              <span
+                className="font-bold uppercase tracking-wide text-[#FFD700] whitespace-nowrap overflow-hidden leading-tight"
+                style={{
+                  fontSize: getScorebugPlayerFontSize(striker?.name || ""),
+                  letterSpacing: strikerLen > 16 ? "-0.015em" : undefined,
+                }}
+                title={striker?.name}
+              >
                 {striker?.name || "Striker"}
               </span>
             </div>
 
             <div
-              className="flex items-center gap-2 text-xs font-bold tabular-nums"
+              className="flex items-center gap-2 text-xs font-bold tabular-nums shrink-0"
               style={{ fontFamily: BROADCAST_FONTS.mono }}
             >
               <span className="text-xl font-bold text-white leading-none">
                 {striker?.runs ?? 0}
               </span>
               <span className="text-xs text-white/60 font-medium">
-                ({striker?.balls ?? 0}b)
+                ({striker?.balls ?? 0} {striker?.balls === 1 ? "ball" : "balls"})
               </span>
               {striker?.strikeRate != null && (
                 <span className="text-[11px] text-white/40 font-normal pl-1">
@@ -170,24 +190,31 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
           <div className="h-[1px] w-full bg-white/5 my-0.5" />
 
           {/* Row 2: Non-Striker */}
-          <div className="flex items-center justify-between py-1">
-            <div className="flex items-center gap-2 min-w-0 max-w-[220px]">
+          <div className="flex items-center justify-between py-1 gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               {/* Invisible spacer for alignment */}
               <span className="h-2 w-2 shrink-0 opacity-0" />
-              <span className="truncate text-base font-bold uppercase tracking-wide text-white/85">
+              <span
+                className="font-bold uppercase tracking-wide text-white/85 whitespace-nowrap overflow-hidden leading-tight"
+                style={{
+                  fontSize: getScorebugPlayerFontSize(nonStriker?.name || ""),
+                  letterSpacing: nonStrikerLen > 16 ? "-0.015em" : undefined,
+                }}
+                title={nonStriker?.name}
+              >
                 {nonStriker?.name || "Non-Striker"}
               </span>
             </div>
 
             <div
-              className="flex items-center gap-2 text-xs font-bold tabular-nums"
+              className="flex items-center gap-2 text-xs font-bold tabular-nums shrink-0"
               style={{ fontFamily: BROADCAST_FONTS.mono }}
             >
               <span className="text-xl font-bold text-white/90 leading-none">
                 {nonStriker?.runs ?? 0}
               </span>
               <span className="text-xs text-white/50 font-medium">
-                ({nonStriker?.balls ?? 0}b)
+                ({nonStriker?.balls ?? 0} {nonStriker?.balls === 1 ? "ball" : "balls"})
               </span>
               {nonStriker?.strikeRate != null && (
                 <span className="text-[11px] text-white/30 font-normal pl-1">
@@ -201,20 +228,27 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
         {/* ========================================================= */}
         {/* C. CENTER-RIGHT: BOWLER SPELL & OVER TRAIN (~420px)       */}
         {/* ========================================================= */}
-        <div className="flex flex-1 flex-col justify-center px-6 border-r border-white/10 min-w-[380px]">
+        <div className="flex flex-1 flex-col justify-center px-6 border-r border-white/10 min-w-[340px]">
           {/* Bowler Details */}
-          <div className="flex items-center justify-between py-0.5">
-            <div className="flex items-center gap-2 min-w-0 max-w-[200px]">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#06B6D4]">
+          <div className="flex items-center justify-between py-0.5 gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#06B6D4] shrink-0">
                 BOWL
               </span>
-              <span className="truncate text-base font-bold uppercase tracking-wide text-white">
+              <span
+                className="font-bold uppercase tracking-wide text-white whitespace-nowrap overflow-hidden leading-tight"
+                style={{
+                  fontSize: getScorebugPlayerFontSize(bowler?.name || ""),
+                  letterSpacing: bowlerLen > 14 ? "-0.015em" : undefined,
+                }}
+                title={bowler?.name}
+              >
                 {bowler?.name || "Bowler"}
               </span>
             </div>
 
             <div
-              className="flex items-center gap-2 text-xs font-bold tabular-nums"
+              className="flex items-center gap-2 text-xs font-bold tabular-nums shrink-0"
               style={{ fontFamily: BROADCAST_FONTS.mono }}
             >
               <span className="text-base text-[#FFD700]">
@@ -333,7 +367,7 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
                   {needRuns}
                 </span>
                 <span className="text-xs font-semibold text-white/70">
-                  OFF {ballsLeft}B
+                  OFF {ballsLeft} {ballsLeft === 1 ? "BALL" : "BALLS"}
                 </span>
               </div>
               <div
@@ -357,7 +391,7 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
                   {partnershipRuns}
                 </span>
                 <span className="text-xs font-medium text-white/70">
-                  OFF {partnershipBalls}B
+                  OFF {partnershipBalls} {partnershipBalls === 1 ? "BALL" : "BALLS"}
                 </span>
               </div>
               <div

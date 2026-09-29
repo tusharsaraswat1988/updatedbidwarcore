@@ -28,8 +28,19 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { OBS_V2 } from "../obs-v2-tokens";
-import { getScoringStandings, listScoringMatches, getCricketMasterTeams } from "@/lib/scoring-api";
-import { cricketMasterTeamToScorerTeam, type CricketScorerTeam } from "@/lib/scoring-squad";
+import {
+  getScoringStandings,
+  listScoringMatches,
+  getCricketMasterTeams,
+  getCricketTournamentRoster,
+  getPublicMatchScorecard,
+} from "@/lib/scoring-api";
+import {
+  cricketMasterTeamToScorerTeam,
+  cricketRosterToScorerPlayer,
+  type CricketScorerPlayer,
+  type CricketScorerTeam,
+} from "@/lib/scoring-squad";
 import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
 import type { SponsorLogo as BidWarSponsorLogo } from "@/lib/sponsor-logo";
 
@@ -65,7 +76,7 @@ export const VARIANT_CONFIGS: Record<
   STANDINGS: { widthPx: 860, heightMode: "fill", label: "POINTS TABLE", kicker: "TOURNAMENT STANDINGS" },
   FIXTURES: { widthPx: 820, heightMode: "fill", label: "SESSION SCHEDULE", kicker: "UPCOMING FIXTURES" },
   SCORECARD: { widthPx: 940, heightMode: "fill", label: "SCORECARD", kicker: "LIVE INNINGS BREAKDOWN" },
-  SUMMARY: { widthPx: 680, heightMode: "compact", heightPx: 460, label: "MATCH SUMMARY", kicker: "OFFICIAL MATCH VERDICT" },
+  SUMMARY: { widthPx: 680, heightMode: "compact", heightPx: 460, label: "MATCH SUMMARY", kicker: "" },
   VS_INTRO: { widthPx: 680, heightMode: "compact", heightPx: 340, label: "MATCH PREVIEW", kicker: "HEAD TO HEAD CLASH" },
   SPONSORS: { widthPx: 560, heightMode: "compact", heightPx: 275, label: "", kicker: "" },
 };
@@ -234,8 +245,8 @@ function SideSlateShell({
           ) : null}
         </div>
 
-        {/* ── 2. Headline Strip (Omitted for SPONSORS) ── */}
-        {!hideHeadline && variant !== "SPONSORS" && (
+        {/* ── 2. Headline Strip (Omitted for SPONSORS & SUMMARY) ── */}
+        {!hideHeadline && variant !== "SPONSORS" && variant !== "SUMMARY" && (
           <div
             className="px-5 py-2 shrink-0 flex items-center justify-between"
             style={{
@@ -295,13 +306,144 @@ function SummaryVariant({
     return matches && matches.length > 0 ? (matches[0] as any) : null;
   }, [matchId, matches]);
 
+  const targetMatchId = activeMatch?.id ?? matchId ?? vm.matchId;
+
+  // Tournament Roster for player avatars & details
+  const { data: rosterData } = useQuery({
+    queryKey: ["cricket-tournament-roster", tournamentId],
+    queryFn: () => getCricketTournamentRoster(tournamentId!),
+    enabled: !!tournamentId && tournamentId > 0,
+    staleTime: 120_000,
+  });
+
+  const players = useMemo(
+    () => (Array.isArray(rosterData) ? rosterData.map(cricketRosterToScorerPlayer) : []),
+    [rosterData],
+  );
+
+  // Scorecard for accurate completed match figures
+  const { data: fullScorecard } = useQuery({
+    queryKey: ["public-match-scorecard", tournamentId, targetMatchId],
+    queryFn: () => getPublicMatchScorecard(tournamentId!, targetMatchId!),
+    enabled: !!tournamentId && !!targetMatchId,
+    staleTime: 5000,
+  });
+
   const homeTeam = activeMatch?.homeTeam || vm.home;
   const awayTeam = activeMatch?.awayTeam || vm.away;
-  const resultText =
+  const rawResult =
     (activeMatch as any)?.resultSummary ||
     vm.resultHeadline ||
     vm.resultText ||
     "MATCH IN PROGRESS";
+
+  const winnerTeamId = (activeMatch as any)?.winnerTeamId ?? vm.winner?.id ?? null;
+  const isHomeWinner = Boolean(
+    (winnerTeamId != null && homeTeam?.id === winnerTeamId) ||
+    (homeTeam?.name && rawResult.toLowerCase().includes(homeTeam.name.toLowerCase()))
+  );
+  const isAwayWinner = Boolean(
+    (winnerTeamId != null && awayTeam?.id === winnerTeamId) ||
+    (awayTeam?.name && rawResult.toLowerCase().includes(awayTeam.name.toLowerCase()))
+  );
+  const winnerTeam = isHomeWinner ? homeTeam : isAwayWinner ? awayTeam : null;
+
+  let formattedResult = rawResult;
+  if (winnerTeam && rawResult.toLowerCase().startsWith("won by")) {
+    formattedResult = `${winnerTeam.name.toUpperCase()} ${rawResult.toUpperCase()}`;
+  }
+
+  const scorecardInnings = fullScorecard?.scorecard?.innings || [];
+  const homeBattingInn = scorecardInnings.find((i: any) => i.battingTeamId === homeTeam?.id);
+  const awayBattingInn = scorecardInnings.find((i: any) => i.battingTeamId === awayTeam?.id);
+  const homeBowlingInn = scorecardInnings.find((i: any) => i.bowlingTeamId === homeTeam?.id);
+  const awayBowlingInn = scorecardInnings.find((i: any) => i.bowlingTeamId === awayTeam?.id);
+
+  const homeScore = homeBattingInn
+    ? `${homeBattingInn.totalRuns}-${homeBattingInn.totalWickets}`
+    : `${vm.runs}-${vm.wickets}`;
+
+  const homeOvers = homeBattingInn
+    ? `${homeBattingInn.overs}`
+    : vm.oversLabel;
+
+  const awayScore = awayBattingInn
+    ? `${awayBattingInn.totalRuns}-${awayBattingInn.totalWickets}`
+    : (vm.target != null ? `${vm.target - 1}` : "—");
+
+  const awayOvers = awayBattingInn
+    ? `${awayBattingInn.overs}`
+    : (vm.oversLimit ? `${vm.oversLimit}.0` : "—");
+
+  const getInitials = (name?: string | null) => {
+    if (!name) return "P";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  // Top batters resolution
+  const topBattersList = useMemo(() => {
+    const allBatting: any[] = [];
+    if (homeBattingInn?.batting) allBatting.push(...homeBattingInn.batting);
+    if (awayBattingInn?.batting) allBatting.push(...awayBattingInn.batting);
+    if (allBatting.length > 0) {
+      return [...allBatting]
+        .sort((a, b) => b.runs - a.runs || b.strikeRate - a.strikeRate)
+        .slice(0, 2)
+        .map((b) => {
+          const pl = players.find((p) => p.id === b.playerId);
+          return {
+            name: pl?.name || `Batter #${b.playerId}`,
+            photoUrl: pl?.photoUrl || null,
+            runs: b.runs,
+            balls: b.balls,
+          };
+        });
+    }
+    return [vm.striker, vm.nonStriker]
+      .filter(Boolean)
+      .map((b) => {
+        const pl = players.find((p) => p.id === b!.id);
+        return {
+          name: b!.name,
+          photoUrl: b!.photoUrl || pl?.photoUrl || null,
+          runs: b!.runs,
+          balls: b!.balls,
+        };
+      });
+  }, [homeBattingInn, awayBattingInn, vm.striker, vm.nonStriker, players]);
+
+  // Top bowler resolution
+  const topBowlerData = useMemo(() => {
+    const allBowling: any[] = [];
+    if (homeBowlingInn?.bowling) allBowling.push(...homeBowlingInn.bowling);
+    if (awayBowlingInn?.bowling) allBowling.push(...awayBowlingInn.bowling);
+    if (allBowling.length > 0) {
+      const best = [...allBowling].sort((a, b) => b.wickets - a.wickets || a.runs - b.runs || a.economy - b.economy)[0];
+      if (best) {
+        const pl = players.find((p) => p.id === best.playerId);
+        return {
+          name: pl?.name || `Bowler #${best.playerId}`,
+          photoUrl: pl?.photoUrl || null,
+          wickets: best.wickets,
+          runsConceded: best.runs,
+          economy: best.economy,
+        };
+      }
+    }
+    if (vm.bowler) {
+      const pl = players.find((p) => p.id === vm.bowler!.id);
+      return {
+        name: vm.bowler.name,
+        photoUrl: vm.bowler.photoUrl || pl?.photoUrl || null,
+        wickets: vm.bowler.wickets,
+        runsConceded: vm.bowler.runsConceded,
+        economy: vm.bowler.economy,
+      };
+    }
+    return null;
+  }, [homeBowlingInn, awayBowlingInn, vm.bowler, players]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -309,23 +451,23 @@ function SummaryVariant({
       <div
         className="p-3.5 rounded-xl border border-white/10 flex items-center justify-between"
         style={{
-          background: "linear-gradient(90deg, rgba(255, 215, 0, 0.12) 0%, rgba(255, 255, 255, 0.03) 100%)",
-          borderLeft: "3.5px solid #FFD700",
+          background: "linear-gradient(90deg, rgba(255, 215, 0, 0.16) 0%, rgba(255, 255, 255, 0.04) 100%)",
+          borderLeft: "4px solid #FFD700",
         }}
       >
         <div className="flex items-center gap-3">
           <span className="text-2xl">🏆</span>
           <div>
-            <span className="text-[12px] font-black uppercase tracking-widest text-[#FFD700] block">
+            <span className="text-[11px] font-black uppercase tracking-widest text-[#FFD700] block">
               MATCH RESULT
             </span>
-            <span className="text-xl font-black italic text-white uppercase">
-              {resultText}
+            <span className="text-lg sm:text-xl font-black italic text-white uppercase tracking-wide">
+              {formattedResult}
             </span>
           </div>
         </div>
         {vm.venueText && (
-          <span className="text-[14px] font-semibold text-slate-300">
+          <span className="text-[13px] font-semibold text-slate-300">
             📍 {vm.venueText}
           </span>
         )}
@@ -333,39 +475,79 @@ function SummaryVariant({
 
       {/* 2-Column Innings Breakdown */}
       <div className="grid grid-cols-2 gap-3">
-        {/* Batting Inning */}
+        {/* Home / Batting Inning */}
         <div
-          className="p-3.5 rounded-xl border border-white/10 flex flex-col justify-between"
-          style={{ background: "rgba(255, 255, 255, 0.03)" }}
+          className="p-3.5 rounded-xl border flex flex-col justify-between relative overflow-hidden transition-all"
+          style={{
+            background: isHomeWinner
+              ? "linear-gradient(180deg, rgba(255, 215, 0, 0.14) 0%, rgba(14, 16, 24, 0.95) 100%)"
+              : "rgba(255, 255, 255, 0.03)",
+            borderColor: isHomeWinner ? "#FFD700" : "rgba(255, 255, 255, 0.10)",
+            boxShadow: isHomeWinner ? "0 0 20px rgba(255, 215, 0, 0.25)" : "none",
+          }}
         >
-          <div className="flex items-center justify-between pb-2 border-b border-white/10">
-            <span className="font-bold text-[16px] text-white uppercase truncate">
-              {homeTeam?.name || "1ST INNINGS"}
-            </span>
-            <span className="font-mono text-xl font-black text-[#FFD700]">
-              {vm.runs}-{vm.wickets}
+          {isHomeWinner && (
+            <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-yellow-400 text-black text-[10px] font-black px-2.5 py-0.5 rounded-bl-lg uppercase tracking-wider shadow z-10 animate-pulse">
+              👑 WINNER
+            </div>
+          )}
+          <div className="flex items-center justify-between pb-2 border-b border-white/10 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 p-0.5 flex items-center justify-center shrink-0 shadow-sm">
+                {homeTeam?.logoUrl ? (
+                  <img src={homeTeam.logoUrl} alt="" className="max-h-full max-w-full object-contain" />
+                ) : (
+                  <span className="text-xs font-black text-[#FFD700]">{homeTeam?.shortCode || "H"}</span>
+                )}
+              </div>
+              <span className="font-bold text-[15px] text-white uppercase truncate">
+                {homeTeam?.name || "1ST INNINGS"}
+              </span>
+            </div>
+            <span className="font-mono text-xl font-black text-[#FFD700] shrink-0">
+              {homeScore}
             </span>
           </div>
-          <div className="pt-2 flex items-center justify-between text-[14px] font-mono text-slate-300">
-            <span>OVERS: <strong className="text-white">{vm.oversLabel}</strong></span>
+          <div className="pt-2 flex items-center justify-between text-[13px] font-mono text-slate-300">
+            <span>OVERS: <strong className="text-white">{homeOvers}</strong></span>
             <span>CRR: <strong className="text-cyan-400">{vm.crr ?? "0.00"}</strong></span>
           </div>
         </div>
 
-        {/* Chasing Inning */}
+        {/* Away / Chasing Inning */}
         <div
-          className="p-3.5 rounded-xl border border-white/10 flex flex-col justify-between"
-          style={{ background: "rgba(255, 255, 255, 0.03)" }}
+          className="p-3.5 rounded-xl border flex flex-col justify-between relative overflow-hidden transition-all"
+          style={{
+            background: isAwayWinner
+              ? "linear-gradient(180deg, rgba(255, 215, 0, 0.14) 0%, rgba(14, 16, 24, 0.95) 100%)"
+              : "rgba(255, 255, 255, 0.03)",
+            borderColor: isAwayWinner ? "#FFD700" : "rgba(255, 255, 255, 0.10)",
+            boxShadow: isAwayWinner ? "0 0 20px rgba(255, 215, 0, 0.25)" : "none",
+          }}
         >
-          <div className="flex items-center justify-between pb-2 border-b border-white/10">
-            <span className="font-bold text-[16px] text-white uppercase truncate">
-              {awayTeam?.name || "2ND INNINGS"}
-            </span>
-            <span className="font-mono text-xl font-black text-cyan-400">
-              {vm.target != null ? `${vm.target - 1}` : "—"}
+          {isAwayWinner && (
+            <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 to-yellow-400 text-black text-[10px] font-black px-2.5 py-0.5 rounded-bl-lg uppercase tracking-wider shadow z-10 animate-pulse">
+              👑 WINNER
+            </div>
+          )}
+          <div className="flex items-center justify-between pb-2 border-b border-white/10 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 p-0.5 flex items-center justify-center shrink-0 shadow-sm">
+                {awayTeam?.logoUrl ? (
+                  <img src={awayTeam.logoUrl} alt="" className="max-h-full max-w-full object-contain" />
+                ) : (
+                  <span className="text-xs font-black text-cyan-400">{awayTeam?.shortCode || "A"}</span>
+                )}
+              </div>
+              <span className="font-bold text-[15px] text-white uppercase truncate">
+                {awayTeam?.name || "2ND INNINGS"}
+              </span>
+            </div>
+            <span className="font-mono text-xl font-black text-cyan-400 shrink-0">
+              {awayScore}
             </span>
           </div>
-          <div className="pt-2 flex items-center justify-between text-[14px] font-mono text-slate-300">
+          <div className="pt-2 flex items-center justify-between text-[13px] font-mono text-slate-300">
             <span>TARGET: <strong className="text-[#FFD700]">{vm.target != null ? `${vm.target} RUNS` : "N/A"}</strong></span>
             <span>STATUS: <strong className="text-emerald-400 uppercase">{vm.phase}</strong></span>
           </div>
@@ -376,40 +558,75 @@ function SummaryVariant({
       <div className="grid grid-cols-2 gap-3">
         {/* Top Batters */}
         <div className="p-3 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col">
-          <span className="text-[12px] font-black uppercase tracking-widest text-[#FFD700] pb-1.5 border-b border-white/10 mb-2">
+          <span className="text-[11px] font-black uppercase tracking-widest text-[#FFD700] pb-1.5 border-b border-white/10 mb-2">
             TOP BATTERS
           </span>
           <div className="space-y-2">
-            {[vm.striker, vm.nonStriker].map((b, i) =>
-              b ? (
-                <div key={i} className="flex items-center justify-between text-[15px]">
-                  <span className="font-bold text-white truncate">{b.name}</span>
-                  <span className="font-mono font-bold text-[#FFD700]">
+            {topBattersList.map((b, i) => {
+              const nameLen = (b.name || "").trim().length;
+              const fontSize = nameLen > 20 ? "11.5px" : nameLen > 15 ? "12.5px" : "14px";
+              return (
+                <div key={i} className="flex items-center justify-between gap-2 text-[14px]">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="w-7 h-7 rounded-lg bg-white/10 border border-amber-400/40 overflow-hidden shrink-0 flex items-center justify-center">
+                      {b.photoUrl ? (
+                        <img src={b.photoUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-[10px] font-black text-amber-300">{getInitials(b.name)}</span>
+                      )}
+                    </div>
+                    <span
+                      className="font-bold text-white whitespace-nowrap overflow-hidden leading-tight"
+                      style={{ fontSize, letterSpacing: nameLen > 16 ? "-0.01em" : undefined }}
+                      title={b.name}
+                    >
+                      {b.name}
+                    </span>
+                  </div>
+                  <span className="font-mono font-bold text-[#FFD700] shrink-0">
                     {b.runs} ({b.balls}b)
                   </span>
                 </div>
-              ) : null,
-            )}
+              );
+            })}
           </div>
         </div>
 
         {/* Top Bowler */}
         <div className="p-3 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col">
-          <span className="text-[12px] font-black uppercase tracking-widest text-cyan-400 pb-1.5 border-b border-white/10 mb-2">
+          <span className="text-[11px] font-black uppercase tracking-widest text-cyan-400 pb-1.5 border-b border-white/10 mb-2">
             KEY BOWLER
           </span>
-          {vm.bowler ? (
-            <div className="flex items-center justify-between text-[15px] pt-0.5">
-              <div>
-                <span className="font-bold text-white block">{vm.bowler.name}</span>
-                <span className="text-[13px] text-slate-400 font-mono">Econ: {vm.bowler.economy?.toFixed(2)}</span>
+          {topBowlerData ? (
+            <div className="flex items-center justify-between gap-2 pt-0.5">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <div className="w-7 h-7 rounded-lg bg-white/10 border border-cyan-400/40 overflow-hidden shrink-0 flex items-center justify-center">
+                  {topBowlerData.photoUrl ? (
+                    <img src={topBowlerData.photoUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-[10px] font-black text-cyan-300">{getInitials(topBowlerData.name)}</span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span
+                    className="font-bold text-white block whitespace-nowrap overflow-hidden leading-tight"
+                    style={{
+                      fontSize: (topBowlerData.name || "").length > 18 ? "12px" : (topBowlerData.name || "").length > 14 ? "13px" : "14px",
+                      letterSpacing: (topBowlerData.name || "").length > 16 ? "-0.01em" : undefined,
+                    }}
+                    title={topBowlerData.name}
+                  >
+                    {topBowlerData.name}
+                  </span>
+                  <span className="text-[12px] text-slate-400 font-mono">Econ: {topBowlerData.economy?.toFixed(2)}</span>
+                </div>
               </div>
-              <span className="font-mono text-lg font-black text-rose-400">
-                {vm.bowler.wickets}-{vm.bowler.runsConceded}
+              <span className="font-mono text-lg font-black text-rose-400 shrink-0">
+                {topBowlerData.wickets}-{topBowlerData.runsConceded}
               </span>
             </div>
           ) : (
-            <div className="text-[13px] text-slate-400 pt-2">No bowler spell active</div>
+            <div className="text-[13px] text-slate-400 pt-2">No bowler figures available</div>
           )}
         </div>
       </div>
@@ -456,29 +673,45 @@ function ScorecardVariant({ vm }: { vm: CricketObsViewModel }) {
           CREASE BATTERS
         </span>
         <div className="space-y-2">
-          {[vm.striker, vm.nonStriker].map((b, i) =>
-            b ? (
-              <div key={i} className="flex items-center justify-between text-[15px] p-2.5 rounded-lg bg-white/[0.03] border border-white/5">
-                <span className="font-bold text-white text-[16px]">
+          {[vm.striker, vm.nonStriker].map((b, i) => {
+            if (!b) return null;
+            const nameLen = (b.name || "").trim().length;
+            const fontSize = nameLen > 22 ? "12.5px" : nameLen > 16 ? "14px" : "16px";
+            return (
+              <div key={i} className="flex items-center justify-between text-[15px] p-2.5 rounded-lg bg-white/[0.03] border border-white/5 gap-2">
+                <span
+                  className="font-bold text-white whitespace-nowrap overflow-hidden leading-tight flex-1 min-w-0"
+                  style={{ fontSize, letterSpacing: nameLen > 16 ? "-0.01em" : undefined }}
+                  title={b.name}
+                >
                   {b.name} {i === 0 && <span className="text-[#FFD700] font-black">*</span>}
                 </span>
-                <span className="font-mono text-[17px] font-black text-[#FFD700]">
+                <span className="font-mono text-[17px] font-black text-[#FFD700] shrink-0">
                   {b.runs} <span className="text-[13px] text-slate-400 font-normal">({b.balls}b • 4s:{b.fours} 6s:{b.sixes})</span>
                 </span>
               </div>
-            ) : null,
-          )}
+            );
+          })}
         </div>
       </div>
 
       {/* Bowler Details */}
       {vm.bowler && (
-        <div className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02] flex items-center justify-between">
-          <div>
+        <div className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02] flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
             <span className="text-[12px] font-black uppercase tracking-widest text-cyan-400 block mb-0.5">
               ACTIVE BOWLER
             </span>
-            <span className="font-bold text-white text-[17px]">{vm.bowler.name}</span>
+            <span
+              className="font-bold text-white block whitespace-nowrap overflow-hidden leading-tight"
+              style={{
+                fontSize: (vm.bowler.name || "").length > 20 ? "13px" : (vm.bowler.name || "").length > 15 ? "15px" : "17px",
+                letterSpacing: (vm.bowler.name || "").length > 15 ? "-0.01em" : undefined,
+              }}
+              title={vm.bowler.name}
+            >
+              {vm.bowler.name}
+            </span>
             <span className="text-[14px] text-slate-300 font-mono block">Econ: {vm.bowler.economy?.toFixed(2)}</span>
           </div>
           <div className="text-right font-mono">
@@ -944,7 +1177,7 @@ export function BroadcastSideSlate({
       tournamentName={vm.tournamentName || "BIDWAR CRICKET"}
       title={title}
       kicker={config.kicker}
-      hideHeadline={variant === "SPONSORS"}
+      hideHeadline={variant === "SPONSORS" || variant === "SUMMARY"}
       sponsorTier={activeSponsorTier}
     >
       {variant === "SUMMARY" && (

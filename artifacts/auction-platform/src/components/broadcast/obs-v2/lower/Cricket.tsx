@@ -59,16 +59,49 @@ export function TeamScorePanel({ model }: { model: CricketScoreModel }) {
   );
 }
 
+function getBatterFontSize(name: string): number {
+  const len = (name || "").trim().length;
+  if (len <= 12) return 28;
+  if (len <= 15) return 24;
+  if (len <= 18) return 21;
+  if (len <= 22) return 18;
+  if (len <= 26) return 16;
+  if (len <= 30) return 14;
+  return 12;
+}
+
+function getBowlerFontSize(name: string): number {
+  const len = (name || "").trim().length;
+  if (len <= 10) return 26;
+  if (len <= 13) return 22;
+  if (len <= 16) return 19;
+  if (len <= 20) return 16;
+  if (len <= 24) return 14;
+  return 12;
+}
+
 function BatterRow({ b }: { b: BatterLine }) {
-  const isLong = b.name.length > 16;
-  const fontSize = b.name.length > 22 ? 22 : isLong ? 25 : undefined;
+  const nameLen = (b.name || "").trim().length;
+  const fontSize = getBatterFontSize(b.name);
+  const letterSpacing = nameLen > 16 ? "-0.015em" : undefined;
 
   return (
     <div className="bw-batter" data-strike={b.onStrike}>
       <i className="bw-strike-mark" />
-      <span className="bw-bname" style={fontSize ? { fontSize } : undefined}>{b.name}</span>
+      <span
+        className="bw-bname"
+        style={{
+          fontSize,
+          letterSpacing,
+          whiteSpace: "nowrap",
+          lineHeight: 1.1,
+        }}
+        title={b.name}
+      >
+        {b.name}
+      </span>
       <span className="bw-bruns">
-        <AnimatedValue value={b.runs} /> <small>({b.balls}b)</small>
+        <AnimatedValue value={b.runs} /> <small>({b.balls} {b.balls === 1 ? "ball" : "balls"})</small>
       </span>
       <span className="bw-bsr">
         <small>SR</small> {strikeRate(b.runs, b.balls)}
@@ -77,26 +110,65 @@ function BatterRow({ b }: { b: BatterLine }) {
   );
 }
 
-export function BatterPanel({ striker, nonStriker }: { striker: BatterLine; nonStriker: BatterLine }) {
+export function BatterPanel({
+  striker,
+  nonStriker,
+  partnership,
+  partnershipRuns,
+  partnershipBalls,
+}: {
+  striker: BatterLine;
+  nonStriker: BatterLine;
+  partnership?: string | null;
+  partnershipRuns?: number;
+  partnershipBalls?: number;
+}) {
   // Striker always listed first; key by name so striker changes animate.
   const rows = striker.onStrike ? [striker, nonStriker] : [nonStriker, striker];
+  const pRuns = partnershipRuns ?? (striker.runs + nonStriker.runs);
+  const pBalls = partnershipBalls ?? (striker.balls + nonStriker.balls);
+  const hasPship = pRuns > 0 || pBalls > 0 || Boolean(partnership);
+
   return (
     <div className="bw-batters">
-      {rows.map((b) => (
-        <BatterRow key={b.name} b={b} />
-      ))}
+      <div className="bw-batters-rows">
+        {rows.map((b) => (
+          <BatterRow key={b.name} b={b} />
+        ))}
+      </div>
+      {hasPship && (
+        <div className="bw-pship-strip">
+          <span className="bw-pship-label">PARTNERSHIP</span>
+          <span className="bw-pship-val">
+            <strong className="bw-gold">{pRuns}</strong>
+            <small>({pBalls} {pBalls === 1 ? "ball" : "balls"})</small>
+          </span>
+        </div>
+      )}
     </div>
   );
 }
 
 export function BowlerPanel({ bowler }: { bowler: BowlerLine }) {
-  const isLong = bowler.name.length > 13;
-  const fontSize = bowler.name.length > 20 ? 22 : isLong ? 25 : undefined;
+  const nameLen = (bowler.name || "").trim().length;
+  const fontSize = getBowlerFontSize(bowler.name);
+  const letterSpacing = nameLen > 13 ? "-0.015em" : undefined;
 
   return (
     <div className="bw-bowler" key={bowler.name}>
       <span className="bw-cyan-label">BOWL</span>
-      <span className="bw-bowl-name" style={fontSize ? { fontSize } : undefined}>{bowler.name}</span>
+      <span
+        className="bw-bowl-name"
+        style={{
+          fontSize,
+          letterSpacing,
+          whiteSpace: "nowrap",
+          lineHeight: 1.1,
+        }}
+        title={bowler.name}
+      >
+        {bowler.name}
+      </span>
       <span className="bw-bowl-fig">
         <AnimatedValue value={`${bowler.wickets}-${bowler.runs}`} className="bw-gold" />
         <small>({bowler.overs} ov)</small>
@@ -179,9 +251,8 @@ function ExtendedStatsPanel({ model }: { model: CricketScoreModel }) {
 
   const hasChaseInfo = model.needRuns != null && model.ballsRemaining != null;
   const hasRrr = model.rrr != null && model.rrr > 0;
-  const hasPartnership = Boolean(model.partnership);
 
-  if (!hasChaseInfo && !hasRrr && !hasPartnership && !model.freeHitActive && !model.superBallActive) {
+  if (!hasChaseInfo && !hasRrr && !model.freeHitActive && !model.superBallActive) {
     return null;
   }
 
@@ -202,7 +273,7 @@ function ExtendedStatsPanel({ model }: { model: CricketScoreModel }) {
             lineHeight: 1.1,
           }}
         >
-          NEED {model.needRuns} OFF {model.ballsRemaining}
+          NEED {model.needRuns} OFF {model.ballsRemaining} {model.ballsRemaining === 1 ? "BALL" : "BALLS"}
         </div>
       )}
 
@@ -219,21 +290,6 @@ function ExtendedStatsPanel({ model }: { model: CricketScoreModel }) {
         >
           <span style={{ color: OBS_V2.color.textMuted }}>RRR </span>
           <span style={{ color: OBS_V2.color.warning }}>{(model.rrr ?? 0).toFixed(2)}</span>
-        </div>
-      )}
-
-      {/* Partnership */}
-      {hasPartnership && (
-        <div
-          style={{
-            fontSize: 15,
-            fontFamily: OBS_V2.typography.family.body,
-            color: OBS_V2.color.textMuted,
-            letterSpacing: "0.04em",
-            fontWeight: 600,
-          }}
-        >
-          {model.partnership}
         </div>
       )}
 
@@ -275,7 +331,6 @@ export function CricketScorebar({ model }: { model: CricketScoreModel }) {
   const showExtendedStats = !model.result && (
     model.needRuns != null ||
     (model.rrr != null && model.rrr > 0) ||
-    model.partnership != null ||
     model.freeHitActive ||
     model.superBallActive
   );
@@ -286,7 +341,13 @@ export function CricketScorebar({ model }: { model: CricketScoreModel }) {
         <TeamScorePanel model={model} />
       </div>
       <div className="bw-seg bw-seg-bat">
-        <BatterPanel striker={model.striker} nonStriker={model.nonStriker} />
+        <BatterPanel
+          striker={model.striker}
+          nonStriker={model.nonStriker}
+          partnership={model.partnership}
+          partnershipRuns={model.partnershipRuns}
+          partnershipBalls={model.partnershipBalls}
+        />
       </div>
       <div className="bw-seg bw-seg-bowl">
         <BowlerPanel bowler={model.bowler} />

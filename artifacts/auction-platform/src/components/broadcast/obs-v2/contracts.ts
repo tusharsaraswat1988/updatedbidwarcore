@@ -172,6 +172,8 @@ export interface CricketScoreModel {
   ballsRemaining?: number | null;
   /** Current partnership as "X(Y)" or text */
   partnership?: string | null;
+  partnershipRuns?: number;
+  partnershipBalls?: number;
   /** Whether Free Hit is active for the next delivery */
   freeHitActive?: boolean;
   /** Whether Superball (2x multiplier) is active */

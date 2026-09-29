@@ -97,8 +97,13 @@ export default defineConfig({
       "@radix-ui/react-popover",
       "@radix-ui/react-checkbox",
       "@radix-ui/react-switch",
+    ],
+    exclude: [
       "@workspace/scoring-core",
       "@workspace/api-client-react",
+      "@workspace/badminton-core",
+      "@workspace/platform-core",
+      "@workspace/api-base",
     ],
   },
   root: path.resolve(import.meta.dirname),
