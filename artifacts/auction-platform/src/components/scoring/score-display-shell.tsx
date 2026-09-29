@@ -56,8 +56,89 @@ import {
   Award,
   Pause,
   Sparkles,
+  User,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function TeamLogoBadge({
+  logoUrl,
+  name,
+  className,
+  borderColor = "border-border/80",
+  fallbackIconColor = "text-primary",
+}: {
+  logoUrl?: string | null;
+  name?: string;
+  className?: string;
+  borderColor?: string;
+  fallbackIconColor?: string;
+}) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [logoUrl]);
+
+  return (
+    <div
+      className={cn(
+        "w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-xl sm:rounded-2xl bg-card/95 border-2 p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-lg shadow-black/40",
+        borderColor,
+        className,
+      )}
+    >
+      {logoUrl && !hasError ? (
+        <img
+          src={logoUrl}
+          alt={name || "Team"}
+          className="w-full h-full object-contain"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        <Shield className={cn("w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7", fallbackIconColor)} />
+      )}
+    </div>
+  );
+}
+
+function PlayerAvatar({
+  photoUrl,
+  name,
+  className,
+}: {
+  photoUrl?: string | null;
+  name?: string;
+  className?: string;
+}) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [photoUrl]);
+
+  return (
+    <div
+      className={cn(
+        "w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-xl sm:rounded-2xl bg-card/90 border-2 border-border/80 flex items-center justify-center overflow-hidden shrink-0 shadow-md relative bg-gradient-to-br from-card to-background",
+        className,
+      )}
+    >
+      {photoUrl && !hasError ? (
+        <img
+          src={photoUrl}
+          alt={name || "Player"}
+          className="w-full h-full object-cover object-top"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center text-primary/70">
+          <User className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ConnectionBadge({
   status,
@@ -457,6 +538,35 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
       ? Math.max(0, state.oversLimit * 6 - (innings.over * 6 + innings.ball))
       : null;
 
+  const partnershipRuns = (strikerStats?.runs ?? 0) + (nonStrikerStats?.runs ?? 0);
+  const partnershipBalls = (strikerStats?.balls ?? 0) + (nonStrikerStats?.balls ?? 0);
+
+  // Score glow pulse trigger on score increment (tight around numbers: white normally, gold on 25/50/75/100 milestones)
+  const [scoreGlowType, setScoreGlowType] = useState<"white" | "gold" | null>(null);
+  const prevScoreRef = useRef<{ runs: number; wickets: number } | null>(null);
+
+  useEffect(() => {
+    const currentRuns = innings?.runs ?? 0;
+    const currentWickets = innings?.wickets ?? 0;
+
+    if (prevScoreRef.current !== null) {
+      if (
+        prevScoreRef.current.runs !== currentRuns ||
+        prevScoreRef.current.wickets !== currentWickets
+      ) {
+        const isMilestone = currentRuns > 0 && currentRuns % 25 === 0;
+        setScoreGlowType(isMilestone ? "gold" : "white");
+        const timer = setTimeout(() => {
+          setScoreGlowType(null);
+        }, 1600);
+        prevScoreRef.current = { runs: currentRuns, wickets: currentWickets };
+        return () => clearTimeout(timer);
+      }
+    } else {
+      prevScoreRef.current = { runs: currentRuns, wickets: currentWickets };
+    }
+  }, [innings?.runs, innings?.wickets]);
+
   // 1. Bootstrap: Record current event as seen on initial mount to suppress historical replay
   useEffect(() => {
     if (!bootstrappedRef.current) {
@@ -630,10 +740,10 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
   const tournamentTitle = tournament?.name || "LIVE CRICKET TOURNAMENT";
   const titleFontSizeClass = useMemo(() => {
     const len = tournamentTitle.length;
-    if (len > 55) return "text-sm sm:text-base md:text-lg lg:text-xl";
-    if (len > 40) return "text-base sm:text-lg md:text-xl lg:text-2xl";
-    if (len > 25) return "text-lg sm:text-xl md:text-2xl lg:text-[1.85rem]";
-    return "text-xl sm:text-2xl md:text-3xl lg:text-4xl";
+    if (len > 50) return "text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl";
+    if (len > 32) return "text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl";
+    if (len > 18) return "text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl";
+    return "text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl";
   }, [tournamentTitle]);
 
   const isLiveMatch =
@@ -690,66 +800,59 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
   }
 
   return (
-    <FullscreenLayout>
+    <FullscreenLayout className="h-screen max-h-screen overflow-hidden">
       <div
-        className="min-h-screen bg-[#07090e] text-foreground flex flex-col relative dark overflow-hidden select-none"
+        className="h-screen max-h-screen w-full bg-[#07090e] text-foreground flex flex-col justify-between relative dark overflow-hidden select-none"
         style={displayShellStyle}
       >
         {/* Ambient Stadium Lighting Gradient */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/15 via-[#07090e] to-[#040507] pointer-events-none" />
 
-        {/* 1. TOP HEADER: Tournament Logo (Left) | BidWar + Title (Center) | Sponsor Showcase (Right) */}
-        <header className="relative z-20 h-24 flex items-center justify-between px-4 sm:px-6 md:px-8 border-b border-border/60 bg-card/90 backdrop-blur-md shrink-0">
-          {/* Top Left: Tournament Logo (Balanced Fixed Width Anchor) */}
-          <div className="flex items-center gap-3 w-56 sm:w-64 md:w-72 shrink-0">
+        {/* 1. TOP HEADER: Tournament Logo + Name (Left) | BidWar Logo (Center) | Sponsor Showcase (Right) */}
+        <header className="relative z-20 h-16 sm:h-20 flex items-center justify-between px-3 sm:px-6 md:px-8 border-b border-border/60 bg-card/90 backdrop-blur-md shrink-0 gap-3 sm:gap-6">
+          {/* Top Left: Tournament Logo + Tournament Name in CAPITAL with generous space reaching towards center */}
+          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 max-w-[42%] shrink-0">
             {tournament?.logoUrl ? (
-              <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-2xl bg-card border-2 border-border p-1.5 flex items-center justify-center overflow-hidden shadow-lg shadow-black/50">
-                <img
-                  src={tournament.logoUrl}
-                  alt={tournament.name}
-                  className="w-full h-full object-contain"
-                />
-              </div>
+              <img
+                src={tournament.logoUrl}
+                alt={tournament.name || "Tournament Logo"}
+                className="h-11 sm:h-13 md:h-15 w-auto max-w-[70px] sm:max-w-[85px] md:max-w-[100px] object-contain drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)] shrink-0"
+              />
             ) : (
-              <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-18 md:h-18 rounded-2xl bg-gradient-to-br from-card via-card/80 to-background border-2 border-primary/40 flex flex-col items-center justify-center shadow-lg shadow-black/50">
-                <Trophy className="w-7 h-7 text-primary" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-primary/80 mt-1">
-                  TOURNEY
+              <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-primary drop-shadow-md shrink-0" />
+            )}
+            <div className="min-w-0 flex-1">
+              <h2
+                title={tournamentTitle}
+                className={cn(
+                  "font-display font-black uppercase tracking-wide text-white leading-tight line-clamp-2 drop-shadow-md break-words",
+                  titleFontSizeClass,
+                )}
+              >
+                {tournamentTitle}
+              </h2>
+            </div>
+          </div>
+
+          {/* Top Center: Prominent Large BIDWAR Logo */}
+          <div className="shrink-0 flex items-center justify-center px-2 sm:px-4">
+            {logoSrc ? (
+              <img
+                src={logoSrc}
+                alt={logoAlt || "BidWar"}
+                className="h-10 sm:h-12 md:h-14 w-auto max-w-[200px] sm:max-w-[260px] md:max-w-[320px] object-contain drop-shadow-[0_4px_16px_rgba(0,0,0,0.85)]"
+              />
+            ) : (
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/20 border border-primary/40">
+                <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-[0.25em] text-amber-400 font-display">
+                  BIDWAR CRICKET
                 </span>
               </div>
             )}
           </div>
 
-          {/* Top Center: BIDWAR Broadcast Platform Brand + Dynamic Auto-Fitting Tournament Name */}
-          <div className="flex-1 flex flex-col items-center justify-center px-2 sm:px-4 max-w-5xl text-center min-w-0 pt-1.5 pb-1">
-            <div className="flex items-center justify-center mb-1.5">
-              {logoSrc ? (
-                <img
-                  src={logoSrc}
-                  alt={logoAlt || "BidWar"}
-                  className="h-7 sm:h-8 md:h-8.5 w-auto object-contain drop-shadow-md"
-                />
-              ) : (
-                <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-primary/20 border border-primary/40">
-                  <span className="text-xs sm:text-sm font-black uppercase tracking-[0.25em] text-amber-400 font-display">
-                    BIDWAR CRICKET BROADCAST
-                  </span>
-                </div>
-              )}
-            </div>
-            <h1
-              title={tournamentTitle}
-              className={cn(
-                "w-full font-display font-black uppercase tracking-wider text-white text-center leading-tight mt-0.5 drop-shadow-[0_2px_14px_rgba(0,0,0,0.95)] line-clamp-1 break-words",
-                titleFontSizeClass,
-              )}
-            >
-              {tournamentTitle}
-            </h1>
-          </div>
-
           {/* Top Right: Sponsor Showcase + Connection Status (Balanced Fixed Width Anchor) */}
-          <div className="flex items-center gap-2 sm:gap-3 w-56 sm:w-64 md:w-72 shrink-0 justify-end">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 max-w-[42%] shrink-0 justify-end">
             <HeaderSponsorShowcase
               sponsors={sponsors}
               scoreBoardSponsor={branding?.scoreBoardSponsor}
@@ -762,22 +865,22 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
         </header>
 
         {/* 2. MAIN SCORING ARENA */}
-        <main className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-between px-4 sm:px-8 py-3 sm:py-4 gap-3 sm:gap-4 overflow-hidden">
+        <main className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-between px-3 sm:px-6 md:px-8 py-2 sm:py-3 gap-2 sm:gap-3 overflow-hidden">
           {isIdle ? (
-            <div className="text-center space-y-4 max-w-xl p-10 rounded-3xl bg-card/60 border border-border/80 backdrop-blur-md my-auto">
-              <Trophy className="w-16 h-16 text-primary/60 mx-auto animate-pulse" />
-              <h2 className="text-3xl font-display font-black uppercase tracking-wide text-foreground">
+            <div className="text-center space-y-4 max-w-xl p-8 rounded-3xl bg-card/60 border border-border/80 backdrop-blur-md my-auto">
+              <Trophy className="w-14 h-14 text-primary/60 mx-auto animate-pulse" />
+              <h2 className="text-2xl sm:text-3xl font-display font-black uppercase tracking-wide text-foreground">
                 Match Waiting To Begin
               </h2>
-              <p className="text-base text-muted-foreground">
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Waiting for the official toss and scorer to start ball delivery.
               </p>
             </div>
           ) : isComplete && summary ? (
-            <div className="w-full max-w-4xl space-y-6 my-auto">
+            <div className="w-full max-w-4xl space-y-4 my-auto">
               <div className="flex items-center justify-center gap-3">
-                <Trophy className="w-8 h-8 text-primary" />
-                <h2 className="text-center text-3xl font-display font-black uppercase tracking-widest text-primary">
+                <Trophy className="w-7 h-7 text-primary" />
+                <h2 className="text-center text-2xl sm:text-3xl font-display font-black uppercase tracking-widest text-primary">
                   {state?.matchStatus === "walkover" || match?.status === "walkover"
                     ? "Walkover Awarded"
                     : state?.matchStatus === "abandoned" || match?.status === "abandoned"
@@ -788,50 +891,55 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
               <MatchSummaryCard summary={summary} teams={teams} />
             </div>
           ) : (
-            <div className="w-full max-w-7xl flex-1 min-h-0 flex flex-col items-center justify-between gap-3 sm:gap-4">
-              {/* Unified Match Context & Teams Strip (h-[76px]) */}
-              <div className="w-full min-h-[72px] max-h-[80px] flex items-center justify-between px-6 py-2.5 rounded-2xl bg-card/90 border border-border/80 backdrop-blur-md shadow-xl gap-4 shrink-0">
+            <div className="w-full max-w-7xl flex-1 min-h-0 flex flex-col items-center justify-between gap-2 sm:gap-2.5">
+              {/* Unified Match Context & Teams Strip */}
+              <div className="w-full min-h-[50px] sm:min-h-[56px] flex items-center justify-between px-3 sm:px-5 py-1 rounded-xl sm:rounded-2xl bg-card/95 border border-border/80 backdrop-blur-md shadow-xl gap-2 sm:gap-4 shrink-0">
                 {/* Batting Team Badge */}
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="px-3 py-1 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs sm:text-sm font-black uppercase tracking-widest animate-pulse">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] sm:text-xs font-black uppercase tracking-wider shrink-0">
                     BAT
                   </span>
-                  <div className="text-left min-w-0">
-                    <h3 className="text-lg sm:text-2xl font-black uppercase tracking-wider text-white truncate">
+                  <TeamLogoBadge
+                    logoUrl={battingTeam?.logoUrl || home?.logoUrl}
+                    name={battingTeam?.name || home?.name || "Batting Team"}
+                    borderColor="border-emerald-500/40"
+                    fallbackIconColor="text-emerald-400"
+                    className="w-9 h-9 sm:w-10 sm:h-10 shrink-0"
+                  />
+                  <div className="text-left min-w-0 flex-1">
+                    <h3 className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl font-black uppercase tracking-wide text-white leading-tight truncate drop-shadow-sm">
                       {battingTeam?.name || home?.name || "Batting Team"}
                     </h3>
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">
+                    <p className="text-xs sm:text-sm uppercase tracking-widest text-emerald-400 font-black leading-none mt-0.5">
                       {battingTeam?.shortCode || home?.shortCode}
                     </p>
                   </div>
                 </div>
 
                 {/* Center Match Equation / Free Hit Alert */}
-                <div className="flex items-center justify-center text-center px-2">
+                <div className="flex items-center justify-center text-center px-2 shrink-0">
                   {state?.freeHitActive ? (
-                    <div className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-indigo-600 border-2 border-fuchsia-300 text-white flex items-center gap-2 shadow-[0_0_25px_rgba(192,38,211,0.6)] animate-pulse">
-                      <Flame className="w-4 h-4 text-yellow-300 animate-bounce" />
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-[0.2em]">
-                        ⚡ FREE HIT ACTIVE ⚡
-                      </span>
+                    <div className="px-3 py-1 rounded-lg bg-amber-500 text-black border border-yellow-200 font-black text-xs sm:text-sm uppercase tracking-widest flex items-center gap-1.5 shadow-md animate-pulse">
+                      <Flame className="w-3.5 h-3.5 text-black fill-current animate-bounce" />
+                      FREE HIT ACTIVE
                     </div>
                   ) : targetRuns != null ? (
-                    <div className="flex items-center gap-3 sm:gap-5 px-4 py-1.5 rounded-xl bg-primary/15 border border-primary/30">
-                      <div className="text-xs sm:text-sm font-black uppercase text-primary/90">
-                        TARGET: <span className="text-white font-mono text-base sm:text-lg font-black ml-0.5">{targetRuns}</span>
+                    <div className="flex items-center gap-2 sm:gap-3 px-3 py-1 rounded-lg bg-card border border-border/80">
+                      <div className="text-xs sm:text-sm font-black uppercase text-amber-400">
+                        TARGET: <span className="text-white font-mono text-sm sm:text-base font-black ml-0.5">{targetRuns}</span>
                       </div>
                       <div className="text-xs sm:text-sm font-black uppercase text-white">
-                        NEED <span className="text-primary font-mono text-base sm:text-lg font-black">{needRuns}</span> IN <span className="text-primary font-mono text-base sm:text-lg font-black">{ballsRemaining}B</span>
+                        NEED <span className="text-amber-400 font-mono text-sm sm:text-base font-black">{needRuns}</span> IN <span className="text-amber-400 font-mono text-sm sm:text-base font-black">{ballsRemaining}B</span>
                       </div>
                       {rrr && (
                         <div className="text-xs sm:text-sm font-black uppercase text-amber-300 hidden sm:block">
-                          RRR: <span className="font-mono text-base sm:text-lg font-black ml-0.5">{rrr}</span>
+                          RRR: <span className="font-mono text-sm sm:text-base font-black ml-0.5">{rrr}</span>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="px-4 py-1.5 rounded-xl bg-black/40 border border-border/60">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-muted-foreground">
+                    <div className="px-3 py-1 rounded-lg bg-card/80 border border-border/80">
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-white/90">
                         1ST INNINGS IN PROGRESS
                       </span>
                     </div>
@@ -839,108 +947,161 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                 </div>
 
                 {/* Bowling Team Badge */}
-                <div className="flex items-center gap-3 min-w-0 text-right justify-end">
-                  <div className="text-right min-w-0">
-                    <h3 className="text-lg sm:text-2xl font-black uppercase tracking-wider text-white truncate">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 text-right justify-end">
+                  <div className="text-right min-w-0 flex-1">
+                    <h3 className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl font-black uppercase tracking-wide text-white leading-tight truncate drop-shadow-sm">
                       {bowlingTeam?.name || away?.name || "Bowling Team"}
                     </h3>
-                    <p className="text-xs uppercase tracking-widest text-muted-foreground font-semibold">
+                    <p className="text-xs sm:text-sm uppercase tracking-widest text-amber-400 font-black leading-none mt-0.5">
                       {bowlingTeam?.shortCode || away?.shortCode}
                     </p>
                   </div>
-                  <span className="px-3 py-1 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs sm:text-sm font-black uppercase tracking-widest">
+                  <TeamLogoBadge
+                    logoUrl={bowlingTeam?.logoUrl || away?.logoUrl}
+                    name={bowlingTeam?.name || away?.name || "Bowling Team"}
+                    borderColor="border-amber-500/40"
+                    fallbackIconColor="text-amber-400"
+                    className="w-9 h-9 sm:w-10 sm:h-10 shrink-0"
+                  />
+                  <span className="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] sm:text-xs font-black uppercase tracking-wider shrink-0">
                     BOWL
                   </span>
                 </div>
               </div>
 
               {/* HERO SCORING ARENA */}
-              <div className="w-full flex-1 min-h-0 p-4 sm:p-6 rounded-3xl bg-gradient-to-b from-card/95 via-card/85 to-background/90 border-2 border-border/80 backdrop-blur-md shadow-2xl flex flex-col items-center justify-between gap-3">
+              <div className="w-full flex-1 min-h-0 p-3 sm:p-4 rounded-2xl sm:rounded-3xl bg-gradient-to-b from-card/95 via-card/85 to-background/90 border-2 border-border/80 backdrop-blur-md shadow-2xl flex flex-col items-center justify-between gap-2 overflow-hidden">
                 {/* Hero Numerals + Overs Bar */}
-                <div className="flex flex-col items-center justify-center my-auto">
-                  {/* Total Score Numerals with Optical Slash */}
-                  <div className="text-7xl sm:text-8xl md:text-9xl lg:text-[10.5rem] font-black font-mono tabular-nums tracking-tight text-white leading-none drop-shadow-[0_10px_35px_rgba(0,0,0,0.95)] flex items-center justify-center">
+                <div className="flex flex-col items-center justify-center my-auto relative">
+                  {/* Total Score Numerals with Optical Slash and tight number-focused glow (50% Larger) */}
+                  <div
+                    className={cn(
+                      "text-9xl sm:text-[12rem] md:text-[16rem] lg:text-[19.5rem] xl:text-[23rem] font-black font-mono tabular-nums tracking-tight leading-none flex items-center justify-center transition-all duration-300 ease-out select-none relative drop-shadow-[0_10px_35px_rgba(0,0,0,0.95)]",
+                      scoreGlowType === "gold"
+                        ? "text-amber-300 drop-shadow-[0_0_32px_rgba(251,191,36,0.95)] scale-[1.03]"
+                        : scoreGlowType === "white"
+                        ? "text-white drop-shadow-[0_0_28px_rgba(255,255,255,0.95)] scale-[1.02]"
+                        : "text-white",
+                    )}
+                  >
                     <span>{innings?.runs ?? 0}</span>
-                    <span className="text-amber-400/50 font-light text-[0.75em] mx-2 sm:mx-3 select-none">
+                    <span
+                      className={cn(
+                        "font-light text-[0.7em] mx-3 sm:mx-6 select-none transition-colors duration-300",
+                        scoreGlowType === "gold"
+                          ? "text-amber-300/80 drop-shadow-[0_0_18px_rgba(251,191,36,0.7)]"
+                          : scoreGlowType === "white"
+                          ? "text-white/80 drop-shadow-[0_0_15px_rgba(255,255,255,0.7)]"
+                          : "text-amber-400/50",
+                      )}
+                    >
                       /
                     </span>
                     <span>{innings?.wickets ?? 0}</span>
                   </div>
 
-                  {/* Overs & Rates Bar */}
-                  <div className="flex items-center gap-3 sm:gap-5 mt-2 flex-wrap justify-center">
-                    <div className="px-5 py-1.5 rounded-xl bg-amber-500/15 border-2 border-amber-500/40 shadow-lg flex items-center gap-2">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-amber-300/80">
+                  {/* Overs, Rates & Partnership Bar (~50% Larger) */}
+                  <div className="flex items-center gap-3 sm:gap-5 mt-2 sm:mt-3 flex-wrap justify-center">
+                    {/* Overs */}
+                    <div className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-2xl bg-card/95 border-2 border-border shadow-lg flex items-center gap-2.5 sm:gap-3.5">
+                      <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-widest text-white/70">
                         OVERS
                       </span>
-                      <span className="text-2xl sm:text-3xl font-mono font-black text-amber-400">
+                      <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-mono font-black text-amber-400">
                         {innings ? oversText(innings.over, innings.ball) : "0.0"}
-                        <span className="text-base sm:text-lg text-muted-foreground font-normal ml-1.5">
+                        <span className="text-base sm:text-lg md:text-xl text-white/50 font-bold ml-1.5">
                           / {state?.oversLimit ?? 0}
                         </span>
                       </span>
                     </div>
 
+                    {/* CRR */}
                     {rr && (
-                      <div className="px-4 py-1.5 rounded-xl bg-card border border-border flex items-center gap-2">
-                        <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-muted-foreground">
+                      <div className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-2xl bg-card/95 border-2 border-border flex items-center gap-2.5 sm:gap-3.5 shadow-lg">
+                        <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-widest text-white/70">
                           CRR
                         </span>
-                        <span className="text-xl sm:text-2xl font-mono font-black text-white">
+                        <span className="text-2xl sm:text-3xl md:text-4xl font-mono font-black text-white">
                           {rr}
                         </span>
                       </div>
                     )}
 
+                    {/* REQ RR */}
                     {rrr && (
-                      <div className="px-4 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
-                        <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-amber-300/80">
+                      <div className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-2xl bg-card/95 border-2 border-border flex items-center gap-2.5 sm:gap-3.5 shadow-lg">
+                        <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-widest text-amber-400/80">
                           REQ RR
                         </span>
-                        <span className="text-xl sm:text-2xl font-mono font-black text-amber-300">
+                        <span className="text-2xl sm:text-3xl md:text-4xl font-mono font-black text-amber-400">
                           {rrr}
                         </span>
                       </div>
                     )}
+
+                    {/* Partnership */}
+                    <div className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-2xl bg-card/95 border-2 border-border flex items-center gap-2.5 sm:gap-3.5 shadow-lg">
+                      <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-widest text-white/70">
+                        PARTNERSHIP
+                      </span>
+                      <span className="text-2xl sm:text-3xl md:text-4xl font-mono font-black text-white">
+                        {partnershipRuns}
+                        <span className="text-sm sm:text-lg md:text-xl text-amber-400 font-bold ml-2">
+                          ({partnershipBalls} {partnershipBalls === 1 ? "ball" : "balls"})
+                        </span>
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Crease Cards: Live Batters & Bowler Figures */}
-                <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 my-auto">
-                  {/* Batters Card */}
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-black/45 border border-border/80 flex flex-col justify-between gap-2 shadow-lg">
-                    <div className="flex items-center justify-between pb-1.5 border-b border-border/40">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
-                        🏏 Batters at Crease
-                      </span>
-                      <span className="text-[11px] uppercase font-bold text-muted-foreground">
-                        R (B) · 4s/6s · SR
+                {/* Crease (Both Batters in 1 Line) & Bowler Area */}
+                <div className="w-full flex flex-col gap-2.5 my-auto shrink-0">
+                  {/* 1. Both Batters in ONE Horizontal Row (Side-by-Side with Large High-Visibility Scores) */}
+                  <div className="w-full p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-black/60 border border-border/80 shadow-xl flex flex-col gap-1.5">
+                    <div className="flex items-center justify-between pb-1 border-b border-border/40">
+                      <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.2em] text-white/90 flex items-center gap-1.5">
+                        🏏 BATTERS AT CREASE
                       </span>
                     </div>
-                    <div className="space-y-1.5">
+
+                    <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
                       {/* Striker */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="text-emerald-400 font-black text-lg sm:text-xl shrink-0">*</span>
-                          <span
-                            className="text-base sm:text-xl md:text-2xl font-black uppercase text-white tracking-wide truncate"
-                            title={strikerStats?.name || strikerPlayer?.name}
-                          >
-                            {strikerStats?.name || strikerPlayer?.name || "Striker"}
-                          </span>
+                      <div className="flex items-center justify-between gap-3 p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-card/70 border-2 border-emerald-500/50 shadow-md min-w-0">
+                        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
+                          <PlayerAvatar
+                            photoUrl={strikerStats?.photoUrl || strikerPlayer?.photoUrl}
+                            name={strikerStats?.name || strikerPlayer?.name}
+                            className="w-11 h-11 sm:w-13 sm:h-13 md:w-15 md:h-15 rounded-lg sm:rounded-xl border-2 border-emerald-400 shrink-0 shadow-md"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1">
+                              <span className="text-emerald-400 font-black text-2xl sm:text-3xl shrink-0 leading-none animate-pulse">*</span>
+                              <span
+                                className="text-base sm:text-xl md:text-2xl lg:text-3xl font-black uppercase text-white tracking-wide truncate leading-tight drop-shadow-md"
+                                title={strikerStats?.name || strikerPlayer?.name}
+                              >
+                                {strikerStats?.name || strikerPlayer?.name || "Striker"}
+                              </span>
+                            </div>
+                            {strikerPlayer?.role && (
+                              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-400/90 ml-4 sm:ml-5 truncate">
+                                {strikerPlayer.role}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="text-right shrink-0 pr-1 sm:pr-2">
                           {strikerStats?.hasStats ? (
-                            <>
-                              <span className="text-lg sm:text-2xl font-mono font-black text-amber-300">
-                                {strikerStats.runs}* ({strikerStats.balls})
+                            <div className="flex items-baseline gap-1 sm:gap-2">
+                              <span className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-mono font-black text-amber-400 leading-none drop-shadow-[0_2px_14px_rgba(245,158,11,0.6)]">
+                                {strikerStats.runs}*
                               </span>
-                              <span className="text-xs sm:text-sm font-mono text-muted-foreground ml-2 hidden sm:inline-block">
-                                {strikerStats.fours}x4 · {strikerStats.sixes}x6 · SR {strikerStats.strikeRate.toFixed(1)}
+                              <span className="text-base sm:text-xl md:text-2xl font-mono font-bold text-white/80">
+                                ({strikerStats.balls})
                               </span>
-                            </>
+                            </div>
                           ) : (
-                            <span className="text-xs sm:text-sm font-medium text-muted-foreground/70 italic">
+                            <span className="text-sm sm:text-base font-bold text-white/60">
                               {strikerPlayer?.role || "Striker"}
                             </span>
                           )}
@@ -948,28 +1109,42 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                       </div>
 
                       {/* Non-Striker */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                          <span className="text-muted-foreground/50 font-black text-lg sm:text-xl shrink-0">·</span>
-                          <span
-                            className="text-base sm:text-xl md:text-2xl font-bold uppercase text-white/90 tracking-wide truncate"
-                            title={nonStrikerStats?.name || nonStrikerPlayer?.name}
-                          >
-                            {nonStrikerStats?.name || nonStrikerPlayer?.name || "Non-Striker"}
-                          </span>
+                      <div className="flex items-center justify-between gap-3 p-2 sm:p-2.5 rounded-lg sm:rounded-xl bg-card/40 border border-border/80 shadow-md min-w-0">
+                        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
+                          <PlayerAvatar
+                            photoUrl={nonStrikerStats?.photoUrl || nonStrikerPlayer?.photoUrl}
+                            name={nonStrikerStats?.name || nonStrikerPlayer?.name}
+                            className="w-11 h-11 sm:w-13 sm:h-13 md:w-15 md:h-15 rounded-lg sm:rounded-xl border-2 border-border/80 shrink-0 shadow-md"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1">
+                              <span className="text-white/40 font-black text-2xl sm:text-3xl shrink-0 leading-none">·</span>
+                              <span
+                                className="text-base sm:text-xl md:text-2xl lg:text-3xl font-bold uppercase text-white/90 tracking-wide truncate leading-tight drop-shadow-md"
+                                title={nonStrikerStats?.name || nonStrikerPlayer?.name}
+                              >
+                                {nonStrikerStats?.name || nonStrikerPlayer?.name || "Non-Striker"}
+                              </span>
+                            </div>
+                            {nonStrikerPlayer?.role && (
+                              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground ml-4 sm:ml-5 truncate">
+                                {nonStrikerPlayer.role}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right shrink-0">
+                        <div className="text-right shrink-0 pr-1 sm:pr-2">
                           {nonStrikerStats?.hasStats ? (
-                            <>
-                              <span className="text-lg sm:text-2xl font-mono font-bold text-white/90">
-                                {nonStrikerStats.runs} ({nonStrikerStats.balls})
+                            <div className="flex items-baseline gap-1 sm:gap-2">
+                              <span className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-mono font-black text-white leading-none drop-shadow-md">
+                                {nonStrikerStats.runs}
                               </span>
-                              <span className="text-xs sm:text-sm font-mono text-muted-foreground ml-2 hidden sm:inline-block">
-                                {nonStrikerStats.fours}x4 · {nonStrikerStats.sixes}x6 · SR {nonStrikerStats.strikeRate.toFixed(1)}
+                              <span className="text-base sm:text-xl md:text-2xl font-mono font-bold text-white/60">
+                                ({nonStrikerStats.balls})
                               </span>
-                            </>
+                            </div>
                           ) : (
-                            <span className="text-xs sm:text-sm font-medium text-muted-foreground/70 italic">
+                            <span className="text-sm sm:text-base font-bold text-white/60">
                               {nonStrikerPlayer?.role || "Non-Striker"}
                             </span>
                           )}
@@ -978,59 +1153,58 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                     </div>
                   </div>
 
-                  {/* Bowler Card */}
-                  <div className="p-3.5 sm:p-4 rounded-2xl bg-black/45 border border-border/80 flex flex-col justify-between gap-2 shadow-lg">
-                    <div className="flex items-center justify-between pb-1.5 border-b border-border/40">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-amber-400 flex items-center gap-1.5">
-                        🎯 Active Bowler
+                  {/* 2. Active Bowler Row (Order: White 'ACTIVE BOWLER' label -> Bowler Photo -> Bowler Name -> Large Bowling Figures) */}
+                  <div className="w-full px-2 py-1 flex items-center justify-between gap-3 sm:gap-4 shrink-0">
+                    <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
+                      {/* Active Bowler in crisp white text / badge */}
+                      <span className="px-2.5 py-1 rounded-lg bg-white/10 border border-white/20 text-white font-black text-xs sm:text-sm md:text-base uppercase tracking-wider shrink-0 shadow-sm">
+                        ACTIVE BOWLER
                       </span>
-                      <span className="text-[11px] uppercase font-bold text-muted-foreground">
-                        O-M-R-W · ECON
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
+
+                      {/* Bowler Photo */}
+                      <PlayerAvatar
+                        photoUrl={bowlerStats?.photoUrl || bowlerPlayer?.photoUrl}
+                        name={bowlerStats?.name || bowlerPlayer?.name}
+                        className="w-11 h-11 sm:w-13 sm:h-13 md:w-15 md:h-15 rounded-lg sm:rounded-xl border-2 border-amber-400 shrink-0 shadow-md"
+                      />
+
+                      {/* Bowler Name */}
                       <div className="min-w-0 flex-1">
                         <h4
-                          className="text-base sm:text-xl md:text-2xl font-black uppercase text-white tracking-wide truncate"
+                          className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-black uppercase text-white tracking-wide truncate leading-tight drop-shadow-md"
                           title={bowlerStats?.name || bowlerPlayer?.name}
                         >
                           {bowlerStats?.name || bowlerPlayer?.name || "Current Bowler"}
                         </h4>
-                        <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold truncate">
-                          {bowlerPlayer?.role || "Right-Arm Pace"}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        {bowlerStats?.hasStats ? (
-                          <>
-                            <div className="text-lg sm:text-2xl font-mono font-black text-amber-300">
-                              {bowlerStats.overs}-{bowlerStats.maidens}-{bowlerStats.runsConceded}-{bowlerStats.wickets}
-                            </div>
-                            <div className="text-xs sm:text-sm font-mono text-muted-foreground">
-                              Econ {bowlerStats.economy.toFixed(2)} · Ball {innings?.ball ?? 0}/6
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-sm sm:text-base font-mono font-bold text-amber-300/80">
-                              Ball {innings?.ball ?? 0} of 6
-                            </div>
-                            <div className="text-xs font-mono text-muted-foreground">
-                              {bowlerPlayer?.role || "Active Bowler"}
-                            </div>
-                          </>
+                        {bowlerPlayer?.role && (
+                          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-400/90 mt-0.5 truncate">
+                            {bowlerPlayer.role}
+                          </p>
                         )}
                       </div>
+                    </div>
+
+                    {/* Bowler Figures */}
+                    <div className="text-right shrink-0 pr-1 sm:pr-2">
+                      {bowlerStats?.hasStats ? (
+                        <div className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-mono font-black text-amber-400 tracking-wider drop-shadow-md">
+                          {bowlerStats.overs}-{bowlerStats.maidens}-{bowlerStats.runsConceded}-{bowlerStats.wickets}
+                        </div>
+                      ) : (
+                        <div className="text-2xl sm:text-3xl md:text-4xl font-mono font-black text-amber-400">
+                          BALL {innings?.ball ?? 0} OF 6
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* This Over Deliveries Strip */}
-                <div className="w-full flex flex-col items-center gap-1.5 pt-2 border-t border-border/50 shrink-0">
-                  <span className="text-xs font-black uppercase tracking-[0.25em] text-muted-foreground">
-                    This Over Deliveries
+                {/* This Over Deliveries Strip (Centered in Middle & Double Text Size) */}
+                <div className="w-full flex flex-col items-center justify-center gap-1.5 pt-2 border-t border-border/40 shrink-0">
+                  <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-[0.25em] text-muted-foreground">
+                    THIS OVER DELIVERIES
                   </span>
-                  <div className="flex items-center justify-center flex-wrap gap-2.5 min-h-[48px]">
+                  <div className="flex items-center justify-center flex-wrap gap-2.5 sm:gap-3.5">
                     {state && state.thisOver.length > 0 ? (
                       state.thisOver.map((b, i) => {
                         const isSix = b.runsOffBat === 6 || b.label === "6";
@@ -1045,13 +1219,13 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                           <span
                             key={`${b.over}-${b.ball}-${i}`}
                             className={cn(
-                              "inline-flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl text-lg sm:text-xl font-mono font-black border-2 transition-all shadow-md",
+                              "inline-flex h-12 min-w-12 sm:h-16 sm:min-w-16 md:h-20 md:min-w-20 px-2 items-center justify-center rounded-2xl text-2xl sm:text-4xl md:text-5xl font-mono font-black border-2 transition-all shadow-lg leading-none",
                               isSix
-                                ? "bg-amber-500 text-black border-yellow-200 shadow-[0_0_20px_rgba(245,158,11,0.6)]"
+                                ? "bg-amber-500 text-black border-yellow-200 shadow-[0_0_24px_rgba(245,158,11,0.7)]"
                                 : isFour
-                                ? "bg-emerald-600 text-white border-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+                                ? "bg-emerald-600 text-white border-emerald-300 shadow-[0_0_24px_rgba(16,185,129,0.6)]"
                                 : isWkt
-                                ? "bg-red-600 text-white border-red-300 shadow-[0_0_20px_rgba(239,68,68,0.7)] animate-pulse"
+                                ? "bg-red-600 text-white border-red-300 shadow-[0_0_24px_rgba(239,68,68,0.8)] animate-pulse"
                                 : isExtra
                                 ? "bg-purple-700 text-white border-purple-300"
                                 : "bg-card text-foreground border-border/90",
@@ -1062,7 +1236,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                         );
                       })
                     ) : (
-                      <span className="text-xs uppercase tracking-widest text-muted-foreground/60 italic font-semibold">
+                      <span className="text-sm sm:text-base uppercase tracking-widest text-muted-foreground/60 italic font-semibold">
                         Over commencing...
                       </span>
                     )}
@@ -1074,7 +1248,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
         </main>
 
         {/* 3. FOOTER: Full-Width Broadcast Sponsor Marquee */}
-        <footer className="relative z-20 h-20 sm:h-24 bg-[#05070a]/95 border-t border-border/70 overflow-hidden flex items-center select-none shadow-2xl shrink-0 w-full backdrop-blur-md">
+        <footer className="relative z-20 h-12 sm:h-14 bg-[#05070a]/95 border-t border-border/70 overflow-hidden flex items-center select-none shadow-2xl shrink-0 w-full backdrop-blur-md">
           {/* Continuous Infinite Marquee Sponsor Trail (Full Width) */}
           <div className="w-full overflow-hidden relative">
             <div className="flex animate-marquee whitespace-nowrap will-change-transform py-2">

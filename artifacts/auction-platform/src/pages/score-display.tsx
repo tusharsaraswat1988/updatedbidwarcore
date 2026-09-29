@@ -4,6 +4,7 @@ import {
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
+import { BootSplash } from "@/components/boot-splash";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { ScoreDisplayShell } from "@/components/scoring/score-display-shell";
 import { TournamentCodeGate } from "@/components/tournament-code-gate";
@@ -27,9 +28,7 @@ export default function ScoreDisplayPage() {
   if (isLoading) {
     return (
       <FullscreenLayout>
-        <div className="lovable-theme dark min-h-screen bg-background text-foreground flex items-center justify-center">
-          <p className="text-white/50">Loading…</p>
-        </div>
+        <BootSplash label="Loading Scoreboard..." />
       </FullscreenLayout>
     );
   }
