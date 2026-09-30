@@ -101,10 +101,19 @@ import {
   Settings,
   Trash2,
   Upload,
+  User,
   UserMinus,
   UserRound,
   X,
 } from "lucide-react";
+import { ImageEditorDialog } from "@/components/image-editor-dialog";
+import {
+  PLAYER_PHOTO_ASPECT,
+  PLAYER_PHOTO_EXPORT_MAX_MB,
+  PLAYER_PHOTO_WIDTH,
+} from "@/lib/player-photo";
+import { cldUrl } from "@/lib/cloudinary";
+import { mapStoredGenderToPortrait } from "@workspace/api-base/player-gender";
 import {
   exportCricketRosterToExcel,
   exportCricketRosterToPdf,
@@ -143,6 +152,8 @@ type SportsPlayerForm = {
   battingStyle: string;
   bowlingStyle: string;
   categoryId: string;
+  photoUrl: string;
+  photoPublicId: string;
 };
 
 const EMPTY_FORM: SportsPlayerForm = {
@@ -157,6 +168,8 @@ const EMPTY_FORM: SportsPlayerForm = {
   battingStyle: "",
   bowlingStyle: "",
   categoryId: "",
+  photoUrl: "",
+  photoPublicId: "",
 };
 
 function formFromPlayer(player: Player): SportsPlayerForm {
@@ -172,7 +185,44 @@ function formFromPlayer(player: Player): SportsPlayerForm {
     battingStyle: player.battingStyle || "",
     bowlingStyle: player.bowlingStyle || "",
     categoryId: player.categoryId != null ? String(player.categoryId) : "",
+    photoUrl: player.photoUrl && !player.photoUrl.startsWith("data:") ? player.photoUrl : "",
+    photoPublicId: (player as { photoPublicId?: string | null }).photoPublicId || "",
   };
+}
+
+function PlayerPhoto({
+  photoUrl,
+  name,
+  gender,
+  size = "sm",
+}: {
+  photoUrl?: string | null;
+  name: string;
+  gender?: string | null;
+  size?: "sm" | "md" | "lg";
+}) {
+  const dim = size === "lg" ? "w-14 h-14" : size === "md" ? "w-10 h-10" : "w-8 h-8";
+  const iconDim = size === "lg" ? "w-6 h-6" : size === "md" ? "w-4 h-4" : "w-3.5 h-3.5";
+  const portraitGender = mapStoredGenderToPortrait(gender);
+  return (
+    <div
+      className={`${dim} rounded-full bg-muted/20 border border-border/30 flex items-center justify-center overflow-hidden shrink-0`}
+    >
+      {photoUrl ? (
+        <img
+          src={cldUrl(photoUrl, "thumbnail")}
+          alt={name}
+          className="w-full h-full object-cover"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : portraitGender === "female" ? (
+        <UserRound className={`${iconDim} text-muted-foreground/35`} aria-hidden />
+      ) : (
+        <User className={`${iconDim} text-muted-foreground/35`} aria-hidden />
+      )}
+    </div>
+  );
 }
 
 function normalizeTeamColor(color?: string | null): string {
@@ -234,6 +284,7 @@ export default function CricketPlayersPage() {
   const updatePlayer = useUpdatePlayer();
 
   const [formOpen, setFormOpen] = useState(false);
+  const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Player | null>(null);
   const [importBusy, setImportBusy] = useState(false);
   const [form, setForm] = useState<SportsPlayerForm>(EMPTY_FORM);
@@ -685,6 +736,9 @@ export default function CricketPlayersPage() {
     }
 
     const assignedTeamId = form.teamId ? Number(form.teamId) : null;
+    const initialPhotoUrl = editing?.photoUrl ?? "";
+    const photoChanged = (form.photoUrl || "") !== initialPhotoUrl || !!form.photoPublicId;
+
     const sportsPayload = {
       ...(parsedSerialNo !== undefined ? { serialNo: parsedSerialNo } : {}),
       name: form.name.trim(),
@@ -696,6 +750,12 @@ export default function CricketPlayersPage() {
       battingStyle: form.battingStyle || undefined,
       bowlingStyle: form.bowlingStyle && form.bowlingStyle !== "None" ? form.bowlingStyle : undefined,
       teamId: assignedTeamId,
+      ...(photoChanged
+        ? {
+            photoUrl: form.photoUrl || (editing ? "" : undefined),
+            photoPublicId: form.photoPublicId || (editing ? "" : undefined),
+          }
+        : {}),
       ...(editing ? {} : { status: "available" as const }),
       ...(showCategoryControls
         ? { categoryId: form.categoryId ? Number(form.categoryId) : undefined }
@@ -1123,11 +1183,7 @@ export default function CricketPlayersPage() {
                                     </td>
                                     <td className="py-2 px-3">
                                       <div className="flex items-center gap-2.5">
-                                        <span
-                                          className="w-1.5 h-4 rounded-full shrink-0 group-hover:scale-y-110 transition-transform"
-                                          style={{ backgroundColor: cardTeam ? accent : "#64748b" }}
-                                          aria-hidden
-                                        />
+                                        <PlayerPhoto photoUrl={p.photoUrl} name={p.name} gender={p.gender} size="sm" />
                                         <div className="min-w-0">
                                           <div className="flex items-center gap-1.5 min-w-0">
                                             <button
@@ -1256,56 +1312,59 @@ export default function CricketPlayersPage() {
                                   aria-hidden
                                 />
                                 <div className="flex items-start justify-between gap-2">
-                                  <div className="min-w-0 space-y-1">
-                                    <div className="flex items-center gap-1.5 min-w-0">
-                                      <span className="font-mono text-xs font-bold text-muted-foreground/70 shrink-0">
-                                        #{p.serialNo ?? p.id}
-                                      </span>
-                                      <p className="font-medium text-foreground truncate">{p.name}</p>
-                                    </div>
-                                    {cardTeam ? (
-                                      <span
-                                        className="inline-flex max-w-full items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold truncate"
-                                        style={teamChipStyle(cardTeam.color)}
-                                        title={cardTeam.name}
-                                      >
-                                        <span
-                                          className="h-1.5 w-1.5 rounded-full shrink-0"
-                                          style={{ backgroundColor: accent }}
-                                        />
-                                        <span className="truncate">{cardTeam.name}</span>
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground">
-                                        No team
-                                      </span>
-                                    )}
-                                    <p className="text-xs text-muted-foreground">
-                                      {meta.length > 0 ? meta.join(" · ") : "No role set"}
-                                    </p>
-                                    {showCategoryControls ? (
-                                      <div
-                                        onClick={(e) => e.stopPropagation()}
-                                        onKeyDown={(e) => e.stopPropagation()}
-                                      >
-                                        <PlayerCategorySelect
-                                          tournamentId={tournamentId}
-                                          playerId={p.id}
-                                          categoryId={p.categoryId}
-                                          categories={categories}
-                                          noneLabel="No category"
-                                          triggerClassName="max-w-full w-full"
-                                        />
+                                  <div className="flex items-start gap-2.5 min-w-0">
+                                    <PlayerPhoto photoUrl={p.photoUrl} name={p.name} gender={p.gender} size="md" />
+                                    <div className="min-w-0 space-y-1">
+                                      <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className="font-mono text-xs font-bold text-muted-foreground/70 shrink-0">
+                                          #{p.serialNo ?? p.id}
+                                        </span>
+                                        <p className="font-medium text-foreground truncate">{p.name}</p>
                                       </div>
-                                    ) : null}
-                                    {p.mobileNumber ? (
-                                      <p className="text-xs text-muted-foreground font-mono">{p.mobileNumber}</p>
-                                    ) : null}
-                                    {p.battingStyle || p.bowlingStyle ? (
-                                      <p className="text-[11px] text-muted-foreground/80 truncate">
-                                        {[p.battingStyle, p.bowlingStyle].filter(Boolean).join(" · ")}
+                                      {cardTeam ? (
+                                        <span
+                                          className="inline-flex max-w-full items-center gap-1.5 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold truncate"
+                                          style={teamChipStyle(cardTeam.color)}
+                                          title={cardTeam.name}
+                                        >
+                                          <span
+                                            className="h-1.5 w-1.5 rounded-full shrink-0"
+                                            style={{ backgroundColor: accent }}
+                                          />
+                                          <span className="truncate">{cardTeam.name}</span>
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center rounded-md border border-border/60 bg-muted/30 px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                                          No team
+                                        </span>
+                                      )}
+                                      <p className="text-xs text-muted-foreground">
+                                        {meta.length > 0 ? meta.join(" · ") : "No role set"}
                                       </p>
-                                    ) : null}
+                                      {showCategoryControls ? (
+                                        <div
+                                          onClick={(e) => e.stopPropagation()}
+                                          onKeyDown={(e) => e.stopPropagation()}
+                                        >
+                                          <PlayerCategorySelect
+                                            tournamentId={tournamentId}
+                                            playerId={p.id}
+                                            categoryId={p.categoryId}
+                                            categories={categories}
+                                            noneLabel="No category"
+                                            triggerClassName="max-w-full w-full"
+                                          />
+                                        </div>
+                                      ) : null}
+                                      {p.mobileNumber ? (
+                                        <p className="text-xs text-muted-foreground font-mono">{p.mobileNumber}</p>
+                                      ) : null}
+                                      {p.battingStyle || p.bowlingStyle ? (
+                                        <p className="text-[11px] text-muted-foreground/80 truncate">
+                                          {[p.battingStyle, p.bowlingStyle].filter(Boolean).join(" · ")}
+                                        </p>
+                                      ) : null}
+                                    </div>
                                   </div>
                                   <div
                                     className="flex flex-col items-stretch gap-1.5 shrink-0 w-[7.75rem]"
@@ -1398,6 +1457,56 @@ export default function CricketPlayersPage() {
           }
         >
           <div className="space-y-3">
+            <FormField label="Player Photo">
+              <div className="flex gap-3 items-center">
+                <div className="w-14 h-14 rounded-full border border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                  {form.photoUrl ? (
+                    <img
+                      src={form.photoUrl}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <User className="w-6 h-6 text-muted-foreground/40" />
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <BtnSecondary
+                    type="button"
+                    onClick={() => setPhotoEditorOpen(true)}
+                    className="gap-1.5 text-xs h-8"
+                  >
+                    {form.photoUrl ? (
+                      <>
+                        <Pencil className="w-3.5 h-3.5" /> Change Photo
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5" /> Upload Photo
+                      </>
+                    )}
+                  </BtnSecondary>
+                  {form.photoUrl ? (
+                    <BtnSecondary
+                      type="button"
+                      onClick={() => {
+                        setForm((f) => ({ ...f, photoUrl: "", photoPublicId: "" }));
+                      }}
+                      className="gap-1.5 text-xs h-8 text-destructive border-destructive/30 hover:bg-destructive/10"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      Remove
+                    </BtnSecondary>
+                  ) : null}
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Upload or change player photo for scoreboard, match picker & broadcast overlays.
+              </p>
+            </FormField>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Tournament Serial No (S.No)">
                 <input
@@ -1520,6 +1629,25 @@ export default function CricketPlayersPage() {
           </div>
         </FormModal>
       ) : null}
+
+      <ImageEditorDialog
+        open={photoEditorOpen}
+        onClose={() => setPhotoEditorOpen(false)}
+        initialUrl={form.photoUrl || undefined}
+        aspect={PLAYER_PHOTO_ASPECT}
+        title="Player Photo"
+        exportMaxWidthOrHeight={PLAYER_PHOTO_WIDTH}
+        exportMaxSizeMB={PLAYER_PHOTO_EXPORT_MAX_MB}
+        exportHint="Higher resolution for sharp scoreboard & overlay display — use a clear, well-lit photo."
+        onSave={(upload) => {
+          setForm((f) => ({
+            ...f,
+            photoUrl: upload.url,
+            photoPublicId: upload.publicId,
+          }));
+          setPhotoEditorOpen(false);
+        }}
+      />
 
       {assignPlayer ? (
         <FormModal
