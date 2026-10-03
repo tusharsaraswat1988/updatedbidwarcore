@@ -625,12 +625,24 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
 
   // Powerplay indicator
   let powerplayText: string | null = null;
-  if (innings && oversLimit > 0 && !isMatchFinished) {
-    const p1Limit = Math.min(6, Math.ceil(oversLimit * 0.3));
-    if (over < p1Limit) {
-      powerplayText = `P1 (${p1Limit} OV)`;
-    } else if (over >= p1Limit && oversLimit >= 20 && over < 15) {
-      powerplayText = "P2";
+  const powerplayEnabled = match.rules?.powerplayEnabled !== false;
+  const configuredPowerplayOvers =
+    state.powerplayOvers && state.powerplayOvers.length > 0
+      ? state.powerplayOvers
+      : match.rules?.powerplayOvers && match.rules.powerplayOvers.length > 0
+      ? match.rules.powerplayOvers
+      : null;
+
+  if (innings && oversLimit > 0 && !isMatchFinished && powerplayEnabled) {
+    if (configuredPowerplayOvers) {
+      if (configuredPowerplayOvers.includes(over + 1)) {
+        powerplayText = `P1 (${configuredPowerplayOvers.length} OV)`;
+      }
+    } else {
+      const p1Limit = Math.min(6, Math.ceil(oversLimit * 0.3));
+      if (over < p1Limit) {
+        powerplayText = `P1 (${p1Limit} OV)`;
+      }
     }
   }
 
