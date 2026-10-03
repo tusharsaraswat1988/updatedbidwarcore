@@ -70,6 +70,12 @@ describe("Phase 4D: Public Auction Display & Presentation Surfaces Module Bounda
       expect(appSrc).toContain('<Route path="/live/:id" component={LiveViewer} />');
       expect(appSrc).toContain('<Route path="/tournament/:id/liveviewer" component={LiveViewer} />');
     });
+
+    it("registers public player registration and live redirect routes", () => {
+      expect(appSrc).toContain('<Route path="/register/:code" component={PlayerRegister} />');
+      expect(appSrc).toContain('<Route path="/tournament/:id/register" component={PlayerRegisterLegacy} />');
+      expect(appSrc).toContain('<Route path="/live" component={LegacyLiveRedirect} />');
+    });
   });
 
   describe("3. OBS Overlays (/obs, /obs/v2, /obs/lab) Module Boundary", () => {

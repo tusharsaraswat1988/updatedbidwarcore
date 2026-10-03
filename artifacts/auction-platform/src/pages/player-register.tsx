@@ -886,7 +886,7 @@ export default function PlayerRegister() {
                         setForm({
                           name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", gender: "", jerseyNumber: "", jerseySize: "",
                           achievements: "", availabilityDates: (tournament as { matchDates?: string | null } | undefined)?.matchDates ?? "",
-                          cricheroUrl: "", photoUrl: "", photoPublicId: "", battingStyle: "", bowlingStyle: "", specialization: "", categoryId: "",
+                          cricheroUrl: "", photoUrl: "", photoPublicId: "", battingStyle: "", bowlingStyle: "", specialization: "", categoryId: "", teamId: "",
                         });
                         setSpecSelections({});
                       }}

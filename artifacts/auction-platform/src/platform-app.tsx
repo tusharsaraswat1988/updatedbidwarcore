@@ -151,7 +151,11 @@ function PlatformRouter() {
         <Route path="/tournament/new" component={NewTournament} />
         <Route path="/tournament/:id/login" component={OrganizerLogin} />
         <Route path="/live/:id" component={LiveViewer} />
+        <Route path="/live" component={LegacyLiveRedirect} />
         <Route path="/tournament/:id/liveviewer" component={LiveViewer} />
+        <Route path="/register/:code" component={PlayerRegister} />
+        <Route path="/register">{() => <Redirect to="/upcoming-auctions" />}</Route>
+        <Route path="/tournament/:id/register" component={PlayerRegisterLegacy} />
         <Route path="/tournament/:id/display" component={DisplayView} />
         <Route path="/tournament/:id/side-display" component={SideDisplayView} />
         <Route path="/tournament/:id/score-display" component={RedirectToScoringApp} />
