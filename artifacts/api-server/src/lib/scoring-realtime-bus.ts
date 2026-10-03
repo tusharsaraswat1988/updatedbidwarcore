@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createPgClient, type Client } from "@workspace/db";
-import { resolveDatabaseUrl } from "@workspace/db/database-url";
+import { resolveDirectDatabaseUrl } from "@workspace/db/database-url";
 import { logger } from "./logger";
 
 export type RealtimeMessage = {
@@ -52,7 +52,7 @@ function notifyLocalHandlers(msg: RealtimeMessage): void {
 function ensureListenerConnected(): void {
   if (isConnected || isConnecting || pgListenerClient) return;
 
-  const dbUrl = resolveDatabaseUrl();
+  const dbUrl = resolveDirectDatabaseUrl();
   if (!dbUrl) {
     logger.warn("DATABASE_URL not available — realtime bus operating in local in-memory mode");
     return;

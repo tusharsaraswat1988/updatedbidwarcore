@@ -1,16 +1,17 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { finalizeSystemCTracking, observeSystemCQuery } from "./boot-metrics";
-import { resolveDatabaseUrl } from "./database-url";
+import { resolveDatabaseUrl, resolveDirectDatabaseUrl } from "./database-url";
 import { ensureCoreSchema } from "./ensure-schema";
 import * as schema from "./schema";
 
 const { Pool, Client } = pg;
 
 export { pg, Pool, Client };
+export { resolveDatabaseUrl, resolveDirectDatabaseUrl } from "./database-url";
 export function createPgClient(connectionString?: string) {
   return new Client({
-    connectionString: connectionString ?? resolveDatabaseUrl(),
+    connectionString: connectionString ?? resolveDirectDatabaseUrl(),
     connectionTimeoutMillis: 10_000,
   });
 }

@@ -11,7 +11,7 @@
 
 import { loadAppEnv } from "@workspace/db/load-app-env";
 import pg from "pg";
-import { resolveDatabaseUrl } from "@workspace/db/database-url";
+import { resolveDirectDatabaseUrl } from "@workspace/db/database-url";
 import { runVersionedMigrations } from "@workspace/db/migrator";
 
 const env = loadAppEnv();
@@ -35,7 +35,7 @@ if (!env.loaded) {
 const { Client } = pg;
 
 const client = new Client({
-  connectionString: resolveDatabaseUrl(),
+  connectionString: resolveDirectDatabaseUrl(),
   ssl: { rejectUnauthorized: false },
 });
 

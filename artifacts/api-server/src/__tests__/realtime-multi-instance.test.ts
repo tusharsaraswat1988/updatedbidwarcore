@@ -1,4 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@workspace/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@workspace/db")>();
+  return {
+    ...actual,
+    pool: {
+      query: vi.fn().mockResolvedValue({ rows: [] }),
+    },
+    createPgClient: vi.fn(() => ({
+      on: vi.fn(),
+      connect: vi.fn().mockResolvedValue(undefined),
+      query: vi.fn().mockResolvedValue(undefined),
+      end: vi.fn().mockResolvedValue(undefined),
+    })),
+  };
+});
+
 import {
   addScoringSseClient,
   broadcastScoringState,
@@ -10,8 +27,18 @@ import {
   subscribeRealtimeBus,
   type RealtimeMessage,
 } from "../lib/scoring-realtime-bus";
+import { pool } from "@workspace/db";
 
 describe("P0-C: Multi-Instance Realtime SSE & Bus", () => {
+  beforeEach(() => {
+    vi.spyOn(pool, "query").mockResolvedValue({ rows: [] } as any);
+  });
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+
   it("delivers messages across multi-instance bus subscribers", () => {
     const instanceBMessages: RealtimeMessage[] = [];
     const instanceCMessages: RealtimeMessage[] = [];
