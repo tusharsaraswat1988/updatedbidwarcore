@@ -100,6 +100,21 @@ export function validateCricketKeyRuleOverrides(
       values[key] = value;
       continue;
     }
+    if (key === "cricket.powerplay.overs") {
+      if (!Array.isArray(value)) {
+        return { ok: false, error: "Powerplay overs must be an array" };
+      }
+      for (const item of value) {
+        if (typeof item !== "number" || !Number.isInteger(item) || item < 1) {
+          return {
+            ok: false,
+            error: "Powerplay overs must contain positive integers ≥ 1",
+          };
+        }
+      }
+      values[key] = Array.from(new Set(value as number[])).sort((a, b) => a - b);
+      continue;
+    }
     if (
       key === "cricket.dismissal.lbw_enabled" ||
       key === "cricket.bowling.free_hit_enabled" ||

@@ -27,6 +27,7 @@ export type CricketRuntimeExecutionFields = {
   readonly freeHitEnabled: boolean;
   readonly retireAtRuns: number | null;
   readonly powerplayEnabled: boolean;
+  readonly powerplayOvers: readonly number[];
   readonly superOverEnabled: boolean;
   readonly superBallEnabled: boolean;
   readonly superOverOvers: number;
@@ -95,11 +96,39 @@ function nullableNum(
   return typeof v === "number" ? v : null;
 }
 
+function numList(
+  rules: readonly ExecutableRule[],
+  id: string,
+): readonly number[] | null {
+  const v = ruleValue(rules, id);
+  if (Array.isArray(v)) {
+    return v.filter(
+      (x): x is number => typeof x === "number" && Number.isInteger(x) && x >= 1,
+    );
+  }
+  return null;
+}
+
 function buildCricketFields(
   rules: readonly ExecutableRule[],
 ): CricketRuntimeExecutionFields {
+  const oversLimit = num(rules, "cricket.match.overs_per_innings", 20);
+  const powerplayEnabled = bool(rules, "cricket.powerplay.enabled", true);
+  let powerplayOvers: readonly number[] = [];
+  if (powerplayEnabled) {
+    const explicit = numList(rules, "cricket.powerplay.overs");
+    if (explicit && explicit.length > 0) {
+      powerplayOvers = Array.from(new Set(explicit))
+        .filter((o) => o <= oversLimit)
+        .sort((a, b) => a - b);
+    } else {
+      const defaultCount = Math.min(6, Math.max(1, Math.ceil(oversLimit * 0.3)));
+      powerplayOvers = Array.from({ length: defaultCount }, (_, i) => i + 1);
+    }
+  }
+
   return Object.freeze({
-    oversLimit: num(rules, "cricket.match.overs_per_innings", 20),
+    oversLimit,
     maxWickets: num(rules, "cricket.match.max_wickets", 10),
     playingSquadSize: num(rules, "cricket.match.playing_squad_size", 11),
     playingXiEnforced: bool(rules, "cricket.match.playing_xi_enforced", false),
@@ -110,7 +139,8 @@ function buildCricketFields(
     legByeEnabled: bool(rules, "cricket.extras.leg_bye_enabled", true),
     freeHitEnabled: bool(rules, "cricket.bowling.free_hit_enabled", true),
     retireAtRuns: nullableNum(rules, "cricket.batting.retire_at_runs"),
-    powerplayEnabled: bool(rules, "cricket.powerplay.enabled", true),
+    powerplayEnabled: powerplayEnabled && powerplayOvers.length > 0,
+    powerplayOvers: Object.freeze(powerplayOvers),
     superOverEnabled: bool(rules, "cricket.tie_break.super_over_enabled", true),
     superBallEnabled: bool(rules, "cricket.special.super_ball_enabled", false),
     superOverOvers: num(rules, "cricket.tie_break.super_over_overs", 1),
