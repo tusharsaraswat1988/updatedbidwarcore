@@ -17,6 +17,7 @@ export const CRICKET_KEY_RULE_OVERRIDE_IDS = [
   "cricket.extras.leg_bye_enabled",
   "cricket.bowling.free_hit_enabled",
   "cricket.powerplay.enabled",
+  "cricket.powerplay.overs",
   "cricket.special.super_ball_enabled",
   "cricket.special.super_ball_doubles_boundaries_only",
   "cricket.tie_break.super_over_enabled",

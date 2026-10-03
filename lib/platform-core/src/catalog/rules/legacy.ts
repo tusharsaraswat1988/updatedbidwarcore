@@ -26,6 +26,7 @@ export const LEGACY_RULE_PROFILES = [
       value("cricket.bowling.free_hit_enabled", "inherit"),
       value("cricket.batting.retire_at_runs", "inherit"),
       value("cricket.powerplay.enabled", "inherit"),
+      value("cricket.powerplay.overs", "inherit"),
       value("cricket.tie_break.ties_allowed", "inherit"),
       value("cricket.tie_break.super_over_enabled", "inherit"),
       value("cricket.boundary.four_runs", "inherit"),
