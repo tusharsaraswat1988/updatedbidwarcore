@@ -54,4 +54,29 @@ describe("rule overrides", () => {
       values: { "cricket.match.overs_per_innings": 8 },
     });
   });
+
+  it("validates and sorts cricket.powerplay.overs", () => {
+    const valid = validateCricketKeyRuleOverrides({
+      values: {
+        "cricket.powerplay.overs": [3, 1, 2, 2],
+      },
+    });
+    expect(valid.ok).toBe(true);
+    if (!valid.ok) return;
+    expect(valid.document?.values["cricket.powerplay.overs"]).toEqual([1, 2, 3]);
+
+    const invalid = validateCricketKeyRuleOverrides({
+      values: {
+        "cricket.powerplay.overs": [0, -1],
+      },
+    });
+    expect(invalid.ok).toBe(false);
+
+    const nonArray = validateCricketKeyRuleOverrides({
+      values: {
+        "cricket.powerplay.overs": "1,2,3",
+      },
+    });
+    expect(nonArray.ok).toBe(false);
+  });
 });

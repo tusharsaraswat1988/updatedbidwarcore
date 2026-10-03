@@ -47,6 +47,8 @@ export type MatchMeta = {
   lbwEnabled?: boolean;
   freeHitEnabled?: boolean;
   retireAtRuns?: number | null;
+  powerplayEnabled?: boolean;
+  powerplayOvers?: number[];
   cricketFormat?: "standard" | "box" | string;
   playingXiEnforced?: boolean;
   legByeEnabled?: boolean;
