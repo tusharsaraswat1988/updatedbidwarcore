@@ -138,6 +138,16 @@ export const CRICKET_RULE_DEFINITIONS = [
     defaultValue: true,
   }),
   def({
+    id: "cricket.powerplay.overs",
+    name: "Powerplay overs",
+    description: "List of overs designated as powerplay.",
+    categoryId: "powerplay",
+    sportId: "cricket",
+    type: "list",
+    defaultValue: [1, 2, 3, 4, 5, 6],
+    dependencies: ["cricket.powerplay.enabled"],
+  }),
+  def({
     id: "cricket.tie_break.super_over_enabled",
     name: "Super over enabled",
     description: "Whether super over is used to break ties.",

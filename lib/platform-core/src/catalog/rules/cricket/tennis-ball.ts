@@ -23,6 +23,7 @@ export const CRICKET_TENNIS_BALL_RULE_PROFILES = [
       value("cricket.bowling.free_hit_enabled", true),
       value("cricket.batting.retire_at_runs", null),
       value("cricket.powerplay.enabled", false),
+      value("cricket.powerplay.overs", []),
       value("cricket.tie_break.ties_allowed", true),
       value("cricket.tie_break.super_over_enabled", true),
       value("cricket.special.super_ball_enabled", false),

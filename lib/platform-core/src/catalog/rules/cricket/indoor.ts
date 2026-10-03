@@ -30,6 +30,7 @@ export const CRICKET_INDOOR_RULE_PROFILES = [
       value("cricket.bowling.free_hit_enabled", true),
       value("cricket.batting.retire_at_runs", 30),
       value("cricket.powerplay.enabled", false),
+      value("cricket.powerplay.overs", []),
       value("cricket.tie_break.ties_allowed", true),
       value("cricket.tie_break.super_over_enabled", true),
       value("cricket.special.super_ball_enabled", false),
