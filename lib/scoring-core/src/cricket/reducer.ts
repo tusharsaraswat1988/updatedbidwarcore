@@ -36,6 +36,8 @@ import {
   type BallDisplayOutcome,
   type CricketInningsState,
   type CricketScoreboardState,
+  type CricketPartnership,
+  type CricketPartnershipRecord,
 } from "./state";
 import { FREE_HIT_DISMISSALS, SUPER_BALL_BLOCKED_DISMISSALS } from "./types";
 import { isCricketMatchTerminalState } from "./result";
@@ -259,7 +261,7 @@ function applyBallRecorded(
         "target already reached — end innings or complete the match",
       );
     }
-    const expected = expectedNextBall(currentInn);
+    const expected = expectedNextBall(currentInn, state.ballsPerOver ?? 6);
     if (expected.over >= currentInn.oversLimit) {
       throw new InvalidEventPayloadError(
         CricketEventType.BALL_RECORDED,
@@ -355,6 +357,8 @@ function applyBallRecorded(
     freeHitActive = false;
   }
 
+  const ballsPerOver = state.ballsPerOver ?? 6;
+
   let next = updateInnings(state, payload.innings, (inn) => {
     const updated: CricketInningsState = {
       ...inn,
@@ -362,7 +366,7 @@ function applyBallRecorded(
       wickets: payload.wicket ? inn.wickets + 1 : inn.wickets,
     };
     if (payload.isLegalDelivery) {
-      const nextPos = expectedNextBall(inn);
+      const nextPos = expectedNextBall(inn, ballsPerOver);
       updated.over = nextPos.over;
       updated.ball = nextPos.ball;
     }
@@ -378,13 +382,103 @@ function applyBallRecorded(
   if (
     effectivePayload.nonStrikerId != null &&
     payload.isLegalDelivery &&
-    payload.ball === 6
+    payload.ball === ballsPerOver
   ) {
     [strikerId, nonStrikerId] = [nonStrikerId, strikerId];
   }
 
+  // --- Authoritative Current Partnership Stand Tracking ---
+  let pship: CricketPartnership = state.currentPartnership
+    ? { ...state.currentPartnership }
+    : {
+        runs: 0,
+        balls: 0,
+        batter1Id: payload.strikerId,
+        batter1Runs: 0,
+        batter1Balls: 0,
+        batter2Id: payload.nonStrikerId ?? null,
+        batter2Runs: 0,
+        batter2Balls: 0,
+        extras: 0,
+      };
+
+  if (pship.batter1Id == null) {
+    pship.batter1Id = payload.strikerId;
+  } else if (
+    pship.batter2Id == null &&
+    payload.nonStrikerId != null &&
+    payload.nonStrikerId !== pship.batter1Id
+  ) {
+    pship.batter2Id = payload.nonStrikerId;
+  } else if (pship.batter2Id == null && payload.strikerId !== pship.batter1Id) {
+    pship.batter2Id = payload.strikerId;
+  }
+
+  const effectiveBatRuns = effectivePayload.isSuperBall
+    ? effectivePayload.runsOffBat * 2
+    : effectivePayload.runsOffBat;
+  const extraRuns = effectivePayload.extras.runs;
+  const isBallFaced = effectivePayload.extras.type !== "wide";
+
+  pship.runs += effectiveBatRuns + extraRuns;
+  pship.extras += extraRuns;
+  if (isBallFaced) {
+    pship.balls += 1;
+  }
+
+  if (payload.strikerId === pship.batter1Id) {
+    pship.batter1Runs += effectiveBatRuns;
+    if (isBallFaced) pship.batter1Balls += 1;
+  } else if (payload.strikerId === pship.batter2Id) {
+    pship.batter2Runs += effectiveBatRuns;
+    if (isBallFaced) pship.batter2Balls += 1;
+  } else {
+    if (pship.batter1Id == null) {
+      pship.batter1Id = payload.strikerId;
+      pship.batter1Runs += effectiveBatRuns;
+      if (isBallFaced) pship.batter1Balls += 1;
+    } else {
+      pship.batter2Id = payload.strikerId;
+      pship.batter2Runs += effectiveBatRuns;
+      if (isBallFaced) pship.batter2Balls += 1;
+    }
+  }
+
+  const completedPartnerships = [...(state.completedPartnerships ?? [])];
+
   if (payload.wicket) {
     const dismissed = payload.wicket.dismissedPlayerId;
+    const surviving = dismissed === pship.batter1Id ? pship.batter2Id : pship.batter1Id;
+
+    const currentWickets = next.innings.find((i) => i.innings === payload.innings)?.wickets ?? 1;
+    completedPartnerships.push({
+      innings: payload.innings,
+      wicket: currentWickets,
+      batter1Id: pship.batter1Id ?? payload.strikerId,
+      batter1Runs: pship.batter1Runs,
+      batter1Balls: pship.batter1Balls,
+      batter2Id: pship.batter2Id ?? payload.nonStrikerId ?? 0,
+      batter2Runs: pship.batter2Runs,
+      batter2Balls: pship.batter2Balls,
+      extras: pship.extras,
+      runs: pship.runs,
+      balls: pship.balls,
+      dismissedPlayerId: dismissed,
+      notOutPlayerId: surviving,
+    });
+
+    pship = {
+      runs: 0,
+      balls: 0,
+      batter1Id: surviving,
+      batter1Runs: 0,
+      batter1Balls: 0,
+      batter2Id: null,
+      batter2Runs: 0,
+      batter2Balls: 0,
+      extras: 0,
+    };
+
     if (strikerId === dismissed) strikerId = null;
     if (nonStrikerId === dismissed) nonStrikerId = null;
   }
@@ -399,6 +493,8 @@ function applyBallRecorded(
     bowlerId: payload.bowlerId,
     thisOver,
     freeHitActive,
+    currentPartnership: pship,
+    completedPartnerships,
     superBallPending:
       isSuperBall &&
       payload.extras.type !== "wide" &&
@@ -523,18 +619,60 @@ function applyPlayerRetired(
     next = { ...next, retiredHurt: hurt };
   }
 
+  let pship = next.currentPartnership ? { ...next.currentPartnership } : null;
+  const completedPartnerships = [...(next.completedPartnerships ?? [])];
+
   if (
-    next.strikerId === payload.playerId ||
-    next.nonStrikerId === payload.playerId
+    pship &&
+    (pship.batter1Id === payload.playerId || pship.batter2Id === payload.playerId)
   ) {
-    return {
-      ...next,
-      strikerId: next.strikerId === payload.playerId ? null : next.strikerId,
-      nonStrikerId:
-        next.nonStrikerId === payload.playerId ? null : next.nonStrikerId,
+    const surviving =
+      payload.playerId === pship.batter1Id ? pship.batter2Id : pship.batter1Id;
+    if (pship.runs > 0 || pship.balls > 0) {
+      completedPartnerships.push({
+        innings: payload.innings,
+        wicket:
+          payload.type === "out"
+            ? (next.innings.find((i) => i.innings === payload.innings)?.wickets ?? 1)
+            : 0,
+        batter1Id: pship.batter1Id ?? payload.playerId,
+        batter1Runs: pship.batter1Runs,
+        batter1Balls: pship.batter1Balls,
+        batter2Id: pship.batter2Id ?? 0,
+        batter2Runs: pship.batter2Runs,
+        batter2Balls: pship.batter2Balls,
+        extras: pship.extras,
+        runs: pship.runs,
+        balls: pship.balls,
+        dismissedPlayerId: payload.playerId,
+        notOutPlayerId: surviving,
+      });
+    }
+    pship = {
+      runs: 0,
+      balls: 0,
+      batter1Id: surviving,
+      batter1Runs: 0,
+      batter1Balls: 0,
+      batter2Id: null,
+      batter2Runs: 0,
+      batter2Balls: 0,
+      extras: 0,
     };
   }
-  return next;
+
+  let strikerId = next.strikerId;
+  let nonStrikerId = next.nonStrikerId;
+  if (strikerId === payload.playerId) strikerId = null;
+  if (nonStrikerId === payload.playerId) nonStrikerId = null;
+
+  return {
+    ...next,
+    strikerId,
+    nonStrikerId,
+    currentPartnership: pship,
+    completedPartnerships,
+  };
 }
 
 function applyBatterSelected(
@@ -589,10 +727,38 @@ function applyBatterSelected(
     strikerId = payload.playerId;
   }
 
+  let pship = state.currentPartnership ? { ...state.currentPartnership } : null;
+  if (!pship) {
+    pship = {
+      runs: 0,
+      balls: 0,
+      batter1Id: strikerId,
+      batter1Runs: 0,
+      batter1Balls: 0,
+      batter2Id: nonStrikerId,
+      batter2Runs: 0,
+      batter2Balls: 0,
+      extras: 0,
+    };
+  } else {
+    if (pship.batter1Id == null) {
+      pship.batter1Id = payload.playerId;
+    } else if (pship.batter2Id == null) {
+      pship.batter2Id = payload.playerId;
+    } else if (pship.batter1Id !== payload.playerId && pship.batter2Id !== payload.playerId) {
+      if (payload.position === "non_striker") {
+        pship.batter2Id = payload.playerId;
+      } else {
+        pship.batter1Id = payload.playerId;
+      }
+    }
+  }
+
   return {
     ...state,
     strikerId,
     nonStrikerId,
+    currentPartnership: pship,
   };
 }
 
@@ -749,6 +915,7 @@ function applySuperOverStarted(
     bowlerId: null,
     target: null,
     freeHitActive: false,
+    currentPartnership: null,
     superBallPending: null,
   };
 }
@@ -795,11 +962,35 @@ function applyInningsEnded(
     phase: "completed" as const,
   }));
 
+  const completedPartnerships = [...(next.completedPartnerships ?? [])];
+  if (
+    next.currentPartnership &&
+    (next.currentPartnership.runs > 0 || next.currentPartnership.balls > 0)
+  ) {
+    completedPartnerships.push({
+      innings: payload.innings,
+      wicket: 0,
+      batter1Id: next.currentPartnership.batter1Id ?? 0,
+      batter1Runs: next.currentPartnership.batter1Runs,
+      batter1Balls: next.currentPartnership.batter1Balls,
+      batter2Id: next.currentPartnership.batter2Id ?? 0,
+      batter2Runs: next.currentPartnership.batter2Runs,
+      batter2Balls: next.currentPartnership.batter2Balls,
+      extras: next.currentPartnership.extras,
+      runs: next.currentPartnership.runs,
+      balls: next.currentPartnership.balls,
+      dismissedPlayerId: null,
+      notOutPlayerId: null,
+    });
+  }
+
   if (payload.reason === "super_over_required") {
     return {
       ...next,
       thisOver: [],
       freeHitActive: false,
+      currentPartnership: null,
+      completedPartnerships,
       superBallPending: null,
     };
   }
@@ -827,6 +1018,8 @@ function applyInningsEnded(
       nonStrikerId: null,
       bowlerId: null,
       freeHitActive: false,
+      currentPartnership: null,
+      completedPartnerships,
       superBallPending: null,
     };
   }
@@ -835,6 +1028,8 @@ function applyInningsEnded(
     ...next,
     thisOver: [],
     freeHitActive: false,
+    currentPartnership: null,
+    completedPartnerships,
     superBallPending: null,
   };
 }

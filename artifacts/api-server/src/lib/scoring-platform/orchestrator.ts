@@ -2,6 +2,7 @@ import { db } from "@workspace/db";
 import {
   playersTable,
   scoringDlsCalculationsTable,
+  scoringFixturesTable,
   scoringMatchesTable,
   scoringSessionsTable,
   teamsTable,
@@ -165,6 +166,23 @@ async function updateCricketMatchAndSession(
     .set(matchPatch)
     .where(eq(scoringMatchesTable.id, match.id))
     .returning();
+
+  if (match.fixtureId != null) {
+    const fixturePatch: Record<string, unknown> = {};
+    if (matchPatch.status) {
+      fixturePatch.status = matchPatch.status;
+    }
+    if (projection.setCompletedAt) {
+      fixturePatch.winnerTeamId = projection.winnerTeamId ?? null;
+      fixturePatch.resultSummary = projection.resultSummary ?? null;
+    }
+    if (Object.keys(fixturePatch).length > 0) {
+      await tx
+        .update(scoringFixturesTable)
+        .set(fixturePatch)
+        .where(eq(scoringFixturesTable.id, match.fixtureId));
+    }
+  }
 
   const [sessionRow] = await tx
     .select({ id: scoringSessionsTable.id })
@@ -535,12 +553,19 @@ export async function appendSingleMatchEvent(
     await persistDlsCalculation(input.matchId, input.tournamentId, parsed.payload);
   }
 
-  await runPostMatchProjectionPipeline(
-    input.sportSlug,
-    input.tournamentId,
-    input.matchId,
-    projection.matchStatus,
-  );
+  try {
+    await runPostMatchProjectionPipeline(
+      input.sportSlug,
+      input.tournamentId,
+      input.matchId,
+      projection.matchStatus,
+    );
+  } catch (err) {
+    console.error(
+      `[SCORING_MUTATION] Post-match projection pipeline failed for match ${input.matchId}:`,
+      err,
+    );
+  }
 
   return {
     event: eventRow,

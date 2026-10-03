@@ -91,6 +91,7 @@ export function buildMatchMetaFromRules(args: {
       awayTeamId: args.awayTeamId,
       oversLimit: rules.overs,
       maxWickets: rules.maxWickets,
+      ballsPerOver: rules.ballsPerOver ?? 6,
       playingSquadSize: rules.playingSquadSize,
       benchSize: rules.benchSize,
       lbwEnabled: rules.lbwEnabled,
@@ -123,6 +124,7 @@ export function buildMatchMetaFromRules(args: {
     awayTeamId: args.awayTeamId,
     oversLimit: typeof rules.overs === "number" ? rules.overs : 20,
     maxWickets: typeof rules.maxWickets === "number" ? rules.maxWickets : 10,
+    ballsPerOver: typeof rules.ballsPerOver === "number" ? rules.ballsPerOver : 6,
     playingSquadSize:
       typeof rules.playingSquadSize === "number" ? rules.playingSquadSize : 11,
     benchSize: typeof rules.benchSize === "number" ? rules.benchSize : 4,

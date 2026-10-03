@@ -6,8 +6,12 @@ import type { BallDisplayOutcome, CricketInningsState } from "./state";
  * Both legal deliveries and extras/illegal deliveries are bowled into the upcoming slot.
  * Illegal deliveries do not advance legal ball count; legal deliveries do.
  */
-export function expectedNextBall(innings: CricketInningsState): { over: number; ball: number } {
-  if (innings.ball >= 6) {
+export function expectedNextBall(
+  innings: CricketInningsState,
+  ballsPerOver = 6,
+): { over: number; ball: number } {
+  const bpo = ballsPerOver > 0 ? ballsPerOver : 6;
+  if (innings.ball >= bpo) {
     return { over: innings.over + 1, ball: 1 };
   }
   return { over: innings.over, ball: innings.ball + 1 };
@@ -18,13 +22,18 @@ export function expectedNextBall(innings: CricketInningsState): { over: number; 
  * In CricketInningsState, over is 0-indexed (e.g. over 0..4 for a 5-over match).
  * When over 4 finishes with 6 legal balls, innings.over is 4 and innings.ball is 6.
  */
-export function isOversComplete(innings: CricketInningsState, oversLimit?: number): boolean {
+export function isOversComplete(
+  innings: CricketInningsState,
+  oversLimit?: number,
+  ballsPerOver = 6,
+): boolean {
   const limit = oversLimit ?? innings.oversLimit;
   if (!limit || limit <= 0) return false;
+  const bpo = ballsPerOver > 0 ? ballsPerOver : 6;
   return (
     innings.over >= limit ||
-    (innings.over === limit - 1 && innings.ball >= 6) ||
-    expectedNextBall(innings).over >= limit
+    (innings.over === limit - 1 && innings.ball >= bpo) ||
+    expectedNextBall(innings, bpo).over >= limit
   );
 }
 

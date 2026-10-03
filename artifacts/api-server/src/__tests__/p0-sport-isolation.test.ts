@@ -13,6 +13,12 @@ const mockWhere = vi.fn();
 const mockLimit = vi.fn();
 
 vi.mock("@workspace/db", () => ({
+  createPgClient: () => ({
+    connect: vi.fn().mockResolvedValue(undefined),
+    query: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn(),
+    end: vi.fn(),
+  }),
   db: {
     select: (...args: unknown[]) => {
       mockSelect(...args);

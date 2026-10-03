@@ -5,7 +5,15 @@ import { resolveDatabaseUrl } from "./database-url";
 import { ensureCoreSchema } from "./ensure-schema";
 import * as schema from "./schema";
 
-const { Pool } = pg;
+const { Pool, Client } = pg;
+
+export { pg, Pool, Client };
+export function createPgClient(connectionString?: string) {
+  return new Client({
+    connectionString: connectionString ?? resolveDatabaseUrl(),
+    connectionTimeoutMillis: 10_000,
+  });
+}
 
 export { ensureCoreSchema } from "./ensure-schema";
 export {

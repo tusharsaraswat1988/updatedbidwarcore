@@ -71,9 +71,11 @@ export async function buildMatchScorecard(
   match: typeof scoringMatchesTable.$inferSelect,
 ): Promise<CricketFullScorecard> {
   const events = await loadMatchEvents(match.id);
+  const rules = match.rulesJson as { ballsPerOver?: number } | null;
   return buildCricketScorecardFromEvents(match.id, events, {
     homeTeamId: match.homeTeamId,
     awayTeamId: match.awayTeamId,
+    ballsPerOver: rules?.ballsPerOver ?? 6,
   });
 }
 
@@ -345,8 +347,13 @@ export async function getPublicMatchScorecard(tournamentId: number, matchId: num
 
   const playerIds = new Set<number>();
   for (const inn of scorecard.innings) {
-    for (const b of inn.batting) playerIds.add(b.playerId);
+    for (const b of inn.batting) {
+      playerIds.add(b.playerId);
+      if (b.dismissedByPlayerId) playerIds.add(b.dismissedByPlayerId);
+      if (b.fielderId) playerIds.add(b.fielderId);
+    }
     for (const b of inn.bowling) playerIds.add(b.playerId);
+    for (const f of inn.fallOfWickets) playerIds.add(f.playerId);
   }
 
   const playerMap = await resolveCricketFranchisePlayersByIds(tournamentId, [...playerIds]);

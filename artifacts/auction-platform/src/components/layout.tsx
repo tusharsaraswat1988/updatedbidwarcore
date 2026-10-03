@@ -14,7 +14,7 @@ import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-clien
 import { useOrganizerAuth, useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
 import { logoutOrganizerAccount } from "@/lib/auth";
-import { clearOrganizerAccountAuth } from "@/lib/organizer-account-auth-cache";
+import { clearOrganizerClientState } from "@/lib/organizer-account-auth-cache";
 import { useQueryClient } from "@tanstack/react-query";
 import { cldUrl } from "@/lib/cloudinary";
 import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
@@ -348,10 +348,11 @@ function LogoutButton({
   const [, navigate] = useLocation();
 
   async function handleLogout() {
-    await logout();
-    if (!isBidWarLocalHost()) {
+    if (isBidWarLocalHost()) {
+      await logout();
+    } else {
       await logoutOrganizerAccount();
-      clearOrganizerAccountAuth(queryClient);
+      clearOrganizerClientState(queryClient);
       navigate("/organizer");
     }
   }

@@ -10,7 +10,7 @@ export type PlannedLeagueFixture = {
   registrationBId: number;
   roundLabel: string;
   metaJson: {
-    algorithm: "team_tie";
+    algorithm: "team_tie" | "pair_round_robin";
     groupName: string;
     teamAId: number;
     teamBId: number;

@@ -60,7 +60,11 @@ export function resolveRegistrationOgImage(code: string): string {
 /** Build crawler-facing description for registration link previews. */
 export function buildRegistrationShareDescription(fields: RegistrationMetaFields): string {
   const closed = isRegistrationClosed(fields.registrationDeadline);
-  const lines = [closed ? "Registration is closed." : "Registration is now open."];
+  const lines: string[] = [];
+  if (fields.tournamentName?.trim()) {
+    lines.push(fields.tournamentName.trim());
+  }
+  lines.push(closed ? "Registration is closed." : "Registration is now open.");
 
   const deadline = formatDeadline(fields.registrationDeadline);
   if (deadline) lines.push(`${closed ? "Closed after" : "Register before"} ${deadline}.`);

@@ -12,6 +12,9 @@ export function useScoringSocket(
   const qc = useQueryClient();
   const [connectionStatus, setConnectionStatus] = useState<ScoringConnectionStatus>("reconnecting");
   const setStatusRef = useRef(setConnectionStatus);
+  const lastProcessedSequenceRef = useRef<number>(0);
+  const lastDispatchedBroadcastSeqRef = useRef<number>(0);
+
   useEffect(() => {
     setStatusRef.current = setConnectionStatus;
   });
@@ -37,12 +40,80 @@ export function useScoringSocket(
       }, 5000);
     }
 
+    function handleMessagePayload(rawString: string, frameEventId?: string) {
+      try {
+        const msg = JSON.parse(rawString);
+        const parsedFrameId = frameEventId ? parseInt(frameEventId, 10) : undefined;
+        const msgSeq =
+          typeof msg.sequence === "number"
+            ? msg.sequence
+            : typeof msg.state?.lastSequence === "number"
+              ? msg.state.lastSequence
+              : Number.isFinite(parsedFrameId)
+                ? parsedFrameId
+                : undefined;
+
+        if (msgSeq !== undefined && Number.isFinite(msgSeq)) {
+          lastProcessedSequenceRef.current = Math.max(lastProcessedSequenceRef.current, msgSeq);
+        }
+
+        if (msg.type === "scoring_state") {
+          if (msg.isOversized) {
+            qc.invalidateQueries({ queryKey: scoringLiveQueryKey(tournamentId) });
+          } else {
+            const payload: ScoringLiveDisplay = {
+              match: msg.match ?? null,
+              state: msg.state ?? null,
+              summary: msg.summary ?? null,
+              broadcastEvent: msg.broadcastEvent ?? null,
+            };
+            qc.setQueryData(scoringLiveQueryKey(tournamentId), payload);
+          }
+
+          // Deduplicate broadcast animation events: only trigger once per sequence
+          if (msg.broadcastEvent && typeof window !== "undefined") {
+            const bSeq = msg.broadcastEvent.sequence;
+            if (bSeq == null || bSeq > lastDispatchedBroadcastSeqRef.current) {
+              if (bSeq != null) lastDispatchedBroadcastSeqRef.current = bSeq;
+              window.dispatchEvent(
+                new CustomEvent("cricket_scoring_broadcast_event", {
+                  detail: msg.broadcastEvent,
+                }),
+              );
+            }
+          }
+        } else if (msg.type === "scoring_replay") {
+          // Replay frames update sequence tracking, never overwrite live display with null
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("cricket_scoring_replay_event", { detail: msg }),
+            );
+          }
+        } else if (msg.type === "cricket_obs_director") {
+          qc.setQueryData(["cricket-obs-director", tournamentId], msg);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("cricket_obs_director", { detail: msg }),
+            );
+          }
+        }
+      } catch {
+        // ignore malformed messages
+      }
+    }
+
     function connect() {
       if (destroyed) return;
       clearTimeout(retryTimer);
       current?.close();
 
-      const es = new EventSource(`/api/tournaments/${tournamentId}/scoring/events`);
+      const lastSeq = lastProcessedSequenceRef.current;
+      const url =
+        lastSeq > 0
+          ? `/api/tournaments/${tournamentId}/scoring/events?lastEventId=${lastSeq}`
+          : `/api/tournaments/${tournamentId}/scoring/events`;
+
+      const es = new EventSource(url);
       current = es;
 
       es.onopen = () => {
@@ -53,35 +124,26 @@ export function useScoringSocket(
       es.onmessage = (event) => {
         if (es !== current) return;
         markConnected();
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.type === "scoring_state") {
-            const payload: ScoringLiveDisplay = {
-              match: msg.match ?? null,
-              state: msg.state ?? null,
-              summary: msg.summary ?? null,
-              broadcastEvent: msg.broadcastEvent ?? null,
-            };
-            qc.setQueryData(scoringLiveQueryKey(tournamentId), payload);
-            if (msg.broadcastEvent && typeof window !== "undefined") {
-              window.dispatchEvent(
-                new CustomEvent("cricket_scoring_broadcast_event", {
-                  detail: msg.broadcastEvent,
-                }),
-              );
-            }
-          } else if (msg.type === "cricket_obs_director") {
-            qc.setQueryData(["cricket-obs-director", tournamentId], msg);
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(
-                new CustomEvent("cricket_obs_director", { detail: msg }),
-              );
-            }
-          }
-        } catch {
-          // ignore malformed messages
-        }
+        handleMessagePayload(event.data, event.lastEventId);
       };
+
+      es.addEventListener("scoring_state", (event: MessageEvent) => {
+        if (es !== current) return;
+        markConnected();
+        handleMessagePayload(event.data, event.lastEventId);
+      });
+
+      es.addEventListener("scoring_replay", (event: MessageEvent) => {
+        if (es !== current) return;
+        markConnected();
+        handleMessagePayload(event.data, event.lastEventId);
+      });
+
+      es.addEventListener("obs_director", (event: MessageEvent) => {
+        if (es !== current) return;
+        markConnected();
+        handleMessagePayload(event.data, event.lastEventId);
+      });
 
       es.onerror = () => {
         if (es !== current) return;

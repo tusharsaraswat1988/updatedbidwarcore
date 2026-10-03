@@ -39,7 +39,7 @@ function isScoringAppHost(): boolean {
 /** Leave scoring shell: scoring login when in scoring-app, else Auction portal. */
 function goToPostLogoutHome() {
   if (isScoringAppHost()) {
-    window.location.href = `${SCORING_APP_BASE}/login`;
+    window.location.href = `${SCORING_APP_BASE}/login?logged_out=1`;
     return;
   }
   window.location.href = "/organizer";
@@ -105,8 +105,9 @@ function LogoutButton({
   const queryClient = useQueryClient();
 
   async function handleLogout() {
-    await logout();
-    if (!isBidWarLocalHost()) {
+    if (isBidWarLocalHost()) {
+      await logout();
+    } else {
       await logoutOrganizerAccount();
       clearOrganizerClientState(queryClient);
       goToPostLogoutHome();

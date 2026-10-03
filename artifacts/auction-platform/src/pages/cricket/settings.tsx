@@ -277,7 +277,7 @@ export default function CricketSettingsPage() {
     setRegSaving(true);
     try {
       await updateTournament.mutateAsync({
-        id: tournamentId,
+        tournamentId,
         data: {
           registrationDeadline: regForm.registrationDeadline ? regForm.registrationDeadline : null,
           registrationLimit: regForm.registrationLimit !== "" && regForm.registrationLimit != null ? Number(regForm.registrationLimit) || null : null,
@@ -285,7 +285,7 @@ export default function CricketSettingsPage() {
           registrationDeclarationText: regForm.registrationDeclarationText.trim() || null,
           playerRegistrationMode: "scoring",
           registrationFields: serializeRegistrationFieldsConfig(registrationFieldsHidden),
-        },
+        } as unknown as import("@workspace/api-client-react").TournamentUpdate,
       });
       await qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
       setRegSaved(true);

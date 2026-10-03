@@ -65,6 +65,7 @@ export async function rebuildTournamentStandings(tournamentId: number) {
           or(
             eq(scoringMatchesTable.status, "completed"),
             eq(scoringMatchesTable.status, "abandoned"),
+            eq(scoringMatchesTable.status, "no_result"),
             eq(scoringMatchesTable.status, "walkover"),
           ),
         ),
@@ -226,6 +227,7 @@ async function getScoringStandingsRaw(tournamentId: number) {
           or(
             eq(scoringMatchesTable.status, "completed"),
             eq(scoringMatchesTable.status, "abandoned"),
+            eq(scoringMatchesTable.status, "no_result"),
             eq(scoringMatchesTable.status, "walkover"),
           ),
         ),
@@ -363,11 +365,16 @@ async function getScoringStandingsRaw(tournamentId: number) {
   return result;
 }
 
-export async function getScoringStandings(tournamentId: number) {
+export async function getScoringStandings(
+  tournamentId: number,
+  options?: { bypassCache?: boolean },
+) {
   const now = Date.now();
-  const cached = standingsCache.get(tournamentId);
-  if (cached && cached.expiresAt > now) {
-    return cached.data;
+  if (!options?.bypassCache) {
+    const cached = standingsCache.get(tournamentId);
+    if (cached && cached.expiresAt > now) {
+      return cached.data;
+    }
   }
 
   const result = await getScoringStandingsRaw(tournamentId);
@@ -377,6 +384,7 @@ export async function getScoringStandings(tournamentId: number) {
   });
   return result;
 }
+
 
 export type SquadReadinessRow = {
   teamId: number;

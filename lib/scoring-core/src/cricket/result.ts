@@ -206,7 +206,7 @@ export function isCricketMatchTerminalState(
       secondSuper.phase === "completed" ||
       secondSuper.runs > firstSuper.runs ||
       secondSuper.wickets >= state.superOverWickets ||
-      isOversComplete(secondSuper, secondSuperLimit);
+      isOversComplete(secondSuper, secondSuperLimit, state.ballsPerOver ?? 6);
 
     if (!secondSuperTerminal) {
       return {
@@ -240,7 +240,7 @@ export function isCricketMatchTerminalState(
     second.phase === "completed" ||
     (state.target != null && second.runs >= state.target) ||
     second.wickets >= state.maxWickets ||
-    isOversComplete(second, secondOversLimit);
+    isOversComplete(second, secondOversLimit, state.ballsPerOver ?? 6);
 
   if (!secondTerminal) {
     return {

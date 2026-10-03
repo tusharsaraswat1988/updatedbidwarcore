@@ -9,6 +9,12 @@ vi.mock("../master-sports/cricket-franchise-registry", () => ({
 }));
 
 vi.mock("@workspace/db", () => ({
+  createPgClient: () => ({
+    connect: vi.fn().mockResolvedValue(undefined),
+    query: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn(),
+    end: vi.fn(),
+  }),
   db: {
     select: vi.fn(),
     insert: vi.fn(),

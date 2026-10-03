@@ -492,7 +492,7 @@ export default function CricketLiveControlPage() {
         description:
           overlay === "none"
             ? "Camera feed active. Overlays hidden."
-            : `Pushed ${label}${extraText} to live displays.${targetOption?.defaultDurationSec ? ` (Auto-closes in ${targetOption.defaultDurationSec}s)` : ""}`,
+            : `Pushed ${label}${extraText} to live displays.${dur ? ` (Auto-closes in ${dur}s)` : ""}`,
       });
     },
     [tournamentId, broadcastCommand, toast, clearAutoCloseTimers],

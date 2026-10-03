@@ -538,8 +538,10 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
       ? Math.max(0, state.oversLimit * 6 - (innings.over * 6 + innings.ball))
       : null;
 
-  const partnershipRuns = (strikerStats?.runs ?? 0) + (nonStrikerStats?.runs ?? 0);
-  const partnershipBalls = (strikerStats?.balls ?? 0) + (nonStrikerStats?.balls ?? 0);
+  const partnershipRuns =
+    state?.currentPartnership?.runs ?? ((strikerStats?.runs ?? 0) + (nonStrikerStats?.runs ?? 0));
+  const partnershipBalls =
+    state?.currentPartnership?.balls ?? ((strikerStats?.balls ?? 0) + (nonStrikerStats?.balls ?? 0));
 
   // Score glow pulse trigger on score increment (tight around numbers: white normally, gold on 25/50/75/100 milestones)
   const [scoreGlowType, setScoreGlowType] = useState<"white" | "gold" | null>(null);

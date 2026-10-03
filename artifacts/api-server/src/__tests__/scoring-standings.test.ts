@@ -1,5 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildStandingsFromMatches } from "@workspace/scoring-core";
+
+vi.mock("@workspace/db", () => ({
+  db: {},
+  scoringMatchesTable: {},
+  scoringEventsTable: {},
+  scoringStandingsTable: {},
+  scoringGroupsTable: {},
+  scoringGroupMembersTable: {},
+  scoringFixturesTable: {},
+  tournamentsTable: {},
+}));
 
 describe("standings projection inputs", () => {
   it("sorts by points then NRR", () => {
@@ -61,5 +72,37 @@ describe("standings projection inputs", () => {
     expect(isKnockoutMatch({ roundName: "Qualifier 1" })).toBe(true);
     expect(isKnockoutMatch({ roundName: "Group A — Round 1", matchTypeId: "league" })).toBe(false);
     expect(isKnockoutMatch({ roundName: "Round 2", matchTypeId: "league" })).toBe(false);
+  });
+
+  it("handles no_result matches without attributing NRR runs or overs", () => {
+    const rows = buildStandingsFromMatches([10, 20], [
+      {
+        matchId: 10,
+        status: "no_result",
+        homeTeamId: 10,
+        awayTeamId: 20,
+        summary: {
+          innings: [
+            { innings: 1, battingTeamId: 10, bowlingTeamId: 20, runs: 45, wickets: 1, overs: "4.0", phase: "in_progress" },
+          ],
+          target: null,
+          winnerTeamId: null,
+          resultText: "No Result",
+          homeTeamId: 10,
+          awayTeamId: 20,
+          oversLimit: 20,
+          currentInnings: 1,
+          matchStatus: "no_result",
+        },
+      },
+    ]);
+
+    expect(rows[0]?.points).toBe(1);
+    expect(rows[0]?.noResult).toBe(1);
+    expect(rows[0]?.tied).toBe(0);
+    expect(rows[0]?.netRunRate).toBe(0);
+    expect(rows[1]?.points).toBe(1);
+    expect(rows[1]?.noResult).toBe(1);
+    expect(rows[1]?.tied).toBe(0);
   });
 });

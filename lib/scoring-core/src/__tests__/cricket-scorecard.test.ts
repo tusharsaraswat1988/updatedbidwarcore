@@ -399,4 +399,52 @@ describe("cricket scorecard projector", () => {
     expect(economyBoard[0]?.playerId).toBe(201);
     expect(economyBoard[0]?.value).toBe(3.0);
   });
+
+  it("G. Preserves non-bowling fielders and wicketkeepers in scorecardToPlayerStats and catches leaderboard", () => {
+    // Bowler 201 bowls, batsman 101 caught by fielder 303 (who does not bowl!)
+    const events = [
+      startMatchEvent(),
+      createEventEnvelope({
+        matchId: 1,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.BALL_RECORDED,
+        sequence: 2,
+        payload: {
+          innings: 1,
+          over: 0,
+          ball: 1,
+          strikerId: 101,
+          nonStrikerId: 102,
+          bowlerId: 201,
+          runsOffBat: 0,
+          extras: { type: null, runs: 0 },
+          wicket: { type: "caught", dismissedPlayerId: 101, fielderId: 303 },
+          isLegalDelivery: true,
+        },
+        actorType: "organizer",
+      }),
+    ];
+
+    const scorecard = buildCricketScorecardFromEvents(1, events, meta);
+    const stats = scorecardToPlayerStats(scorecard);
+
+    // Fielder 303 must exist in stats with 1 catch!
+    const fielderStats = stats.find((p) => p.playerId === 303);
+    expect(fielderStats).toBeDefined();
+    expect(fielderStats?.fielding.catches).toBe(1);
+    expect(fielderStats?.batting).toBeNull();
+    expect(fielderStats?.bowling).toBeNull();
+
+    // Aggregates must include fielder 303
+    const aggregates = aggregateTournamentPlayerStats(stats);
+    const fielderAgg = aggregates.get(303);
+    expect(fielderAgg).toBeDefined();
+    expect(fielderAgg?.catches).toBe(1);
+
+    // Leaderboard for catches includes fielder 303
+    const catchesBoard = buildLeaderboard(aggregates, "catches", 10);
+    expect(catchesBoard[0]?.playerId).toBe(303);
+    expect(catchesBoard[0]?.value).toBe(1);
+  });
 });

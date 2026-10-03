@@ -40,6 +40,7 @@ export type MatchMeta = {
   awayTeamId: number;
   oversLimit: number;
   maxWickets?: number;
+  ballsPerOver?: number;
   /** From RuntimeExecutionPolicy via prepared rulesJson. */
   playingSquadSize?: number;
   benchSize?: number;

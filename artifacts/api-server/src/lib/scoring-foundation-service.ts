@@ -649,6 +649,34 @@ export async function generateScoringDraw(input: {
     }
   }
 
+  if (input.format === "league_knockout" && input.groups?.length) {
+    const { buildLeagueKnockoutStages } = await import("@workspace/scoring-core");
+    const { createKnockoutStageFixtures } = await import("./tournament-progression-service");
+
+    const progressionConfig = buildLeagueKnockoutStages(input.groups, {
+      qualifiersPerGroup: config.knockoutTeamsPerGroup,
+    });
+
+    const knockoutStages = progressionConfig.stages.filter((s) => s.type === "knockout");
+    const knockoutFixturesToCreate = knockoutStages.flatMap((s) => s.fixtures ?? []);
+
+    if (knockoutFixturesToCreate.length > 0) {
+      const createdKnockout = await createKnockoutStageFixtures({
+        tournamentId: input.tournamentId,
+        drawId: draw.id,
+        fixtures: knockoutFixturesToCreate,
+        rulePresetId: input.rulePresetId ?? null,
+        venueId: input.venueId ?? null,
+        venueName,
+        createMatches: input.createMatches,
+        oversLimit: config.oversLimit ?? 20,
+        startFixtureNumber: fixtureRows.length + 1,
+      });
+
+      fixtureRows.push(...createdKnockout);
+    }
+  }
+
   return { draw, fixtures: fixtureRows, fixtureCount: fixtureRows.length };
 }
 

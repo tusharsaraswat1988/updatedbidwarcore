@@ -186,4 +186,67 @@ describe("cricket standings", () => {
     expect(team2.oversFaced).toBe(20);
     expect(team2.netRunRate).toBeCloseTo(0, 3);
   });
+
+  it("treats no_result matches identically to abandoned (1 point, no NRR impact, not a tie)", () => {
+    const rows = buildStandingsFromMatches([1, 2], [
+      {
+        matchId: 99,
+        status: "no_result",
+        homeTeamId: 1,
+        awayTeamId: 2,
+        summary: summary(1, 2, [
+          { innings: 1, battingTeamId: 1, bowlingTeamId: 2, runs: 80, wickets: 3, overs: "10.0", phase: "in_progress" },
+        ], null),
+      },
+    ]);
+
+    const team1 = rows.find((r) => r.teamId === 1)!;
+    const team2 = rows.find((r) => r.teamId === 2)!;
+
+    expect(team1.played).toBe(1);
+    expect(team1.noResult).toBe(1);
+    expect(team1.tied).toBe(0);
+    expect(team1.points).toBe(1);
+    expect(team1.oversFaced).toBe(0);
+    expect(team1.netRunRate).toBe(0);
+
+    expect(team2.played).toBe(1);
+    expect(team2.noResult).toBe(1);
+    expect(team2.tied).toBe(0);
+    expect(team2.points).toBe(1);
+  });
+
+  it("calculates NRR accurately with custom ballsPerOver (e.g. The Hundred 5-ball or 8-ball overs)", () => {
+    // 5-ball over match: Team 1 scores 80 in 4.2 overs (4 overs + 2 balls = 4 + 2/5 = 4.4 overs)
+    const rows = buildStandingsFromMatches([1, 2], [
+      {
+        matchId: 101,
+        status: "completed",
+        homeTeamId: 1,
+        awayTeamId: 2,
+        summary: {
+          innings: [
+            { innings: 1, battingTeamId: 1, bowlingTeamId: 2, runs: 80, wickets: 2, overs: "4.2", phase: "completed", allOut: false },
+            { innings: 2, battingTeamId: 2, bowlingTeamId: 1, runs: 60, wickets: 4, overs: "4.2", phase: "completed", allOut: false },
+          ],
+          target: 81,
+          winnerTeamId: 1,
+          resultText: "Team 1 won by 20 runs",
+          homeTeamId: 1,
+          awayTeamId: 2,
+          oversLimit: 5,
+          currentInnings: 2,
+          matchStatus: "completed",
+          ballsPerOver: 5,
+        },
+      },
+    ]);
+
+    const team1 = rows.find((r) => r.teamId === 1)!;
+    // 4.2 with 5 balls per over = 4 + 2/5 = 4.4 overs
+    expect(team1.oversFaced).toBeCloseTo(4.4, 3);
+    expect(team1.oversBowled).toBeCloseTo(4.4, 3);
+    // (80 / 4.4) - (60 / 4.4) = 20 / 4.4 = ~4.545
+    expect(team1.netRunRate).toBeCloseTo(20 / 4.4, 3);
+  });
 });

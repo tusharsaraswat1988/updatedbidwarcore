@@ -5,6 +5,7 @@ import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
 import { useInactivityLock, IDLE_WARNING_MS } from "@/hooks/use-inactivity-lock";
 import { logoutOrganizer, logoutOrganizerAccount } from "@/lib/auth";
 import { clearOrganizerClientState } from "@/lib/organizer-account-auth-cache";
+import { isBidWarLocalHost } from "@/lib/local-mode-host";
 
 export const ORGANIZER_IDLE_TIMEOUT_MINUTES = 30;
 export const ORGANIZER_IDLE_TIMEOUT_MS = ORGANIZER_IDLE_TIMEOUT_MINUTES * 60 * 1000;
@@ -61,7 +62,7 @@ export function useOrganizerInactivityLogout({
         typeof window !== "undefined"
           ? window.location.pathname + window.location.search
           : "";
-      if (tournamentId) {
+      if (tournamentId && isBidWarLocalHost()) {
         await logoutOrganizer(tournamentId);
       }
       await logoutOrganizerAccount();

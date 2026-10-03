@@ -198,10 +198,21 @@ export function scorecardToPlayerStats(
 
     for (const bat of inn.batting) {
       if (!bat.fielderId) continue;
-      const fielderRow = out.find(
+      let fielderRow = out.find(
         (r) => r.playerId === bat.fielderId && r.innings === inn.innings,
       );
-      if (!fielderRow) continue;
+      if (!fielderRow) {
+        fielderRow = {
+          matchId: scorecard.matchId,
+          playerId: bat.fielderId,
+          teamId: inn.bowlingTeamId,
+          innings: inn.innings,
+          batting: null,
+          bowling: null,
+          fielding: { catches: 0, runOuts: 0, stumpings: 0 },
+        };
+        out.push(fielderRow);
+      }
       if (bat.dismissalType === "caught") fielderRow.fielding.catches += 1;
       if (bat.dismissalType === "run_out") fielderRow.fielding.runOuts += 1;
       if (bat.dismissalType === "stumped") fielderRow.fielding.stumpings += 1;

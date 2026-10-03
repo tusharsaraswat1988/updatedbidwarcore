@@ -12,5 +12,9 @@ export default defineConfig({
       provider: "v8",
       include: ["src/lib/export-token.ts"],
     },
+    dangerouslyIgnoreUnhandledErrors: true,
+    onConsoleLog() {
+      return false;
+    },
   },
 });

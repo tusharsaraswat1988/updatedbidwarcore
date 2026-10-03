@@ -85,6 +85,7 @@ export default function CricketObsV2Page() {
   useEffect(() => {
     if (!vm || !vm.matchId) return;
 
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const isCompleted = vm.phase === "completed";
 
     if (isCompleted) {
@@ -92,16 +93,18 @@ export default function CricketObsV2Page() {
         autoSummaryMatchIdRef.current = vm.matchId;
         setAutoSummaryActive(true);
 
-        const timer = setTimeout(() => {
+        timer = setTimeout(() => {
           setAutoSummaryActive(false);
         }, 15000); // 15 seconds auto match summary hold
-
-        return () => clearTimeout(timer);
       }
     } else {
       autoSummaryMatchIdRef.current = null;
       setAutoSummaryActive(false);
     }
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [vm?.matchId, vm?.phase]);
 
   // Cross-Window V2 Synchronization Listener
@@ -631,7 +634,7 @@ export default function CricketObsV2Page() {
                     new CustomEvent("cricket_scoring_broadcast_event", {
                       detail: {
                         id: `preview-super-ball-${Date.now()}`,
-                        sequence: (vm?.lastSequence ?? 10) + 1,
+                        sequence: ((vm as { lastSequence?: number } | null)?.lastSequence ?? 10) + 1,
                         type: "SUPER_BALL_ACTIVATED",
                         matchId: vm?.matchId ?? 1,
                         timestamp: Date.now(),

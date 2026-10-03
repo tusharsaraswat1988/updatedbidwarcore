@@ -9,7 +9,23 @@
  * 4. Corporate Match Center & Public Scorecard
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@workspace/db", () => ({
+  createPgClient: () => ({
+    connect: vi.fn().mockResolvedValue(undefined),
+    query: vi.fn().mockResolvedValue(undefined),
+    on: vi.fn(),
+    end: vi.fn(),
+  }),
+  db: {},
+}));
+
+vi.mock("../../../../../api-server/src/lib/scoring-realtime-bus", () => ({
+  publishRealtimeMessage: vi.fn().mockResolvedValue(undefined),
+  subscribeRealtimeBus: vi.fn(() => () => {}),
+  getLocalInstanceId: () => "mock-instance",
+}));
 import {
   createInitialCricketState,
   reduceCricket,

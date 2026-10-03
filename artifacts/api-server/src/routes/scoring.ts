@@ -19,6 +19,7 @@ import {
 } from "../lib/scoring-service";
 import {
   addScoringSseClient,
+  flushAndActivateScoringSseClient,
   getScoringSseClientCount,
   removeScoringSseClient,
   getCricketObsDirectorState,
@@ -26,18 +27,21 @@ import {
 } from "../lib/scoring-broadcast";
 import { buildCricketMatchSummary, InvalidEventPayloadError } from "@workspace/scoring-core";
 import { InvalidTournamentModuleStateError } from "@workspace/platform-core";
-import { db, scoringMatchesTable, tournamentsTable, cricketBroadcastMessageTemplatesTable } from "@workspace/db";
-import { eq, and, desc, asc } from "drizzle-orm";
+import { db, scoringMatchesTable, tournamentsTable, cricketBroadcastMessageTemplatesTable, scoringEventsTable } from "@workspace/db";
+import { eq, and, desc, asc, or, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import {
   requireSportModule,
   assertSportModule,
   ModuleAuthorizationError,
 } from "../middleware/require-module";
-import { ensureScoringEnabled, getScoringStandings, getSquadReadiness } from "../lib/scoring-standings";
+import { ensureScoringEnabled, getScoringStandings, getSquadReadiness, rebuildTournamentStandings } from "../lib/scoring-standings";
 import {
   getPublicMatchScorecard,
   getTournamentLeaderboard,
+  projectMatchPlayerStats,
+  projectMatchAwards,
+  rebuildTournamentLeaderboards,
   type EnrichedLeaderboardRow,
 } from "../lib/scoring-stats-service";
 import {
@@ -46,7 +50,8 @@ import {
   getTournamentTeamPublicProfile,
   listTournamentAwards,
 } from "../lib/scoring-public-service";
-import { getGlobalCricketLeaderboard } from "../lib/scoring-global-stats-service";
+import { getGlobalCricketLeaderboard, projectGlobalCricketStatsForMatch } from "../lib/scoring-global-stats-service";
+import { advanceTournamentProgression } from "../lib/tournament-progression-service";
 import type { LeaderboardCategory } from "@workspace/scoring-core";
 import { applyCricketRulesToMatches } from "../lib/cricket-rules-service";
 import {
@@ -74,6 +79,21 @@ router.use(scoringFeatureMiddleware);
 function parseId(value: string): number | null {
   const id = parseInt(value, 10);
   return Number.isNaN(id) ? null : id;
+}
+
+export function parseLastEventId(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  let strVal: string;
+  if (Array.isArray(raw)) {
+    strVal = String(raw[0] ?? "");
+  } else if (typeof raw === "number") {
+    return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : undefined;
+  } else {
+    strVal = String(raw);
+  }
+  const parsed = parseInt(strVal.trim(), 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return undefined;
+  return parsed;
 }
 
 /**
@@ -461,7 +481,7 @@ router.get("/tournaments/:tournamentId/scoring/live", async (req, res) => {
   }
 });
 
-/** Public SSE stream for live scoreboard updates. */
+/** Public SSE stream for live scoreboard updates with durable sequence replay. */
 router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
   if (tournamentId === null) {
@@ -479,24 +499,86 @@ router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
     throw err;
   }
 
+  const rawLastId = req.headers["last-event-id"] ?? req.query.lastEventId ?? req.query.sinceSeq;
+  const lastEventId = parseLastEventId(rawLastId);
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
-  const client = addScoringSseClient(tournamentId, res);
+  // 1. Register into live client registry first with buffering active so no live events are lost during catchup
+  const client = addScoringSseClient(tournamentId, res, lastEventId, { bufferUntilFlush: true });
   logger.info(
-    { tournamentId, clientCount: getScoringSseClientCount(tournamentId) },
+    { tournamentId, lastEventId, clientCount: getScoringSseClientCount(tournamentId) },
     "scoring SSE client connected",
   );
 
+  let currentDisplay: Awaited<ReturnType<typeof getLiveScoringDisplay>> | null = null;
   try {
-    const display = await getLiveScoringDisplay(tournamentId);
-    res.write(`data: ${JSON.stringify({ type: "scoring_state", ...liveDisplayJson(display) })}\n\n`);
+    currentDisplay = await getLiveScoringDisplay(tournamentId);
   } catch {
-    res.write(`data: ${JSON.stringify({ type: "scoring_state", match: null, state: null, summary: null })}\n\n`);
+    currentDisplay = { match: null, state: null, summary: null };
   }
+
+  const activeMatch = currentDisplay?.match;
+  const currentState = currentDisplay?.state as { lastSequence?: number } | null;
+  const latestSeq = currentState?.lastSequence ?? 0;
+
+  // 2. If client reconnected with a valid lastEventId, replay bounded missed events from DB
+  const MAX_SSE_REPLAY_EVENTS = 200;
+  if (
+    activeMatch &&
+    lastEventId !== undefined &&
+    lastEventId >= 0 &&
+    lastEventId < latestSeq
+  ) {
+    try {
+      const replayFromSeq = Math.max(lastEventId, latestSeq - MAX_SSE_REPLAY_EVENTS);
+      const missedEvents = await db
+        .select()
+        .from(scoringEventsTable)
+        .where(
+          and(
+            eq(scoringEventsTable.tournamentId, tournamentId),
+            eq(scoringEventsTable.matchId, activeMatch.id),
+            sql`${scoringEventsTable.sequence} > ${replayFromSeq}`,
+            sql`${scoringEventsTable.sequence} <= ${latestSeq}`,
+          ),
+        )
+        .orderBy(asc(scoringEventsTable.sequence))
+        .limit(MAX_SSE_REPLAY_EVENTS);
+
+      for (const ev of missedEvents) {
+        res.write(
+          `id: ${ev.sequence}\nevent: scoring_replay\ndata: ${JSON.stringify({
+            type: "scoring_replay",
+            matchId: ev.matchId,
+            sequence: ev.sequence,
+            eventType: ev.eventType,
+            payload: ev.payloadJson,
+            occurredAt: ev.occurredAt.toISOString(),
+          })}\n\n`,
+        );
+      }
+    } catch (err) {
+      logger.warn({ err, tournamentId, lastEventId }, "Failed to replay missed scoring events");
+    }
+  }
+
+  // 3. Emit current authoritative state snapshot
+  const seqHeader = latestSeq > 0 ? `id: ${latestSeq}\n` : "";
+  res.write(
+    `${seqHeader}event: scoring_state\ndata: ${JSON.stringify({
+      type: "scoring_state",
+      sequence: latestSeq,
+      ...liveDisplayJson(currentDisplay ?? { match: null, state: null, summary: null }),
+    })}\n\n`,
+  );
+
+  // 4. Activate client and atomically flush any live events that arrived during catchup (> latestSeq)
+  flushAndActivateScoringSseClient(client, latestSeq);
 
   const currentObs = getCricketObsDirectorState(tournamentId);
   if (
@@ -505,7 +587,7 @@ router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
       (currentObs.broadcastMessage && currentObs.broadcastMessage.active))
   ) {
     res.write(
-      `data: ${JSON.stringify({
+      `event: obs_director\ndata: ${JSON.stringify({
         type: "cricket_obs_director",
         overlay: currentObs.overlay,
         matchId: currentObs.matchId,
@@ -534,7 +616,7 @@ router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
     } catch {
       cleanup();
     }
-  }, 20000);
+  }, 15000);
 
   req.on("close", cleanup);
   res.on("close", cleanup);
@@ -654,7 +736,7 @@ router.get("/tournaments/:tournamentId/scoring/broadcast-message-templates", asy
 
     res.json(templates);
   } catch (err) {
-    logger.error("Failed to list broadcast message templates", { error: err, tournamentId });
+    logger.error({ error: err, tournamentId }, "Failed to list broadcast message templates");
     res.status(500).json({ error: "Failed to list broadcast message templates" });
   }
 });
@@ -693,7 +775,7 @@ router.post("/tournaments/:tournamentId/scoring/broadcast-message-templates", as
 
     res.status(201).json(template);
   } catch (err) {
-    logger.error("Failed to create broadcast message template", { error: err, tournamentId });
+    logger.error({ error: err, tournamentId }, "Failed to create broadcast message template");
     res.status(500).json({ error: "Failed to create broadcast message template" });
   }
 });
@@ -744,7 +826,7 @@ router.put("/tournaments/:tournamentId/scoring/broadcast-message-templates/:id",
 
     res.json(updated);
   } catch (err) {
-    logger.error("Failed to update broadcast message template", { error: err, tournamentId, templateId });
+    logger.error({ error: err, tournamentId, templateId }, "Failed to update broadcast message template");
     res.status(500).json({ error: "Failed to update broadcast message template" });
   }
 });
@@ -777,7 +859,7 @@ router.delete("/tournaments/:tournamentId/scoring/broadcast-message-templates/:i
 
     res.json({ ok: true });
   } catch (err) {
-    logger.error("Failed to delete broadcast message template", { error: err, tournamentId, templateId });
+    logger.error({ error: err, tournamentId, templateId }, "Failed to delete broadcast message template");
     res.status(500).json({ error: "Failed to delete broadcast message template" });
   }
 });
@@ -1051,7 +1133,7 @@ router.post("/tournaments/:tournamentId/scoring/rules/apply-to-matches", async (
   if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   const actor =
-    req.jwtUser?.email ||
+    (req.jwtUser as { email?: string } | undefined)?.email ||
     (req.jwtUser?.organizerAccountId != null
       ? `organizer:${req.jwtUser.organizerAccountId}`
       : req.jwtUser?.isAdmin
@@ -1424,6 +1506,63 @@ router.get("/cricket/global-leaderboards/:category", async (req, res) => {
       return;
     }
     throw err;
+  }
+});
+
+/**
+ * Manual/administrative projection and statistics reconciliation endpoint.
+ * Recalculates match player stats, awards, global aggregates, standings, progression, and leaderboards.
+ */
+router.post("/tournaments/:tournamentId/scoring/reconcile", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const targetMatchId = typeof req.body?.matchId === "number" ? req.body.matchId : undefined;
+
+  try {
+    const finishedMatches = await db
+      .select({ id: scoringMatchesTable.id })
+      .from(scoringMatchesTable)
+      .where(
+        and(
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+          eq(scoringMatchesTable.sportSlug, "cricket"),
+          targetMatchId !== undefined
+            ? eq(scoringMatchesTable.id, targetMatchId)
+            : or(
+                eq(scoringMatchesTable.status, "completed"),
+                eq(scoringMatchesTable.status, "abandoned"),
+                eq(scoringMatchesTable.status, "no_result"),
+                eq(scoringMatchesTable.status, "walkover"),
+              ),
+        ),
+      );
+
+    for (const m of finishedMatches) {
+      await projectMatchPlayerStats(m.id);
+      await projectMatchAwards(m.id);
+      await projectGlobalCricketStatsForMatch(m.id);
+    }
+
+    await rebuildTournamentStandings(tournamentId);
+    await advanceTournamentProgression(tournamentId);
+    await rebuildTournamentLeaderboards(tournamentId);
+
+    res.json({
+      success: true,
+      tournamentId,
+      reconciledMatchesCount: finishedMatches.length,
+      matchIds: finishedMatches.map((m) => m.id),
+    });
+  } catch (err) {
+    logger.error({ error: err, tournamentId }, "Failed to reconcile scoring projections");
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to reconcile tournament scoring",
+    });
   }
 });
 

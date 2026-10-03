@@ -124,7 +124,12 @@ export function useCricketObsLive(
     queryKey: ["scoring-scorecard", tournamentId, activeMatchId],
     queryFn: () => getPublicMatchScorecard(tournamentId, activeMatchId!),
     enabled: !!tournamentId && !!activeMatchId,
-    refetchInterval: mergedLive?.match?.status === "live" ? 3000 : 15000,
+    refetchInterval:
+      connectionStatus === "connected"
+        ? false
+        : mergedLive?.match?.status === "live"
+          ? 10000
+          : 30000,
   });
 
   const { data: branding } = useQuery<BadmintonBranding>({

@@ -392,7 +392,22 @@ router.post("/auth/organizer/:tournamentId/logout", (req, res) => {
   const hadAccess = !!req.jwtUser.organizer?.[tidKey];
   const organizer = { ...(req.jwtUser.organizer ?? {}) };
   delete organizer[tidKey];
-  setAuthCookie(res, { ...req.jwtUser, isAdmin: undefined, adminLevel: undefined, organizer });
+  const remainingClaims = {
+    ...req.jwtUser,
+    isAdmin: undefined,
+    adminLevel: undefined,
+    organizer: Object.keys(organizer).length > 0 ? organizer : undefined,
+  };
+  const hasRemainingSession =
+    !!remainingClaims.organizerAccountId ||
+    !!remainingClaims.tournamentDirector ||
+    (remainingClaims.organizer && Object.keys(remainingClaims.organizer).length > 0);
+
+  if (hasRemainingSession) {
+    setAuthCookie(res, remainingClaims);
+  } else {
+    clearAuthCookie(res);
+  }
   if (!isNaN(tid) && hadAccess) {
     auditLog(req, {
       category: "auth",

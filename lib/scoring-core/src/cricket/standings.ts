@@ -2,7 +2,7 @@ import type { CricketMatchSummary } from "./summary";
 
 export type StandingsMatchInput = {
   matchId: number;
-  status: "completed" | "abandoned" | "walkover" | string;
+  status: "completed" | "abandoned" | "no_result" | "walkover" | string;
   homeTeamId: number;
   awayTeamId: number;
   summary: CricketMatchSummary | null;
@@ -26,21 +26,23 @@ export type TeamStandingComputed = {
 };
 
 /** Convert overs string e.g. "19.3" → 19.5 (decimal balls). */
-export function oversStringToDecimal(overs: string): number {
+export function oversStringToDecimal(overs: string, ballsPerOver = 6): number {
   const trimmed = overs.trim();
   if (!trimmed) return 0;
   const [wholePart, ballPart] = trimmed.split(".");
   const oversWhole = Number.parseInt(wholePart ?? "0", 10);
   const balls = Number.parseInt(ballPart ?? "0", 10);
   if (Number.isNaN(oversWhole) || Number.isNaN(balls)) return 0;
-  return oversWhole + balls / 6;
+  const bpo = ballsPerOver > 0 ? ballsPerOver : 6;
+  return oversWhole + balls / bpo;
 }
 
 /** Convert decimal overs e.g. 19.5 (decimal) → "19.3" (cricket overs.balls). */
-export function decimalToOversString(decimalOvers: number): string {
-  const totalBalls = Math.round(decimalOvers * 6);
-  const overs = Math.floor(totalBalls / 6);
-  const balls = totalBalls % 6;
+export function decimalToOversString(decimalOvers: number, ballsPerOver = 6): string {
+  const bpo = ballsPerOver > 0 ? ballsPerOver : 6;
+  const totalBalls = Math.round(decimalOvers * bpo);
+  const overs = Math.floor(totalBalls / bpo);
+  const balls = totalBalls % bpo;
   return `${overs}.${balls}`;
 }
 
@@ -92,7 +94,7 @@ function applyNrrFromSummary(
     // ICC & CricHeroes All-Out Rule: If dismissed in fewer overs, full quota of overs is credited.
     const isAllOut = inn.allOut ?? (inn.wickets >= matchMaxWickets);
     const quotaOvers = inn.oversLimit ?? summary.oversLimit;
-    const actualOvers = oversStringToDecimal(inn.overs);
+    const actualOvers = oversStringToDecimal(inn.overs, summary.ballsPerOver ?? 6);
 
     const effectiveOvers = isAllOut && quotaOvers > 0 ? quotaOvers : actualOvers;
 
@@ -129,7 +131,7 @@ export function buildStandingsFromMatches(
     const home = ensureTeam(map, match.homeTeamId);
     const away = ensureTeam(map, match.awayTeamId);
 
-    if (match.status === "abandoned") {
+    if (match.status === "abandoned" || match.status === "no_result") {
       home.played += 1;
       away.played += 1;
       home.noResult += 1;

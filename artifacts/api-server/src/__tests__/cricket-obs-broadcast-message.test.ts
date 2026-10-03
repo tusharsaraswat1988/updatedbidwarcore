@@ -108,7 +108,10 @@ describe("Cricket OBS Broadcast Message Director & State", () => {
       });
 
       expect(receivedFrames.length).toBe(1);
-      const rawData = receivedFrames[0].replace(/^data: /, "").trim();
+      const dataLine =
+        receivedFrames[0].split("\n").find((l) => l.startsWith("data: ")) ??
+        receivedFrames[0];
+      const rawData = dataLine.replace(/^data: /, "").trim();
       const payload: CricketObsDirectorPayload = JSON.parse(rawData);
 
       expect(payload.type).toBe("cricket_obs_director");

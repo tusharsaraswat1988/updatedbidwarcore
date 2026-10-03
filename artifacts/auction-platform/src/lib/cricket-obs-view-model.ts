@@ -293,7 +293,7 @@ function themeFromPaint(paint: PresentationPaintJson | null | undefined): Cricke
 }
 
 function isInningsBreak(state: CricketScoreboardState): boolean {
-  if (state.matchStatus === "innings_break" || (state as any).sessionStatus === "innings_break") return true;
+  if ((state.matchStatus as string) === "innings_break" || (state as any).sessionStatus === "innings_break") return true;
   if (state.matchStatus !== "live") return false;
   const current = getActiveInnings(state);
   if (!current) return false;
@@ -721,10 +721,13 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     striker,
     nonStriker,
     bowler,
-    partnershipRuns: (striker?.runs ?? 0) + (nonStriker?.runs ?? 0),
-    partnershipBalls: (striker?.balls ?? 0) + (nonStriker?.balls ?? 0),
-    partnershipText:
-      striker || nonStriker
+    partnershipRuns:
+      state.currentPartnership?.runs ?? ((striker?.runs ?? 0) + (nonStriker?.runs ?? 0)),
+    partnershipBalls:
+      state.currentPartnership?.balls ?? ((striker?.balls ?? 0) + (nonStriker?.balls ?? 0)),
+    partnershipText: state.currentPartnership
+      ? `${state.currentPartnership.runs} (${state.currentPartnership.balls} ${state.currentPartnership.balls === 1 ? "ball" : "balls"})`
+      : striker || nonStriker
         ? `${(striker?.runs ?? 0) + (nonStriker?.runs ?? 0)} (${(striker?.balls ?? 0) + (nonStriker?.balls ?? 0)} ${(striker?.balls ?? 0) + (nonStriker?.balls ?? 0) === 1 ? "ball" : "balls"})`
         : null,
     powerplayText,

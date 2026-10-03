@@ -9,6 +9,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    env: {
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/test_db",
+    },
     include: ["src/**/*.test.ts", "src/**/__tests__/**/*.test.ts"],
     // Suites that use node:test (not vitest).
     exclude: [

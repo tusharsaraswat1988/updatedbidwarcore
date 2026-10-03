@@ -17,6 +17,8 @@ export type CheerMessage = {
   heatLevel?: string;
   fanBattle?: Record<string, number>;
 };
+export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
+
 export type UseAuctionSocketOptions = {
   enabled?: boolean;
 };

@@ -181,7 +181,13 @@ export function TitleSponsor({ sponsor }: { sponsor?: SponsorLogo | undefined })
       </div>
       <div className="bw-ts-logo">
         {sponsor.logoUrl ? (
-          <img src={sponsor.logoUrl} alt={sponsor.name} />
+          <img
+            src={sponsor.logoUrl}
+            alt={sponsor.name}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
+          />
         ) : (
           <span>{sponsor.name.slice(0, 2)}</span>
         )}
@@ -230,6 +236,9 @@ export function AssociateSponsorRail({
             <img
               src={s.logoUrl}
               alt={s.name}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
               style={{ height: "24px", maxWidth: "60px", objectFit: "contain", borderRadius: "3px" }}
             />
           )}
@@ -301,6 +310,9 @@ export function AssociateSponsorScorebug({
                 <img
                   src={s.logoUrl}
                   alt={s.name}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = "none";
+                  }}
                   style={{
                     height: "40px",
                     width: "auto",

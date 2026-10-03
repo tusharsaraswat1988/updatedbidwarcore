@@ -24,6 +24,7 @@ export type CricketMatchSummary = {
   maxWickets?: number;
   currentInnings: number;
   matchStatus: string;
+  ballsPerOver?: number;
 };
 
 export function buildCricketMatchSummary(state: CricketScoreboardState): CricketMatchSummary {
@@ -53,5 +54,6 @@ export function buildCricketMatchSummary(state: CricketScoreboardState): Cricket
     maxWickets: state.maxWickets,
     currentInnings: state.currentInnings,
     matchStatus: state.matchStatus,
+    ballsPerOver: state.ballsPerOver,
   };
 }

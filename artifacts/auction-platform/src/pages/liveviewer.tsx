@@ -1094,7 +1094,7 @@ export default function LiveViewerPage() {
   const [, legacyParams] = useRoute("/tournament/:id/liveviewer");
   const [, liveParams] = useRoute("/live/:id");
   const tournamentId = parseInt(legacyParams?.id || liveParams?.id || "0");
-  const { logos, brandName } = useBranding();
+  const { logos, brandName, poweredByText } = useBranding();
   const logoAlt = getBrandLogoAlt(brandName);
   const viewerHeaderPreset = getBrandSurfacePreset("auction-viewer-header");
   const miniLogoSrc = getBrandLogoSrc(logos, viewerHeaderPreset.logoOrder);

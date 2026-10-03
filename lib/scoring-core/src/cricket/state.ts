@@ -33,6 +33,34 @@ export type CricketInningsState = {
   oversLimit: number;
 };
 
+export type CricketPartnership = {
+  runs: number;
+  balls: number;
+  batter1Id: number | null;
+  batter1Runs: number;
+  batter1Balls: number;
+  batter2Id: number | null;
+  batter2Runs: number;
+  batter2Balls: number;
+  extras: number;
+};
+
+export type CricketPartnershipRecord = {
+  innings: number;
+  wicket: number;
+  batter1Id: number;
+  batter1Runs: number;
+  batter1Balls: number;
+  batter2Id: number;
+  batter2Runs: number;
+  batter2Balls: number;
+  extras: number;
+  runs: number;
+  balls: number;
+  dismissedPlayerId?: number | null;
+  notOutPlayerId?: number | null;
+};
+
 export type CricketScoreboardState = {
   sportSlug: "cricket";
   matchId: number;
@@ -43,6 +71,9 @@ export type CricketScoreboardState = {
   sessionStatus: ScoringSessionStatus;
   oversLimit: number;
   maxWickets: number;
+  ballsPerOver?: number;
+  currentPartnership: CricketPartnership | null;
+  completedPartnerships?: CricketPartnershipRecord[];
   tossWinnerTeamId: number | null;
   electedTo: "bat" | "bowl" | null;
   currentInnings: number;
@@ -95,6 +126,9 @@ export function createInitialCricketState(
     sessionStatus: "idle",
     oversLimit: meta.oversLimit,
     maxWickets: meta.maxWickets ?? 10,
+    ballsPerOver: meta.ballsPerOver ?? 6,
+    currentPartnership: null,
+    completedPartnerships: [],
     tossWinnerTeamId: null,
     electedTo: null,
     currentInnings: 0,

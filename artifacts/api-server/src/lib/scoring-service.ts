@@ -5,6 +5,7 @@ import {
   scorerMatchLocksTable,
   scoringDlsCalculationsTable,
   scoringEventsTable,
+  scoringFixturesTable,
   scoringMatchesTable,
   scoringMatchPlayerStatsTable,
   scoringMatchSquadsTable,
@@ -967,7 +968,7 @@ export async function resetCricketMatchSetup(
       .where(eq(scoringSessionsTable.matchId, matchId));
 
     // 3. Reset match status
-    return tx
+    const [updated] = await tx
       .update(scoringMatchesTable)
       .set({
         status: "scheduled",
@@ -980,6 +981,19 @@ export async function resetCricketMatchSetup(
       })
       .where(eq(scoringMatchesTable.id, matchId))
       .returning();
+
+    if (existing.fixtureId != null) {
+      await tx
+        .update(scoringFixturesTable)
+        .set({
+          status: "scheduled",
+          winnerTeamId: null,
+          resultSummary: null,
+        })
+        .where(eq(scoringFixturesTable.id, existing.fixtureId));
+    }
+
+    return updated;
   });
 
   // Broadcast reset state to SSE clients
