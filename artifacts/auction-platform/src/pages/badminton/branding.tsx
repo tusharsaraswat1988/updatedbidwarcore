@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import type { BadmintonBranding, ScoreBoardSponsor } from "@/hooks/use-badminton-branding";
 import { VenueMusicSettingsPanel } from "@/components/badminton/venue-music-settings-panel";
 import { VenueBannerSettingsPanel } from "@/components/badminton/venue-banner-settings-panel";
+import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 
 const ImageEditorDialog = lazy(() =>
   import("@/components/image-editor-dialog").then((m) => ({ default: m.ImageEditorDialog })),
@@ -160,6 +161,10 @@ export default function BadmintonBrandingPage() {
     queryKey: ["badminton-branding", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/branding`),
     enabled: !!tournamentId,
+  });
+
+  const { data: tournament } = useGetTournament(tournamentId, {
+    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
   const [form, setForm] = useState({
@@ -633,11 +638,21 @@ export default function BadmintonBrandingPage() {
             </section>
 
             <div className="lg:col-span-2">
-              <VenueMusicSettingsPanel tournamentId={tournamentId} branding={branding} />
+              <VenueMusicSettingsPanel
+                tournamentId={tournamentId}
+                branding={branding}
+                auctionEnabled={tournament?.auctionEnabled}
+                scoringEnabled={tournament?.scoringEnabled}
+              />
             </div>
 
             <div className="lg:col-span-2">
-              <VenueBannerSettingsPanel tournamentId={tournamentId} branding={branding} />
+              <VenueBannerSettingsPanel
+                tournamentId={tournamentId}
+                branding={branding}
+                auctionEnabled={tournament?.auctionEnabled}
+                scoringEnabled={tournament?.scoringEnabled}
+              />
             </div>
 
             {/* Import tournament branding into badminton display */}

@@ -11,6 +11,8 @@ import { badmintonFetch } from "@/lib/badminton-api";
 import type { BadmintonBranding, BadmintonBannerFit } from "@/hooks/use-badminton-branding";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
 import { cn } from "@/lib/utils";
+import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
+import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 
 const ImageEditorDialog = lazy(() =>
   import("@/components/image-editor-dialog").then((m) => ({ default: m.ImageEditorDialog })),
@@ -29,12 +31,16 @@ export function VenueBannerSettingsPanel({
   sportLabel = "badminton",
   brandingQueryKey,
   patchPresentation,
+  auctionEnabled,
+  scoringEnabled,
 }: {
   tournamentId: number;
   branding: BadmintonBranding | undefined;
   sportLabel?: "badminton" | "cricket";
   brandingQueryKey?: readonly unknown[];
   patchPresentation?: (body: VenueBannerPatchBody) => Promise<BadmintonBranding>;
+  auctionEnabled?: boolean | null;
+  scoringEnabled?: boolean | null;
 }) {
   const qc = useQueryClient();
   const [editorOpen, setEditorOpen] = useState(false);
@@ -53,6 +59,22 @@ export function VenueBannerSettingsPanel({
     },
     onError: (e: Error) => toastError(e, "Venue banner"),
   });
+
+  const { data: tournamentData } = useGetTournament(tournamentId, {
+    query: {
+      queryKey: getGetTournamentQueryKey(tournamentId),
+      enabled: !!tournamentId && (auctionEnabled === undefined || scoringEnabled === undefined),
+    },
+  });
+
+  const resolvedAuctionEnabled =
+    auctionEnabled !== undefined ? auctionEnabled : tournamentData?.auctionEnabled;
+  const resolvedScoringEnabled =
+    scoringEnabled !== undefined ? scoringEnabled : tournamentData?.scoringEnabled;
+
+  const hasBothAuctionAndScoring =
+    isAuctionEnabled({ auctionEnabled: resolvedAuctionEnabled }) &&
+    isScoringEnabled({ scoringEnabled: resolvedScoringEnabled });
 
   const overrideUrl = branding?.venueBannerUrl ?? null;
   const resolvedUrl = branding?.resolvedVenueBannerUrl ?? null;
@@ -73,8 +95,9 @@ export function VenueBannerSettingsPanel({
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-sm font-semibold text-white/90">Venue LED banner</p>
           <p className="text-xs text-muted-foreground">
-            Full-screen image for the scoreboard Banner moment (Operator Controls).
-            Does not appear on OBS. Import the auction banner or upload a new one.
+            {hasBothAuctionAndScoring
+              ? "Full-screen image for the scoreboard Banner moment (Operator Controls). Does not appear on OBS. Import the auction banner or upload a new one."
+              : "Full-screen image for the scoreboard Banner moment (Operator Controls). Does not appear on OBS. Upload a banner image."}
           </p>
         </div>
       </div>
@@ -103,24 +126,26 @@ export function VenueBannerSettingsPanel({
           {resolvedUrl ? "Replace banner" : "Upload banner"}
         </BtnSecondary>
 
-        <BtnSecondary
-          type="button"
-          disabled={patchMutation.isPending || !auctionUrl}
-          onClick={() => {
-            patchMutation.mutate(
-              { importAuctionBanner: true },
-              {
-                onSuccess: () =>
-                  toastSuccess(
-                    "Using auction banner",
-                    `Saved as the ${sportLabel} venue banner.`,
-                  ),
-              },
-            );
-          }}
-        >
-          Use auction banner
-        </BtnSecondary>
+        {hasBothAuctionAndScoring ? (
+          <BtnSecondary
+            type="button"
+            disabled={patchMutation.isPending || !auctionUrl}
+            onClick={() => {
+              patchMutation.mutate(
+                { importAuctionBanner: true },
+                {
+                  onSuccess: () =>
+                    toastSuccess(
+                      "Using auction banner",
+                      `Saved as the ${sportLabel} venue banner.`,
+                    ),
+                },
+              );
+            }}
+          >
+            Use auction banner
+          </BtnSecondary>
+        ) : null}
 
         {overrideUrl ? (
           <BtnSecondary

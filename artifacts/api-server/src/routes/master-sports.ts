@@ -540,6 +540,7 @@ router.patch("/broadcast-presentation", async (req, res) => {
     const status =
       message.includes("No auction break music")
       || message.includes("No auction banner")
+      || message.includes("only available when both auction and scoring are enabled")
         ? 400
         : 404;
     res.status(status).json({ error: message });

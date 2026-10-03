@@ -38,7 +38,12 @@ import { buildPublicUrl, getPublicOrigin } from "../lib/runtime-env";
 import { notifyAsync } from "../lib/notifications";
 import { notifyAdminTournamentCreated, notifyAdminLicenseRequested } from "../lib/admin-notifications/triggers.js";
 import { auditLog } from "../lib/audit-service";
-import { parseAuditReason, tournamentConfigFieldsChanged } from "../lib/audit-reason";
+import {
+  parseAuditReason,
+  tournamentConfigFieldsChanged,
+  defaultTournamentPatchReason,
+  resolveAuditReasonWithDefault,
+} from "../lib/audit-reason";
 import { snapshotTournament } from "../lib/audit-snapshots";
 import {
   PAYMENT_COLLECTION_MODES,
@@ -445,10 +450,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
   const configFields = tournamentConfigFieldsChanged(d as Record<string, unknown>);
-  if (configFields.length > 0) {
-    const reasonResult = parseAuditReason(req.body, true);
-    if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
-  }
+  const defaultReason = defaultTournamentPatchReason(configFields);
+  const reasonResult = resolveAuditReasonWithDefault(req.body, defaultReason);
+  if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
   const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   if (!beforeTournament) { res.status(404).json({ error: "Tournament not found" }); return; }
   const isAdminCaller = req.jwtUser?.isAdmin === true;
@@ -721,13 +725,12 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
       tournamentId: id,
     });
   }
-  const reasonResult = parseAuditReason(req.body, configFields.length > 0);
   auditLog(req, {
     category: "tournament",
     action: configFields.length > 0 ? "tournament.config_updated" : "tournament.updated",
     summary: `Tournament "${tournament.name}" settings updated`,
     severity: configFields.length > 0 ? "critical" : "info",
-    reason: reasonResult.ok ? reasonResult.reason : null,
+    reason: reasonResult.reason,
     tournamentId: id,
     resource: { type: "tournament", id: id },
     before: beforeTournament ? snapshotTournament(beforeTournament) : null,

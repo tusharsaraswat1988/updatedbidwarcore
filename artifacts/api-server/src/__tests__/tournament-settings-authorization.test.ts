@@ -76,6 +76,8 @@ vi.mock("../lib/audit-service", () => ({
 
 vi.mock("../lib/audit-reason", () => ({
   parseAuditReason: vi.fn(() => ({ ok: true, reason: "Settings update" })),
+  resolveAuditReasonWithDefault: vi.fn((_body: unknown, def: string) => ({ ok: true, reason: def })),
+  defaultTournamentPatchReason: vi.fn(() => "Organizer dashboard: tournament settings updated"),
   tournamentConfigFieldsChanged: vi.fn(() => []),
 }));
 
@@ -271,6 +273,22 @@ describe("Phase 4E: Tournament Settings Backend Authorization", () => {
       expect(res.status).toBe(200);
       expect(res.body.name).toBe("Updated Hybrid Tournament");
       expect(res.body.city).toBe("Chennai");
+    });
+
+    it("ALLOWS saving registration settings without explicit audit reason", async () => {
+      const res = await request(app)
+        .patch("/api/tournaments/1")
+        .send({
+          registrationDeadline: "2026-10-05",
+          registrationLimit: 64,
+          enableRegistrationDeclaration: true,
+          registrationDeclarationText: "1. Follow match timings.\n2. Medical fitness.",
+          playerRegistrationMode: "scoring",
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.registrationDeadline).toBe("2026-10-05");
+      expect(res.body.registrationLimit).toBe(64);
     });
   });
 

@@ -285,6 +285,7 @@ export default function CricketSettingsPage() {
           registrationDeclarationText: regForm.registrationDeclarationText.trim() || null,
           playerRegistrationMode: "scoring",
           registrationFields: serializeRegistrationFieldsConfig(registrationFieldsHidden),
+          reason: "Tournament registration settings updated by organizer",
         } as unknown as import("@workspace/api-client-react").TournamentUpdate,
       });
       await qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
@@ -1010,6 +1011,8 @@ export default function CricketSettingsPage() {
               patchPresentation={(body) =>
                 patchCricketBroadcastPresentation<SportsBranding>(tournamentId, body)
               }
+              auctionEnabled={tournament?.auctionEnabled}
+              scoringEnabled={tournament?.scoringEnabled}
             />
 
             <VenueBannerSettingsPanel
@@ -1020,6 +1023,8 @@ export default function CricketSettingsPage() {
               patchPresentation={(body) =>
                 patchCricketBroadcastPresentation<SportsBranding>(tournamentId, body)
               }
+              auctionEnabled={tournament?.auctionEnabled}
+              scoringEnabled={tournament?.scoringEnabled}
             />
           </div>
         )}

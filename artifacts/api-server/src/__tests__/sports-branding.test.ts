@@ -30,6 +30,8 @@ vi.mock("@workspace/db", () => {
     breakEndMusicUrl: "https://example.com/break.mp3",
     mainBannerUrl: "https://example.com/banner.png",
     mainBannerFit: "cover",
+    auctionEnabled: true,
+    scoringEnabled: true,
     scoringSettingsJson: {
       branding: {
         displayName: "PCC 2026",
@@ -74,6 +76,8 @@ vi.mock("@workspace/db", () => {
       mainBannerUrl: "mainBannerUrl",
       mainBannerFit: "mainBannerFit",
       scoringSettingsJson: "scoringSettingsJson",
+      auctionEnabled: "auctionEnabled",
+      scoringEnabled: "scoringEnabled",
     },
   };
 });
@@ -159,6 +163,26 @@ describe("Sports Branding — Shared Service", () => {
       expect(branding.resolvedVenueBannerUrl).toBe("https://main.png");
       expect(branding.resolvedVenueBannerFit).toBe("contain");
     });
+
+    it("does not fall back to auction break music or auction banner when auction is disabled", () => {
+      const branding = getSportsBranding(
+        {
+          name: "Scoring Only League",
+          breakEndMusicUrl: "https://break.mp3",
+          mainBannerUrl: "https://main.png",
+          auctionEnabled: false,
+          scoringEnabled: true,
+        },
+        {
+          broadcast: {},
+        },
+        "https://platform-default.mp3",
+      );
+
+      expect(branding.resolvedVenueMusicUrl).toBeNull();
+      expect(branding.resolvedVenueBannerUrl).toBeNull();
+      expect(branding.auctionMainBannerUrl).toBeNull();
+    });
   });
 
   describe("Shared Service Functions", () => {
@@ -179,6 +203,37 @@ describe("Sports Branding — Shared Service", () => {
       expect(loadBadmintonBranding).toBe(loadSportsBranding);
       expect(updateBadmintonBranding).toBe(updateSportsBranding);
       expect(importTournamentBrandingToBadminton).toBe(importTournamentBrandingToSports);
+    });
+
+    it("rejects importAuctionMusic and importAuctionBanner if tournament does not have both modules enabled", async () => {
+      const originalSelect = db.select;
+      (db.select as any) = vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            limit: vi.fn(() =>
+              Promise.resolve([
+                {
+                  id: 2,
+                  breakEndMusicUrl: "https://break.mp3",
+                  mainBannerUrl: "https://banner.png",
+                  auctionEnabled: false,
+                  scoringEnabled: true,
+                },
+              ]),
+            ),
+          })),
+        })),
+      }));
+
+      await expect(
+        updateBroadcastPresentation(2, { importAuctionMusic: true }),
+      ).rejects.toThrow("Auction break music is only available when both auction and scoring are enabled");
+
+      await expect(
+        updateBroadcastPresentation(2, { importAuctionBanner: true }),
+      ).rejects.toThrow("Auction banner is only available when both auction and scoring are enabled");
+
+      db.select = originalSelect;
     });
   });
 });

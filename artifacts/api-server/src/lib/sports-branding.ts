@@ -5,6 +5,7 @@
 
 import { eq } from "drizzle-orm";
 import { db, tournamentsTable } from "@workspace/db";
+import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
 import {
   commitBatchCloudinaryImageWrites,
   destroyRemovedCloudinaryImages,
@@ -321,6 +322,8 @@ export function getSportsBranding(
     breakEndMusicUrl?: string | null;
     mainBannerUrl?: string | null;
     mainBannerFit?: string | null;
+    auctionEnabled?: boolean | null;
+    scoringEnabled?: boolean | null;
   },
   scoringSettingsJson: Record<string, unknown> | null | undefined,
   platformBreakMusicUrl?: string | null,
@@ -329,7 +332,10 @@ export function getSportsBranding(
   const broadcast = broadcastBlock(scoringSettingsJson);
   const venueMusicUrl = parseVenueMusicUrl(broadcast.venueMusicUrl);
   const venueBannerUrl = parseVenueBannerUrl(broadcast.venueBannerUrl);
-  const auctionMainBannerUrl = tournament.mainBannerUrl?.trim() || null;
+  const auctionActive = isAuctionEnabled(tournament);
+  const auctionMainBannerUrl = auctionActive ? tournament.mainBannerUrl?.trim() || null : null;
+  const auctionBreakMusicUrl = auctionActive ? tournament.breakEndMusicUrl?.trim() || null : null;
+  const effectivePlatformMusicUrl = auctionActive ? platformBreakMusicUrl : null;
   return {
     displayName:
       typeof raw.displayName === "string" && raw.displayName.trim()
@@ -362,8 +368,8 @@ export function getSportsBranding(
     venueMusicVolume: parseVenueMusicVolume(broadcast.venueMusicVolume),
     resolvedVenueMusicUrl: resolveVenueMusicUrl(
       venueMusicUrl,
-      tournament.breakEndMusicUrl,
-      platformBreakMusicUrl,
+      auctionBreakMusicUrl,
+      effectivePlatformMusicUrl,
     ),
     venueBannerUrl,
     venueBannerPublicId: venueBannerUrl
@@ -390,6 +396,8 @@ export async function loadSportsBranding(
       mainBannerUrl: tournamentsTable.mainBannerUrl,
       mainBannerFit: tournamentsTable.mainBannerFit,
       scoringSettingsJson: tournamentsTable.scoringSettingsJson,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
@@ -577,10 +585,19 @@ export async function updateBroadcastPresentation(
 
   if (input.importAuctionMusic) {
     const [tournament] = await db
-      .select({ breakEndMusicUrl: tournamentsTable.breakEndMusicUrl })
+      .select({
+        breakEndMusicUrl: tournamentsTable.breakEndMusicUrl,
+        auctionEnabled: tournamentsTable.auctionEnabled,
+        scoringEnabled: tournamentsTable.scoringEnabled,
+      })
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tournamentId))
       .limit(1);
+
+    if (!isAuctionEnabled(tournament) || !isScoringEnabled(tournament)) {
+      throw new Error("Auction break music is only available when both auction and scoring are enabled");
+    }
+
     let url = tournament?.breakEndMusicUrl?.trim() || null;
     if (!url) {
       const { getPlatformDefaultAudioCached } = await import("./platform-audio-defaults");
@@ -598,10 +615,17 @@ export async function updateBroadcastPresentation(
         mainBannerUrl: tournamentsTable.mainBannerUrl,
         mainBannerPublicId: tournamentsTable.mainBannerPublicId,
         mainBannerFit: tournamentsTable.mainBannerFit,
+        auctionEnabled: tournamentsTable.auctionEnabled,
+        scoringEnabled: tournamentsTable.scoringEnabled,
       })
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tournamentId))
       .limit(1);
+
+    if (!isAuctionEnabled(tournament) || !isScoringEnabled(tournament)) {
+      throw new Error("Auction banner is only available when both auction and scoring are enabled");
+    }
+
     const url = tournament?.mainBannerUrl?.trim() || null;
     if (!url) throw new Error("No auction banner set for this tournament");
     patch.venueBannerUrl = url;

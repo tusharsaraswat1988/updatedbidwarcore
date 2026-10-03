@@ -155,6 +155,23 @@ export function defaultManualSellReason(): string {
   return "Auction operator: manual player sold";
 }
 
+/** Auto-generated audit reason when organizer edits tournament without typing one. */
+export function defaultTournamentPatchReason(configFields: string[] = []): string {
+  if (configFields.length === 0) {
+    return "Organizer dashboard: tournament settings updated";
+  }
+  const isOnlyRegistration = configFields.every(
+    (f) =>
+      f === "registrationDeadline" ||
+      f === "registrationLimit" ||
+      f === "autoApproveWithdrawnReRegistration",
+  );
+  if (isOnlyRegistration) {
+    return "Organizer dashboard: tournament registration settings updated";
+  }
+  return `Organizer dashboard: tournament settings updated (${configFields.slice(0, 3).join(", ")})`;
+}
+
 /** Use explicit reason when provided; otherwise fall back to a predefined log message. */
 export function resolveAuditReasonWithDefault(
   body: unknown,
