@@ -77,6 +77,8 @@ describe("EPIC-11 Phase 1 — Runtime Prepare → Rule Engine cutover", () => {
     expect(policy.cricket!.lbwEnabled).toBe(false);
     expect(policy.cricket!.retireAtRuns).toBe(30);
     expect(policy.cricket!.freeHitEnabled).toBe(true);
+    expect(policy.cricket!.powerplayEnabled).toBe(false);
+    expect(policy.cricket!.powerplayOvers).toEqual([]);
 
     const rulesJson = projectRuntimeExecutionPolicyToRulesJson(policy);
     expect(rulesJson.source).toBe("runtime_execution_policy");
@@ -85,6 +87,8 @@ describe("EPIC-11 Phase 1 — Runtime Prepare → Rule Engine cutover", () => {
     expect(rulesJson.lbwEnabled).toBe(false);
     expect(rulesJson.retireAtRuns).toBe(30);
     expect(rulesJson.maxWickets).toBe(10);
+    expect(rulesJson.powerplayEnabled).toBe(false);
+    expect(rulesJson.powerplayOvers).toEqual([]);
   });
 
   it("RuleEngine.resolve executes exactly once for a Prepare cycle (no Match Start resolve)", () => {

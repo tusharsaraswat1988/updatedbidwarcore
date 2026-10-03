@@ -19,6 +19,7 @@ describe("Tournament Rules Terminology & Context Help UX", () => {
     "cricket.extras.leg_bye_enabled": "Leg byes",
     "cricket.bowling.free_hit_enabled": "Free hit (no balls)",
     "cricket.powerplay.enabled": "Powerplay overs",
+    "cricket.powerplay.overs": "Powerplay overs selection",
     "cricket.special.super_ball_enabled": "Super Ball",
     "cricket.special.super_ball_doubles_boundaries_only": "Super Ball doubling mode",
     "cricket.tie_break.super_over_enabled": "Super Over tie-break",
@@ -27,8 +28,8 @@ describe("Tournament Rules Terminology & Context Help UX", () => {
     "cricket.tie_break.super_over_trigger": "Super Over trigger",
   };
 
-  it("covers all 18 key rule override definitions in label mapping", () => {
-    expect(CRICKET_KEY_RULE_OVERRIDE_IDS.length).toBe(18);
+  it("covers all 19 key rule override definitions in label mapping", () => {
+    expect(CRICKET_KEY_RULE_OVERRIDE_IDS.length).toBe(19);
     for (const ruleId of CRICKET_KEY_RULE_OVERRIDE_IDS) {
       expect(KEY_RULE_LABELS[ruleId]).toBeDefined();
       expect(KEY_RULE_LABELS[ruleId].length).toBeGreaterThan(0);

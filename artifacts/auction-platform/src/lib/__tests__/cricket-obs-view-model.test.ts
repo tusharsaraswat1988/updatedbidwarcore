@@ -712,4 +712,94 @@ describe("cricket-obs-view-model", () => {
       expect(vm.midOverlay).toBe("summary");
     });
   });
+
+  describe("Powerplay Indicator", () => {
+    it("returns null powerplayText when powerplay is disabled", () => {
+      const state = baseState({
+        innings: [
+          {
+            innings: 1,
+            battingTeamId: 1,
+            bowlingTeamId: 2,
+            runs: 10,
+            wickets: 0,
+            over: 0,
+            ball: 2,
+            phase: "in_progress",
+            kind: "normal",
+            oversLimit: 20,
+          },
+        ],
+        powerplayOvers: [],
+      });
+      const live = liveFromState(state);
+      live.match.rules = { powerplayEnabled: false };
+      const vm = buildCricketObsViewModel({
+        live,
+        teams,
+        tournamentName: "Test",
+        tournamentLogoUrl: null,
+        sponsors: [],
+        pinnedMatchId: null,
+        connectionStatus: "connected",
+      });
+      expect(vm.powerplayText).toBeNull();
+    });
+
+    it("displays powerplayText only on configured powerplay overs", () => {
+      const stateP1 = baseState({
+        innings: [
+          {
+            innings: 1,
+            battingTeamId: 1,
+            bowlingTeamId: 2,
+            runs: 10,
+            wickets: 0,
+            over: 1, // Over 2 in cricket
+            ball: 2,
+            phase: "in_progress",
+            kind: "normal",
+            oversLimit: 10,
+          },
+        ],
+        powerplayOvers: [1, 2],
+      });
+      const liveP1 = liveFromState(stateP1);
+      liveP1.match.rules = { powerplayEnabled: true, powerplayOvers: [1, 2] };
+      const vmP1 = buildCricketObsViewModel({
+        live: liveP1,
+        teams,
+        tournamentName: "Test",
+        tournamentLogoUrl: null,
+        sponsors: [],
+        pinnedMatchId: null,
+        connectionStatus: "connected",
+      });
+      expect(vmP1.powerplayText).toBe("P1 (2 OV)");
+
+      // Over 3 (index 2) - should not be in powerplay
+      const stateOutside = baseState({
+        ...stateP1,
+        innings: [
+          {
+            ...stateP1.innings[0],
+            over: 2, // Over 3 in cricket
+          },
+        ],
+        powerplayOvers: [1, 2],
+      });
+      const liveOutside = liveFromState(stateOutside);
+      liveOutside.match.rules = { powerplayEnabled: true, powerplayOvers: [1, 2] };
+      const vmOutside = buildCricketObsViewModel({
+        live: liveOutside,
+        teams,
+        tournamentName: "Test",
+        tournamentLogoUrl: null,
+        sponsors: [],
+        pinnedMatchId: null,
+        connectionStatus: "connected",
+      });
+      expect(vmOutside.powerplayText).toBeNull();
+    });
+  });
 });

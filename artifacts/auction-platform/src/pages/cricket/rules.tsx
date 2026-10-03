@@ -121,6 +121,7 @@ type KeyRulesDraft = {
   legByeEnabled: boolean;
   freeHitEnabled: boolean;
   powerplayEnabled: boolean;
+  powerplayOvers: number[];
   playingXiEnforced: boolean;
   superBallEnabled: boolean;
   superBallDoublesBoundariesOnly: boolean;
@@ -146,6 +147,7 @@ const KEY_RULE_LABELS: Record<
   "cricket.extras.leg_bye_enabled": "Leg byes",
   "cricket.bowling.free_hit_enabled": "Free hit (no balls)",
   "cricket.powerplay.enabled": "Powerplay overs",
+  "cricket.powerplay.overs": "Powerplay overs selection",
   "cricket.special.super_ball_enabled": "Super Ball",
   "cricket.special.super_ball_doubles_boundaries_only": "Super Ball doubling mode",
   "cricket.tie_break.super_over_enabled": "Super Over tie-break",
@@ -242,6 +244,20 @@ function draftFromProfileAndOverrides(
     legByeEnabled: bool("cricket.extras.leg_bye_enabled", true),
     freeHitEnabled: bool("cricket.bowling.free_hit_enabled", true),
     powerplayEnabled: bool("cricket.powerplay.enabled", false),
+    powerplayOvers: (() => {
+      const ppOversRaw = merged["cricket.powerplay.overs"];
+      if (Array.isArray(ppOversRaw)) {
+        return ppOversRaw.filter(
+          (x): x is number => typeof x === "number" && Number.isInteger(x) && x >= 1,
+        );
+      }
+      if (bool("cricket.powerplay.enabled", false)) {
+        const oversNum = parseInt(num("cricket.match.overs_per_innings", 6), 10) || 6;
+        const defaultCount = Math.min(6, Math.max(1, Math.ceil(oversNum * 0.3)));
+        return Array.from({ length: defaultCount }, (_, i) => i + 1);
+      }
+      return [];
+    })(),
     playingXiEnforced: bool("cricket.match.playing_xi_enforced", false),
     superBallEnabled: bool("cricket.special.super_ball_enabled", false),
     superBallDoublesBoundariesOnly: bool("cricket.special.super_ball_doubles_boundaries_only", true),
@@ -285,6 +301,7 @@ function draftToEffectiveValues(
     "cricket.extras.leg_bye_enabled": draft.legByeEnabled,
     "cricket.bowling.free_hit_enabled": draft.freeHitEnabled,
     "cricket.powerplay.enabled": draft.powerplayEnabled,
+    "cricket.powerplay.overs": draft.powerplayEnabled ? draft.powerplayOvers : [],
     "cricket.special.super_ball_enabled": draft.superBallEnabled,
     "cricket.special.super_ball_doubles_boundaries_only": draft.superBallDoublesBoundariesOnly,
     "cricket.tie_break.super_over_enabled": draft.superOverEnabled,
@@ -1080,9 +1097,17 @@ export default function CricketRulesPage() {
                           inputMode="numeric"
                           disabled={locked}
                           value={keyRules.overs}
-                          onChange={(e) =>
-                            setKeyRules((p) => ({ ...p, overs: e.target.value }))
-                          }
+                          onChange={(e) => {
+                            const nextVal = e.target.value;
+                            const nextNum = parseInt(nextVal, 10);
+                            setKeyRules((p) => {
+                              const pruned =
+                                Number.isFinite(nextNum) && nextNum > 0
+                                  ? p.powerplayOvers.filter((o) => o <= nextNum)
+                                  : p.powerplayOvers;
+                              return { ...p, overs: nextVal, powerplayOvers: pruned };
+                            });
+                          }}
                         />
                       </div>
 
@@ -1207,6 +1232,147 @@ export default function CricketRulesPage() {
                         Total {totalSquadCapacity} Players / team
                       </span>
                     </div>
+
+                    {/* Powerplay Overs Selection (Interactive Chips) */}
+                    <div className="mt-3 rounded-lg border border-border/70 bg-card/40 p-3 space-y-2">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                            Powerplay Overs
+                            <RuleHelpTooltip
+                              title="Powerplay Overs"
+                              content="Designated opening overs where mandatory fielding restrictions apply and Super Ball is unavailable. Click each over number to toggle."
+                              category="cricket"
+                            />
+                          </label>
+                          <span
+                            className={cn(
+                              "text-[10px] px-2 py-0.5 rounded-full font-bold",
+                              keyRules.powerplayEnabled && keyRules.powerplayOvers.length > 0
+                                ? "bg-primary/20 text-primary border border-primary/30"
+                                : "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {keyRules.powerplayEnabled
+                              ? keyRules.powerplayOvers.length > 0
+                                ? `${keyRules.powerplayOvers.length} Selected (${keyRules.powerplayOvers.map((o) => `Ov ${o}`).join(", ")})`
+                                : "None Selected"
+                              : "Disabled"}
+                          </span>
+                        </div>
+
+                        {!locked && (
+                          <div className="flex items-center gap-1.5 text-[11px]">
+                            {keyRules.powerplayEnabled ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const oversNum = parseInt(keyRules.overs, 10) || 6;
+                                    const defaultCount = Math.min(6, Math.max(1, Math.ceil(oversNum * 0.3)));
+                                    setKeyRules((p) => ({
+                                      ...p,
+                                      powerplayOvers: Array.from({ length: defaultCount }, (_, i) => i + 1),
+                                    }));
+                                  }}
+                                  className="px-2 py-0.5 rounded border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors font-medium text-[10px]"
+                                >
+                                  Standard (1–{Math.min(6, Math.max(1, Math.ceil((parseInt(keyRules.overs, 10) || 6) * 0.3)))})
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setKeyRules((p) => ({ ...p, powerplayOvers: [] }))}
+                                  className="px-2 py-0.5 rounded border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors font-medium text-[10px]"
+                                >
+                                  Clear
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setKeyRules((p) => ({
+                                      ...p,
+                                      powerplayEnabled: false,
+                                      powerplayOvers: [],
+                                    }))
+                                  }
+                                  className="px-2 py-0.5 rounded border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors font-medium text-[10px]"
+                                >
+                                  Turn Off
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const oversNum = parseInt(keyRules.overs, 10) || 6;
+                                  const defaultCount = Math.min(6, Math.max(1, Math.ceil(oversNum * 0.3)));
+                                  setKeyRules((p) => ({
+                                    ...p,
+                                    powerplayEnabled: true,
+                                    powerplayOvers: Array.from({ length: defaultCount }, (_, i) => i + 1),
+                                  }));
+                                }}
+                                className="px-2.5 py-0.5 rounded border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-semibold text-[10px]"
+                              >
+                                Enable Powerplay
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {keyRules.powerplayEnabled ? (
+                        <div className="space-y-1.5 pt-1">
+                          <div className="flex flex-wrap gap-1.5">
+                            {Array.from(
+                              {
+                                length: Math.min(
+                                  50,
+                                  Math.max(1, parseInt(keyRules.overs, 10) || 6),
+                                ),
+                              },
+                              (_, i) => i + 1,
+                            ).map((overNum) => {
+                              const isSelected = keyRules.powerplayOvers.includes(overNum);
+                              return (
+                                <button
+                                  key={overNum}
+                                  type="button"
+                                  disabled={locked}
+                                  onClick={() => {
+                                    if (locked) return;
+                                    setKeyRules((p) => {
+                                      const next = isSelected
+                                        ? p.powerplayOvers.filter((o) => o !== overNum)
+                                        : [...p.powerplayOvers, overNum].sort((a, b) => a - b);
+                                      return { ...p, powerplayOvers: next };
+                                    });
+                                  }}
+                                  className={cn(
+                                    "h-8 min-w-[34px] px-2 rounded-lg text-xs font-bold transition-all border select-none flex items-center justify-center",
+                                    isSelected
+                                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                                      : "bg-background text-muted-foreground border-border/80 hover:border-foreground/40 hover:text-foreground",
+                                    locked && "opacity-60 cursor-not-allowed",
+                                  )}
+                                >
+                                  {overNum}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            {keyRules.powerplayOvers.length > 0
+                              ? `Tap any over chip above to add or remove it from the Powerplay window.`
+                              : `Click any over number above or click 'Standard' to select powerplay overs.`}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground">
+                          Powerplay is turned off for this match format. Click &apos;Enable Powerplay&apos; to designate powerplay overs.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </section>
 
@@ -1254,7 +1420,21 @@ export default function CricketRulesPage() {
                       {
                         label: "Powerplay Overs",
                         active: keyRules.powerplayEnabled,
-                        toggle: () => setKeyRules((p) => ({ ...p, powerplayEnabled: !p.powerplayEnabled })),
+                        toggle: () =>
+                          setKeyRules((p) => {
+                            const nextEnabled = !p.powerplayEnabled;
+                            const oversNum = parseInt(p.overs, 10) || 6;
+                            let nextOvers = p.powerplayOvers;
+                            if (nextEnabled && nextOvers.length === 0) {
+                              const defaultCount = Math.min(6, Math.max(1, Math.ceil(oversNum * 0.3)));
+                              nextOvers = Array.from({ length: defaultCount }, (_, i) => i + 1);
+                            }
+                            return {
+                              ...p,
+                              powerplayEnabled: nextEnabled,
+                              powerplayOvers: nextEnabled ? nextOvers : [],
+                            };
+                          }),
                         help: {
                           title: "Powerplay Overs",
                           content: "Designated opening overs where mandatory fielding restrictions apply, limiting how many fielders are permitted outside the inner circle.",
