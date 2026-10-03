@@ -24,6 +24,7 @@ export type CompatibilityRulesJson = {
   freeHitEnabled: boolean;
   retireAtRuns: number | null;
   powerplayEnabled: boolean;
+  powerplayOvers: number[];
   superOverEnabled: boolean;
   superBallEnabled: boolean;
   superOverOvers: number;
@@ -59,6 +60,7 @@ export function projectRuntimeExecutionPolicyToRulesJson(
     freeHitEnabled: c.freeHitEnabled,
     retireAtRuns: c.retireAtRuns,
     powerplayEnabled: c.powerplayEnabled,
+    powerplayOvers: [...c.powerplayOvers],
     superOverEnabled: c.superOverEnabled,
     superBallEnabled: c.superBallEnabled,
     superOverOvers: c.superOverOvers,
