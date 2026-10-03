@@ -146,7 +146,7 @@ export function createInitialCricketState(
     freeHitActive: false,
     lbwEnabled: meta.lbwEnabled ?? true,
     freeHitEnabled: meta.freeHitEnabled ?? true,
-    powerplayOvers: [],
+    powerplayOvers: meta.powerplayOvers ? [...meta.powerplayOvers] : [],
     retiredHurt: {},
     interruptionReason: null,
     revisedOversLimit: null,

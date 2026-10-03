@@ -108,6 +108,8 @@ export function buildMatchMetaFromRules(args: {
         rules.retireAtRuns === undefined
           ? null
           : (rules.retireAtRuns as number | null),
+      powerplayEnabled: rules.powerplayEnabled ?? false,
+      powerplayOvers: rules.powerplayOvers ? [...rules.powerplayOvers] : [],
       resolutionId: args.ruleResolution?.resolutionId ?? null,
       rulesHash: args.ruleResolution?.rulesHash ?? null,
       runtimeRulesVersion: args.ruleResolution?.runtimeRulesVersion ?? null,
@@ -161,6 +163,14 @@ export function buildMatchMetaFromRules(args: {
       rules.retireAtRuns === undefined
         ? null
         : (rules.retireAtRuns as number | null),
+    powerplayEnabled:
+      typeof rules.powerplayEnabled === "boolean"
+        ? rules.powerplayEnabled
+        : true,
+    powerplayOvers:
+      Array.isArray(rules.powerplayOvers)
+        ? [...rules.powerplayOvers]
+        : [],
     resolutionId: args.ruleResolution?.resolutionId ?? null,
     rulesHash: args.ruleResolution?.rulesHash ?? null,
     runtimeRulesVersion: args.ruleResolution?.runtimeRulesVersion ?? null,

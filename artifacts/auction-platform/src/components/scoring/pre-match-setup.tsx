@@ -552,10 +552,11 @@ export function PreMatchSetup({
               electedTo,
               oversLimit,
               powerplayOvers:
-                match.rules?.powerplayOvers ??
-                (match.rules?.superBallEnabled && match.rules?.powerplayEnabled
+                match.rules?.powerplayOvers && match.rules.powerplayOvers.length > 0
+                  ? match.rules.powerplayOvers
+                  : match.rules?.powerplayEnabled
                   ? [1]
-                  : undefined),
+                  : [],
             });
           }}
         />
