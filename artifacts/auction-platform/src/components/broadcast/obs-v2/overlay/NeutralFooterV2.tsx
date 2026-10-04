@@ -57,7 +57,7 @@ export function NeutralFooterV2({
   }, [validSponsors, pageIndex]);
 
   const displayTournamentName = tournamentName || "BIDWAR PREMIER LEAGUE";
-  const displayStatus = statusText || "MATCH INTERVAL";
+  const displayStatus = statusText || "MATCH STARTING SOON";
 
   return (
     <AnimatePresence mode="wait">

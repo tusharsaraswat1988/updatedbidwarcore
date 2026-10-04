@@ -5,6 +5,7 @@ import type { CricketScorerTeam } from "../scoring-squad";
 import {
   ballsRemaining,
   buildCricketObsViewModel,
+  deriveCricketNeutralStatus,
   mapBallToFlash,
   mergeLiveDisplayPreserveBranding,
   parseCricketObsMatchParam,
@@ -710,6 +711,92 @@ describe("cricket-obs-view-model", () => {
       });
       expect(vm.isNeutralActive).toBe(false);
       expect(vm.midOverlay).toBe("summary");
+    });
+
+    it("displays 'MATCH STARTING SOON' (STANDBY) when tournament is newly created with no match or live feed", () => {
+      const vm = buildCricketObsViewModel({
+        live: null,
+        teams: [],
+        tournamentName: "BidWar Premier League",
+        tournamentLogoUrl: null,
+        sponsors: [],
+        pinnedMatchId: null,
+        connectionStatus: "connected",
+        midOverlay: "none",
+      });
+      expect(vm.isNeutralActive).toBe(true);
+      expect(vm.neutralStatusText).toBe("MATCH STARTING SOON");
+      expect(vm.neutralStatusChip).toBe("STANDBY");
+      // Must NEVER display "MATCH INTERVAL" when no match has started!
+      expect(vm.neutralStatusText).not.toBe("MATCH INTERVAL");
+    });
+
+    it("displays 'MATCH INTERVAL' (INTERVAL) only when midOverlay is explicitly set to neutral", () => {
+      const vm = buildCricketObsViewModel({
+        live: null,
+        teams: [],
+        tournamentName: "BidWar Premier League",
+        tournamentLogoUrl: null,
+        sponsors: [],
+        pinnedMatchId: null,
+        connectionStatus: "connected",
+        midOverlay: "neutral",
+      });
+      expect(vm.isNeutralActive).toBe(true);
+      expect(vm.neutralStatusText).toBe("MATCH INTERVAL");
+      expect(vm.neutralStatusChip).toBe("INTERVAL");
+    });
+
+    it("displays match target/break text when in innings break", () => {
+      const breakState = baseState({
+        matchStatus: "live",
+        sessionStatus: "innings_break",
+        currentInnings: 2,
+        target: 151,
+        innings: [
+          {
+            innings: 1,
+            battingTeamId: 1,
+            bowlingTeamId: 2,
+            runs: 150,
+            wickets: 5,
+            over: 20,
+            ball: 0,
+            status: "completed",
+            phase: "completed",
+            oversLimit: 20,
+            kind: "normal",
+          },
+          {
+            innings: 2,
+            battingTeamId: 2,
+            bowlingTeamId: 1,
+            runs: 0,
+            wickets: 0,
+            over: 0,
+            ball: 0,
+            status: "not_started",
+            phase: "not_started",
+            oversLimit: 20,
+            kind: "normal",
+          },
+        ],
+      });
+      const liveBreak = liveFromState(breakState);
+      liveBreak.match.rules = { overs: 20 };
+      const vm = buildCricketObsViewModel({
+        live: liveBreak,
+        teams,
+        tournamentName: "BidWar Premier League",
+        tournamentLogoUrl: null,
+        sponsors: [],
+        pinnedMatchId: null,
+        connectionStatus: "connected",
+        midOverlay: "neutral",
+      });
+      expect(vm.phase).toBe("innings_break");
+      expect(vm.neutralStatusChip).toBe("INNINGS BREAK");
+      expect(vm.neutralStatusText).toContain("INNINGS BREAK");
     });
   });
 

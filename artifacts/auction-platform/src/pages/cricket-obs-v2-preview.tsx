@@ -14,7 +14,10 @@ import { OBS_V2 } from "../components/broadcast/obs-v2/obs-v2-tokens";
 import { BroadcastMessageV2 } from "../components/broadcast/obs-v2/overlay/BroadcastMessageV2";
 import { NeutralFooterV2 } from "../components/broadcast/obs-v2/overlay/NeutralFooterV2";
 import { MidScreenSlatesV2 } from "../components/broadcast/obs-v2/slates/MidScreenSlatesV2";
-import type { CricketObsMidOverlayKind } from "@/lib/cricket-obs-view-model";
+import {
+  deriveCricketNeutralStatus,
+  type CricketObsMidOverlayKind,
+} from "@/lib/cricket-obs-view-model";
 import type { SponsorLogo } from "../components/broadcast/obs-v2/contracts";
 
 import { useV2Sync, type V2SyncMessage } from "../components/broadcast/obs-v2/obs-v2-sync";
@@ -259,6 +262,12 @@ export default function CricketObsV2Page() {
   const currentOverlay: CricketObsMidOverlayKind =
     syncOverlay ?? (autoSummaryActive ? "summary" : (vm?.midOverlay ?? "none"));
 
+  // ── Effective neutral status (text & chip) ───────────────────────────────
+  const effectiveNeutralStatus = useMemo(
+    () => deriveCricketNeutralStatus(vm, currentOverlay),
+    [vm, currentOverlay],
+  );
+
   // ── OBS Browser Source: enforce transparent document ────────────────────
   useEffect(() => {
     if (isPreviewMode) return;
@@ -470,23 +479,8 @@ export default function CricketObsV2Page() {
           tournamentLogoUrl={activeFrame.branding?.tournamentLogoUrl}
           sponsors={neutralSponsors}
           isActive={isNeutralActive}
-          statusText={
-            vm?.resultHeadline ||
-            vm?.resultText ||
-            vm?.firstInningsScoreLine ||
-            (vm?.phase === "innings_break" ? `INNINGS BREAK · TARGET ${vm.target ?? (vm.runs + 1)}` : null) ||
-            (vm?.phase === "pre_match" ? (vm?.tossText || "MATCH STARTING SOON") : null) ||
-            "MATCH INTERVAL"
-          }
-          statusChip={
-            vm?.phase === "innings_break"
-              ? "INNINGS BREAK"
-              : vm?.phase === "completed"
-              ? "FINAL"
-              : vm?.phase === "pre_match"
-              ? "STANDBY"
-              : "INTERVAL"
-          }
+          statusText={effectiveNeutralStatus.statusText}
+          statusChip={effectiveNeutralStatus.statusChip}
         />
       </div>
 

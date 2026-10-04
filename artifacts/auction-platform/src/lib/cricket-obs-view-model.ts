@@ -166,6 +166,8 @@ export type CricketObsViewModel = {
   broadcastMessage: CricketBroadcastMessage | null;
   broadcastEvent: CricketAuthoritativeBroadcastEvent | null;
   isNeutralActive: boolean;
+  neutralStatusText?: string;
+  neutralStatusChip?: string;
 };
 
 const DEFAULT_THEME: CricketObsTheme = {
@@ -444,6 +446,60 @@ export type BuildCricketObsViewModelInput = {
   broadcastMessage?: CricketBroadcastMessage | null;
 };
 
+/**
+ * Authoritative derivation of neutral footer broadcast status text and chip.
+ *
+ * Rules:
+ * 1. Match finished -> Shows winner/result headline (e.g. "DPS WON BY 5 WKTS"), chip "FINAL"
+ * 2. Innings break -> Shows break scoreline / target (e.g. "INNINGS BREAK · TARGET 165"), chip "INNINGS BREAK"
+ * 3. Pre-match -> Shows toss result or "MATCH STARTING SOON", chip "STANDBY"
+ * 4. Operator explicitly engaged Interval / Neutral plate in director control -> "MATCH INTERVAL", chip "INTERVAL"
+ * 5. Standby / No live match / Pre-tournament -> "MATCH STARTING SOON", chip "STANDBY"
+ */
+export function deriveCricketNeutralStatus(
+  vm?: Partial<CricketObsViewModel> | null,
+  overrideOverlay?: CricketObsMidOverlayKind | null,
+): {
+  statusText: string;
+  statusChip: string;
+} {
+  const midOverlay = overrideOverlay ?? vm?.midOverlay ?? "none";
+
+  // 1. Finished match results
+  if (vm?.phase === "completed" || vm?.resultHeadline || vm?.resultText) {
+    const headline = vm.resultHeadline || vm.resultText || "MATCH COMPLETED";
+    return { statusText: headline, statusChip: "FINAL" };
+  }
+
+  // 2. Innings Break
+  if (vm?.phase === "innings_break") {
+    const target = vm.target ?? (vm.runs != null && vm.runs > 0 ? vm.runs + 1 : null);
+    const breakText = target
+      ? `INNINGS BREAK · TARGET ${target}`
+      : vm.firstInningsScoreLine || "INNINGS BREAK";
+    return { statusText: breakText, statusChip: "INNINGS BREAK" };
+  }
+
+  // 3. Pre-Match (Scheduled fixture, toss, or build-up)
+  if (vm?.phase === "pre_match") {
+    const preText = vm.tossText || "MATCH STARTING SOON";
+    return { statusText: preText, statusChip: "STANDBY" };
+  }
+
+  // 4. Operator explicitly engaged Interval / Neutral plate in director control
+  if (midOverlay === "neutral") {
+    return { statusText: "MATCH INTERVAL", statusChip: "INTERVAL" };
+  }
+
+  // 5. No active match / match unavailable (e.g. tournament newly created, before match)
+  if (vm?.phase === "no_live" || vm?.phase === "match_unavailable") {
+    return { statusText: "MATCH STARTING SOON", statusChip: "STANDBY" };
+  }
+
+  // 6. Active live play fallback (if neutral footer rendered while live)
+  return { statusText: "MATCH STARTING SOON", statusChip: "STANDBY" };
+}
+
 export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): CricketObsViewModel {
   const {
     live,
@@ -516,6 +572,8 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     broadcastMessage,
     broadcastEvent: live?.broadcastEvent ?? null,
     isNeutralActive: midOverlay === "neutral" || midOverlay === "none",
+    neutralStatusText: deriveCricketNeutralStatus({ phase: "no_live", midOverlay }).statusText,
+    neutralStatusChip: deriveCricketNeutralStatus({ phase: "no_live", midOverlay }).statusChip,
   };
 
   if (!live?.match || !live.state) {
@@ -532,6 +590,8 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
       ...base,
       phase: "match_unavailable",
       matchId: pinnedMatchId,
+      neutralStatusText: "MATCH STARTING SOON",
+      neutralStatusChip: "STANDBY",
     };
   }
 
@@ -707,10 +767,27 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     midOverlay === "neutral" ||
     (midOverlay === "none" && !isLiveMatch);
 
+  const firstInningsScore = firstInningsScoreLine(state, summary, teams);
+  const liveNeutralStatus = deriveCricketNeutralStatus(
+    {
+      phase,
+      midOverlay,
+      resultHeadline,
+      resultText,
+      firstInningsScoreLine: firstInningsScore,
+      target,
+      runs,
+      tossText,
+    },
+    midOverlay,
+  );
+
   return {
     ...base,
     phase,
     isNeutralActive,
+    neutralStatusText: liveNeutralStatus.statusText,
+    neutralStatusChip: liveNeutralStatus.statusChip,
     matchId: match.id,
     home,
     away,
@@ -752,7 +829,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     venueText: match.venue || null,
     resultText,
     resultHeadline,
-    firstInningsScoreLine: firstInningsScoreLine(state, summary, teams),
+    firstInningsScoreLine: firstInningsScore,
     flash,
     flashToken,
     flashDetail: overrideFlashDetail ?? null,

@@ -4,7 +4,10 @@ import { BROADCAST_FONTS } from "@/components/broadcast/tokens";
 import {
   BIDWAR_BROADCAST_YELLOW,
 } from "@/lib/bidwar-broadcast-colors";
-import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
+import {
+  type CricketObsViewModel,
+  deriveCricketNeutralStatus,
+} from "@/lib/cricket-obs-view-model";
 import { getSponsorCategoryLabel } from "@/components/scoring/score-display-shell";
 import { Trophy, Award, Radio, Sparkles, Shield } from "lucide-react";
 
@@ -48,12 +51,7 @@ export function CricketObsNeutralFooter({ vm }: Props) {
 
   const displayTournamentName = vm.tournamentName || "BIDWAR PREMIER LEAGUE";
   const displayStatus =
-    vm.resultHeadline ||
-    vm.resultText ||
-    vm.firstInningsScoreLine ||
-    (vm.phase === "innings_break" ? `INNINGS BREAK · TARGET ${vm.target ?? (vm.runs + 1)}` : null) ||
-    (vm.phase === "pre_match" ? (vm.tossText || "MATCH STARTING SOON") : null) ||
-    "MATCH INTERVAL";
+    vm.neutralStatusText || deriveCricketNeutralStatus(vm).statusText;
 
   return (
     <motion.div
