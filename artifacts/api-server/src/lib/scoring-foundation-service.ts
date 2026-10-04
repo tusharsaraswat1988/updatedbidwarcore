@@ -10,6 +10,7 @@ import {
   scoringSessionsTable,
   scoringVenuesTable,
   tournamentsTable,
+  teamsTable,
   scorerAccountsTable,
   type MatchSquadJson,
   type ScoringDrawConfigJson,
@@ -33,6 +34,10 @@ import {
 import { prepareRuntimeMatch } from "./runtime-match-service";
 import { deleteScorerAccountForTournament } from "./scorer-auth";
 import { getCricketRulePreset } from "./cricket-rule-presets-service";
+import {
+  resolveCricketRulePresetSummary,
+  type CricketRulePresetSummary,
+} from "@workspace/platform-core/competition";
 
 async function ensureScoringTournament(tournamentId: number) {
   const [tournament] = await db
@@ -70,10 +75,27 @@ async function ensureTeamsInTournament(
 ) {
   if (teamIds.length === 0) return;
   const unique = [...new Set(teamIds)];
-  const results = await Promise.all(
-    unique.map((id) => cricketFranchiseTeamExists(tournamentId, id)),
-  );
-  if (results.some((ok) => !ok)) {
+
+  const [tournamentTeams, franchiseOk] = await Promise.all([
+    db
+      .select({ id: teamsTable.id })
+      .from(teamsTable)
+      .where(
+        and(
+          eq(teamsTable.tournamentId, tournamentId),
+          inArray(teamsTable.id, unique),
+        ),
+      ),
+    Promise.all(unique.map((id) => cricketFranchiseTeamExists(tournamentId, id))),
+  ]);
+
+  const validTeamIds = new Set(tournamentTeams.map((t) => t.id));
+  unique.forEach((id, idx) => {
+    if (franchiseOk[idx]) validTeamIds.add(id);
+  });
+
+  const missing = unique.filter((id) => !validTeamIds.has(id));
+  if (missing.length > 0) {
     throw new ScoringServiceError(
       "One or more teams not in tournament",
       400,
@@ -499,6 +521,7 @@ export async function generateScoringDraw(input: {
   await ensureScoringTournament(input.tournamentId);
   await ensureTeamsInTournament(input.tournamentId, input.teamIds);
 
+  let presetSummary: CricketRulePresetSummary | null = null;
   if (input.rulePresetId != null) {
     const preset = await getCricketRulePreset(input.tournamentId, input.rulePresetId);
     if (!preset) {
@@ -508,11 +531,15 @@ export async function generateScoringDraw(input: {
         "INVALID_RULE_PRESET",
       );
     }
+    presetSummary = resolveCricketRulePresetSummary(preset);
   }
+
+  const effectiveOvers = input.oversLimit ?? presetSummary?.overs ?? 20;
+  const effectiveWickets = presetSummary?.wickets ?? 10;
 
   const config: ScoringDrawConfigJson = {
     // Non-authoritative draw default — Runtime Prepare overwrites match rulesJson.
-    oversLimit: input.oversLimit ?? 20,
+    oversLimit: effectiveOvers,
     teamIds: input.teamIds,
     groups: input.groups,
   };
@@ -617,7 +644,7 @@ export async function generateScoringDraw(input: {
           homeSideJson: { teamId: f.homeTeamId },
           awaySideJson: { teamId: f.awayTeamId },
           // Placeholder only — Runtime Prepare replaces via RuntimeExecutionPolicy.
-          rulesJson: { overs: config.oversLimit ?? 20, maxWickets: 10 },
+          rulesJson: { overs: effectiveOvers, maxWickets: effectiveWickets },
           roundName: f.roundName,
           scheduledAt: f.scheduledAt ? new Date(f.scheduledAt) : null,
           venueId: input.venueId ?? null,
@@ -632,8 +659,8 @@ export async function generateScoringDraw(input: {
         tournamentId: input.tournamentId,
         homeTeamId: f.homeTeamId,
         awayTeamId: f.awayTeamId,
-        oversLimit: config.oversLimit ?? 20,
-        maxWickets: 10,
+        oversLimit: effectiveOvers,
+        maxWickets: effectiveWickets,
       });
 
       await db.insert(scoringSessionsTable).values({

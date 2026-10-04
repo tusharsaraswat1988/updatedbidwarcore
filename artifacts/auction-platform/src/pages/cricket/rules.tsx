@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRoute } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   CatalogRegistry,
   type ConcreteRuleValue,
@@ -361,6 +362,7 @@ export default function CricketRulesPage() {
     tournament?.sport,
     tournament?.scoringEnabled,
   );
+  const qc = useQueryClient();
 
   const [data, setData] = useState<CompetitionAggregate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -416,19 +418,20 @@ export default function CricketRulesPage() {
       setData(body);
       setPresets(presetList);
 
+      let activePreset: CricketRulePresetJson | undefined;
       if (presetList.length > 0) {
         const currentActive = presetList.find((p) => p.id === activePresetId);
-        const active = currentActive || presetList.find((p) => p.isDefault) || presetList[0];
-        setActivePresetId(active.id);
+        activePreset = currentActive || presetList.find((p) => p.isDefault) || presetList[0];
+        setActivePresetId(activePreset.id);
       }
 
       const sid = (body.configuration.sportId || "cricket").toLowerCase();
       const cfg = body.configuration;
 
-      const nextVariant = cfg.variantId || "cricket.box";
+      const nextVariant = activePreset?.variantId || cfg.variantId || "cricket.box";
       const nextCompType = cfg.competitionTypeId || "auction";
-      const nextRuleId = cfg.ruleProfileId || "cricket.box.corporate_standard";
-      const nextRuleVersion = cfg.ruleProfileVersion || "1.0.0";
+      const nextRuleId = activePreset?.ruleProfileId || cfg.ruleProfileId || "cricket.box.corporate_standard";
+      const nextRuleVersion = activePreset?.ruleProfileVersion || cfg.ruleProfileVersion || "1.0.0";
       const nextPresId = cfg.presentationProfileId || "cricket.presentation.corporate_box";
       const nextPresVersion = cfg.presentationProfileVersion || "1.0.0";
 
@@ -440,14 +443,17 @@ export default function CricketRulesPage() {
       setRuleProfileVersion(nextRuleVersion);
       setPresentationProfileId(nextPresId);
       setPresentationProfileVersion(nextPresVersion);
-      setSquadRules(squadFromConfig(cfg.squadRules));
+      setSquadRules(squadFromConfig((activePreset?.squadRulesJson as any) || cfg.squadRules));
 
       const profile =
         CatalogRegistry.getRuleProfile(nextRuleId, nextRuleVersion) ??
         CatalogRegistry.getRuleProfile(nextRuleId) ??
         null;
       setKeyRules(
-        draftFromProfileAndOverrides(profile, cfg.ruleOverrides ?? null),
+        draftFromProfileAndOverrides(
+          profile,
+          (activePreset?.ruleOverridesJson as RuleOverridesDocument) || cfg.ruleOverrides || null,
+        ),
       );
     } catch (e) {
       setError(extractErrorMessage(e, "Failed to load tournament rules"));
@@ -625,6 +631,9 @@ export default function CricketRulesPage() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(extractErrorMessage(body, "Could not save rules"));
       await load();
+      void qc.invalidateQueries({ queryKey: ["cricket-rule-presets", tournamentId] });
+      void qc.invalidateQueries({ queryKey: ["scoring-fixtures", tournamentId] });
+      void qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
       toast({
         title: "Changes saved",
         description: "Rule settings have been saved successfully.",
@@ -682,6 +691,9 @@ export default function CricketRulesPage() {
       setNewPresetName("");
       setNewPresetDesc("");
       await load();
+      void qc.invalidateQueries({ queryKey: ["cricket-rule-presets", tournamentId] });
+      void qc.invalidateQueries({ queryKey: ["scoring-fixtures", tournamentId] });
+      void qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
       setActivePresetId(created.id);
       toast({ title: "Rule Preset Created", description: `"${created.name}" is now available for fixtures and matches.` });
     } catch (e) {
@@ -694,6 +706,9 @@ export default function CricketRulesPage() {
     try {
       await deleteCricketRulePreset(tournamentId, presetId);
       await load();
+      void qc.invalidateQueries({ queryKey: ["cricket-rule-presets", tournamentId] });
+      void qc.invalidateQueries({ queryKey: ["scoring-fixtures", tournamentId] });
+      void qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
       toast({ title: "Rule Preset Deleted" });
     } catch (e) {
       toast({

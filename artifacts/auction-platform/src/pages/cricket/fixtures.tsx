@@ -42,6 +42,8 @@ import {
   getCricketMasterTeams,
   isTerminalCricketMatchStatus,
   listCricketRulePresets,
+  resolveCricketRulePresetSummary,
+  formatCricketRulePresetLabel,
   updateScoringMatch,
   type CricketRulePresetJson,
   type ScoringMatchRow,
@@ -76,27 +78,6 @@ function isSameLocalDay(iso: string | null | undefined): boolean {
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate()
   );
-}
-
-function getPresetDetails(p?: CricketRulePresetJson | null) {
-  if (!p) return { overs: 20, wickets: 10, squadSize: 11 };
-  const overrides = (p.ruleOverridesJson ?? {}) as Record<string, any>;
-  const nestedValues = overrides.values as Record<string, any> | undefined;
-  const overs = typeof overrides.overs === "number"
-    ? overrides.overs
-    : typeof nestedValues?.["cricket.match.overs_per_innings"] === "number"
-      ? nestedValues["cricket.match.overs_per_innings"]
-      : 20;
-  const wickets = typeof overrides.maxWickets === "number"
-    ? overrides.maxWickets
-    : typeof nestedValues?.["cricket.match.wickets_per_innings"] === "number"
-      ? nestedValues["cricket.match.wickets_per_innings"]
-      : 10;
-  const squadRules = (p.squadRulesJson ?? {}) as Record<string, any>;
-  const squadSize = typeof squadRules.playingSquadSize === "number"
-    ? squadRules.playingSquadSize
-    : 11;
-  return { overs, wickets, squadSize };
 }
 
 export default function CricketFixturesPage() {
@@ -210,7 +191,7 @@ export default function CricketFixturesPage() {
   function handleOpenCreate() {
     if (defaultPreset) {
       setCreatePresetId(String(defaultPreset.id));
-      const details = getPresetDetails(defaultPreset);
+      const details = resolveCricketRulePresetSummary(defaultPreset);
       setCreateOvers(details.overs);
     } else {
       setCreatePresetId("");
@@ -223,7 +204,7 @@ export default function CricketFixturesPage() {
     setCreatePresetId(presetIdStr);
     const p = (presets ?? []).find((x) => String(x.id) === presetIdStr);
     if (p) {
-      const details = getPresetDetails(p);
+      const details = resolveCricketRulePresetSummary(p);
       setCreateOvers(details.overs);
     }
   }
@@ -234,7 +215,7 @@ export default function CricketFixturesPage() {
     const presetId = m.rulePresetId ? String(m.rulePresetId) : defaultPreset ? String(defaultPreset.id) : "";
     setEditPresetId(presetId);
     const resolvedP = (presets ?? []).find((x) => String(x.id) === presetId) || defaultPreset;
-    const details = getPresetDetails(resolvedP);
+    const details = resolveCricketRulePresetSummary(resolvedP);
     setEditOvers(m.rules?.overs ?? details.overs);
     setEditVenue(m.venue || "");
     setEditResultSummary(m.resultSummary || "");
@@ -252,7 +233,7 @@ export default function CricketFixturesPage() {
     setEditPresetId(presetIdStr);
     const p = (presets ?? []).find((x) => String(x.id) === presetIdStr);
     if (p) {
-      const details = getPresetDetails(p);
+      const details = resolveCricketRulePresetSummary(p);
       setEditOvers(details.overs);
     }
   }
@@ -761,14 +742,11 @@ export default function CricketFixturesPage() {
                         <SelectValue placeholder="Select tournament rule preset" />
                       </SelectTrigger>
                       <SelectContent>
-                        {presets.map((p) => {
-                          const details = getPresetDetails(p);
-                          return (
-                            <SelectItem key={p.id} value={String(p.id)}>
-                              {p.name} {p.isDefault ? "(Default)" : ""} — {details.overs} Overs · {details.wickets} Wkts · {details.squadSize} Players
-                            </SelectItem>
-                          );
-                        })}
+                        {presets.map((p) => (
+                          <SelectItem key={p.id} value={String(p.id)}>
+                            {formatCricketRulePresetLabel(p, { isDefault: p.isDefault })}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   ) : (
@@ -782,11 +760,11 @@ export default function CricketFixturesPage() {
                   {activeCreatePreset ? (
                     <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground/80 flex flex-wrap gap-2 items-center">
                       <span className="font-bold text-amber-400">Rules applied:</span>
-                      <span>{getPresetDetails(activeCreatePreset).overs} Overs</span>
+                      <span>{resolveCricketRulePresetSummary(activeCreatePreset).overs} Overs</span>
                       <span>•</span>
-                      <span>{getPresetDetails(activeCreatePreset).wickets} Wickets</span>
+                      <span>{resolveCricketRulePresetSummary(activeCreatePreset).wickets} Wickets</span>
                       <span>•</span>
-                      <span>{getPresetDetails(activeCreatePreset).squadSize} Players / Side</span>
+                      <span>{resolveCricketRulePresetSummary(activeCreatePreset).squadSize} Players / Side</span>
                     </div>
                   ) : null}
                 </div>
@@ -898,24 +876,21 @@ export default function CricketFixturesPage() {
                       <SelectValue placeholder="Tournament Default Preset" />
                     </SelectTrigger>
                     <SelectContent>
-                      {(presets ?? []).map((p) => {
-                        const details = getPresetDetails(p);
-                        return (
-                          <SelectItem key={p.id} value={String(p.id)}>
-                            {p.name} {p.isDefault ? "(Default)" : ""} — {details.overs} Overs · {details.wickets} Wkts · {details.squadSize} Players
-                          </SelectItem>
-                        );
-                      })}
+                      {(presets ?? []).map((p) => (
+                        <SelectItem key={p.id} value={String(p.id)}>
+                          {formatCricketRulePresetLabel(p, { isDefault: p.isDefault })}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   {activeEditPreset ? (
                     <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground/80 flex flex-wrap gap-2 items-center">
                       <span className="font-bold text-amber-400">Rules applied:</span>
-                      <span>{getPresetDetails(activeEditPreset).overs} Overs</span>
+                      <span>{resolveCricketRulePresetSummary(activeEditPreset).overs} Overs</span>
                       <span>•</span>
-                      <span>{getPresetDetails(activeEditPreset).wickets} Wickets</span>
+                      <span>{resolveCricketRulePresetSummary(activeEditPreset).wickets} Wickets</span>
                       <span>•</span>
-                      <span>{getPresetDetails(activeEditPreset).squadSize} Players / Side</span>
+                      <span>{resolveCricketRulePresetSummary(activeEditPreset).squadSize} Players / Side</span>
                     </div>
                   ) : null}
                 </div>

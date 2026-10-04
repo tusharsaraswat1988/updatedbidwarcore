@@ -41,6 +41,8 @@ import {
   getCricketMasterTeams,
   handoffAuctionParticipantsToSports,
   listCricketRulePresets,
+  resolveCricketRulePresetSummary,
+  formatCricketRulePresetLabel,
   ScoringApiError,
 } from "@/lib/scoring-api";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
@@ -934,18 +936,11 @@ export default function ScoringMatchListPage() {
                     <SelectValue placeholder="Select tournament rule preset" />
                   </SelectTrigger>
                   <SelectContent>
-                    {rulePresets.map((p) => {
-                      const overrides = (p.ruleOverridesJson ?? {}) as Record<string, unknown>;
-                      const oversCount = overrides.overs ?? 5;
-                      const wktsCount = overrides.maxWickets ?? 6;
-                      const squadRules = (p.squadRulesJson ?? {}) as Record<string, unknown>;
-                      const squadSize = squadRules.playingSquadSize ?? 7;
-                      return (
-                        <SelectItem key={p.id} value={String(p.id)}>
-                          {p.name} {p.isDefault ? "(Default)" : ""} — {oversCount} Overs · {wktsCount} Wkts · {squadSize} Players
-                        </SelectItem>
-                      );
-                    })}
+                    {rulePresets.map((p) => (
+                      <SelectItem key={p.id} value={String(p.id)}>
+                        {formatCricketRulePresetLabel(p, { isDefault: p.isDefault })}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               ) : (
@@ -960,15 +955,15 @@ export default function ScoringMatchListPage() {
                 <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground/80 flex flex-wrap gap-2 items-center">
                   <span className="font-bold text-amber-400">Rules applied:</span>
                   <span>
-                    {((activePreset.ruleOverridesJson ?? {}) as Record<string, unknown>).overs ?? 5} Overs
+                    {resolveCricketRulePresetSummary(activePreset).overs} Overs
                   </span>
                   <span>•</span>
                   <span>
-                    {((activePreset.ruleOverridesJson ?? {}) as Record<string, unknown>).maxWickets ?? 6} Wickets
+                    {resolveCricketRulePresetSummary(activePreset).wickets} Wickets
                   </span>
                   <span>•</span>
                   <span>
-                    {((activePreset.squadRulesJson ?? {}) as Record<string, unknown>).playingSquadSize ?? 7} Players / Side
+                    {resolveCricketRulePresetSummary(activePreset).squadSize} Players / Side
                   </span>
                 </div>
               ) : null}

@@ -47,6 +47,8 @@ import {
   getCricketBranding,
   getCricketMasterTeams,
   listCricketRulePresets,
+  resolveCricketRulePresetSummary,
+  formatCricketRulePresetLabel,
   type CricketRulePresetJson,
 } from "@/lib/scoring-api";
 import type { SportsBranding } from "@/lib/sports-branding-types";
@@ -215,38 +217,18 @@ export default function ScoringSchedulePage() {
     [presets, rulePresetId, defaultPreset],
   );
 
-  function getPresetDetails(p?: CricketRulePresetJson | null) {
-    if (!p) return { overs: 20, wickets: 10, squadSize: 11 };
-    const overrides = (p.ruleOverridesJson ?? {}) as Record<string, any>;
-    const nestedValues = overrides.values as Record<string, any> | undefined;
-    const overs = typeof overrides.overs === "number"
-      ? overrides.overs
-      : typeof nestedValues?.["cricket.match.overs_per_innings"] === "number"
-        ? nestedValues["cricket.match.overs_per_innings"]
-        : 20;
-    const wickets = typeof overrides.maxWickets === "number"
-      ? overrides.maxWickets
-      : typeof nestedValues?.["cricket.match.wickets_per_innings"] === "number"
-        ? nestedValues["cricket.match.wickets_per_innings"]
-        : 10;
-    const squadRules = (p.squadRulesJson ?? {}) as Record<string, any>;
-    const squadSize = typeof squadRules.playingSquadSize === "number"
-      ? squadRules.playingSquadSize
-      : 11;
-    return { overs, wickets, squadSize };
-  }
-
   function handleSelectPreset(presetIdStr: string) {
     setRulePresetId(presetIdStr);
     const p = (presets ?? []).find((x) => String(x.id) === presetIdStr);
     if (p) {
-      const details = getPresetDetails(p);
+      const details = resolveCricketRulePresetSummary(p);
       setOversLimit(details.overs);
     }
   }
 
   // Handle opening the generate dialog
   function openGenerateDialog() {
+    void qc.invalidateQueries({ queryKey: ["cricket-rule-presets", tournamentId] });
     const allTeamIds = teams.map((t) => t.id);
     setSelectedTeams(allTeamIds);
     setDrawName(
@@ -254,7 +236,7 @@ export default function ScoringSchedulePage() {
     );
     if (defaultPreset) {
       setRulePresetId(String(defaultPreset.id));
-      const details = getPresetDetails(defaultPreset);
+      const details = resolveCricketRulePresetSummary(defaultPreset);
       setOversLimit(details.overs);
     } else {
       setRulePresetId("");
@@ -1252,14 +1234,11 @@ export default function ScoringSchedulePage() {
                       <SelectValue placeholder="Select tournament rule preset" />
                     </SelectTrigger>
                     <SelectContent>
-                      {presets.map((p) => {
-                        const details = getPresetDetails(p);
-                        return (
-                          <SelectItem key={p.id} value={String(p.id)}>
-                            {p.name} {p.isDefault ? "(Tournament Default)" : ""} — {details.overs} Overs · {details.wickets} Wkts · {details.squadSize} Players
-                          </SelectItem>
-                        );
-                      })}
+                      {presets.map((p) => (
+                        <SelectItem key={p.id} value={String(p.id)}>
+                          {formatCricketRulePresetLabel(p)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 ) : (
@@ -1273,11 +1252,11 @@ export default function ScoringSchedulePage() {
                 {activeSchedulePreset ? (
                   <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground/80 flex flex-wrap gap-2 items-center">
                     <span className="font-bold text-amber-400">Rules applied:</span>
-                    <span>{getPresetDetails(activeSchedulePreset).overs} Overs</span>
+                    <span>{resolveCricketRulePresetSummary(activeSchedulePreset).overs} Overs</span>
                     <span>•</span>
-                    <span>{getPresetDetails(activeSchedulePreset).wickets} Wickets</span>
+                    <span>{resolveCricketRulePresetSummary(activeSchedulePreset).wickets} Wickets</span>
                     <span>•</span>
-                    <span>{getPresetDetails(activeSchedulePreset).squadSize} Players / Side</span>
+                    <span>{resolveCricketRulePresetSummary(activeSchedulePreset).squadSize} Players / Side</span>
                   </div>
                 ) : null}
               </div>

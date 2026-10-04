@@ -205,6 +205,13 @@ export type CricketRulePresetJson = {
   updatedAt: string;
 };
 
+export {
+  resolveCricketRulePresetSummary,
+  formatCricketRulePresetLabel,
+  type CricketRulePresetSummary,
+  type CricketRulePresetLike,
+} from "@workspace/platform-core/competition";
+
 export async function listCricketRulePresets(
   tournamentId: number,
 ): Promise<CricketRulePresetJson[]> {
