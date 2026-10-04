@@ -1,14 +1,14 @@
 /** Default Team Owner Welcome email — Communication Center template (inline CSS, table layout). */
 
 export const TEAM_OWNER_WELCOME_SUBJECT =
-  "🎉 Welcome to {{tournament_name}} — {{team_name}} Owner Panel";
+  "🎉 Welcome to {{tournament_name}} — {{team_name}}{{#has_auction}} Owner Panel{{/has_auction}}{{^has_auction}} Registration Confirmed{{/has_auction}}";
 
 export const TEAM_OWNER_WELCOME_HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Team Owner Registration Confirmed</title>
+<title>Team Registration Confirmed</title>
 </head>
 <body style="margin:0;padding:0;background-color:#F5F5F5;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F5F5F5;">
@@ -34,7 +34,12 @@ export const TEAM_OWNER_WELCOME_HTML = `<!DOCTYPE html>
 {{/tournament_logo}}
 <tr>
 <td align="center">
+{{#has_auction}}
 <p style="margin:0 0 6px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#F4B400;">Team Owner Panel</p>
+{{/has_auction}}
+{{^has_auction}}
+<p style="margin:0 0 6px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#F4B400;">Team Registration</p>
+{{/has_auction}}
 <h1 style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:24px;line-height:1.3;font-weight:700;color:#ffffff;letter-spacing:-0.02em;">{{tournament_name}}</h1>
 </td>
 </tr>
@@ -52,14 +57,24 @@ export const TEAM_OWNER_WELCOME_HTML = `<!DOCTYPE html>
 <td style="padding:32px 32px 0;">
 <p style="margin:0 0 8px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:20px;line-height:1.4;font-weight:700;color:#111111;">Welcome, {{owner_name}}!</p>
 <p style="margin:0 0 12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#444444;">Your team <strong style="color:#111111;">{{team_name}}</strong> has been successfully registered for <strong style="color:#111111;">{{tournament_name}}</strong> on <strong style="color:#111111;">BidWar</strong>.</p>
+{{#has_auction}}
 <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#444444;">Get ready for the live player auction. Below are your franchise details, registered login credentials, auction schedule, and coordinator support information.</p>
+{{/has_auction}}
+{{^has_auction}}
+<p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#444444;">Below are your team details, tournament schedule, and coordinator support information.</p>
+{{/has_auction}}
 </td>
 </tr>
 
 <!-- Team & Tournament Information -->
 <tr>
 <td style="padding:28px 32px 0;">
+{{#has_auction}}
 <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#F4B400;">Franchise &amp; Tournament Details</p>
+{{/has_auction}}
+{{^has_auction}}
+<p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:#F4B400;">Team &amp; Tournament Details</p>
+{{/has_auction}}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FAFAFA;border:1px solid #E8E8E8;border-radius:12px;overflow:hidden;">
 {{#tournament_name}}
 <tr>
@@ -87,13 +102,19 @@ export const TEAM_OWNER_WELCOME_HTML = `<!DOCTYPE html>
 {{/owner_name}}
 {{#owner_mobile}}
 <tr>
-<td style="padding:12px 18px;border-bottom:1px solid #E8E8E8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#777777;">Registered Mobile (For Login)</td>
+<td style="padding:12px 18px;border-bottom:1px solid #E8E8E8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#777777;">
+{{#has_auction}}Registered Mobile (For Login){{/has_auction}}
+{{^has_auction}}Registered Mobile{{/has_auction}}
+</td>
 <td style="padding:12px 18px;border-bottom:1px solid #E8E8E8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;color:#111111;">
 {{owner_mobile}}
+{{#has_auction}}
 <span style="display:block;font-size:11px;font-weight:normal;color:#666666;margin-top:2px;">Use this mobile number to log in &amp; access your owner panel</span>
+{{/has_auction}}
 </td>
 </tr>
 {{/owner_mobile}}
+{{#has_auction}}
 {{#access_code}}
 <tr>
 <td style="padding:12px 18px;border-bottom:1px solid #E8E8E8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#777777;">Team Access Code</td>
@@ -106,6 +127,7 @@ export const TEAM_OWNER_WELCOME_HTML = `<!DOCTYPE html>
 <td style="padding:12px 18px;border-bottom:1px solid #E8E8E8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;color:#111111;">{{auction_date}}</td>
 </tr>
 {{/auction_date}}
+{{/has_auction}}
 {{#tournament_dates}}
 <tr>
 <td style="padding:12px 18px;border-bottom:1px solid #E8E8E8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#777777;">Tournament / Match Dates</td>
@@ -143,6 +165,8 @@ export const TEAM_OWNER_WELCOME_HTML = `<!DOCTYPE html>
 </td>
 </tr>
 
+{{#has_auction}}
+{{#login_link}}
 <!-- Panel CTA Button -->
 <tr>
 <td style="padding:28px 32px 0;" align="center">
@@ -158,8 +182,11 @@ Direct link to your Owner Panel: <a href="{{login_link}}" target="_blank" style=
 </p>
 </td>
 </tr>
+{{/login_link}}
+{{/has_auction}}
 
-<!-- Next Steps -->
+{{#has_auction}}
+<!-- Next Steps (Auction) -->
 <tr>
 <td style="padding:28px 32px 0;">
 <p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:18px;line-height:1.3;font-weight:700;color:#111111;">Important Instructions for Team Owners</p>
@@ -179,14 +206,45 @@ Direct link to your Owner Panel: <a href="{{login_link}}" target="_blank" style=
 <span style="color:#F4B400;font-weight:700;margin-right:8px;">&#9679;</span><strong style="color:#111111;">Live Auction Access:</strong> Your tournament organiser will share your team access code before the auction starts.
 </td>
 </tr>
+{{#organiser_phone}}
 <tr>
 <td style="padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.65;color:#444444;">
 <span style="color:#F4B400;font-weight:700;margin-right:8px;">&#9679;</span><strong style="color:#111111;">Support:</strong> For tournament or software assistance, please contact your organiser directly at <strong style="color:#111111;">{{organiser_phone}}</strong>.
 </td>
 </tr>
+{{/organiser_phone}}
 </table>
 </td>
 </tr>
+{{/has_auction}}
+
+{{^has_auction}}
+<!-- Next Steps (Cricket / Tournament) -->
+<tr>
+<td style="padding:28px 32px 0;">
+<p style="margin:0 0 14px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:18px;line-height:1.3;font-weight:700;color:#111111;">Important Tournament Information</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr>
+<td style="padding:0 0 10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.65;color:#444444;">
+<span style="color:#F4B400;font-weight:700;margin-right:8px;">&#9679;</span><strong style="color:#111111;">Match Schedule &amp; Fixtures:</strong> Match fixtures, ground schedules, and reporting timings will be shared by your tournament organiser.
+</td>
+</tr>
+<tr>
+<td style="padding:0 0 10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.65;color:#444444;">
+<span style="color:#F4B400;font-weight:700;margin-right:8px;">&#9679;</span><strong style="color:#111111;">Squad &amp; Players:</strong> Coordinate with your organiser to finalize your playing squad and player registrations before match day.
+</td>
+</tr>
+{{#organiser_phone}}
+<tr>
+<td style="padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.65;color:#444444;">
+<span style="color:#F4B400;font-weight:700;margin-right:8px;">&#9679;</span><strong style="color:#111111;">Support:</strong> For tournament, match schedule, or software assistance, please contact your organiser directly at <strong style="color:#111111;">{{organiser_phone}}</strong>.
+</td>
+</tr>
+{{/organiser_phone}}
+</table>
+</td>
+</tr>
+{{/has_auction}}
 
 <!-- Support & Recommend BidWar -->
 <tr>

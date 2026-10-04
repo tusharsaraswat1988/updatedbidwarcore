@@ -48,4 +48,24 @@ describe("EPIC-03 competition foundation helpers", () => {
       "draw_ready",
     );
   });
+
+  it("validates ruleOverrides document containing powerplay array and super over config", () => {
+    const { validateCricketKeyRuleOverrides } = require("@workspace/platform-core/competition");
+    const result = validateCricketKeyRuleOverrides({
+      values: {
+        "cricket.match.overs_per_innings": 5,
+        "cricket.powerplay.overs": [1],
+        "cricket.tie_break.super_over_enabled": true,
+        "cricket.tie_break.super_over_overs": 1,
+        "cricket.tie_break.super_over_wickets": 2,
+        "cricket.tie_break.super_over_trigger": "manual",
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.document?.values["cricket.powerplay.overs"]).toEqual([1]);
+    expect(result.document?.values["cricket.tie_break.super_over_enabled"]).toBe(true);
+    expect(result.document?.values["cricket.tie_break.super_over_overs"]).toBe(1);
+    expect(result.document?.values["cricket.tie_break.super_over_wickets"]).toBe(2);
+  });
 });

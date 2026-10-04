@@ -144,4 +144,12 @@ export const KNOWN_MERGE_VARIABLES = [
   "games_score",
   "result_label",
   "franchise_name",
+  "has_auction",
+  "no_auction",
+  "is_cricket",
+  "header_badge",
+  "mobile_label",
+  "mobile_login_hint",
+  "intro_schedule_line",
+  "important_info_heading",
 ] as const;

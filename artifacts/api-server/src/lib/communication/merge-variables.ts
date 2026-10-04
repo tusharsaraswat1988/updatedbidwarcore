@@ -2,6 +2,7 @@ import { KNOWN_MERGE_VARIABLES } from "./types.js";
 
 const MERGE_VAR_PATTERN = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
 const CONDITIONAL_BLOCK_PATTERN = /\{\{#([a-zA-Z0-9_]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g;
+const INVERTED_BLOCK_PATTERN = /\{\{\^([a-zA-Z0-9_]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g;
 
 function isTruthyMergeValue(value: unknown): boolean {
   if (value === null || value === undefined) return false;
@@ -20,6 +21,11 @@ function renderConditionalBlocks(
       CONDITIONAL_BLOCK_PATTERN,
       (_match, key: string, content: string) =>
         isTruthyMergeValue(data[key]) ? content : "",
+    );
+    result = result.replace(
+      INVERTED_BLOCK_PATTERN,
+      (_match, key: string, content: string) =>
+        !isTruthyMergeValue(data[key]) ? content : "",
     );
   }
   return result;

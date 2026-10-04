@@ -316,6 +316,33 @@ function draftToEffectiveValues(
   };
 }
 
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (typeof err === "string" && err.trim()) return err;
+  if (err instanceof Error && err.message && err.message !== "[object Object]") return err.message;
+  if (err && typeof err === "object") {
+    const rec = err as Record<string, unknown>;
+    if (typeof rec.message === "string" && rec.message && rec.message !== "[object Object]") return rec.message;
+    if (typeof rec.error === "string" && rec.error && rec.error !== "[object Object]") return rec.error;
+    if (rec.error && typeof rec.error === "object") {
+      const inner = rec.error as Record<string, unknown>;
+      if (typeof inner.message === "string") return inner.message;
+      if (Array.isArray(inner.formErrors) && inner.formErrors.length > 0) return String(inner.formErrors[0]);
+      if (inner.fieldErrors && typeof inner.fieldErrors === "object") {
+        const msgs = Object.entries(inner.fieldErrors as Record<string, unknown[]>)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
+          .join("; ");
+        if (msgs) return msgs;
+      }
+      try {
+        return JSON.stringify(rec.error);
+      } catch {
+        // ignore
+      }
+    }
+  }
+  return fallback;
+}
+
 export default function CricketRulesPage() {
   const [, params] = useRoute("/tournament/:id/score/rules");
   const tournamentId = parseInt(params?.id || "0", 10);
@@ -383,7 +410,7 @@ export default function CricketRulesPage() {
       ]);
       if (!compRes.ok) {
         const body = await compRes.json().catch(() => ({}));
-        throw new Error(body.error || `Failed to load rules (HTTP ${compRes.status})`);
+        throw new Error(extractErrorMessage(body, `Failed to load rules (HTTP ${compRes.status})`));
       }
       const body = (await compRes.json()) as CompetitionAggregate;
       setData(body);
@@ -423,7 +450,7 @@ export default function CricketRulesPage() {
         draftFromProfileAndOverrides(profile, cfg.ruleOverrides ?? null),
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load tournament rules");
+      setError(extractErrorMessage(e, "Failed to load tournament rules"));
     } finally {
       setLoading(false);
     }
@@ -596,7 +623,7 @@ export default function CricketRulesPage() {
         },
       );
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "Could not save rules");
+      if (!res.ok) throw new Error(extractErrorMessage(body, "Could not save rules"));
       await load();
       toast({
         title: "Changes saved",
@@ -604,7 +631,7 @@ export default function CricketRulesPage() {
       });
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
+      setError(extractErrorMessage(e, "Save failed"));
       return false;
     } finally {
       setSaving(false);
@@ -658,7 +685,7 @@ export default function CricketRulesPage() {
       setActivePresetId(created.id);
       toast({ title: "Rule Preset Created", description: `"${created.name}" is now available for fixtures and matches.` });
     } catch (e) {
-      toast({ title: "Failed to create preset", description: e instanceof Error ? e.message : "Error creating preset", variant: "destructive" });
+      toast({ title: "Failed to create preset", description: extractErrorMessage(e, "Error creating preset"), variant: "destructive" });
     }
   }
 
@@ -671,7 +698,7 @@ export default function CricketRulesPage() {
     } catch (e) {
       toast({
         title: "Cannot Delete Preset",
-        description: e instanceof Error ? e.message : "Preset is in use by fixtures or matches.",
+        description: extractErrorMessage(e, "Preset is in use by fixtures or matches."),
         variant: "destructive",
       });
     } finally {
@@ -692,14 +719,14 @@ export default function CricketRulesPage() {
         },
       );
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "Could not lock rules");
+      if (!res.ok) throw new Error(extractErrorMessage(body, "Could not lock rules"));
       await load();
       toast({
         title: "Rules locked & finalized",
         description: "Click 'Apply Rules to Matches' to sync settings with matches.",
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Lock failed");
+      setError(extractErrorMessage(e, "Lock failed"));
     } finally {
       setLocking(false);
     }
@@ -716,14 +743,14 @@ export default function CricketRulesPage() {
         },
       );
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "Could not unlock rules");
+      if (!res.ok) throw new Error(extractErrorMessage(body, "Could not unlock rules"));
       await load();
       toast({
         title: "Rules unlocked for editing",
         description: "You can now edit any rule, preset, or squad limit and re-lock when ready.",
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unlock failed");
+      setError(extractErrorMessage(e, "Unlock failed"));
     } finally {
       setUnlocking(false);
     }
@@ -739,7 +766,7 @@ export default function CricketRulesPage() {
       );
       const body = await res.json().catch(() => ({}));
       if (!res.ok)
-        throw new Error(body.error || "Could not apply rules to matches");
+        throw new Error(extractErrorMessage(body, "Could not apply rules to matches"));
       const prepared = body.preparedCount ?? 0;
       const failed = body.failedCount ?? 0;
       if (failed > 0) {
@@ -764,7 +791,7 @@ export default function CricketRulesPage() {
         });
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Apply failed");
+      setError(extractErrorMessage(e, "Apply failed"));
     } finally {
       setApplying(false);
     }

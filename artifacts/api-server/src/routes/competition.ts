@@ -32,7 +32,7 @@ const patchSchema = z.object({
   squadRules: z.record(z.string(), z.unknown()).nullable().optional(),
   ruleOverrides: z
     .object({
-      values: z.record(z.string(), z.union([z.number(), z.boolean(), z.string(), z.null()])),
+      values: z.record(z.string(), z.unknown()),
     })
     .nullable()
     .optional(),
@@ -115,7 +115,10 @@ router.patch("/tournaments/:id/competition/configuration", async (req, res) => {
 
   const parsed = patchSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.flatten() });
+    const errorDetails = parsed.error.issues
+      .map((i) => `${i.path.join(".")}: ${i.message}`)
+      .join("; ");
+    return res.status(400).json({ error: errorDetails || "Invalid configuration payload" });
   }
 
   if (parsed.data.competitionTypeId) {

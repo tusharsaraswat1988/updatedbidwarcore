@@ -34,6 +34,13 @@ describe("renderMergeTemplate", () => {
       " Email: org@example.com",
     );
   });
+
+  it("renders inverted conditional blocks when value is empty/absent and hides when truthy", () => {
+    const template = "{{#has_auction}}Auction Panel{{/has_auction}}{{^has_auction}}Cricket Registration{{/has_auction}}";
+    expect(renderMergeTemplate(template, { has_auction: "" })).toBe("Cricket Registration");
+    expect(renderMergeTemplate(template, {})).toBe("Cricket Registration");
+    expect(renderMergeTemplate(template, { has_auction: "1" })).toBe("Auction Panel");
+  });
 });
 
 describe("findUnknownVariables", () => {

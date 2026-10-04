@@ -53,7 +53,8 @@ export function parseRuleOverrides(
       v === null ||
       typeof v === "number" ||
       typeof v === "boolean" ||
-      typeof v === "string"
+      typeof v === "string" ||
+      Array.isArray(v)
     ) {
       values[k] = v as ConcreteRuleValue;
     }
@@ -203,6 +204,14 @@ export function sparseRuleOverrides(
     const next = effective[id];
     const base = baseline[id];
     if (Object.is(next, base)) continue;
+    if (
+      Array.isArray(next) &&
+      Array.isArray(base) &&
+      next.length === base.length &&
+      next.every((v, i) => v === base[i])
+    ) {
+      continue;
+    }
     values[id] = next as ConcreteRuleValue;
   }
   return Object.keys(values).length > 0 ? { values } : null;

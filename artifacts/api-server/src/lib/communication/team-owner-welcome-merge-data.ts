@@ -111,14 +111,21 @@ export async function buildTeamOwnerWelcomeMergeData(
     ? buildLogoImgHtml(tournamentLogoUrl, tournament?.name ?? "Tournament", 72, 72)
     : "";
 
-  const auctionDateDisplay = formatAuctionDateTimeDisplay(
-    tournament?.auctionDate,
-    tournament?.auctionTime,
-  );
+  const sportLower = (tournament?.sport ?? "").trim().toLowerCase();
+  const isCricket = sportLower === "cricket";
+  // A tournament has live auction only if explicitly auction enabled AND not a cricket tournament/scoring panel
+  const isAuction = !isCricket && tournament?.auctionEnabled !== false;
+
+  const auctionDateDisplay = isAuction
+    ? formatAuctionDateTimeDisplay(
+        tournament?.auctionDate,
+        tournament?.auctionTime,
+      )
+    : "";
   const tournamentDates = formatMatchDatesDdMmYyyy(tournament?.matchDates);
   const venueDisplay = formatVenueDisplay(tournament?.venue, tournament?.city);
 
-  const loginLink = buildPublicUrl(ownerJoinPath(team.tournamentId, team.id));
+  const loginLink = isAuction ? buildPublicUrl(ownerJoinPath(team.tournamentId, team.id)) : "";
 
   return {
     team_name: stringOrEmpty(team.name),
@@ -126,11 +133,11 @@ export async function buildTeamOwnerWelcomeMergeData(
     owner_mobile: stringOrEmpty(team.ownerMobile),
     phone: stringOrEmpty(team.ownerMobile),
     email: stringOrEmpty(team.ownerEmail),
-    access_code: stringOrEmpty(team.accessCode),
+    access_code: isAuction ? stringOrEmpty(team.accessCode) : "",
     tournament_name: stringOrEmpty(tournament?.name),
     sport_name: formatSportName(tournament?.sport),
     venue: venueDisplay,
-    auction_name: stringOrEmpty(tournament?.name),
+    auction_name: isAuction ? stringOrEmpty(tournament?.name) : "",
     auction_date: auctionDateDisplay,
     tournament_dates: tournamentDates,
     organiser_name: stringOrEmpty(tournament?.organizerName),
@@ -144,7 +151,17 @@ export async function buildTeamOwnerWelcomeMergeData(
     brand_name: brandName,
     powered_by_text: branding?.poweredByText ?? "Powered by BidWar",
     support_number: "+91 8707488250",
-    team_budget: team.purse != null ? String(team.purse) : "",
+    team_budget: isAuction && team.purse != null ? String(team.purse) : "",
     current_year: String(new Date().getFullYear()),
+    has_auction: isAuction ? "1" : "",
+    no_auction: !isAuction ? "1" : "",
+    is_cricket: isCricket ? "1" : "",
+    header_badge: isAuction ? "Team Owner Panel" : (isCricket ? "Cricket Tournament" : "Team Registration"),
+    mobile_label: isAuction ? "Registered Mobile (For Login)" : "Registered Mobile",
+    mobile_login_hint: isAuction ? "Use this mobile number to log in & access your owner panel" : "",
+    intro_schedule_line: isAuction
+      ? "Get ready for the live player auction. Below are your franchise details, registered login credentials, auction schedule, and coordinator support information."
+      : "Below are your team details, tournament schedule, and coordinator support information.",
+    important_info_heading: isAuction ? "Important Instructions for Team Owners" : "Important Tournament Information",
   };
 }

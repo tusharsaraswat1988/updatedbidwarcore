@@ -42,16 +42,36 @@ describe("rule overrides", () => {
     });
   });
 
-  it("parses stored json sparsely", () => {
+  it("parses stored json sparsely including array overrides", () => {
     expect(
       parseRuleOverrides({
         values: {
           "cricket.match.overs_per_innings": 8,
+          "cricket.powerplay.overs": [1, 2],
           "cricket.unknown.some_flag": true,
         },
       }),
     ).toEqual({
-      values: { "cricket.match.overs_per_innings": 8 },
+      values: {
+        "cricket.match.overs_per_innings": 8,
+        "cricket.powerplay.overs": [1, 2],
+      },
+    });
+  });
+
+  it("sparsifies array overrides by value equality", () => {
+    const identical = sparseRuleOverrides(
+      { "cricket.powerplay.overs": [1, 2] },
+      { "cricket.powerplay.overs": [1, 2] },
+    );
+    expect(identical).toBeNull();
+
+    const changed = sparseRuleOverrides(
+      { "cricket.powerplay.overs": [1, 2] },
+      { "cricket.powerplay.overs": [1, 2, 3] },
+    );
+    expect(changed).toEqual({
+      values: { "cricket.powerplay.overs": [1, 2, 3] },
     });
   });
 

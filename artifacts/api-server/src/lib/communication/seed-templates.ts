@@ -477,11 +477,10 @@ async function upgradeTeamOwnerWelcomeTemplateIfNeeded(existing: {
   htmlBody: string;
   subject: string;
 }): Promise<void> {
-  const hasBrandedLayout =
-    existing.htmlBody.includes("Support BidWar") &&
-    existing.htmlBody.includes("Registered Mobile") &&
-    existing.htmlBody.includes("Important Instructions for Team Owners");
-  if (hasBrandedLayout) return;
+  const alreadyV3 =
+    existing.htmlBody.includes("Important Tournament Information") &&
+    existing.htmlBody.includes("has_auction");
+  if (alreadyV3) return;
 
   const [latest] = await db
     .select({ versionNumber: communicationTemplateVersionsTable.versionNumber })
@@ -508,12 +507,12 @@ async function upgradeTeamOwnerWelcomeTemplateIfNeeded(existing: {
     htmlBody: TEAM_OWNER_WELCOME_HTML,
     createdBy: "system",
     changeNote:
-      "Team owner welcome email — BidWar branded theme, mobile for login & coordinator contact",
+      "Team owner welcome email v3 — conditional cricket/tournament and auction layouts, remove access code and login instructions for cricket",
   });
 
   logger.info(
     { templateId: existing.id, version: nextVersion },
-    "Team owner welcome template upgraded to branded v2",
+    "Team owner welcome template upgraded to v3 (cricket & auction conditional)",
   );
 }
 
