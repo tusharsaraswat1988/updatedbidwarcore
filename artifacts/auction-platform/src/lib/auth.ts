@@ -513,7 +513,18 @@ export async function createOrganizerTournament(data: {
   registrationDeadline?: string; registrationLimit?: number;
   enableRegistrationPayment?: boolean; registrationFee?: number;
   auctionEnabled?: boolean; scoringEnabled?: boolean; playerRegistrationMode?: string;
-}): Promise<{ success: boolean; error?: string; tournament?: { id: number; name: string; auctionCode?: string | null } }> {
+}): Promise<{
+  success: boolean;
+  error?: string;
+  tournament?: {
+    id: number;
+    name: string;
+    auctionCode?: string | null;
+    auctionEnabled?: boolean;
+    scoringEnabled?: boolean;
+    sport?: string;
+  };
+}> {
   try {
     const r = await apiFetch("/auth/organizer-account/tournaments", {
       method: "POST",
@@ -521,7 +532,15 @@ export async function createOrganizerTournament(data: {
     });
     const d = await r.json();
     if (!r.ok) return { success: false, error: d.error || "Create failed" };
-    return { success: true, tournament: d.tournament };
+    return {
+      success: true,
+      tournament: {
+        ...d.tournament,
+        auctionEnabled: d.tournament?.auctionEnabled ?? data.auctionEnabled ?? true,
+        scoringEnabled: d.tournament?.scoringEnabled ?? data.scoringEnabled ?? false,
+        sport: d.tournament?.sport ?? data.sport ?? "cricket",
+      },
+    };
   } catch { return { success: false, error: "Network error" }; }
 }
 

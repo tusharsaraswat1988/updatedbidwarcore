@@ -21,7 +21,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, ArrowLeft } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight } from "lucide-react";
 
 function OrganizerAccessLoading({ badmintonRoute }: { badmintonRoute: boolean }) {
   if (badmintonRoute) {
@@ -226,14 +226,38 @@ export function OrganizerGuard({
               This tournament is configured for Sports Scoring only. The Auction module is disabled.
             </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/tournament/${tournamentId}`)}
-            className="gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Go to Tournament Home
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center pt-1">
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/tournament/${tournamentId}`)}
+              className="gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Go to Tournament Home
+            </Button>
+            {isScoringEnabled(tournament) && (
+              <Button
+                onClick={() => {
+                  const s = (tournament?.sport || "").toLowerCase();
+                  if (s.includes("badminton")) {
+                    navigate(`/tournament/${tournamentId}/badminton`);
+                  } else if (s.includes("cricket") && location.endsWith("/teams")) {
+                    navigate(`/tournament/${tournamentId}/score/teams`);
+                  } else {
+                    navigate(`/tournament/${tournamentId}/score`);
+                  }
+                }}
+                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <span>
+                  {location.endsWith("/teams") && (tournament?.sport || "").toLowerCase().includes("cricket")
+                    ? "Go to Cricket Teams"
+                    : "Go to Sports Scoring"}
+                </span>
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     );

@@ -86,6 +86,7 @@ type Tournament = {
   licenseStatus: string; city: string | null; venue: string | null; auctionDate: string | null; createdAt: string;
   auctionRulesPdfReady?: boolean;
   auctionRulesPdfBlockedReason?: string | null;
+  auctionEnabled?: boolean;
   scoringEnabled?: boolean;
   logoUrl?: string | null;
   matchDates?: string | null;
@@ -173,55 +174,187 @@ function CreateTournamentModal({
   onCreated: (tournamentId?: number) => void;
 }) {
   const [, navigate] = useLocation();
-  const [createdCode, setCreatedCode] = useState<string | null>(null);
-  const [createdTournamentId, setCreatedTournamentId] = useState<number | null>(null);
+  const [createdTournament, setCreatedTournament] = useState<{
+    id: number;
+    name: string;
+    auctionCode?: string | null;
+    auctionEnabled?: boolean;
+    scoringEnabled?: boolean;
+    sport?: string;
+  } | null>(null);
 
   function handleClose() {
-    setCreatedCode(null);
-    setCreatedTournamentId(null);
+    setCreatedTournament(null);
     onClose();
   }
+
+  const isAuction = createdTournament?.auctionEnabled ?? true;
+  const isScoring = createdTournament?.scoringEnabled ?? false;
+  const sportSlug = (createdTournament?.sport || "cricket").toLowerCase();
+  const isCricket = sportSlug.includes("cricket");
+  const isBadminton = sportSlug.includes("badminton");
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) handleClose(); }}>
       <DialogContent className="flex max-h-[min(92dvh,calc(100dvh-1rem))] w-[calc(100%-1rem)] max-w-xl flex-col gap-0 overflow-hidden p-4 sm:p-6 border border-white/10 shadow-2xl bg-card text-foreground backdrop-blur-xl">
         <DialogHeader className="shrink-0 space-y-1 pb-3 pr-8 text-left border-b border-border/40">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg font-display font-bold text-foreground">
-            <Gavel className="w-5 h-5 text-primary" />
-            <span>{createdCode ? "Tournament Created" : "Create Tournament"}</span>
+            {createdTournament && !isAuction ? (
+              <Trophy className="w-5 h-5 text-sky-400" />
+            ) : (
+              <Gavel className="w-5 h-5 text-primary" />
+            )}
+            <span>{createdTournament ? "Tournament Created" : "Create Tournament"}</span>
           </DialogTitle>
         </DialogHeader>
 
-        {createdCode ? (
+        {createdTournament ? (
           <div className="space-y-4 mt-2 text-center px-0.5">
             <CheckCheck className="w-10 h-10 text-emerald-400 mx-auto" />
-            <p className="text-sm text-muted-foreground">Your tournament has been created successfully.</p>
-            <div className="flex flex-col items-center gap-1.5 py-2">
-              <span className="text-xs text-muted-foreground uppercase tracking-wide">LED Big Screen Code</span>
-              <span className="font-mono text-2xl font-bold tracking-widest text-primary bg-primary/10 border border-primary/25 rounded-xl px-5 py-2">
-                {createdCode}
-              </span>
-              <p className="text-xs text-muted-foreground mt-2 max-w-xs leading-relaxed">
-                Open the LED Big Screen on your projector laptop. When prompted for a code, enter this code.
-              </p>
-            </div>
-            <Button
-              className="w-full h-11 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
-              onClick={() => {
-                const id = createdTournamentId;
-                handleClose();
-                if (id) navigate(`/tournament/${id}/teams`);
-              }}
-            >
-              Add Teams Now →
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full h-11 rounded-xl border-border/60 bg-muted/30 hover:bg-muted text-foreground"
-              onClick={handleClose}
-            >
-              Back to My Tournaments
-            </Button>
+            <p className="text-sm text-muted-foreground">
+              {isScoring && !isAuction
+                ? "Your tournament has been created successfully for Sports Scoring."
+                : "Your tournament has been created successfully."}
+            </p>
+
+            {isAuction ? (
+              <div className="flex flex-col items-center gap-1.5 py-2">
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">LED Big Screen Code</span>
+                <span className="font-mono text-2xl font-bold tracking-widest text-primary bg-primary/10 border border-primary/25 rounded-xl px-5 py-2">
+                  {createdTournament.auctionCode}
+                </span>
+                <p className="text-xs text-muted-foreground mt-2 max-w-xs leading-relaxed">
+                  Open the LED Big Screen on your projector laptop. When prompted for a code, enter this code.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 py-3 px-4 rounded-xl border border-sky-500/25 bg-sky-500/5 my-1">
+                <div className="flex items-center gap-2 text-sky-400 font-semibold text-sm">
+                  <span>{isCricket ? "🏏" : isBadminton ? "🏸" : "🏆"}</span>
+                  <span className="capitalize">{createdTournament.sport || "Sports"} Scoring Workspace</span>
+                </div>
+                <p className="text-xs text-muted-foreground max-w-sm leading-relaxed">
+                  This tournament is configured for Sports Scoring only. You can now add participating teams, schedule matches, and run live scoring.
+                </p>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            {isAuction ? (
+              <>
+                <Button
+                  className="w-full h-11 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
+                  onClick={() => {
+                    const id = createdTournament.id;
+                    handleClose();
+                    navigate(`/tournament/${id}/teams`);
+                  }}
+                >
+                  Add Teams Now →
+                </Button>
+                {isScoring && (
+                  <Button
+                    variant="outline"
+                    className="w-full h-11 rounded-xl border-sky-500/30 text-sky-400 hover:bg-sky-500/10"
+                    onClick={() => {
+                      const id = createdTournament.id;
+                      handleClose();
+                      navigate(`/tournament/${id}`);
+                    }}
+                  >
+                    Open Tournament Home
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  className="w-full h-11 rounded-xl border-border/60 bg-muted/30 hover:bg-muted text-foreground"
+                  onClick={handleClose}
+                >
+                  Back to My Tournaments
+                </Button>
+              </>
+            ) : (
+              <>
+                {isCricket ? (
+                  <>
+                    <Button
+                      className="w-full h-11 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
+                      onClick={() => {
+                        const id = createdTournament.id;
+                        handleClose();
+                        navigate(`/tournament/${id}/score/teams`);
+                      }}
+                    >
+                      Add Teams Now →
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full h-11 rounded-xl border-sky-500/30 text-sky-400 hover:bg-sky-500/10 font-medium"
+                      onClick={() => {
+                        const id = createdTournament.id;
+                        handleClose();
+                        navigate(`/tournament/${id}/score`);
+                      }}
+                    >
+                      Open Cricket Scoring Hub
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full h-11 rounded-xl border-border/60 bg-muted/30 hover:bg-muted text-foreground"
+                      onClick={() => {
+                        const id = createdTournament.id;
+                        handleClose();
+                        navigate(`/tournament/${id}`);
+                      }}
+                    >
+                      Go to Tournament Home
+                    </Button>
+                  </>
+                ) : isBadminton ? (
+                  <>
+                    <Button
+                      className="w-full h-11 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
+                      onClick={() => {
+                        const id = createdTournament.id;
+                        handleClose();
+                        navigate(`/tournament/${id}/badminton`);
+                      }}
+                    >
+                      Open Badminton Scoring →
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full h-11 rounded-xl border-border/60 bg-muted/30 hover:bg-muted text-foreground"
+                      onClick={() => {
+                        const id = createdTournament.id;
+                        handleClose();
+                        navigate(`/tournament/${id}`);
+                      }}
+                    >
+                      Go to Tournament Home
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    className="w-full h-11 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
+                    onClick={() => {
+                      const id = createdTournament.id;
+                      handleClose();
+                      navigate(`/tournament/${id}`);
+                    }}
+                  >
+                    Open Tournament Home →
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  className="w-full h-10 rounded-xl text-muted-foreground hover:text-foreground"
+                  onClick={handleClose}
+                >
+                  Back to My Tournaments
+                </Button>
+              </>
+            )}
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
@@ -237,12 +370,14 @@ function CreateTournamentModal({
                     id: r.tournament!.id,
                     name: r.tournament!.name,
                     auctionCode: r.tournament?.auctionCode ?? null,
+                    auctionEnabled: r.tournament?.auctionEnabled ?? payload.auctionEnabled,
+                    scoringEnabled: r.tournament?.scoringEnabled ?? payload.scoringEnabled,
+                    sport: r.tournament?.sport ?? payload.sport,
                   },
                 };
               }}
               onCreated={(tournament) => {
-                setCreatedCode(tournament.auctionCode ?? null);
-                setCreatedTournamentId(tournament.id);
+                setCreatedTournament(tournament);
                 onCreated(tournament.id);
               }}
             />
@@ -2036,13 +2171,24 @@ function OrganizerDashboard({
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredTournaments.map((t: Tournament, i: number) => {
+                const isAuction = t.auctionEnabled !== false;
                 const isActive = isOrganizerTournamentActive(t);
                 const isCompleted = isOrganizerTournamentCompleted(t);
                 const locationStr = formatTournamentLocation(t);
-                const auctionDateStr = formatTournamentDate(t.auctionDate);
+                const auctionDateStr = isAuction ? formatTournamentDate(t.auctionDate) : null;
                 const tournamentDateStr = formatDateRange(t.matchDates);
                 const logo = t.logoUrl ? cldUrl(t.logoUrl, "thumbnail") || t.logoUrl : null;
                 const isScoringActive = resolveOrganizerScoringCta({ sport: t.sport, scoringEnabled: t.scoringEnabled }) === "active";
+                const scoringRoute = (() => {
+                  const sportLower = (t.sport || "").toLowerCase();
+                  if (sportLower.includes("badminton")) {
+                    return `/tournament/${t.id}/badminton`;
+                  } else if (sportLower.includes("cricket")) {
+                    return `/tournament/${t.id}/score`;
+                  } else {
+                    return `/tournament/${t.id}/mission-control`;
+                  }
+                })();
 
                 return (
                 <motion.div
@@ -2100,10 +2246,16 @@ function OrganizerDashboard({
                               <span className={`w-1.5 h-1.5 rounded-full ${
                                 isActive ? "bg-emerald-400 animate-pulse" : isCompleted ? "bg-sky-400" : "bg-amber-400"
                               }`} />
-                              {getOrganizerAuctionStatusLabel(t.status)}
+                              {isAuction
+                                ? getOrganizerAuctionStatusLabel(t.status)
+                                : t.status === "active"
+                                  ? "Live"
+                                  : t.status === "completed"
+                                    ? "Completed"
+                                    : "Getting Ready"}
                             </span>
 
-                            {t.licenseStatus !== "active" && !isCompleted && (
+                            {isAuction && t.licenseStatus !== "active" && !isCompleted && (
                               pendingLicenseRequests[t.id] ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
                                   <Clock className="w-2.5 h-2.5 animate-pulse" />
@@ -2147,7 +2299,7 @@ function OrganizerDashboard({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48 dark">
-                            {t.licenseStatus !== "active" && !isCompleted && (
+                            {isAuction && t.licenseStatus !== "active" && !isCompleted && (
                               <DropdownMenuItem
                                 disabled={isLocked}
                                 onClick={() => handleOpenLicenseRequest(t)}
@@ -2160,32 +2312,38 @@ function OrganizerDashboard({
                             <DropdownMenuItem onClick={() => navigate(`/tournament/${t.id}/settings`)} className="gap-2 cursor-pointer">
                               <SlidersHorizontal className="w-3.5 h-3.5 text-muted-foreground" /> Settings
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(`/tournament/${t.id}/liveviewer`)} className="gap-2 cursor-pointer">
-                              <Tv className="w-3.5 h-3.5 text-sky-400" /> LED Big Screen
-                            </DropdownMenuItem>
+                            {isAuction && (
+                              <DropdownMenuItem onClick={() => navigate(`/tournament/${t.id}/liveviewer`)} className="gap-2 cursor-pointer">
+                                <Tv className="w-3.5 h-3.5 text-sky-400" /> LED Big Screen
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => navigate(`/tournament/${t.id}`)} className="gap-2 cursor-pointer">
                               <Share2 className="w-3.5 h-3.5 text-amber-400" /> Overview &amp; Links
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              disabled={isLocked || !t.auctionRulesPdfReady || downloadingRulesTid === t.id}
-                              onClick={() => { void handleDownloadAuctionRules(t); }}
-                              className="gap-2 cursor-pointer"
-                            >
-                              {downloadingRulesTid === t.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
-                              ) : (
-                                <Download className="w-3.5 h-3.5 text-muted-foreground" />
-                              )}
-                              Download Rules PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              disabled={isLocked}
-                              onClick={() => { setDeclareTid(t.id); setDeclareResult(null); setDeclareOpen(true); }}
-                              className="gap-2 cursor-pointer"
-                            >
-                              <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> In-Person Consent
-                            </DropdownMenuItem>
+                            {isAuction && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  disabled={isLocked || !t.auctionRulesPdfReady || downloadingRulesTid === t.id}
+                                  onClick={() => { void handleDownloadAuctionRules(t); }}
+                                  className="gap-2 cursor-pointer"
+                                >
+                                  {downloadingRulesTid === t.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                                  ) : (
+                                    <Download className="w-3.5 h-3.5 text-muted-foreground" />
+                                  )}
+                                  Download Rules PDF
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  disabled={isLocked}
+                                  onClick={() => { setDeclareTid(t.id); setDeclareResult(null); setDeclareOpen(true); }}
+                                  className="gap-2 cursor-pointer"
+                                >
+                                  <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> In-Person Consent
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -2225,59 +2383,77 @@ function OrganizerDashboard({
                         </div>
                       </div>
 
-                      {/* Primary Actions Row: Prominent Auction + Scoring CTA */}
-                      <div className="flex items-center gap-2.5 pt-0.5">
-                        <Button
-                          type="button"
-                          size="sm"
-                          className={`flex-1 h-11 gap-2 font-bold text-xs transition-all ${
-                            isActive
-                              ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/15"
-                              : "bg-muted/30 border border-border/60 hover:bg-muted/50 text-foreground"
-                          }`}
-                          disabled={isLocked}
-                          onClick={() => navigate(`/tournament/${t.id}`)}
-                        >
-                          <Gavel className="h-4 w-4 shrink-0" />
-                          {isActive ? "Enter Auction" : "View Auction"}
-                        </Button>
+                      {/* Primary Actions Row */}
+                      {isAuction ? (
+                        <div className="flex items-center gap-2.5 pt-0.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className={`flex-1 h-11 gap-2 font-bold text-xs transition-all ${
+                              isActive
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/15"
+                                : "bg-muted/30 border border-border/60 hover:bg-muted/50 text-foreground"
+                            }`}
+                            disabled={isLocked}
+                            onClick={() => navigate(`/tournament/${t.id}`)}
+                          >
+                            <Gavel className="h-4 w-4 shrink-0" />
+                            {isActive ? "Enter Auction" : "View Auction"}
+                          </Button>
 
-                        {isScoringActive ? (
+                          {isScoringActive ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-11 px-3.5 rounded-xl border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 font-bold text-xs gap-1.5 shrink-0 transition-all shadow-sm active:scale-95 cursor-pointer"
+                              disabled={isLocked}
+                              onClick={() => navigate(scoringRoute)}
+                            >
+                              <Radio className="h-3.5 w-3.5 text-sky-400 animate-pulse" />
+                              <span>Match Scoring</span>
+                            </Button>
+                          ) : (
+                            <div
+                              className="h-11 px-3 rounded-xl border border-dashed border-border/60 bg-muted/10 opacity-70 flex flex-col items-center justify-center cursor-not-allowed select-none shrink-0"
+                              title="Match Scoring is not enabled for this tournament"
+                            >
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/75 leading-none">
+                                <Radio className="h-3 w-3 opacity-60 text-muted-foreground" />
+                                <span>Match Scoring</span>
+                              </div>
+                              <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest leading-none mt-1">
+                                Coming Soon
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2.5 pt-0.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="flex-1 h-11 gap-2 font-bold text-xs bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl shadow-md shadow-sky-500/20 transition-all active:scale-95 cursor-pointer"
+                            disabled={isLocked}
+                            onClick={() => navigate(scoringRoute)}
+                          >
+                            <Radio className="h-4 w-4 shrink-0 text-slate-950 animate-pulse" />
+                            <span>Match Scoring</span>
+                          </Button>
+
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="h-11 px-3.5 rounded-xl border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 font-bold text-xs gap-1.5 shrink-0 transition-all shadow-sm active:scale-95 cursor-pointer"
+                            className="h-11 px-3.5 rounded-xl border-border/60 bg-muted/30 hover:bg-muted/50 text-foreground font-bold text-xs gap-1.5 shrink-0 transition-all cursor-pointer"
                             disabled={isLocked}
-                            onClick={() => {
-                              const sportLower = (t.sport || "").toLowerCase();
-                              if (sportLower.includes("badminton")) {
-                                navigate(`/tournament/${t.id}/badminton`);
-                              } else if (sportLower.includes("cricket")) {
-                                navigate(`/tournament/${t.id}/score`);
-                              } else {
-                                navigate(`/tournament/${t.id}/mission-control`);
-                              }
-                            }}
+                            onClick={() => navigate(`/tournament/${t.id}`)}
                           >
-                            <Radio className="h-3.5 w-3.5 text-sky-400 animate-pulse" />
-                            <span>Match Scoring</span>
+                            <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>Tournament Home</span>
                           </Button>
-                        ) : (
-                          <div
-                            className="h-11 px-3 rounded-xl border border-dashed border-border/60 bg-muted/10 opacity-70 flex flex-col items-center justify-center cursor-not-allowed select-none shrink-0"
-                            title="Match Scoring is not enabled for this tournament"
-                          >
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/75 leading-none">
-                              <Radio className="h-3 w-3 opacity-60 text-muted-foreground" />
-                              <span>Match Scoring</span>
-                            </div>
-                            <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest leading-none mt-1">
-                              Coming Soon
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </motion.div>

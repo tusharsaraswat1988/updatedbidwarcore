@@ -117,11 +117,22 @@ describe("Phase 3: Generic Tournament Home Architecture", () => {
       expect(appSrc).toMatch(/path="\/tournament\/:id\/badminton"[\s\S]*?requiredModule="scoring"/);
     });
 
+    it("redirects scoring teams and subroutes to scoring-app via RedirectToScoringApp", () => {
+      expect(appSrc).toContain('path="/tournament/:id/score/teams" component={RedirectToScoringApp}');
+      expect(appSrc).toContain('path="/tournament/:id/score/players" component={RedirectToScoringApp}');
+      expect(appSrc).toContain('path="/tournament/:id/score/dashboard" component={RedirectToScoringApp}');
+    });
+
     it("organizer-guard renders clean 'Module Not Enabled' screen and NEVER silently redirects", () => {
       expect(guardSrc).toContain("Auction Workspace Not Enabled");
       expect(guardSrc).toContain("Sports Scoring Not Enabled");
       expect(guardSrc).not.toContain('navigate(`/tournament/${tournamentId}/auction-overview`)');
       expect(guardSrc).not.toContain('navigate(`/scoring-app');
+    });
+
+    it("organizer-guard provides a direct CTA to Sports Scoring when scoring is enabled", () => {
+      expect(guardSrc).toContain("Go to Sports Scoring");
+      expect(guardSrc).toContain("Go to Cricket Teams");
     });
   });
 

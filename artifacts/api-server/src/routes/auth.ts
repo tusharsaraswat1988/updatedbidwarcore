@@ -1827,7 +1827,17 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   const updatedOrgMap = { ...(req.jwtUser.organizer ?? {}), [String(tournament.id)]: true as const };
   setAuthCookie(res, { ...req.jwtUser, organizer: updatedOrgMap });
 
-  res.status(201).json({ success: true, tournament: { id: tournament.id, name: tournament.name, auctionCode: tournament.auctionCode } });
+  res.status(201).json({
+    success: true,
+    tournament: {
+      id: tournament.id,
+      name: tournament.name,
+      auctionCode: tournament.auctionCode,
+      auctionEnabled: tournament.auctionEnabled,
+      scoringEnabled: tournament.scoringEnabled,
+      sport: tournament.sport,
+    },
+  });
 });
 
 // ─── OTP: Send code via BulkSMS Gateway ──────────────────────────────────────

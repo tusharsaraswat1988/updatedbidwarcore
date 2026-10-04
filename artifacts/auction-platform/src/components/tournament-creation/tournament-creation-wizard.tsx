@@ -59,9 +59,22 @@ type TournamentCreationWizardProps = {
     id: number;
     name: string;
     auctionCode?: string | null;
+    auctionEnabled?: boolean;
+    scoringEnabled?: boolean;
+    sport?: string;
   }) => void;
   submit: (payload: TournamentCreationPayload) => Promise<
-    | { success: true; tournament: { id: number; name: string; auctionCode?: string | null } }
+    | {
+        success: true;
+        tournament: {
+          id: number;
+          name: string;
+          auctionCode?: string | null;
+          auctionEnabled?: boolean;
+          scoringEnabled?: boolean;
+          sport?: string;
+        };
+      }
     | { success: false; error: string }
   >;
 };
@@ -204,7 +217,12 @@ export function TournamentCreationWizard({
       setError(result.error || "Failed to create tournament.");
       return;
     }
-    onCreated(result.tournament);
+    onCreated({
+      ...result.tournament,
+      auctionEnabled: result.tournament.auctionEnabled ?? auctionEnabled,
+      scoringEnabled: result.tournament.scoringEnabled ?? scoringEnabled,
+      sport: result.tournament.sport ?? draft.sportId,
+    });
   }
 
   return (

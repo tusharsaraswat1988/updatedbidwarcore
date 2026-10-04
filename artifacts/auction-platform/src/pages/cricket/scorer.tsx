@@ -406,7 +406,8 @@ export default function CricketScorerPage() {
           if (
             err.status === 409 &&
             (eventType === CricketEventType.LINEUP_SET ||
-              eventType === CricketEventType.MATCH_STARTED)
+              eventType === CricketEventType.MATCH_STARTED ||
+              eventType === CricketEventType.BOWLER_CHANGED)
           ) {
             const refreshed = await refetch();
             const nextSeq =
@@ -437,6 +438,9 @@ export default function CricketScorerPage() {
           });
           setLocalStrikerId(null);
           setLocalNonStrikerId(null);
+          if (result.state.bowlerId != null) {
+            setLocalBowlerId(null);
+          }
           if (result.state.strikerId == null || result.state.nonStrikerId == null) {
             setPendingNewBatsman(true);
           }
@@ -566,6 +570,40 @@ export default function CricketScorerPage() {
     },
     [applyDetail, clearScorerAuthSession, data, drainQueue, matchId, navigate, refetch, refreshQueueDepth, toast, tournamentId],
   );
+
+  // Auto-sync bowler to server if localBowlerId is set but server bowlerId is missing
+  useEffect(() => {
+    if (!data) return;
+    if (
+      data.state.matchStatus === "live" &&
+      data.state.innings.length > 0 &&
+      data.state.bowlerId == null &&
+      localBowlerId != null &&
+      !busy &&
+      !sendInFlightRef.current &&
+      !lockLost
+    ) {
+      void sendEvent(CricketEventType.BOWLER_CHANGED, {
+        innings: data.state.currentInnings,
+        bowlerId: localBowlerId,
+      });
+    }
+  }, [
+    data?.state.matchStatus,
+    data?.state.innings.length,
+    data?.state.currentInnings,
+    data?.state.bowlerId,
+    localBowlerId,
+    busy,
+    lockLost,
+    sendEvent,
+  ]);
+
+  useEffect(() => {
+    if (data?.state.bowlerId != null && localBowlerId === data.state.bowlerId) {
+      setLocalBowlerId(null);
+    }
+  }, [data?.state.bowlerId, localBowlerId]);
 
   const handleResetMatch = useCallback(async () => {
     if (!data || busy || sendInFlightRef.current) return;
@@ -897,7 +935,15 @@ export default function CricketScorerPage() {
               busy={busy || lockLost}
               onEvent={lockLost ? () => Promise.resolve() : sendEvent}
               onResetMatch={lockLost ? () => Promise.resolve() : handleResetMatch}
-              onBowlerSelected={setLocalBowlerId}
+              onBowlerSelected={(bowlerId) => {
+                setLocalBowlerId(bowlerId);
+                if (data.state.matchStatus === "live" && data.state.innings.length > 0) {
+                  void sendEvent(CricketEventType.BOWLER_CHANGED, {
+                    innings: data.state.currentInnings,
+                    bowlerId,
+                  });
+                }
+              }}
               onPrepared={async () => {
                 await refetch();
               }}
@@ -912,7 +958,7 @@ export default function CricketScorerPage() {
               teams={teams}
               players={players}
               rules={data.match.rules}
-              bowlerId={localBowlerId}
+              bowlerId={localBowlerId ?? data.state.bowlerId}
               busy={busy || queueDepth > 0 || lockLost}
               pendingNewBatsman={pendingNewBatsman || (needsCreaseFill && !creaseFilledForScoring)}
               localStrikerId={localStrikerId}

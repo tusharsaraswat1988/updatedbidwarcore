@@ -123,3 +123,20 @@ describe("cricket scorer auth headers & getScoringMatch transport", () => {
     });
   });
 });
+
+describe("cricket scorer audit — opening bowler registration & broadcast sync", () => {
+  it("scorer.tsx sends CricketEventType.BOWLER_CHANGED when opening bowler is selected in PreMatchSetup", async () => {
+    const scorerPath = path.resolve(import.meta.dirname, "../../../pages/cricket/scorer.tsx");
+    const src = await readFile(scorerPath, "utf8");
+
+    // Must dispatch BOWLER_CHANGED inside onBowlerSelected
+    expect(src).toMatch(/onBowlerSelected=\{[\s\S]*?CricketEventType\.BOWLER_CHANGED/);
+
+    // LiveScoringPad must pass effective bowlerId fallback
+    expect(src).toContain("bowlerId={localBowlerId ?? data.state.bowlerId}");
+
+    // Scorer must auto-sync bowler if localBowlerId is present while server bowlerId is missing
+    expect(src).toContain("Auto-sync bowler to server if localBowlerId is set but server bowlerId is missing");
+  });
+});
+

@@ -25,6 +25,9 @@ export default function NewTournament() {
           id: data.id,
           name: data.name,
           auctionCode: (data as { auctionCode?: string | null }).auctionCode ?? null,
+          auctionEnabled: payload.auctionEnabled,
+          scoringEnabled: payload.scoringEnabled,
+          sport: payload.sport,
         },
       };
     } catch {
@@ -51,7 +54,7 @@ export default function NewTournament() {
             onCreated={(tournament) => {
               toast({
                 title: "Tournament created",
-                description: `Code: ${tournament.auctionCode ?? "—"}`,
+                description: tournament.auctionEnabled ? `Code: ${tournament.auctionCode ?? "—"}` : "Sports Scoring Ready",
               });
               setLocation(`/tournament/${tournament.id}`);
             }}

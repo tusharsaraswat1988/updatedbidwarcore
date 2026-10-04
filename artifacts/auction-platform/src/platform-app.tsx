@@ -377,6 +377,17 @@ function PlatformRouter() {
         <Route path="/fanpage/:id" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/fan" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/cricket" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/dashboard" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/settings" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/rules" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/teams" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/players" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/fixtures" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/standings" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/stats" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/officials" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/awards" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/reports" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/score/schedule" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/score/live-control" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/score/links" component={RedirectToScoringApp} />
@@ -398,6 +409,7 @@ function PlatformRouter() {
         <Route path="/tournament/:id/badminton/schedule" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/control" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/results" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/summary" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/scoring-format" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/analytics" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/branding" component={RedirectToScoringApp} />

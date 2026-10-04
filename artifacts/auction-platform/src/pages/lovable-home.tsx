@@ -34,7 +34,6 @@ import {
   SOLUTION_SPORT_LINKS,
   waMeUrl,
 } from "@/lib/public-site-links";
-import { BplPromoModal } from "@/components/bpl-promo-modal";
 import { VideoModal, type VideoModalProps } from "@/components/home/video-modal";
 import { PhotoLightbox, type LightboxItem } from "@/components/home/photo-lightbox";
 import { TournamentCalculator } from "@/components/home/tournament-calculator";
@@ -347,7 +346,6 @@ export default function LovableHome() {
           goBlog={goBlog}
           goAcademy={goAcademy}
         />
-        <BplPromoModal />
         {drawerOpen && (
           <MobileDrawer
             onClose={() => setDrawerOpen(false)}
