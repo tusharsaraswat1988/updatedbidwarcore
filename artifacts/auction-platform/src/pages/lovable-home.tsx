@@ -578,14 +578,12 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
 
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto xl:ml-4">
           <a
-            href="https://bpl.bidwar.in/"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/bpl"
             className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/20 px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-amber-300 shadow-sm transition hover:border-amber-400 hover:bg-amber-400/25 hover:text-white whitespace-nowrap"
           >
-            <span className="text-amber-400">🏏</span>
-            <span className="hidden 2xl:inline">BPL Team Registration</span>
-            <span className="hidden sm:inline 2xl:hidden">BPL Registration</span>
+            <span className="text-amber-400">🏆</span>
+            <span className="hidden 2xl:inline">BidWar Premier League</span>
+            <span className="hidden sm:inline 2xl:hidden">BPL</span>
             <span className="inline sm:hidden">BPL</span>
           </a>
           <PublicAuthCta variant="homepage" />
@@ -638,14 +636,12 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
         </div>
 
         <a
-          href="https://bpl.bidwar.in/"
-          target="_blank"
-          rel="noopener noreferrer"
+          href="/bpl"
           onClick={onClose}
           className="mb-3 flex items-center justify-center gap-2 rounded-lg border border-amber-400/50 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 px-4 py-3 text-xs font-bold uppercase tracking-wider text-amber-300 transition hover:bg-amber-400/30 hover:text-white"
         >
-          <span>🏏</span>
-          <span>BPL Team Registration</span>
+          <span>🏆</span>
+          <span>BidWar Premier League</span>
         </a>
         {([
           { label: "Auction Screens", href: "#auction-screens", sectionId: "auction-screens" },

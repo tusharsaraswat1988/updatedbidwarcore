@@ -558,7 +558,17 @@ export function CricketLedMidOverlays({
                       </div>
 
                       {/* 2. Sponsor Name (Below Logo) */}
-                      <h3 className="text-3xl sm:text-5xl md:text-6xl font-display font-black uppercase tracking-wider text-white text-center drop-shadow-[0_2px_15px_rgba(0,0,0,0.95)] mb-4">
+                      <h3
+                        title={activeSponsor.name || "Tournament Partner"}
+                        className={cn(
+                          "font-display font-black uppercase tracking-wide text-white text-center drop-shadow-[0_2px_15px_rgba(0,0,0,0.95)] mb-4 break-words max-w-full leading-tight",
+                          (activeSponsor.name?.length ?? 0) > 30
+                            ? "text-2xl sm:text-3xl md:text-4xl"
+                            : (activeSponsor.name?.length ?? 0) > 18
+                            ? "text-2xl sm:text-4xl md:text-5xl"
+                            : "text-3xl sm:text-5xl md:text-6xl"
+                        )}
+                      >
                         {activeSponsor.name || "Tournament Partner"}
                       </h3>
 

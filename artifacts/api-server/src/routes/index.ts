@@ -54,9 +54,11 @@ import schedulingFoundationRouter from "./scheduling-foundation";
 import runtimeMatchFoundationRouter from "./runtime-match-foundation";
 import ruleEngineRouter from "./rule-engine";
 import presentationEngineRouter from "./presentation-engine";
+import bplRouter from "./bpl";
 
 const router: IRouter = Router();
 
+router.use(bplRouter);
 router.use(authRouter);
 router.use(catalogRouter);
 router.use(ruleEngineRouter);

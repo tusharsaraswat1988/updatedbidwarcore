@@ -34,6 +34,7 @@ const AdminDashboardOverview = lazy(() => import("@/pages/admin-dashboard-overvi
 const AdminEventsActivities = lazy(() => import("@/pages/admin-events-activities"));
 const AdminLiveOperations = lazy(() => import("@/pages/admin-live-operations"));
 const AdminTournamentsList = lazy(() => import("@/pages/admin-tournaments-list"));
+const AdminBplEditions = lazy(() => import("@/pages/admin-bpl-editions"));
 const AdminOrganisersList = lazy(() => import("@/pages/admin-organisers-list"));
 const AdminSportsPage = lazy(() => import("@/pages/admin-sports-page"));
 const AdminSystemPage = lazy(() => import("@/pages/admin-system-page"));
@@ -205,6 +206,8 @@ function PlatformRouter() {
         <Route path="/admin/tournaments" component={AdminTournamentsList} />
         <Route path="/admin/tournaments/new" component={AdminTournamentsList} />
         <Route path="/admin/tournaments/sports" component={AdminSportsPage} />
+        <Route path="/admin/bpl" component={AdminBplEditions} />
+        <Route path="/admin/bpl/editions" component={AdminBplEditions} />
         <Route path="/admin/tournaments/:id" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/overview" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/players" component={AdminTournamentDetail} />

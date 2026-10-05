@@ -342,7 +342,10 @@ export function CricketObsMidOverlays({
                           ) : null}
 
                           {/* 2. Sponsor Name (Below Logo) */}
-                          <p className="mt-3 text-base font-black italic text-white tracking-wider uppercase font-sans text-center truncate max-w-full">
+                          <p
+                            title={sp.name || "Sponsor"}
+                            className="mt-3 text-sm sm:text-base font-black italic text-white tracking-wide uppercase font-sans text-center break-words line-clamp-2 leading-tight max-w-full"
+                          >
                             {sp.name || "Sponsor"}
                           </p>
 

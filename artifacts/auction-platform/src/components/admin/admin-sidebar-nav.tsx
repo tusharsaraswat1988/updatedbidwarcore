@@ -3,6 +3,7 @@ import {
   Activity,
   Bell,
   Building2,
+  Crown,
   FileBarChart,
   Gauge,
   Gavel,
@@ -25,6 +26,7 @@ type NavItem = {
 
 const tournamentItems: NavItem[] = [
   { label: "Tournaments", href: "/admin/tournaments", icon: Trophy },
+  { label: "BPL Editions", href: "/admin/bpl", icon: Crown },
   { label: "Organisers", href: "/admin/organisers", icon: Building2 },
   { label: "Sports & Specs", href: "/admin/tournaments/sports", icon: Gavel },
 ];

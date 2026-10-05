@@ -259,7 +259,7 @@ function HeaderSponsorShowcase({
   return (
     <div
       className={cn(
-        "flex items-center gap-2.5 w-44 sm:w-48 md:w-52 h-18 transition-opacity duration-300 ease-in-out shrink-0",
+        "flex items-center gap-2.5 max-w-[280px] sm:max-w-[320px] md:max-w-[360px] h-18 transition-opacity duration-300 ease-in-out shrink-0",
         isFading ? "opacity-0" : "opacity-100",
       )}
     >
@@ -276,11 +276,17 @@ function HeaderSponsorShowcase({
           <Award className="w-6 h-6 text-amber-400 drop-shadow" />
         </div>
       )}
-      <div className="flex flex-col justify-center min-w-0 flex-1 overflow-hidden">
-        <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-white truncate leading-tight drop-shadow">
+      <div className="flex flex-col justify-center min-w-0 flex-1">
+        <span
+          title={current.name || "Tournament Sponsor"}
+          className="text-xs sm:text-sm font-black uppercase tracking-wide text-white leading-tight drop-shadow break-words line-clamp-2"
+        >
           {current.name || "Tournament Sponsor"}
         </span>
-        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-400 truncate mt-0.5">
+        <span
+          title={typeText}
+          className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-400 truncate mt-0.5"
+        >
           {typeText}
         </span>
       </div>
@@ -562,11 +568,14 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
           setScoreGlowType(null);
         }, 1600);
         prevScoreRef.current = { runs: currentRuns, wickets: currentWickets };
-        return () => clearTimeout(timer);
+        return () => {
+          clearTimeout(timer);
+        };
       }
     } else {
       prevScoreRef.current = { runs: currentRuns, wickets: currentWickets };
     }
+    return undefined;
   }, [innings?.runs, innings?.wickets]);
 
   // 1. Bootstrap: Record current event as seen on initial mount to suppress historical replay

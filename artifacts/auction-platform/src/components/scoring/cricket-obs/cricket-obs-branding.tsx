@@ -120,11 +120,14 @@ export function CricketObsBranding({ vm }: { vm: CricketObsViewModel }) {
                 className="text-[9px] font-bold uppercase tracking-[0.16em]"
                 style={{ color: BIDWAR_BROADCAST_YELLOW }}
               >
-                {currentSponsor.tier
-                  ? currentSponsor.tier.replace(/_/g, " ").toUpperCase()
+                {currentSponsor.type || currentSponsor.priorityType
+                  ? (currentSponsor.type || currentSponsor.priorityType || "").replace(/_/g, " ").toUpperCase()
                   : "OFFICIAL PARTNER"}
               </span>
-              <span className="max-w-[160px] truncate text-[11px] font-semibold uppercase tracking-wide text-white/90">
+              <span
+                title={currentSponsor.name || "SPONSOR"}
+                className="max-w-[240px] truncate text-[11px] font-semibold uppercase tracking-wide text-white/90"
+              >
                 {currentSponsor.name || "SPONSOR"}
               </span>
             </div>

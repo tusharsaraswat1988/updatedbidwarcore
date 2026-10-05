@@ -27,6 +27,14 @@ export interface CricketLedNeutralScreenProps {
   displayShellStyle?: CSSProperties;
 }
 
+function getNeutralSponsorNameFontSize(name: string): string {
+  const len = (name || "").trim().length;
+  if (len > 32) return "text-sm sm:text-base md:text-lg";
+  if (len > 22) return "text-base sm:text-lg md:text-xl";
+  if (len > 14) return "text-lg sm:text-xl md:text-2xl";
+  return "text-xl sm:text-2xl md:text-3xl";
+}
+
 export function CricketLedNeutralScreen({
   tournamentName,
   tournamentLogoUrl,
@@ -234,7 +242,7 @@ export function CricketLedNeutralScreen({
 
         {/* Prominent Large Sponsor Cards Grid ("thoda bada me") */}
         {activeSponsorsList.length > 0 ? (
-          <div className="w-full max-w-7xl">
+          <div className="w-full max-w-7xl 2xl:max-w-[1500px]">
             <AnimatePresence mode="wait">
               <motion.div
                 key={`page-${carouselIndex}`}
@@ -275,8 +283,14 @@ export function CricketLedNeutralScreen({
 
                       {/* Sponsor Details (Name + Type in Big Text) */}
                       <div className="flex flex-col justify-center min-w-0 flex-1">
-                        {/* Sponsor Name: thoda bada me */}
-                        <h3 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-wider text-white truncate drop-shadow-md leading-tight">
+                        {/* Sponsor Name: Proper full name, no cut-off, responsive auto-wrap */}
+                        <h3
+                          title={sp.name || "Tournament Partner"}
+                          className={cn(
+                            "font-black uppercase tracking-wide text-white drop-shadow-md leading-tight break-words line-clamp-2",
+                            getNeutralSponsorNameFontSize(sp.name || ""),
+                          )}
+                        >
                           {sp.name || "Tournament Partner"}
                         </h3>
                         {/* Sponsor Type: thoda bada me */}

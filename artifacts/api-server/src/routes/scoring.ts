@@ -870,7 +870,28 @@ router.get("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
     res.status(400).json({ error: "Invalid tournament ID" });
     return;
   }
-  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  // Allow either organizer JWT or dedicated scorer JWT to read matches (read-only).
+  // We check both identities manually to avoid requireTournamentOrganizer writing a 403
+  // response before the scorer fallback is attempted.
+  const [tournament] = await db
+    .select({ organizerId: tournamentsTable.organizerId })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  const callerIsOrganizer = !!tournament && isTournamentOrganizer(req, tournamentId, tournament.organizerId);
+  if (!callerIsOrganizer) {
+    // Not an organizer — require a valid dedicated scorer session.
+    try {
+      const scorerAuth = await requireScorerFromRequest(req);
+      await assertScorerMayAccessTournament(scorerAuth.scorerId, tournamentId);
+    } catch (e) {
+      if (sendScorerAuthError(res, e)) return;
+      res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
+      return;
+    }
+  }
 
   try {
     const matches = await listScoringMatches(tournamentId);

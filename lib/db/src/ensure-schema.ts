@@ -1136,6 +1136,44 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     CREATE INDEX IF NOT EXISTS ix_ms_member_id ON member_sessions (member_id);
     CREATE INDEX IF NOT EXISTS ix_ms_expires_at ON member_sessions (expires_at);
     CREATE INDEX IF NOT EXISTS ix_ms_revoked_at ON member_sessions (revoked_at);
+
+    CREATE TABLE IF NOT EXISTS bpl_editions (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      edition_number INTEGER NOT NULL,
+      slug TEXT NOT NULL,
+      year INTEGER NOT NULL,
+      start_date TEXT NOT NULL,
+      end_date TEXT NOT NULL,
+      venue TEXT,
+      city TEXT,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'DRAFT',
+      linked_tournament_id INTEGER REFERENCES tournaments(id) ON DELETE SET NULL,
+      live_stream_url TEXT,
+      fan_page_url TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_bpl_editions_edition_number ON bpl_editions (edition_number);
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_bpl_editions_slug ON bpl_editions (slug);
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_bpl_editions_single_live ON bpl_editions (status) WHERE status = 'LIVE';
+    CREATE INDEX IF NOT EXISTS ix_bpl_editions_linked_tournament_id ON bpl_editions (linked_tournament_id);
+
+    CREATE TABLE IF NOT EXISTS bpl_edition_sponsors (
+      id SERIAL PRIMARY KEY,
+      edition_id INTEGER NOT NULL REFERENCES bpl_editions(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      logo_url TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'PARTNER',
+      website_url TEXT,
+      display_order INTEGER NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_bpl_edition_sponsors_edition_id ON bpl_edition_sponsors (edition_id);
+    CREATE INDEX IF NOT EXISTS ix_bpl_edition_sponsors_order ON bpl_edition_sponsors (edition_id, display_order);
   `);
     success = true;
   } catch (err) {

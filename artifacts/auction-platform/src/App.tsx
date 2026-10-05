@@ -33,6 +33,8 @@ const UpcomingAuctions = lazy(() => import("@/pages/upcoming-auctions"));
 const ContactPage = lazy(() => import("@/pages/contact"));
 const PricingPage = lazy(() => import("@/pages/pricing"));
 const AuctionTipsPage = lazy(() => import("@/pages/auction-tips"));
+const BplHub = lazy(() => import("@/pages/bpl/bpl-hub"));
+const BplEdition = lazy(() => import("@/pages/bpl/bpl-edition"));
 
 // Blog
 const BlogIndex    = lazy(() => import("@/pages/blog/index"));
@@ -179,6 +181,10 @@ function Router() {
       <Switch>
         {/* Marketing routes */}
         <Route path="/" component={HomeRoute} />
+        <Route path="/bpl" component={BplHub} />
+        <Route path="/bpl/:edition">
+          {(params) => <BplEdition edition={params?.edition ?? ""} />}
+        </Route>
         <Route path="/upcoming-auctions" component={UpcomingAuctions} />
         <Route path="/contact" component={ContactPage} />
         <Route path="/pricing" component={PricingPage} />

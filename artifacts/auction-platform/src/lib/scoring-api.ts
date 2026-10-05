@@ -282,7 +282,9 @@ export async function deleteCricketRulePreset(
 export async function listScoringMatches(
   tournamentId: number,
 ): Promise<ScoringMatchJson[]> {
-  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/matches`);
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/matches`, {
+    headers: scorerAuthHeaders(),
+  });
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }
@@ -460,6 +462,9 @@ export async function getCricketTournamentRoster(
   const teamFilter = Number.isFinite(teamId) ? `?teamId=${teamId}` : "";
   const r = await apiFetch(
     `/tournaments/${tournamentId}/scoring/roster${teamFilter}`,
+    {
+      headers: scorerAuthHeaders(),
+    },
   );
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
@@ -479,7 +484,9 @@ export type CricketMasterTeam = {
 export async function getCricketMasterTeams(
   tournamentId: number,
 ): Promise<CricketMasterTeam[]> {
-  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/master-teams`);
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/master-teams`, {
+    headers: scorerAuthHeaders(),
+  });
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
 }
