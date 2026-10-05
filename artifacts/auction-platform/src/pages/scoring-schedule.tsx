@@ -56,7 +56,7 @@ import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { cricketPublicPath } from "@/lib/tournament-navigation";
-import { cricketFixturesPath, cricketRulesPath, cricketSettingsPath } from "@/lib/cricket-routes";
+import { cricketScoreHubPath, cricketFixturesPath, cricketRulesPath, cricketSettingsPath } from "@/lib/cricket-routes";
 import {
   Calendar,
   Check,
@@ -67,6 +67,7 @@ import {
   Loader2,
   MapPin,
   Plus,
+  Radio,
   Repeat,
   RotateCcw,
   Settings,
@@ -570,13 +571,13 @@ export default function ScoringSchedulePage() {
       <PageHeader
         tournamentId={tournamentId}
         eyebrow="Cricket Operations"
-        title="Schedule & Generate"
+        title="Schedule & Draws"
         subtitle="Configure venues, draw stages, and batch-generate balanced match fixtures"
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <BtnSecondary href={cricketFixturesPath(tournamentId)} className={btnCompactClass}>
-              <Calendar className="w-3.5 h-3.5 mr-1" />
-              Fixture Browser
+            <BtnSecondary href={cricketScoreHubPath(tournamentId)} className={btnCompactClass}>
+              <Radio className="w-3.5 h-3.5 mr-1 text-primary" />
+              Matches Hub
             </BtnSecondary>
             <BtnSecondary href={cricketPublicPath(tournamentId)} className={btnCompactClass} external>
               <ExternalLink className="w-3.5 h-3.5 mr-1" />
@@ -584,7 +585,7 @@ export default function ScoringSchedulePage() {
             </BtnSecondary>
             <BtnPrimary onClick={openGenerateDialog} className={btnCompactClass}>
               <Plus className="w-4 h-4 mr-1" />
-              Generate Schedule
+              New Draw Schedule
             </BtnPrimary>
           </div>
         }
@@ -751,10 +752,10 @@ export default function ScoringSchedulePage() {
                         {d.createdAt ? new Date(d.createdAt).toLocaleDateString() : "Active"}
                       </span>
                       <Link
-                        href={cricketFixturesPath(tournamentId)}
+                        href={cricketScoreHubPath(tournamentId)}
                         className="text-primary font-medium hover:underline inline-flex items-center gap-1"
                       >
-                        View Fixtures <ChevronRight className="w-3 h-3" />
+                        Manage in Matches Hub <ChevronRight className="w-3 h-3" />
                       </Link>
                     </div>
                   </div>
@@ -774,127 +775,108 @@ export default function ScoringSchedulePage() {
           )}
         </section>
 
-        {/* Scheduled Fixtures Preview Section */}
+        {/* Scheduled Fixtures Summary Section */}
         <section className={cn(hubCardClass, "p-4 sm:p-5 space-y-4")}>
           <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-border/60">
             <div>
               <h2 className="text-base font-bold flex items-center gap-2 text-foreground">
                 <Calendar className="h-4 w-4 text-primary" />
-                Scheduled Fixtures Preview
+                Generated Fixtures Summary
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {fixtures?.length ?? 0} fixture{fixtures?.length === 1 ? "" : "s"} scheduled across active draws
+                {fixtures?.length ?? 0} match fixture{fixtures?.length === 1 ? "" : "s"} scheduled across active draws
               </p>
             </div>
             {(fixtures?.length ?? 0) > 0 ? (
-              <BtnSecondary href={cricketFixturesPath(tournamentId)} className={cn(btnCompactClass, "h-8 min-h-8 text-xs")}>
-                Browse All Fixtures
+              <BtnPrimary href={cricketScoreHubPath(tournamentId)} className={cn(btnCompactClass, "h-8 min-h-8 text-xs")}>
+                <Radio className="w-3.5 h-3.5 mr-1" />
+                Open Matches Hub
                 <ChevronRight className="w-3.5 h-3.5 ml-1" />
-              </BtnSecondary>
+              </BtnPrimary>
             ) : null}
           </div>
 
           {fixturesLoading ? (
             <div className="space-y-2">
-              <Skeleton className="h-16 w-full rounded-lg" />
-              <Skeleton className="h-16 w-full rounded-lg" />
+              <Skeleton className="h-14 w-full rounded-lg" />
+              <Skeleton className="h-14 w-full rounded-lg" />
             </div>
           ) : (fixtures?.length ?? 0) > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {(fixtures ?? []).slice(0, 8).map((f) => {
-                const home = teamMap.get(f.homeTeamId);
-                const away = teamMap.get(f.awayTeamId);
-                return (
-                  <div
-                    key={f.id}
-                    className="rounded-lg border border-border/50 bg-muted/15 p-3.5 text-sm flex flex-col justify-between gap-2.5 transition-colors hover:border-primary/30"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        {/* Home Team */}
-                        <div className="flex items-center gap-1.5 min-w-0 font-semibold text-foreground truncate">
-                          {home?.logoUrl ? (
-                            <img
-                              src={home.logoUrl}
-                              alt=""
-                              className="w-5 h-5 rounded object-contain border border-border shrink-0"
-                            />
-                          ) : (
-                            <div
-                              className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
-                              style={{ backgroundColor: `${home?.color || "#3B82F6"}22`, color: home?.color || "#3B82F6" }}
-                            >
-                              {home?.shortCode?.slice(0, 2) || "H"}
-                            </div>
-                          )}
-                          <span className="truncate">{home?.name || `Team ${f.homeTeamId}`}</span>
-                        </div>
-
-                        <span className="text-muted-foreground font-bold text-xs uppercase px-1 shrink-0">vs</span>
-
-                        {/* Away Team */}
-                        <div className="flex items-center gap-1.5 min-w-0 font-semibold text-foreground truncate">
-                          {away?.logoUrl ? (
-                            <img
-                              src={away.logoUrl}
-                              alt=""
-                              className="w-5 h-5 rounded object-contain border border-border shrink-0"
-                            />
-                          ) : (
-                            <div
-                              className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold shrink-0"
-                              style={{ backgroundColor: `${away?.color || "#EF4444"}22`, color: away?.color || "#EF4444" }}
-                            >
-                              {away?.shortCode?.slice(0, 2) || "A"}
-                            </div>
-                          )}
-                          <span className="truncate">{away?.name || `Team ${f.awayTeamId}`}</span>
-                        </div>
-                      </div>
-
-                      <Badge variant="outline" className="text-[10px] uppercase font-bold shrink-0">
-                        {f.status}
-                      </Badge>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/30 gap-2">
-                      <span className="font-medium text-foreground/80">{f.roundName ?? "League Match"}</span>
-                      <div className="flex items-center gap-2">
-                        {f.scheduledAt ? (
-                          <span>
-                            {new Date(f.scheduledAt).toLocaleDateString([], {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </span>
-                        ) : null}
-                        {f.venue ? <span>· {f.venue}</span> : null}
-                      </div>
-                    </div>
+            <div className="space-y-3">
+              {/* Ready for Match Banner */}
+              <div className="p-3.5 rounded-lg border border-primary/25 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                    <Radio className="w-3.5 h-3.5 text-primary" />
+                    Matches generated & ready for operations
                   </div>
-                );
-              })}
+                  <p className="text-[11px] text-muted-foreground">
+                    Toss execution, live scoring, and scorecard editing are managed in the Matches Hub.
+                  </p>
+                </div>
+                <BtnPrimary href={cricketScoreHubPath(tournamentId)} className={cn(btnCompactClass, "shrink-0 text-xs")}>
+                  Manage Matches Hub →
+                </BtnPrimary>
+              </div>
+
+              {/* Compact Fixtures List */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                {(fixtures ?? []).slice(0, 6).map((f) => {
+                  const home = teamMap.get(f.homeTeamId);
+                  const away = teamMap.get(f.awayTeamId);
+                  return (
+                    <div
+                      key={f.id}
+                      className="rounded-lg border border-border/50 bg-muted/15 p-3 text-xs flex flex-col justify-between gap-2 transition-colors hover:border-primary/30"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-[11px] text-foreground/80 truncate">
+                          {f.roundName ?? "Stage Match"}
+                        </span>
+                        <Badge variant="outline" className="text-[9px] uppercase font-bold shrink-0">
+                          {f.status}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 font-semibold text-foreground text-xs truncate">
+                        <span className="truncate">{home?.name || `Team ${f.homeTeamId}`}</span>
+                        <span className="text-muted-foreground font-bold text-[10px] uppercase shrink-0">vs</span>
+                        <span className="truncate">{away?.name || `Team ${f.awayTeamId}`}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1.5 border-t border-border/30">
+                        <span>
+                          {f.scheduledAt
+                            ? new Date(f.scheduledAt).toLocaleDateString([], { month: "short", day: "numeric" })
+                            : "Date TBD"}
+                        </span>
+                        {f.venue ? <span className="truncate max-w-[120px]">{f.venue}</span> : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {(fixtures?.length ?? 0) > 6 ? (
+                <div className="pt-2 text-center">
+                  <BtnSecondary href={cricketScoreHubPath(tournamentId)} className={btnCompactClass}>
+                    View All {fixtures?.length} Matches in Matches Hub
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </BtnSecondary>
+                </div>
+              ) : null}
             </div>
           ) : (
             <EmptyState
               icon={Calendar}
               title="No Fixtures Scheduled Yet"
-              desc="Click 'Generate Schedule' to pair your tournament teams into fixtures automatically."
+              desc="Click 'New Draw Schedule' to pair your tournament teams into fixtures automatically."
               action={{
                 label: "Generate Schedule",
                 onClick: openGenerateDialog,
               }}
             />
           )}
-
-          {(fixtures?.length ?? 0) > 8 ? (
-            <div className="pt-2 text-center">
-              <BtnSecondary href={cricketFixturesPath(tournamentId)} className={btnCompactClass}>
-                View All {fixtures?.length} Fixtures in Fixture Browser
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </BtnSecondary>
-            </div>
-          ) : null}
         </section>
       </div>
 

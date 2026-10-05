@@ -260,7 +260,7 @@ function CricketOrganizerLayout({ tournamentId }: { tournamentId: number }) {
               <Route path="/tournament/:id/score/links" component={CricketLinks} />
               <Route path="/tournament/:id/score/:matchId/live" component={ScoringMatch} />
               <Route path="/tournament/:id/score/:matchId" component={CricketMatchCenter} />
-              <Route path="/tournament/:id/score" component={ScoringMatchList} />
+              <Route path="/tournament/:id/score" component={CricketFixtures} />
             </Switch>
           </Suspense>
         </SportsShell>

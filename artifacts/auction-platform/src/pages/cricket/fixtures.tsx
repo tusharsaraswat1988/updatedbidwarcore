@@ -81,8 +81,9 @@ function isSameLocalDay(iso: string | null | undefined): boolean {
 }
 
 export default function CricketFixturesPage() {
-  const [, params] = useRoute("/tournament/:id/score/fixtures");
-  const tournamentId = parseInt(params?.id || "0");
+  const [, fixturesParams] = useRoute("/tournament/:id/score/fixtures");
+  const [, scoreParams] = useRoute("/tournament/:id/score");
+  const tournamentId = parseInt(fixturesParams?.id || scoreParams?.id || "0");
   const [filter, setFilter] = useState<FilterKey>("all");
 
   const { data: tournament, isLoading: tournamentLoading } = useGetTournament(tournamentId, {
@@ -340,8 +341,8 @@ export default function CricketFixturesPage() {
       <PageHeader
         tournamentId={tournamentId}
         eyebrow="Cricket Operations"
-        title="Fixture Browser"
-        subtitle={`${stats.fixturesCount} fixture${stats.fixturesCount === 1 ? "" : "s"} · ${stats.total} match${stats.total === 1 ? "" : "es"}`}
+        title="Matches Hub"
+        subtitle={`${stats.total} total match${stats.total === 1 ? "" : "es"} · ${stats.live} live now · ${stats.upcoming} scheduled`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -350,11 +351,11 @@ export default function CricketFixturesPage() {
               disabled={!scoringActive}
             >
               <Plus className="w-4 h-4" />
-              Add Playoff / Custom Match
+              New Match
             </Button>
             <BtnPrimary href={cricketScheduleOpsPath(tournamentId)} className={btnCompactClass}>
-              <Calendar className="w-4 h-4" />
-              Schedule & generate
+              <Calendar className="w-4 h-4 mr-1" />
+              Schedule & Draws
             </BtnPrimary>
           </div>
         }
@@ -383,14 +384,14 @@ export default function CricketFixturesPage() {
               <HubKpiCard label="Live Matches" value={stats.live} icon={Radio} tint="red" pulse={stats.live > 0} />
               <HubKpiCard label="Scheduled" value={stats.upcoming} icon={Calendar} tint="primary" />
               <HubKpiCard label="Completed" value={stats.completed} icon={CheckCircle2} tint="green" />
-              <HubKpiCard label="Total Fixtures" value={stats.fixturesCount} icon={ListOrdered} tint="muted" />
+              <HubKpiCard label="Total Matches" value={stats.total} icon={ListOrdered} tint="muted" />
             </div>
 
             {/* Filter Pills */}
             <div className="flex flex-wrap gap-2">
               {(
                 [
-                  ["all", "All Fixtures"],
+                  ["all", "All Matches"],
                   ["today", "Today"],
                   ["upcoming", "Upcoming"],
                   ["live", "Live"],
@@ -408,7 +409,7 @@ export default function CricketFixturesPage() {
             </div>
 
             <HubSectionHeader
-              title="Match Fixtures"
+              title="Tournament Matches"
               subtitle={`${filtered.length} of ${stats.total} match${stats.total === 1 ? "" : "es"} shown`}
               badge={stats.live > 0 ? `${stats.live} LIVE` : undefined}
               badgeVariant="destructive"

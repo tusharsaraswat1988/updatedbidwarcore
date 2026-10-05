@@ -18,7 +18,7 @@ export function cricketDashboardPath(tournamentId: number): string {
 }
 
 export function cricketFixturesPath(tournamentId: number): string {
-  return `${cricketScoreHubPath(tournamentId)}/fixtures`;
+  return cricketScoreHubPath(tournamentId);
 }
 
 export function cricketScheduleOpsPath(tournamentId: number): string {

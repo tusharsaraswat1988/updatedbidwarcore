@@ -1,5 +1,6 @@
 import {
   Award,
+  Calendar,
   ClipboardCheck,
   ClipboardList,
   LayoutDashboard,
@@ -133,24 +134,16 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
     ],
   },
   {
-    id: "fixtures",
-    label: "Fixtures & Schedule",
-    href: cricketFixturesPath,
-    isActive: (path) =>
-      scoreSection(path, "fixtures") || scoreSection(path, "schedule"),
-    icon: ListOrdered,
-    preload: () => preloadNav("fixtures"),
+    id: "schedule",
+    label: "Schedule & Draws",
+    href: cricketScheduleOpsPath,
+    isActive: (path) => scoreSection(path, "schedule"),
+    icon: Calendar,
+    preload: () => preloadNav("schedule"),
     children: [
       {
-        id: "fixtures-browser",
-        label: "Match Fixtures",
-        href: cricketFixturesPath,
-        isActive: (path) => scoreSection(path, "fixtures"),
-        preload: () => preloadNav("fixtures"),
-      },
-      {
-        id: "fixtures-schedule",
-        label: "Schedule & Generate",
+        id: "draws-schedule",
+        label: "Tournament Draws",
         href: cricketScheduleOpsPath,
         isActive: (path) => scoreSection(path, "schedule"),
         preload: () => preloadNav("schedule"),
@@ -159,14 +152,16 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
   },
   {
     id: "matches",
-    label: "Matches & Live Control",
+    label: "Match Operations",
     href: cricketScoreHubPath,
     isActive: (path, tid) =>
       isMatchesListPath(path, tid) ||
+      scoreSection(path, "fixtures") ||
       scoreSection(path, "live-control") ||
       scoreSection(path, "links"),
     icon: Radio,
     preload: () => {
+      preloadNav("fixtures");
       preloadNav("matches");
       preloadNav("matchCenter");
       preloadNav("liveControl");
@@ -175,9 +170,9 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
     children: [
       {
         id: "matches-hub",
-        label: "Matches Hub",
+        label: "All Matches",
         href: cricketScoreHubPath,
-        isActive: (path, tid) => isMatchesListPath(path, tid),
+        isActive: (path, tid) => isMatchesListPath(path, tid) || scoreSection(path, "fixtures"),
         preload: () => preloadNav("matches"),
       },
       {
@@ -189,7 +184,7 @@ export const CRICKET_PRIMARY_NAV: SportNavItem[] = [
       },
       {
         id: "matches-links",
-        label: "Links",
+        label: "Links & Overlays",
         href: cricketLinksPath,
         isActive: (path) => scoreSection(path, "links"),
         preload: () => preloadNav("links"),
