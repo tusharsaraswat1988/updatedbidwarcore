@@ -4,6 +4,8 @@ import {
   listCricketMasterTeams,
   listCricketMasterPlayers,
   listCricketSquadPlayers,
+  syncCricketRosterFromAuction,
+  invalidateCricketRosterCache,
 } from "../lib/master-sports/cricket-roster";
 import { requireTournamentOrganizer } from "../middleware/require-organizer";
 import {
@@ -14,15 +16,16 @@ import {
 } from "../lib/sports-branding";
 import { parseValidatedSponsorLogos } from "../lib/sponsor-validation";
 import { broadcastScoringState } from "../lib/scoring-broadcast";
+import { allocateNextPlayerSerialNo } from "../lib/player-serial";
 
-import { eq } from "drizzle-orm";
-import { db, tournamentsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
+import { db, tournamentsTable, playersTable, teamsTable } from "@workspace/db";
 import { requireSportModule } from "../middleware/require-module";
 
 const router = Router({ mergeParams: true });
 
-function tid(req: { params: Record<string, string> }): number | null {
-  const n = parseInt(req.params.id, 10);
+function tid(req: { params: Record<string, any> }): number | null {
+  const n = parseInt(String(req.params.id), 10);
   return Number.isNaN(n) ? null : n;
 }
 
@@ -111,6 +114,134 @@ router.post("/sync-roster", async (_req, res) => {
     error: "Make teams & players available from Auction (handoff-to-sports).",
     code: "AUCTION_SYNC_REMOVED",
     handoffPath: "/api/tournaments/:id/auction/handoff-to-sports",
+  });
+});
+
+/** POST bulk import/update players into cricket tournament roster from Excel/CSV */
+router.post("/bulk-roster-import", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const playerItemSchema = z.object({
+    id: z.number().int().positive().optional().nullable(),
+    teamId: z.number().int().positive(),
+    name: z.string().min(1),
+    role: z.string().optional().nullable(),
+    battingStyle: z.string().optional().nullable(),
+    bowlingStyle: z.string().optional().nullable(),
+    jerseyNumber: z.string().optional().nullable(),
+    jerseySize: z.string().optional().nullable(),
+    dob: z.string().optional().nullable(),
+    mobileNumber: z.string().optional().nullable(),
+    city: z.string().optional().nullable(),
+    gender: z.enum(["M", "F", ""]).optional().nullable(),
+    photoUrl: z.string().optional().nullable(),
+  });
+
+  const bodySchema = z.object({
+    players: z.array(playerItemSchema).min(1).max(500),
+  });
+
+  const parsed = bodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+    return;
+  }
+
+  // Validate that all teamIds belong to this tournament
+  const teams = await db
+    .select({ id: teamsTable.id })
+    .from(teamsTable)
+    .where(eq(teamsTable.tournamentId, tournamentId));
+  const validTeamIds = new Set(teams.map((t) => t.id));
+
+  for (const p of parsed.data.players) {
+    if (!validTeamIds.has(p.teamId)) {
+      res.status(400).json({ error: `Team ID ${p.teamId} does not belong to this tournament` });
+      return;
+    }
+  }
+
+  // Fetch existing tournament players to verify IDs
+  const existingPlayers = await db
+    .select({ id: playersTable.id, name: playersTable.name, teamId: playersTable.teamId })
+    .from(playersTable)
+    .where(eq(playersTable.tournamentId, tournamentId));
+  const existingPlayerIds = new Set(existingPlayers.map((p) => p.id));
+
+  let nextSerial = await allocateNextPlayerSerialNo(tournamentId);
+  let createdCount = 0;
+  let updatedCount = 0;
+
+  for (const item of parsed.data.players) {
+    const isUpdate = item.id != null && existingPlayerIds.has(item.id);
+
+    // Compute age if DOB is provided (YYYY-MM-DD)
+    let calculatedAge: number | null = null;
+    if (item.dob && item.dob.includes("-")) {
+      const birthYear = parseInt(item.dob.split("-")[0], 10);
+      if (!isNaN(birthYear) && birthYear > 1950) {
+        calculatedAge = new Date().getFullYear() - birthYear;
+      }
+    }
+
+    if (isUpdate && item.id) {
+      await db
+        .update(playersTable)
+        .set({
+          name: item.name.trim(),
+          teamId: item.teamId,
+          role: item.role || null,
+          battingStyle: item.battingStyle || "Right Hand",
+          bowlingStyle: item.bowlingStyle || "None",
+          jerseyNumber: item.jerseyNumber ? String(item.jerseyNumber).replace("#", "").trim() : null,
+          jerseySize: item.jerseySize || null,
+          age: calculatedAge,
+          city: item.city || null,
+          gender: item.gender || null,
+          mobileNumber: item.mobileNumber || "",
+          ...(item.photoUrl ? { photoUrl: item.photoUrl } : {}),
+          updatedAt: new Date(),
+        })
+        .where(and(eq(playersTable.id, item.id), eq(playersTable.tournamentId, tournamentId)));
+      updatedCount++;
+    } else {
+      await db.insert(playersTable).values({
+        tournamentId,
+        serialNo: nextSerial++,
+        teamId: item.teamId,
+        name: item.name.trim(),
+        role: item.role || "Batsman",
+        battingStyle: item.battingStyle || "Right Hand",
+        bowlingStyle: item.bowlingStyle || "None",
+        jerseyNumber: item.jerseyNumber ? String(item.jerseyNumber).replace("#", "").trim() : null,
+        jerseySize: item.jerseySize || null,
+        age: calculatedAge,
+        city: item.city || null,
+        gender: item.gender || null,
+        mobileNumber: item.mobileNumber || "",
+        photoUrl: item.photoUrl || null,
+        status: "available",
+      });
+      createdCount++;
+    }
+  }
+
+  // Sync all players to Player Registry and master roster
+  await syncCricketRosterFromAuction(tournamentId);
+  invalidateCricketRosterCache(tournamentId);
+  void broadcastScoringState(tournamentId, "roster_synced");
+
+  res.json({
+    ok: true,
+    createdCount,
+    updatedCount,
+    totalProcessed: parsed.data.players.length,
+    message: `Successfully processed ${parsed.data.players.length} players (${createdCount} added, ${updatedCount} updated).`,
   });
 });
 

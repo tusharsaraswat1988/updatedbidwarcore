@@ -36,8 +36,8 @@ import { broadcastTournamentUpdate } from "../lib/badminton-broadcast";
 
 const router = Router({ mergeParams: true });
 
-function tid(req: { params: Record<string, string> }): number | null {
-  const n = parseInt(req.params.id, 10);
+function tid(req: { params: Record<string, any> }): number | null {
+  const n = parseInt(String(req.params.id), 10);
   return Number.isNaN(n) ? null : n;
 }
 

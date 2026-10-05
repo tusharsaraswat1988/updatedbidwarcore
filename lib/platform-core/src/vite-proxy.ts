@@ -26,6 +26,15 @@ export type ViteApiProxyOptions = {
         res: ServerResponse,
       ) => void,
     ): void;
+    on(
+      event: "error",
+      listener: (
+        err: unknown,
+        req: IncomingMessage,
+        res: ServerResponse,
+      ) => void,
+    ): void;
+    on(event: string, listener: (...args: any[]) => void): void;
   }) => void;
 };
 
@@ -401,7 +410,7 @@ export function createViteMobileAppProxy(): Record<string, ViteApiProxyOptions> 
       ws: true,
       selfHandleResponse: true,
       configure: (proxy) => {
-        proxy.on("error", (err, _req, res) => {
+        (proxy as any).on("error", (err: unknown, _req: unknown, res: any) => {
           if (res && !res.headersSent && typeof res.writeHead === "function") {
             const body = mobileAppProxyUnavailableHtml(target);
             res.writeHead(502, {

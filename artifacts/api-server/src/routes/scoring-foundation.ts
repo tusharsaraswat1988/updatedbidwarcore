@@ -34,8 +34,8 @@ const router = Router({ mergeParams: true });
 
 router.use(scoringFeatureMiddleware);
 
-function tid(req: { params: Record<string, string> }): number | null {
-  const n = parseInt(req.params.tournamentId ?? req.params.id, 10);
+function tid(req: { params: Record<string, any> }): number | null {
+  const n = parseInt(String(req.params.tournamentId ?? req.params.id), 10);
   return Number.isNaN(n) ? null : n;
 }
 

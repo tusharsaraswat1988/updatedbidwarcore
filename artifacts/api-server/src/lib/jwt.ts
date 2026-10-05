@@ -20,6 +20,7 @@ export interface AuthClaims {
   /** Tournament Director role — per-tournament match administration. */
   tournamentDirector?: Record<string, true>;
   organizerAccountId?: number;
+  email?: string;
 }
 
 export interface OAuthState {

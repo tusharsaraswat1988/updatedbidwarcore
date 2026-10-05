@@ -1,4 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/**/__tests__/**", "src/**/*.test.ts"],
+  "compilerOptions": {
+    "types": ["node"],
+    "lib": ["es2022", "es2023", "DOM"]
+  }
 }

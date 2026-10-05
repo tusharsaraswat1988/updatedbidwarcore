@@ -1790,7 +1790,7 @@ export function createAuctionRouter(db: LocalDb) {
   });
 
   const updateSettingsHandler = async (req: Request, res: Response) => {
-    const tid = parseInt(req.params.tournamentId);
+    const tid = parseInt(req.params.tournamentId as string);
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
     const schema = z.object({
       ownerBiddingEnabled: z.boolean().optional(),

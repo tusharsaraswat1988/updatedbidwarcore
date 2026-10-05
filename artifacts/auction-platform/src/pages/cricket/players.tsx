@@ -119,6 +119,7 @@ import {
   exportCricketRosterToPdf,
   type ExportRosterScope,
 } from "@/lib/export-cricket-roster";
+import { RosterImportModal } from "@/components/cricket/roster-import-modal";
 import { cn } from "@/lib/utils";
 
 const FALLBACK_ROLES = [
@@ -309,6 +310,7 @@ export default function CricketPlayersPage() {
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
   const [regSettingsOpen, setRegSettingsOpen] = useState(false);
   const [regCopied, setRegCopied] = useState(false);
+  const [excelImportOpen, setExcelImportOpen] = useState(false);
 
   const { data: tournament, isLoading: tournamentLoading } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -809,6 +811,10 @@ export default function CricketPlayersPage() {
             <BtnSecondary disabled={!scoringActive || importBusy} onClick={() => void handleImport()}>
               <Upload className="w-4 h-4" />
               {importBusy ? "Importing…" : "Import from Auction"}
+            </BtnSecondary>
+            <BtnSecondary disabled={!scoringActive} onClick={() => setExcelImportOpen(true)}>
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              Import Excel Roster
             </BtnSecondary>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -1808,6 +1814,21 @@ export default function CricketPlayersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RosterImportModal
+        open={excelImportOpen}
+        onOpenChange={setExcelImportOpen}
+        tournamentId={tournamentId}
+        tournamentName={tournament?.name}
+        teams={teams}
+        players={players}
+        onImportComplete={() => {
+          void Promise.all([
+            qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) }),
+            qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) }),
+          ]);
+        }}
+      />
     </CricketOrganizerPageShell>
   );
 }

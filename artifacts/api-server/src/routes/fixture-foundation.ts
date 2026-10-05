@@ -24,7 +24,7 @@ function parseTournamentId(raw: string): number | null {
 
 router.use("/tournaments/:tournamentId", async (req, res, next) => {
   const tid = parseTournamentId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const [tournament] = await db
     .select({
       id: tournamentsTable.id,
@@ -55,7 +55,7 @@ const patchSchema = z.object({
 
 router.get("/tournaments/:tournamentId/fixtures", async (req, res) => {
   const tid = parseTournamentId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const identities = await listFixtureIdentities(tid);
   res.json({ identities });
 });
@@ -63,7 +63,7 @@ router.get("/tournaments/:tournamentId/fixtures", async (req, res) => {
 /** GET /tournaments/:id/fixtures/aggregate — Fast bulk loader for tournament fixtures */
 router.get("/tournaments/:tournamentId/fixtures/aggregate", async (req, res) => {
   const tid = parseTournamentId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const identities = await listFixtureIdentities(tid);
   const rows = await Promise.all(
     identities.map(async (identity) => {
@@ -77,7 +77,7 @@ router.get("/tournaments/:tournamentId/fixtures/aggregate", async (req, res) => 
         lifecycle: resolved.lifecycle,
         validation,
         nodes: resolved.nodes,
-        advancementCount: advancement.advancement.length,
+        advancementCount: advancement ? advancement.rules.length : 0,
       };
     }),
   );
@@ -86,9 +86,9 @@ router.get("/tournaments/:tournamentId/fixtures/aggregate", async (req, res) => 
 
 router.get("/tournaments/:tournamentId/fixtures/:fixtureId/identity", async (req, res) => {
   const tid = parseTournamentId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const resolved = await resolveFixture(tid, req.params.fixtureId);
-  if (!resolved) return res.status(404).json({ error: "Fixture not found" });
+  if (!resolved) return void res.status(404).json({ error: "Fixture not found" });
   res.json({ identity: resolved.identity });
 });
 
@@ -96,9 +96,9 @@ router.get(
   "/tournaments/:tournamentId/fixtures/:fixtureId/configuration",
   async (req, res) => {
     const tid = parseTournamentId(req.params.tournamentId);
-    if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+    if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
     const resolved = await resolveFixture(tid, req.params.fixtureId);
-    if (!resolved) return res.status(404).json({ error: "Fixture not found" });
+    if (!resolved) return void res.status(404).json({ error: "Fixture not found" });
     res.json({ configuration: resolved.configuration });
   },
 );
@@ -107,7 +107,7 @@ router.patch(
   "/tournaments/:tournamentId/fixtures/:fixtureId/configuration",
   async (req, res) => {
     const tid = parseTournamentId(req.params.tournamentId);
-    if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+    if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
     if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
     const parsed = patchSchema.safeParse(req.body);
@@ -117,16 +117,16 @@ router.patch(
         .json({ error: "Invalid configuration patch", details: parsed.error.flatten() });
     }
     const result = await patchFixtureConfiguration(tid, req.params.fixtureId, parsed.data);
-    if (!result.ok) return res.status(result.status).json({ error: result.error });
+    if (!result.ok) return void res.status(result.status).json({ error: result.error });
     res.json({ configuration: result.configuration });
   },
 );
 
 router.get("/tournaments/:tournamentId/fixtures/:fixtureId/nodes", async (req, res) => {
   const tid = parseTournamentId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const resolved = await resolveFixture(tid, req.params.fixtureId);
-  if (!resolved) return res.status(404).json({ error: "Fixture not found" });
+  if (!resolved) return void res.status(404).json({ error: "Fixture not found" });
   res.json({ nodes: resolved.nodes });
 });
 
@@ -134,9 +134,9 @@ router.get(
   "/tournaments/:tournamentId/fixtures/:fixtureId/advancement",
   async (req, res) => {
     const tid = parseTournamentId(req.params.tournamentId);
-    if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+    if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
     const advancement = await buildFixtureAdvancement(tid, req.params.fixtureId);
-    if (!advancement) return res.status(404).json({ error: "Fixture not found" });
+    if (!advancement) return void res.status(404).json({ error: "Fixture not found" });
     res.json({ advancement });
   },
 );
@@ -145,18 +145,18 @@ router.get(
   "/tournaments/:tournamentId/fixtures/:fixtureId/validation",
   async (req, res) => {
     const tid = parseTournamentId(req.params.tournamentId);
-    if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+    if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
     const validation = await buildFixtureValidation(tid, req.params.fixtureId);
-    if (!validation) return res.status(404).json({ error: "Fixture not found" });
+    if (!validation) return void res.status(404).json({ error: "Fixture not found" });
     res.json({ validation });
   },
 );
 
 router.get("/tournaments/:tournamentId/fixtures/:fixtureId/history", async (req, res) => {
   const tid = parseTournamentId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const resolved = await resolveFixture(tid, req.params.fixtureId);
-  if (!resolved) return res.status(404).json({ error: "Fixture not found" });
+  if (!resolved) return void res.status(404).json({ error: "Fixture not found" });
   res.json({ history: await listFixtureHistory(req.params.fixtureId) });
 });
 
@@ -164,16 +164,16 @@ router.get(
   "/tournaments/:tournamentId/fixtures/:fixtureId/lifecycle",
   async (req, res) => {
     const tid = parseTournamentId(req.params.tournamentId);
-    if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+    if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
     const resolved = await resolveFixture(tid, req.params.fixtureId);
-    if (!resolved) return res.status(404).json({ error: "Fixture not found" });
+    if (!resolved) return void res.status(404).json({ error: "Fixture not found" });
     res.json({ lifecycle: resolved.lifecycle });
   },
 );
 
 router.post("/tournaments/:tournamentId/fixtures/:fixtureId/ready", async (req, res) => {
   const tid = parseTournamentId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const frozenBy =
@@ -186,7 +186,7 @@ router.post("/tournaments/:tournamentId/fixtures/:fixtureId/ready", async (req, 
 
   const result = await lockFixtureSetup(tid, req.params.fixtureId, frozenBy);
   if (!result.ok) {
-    return res.status(result.status).json({
+    return void res.status(result.status).json({
       error: result.error,
       validation: result.validation,
     });
@@ -200,3 +200,4 @@ router.post("/tournaments/:tournamentId/fixtures/:fixtureId/ready", async (req, 
 });
 
 export default router;
+

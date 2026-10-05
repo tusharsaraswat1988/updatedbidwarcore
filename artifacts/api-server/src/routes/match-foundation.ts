@@ -29,7 +29,7 @@ function parseId(raw: string): number | null {
 
 router.use("/tournaments/:tournamentId", async (req, res, next) => {
   const tid = parseId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const [tournament] = await db
     .select({
       id: tournamentsTable.id,
@@ -66,7 +66,7 @@ const patchSchema = z.object({
 
 router.get("/tournaments/:tournamentId/matches/identities", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const matches = await listMatchRows(tid);
   res.json({ identities: matches.map(buildMatchIdentity) });
 });
@@ -74,7 +74,7 @@ router.get("/tournaments/:tournamentId/matches/identities", async (req, res) => 
 /** GET /tournaments/:id/matches/aggregate — Fast bulk loader for tournament matches */
 router.get("/tournaments/:tournamentId/matches/aggregate", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const matches = await listMatchRows(tid);
   const rows = await Promise.all(
     matches.map(async (match) => {
@@ -99,18 +99,18 @@ router.get("/tournaments/:tournamentId/matches/aggregate", async (req, res) => {
 router.get("/tournaments/:tournamentId/matches/:matchId/identity", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
-  if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+  if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
   const match = await loadMatchRow(tid, matchId);
-  if (!match) return res.status(404).json({ error: "Match not found" });
+  if (!match) return void res.status(404).json({ error: "Match not found" });
   res.json({ identity: buildMatchIdentity(match) });
 });
 
 router.get("/tournaments/:tournamentId/matches/:matchId/configuration", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
-  if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+  if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
   const match = await loadMatchRow(tid, matchId);
-  if (!match) return res.status(404).json({ error: "Match not found" });
+  if (!match) return void res.status(404).json({ error: "Match not found" });
   const history = await loadLatestMatchHistory(matchId);
   res.json({ configuration: buildMatchConfiguration(match, history?.version ?? null) });
 });
@@ -118,67 +118,67 @@ router.get("/tournaments/:tournamentId/matches/:matchId/configuration", async (r
 router.patch("/tournaments/:tournamentId/matches/:matchId/configuration", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
-  if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+  if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const parsed = patchSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid configuration patch", details: parsed.error.flatten() });
+    return void res.status(400).json({ error: "Invalid configuration patch", details: parsed.error.flatten() });
   }
   const result = await patchMatchConfiguration(tid, matchId, parsed.data);
-  if (!result.ok) return res.status(result.status).json({ error: result.error });
+  if (!result.ok) return void res.status(result.status).json({ error: result.error });
   res.json({ configuration: result.configuration });
 });
 
 router.get("/tournaments/:tournamentId/matches/:matchId/sides", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
-  if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+  if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
   const match = await loadMatchRow(tid, matchId);
-  if (!match) return res.status(404).json({ error: "Match not found" });
+  if (!match) return void res.status(404).json({ error: "Match not found" });
   res.json({ sides: await loadMatchSides(match) });
 });
 
 router.get("/tournaments/:tournamentId/matches/:matchId/officials", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
-  if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+  if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
   const match = await loadMatchRow(tid, matchId);
-  if (!match) return res.status(404).json({ error: "Match not found" });
+  if (!match) return void res.status(404).json({ error: "Match not found" });
   res.json({ officials: loadMatchOfficials(match) });
 });
 
 router.get("/tournaments/:tournamentId/matches/:matchId/lifecycle", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
-  if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+  if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
   const match = await loadMatchRow(tid, matchId);
-  if (!match) return res.status(404).json({ error: "Match not found" });
+  if (!match) return void res.status(404).json({ error: "Match not found" });
   res.json({ lifecycle: buildMatchLifecycle(match) });
 });
 
 router.get("/tournaments/:tournamentId/matches/:matchId/validation", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
-  if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+  if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
   const match = await loadMatchRow(tid, matchId);
-  if (!match) return res.status(404).json({ error: "Match not found" });
+  if (!match) return void res.status(404).json({ error: "Match not found" });
   res.json({ validation: await buildMatchValidation(tid, match) });
 });
 
 router.get("/tournaments/:tournamentId/matches/:matchId/history", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
-  if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+  if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
   const match = await loadMatchRow(tid, matchId);
-  if (!match) return res.status(404).json({ error: "Match not found" });
+  if (!match) return void res.status(404).json({ error: "Match not found" });
   res.json({ history: await listMatchHistory(matchId) });
 });
 
 router.post("/tournaments/:tournamentId/matches/:matchId/ready", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
-  if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+  if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const frozenBy =
@@ -191,7 +191,7 @@ router.post("/tournaments/:tournamentId/matches/:matchId/ready", async (req, res
 
   const result = await lockMatchSetup(tid, matchId, frozenBy);
   if (!result.ok) {
-    return res.status(result.status).json({
+    return void res.status(result.status).json({
       error: result.error,
       validation: result.validation,
     });
@@ -205,3 +205,4 @@ router.post("/tournaments/:tournamentId/matches/:matchId/ready", async (req, res
 });
 
 export default router;
+

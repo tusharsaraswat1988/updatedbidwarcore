@@ -85,7 +85,7 @@ const adaptBodySchema = z.object({
 router.post("/presentation-engine/resolve", (req, res) => {
   const parsed = resolveBodySchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.flatten() });
+    return void res.status(400).json({ error: parsed.error.flatten() });
   }
   const input = parsed.data as unknown as PresentationEngineInput;
   const result = PresentationEngine.resolve(input);
@@ -101,7 +101,7 @@ router.post("/presentation-engine/validate", (req, res) => {
     },
   });
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.flatten() });
+    return void res.status(400).json({ error: parsed.error.flatten() });
   }
   const input = parsed.data as unknown as PresentationEngineInput;
   const result = PresentationEngine.validate(input);
@@ -111,7 +111,7 @@ router.post("/presentation-engine/validate", (req, res) => {
 router.post("/presentation-engine/adapt", (req, res) => {
   const parsed = adaptBodySchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.flatten() });
+    return void res.status(400).json({ error: parsed.error.flatten() });
   }
   const contract = parsed.data.contract as unknown as ResolvedPresentationContract;
   const result = CapabilityCompiler.adapt(
@@ -123,3 +123,4 @@ router.post("/presentation-engine/adapt", (req, res) => {
 });
 
 export default router;
+

@@ -27,7 +27,7 @@ function parseId(raw: string): number | null {
 
 router.use("/tournaments/:tournamentId", async (req, res, next) => {
   const tid = parseId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const [tournament] = await db
     .select({
       id: tournamentsTable.id,
@@ -59,7 +59,7 @@ const patchSchema = z.object({
 /** GET /tournaments/:id/teams/identities — product Team Identity list */
 router.get("/tournaments/:tournamentId/teams/identities", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const teams = await listTeamRows(tid);
   res.json({ identities: teams.map(buildTeamIdentity) });
 });
@@ -67,7 +67,7 @@ router.get("/tournaments/:tournamentId/teams/identities", async (req, res) => {
 /** GET /tournaments/:id/teams/aggregate — Fast bulk loader for tournament teams */
 router.get("/tournaments/:tournamentId/teams/aggregate", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const teams = await listTeamRows(tid);
   const rows = await Promise.all(
     teams.map(async (team) => {
@@ -89,10 +89,10 @@ router.get("/tournaments/:tournamentId/teams/:teamId/identity", async (req, res)
   const tid = parseId(req.params.tournamentId);
   const teamId = parseId(req.params.teamId);
   if (tid == null || teamId == null) {
-    return res.status(400).json({ error: "Invalid id" });
+    return void res.status(400).json({ error: "Invalid id" });
   }
   const team = await loadTeamRow(tid, teamId);
-  if (!team) return res.status(404).json({ error: "Team not found" });
+  if (!team) return void res.status(404).json({ error: "Team not found" });
   res.json({ identity: buildTeamIdentity(team) });
 });
 
@@ -100,10 +100,10 @@ router.get("/tournaments/:tournamentId/teams/:teamId/configuration", async (req,
   const tid = parseId(req.params.tournamentId);
   const teamId = parseId(req.params.teamId);
   if (tid == null || teamId == null) {
-    return res.status(400).json({ error: "Invalid id" });
+    return void res.status(400).json({ error: "Invalid id" });
   }
   const team = await loadTeamRow(tid, teamId);
-  if (!team) return res.status(404).json({ error: "Team not found" });
+  if (!team) return void res.status(404).json({ error: "Team not found" });
   const history = await loadLatestTeamHistory(teamId);
   res.json({ configuration: buildTeamConfiguration(team, history?.version ?? null) });
 });
@@ -112,16 +112,16 @@ router.patch("/tournaments/:tournamentId/teams/:teamId/configuration", async (re
   const tid = parseId(req.params.tournamentId);
   const teamId = parseId(req.params.teamId);
   if (tid == null || teamId == null) {
-    return res.status(400).json({ error: "Invalid id" });
+    return void res.status(400).json({ error: "Invalid id" });
   }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
   const parsed = patchSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid configuration patch", details: parsed.error.flatten() });
+    return void res.status(400).json({ error: "Invalid configuration patch", details: parsed.error.flatten() });
   }
   const result = await patchTeamConfiguration(tid, teamId, parsed.data);
-  if (!result.ok) return res.status(result.status).json({ error: result.error });
+  if (!result.ok) return void res.status(result.status).json({ error: result.error });
   res.json({ configuration: result.configuration });
 });
 
@@ -129,10 +129,10 @@ router.get("/tournaments/:tournamentId/teams/:teamId/members", async (req, res) 
   const tid = parseId(req.params.tournamentId);
   const teamId = parseId(req.params.teamId);
   if (tid == null || teamId == null) {
-    return res.status(400).json({ error: "Invalid id" });
+    return void res.status(400).json({ error: "Invalid id" });
   }
   const team = await loadTeamRow(tid, teamId);
-  if (!team) return res.status(404).json({ error: "Team not found" });
+  if (!team) return void res.status(404).json({ error: "Team not found" });
   const members = await loadTeamMembers(tid, team);
   res.json({ members });
 });
@@ -141,10 +141,10 @@ router.get("/tournaments/:tournamentId/teams/:teamId/validation", async (req, re
   const tid = parseId(req.params.tournamentId);
   const teamId = parseId(req.params.teamId);
   if (tid == null || teamId == null) {
-    return res.status(400).json({ error: "Invalid id" });
+    return void res.status(400).json({ error: "Invalid id" });
   }
   const team = await loadTeamRow(tid, teamId);
-  if (!team) return res.status(404).json({ error: "Team not found" });
+  if (!team) return void res.status(404).json({ error: "Team not found" });
   const validation = await buildTeamValidation(tid, team);
   res.json({ validation });
 });
@@ -153,10 +153,10 @@ router.get("/tournaments/:tournamentId/teams/:teamId/history", async (req, res) 
   const tid = parseId(req.params.tournamentId);
   const teamId = parseId(req.params.teamId);
   if (tid == null || teamId == null) {
-    return res.status(400).json({ error: "Invalid id" });
+    return void res.status(400).json({ error: "Invalid id" });
   }
   const team = await loadTeamRow(tid, teamId);
-  if (!team) return res.status(404).json({ error: "Team not found" });
+  if (!team) return void res.status(404).json({ error: "Team not found" });
   const history = await listTeamHistory(teamId);
   res.json({ history });
 });
@@ -166,7 +166,7 @@ router.post("/tournaments/:tournamentId/teams/:teamId/ready", async (req, res) =
   const tid = parseId(req.params.tournamentId);
   const teamId = parseId(req.params.teamId);
   if (tid == null || teamId == null) {
-    return res.status(400).json({ error: "Invalid id" });
+    return void res.status(400).json({ error: "Invalid id" });
   }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
@@ -180,7 +180,7 @@ router.post("/tournaments/:tournamentId/teams/:teamId/ready", async (req, res) =
 
   const result = await lockTeamSetup(tid, teamId, frozenBy);
   if (!result.ok) {
-    return res.status(result.status).json({
+    return void res.status(result.status).json({
       error: result.error,
       validation: result.validation,
     });
@@ -193,3 +193,4 @@ router.post("/tournaments/:tournamentId/teams/:teamId/ready", async (req, res) =
 });
 
 export default router;
+

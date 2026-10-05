@@ -31,7 +31,7 @@ function parseId(raw: string): number | null {
 
 router.use("/tournaments/:tournamentId", async (req, res, next) => {
   const tid = parseId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const [tournament] = await db
     .select({
       id: tournamentsTable.id,
@@ -66,14 +66,14 @@ function actorFromReq(req: {
 
 router.get("/tournaments/:tournamentId/runtime-matches", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   res.json({ runtimeMatches: await listRuntimeMatches(tid) });
 });
 
 /** GET /tournaments/:id/runtime-matches/aggregate — Fast bulk loader for runtime matches */
 router.get("/tournaments/:tournamentId/runtime-matches/aggregate", async (req, res) => {
   const tid = parseId(req.params.tournamentId);
-  if (tid == null) return res.status(400).json({ error: "Invalid tournament id" });
+  if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const runtimeMatches = await listRuntimeMatches(tid);
   const rows = await Promise.all(
     runtimeMatches.map(async (list) => {
@@ -93,9 +93,9 @@ router.get(
   async (req, res) => {
     const tid = parseId(req.params.tournamentId);
     const matchId = parseId(req.params.matchId);
-    if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+    if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
     const match = await loadMatchRow(tid, matchId);
-    if (!match) return res.status(404).json({ error: "Match not found" });
+    if (!match) return void res.status(404).json({ error: "Match not found" });
     res.json({ identity: buildRuntimeIdentity(match) });
   },
 );
@@ -105,9 +105,9 @@ router.get(
   async (req, res) => {
     const tid = parseId(req.params.tournamentId);
     const matchId = parseId(req.params.matchId);
-    if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+    if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
     const match = await loadMatchRow(tid, matchId);
-    if (!match) return res.status(404).json({ error: "Match not found" });
+    if (!match) return void res.status(404).json({ error: "Match not found" });
     res.json({ snapshot: await loadActiveSnapshot(match) });
   },
 );
@@ -118,9 +118,9 @@ router.get(
   async (req, res) => {
     const tid = parseId(req.params.tournamentId);
     const matchId = parseId(req.params.matchId);
-    if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+    if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
     const match = await loadMatchRow(tid, matchId);
-    if (!match) return res.status(404).json({ error: "Match not found" });
+    if (!match) return void res.status(404).json({ error: "Match not found" });
     res.json({ snapshot: await loadActiveSnapshot(match) });
   },
 );
@@ -130,9 +130,9 @@ router.get(
   async (req, res) => {
     const tid = parseId(req.params.tournamentId);
     const matchId = parseId(req.params.matchId);
-    if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+    if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
     const match = await loadMatchRow(tid, matchId);
-    if (!match) return res.status(404).json({ error: "Match not found" });
+    if (!match) return void res.status(404).json({ error: "Match not found" });
     res.json({ context: await loadRuntimeContext(match) });
   },
 );
@@ -142,9 +142,9 @@ router.get(
   async (req, res) => {
     const tid = parseId(req.params.tournamentId);
     const matchId = parseId(req.params.matchId);
-    if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+    if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
     const match = await loadMatchRow(tid, matchId);
-    if (!match) return res.status(404).json({ error: "Match not found" });
+    if (!match) return void res.status(404).json({ error: "Match not found" });
     res.json({ context: await loadRuntimeContext(match) });
   },
 );
@@ -154,9 +154,9 @@ router.get(
   async (req, res) => {
     const tid = parseId(req.params.tournamentId);
     const matchId = parseId(req.params.matchId);
-    if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+    if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
     const match = await loadMatchRow(tid, matchId);
-    if (!match) return res.status(404).json({ error: "Match not found" });
+    if (!match) return void res.status(404).json({ error: "Match not found" });
     res.json({ executionPhase: buildExecutionPhaseState(match) });
   },
 );
@@ -166,9 +166,9 @@ router.get(
   async (req, res) => {
     const tid = parseId(req.params.tournamentId);
     const matchId = parseId(req.params.matchId);
-    if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+    if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
     const match = await loadMatchRow(tid, matchId);
-    if (!match) return res.status(404).json({ error: "Match not found" });
+    if (!match) return void res.status(404).json({ error: "Match not found" });
     res.json({ validation: await buildRuntimeValidation(tid, match) });
   },
 );
@@ -178,9 +178,9 @@ router.get(
   async (req, res) => {
     const tid = parseId(req.params.tournamentId);
     const matchId = parseId(req.params.matchId);
-    if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+    if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
     const match = await loadMatchRow(tid, matchId);
-    if (!match) return res.status(404).json({ error: "Match not found" });
+    if (!match) return void res.status(404).json({ error: "Match not found" });
     res.json({ history: await listRuntimeHistory(matchId) });
   },
 );
@@ -190,7 +190,7 @@ router.post(
   async (req, res) => {
     const tid = parseId(req.params.tournamentId);
     const matchId = parseId(req.params.matchId);
-    if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+    if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
 
     const [tournament] = await db
       .select({ organizerId: tournamentsTable.organizerId })
@@ -221,7 +221,7 @@ router.post(
 
     const result = await prepareRuntimeMatch(tid, matchId, actor);
     if (!result.ok) {
-      return res.status(result.status).json({
+      return void res.status(result.status).json({
         error: result.error,
         validation: result.validation,
       });
@@ -250,12 +250,12 @@ router.post(
   async (req, res) => {
     const tid = parseId(req.params.tournamentId);
     const matchId = parseId(req.params.matchId);
-    if (tid == null || matchId == null) return res.status(400).json({ error: "Invalid id" });
+    if (tid == null || matchId == null) return void res.status(400).json({ error: "Invalid id" });
     if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
     const result = await requestRuntimeReady(tid, matchId, actorFromReq(req));
     if (!result.ok) {
-      return res.status(result.status).json({
+      return void res.status(result.status).json({
         error: result.error,
         validation: result.validation,
       });
@@ -270,3 +270,4 @@ router.post(
 );
 
 export default router;
+

@@ -1,4 +1,4 @@
-import { Router, type Response } from "express";
+import { Router } from "express";
 import { canAccessPrivateTournamentData, requireTournamentOrganizer } from "../middleware/require-organizer";
 import { publicPlayerSerializer, privatePlayerSerializer } from "../lib/serializers/player";
 import { validateTeamBelongsToTournament } from "../lib/team-tournament-guard";
@@ -1319,6 +1319,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     cricheroUrl: z.string().optional(),
     availabilityDates: z.string().optional(),
     retainedPrice: z.number().int().nullable().optional(),
+    soldPrice: z.number().int().nullable().optional(),
     status: z.string().optional(),
     teamId: z.number().int().nullable().optional(),
     playerTag: z.enum(PLAYER_TAG_VALUES).nullable().optional(),
