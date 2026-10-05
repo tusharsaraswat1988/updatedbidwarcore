@@ -128,7 +128,7 @@ router.post("/bulk-roster-import", async (req, res) => {
 
   const playerItemSchema = z.object({
     id: z.number().int().positive().optional().nullable(),
-    teamId: z.number().int().positive(),
+    teamId: z.number().int().positive().optional().nullable(),
     name: z.string().min(1),
     role: z.string().optional().nullable(),
     battingStyle: z.string().optional().nullable(),
@@ -160,7 +160,7 @@ router.post("/bulk-roster-import", async (req, res) => {
   const validTeamIds = new Set(teams.map((t) => t.id));
 
   for (const p of parsed.data.players) {
-    if (!validTeamIds.has(p.teamId)) {
+    if (p.teamId != null && !validTeamIds.has(p.teamId)) {
       res.status(400).json({ error: `Team ID ${p.teamId} does not belong to this tournament` });
       return;
     }
@@ -194,7 +194,7 @@ router.post("/bulk-roster-import", async (req, res) => {
         .update(playersTable)
         .set({
           name: item.name.trim(),
-          teamId: item.teamId,
+          teamId: item.teamId ?? null,
           role: item.role || null,
           battingStyle: item.battingStyle || "Right Hand",
           bowlingStyle: item.bowlingStyle || "None",
@@ -213,7 +213,7 @@ router.post("/bulk-roster-import", async (req, res) => {
       await db.insert(playersTable).values({
         tournamentId,
         serialNo: nextSerial++,
-        teamId: item.teamId,
+        teamId: item.teamId ?? null,
         name: item.name.trim(),
         role: item.role || "Batsman",
         battingStyle: item.battingStyle || "Right Hand",

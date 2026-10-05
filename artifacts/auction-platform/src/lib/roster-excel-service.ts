@@ -3,7 +3,7 @@ import type { Player, Team } from "@workspace/api-client-react";
 export interface ParsedRosterPlayer {
   id?: number; // Present if updating an existing player
   action: "new" | "update";
-  teamId: number;
+  teamId?: number | null;
   teamName: string;
   name: string;
   role: "Batsman" | "Bowler" | "All Rounder" | "Wicket Keeper";
@@ -267,25 +267,38 @@ export async function parseRosterExcelFile(
     const rawTeamCode = findVal(row, ["Team Code *", "Team Code", "team_code", "Code", "Short Code", "teamCode"]);
     const rawTeamName = findVal(row, ["Team Name", "Team", "team_name", "teamName"]);
 
-    let matchedTeam: Team | undefined;
-    if (rawTeamCode) {
-      matchedTeam = teamByCode.get(rawTeamCode.toLowerCase());
-    }
-    if (!matchedTeam && rawTeamName) {
-      matchedTeam = teamByName.get(rawTeamName.toLowerCase());
-      if (!matchedTeam) {
-        // Partial search
-        matchedTeam = teams.find((t) => t.name.toLowerCase().includes(rawTeamName.toLowerCase()));
-      }
-    }
+    const isUnassigned =
+      rawTeamCode.toLowerCase() === "unassigned" ||
+      rawTeamName.toLowerCase() === "unassigned" ||
+      (!rawTeamCode && !rawTeamName);
 
-    if (!matchedTeam) {
-      errors.push({
+    let matchedTeam: Team | undefined;
+    if (!isUnassigned) {
+      if (rawTeamCode) {
+        matchedTeam = teamByCode.get(rawTeamCode.toLowerCase());
+      }
+      if (!matchedTeam && rawTeamName) {
+        matchedTeam = teamByName.get(rawTeamName.toLowerCase());
+        if (!matchedTeam) {
+          // Partial search
+          matchedTeam = teams.find((t) => t.name.toLowerCase().includes(rawTeamName.toLowerCase()));
+        }
+      }
+
+      if (!matchedTeam) {
+        errors.push({
+          row: rowNumber,
+          player: rawName,
+          message: `Team not found. Could not match team code '${rawTeamCode || rawTeamName}'. Check team list in Instructions tab.`,
+        });
+        return;
+      }
+    } else {
+      warnings.push({
         row: rowNumber,
         player: rawName,
-        message: `Team not found. Could not match team code '${rawTeamCode || rawTeamName}'. Check team list in Instructions tab.`,
+        message: "Player has no assigned team (Unassigned).",
       });
-      return;
     }
 
     // 2. Resolve Player Identity (New vs Update)
@@ -310,7 +323,9 @@ export async function parseRosterExcelFile(
     // If no valid ID provided, check if a player with identical name exists in this tournament team
     if (!parsedId) {
       const existingInTeam = existingPlayers.find(
-        (p) => p.teamId === matchedTeam?.id && p.name.trim().toLowerCase() === rawName.toLowerCase(),
+        (p) =>
+          (matchedTeam ? p.teamId === matchedTeam.id : p.teamId == null) &&
+          p.name.trim().toLowerCase() === rawName.toLowerCase(),
       );
       if (existingInTeam) {
         parsedId = existingInTeam.id;
@@ -318,7 +333,9 @@ export async function parseRosterExcelFile(
         warnings.push({
           row: rowNumber,
           player: rawName,
-          message: `Matched existing player in ${matchedTeam.name} by name. Will update profile.`,
+          message: matchedTeam
+            ? `Matched existing player in ${matchedTeam.name} by name. Will update profile.`
+            : `Matched existing unassigned player by name. Will update profile.`,
         });
       }
     }
@@ -343,8 +360,8 @@ export async function parseRosterExcelFile(
     validRows.push({
       id: parsedId,
       action,
-      teamId: matchedTeam.id,
-      teamName: matchedTeam.name,
+      teamId: matchedTeam?.id ?? null,
+      teamName: matchedTeam?.name ?? "Unassigned",
       name: rawName,
       role,
       battingStyle,

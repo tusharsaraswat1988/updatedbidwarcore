@@ -106,4 +106,53 @@ describe("roster-excel-service parsing utilities", () => {
     expect(result.validRows[1].jerseyNumber).toBe("7");
     expect(result.validRows[1].role).toBe("All Rounder");
   });
+
+  it("handles Unassigned players gracefully without throwing team not found errors", async () => {
+    const XLSX = await import("xlsx");
+    const { parseRosterExcelFile } = await import("../roster-excel-service");
+
+    const wb = XLSX.utils.book_new();
+    const rows = [
+      {
+        "Player ID (Do Not Change)": 201,
+        "Team Code *": "Unassigned",
+        "Team Name": "Unassigned",
+        "Player Name *": "Aavyaan Agrawal",
+        Role: "Batsman",
+        "Batting Style": "Right Hand",
+        "Bowling Style": "None",
+        "Jersey #": "10",
+      },
+      {
+        "Player ID (Do Not Change)": "",
+        "Team Code *": "",
+        "Team Name": "",
+        "Player Name *": "Vivaan giri",
+        Role: "Bowler",
+        "Batting Style": "Right Hand",
+        "Bowling Style": "Right Arm Medium",
+      },
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, "Cricket Roster");
+    const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+
+    const file = new File([buf], "roster.xlsx", {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    const mockTeams: any[] = [{ id: 1, name: "Ishita Warriors", shortCode: "WARRIORS" }];
+    const mockPlayers: any[] = [{ id: 201, name: "Aavyaan Agrawal", teamId: null }];
+
+    const result = await parseRosterExcelFile(file, mockTeams, mockPlayers);
+
+    expect(result.errors.length).toBe(0); // Zero errors!
+    expect(result.validRows.length).toBe(2);
+    expect(result.validRows[0].teamId).toBeNull();
+    expect(result.validRows[0].teamName).toBe("Unassigned");
+    expect(result.validRows[1].teamId).toBeNull();
+    expect(result.validRows[1].teamName).toBe("Unassigned");
+    expect(result.warnings.length).toBeGreaterThanOrEqual(2);
+  });
 });
