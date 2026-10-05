@@ -94,17 +94,24 @@ export default function ScoringPublicStandingsPage() {
 
       {standings?.hasGroups && standings.groups && standings.groups.length > 0 ? (
         <div className="space-y-6">
-          {standings.groups.map((g) => (
-            <section key={g.id} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h2 className={cn(cricketSectionTitleClass)}>{g.name} Standings</h2>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                  Top 2 Qualify
-                </span>
-              </div>
-              <StandingsTable rows={g.rows} highlightTop={2} />
-            </section>
-          ))}
+          {standings.groups.map((g) => {
+            const groupTitle =
+              (g as any).displayName ||
+              ((g as any).drawName && !g.name.includes((g as any).drawName)
+                ? `${(g as any).drawName} — ${g.name}`
+                : g.name);
+            return (
+              <section key={g.id} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h2 className={cn(cricketSectionTitleClass)}>{groupTitle} Standings</h2>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                    Top 2 Qualify
+                  </span>
+                </div>
+                <StandingsTable rows={g.rows} highlightTop={2} />
+              </section>
+            );
+          })}
           <section className="space-y-2 opacity-80">
             <h2 className={cn(cricketSectionTitleClass)}>Overall Standings</h2>
             <StandingsTable rows={standings ?? []} highlightTop={0} />

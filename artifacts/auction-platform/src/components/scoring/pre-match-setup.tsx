@@ -17,8 +17,10 @@ import {
 import { getActiveInnings } from "@/lib/scoring-ball";
 import type { ScoringMatchJson } from "@/lib/scoring-api";
 import { setMatchSquad } from "@/lib/scoring-foundation-api";
+import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 import { ScoringPlayerAvatar } from "@/components/scoring/scoring-player-row";
-import { cricketRulesPath } from "@/lib/cricket-routes";
+import { cricketRulesPath, cricketScorerConsolePath, cricketScheduleOpsPath } from "@/lib/cricket-routes";
 import {
   BtnSecondary,
   btnCompactClass,
@@ -230,9 +232,22 @@ export function PreMatchSetup({
     playingSquadSize === 11 ? "Playing XI" : `Playing ${playingSquadSize}`;
 
   const isPaused =
-    state.matchStatus === "paused" || state.sessionStatus === "paused";
+    (state.matchStatus as string) === "paused" || state.sessionStatus === "paused";
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [liveMatchConflict, setLiveMatchConflict] = useState<{
+    liveMatchId: number;
+    matchLabel?: string | null;
+    roundName?: string | null;
+    homeTeamId?: number;
+    awayTeamId?: number;
+    isLogicallyComplete?: boolean;
+    message?: string;
+  } | null>(null);
 
   const [walkoverDialogOpen, setWalkoverDialogOpen] = useState(false);
   const [walkoverWinnerTeamId, setWalkoverWinnerTeamId] = useState<number>(match.homeTeamId);
@@ -520,6 +535,68 @@ export function PreMatchSetup({
         </DialogContent>
       </Dialog>
 
+      {/* ─── Live Match Conflict Recovery Dialog ─── */}
+      <Dialog open={conflictDialogOpen} onOpenChange={setConflictDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-400">
+              <AlertTriangle className="w-5 h-5 text-rose-400" />
+              Another Match Is Currently Live
+            </DialogTitle>
+            <DialogDescription className="space-y-2 pt-2 text-left">
+              <p className="text-foreground/90 text-xs sm:text-sm">
+                BidWar enforces <strong>one live cricket match at a time</strong> per tournament so LED stadium scoreboards, live streaming overlays, and tournament standings stay completely synchronized.
+              </p>
+              {liveMatchConflict && (
+                <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 space-y-1.5 mt-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-rose-300">
+                    <span>
+                      Match #{liveMatchConflict.liveMatchId || "—"}
+                      {liveMatchConflict.matchLabel ? ` (${liveMatchConflict.matchLabel})` : ""}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 uppercase text-[10px]">
+                      Live on Ground
+                    </span>
+                  </div>
+                  {liveMatchConflict.roundName ? (
+                    <p className="text-xs text-foreground/80">{liveMatchConflict.roundName}</p>
+                  ) : null}
+                  <p className="text-[11px] text-muted-foreground pt-1">
+                    {liveMatchConflict.isLogicallyComplete
+                      ? "This match has completed all overs/target. Head over to its scorer pad to submit official confirmation."
+                      : "Please conclude or complete the live match before starting this new match."}
+                  </p>
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-2">
+            {liveMatchConflict?.liveMatchId ? (
+              <Button
+                className="w-full sm:flex-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold"
+                onClick={() => {
+                  setConflictDialogOpen(false);
+                  navigate(cricketScorerConsolePath(tournamentId, liveMatchConflict.liveMatchId));
+                }}
+              >
+                Go to Match #{liveMatchConflict.liveMatchId} Scorer
+              </Button>
+            ) : null}
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => {
+                setConflictDialogOpen(false);
+                navigate(cricketScheduleOpsPath(tournamentId));
+              }}
+            >
+              View Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ─── Step 1: Toss ─── */}
       {needsToss ? (
         <TossStep
@@ -547,17 +624,46 @@ export function PreMatchSetup({
                 // proceed with event if prepare threw
               }
             }
-            await onEvent(CricketEventType.MATCH_STARTED, {
-              tossWinnerTeamId: parseInt(tossWinner, 10),
-              electedTo,
-              oversLimit,
-              powerplayOvers:
-                match.rules?.powerplayOvers && match.rules.powerplayOvers.length > 0
-                  ? match.rules.powerplayOvers
-                  : match.rules?.powerplayEnabled
-                  ? [1]
-                  : [],
-            });
+            try {
+              await onEvent(CricketEventType.MATCH_STARTED, {
+                tossWinnerTeamId: parseInt(tossWinner, 10),
+                electedTo,
+                oversLimit,
+                powerplayOvers:
+                  match.rules?.powerplayOvers && match.rules.powerplayOvers.length > 0
+                    ? match.rules.powerplayOvers
+                    : match.rules?.powerplayEnabled
+                    ? [1]
+                    : [],
+              });
+            } catch (err: any) {
+              const code = err?.code || err?.response?.data?.code || err?.data?.code;
+              const details = err?.details || err?.response?.data?.details || err?.data?.details;
+              const message = err?.message || err?.response?.data?.error || "A live match is already running.";
+              if (code === "LIVE_MATCH_EXISTS" || (typeof message === "string" && message.includes("already live"))) {
+                const liveId =
+                  details?.liveMatchId ||
+                  (typeof message === "string" && message.match(/Match #(\d+)/)?.[1]
+                    ? parseInt(message.match(/Match #(\d+)/)![1]!, 10)
+                    : undefined);
+                setLiveMatchConflict({
+                  liveMatchId: liveId ?? 0,
+                  matchLabel: details?.matchLabel,
+                  roundName: details?.roundName,
+                  homeTeamId: details?.homeTeamId,
+                  awayTeamId: details?.awayTeamId,
+                  isLogicallyComplete: details?.isLogicallyComplete,
+                  message,
+                });
+                setConflictDialogOpen(true);
+              } else {
+                toast({
+                  title: "Match Start Failed",
+                  description: typeof message === "string" ? message : "Could not start match.",
+                  variant: "destructive",
+                });
+              }
+            }
           }}
         />
       ) : null}

@@ -1271,7 +1271,11 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async 
   } catch (err) {
     if (sendScorerLockError(res, err)) return;
     if (err instanceof ScoringServiceError) {
-      res.status(err.status).json({ error: err.message, code: err.code });
+      res.status(err.status).json({
+        error: err.message,
+        code: err.code,
+        ...(err.details ? { details: err.details } : {}),
+      });
       return;
     }
     throw err;

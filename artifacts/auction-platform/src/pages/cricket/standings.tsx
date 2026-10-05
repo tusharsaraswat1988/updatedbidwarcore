@@ -167,21 +167,28 @@ export default function CricketStandingsPage() {
             {/* Standings Table Container */}
             {standings?.hasGroups && standings.groups && standings.groups.length > 0 ? (
               <div className="space-y-6">
-                {standings.groups.map((g) => (
-                  <section key={g.id} className={cn(hubCardClass, "p-4 sm:p-6 space-y-4")}>
-                    <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
-                      <HubSectionHeader
-                        title={`${g.name} Points Table`}
-                        subtitle={`${g.rows.length} teams · Top 2 qualify for Semi-Finals`}
-                      />
-                      <span className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary border border-primary/20">
-                        Top 2 $\rightarrow$ SF
-                      </span>
-                    </div>
+                {standings.groups.map((g) => {
+                  const groupTitle =
+                    (g as any).displayName ||
+                    ((g as any).drawName && !g.name.includes((g as any).drawName)
+                      ? `${(g as any).drawName} — ${g.name}`
+                      : g.name);
+                  return (
+                    <section key={g.id} className={cn(hubCardClass, "p-4 sm:p-6 space-y-4")}>
+                      <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
+                        <HubSectionHeader
+                          title={`${groupTitle} Points Table`}
+                          subtitle={`${g.rows.length} teams · Top 2 qualify for Semi-Finals`}
+                        />
+                        <span className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary border border-primary/20">
+                          Top 2 $\rightarrow$ SF
+                        </span>
+                      </div>
 
-                    <StandingsTable rows={g.rows} highlightTop={2} />
-                  </section>
-                ))}
+                      <StandingsTable rows={g.rows} highlightTop={2} />
+                    </section>
+                  );
+                })}
 
                 <section className={cn(hubCardClass, "p-4 sm:p-6 space-y-4 opacity-80 hover:opacity-100 transition-opacity")}>
                   <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">

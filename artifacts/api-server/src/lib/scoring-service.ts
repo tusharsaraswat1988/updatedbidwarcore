@@ -46,8 +46,8 @@ import { assertAuthoritativeScorerLease } from "./scorer-match-locks";
 export type { ScoringActor };
 
 export class ScoringServiceError extends ScoringPlatformError {
-  constructor(message: string, status: number, code?: string) {
-    super(message, status, code);
+  constructor(message: string, status: number, code?: string, details?: Record<string, unknown>) {
+    super(message, status, code, details);
     this.name = "ScoringServiceError";
   }
 }
@@ -55,7 +55,7 @@ export class ScoringServiceError extends ScoringPlatformError {
 function mapPlatformError<T>(fn: () => Promise<T>): Promise<T> {
   return fn().catch((err) => {
     if (err instanceof ScoringPlatformError) {
-      throw new ScoringServiceError(err.message, err.status, err.code);
+      throw new ScoringServiceError(err.message, err.status, err.code, err.details);
     }
     throw err;
   });

@@ -610,6 +610,11 @@ export async function generateScoringDraw(input: {
   const fixtureRows = [];
   for (let i = 0; i < scheduled.length; i++) {
     const f = scheduled[i]!;
+    const effectiveRoundName =
+      input.name && f.roundName && !f.roundName.toLowerCase().startsWith(input.name.toLowerCase())
+        ? `${input.name} · ${f.roundName}`
+        : f.roundName;
+
     const [fixture] = await db
       .insert(scoringFixturesTable)
       .values({
@@ -620,7 +625,7 @@ export async function generateScoringDraw(input: {
         bracketRound: f.bracketRound ?? null,
         bracketSlot: f.bracketSlot ?? null,
         fixtureNumber: i + 1,
-        roundName: f.roundName,
+        roundName: effectiveRoundName,
         scheduledAt: f.scheduledAt ? new Date(f.scheduledAt) : null,
         venueId: input.venueId ?? null,
         venue: venueName,
@@ -645,7 +650,7 @@ export async function generateScoringDraw(input: {
           awaySideJson: { teamId: f.awayTeamId },
           // Placeholder only — Runtime Prepare replaces via RuntimeExecutionPolicy.
           rulesJson: { overs: effectiveOvers, maxWickets: effectiveWickets },
-          roundName: f.roundName,
+          roundName: effectiveRoundName,
           scheduledAt: f.scheduledAt ? new Date(f.scheduledAt) : null,
           venueId: input.venueId ?? null,
           venue: venueName,

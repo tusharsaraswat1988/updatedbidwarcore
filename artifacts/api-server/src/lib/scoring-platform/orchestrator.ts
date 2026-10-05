@@ -19,10 +19,14 @@ import {
   type ScoringEventEnvelope,
   type ScoringSportSlug,
   type CricketScoreboardState,
+  buildMatchMetaFromRules,
+  isCricketMatchTerminalState,
+  deriveCricketMatchResult,
 } from "@workspace/scoring-core";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { broadcastScoringState } from "../scoring-broadcast";
 import { ScoringPlatformError } from "./errors";
+import { logger } from "../logger";
 import {
   findMatchEventByCorrelationId,
   getNextEventSequence,
@@ -106,7 +110,7 @@ async function ensureNoOtherLiveCricketMatch(
   matchId: number,
 ): Promise<void> {
   const [otherLive] = await db
-    .select({ id: scoringMatchesTable.id, matchLabel: scoringMatchesTable.matchLabel })
+    .select()
     .from(scoringMatchesTable)
     .where(
       and(
@@ -118,13 +122,82 @@ async function ensureNoOtherLiveCricketMatch(
     )
     .limit(1);
 
-  if (otherLive) {
-    throw new ScoringPlatformError(
-      `Match #${otherLive.id}${otherLive.matchLabel ? ` (${otherLive.matchLabel})` : ""} is already live in this tournament. Please pause or complete it before starting another match.`,
-      409,
-      "LIVE_MATCH_EXISTS",
-    );
+  if (!otherLive) return;
+
+  // Check if otherLive has already reached an authoritative terminal winning state
+  const [session] = await db
+    .select({ stateJson: scoringSessionsTable.stateJson })
+    .from(scoringSessionsTable)
+    .where(eq(scoringSessionsTable.matchId, otherLive.id))
+    .limit(1);
+
+  let isLogicallyComplete = false;
+  if (session?.stateJson) {
+    const otherState = session.stateJson as CricketScoreboardState;
+    const terminalCheck = isCricketMatchTerminalState(otherState);
+    if (terminalCheck.valid) {
+      const derived = deriveCricketMatchResult(otherState);
+      // Unambiguous winner: not a tie needing super-over
+      if (!derived.isTie) {
+        try {
+          const matchMeta = buildMatchMetaFromRules({
+            matchId: otherLive.id,
+            tournamentId: otherLive.tournamentId,
+            homeTeamId: otherLive.homeTeamId,
+            awayTeamId: otherLive.awayTeamId,
+            rules: (otherLive.rulesJson ?? {}) as Record<string, unknown>,
+            ruleResolution:
+              ((otherLive.runtimePrepMetadataJson as Record<string, unknown> | null)
+                ?.ruleResolution as Record<string, unknown> | null) ?? null,
+            matchTypeId: otherLive.matchTypeId,
+          });
+
+          await appendSingleMatchEvent(
+            {
+              tournamentId,
+              matchId: otherLive.id,
+              sportSlug: "cricket",
+              eventType: CricketEventType.MATCH_COMPLETED,
+              payload: {
+                winnerTeamId: derived.winnerTeamId,
+                margin: derived.margin,
+                resultText: derived.resultText,
+                isTie: derived.isTie,
+              },
+              expectedSequence: otherState.lastSequence,
+              actor: { type: "system", id: "auto_completion" },
+              matchMeta,
+            },
+            otherLive,
+          );
+          // Match 1 was safely completed on behalf of the tournament! Live slot is freed.
+          return;
+        } catch (autoErr) {
+          logger.warn(
+            { err: autoErr, otherLiveMatchId: otherLive.id },
+            "Auto-completion of logically finished match encountered error, falling back to operator recovery",
+          );
+          isLogicallyComplete = true;
+        }
+      } else {
+        isLogicallyComplete = true;
+      }
+    }
   }
+
+  throw new ScoringPlatformError(
+    `Match #${otherLive.id}${otherLive.matchLabel ? ` (${otherLive.matchLabel})` : ""} is already live in this tournament. Please pause or complete it before starting another match.`,
+    409,
+    "LIVE_MATCH_EXISTS",
+    {
+      liveMatchId: otherLive.id,
+      matchLabel: otherLive.matchLabel,
+      roundName: otherLive.roundName,
+      homeTeamId: otherLive.homeTeamId,
+      awayTeamId: otherLive.awayTeamId,
+      isLogicallyComplete,
+    },
+  );
 }
 
 type MatchProjection = {

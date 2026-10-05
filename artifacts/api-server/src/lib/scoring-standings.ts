@@ -1,5 +1,6 @@
-import { db } from "@workspace/db";
 import {
+  db,
+  scoringDrawsTable,
   scoringEventsTable,
   scoringFixturesTable,
   scoringGroupMembersTable,
@@ -148,6 +149,9 @@ export async function rebuildTournamentStandings(tournamentId: number) {
 
 export type ScoringGroupResult = {
   id: number;
+  drawId?: number;
+  drawName?: string | null;
+  displayName?: string;
   name: string;
   sortOrder: number;
   rows: Array<{
@@ -197,7 +201,7 @@ export function invalidateTournamentScoringGateCache(tournamentId: number) {
 async function getScoringStandingsRaw(tournamentId: number) {
   await ensureScoringEnabled(tournamentId);
 
-  const [rows, groups, groupMembers, fixtures, finishedMatches] = await Promise.all([
+  const [rows, groups, groupMembers, fixtures, finishedMatches, draws] = await Promise.all([
     db
       .select()
       .from(scoringStandingsTable)
@@ -232,6 +236,10 @@ async function getScoringStandingsRaw(tournamentId: number) {
           ),
         ),
       ),
+    db
+      .select({ id: scoringDrawsTable.id, name: scoringDrawsTable.name })
+      .from(scoringDrawsTable)
+      .where(eq(scoringDrawsTable.tournamentId, tournamentId)),
   ]);
 
   const allTeamIdsSet = new Set<number>();
@@ -300,6 +308,11 @@ async function getScoringStandingsRaw(tournamentId: number) {
       }
     }
 
+    const drawNameMap = new Map<number, string>();
+    for (const d of draws) {
+      if (d.name) drawNameMap.set(d.id, d.name);
+    }
+
     for (const g of groups) {
       const members = groupMembers.filter((gm) => gm.groupId === g.id);
       const groupTeamIds = members.map((gm) => gm.teamId);
@@ -344,8 +357,17 @@ async function getScoringStandingsRaw(tournamentId: number) {
         };
       });
 
+      const drawName = g.drawId ? (drawNameMap.get(g.drawId) ?? null) : null;
+      const displayName =
+        drawName && !g.name.toLowerCase().includes(drawName.toLowerCase())
+          ? `${drawName} — ${g.name}`
+          : g.name;
+
       groupResults.push({
         id: g.id,
+        drawId: g.drawId,
+        drawName,
+        displayName,
         name: g.name,
         sortOrder: g.sortOrder,
         rows: groupRows,

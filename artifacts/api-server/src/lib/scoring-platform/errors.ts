@@ -3,6 +3,7 @@ export class ScoringPlatformError extends Error {
     message: string,
     readonly status: number,
     readonly code?: string,
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ScoringPlatformError";
