@@ -63,7 +63,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, CheckCircle2, ChevronRight, Edit2, ListOrdered, Plus, Radio, Settings, Sliders, Trash2, Trophy } from "lucide-react";
+import { Calendar, CheckCircle2, ChevronRight, Edit2, ListOrdered, MapPin, Plus, Radio, Settings, Sliders, Trash2, Trophy, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type FilterKey = "all" | "today" | "upcoming" | "live" | "completed";
@@ -78,6 +78,33 @@ function isSameLocalDay(iso: string | null | undefined): boolean {
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate()
   );
+}
+
+function formatMatchDateTime(iso: string | null | undefined): string {
+  if (!iso) return "Date & Time TBD";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "Date & Time TBD";
+  const dateStr = d.toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+  const timeStr = d.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+  return `${dateStr} · ${timeStr}`;
+}
+
+function cleanRoundLabel(roundName: string | null | undefined, tournamentName?: string): string {
+  if (!roundName) return "";
+  let cleaned = roundName;
+  if (tournamentName) {
+    cleaned = cleaned.replace(new RegExp(tournamentName, "gi"), "");
+  }
+  cleaned = cleaned.replace(/^[\s·\-_/]+|[\s·\-_/]+$/g, "").trim();
+  return cleaned || roundName;
 }
 
 export default function CricketFixturesPage() {
@@ -132,8 +159,22 @@ export default function CricketFixturesPage() {
     };
   }, [matches, fixtures]);
 
+  const [selectedGroup, setSelectedGroup] = useState<string>("all");
+
+  const detectedGroups = useMemo(() => {
+    const groups = new Set<string>();
+    (matches ?? []).forEach((m) => {
+      const r = m.roundName || "";
+      const match = r.match(/Group\s+([A-Z0-9]+)/i);
+      if (match) {
+        groups.add(`Group ${match[1].toUpperCase()}`);
+      }
+    });
+    return Array.from(groups).sort();
+  }, [matches]);
+
   const filtered = useMemo(() => {
-    const list = matches ?? [];
+    let list = matches ?? [];
     switch (filter) {
       case "today":
         return list.filter(
@@ -149,10 +190,36 @@ export default function CricketFixturesPage() {
         return list.filter((m) => m.status === "live");
       case "completed":
         return list.filter((m) => isTerminalCricketMatchStatus(m.status));
-      default:
-        return list;
     }
-  }, [matches, filter]);
+
+    if (selectedGroup !== "all") {
+      list = list.filter((m) => {
+        const r = m.roundName || "";
+        return r.toLowerCase().includes(selectedGroup.toLowerCase());
+      });
+    }
+
+    return [...list].sort((a, b) => {
+      if (a.status === "live" && b.status !== "live") return -1;
+      if (b.status === "live" && a.status !== "live") return 1;
+
+      if (isTerminalCricketMatchStatus(a.status) && isTerminalCricketMatchStatus(b.status)) {
+        const timeA = new Date(a.completedAt || a.scheduledAt || 0).getTime();
+        const timeB = new Date(b.completedAt || b.scheduledAt || 0).getTime();
+        return timeB - timeA;
+      }
+
+      const timeA = a.scheduledAt ? new Date(a.scheduledAt).getTime() : 0;
+      const timeB = b.scheduledAt ? new Date(b.scheduledAt).getTime() : 0;
+      if (timeA && timeB && timeA !== timeB) {
+        return timeA - timeB;
+      }
+
+      const numA = a.tournamentMatchNumber ?? a.id;
+      const numB = b.tournamentMatchNumber ?? b.id;
+      return numA - numB;
+    });
+  }, [matches, filter, selectedGroup]);
 
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -387,30 +454,71 @@ export default function CricketFixturesPage() {
               <HubKpiCard label="Total Matches" value={stats.total} icon={ListOrdered} tint="muted" />
             </div>
 
-            {/* Filter Pills */}
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  ["all", "All Matches"],
-                  ["today", "Today"],
-                  ["upcoming", "Upcoming"],
-                  ["live", "Live"],
-                  ["completed", "Completed"],
-                ] as const
-              ).map(([key, label]) => (
-                <CricketFilterPill
-                  key={key}
-                  active={filter === key}
-                  onClick={() => setFilter(key)}
-                >
-                  {label}
-                </CricketFilterPill>
-              ))}
+            {/* Filter Pills & Group Tabs */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ["all", "All Matches"],
+                    ["today", "Today"],
+                    ["upcoming", "Upcoming"],
+                    ["live", "Live"],
+                    ["completed", "Completed"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <CricketFilterPill
+                    key={key}
+                    active={filter === key}
+                    onClick={() => setFilter(key)}
+                  >
+                    {label}
+                  </CricketFilterPill>
+                ))}
+              </div>
+
+              {detectedGroups.length > 0 ? (
+                <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-xl border border-border/70 self-start sm:self-auto">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2">
+                    Group:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGroup("all")}
+                    className={cn(
+                      "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all",
+                      selectedGroup === "all"
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    All
+                  </button>
+                  {detectedGroups.map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setSelectedGroup(g)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all",
+                        selectedGroup === g
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <HubSectionHeader
               title="Tournament Matches"
-              subtitle={`${filtered.length} of ${stats.total} match${stats.total === 1 ? "" : "es"} shown`}
+              subtitle={
+                selectedGroup !== "all"
+                  ? `${filtered.length} match${filtered.length === 1 ? "" : "es"} in ${selectedGroup} · Earliest first`
+                  : `${filtered.length} of ${stats.total} match${stats.total === 1 ? "" : "es"} shown · Earliest first`
+              }
               badge={stats.live > 0 ? `${stats.live} LIVE` : undefined}
               badgeVariant="destructive"
             />
@@ -441,6 +549,7 @@ export default function CricketFixturesPage() {
                   const isScheduled = m.status === "scheduled";
                   const scorerUrl = cricketScorerConsolePath(tournamentId, m.id);
                   const centerUrl = cricketMatchCenterPath(tournamentId, m.id);
+                  const cleanedStage = cleanRoundLabel(m.roundName, tournament?.name);
 
                   // Extract live scoreboard
                   const liveState = (
@@ -463,39 +572,54 @@ export default function CricketFixturesPage() {
                       )}
                     >
                       <div className="space-y-3">
+                        {/* Header: Match #, Stage, Status */}
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span
-                              className={cn(
-                                "text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full",
-                                isLive
-                                  ? "bg-red-500/15 border border-red-500/30 text-red-400 animate-pulse"
-                                  : isCompleted
-                                    ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
-                                    : "bg-muted border border-border text-muted-foreground",
-                              )}
-                            >
-                              {isLive ? "🔴 LIVE NOW" : m.status}
+                          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                            <span className="font-black text-xs text-foreground bg-muted/60 px-2 py-0.5 rounded-md border border-border/70 shrink-0">
+                              {m.tournamentMatchNumber != null ? `Match #${m.tournamentMatchNumber}` : `Match #${m.id}`}
                             </span>
-                            {isLive && liveState?.currentInnings ? (
-                              <Badge variant="outline" className="text-[10px] font-semibold text-amber-400 border-amber-500/30 bg-amber-500/10">
-                                {liveState.currentInnings === 1 ? "1st Innings" : "2nd Innings"}
+                            {cleanedStage ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] font-semibold text-foreground/80 border-border/60 bg-muted/20 truncate max-w-[200px]"
+                                title={m.roundName || ""}
+                              >
+                                {cleanedStage}
                               </Badge>
                             ) : null}
                             {m.rulePresetName ? (
-                              <Badge variant="outline" className="text-[10px] font-semibold text-primary border-primary/30 bg-primary/5">
+                              <Badge variant="outline" className="text-[10px] font-semibold text-primary border-primary/30 bg-primary/5 shrink-0">
                                 {m.rulePresetName}
                               </Badge>
                             ) : null}
                           </div>
-                          <span className="text-xs text-muted-foreground font-semibold">
-                            {m.scheduledAt
-                              ? new Date(m.scheduledAt).toLocaleString(undefined, {
-                                  dateStyle: "short",
-                                  timeStyle: "short",
-                                })
-                              : m.venue || `Match #${m.tournamentMatchNumber ?? m.id}`}
+
+                          <span
+                            className={cn(
+                              "text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full shrink-0",
+                              isLive
+                                ? "bg-red-500/15 border border-red-500/30 text-red-400 animate-pulse"
+                                : isCompleted
+                                  ? "bg-emerald-500/15 border border-emerald-500/30 text-emerald-400"
+                                  : "bg-primary/10 border border-primary/20 text-primary",
+                            )}
+                          >
+                            {isLive ? "🔴 LIVE NOW" : m.status}
                           </span>
+                        </div>
+
+                        {/* Date & Ground Strip (Prominent, clean, localized) */}
+                        <div className="flex items-center justify-between text-xs bg-muted/20 px-2.5 py-1.5 rounded-lg border border-border/40">
+                          <div className="flex items-center gap-1.5 font-medium text-foreground/90">
+                            <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
+                            <span>{formatMatchDateTime(m.scheduledAt)}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] truncate">
+                            <MapPin className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{m.venue || "Ground TBD"}</span>
+                            <span>·</span>
+                            <span>{m.rules?.overs ?? 20} Ov</span>
+                          </div>
                         </div>
 
                         {/* LIVE MATCH DISPLAY */}
@@ -509,18 +633,18 @@ export default function CricketFixturesPage() {
                           const currentBall = activeInn?.ball ?? 0;
 
                           return (
-                            <div className="rounded-xl border border-amber-500/30 bg-slate-950/70 p-3 space-y-1.5">
+                            <div className="rounded-xl border border-amber-500/40 bg-slate-950/80 p-3 space-y-1.5">
                               <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
                                   <div
                                     className="w-3 h-3 rounded-full shrink-0"
                                     style={{ backgroundColor: battingTeam?.color || "#f59e0b" }}
                                   />
-                                  <span className="font-bold text-sm text-foreground">
+                                  <span className="font-bold text-sm text-foreground truncate">
                                     {battingTeam?.name || "Batting"}
                                   </span>
                                 </div>
-                                <div className="font-display font-black text-amber-400 text-lg">
+                                <div className="font-display font-black text-amber-400 text-base shrink-0">
                                   {currentRuns}/{currentWickets}{" "}
                                   <span className="text-xs font-normal text-muted-foreground">
                                     ({currentOver}.{currentBall}/{oversLimit} ov)
@@ -531,7 +655,7 @@ export default function CricketFixturesPage() {
                           );
                         })() : isCompleted ? (
                           <div className="rounded-xl border border-border/80 bg-card/60 p-3 space-y-2">
-                            <div className="space-y-1 text-sm">
+                            <div className="space-y-1.5 text-sm">
                               {(() => {
                                 const t1 = teams.find((t) => t.id === inn1?.battingTeamId) || home;
                                 const t2 = teams.find((t) => t.id === inn2?.battingTeamId) || away;
@@ -541,25 +665,27 @@ export default function CricketFixturesPage() {
                                 return (
                                   <>
                                     <div className="flex items-center justify-between gap-2">
-                                      <div className="flex items-center gap-1.5 min-w-0">
+                                      <div className="flex items-center gap-2 min-w-0">
                                         <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t1?.color || "#3b82f6" }} />
-                                        <span className={cn("truncate text-xs font-bold", isT1Winner ? "text-foreground" : "text-muted-foreground")}>
-                                          {t1?.shortCode || t1?.name}
+                                        <span className={cn("truncate text-xs font-bold", isT1Winner ? "text-foreground font-black" : "text-muted-foreground")}>
+                                          {t1?.name || t1?.shortCode}
                                         </span>
+                                        {isT1Winner && <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
                                       </div>
-                                      <span className="text-xs font-bold tabular-nums">
+                                      <span className="text-xs font-bold tabular-nums shrink-0">
                                         {inn1 ? `${inn1.runs}/${inn1.wickets} (${inn1.overs || `${inn1.over}.${inn1.ball}`} ov)` : "—"}
                                       </span>
                                     </div>
 
                                     <div className="flex items-center justify-between gap-2">
-                                      <div className="flex items-center gap-1.5 min-w-0">
+                                      <div className="flex items-center gap-2 min-w-0">
                                         <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t2?.color || "#10b981" }} />
-                                        <span className={cn("truncate text-xs font-bold", isT2Winner ? "text-foreground" : "text-muted-foreground")}>
-                                          {t2?.shortCode || t2?.name}
+                                        <span className={cn("truncate text-xs font-bold", isT2Winner ? "text-foreground font-black" : "text-muted-foreground")}>
+                                          {t2?.name || t2?.shortCode}
                                         </span>
+                                        {isT2Winner && <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
                                       </div>
-                                      <span className="text-xs font-bold tabular-nums">
+                                      <span className="text-xs font-bold tabular-nums shrink-0">
                                         {inn2 ? `${inn2.runs}/${inn2.wickets} (${inn2.overs || `${inn2.over}.${inn2.ball}`} ov)` : "—"}
                                       </span>
                                     </div>
@@ -569,48 +695,78 @@ export default function CricketFixturesPage() {
                             </div>
 
                             {m.resultSummary ? (
-                              <div className="rounded bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-xs text-emerald-300 font-medium truncate flex items-center gap-1">
+                              <div className="rounded bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 text-xs text-emerald-300 font-medium truncate flex items-center gap-1.5">
                                 <Trophy className="w-3 h-3 text-amber-400 shrink-0" />
                                 <span className="truncate">{m.resultSummary}</span>
                               </div>
                             ) : null}
                           </div>
                         ) : (
-                          /* Teams Row for Scheduled */
-                          <div className="flex items-center justify-between gap-3 py-1.5">
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                              <div
-                                className="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs text-white shrink-0 shadow-xs"
-                                style={{ backgroundColor: home?.color || "#3B82F6" }}
-                              >
-                                {home?.shortCode?.slice(0, 3) || "H"}
+                          /* 2-ROW TEAM DISPLAY FOR SCHEDULED: FULL NAMES, NEVER TRUNCATED! */
+                          <div className="rounded-xl border border-border/60 bg-muted/20 p-3 space-y-2.5">
+                            {/* Home Team */}
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {home?.logoUrl ? (
+                                  <img
+                                    src={home.logoUrl}
+                                    alt=""
+                                    className="w-7 h-7 rounded-lg object-contain border border-border/80 shrink-0 bg-background"
+                                  />
+                                ) : (
+                                  <div
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs text-white shrink-0 shadow-xs"
+                                    style={{ backgroundColor: home?.color || "#3B82F6" }}
+                                  >
+                                    {home?.shortCode?.slice(0, 3) || "H"}
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <div className="font-bold text-foreground text-sm truncate" title={home?.name}>
+                                    {home?.name ?? "Home Team"}
+                                  </div>
+                                  {home?.shortCode ? (
+                                    <div className="text-[10px] text-muted-foreground font-semibold">
+                                      {home.shortCode}
+                                    </div>
+                                  ) : null}
+                                </div>
                               </div>
-                              <span className="font-bold text-foreground text-sm truncate">
-                                {home?.name ?? "Home"}
-                              </span>
+                              <span className="text-xs font-semibold text-muted-foreground/60 shrink-0">—</span>
                             </div>
-                            <span className="text-xs font-bold text-muted-foreground/60 uppercase shrink-0">
-                              vs
-                            </span>
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1 justify-end">
-                              <span className="font-bold text-foreground text-sm truncate text-right">
-                                {away?.name ?? "Away"}
-                              </span>
-                              <div
-                                className="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs text-white shrink-0 shadow-xs"
-                                style={{ backgroundColor: away?.color || "#10B981" }}
-                              >
-                                {away?.shortCode?.slice(0, 3) || "A"}
-                              </div>
-                            </div>
-                          </div>
-                        )}
 
-                        {/* Round / Result Summary */}
-                        {!isCompleted && !isLive && (
-                          <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">
-                            <span className="truncate">{m.roundName || `Match #${m.tournamentMatchNumber ?? m.id}`}</span>
-                            <span>{m.venue || `${m.rules?.overs ?? 20} Overs`}</span>
+                            <div className="h-px bg-border/40" />
+
+                            {/* Away Team */}
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {away?.logoUrl ? (
+                                  <img
+                                    src={away.logoUrl}
+                                    alt=""
+                                    className="w-7 h-7 rounded-lg object-contain border border-border/80 shrink-0 bg-background"
+                                  />
+                                ) : (
+                                  <div
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs text-white shrink-0 shadow-xs"
+                                    style={{ backgroundColor: away?.color || "#10B981" }}
+                                  >
+                                    {away?.shortCode?.slice(0, 3) || "A"}
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <div className="font-bold text-foreground text-sm truncate" title={away?.name}>
+                                    {away?.name ?? "Away Team"}
+                                  </div>
+                                  {away?.shortCode ? (
+                                    <div className="text-[10px] text-muted-foreground font-semibold">
+                                      {away.shortCode}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <span className="text-xs font-semibold text-muted-foreground/60 shrink-0">—</span>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -643,8 +799,8 @@ export default function CricketFixturesPage() {
                         ) : isScheduled ? (
                           <>
                             <Link href={scorerUrl} className="flex-1">
-                              <Button className="w-full h-8.5 font-bold text-xs rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-xs">
-                                <Radio className="w-3.5 h-3.5" />
+                              <Button className="w-full h-8.5 font-bold text-xs rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 gap-1.5 shadow-xs">
+                                <Zap className="w-3.5 h-3.5 fill-current text-slate-950" />
                                 Start Toss & Score
                               </Button>
                             </Link>
