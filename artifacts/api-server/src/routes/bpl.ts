@@ -10,8 +10,8 @@ import {
   type BplSponsorCategory,
 } from "@workspace/db";
 import { eq, and, ne, desc, asc, inArray, sql } from "drizzle-orm";
-import { buildHeadToHeadIndex, rankCricketStandings, rankingNetRunRate } from "@workspace/scoring-core";
-import { isKnockoutMatch } from "../lib/scoring-standings";
+import { rankPersistedCricketStandings } from "@workspace/scoring-core";
+import { isKnockoutMatch, loadTieFlags, toHeadToHeadMatch } from "../lib/scoring-standings";
 import { z } from "zod";
 import { parseSponsorLogos } from "@workspace/api-base/sponsor-priority";
 import { requireAdmin } from "../middleware/require-admin.js";
@@ -166,6 +166,8 @@ async function fetchLinkedTournamentActivity(tournamentId: number | null) {
       venue: scoringMatchesTable.venue,
       winnerTeamId: scoringMatchesTable.winnerTeamId,
       resultSummary: scoringMatchesTable.resultSummary,
+      summaryJson: scoringMatchesTable.summaryJson,
+      matchTypeId: scoringMatchesTable.matchTypeId,
     })
     .from(scoringMatchesTable)
     .where(eq(scoringMatchesTable.tournamentId, tournamentId))
@@ -268,26 +270,30 @@ async function fetchLinkedTournamentActivity(tournamentId: number | null) {
     .from(scoringStandingsTable)
     .where(eq(scoringStandingsTable.tournamentId, tournamentId));
 
-  const headToHead = buildHeadToHeadIndex(
-    matches
-      .filter(
-        (match) =>
-          !isKnockoutMatch(match) &&
-          (match.status === "completed" ||
-            match.status === "abandoned" ||
-            match.status === "no_result" ||
-            match.status === "walkover"),
-      )
-      .map((match) => ({
+  const leagueMatches = matches.filter(
+    (match) =>
+      !isKnockoutMatch(match) &&
+      (match.status === "completed" ||
+        match.status === "abandoned" ||
+        match.status === "no_result" ||
+        match.status === "walkover"),
+  );
+  const tieFlags = await loadTieFlags(leagueMatches.map((match) => match.id));
+  const headToHeadMatches = leagueMatches.map((match) =>
+    toHeadToHeadMatch(
+      {
+        id: match.id,
         status: match.status,
         homeTeamId: match.homeTeamId,
         awayTeamId: match.awayTeamId,
         winnerTeamId: match.winnerTeamId,
-        isTie: match.status === "completed" && match.winnerTeamId == null,
-      })),
+        summaryJson: match.summaryJson,
+      },
+      tieFlags,
+    ),
   );
 
-  const standings = rankCricketStandings(
+  const standings = rankPersistedCricketStandings(
     rawStandings.map((s) => {
       const team = teamMap.get(s.teamId);
       return {
@@ -302,10 +308,11 @@ async function fetchLinkedTournamentActivity(tournamentId: number | null) {
         tied: s.tied,
         noResult: s.noResult,
         points: s.points,
-        netRunRate: rankingNetRunRate(s.netRunRate, s.extrasJson),
+        netRunRate: s.netRunRate,
+        extras: s.extrasJson,
       };
     }),
-    headToHead,
+    headToHeadMatches,
   );
 
   return {

@@ -62,7 +62,25 @@ export type HeadToHeadMatch = {
   homeTeamId: number;
   awayTeamId: number;
   winnerTeamId: number | null;
+  /**
+   * Explicit tie from the match-completed event.
+   * Undefined means "not recorded": a missing winner is then a tie.
+   * `false` means the match is not a tie even when the winner is missing.
+   */
   isTie?: boolean;
+};
+
+/** Persisted standings row. `extras` holds full-precision run and over totals when present. */
+export type PersistedCricketStanding = {
+  teamId: number;
+  played: number;
+  won: number;
+  lost: number;
+  tied: number;
+  noResult: number;
+  points: number;
+  netRunRate: number | string | null;
+  extras?: unknown;
 };
 
 type HeadToHeadPair = {
@@ -317,6 +335,107 @@ export function rankCricketStandings<T extends CricketStandingRankInput>(
   }
 
   return ranked;
+}
+
+/**
+ * Rank rows already stored by the standings rebuild.
+ * NRR comes from run/over totals when `extras` has them; otherwise the stored number.
+ * Head-to-head uses the same index as qualification and the main table.
+ */
+export function rankPersistedCricketStandings<T extends PersistedCricketStanding>(
+  rows: T[],
+  matches: HeadToHeadMatch[],
+  rules: CricketPointsRules = DEFAULT_CRICKET_POINTS_RULES,
+): Array<Omit<T, "netRunRate" | "extras"> & { netRunRate: number; pointsPercentage: number }> {
+  const prepared = rows.map((row) => {
+    const { extras, netRunRate, ...rest } = row;
+    return {
+      ...rest,
+      netRunRate: rankingNetRunRate(netRunRate, extras),
+    };
+  });
+  return rankCricketStandings(prepared, buildHeadToHeadIndex(matches, rules), rules);
+}
+
+/** Mark the first `qualifiers` rows of an already-ranked list. Does not reorder. */
+export function applyQualification<T>(
+  rows: T[],
+  qualifiers: number,
+): Array<T & { qualified: boolean }> {
+  const count = qualifiers > 0 ? qualifiers : 0;
+  return rows.map((row, index) => ({ ...row, qualified: index < count }));
+}
+
+export type NormalizedCricketStanding = {
+  teamId: number;
+  rank: number;
+  played: number;
+  won: number;
+  lost: number;
+  tied: number;
+  noResult: number;
+  points: number;
+  pointsPercentage: number;
+  netRunRate: number;
+  qualified: boolean | null;
+};
+
+/** Semantic standings identity. Rank is position in the supplied order, starting at 1. */
+export function normalizeCricketStandings(
+  rows: Array<{
+    teamId: number;
+    played: number;
+    won: number;
+    lost: number;
+    tied: number;
+    noResult: number;
+    points: number;
+    pointsPercentage: number;
+    netRunRate: number;
+    qualified?: boolean | null;
+  }>,
+): NormalizedCricketStanding[] {
+  return rows.map((row, index) => ({
+    teamId: row.teamId,
+    rank: index + 1,
+    played: row.played,
+    won: row.won,
+    lost: row.lost,
+    tied: row.tied,
+    noResult: row.noResult,
+    points: row.points,
+    pointsPercentage: row.pointsPercentage,
+    netRunRate: row.netRunRate,
+    qualified: typeof row.qualified === "boolean" ? row.qualified : null,
+  }));
+}
+
+const NORMALIZED_FIELDS: Array<keyof NormalizedCricketStanding> = [
+  "teamId",
+  "rank",
+  "played",
+  "won",
+  "lost",
+  "tied",
+  "noResult",
+  "points",
+  "pointsPercentage",
+  "netRunRate",
+  "qualified",
+];
+
+/** Compare semantic standings. Omit fields a surface does not display. */
+export function sameCricketStandings(
+  left: NormalizedCricketStanding[],
+  right: NormalizedCricketStanding[],
+  fields: Array<keyof NormalizedCricketStanding> = NORMALIZED_FIELDS,
+): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((row, index) => {
+    const other = right[index];
+    if (!other) return false;
+    return fields.every((field) => row[field] === other[field]);
+  });
 }
 
 function aggregateHeadToHead(teamIds: number[], index: HeadToHeadIndex) {

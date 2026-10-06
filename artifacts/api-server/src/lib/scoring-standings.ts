@@ -11,10 +11,9 @@ import {
 } from "@workspace/db";
 import {
   CricketEventType,
-  buildHeadToHeadIndex,
+  applyQualification,
   buildStandingsFromMatches,
-  rankCricketStandings,
-  rankingNetRunRate,
+  rankPersistedCricketStandings,
   type CricketMatchSummary,
   type HeadToHeadMatch,
   type StandingsMatchInput,
@@ -56,7 +55,7 @@ export function isKnockoutMatch(m: {
   return false;
 }
 
-async function loadTieFlags(matchIds: number[]) {
+export async function loadTieFlags(matchIds: number[]) {
   const tieFlags = new Map<number, boolean>();
   if (matchIds.length === 0) return tieFlags;
 
@@ -80,7 +79,7 @@ async function loadTieFlags(matchIds: number[]) {
   return tieFlags;
 }
 
-function toHeadToHeadMatch(
+export function toHeadToHeadMatch(
   match: {
     id: number;
     status: string;
@@ -291,11 +290,8 @@ async function getScoringStandingsRaw(tournamentId: number) {
 
   const leagueFinishedMatches = finishedMatches.filter((m) => !isKnockoutMatch(m));
   const tieFlags = await loadTieFlags(leagueFinishedMatches.map((m) => m.id));
-  const headToHead = buildHeadToHeadIndex(
-    leagueFinishedMatches.map((m) => toHeadToHeadMatch(m, tieFlags)),
-  );
 
-  const globalRows = rankCricketStandings(
+  const globalRows = rankPersistedCricketStandings(
     rows.map((r) => {
       const team = teamMeta.get(r.teamId);
       return {
@@ -309,11 +305,12 @@ async function getScoringStandingsRaw(tournamentId: number) {
         tied: r.tied,
         noResult: r.noResult,
         points: r.points,
-        netRunRate: rankingNetRunRate(r.netRunRate, r.extrasJson),
+        netRunRate: r.netRunRate,
+        extras: r.extrasJson,
         extrasJson: (r.extrasJson as Record<string, unknown> | null) ?? null,
       };
     }),
-    headToHead,
+    leagueFinishedMatches.map((m) => toHeadToHeadMatch(m, tieFlags)),
   );
 
   // Calculate Group-Wise Standings if groups exist
@@ -357,30 +354,32 @@ async function getScoringStandingsRaw(tournamentId: number) {
 
       const computed = buildStandingsFromMatches(groupTeamIds, inputs);
       const qualifiersPerGroup = g.drawId != null ? (qualifiersByDraw.get(g.drawId) ?? 2) : 2;
-      const groupRows = computed.map((r, index) => {
-        const team = teamMeta.get(r.teamId);
-        return {
-          teamId: r.teamId,
-          teamName: team?.name ?? `Team ${r.teamId}`,
-          shortCode: team?.shortCode ?? "—",
-          color: team?.color ?? null,
-          played: r.played,
-          won: r.won,
-          lost: r.lost,
-          tied: r.tied,
-          noResult: r.noResult,
-          points: r.points,
-          pointsPercentage: r.pointsPercentage,
-          netRunRate: r.netRunRate,
-          qualified: index < qualifiersPerGroup,
-          extrasJson: {
-            runsScored: r.runsScored,
-            oversFaced: r.oversFaced,
-            runsConceded: r.runsConceded,
-            oversBowled: r.oversBowled,
-          },
-        };
-      });
+      const groupRows = applyQualification(
+        computed.map((r) => {
+          const team = teamMeta.get(r.teamId);
+          return {
+            teamId: r.teamId,
+            teamName: team?.name ?? `Team ${r.teamId}`,
+            shortCode: team?.shortCode ?? "—",
+            color: team?.color ?? null,
+            played: r.played,
+            won: r.won,
+            lost: r.lost,
+            tied: r.tied,
+            noResult: r.noResult,
+            points: r.points,
+            pointsPercentage: r.pointsPercentage,
+            netRunRate: r.netRunRate,
+            extrasJson: {
+              runsScored: r.runsScored,
+              oversFaced: r.oversFaced,
+              runsConceded: r.runsConceded,
+              oversBowled: r.oversBowled,
+            },
+          };
+        }),
+        qualifiersPerGroup,
+      );
 
       const drawName = g.drawId ? (drawNameMap.get(g.drawId) ?? null) : null;
       const displayName =
