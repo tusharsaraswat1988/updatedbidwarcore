@@ -264,6 +264,17 @@ function PlatformRouter() {
         <Route path="/organizer" component={OrganizerPortal} />
         <Route path="/organizer/profile" component={OrganizerProfile} />
 
+        {/* Canonical public tournament redirects (prevents 404 on plural /tournaments/ links) */}
+        <Route path="/tournaments/:id/schedule">
+          {(params) => <Redirect to={`/tournament/${params?.id}/cricket/matches`} />}
+        </Route>
+        <Route path="/tournaments/:id/standings">
+          {(params) => <Redirect to={`/tournament/${params?.id}/cricket/standings`} />}
+        </Route>
+        <Route path="/tournaments/:id">
+          {(params) => <Redirect to={`/tournament/${params?.id}/fan`} />}
+        </Route>
+
         {/* Organizer-protected routes */}
         <Route path="/tournament/:id">
           {(params) => {

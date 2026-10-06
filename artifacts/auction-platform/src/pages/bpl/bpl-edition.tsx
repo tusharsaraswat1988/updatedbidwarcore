@@ -48,7 +48,14 @@ export default function BplEditionPage({ edition: slugOrNum }: { edition: string
   }, [slugOrNum]);
 
   return (
-    <div className="lovable-theme min-h-screen bg-slate-950 text-foreground pt-16 dark">
+    <div className="lovable-theme min-h-screen bg-gradient-to-b from-[#0a1838] via-[#07132c] to-[#040c1e] text-foreground pt-16 dark relative selection:bg-amber-500 selection:text-black">
+      {/* Stadium atmospheric lighting */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden="true">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1100px] h-[550px] bg-gradient-to-b from-blue-600/15 via-blue-500/5 to-transparent blur-[140px] rounded-full" />
+        <div className="absolute top-1/4 -left-48 w-96 h-96 bg-amber-500/10 blur-[140px] rounded-full" />
+        <div className="absolute top-2/3 -right-48 w-96 h-96 bg-blue-500/10 blur-[140px] rounded-full" />
+      </div>
+
       <title>
         {editionData
           ? `${editionData.name} | ${brandName}`
@@ -57,7 +64,7 @@ export default function BplEditionPage({ edition: slugOrNum }: { edition: string
 
       <PublicNavbar />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
+      <main className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
         {/* Navigation Breadcrumb back to /bpl */}
         <div className="flex items-center justify-between">
           <Link href="/bpl">
