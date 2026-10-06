@@ -208,11 +208,11 @@ export default function CricketReportsPage() {
 
   function handleExportCsv() {
     const rows = standings ?? [];
-    const header = "Rank,Team,Played,Won,Lost,Tied,NR,Points,NRR";
+    const header = "Rank,Team,Played,Won,Lost,Tied,NR,Points,PointsPercentage,NRR";
     const body = rows
       .map(
         (r, i) =>
-          `${i + 1},"${r.teamName}",${r.played},${r.won},${r.lost},${r.tied},${r.noResult},${r.points},${r.netRunRate.toFixed(3)}`,
+          `${i + 1},"${r.teamName}",${r.played},${r.won},${r.lost},${r.tied},${r.noResult},${r.points},${r.pointsPercentage},${r.netRunRate.toFixed(3)}`,
       )
       .join("\n");
     const blob = new Blob([`${header}\n${body}`], { type: "text/csv;charset=utf-8" });
@@ -451,7 +451,7 @@ export default function CricketReportsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <HubSectionHeader
                     title="Points Table & Standings"
-                    subtitle="Ranked by Points, then Net Run Rate (NRR)"
+                    subtitle="Ranked by points percentage, then net run rate"
                   />
                   <BtnSecondary onClick={handleExportCsv} className={cn(btnCompactClass, "print:hidden")}>
                     <Download className="w-3.5 h-3.5" />
@@ -459,8 +459,23 @@ export default function CricketReportsPage() {
                   </BtnSecondary>
                 </div>
 
-                {/* Standings Table */}
-                <StandingsTable rows={standings ?? []} highlightTop={2} />
+                {standings?.hasGroups && standings.groups && standings.groups.length > 0 ? (
+                  <div className="space-y-4">
+                    {standings.groups.map((group) => (
+                      <div key={group.id} className="space-y-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {group.name} · top {group.qualifiersPerGroup ?? 2} qualify
+                        </p>
+                        <StandingsTable
+                          rows={group.rows}
+                          highlightTop={group.qualifiersPerGroup ?? 2}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <StandingsTable rows={standings ?? []} highlightTop={4} />
+                )}
 
                 {/* Points System & Scoring Rules Guide */}
                 <div className="bg-muted/30 border border-border/60 rounded-xl p-4.5 space-y-3">
@@ -489,7 +504,7 @@ export default function CricketReportsPage() {
                     <p className="flex items-center gap-1.5">
                       <HelpCircle className="w-3.5 h-3.5 text-primary shrink-0" />
                       <span>
-                        <strong>Tie-breaker Order:</strong> Total Points &rarr; Net Run Rate (NRR) &rarr; Head-to-Head Result.
+                        <strong>Tie-breaker Order:</strong> Points % &rarr; Net Run Rate (NRR) &rarr; Head-to-head &rarr; Team id.
                       </span>
                     </p>
                     <p className="pl-5 text-muted-foreground/90">

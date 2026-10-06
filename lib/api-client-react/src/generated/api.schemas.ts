@@ -2224,6 +2224,8 @@ export interface ScoringStandingRow {
   tied?: number;
   noResult?: number;
   points?: number;
+  /** Points as a percentage of maximum points from matches played. */
+  pointsPercentage?: number;
   netRunRate?: number;
 }
 

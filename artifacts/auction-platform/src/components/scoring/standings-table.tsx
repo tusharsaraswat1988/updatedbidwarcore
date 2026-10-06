@@ -1,4 +1,5 @@
 import type { ScoringStandingRow } from "@/lib/scoring-api";
+import { formatPointsPercentage } from "@workspace/scoring-core/cricket";
 
 function nrrText(nrr: number): string {
   if (nrr > 0) return `+${nrr.toFixed(3)}`;
@@ -53,6 +54,9 @@ export function StandingsTable({
             {!compact ? <th className="px-3 py-2.5 font-semibold text-center">T</th> : null}
             {!compact ? <th className="px-3 py-2.5 font-semibold text-center">NR</th> : null}
             <th className="px-3 py-2.5 font-semibold text-center">Pts</th>
+            <th className="px-3 py-2.5 font-semibold text-right" title="Points percentage">
+              Pts %
+            </th>
             <th className="px-3 py-2.5 font-semibold text-right" title="Net Run Rate (ICC / CricHeroes standard)">
               NRR
             </th>
@@ -96,6 +100,9 @@ export function StandingsTable({
               {!compact ? <td className="px-3 py-2.5 text-center tabular-nums">{row.noResult}</td> : null}
               <td className="px-3 py-2.5 text-center tabular-nums font-semibold text-primary">
                 {row.points}
+              </td>
+              <td className="px-3 py-2.5 text-right tabular-nums">
+                {formatPointsPercentage(row.pointsPercentage)}
               </td>
               <td
                 className="px-3 py-2.5 text-right tabular-nums text-muted-foreground"

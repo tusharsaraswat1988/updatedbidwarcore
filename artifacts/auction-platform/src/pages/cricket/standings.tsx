@@ -70,7 +70,7 @@ export default function CricketStandingsPage() {
         tournamentId={tournamentId}
         eyebrow="Cricket Operations"
         title="Standings & Points Table"
-        subtitle={tournament?.name ?? "Tournament points table · sorted by Points, then Net Run Rate"}
+        subtitle={tournament?.name ?? "Tournament points table · sorted by points percentage, then net run rate"}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <BtnSecondary
@@ -157,7 +157,7 @@ export default function CricketStandingsPage() {
                   <span className="w-2 h-2 rounded-full bg-primary" />
                   Official Tie-Break Order:
                 </span>
-                <span>1. Total Points (2 pts for win, 1 pt for tie/NR) → 2. Net Run Rate (ICC Standard)</span>
+                <span>1. Points % → 2. Net Run Rate → 3. Head-to-head → 4. Team id</span>
               </div>
               <span className="text-[11px] text-muted-foreground/80 bg-muted/40 px-2 py-1 rounded border border-border/40 shrink-0">
                 Auto-calculated
@@ -178,14 +178,14 @@ export default function CricketStandingsPage() {
                       <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
                         <HubSectionHeader
                           title={`${groupTitle} Points Table`}
-                          subtitle={`${g.rows.length} teams · Top 2 qualify for Semi-Finals`}
+                          subtitle={`${g.rows.length} teams · Top ${g.qualifiersPerGroup ?? 2} qualify`}
                         />
                         <span className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary border border-primary/20">
-                          Top 2 $\rightarrow$ SF
+                          Top {g.qualifiersPerGroup ?? 2} qualify
                         </span>
                       </div>
 
-                      <StandingsTable rows={g.rows} highlightTop={2} />
+                      <StandingsTable rows={g.rows} highlightTop={g.qualifiersPerGroup ?? 2} />
                     </section>
                   );
                 })}

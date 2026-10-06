@@ -4561,6 +4561,9 @@ components:
           type: integer
         points:
           type: number
+        pointsPercentage:
+          type: number
+          description: Points as a percentage of maximum points from matches played. Full precision; display may round to two decimals.
         netRunRate:
           type: number
 

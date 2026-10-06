@@ -537,6 +537,7 @@ export function BplEditionView({
                   <th className="px-4 py-3 text-center">W</th>
                   <th className="px-4 py-3 text-center">L</th>
                   <th className="px-4 py-3 text-center">Pts</th>
+                  <th className="px-4 py-3 text-right">Pts %</th>
                   <th className="px-4 py-3 text-right">NRR</th>
                 </tr>
               </thead>
@@ -574,6 +575,9 @@ export function BplEditionView({
                     </td>
                     <td className="px-4 py-2.5 text-center font-mono font-black text-amber-400">
                       {row.points}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-blue-100">
+                      {typeof row.pointsPercentage === "number" ? `${row.pointsPercentage.toFixed(2)}%` : "0.00%"}
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono text-blue-200">
                       {typeof row.netRunRate === "number"

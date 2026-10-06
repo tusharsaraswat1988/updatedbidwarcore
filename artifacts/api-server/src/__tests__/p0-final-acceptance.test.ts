@@ -227,16 +227,16 @@ describe("BIDWAR Cricket Ecosystem — P0 Final Acceptance Test Suite", () => {
         groupName: "Group A",
         isComplete: true,
         standings: [
-          { teamId: 101, played: 3, won: 3, lost: 0, tied: 0, noResult: 0, points: 6, netRunRate: 1.5, runsScored: 300, oversFaced: 60, runsConceded: 200, oversBowled: 60 },
-          { teamId: 102, played: 3, won: 2, lost: 1, tied: 0, noResult: 0, points: 4, netRunRate: 0.8, runsScored: 280, oversFaced: 60, runsConceded: 220, oversBowled: 60 },
+          { teamId: 101, played: 3, won: 3, lost: 0, tied: 0, noResult: 0, points: 6, pointsPercentage: 100, netRunRate: 1.5, runsScored: 300, oversFaced: 60, runsConceded: 200, oversBowled: 60 },
+          { teamId: 102, played: 3, won: 2, lost: 1, tied: 0, noResult: 0, points: 4, pointsPercentage: (4 / 6) * 100, netRunRate: 0.8, runsScored: 280, oversFaced: 60, runsConceded: 220, oversBowled: 60 },
         ],
       },
       "GROUP B": {
         groupName: "Group B",
         isComplete: true,
         standings: [
-          { teamId: 201, played: 3, won: 3, lost: 0, tied: 0, noResult: 0, points: 6, netRunRate: 2.1, runsScored: 350, oversFaced: 60, runsConceded: 180, oversBowled: 60 },
-          { teamId: 202, played: 3, won: 2, lost: 1, tied: 0, noResult: 0, points: 4, netRunRate: 0.5, runsScored: 250, oversFaced: 60, runsConceded: 210, oversBowled: 60 },
+          { teamId: 201, played: 3, won: 3, lost: 0, tied: 0, noResult: 0, points: 6, pointsPercentage: 100, netRunRate: 2.1, runsScored: 350, oversFaced: 60, runsConceded: 180, oversBowled: 60 },
+          { teamId: 202, played: 3, won: 2, lost: 1, tied: 0, noResult: 0, points: 4, pointsPercentage: (4 / 6) * 100, netRunRate: 0.5, runsScored: 250, oversFaced: 60, runsConceded: 210, oversBowled: 60 },
         ],
       },
     };

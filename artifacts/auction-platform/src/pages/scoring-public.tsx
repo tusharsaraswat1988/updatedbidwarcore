@@ -173,7 +173,8 @@ export default function ScoringPublicPage() {
     tournamentStageLabel(data?.tournament ?? { id: 0, name: "", sport: "cricket", scoringEnabled: true });
   const dates = formatDateRange(data?.tournament?.matchDates);
   const venue = data?.tournament ? venueLabel(data.tournament) : null;
-  const top4 = (standings ?? []).slice(0, 4);
+  const hasGroupStandings = Boolean(standings?.hasGroups && standings.groups && standings.groups.length > 0);
+  const top4 = hasGroupStandings ? [] : (standings ?? []).slice(0, 4);
   const activeLb = LEADERBOARD_TABS.find((t) => t.key === lbTab);
 
   // Live streaming destination URL — NEVER fallback to OBS; only direct link if provided by organizer
@@ -392,7 +393,18 @@ export default function ScoringPublicPage() {
 
               {standingsView === "table" ? (
                 <>
-                  {top4.length > 0 ? (
+                  {hasGroupStandings && standings?.groups ? (
+                    <div className="space-y-4">
+                      {standings.groups.map((group) => (
+                        <div key={group.id} className="space-y-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            {group.name} · top {group.qualifiersPerGroup ?? 2} qualify
+                          </p>
+                          <StandingsTable rows={group.rows} compact highlightTop={group.qualifiersPerGroup ?? 2} />
+                        </div>
+                      ))}
+                    </div>
+                  ) : top4.length > 0 ? (
                     <>
                       <StandingsTable rows={top4} compact highlightTop={4} />
                       {(standings?.length ?? 0) > 4 ? (

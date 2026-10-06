@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getPublicSchedule } from "@/lib/scoring-foundation-api";
 import { getScoringStandings } from "@/lib/scoring-api";
 import { StandingsTable } from "@/components/scoring/standings-table";
+import { formatPointsPercentage } from "@workspace/scoring-core/cricket";
 import {
   CricketFanEmpty,
   CricketFanExperienceShell,
@@ -35,7 +36,8 @@ export default function ScoringPublicStandingsPage() {
   });
 
   const liveMatchId = (schedule?.matches ?? []).find((m) => m.status === "live")?.id ?? null;
-  const top4 = (standings ?? []).slice(0, 4);
+  const hasGroups = Boolean(standings?.hasGroups && standings.groups && standings.groups.length > 0);
+  const top4 = hasGroups ? [] : (standings ?? []).slice(0, 4);
 
   if (loadingSchedule || loadingStandings) return <CricketFanLoading tournamentId={tournamentId} />;
   if (error || !schedule?.tournament) {
@@ -48,7 +50,7 @@ export default function ScoringPublicStandingsPage() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Points table</p>
         <h1 className="font-display text-3xl font-bold tracking-tight">{schedule.tournament.name}</h1>
         <p className="text-sm text-muted-foreground">
-          Qualification band, net run rate, and full league standings.
+          Points percentage, net run rate, and league standings.
         </p>
       </header>
 
@@ -81,7 +83,7 @@ export default function ScoringPublicStandingsPage() {
                   <div className="text-right shrink-0">
                     <p className="font-bold text-primary tabular-nums">{row.points} pts</p>
                     <p className="text-xs text-muted-foreground tabular-nums">
-                      NRR {row.netRunRate > 0 ? "+" : ""}
+                      {formatPointsPercentage(row.pointsPercentage)} · NRR {row.netRunRate > 0 ? "+" : ""}
                       {row.netRunRate.toFixed(3)}
                     </p>
                   </div>
@@ -105,10 +107,10 @@ export default function ScoringPublicStandingsPage() {
                 <div className="flex items-center justify-between">
                   <h2 className={cn(cricketSectionTitleClass)}>{groupTitle} Standings</h2>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                    Top 2 Qualify
+                    Top {g.qualifiersPerGroup ?? 2} qualify
                   </span>
                 </div>
-                <StandingsTable rows={g.rows} highlightTop={2} />
+                <StandingsTable rows={g.rows} highlightTop={g.qualifiersPerGroup ?? 2} />
               </section>
             );
           })}
@@ -120,7 +122,7 @@ export default function ScoringPublicStandingsPage() {
       ) : (
         <section>
           <h2 className={cn(cricketSectionTitleClass, "mb-3")}>Full standings</h2>
-          <StandingsTable rows={standings ?? []} highlightTop={4} />
+          <StandingsTable rows={standings ?? []} highlightTop={hasGroups ? 0 : 4} />
         </section>
       )}
     </CricketFanExperienceShell>

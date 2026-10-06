@@ -6,7 +6,7 @@ import {
   resolveParticipantSource,
   type GroupStandingsMap,
 } from "../cricket/progression";
-import type { TeamStandingComputed } from "../cricket/standings";
+import { computePointsPercentage, type TeamStandingComputed } from "../cricket/standings";
 
 function mockStanding(teamId: number, points: number, nrr: number): TeamStandingComputed {
   return {
@@ -17,6 +17,7 @@ function mockStanding(teamId: number, points: number, nrr: number): TeamStanding
     tied: 0,
     noResult: 0,
     points,
+    pointsPercentage: computePointsPercentage(points, 3),
     netRunRate: nrr,
     runsScored: 300,
     oversFaced: 60,

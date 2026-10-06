@@ -11,8 +11,11 @@ import {
 } from "@workspace/db";
 import {
   CricketEventType,
+  buildHeadToHeadIndex,
   buildStandingsFromMatches,
+  rankCricketStandings,
   type CricketMatchSummary,
+  type HeadToHeadMatch,
   type StandingsMatchInput,
 } from "@workspace/scoring-core";
 import { and, asc, eq, inArray, or } from "drizzle-orm";
@@ -52,6 +55,51 @@ export function isKnockoutMatch(m: {
   return false;
 }
 
+async function loadTieFlags(matchIds: number[]) {
+  const tieFlags = new Map<number, boolean>();
+  if (matchIds.length === 0) return tieFlags;
+
+  const completedEvents = await db
+    .select({
+      matchId: scoringEventsTable.matchId,
+      payload: scoringEventsTable.payloadJson,
+    })
+    .from(scoringEventsTable)
+    .where(
+      and(
+        inArray(scoringEventsTable.matchId, matchIds),
+        eq(scoringEventsTable.eventType, CricketEventType.MATCH_COMPLETED),
+      ),
+    );
+
+  for (const row of completedEvents) {
+    const payload = row.payload as { isTie?: boolean } | null;
+    if (payload?.isTie) tieFlags.set(row.matchId, true);
+  }
+  return tieFlags;
+}
+
+function toHeadToHeadMatch(
+  match: {
+    id: number;
+    status: string;
+    homeTeamId: number;
+    awayTeamId: number;
+    winnerTeamId: number | null;
+    summaryJson: unknown;
+  },
+  tieFlags: Map<number, boolean>,
+): HeadToHeadMatch {
+  const summary = match.summaryJson as { winnerTeamId?: number | null } | null;
+  return {
+    status: match.status,
+    homeTeamId: match.homeTeamId,
+    awayTeamId: match.awayTeamId,
+    winnerTeamId: summary?.winnerTeamId ?? match.winnerTeamId ?? null,
+    isTie: tieFlags.get(match.id),
+  };
+}
+
 /** Rebuild and persist standings from all finished league matches in a tournament. */
 export async function rebuildTournamentStandings(tournamentId: number) {
   const [registryTeamIds, finished] = await Promise.all([
@@ -84,28 +132,7 @@ export async function rebuildTournamentStandings(tournamentId: number) {
   const teamIds = [...teamIdSet].sort((a, b) => a - b);
   if (teamIds.length === 0) return [];
 
-  const matchIds = leagueFinished.map((m) => m.id);
-  const tieFlags = new Map<number, boolean>();
-
-  if (matchIds.length > 0) {
-    const completedEvents = await db
-      .select({
-        matchId: scoringEventsTable.matchId,
-        payload: scoringEventsTable.payloadJson,
-      })
-      .from(scoringEventsTable)
-      .where(
-        and(
-          inArray(scoringEventsTable.matchId, matchIds),
-          eq(scoringEventsTable.eventType, CricketEventType.MATCH_COMPLETED),
-        ),
-      );
-
-    for (const row of completedEvents) {
-      const payload = row.payload as { isTie?: boolean } | null;
-      if (payload?.isTie) tieFlags.set(row.matchId, true);
-    }
-  }
+  const tieFlags = await loadTieFlags(leagueFinished.map((m) => m.id));
 
   const inputs: StandingsMatchInput[] = leagueFinished.map((m) => ({
     matchId: m.id,
@@ -154,6 +181,8 @@ export type ScoringGroupResult = {
   displayName?: string;
   name: string;
   sortOrder: number;
+  /** From the draw configuration. Display and highlight only; qualification still uses the progression service. */
+  qualifiersPerGroup: number;
   rows: Array<{
     teamId: number;
     teamName: string;
@@ -165,6 +194,7 @@ export type ScoringGroupResult = {
     tied: number;
     noResult: number;
     points: number;
+    pointsPercentage: number;
     netRunRate: number;
     extrasJson: Record<string, unknown> | null;
   }>;
@@ -237,7 +267,11 @@ async function getScoringStandingsRaw(tournamentId: number) {
         ),
       ),
     db
-      .select({ id: scoringDrawsTable.id, name: scoringDrawsTable.name })
+      .select({
+        id: scoringDrawsTable.id,
+        name: scoringDrawsTable.name,
+        configJson: scoringDrawsTable.configJson,
+      })
       .from(scoringDrawsTable)
       .where(eq(scoringDrawsTable.tournamentId, tournamentId)),
   ]);
@@ -252,8 +286,14 @@ async function getScoringStandingsRaw(tournamentId: number) {
 
   const teamMeta = await resolveCricketFranchiseTeamsByIds(tournamentId, [...allTeamIdsSet]);
 
-  const globalRows = rows
-    .map((r) => {
+  const leagueFinishedMatches = finishedMatches.filter((m) => !isKnockoutMatch(m));
+  const tieFlags = await loadTieFlags(leagueFinishedMatches.map((m) => m.id));
+  const headToHead = buildHeadToHeadIndex(
+    leagueFinishedMatches.map((m) => toHeadToHeadMatch(m, tieFlags)),
+  );
+
+  const globalRows = rankCricketStandings(
+    rows.map((r) => {
       const team = teamMeta.get(r.teamId);
       return {
         teamId: r.teamId,
@@ -269,12 +309,9 @@ async function getScoringStandingsRaw(tournamentId: number) {
         netRunRate: r.netRunRate ? Number(r.netRunRate) : 0,
         extrasJson: (r.extrasJson as Record<string, unknown> | null) ?? null,
       };
-    })
-    .sort((a, b) => {
-      if (b.points !== a.points) return b.points - a.points;
-      if (b.netRunRate !== a.netRunRate) return b.netRunRate - a.netRunRate;
-      return a.teamId - b.teamId;
-    });
+    }),
+    headToHead,
+  );
 
   // Calculate Group-Wise Standings if groups exist
   const groupResults: ScoringGroupResult[] = [];
@@ -284,33 +321,15 @@ async function getScoringStandingsRaw(tournamentId: number) {
       if (f.groupId != null) fixtureGroupMap.set(f.id, f.groupId);
     }
 
-    const leagueFinishedMatches = finishedMatches.filter((m) => !isKnockoutMatch(m));
-    const leagueMatchIds = leagueFinishedMatches.map((m) => m.id);
-    const tieFlags = new Map<number, boolean>();
-
-    if (leagueMatchIds.length > 0) {
-      const completedEvents = await db
-        .select({
-          matchId: scoringEventsTable.matchId,
-          payload: scoringEventsTable.payloadJson,
-        })
-        .from(scoringEventsTable)
-        .where(
-          and(
-            inArray(scoringEventsTable.matchId, leagueMatchIds),
-            eq(scoringEventsTable.eventType, CricketEventType.MATCH_COMPLETED),
-          ),
-        );
-
-      for (const row of completedEvents) {
-        const payload = row.payload as { isTie?: boolean } | null;
-        if (payload?.isTie) tieFlags.set(row.matchId, true);
-      }
-    }
-
     const drawNameMap = new Map<number, string>();
+    const qualifiersByDraw = new Map<number, number>();
     for (const d of draws) {
       if (d.name) drawNameMap.set(d.id, d.name);
+      const configured = (d.configJson as { knockoutTeamsPerGroup?: number } | null)?.knockoutTeamsPerGroup;
+      qualifiersByDraw.set(
+        d.id,
+        typeof configured === "number" && configured > 0 ? configured : 2,
+      );
     }
 
     for (const g of groups) {
@@ -347,6 +366,7 @@ async function getScoringStandingsRaw(tournamentId: number) {
           tied: r.tied,
           noResult: r.noResult,
           points: r.points,
+          pointsPercentage: r.pointsPercentage,
           netRunRate: r.netRunRate,
           extrasJson: {
             runsScored: r.runsScored,
@@ -370,6 +390,7 @@ async function getScoringStandingsRaw(tournamentId: number) {
         displayName,
         name: g.name,
         sortOrder: g.sortOrder,
+        qualifiersPerGroup: g.drawId != null ? (qualifiersByDraw.get(g.drawId) ?? 2) : 2,
         rows: groupRows,
       });
     }

@@ -11570,6 +11570,7 @@ export const GetScoringStandingsResponse = zod.object({
       tied: zod.number().optional(),
       noResult: zod.number().optional(),
       points: zod.number().optional(),
+      pointsPercentage: zod.number().optional(),
       netRunRate: zod.number().optional(),
     }),
   ),
