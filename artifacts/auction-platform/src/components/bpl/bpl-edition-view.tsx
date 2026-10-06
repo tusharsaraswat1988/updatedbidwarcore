@@ -11,7 +11,6 @@ import {
   Trophy,
   Users,
   Shield,
-  Info,
   Medal,
   ChevronRight,
   ChevronLeft,
@@ -94,6 +93,15 @@ export function BplEditionView({
         />
 
         <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center text-center">
+          {/* Official BidWar Platform Logo */}
+          <div className="mb-4 flex items-center justify-center">
+            <img
+              src="/assets/branding/bidwar-reverse-logo-official.png"
+              alt="BidWar"
+              className="h-10 sm:h-12 md:h-14 w-auto object-contain drop-shadow-[0_4px_20px_rgba(245,158,11,0.3)]"
+            />
+          </div>
+
           {/* Eyebrow & Status Indicator */}
           <div className="flex flex-wrap items-center justify-center gap-2.5 mb-5">
             <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full text-xs font-black tracking-widest uppercase bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-sm">
@@ -581,66 +589,7 @@ export function BplEditionView({
       ) : null}
 
       {/* ─────────────────────────────────────────────────────────────────
-          6. TOURNAMENT / EDITION INFORMATION (P1.7)
-         ───────────────────────────────────────────────────────────────── */}
-      <section className="space-y-4">
-        <h2 className="text-xs font-black uppercase tracking-widest text-blue-200 flex items-center gap-2">
-          <Info className="w-4 h-4 text-amber-400" />
-          About This Edition
-        </h2>
-
-        <div className="rounded-2xl border border-blue-500/25 bg-gradient-to-br from-[#0c1f44]/80 to-[#071530]/80 p-6 sm:p-8 space-y-6 shadow-xl backdrop-blur-sm">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="space-y-1">
-              <span className="text-xs uppercase font-bold text-amber-400/90 tracking-wider">
-                Competition Dates
-              </span>
-              <p className="text-sm font-semibold text-white flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
-                {formattedDates}
-              </p>
-            </div>
-
-            {(edition.venue || edition.city) && (
-              <div className="space-y-1">
-                <span className="text-xs uppercase font-bold text-amber-400/90 tracking-wider">
-                  Location & Venue
-                </span>
-                <p className="text-sm font-semibold text-white flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
-                  {[edition.venue, edition.city].filter(Boolean).join(", ")}
-                </p>
-              </div>
-            )}
-
-            {edition.linkedTournament && (
-              <div className="space-y-1">
-                <span className="text-xs uppercase font-bold text-amber-400/90 tracking-wider">
-                  Linked Tournament Engine
-                </span>
-                <p className="text-sm font-semibold text-white flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-amber-400 shrink-0" />
-                  {edition.linkedTournament.name}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {edition.description && (
-            <div className="pt-4 border-t border-blue-500/20 space-y-2">
-              <span className="text-xs uppercase font-bold text-amber-400/90 tracking-wider">
-                Official Edition Overview
-              </span>
-              <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line font-normal">
-                {edition.description}
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────────────
-          7. SPONSORS SHOWCASE & INTERACTIVE SLIDESHOW (Issue 2 & Issue 4)
+          6. SPONSORS SHOWCASE & INTERACTIVE SLIDESHOW (Issue 2 & Issue 4)
          ───────────────────────────────────────────────────────────────── */}
       {sponsorsByCategory.total > 0 && (
         <section className="relative rounded-3xl border border-blue-500/25 bg-gradient-to-br from-[#0c1f44]/80 via-[#081738]/85 to-[#05112a]/90 p-6 sm:p-10 shadow-2xl backdrop-blur-md space-y-8 overflow-hidden">
