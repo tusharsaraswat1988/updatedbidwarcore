@@ -223,6 +223,7 @@ export async function advanceTournamentProgression(
               tied: r.tied,
               noResult: r.noResult,
               points: r.points,
+              pointsPercentage: r.pointsPercentage,
               netRunRate: r.netRunRate,
               runsScored: Number((r.extrasJson as Record<string, unknown>)?.runsScored ?? 0),
               oversFaced: Number((r.extrasJson as Record<string, unknown>)?.oversFaced ?? 0),

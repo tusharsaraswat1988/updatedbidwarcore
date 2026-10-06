@@ -10,6 +10,7 @@ import {
 } from "@workspace/db";
 import {
   aggregateTournamentPlayerStats,
+  computePointsPercentage,
   type TournamentPlayerAggregate,
 } from "@workspace/scoring-core";
 import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
@@ -281,6 +282,7 @@ export async function getTournamentTeamPublicProfile(tournamentId: number, teamI
           tied: standing.tied,
           noResult: standing.noResult,
           points: standing.points,
+          pointsPercentage: computePointsPercentage(standing.points, standing.played),
           netRunRate: standing.netRunRate,
         }
       : null,

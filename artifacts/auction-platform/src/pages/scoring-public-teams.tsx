@@ -12,6 +12,7 @@ import { cricketCardClass, cricketSectionTitleClass } from "@/components/scoring
 import { cricketFanTeamPath } from "@/lib/tournament-navigation";
 import type { PublicSchedulePayload, PublicTeam } from "@/lib/public-tournament-types";
 import { cn } from "@/lib/utils";
+import { formatPointsPercentage } from "@workspace/scoring-core/cricket";
 
 export default function ScoringPublicTeamsPage() {
   const [, params] = useRoute("/tournament/:id/cricket/teams");
@@ -48,11 +49,14 @@ export default function ScoringPublicTeamsPage() {
     return <CricketFanEmpty tournamentId={tournamentId} message="Teams not available." />;
   }
 
+  const rankIndex = new Map((standings ?? []).map((row, index) => [row.teamId, index]));
   const sorted = [...teams].sort((a, b) => {
-    const sa = standingByTeam.get(a.id);
-    const sb = standingByTeam.get(b.id);
-    if ((sb?.points ?? -1) !== (sa?.points ?? -1)) return (sb?.points ?? -1) - (sa?.points ?? -1);
-    return (sb?.netRunRate ?? 0) - (sa?.netRunRate ?? 0);
+    const rankA = rankIndex.get(a.id);
+    const rankB = rankIndex.get(b.id);
+    if (rankA == null && rankB == null) return a.id - b.id;
+    if (rankA == null) return 1;
+    if (rankB == null) return -1;
+    return rankA - rankB;
   });
 
   return (
@@ -105,7 +109,7 @@ export default function ScoringPublicTeamsPage() {
                     </p>
                     {standing ? (
                       <p className="text-xs text-primary mt-1.5 tabular-nums">
-                        {standing.played}P · {standing.won}W · {standing.lost}L · NRR{" "}
+                        {standing.played}P · {standing.won}W · {standing.lost}L · {formatPointsPercentage(standing.pointsPercentage)} · NRR{" "}
                         {standing.netRunRate > 0 ? "+" : ""}
                         {standing.netRunRate.toFixed(3)}
                       </p>

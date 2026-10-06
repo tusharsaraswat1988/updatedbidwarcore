@@ -119,6 +119,7 @@ export type ScoringStandingRow = {
   tied: number;
   noResult: number;
   points: number;
+  pointsPercentage: number;
   netRunRate: number;
   extrasJson?: {
     runsScored?: number;
@@ -374,6 +375,7 @@ export type ScoringGroupResult = {
   id: number;
   name: string;
   sortOrder: number;
+  qualifiersPerGroup?: number;
   rows: ScoringStandingRow[];
 };
 
@@ -692,6 +694,7 @@ export type TournamentTeamProfile = {
     tied: number;
     noResult: number;
     points: number;
+    pointsPercentage: number;
     netRunRate: number;
   } | null;
   squad: Array<{

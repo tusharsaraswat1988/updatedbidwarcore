@@ -68,7 +68,7 @@ export function makeSlotKey(groupName: string, rank: number): string {
  * 1. Every group in the stage must have completed all scheduled matches.
  * 2. Each group must have at least `count` teams in standings.
  * 3. Prevents duplicate teams across qualification slots.
- * 4. Consumes authoritative standings (points > NRR > teamId).
+ * 4. Consumes authoritative standings (points % > NRR > head-to-head > teamId).
  */
 export function resolveGroupQualifications(
   groups: Array<{ name: string; groupId?: number | null }>,

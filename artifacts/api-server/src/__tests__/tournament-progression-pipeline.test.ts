@@ -184,8 +184,8 @@ describe("P0-A: Generic League → Qualification → Knockout Progression", () =
         "Group Blue": {
           groupName: "Group Blue",
           standings: [
-            { teamId: 20, played: 2, won: 2, lost: 0, tied: 0, noResult: 0, points: 4, netRunRate: 1.5, runsScored: 300, oversFaced: 40, runsConceded: 240, oversBowled: 40 },
-            { teamId: 21, played: 2, won: 1, lost: 1, tied: 0, noResult: 0, points: 2, netRunRate: 0.1, runsScored: 280, oversFaced: 40, runsConceded: 270, oversBowled: 40 },
+            { teamId: 20, played: 2, won: 2, lost: 0, tied: 0, noResult: 0, points: 4, pointsPercentage: 100, netRunRate: 1.5, runsScored: 300, oversFaced: 40, runsConceded: 240, oversBowled: 40 },
+            { teamId: 21, played: 2, won: 1, lost: 1, tied: 0, noResult: 0, points: 2, pointsPercentage: 50, netRunRate: 0.1, runsScored: 280, oversFaced: 40, runsConceded: 270, oversBowled: 40 },
           ],
           isComplete: true,
         },
@@ -208,7 +208,7 @@ describe("P0-A: Generic League → Qualification → Knockout Progression", () =
       const groupMap: GroupStandingsMap = {
         "Group Red": {
           groupName: "Group Red",
-          standings: [{ teamId: 1, played: 1, won: 1, lost: 0, tied: 0, noResult: 0, points: 2, netRunRate: 1.0, runsScored: 150, oversFaced: 20, runsConceded: 120, oversBowled: 20 }],
+          standings: [{ teamId: 1, played: 1, won: 1, lost: 0, tied: 0, noResult: 0, points: 2, pointsPercentage: 100, netRunRate: 1.0, runsScored: 150, oversFaced: 20, runsConceded: 120, oversBowled: 20 }],
           isComplete: false, // Incomplete!
         },
       };

@@ -10,6 +10,8 @@ import {
   type BplSponsorCategory,
 } from "@workspace/db";
 import { eq, and, ne, desc, asc, inArray, sql } from "drizzle-orm";
+import { buildHeadToHeadIndex, rankCricketStandings } from "@workspace/scoring-core";
+import { isKnockoutMatch } from "../lib/scoring-standings";
 import { z } from "zod";
 import { parseSponsorLogos } from "@workspace/api-base/sponsor-priority";
 import { requireAdmin } from "../middleware/require-admin.js";
@@ -263,26 +265,47 @@ async function fetchLinkedTournamentActivity(tournamentId: number | null) {
       netRunRate: scoringStandingsTable.netRunRate,
     })
     .from(scoringStandingsTable)
-    .where(eq(scoringStandingsTable.tournamentId, tournamentId))
-    .orderBy(desc(scoringStandingsTable.points), desc(scoringStandingsTable.won));
+    .where(eq(scoringStandingsTable.tournamentId, tournamentId));
 
-  const standings = rawStandings.map((s) => {
-    const team = teamMap.get(s.teamId);
-    return {
-      teamId: s.teamId,
-      teamName: team?.name ?? `Team ${s.teamId}`,
-      shortCode: team?.shortCode ?? "T",
-      color: team?.color ?? null,
-      logoUrl: team?.logoUrl ?? null,
-      played: s.played,
-      won: s.won,
-      lost: s.lost,
-      tied: s.tied,
-      noResult: s.noResult,
-      points: s.points,
-      netRunRate: s.netRunRate ? Number(s.netRunRate) : 0,
-    };
-  });
+  const headToHead = buildHeadToHeadIndex(
+    matches
+      .filter(
+        (match) =>
+          !isKnockoutMatch(match) &&
+          (match.status === "completed" ||
+            match.status === "abandoned" ||
+            match.status === "no_result" ||
+            match.status === "walkover"),
+      )
+      .map((match) => ({
+        status: match.status,
+        homeTeamId: match.homeTeamId,
+        awayTeamId: match.awayTeamId,
+        winnerTeamId: match.winnerTeamId,
+        isTie: match.status === "completed" && match.winnerTeamId == null,
+      })),
+  );
+
+  const standings = rankCricketStandings(
+    rawStandings.map((s) => {
+      const team = teamMap.get(s.teamId);
+      return {
+        teamId: s.teamId,
+        teamName: team?.name ?? `Team ${s.teamId}`,
+        shortCode: team?.shortCode ?? "T",
+        color: team?.color ?? null,
+        logoUrl: team?.logoUrl ?? null,
+        played: s.played,
+        won: s.won,
+        lost: s.lost,
+        tied: s.tied,
+        noResult: s.noResult,
+        points: s.points,
+        netRunRate: s.netRunRate ? Number(s.netRunRate) : 0,
+      };
+    }),
+    headToHead,
+  );
 
   return {
     snapshot: {

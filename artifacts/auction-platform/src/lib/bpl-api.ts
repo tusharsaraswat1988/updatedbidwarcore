@@ -87,6 +87,7 @@ export type BplPublicStanding = {
   tied: number;
   noResult: number;
   points: number;
+  pointsPercentage: number;
   netRunRate: number;
 };
 
