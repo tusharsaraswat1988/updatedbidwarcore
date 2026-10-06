@@ -10,7 +10,7 @@ import {
   type BplSponsorCategory,
 } from "@workspace/db";
 import { eq, and, ne, desc, asc, inArray, sql } from "drizzle-orm";
-import { buildHeadToHeadIndex, rankCricketStandings } from "@workspace/scoring-core";
+import { buildHeadToHeadIndex, rankCricketStandings, rankingNetRunRate } from "@workspace/scoring-core";
 import { isKnockoutMatch } from "../lib/scoring-standings";
 import { z } from "zod";
 import { parseSponsorLogos } from "@workspace/api-base/sponsor-priority";
@@ -263,6 +263,7 @@ async function fetchLinkedTournamentActivity(tournamentId: number | null) {
       noResult: scoringStandingsTable.noResult,
       points: scoringStandingsTable.points,
       netRunRate: scoringStandingsTable.netRunRate,
+      extrasJson: scoringStandingsTable.extrasJson,
     })
     .from(scoringStandingsTable)
     .where(eq(scoringStandingsTable.tournamentId, tournamentId));
@@ -301,7 +302,7 @@ async function fetchLinkedTournamentActivity(tournamentId: number | null) {
         tied: s.tied,
         noResult: s.noResult,
         points: s.points,
-        netRunRate: s.netRunRate ? Number(s.netRunRate) : 0,
+        netRunRate: rankingNetRunRate(s.netRunRate, s.extrasJson),
       };
     }),
     headToHead,

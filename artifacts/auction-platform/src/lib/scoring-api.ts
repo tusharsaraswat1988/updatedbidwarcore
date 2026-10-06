@@ -121,6 +121,8 @@ export type ScoringStandingRow = {
   points: number;
   pointsPercentage: number;
   netRunRate: number;
+  /** Present on group standings rows. True when the server qualified this team. */
+  qualified?: boolean;
   extrasJson?: {
     runsScored?: number;
     oversFaced?: number;
@@ -693,9 +695,11 @@ export type TournamentTeamProfile = {
     lost: number;
     tied: number;
     noResult: number;
+    rank: number;
     points: number;
     pointsPercentage: number;
     netRunRate: number;
+    qualified: boolean | null;
   } | null;
   squad: Array<{
     id: number;

@@ -20,7 +20,7 @@ import {
 } from "@/components/scoring/cricket-page-chrome";
 import type { PublicSchedulePayload } from "@/lib/public-tournament-types";
 import { cn } from "@/lib/utils";
-import { formatPointsPercentage } from "@workspace/scoring-core/cricket";
+import { formatNetRunRate, formatPointsPercentage } from "@workspace/scoring-core/cricket";
 
 export default function ScoringTeamPublicPage() {
   const [, params] = useRoute("/tournament/:id/cricket/team/:teamId");
@@ -102,9 +102,7 @@ export default function ScoringTeamPublicPage() {
           {standing ? (
             <p className="text-sm text-primary tabular-nums">
               {standing.played}P · {standing.won}W · {standing.lost}L · {standing.points} pts ·{" "}
-              {formatPointsPercentage(standing.pointsPercentage)} · NRR{" "}
-              {standing.netRunRate > 0 ? "+" : ""}
-              {standing.netRunRate.toFixed(3)}
+              {formatPointsPercentage(standing.pointsPercentage)} · NRR {formatNetRunRate(standing.netRunRate)}
             </p>
           ) : null}
         </div>

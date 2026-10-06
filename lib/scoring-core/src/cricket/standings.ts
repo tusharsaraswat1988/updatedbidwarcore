@@ -96,6 +96,60 @@ export function formatPointsPercentage(value: number | null | undefined): string
   return `${n.toFixed(2)}%`;
 }
 
+export type NetRunRateComponents = {
+  runsScored: number;
+  oversFaced: number;
+  runsConceded: number;
+  oversBowled: number;
+};
+
+/**
+ * Full-precision NRR from run and over totals.
+ * Display may round to three decimals; ranking must use this value.
+ */
+export function computeNetRunRate(row: NetRunRateComponents): number {
+  if (row.oversFaced === 0 && row.oversBowled === 0) return 0;
+  const scoredRate = row.oversFaced > 0 ? row.runsScored / row.oversFaced : 0;
+  const concededRate = row.oversBowled > 0 ? row.runsConceded / row.oversBowled : 0;
+  return scoredRate - concededRate;
+}
+
+function readNetRunRateComponents(extras: unknown): NetRunRateComponents | null {
+  if (!extras || typeof extras !== "object") return null;
+  const source = extras as Record<string, unknown>;
+  const runsScored = Number(source.runsScored);
+  const oversFaced = Number(source.oversFaced);
+  const runsConceded = Number(source.runsConceded);
+  const oversBowled = Number(source.oversBowled);
+  if (![runsScored, oversFaced, runsConceded, oversBowled].every(Number.isFinite)) return null;
+  return { runsScored, oversFaced, runsConceded, oversBowled };
+}
+
+/**
+ * Ranking NRR. Prefer the persisted run/over totals over the 3-decimal column.
+ * Falls back to the stored number only when those totals are absent.
+ */
+export function rankingNetRunRate(
+  stored: number | string | null | undefined,
+  extras: unknown,
+): number {
+  const components = readNetRunRateComponents(extras);
+  if (components) return computeNetRunRate(components);
+  if (typeof stored === "number" && Number.isFinite(stored)) return stored;
+  if (typeof stored === "string" && stored.trim() !== "") {
+    const parsed = Number(stored);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+/** Display helper. Positive rates keep a leading plus. Ranking must not use this string. */
+export function formatNetRunRate(value: number | null | undefined): string {
+  const n = typeof value === "number" && Number.isFinite(value) ? value : 0;
+  const text = n.toFixed(3);
+  return n > 0 ? `+${text}` : text;
+}
+
 function headToHeadPairKey(teamA: number, teamB: number): string {
   return teamA < teamB ? `${teamA}:${teamB}` : `${teamB}:${teamA}`;
 }
@@ -366,12 +420,6 @@ function applyNrrFromSummary(
   }
 }
 
-function finalizeNrr(row: TeamStandingComputed): number {
-  if (row.oversFaced === 0 && row.oversBowled === 0) return 0;
-  const scoredRate = row.oversFaced > 0 ? row.runsScored / row.oversFaced : 0;
-  const concededRate = row.oversBowled > 0 ? row.runsConceded / row.oversBowled : 0;
-  return scoredRate - concededRate;
-}
 
 /**
  * Build points table from completed/abandoned matches.
@@ -435,7 +483,7 @@ export function buildStandingsFromMatches(
 
   const rows = [...map.values()].map((row) => ({
     ...row,
-    netRunRate: finalizeNrr(row),
+    netRunRate: computeNetRunRate(row),
     pointsPercentage: computePointsPercentage(row.points, row.played, rules),
   }));
 

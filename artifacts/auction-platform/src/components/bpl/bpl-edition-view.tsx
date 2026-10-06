@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { formatNetRunRate, formatPointsPercentage } from "@workspace/scoring-core/cricket";
 import { Link } from "wouter";
 import {
   Calendar,
@@ -577,12 +578,10 @@ export function BplEditionView({
                       {row.points}
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono text-blue-100">
-                      {typeof row.pointsPercentage === "number" ? `${row.pointsPercentage.toFixed(2)}%` : "0.00%"}
+                      {formatPointsPercentage(row.pointsPercentage)}
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono text-blue-200">
-                      {typeof row.netRunRate === "number"
-                        ? (row.netRunRate > 0 ? `+${row.netRunRate.toFixed(3)}` : row.netRunRate.toFixed(3))
-                        : row.netRunRate}
+                      {formatNetRunRate(row.netRunRate)}
                     </td>
                   </tr>
                 ))}

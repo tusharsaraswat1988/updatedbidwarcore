@@ -14,6 +14,7 @@ import {
   buildHeadToHeadIndex,
   buildStandingsFromMatches,
   rankCricketStandings,
+  rankingNetRunRate,
   type CricketMatchSummary,
   type HeadToHeadMatch,
   type StandingsMatchInput,
@@ -196,6 +197,8 @@ export type ScoringGroupResult = {
     points: number;
     pointsPercentage: number;
     netRunRate: number;
+    /** Server qualification for this group's configured cutoff. */
+    qualified: boolean;
     extrasJson: Record<string, unknown> | null;
   }>;
 };
@@ -306,7 +309,7 @@ async function getScoringStandingsRaw(tournamentId: number) {
         tied: r.tied,
         noResult: r.noResult,
         points: r.points,
-        netRunRate: r.netRunRate ? Number(r.netRunRate) : 0,
+        netRunRate: rankingNetRunRate(r.netRunRate, r.extrasJson),
         extrasJson: (r.extrasJson as Record<string, unknown> | null) ?? null,
       };
     }),
@@ -353,7 +356,8 @@ async function getScoringStandingsRaw(tournamentId: number) {
       }));
 
       const computed = buildStandingsFromMatches(groupTeamIds, inputs);
-      const groupRows = computed.map((r) => {
+      const qualifiersPerGroup = g.drawId != null ? (qualifiersByDraw.get(g.drawId) ?? 2) : 2;
+      const groupRows = computed.map((r, index) => {
         const team = teamMeta.get(r.teamId);
         return {
           teamId: r.teamId,
@@ -368,6 +372,7 @@ async function getScoringStandingsRaw(tournamentId: number) {
           points: r.points,
           pointsPercentage: r.pointsPercentage,
           netRunRate: r.netRunRate,
+          qualified: index < qualifiersPerGroup,
           extrasJson: {
             runsScored: r.runsScored,
             oversFaced: r.oversFaced,
@@ -390,7 +395,7 @@ async function getScoringStandingsRaw(tournamentId: number) {
         displayName,
         name: g.name,
         sortOrder: g.sortOrder,
-        qualifiersPerGroup: g.drawId != null ? (qualifiersByDraw.get(g.drawId) ?? 2) : 2,
+        qualifiersPerGroup,
         rows: groupRows,
       });
     }

@@ -1,10 +1,5 @@
 import type { ScoringStandingRow } from "@/lib/scoring-api";
-import { formatPointsPercentage } from "@workspace/scoring-core/cricket";
-
-function nrrText(nrr: number): string {
-  if (nrr > 0) return `+${nrr.toFixed(3)}`;
-  return nrr.toFixed(3);
-}
+import { formatNetRunRate, formatPointsPercentage } from "@workspace/scoring-core/cricket";
 
 function formatDecimalOvers(decimalOvers?: number): string {
   if (decimalOvers == null || decimalOvers === 0) return "0.0";
@@ -63,11 +58,16 @@ export function StandingsTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, idx) => (
+          {rows.map((row, idx) => {
+            const isQualified =
+              typeof row.qualified === "boolean"
+                ? row.qualified
+                : highlightTop > 0 && idx < highlightTop;
+            return (
             <tr
               key={row.teamId}
               className={
-                highlightTop > 0 && idx < highlightTop
+                isQualified
                   ? "border-b border-border/60 last:border-0 bg-primary/5"
                   : "border-b border-border/60 last:border-0"
               }
@@ -75,7 +75,7 @@ export function StandingsTable({
               <td className="px-3 py-2.5 text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   {idx + 1}
-                  {highlightTop > 0 && idx < highlightTop ? (
+                  {isQualified ? (
                     <span className="text-[10px] font-extrabold uppercase px-1 py-0.2 rounded bg-primary/20 text-primary border border-primary/30" title="Top qualifier spot">
                       Q
                     </span>
@@ -108,10 +108,11 @@ export function StandingsTable({
                 className="px-3 py-2.5 text-right tabular-nums text-muted-foreground"
                 title={nrrBreakdownTooltip(row)}
               >
-                {nrrText(row.netRunRate)}
+                {formatNetRunRate(row.netRunRate)}
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>

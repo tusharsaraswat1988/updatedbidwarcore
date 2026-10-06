@@ -5,18 +5,16 @@ import {
   scoringMatchPlayerStatsTable,
   scoringMatchesTable,
   scoringPlayerAwardsTable,
-  scoringStandingsTable,
   tournamentsTable,
 } from "@workspace/db";
 import {
   aggregateTournamentPlayerStats,
-  computePointsPercentage,
   type TournamentPlayerAggregate,
 } from "@workspace/scoring-core";
 import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { ScoringServiceError } from "./scoring-service";
 import { TERMINAL_SCORING_MATCH_STATUSES } from "./scoring-match-terminal";
-import { ensureScoringEnabled } from "./scoring-standings";
+import { ensureScoringEnabled, getScoringStandings } from "./scoring-standings";
 import type { BattingStatsJson, BowlingStatsJson, FieldingStatsJson } from "@workspace/db";
 import {
   listCricketFranchisePlayers,
@@ -199,16 +197,12 @@ export async function getTournamentTeamPublicProfile(tournamentId: number, teamI
     throw new ScoringServiceError("Team not found", 404, "TEAM_NOT_FOUND");
   }
 
-  const [standing] = await db
-    .select()
-    .from(scoringStandingsTable)
-    .where(
-      and(
-        eq(scoringStandingsTable.tournamentId, tournamentId),
-        eq(scoringStandingsTable.teamId, teamId),
-      ),
-    )
-    .limit(1);
+  const standings = await getScoringStandings(tournamentId);
+  const rankIndex = standings.findIndex((row) => row.teamId === teamId);
+  const standing = rankIndex >= 0 ? standings[rankIndex] : undefined;
+  const groupStanding = standings.groups
+    ?.flatMap((group) => group.rows)
+    .find((row) => row.teamId === teamId);
 
   const squadPlayers = await listCricketFranchisePlayers(tournamentId, teamId);
   const squad = squadPlayers.map((p) => ({
@@ -276,14 +270,16 @@ export async function getTournamentTeamPublicProfile(tournamentId: number, teamI
     },
     standing: standing
       ? {
+          rank: rankIndex + 1,
           played: standing.played,
           won: standing.won,
           lost: standing.lost,
           tied: standing.tied,
           noResult: standing.noResult,
           points: standing.points,
-          pointsPercentage: computePointsPercentage(standing.points, standing.played),
+          pointsPercentage: standing.pointsPercentage,
           netRunRate: standing.netRunRate,
+          qualified: groupStanding?.qualified ?? null,
         }
       : null,
     squad,

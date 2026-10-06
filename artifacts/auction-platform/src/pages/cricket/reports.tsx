@@ -212,7 +212,7 @@ export default function CricketReportsPage() {
     const body = rows
       .map(
         (r, i) =>
-          `${i + 1},"${r.teamName}",${r.played},${r.won},${r.lost},${r.tied},${r.noResult},${r.points},${r.pointsPercentage},${r.netRunRate.toFixed(3)}`,
+          `${i + 1},"${r.teamName}",${r.played},${r.won},${r.lost},${r.tied},${r.noResult},${r.points},${r.pointsPercentage},${r.netRunRate}`,
       )
       .join("\n");
     const blob = new Blob([`${header}\n${body}`], { type: "text/csv;charset=utf-8" });

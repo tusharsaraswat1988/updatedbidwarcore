@@ -13,6 +13,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { formatNetRunRate } from "@workspace/scoring-core/cricket";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -672,7 +673,12 @@ export function CricketLedMidOverlays({
                       {paginatedStandingsRows && paginatedStandingsRows.length > 0 ? (
                         paginatedStandingsRows.map((row, idx) => {
                           const globalIdx = (standingsPage % totalStandingsPages) * STANDINGS_PAGE_SIZE + idx;
-                          const isTop4 = globalIdx < 4;
+                          const isTop4 =
+                            typeof row.qualified === "boolean"
+                              ? row.qualified
+                              : matchedGroup
+                                ? globalIdx < (matchedGroup.qualifiersPerGroup ?? 2)
+                                : globalIdx < 4;
                           return (
                             <tr
                               key={row.teamId}
@@ -728,11 +734,7 @@ export function CricketLedMidOverlays({
                                 {row.lost}
                               </td>
                               <td className="py-2.5 sm:py-3.5 px-2 sm:px-4 text-center tabular-nums font-mono font-black text-cyan-300 text-lg sm:text-2xl md:text-3xl">
-                                {row.netRunRate != null
-                                  ? row.netRunRate > 0
-                                    ? `+${row.netRunRate.toFixed(3)}`
-                                    : row.netRunRate.toFixed(3)
-                                  : "0.000"}
+                                {formatNetRunRate(row.netRunRate)}
                               </td>
                               <td className="py-2.5 sm:py-3.5 px-3 sm:px-6 text-right font-mono font-black text-2xl sm:text-4xl md:text-5xl tabular-nums text-amber-400">
                                 {row.points}

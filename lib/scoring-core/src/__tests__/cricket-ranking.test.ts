@@ -3,9 +3,15 @@ import {
   buildHeadToHeadIndex,
   buildStandingsFromMatches,
   compareCricketStandings,
+  computeNetRunRate,
   computePointsPercentage,
   DEFAULT_CRICKET_POINTS_RULES,
+  formatNetRunRate,
+  formatPointsPercentage,
+  rankCricketStandings,
+  rankingNetRunRate,
   type StandingsMatchInput,
+  type TeamStandingComputed,
 } from "../cricket/standings";
 import { resolveGroupQualifications, type GroupStandingsMap } from "../cricket/progression";
 import type { CricketMatchSummary } from "../cricket/summary";
@@ -384,5 +390,139 @@ describe("cricket group qualification ranking", () => {
       "GROUP B#2": 22,
     });
     expect(new Set(resolved.qualifierTeamIds).size).toBe(4);
+  });
+
+  it("qualifies a different prefix when the configured count changes", () => {
+    const rows = buildStandingsFromMatches(
+      [11, 12, 13, 14],
+      [
+        winMatch(1, 12, 11, 180, 100),
+        winMatch(2, 11, 13, 150, 140),
+        winMatch(3, 11, 14, 150, 140),
+        winMatch(4, 12, 13, 200, 80),
+        winMatch(5, 12, 14, 200, 80),
+        winMatch(6, 13, 12, 190, 70),
+      ],
+    );
+    const order = rows.map((row) => row.teamId);
+    const one = resolveGroupQualifications(
+      [{ name: "Group A" }],
+      { type: "top_n_per_group", count: 1 },
+      { "Group A": { groupName: "Group A", standings: rows, isComplete: true } },
+    );
+    const three = resolveGroupQualifications(
+      [{ name: "Group A" }],
+      { type: "top_n_per_group", count: 3 },
+      { "Group A": { groupName: "Group A", standings: rows, isComplete: true } },
+    );
+    expect(one.qualifierTeamIds).toEqual(order.slice(0, 1));
+    expect(three.qualifierTeamIds).toEqual(order.slice(0, 3));
+  });
+});
+
+describe("full-precision NRR ranking", () => {
+  it("keeps a higher full-precision NRR above a value that rounds to the same 3 decimals", () => {
+    const higher = computeNetRunRate({
+      runsScored: 123.46,
+      oversFaced: 1000,
+      runsConceded: 0,
+      oversBowled: 1000,
+    });
+    const lower = computeNetRunRate({
+      runsScored: 123.44,
+      oversFaced: 1000,
+      runsConceded: 0,
+      oversBowled: 1000,
+    });
+    expect(higher).toBeCloseTo(0.12346, 8);
+    expect(lower).toBeCloseTo(0.12344, 8);
+    expect(higher.toFixed(3)).toBe(lower.toFixed(3));
+
+    const full = rankCricketStandings([
+      { teamId: 1, played: 1, points: 2, netRunRate: lower },
+      { teamId: 2, played: 1, points: 2, netRunRate: higher },
+    ]);
+    const rounded = rankCricketStandings([
+      { teamId: 1, played: 1, points: 2, netRunRate: Number(lower.toFixed(3)) },
+      { teamId: 2, played: 1, points: 2, netRunRate: Number(higher.toFixed(3)) },
+    ]);
+
+    expect(full.map((row) => row.teamId)).toEqual([2, 1]);
+    expect(rounded.map((row) => row.teamId)).toEqual([1, 2]);
+
+    const qualifiedRows: TeamStandingComputed[] = full.map((row) => ({
+      teamId: row.teamId,
+      played: row.played,
+      won: 1,
+      lost: 0,
+      tied: 0,
+      noResult: 0,
+      points: row.points,
+      pointsPercentage: row.pointsPercentage,
+      netRunRate: row.netRunRate,
+      runsScored: 0,
+      oversFaced: 0,
+      runsConceded: 0,
+      oversBowled: 0,
+    }));
+    const qualified = resolveGroupQualifications(
+      [{ name: "Group A" }],
+      { type: "top_n_per_group", count: 1 },
+      { "Group A": { groupName: "Group A", standings: qualifiedRows, isComplete: true } },
+    );
+    expect(qualified.qualifierTeamIds).toEqual([2]);
+  });
+
+  it("recovers ranking NRR from stored run and over totals after the column is rounded", () => {
+    const built = buildStandingsFromMatches(
+      [1, 2],
+      [winMatch(1, 2, 1, 161, 140), winMatch(2, 1, 2, 180, 120)],
+    );
+    const reread = rankCricketStandings(
+      built.map((row) => ({
+        teamId: row.teamId,
+        played: row.played,
+        won: row.won,
+        lost: row.lost,
+        tied: row.tied,
+        noResult: row.noResult,
+        points: row.points,
+        netRunRate: rankingNetRunRate(row.netRunRate.toFixed(3), {
+          runsScored: row.runsScored,
+          oversFaced: row.oversFaced,
+          runsConceded: row.runsConceded,
+          oversBowled: row.oversBowled,
+        }),
+      })),
+    );
+
+    expect(reread.map((row) => row.teamId)).toEqual(built.map((row) => row.teamId));
+    expect(reread.map((row) => row.points)).toEqual(built.map((row) => row.points));
+    expect(reread.map((row) => row.pointsPercentage)).toEqual(
+      built.map((row) => row.pointsPercentage),
+    );
+    expect(reread.map((row) => row.netRunRate)).toEqual(built.map((row) => row.netRunRate));
+    expect(rankingNetRunRate("1.250", null)).toBe(1.25);
+    expect(rankingNetRunRate(null, null)).toBe(0);
+  });
+
+  it("formats points percentage and NRR without changing the ranked values", () => {
+    expect(formatPointsPercentage(75)).toBe("75.00%");
+    expect(formatPointsPercentage(83.3333333333)).toBe("83.33%");
+    expect(formatNetRunRate(1.234)).toBe("+1.234");
+    expect(formatNetRunRate(-0.456)).toBe("-0.456");
+    expect(formatNetRunRate(0)).toBe("0.000");
+    expect(formatNetRunRate(-0.456).includes("+-")).toBe(false);
+
+    const rows = rankCricketStandings([
+      { teamId: 2, played: 4, points: 6, netRunRate: -0.456 },
+      { teamId: 1, played: 3, points: 5, netRunRate: 1.234 },
+    ]);
+    expect(rows.map((row) => row.teamId)).toEqual([1, 2]);
+    expect(rows.map((row) => formatPointsPercentage(row.pointsPercentage))).toEqual([
+      "83.33%",
+      "75.00%",
+    ]);
+    expect(rows.map((row) => formatNetRunRate(row.netRunRate))).toEqual(["+1.234", "-0.456"]);
   });
 });

@@ -2226,7 +2226,10 @@ export interface ScoringStandingRow {
   points?: number;
   /** Points as a percentage of maximum points from matches played. */
   pointsPercentage?: number;
+  /** Full-precision net run rate used for ranking. Display may round to three decimals. */
   netRunRate?: number;
+  /** Server qualification flag for a group standings row. Absent on the overall table. */
+  qualified?: boolean;
 }
 
 export interface ScoringLeaderboardRow {
