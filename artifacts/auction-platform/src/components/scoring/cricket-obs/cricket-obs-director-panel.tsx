@@ -55,10 +55,11 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
     queryFn: () => getScoringStandings(tournamentId),
     enabled: tournamentId > 0,
     staleTime: 30_000,
+    refetchInterval: 30_000,
   });
   const availableGroups = useMemo(() => {
     if (!standings?.groups || standings.groups.length === 0) return [];
-    return standings.groups.map((g) => g.groupName).filter(Boolean);
+    return standings.groups.map((g) => g.name).filter(Boolean);
   }, [standings?.groups]);
 
   // Sync active overlay state with server on mount / refetch

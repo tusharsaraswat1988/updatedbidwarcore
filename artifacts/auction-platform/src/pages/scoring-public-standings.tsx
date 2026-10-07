@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getPublicSchedule } from "@/lib/scoring-foundation-api";
 import { getScoringStandings } from "@/lib/scoring-api";
 import { StandingsTable } from "@/components/scoring/standings-table";
-import { formatPointsPercentage } from "@workspace/scoring-core/cricket";
+import { formatNetRunRate, formatPointsPercentage } from "@workspace/scoring-core/cricket";
 import {
   CricketFanEmpty,
   CricketFanExperienceShell,
@@ -83,8 +83,7 @@ export default function ScoringPublicStandingsPage() {
                   <div className="text-right shrink-0">
                     <p className="font-bold text-primary tabular-nums">{row.points} pts</p>
                     <p className="text-xs text-muted-foreground tabular-nums">
-                      {formatPointsPercentage(row.pointsPercentage)} · NRR {row.netRunRate > 0 ? "+" : ""}
-                      {row.netRunRate.toFixed(3)}
+                      {formatPointsPercentage(row.pointsPercentage)} · NRR {formatNetRunRate(row.netRunRate)}
                     </p>
                   </div>
                 </div>

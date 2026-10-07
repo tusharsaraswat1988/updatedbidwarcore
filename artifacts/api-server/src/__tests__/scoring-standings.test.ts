@@ -105,4 +105,62 @@ describe("standings projection inputs", () => {
     expect(rows[1]?.noResult).toBe(1);
     expect(rows[1]?.tied).toBe(0);
   });
+
+  it("keeps an explicit tie when a winner id is also present", async () => {
+    const { toHeadToHeadMatch } = await import("../lib/scoring-standings");
+    const { rankPersistedCricketStandings } = await import("@workspace/scoring-core");
+    const tied = toHeadToHeadMatch(
+      {
+        id: 9,
+        status: "completed",
+        homeTeamId: 1,
+        awayTeamId: 2,
+        winnerTeamId: 2,
+        summaryJson: { winnerTeamId: 2 },
+      },
+      new Map([[9, true]]),
+    );
+    const missingWinner = toHeadToHeadMatch(
+      {
+        id: 10,
+        status: "completed",
+        homeTeamId: 1,
+        awayTeamId: 2,
+        winnerTeamId: null,
+        summaryJson: null,
+      },
+      new Map(),
+    );
+
+    expect(tied.isTie).toBe(true);
+    expect(tied.winnerTeamId).toBe(2);
+    expect(missingWinner.isTie).toBeUndefined();
+    expect(missingWinner.winnerTeamId).toBeNull();
+
+    const row = {
+      played: 1,
+      won: 0,
+      lost: 0,
+      tied: 1,
+      noResult: 0,
+      points: 1,
+      netRunRate: 0,
+    };
+    const fromTieFlag = rankPersistedCricketStandings(
+      [
+        { ...row, teamId: 1 },
+        { ...row, teamId: 2 },
+      ],
+      [tied],
+    );
+    const fromMissingWinner = rankPersistedCricketStandings(
+      [
+        { ...row, teamId: 1 },
+        { ...row, teamId: 2 },
+      ],
+      [missingWinner],
+    );
+    expect(fromTieFlag.map((standing) => standing.teamId)).toEqual([1, 2]);
+    expect(fromMissingWinner.map((standing) => standing.teamId)).toEqual([1, 2]);
+  });
 });

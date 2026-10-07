@@ -81,6 +81,8 @@ export default function CricketDashboardPage() {
     queryKey: ["scoring-standings", tournamentId],
     queryFn: () => getScoringStandings(tournamentId),
     enabled: scoringActive && !!tournamentId,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
   const { data: masterTeams } = useQuery({
     queryKey: ["cricket-master-teams", tournamentId],

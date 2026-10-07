@@ -62,7 +62,25 @@ export type HeadToHeadMatch = {
   homeTeamId: number;
   awayTeamId: number;
   winnerTeamId: number | null;
+  /**
+   * Explicit tie from the match-completed event.
+   * Undefined means "not recorded": a missing winner is then a tie.
+   * `false` means the match is not a tie even when the winner is missing.
+   */
   isTie?: boolean;
+};
+
+/** Persisted standings row. `extras` holds full-precision run and over totals when present. */
+export type PersistedCricketStanding = {
+  teamId: number;
+  played: number;
+  won: number;
+  lost: number;
+  tied: number;
+  noResult: number;
+  points: number;
+  netRunRate: number | string | null;
+  extras?: unknown;
 };
 
 type HeadToHeadPair = {
@@ -94,6 +112,60 @@ export function computePointsPercentage(
 export function formatPointsPercentage(value: number | null | undefined): string {
   const n = typeof value === "number" && Number.isFinite(value) ? value : 0;
   return `${n.toFixed(2)}%`;
+}
+
+export type NetRunRateComponents = {
+  runsScored: number;
+  oversFaced: number;
+  runsConceded: number;
+  oversBowled: number;
+};
+
+/**
+ * Full-precision NRR from run and over totals.
+ * Display may round to three decimals; ranking must use this value.
+ */
+export function computeNetRunRate(row: NetRunRateComponents): number {
+  if (row.oversFaced === 0 && row.oversBowled === 0) return 0;
+  const scoredRate = row.oversFaced > 0 ? row.runsScored / row.oversFaced : 0;
+  const concededRate = row.oversBowled > 0 ? row.runsConceded / row.oversBowled : 0;
+  return scoredRate - concededRate;
+}
+
+function readNetRunRateComponents(extras: unknown): NetRunRateComponents | null {
+  if (!extras || typeof extras !== "object") return null;
+  const source = extras as Record<string, unknown>;
+  const runsScored = Number(source.runsScored);
+  const oversFaced = Number(source.oversFaced);
+  const runsConceded = Number(source.runsConceded);
+  const oversBowled = Number(source.oversBowled);
+  if (![runsScored, oversFaced, runsConceded, oversBowled].every(Number.isFinite)) return null;
+  return { runsScored, oversFaced, runsConceded, oversBowled };
+}
+
+/**
+ * Ranking NRR. Prefer the persisted run/over totals over the 3-decimal column.
+ * Falls back to the stored number only when those totals are absent.
+ */
+export function rankingNetRunRate(
+  stored: number | string | null | undefined,
+  extras: unknown,
+): number {
+  const components = readNetRunRateComponents(extras);
+  if (components) return computeNetRunRate(components);
+  if (typeof stored === "number" && Number.isFinite(stored)) return stored;
+  if (typeof stored === "string" && stored.trim() !== "") {
+    const parsed = Number(stored);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+/** Display helper. Positive rates keep a leading plus. Ranking must not use this string. */
+export function formatNetRunRate(value: number | null | undefined): string {
+  const n = typeof value === "number" && Number.isFinite(value) ? value : 0;
+  const text = n.toFixed(3);
+  return n > 0 ? `+${text}` : text;
 }
 
 function headToHeadPairKey(teamA: number, teamB: number): string {
@@ -265,6 +337,147 @@ export function rankCricketStandings<T extends CricketStandingRankInput>(
   return ranked;
 }
 
+/**
+ * Rank rows already stored by the standings rebuild.
+ * NRR comes from run/over totals when `extras` has them; otherwise the stored number.
+ * Head-to-head uses the same index as qualification and the main table.
+ */
+export function rankPersistedCricketStandings<T extends PersistedCricketStanding>(
+  rows: T[],
+  matches: HeadToHeadMatch[],
+  rules: CricketPointsRules = DEFAULT_CRICKET_POINTS_RULES,
+): Array<Omit<T, "netRunRate" | "extras"> & { netRunRate: number; pointsPercentage: number }> {
+  const prepared = rows.map((row) => {
+    const { extras, netRunRate, ...rest } = row;
+    return {
+      ...rest,
+      netRunRate: rankingNetRunRate(netRunRate, extras),
+    };
+  });
+  return rankCricketStandings(prepared, buildHeadToHeadIndex(matches, rules), rules);
+}
+
+/** Mark the first `qualifiers` rows of an already-ranked list. Does not reorder. */
+export function applyQualification<T>(
+  rows: T[],
+  qualifiers: number,
+): Array<T & { qualified: boolean }> {
+  const count = qualifiers > 0 ? qualifiers : 0;
+  return rows.map((row, index) => ({ ...row, qualified: index < count }));
+}
+
+export type TeamGroupQualification = {
+  groupId: number;
+  groupName: string;
+  qualified: boolean;
+};
+
+/**
+ * Qualification for one team across groups.
+ * A team may belong to more than one group because each group belongs to a draw.
+ * Membership is keyed by group id, so standings array order does not matter.
+ * `qualified` is true when the team is qualified in at least one group,
+ * false when it is in groups but qualified in none, and null when it is in no group.
+ */
+export function teamGroupQualifications(
+  groups: Array<{
+    id: number;
+    name: string;
+    rows: Array<{ teamId: number; qualified?: boolean }>;
+  }>,
+  teamId: number,
+): { qualified: boolean | null; groups: TeamGroupQualification[] } {
+  const byGroup = new Map<number, TeamGroupQualification>();
+  for (const group of groups) {
+    const hits = group.rows.filter((row) => row.teamId === teamId);
+    if (hits.length === 0) continue;
+    const qualified = hits.every((row) => row.qualified === true);
+    const existing = byGroup.get(group.id);
+    if (existing) {
+      existing.qualified = existing.qualified && qualified;
+      continue;
+    }
+    byGroup.set(group.id, { groupId: group.id, groupName: group.name, qualified });
+  }
+  const memberships = [...byGroup.values()].sort(
+    (a, b) => a.groupId - b.groupId || a.groupName.localeCompare(b.groupName),
+  );
+  if (memberships.length === 0) return { qualified: null, groups: [] };
+  return { qualified: memberships.some((group) => group.qualified), groups: memberships };
+}
+
+export type NormalizedCricketStanding = {
+  teamId: number;
+  rank: number;
+  played: number;
+  won: number;
+  lost: number;
+  tied: number;
+  noResult: number;
+  points: number;
+  pointsPercentage: number;
+  netRunRate: number;
+  qualified: boolean | null;
+};
+
+/** Semantic standings identity. Rank is position in the supplied order, starting at 1. */
+export function normalizeCricketStandings(
+  rows: Array<{
+    teamId: number;
+    played: number;
+    won: number;
+    lost: number;
+    tied: number;
+    noResult: number;
+    points: number;
+    pointsPercentage: number;
+    netRunRate: number;
+    qualified?: boolean | null;
+  }>,
+): NormalizedCricketStanding[] {
+  return rows.map((row, index) => ({
+    teamId: row.teamId,
+    rank: index + 1,
+    played: row.played,
+    won: row.won,
+    lost: row.lost,
+    tied: row.tied,
+    noResult: row.noResult,
+    points: row.points,
+    pointsPercentage: row.pointsPercentage,
+    netRunRate: row.netRunRate,
+    qualified: typeof row.qualified === "boolean" ? row.qualified : null,
+  }));
+}
+
+const NORMALIZED_FIELDS: Array<keyof NormalizedCricketStanding> = [
+  "teamId",
+  "rank",
+  "played",
+  "won",
+  "lost",
+  "tied",
+  "noResult",
+  "points",
+  "pointsPercentage",
+  "netRunRate",
+  "qualified",
+];
+
+/** Compare semantic standings. Omit fields a surface does not display. */
+export function sameCricketStandings(
+  left: NormalizedCricketStanding[],
+  right: NormalizedCricketStanding[],
+  fields: Array<keyof NormalizedCricketStanding> = NORMALIZED_FIELDS,
+): boolean {
+  if (left.length !== right.length) return false;
+  return left.every((row, index) => {
+    const other = right[index];
+    if (!other) return false;
+    return fields.every((field) => row[field] === other[field]);
+  });
+}
+
 function aggregateHeadToHead(teamIds: number[], index: HeadToHeadIndex) {
   const points = new Map<number, number>();
   const wins = new Map<number, number>();
@@ -366,12 +579,6 @@ function applyNrrFromSummary(
   }
 }
 
-function finalizeNrr(row: TeamStandingComputed): number {
-  if (row.oversFaced === 0 && row.oversBowled === 0) return 0;
-  const scoredRate = row.oversFaced > 0 ? row.runsScored / row.oversFaced : 0;
-  const concededRate = row.oversBowled > 0 ? row.runsConceded / row.oversBowled : 0;
-  return scoredRate - concededRate;
-}
 
 /**
  * Build points table from completed/abandoned matches.
@@ -435,7 +642,7 @@ export function buildStandingsFromMatches(
 
   const rows = [...map.values()].map((row) => ({
     ...row,
-    netRunRate: finalizeNrr(row),
+    netRunRate: computeNetRunRate(row),
     pointsPercentage: computePointsPercentage(row.points, row.played, rules),
   }));
 

@@ -11572,6 +11572,7 @@ export const GetScoringStandingsResponse = zod.object({
       points: zod.number().optional(),
       pointsPercentage: zod.number().optional(),
       netRunRate: zod.number().optional(),
+      qualified: zod.boolean().optional(),
     }),
   ),
 });

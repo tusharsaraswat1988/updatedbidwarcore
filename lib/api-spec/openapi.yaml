@@ -4566,6 +4566,10 @@ components:
           description: Points as a percentage of maximum points from matches played. Full precision; display may round to two decimals.
         netRunRate:
           type: number
+          description: Full-precision net run rate used for ranking. Display may round to three decimals.
+        qualified:
+          type: boolean
+          description: Server qualification flag for a group standings row. Absent on the overall table.
 
     ScoringLeaderboardRow:
       type: object

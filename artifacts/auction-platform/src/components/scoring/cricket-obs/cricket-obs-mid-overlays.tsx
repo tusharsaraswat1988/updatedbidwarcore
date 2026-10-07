@@ -12,6 +12,7 @@
  */
 
 import { useMemo } from "react";
+import { formatNetRunRate } from "@workspace/scoring-core/cricket";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { getScoringStandings, listScoringMatches, getCricketMasterTeams } from "@/lib/scoring-api";
@@ -66,6 +67,7 @@ export function CricketObsMidOverlays({
     queryFn: () => getScoringStandings(tournamentId),
     enabled: overlay === "standings" && tournamentId > 0,
     staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 
   // Fixtures query
@@ -484,11 +486,7 @@ export function CricketObsMidOverlays({
                               className="py-3.5 px-5 text-center tabular-nums text-white/80 font-mono"
                               style={{ fontFamily: BROADCAST_FONTS.mono }}
                             >
-                              {row.netRunRate != null
-                                ? row.netRunRate > 0
-                                  ? `+${row.netRunRate.toFixed(3)}`
-                                  : row.netRunRate.toFixed(3)
-                                : "0.000"}
+                              {formatNetRunRate(row.netRunRate)}
                             </td>
                             <td
                               className="py-3.5 px-8 text-right font-normal text-3xl tabular-nums text-[#FFD700]"

@@ -3,6 +3,7 @@
  * Route: /tournament/:id/score/standings
  */
 import { useMemo } from "react";
+import { formatNetRunRate } from "@workspace/scoring-core/cricket";
 import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -53,10 +54,10 @@ export default function CricketStandingsPage() {
   const rows = standings ?? [];
 
   const leader = rows[0];
-  const bestNrr = useMemo(() => {
-    if (rows.length === 0) return null;
-    return [...rows].sort((a, b) => b.netRunRate - a.netRunRate)[0];
-  }, [rows]);
+  let bestNrr = rows[0] ?? null;
+  for (const row of rows) {
+    if (bestNrr == null || row.netRunRate > bestNrr.netRunRate) bestNrr = row;
+  }
 
   const totalMatchesPlayed = useMemo(() => {
     return rows.reduce((sum, r) => sum + r.played, 0) / 2;
@@ -129,7 +130,7 @@ export default function CricketStandingsPage() {
               />
               <HubKpiCard
                 label="Best Net Run Rate"
-                value={bestNrr && bestNrr.played > 0 ? (bestNrr.netRunRate > 0 ? `+${bestNrr.netRunRate.toFixed(3)}` : bestNrr.netRunRate.toFixed(3)) : "—"}
+                value={bestNrr && bestNrr.played > 0 ? formatNetRunRate(bestNrr.netRunRate) : "—"}
                 subtitle={bestNrr?.shortCode ? `${bestNrr.shortCode}` : "No matches yet"}
                 icon={TrendingUp}
                 tint="green"

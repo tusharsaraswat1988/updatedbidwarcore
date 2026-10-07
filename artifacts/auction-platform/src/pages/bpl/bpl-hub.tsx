@@ -25,9 +25,11 @@ export default function BplHubPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
+  const loadData = async (initial: boolean) => {
+    if (initial) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const [activeRes, editionsRes] = await Promise.all([
         fetchActiveBplEdition(),
@@ -35,15 +37,18 @@ export default function BplHubPage() {
       ]);
       setActiveEdition(activeRes.edition);
       setAllEditions(editionsRes);
+      setError(null);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load BPL data");
+      if (initial) setError(err instanceof Error ? err.message : "Failed to load BPL data");
     } finally {
-      setLoading(false);
+      if (initial) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    void loadData(true);
+    const timer = window.setInterval(() => void loadData(false), 30_000);
+    return () => window.clearInterval(timer);
   }, []);
 
   return (
@@ -89,7 +94,7 @@ export default function BplHubPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={loadData}
+              onClick={() => void loadData(true)}
               className="gap-2 border-slate-700"
             >
               <RefreshCw className="w-3.5 h-3.5" /> Retry

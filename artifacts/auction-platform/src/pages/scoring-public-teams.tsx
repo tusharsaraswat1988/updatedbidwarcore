@@ -12,7 +12,7 @@ import { cricketCardClass, cricketSectionTitleClass } from "@/components/scoring
 import { cricketFanTeamPath } from "@/lib/tournament-navigation";
 import type { PublicSchedulePayload, PublicTeam } from "@/lib/public-tournament-types";
 import { cn } from "@/lib/utils";
-import { formatPointsPercentage } from "@workspace/scoring-core/cricket";
+import { formatNetRunRate, formatPointsPercentage } from "@workspace/scoring-core/cricket";
 
 export default function ScoringPublicTeamsPage() {
   const [, params] = useRoute("/tournament/:id/cricket/teams");
@@ -110,8 +110,7 @@ export default function ScoringPublicTeamsPage() {
                     {standing ? (
                       <p className="text-xs text-primary mt-1.5 tabular-nums">
                         {standing.played}P · {standing.won}W · {standing.lost}L · {formatPointsPercentage(standing.pointsPercentage)} · NRR{" "}
-                        {standing.netRunRate > 0 ? "+" : ""}
-                        {standing.netRunRate.toFixed(3)}
+                        {formatNetRunRate(standing.netRunRate)}
                       </p>
                     ) : (
                       <p className="text-xs text-muted-foreground mt-1.5">Awaiting first result</p>
