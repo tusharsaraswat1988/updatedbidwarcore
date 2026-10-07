@@ -121,6 +121,8 @@ type LiveScoringPadProps = {
   pendingNewBatsman: boolean;
   localStrikerId: number | null;
   localNonStrikerId: number | null;
+  /** When true, local crease ids are exact, including null for a vacant end. */
+  creaseLocked?: boolean;
   dismissedBatters?: number[];
 };
 
@@ -153,6 +155,7 @@ export function LiveScoringPad({
   pendingNewBatsman,
   localStrikerId,
   localNonStrikerId,
+  creaseLocked = false,
   dismissedBatters,
 }: LiveScoringPadProps) {
   const { toast } = useToast();
@@ -259,8 +262,8 @@ export function LiveScoringPad({
     }
   }, [revisedOvers, state]);
 
-  const strikerId = localStrikerId ?? state?.strikerId;
-  const nonStrikerId = localNonStrikerId ?? state?.nonStrikerId;
+  const strikerId = creaseLocked ? localStrikerId : (localStrikerId ?? state?.strikerId ?? null);
+  const nonStrikerId = creaseLocked ? localNonStrikerId : (localNonStrikerId ?? state?.nonStrikerId ?? null);
   const activeBowlerId = bowlerId ?? state?.bowlerId;
 
   const battingId = battingTeamId(state);
@@ -554,9 +557,14 @@ export function LiveScoringPad({
         retireSheet ||
         dlsSheet ||
         secondaryOpen ||
-        busy ||
-        pendingNewBatsman
+        busy
       ) {
+        return;
+      }
+
+      if (pendingNewBatsman) {
+        if ((e.key === "s" || e.key === "S") && onSwapStrike && canTap()) onSwapStrike();
+        if ((e.key === "u" || e.key === "U") && canTap()) void onUndo();
         return;
       }
 
@@ -871,12 +879,13 @@ export function LiveScoringPad({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] font-bold text-sky-300 hover:text-white hover:bg-sky-500/20 gap-1 shrink-0 rounded-lg border border-sky-400/20"
+                  className="h-9 w-9 p-0 text-sky-300 hover:text-white hover:bg-sky-500/20 shrink-0 rounded-lg border border-sky-400/30 disabled:opacity-40"
                   onClick={onSwapStrike}
-                  title="Swap Strike (S)"
+                  disabled={busy || (strikerId == null && nonStrikerId == null)}
+                  title="Rotate strike"
+                  aria-label="Rotate strike"
                 >
-                  <ArrowLeftRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                  <span className="hidden xs:inline">Swap</span>
+                  <ArrowLeftRight className="w-4 h-4" />
                 </Button>
               ) : null}
             </div>
@@ -958,7 +967,7 @@ export function LiveScoringPad({
 
       {/* ─── Pending Batter Selection Gate ─── */}
       {pendingNewBatsman ? (
-        <div className="p-3 sm:p-3.5 rounded-2xl border border-amber-400/50 bg-gradient-to-b from-amber-950/40 via-[#0e162d]/95 to-[#070b18]/95 space-y-2.5 shadow-xl shadow-black/40 backdrop-blur-md">
+        <div className="p-3 sm:p-3.5 rounded-2xl border border-amber-400/50 bg-gradient-to-b from-amber-950/40 via-[#0e162d]/95 to-[#070b18]/95 space-y-2.5 shadow-xl shadow-black/40 backdrop-blur-md flex-1 min-h-0 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-amber-300 font-black text-xs sm:text-sm tracking-wide">
               <span className="p-1 rounded-lg bg-amber-400/20 border border-amber-400/30 flex items-center justify-center">
@@ -990,7 +999,7 @@ export function LiveScoringPad({
             ) : null}
           </div>
           {availableBatsmen.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-0.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 overflow-y-auto flex-1 min-h-0 pr-0.5 content-start">
               {availableBatsmen.map((p) => (
                 <button
                   key={p.id}
@@ -1167,6 +1176,18 @@ export function LiveScoringPad({
             </Button>
           </div>
         </div>
+      ) : pendingNewBatsman ? (
+        <Button
+          variant="outline"
+          className="w-full h-10 text-xs font-bold border-white/15 bg-white/[0.04] text-white/80 hover:text-white hover:bg-white/[0.08] rounded-xl shrink-0"
+          disabled={busy}
+          onClick={() => {
+            if (canTap()) void onUndo();
+          }}
+        >
+          <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+          Undo Last Ball
+        </Button>
       ) : (
         /* ─── Main Scorer Keypad Grid ─── */
         <div className="p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c1328]/95 to-[#070b19]/98 flex-1 min-h-0 flex flex-col justify-between gap-1 sm:gap-1.5 shadow-2xl shadow-black/50 backdrop-blur-md">

@@ -18,6 +18,7 @@ import {
   useListTeams,
   useUpdatePlayer,
   type Player,
+  type PlayerUpdate,
   type Team,
 } from "@workspace/api-client-react";
 import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
@@ -45,6 +46,11 @@ import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { handoffAuctionParticipantsToSports } from "@/lib/scoring-api";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import {
+  JERSEY_SIZE_VALUES,
+  normalizeJerseySize,
+  type JerseySize,
+} from "@workspace/api-base/jersey-size";
 import { playerRegistrationShareUrl } from "@workspace/api-base/registration-url";
 import {
   isScoringPlayerRegistration,
@@ -148,6 +154,7 @@ type SportsPlayerForm = {
   role: string;
   teamId: string;
   jerseyNumber: string;
+  jerseySize: JerseySize | "";
   city: string;
   gender: string;
   battingStyle: string;
@@ -164,6 +171,7 @@ const EMPTY_FORM: SportsPlayerForm = {
   role: FALLBACK_ROLES[0],
   teamId: "",
   jerseyNumber: "",
+  jerseySize: "",
   city: "",
   gender: "",
   battingStyle: "",
@@ -181,6 +189,7 @@ function formFromPlayer(player: Player): SportsPlayerForm {
     role: player.role || FALLBACK_ROLES[0],
     teamId: player.teamId != null ? String(player.teamId) : "",
     jerseyNumber: player.jerseyNumber || "",
+    jerseySize: normalizeJerseySize(player.jerseySize) ?? "",
     city: player.city || "",
     gender: player.gender || "",
     battingStyle: player.battingStyle || "",
@@ -248,6 +257,7 @@ function playerSearchHaystack(player: Player, team: Team | undefined): string {
     player.mobileNumber,
     player.role,
     player.jerseyNumber,
+    player.jerseySize,
     player.city,
     player.gender,
     player.battingStyle,
@@ -741,12 +751,18 @@ export default function CricketPlayersPage() {
     const initialPhotoUrl = editing?.photoUrl ?? "";
     const photoChanged = (form.photoUrl || "") !== initialPhotoUrl || !!form.photoPublicId;
 
+    const jerseySize = normalizeJerseySize(form.jerseySize);
     const sportsPayload = {
       ...(parsedSerialNo !== undefined ? { serialNo: parsedSerialNo } : {}),
       name: form.name.trim(),
       mobileNumber: parsedMobile.normalized,
       role: form.role || undefined,
       jerseyNumber: form.jerseyNumber.trim() || undefined,
+      ...(editing
+        ? { jerseySize: (jerseySize ?? null) as PlayerUpdate["jerseySize"] }
+        : jerseySize
+          ? { jerseySize }
+          : {}),
       city: form.city.trim() || undefined,
       gender: (form.gender || undefined) as "M" | "F" | undefined,
       battingStyle: form.battingStyle || undefined,
@@ -1207,6 +1223,14 @@ export default function CricketPlayersPage() {
                                                 #{p.jerseyNumber}
                                               </span>
                                             ) : null}
+                                            {p.jerseySize ? (
+                                              <span
+                                                className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-muted/80 text-foreground border border-border/60 shrink-0"
+                                                title={`Jersey size ${p.jerseySize}`}
+                                              >
+                                                {p.jerseySize}
+                                              </span>
+                                            ) : null}
                                           </div>
                                           {subtitle ? (
                                             <span className="text-[11px] text-muted-foreground truncate block">
@@ -1292,6 +1316,7 @@ export default function CricketPlayersPage() {
                             const meta = [
                               p.role,
                               p.jerseyNumber ? `Jersey #${p.jerseyNumber}` : null,
+                              p.jerseySize ? `Size ${p.jerseySize}` : null,
                               p.gender ? formatPlayerGender(p.gender) : null,
                             ].filter(Boolean);
 
@@ -1513,7 +1538,7 @@ export default function CricketPlayersPage() {
                 Upload or change player photo for scoreboard, match picker & broadcast overlays.
               </p>
             </FormField>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <FormField label="Tournament Serial No (S.No)">
                 <input
                   className={inputClass}
@@ -1529,6 +1554,21 @@ export default function CricketPlayersPage() {
                   value={form.jerseyNumber}
                   onChange={(e) => setForm((f) => ({ ...f, jerseyNumber: e.target.value }))}
                   placeholder="e.g. 18"
+                />
+              </FormField>
+              <FormField label="Jersey size">
+                <DarkSelect
+                  value={form.jerseySize || "none"}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      jerseySize: v === "none" ? "" : (v as JerseySize),
+                    }))
+                  }
+                  options={[
+                    { value: "none", label: "Not set" },
+                    ...JERSEY_SIZE_VALUES.map((size) => ({ value: size, label: size })),
+                  ]}
                 />
               </FormField>
             </div>

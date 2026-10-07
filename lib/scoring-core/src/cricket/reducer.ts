@@ -717,11 +717,30 @@ function applyBatterSelected(
   let strikerId = state.strikerId;
   let nonStrikerId = state.nonStrikerId;
 
-  if (strikerId == null) {
+  // A requested end that is already occupied, with the other end vacant, means
+  // the scorer rotated the survivor onto that end. Move the survivor, then
+  // place the new batter in the end they left open.
+  if (payload.position === "non_striker") {
+    if (nonStrikerId != null && strikerId == null) {
+      strikerId = nonStrikerId;
+      nonStrikerId = payload.playerId;
+    } else if (nonStrikerId == null) {
+      nonStrikerId = payload.playerId;
+    } else {
+      nonStrikerId = payload.playerId;
+    }
+  } else if (payload.position === "striker") {
+    if (strikerId != null && nonStrikerId == null) {
+      nonStrikerId = strikerId;
+      strikerId = payload.playerId;
+    } else if (strikerId == null) {
+      strikerId = payload.playerId;
+    } else {
+      strikerId = payload.playerId;
+    }
+  } else if (strikerId == null) {
     strikerId = payload.playerId;
   } else if (nonStrikerId == null) {
-    nonStrikerId = payload.playerId;
-  } else if (payload.position === "non_striker") {
     nonStrikerId = payload.playerId;
   } else {
     strikerId = payload.playerId;

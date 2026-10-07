@@ -594,4 +594,38 @@ describe("Server-Authoritative Cricket Ball & Over Sequencing (P0 Fix #3)", () =
     const terminal = isCricketMatchTerminalState(state);
     expect(terminal.valid).toBe(true);
   });
+
+  it("places a new batter on the open end when the survivor has been rotated onto strike", () => {
+    let state = startMatch();
+    state = reduceCricket(
+      state,
+      ball(4, {
+        over: 0,
+        ball: 1,
+        strikerId: 101,
+        nonStrikerId: 102,
+        wicket: { type: "bowled", dismissedPlayerId: 101 },
+      }),
+      { enforceLiveRules: true },
+    );
+    expect(state.strikerId).toBeNull();
+    expect(state.nonStrikerId).toBe(102);
+
+    state = reduceCricket(
+      state,
+      createEventEnvelope({
+        matchId: 100,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.BATTER_SELECTED,
+        sequence: 5,
+        payload: { innings: 1, playerId: 103, position: "non_striker" },
+        actorType: "scorer",
+      }),
+      { enforceLiveRules: true },
+    );
+
+    expect(state.strikerId).toBe(102);
+    expect(state.nonStrikerId).toBe(103);
+  });
 });

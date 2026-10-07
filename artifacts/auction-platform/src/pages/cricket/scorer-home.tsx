@@ -342,6 +342,60 @@ export default function CricketScorerHomePage() {
     return s === "completed" || s === "abandoned";
   });
 
+  // Filter memos must run on every render, including the login screen.
+  // Returning before them changes the hook count when a scorer signs in or out.
+  const query = searchQuery.trim().toLowerCase();
+
+  const filterMatch = (m: ScoringMatchJson) => {
+    // 1. Group filter. Group id is authoritative. A round-name label is only
+    // offered for a single unscoped legacy draw.
+    if (selectedGroup.startsWith("group:")) {
+      const groupId = Number(selectedGroup.slice("group:".length));
+      if (resolvedMatchGroupId(m) !== groupId) return false;
+    } else if (selectedGroup.startsWith("legacy:")) {
+      const label = selectedGroup.slice("legacy:".length);
+      if (!matchMatchesLegacyGroupLabel(m.roundName, label)) return false;
+    }
+
+    // 2. Search query filter
+    if (!query) return true;
+    const home = teamMap.get(m.homeTeamId);
+    const away = teamMap.get(m.awayTeamId);
+    const matchNo = String(m.tournamentMatchNumber ?? m.id);
+    const round = (m.roundName || "").toLowerCase();
+    const venue = (m.venue || "").toLowerCase();
+    const homeName = (home?.name || "").toLowerCase();
+    const homeCode = (home?.shortCode || "").toLowerCase();
+    const awayName = (away?.name || "").toLowerCase();
+    const awayCode = (away?.shortCode || "").toLowerCase();
+
+    return (
+      matchNo.includes(query) ||
+      round.includes(query) ||
+      venue.includes(query) ||
+      homeName.includes(query) ||
+      homeCode.includes(query) ||
+      awayName.includes(query) ||
+      awayCode.includes(query)
+    );
+  };
+
+  const filteredLiveMatches = useMemo(
+    () => sortMatchesChronologically(liveMatches.filter(filterMatch)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [liveMatches, query, selectedGroup, teamMap],
+  );
+  const filteredScheduledMatches = useMemo(
+    () => sortMatchesChronologically(scheduledMatches.filter(filterMatch)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scheduledMatches, query, selectedGroup, teamMap],
+  );
+  const filteredCompletedMatches = useMemo(
+    () => sortMatchesChronologically(completedMatches.filter(filterMatch)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [completedMatches, query, selectedGroup, teamMap],
+  );
+
   // ─── LOGIN SCREEN ───
   if (!session) {
     return (
@@ -507,59 +561,6 @@ export default function CricketScorerHomePage() {
       </div>
     );
   }
-
-  // ─── Filter & Search Computation ───
-  const query = searchQuery.trim().toLowerCase();
-
-  const filterMatch = (m: ScoringMatchJson) => {
-    // 1. Group filter. Group id is authoritative. A round-name label is only
-    // offered for a single unscoped legacy draw.
-    if (selectedGroup.startsWith("group:")) {
-      const groupId = Number(selectedGroup.slice("group:".length));
-      if (resolvedMatchGroupId(m) !== groupId) return false;
-    } else if (selectedGroup.startsWith("legacy:")) {
-      const label = selectedGroup.slice("legacy:".length);
-      if (!matchMatchesLegacyGroupLabel(m.roundName, label)) return false;
-    }
-
-    // 2. Search query filter
-    if (!query) return true;
-    const home = teamMap.get(m.homeTeamId);
-    const away = teamMap.get(m.awayTeamId);
-    const matchNo = String(m.tournamentMatchNumber ?? m.id);
-    const round = (m.roundName || "").toLowerCase();
-    const venue = (m.venue || "").toLowerCase();
-    const homeName = (home?.name || "").toLowerCase();
-    const homeCode = (home?.shortCode || "").toLowerCase();
-    const awayName = (away?.name || "").toLowerCase();
-    const awayCode = (away?.shortCode || "").toLowerCase();
-
-    return (
-      matchNo.includes(query) ||
-      round.includes(query) ||
-      venue.includes(query) ||
-      homeName.includes(query) ||
-      homeCode.includes(query) ||
-      awayName.includes(query) ||
-      awayCode.includes(query)
-    );
-  };
-
-  const filteredLiveMatches = useMemo(
-    () => sortMatchesChronologically(liveMatches.filter(filterMatch)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [liveMatches, query, selectedGroup, teamMap],
-  );
-  const filteredScheduledMatches = useMemo(
-    () => sortMatchesChronologically(scheduledMatches.filter(filterMatch)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scheduledMatches, query, selectedGroup, teamMap],
-  );
-  const filteredCompletedMatches = useMemo(
-    () => sortMatchesChronologically(completedMatches.filter(filterMatch)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [completedMatches, query, selectedGroup, teamMap],
-  );
 
   const totalMatchesCount = (matches as ScoringMatchJson[]).length;
 

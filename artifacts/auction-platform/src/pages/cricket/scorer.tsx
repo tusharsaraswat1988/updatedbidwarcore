@@ -155,6 +155,11 @@ export default function CricketScorerPage() {
   const [pendingNewBatsman, setPendingNewBatsman] = useState(false);
   const [localStrikerId, setLocalStrikerId] = useState<number | null>(null);
   const [localNonStrikerId, setLocalNonStrikerId] = useState<number | null>(null);
+  /** Set after a local strike rotate or batter pick. Null ends mean "vacant", not "use the server". */
+  const [creaseOverride, setCreaseOverride] = useState<{
+    strikerId: number | null;
+    nonStrikerId: number | null;
+  } | null>(null);
   const sequenceRef = useRef(0);
   const sendInFlightRef = useRef(false);
   const leaseVersionRef = useRef<number | undefined>(undefined);
@@ -262,24 +267,24 @@ export default function CricketScorerPage() {
     const strikerVacant = data.state.strikerId == null;
     const nonStrikerVacant = data.state.nonStrikerId == null;
     if (!strikerVacant && !nonStrikerVacant) {
+      // Both ends are filled on the server. A local rotate must survive until
+      // the next ball — do not clear it just because the server still has the old ends.
       setPendingNewBatsman(false);
-      setLocalStrikerId(null);
-      setLocalNonStrikerId(null);
       return;
     }
 
-    const filledLocally =
-      (!strikerVacant || localStrikerId != null) &&
-      (!nonStrikerVacant || localNonStrikerId != null);
-    setPendingNewBatsman(!filledLocally);
+    const slots = creaseOverride ?? {
+      strikerId: data.state.strikerId ?? null,
+      nonStrikerId: data.state.nonStrikerId ?? null,
+    };
+    setPendingNewBatsman(slots.strikerId == null || slots.nonStrikerId == null);
   }, [
     data?.state.lastSequence,
     data?.state.strikerId,
     data?.state.nonStrikerId,
     data?.state.matchStatus,
     data?.state.innings.length,
-    localStrikerId,
-    localNonStrikerId,
+    creaseOverride,
   ]);
 
   const refreshQueueDepth = useCallback(async () => {
@@ -436,8 +441,17 @@ export default function CricketScorerPage() {
             eventCount: data.eventCount + 1,
             lastSequence: result.state.lastSequence,
           });
-          setLocalStrikerId(null);
-          setLocalNonStrikerId(null);
+          const creaseChangedOnServer =
+            eventType === CricketEventType.BALL_RECORDED ||
+            eventType === CricketEventType.BATTER_SELECTED ||
+            eventType === CricketEventType.INNINGS_ENDED ||
+            eventType === CricketEventType.PLAYER_RETIRED ||
+            eventType === CricketEventType.MATCH_COMPLETED;
+          if (creaseChangedOnServer) {
+            setLocalStrikerId(null);
+            setLocalNonStrikerId(null);
+            setCreaseOverride(null);
+          }
           if (result.state.bowlerId != null) {
             setLocalBowlerId(null);
           }
@@ -619,6 +633,7 @@ export default function CricketScorerPage() {
       });
       setLocalStrikerId(null);
       setLocalNonStrikerId(null);
+      setCreaseOverride(null);
       setLocalBowlerId(null);
       setPendingNewBatsman(false);
       toast({
@@ -647,10 +662,12 @@ export default function CricketScorerPage() {
     data.state.innings.length > 0 &&
     (data.state.strikerId == null || data.state.nonStrikerId == null);
 
+  const creaseSlots = creaseOverride ?? {
+    strikerId: data?.state.strikerId ?? null,
+    nonStrikerId: data?.state.nonStrikerId ?? null,
+  };
   const creaseFilledForScoring =
-    !!data &&
-    (data.state.strikerId != null || localStrikerId != null) &&
-    (data.state.nonStrikerId != null || localNonStrikerId != null);
+    !!data && creaseSlots.strikerId != null && creaseSlots.nonStrikerId != null;
 
   const readyToScore =
     data &&
@@ -961,23 +978,34 @@ export default function CricketScorerPage() {
               bowlerId={localBowlerId ?? data.state.bowlerId}
               busy={busy || queueDepth > 0 || lockLost}
               pendingNewBatsman={pendingNewBatsman || (needsCreaseFill && !creaseFilledForScoring)}
-              localStrikerId={localStrikerId}
-              localNonStrikerId={localNonStrikerId}
+              localStrikerId={creaseOverride ? creaseOverride.strikerId : localStrikerId}
+              localNonStrikerId={creaseOverride ? creaseOverride.nonStrikerId : localNonStrikerId}
+              creaseLocked={creaseOverride != null}
               dismissedBatters={dismissedFromScorecard}
               onBall={lockLost ? async (_p: Record<string, unknown>) => {} : (payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
               onEvent={lockLost ? () => Promise.resolve() : sendEvent}
               onResetMatch={lockLost ? () => Promise.resolve() : handleResetMatch}
               onSwapStrike={() => {
-                const currStriker = localStrikerId ?? data.state.strikerId;
-                const currNonStriker = localNonStrikerId ?? data.state.nonStrikerId;
-                if (currStriker && currNonStriker) {
-                  setLocalStrikerId(currNonStriker);
-                  setLocalNonStrikerId(currStriker);
+                const currStriker = creaseSlots.strikerId;
+                const currNonStriker = creaseSlots.nonStrikerId;
+                if (currStriker == null && currNonStriker == null) {
                   toast({
-                    title: "Strike rotated",
-                    description: `Striker: ${playerNameById(players, currNonStriker)}`,
+                    title: "No batters to rotate",
+                    description: "Select a batter at the crease first.",
                   });
+                  return;
                 }
+                setCreaseOverride({
+                  strikerId: currNonStriker,
+                  nonStrikerId: currStriker,
+                });
+                const nextStriker = currNonStriker;
+                toast({
+                  title: "Strike rotated",
+                  description: nextStriker
+                    ? `Striker: ${playerNameById(players, nextStriker)}`
+                    : "Striker end is open for the next batter.",
+                });
               }}
               onUndo={async () => {
                 if (!data || sendInFlightRef.current || queueDepth > 0) return;
@@ -996,6 +1024,7 @@ export default function CricketScorerPage() {
                     eventCount: data.eventCount + 1,
                     lastSequence: result.state.lastSequence,
                   });
+                  setCreaseOverride(null);
                   setPendingNewBatsman(
                     result.state.strikerId == null || result.state.nonStrikerId == null,
                   );
@@ -1036,14 +1065,20 @@ export default function CricketScorerPage() {
                   setPendingNewBatsman(true);
                   return;
                 }
-                if (data.state.strikerId == null) {
-                  setLocalStrikerId(playerId);
-                } else if (data.state.nonStrikerId == null) {
-                  setLocalNonStrikerId(playerId);
-                } else {
-                  setLocalStrikerId(playerId);
-                }
-                setPendingNewBatsman(false);
+                const curr = creaseOverride ?? {
+                  strikerId: data.state.strikerId ?? null,
+                  nonStrikerId: data.state.nonStrikerId ?? null,
+                };
+                const next =
+                  curr.strikerId == null
+                    ? { strikerId: playerId, nonStrikerId: curr.nonStrikerId }
+                    : curr.nonStrikerId == null
+                      ? { strikerId: curr.strikerId, nonStrikerId: playerId }
+                      : { strikerId: playerId, nonStrikerId: curr.nonStrikerId };
+                setCreaseOverride(next);
+                setLocalStrikerId(next.strikerId);
+                setLocalNonStrikerId(next.nonStrikerId);
+                setPendingNewBatsman(next.strikerId == null || next.nonStrikerId == null);
                 toast({
                   title: "New batter selected",
                   description: `${playerNameById(players, playerId)} is at the crease.`,
@@ -1052,6 +1087,7 @@ export default function CricketScorerPage() {
                   void sendEvent(CricketEventType.BATTER_SELECTED, {
                     innings: data.state.currentInnings,
                     playerId,
+                    position: next.strikerId === playerId ? "striker" : "non_striker",
                   });
                 }
               }}

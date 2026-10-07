@@ -28,6 +28,25 @@ describe("cricket scorer render audit — PreMatchSetup onResetMatch regression"
   });
 });
 
+describe("cricket scorer home — hook order across login", () => {
+  it("filters match lists before the logged-out return so sign-in does not change hook count", async () => {
+    const filePath = path.resolve(import.meta.dirname, "../../../pages/cricket/scorer-home.tsx");
+    const src = await readFile(filePath, "utf8");
+    const loginReturn = src.indexOf("if (!session) {");
+    const liveMemo = src.indexOf("const filteredLiveMatches = useMemo(");
+    const scheduledMemo = src.indexOf("const filteredScheduledMatches = useMemo(");
+    const completedMemo = src.indexOf("const filteredCompletedMatches = useMemo(");
+
+    expect(loginReturn).toBeGreaterThan(-1);
+    expect(liveMemo).toBeGreaterThan(-1);
+    expect(scheduledMemo).toBeGreaterThan(-1);
+    expect(completedMemo).toBeGreaterThan(-1);
+    expect(liveMemo).toBeLessThan(loginReturn);
+    expect(scheduledMemo).toBeLessThan(loginReturn);
+    expect(completedMemo).toBeLessThan(loginReturn);
+  });
+});
+
 describe("cricket scorer render audit — route resolution", () => {
   it("cricketScorerConsolePath creates the exact canonical URL for tournament 25, match 58", () => {
     const route = cricketScorerConsolePath(25, 58);
