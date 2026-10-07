@@ -110,9 +110,13 @@ export type ScoringLiveDisplay = {
 
 export type ScoringStandingRow = {
   teamId: number;
+  /** Competition identity. Absent only on a legacy single table. */
+  drawId?: number | null;
+  drawName?: string | null;
   teamName: string;
   shortCode: string;
   color: string | null;
+  teamLogoUrl?: string | null;
   played: number;
   won: number;
   lost: number;
@@ -376,6 +380,9 @@ export async function appendScoringEvent(
 export type ScoringGroupResult = {
   id: number;
   name: string;
+  drawId?: number | null;
+  drawName?: string | null;
+  displayName?: string | null;
   sortOrder: number;
   qualifiersPerGroup?: number;
   rows: ScoringStandingRow[];
@@ -690,12 +697,14 @@ export type TournamentTeamProfile = {
     logoUrl: string | null;
   };
   standing: {
+    drawId?: number | null;
+    drawName?: string | null;
     played: number;
     won: number;
     lost: number;
     tied: number;
     noResult: number;
-    rank: number;
+    rank: number | null;
     points: number;
     pointsPercentage: number;
     netRunRate: number;
@@ -707,6 +716,26 @@ export type TournamentTeamProfile = {
       qualified: boolean;
     }>;
   } | null;
+  /** One entry per competition. Several entries are not collapsed to the first row. */
+  competitions?: Array<{
+    drawId: number | null;
+    drawName: string | null;
+    rank: number | null;
+    played: number;
+    won: number;
+    lost: number;
+    tied: number;
+    noResult: number;
+    points: number;
+    pointsPercentage: number;
+    netRunRate: number;
+    qualified: boolean | null;
+    groupQualifications: Array<{
+      groupId: number;
+      groupName: string;
+      qualified: boolean;
+    }>;
+  }>;
   squad: Array<{
     id: number;
     name: string;
@@ -735,9 +764,11 @@ export type TournamentTeamProfile = {
 export async function getTournamentTeamProfile(
   tournamentId: number,
   teamId: number,
+  drawId?: number | null,
 ): Promise<TournamentTeamProfile> {
+  const query = drawId != null ? `?drawId=${drawId}` : "";
   const r = await apiFetch(
-    `/tournaments/${tournamentId}/scoring/public/teams/${teamId}`,
+    `/tournaments/${tournamentId}/scoring/public/teams/${teamId}${query}`,
   );
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();

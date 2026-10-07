@@ -9,6 +9,8 @@ import {
 } from "@workspace/db";
 import {
   aggregateTournamentPlayerStats,
+  rankInDraw,
+  resolveTeamStanding,
   teamGroupQualifications,
   type TournamentPlayerAggregate,
 } from "@workspace/scoring-core";
@@ -189,7 +191,11 @@ export async function getTournamentPlayerPublicProfile(tournamentId: number, pla
   };
 }
 
-export async function getTournamentTeamPublicProfile(tournamentId: number, teamId: number) {
+export async function getTournamentTeamPublicProfile(
+  tournamentId: number,
+  teamId: number,
+  drawId?: number | null,
+) {
   await ensureScoringEnabled(tournamentId);
 
   const team = (await resolveCricketFranchiseTeamsByIds(tournamentId, [teamId])).get(teamId);
@@ -199,9 +205,44 @@ export async function getTournamentTeamPublicProfile(tournamentId: number, teamI
   }
 
   const standings = await getScoringStandings(tournamentId);
-  const rankIndex = standings.findIndex((row) => row.teamId === teamId);
-  const standing = rankIndex >= 0 ? standings[rankIndex] : undefined;
-  const qualification = teamGroupQualifications(standings.groups ?? [], teamId);
+  const rows = [...standings];
+  const groups = standings.groups ?? [];
+  const drawNameById = new Map<number, string>();
+  for (const row of rows) {
+    if (row.drawId != null && row.drawName) drawNameById.set(row.drawId, row.drawName);
+  }
+  for (const group of groups) {
+    if (group.drawId != null && group.drawName) drawNameById.set(group.drawId, group.drawName);
+  }
+  const scopedRows = rows.filter((row) => row.teamId === teamId && row.drawId != null);
+  const legacyRow = scopedRows.length === 0 ? resolveTeamStanding(rows, teamId, null) : null;
+  const competitionRows = scopedRows.length > 0 ? scopedRows : legacyRow ? [legacyRow] : [];
+  const competitions = competitionRows.map((row) => {
+    const scopedGroups =
+      row.drawId == null ? groups : groups.filter((group) => group.drawId === row.drawId);
+    const qualification = teamGroupQualifications(scopedGroups, teamId);
+    return {
+      drawId: row.drawId ?? null,
+      drawName: row.drawId != null ? (drawNameById.get(row.drawId) ?? null) : null,
+      rank: rankInDraw(rows, teamId, row.drawId ?? null),
+      played: row.played,
+      won: row.won,
+      lost: row.lost,
+      tied: row.tied,
+      noResult: row.noResult,
+      points: row.points,
+      pointsPercentage: row.pointsPercentage,
+      netRunRate: row.netRunRate,
+      qualified: qualification.qualified,
+      groupQualifications: qualification.groups,
+    };
+  });
+  const standing =
+    drawId != null
+      ? (competitions.find((row) => row.drawId === drawId) ?? null)
+      : competitions.length === 1
+        ? competitions[0]!
+        : null;
 
   const squadPlayers = await listCricketFranchisePlayers(tournamentId, teamId);
   const squad = squadPlayers.map((p) => ({
@@ -267,21 +308,8 @@ export async function getTournamentTeamPublicProfile(tournamentId: number, teamI
       color: team.color,
       logoUrl: team.logoUrl,
     },
-    standing: standing
-      ? {
-          rank: rankIndex + 1,
-          played: standing.played,
-          won: standing.won,
-          lost: standing.lost,
-          tied: standing.tied,
-          noResult: standing.noResult,
-          points: standing.points,
-          pointsPercentage: standing.pointsPercentage,
-          netRunRate: standing.netRunRate,
-          qualified: qualification.qualified,
-          groupQualifications: qualification.groups,
-        }
-      : null,
+    standing,
+    competitions,
     squad,
     recentResults: results,
     topBatsmen: topBatsmen.map((r) => ({

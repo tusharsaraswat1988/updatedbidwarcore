@@ -3,7 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { getPublicSchedule } from "@/lib/scoring-foundation-api";
 import { getScoringStandings } from "@/lib/scoring-api";
 import { StandingsTable } from "@/components/scoring/standings-table";
-import { formatNetRunRate, formatPointsPercentage } from "@workspace/scoring-core/cricket";
+import {
+  competitionGroupTitle,
+  isMultiDrawCompetition,
+  partitionByDraw,
+  rowsForCompetitionSelection,
+  formatNetRunRate,
+  formatPointsPercentage,
+} from "@workspace/scoring-core/cricket";
 import {
   CricketFanEmpty,
   CricketFanExperienceShell,
@@ -36,8 +43,12 @@ export default function ScoringPublicStandingsPage() {
   });
 
   const liveMatchId = (schedule?.matches ?? []).find((m) => m.status === "live")?.id ?? null;
-  const hasGroups = Boolean(standings?.hasGroups && standings.groups && standings.groups.length > 0);
-  const top4 = hasGroups ? [] : (standings ?? []).slice(0, 4);
+  const groups = standings?.groups ?? [];
+  const rows = standings ?? [];
+  const multiDraw = isMultiDrawCompetition(groups, rows);
+  const sections = partitionByDraw(groups, rows);
+  const legacyBand = rowsForCompetitionSelection(groups, rows, { kind: "all" });
+  const top4 = legacyBand.qualifiers > 0 ? legacyBand.rows.slice(0, legacyBand.qualifiers) : [];
 
   if (loadingSchedule || loadingStandings) return <CricketFanLoading tournamentId={tournamentId} />;
   if (error || !schedule?.tournament) {
@@ -60,8 +71,8 @@ export default function ScoringPublicStandingsPage() {
           <div className="grid gap-2 sm:grid-cols-2">
             {top4.map((row, idx) => (
               <Link
-                key={row.teamId}
-                href={cricketFanTeamPath(tournamentId, row.teamId)}
+                key={`${row.drawId ?? "legacy"}-${row.teamId}`}
+                href={cricketFanTeamPath(tournamentId, row.teamId, row.drawId)}
                 className={cn(
                   cricketCardClass,
                   "px-4 py-3 hover:border-primary/30 transition-colors",
@@ -93,35 +104,50 @@ export default function ScoringPublicStandingsPage() {
         </section>
       ) : null}
 
-      {standings?.hasGroups && standings.groups && standings.groups.length > 0 ? (
-        <div className="space-y-6">
-          {standings.groups.map((g) => {
-            const groupTitle =
-              (g as any).displayName ||
-              ((g as any).drawName && !g.name.includes((g as any).drawName)
-                ? `${(g as any).drawName} — ${g.name}`
-                : g.name);
-            return (
-              <section key={g.id} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h2 className={cn(cricketSectionTitleClass)}>{groupTitle} Standings</h2>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
-                    Top {g.qualifiersPerGroup ?? 2} qualify
-                  </span>
-                </div>
-                <StandingsTable rows={g.rows} highlightTop={g.qualifiersPerGroup ?? 2} />
-              </section>
-            );
-          })}
-          <section className="space-y-2 opacity-80">
-            <h2 className={cn(cricketSectionTitleClass)}>Overall Standings</h2>
-            <StandingsTable rows={standings ?? []} highlightTop={0} />
-          </section>
+      {groups.length > 0 ? (
+        <div className="space-y-8">
+          {sections.map((section) => (
+            <div key={section.drawId ?? "legacy"} className="space-y-6">
+              {multiDraw ? (
+                <h2 className="font-display text-2xl font-bold tracking-tight">{section.drawName}</h2>
+              ) : null}
+              {section.groups.map((g) => (
+                <section key={g.id} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className={cn(cricketSectionTitleClass)}>{competitionGroupTitle(g)} Standings</h3>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20">
+                      Top {g.qualifiersPerGroup ?? 2} qualify
+                    </span>
+                  </div>
+                  <StandingsTable rows={g.rows} highlightTop={g.qualifiersPerGroup ?? 2} />
+                </section>
+              ))}
+            </div>
+          ))}
+          {multiDraw ? (
+            <p className="text-xs text-muted-foreground">
+              Each competition qualifies its own teams. There is no tournament-wide top 4.
+            </p>
+          ) : (
+            <section className="space-y-2 opacity-80">
+              <h2 className={cn(cricketSectionTitleClass)}>Overall Standings</h2>
+              <StandingsTable rows={rows} highlightTop={0} />
+            </section>
+          )}
+        </div>
+      ) : multiDraw ? (
+        <div className="space-y-8">
+          {sections.map((section) => (
+            <section key={section.drawId ?? "legacy"} className="space-y-2">
+              <h2 className={cn(cricketSectionTitleClass)}>{section.drawName}</h2>
+              <StandingsTable rows={section.rows} highlightTop={0} />
+            </section>
+          ))}
         </div>
       ) : (
         <section>
           <h2 className={cn(cricketSectionTitleClass, "mb-3")}>Full standings</h2>
-          <StandingsTable rows={standings ?? []} highlightTop={hasGroups ? 0 : 4} />
+          <StandingsTable rows={rows} highlightTop={legacyBand.qualifiers} />
         </section>
       )}
     </CricketFanExperienceShell>

@@ -31,6 +31,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useScoringMatches, useScoringMatch, useScoringLive } from "@/hooks/use-scoring-match";
 import { useScoringSocket } from "@/hooks/use-scoring-socket";
 import {
+  competitionGroupTitle,
+  groupSelectorToken,
+  isMultiDrawCompetition,
+} from "@workspace/scoring-core/cricket";
+import {
   getCricketMasterTeams,
   getCricketTournamentRoster,
   getScoringStandings,
@@ -262,6 +267,7 @@ export default function CricketLiveControlPage() {
   });
 
   const tournamentGroups = useMemo(() => standings?.groups ?? [], [standings?.groups]);
+  const multiDrawStandings = isMultiDrawCompetition(tournamentGroups, standings ?? []);
 
   // Tournament Knockout Stages / Distinct Rounds (e.g. Quarter-Final, Semi-Final, Final)
   const tournamentStages = useMemo(() => {
@@ -1597,7 +1603,11 @@ export default function CricketLiveControlPage() {
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-4">
-            {/* Option 1: OVERALL STANDINGS */}
+            {multiDrawStandings ? (
+              <p className="text-xs text-slate-600">
+                This tournament has more than one competition. Broadcast a group table. There is no combined points table.
+              </p>
+            ) : (
             <div className="p-4 rounded-xl border-2 border-blue-300 bg-blue-50/60 flex items-center justify-between gap-3 shadow-sm">
               <div className="space-y-1 min-w-0">
                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-blue-600 text-white">
@@ -1621,6 +1631,7 @@ export default function CricketLiveControlPage() {
                 Broadcast Overall ⚡
               </Button>
             </div>
+            )}
 
             {/* Option 2: GROUP-WISE STANDINGS (IF GROUPS EXIST) */}
             {tournamentGroups && tournamentGroups.length > 0 && (
@@ -1630,9 +1641,12 @@ export default function CricketLiveControlPage() {
                 </p>
 
                 {tournamentGroups.map((g) => {
+                  const token = groupSelectorToken(g.id);
+                  const label = competitionGroupTitle(g);
                   const isCurrentTarget =
                     currentOverlay === "standings" &&
-                    overlayStageOrGroup?.toLowerCase().trim() === g.name?.toLowerCase().trim();
+                    (overlayStageOrGroup === token ||
+                      overlayStageOrGroup?.toLowerCase().trim() === g.name?.toLowerCase().trim());
 
                   return (
                     <div
@@ -1646,7 +1660,7 @@ export default function CricketLiveControlPage() {
                     >
                       <div className="min-w-0 space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 text-sm">{g.name}</span>
+                          <span className="font-bold text-slate-900 text-sm">{label}</span>
                           <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
                             {g.rows?.length || 0} Teams
                           </span>
@@ -1659,7 +1673,7 @@ export default function CricketLiveControlPage() {
                       <Button
                         size="sm"
                         onClick={() => {
-                          void handleSetOverlay("standings", `Points Table (${g.name})`, undefined, undefined, g.name);
+                          void handleSetOverlay("standings", `Points Table (${label})`, undefined, undefined, token);
                           setStandingsSelectModalOpen(false);
                         }}
                         className={cn(
@@ -1670,7 +1684,7 @@ export default function CricketLiveControlPage() {
                         )}
                       >
                         <Tv className="w-3.5 h-3.5" />
-                        <span>{isCurrentTarget ? "Live on Screen" : `Show ${g.name}`}</span>
+                        <span>{isCurrentTarget ? "Live on Screen" : `Show ${label}`}</span>
                       </Button>
                     </div>
                   );

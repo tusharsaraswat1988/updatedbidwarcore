@@ -77,6 +77,7 @@ export type BplPublicMatch = {
 
 export type BplPublicStanding = {
   teamId: number;
+  drawId?: number | null;
   teamName: string;
   shortCode: string;
   color?: string | null;

@@ -5,6 +5,7 @@ export * from "./reducer";
 export * from "./summary";
 export * from "./result";
 export * from "./standings";
+export * from "./competition-view";
 export * from "./schedule";
 export * from "./scorecard";
 export * from "./leaderboard";

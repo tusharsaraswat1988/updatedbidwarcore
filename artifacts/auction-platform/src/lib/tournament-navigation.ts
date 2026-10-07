@@ -181,8 +181,13 @@ export function cricketFanPlayerPath(tournamentId: number, playerId: number): st
   return `/tournament/${tournamentId}/cricket/player/${playerId}`;
 }
 
-export function cricketFanTeamPath(tournamentId: number, teamId: number): string {
-  return `/tournament/${tournamentId}/cricket/team/${teamId}`;
+export function cricketFanTeamPath(
+  tournamentId: number,
+  teamId: number,
+  drawId?: number | null,
+): string {
+  const path = `/tournament/${tournamentId}/cricket/team/${teamId}`;
+  return drawId != null ? `${path}?drawId=${drawId}` : path;
 }
 
 /** Public cricket tournament page (fans) — external scoring app. */
@@ -201,8 +206,12 @@ export function cricketPlayerPublicPath(tournamentId: number, playerId: number):
 }
 
 /** Public tournament team profile. */
-export function cricketTeamPublicPath(tournamentId: number, teamId: number): string {
-  return scoringAppPath(cricketFanTeamPath(tournamentId, teamId));
+export function cricketTeamPublicPath(
+  tournamentId: number,
+  teamId: number,
+  drawId?: number | null,
+): string {
+  return scoringAppPath(cricketFanTeamPath(tournamentId, teamId, drawId));
 }
 
 /** Global cricket player career profile. */

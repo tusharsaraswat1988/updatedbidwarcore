@@ -31,6 +31,7 @@ export type PublicTeam = {
 
 export type PublicMatch = {
   id: number;
+  fixtureId?: number | null;
   homeTeamId: number;
   awayTeamId: number;
   status: string;

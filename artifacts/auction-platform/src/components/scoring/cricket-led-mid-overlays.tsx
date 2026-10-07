@@ -13,7 +13,12 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { formatNetRunRate } from "@workspace/scoring-core/cricket";
+import {
+  competitionGroupTitle,
+  formatNetRunRate,
+  parseCompetitionSelection,
+  rowsForCompetitionSelection,
+} from "@workspace/scoring-core/cricket";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -144,12 +149,14 @@ export function CricketLedMidOverlays({
   }, [overlay, sponsors.length, overlaySponsorName]);
 
   // Standings filter resolution
-  const matchedGroup = useMemo(() => {
-    if (!overlayStageOrGroup || overlayStageOrGroup === "all" || !standings?.groups) return null;
-    return standings.groups.find(
-      (g) => g.name.toLowerCase().trim() === overlayStageOrGroup.toLowerCase().trim(),
+  const resolvedStandings = useMemo(() => {
+    return rowsForCompetitionSelection(
+      standings?.groups ?? [],
+      standings ?? [],
+      parseCompetitionSelection(overlayStageOrGroup),
     );
-  }, [overlayStageOrGroup, standings?.groups]);
+  }, [overlayStageOrGroup, standings]);
+  const matchedGroup = resolvedStandings.group;
 
   // Stage/Round matches (e.g. Quarter-Finals, Semi-Finals, Finals)
   const isKnockoutStage = useMemo(() => {
@@ -168,11 +175,8 @@ export function CricketLedMidOverlays({
 
   // Standings Pagination State (up to 12 teams per page, auto-paginating every 8 seconds if > 12 teams)
   const [standingsPage, setStandingsPage] = useState(0);
-  const allStandingsRows = useMemo(() => {
-    if (matchedGroup) return matchedGroup.rows;
-    if (!standings || standings.length === 0) return [];
-    return standings;
-  }, [standings, matchedGroup]);
+  const allStandingsRows = resolvedStandings.rows;
+  const standingsQualifiers = resolvedStandings.qualifiers;
 
   const STANDINGS_PAGE_SIZE = 12;
   const totalStandingsPages = Math.ceil(allStandingsRows.length / STANDINGS_PAGE_SIZE) || 1;
@@ -639,7 +643,7 @@ export function CricketLedMidOverlays({
                   <div className="flex items-center gap-3">
                     <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-black tracking-wider text-white uppercase drop-shadow">
                       {matchedGroup
-                        ? `POINTS TABLE — ${matchedGroup.name.toUpperCase()}`
+                        ? `POINTS TABLE — ${competitionGroupTitle(matchedGroup).toUpperCase()}`
                         : isKnockoutStage
                         ? `STAGE — ${overlayStageOrGroup?.toUpperCase()}`
                         : `POINTS TABLE & RANKINGS`}
@@ -677,12 +681,10 @@ export function CricketLedMidOverlays({
                           const isTop4 =
                             typeof row.qualified === "boolean"
                               ? row.qualified
-                              : matchedGroup
-                                ? globalIdx < (matchedGroup.qualifiersPerGroup ?? 2)
-                                : globalIdx < 4;
+                              : standingsQualifiers > 0 && globalIdx < standingsQualifiers;
                           return (
                             <tr
-                              key={row.teamId}
+                              key={`${row.drawId ?? "legacy"}-${row.teamId}`}
                               className={cn(
                                 "transition",
                                 isTop4 ? "bg-amber-500/10 font-bold" : "hover:bg-white/5",

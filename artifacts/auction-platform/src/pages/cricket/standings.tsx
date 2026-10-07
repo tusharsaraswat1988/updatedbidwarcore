@@ -3,7 +3,13 @@
  * Route: /tournament/:id/score/standings
  */
 import { useMemo } from "react";
-import { formatNetRunRate } from "@workspace/scoring-core/cricket";
+import {
+  competitionGroupTitle,
+  isMultiDrawCompetition,
+  partitionByDraw,
+  rowsForCompetitionSelection,
+  formatNetRunRate,
+} from "@workspace/scoring-core/cricket";
 import { useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -52,8 +58,12 @@ export default function CricketStandingsPage() {
   }
 
   const rows = standings ?? [];
+  const groups = standings?.groups ?? [];
+  const multiDraw = isMultiDrawCompetition(groups, rows);
+  const sections = partitionByDraw(groups, rows);
+  const legacyBand = rowsForCompetitionSelection(groups, rows, { kind: "all" });
 
-  const leader = rows[0];
+  const leader = multiDraw ? null : rows[0];
   let bestNrr = rows[0] ?? null;
   for (const row of rows) {
     if (bestNrr == null || row.netRunRate > bestNrr.netRunRate) bestNrr = row;
@@ -122,9 +132,15 @@ export default function CricketStandingsPage() {
             {/* KPI Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               <HubKpiCard
-                label="Tournament Leader"
-                value={leader?.shortCode || leader?.teamName || "—"}
-                subtitle={leader ? `${leader.points} Pts (${leader.won}W - ${leader.lost}L)` : "No results yet"}
+                label={multiDraw ? "Competitions" : "Tournament Leader"}
+                value={multiDraw ? sections.length : leader?.shortCode || leader?.teamName || "—"}
+                subtitle={
+                  multiDraw
+                    ? "Each draw has its own table"
+                    : leader
+                      ? `${leader.points} Pts (${leader.won}W - ${leader.lost}L)`
+                      : "No results yet"
+                }
                 icon={Trophy}
                 tint="primary"
               />
@@ -166,41 +182,53 @@ export default function CricketStandingsPage() {
             </div>
 
             {/* Standings Table Container */}
-            {standings?.hasGroups && standings.groups && standings.groups.length > 0 ? (
+            {groups.length > 0 ? (
               <div className="space-y-6">
-                {standings.groups.map((g) => {
-                  const groupTitle =
-                    (g as any).displayName ||
-                    ((g as any).drawName && !g.name.includes((g as any).drawName)
-                      ? `${(g as any).drawName} — ${g.name}`
-                      : g.name);
-                  return (
-                    <section key={g.id} className={cn(hubCardClass, "p-4 sm:p-6 space-y-4")}>
-                      <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
-                        <HubSectionHeader
-                          title={`${groupTitle} Points Table`}
-                          subtitle={`${g.rows.length} teams · Top ${g.qualifiersPerGroup ?? 2} qualify`}
-                        />
-                        <span className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary border border-primary/20">
-                          Top {g.qualifiersPerGroup ?? 2} qualify
-                        </span>
-                      </div>
-
-                      <StandingsTable rows={g.rows} highlightTop={g.qualifiersPerGroup ?? 2} />
-                    </section>
-                  );
-                })}
-
-                <section className={cn(hubCardClass, "p-4 sm:p-6 space-y-4 opacity-80 hover:opacity-100 transition-opacity")}>
-                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
-                    <HubSectionHeader
-                      title="Overall Tournament Standings"
-                      subtitle="Combined league view across all groups"
-                    />
+                {sections.map((section) => (
+                  <div key={section.drawId ?? "legacy"} className="space-y-6">
+                    {multiDraw ? (
+                      <h2 className="font-display text-xl font-bold">{section.drawName}</h2>
+                    ) : null}
+                    {section.groups.map((g) => (
+                      <section key={g.id} className={cn(hubCardClass, "p-4 sm:p-6 space-y-4")}>
+                        <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
+                          <HubSectionHeader
+                            title={`${competitionGroupTitle(g)} Points Table`}
+                            subtitle={`${g.rows.length} teams · Top ${g.qualifiersPerGroup ?? 2} qualify`}
+                          />
+                          <span className="text-xs font-semibold px-2 py-1 rounded bg-primary/10 text-primary border border-primary/20">
+                            Top {g.qualifiersPerGroup ?? 2} qualify
+                          </span>
+                        </div>
+                        <StandingsTable rows={g.rows} highlightTop={g.qualifiersPerGroup ?? 2} />
+                      </section>
+                    ))}
                   </div>
-
-                  <StandingsTable rows={rows} highlightTop={0} />
-                </section>
+                ))}
+                {multiDraw ? (
+                  <p className="text-xs text-muted-foreground">
+                    Qualification stays inside each competition. This page does not rank a tournament-wide top 4.
+                  </p>
+                ) : (
+                  <section className={cn(hubCardClass, "p-4 sm:p-6 space-y-4 opacity-80 hover:opacity-100 transition-opacity")}>
+                    <div className="flex items-center justify-between gap-2 pb-2 border-b border-border/50">
+                      <HubSectionHeader
+                        title="Overall Standings"
+                        subtitle="Combined view of this competition's groups"
+                      />
+                    </div>
+                    <StandingsTable rows={rows} highlightTop={0} />
+                  </section>
+                )}
+              </div>
+            ) : multiDraw ? (
+              <div className="space-y-6">
+                {sections.map((section) => (
+                  <section key={section.drawId ?? "legacy"} className={cn(hubCardClass, "p-4 sm:p-6 space-y-4")}>
+                    <HubSectionHeader title={section.drawName} subtitle="Competition points table" />
+                    <StandingsTable rows={section.rows} highlightTop={0} />
+                  </section>
+                ))}
               </div>
             ) : (
               <section className={cn(hubCardClass, "p-4 sm:p-6 space-y-4")}>
@@ -210,8 +238,7 @@ export default function CricketStandingsPage() {
                     subtitle={`${rows.length} franchise team${rows.length === 1 ? "" : "s"}`}
                   />
                 </div>
-
-                <StandingsTable rows={rows} highlightTop={4} />
+                <StandingsTable rows={rows} highlightTop={legacyBand.qualifiers} />
               </section>
             )}
           </>

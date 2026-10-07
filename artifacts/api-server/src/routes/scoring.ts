@@ -1483,7 +1483,10 @@ router.get("/tournaments/:tournamentId/scoring/public/teams/:teamId", async (req
   }
 
   try {
-    res.json(await getTournamentTeamPublicProfile(tournamentId, teamId));
+    const drawRaw = req.query.drawId;
+    const parsedDraw = drawRaw != null && String(drawRaw) !== "" ? parseInt(String(drawRaw), 10) : undefined;
+    const drawId = parsedDraw != null && Number.isFinite(parsedDraw) ? parsedDraw : undefined;
+    res.json(await getTournamentTeamPublicProfile(tournamentId, teamId, drawId));
   } catch (err) {
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });
