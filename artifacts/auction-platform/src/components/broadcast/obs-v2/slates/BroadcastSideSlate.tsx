@@ -740,6 +740,7 @@ function StandingsVariant({
     queryFn: () => getScoringStandings(tournamentId || 0),
     enabled: !!tournamentId && tournamentId > 0,
     staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 
   const matchedGroup = useMemo(() => {

@@ -129,6 +129,8 @@ export default function CricketReportsPage() {
     queryKey: ["scoring-standings", tournamentId],
     queryFn: () => getScoringStandings(tournamentId),
     enabled: scoringActive && !!tournamentId,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
   const { data: fixtures } = useQuery({
     queryKey: ["scoring-fixtures", tournamentId],

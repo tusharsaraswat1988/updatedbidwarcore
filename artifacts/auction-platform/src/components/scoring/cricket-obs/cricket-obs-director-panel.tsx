@@ -55,6 +55,7 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
     queryFn: () => getScoringStandings(tournamentId),
     enabled: tournamentId > 0,
     staleTime: 30_000,
+    refetchInterval: 30_000,
   });
   const availableGroups = useMemo(() => {
     if (!standings?.groups || standings.groups.length === 0) return [];

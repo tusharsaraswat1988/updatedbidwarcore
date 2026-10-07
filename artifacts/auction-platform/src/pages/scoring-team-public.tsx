@@ -37,6 +37,8 @@ export default function ScoringTeamPublicPage() {
     queryKey: ["scoring-team-public", tournamentId, teamId],
     queryFn: () => getTournamentTeamProfile(tournamentId, teamId),
     enabled: !!tournamentId && !!teamId,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 
   const liveMatchId = (schedule?.matches ?? []).find((m) => m.status === "live")?.id ?? null;

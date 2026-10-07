@@ -67,6 +67,7 @@ export function CricketObsMidOverlays({
     queryFn: () => getScoringStandings(tournamentId),
     enabled: overlay === "standings" && tournamentId > 0,
     staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 
   // Fixtures query

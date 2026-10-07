@@ -25,10 +25,12 @@ export default function BplEditionPage({ edition: slugOrNum }: { edition: string
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadData = async () => {
+  const loadData = async (initial: boolean) => {
     if (!slugOrNum) return;
-    setLoading(true);
-    setError(null);
+    if (initial) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const [editionRes, editionsListRes] = await Promise.all([
         fetchBplEdition(slugOrNum),
@@ -36,15 +38,18 @@ export default function BplEditionPage({ edition: slugOrNum }: { edition: string
       ]);
       setEditionData(editionRes);
       setAllEditions(editionsListRes);
+      setError(null);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Edition not found");
+      if (initial) setError(err instanceof Error ? err.message : "Edition not found");
     } finally {
-      setLoading(false);
+      if (initial) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
+    void loadData(true);
+    const timer = window.setInterval(() => void loadData(false), 30_000);
+    return () => window.clearInterval(timer);
   }, [slugOrNum]);
 
   return (

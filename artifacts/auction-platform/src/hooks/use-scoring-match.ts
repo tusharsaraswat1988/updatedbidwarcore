@@ -75,8 +75,8 @@ export function useScoringStandings(tournamentId: number, enabled = true) {
     queryKey: scoringStandingsQueryKey(tournamentId),
     queryFn: () => getScoringStandings(tournamentId),
     enabled: tournamentId > 0 && enabled,
-    staleTime: 60_000,
-    refetchInterval: 30000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 }
 

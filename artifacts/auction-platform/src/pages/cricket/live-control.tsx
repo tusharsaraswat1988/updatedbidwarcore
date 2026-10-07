@@ -258,6 +258,7 @@ export default function CricketLiveControlPage() {
     queryFn: () => getScoringStandings(tournamentId),
     enabled: scoringActive && !!tournamentId,
     staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 
   const tournamentGroups = useMemo(() => standings?.groups ?? [], [standings?.groups]);

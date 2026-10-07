@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import {
   aggregateTournamentPlayerStats,
+  teamGroupQualifications,
   type TournamentPlayerAggregate,
 } from "@workspace/scoring-core";
 import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
@@ -200,9 +201,7 @@ export async function getTournamentTeamPublicProfile(tournamentId: number, teamI
   const standings = await getScoringStandings(tournamentId);
   const rankIndex = standings.findIndex((row) => row.teamId === teamId);
   const standing = rankIndex >= 0 ? standings[rankIndex] : undefined;
-  const groupStanding = standings.groups
-    ?.flatMap((group) => group.rows)
-    .find((row) => row.teamId === teamId);
+  const qualification = teamGroupQualifications(standings.groups ?? [], teamId);
 
   const squadPlayers = await listCricketFranchisePlayers(tournamentId, teamId);
   const squad = squadPlayers.map((p) => ({
@@ -279,7 +278,8 @@ export async function getTournamentTeamPublicProfile(tournamentId: number, teamI
           points: standing.points,
           pointsPercentage: standing.pointsPercentage,
           netRunRate: standing.netRunRate,
-          qualified: groupStanding?.qualified ?? null,
+          qualified: qualification.qualified,
+          groupQualifications: qualification.groups,
         }
       : null,
     squad,

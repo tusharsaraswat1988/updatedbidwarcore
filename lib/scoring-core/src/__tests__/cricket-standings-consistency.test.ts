@@ -5,6 +5,7 @@ import {
   normalizeCricketStandings,
   rankPersistedCricketStandings,
   sameCricketStandings,
+  teamGroupQualifications,
   type HeadToHeadMatch,
   type PersistedCricketStanding,
   type TeamStandingComputed,
@@ -139,5 +140,41 @@ describe("cross-surface cricket standings identity", () => {
       { "Group A": { groupName: "Group A", standings: asComputed(ranked), isComplete: true } },
     );
     expect(resolved.qualifierTeamIds).toEqual(marked.filter((row) => row.qualified).map((row) => row.teamId));
+  });
+
+  it("resolves multi-group qualification by group id, not array order", () => {
+    const groups = [
+      {
+        id: 20,
+        name: "Group B",
+        rows: [
+          { teamId: 2, qualified: true },
+          { teamId: 7, qualified: true },
+        ],
+      },
+      {
+        id: 10,
+        name: "Group A",
+        rows: [
+          { teamId: 7, qualified: false },
+          { teamId: 1, qualified: true },
+        ],
+      },
+    ];
+    const reversed = [...groups].reverse();
+    const forward = teamGroupQualifications(groups, 7);
+    const backward = teamGroupQualifications(reversed, 7);
+
+    expect(forward).toEqual(backward);
+    expect(forward.qualified).toBe(true);
+    expect(forward.groups).toEqual([
+      { groupId: 10, groupName: "Group A", qualified: false },
+      { groupId: 20, groupName: "Group B", qualified: true },
+    ]);
+    expect(teamGroupQualifications(groups, 1).qualified).toBe(true);
+    expect(teamGroupQualifications([{ id: 10, name: "Group A", rows: [{ teamId: 9, qualified: false }] }], 9).qualified).toBe(
+      false,
+    );
+    expect(teamGroupQualifications(groups, 99)).toEqual({ qualified: null, groups: [] });
   });
 });

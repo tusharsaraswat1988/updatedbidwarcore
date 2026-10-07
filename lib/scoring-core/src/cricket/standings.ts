@@ -366,6 +366,46 @@ export function applyQualification<T>(
   return rows.map((row, index) => ({ ...row, qualified: index < count }));
 }
 
+export type TeamGroupQualification = {
+  groupId: number;
+  groupName: string;
+  qualified: boolean;
+};
+
+/**
+ * Qualification for one team across groups.
+ * A team may belong to more than one group because each group belongs to a draw.
+ * Membership is keyed by group id, so standings array order does not matter.
+ * `qualified` is true when the team is qualified in at least one group,
+ * false when it is in groups but qualified in none, and null when it is in no group.
+ */
+export function teamGroupQualifications(
+  groups: Array<{
+    id: number;
+    name: string;
+    rows: Array<{ teamId: number; qualified?: boolean }>;
+  }>,
+  teamId: number,
+): { qualified: boolean | null; groups: TeamGroupQualification[] } {
+  const byGroup = new Map<number, TeamGroupQualification>();
+  for (const group of groups) {
+    const hits = group.rows.filter((row) => row.teamId === teamId);
+    if (hits.length === 0) continue;
+    const qualified = hits.every((row) => row.qualified === true);
+    const existing = byGroup.get(group.id);
+    if (existing) {
+      existing.qualified = existing.qualified && qualified;
+      continue;
+    }
+    byGroup.set(group.id, { groupId: group.id, groupName: group.name, qualified });
+  }
+  const memberships = [...byGroup.values()].sort(
+    (a, b) => a.groupId - b.groupId || a.groupName.localeCompare(b.groupName),
+  );
+  if (memberships.length === 0) return { qualified: null, groups: [] };
+  return { qualified: memberships.some((group) => group.qualified), groups: memberships };
+}
+
 export type NormalizedCricketStanding = {
   teamId: number;
   rank: number;

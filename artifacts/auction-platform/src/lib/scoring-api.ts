@@ -699,7 +699,13 @@ export type TournamentTeamProfile = {
     points: number;
     pointsPercentage: number;
     netRunRate: number;
+    /** True if the team qualified from at least one group. Null when the team is in no group. */
     qualified: boolean | null;
+    groupQualifications: Array<{
+      groupId: number;
+      groupName: string;
+      qualified: boolean;
+    }>;
   } | null;
   squad: Array<{
     id: number;
