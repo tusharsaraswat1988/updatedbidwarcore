@@ -15,10 +15,13 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   competitionGroupTitle,
+  competitionSelectionLabel,
   formatNetRunRate,
   parseCompetitionSelection,
+  resolveKnockoutStageSelection,
   rowsForCompetitionSelection,
 } from "@workspace/scoring-core/cricket";
+import { listFixtures } from "@/lib/scoring-foundation-api";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -117,6 +120,12 @@ export function CricketLedMidOverlays({
     enabled: (overlay === "fixtures" || overlay === "intro" || overlay === "summary" || overlay === "scorecard" || overlay === "standings") && tournamentId > 0,
     staleTime: 30_000,
   });
+  const { data: fixtures } = useQuery({
+    queryKey: ["scoring-fixtures", tournamentId],
+    queryFn: () => listFixtures(tournamentId),
+    enabled: overlay === "standings" && tournamentId > 0,
+    staleTime: 30_000,
+  });
 
   // Resolve active match
   const activeMatch = useMemo(() => {
@@ -158,20 +167,21 @@ export function CricketLedMidOverlays({
   }, [overlayStageOrGroup, standings]);
   const matchedGroup = resolvedStandings.group;
 
-  // Stage/Round matches (e.g. Quarter-Finals, Semi-Finals, Finals)
-  const isKnockoutStage = useMemo(() => {
-    if (!overlayStageOrGroup || overlayStageOrGroup === "all" || matchedGroup) return false;
-    return (matches ?? []).some(
-      (m) => m.roundName && m.roundName.toLowerCase().trim() === overlayStageOrGroup.toLowerCase().trim(),
-    );
-  }, [overlayStageOrGroup, matchedGroup, matches]);
-
-  const stageMatches = useMemo(() => {
-    if (!isKnockoutStage || !overlayStageOrGroup) return [];
-    return (matches ?? []).filter(
-      (m) => m.roundName && m.roundName.toLowerCase().trim() === overlayStageOrGroup.toLowerCase().trim(),
-    );
-  }, [isKnockoutStage, overlayStageOrGroup, matches]);
+  const stageSelection = useMemo(
+    () => parseCompetitionSelection(overlayStageOrGroup),
+    [overlayStageOrGroup],
+  );
+  const knockoutStage = useMemo(
+    () => resolveKnockoutStageSelection(fixtures ?? [], matches ?? [], stageSelection),
+    [fixtures, matches, stageSelection],
+  );
+  const stageLabel = competitionSelectionLabel(overlayStageOrGroup);
+  const isKnockoutStage =
+    !matchedGroup &&
+    (stageSelection.kind === "round" ||
+      knockoutStage.ambiguous ||
+      knockoutStage.fixtures.length > 0 ||
+      knockoutStage.matches.length > 0);
 
   // Standings Pagination State (up to 12 teams per page, auto-paginating every 8 seconds if > 12 teams)
   const [standingsPage, setStandingsPage] = useState(0);
@@ -645,7 +655,7 @@ export function CricketLedMidOverlays({
                       {matchedGroup
                         ? `POINTS TABLE — ${competitionGroupTitle(matchedGroup).toUpperCase()}`
                         : isKnockoutStage
-                        ? `STAGE — ${overlayStageOrGroup?.toUpperCase()}`
+                        ? `STAGE — ${stageLabel.toUpperCase()}`
                         : `POINTS TABLE & RANKINGS`}
                     </h2>
                     {matchedGroup && (
@@ -661,6 +671,37 @@ export function CricketLedMidOverlays({
                   )}
                 </div>
 
+                {isKnockoutStage ? (
+                  <div className="flex-1 w-full rounded-2xl border-2 border-border/80 bg-card/90 shadow-2xl backdrop-blur-md overflow-hidden flex flex-col justify-start">
+                    {knockoutStage.ambiguous || (knockoutStage.fixtures.length === 0 && knockoutStage.matches.length === 0) ? (
+                      <p className="py-16 text-center text-muted-foreground text-base font-medium">
+                        {knockoutStage.ambiguous
+                          ? "This stage is in more than one competition."
+                          : "No fixtures in this stage."}
+                      </p>
+                    ) : (
+                      <ul className="divide-y divide-border/50">
+                        {(knockoutStage.fixtures.length > 0 ? knockoutStage.fixtures : knockoutStage.matches).map((item, idx) => {
+                          const homeId = "homeTeamId" in item ? item.homeTeamId : 0;
+                          const awayId = "awayTeamId" in item ? item.awayTeamId : 0;
+                          const home = teamMap.get(homeId);
+                          const away = teamMap.get(awayId);
+                          return (
+                            <li key={item.id} className="flex items-center justify-between gap-4 px-6 py-5">
+                              <span className="font-display font-black text-amber-400 text-2xl tabular-nums">{idx + 1}</span>
+                              <span className="flex-1 text-center font-display font-black text-white text-2xl sm:text-4xl uppercase tracking-wide">
+                                {home?.name || "Home"} <span className="text-amber-400">vs</span> {away?.name || "Away"}
+                              </span>
+                              <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                                {item.roundName || stageLabel}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                ) : (
                 <div className="flex-1 w-full rounded-2xl border-2 border-border/80 bg-card/90 shadow-2xl backdrop-blur-md overflow-hidden flex flex-col justify-start">
                   <table className="w-full border-collapse text-left table-fixed">
                     <thead className="bg-[#0a0d14] border-b-2 border-border text-xs sm:text-base font-black tracking-widest text-muted-foreground uppercase">
@@ -755,9 +796,10 @@ export function CricketLedMidOverlays({
                     </tbody>
                   </table>
                 </div>
+                )}
 
                 {/* Standings Pagination Indicator Dots */}
-                {totalStandingsPages > 1 && (
+                {totalStandingsPages > 1 && !isKnockoutStage && (
                   <div className="flex items-center justify-center gap-2 mt-3 shrink-0">
                     {Array.from({ length: totalStandingsPages }).map((_, idx) => (
                       <div
@@ -1103,7 +1145,7 @@ export function CricketLedMidOverlays({
             {overlay === "summary" && (() => {
               const groupOrRoundText =
                 (activeMatch as any)?.groupName ||
-                overlayStageOrGroup ||
+                stageLabel ||
                 activeMatch?.roundName ||
                 "";
 

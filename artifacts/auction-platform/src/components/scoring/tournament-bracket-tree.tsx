@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { Trophy, MapPin, CircleDot } from "lucide-react";
 import type { PublicFixture, PublicMatch, PublicTeam } from "@/lib/public-tournament-types";
 import { cricketFanMatchPath } from "@/lib/tournament-navigation";
-import { bracketBoardsByDraw, matchForBracketFixture } from "@workspace/scoring-core/cricket";
+import { bracketBoardsByDraw, bracketMatchesByDraw, matchForBracketFixture } from "@workspace/scoring-core/cricket";
 import { cn } from "@/lib/utils";
 
 interface TournamentBracketTreeProps {
@@ -87,42 +87,35 @@ export function TournamentBracketTree({
       playoffKeywords.some((k) => (m.roundName || "").toLowerCase().includes(k)),
     );
     const sourceMatches = playoffMatches.length > 0 ? playoffMatches : matches.slice(0, 8);
-    const fixtureById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
-    const buckets = new Map<number | null, BracketMatchNode[]>();
-    sourceMatches.forEach((match, idx) => {
-      const drawId = match.fixtureId != null ? (fixtureById.get(match.fixtureId)?.drawId ?? null) : null;
-      const rName = (match.roundName || "Playoff").toLowerCase();
-      let order = 1;
-      if (playoffMatches.length === 0) order = Math.floor(idx / 2) + 1;
-      else if (rName.includes("quarter")) order = 1;
-      else if (rName.includes("semi") || rName.includes("qualifier") || rName.includes("eliminator")) order = 2;
-      else if (rName.includes("final")) order = 3;
-      const node: BracketMatchNode = {
-        id: `match-${match.id}`,
-        matchId: match.id,
-        roundName: match.roundName || (playoffMatches.length > 0 ? "Knockout" : `Matchday ${idx + 1}`),
-        roundOrder: order,
-        slotIndex: idx + 1,
-        homeTeam: teamMap.get(match.homeTeamId) ?? null,
-        awayTeam: teamMap.get(match.awayTeamId) ?? null,
-        winnerTeamId: match.winnerTeamId,
-        status: match.status,
-        resultSummary: match.resultSummary,
-        scheduledAt: match.scheduledAt,
-        venue: match.venue,
-      };
-      const list = buckets.get(drawId) ?? [];
-      list.push(node);
-      buckets.set(drawId, list);
-    });
     const names = new Map(draws.map((draw) => [draw.id, draw.name?.trim() || `Competition ${draw.id}`]));
-    return [...buckets.entries()]
-      .sort((a, b) => (a[0] ?? 999999) - (b[0] ?? 999999))
-      .map(([drawId, nodes]) => ({
-        drawId,
-        drawName: drawId == null ? "Knockout" : (names.get(drawId) ?? `Competition ${drawId}`),
-        rounds: toRounds(nodes),
-      }));
+    return bracketMatchesByDraw(sourceMatches, fixtures).map((board) => ({
+      drawId: board.drawId,
+      drawName: board.drawId == null ? "Knockout" : (names.get(board.drawId) ?? `Competition ${board.drawId}`),
+      rounds: toRounds(
+        board.matches.map((match, idx) => {
+          const rName = (match.roundName || "Playoff").toLowerCase();
+          let order = 1;
+          if (playoffMatches.length === 0) order = Math.floor(idx / 2) + 1;
+          else if (rName.includes("quarter")) order = 1;
+          else if (rName.includes("semi") || rName.includes("qualifier") || rName.includes("eliminator")) order = 2;
+          else if (rName.includes("final")) order = 3;
+          return {
+            id: `match-${match.id}`,
+            matchId: match.id,
+            roundName: match.roundName || (playoffMatches.length > 0 ? "Knockout" : `Matchday ${idx + 1}`),
+            roundOrder: order,
+            slotIndex: idx + 1,
+            homeTeam: teamMap.get(match.homeTeamId) ?? null,
+            awayTeam: teamMap.get(match.awayTeamId) ?? null,
+            winnerTeamId: match.winnerTeamId,
+            status: match.status,
+            resultSummary: match.resultSummary,
+            scheduledAt: match.scheduledAt,
+            venue: match.venue,
+          };
+        }),
+      ),
+    }));
   }, [fixtures, matches, draws, teamMap]);
 
   if (boards.every((board) => board.rounds.length === 0)) {

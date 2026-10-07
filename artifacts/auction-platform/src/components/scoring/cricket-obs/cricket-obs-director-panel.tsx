@@ -13,10 +13,14 @@ import { useToast } from "@/hooks/use-toast";
 import type { CricketObsFlashKind, CricketObsMidOverlayKind } from "@/lib/cricket-obs-view-model";
 import { cricketObsLivePath } from "@/lib/tournament-navigation";
 import { listScoringMatches, getScoringStandings, isTerminalCricketMatchStatus } from "@/lib/scoring-api";
+import { listDraws, listFixtures } from "@/lib/scoring-foundation-api";
 import {
   competitionGroupTitle,
+  competitionSelectionLabel,
   groupSelectorToken,
   isMultiDrawCompetition,
+  knockoutBroadcastStageChoices,
+  stageChoiceIsSelected,
 } from "@workspace/scoring-core/cricket";
 import { parseTournamentSponsors } from "@/components/scoring/public-sponsors-strip";
 import { CricketObsBroadcastMessageControl } from "@/components/scoring/cricket-obs/cricket-obs-broadcast-message-control";
@@ -65,6 +69,19 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
   const availableGroups = standings?.groups ?? [];
   const multiDraw = isMultiDrawCompetition(availableGroups, standings ?? []);
 
+  const { data: stageDraws } = useQuery({
+    queryKey: ["scoring-draws", tournamentId],
+    queryFn: () => listDraws(tournamentId),
+    enabled: tournamentId > 0,
+    staleTime: 30_000,
+  });
+  const { data: stageFixtures } = useQuery({
+    queryKey: ["scoring-fixtures", tournamentId],
+    queryFn: () => listFixtures(tournamentId),
+    enabled: tournamentId > 0,
+    staleTime: 30_000,
+  });
+
   // Sync active overlay state with server on mount / refetch
   const { data: serverState } = useQuery<{
     overlay?: string;
@@ -93,6 +110,18 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
     enabled: tournamentId > 0,
     staleTime: 15_000,
   });
+
+  const knockoutStages = useMemo(
+    () => knockoutBroadcastStageChoices(stageFixtures ?? [], matches ?? [], stageDraws ?? []),
+    [stageFixtures, matches, stageDraws],
+  );
+  const legacyKnockoutStages = multiDraw
+    ? []
+    : [
+        { key: "Quarter-Finals", label: "Quarter Finals" },
+        { key: "Semi-Finals", label: "Semi Finals" },
+        { key: "Finals", label: "Grand Final" },
+      ];
 
   const liveMatches = useMemo(() => (matches ?? []).filter((m) => m.status === "live"), [matches]);
   const upcomingMatches = useMemo(() => (matches ?? []).filter((m) => m.status === "upcoming" || m.status === "scheduled"), [matches]);
@@ -235,7 +264,7 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
       const extraText = options?.sponsorName
         ? ` (${options.sponsorName})`
         : options?.stageOrGroup
-        ? ` (${options.stageOrGroup})`
+        ? ` (${competitionSelectionLabel(options.stageOrGroup) || options.stageOrGroup})`
         : matchId
         ? ` (Match #${matchId})`
         : "";
@@ -387,7 +416,7 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
             >
               {currentOverlay === "none"
                 ? "Camera Only"
-                : `${currentOverlay.toUpperCase()}${overlaySponsorName ? ` · ${overlaySponsorName}` : ""}${overlayStageOrGroup ? ` · ${overlayStageOrGroup}` : ""}`}
+                : `${currentOverlay.toUpperCase()}${overlaySponsorName ? ` · ${overlaySponsorName}` : ""}${overlayStageOrGroup ? ` · ${competitionSelectionLabel(overlayStageOrGroup) || overlayStageOrGroup}` : ""}`}
             </Badge>
           </div>
 
@@ -840,16 +869,39 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
             )}
 
             {/* Knockout Stages Options */}
+            {knockoutStages.length > 0 || legacyKnockoutStages.length > 0 ? (
             <div className="space-y-2 pt-2">
               <div className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
                 Knockout Stages &amp; Play-offs:
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {[
-                  { key: "Quarter-Finals", label: "Quarter Finals" },
-                  { key: "Semi-Finals", label: "Semi Finals" },
-                  { key: "Finals", label: "Grand Final" },
-                ].map((stg) => (
+                {knockoutStages.map((stage) => {
+                  const label =
+                    stage.drawName && knockoutStages.some((other) => other.drawId !== stage.drawId)
+                      ? `${stage.drawName} — ${stage.roundKey}`
+                      : stage.roundKey;
+                  const selected = stageChoiceIsSelected(overlayStageOrGroup, stage, knockoutStages);
+                  return (
+                  <div
+                    key={stage.token}
+                    onClick={() => {
+                      void handleSetOverlay("standings", `Play-offs: ${stage.roundKey}`, undefined, { stageOrGroup: stage.token });
+                      setStandingsSelectModalOpen(false);
+                    }}
+                    className={cn(
+                      "flex flex-col items-center text-center p-3 rounded-xl border bg-white hover:border-blue-500 hover:shadow-sm cursor-pointer transition group",
+                      selected ? "border-blue-500" : "border-slate-200",
+                    )}
+                  >
+                    <span className="text-xs font-bold text-slate-900 group-hover:text-blue-700 transition">
+                      {label}
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">Stage Matches</span>
+                  </div>
+                  );
+                })}
+                {knockoutStages.length === 0
+                  ? legacyKnockoutStages.map((stg) => (
                   <div
                     key={stg.key}
                     onClick={() => {
@@ -863,9 +915,11 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
                     </span>
                     <span className="text-[10px] text-slate-400 mt-0.5">Stage Matches</span>
                   </div>
-                ))}
+                ))
+                  : null}
               </div>
             </div>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>

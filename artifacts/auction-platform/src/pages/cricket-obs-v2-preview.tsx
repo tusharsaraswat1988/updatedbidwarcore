@@ -20,6 +20,7 @@ import {
 } from "@/lib/cricket-obs-view-model";
 import type { SponsorLogo } from "../components/broadcast/obs-v2/contracts";
 
+import { retainStageSelection } from "@workspace/scoring-core/cricket";
 import { useV2Sync, type V2SyncMessage } from "../components/broadcast/obs-v2/obs-v2-sync";
 import { normalizeCricketFlashToObsV2Event } from "../components/broadcast/obs-v2/obs-v2-event-adapter";
 import { SuperBallActivationOverlay } from "@/components/scoring/super-ball-activation-overlay";
@@ -133,7 +134,7 @@ export default function CricketObsV2Page() {
       setSyncNeutral(msg.overlay === "neutral");
       setSyncMatchId(msg.matchId);
       setSyncSponsorName(msg.sponsorName);
-      setSyncStageOrGroup(msg.stageOrGroup);
+      setSyncStageOrGroup((current) => retainStageSelection(current, msg));
     } else if (msg.type === "CLEAR_OVERLAY") {
       setAutoSummaryActive(false);
       setSyncOverlay("none");

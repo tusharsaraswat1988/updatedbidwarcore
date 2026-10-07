@@ -16,9 +16,12 @@ import { formatNetRunRate } from "@workspace/scoring-core/cricket";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { getScoringStandings, listScoringMatches, getCricketMasterTeams } from "@/lib/scoring-api";
+import { listFixtures } from "@/lib/scoring-foundation-api";
 import {
   competitionGroupTitle,
+  competitionSelectionLabel,
   parseCompetitionSelection,
+  resolveKnockoutStageSelection,
   rowsForCompetitionSelection,
 } from "@workspace/scoring-core/cricket";
 import { cricketMasterTeamToScorerTeam, type CricketScorerTeam } from "@/lib/scoring-squad";
@@ -82,6 +85,12 @@ export function CricketObsMidOverlays({
     enabled: (overlay === "fixtures" || overlay === "intro" || overlay === "summary" || overlay === "scorecard" || overlay === "standings") && tournamentId > 0,
     staleTime: 30_000,
   });
+  const { data: fixtures } = useQuery({
+    queryKey: ["scoring-fixtures", tournamentId],
+    queryFn: () => listFixtures(tournamentId),
+    enabled: overlay === "standings" && tournamentId > 0,
+    staleTime: 30_000,
+  });
 
   // Active target match resolution
   const activeMatch = useMemo(() => {
@@ -132,6 +141,21 @@ export function CricketObsMidOverlays({
   const matchedGroup = resolvedStandings.group;
   const effectiveStandingsRows = resolvedStandings.rows;
   const standingsQualifiers = resolvedStandings.qualifiers;
+  const stageSelection = useMemo(
+    () => parseCompetitionSelection(overlayStageOrGroup),
+    [overlayStageOrGroup],
+  );
+  const knockoutStage = useMemo(
+    () => resolveKnockoutStageSelection(fixtures ?? [], matches ?? [], stageSelection),
+    [fixtures, matches, stageSelection],
+  );
+  const stageLabel = competitionSelectionLabel(overlayStageOrGroup);
+  const isKnockoutStage =
+    !matchedGroup &&
+    (stageSelection.kind === "round" ||
+      knockoutStage.ambiguous ||
+      knockoutStage.fixtures.length > 0 ||
+      knockoutStage.matches.length > 0);
 
   if (overlay === "none" || overlay === "neutral" || overlay === "banner") return null;
 
@@ -405,16 +429,58 @@ export function CricketObsMidOverlays({
                     className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
                     style={{ fontFamily: BROADCAST_FONTS.body }}
                   >
-                    {matchedGroup ? `${competitionGroupTitle(matchedGroup).toUpperCase()} STANDINGS` : "STANDINGS & RANKINGS"}
+                    {matchedGroup
+                      ? `${competitionGroupTitle(matchedGroup).toUpperCase()} STANDINGS`
+                      : isKnockoutStage
+                        ? `STAGE — ${stageLabel.toUpperCase()}`
+                        : "STANDINGS & RANKINGS"}
                   </span>
                   <h2
                     className="text-5xl font-normal tracking-wide text-white uppercase mt-1 leading-none"
                     style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
                   >
-                    {matchedGroup ? `${competitionGroupTitle(matchedGroup).toUpperCase()} POINTS TABLE` : "POINTS TABLE"}
+                    {matchedGroup
+                      ? `${competitionGroupTitle(matchedGroup).toUpperCase()} POINTS TABLE`
+                      : isKnockoutStage
+                        ? stageLabel.toUpperCase()
+                        : "POINTS TABLE"}
                   </h2>
                 </div>
 
+                {isKnockoutStage ? (
+                  <div
+                    className="flex-1 overflow-x-auto border border-white/10"
+                    style={{ background: BIDWAR_SCOREBOARD_SHELL }}
+                  >
+                    {knockoutStage.ambiguous || (knockoutStage.fixtures.length === 0 && knockoutStage.matches.length === 0) ? (
+                      <p className="py-12 text-center text-white/50">
+                        {knockoutStage.ambiguous
+                          ? "This stage is in more than one competition."
+                          : "No fixtures in this stage."}
+                      </p>
+                    ) : (
+                      <ul className="divide-y divide-white/10">
+                        {(knockoutStage.fixtures.length > 0 ? knockoutStage.fixtures : knockoutStage.matches).map((item, idx) => {
+                          const homeId = "homeTeamId" in item ? item.homeTeamId : 0;
+                          const awayId = "awayTeamId" in item ? item.awayTeamId : 0;
+                          const home = teamMap.get(homeId);
+                          const away = teamMap.get(awayId);
+                          return (
+                            <li key={item.id} className="flex items-center justify-between gap-6 px-8 py-5">
+                              <span className="text-[#FFD700] text-2xl" style={{ fontFamily: BROADCAST_FONTS.display }}>{idx + 1}</span>
+                              <span className="flex-1 text-center text-white text-3xl uppercase" style={{ fontFamily: BROADCAST_FONTS.display }}>
+                                {home?.name || "Home"} <span className="text-[#FFD700]">vs</span> {away?.name || "Away"}
+                              </span>
+                              <span className="text-xs font-bold uppercase tracking-[0.2em] text-white/50">
+                                {item.roundName || stageLabel}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                ) : (
                 <div
                   className="flex-1 overflow-x-auto border border-white/10"
                   style={{ background: BIDWAR_SCOREBOARD_SHELL }}
@@ -510,6 +576,7 @@ export function CricketObsMidOverlays({
                     </tbody>
                   </table>
                 </div>
+                )}
               </div>
             )}
 
@@ -830,7 +897,7 @@ export function CricketObsMidOverlays({
 
               const groupOrRoundText =
                 (activeMatch as any)?.groupName ||
-                overlayStageOrGroup ||
+                stageLabel ||
                 activeMatch?.roundName ||
                 "";
 

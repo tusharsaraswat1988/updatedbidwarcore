@@ -31,10 +31,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useScoringMatches, useScoringMatch, useScoringLive } from "@/hooks/use-scoring-match";
 import { useScoringSocket } from "@/hooks/use-scoring-socket";
 import {
+  broadcastStageChoices,
   competitionGroupTitle,
+  competitionSelectionLabel,
   groupSelectorToken,
   isMultiDrawCompetition,
+  stageChoiceIsSelected,
 } from "@workspace/scoring-core/cricket";
+import { listDraws, listFixtures } from "@/lib/scoring-foundation-api";
 import {
   getCricketMasterTeams,
   getCricketTournamentRoster,
@@ -269,17 +273,24 @@ export default function CricketLiveControlPage() {
   const tournamentGroups = useMemo(() => standings?.groups ?? [], [standings?.groups]);
   const multiDrawStandings = isMultiDrawCompetition(tournamentGroups, standings ?? []);
 
-  // Tournament Knockout Stages / Distinct Rounds (e.g. Quarter-Final, Semi-Final, Final)
-  const tournamentStages = useMemo(() => {
-    if (!matches) return [];
-    const set = new Set<string>();
-    for (const m of matches) {
-      if (m.roundName && m.roundName.trim()) {
-        set.add(m.roundName.trim());
-      }
-    }
-    return Array.from(set);
-  }, [matches]);
+  const { data: stageDraws } = useQuery({
+    queryKey: ["scoring-draws", tournamentId],
+    queryFn: () => listDraws(tournamentId),
+    enabled: scoringActive && !!tournamentId,
+    staleTime: 30_000,
+  });
+  const { data: stageFixtures } = useQuery({
+    queryKey: ["scoring-fixtures", tournamentId],
+    queryFn: () => listFixtures(tournamentId),
+    enabled: scoringActive && !!tournamentId,
+    staleTime: 30_000,
+  });
+
+  // Knockout and other rounds are chosen per draw. The round name stays a label.
+  const tournamentStages = useMemo(
+    () => broadcastStageChoices(stageFixtures ?? [], matches ?? [], stageDraws ?? []),
+    [stageFixtures, matches, stageDraws],
+  );
 
   // OBS & LED live control state
   const [currentOverlay, setCurrentOverlay] = useState<CricketObsMidOverlayKind>("none");
@@ -486,10 +497,11 @@ export default function CricketLiveControlPage() {
 
       broadcastCommand({ type: "SET_OVERLAY", overlay, matchId, sponsorName, stageOrGroup });
 
+      const stageLabel = competitionSelectionLabel(stageOrGroup);
       const extraText = sponsorName
         ? ` (${sponsorName})`
-        : stageOrGroup
-        ? ` (${stageOrGroup})`
+        : stageLabel
+        ? ` (${stageLabel})`
         : matchId
         ? ` (Match #${matchId})`
         : "";
@@ -1699,15 +1711,19 @@ export default function CricketLiveControlPage() {
                   Knockout &amp; Tournament Stages:
                 </p>
 
-                {tournamentStages.map((stageName) => {
-                  const stageMatchCount = (matches ?? []).filter((m) => m.roundName === stageName).length;
+                {tournamentStages.map((stage) => {
+                  const stageLabel =
+                    stage.drawName && tournamentStages.some((other) => other.drawId !== stage.drawId)
+                      ? `${stage.drawName} — ${stage.roundKey}`
+                      : stage.roundKey;
+                  const stageMatchCount = stage.fixtureIds.length;
                   const isCurrentTarget =
                     currentOverlay === "standings" &&
-                    overlayStageOrGroup?.toLowerCase().trim() === stageName.toLowerCase().trim();
+                    stageChoiceIsSelected(overlayStageOrGroup, stage, tournamentStages);
 
                   return (
                     <div
-                      key={stageName}
+                      key={stage.token}
                       className={cn(
                         "flex items-center justify-between gap-3 p-3.5 rounded-xl border transition shadow-sm",
                         isCurrentTarget
@@ -1717,7 +1733,7 @@ export default function CricketLiveControlPage() {
                     >
                       <div className="min-w-0 space-y-0.5">
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 text-sm">{stageName}</span>
+                          <span className="font-bold text-slate-900 text-sm">{stageLabel}</span>
                           <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
                             {stageMatchCount} Matches
                           </span>
@@ -1730,7 +1746,7 @@ export default function CricketLiveControlPage() {
                       <Button
                         size="sm"
                         onClick={() => {
-                          void handleSetOverlay("standings", `Stage (${stageName})`, undefined, undefined, stageName);
+                          void handleSetOverlay("standings", `Stage (${stage.roundKey})`, undefined, undefined, stage.token);
                           setStandingsSelectModalOpen(false);
                         }}
                         className={cn(
@@ -1741,7 +1757,7 @@ export default function CricketLiveControlPage() {
                         )}
                       >
                         <Tv className="w-3.5 h-3.5" />
-                        <span>{isCurrentTarget ? "Live on Screen" : `Show ${stageName}`}</span>
+                        <span>{isCurrentTarget ? "Live on Screen" : `Show ${stage.roundKey}`}</span>
                       </Button>
                     </div>
                   );

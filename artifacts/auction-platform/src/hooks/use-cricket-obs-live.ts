@@ -4,6 +4,7 @@ import {
   useGetTournament,
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
+import { retainStageSelection } from "@workspace/scoring-core/cricket";
 import { useScoringLive } from "@/hooks/use-scoring-match";
 import { useScoringSocket } from "@/hooks/use-scoring-socket";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
@@ -368,9 +369,7 @@ export function useCricketObsLive(
       if (detail.sponsorName !== undefined) {
         setOverlaySponsorName(detail.sponsorName);
       }
-      if (detail.stageOrGroup !== undefined) {
-        setOverlayStageOrGroup(detail.stageOrGroup);
-      }
+      setOverlayStageOrGroup((current) => retainStageSelection(current, detail));
       if (detail.flash) {
         triggerFlash(detail.flash, detail.detail);
       }
@@ -399,9 +398,7 @@ export function useCricketObsLive(
         if (data.sponsorName !== undefined) {
           setOverlaySponsorName(data.sponsorName);
         }
-        if (data.stageOrGroup !== undefined) {
-          setOverlayStageOrGroup(data.stageOrGroup);
-        }
+        setOverlayStageOrGroup((current) => retainStageSelection(current, data));
       } else if (data.type === "TRIGGER_FLASH") {
         triggerFlash(data.flash, data.detail);
       } else if (data.type === "SET_BROADCAST_MESSAGE") {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { mergeObsDirectorSnapshot } from "@workspace/scoring-core/cricket";
 import { scoringLiveQueryKey } from "@/hooks/use-scoring-match";
 import type { ScoringLiveDisplay } from "@/lib/scoring-api";
 
@@ -90,7 +91,11 @@ export function useScoringSocket(
             );
           }
         } else if (msg.type === "cricket_obs_director") {
-          qc.setQueryData(["cricket-obs-director", tournamentId], msg);
+          qc.setQueryData(
+            ["cricket-obs-director", tournamentId],
+            (current: { stageOrGroup?: string | null; type?: string } | undefined) =>
+              mergeObsDirectorSnapshot(current, msg),
+          );
           if (typeof window !== "undefined") {
             window.dispatchEvent(
               new CustomEvent("cricket_obs_director", { detail: msg }),

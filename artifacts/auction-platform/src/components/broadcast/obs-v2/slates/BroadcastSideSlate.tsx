@@ -35,9 +35,12 @@ import {
   getCricketTournamentRoster,
   getPublicMatchScorecard,
 } from "@/lib/scoring-api";
+import { listFixtures } from "@/lib/scoring-foundation-api";
 import {
   competitionGroupTitle,
+  competitionSelectionLabel,
   parseCompetitionSelection,
+  resolveKnockoutStageSelection,
   rowsForCompetitionSelection,
 } from "@workspace/scoring-core/cricket";
 import {
@@ -748,6 +751,25 @@ function StandingsVariant({
     refetchInterval: 30_000,
   });
 
+  const { data: matches } = useQuery({
+    queryKey: ["scoring-matches", tournamentId],
+    queryFn: () => listScoringMatches(tournamentId || 0),
+    enabled: !!tournamentId && tournamentId > 0,
+    staleTime: 30_000,
+  });
+  const { data: fixtures } = useQuery({
+    queryKey: ["scoring-fixtures", tournamentId],
+    queryFn: () => listFixtures(tournamentId || 0),
+    enabled: !!tournamentId && tournamentId > 0,
+    staleTime: 30_000,
+  });
+  const { data: masterTeams } = useQuery({
+    queryKey: ["cricket-master-teams", tournamentId],
+    queryFn: () => getCricketMasterTeams(tournamentId || 0),
+    enabled: !!tournamentId && tournamentId > 0,
+    staleTime: 60_000,
+  });
+
   const resolved = useMemo(() => {
     return rowsForCompetitionSelection(
       standings?.groups ?? [],
@@ -755,10 +777,60 @@ function StandingsVariant({
       parseCompetitionSelection(stageOrGroup),
     );
   }, [stageOrGroup, standings]);
+  const knockoutStage = useMemo(
+    () => resolveKnockoutStageSelection(fixtures ?? [], matches ?? [], parseCompetitionSelection(stageOrGroup)),
+    [fixtures, matches, stageOrGroup],
+  );
 
   const matchedGroup = resolved.group;
   const rows = resolved.rows;
   const qualifiers = resolved.qualifiers;
+  const stageLabel = competitionSelectionLabel(stageOrGroup);
+  const isKnockoutStage =
+    !matchedGroup &&
+    (parseCompetitionSelection(stageOrGroup).kind === "round" ||
+      knockoutStage.ambiguous ||
+      knockoutStage.fixtures.length > 0 ||
+      knockoutStage.matches.length > 0);
+  const teamMap = useMemo(
+    () => new Map((masterTeams ?? []).map(cricketMasterTeamToScorerTeam).map((team) => [team.id, team])),
+    [masterTeams],
+  );
+
+  if (isKnockoutStage) {
+    const stageRows = knockoutStage.fixtures.length > 0 ? knockoutStage.fixtures : knockoutStage.matches;
+    return (
+      <div className="flex flex-col rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
+        {knockoutStage.ambiguous || stageRows.length === 0 ? (
+          <div className="py-8 text-center text-sm text-slate-400">
+            {knockoutStage.ambiguous
+              ? "This stage is in more than one competition."
+              : "No fixtures in this stage."}
+          </div>
+        ) : (
+          <ul className="divide-y divide-white/5">
+            {stageRows.map((item, idx) => {
+              const homeId = "homeTeamId" in item ? item.homeTeamId : 0;
+              const awayId = "awayTeamId" in item ? item.awayTeamId : 0;
+              const home = teamMap.get(homeId);
+              const away = teamMap.get(awayId);
+              return (
+                <li key={item.id} className="flex items-center gap-3 px-4 py-3">
+                  <span className="text-[#FFD700] font-black w-6 text-center">{idx + 1}</span>
+                  <span className="flex-1 font-bold text-white uppercase truncate">
+                    {home?.shortCode || home?.name || "Home"} vs {away?.shortCode || away?.name || "Away"}
+                  </span>
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    {item.roundName || stageLabel}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    );
+  }
 
   const displayRows = rows?.slice(0, 8) || [];
   const isFewTeams = displayRows.length <= 4;
@@ -1163,10 +1235,13 @@ export function BroadcastSideSlate({
         return "MATCH SUMMARY";
       case "SCORECARD":
         return `${vm.batting?.name || "LIVE"} SCORECARD`;
-      case "STANDINGS":
+      case "STANDINGS": {
+        const selection = parseCompetitionSelection(stageOrGroup);
+        if (selection.kind === "round") return selection.roundKey.toUpperCase();
         return stageOrGroup && !stageOrGroup.startsWith("group:") && !stageOrGroup.startsWith("draw:")
           ? `GROUP ${stageOrGroup.toUpperCase()} POINTS`
           : "POINTS TABLE";
+      }
       case "FIXTURES":
         return "MATCH SCHEDULE";
       case "SPONSORS":

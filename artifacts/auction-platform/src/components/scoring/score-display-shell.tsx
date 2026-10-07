@@ -12,6 +12,7 @@ import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { CricketPublicBrandMark, useCricketBidWarTheme } from "@/components/scoring/cricket-branding";
 import { buildCricketMatchSummary } from "@workspace/scoring-core";
+import { retainStageSelection } from "@workspace/scoring-core/cricket";
 import {
   getCricketMasterTeams,
   getCricketTournamentRoster,
@@ -462,9 +463,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
       if (detail.sponsorName !== undefined) {
         setOverlaySponsorName(detail.sponsorName);
       }
-      if (detail.stageOrGroup !== undefined) {
-        setOverlayStageOrGroup(detail.stageOrGroup);
-      }
+      setOverlayStageOrGroup((current) => retainStageSelection(current, detail));
     };
     window.addEventListener("cricket_obs_director", handleSseDirector);
     return () => window.removeEventListener("cricket_obs_director", handleSseDirector);
@@ -487,9 +486,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
         if (data.sponsorName !== undefined) {
           setOverlaySponsorName(data.sponsorName);
         }
-        if (data.stageOrGroup !== undefined) {
-          setOverlayStageOrGroup(data.stageOrGroup);
-        }
+        setOverlayStageOrGroup((current) => retainStageSelection(current, data));
       }
     };
     return () => {

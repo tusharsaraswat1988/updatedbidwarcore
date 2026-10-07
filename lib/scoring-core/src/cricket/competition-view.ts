@@ -7,6 +7,7 @@ export type CompetitionSelection =
   | { kind: "all" }
   | { kind: "group"; groupId: number }
   | { kind: "draw"; drawId: number }
+  | { kind: "round"; drawId: number; roundKey: string }
   | { kind: "label"; label: string };
 
 export type CompetitionGroupView<TRow> = {
@@ -55,6 +56,21 @@ export function drawSelectorToken(drawId: number): string {
   return `draw:${drawId}`;
 }
 
+/** Collapse surrounding and repeated whitespace. Hyphens and the label text stay as written. */
+export function normalizeRoundKey(roundName: string): string {
+  return roundName.trim().replace(/\s+/g, " ");
+}
+
+export function roundSelectorToken(drawId: number, roundName: string): string {
+  return `draw:${drawId}:round:${normalizeRoundKey(roundName)}`;
+}
+
+export function roundKeysEqual(left: string | null | undefined, right: string | null | undefined): boolean {
+  const a = normalizeRoundKey(left ?? "");
+  const b = normalizeRoundKey(right ?? "");
+  return a.length > 0 && a.toLowerCase() === b.toLowerCase();
+}
+
 export function parseCompetitionSelection(value?: string | null): CompetitionSelection {
   if (!value || value.trim() === "" || value.trim().toLowerCase() === "all") {
     return { kind: "all" };
@@ -62,9 +78,25 @@ export function parseCompetitionSelection(value?: string | null): CompetitionSel
   const trimmed = value.trim();
   const groupMatch = /^group:(\d+)$/.exec(trimmed);
   if (groupMatch) return { kind: "group", groupId: Number(groupMatch[1]) };
+  const roundMatch = /^draw:(\d+):round:(.+)$/.exec(trimmed);
+  if (roundMatch) {
+    const drawId = Number(roundMatch[1]);
+    const roundKey = normalizeRoundKey(roundMatch[2] ?? "");
+    if (Number.isInteger(drawId) && drawId > 0 && roundKey.length > 0) {
+      return { kind: "round", drawId, roundKey };
+    }
+  }
   const drawMatch = /^draw:(\d+)$/.exec(trimmed);
   if (drawMatch) return { kind: "draw", drawId: Number(drawMatch[1]) };
   return { kind: "label", label: trimmed };
+}
+
+/** Round and legacy labels are the only selections that should be painted as text. */
+export function competitionSelectionLabel(value?: string | null): string {
+  const selection = parseCompetitionSelection(value);
+  if (selection.kind === "round") return selection.roundKey;
+  if (selection.kind === "label") return selection.label;
+  return "";
 }
 
 export function isMultiDrawCompetition(
@@ -128,7 +160,7 @@ export function resolveCompetitionGroup<T extends {
   groups: T[],
   selection: CompetitionSelection,
 ): { group: T | null; ambiguous: boolean } {
-  if (selection.kind === "all" || selection.kind === "draw") {
+  if (selection.kind === "all" || selection.kind === "draw" || selection.kind === "round") {
     return { group: null, ambiguous: false };
   }
   if (selection.kind === "group") {
@@ -191,6 +223,9 @@ export function rowsForCompetitionSelection<
       ambiguous: false,
       qualifiers: 0,
     };
+  }
+  if (selection.kind === "round") {
+    return { rows: [], group: null, ambiguous: false, qualifiers: 0 };
   }
   if (isMultiDrawCompetition(groups, rows)) {
     return { rows: [], group: null, ambiguous: false, qualifiers: 0 };
@@ -315,4 +350,304 @@ export function bracketBoardsByDraw<TFixture extends BracketFixtureRef>(
             a.id - b.id,
         ),
     }));
+}
+
+export type KnockoutFixtureRef = {
+  id: number;
+  drawId?: number | null;
+  roundName?: string | null;
+};
+
+export type KnockoutMatchRef = {
+  id: number;
+  fixtureId?: number | null;
+  roundName?: string | null;
+};
+
+export type KnockoutStageResolution<
+  TFixture extends KnockoutFixtureRef,
+  TMatch extends KnockoutMatchRef,
+> = {
+  fixtures: TFixture[];
+  matches: TMatch[];
+  ambiguous: boolean;
+  drawId: number | null;
+  roundKey: string | null;
+};
+
+function emptyKnockoutStage<
+  TFixture extends KnockoutFixtureRef,
+  TMatch extends KnockoutMatchRef,
+>(ambiguous = false, roundKey: string | null = null): KnockoutStageResolution<TFixture, TMatch> {
+  return { fixtures: [], matches: [], ambiguous, drawId: null, roundKey };
+}
+
+function matchesForFixtures<TMatch extends KnockoutMatchRef>(
+  matches: TMatch[],
+  fixtureIds: Set<number>,
+): TMatch[] {
+  return matches.filter((match) => match.fixtureId != null && fixtureIds.has(match.fixtureId));
+}
+
+/**
+ * Knockout stage identity is the draw, then the round label inside that draw.
+ * A plain round name is accepted only when exactly one draw owns that label.
+ * Two draws with the same label stay unresolved. The first fixture is never chosen.
+ */
+export function resolveKnockoutStageSelection<
+  TFixture extends KnockoutFixtureRef,
+  TMatch extends KnockoutMatchRef,
+>(
+  fixtures: TFixture[],
+  matches: TMatch[],
+  selection: CompetitionSelection,
+): KnockoutStageResolution<TFixture, TMatch> {
+  if (selection.kind === "round") {
+    const stageFixtures = fixtures.filter(
+      (fixture) =>
+        fixture.drawId === selection.drawId && roundKeysEqual(fixture.roundName, selection.roundKey),
+    );
+    const fixtureIds = new Set(stageFixtures.map((fixture) => fixture.id));
+    return {
+      fixtures: stageFixtures,
+      matches: matchesForFixtures(matches, fixtureIds),
+      ambiguous: false,
+      drawId: selection.drawId,
+      roundKey: selection.roundKey,
+    };
+  }
+
+  if (selection.kind !== "label") return emptyKnockoutStage();
+
+  const roundKey = normalizeRoundKey(selection.label);
+  const labeled = fixtures.filter((fixture) => roundKeysEqual(fixture.roundName, roundKey));
+  const drawIds = new Set(
+    labeled.map((fixture) => fixture.drawId).filter((id): id is number => id != null),
+  );
+  if (drawIds.size > 1) return emptyKnockoutStage(true, roundKey);
+
+  if (drawIds.size === 1) {
+    const drawId = [...drawIds][0]!;
+    const stageFixtures = labeled.filter((fixture) => fixture.drawId === drawId);
+    const fixtureIds = new Set(stageFixtures.map((fixture) => fixture.id));
+    return {
+      fixtures: stageFixtures,
+      matches: matchesForFixtures(matches, fixtureIds),
+      ambiguous: false,
+      drawId,
+      roundKey,
+    };
+  }
+
+  const tournamentDraws = new Set(
+    fixtures.map((fixture) => fixture.drawId).filter((id): id is number => id != null),
+  );
+  if (tournamentDraws.size > 1) return emptyKnockoutStage(true, roundKey);
+
+  const namedMatches = matches.filter((match) => roundKeysEqual(match.roundName, roundKey));
+  if (namedMatches.length === 0) return emptyKnockoutStage(false, roundKey);
+
+  if (tournamentDraws.size === 1) {
+    const drawId = [...tournamentDraws][0]!;
+    const drawFixtureIds = new Set(
+      fixtures.filter((fixture) => fixture.drawId === drawId).map((fixture) => fixture.id),
+    );
+    const stageMatches = namedMatches.filter(
+      (match) => match.fixtureId == null || drawFixtureIds.has(match.fixtureId),
+    );
+    const stageFixtures = fixtures.filter(
+      (fixture) => fixture.drawId === drawId && stageMatches.some((match) => match.fixtureId === fixture.id),
+    );
+    return {
+      fixtures: stageFixtures,
+      matches: stageMatches,
+      ambiguous: false,
+      drawId,
+      roundKey,
+    };
+  }
+
+  return {
+    fixtures: [],
+    matches: namedMatches,
+    ambiguous: false,
+    drawId: null,
+    roundKey,
+  };
+}
+
+export type BroadcastStageChoice = {
+  drawId: number | null;
+  drawName: string | null;
+  roundKey: string;
+  token: string;
+  fixtureIds: number[];
+};
+
+export function isKnockoutRoundLabel(roundName: string): boolean {
+  return /final|semi|quarter|eliminator|qualifier|play-?off|knockout|round of \d+/i.test(roundName);
+}
+
+function drawNameFor(
+  drawId: number,
+  draws: Array<{ id: number; name?: string | null }>,
+): string {
+  return draws.find((draw) => draw.id === drawId)?.name?.trim() || `Competition ${drawId}`;
+}
+
+/** One choice per draw + round label. The token always carries the draw when one exists. */
+export function broadcastStageChoices(
+  fixtures: KnockoutFixtureRef[],
+  matches: KnockoutMatchRef[] = [],
+  draws: Array<{ id: number; name?: string | null }> = [],
+): BroadcastStageChoice[] {
+  const buckets = new Map<string, BroadcastStageChoice>();
+  for (const fixture of fixtures) {
+    if (fixture.drawId == null) continue;
+    const roundKey = normalizeRoundKey(fixture.roundName ?? "");
+    if (!roundKey) continue;
+    const mapKey = `${fixture.drawId}\0${roundKey.toLowerCase()}`;
+    const existing = buckets.get(mapKey);
+    if (existing) {
+      existing.fixtureIds.push(fixture.id);
+      continue;
+    }
+    buckets.set(mapKey, {
+      drawId: fixture.drawId,
+      drawName: drawNameFor(fixture.drawId, draws),
+      roundKey,
+      token: roundSelectorToken(fixture.drawId, roundKey),
+      fixtureIds: [fixture.id],
+    });
+  }
+  if (buckets.size > 0) {
+    return [...buckets.values()].sort(
+      (a, b) => (a.drawId ?? 0) - (b.drawId ?? 0) || a.roundKey.localeCompare(b.roundKey),
+    );
+  }
+
+  const drawIds = new Set(
+    fixtures.map((fixture) => fixture.drawId).filter((id): id is number => id != null),
+  );
+  if (drawIds.size > 1) return [];
+
+  const onlyDraw = drawIds.size === 1 ? [...drawIds][0]! : null;
+  const seen = new Set<string>();
+  const legacy: BroadcastStageChoice[] = [];
+  for (const match of matches) {
+    const roundKey = normalizeRoundKey(match.roundName ?? "");
+    if (!roundKey) continue;
+    const key = roundKey.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    legacy.push({
+      drawId: onlyDraw,
+      drawName: onlyDraw == null ? null : drawNameFor(onlyDraw, draws),
+      roundKey,
+      token: onlyDraw == null ? roundKey : roundSelectorToken(onlyDraw, roundKey),
+      fixtureIds: [],
+    });
+  }
+  return legacy.sort((a, b) => a.roundKey.localeCompare(b.roundKey));
+}
+
+export function knockoutBroadcastStageChoices(
+  fixtures: KnockoutFixtureRef[],
+  matches: KnockoutMatchRef[] = [],
+  draws: Array<{ id: number; name?: string | null }> = [],
+): BroadcastStageChoice[] {
+  return broadcastStageChoices(fixtures, matches, draws).filter((choice) =>
+    isKnockoutRoundLabel(choice.roundKey),
+  );
+}
+
+export function stageChoiceIsSelected(
+  current: string | null | undefined,
+  choice: BroadcastStageChoice,
+  choices: BroadcastStageChoice[],
+): boolean {
+  if (!current) return false;
+  if (current === choice.token) return true;
+  const selection = parseCompetitionSelection(current);
+  if (selection.kind === "round") {
+    return selection.drawId === choice.drawId && roundKeysEqual(selection.roundKey, choice.roundKey);
+  }
+  if (selection.kind === "label") {
+    const same = choices.filter((item) => roundKeysEqual(item.roundKey, selection.label));
+    return same.length === 1 && same[0]?.token === choice.token;
+  }
+  return false;
+}
+
+/**
+ * A scoring update must not replace the selected stage.
+ * A director event replaces it only when it carries a new stage token.
+ */
+export function retainStageSelection(
+  current: string | null | undefined,
+  event: {
+    type?: string;
+    channel?: string;
+    stageOrGroup?: string | null;
+    roundName?: string | null;
+    drawId?: number | null;
+  } | null | undefined,
+): string | undefined {
+  const kept = current ?? undefined;
+  if (!event) return kept;
+  const channel = event.channel ?? event.type ?? "";
+  if (channel === "scoring" || channel === "scoring_state" || channel === "scoring_replay") {
+    return kept;
+  }
+  if (typeof event.stageOrGroup === "string") return event.stageOrGroup;
+  return kept;
+}
+
+export function mergeObsDirectorSnapshot<T extends { stageOrGroup?: string | null; type?: string }>(
+  previous: T | null | undefined,
+  incoming: T,
+): T {
+  const type = incoming.type ?? "";
+  if (type === "scoring" || type === "scoring_state" || type === "scoring_replay") {
+    return previous ?? incoming;
+  }
+  const nextStage = retainStageSelection(previous?.stageOrGroup, incoming);
+  return {
+    ...(previous ?? ({} as T)),
+    ...incoming,
+    stageOrGroup: nextStage,
+  };
+}
+
+/**
+ * Fallback boards for matches that are not already on a bracket fixture.
+ * A match joins a draw only through its fixture. Unlinked matches stay off
+ * every board once more than one draw exists.
+ */
+export function bracketMatchesByDraw<TMatch extends { fixtureId?: number | null }>(
+  matches: TMatch[],
+  fixtures: Array<{ id: number; drawId?: number | null }>,
+): Array<{ drawId: number | null; matches: TMatch[] }> {
+  const fixtureById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
+  const drawIds = new Set(
+    fixtures.map((fixture) => fixture.drawId).filter((id): id is number => id != null),
+  );
+  const multi = drawIds.size > 1;
+  const buckets = new Map<number | null, TMatch[]>();
+  for (const match of matches) {
+    const fixture = match.fixtureId != null ? fixtureById.get(match.fixtureId) : undefined;
+    if (!fixture || fixture.drawId == null) {
+      if (multi) continue;
+      const list = buckets.get(null) ?? [];
+      list.push(match);
+      buckets.set(null, list);
+      continue;
+    }
+    const list = buckets.get(fixture.drawId) ?? [];
+    list.push(match);
+    buckets.set(fixture.drawId, list);
+  }
+  return [...buckets.entries()]
+    .sort((a, b) => (a[0] ?? 999999) - (b[0] ?? 999999))
+    .map(([drawId, stageMatches]) => ({ drawId, matches: stageMatches }));
 }

@@ -1,16 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
   bracketBoardsByDraw,
+  bracketMatchesByDraw,
+  broadcastStageChoices,
   competitionGroupTitle,
   groupSelectorToken,
   isMultiDrawCompetition,
+  knockoutBroadcastStageChoices,
   listTeamCompetitionRows,
   matchForBracketFixture,
+  mergeObsDirectorSnapshot,
   parseCompetitionSelection,
   partitionByDraw,
   rankInDraw,
   resolveCompetitionGroup,
+  resolveKnockoutStageSelection,
   resolveTeamStanding,
+  retainStageSelection,
+  roundSelectorToken,
   rowsForCompetitionSelection,
 } from "../cricket/competition-view";
 
@@ -164,5 +171,172 @@ describe("cricket competition consumers", () => {
     expect(matchForBracketFixture(fixtures[0]!, matches)?.id).toBe(1);
     expect(matchForBracketFixture(fixtures[3]!, matches)?.id).toBe(2);
     expect(matchForBracketFixture(fixtures[0]!, matches)?.id).not.toBe(2);
+  });
+});
+
+const stageFixtures = [
+  { id: 501, drawId: 1, roundName: "Semi-Finals", homeTeamId: 101, awayTeamId: 102 },
+  { id: 502, drawId: 1, roundName: "Final", homeTeamId: 101, awayTeamId: 103 },
+  { id: 601, drawId: 2, roundName: "Semi-Finals", homeTeamId: 201, awayTeamId: 202 },
+  { id: 602, drawId: 2, roundName: "Final", homeTeamId: 201, awayTeamId: 203 },
+];
+
+const stageMatches = [
+  { id: 11, fixtureId: 501, roundName: "Semi-Finals" },
+  { id: 12, fixtureId: 502, roundName: "Final" },
+  { id: 21, fixtureId: 601, roundName: "Semi-Finals" },
+  { id: 22, fixtureId: 602, roundName: "Final" },
+];
+
+const stageDraws = [
+  { id: 1, name: "Classes 4–5–6" },
+  { id: 2, name: "Classes 7–8–9" },
+];
+
+describe("knockout stage identity", () => {
+  it("selecting D1 Semi-Finals shows only D1 fixtures", () => {
+    const token = roundSelectorToken(1, "Semi-Finals");
+    expect(token).toBe("draw:1:round:Semi-Finals");
+    const resolved = resolveKnockoutStageSelection(
+      stageFixtures,
+      stageMatches,
+      parseCompetitionSelection(token),
+    );
+    expect(resolved.ambiguous).toBe(false);
+    expect(resolved.drawId).toBe(1);
+    expect(resolved.fixtures.map((fixture) => fixture.id)).toEqual([501]);
+    expect(resolved.matches.map((match) => match.id)).toEqual([11]);
+    expect(resolved.fixtures.some((fixture) => fixture.drawId === 2)).toBe(false);
+  });
+
+  it("selecting D2 Semi-Finals shows only D2 fixtures", () => {
+    const resolved = resolveKnockoutStageSelection(
+      stageFixtures,
+      stageMatches,
+      parseCompetitionSelection(roundSelectorToken(2, "Semi-Finals")),
+    );
+    expect(resolved.fixtures.map((fixture) => fixture.id)).toEqual([601]);
+    expect(resolved.matches.map((match) => match.id)).toEqual([21]);
+    expect(resolved.matches.some((match) => match.id === 11)).toBe(false);
+  });
+
+  it("treats a shared plain Semi-Finals token as unresolved", () => {
+    const resolved = resolveKnockoutStageSelection(
+      stageFixtures,
+      stageMatches,
+      parseCompetitionSelection("Semi-Finals"),
+    );
+    expect(resolved.ambiguous).toBe(true);
+    expect(resolved.fixtures).toEqual([]);
+    expect(resolved.matches).toEqual([]);
+    expect(resolved.fixtures[0]).not.toEqual(stageFixtures[0]);
+    expect(resolved.matches.map((match) => match.id)).not.toContain(11);
+    expect(resolved.matches.map((match) => match.id)).not.toContain(21);
+  });
+
+  it("keeps a plain Semi-Finals token when only one draw has that stage", () => {
+    const singleFixtures = stageFixtures.filter((fixture) => fixture.drawId === 1);
+    const singleMatches = stageMatches.filter((match) => match.fixtureId === 501 || match.fixtureId === 502);
+    const resolved = resolveKnockoutStageSelection(
+      singleFixtures,
+      singleMatches,
+      parseCompetitionSelection("Semi-Finals"),
+    );
+    expect(resolved.ambiguous).toBe(false);
+    expect(resolved.drawId).toBe(1);
+    expect(resolved.fixtures.map((fixture) => fixture.id)).toEqual([501]);
+    expect(resolved.matches.map((match) => match.id)).toEqual([11]);
+  });
+
+  it("keeps D1 Final and D2 Final on separate slates", () => {
+    const d1 = resolveKnockoutStageSelection(
+      stageFixtures,
+      stageMatches,
+      parseCompetitionSelection(roundSelectorToken(1, "Final")),
+    );
+    const d2 = resolveKnockoutStageSelection(
+      stageFixtures,
+      stageMatches,
+      parseCompetitionSelection(roundSelectorToken(2, "Final")),
+    );
+    expect(d1.fixtures.map((fixture) => fixture.id)).toEqual([502]);
+    expect(d2.fixtures.map((fixture) => fixture.id)).toEqual([602]);
+    expect(d1.matches.map((match) => match.id)).toEqual([12]);
+    expect(d2.matches.map((match) => match.id)).toEqual([22]);
+  });
+
+  it("preserves a stored D1 stage token when D2 has the same stage name", () => {
+    const stored = roundSelectorToken(1, "Semi-Finals");
+    const refreshed = mergeObsDirectorSnapshot(
+      { overlay: "standings", stageOrGroup: stored },
+      { type: "cricket_obs_director", overlay: "standings", timestamp: 20 },
+    );
+    expect(refreshed.stageOrGroup).toBe(stored);
+    const resolved = resolveKnockoutStageSelection(
+      stageFixtures,
+      stageMatches,
+      parseCompetitionSelection(refreshed.stageOrGroup),
+    );
+    expect(resolved.drawId).toBe(1);
+    expect(resolved.fixtures.map((fixture) => fixture.id)).toEqual([501]);
+  });
+
+  it("does not retarget a D1 stage when a D2 scoring event arrives", () => {
+    const current = roundSelectorToken(1, "Semi-Finals");
+    const retained = retainStageSelection(current, {
+      type: "scoring_state",
+      channel: "scoring",
+      drawId: 2,
+      roundName: "Semi-Finals",
+    });
+    expect(retained).toBe(current);
+    const merged = mergeObsDirectorSnapshot(
+      { overlay: "standings", stageOrGroup: current },
+      { type: "scoring_state", roundName: "Semi-Finals", drawId: 2 },
+    );
+    expect(merged.stageOrGroup).toBe(current);
+    const resolved = resolveKnockoutStageSelection(
+      stageFixtures,
+      stageMatches,
+      parseCompetitionSelection(retained),
+    );
+    expect(resolved.fixtures.map((fixture) => fixture.id)).toEqual([501]);
+    expect(resolved.matches.some((match) => match.fixtureId === 601)).toBe(false);
+  });
+
+  it("offers a separate broadcast choice for each draw that shares a stage label", () => {
+    const choices = knockoutBroadcastStageChoices(stageFixtures, stageMatches, stageDraws);
+    const semis = choices.filter((choice) => choice.roundKey === "Semi-Finals");
+    expect(semis.map((choice) => choice.token)).toEqual([
+      "draw:1:round:Semi-Finals",
+      "draw:2:round:Semi-Finals",
+    ]);
+    expect(broadcastStageChoices(stageFixtures, stageMatches, stageDraws).some((choice) => choice.token === "Semi-Finals")).toBe(false);
+  });
+
+  it("does not place an unlinked match on another draw's bracket", () => {
+    const boards = bracketMatchesByDraw(
+      [
+        { id: 11, fixtureId: 501, roundName: "Semi-Finals" },
+        { id: 21, fixtureId: 601, roundName: "Semi-Finals" },
+        { id: 99, fixtureId: null, roundName: "Semi-Finals" },
+      ],
+      stageFixtures,
+    );
+    expect(boards.map((board) => board.drawId)).toEqual([1, 2]);
+    expect(boards[0]?.matches.map((match) => match.id)).toEqual([11]);
+    expect(boards[1]?.matches.map((match) => match.id)).toEqual([21]);
+    const d1Board = bracketBoardsByDraw(
+      stageFixtures.filter((fixture) => fixture.drawId === 1).map((fixture) => ({
+        ...fixture,
+        bracketRound: fixture.roundName === "Final" ? 1 : 0,
+        bracketSlot: 0,
+        homeTeamId: 1,
+        awayTeamId: 2,
+      })),
+      stageDraws,
+    );
+    expect(d1Board).toHaveLength(1);
+    expect(d1Board[0]?.fixtures.every((fixture) => fixture.drawId === 1)).toBe(true);
   });
 });
