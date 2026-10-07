@@ -613,11 +613,17 @@ export async function listScoringMatches(tournamentId: number) {
     .select({
       match: scoringMatchesTable,
       sessionState: scoringSessionsTable.stateJson,
+      groupId: scoringFixturesTable.groupId,
+      drawId: scoringFixturesTable.drawId,
     })
     .from(scoringMatchesTable)
     .leftJoin(
       scoringSessionsTable,
       eq(scoringMatchesTable.id, scoringSessionsTable.matchId),
+    )
+    .leftJoin(
+      scoringFixturesTable,
+      eq(scoringMatchesTable.fixtureId, scoringFixturesTable.id),
     )
     .where(
       and(
@@ -632,6 +638,8 @@ export async function listScoringMatches(tournamentId: number) {
     ...r.match,
     stateJson: r.sessionState ?? null,
     tournamentMatchNumber: idx + 1,
+    groupId: r.groupId ?? null,
+    drawId: r.drawId ?? null,
   }));
 
   // Return newest-first for the match list UI

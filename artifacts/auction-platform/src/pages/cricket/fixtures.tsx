@@ -40,6 +40,7 @@ import {
   createScoringMatch,
   deleteScoringMatch,
   getCricketMasterTeams,
+  getScoringStandings,
   isTerminalCricketMatchStatus,
   listCricketRulePresets,
   resolveCricketRulePresetSummary,
@@ -49,6 +50,13 @@ import {
   type ScoringMatchRow,
 } from "@/lib/scoring-api";
 import { listFixtures } from "@/lib/scoring-foundation-api";
+import {
+  cricketGroupChoices,
+  legacyRoundGroupLabels,
+  matchMatchesLegacyGroupLabel,
+  resolvedMatchGroupId,
+  usesLegacyGroupNameFilter,
+} from "@workspace/scoring-core/cricket";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
@@ -160,18 +168,29 @@ export default function CricketFixturesPage() {
   }, [matches, fixtures]);
 
   const [selectedGroup, setSelectedGroup] = useState<string>("all");
-
-  const detectedGroups = useMemo(() => {
-    const groups = new Set<string>();
-    (matches ?? []).forEach((m) => {
-      const r = m.roundName || "";
-      const match = r.match(/Group\s+([A-Z0-9]+)/i);
-      if (match) {
-        groups.add(`Group ${match[1].toUpperCase()}`);
-      }
+  const { data: standings } = useQuery({
+    queryKey: ["scoring-standings", tournamentId],
+    queryFn: () => getScoringStandings(tournamentId),
+    enabled: scoringActive && !!tournamentId,
+  });
+  const groupChoices = useMemo(
+    () => cricketGroupChoices(standings?.groups ?? []),
+    [standings?.groups],
+  );
+  const fixtureById = useMemo(
+    () => new Map((fixtures ?? []).map((fixture) => [fixture.id, fixture])),
+    [fixtures],
+  );
+  const legacyGroupLabels = useMemo(() => {
+    const allowed = usesLegacyGroupNameFilter({
+      groupCount: groupChoices.length,
+      drawIds: [
+        ...(fixtures ?? []).map((fixture) => fixture.drawId),
+        ...(matches ?? []).map((match) => match.drawId),
+      ],
     });
-    return Array.from(groups).sort();
-  }, [matches]);
+    return allowed ? legacyRoundGroupLabels(matches ?? []) : [];
+  }, [fixtures, groupChoices.length, matches]);
 
   const filtered = useMemo(() => {
     let list = matches ?? [];
@@ -192,11 +211,12 @@ export default function CricketFixturesPage() {
         return list.filter((m) => isTerminalCricketMatchStatus(m.status));
     }
 
-    if (selectedGroup !== "all") {
-      list = list.filter((m) => {
-        const r = m.roundName || "";
-        return r.toLowerCase().includes(selectedGroup.toLowerCase());
-      });
+    if (selectedGroup.startsWith("group:")) {
+      const groupId = Number(selectedGroup.slice("group:".length));
+      list = list.filter((m) => resolvedMatchGroupId(m, fixtureById) === groupId);
+    } else if (selectedGroup.startsWith("legacy:")) {
+      const label = selectedGroup.slice("legacy:".length);
+      list = list.filter((m) => matchMatchesLegacyGroupLabel(m.roundName, label));
     }
 
     return [...list].sort((a, b) => {
@@ -219,7 +239,12 @@ export default function CricketFixturesPage() {
       const numB = b.tournamentMatchNumber ?? b.id;
       return numA - numB;
     });
-  }, [matches, filter, selectedGroup]);
+  }, [matches, filter, selectedGroup, fixtureById]);
+
+  const selectedGroupLabel =
+    groupChoices.find((choice) => `group:${choice.id}` === selectedGroup)?.label ??
+    (selectedGroup.startsWith("legacy:") ? selectedGroup.slice("legacy:".length) : null);
+  const showGroupFilters = groupChoices.length > 0 || legacyGroupLabels.length > 0;
 
   const qc = useQueryClient();
   const { toast } = useToast();
@@ -476,7 +501,7 @@ export default function CricketFixturesPage() {
                 ))}
               </div>
 
-              {detectedGroups.length > 0 ? (
+              {showGroupFilters ? (
                 <div className="flex items-center gap-1 bg-muted/40 p-1 rounded-xl border border-border/70 self-start sm:self-auto">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2">
                     Group:
@@ -493,21 +518,42 @@ export default function CricketFixturesPage() {
                   >
                     All
                   </button>
-                  {detectedGroups.map((g) => (
-                    <button
-                      key={g}
-                      type="button"
-                      onClick={() => setSelectedGroup(g)}
-                      className={cn(
-                        "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all",
-                        selectedGroup === g
-                          ? "bg-primary text-primary-foreground shadow-xs"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {g}
-                    </button>
-                  ))}
+                  {groupChoices.map((choice) => {
+                    const token = `group:${choice.id}`;
+                    return (
+                      <button
+                        key={token}
+                        type="button"
+                        onClick={() => setSelectedGroup(token)}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all",
+                          selectedGroup === token
+                            ? "bg-primary text-primary-foreground shadow-xs"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {choice.label}
+                      </button>
+                    );
+                  })}
+                  {legacyGroupLabels.map((label) => {
+                    const token = `legacy:${label}`;
+                    return (
+                      <button
+                        key={token}
+                        type="button"
+                        onClick={() => setSelectedGroup(token)}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all",
+                          selectedGroup === token
+                            ? "bg-primary text-primary-foreground shadow-xs"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               ) : null}
             </div>
@@ -515,8 +561,8 @@ export default function CricketFixturesPage() {
             <HubSectionHeader
               title="Tournament Matches"
               subtitle={
-                selectedGroup !== "all"
-                  ? `${filtered.length} match${filtered.length === 1 ? "" : "es"} in ${selectedGroup} · Earliest first`
+                selectedGroupLabel
+                  ? `${filtered.length} match${filtered.length === 1 ? "" : "es"} in ${selectedGroupLabel} · Earliest first`
                   : `${filtered.length} of ${stats.total} match${stats.total === 1 ? "" : "es"} shown · Earliest first`
               }
               badge={stats.live > 0 ? `${stats.live} LIVE` : undefined}

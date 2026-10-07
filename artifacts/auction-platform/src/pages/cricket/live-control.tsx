@@ -34,6 +34,7 @@ import {
   broadcastStageChoices,
   competitionGroupTitle,
   competitionSelectionLabel,
+  groupChoiceIsSelected,
   groupSelectorToken,
   isMultiDrawCompetition,
   stageChoiceIsSelected,
@@ -1657,8 +1658,7 @@ export default function CricketLiveControlPage() {
                   const label = competitionGroupTitle(g);
                   const isCurrentTarget =
                     currentOverlay === "standings" &&
-                    (overlayStageOrGroup === token ||
-                      overlayStageOrGroup?.toLowerCase().trim() === g.name?.toLowerCase().trim());
+                    groupChoiceIsSelected(overlayStageOrGroup, g, tournamentGroups);
 
                   return (
                     <div

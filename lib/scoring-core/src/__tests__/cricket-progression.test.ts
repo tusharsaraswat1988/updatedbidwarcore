@@ -209,5 +209,15 @@ describe("cricket stage progression & qualification engine", () => {
     );
     expect(finalHomeResolved.resolved).toBe(true);
     expect(finalHomeResolved.teamId).toBe(101);
+
+    const ambiguous = resolveParticipantSource(
+      { type: "winner_of", roundName: "Semi-Finals" },
+      {
+        qualifiersBySlotKey,
+        matchWinnersByRoundName: { "Semi-Finals": 101, "semi-finals": 202 },
+      },
+    );
+    expect(ambiguous.resolved).toBe(false);
+    expect(ambiguous.teamId).toBe(0);
   });
 });
