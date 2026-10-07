@@ -1,8 +1,9 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
+import { PORTAL_THEME_CLASS } from "@/lib/portal-theme";
 import { Badge } from "@/components/ui/badge";
-import { useInSportsShell } from "@/components/sports-shell";
 
 export { hubCardClass, hubPanelClass } from "@/components/platform/platform-surface";
 export { EmptyState } from "@/components/platform/empty-state";
@@ -31,37 +32,61 @@ export function FormModal({
     xl: "max-w-2xl",
   }[size];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto p-2 sm:p-4 sm:items-center bg-black/75 backdrop-blur-md">
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  const node = (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" aria-hidden />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="sports-form-modal-title"
         className={cn(
-          "my-auto flex w-full max-h-[min(94dvh,100%)] flex-col overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-2xl",
+          PORTAL_THEME_CLASS,
+          "relative z-10 grid w-full min-h-0 max-h-[calc(100dvh-1.5rem)] overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl sm:max-h-[calc(100dvh-3rem)]",
+          footer ? "grid-rows-[auto_minmax(0,1fr)_auto]" : "grid-rows-[auto_minmax(0,1fr)]",
           maxW,
         )}
       >
-        <div className="z-10 flex shrink-0 items-start justify-between gap-3 sm:gap-4 border-b border-border bg-card px-4 py-3 sm:px-6 sm:py-4">
+        <div className="z-10 flex items-start justify-between gap-3 border-b border-border bg-card px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
           <div className="min-w-0">
-            <h2 className="text-foreground font-display font-bold text-base sm:text-lg tracking-tight">{title}</h2>
-            {subtitle && <p className="text-muted-foreground text-xs sm:text-sm mt-0.5">{subtitle}</p>}
+            <h2 id="sports-form-modal-title" className="text-foreground font-display font-bold text-base sm:text-lg tracking-tight">
+              {title}
+            </h2>
+            {subtitle ? <p className="text-muted-foreground text-xs sm:text-sm mt-0.5 truncate">{subtitle}</p> : null}
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => onCloseRef.current()}
             aria-label="Close"
-            className="flex-none min-h-10 min-w-10 sm:min-h-11 sm:min-w-11 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent text-xl leading-none transition-colors"
+            className="flex-none min-h-10 min-w-10 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent text-xl leading-none transition-colors sm:min-h-11 sm:min-w-11"
           >
             ×
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 space-y-4 sm:space-y-5">{children}</div>
+        <div className="min-h-0 max-h-[calc(100dvh-12.5rem)] overflow-y-auto overscroll-contain px-4 py-4 sm:max-h-[calc(100dvh-13.5rem)] sm:px-6 sm:py-5">
+          {children}
+        </div>
 
-        {footer && (
-          <div className="z-10 shrink-0 border-t border-border bg-card px-4 py-3 sm:px-6 sm:py-4">{footer}</div>
-        )}
+        {footer ? (
+          <div className="z-10 border-t border-border bg-card px-4 py-3 sm:px-6 sm:py-4">{footer}</div>
+        ) : null}
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return node;
+  return createPortal(node, document.body);
 }
 
 export const inputClass =

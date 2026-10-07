@@ -21,6 +21,29 @@ function sanitizeSheetName(name: string, fallback: string): string {
   return (clean.slice(0, 30) || fallback).trim();
 }
 
+function bySerial(a: Player, b: Player): number {
+  return (a.serialNo ?? a.id) - (b.serialNo ?? b.id) || a.id - b.id;
+}
+
+/** Team name A–Z, serial number inside each team, players without a listed team last. */
+export function orderPlayersByTeam(players: Player[], teams: Team[]): Player[] {
+  const teamOrder = [...teams].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
+  const claimed = new Set<number>();
+  const ordered: Player[] = [];
+
+  for (const team of teamOrder) {
+    const squad = players.filter((p) => p.teamId === team.id).sort(bySerial);
+    for (const player of squad) {
+      ordered.push(player);
+      claimed.add(player.id);
+    }
+  }
+
+  const remainder = players.filter((p) => !claimed.has(p.id)).sort(bySerial);
+  ordered.push(...remainder);
+  return ordered;
+}
+
 function buildPlayerRow(
   p: Player,
   teamName: string,
@@ -53,7 +76,7 @@ export async function exportCricketRosterToExcel({
     throw new Error("No players available to export.");
   }
 
-  const sortedPlayers = [...players].sort((a, b) => (a.serialNo ?? a.id) - (b.serialNo ?? b.id));
+  const sortedPlayers = orderPlayersByTeam(players, teams);
   const XLSX = await import("xlsx");
   const wb = XLSX.utils.book_new();
   const teamById = new Map<number, Team>();
@@ -102,7 +125,8 @@ export async function exportCricketRosterToExcel({
 
     const usedSheetNames = new Set<string>(["All Players"]);
 
-    for (const team of teams) {
+    const teamsByName = [...teams].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
+    for (const team of teamsByName) {
       const teamPlayers = sortedPlayers.filter((p) => p.teamId === team.id);
       const rows = teamPlayers.map((p, idx) => buildPlayerRow(p, team.name, catMap, idx));
       const ws = XLSX.utils.json_to_sheet(rows.length > 0 ? rows : [{ "Player Name": "No players" }]);
@@ -308,7 +332,8 @@ export async function exportCricketRosterToPdf({
     currentY += rowHeight;
   }
 
-  const sortedPlayers = [...players].sort((a, b) => (a.serialNo ?? a.id) - (b.serialNo ?? b.id));
+  const sortedPlayers = orderPlayersByTeam(players, teams);
+  const teamsByName = [...teams].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
 
   // Render content based on scope
   const dateStr = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -348,7 +373,7 @@ export async function exportCricketRosterToPdf({
   drawDocHeader(tournamentName, `Complete Tournament Scoring Roster · Total ${sortedPlayers.length} Players · ${dateStr}`);
 
   // Group by team
-  for (const team of teams) {
+  for (const team of teamsByName) {
     const teamPlayers = sortedPlayers.filter((p) => p.teamId === team.id);
     if (teamPlayers.length === 0) continue;
     drawTeamHeader(team.name, team.shortCode, teamPlayers.length);

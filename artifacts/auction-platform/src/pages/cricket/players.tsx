@@ -3,7 +3,8 @@
  * Editable roster with search + filters; team names highlighted by team color.
  * Route: /tournament/:id/score/players
  */
-import { useCallback, useDeferredValue, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { useRoute } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -111,6 +112,7 @@ import {
   UserMinus,
   UserRound,
   X,
+  ZoomIn,
 } from "lucide-react";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import {
@@ -126,6 +128,7 @@ import {
   type ExportRosterScope,
 } from "@/lib/export-cricket-roster";
 import { RosterImportModal } from "@/components/cricket/roster-import-modal";
+import { PORTAL_THEME_CLASS } from "@/lib/portal-theme";
 import { cn } from "@/lib/utils";
 
 const FALLBACK_ROLES = [
@@ -205,33 +208,106 @@ function PlayerPhoto({
   name,
   gender,
   size = "sm",
+  onPreview,
 }: {
   photoUrl?: string | null;
   name: string;
   gender?: string | null;
   size?: "sm" | "md" | "lg";
+  onPreview?: () => void;
 }) {
   const dim = size === "lg" ? "w-14 h-14" : size === "md" ? "w-10 h-10" : "w-8 h-8";
   const iconDim = size === "lg" ? "w-6 h-6" : size === "md" ? "w-4 h-4" : "w-3.5 h-3.5";
   const portraitGender = mapStoredGenderToPortrait(gender);
+  const canPreview = Boolean(photoUrl && onPreview);
+  const className = cn(
+    dim,
+    "rounded-full bg-muted/20 border border-border/30 flex items-center justify-center overflow-hidden shrink-0",
+    canPreview && "cursor-zoom-in ring-offset-background transition hover:ring-2 hover:ring-primary/60",
+  );
+  const inner = photoUrl ? (
+    <img
+      src={cldUrl(photoUrl, "thumbnail")}
+      alt=""
+      className="w-full h-full object-cover"
+      loading="lazy"
+      decoding="async"
+    />
+  ) : portraitGender === "female" ? (
+    <UserRound className={`${iconDim} text-muted-foreground/35`} aria-hidden />
+  ) : (
+    <User className={`${iconDim} text-muted-foreground/35`} aria-hidden />
+  );
+
+  if (!canPreview) {
+    return <div className={className}>{inner}</div>;
+  }
+
   return (
-    <div
-      className={`${dim} rounded-full bg-muted/20 border border-border/30 flex items-center justify-center overflow-hidden shrink-0`}
+    <button
+      type="button"
+      className={className}
+      title={`View ${name}`}
+      aria-label={`View ${name} photo`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onPreview?.();
+      }}
+      onKeyDown={(e) => e.stopPropagation()}
     >
-      {photoUrl ? (
+      {inner}
+    </button>
+  );
+}
+
+function PlayerPhotoPreview({
+  photoUrl,
+  name,
+  onClose,
+}: {
+  photoUrl: string;
+  name: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-8" role="presentation">
+      <button type="button" aria-label="Close photo" className="absolute inset-0 bg-black/85 backdrop-blur-sm" onClick={onClose} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${name} photo`}
+        className={cn(PORTAL_THEME_CLASS, "relative z-10 flex max-h-full max-w-full flex-col items-center gap-3")}
+      >
         <img
-          src={cldUrl(photoUrl, "thumbnail")}
+          src={cldUrl(photoUrl, "playerCard")}
           alt={name}
-          className="w-full h-full object-cover"
-          loading="lazy"
-          decoding="async"
+          className="max-h-[min(78dvh,860px)] max-w-[min(92vw,760px)] rounded-2xl bg-black object-contain shadow-2xl ring-1 ring-white/20"
         />
-      ) : portraitGender === "female" ? (
-        <UserRound className={`${iconDim} text-muted-foreground/35`} aria-hidden />
-      ) : (
-        <User className={`${iconDim} text-muted-foreground/35`} aria-hidden />
-      )}
-    </div>
+        <div className="flex max-w-[min(92vw,760px)] items-center justify-between gap-3 rounded-full bg-black/70 px-3 py-1.5 text-white shadow-lg">
+          <p className="truncate text-sm font-semibold">{name}</p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full px-2 text-xs font-medium text-white/90 hover:bg-white/10"
+          >
+            <X className="h-3.5 w-3.5" />
+            Close
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -296,6 +372,8 @@ export default function CricketPlayersPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [photoEditorOpen, setPhotoEditorOpen] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<{ url: string; name: string } | null>(null);
+  const closePhotoPreview = useCallback(() => setPhotoPreview(null), []);
   const [editing, setEditing] = useState<Player | null>(null);
   const [importBusy, setImportBusy] = useState(false);
   const [form, setForm] = useState<SportsPlayerForm>(EMPTY_FORM);
@@ -318,6 +396,7 @@ export default function CricketPlayersPage() {
   const [bowlingFilter, setBowlingFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
+  const exportBusy = useRef(false);
   const [regSettingsOpen, setRegSettingsOpen] = useState(false);
   const [regCopied, setRegCopied] = useState(false);
   const [excelImportOpen, setExcelImportOpen] = useState(false);
@@ -677,7 +756,8 @@ export default function CricketPlayersPage() {
   }
 
   async function handleExport(format: "excel" | "pdf", scope: ExportRosterScope) {
-    if (players.length === 0) return;
+    if (players.length === 0 || exportBusy.current) return;
+    exportBusy.current = true;
     setExporting(format);
     try {
       const targetPlayers = filtersActive && scope === "all" ? filtered : players;
@@ -696,7 +776,7 @@ export default function CricketPlayersPage() {
               ? `${teams.find((t) => t.id === scope)?.name ?? "Team"} roster exported.`
               : scope === "multi-sheet"
               ? "All teams exported as multi-sheet workbook."
-              : "Full tournament roster exported.",
+              : "Full tournament roster exported team-wise.",
         });
       } else {
         await exportCricketRosterToPdf({
@@ -721,6 +801,7 @@ export default function CricketPlayersPage() {
         variant: "destructive",
       });
     } finally {
+      exportBusy.current = false;
       setExporting(null);
     }
   }
@@ -853,11 +934,11 @@ export default function CricketPlayersPage() {
                 <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   Excel Export (.xlsx)
                 </div>
-                <DropdownMenuItem onSelect={() => void handleExport("excel", "all")} onClick={() => void handleExport("excel", "all")}>
+                <DropdownMenuItem onSelect={() => void handleExport("excel", "all")}>
                   <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-500" />
                   <span>Overall Roster (All Players)</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => void handleExport("excel", "multi-sheet")} onClick={() => void handleExport("excel", "multi-sheet")}>
+                <DropdownMenuItem onSelect={() => void handleExport("excel", "multi-sheet")}>
                   <FileSpreadsheet className="w-4 h-4 mr-2 text-emerald-500" />
                   <span>All Teams (Multi-sheet)</span>
                 </DropdownMenuItem>
@@ -874,7 +955,6 @@ export default function CricketPlayersPage() {
                           <DropdownMenuItem
                             key={t.id}
                             onSelect={() => void handleExport("excel", t.id)}
-                            onClick={() => void handleExport("excel", t.id)}
                           >
                             <span className="truncate">{t.name}</span>
                           </DropdownMenuItem>
@@ -888,7 +968,7 @@ export default function CricketPlayersPage() {
                 <div className="px-2 py-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   PDF Export (.pdf)
                 </div>
-                <DropdownMenuItem onSelect={() => void handleExport("pdf", "all")} onClick={() => void handleExport("pdf", "all")}>
+                <DropdownMenuItem onSelect={() => void handleExport("pdf", "all")}>
                   <FileText className="w-4 h-4 mr-2 text-rose-500" />
                   <span>Overall Roster (.pdf)</span>
                 </DropdownMenuItem>
@@ -905,7 +985,6 @@ export default function CricketPlayersPage() {
                           <DropdownMenuItem
                             key={t.id}
                             onSelect={() => void handleExport("pdf", t.id)}
-                            onClick={() => void handleExport("pdf", t.id)}
                           >
                             <span className="truncate">{t.name}</span>
                           </DropdownMenuItem>
@@ -1149,14 +1228,12 @@ export default function CricketPlayersPage() {
                               <DropdownMenuContent align="end" className="w-44">
                                 <DropdownMenuItem
                                   onSelect={() => void handleExport("excel", team.id)}
-                                  onClick={() => void handleExport("excel", team.id)}
                                 >
                                   <FileSpreadsheet className="w-3.5 h-3.5 mr-2 text-emerald-500" />
                                   <span>Excel (.xlsx)</span>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem
                                   onSelect={() => void handleExport("pdf", team.id)}
-                                  onClick={() => void handleExport("pdf", team.id)}
                                 >
                                   <FileText className="w-3.5 h-3.5 mr-2 text-rose-500" />
                                   <span>PDF (.pdf)</span>
@@ -1205,7 +1282,17 @@ export default function CricketPlayersPage() {
                                     </td>
                                     <td className="py-2 px-3">
                                       <div className="flex items-center gap-2.5">
-                                        <PlayerPhoto photoUrl={p.photoUrl} name={p.name} gender={p.gender} size="sm" />
+                                        <PlayerPhoto
+                                          photoUrl={p.photoUrl}
+                                          name={p.name}
+                                          gender={p.gender}
+                                          size="sm"
+                                          onPreview={
+                                            p.photoUrl
+                                              ? () => setPhotoPreview({ url: p.photoUrl!, name: p.name })
+                                              : undefined
+                                          }
+                                        />
                                         <div className="min-w-0">
                                           <div className="flex items-center gap-1.5 min-w-0">
                                             <button
@@ -1344,7 +1431,17 @@ export default function CricketPlayersPage() {
                                 />
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="flex items-start gap-2.5 min-w-0">
-                                    <PlayerPhoto photoUrl={p.photoUrl} name={p.name} gender={p.gender} size="md" />
+                                    <PlayerPhoto
+                                      photoUrl={p.photoUrl}
+                                      name={p.name}
+                                      gender={p.gender}
+                                      size="md"
+                                      onPreview={
+                                        p.photoUrl
+                                          ? () => setPhotoPreview({ url: p.photoUrl!, name: p.name })
+                                          : undefined
+                                      }
+                                    />
                                     <div className="min-w-0 space-y-1">
                                       <div className="flex items-center gap-1.5 min-w-0">
                                         <span className="font-mono text-xs font-bold text-muted-foreground/70 shrink-0">
@@ -1457,76 +1554,99 @@ export default function CricketPlayersPage() {
 
       {formOpen ? (
         <FormModal
-          title={editing ? "Edit Player" : "Add Player"}
-          subtitle={editing ? `Player #${editing.serialNo ?? editing.id} · Sports scoring fields only` : "Sports scoring fields only"}
+          title={editing ? "Edit player" : "Add player"}
+          subtitle={editing ? editing.name || `Player #${editing.serialNo ?? editing.id}` : "Roster details for scoring"}
           onClose={closeForm}
-          size="lg"
+          size="xl"
           footer={
-            <div className="flex items-center justify-between w-full gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               {editing ? (
                 <Button
                   type="button"
                   variant="destructive"
-                  size="sm"
-                  onClick={() => {
-                    setPlayerToDelete(editing);
-                  }}
-                  className="gap-1.5 text-xs h-9"
+                  onClick={() => setPlayerToDelete(editing)}
+                  className="h-10 shrink-0 gap-1.5 whitespace-nowrap px-3 text-sm"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  Delete Player
+                  Delete player
                 </Button>
-              ) : <div />}
-              <FormActions
-                onCancel={closeForm}
-                onSubmit={() => void handleSave()}
-                submitLabel={saving ? "Saving…" : editing ? "Update player" : "Save player"}
-                saving={saving}
-                disabled={saving}
-              />
+              ) : (
+                <span />
+              )}
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  className="h-10 shrink-0 whitespace-nowrap rounded-lg border border-border bg-secondary px-4 text-sm font-semibold text-secondary-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleSave()}
+                  disabled={saving}
+                  className="h-10 shrink-0 whitespace-nowrap rounded-lg bg-primary px-4 text-sm font-bold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : editing ? "Update player" : "Save player"}
+                </button>
+              </div>
             </div>
           }
         >
-          <div className="space-y-3">
-            <FormField label="Player Photo">
-              <div className="flex gap-3 items-center">
-                <div className="w-14 h-14 rounded-full border border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-                  {form.photoUrl ? (
-                    <img
-                      src={form.photoUrl}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <User className="w-6 h-6 text-muted-foreground/40" />
-                  )}
+          <div className="space-y-5">
+            <div className="flex items-center gap-4 rounded-xl border border-border bg-muted/20 p-3 sm:p-4">
+              {form.photoUrl ? (
+                <button
+                  type="button"
+                  onClick={() => setPhotoPreview({ url: form.photoUrl, name: form.name || "Player" })}
+                  className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-border bg-muted/40 shadow-inner cursor-zoom-in"
+                  aria-label="View player photo"
+                  title="View photo"
+                >
+                  <img
+                    src={cldUrl(form.photoUrl, "avatar")}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 transition group-hover:opacity-100">
+                    <ZoomIn className="h-5 w-5" />
+                  </span>
+                </button>
+              ) : (
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-border bg-muted/40">
+                  <User className="h-7 w-7 text-muted-foreground/40" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1 space-y-2">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Player photo</p>
+                  <p className="text-xs text-muted-foreground">
+                    {form.photoUrl
+                      ? "Click the photo to view it large. Shown on the scoreboard and overlays."
+                      : "Add a clear photo for the scoreboard, match picker, and overlays."}
+                  </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <BtnSecondary
                     type="button"
                     onClick={() => setPhotoEditorOpen(true)}
-                    className="gap-1.5 text-xs h-8"
+                    className="h-9 gap-1.5 px-3 text-xs"
                   >
                     {form.photoUrl ? (
                       <>
-                        <Pencil className="w-3.5 h-3.5" /> Change Photo
+                        <Pencil className="w-3.5 h-3.5" /> Change photo
                       </>
                     ) : (
                       <>
-                        <Upload className="w-3.5 h-3.5" /> Upload Photo
+                        <Upload className="w-3.5 h-3.5" /> Upload photo
                       </>
                     )}
                   </BtnSecondary>
                   {form.photoUrl ? (
                     <BtnSecondary
                       type="button"
-                      onClick={() => {
-                        setForm((f) => ({ ...f, photoUrl: "", photoPublicId: "" }));
-                      }}
-                      className="gap-1.5 text-xs h-8 text-destructive border-destructive/30 hover:bg-destructive/10"
+                      onClick={() => setForm((f) => ({ ...f, photoUrl: "", photoPublicId: "" }))}
+                      className="h-9 gap-1.5 border-destructive/30 px-3 text-xs text-destructive hover:bg-destructive/10"
                     >
                       <X className="w-3.5 h-3.5" />
                       Remove
@@ -1534,21 +1654,41 @@ export default function CricketPlayersPage() {
                   ) : null}
                 </div>
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Upload or change player photo for scoreboard, match picker & broadcast overlays.
-              </p>
-            </FormField>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <FormField label="Tournament Serial No (S.No)">
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormField label="Name" required>
+                <input
+                  className={inputClass}
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Player name"
+                  autoFocus
+                />
+              </FormField>
+              <FormField label="Mobile" required>
+                <input
+                  className={inputClass}
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={form.mobile}
+                  onChange={(e) => setForm((f) => ({ ...f, mobile: sanitizeMobileInput(e.target.value) }))}
+                  placeholder="10-digit mobile"
+                />
+              </FormField>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <FormField label="Serial no.">
                 <input
                   className={inputClass}
                   inputMode="numeric"
                   value={form.serialNo}
                   onChange={(e) => setForm((f) => ({ ...f, serialNo: e.target.value.replace(/\D/g, "") }))}
-                  placeholder={editing ? String(editing.serialNo ?? "") : "Auto-assigned (optional)"}
+                  placeholder={editing ? String(editing.serialNo ?? "") : "Auto"}
                 />
               </FormField>
-              <FormField label="Jersey number (Kit #)">
+              <FormField label="Jersey no.">
                 <input
                   className={inputClass}
                   value={form.jerseyNumber}
@@ -1572,26 +1712,8 @@ export default function CricketPlayersPage() {
                 />
               </FormField>
             </div>
-            <FormField label="Name" required>
-              <input
-                className={inputClass}
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Player name"
-                autoFocus
-              />
-            </FormField>
-            <FormField label="Mobile" required>
-              <input
-                className={inputClass}
-                inputMode="numeric"
-                maxLength={10}
-                value={form.mobile}
-                onChange={(e) => setForm((f) => ({ ...f, mobile: sanitizeMobileInput(e.target.value) }))}
-                placeholder="10-digit mobile"
-              />
-            </FormField>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormField label="Role">
                 <DarkSelect
                   value={form.role || roleOptions[0] || FALLBACK_ROLES[0]}
@@ -1613,6 +1735,7 @@ export default function CricketPlayersPage() {
                 />
               </FormField>
             </div>
+
             {showCategoryControls ? (
               <FormField label="Category">
                 <DarkSelect
@@ -1625,7 +1748,8 @@ export default function CricketPlayersPage() {
                 />
               </FormField>
             ) : null}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <FormField label="City">
                 <input
                   className={inputClass}
@@ -1647,8 +1771,6 @@ export default function CricketPlayersPage() {
                   ]}
                 />
               </FormField>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label="Batting">
                 <DarkSelect
                   value={form.battingStyle || "none"}
@@ -1854,6 +1976,14 @@ export default function CricketPlayersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {photoPreview ? (
+        <PlayerPhotoPreview
+          photoUrl={photoPreview.url}
+          name={photoPreview.name}
+          onClose={closePhotoPreview}
+        />
+      ) : null}
 
       <RosterImportModal
         open={excelImportOpen}
