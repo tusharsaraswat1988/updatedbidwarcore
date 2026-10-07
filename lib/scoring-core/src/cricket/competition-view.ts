@@ -651,3 +651,93 @@ export function bracketMatchesByDraw<TMatch extends { fixtureId?: number | null 
     .sort((a, b) => (a[0] ?? 999999) - (b[0] ?? 999999))
     .map(([drawId, stageMatches]) => ({ drawId, matches: stageMatches }));
 }
+
+export type CricketGroupChoice = {
+  id: number;
+  label: string;
+};
+
+/**
+ * One choice per scoring group. A shared display name is qualified with the
+ * competition so two "Group A" rows stay separate controls.
+ */
+export function cricketGroupChoices(
+  groups: Array<{
+    id: number;
+    name: string;
+    drawName?: string | null;
+    displayName?: string | null;
+  }>,
+): CricketGroupChoice[] {
+  const nameCounts = new Map<string, number>();
+  for (const group of groups) {
+    const key = group.name.trim().toLowerCase();
+    nameCounts.set(key, (nameCounts.get(key) ?? 0) + 1);
+  }
+  return groups.map((group) => {
+    const shared = (nameCounts.get(group.name.trim().toLowerCase()) ?? 0) > 1;
+    const qualified =
+      group.displayName?.trim() ||
+      (group.drawName?.trim() ? `${group.drawName.trim()} — ${group.name}` : group.name);
+    return { id: group.id, label: shared ? qualified : group.name };
+  });
+}
+
+/**
+ * A stored group token matches by group id. A plain name matches only when
+ * exactly one group in the tournament carries that name.
+ */
+export function groupChoiceIsSelected(
+  stageOrGroup: string | null | undefined,
+  group: { id: number; name: string },
+  groups: Array<{ id: number; name: string }>,
+): boolean {
+  if (!stageOrGroup) return false;
+  if (stageOrGroup === groupSelectorToken(group.id)) return true;
+  const label = stageOrGroup.trim().toLowerCase();
+  const named = groups.filter((candidate) => candidate.name.trim().toLowerCase() === label);
+  return named.length === 1 && named[0]!.id === group.id;
+}
+
+const LEGACY_GROUP_LABEL = /Group\s+([A-Z0-9]+)/i;
+
+/** Labels parsed from round names. Used only when no scoring group rows exist. */
+export function legacyRoundGroupLabels(
+  matches: Array<{ roundName?: string | null }>,
+): string[] {
+  const labels = new Set<string>();
+  for (const match of matches) {
+    const found = (match.roundName ?? "").match(LEGACY_GROUP_LABEL);
+    if (found?.[1]) labels.add(`Group ${found[1].toUpperCase()}`);
+  }
+  return [...labels].sort();
+}
+
+/**
+ * Round-name group filters are a single-draw legacy path. Once group rows
+ * exist, or more than one draw exists, a name inside roundName is not identity.
+ */
+export function usesLegacyGroupNameFilter(args: {
+  groupCount: number;
+  drawIds: Array<number | null | undefined>;
+}): boolean {
+  if (args.groupCount > 0) return false;
+  const ids = new Set(args.drawIds.filter((id): id is number => id != null));
+  return ids.size <= 1;
+}
+
+export function resolvedMatchGroupId(
+  match: { fixtureId?: number | null; groupId?: number | null },
+  fixturesById?: ReadonlyMap<number, { groupId?: number | null }>,
+): number | null {
+  if (match.groupId != null) return match.groupId;
+  if (match.fixtureId == null || !fixturesById) return null;
+  return fixturesById.get(match.fixtureId)?.groupId ?? null;
+}
+
+export function matchMatchesLegacyGroupLabel(
+  roundName: string | null | undefined,
+  label: string,
+): boolean {
+  return (roundName ?? "").toLowerCase().includes(label.trim().toLowerCase());
+}

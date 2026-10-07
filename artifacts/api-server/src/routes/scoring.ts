@@ -242,6 +242,9 @@ function matchToJson(m: {
   completedAt: Date | null;
   createdAt: Date;
   tournamentMatchNumber?: number | null;
+  /** Present on the match list, copied from the linked fixture. */
+  groupId?: number | null;
+  drawId?: number | null;
 }) {
   const prep = m.runtimePrepMetadataJson as
     | {
@@ -315,6 +318,9 @@ function matchToJson(m: {
     createdAt: m.createdAt.toISOString(),
     /** Tournament-scoped sequential match number (1 = first match created in this tournament). */
     tournamentMatchNumber: m.tournamentMatchNumber ?? null,
+    ...("groupId" in m
+      ? { groupId: m.groupId ?? null, drawId: m.drawId ?? null }
+      : {}),
   };
 }
 

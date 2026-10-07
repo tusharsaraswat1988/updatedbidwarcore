@@ -514,10 +514,12 @@ export function resolveParticipantSource(
     }
     if (source.roundName) {
       const targetName = source.roundName.trim().toLowerCase();
-      for (const [rName, winnerId] of Object.entries(context.matchWinnersByRoundName ?? {})) {
-        if (rName.trim().toLowerCase() === targetName && winnerId > 0) {
-          return { resolved: true, teamId: winnerId, label: `Winner of ${source.roundName} (Team ${winnerId})` };
-        }
+      const winners = Object.entries(context.matchWinnersByRoundName ?? {}).filter(
+        ([rName, winnerId]) => rName.trim().toLowerCase() === targetName && winnerId > 0,
+      );
+      if (winners.length === 1) {
+        const winnerId = winners[0]![1];
+        return { resolved: true, teamId: winnerId, label: `Winner of ${source.roundName} (Team ${winnerId})` };
       }
     }
     return { resolved: false, teamId: 0, label: `Winner of ${source.roundName ?? "Match"}` };

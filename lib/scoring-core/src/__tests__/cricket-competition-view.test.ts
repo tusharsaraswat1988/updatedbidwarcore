@@ -4,7 +4,13 @@ import {
   bracketMatchesByDraw,
   broadcastStageChoices,
   competitionGroupTitle,
+  cricketGroupChoices,
+  groupChoiceIsSelected,
   groupSelectorToken,
+  legacyRoundGroupLabels,
+  matchMatchesLegacyGroupLabel,
+  resolvedMatchGroupId,
+  usesLegacyGroupNameFilter,
   isMultiDrawCompetition,
   knockoutBroadcastStageChoices,
   listTeamCompetitionRows,
@@ -338,5 +344,68 @@ describe("knockout stage identity", () => {
     );
     expect(d1Board).toHaveLength(1);
     expect(d1Board[0]?.fixtures.every((fixture) => fixture.drawId === 1)).toBe(true);
+  });
+});
+
+describe("group filter identity", () => {
+  const sharedNameGroups = [
+    { id: 11, name: "Group A", drawId: 1, drawName: "Classes 4–5–6", displayName: "Classes 4–5–6 — Group A" },
+    { id: 21, name: "Group A", drawId: 2, drawName: "Classes 7–8–9", displayName: "Classes 7–8–9 — Group A" },
+  ];
+  const fixtures = [
+    { id: 501, groupId: 11, drawId: 1 },
+    { id: 601, groupId: 21, drawId: 2 },
+    { id: 701, groupId: null, drawId: 1 },
+  ];
+  const fixtureById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
+  const matches = [
+    { id: 1, fixtureId: 501, roundName: "Classes 4–5–6 · Group A — Round 1" },
+    { id: 2, fixtureId: 601, roundName: "Classes 7–8–9 · Group A — Round 1" },
+    { id: 3, fixtureId: 701, roundName: "Final" },
+    { id: 4, fixtureId: null, roundName: "Group A — Round 2" },
+  ];
+
+  it("keeps two Group A competitions as separate choices", () => {
+    expect(cricketGroupChoices(sharedNameGroups)).toEqual([
+      { id: 11, label: "Classes 4–5–6 — Group A" },
+      { id: 21, label: "Classes 7–8–9 — Group A" },
+    ]);
+  });
+
+  it("selects D1 Group A matches by fixture group id", () => {
+    const selected = matches.filter((match) => resolvedMatchGroupId(match, fixtureById) === 11);
+    expect(selected.map((match) => match.id)).toEqual([1]);
+  });
+
+  it("selects D2 Group A matches by fixture group id", () => {
+    const selected = matches.filter((match) => resolvedMatchGroupId(match, fixtureById) === 21);
+    expect(selected.map((match) => match.id)).toEqual([2]);
+  });
+
+  it("does not treat a null group id as membership in every group", () => {
+    expect(resolvedMatchGroupId(matches[2]!, fixtureById)).toBeNull();
+    expect(resolvedMatchGroupId(matches[3]!, fixtureById)).toBeNull();
+    expect(matches.filter((match) => resolvedMatchGroupId(match, fixtureById) === 11).map((m) => m.id)).toEqual([1]);
+  });
+
+  it("uses a match group id when the fixture map is absent", () => {
+    expect(resolvedMatchGroupId({ fixtureId: 501, groupId: 11 })).toBe(11);
+    expect(resolvedMatchGroupId({ fixtureId: 601, groupId: 21 })).toBe(21);
+  });
+
+  it("refuses a round-name group filter once more than one draw exists", () => {
+    expect(usesLegacyGroupNameFilter({ groupCount: 0, drawIds: [1, 2] })).toBe(false);
+    expect(usesLegacyGroupNameFilter({ groupCount: 2, drawIds: [1] })).toBe(false);
+    expect(usesLegacyGroupNameFilter({ groupCount: 0, drawIds: [1] })).toBe(true);
+    expect(legacyRoundGroupLabels(matches)).toEqual(["Group A"]);
+    expect(matchMatchesLegacyGroupLabel("Group A — Round 1", "Group A")).toBe(true);
+  });
+
+  it("highlights a plain group name only when that name is unique", () => {
+    expect(groupChoiceIsSelected("Group A", sharedNameGroups[0]!, sharedNameGroups)).toBe(false);
+    expect(groupChoiceIsSelected("group:11", sharedNameGroups[0]!, sharedNameGroups)).toBe(true);
+    expect(groupChoiceIsSelected("group:21", sharedNameGroups[0]!, sharedNameGroups)).toBe(false);
+    const only = [{ id: 11, name: "Group A" }];
+    expect(groupChoiceIsSelected("Group A", only[0]!, only)).toBe(true);
   });
 });

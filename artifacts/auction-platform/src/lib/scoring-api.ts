@@ -55,6 +55,10 @@ export type ScoringMatchJson = {
   id: number;
   tournamentId: number;
   fixtureId: number | null;
+  /** Competition group of the linked fixture. Null when the fixture is ungrouped. */
+  groupId?: number | null;
+  /** Competition of the linked fixture. */
+  drawId?: number | null;
   sportSlug: string;
   status: string;
   homeTeamId: number;

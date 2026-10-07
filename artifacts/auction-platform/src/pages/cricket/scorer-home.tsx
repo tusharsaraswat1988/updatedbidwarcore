@@ -11,9 +11,17 @@ import { useQuery } from "@tanstack/react-query";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import {
   getCricketMasterTeams,
+  getScoringStandings,
   listScoringMatches,
   type ScoringMatchJson,
 } from "@/lib/scoring-api";
+import {
+  cricketGroupChoices,
+  legacyRoundGroupLabels,
+  matchMatchesLegacyGroupLabel,
+  resolvedMatchGroupId,
+  usesLegacyGroupNameFilter,
+} from "@workspace/scoring-core/cricket";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
 import {
   getScorerAuthSession,
@@ -193,18 +201,22 @@ export default function CricketScorerHomePage() {
   const teamMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
 
   const [selectedGroup, setSelectedGroup] = useState<string>("all");
-
-  const detectedGroups = useMemo(() => {
-    const groups = new Set<string>();
-    (matches as ScoringMatchJson[] ?? []).forEach((m) => {
-      const r = m.roundName || "";
-      const match = r.match(/Group\s+([A-Z0-9]+)/i);
-      if (match) {
-        groups.add(`Group ${match[1].toUpperCase()}`);
-      }
+  const { data: standings } = useQuery({
+    queryKey: ["scoring-standings", tournamentId],
+    queryFn: () => getScoringStandings(tournamentId),
+    enabled: tournamentId > 0 && !!session && !isUnassignedToCurrentTournament,
+  });
+  const groupChoices = useMemo(
+    () => cricketGroupChoices(standings?.groups ?? []),
+    [standings?.groups],
+  );
+  const legacyGroupLabels = useMemo(() => {
+    const allowed = usesLegacyGroupNameFilter({
+      groupCount: groupChoices.length,
+      drawIds: (matches as ScoringMatchJson[]).map((match) => match.drawId),
     });
-    return Array.from(groups).sort();
-  }, [matches]);
+    return allowed ? legacyRoundGroupLabels(matches as ScoringMatchJson[]) : [];
+  }, [groupChoices.length, matches]);
 
   useEffect(() => {
     const sync = () => {
@@ -500,12 +512,14 @@ export default function CricketScorerHomePage() {
   const query = searchQuery.trim().toLowerCase();
 
   const filterMatch = (m: ScoringMatchJson) => {
-    // 1. Group filter
-    if (selectedGroup !== "all") {
-      const r = m.roundName || "";
-      if (!r.toLowerCase().includes(selectedGroup.toLowerCase())) {
-        return false;
-      }
+    // 1. Group filter. Group id is authoritative. A round-name label is only
+    // offered for a single unscoped legacy draw.
+    if (selectedGroup.startsWith("group:")) {
+      const groupId = Number(selectedGroup.slice("group:".length));
+      if (resolvedMatchGroupId(m) !== groupId) return false;
+    } else if (selectedGroup.startsWith("legacy:")) {
+      const label = selectedGroup.slice("legacy:".length);
+      if (!matchMatchesLegacyGroupLabel(m.roundName, label)) return false;
     }
 
     // 2. Search query filter
@@ -792,7 +806,7 @@ export default function CricketScorerHomePage() {
         </div>
 
         {/* ─── Group Filter Tabs (if tournament has distinct groups) ─── */}
-        {detectedGroups.length > 0 && (
+        {(groupChoices.length > 0 || legacyGroupLabels.length > 0) && (
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
             <span className="text-[11px] font-bold text-white/40 uppercase tracking-wider shrink-0 mr-0.5">
               Group:
@@ -809,21 +823,42 @@ export default function CricketScorerHomePage() {
             >
               All Groups
             </button>
-            {detectedGroups.map((g) => (
-              <button
-                key={g}
-                type="button"
-                onClick={() => setSelectedGroup(g)}
-                className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap",
-                  selectedGroup === g
-                    ? "bg-amber-500 text-slate-950 shadow-sm"
-                    : "text-white/70 hover:text-white hover:bg-white/10 bg-white/5 border border-white/10",
-                )}
-              >
-                {g}
-              </button>
-            ))}
+            {groupChoices.map((choice) => {
+              const token = `group:${choice.id}`;
+              return (
+                <button
+                  key={token}
+                  type="button"
+                  onClick={() => setSelectedGroup(token)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap",
+                    selectedGroup === token
+                      ? "bg-amber-500 text-slate-950 shadow-sm"
+                      : "text-white/70 hover:text-white hover:bg-white/10 bg-white/5 border border-white/10",
+                  )}
+                >
+                  {choice.label}
+                </button>
+              );
+            })}
+            {legacyGroupLabels.map((label) => {
+              const token = `legacy:${label}`;
+              return (
+                <button
+                  key={token}
+                  type="button"
+                  onClick={() => setSelectedGroup(token)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap",
+                    selectedGroup === token
+                      ? "bg-amber-500 text-slate-950 shadow-sm"
+                      : "text-white/70 hover:text-white hover:bg-white/10 bg-white/5 border border-white/10",
+                  )}
+                >
+                  {label}
+                </button>
+              );
+            })}
           </div>
         )}
 
