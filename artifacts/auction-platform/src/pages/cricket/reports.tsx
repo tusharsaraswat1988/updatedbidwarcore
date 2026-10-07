@@ -23,6 +23,12 @@ import {
 } from "@/components/scoring/cricket-page-chrome";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StandingsTable } from "@/components/scoring/standings-table";
+import {
+  competitionGroupTitle,
+  isMultiDrawCompetition,
+  partitionByDraw,
+  rowsForCompetitionSelection,
+} from "@workspace/scoring-core/cricket";
 import { LeaderboardTable } from "@/components/scoring/leaderboard-table";
 import { useScoringMatches } from "@/hooks/use-scoring-match";
 import {
@@ -461,22 +467,34 @@ export default function CricketReportsPage() {
                   </BtnSecondary>
                 </div>
 
-                {standings?.hasGroups && standings.groups && standings.groups.length > 0 ? (
-                  <div className="space-y-4">
-                    {standings.groups.map((group) => (
-                      <div key={group.id} className="space-y-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          {group.name} · top {group.qualifiersPerGroup ?? 2} qualify
-                        </p>
-                        <StandingsTable
-                          rows={group.rows}
-                          highlightTop={group.qualifiersPerGroup ?? 2}
-                        />
+                {standings?.groups && standings.groups.length > 0 ? (
+                  <div className="space-y-6">
+                    {partitionByDraw(standings.groups, standings).map((section) => (
+                      <div key={section.drawId ?? "legacy"} className="space-y-4">
+                        {isMultiDrawCompetition(standings.groups ?? [], standings) ? (
+                          <h3 className="text-sm font-bold">{section.drawName}</h3>
+                        ) : null}
+                        {section.groups.map((group) => (
+                          <div key={group.id} className="space-y-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              {competitionGroupTitle(group)} · top {group.qualifiersPerGroup ?? 2} qualify
+                            </p>
+                            <StandingsTable
+                              rows={group.rows}
+                              highlightTop={group.qualifiersPerGroup ?? 2}
+                            />
+                          </div>
+                        ))}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <StandingsTable rows={standings ?? []} highlightTop={4} />
+                  <StandingsTable
+                    rows={standings ?? []}
+                    highlightTop={
+                      rowsForCompetitionSelection(standings?.groups ?? [], standings ?? [], { kind: "all" }).qualifiers
+                    }
+                  />
                 )}
 
                 {/* Points System & Scoring Rules Guide */}

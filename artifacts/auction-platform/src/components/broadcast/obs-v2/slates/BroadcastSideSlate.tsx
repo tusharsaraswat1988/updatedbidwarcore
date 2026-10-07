@@ -36,6 +36,11 @@ import {
   getPublicMatchScorecard,
 } from "@/lib/scoring-api";
 import {
+  competitionGroupTitle,
+  parseCompetitionSelection,
+  rowsForCompetitionSelection,
+} from "@workspace/scoring-core/cricket";
+import {
   cricketMasterTeamToScorerTeam,
   cricketRosterToScorerPlayer,
   type CricketScorerPlayer,
@@ -743,19 +748,17 @@ function StandingsVariant({
     refetchInterval: 30_000,
   });
 
-  const matchedGroup = useMemo(() => {
-    if (!stageOrGroup || stageOrGroup === "all" || !standings?.groups) return null;
-    return (
-      standings.groups.find(
-        (g) => g.name.toLowerCase().trim() === stageOrGroup.toLowerCase().trim(),
-      ) ?? null
+  const resolved = useMemo(() => {
+    return rowsForCompetitionSelection(
+      standings?.groups ?? [],
+      standings ?? [],
+      parseCompetitionSelection(stageOrGroup),
     );
-  }, [stageOrGroup, standings?.groups]);
+  }, [stageOrGroup, standings]);
 
-  const rows = useMemo(() => {
-    if (matchedGroup) return matchedGroup.rows;
-    return standings ?? [];
-  }, [matchedGroup, standings]);
+  const matchedGroup = resolved.group;
+  const rows = resolved.rows;
+  const qualifiers = resolved.qualifiers;
 
   const displayRows = rows?.slice(0, 8) || [];
   const isFewTeams = displayRows.length <= 4;
@@ -779,10 +782,10 @@ function StandingsVariant({
       <div className="divide-y divide-white/5">
         {displayRows.length > 0 ? (
           displayRows.map((row, idx) => {
-            const isTopZone = idx < 4;
+            const isTopZone = qualifiers > 0 && idx < qualifiers;
             return (
               <div
-                key={row.teamId}
+                key={`${row.drawId ?? "legacy"}-${row.teamId}`}
                 className={`grid grid-cols-12 items-center px-5 ${
                   isFewTeams ? "py-3.5 text-[16px]" : "py-2.5 text-[15px]"
                 } transition-colors hover:bg-white/[0.04]`}
@@ -820,7 +823,13 @@ function StandingsVariant({
 
       {/* Footer Tag */}
       <div className="px-5 py-2 border-t border-white/10 bg-black/50 text-[12px] text-slate-400 font-semibold flex justify-between">
-        <span>TOP 4 ADVANCE TO PLAYOFFS</span>
+        <span>
+          {matchedGroup
+            ? `${competitionGroupTitle(matchedGroup).toUpperCase()} · TOP ${qualifiers} QUALIFY`
+            : qualifiers > 0
+              ? `TOP ${qualifiers} ADVANCE TO PLAYOFFS`
+              : "COMPETITION TABLE"}
+        </span>
         <span className="font-mono text-[#FFD700]">LIVE SYNCED</span>
       </div>
     </div>
@@ -1155,7 +1164,9 @@ export function BroadcastSideSlate({
       case "SCORECARD":
         return `${vm.batting?.name || "LIVE"} SCORECARD`;
       case "STANDINGS":
-        return stageOrGroup ? `GROUP ${stageOrGroup.toUpperCase()} POINTS` : "POINTS TABLE";
+        return stageOrGroup && !stageOrGroup.startsWith("group:") && !stageOrGroup.startsWith("draw:")
+          ? `GROUP ${stageOrGroup.toUpperCase()} POINTS`
+          : "POINTS TABLE";
       case "FIXTURES":
         return "MATCH SCHEDULE";
       case "SPONSORS":

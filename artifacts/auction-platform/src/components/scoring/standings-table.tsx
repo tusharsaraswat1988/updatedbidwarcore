@@ -65,7 +65,7 @@ export function StandingsTable({
                 : highlightTop > 0 && idx < highlightTop;
             return (
             <tr
-              key={row.teamId}
+              key={`${row.drawId ?? "legacy"}-${row.teamId}`}
               className={
                 isQualified
                   ? "border-b border-border/60 last:border-0 bg-primary/5"

@@ -1,4 +1,4 @@
-import { useRoute, Link } from "wouter";
+import { useRoute, useSearch, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ShareButtons } from "@/components/scoring/share-buttons";
 import { getTournamentTeamProfile } from "@/lib/scoring-api";
@@ -6,6 +6,7 @@ import { getPublicSchedule } from "@/lib/scoring-foundation-api";
 import {
   cricketFanPlayerPath,
   cricketFanMatchPath,
+  cricketFanTeamPath,
   cricketFanTeamsPath,
   cricketTeamPublicPath,
 } from "@/lib/tournament-navigation";
@@ -26,6 +27,10 @@ export default function ScoringTeamPublicPage() {
   const [, params] = useRoute("/tournament/:id/cricket/team/:teamId");
   const tournamentId = parseInt(params?.id || "0");
   const teamId = parseInt(params?.teamId || "0");
+  const search = useSearch();
+  const drawParam = new URLSearchParams(search).get("drawId");
+  const drawId = drawParam != null && drawParam !== "" ? Number(drawParam) : undefined;
+  const selectedDrawId = drawId != null && Number.isFinite(drawId) ? drawId : undefined;
 
   const { data: schedule } = useQuery({
     queryKey: ["scoring-public", tournamentId],
@@ -34,8 +39,8 @@ export default function ScoringTeamPublicPage() {
   });
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["scoring-team-public", tournamentId, teamId],
-    queryFn: () => getTournamentTeamProfile(tournamentId, teamId),
+    queryKey: ["scoring-team-public", tournamentId, teamId, selectedDrawId ?? "all"],
+    queryFn: () => getTournamentTeamProfile(tournamentId, teamId, selectedDrawId),
     enabled: !!tournamentId && !!teamId,
     staleTime: 30_000,
     refetchInterval: 30_000,
@@ -44,7 +49,7 @@ export default function ScoringTeamPublicPage() {
   const liveMatchId = (schedule?.matches ?? []).find((m) => m.status === "live")?.id ?? null;
   const pageUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}${cricketTeamPublicPath(tournamentId, teamId)}`
+      ? `${window.location.origin}${cricketTeamPublicPath(tournamentId, teamId, selectedDrawId)}`
       : "";
 
   if (isLoading) return <CricketFanLoading tournamentId={tournamentId} />;
@@ -52,7 +57,8 @@ export default function ScoringTeamPublicPage() {
     return <CricketFanEmpty tournamentId={tournamentId} message="Team profile not available." />;
   }
 
-  const { team, standing, squad, recentResults, topBatsmen } = data;
+  const { team, standing, competitions, squad, recentResults, topBatsmen } = data;
+  const competitionCards = competitions ?? (standing ? [standing] : []);
   const captain =
     squad.find((p) => (p.role ?? "").toLowerCase().includes("captain")) ?? null;
 
@@ -103,14 +109,41 @@ export default function ScoringTeamPublicPage() {
           ) : null}
           {standing ? (
             <p className="text-sm text-primary tabular-nums">
+              {standing.drawName ? `${standing.drawName} · ` : ""}
+              {standing.rank != null ? `Rank ${standing.rank} · ` : ""}
               {standing.played}P · {standing.won}W · {standing.lost}L · {standing.points} pts ·{" "}
               {formatPointsPercentage(standing.pointsPercentage)} · NRR {formatNetRunRate(standing.netRunRate)}
             </p>
+          ) : competitionCards.length > 1 ? (
+            <p className="text-sm text-muted-foreground">Choose a competition to see this team&apos;s rank.</p>
           ) : null}
         </div>
       </header>
 
       <div className="space-y-6">
+        {competitionCards.length > 1 ? (
+          <section className="grid gap-3 sm:grid-cols-2">
+            {competitionCards.map((card) => (
+              <Link
+                key={`${card.drawId ?? "legacy"}-${team.id}`}
+                href={cricketFanTeamPath(tournamentId, team.id, card.drawId)}
+                className={cn(
+                  cricketCardClass,
+                  "px-4 py-3",
+                  selectedDrawId != null && card.drawId === selectedDrawId && "border-primary/40",
+                )}
+              >
+                <p className="text-xs font-bold uppercase tracking-wide text-primary">
+                  {card.drawName ?? "Competition"}
+                </p>
+                <p className="mt-1 text-sm tabular-nums">
+                  {card.rank != null ? `Rank ${card.rank} · ` : ""}
+                  {card.points} pts · {formatPointsPercentage(card.pointsPercentage)} · NRR {formatNetRunRate(card.netRunRate)}
+                </p>
+              </Link>
+            ))}
+          </section>
+        ) : null}
         {topBatsmen.length > 0 ? (
           <section className={cn(cricketCardClass, "overflow-hidden")}>
             <h2 className={cn(cricketSectionTitleClass, "px-4 py-3 border-b border-border")}>

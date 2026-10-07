@@ -1,14 +1,16 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
-import { Trophy, Calendar, MapPin, CircleDot, ArrowRight, Shield } from "lucide-react";
+import { Trophy, MapPin, CircleDot } from "lucide-react";
 import type { PublicFixture, PublicMatch, PublicTeam } from "@/lib/public-tournament-types";
 import { cricketFanMatchPath } from "@/lib/tournament-navigation";
+import { bracketBoardsByDraw, matchForBracketFixture } from "@workspace/scoring-core/cricket";
 import { cn } from "@/lib/utils";
 
 interface TournamentBracketTreeProps {
   tournamentId: number;
   fixtures: PublicFixture[];
   matches: PublicMatch[];
+  draws?: Array<{ id: number; name?: string | null }>;
   teamMap: Map<number, PublicTeam>;
   tournamentName?: string;
 }
@@ -32,118 +34,98 @@ export function TournamentBracketTree({
   tournamentId,
   fixtures,
   matches,
+  draws = [],
   teamMap,
-  tournamentName,
 }: TournamentBracketTreeProps) {
-  // Normalize matches map for quick lookup
-  const matchMap = useMemo(() => {
-    const map = new Map<number, PublicMatch>();
-    matches.forEach((m) => map.set(m.id, m));
-    return map;
-  }, [matches]);
-
-  // Derive bracket rounds from fixtures or matches
-  const rounds = useMemo(() => {
-    const nodes: BracketMatchNode[] = [];
-
-    // 1. Try from fixtures with bracketRound
-    const bracketFixtures = fixtures.filter((f) => f.bracketRound != null && f.bracketRound > 0);
-
-    if (bracketFixtures.length > 0) {
-      bracketFixtures.forEach((f) => {
-        const correspondingMatch = matches.find(
-          (m) =>
-            (m.homeTeamId === f.homeTeamId && m.awayTeamId === f.awayTeamId) ||
-            m.roundName === f.roundName,
-        );
-
-        nodes.push({
-          id: `fixture-${f.id}`,
-          matchId: correspondingMatch?.id,
-          roundName: f.roundName || `Round ${f.bracketRound}`,
-          roundOrder: f.bracketRound ?? 1,
-          slotIndex: f.bracketSlot ?? 1,
-          homeTeam: teamMap.get(f.homeTeamId) ?? null,
-          awayTeam: teamMap.get(f.awayTeamId) ?? null,
-          winnerTeamId: f.winnerTeamId ?? correspondingMatch?.winnerTeamId,
-          status: correspondingMatch?.status ?? f.status ?? "scheduled",
-          resultSummary: f.resultSummary ?? correspondingMatch?.resultSummary,
-          scheduledAt: f.scheduledAt ?? correspondingMatch?.scheduledAt,
-          venue: f.venue ?? correspondingMatch?.venue,
-        });
+  const boards = useMemo(() => {
+    const fixtureBoards = bracketBoardsByDraw(fixtures, draws);
+    const toRounds = (nodes: BracketMatchNode[]) => {
+      const roundGroups = new Map<number, { order: number; name: string; matches: BracketMatchNode[] }>();
+      nodes.forEach((node) => {
+        const existing = roundGroups.get(node.roundOrder);
+        if (!existing) {
+          roundGroups.set(node.roundOrder, {
+            order: node.roundOrder,
+            name: node.roundName,
+            matches: [node],
+          });
+        } else {
+          existing.matches.push(node);
+        }
       });
-    } else {
-      // 2. Fallback: Identify knockout / playoff rounds by name from matches
-      const playoffKeywords = ["final", "semi", "quarter", "eliminator", "qualifier", "playoff"];
-      const playoffMatches = matches.filter((m) =>
-        playoffKeywords.some((k) => (m.roundName || "").toLowerCase().includes(k)),
-      );
+      return Array.from(roundGroups.values()).sort((a, b) => a.order - b.order);
+    };
 
-      if (playoffMatches.length > 0) {
-        playoffMatches.forEach((m, idx) => {
-          const rName = (m.roundName || "Playoff").toLowerCase();
-          let order = 1;
-          if (rName.includes("quarter")) order = 1;
-          else if (rName.includes("semi") || rName.includes("qualifier") || rName.includes("eliminator")) order = 2;
-          else if (rName.includes("final")) order = 3;
-
-          nodes.push({
-            id: `match-${m.id}`,
-            matchId: m.id,
-            roundName: m.roundName || "Knockout",
-            roundOrder: order,
-            slotIndex: idx + 1,
-            homeTeam: teamMap.get(m.homeTeamId) ?? null,
-            awayTeam: teamMap.get(m.awayTeamId) ?? null,
-            winnerTeamId: m.winnerTeamId,
-            status: m.status,
-            resultSummary: m.resultSummary,
-            scheduledAt: m.scheduledAt,
-            venue: m.venue,
-          });
-        });
-      } else {
-        // 3. If tournament is early or round-robin, group existing matches into stages
-        const groupMatches = matches.slice(0, 8);
-        groupMatches.forEach((m, idx) => {
-          nodes.push({
-            id: `match-${m.id}`,
-            matchId: m.id,
-            roundName: m.roundName || `Matchday ${idx + 1}`,
-            roundOrder: Math.floor(idx / 2) + 1,
-            slotIndex: (idx % 2) + 1,
-            homeTeam: teamMap.get(m.homeTeamId) ?? null,
-            awayTeam: teamMap.get(m.awayTeamId) ?? null,
-            winnerTeamId: m.winnerTeamId,
-            status: m.status,
-            resultSummary: m.resultSummary,
-            scheduledAt: m.scheduledAt,
-            venue: m.venue,
-          });
-        });
-      }
+    if (fixtureBoards.length > 0) {
+      return fixtureBoards.map((board) => ({
+        drawId: board.drawId,
+        drawName: board.drawName,
+        rounds: toRounds(
+          board.fixtures.map((fixture) => {
+            const correspondingMatch = matchForBracketFixture(fixture, matches);
+            return {
+              id: `fixture-${fixture.id}`,
+              matchId: correspondingMatch?.id,
+              roundName: fixture.roundName || `Round ${fixture.bracketRound}`,
+              roundOrder: fixture.bracketRound ?? 0,
+              slotIndex: fixture.bracketSlot ?? 0,
+              homeTeam: teamMap.get(fixture.homeTeamId) ?? null,
+              awayTeam: teamMap.get(fixture.awayTeamId) ?? null,
+              winnerTeamId: fixture.winnerTeamId ?? correspondingMatch?.winnerTeamId,
+              status: correspondingMatch?.status ?? fixture.status ?? "scheduled",
+              resultSummary: fixture.resultSummary ?? correspondingMatch?.resultSummary,
+              scheduledAt: fixture.scheduledAt ?? correspondingMatch?.scheduledAt,
+              venue: fixture.venue ?? correspondingMatch?.venue,
+            };
+          }),
+        ),
+      }));
     }
 
-    // Group nodes into distinct rounds ordered by roundOrder
-    const roundGroups = new Map<number, { order: number; name: string; matches: BracketMatchNode[] }>();
-
-    nodes.forEach((node) => {
-      const existing = roundGroups.get(node.roundOrder);
-      if (!existing) {
-        roundGroups.set(node.roundOrder, {
-          order: node.roundOrder,
-          name: node.roundName,
-          matches: [node],
-        });
-      } else {
-        existing.matches.push(node);
-      }
+    const playoffKeywords = ["final", "semi", "quarter", "eliminator", "qualifier", "playoff"];
+    const playoffMatches = matches.filter((m) =>
+      playoffKeywords.some((k) => (m.roundName || "").toLowerCase().includes(k)),
+    );
+    const sourceMatches = playoffMatches.length > 0 ? playoffMatches : matches.slice(0, 8);
+    const fixtureById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
+    const buckets = new Map<number | null, BracketMatchNode[]>();
+    sourceMatches.forEach((match, idx) => {
+      const drawId = match.fixtureId != null ? (fixtureById.get(match.fixtureId)?.drawId ?? null) : null;
+      const rName = (match.roundName || "Playoff").toLowerCase();
+      let order = 1;
+      if (playoffMatches.length === 0) order = Math.floor(idx / 2) + 1;
+      else if (rName.includes("quarter")) order = 1;
+      else if (rName.includes("semi") || rName.includes("qualifier") || rName.includes("eliminator")) order = 2;
+      else if (rName.includes("final")) order = 3;
+      const node: BracketMatchNode = {
+        id: `match-${match.id}`,
+        matchId: match.id,
+        roundName: match.roundName || (playoffMatches.length > 0 ? "Knockout" : `Matchday ${idx + 1}`),
+        roundOrder: order,
+        slotIndex: idx + 1,
+        homeTeam: teamMap.get(match.homeTeamId) ?? null,
+        awayTeam: teamMap.get(match.awayTeamId) ?? null,
+        winnerTeamId: match.winnerTeamId,
+        status: match.status,
+        resultSummary: match.resultSummary,
+        scheduledAt: match.scheduledAt,
+        venue: match.venue,
+      };
+      const list = buckets.get(drawId) ?? [];
+      list.push(node);
+      buckets.set(drawId, list);
     });
+    const names = new Map(draws.map((draw) => [draw.id, draw.name?.trim() || `Competition ${draw.id}`]));
+    return [...buckets.entries()]
+      .sort((a, b) => (a[0] ?? 999999) - (b[0] ?? 999999))
+      .map(([drawId, nodes]) => ({
+        drawId,
+        drawName: drawId == null ? "Knockout" : (names.get(drawId) ?? `Competition ${drawId}`),
+        rounds: toRounds(nodes),
+      }));
+  }, [fixtures, matches, draws, teamMap]);
 
-    return Array.from(roundGroups.values()).sort((a, b) => a.order - b.order);
-  }, [fixtures, matches, teamMap]);
-
-  if (rounds.length === 0) {
+  if (boards.every((board) => board.rounds.length === 0)) {
     return (
       <div className="rounded-2xl border border-white/10 bg-card/40 p-8 text-center text-white/60">
         <Trophy className="h-10 w-10 mx-auto text-amber-400/60 mb-2" />
@@ -169,15 +151,19 @@ export function TournamentBracketTree({
         </div>
       </div>
 
-      {/* Horizontal scrolling tree canvas */}
+      {boards.map((board) => (
+      <div key={board.drawId ?? "knockout"} className="space-y-3">
+      {boards.length > 1 ? (
+        <h4 className="text-sm font-bold text-white">{board.drawName}</h4>
+      ) : null}
       <div className="overflow-x-auto pb-4 pt-2 scrollbar-thin scrollbar-thumb-white/15">
         <div className="flex items-stretch gap-6 sm:gap-8 min-w-[700px]">
-          {rounds.map((round, rIdx) => {
-            const isFinalRound = rIdx === rounds.length - 1;
+          {board.rounds.map((round, rIdx) => {
+            const isFinalRound = rIdx === board.rounds.length - 1;
 
             return (
               <div
-                key={`round-${round.order}`}
+                key={`${board.drawId ?? "knockout"}-${round.order}`}
                 className="flex-1 flex flex-col min-w-[240px] max-w-[320px]"
               >
                 {/* Round Header Badge */}
@@ -310,6 +296,8 @@ export function TournamentBracketTree({
           })}
         </div>
       </div>
+      </div>
+      ))}
     </div>
   );
 }

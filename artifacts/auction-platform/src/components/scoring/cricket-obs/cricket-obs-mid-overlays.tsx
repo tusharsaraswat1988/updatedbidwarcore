@@ -16,6 +16,11 @@ import { formatNetRunRate } from "@workspace/scoring-core/cricket";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { getScoringStandings, listScoringMatches, getCricketMasterTeams } from "@/lib/scoring-api";
+import {
+  competitionGroupTitle,
+  parseCompetitionSelection,
+  rowsForCompetitionSelection,
+} from "@workspace/scoring-core/cricket";
 import { cricketMasterTeamToScorerTeam, type CricketScorerTeam } from "@/lib/scoring-squad";
 import { BROADCAST_FONTS } from "@/components/broadcast/tokens";
 import {
@@ -117,17 +122,16 @@ export function CricketObsMidOverlays({
   }, [overlaySponsorName, vm.sponsors]);
 
   // Group / Stage resolution
-  const matchedGroup = useMemo(() => {
-    if (!overlayStageOrGroup || overlayStageOrGroup === "all" || !standings?.groups) return null;
-    return standings.groups.find(
-      (g) => g.name.toLowerCase().trim() === overlayStageOrGroup.toLowerCase().trim(),
+  const resolvedStandings = useMemo(() => {
+    return rowsForCompetitionSelection(
+      standings?.groups ?? [],
+      standings ?? [],
+      parseCompetitionSelection(overlayStageOrGroup),
     );
-  }, [overlayStageOrGroup, standings?.groups]);
-
-  const effectiveStandingsRows = useMemo(() => {
-    if (matchedGroup) return matchedGroup.rows;
-    return standings ?? [];
-  }, [matchedGroup, standings]);
+  }, [overlayStageOrGroup, standings]);
+  const matchedGroup = resolvedStandings.group;
+  const effectiveStandingsRows = resolvedStandings.rows;
+  const standingsQualifiers = resolvedStandings.qualifiers;
 
   if (overlay === "none" || overlay === "neutral" || overlay === "banner") return null;
 
@@ -401,13 +405,13 @@ export function CricketObsMidOverlays({
                     className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
                     style={{ fontFamily: BROADCAST_FONTS.body }}
                   >
-                    {matchedGroup ? `${matchedGroup.name.toUpperCase()} STANDINGS` : "STANDINGS & RANKINGS"}
+                    {matchedGroup ? `${competitionGroupTitle(matchedGroup).toUpperCase()} STANDINGS` : "STANDINGS & RANKINGS"}
                   </span>
                   <h2
                     className="text-5xl font-normal tracking-wide text-white uppercase mt-1 leading-none"
                     style={{ fontFamily: BROADCAST_FONTS.display, letterSpacing: "0.04em" }}
                   >
-                    {matchedGroup ? `GROUP ${matchedGroup.name.toUpperCase()} POINTS TABLE` : "TOURNAMENT POINTS TABLE"}
+                    {matchedGroup ? `${competitionGroupTitle(matchedGroup).toUpperCase()} POINTS TABLE` : "POINTS TABLE"}
                   </h2>
                 </div>
 
@@ -434,13 +438,13 @@ export function CricketObsMidOverlays({
                       {effectiveStandingsRows && effectiveStandingsRows.length > 0 ? (
                         effectiveStandingsRows.map((row, idx) => (
                           <tr
-                            key={row.teamId}
-                            className={idx < 4 ? "bg-white/[0.02]" : ""}
+                            key={`${row.drawId ?? "legacy"}-${row.teamId}`}
+                            className={standingsQualifiers > 0 && idx < standingsQualifiers ? "bg-white/[0.02]" : ""}
                           >
                             <td className="py-3.5 px-6 text-center font-bold">
                               <span
                                 className={`inline-flex h-7 w-7 items-center justify-center text-xs font-bold ${
-                                  idx < 4 ? "bg-[#FFD700] text-black" : "bg-white/10 text-white"
+                                  standingsQualifiers > 0 && idx < standingsQualifiers ? "bg-[#FFD700] text-black" : "bg-white/10 text-white"
                                 }`}
                                 style={{ fontFamily: BROADCAST_FONTS.mono }}
                               >

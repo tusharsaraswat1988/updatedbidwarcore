@@ -12,7 +12,12 @@ import { cricketCardClass, cricketSectionTitleClass } from "@/components/scoring
 import { cricketFanTeamPath } from "@/lib/tournament-navigation";
 import type { PublicSchedulePayload, PublicTeam } from "@/lib/public-tournament-types";
 import { cn } from "@/lib/utils";
-import { formatNetRunRate, formatPointsPercentage } from "@workspace/scoring-core/cricket";
+import {
+  formatNetRunRate,
+  formatPointsPercentage,
+  isMultiDrawCompetition,
+  partitionByDraw,
+} from "@workspace/scoring-core/cricket";
 
 export default function ScoringPublicTeamsPage() {
   const [, params] = useRoute("/tournament/:id/cricket/teams");
@@ -35,11 +40,18 @@ export default function ScoringPublicTeamsPage() {
     refetchInterval: 30000,
   });
 
-  const standingByTeam = useMemo(() => {
-    const map = new Map<number, NonNullable<typeof standings>[number]>();
-    for (const row of standings ?? []) map.set(row.teamId, row);
+  const standingLines = useMemo(() => {
+    const map = new Map<number, Array<NonNullable<typeof standings>[number] & { drawName?: string | null }>>();
+    const sections = partitionByDraw(standings?.groups ?? [], standings ?? []);
+    const nameByDraw = new Map(sections.map((section) => [section.drawId, section.drawName]));
+    for (const row of standings ?? []) {
+      const list = map.get(row.teamId) ?? [];
+      list.push({ ...row, drawName: row.drawId != null ? nameByDraw.get(row.drawId) : null });
+      map.set(row.teamId, list);
+    }
     return map;
   }, [standings]);
+  const multiDraw = isMultiDrawCompetition(standings?.groups ?? [], standings ?? []);
 
   const liveMatchId = (data?.matches ?? []).find((m) => m.status === "live")?.id ?? null;
   const teams = (data?.teams ?? []) as PublicTeam[];
@@ -49,15 +61,7 @@ export default function ScoringPublicTeamsPage() {
     return <CricketFanEmpty tournamentId={tournamentId} message="Teams not available." />;
   }
 
-  const rankIndex = new Map((standings ?? []).map((row, index) => [row.teamId, index]));
-  const sorted = [...teams].sort((a, b) => {
-    const rankA = rankIndex.get(a.id);
-    const rankB = rankIndex.get(b.id);
-    if (rankA == null && rankB == null) return a.id - b.id;
-    if (rankA == null) return 1;
-    if (rankB == null) return -1;
-    return rankA - rankB;
-  });
+  const sorted = [...teams].sort((a, b) => a.name.localeCompare(b.name) || a.id - b.id);
 
   return (
     <CricketFanExperienceShell tournamentId={tournamentId} liveMatchId={liveMatchId}>
@@ -65,7 +69,9 @@ export default function ScoringPublicTeamsPage() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Teams</p>
         <h1 className="font-display text-3xl font-bold tracking-tight">{data.tournament.name}</h1>
         <p className="text-sm text-muted-foreground">
-          Franchises, form, and net run rate across the tournament.
+          {multiDraw
+            ? "Each team line is one competition. The same name can appear in more than one draw."
+            : "Franchises, form, and net run rate."}
         </p>
       </header>
 
@@ -74,11 +80,12 @@ export default function ScoringPublicTeamsPage() {
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {sorted.map((team) => {
-            const standing = standingByTeam.get(team.id);
+            const lines = standingLines.get(team.id) ?? [];
+            const standing = lines.length === 1 ? lines[0] : undefined;
             return (
               <li key={team.id}>
                 <Link
-                  href={cricketFanTeamPath(tournamentId, team.id)}
+                  href={cricketFanTeamPath(tournamentId, team.id, standing?.drawId)}
                   className={cn(
                     cricketCardClass,
                     "flex items-center gap-4 px-4 py-4 hover:border-primary/30 transition-colors h-full",
@@ -107,7 +114,15 @@ export default function ScoringPublicTeamsPage() {
                       {team.shortCode}
                       {team.squadCount != null ? ` · ${team.squadCount} players` : ""}
                     </p>
-                    {standing ? (
+                    {lines.length > 1 ? (
+                      <ul className="mt-1.5 space-y-1">
+                        {lines.map((line) => (
+                          <li key={`${line.drawId ?? "legacy"}-${line.teamId}`} className="text-xs text-primary tabular-nums">
+                            {line.drawName ?? "Competition"} · {line.played}P · {line.points} pts · NRR {formatNetRunRate(line.netRunRate)}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : standing ? (
                       <p className="text-xs text-primary mt-1.5 tabular-nums">
                         {standing.played}P · {standing.won}W · {standing.lost}L · {formatPointsPercentage(standing.pointsPercentage)} · NRR{" "}
                         {formatNetRunRate(standing.netRunRate)}

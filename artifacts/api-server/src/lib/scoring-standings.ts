@@ -558,6 +558,7 @@ async function getScoringStandingsRaw(tournamentId: number) {
           const team = teamMeta.get(r.teamId);
           return {
             teamId: r.teamId,
+            drawId: g.drawId,
             teamName: team?.name ?? `Team ${r.teamId}`,
             shortCode: team?.shortCode ?? "—",
             color: team?.color ?? null,
@@ -599,12 +600,47 @@ async function getScoringStandingsRaw(tournamentId: number) {
     }
   }
 
-  type AugmentedStandings = typeof globalRows & {
+  let tableRows = globalRows;
+  if (globalRows.length === 0) {
+    const legacyRows = rows.filter((row) => row.drawId == null);
+    if (legacyRows.length > 0) {
+      tableRows = rankPersistedCricketStandings(
+        legacyRows.map((row) => {
+          const team = teamMeta.get(row.teamId);
+          return {
+            teamId: row.teamId,
+            drawId: null,
+            teamName: team?.name ?? `Team ${row.teamId}`,
+            shortCode: team?.shortCode ?? "—",
+            color: team?.color ?? null,
+            played: row.played,
+            won: row.won,
+            lost: row.lost,
+            tied: row.tied,
+            noResult: row.noResult,
+            points: row.points,
+            netRunRate: row.netRunRate,
+            extras: row.extrasJson,
+            extrasJson: (row.extrasJson as Record<string, unknown> | null) ?? null,
+          };
+        }),
+        lineageMatches.map((match) => toHeadToHeadMatch(match, tieFlags)),
+      );
+    }
+  }
+
+  const drawNameById = new Map(draws.map((draw) => [draw.id, draw.name?.trim() || null]));
+  const namedRows = tableRows.map((row) => ({
+    ...row,
+    drawName: row.drawId != null ? (drawNameById.get(row.drawId) ?? null) : null,
+  }));
+
+  type AugmentedStandings = typeof namedRows & {
     hasGroups: boolean;
     groups: ScoringGroupResult[];
   };
 
-  const result = [...globalRows] as AugmentedStandings;
+  const result = [...namedRows] as AugmentedStandings;
   result.hasGroups = groupResults.length > 0;
   result.groups = groupResults;
 

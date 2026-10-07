@@ -23,6 +23,11 @@ import {
 } from "@/components/scoring/cricket-page-chrome";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StandingsTable } from "@/components/scoring/standings-table";
+import {
+  competitionGroupTitle,
+  isMultiDrawCompetition,
+  partitionByDraw,
+} from "@workspace/scoring-core/cricket";
 import { useScoringMatches, useSquadReadiness } from "@/hooks/use-scoring-match";
 import {
   getCricketMasterTeams,
@@ -325,8 +330,26 @@ export default function CricketDashboardPage() {
                   Full standings
                 </Link>
               </div>
-              <div className="mt-3">
-                <StandingsTable rows={(standings ?? []).slice(0, 8)} compact />
+              <div className="mt-3 space-y-4">
+                {isMultiDrawCompetition(standings?.groups ?? [], standings ?? []) ? (
+                  partitionByDraw(standings?.groups ?? [], standings ?? []).map((section) => (
+                    <div key={section.drawId ?? "legacy"} className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {section.drawName}
+                      </p>
+                      {section.groups.length > 0
+                        ? section.groups.map((group) => (
+                            <div key={group.id} className="space-y-1">
+                              <p className="text-xs text-muted-foreground">{competitionGroupTitle(group)}</p>
+                              <StandingsTable rows={group.rows} compact highlightTop={group.qualifiersPerGroup ?? 2} />
+                            </div>
+                          ))
+                        : <StandingsTable rows={section.rows} compact highlightTop={0} />}
+                    </div>
+                  ))
+                ) : (
+                  <StandingsTable rows={(standings ?? []).slice(0, 8)} compact />
+                )}
               </div>
             </section>
 

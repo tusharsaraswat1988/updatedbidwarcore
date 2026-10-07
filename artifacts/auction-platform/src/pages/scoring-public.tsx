@@ -40,6 +40,11 @@ import {
 } from "@/components/scoring/tournament-fan-header";
 import { TournamentBracketTree } from "@/components/scoring/tournament-bracket-tree";
 import {
+  competitionGroupTitle,
+  isMultiDrawCompetition,
+  rowsForCompetitionSelection,
+} from "@workspace/scoring-core/cricket";
+import {
   CricketFanEmpty,
   CricketFanExperienceShell,
   CricketFanLoading,
@@ -173,8 +178,12 @@ export default function ScoringPublicPage() {
     tournamentStageLabel(data?.tournament ?? { id: 0, name: "", sport: "cricket", scoringEnabled: true });
   const dates = formatDateRange(data?.tournament?.matchDates);
   const venue = data?.tournament ? venueLabel(data.tournament) : null;
-  const hasGroupStandings = Boolean(standings?.hasGroups && standings.groups && standings.groups.length > 0);
-  const top4 = hasGroupStandings ? [] : (standings ?? []).slice(0, 4);
+  const standingsGroups = standings?.groups ?? [];
+  const standingsRows = standings ?? [];
+  const multiDraw = isMultiDrawCompetition(standingsGroups, standingsRows);
+  const hasGroupStandings = standingsGroups.length > 0;
+  const legacyBand = rowsForCompetitionSelection(standingsGroups, standingsRows, { kind: "all" });
+  const top4 = legacyBand.qualifiers > 0 ? legacyBand.rows.slice(0, legacyBand.qualifiers) : [];
   const activeLb = LEADERBOARD_TABS.find((t) => t.key === lbTab);
 
   // Live streaming destination URL — NEVER fallback to OBS; only direct link if provided by organizer
@@ -395,10 +404,10 @@ export default function ScoringPublicPage() {
                 <>
                   {hasGroupStandings && standings?.groups ? (
                     <div className="space-y-4">
-                      {standings.groups.map((group) => (
+                      {standingsGroups.map((group) => (
                         <div key={group.id} className="space-y-2">
                           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            {group.name} · top {group.qualifiersPerGroup ?? 2} qualify
+                            {competitionGroupTitle(group)} · top {group.qualifiersPerGroup ?? 2} qualify
                           </p>
                           <StandingsTable rows={group.rows} compact highlightTop={group.qualifiersPerGroup ?? 2} />
                         </div>
@@ -422,6 +431,7 @@ export default function ScoringPublicPage() {
                   tournamentId={tournamentId}
                   fixtures={data.fixtures}
                   matches={data.matches}
+                  draws={data.draws}
                   teamMap={teamMap}
                   tournamentName={data.tournament.name}
                 />
@@ -432,6 +442,11 @@ export default function ScoringPublicPage() {
             <section>
               <div className="flex items-end justify-between gap-3 mb-3">
                 <h2 className={cricketSectionTitleClass}>Tournament Leaderboards</h2>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {multiDraw
+                    ? "Tournament-wide runs, wickets, and sixes. Not a competition points table."
+                    : "Tournament-wide batting and bowling totals."}
+                </p>
                 <Link
                   href={cricketFanStatisticsPath(tournamentId)}
                   className="text-xs text-primary hover:underline"

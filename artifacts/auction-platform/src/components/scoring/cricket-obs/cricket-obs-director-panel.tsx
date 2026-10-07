@@ -13,6 +13,11 @@ import { useToast } from "@/hooks/use-toast";
 import type { CricketObsFlashKind, CricketObsMidOverlayKind } from "@/lib/cricket-obs-view-model";
 import { cricketObsLivePath } from "@/lib/tournament-navigation";
 import { listScoringMatches, getScoringStandings, isTerminalCricketMatchStatus } from "@/lib/scoring-api";
+import {
+  competitionGroupTitle,
+  groupSelectorToken,
+  isMultiDrawCompetition,
+} from "@workspace/scoring-core/cricket";
 import { parseTournamentSponsors } from "@/components/scoring/public-sponsors-strip";
 import { CricketObsBroadcastMessageControl } from "@/components/scoring/cricket-obs/cricket-obs-broadcast-message-control";
 import { Tv, Radio, Sparkles, Eye, CheckCircle2, Copy, ExternalLink, Calendar, Trophy, Handshake, Table, Zap } from "lucide-react";
@@ -57,10 +62,8 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
     staleTime: 30_000,
     refetchInterval: 30_000,
   });
-  const availableGroups = useMemo(() => {
-    if (!standings?.groups || standings.groups.length === 0) return [];
-    return standings.groups.map((g) => g.name).filter(Boolean);
-  }, [standings?.groups]);
+  const availableGroups = standings?.groups ?? [];
+  const multiDraw = isMultiDrawCompetition(availableGroups, standings ?? []);
 
   // Sync active overlay state with server on mount / refetch
   const { data: serverState } = useQuery<{
@@ -778,7 +781,7 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 bg-slate-50/40">
-            {/* Option 1: Overall Standings */}
+            {multiDraw ? null : (
             <div
               onClick={() => {
                 void handleSetOverlay("standings", "Overall Points Table");
@@ -803,9 +806,10 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
                 Push All
               </Button>
             </div>
+            )}
 
             {/* Group-Wise Options */}
-            {availableGroups && availableGroups.length > 0 && (
+            {availableGroups.length > 0 && (
               <div className="space-y-2 pt-2">
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
                   Group-Wise Standings:
@@ -813,15 +817,18 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {availableGroups.map((grp) => (
                     <div
-                      key={grp}
+                      key={grp.id}
                       onClick={() => {
-                        void handleSetOverlay("standings", `Points Table: ${grp}`, undefined, { stageOrGroup: grp });
+                        const label = competitionGroupTitle(grp);
+                        void handleSetOverlay("standings", `Points Table: ${label}`, undefined, {
+                          stageOrGroup: groupSelectorToken(grp.id),
+                        });
                         setStandingsSelectModalOpen(false);
                       }}
                       className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:border-blue-500 hover:shadow-sm cursor-pointer transition group"
                     >
                       <div className="text-xs font-bold text-slate-900 group-hover:text-blue-700 transition">
-                        {grp} Standings
+                        {competitionGroupTitle(grp)} Standings
                       </div>
                       <Badge variant="outline" className="text-[10px] text-blue-700 border-blue-300">
                         Select
