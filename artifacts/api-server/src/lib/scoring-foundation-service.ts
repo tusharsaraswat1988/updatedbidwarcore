@@ -569,6 +569,10 @@ export async function generateScoringDraw(input: {
     .returning();
 
   const groupIdByName = new Map<string, number>();
+  const groupNameCounts = new Map<string, number>();
+  for (const group of input.groups ?? []) {
+    groupNameCounts.set(group.name, (groupNameCounts.get(group.name) ?? 0) + 1);
+  }
   if (input.format === "league_knockout" && input.groups?.length) {
     for (let i = 0; i < input.groups.length; i++) {
       const g = input.groups[i]!;
@@ -581,7 +585,9 @@ export async function generateScoringDraw(input: {
           sortOrder: i,
         })
         .returning();
-      groupIdByName.set(g.name, groupRow.id);
+      if ((groupNameCounts.get(g.name) ?? 0) === 1) {
+        groupIdByName.set(g.name, groupRow.id);
+      }
       for (let s = 0; s < g.teamIds.length; s++) {
         await db.insert(scoringGroupMembersTable).values({
           groupId: groupRow.id,
@@ -703,6 +709,7 @@ export async function generateScoringDraw(input: {
         createMatches: input.createMatches,
         oversLimit: config.oversLimit ?? 20,
         startFixtureNumber: fixtureRows.length + 1,
+        groupIdByName,
       });
 
       fixtureRows.push(...createdKnockout);

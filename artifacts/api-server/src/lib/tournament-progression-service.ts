@@ -1,7 +1,6 @@
 import {
   db,
   scoringDrawsTable,
-  scoringEventsTable,
   scoringFixturesTable,
   scoringGroupMembersTable,
   scoringGroupsTable,
@@ -12,20 +11,21 @@ import {
 } from "@workspace/db";
 import {
   buildLeagueKnockoutStages,
-  makeSlotKey,
+  resolveCompetitionParticipant,
   resolveGroupQualifications,
-  resolveParticipantSource,
   createInitialCricketState,
-  isCricketMatchTerminalState,
   type GroupStandingsMap,
   type ParticipantSource,
   type PlannedFixtureTemplate,
-  type TeamStandingComputed,
 } from "@workspace/scoring-core";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { getScoringStandings, rebuildTournamentStandings } from "./scoring-standings";
-import { broadcastScoringState } from "./scoring-broadcast";
-import { logger } from "./logger";
+import {
+  isKnockoutMatch,
+  loadTieFlags,
+  projectGroupStandings,
+  type CompetitionMatchRef,
+} from "./scoring-standings";
+import type { CricketMatchSummary } from "@workspace/scoring-core";
 
 export type FixtureFormatJson = {
   stageId?: string;
@@ -52,9 +52,16 @@ export async function createKnockoutStageFixtures(input: {
   createMatches?: boolean;
   oversLimit?: number;
   startFixtureNumber: number;
+  /** Unique group name → id inside the draw being created. Duplicate names are omitted. */
+  groupIdByName?: Map<string, number>;
 }) {
   const createdFixtures: Array<typeof scoringFixturesTable.$inferSelect> = [];
   const fixtureByRoundName = new Map<string, number>();
+
+  const roundNameCounts = new Map<string, number>();
+  for (const template of input.fixtures) {
+    roundNameCounts.set(template.roundName, (roundNameCounts.get(template.roundName) ?? 0) + 1);
+  }
 
   for (let i = 0; i < input.fixtures.length; i++) {
     const template = input.fixtures[i]!;
@@ -128,12 +135,45 @@ export async function createKnockoutStageFixtures(input: {
     }
   }
 
-  // Backfill winnerAdvancesToFixtureId links
+  // Wire slot identity inside this draw. Round names stay display labels.
   for (const fixture of createdFixtures) {
     const fmt = fixture.formatJson as FixtureFormatJson | null;
-    if (fmt?.targetRoundName && fixtureByRoundName.has(fmt.targetRoundName)) {
+    if (!fmt) continue;
+    let changed = false;
+
+    if (fmt.targetRoundName && fixtureByRoundName.has(fmt.targetRoundName)) {
       const targetFixtureId = fixtureByRoundName.get(fmt.targetRoundName)!;
-      fmt.winnerAdvancesToFixtureId = targetFixtureId;
+      if ((roundNameCounts.get(fmt.targetRoundName) ?? 0) === 1) {
+        fmt.winnerAdvancesToFixtureId = targetFixtureId;
+        changed = true;
+      }
+    }
+
+    for (const side of ["homeSource", "awaySource"] as const) {
+      const source = fmt[side];
+      if (!source) continue;
+      if (
+        source.type === "group_rank" &&
+        source.groupId == null &&
+        input.groupIdByName &&
+        input.groupIdByName.has(source.groupName)
+      ) {
+        source.groupId = input.groupIdByName.get(source.groupName)!;
+        changed = true;
+      }
+      if (
+        source.type === "winner_of" &&
+        source.fixtureId == null &&
+        source.roundName &&
+        (roundNameCounts.get(source.roundName) ?? 0) === 1 &&
+        fixtureByRoundName.has(source.roundName)
+      ) {
+        source.fixtureId = fixtureByRoundName.get(source.roundName)!;
+        changed = true;
+      }
+    }
+
+    if (changed) {
       await db
         .update(scoringFixturesTable)
         .set({ formatJson: fmt as Record<string, unknown> })
@@ -209,31 +249,66 @@ export async function advanceTournamentProgression(
           groupFixtures.every((f) => terminalStatuses.has(f.status));
 
         if (allGroupMatchesCompleted) {
-          // Compute authoritative group standings directly from DB (bypassing in-memory cache)
-          const rawStandings = await getScoringStandings(tournamentId, { bypassCache: true });
-          const groupStandingsMap: GroupStandingsMap = {};
-
-          for (const g of groups) {
-            const groupResult = rawStandings.groups?.find((r) => r.id === g.id || r.name === g.name);
-            const computedRows: TeamStandingComputed[] = (groupResult?.rows ?? []).map((r) => ({
-              teamId: r.teamId,
-              played: r.played,
-              won: r.won,
-              lost: r.lost,
-              tied: r.tied,
-              noResult: r.noResult,
-              points: r.points,
-              pointsPercentage: r.pointsPercentage,
-              netRunRate: r.netRunRate,
-              runsScored: Number((r.extrasJson as Record<string, unknown>)?.runsScored ?? 0),
-              oversFaced: Number((r.extrasJson as Record<string, unknown>)?.oversFaced ?? 0),
-              runsConceded: Number((r.extrasJson as Record<string, unknown>)?.runsConceded ?? 0),
-              oversBowled: Number((r.extrasJson as Record<string, unknown>)?.oversBowled ?? 0),
+          const groupIds = groups.map((group) => group.id);
+          const members = await tx
+            .select()
+            .from(scoringGroupMembersTable)
+            .where(inArray(scoringGroupMembersTable.groupId, groupIds));
+          const drawFixtures = await tx
+            .select({
+              id: scoringFixturesTable.id,
+              drawId: scoringFixturesTable.drawId,
+              groupId: scoringFixturesTable.groupId,
+              roundName: scoringFixturesTable.roundName,
+            })
+            .from(scoringFixturesTable)
+            .where(eq(scoringFixturesTable.drawId, draw.id));
+          const leagueFixtureIds = drawFixtures
+            .filter((fixture) => fixture.groupId != null && !isKnockoutMatch(fixture))
+            .map((fixture) => fixture.id);
+          const finishedMatches =
+            leagueFixtureIds.length === 0
+              ? []
+              : await tx
+                  .select()
+                  .from(scoringMatchesTable)
+                  .where(
+                    and(
+                      eq(scoringMatchesTable.tournamentId, tournamentId),
+                      eq(scoringMatchesTable.sportSlug, "cricket"),
+                      inArray(scoringMatchesTable.fixtureId, leagueFixtureIds),
+                    ),
+                  );
+          const tieFlags = await loadTieFlags(finishedMatches.map((match) => match.id));
+          const matchInputs: CompetitionMatchRef[] = finishedMatches
+            .filter((match) =>
+              ["completed", "abandoned", "no_result", "walkover"].includes(match.status),
+            )
+            .map((match) => ({
+              matchId: match.id,
+              fixtureId: match.fixtureId,
+              status: match.status,
+              homeTeamId: match.homeTeamId,
+              awayTeamId: match.awayTeamId,
+              summary: (match.summaryJson as CricketMatchSummary | null) ?? null,
+              isTie: tieFlags.get(match.id),
             }));
 
-            groupStandingsMap[g.name] = {
-              groupName: g.name,
-              groupId: g.id,
+          const groupStandingsMap: GroupStandingsMap = {};
+          for (const group of groups) {
+            const teamIds = members
+              .filter((member) => member.groupId === group.id)
+              .map((member) => member.teamId);
+            const computedRows = projectGroupStandings({
+              drawId: draw.id,
+              groupId: group.id,
+              teamIds,
+              fixtures: drawFixtures,
+              matches: matchInputs,
+            });
+            groupStandingsMap[`id:${group.id}`] = {
+              groupName: group.name,
+              groupId: group.id,
               standings: computedRows,
               isComplete: true,
             };
@@ -241,7 +316,7 @@ export async function advanceTournamentProgression(
 
           const qualifiersPerGroup = drawConfig.knockoutTeamsPerGroup ?? 2;
           const qualResult = resolveGroupQualifications(
-            groups.map((g) => ({ name: g.name, groupId: g.id })),
+            groups.map((group) => ({ name: group.name, groupId: group.id })),
             { type: "top_n_per_group", count: qualifiersPerGroup },
             groupStandingsMap,
           );
@@ -267,8 +342,24 @@ export async function advanceTournamentProgression(
               let nextHomeId = kf.homeTeamId;
               let nextAwayId = kf.awayTeamId;
 
+              const drawGroups = groups.map((group) => ({ id: group.id, name: group.name }));
+              const slotContext = {
+                drawId: draw.id,
+                groups: drawGroups,
+                fixtures: knockoutFixtures.map((fixture) => ({
+                  id: fixture.id,
+                  drawId: fixture.drawId,
+                  roundName: fixture.roundName,
+                })),
+                qualifiersBySlotKey: qualResult.qualifiersBySlotKey,
+                winnersByFixtureId: {},
+              };
+
               if (fmt.homeSource?.type === "group_rank" && kf.homeTeamId === 0) {
-                const homeRes = resolveParticipantSource(fmt.homeSource, qualResult);
+                const homeRes = resolveCompetitionParticipant({
+                  ...slotContext,
+                  source: fmt.homeSource,
+                });
                 if (homeRes.resolved && homeRes.teamId > 0) {
                   nextHomeId = homeRes.teamId;
                   changed = true;
@@ -276,7 +367,10 @@ export async function advanceTournamentProgression(
               }
 
               if (fmt.awaySource?.type === "group_rank" && kf.awayTeamId === 0) {
-                const awayRes = resolveParticipantSource(fmt.awaySource, qualResult);
+                const awayRes = resolveCompetitionParticipant({
+                  ...slotContext,
+                  source: fmt.awaySource,
+                });
                 if (awayRes.resolved && awayRes.teamId > 0) {
                   nextAwayId = awayRes.teamId;
                   changed = true;
@@ -336,33 +430,6 @@ export async function advanceTournamentProgression(
       }
 
       // ─── 2. Knockout Winner Advancement (e.g. Semis → Final) ─────────────────
-      const completedKnockoutMatches = await tx
-        .select({
-          matchId: scoringMatchesTable.id,
-          fixtureId: scoringMatchesTable.fixtureId,
-          winnerTeamId: scoringMatchesTable.winnerTeamId,
-          roundName: scoringMatchesTable.roundName,
-          status: scoringMatchesTable.status,
-        })
-        .from(scoringMatchesTable)
-        .where(
-          and(
-            eq(scoringMatchesTable.tournamentId, tournamentId),
-            sql`${scoringMatchesTable.winnerTeamId} IS NOT NULL AND ${scoringMatchesTable.winnerTeamId} > 0`,
-          ),
-        );
-
-      const matchWinnersByRoundName: Record<string, number> = {};
-      const matchWinnersByFixtureId: Record<number, number> = {};
-
-      for (const m of completedKnockoutMatches) {
-        if (m.winnerTeamId) {
-          if (m.roundName) matchWinnersByRoundName[m.roundName] = m.winnerTeamId;
-          if (m.fixtureId) matchWinnersByFixtureId[m.fixtureId] = m.winnerTeamId;
-        }
-      }
-
-      // Find all target fixtures that require winner advancement with row lock
       const allKnockoutFixtures = await tx
         .select()
         .from(scoringFixturesTable)
@@ -374,18 +441,52 @@ export async function advanceTournamentProgression(
         )
         .for("update");
 
+      const knockoutFixtureIds = allKnockoutFixtures.map((fixture) => fixture.id);
+      const completedKnockoutMatches =
+        knockoutFixtureIds.length === 0
+          ? []
+          : await tx
+              .select({
+                matchId: scoringMatchesTable.id,
+                fixtureId: scoringMatchesTable.fixtureId,
+                winnerTeamId: scoringMatchesTable.winnerTeamId,
+              })
+              .from(scoringMatchesTable)
+              .where(
+                and(
+                  inArray(scoringMatchesTable.fixtureId, knockoutFixtureIds),
+                  sql`${scoringMatchesTable.winnerTeamId} IS NOT NULL AND ${scoringMatchesTable.winnerTeamId} > 0`,
+                ),
+              );
+
+      const winnersByFixtureId: Record<number, number> = {};
+      for (const match of completedKnockoutMatches) {
+        if (match.fixtureId != null && match.winnerTeamId) {
+          winnersByFixtureId[match.fixtureId] = match.winnerTeamId;
+        }
+      }
+
+      const drawFixtureRefs = allKnockoutFixtures.map((fixture) => ({
+        id: fixture.id,
+        drawId: fixture.drawId,
+        roundName: fixture.roundName,
+      }));
+      const drawGroups = groups.map((group) => ({ id: group.id, name: group.name }));
+
       for (const kf of allKnockoutFixtures) {
         const fmt = (kf.formatJson ?? {}) as FixtureFormatJson;
         let changed = false;
         let nextHomeId = kf.homeTeamId;
         let nextAwayId = kf.awayTeamId;
 
-        // Check home source winner_of
         if (fmt.homeSource?.type === "winner_of" && kf.homeTeamId === 0) {
-          const res = resolveParticipantSource(fmt.homeSource, {
+          const res = resolveCompetitionParticipant({
+            source: fmt.homeSource,
+            drawId: draw.id,
+            groups: drawGroups,
+            fixtures: drawFixtureRefs,
             qualifiersBySlotKey: {},
-            matchWinnersByRoundName,
-            matchWinnersByFixtureId,
+            winnersByFixtureId,
           });
           if (res.resolved && res.teamId > 0) {
             nextHomeId = res.teamId;
@@ -393,12 +494,14 @@ export async function advanceTournamentProgression(
           }
         }
 
-        // Check away source winner_of
         if (fmt.awaySource?.type === "winner_of" && kf.awayTeamId === 0) {
-          const res = resolveParticipantSource(fmt.awaySource, {
+          const res = resolveCompetitionParticipant({
+            source: fmt.awaySource,
+            drawId: draw.id,
+            groups: drawGroups,
+            fixtures: drawFixtureRefs,
             qualifiersBySlotKey: {},
-            matchWinnersByRoundName,
-            matchWinnersByFixtureId,
+            winnersByFixtureId,
           });
           if (res.resolved && res.teamId > 0) {
             nextAwayId = res.teamId;

@@ -1148,6 +1148,7 @@ async function main() {
     await db.insert(scoringStandingsTable).values(
       computedStandings.map((row) => ({
         tournamentId: TOURNAMENT_ID,
+        drawId: draw.id,
         teamId: row.teamId,
         played: row.played,
         won: row.won,

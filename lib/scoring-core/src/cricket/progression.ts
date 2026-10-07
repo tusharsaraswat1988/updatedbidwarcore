@@ -61,6 +61,49 @@ export function makeSlotKey(groupName: string, rank: number): string {
   return `${groupName.trim().toUpperCase()}#${rank}`;
 }
 
+/** Slot identity for a persisted group. Group names are not competition identity. */
+export function makeGroupIdSlotKey(groupId: number, rank: number): string {
+  return `id:${groupId}#${rank}`;
+}
+
+/**
+ * Resolve a group_rank source to a group that belongs to the current draw.
+ * A provided groupId is never replaced by a name match.
+ * A missing groupId may use the name only when exactly one group in this draw has it.
+ */
+export function resolveGroupIdWithinDraw(
+  source: { groupId?: number | null; groupName: string },
+  groups: Array<{ id: number; name: string }>,
+): number | null {
+  if (source.groupId != null) {
+    return groups.some((group) => group.id === source.groupId) ? source.groupId : null;
+  }
+  const named = groups.filter(
+    (group) => group.name.trim().toLowerCase() === source.groupName.trim().toLowerCase(),
+  );
+  return named.length === 1 ? named[0]!.id : null;
+}
+
+export type DrawFixtureRef = {
+  id: number;
+  drawId: number | null;
+  roundName: string | null;
+};
+
+/** Round names are labels. Use one only when this draw contains exactly one fixture with that label. */
+export function uniqueDrawFixtureByRoundName(
+  fixtures: DrawFixtureRef[],
+  drawId: number,
+  roundName: string,
+): DrawFixtureRef | null {
+  const target = roundName.trim().toLowerCase();
+  const matches = fixtures.filter(
+    (fixture) =>
+      fixture.drawId === drawId && (fixture.roundName ?? "").trim().toLowerCase() === target,
+  );
+  return matches.length === 1 ? matches[0]! : null;
+}
+
 /**
  * Validates group completeness and resolves qualified teams from authoritative group standings.
  *
@@ -90,9 +133,16 @@ export function resolveGroupQualifications(
   }
 
   for (const g of groups) {
-    const groupData = groupStandings[g.name] ?? groupStandings[g.name.toUpperCase()];
+    const groupData =
+      g.groupId != null
+        ? groupStandings[`id:${g.groupId}`]
+        : (groupStandings[g.name] ?? groupStandings[g.name.toUpperCase()]);
     if (!groupData) {
-      errors.push(`Group '${g.name}' has no standings data`);
+      errors.push(
+        g.groupId != null
+          ? `Group ${g.groupId} has no standings data`
+          : `Group '${g.name}' has no standings data`,
+      );
       continue;
     }
 
@@ -123,7 +173,8 @@ export function resolveGroupQualifications(
       }
 
       seenTeamIds.add(standing.teamId);
-      const slotKey = makeSlotKey(g.name, r);
+      const slotKey =
+        g.groupId != null ? makeGroupIdSlotKey(g.groupId, r) : makeSlotKey(g.name, r);
       qualifiersBySlotKey[slotKey] = standing.teamId;
       qualifierTeamIds.push(standing.teamId);
     }
@@ -442,7 +493,10 @@ export function resolveParticipantSource(
   }
 
   if (source.type === "group_rank") {
-    const key = makeSlotKey(source.groupName, source.rank);
+    const key =
+      source.groupId != null
+        ? makeGroupIdSlotKey(source.groupId, source.rank)
+        : makeSlotKey(source.groupName, source.rank);
     const teamId = context.qualifiersBySlotKey[key];
     if (teamId && teamId > 0) {
       return { resolved: true, teamId, label: `${source.groupName} #${source.rank} (Team ${teamId})` };
@@ -451,9 +505,12 @@ export function resolveParticipantSource(
   }
 
   if (source.type === "winner_of") {
-    if (source.fixtureId && context.matchWinnersByFixtureId?.[source.fixtureId]) {
-      const winnerId = context.matchWinnersByFixtureId[source.fixtureId]!;
-      return { resolved: winnerId > 0, teamId: winnerId, label: `Winner of #${source.fixtureId} (Team ${winnerId})` };
+    if (source.fixtureId != null) {
+      const winnerId = context.matchWinnersByFixtureId?.[source.fixtureId];
+      if (winnerId && winnerId > 0) {
+        return { resolved: true, teamId: winnerId, label: `Winner of #${source.fixtureId} (Team ${winnerId})` };
+      }
+      return { resolved: false, teamId: 0, label: `Winner of #${source.fixtureId}` };
     }
     if (source.roundName) {
       const targetName = source.roundName.trim().toLowerCase();
@@ -471,4 +528,60 @@ export function resolveParticipantSource(
   }
 
   return { resolved: false, teamId: 0, label: "TBD" };
+}
+
+/**
+ * Fill one knockout slot inside a single draw.
+ * Group ids and fixture ids are authoritative. Round names are used only when
+ * this draw has exactly one fixture with that label and the source has no fixture id.
+ */
+export function resolveCompetitionParticipant(args: {
+  source: ParticipantSource;
+  drawId: number;
+  groups: Array<{ id: number; name: string }>;
+  fixtures: DrawFixtureRef[];
+  qualifiersBySlotKey: Record<string, number>;
+  winnersByFixtureId: Record<number, number>;
+}): { resolved: boolean; teamId: number; label: string } {
+  const { source } = args;
+
+  if (source.type === "group_rank") {
+    const groupId = resolveGroupIdWithinDraw(source, args.groups);
+    if (groupId == null) {
+      return { resolved: false, teamId: 0, label: `${source.groupName} Rank ${source.rank}` };
+    }
+    return resolveParticipantSource(
+      { ...source, groupId },
+      { qualifiersBySlotKey: args.qualifiersBySlotKey },
+    );
+  }
+
+  if (source.type === "winner_of") {
+    let fixtureId = source.fixtureId ?? null;
+    if (fixtureId != null) {
+      const owned = args.fixtures.some(
+        (fixture) => fixture.id === fixtureId && fixture.drawId === args.drawId,
+      );
+      if (!owned) {
+        return { resolved: false, teamId: 0, label: `Winner of #${fixtureId}` };
+      }
+    } else if (source.roundName) {
+      fixtureId = uniqueDrawFixtureByRoundName(args.fixtures, args.drawId, source.roundName)?.id ?? null;
+    }
+    if (fixtureId == null) {
+      return { resolved: false, teamId: 0, label: `Winner of ${source.roundName ?? "Match"}` };
+    }
+    return resolveParticipantSource(
+      { ...source, fixtureId },
+      {
+        qualifiersBySlotKey: {},
+        matchWinnersByFixtureId: args.winnersByFixtureId,
+      },
+    );
+  }
+
+  return resolveParticipantSource(source, {
+    qualifiersBySlotKey: args.qualifiersBySlotKey,
+    matchWinnersByFixtureId: args.winnersByFixtureId,
+  });
 }

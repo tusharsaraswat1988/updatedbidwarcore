@@ -7,6 +7,7 @@ import {
   teamsTable,
   scoringMatchesTable,
   scoringStandingsTable,
+  scoringFixturesTable,
   type BplSponsorCategory,
 } from "@workspace/db";
 import { eq, and, ne, desc, asc, inArray, sql } from "drizzle-orm";
@@ -168,6 +169,7 @@ async function fetchLinkedTournamentActivity(tournamentId: number | null) {
       resultSummary: scoringMatchesTable.resultSummary,
       summaryJson: scoringMatchesTable.summaryJson,
       matchTypeId: scoringMatchesTable.matchTypeId,
+      fixtureId: scoringMatchesTable.fixtureId,
     })
     .from(scoringMatchesTable)
     .where(eq(scoringMatchesTable.tournamentId, tournamentId))
@@ -266,6 +268,7 @@ async function fetchLinkedTournamentActivity(tournamentId: number | null) {
       points: scoringStandingsTable.points,
       netRunRate: scoringStandingsTable.netRunRate,
       extrasJson: scoringStandingsTable.extrasJson,
+      drawId: scoringStandingsTable.drawId,
     })
     .from(scoringStandingsTable)
     .where(eq(scoringStandingsTable.tournamentId, tournamentId));
@@ -279,41 +282,77 @@ async function fetchLinkedTournamentActivity(tournamentId: number | null) {
         match.status === "walkover"),
   );
   const tieFlags = await loadTieFlags(leagueMatches.map((match) => match.id));
-  const headToHeadMatches = leagueMatches.map((match) =>
-    toHeadToHeadMatch(
-      {
-        id: match.id,
-        status: match.status,
-        homeTeamId: match.homeTeamId,
-        awayTeamId: match.awayTeamId,
-        winnerTeamId: match.winnerTeamId,
-        summaryJson: match.summaryJson,
-      },
-      tieFlags,
-    ),
-  );
+  const toHeadToHead = (rows: typeof leagueMatches) =>
+    rows.map((match) =>
+      toHeadToHeadMatch(
+        {
+          id: match.id,
+          status: match.status,
+          homeTeamId: match.homeTeamId,
+          awayTeamId: match.awayTeamId,
+          winnerTeamId: match.winnerTeamId,
+          summaryJson: match.summaryJson,
+        },
+        tieFlags,
+      ),
+    );
 
-  const standings = rankPersistedCricketStandings(
-    rawStandings.map((s) => {
-      const team = teamMap.get(s.teamId);
-      return {
-        teamId: s.teamId,
-        teamName: team?.name ?? `Team ${s.teamId}`,
-        shortCode: team?.shortCode ?? "T",
-        color: team?.color ?? null,
-        logoUrl: team?.logoUrl ?? null,
-        played: s.played,
-        won: s.won,
-        lost: s.lost,
-        tied: s.tied,
-        noResult: s.noResult,
-        points: s.points,
-        netRunRate: s.netRunRate,
-        extras: s.extrasJson,
-      };
-    }),
-    headToHeadMatches,
-  );
+  const rankRows = (
+    rows: typeof rawStandings,
+    matchesForRank: typeof leagueMatches,
+  ) =>
+    rankPersistedCricketStandings(
+      rows.map((s) => {
+        const team = teamMap.get(s.teamId);
+        return {
+          teamId: s.teamId,
+          drawId: s.drawId,
+          teamName: team?.name ?? `Team ${s.teamId}`,
+          shortCode: team?.shortCode ?? "T",
+          color: team?.color ?? null,
+          logoUrl: team?.logoUrl ?? null,
+          played: s.played,
+          won: s.won,
+          lost: s.lost,
+          tied: s.tied,
+          noResult: s.noResult,
+          points: s.points,
+          netRunRate: s.netRunRate,
+          extras: s.extrasJson,
+        };
+      }),
+      toHeadToHead(matchesForRank),
+    );
+
+  const distinctDrawIds = [
+    ...new Set(rawStandings.map((row) => row.drawId).filter((id): id is number => id != null)),
+  ].sort((a, b) => a - b);
+
+  let standings;
+  if (distinctDrawIds.length <= 1) {
+    standings = rankRows(rawStandings, leagueMatches);
+  } else {
+    const fixtures = await db
+      .select({
+        id: scoringFixturesTable.id,
+        drawId: scoringFixturesTable.drawId,
+        roundName: scoringFixturesTable.roundName,
+      })
+      .from(scoringFixturesTable)
+      .where(eq(scoringFixturesTable.tournamentId, tournamentId));
+    const fixtureById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
+    standings = distinctDrawIds.flatMap((drawId) => {
+      const drawMatches = leagueMatches.filter((match) => {
+        if (match.fixtureId == null) return false;
+        const fixture = fixtureById.get(match.fixtureId);
+        return fixture?.drawId === drawId && !isKnockoutMatch(fixture);
+      });
+      return rankRows(
+        rawStandings.filter((row) => row.drawId === drawId),
+        drawMatches,
+      );
+    });
+  }
 
   return {
     snapshot: {

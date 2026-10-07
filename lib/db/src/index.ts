@@ -915,6 +915,15 @@ void systemCQuery(`
     CREATE INDEX IF NOT EXISTS ix_scoring_fixtures_draw_id ON scoring_fixtures (draw_id);
     CREATE INDEX IF NOT EXISTS ix_scoring_fixtures_group_id ON scoring_fixtures (group_id);
 
+    ALTER TABLE scoring_standings ADD COLUMN IF NOT EXISTS draw_id INTEGER;
+    DROP INDEX IF EXISTS uq_scoring_standings_tournament_team;
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_scoring_standings_tournament_draw_team
+      ON scoring_standings (tournament_id, draw_id, team_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_scoring_standings_tournament_team_unscoped
+      ON scoring_standings (tournament_id, team_id)
+      WHERE draw_id IS NULL;
+    CREATE INDEX IF NOT EXISTS ix_scoring_standings_draw_id ON scoring_standings (draw_id);
+
     ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS venue_id INTEGER;
     ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS officials_json JSONB;
 

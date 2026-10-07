@@ -23,7 +23,7 @@ import {
   isCricketMatchTerminalState,
   deriveCricketMatchResult,
 } from "@workspace/scoring-core";
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { broadcastScoringState } from "../scoring-broadcast";
 import { ScoringPlatformError } from "./errors";
 import { logger } from "../logger";
@@ -39,6 +39,7 @@ import { getScoringAdapter, runPostMatchProjectionPipeline } from "./projections
 import { parseScoringEvent, replayScoringMatchState } from "../scoring-platform";
 import { isTerminalScoringMatchStatus } from "../scoring-match-terminal";
 import { assertAuthoritativeScorerLease, ScorerLockError } from "../scorer-match-locks";
+import { cricketLiveSlotsConflict } from "../cricket-competition-scope";
 
 export type ScoringActor = {
   /** 'scorer' = dedicated Empire scorer acting on a locked match. */
@@ -109,7 +110,7 @@ async function ensureNoOtherLiveCricketMatch(
   tournamentId: number,
   matchId: number,
 ): Promise<void> {
-  const [otherLive] = await db
+  const liveRows = await db
     .select()
     .from(scoringMatchesTable)
     .where(
@@ -117,12 +118,46 @@ async function ensureNoOtherLiveCricketMatch(
         eq(scoringMatchesTable.tournamentId, tournamentId),
         eq(scoringMatchesTable.sportSlug, "cricket"),
         eq(scoringMatchesTable.status, "live"),
-        ne(scoringMatchesTable.id, matchId),
       ),
-    )
-    .limit(1);
+    );
+
+  const current = liveRows.find((match) => match.id === matchId) ?? (
+    await db
+      .select()
+      .from(scoringMatchesTable)
+      .where(eq(scoringMatchesTable.id, matchId))
+      .limit(1)
+  )[0];
+
+  const others = liveRows.filter((match) => match.id !== matchId);
+  if (!current || others.length === 0) return;
+
+  const fixtureIds = [current.fixtureId, ...others.map((match) => match.fixtureId)].filter(
+    (id): id is number => id != null,
+  );
+  const fixtures =
+    fixtureIds.length === 0
+      ? []
+      : await db
+          .select({
+            id: scoringFixturesTable.id,
+            drawId: scoringFixturesTable.drawId,
+          })
+          .from(scoringFixturesTable)
+          .where(inArray(scoringFixturesTable.id, fixtureIds));
+  const drawByFixture = new Map(fixtures.map((fixture) => [fixture.id, fixture.drawId]));
+  const candidateDrawId =
+    current.fixtureId != null ? (drawByFixture.get(current.fixtureId) ?? null) : null;
+
+  const otherLive = others.find((match) => {
+    const otherDrawId = match.fixtureId != null ? (drawByFixture.get(match.fixtureId) ?? null) : null;
+    return cricketLiveSlotsConflict(candidateDrawId, otherDrawId);
+  });
 
   if (!otherLive) return;
+
+  const otherDrawId =
+    otherLive.fixtureId != null ? (drawByFixture.get(otherLive.fixtureId) ?? null) : null;
 
   // Check if otherLive has already reached an authoritative terminal winning state
   const [session] = await db
@@ -185,8 +220,10 @@ async function ensureNoOtherLiveCricketMatch(
     }
   }
 
+  const scope =
+    candidateDrawId != null && otherDrawId === candidateDrawId ? "competition" : "tournament";
   throw new ScoringPlatformError(
-    `Match #${otherLive.id}${otherLive.matchLabel ? ` (${otherLive.matchLabel})` : ""} is already live in this tournament. Please pause or complete it before starting another match.`,
+    `Match #${otherLive.id}${otherLive.matchLabel ? ` (${otherLive.matchLabel})` : ""} is already live in this ${scope}. Please pause or complete it before starting another match.`,
     409,
     "LIVE_MATCH_EXISTS",
     {
