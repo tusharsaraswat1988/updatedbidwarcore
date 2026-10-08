@@ -101,6 +101,8 @@ export type SportsBranding = {
   spotlightSponsorUrl: string | null;
   /** Operator-pinned sponsor URL on live venue/OBS chrome until unpin. */
   pinnedSponsorUrl: string | null;
+  /** Public fan-page watch URL (YouTube, Facebook, or any https link). */
+  liveStreamUrl: string | null;
   /** Control Center: loop music On/Pause for venue LED. */
   venueMusicPlaying: boolean;
   /** Sport-specific loop track override (null = fall through to auction/platform). */
@@ -155,6 +157,8 @@ export type BroadcastPresentationInput = {
   venueBannerPublicId?: string | null;
   venueBannerFit?: "cover" | "contain";
   importAuctionBanner?: boolean;
+  /** Public fan-page watch URL. Null clears it. */
+  liveStreamUrl?: string | null;
 };
 
 function parseScoreBoardSponsor(raw: unknown): ScoreBoardSponsor | null {
@@ -220,6 +224,15 @@ export function parseSponsorUrlKey(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const trimmed = raw.trim();
   return trimmed ? trimmed : null;
+}
+
+/** Organizer-provided YouTube/Facebook (or other) watch URL for the public fan page. */
+export function parseLiveStreamUrl(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > 500) return null;
+  if (!/^https?:\/\//i.test(trimmed)) return null;
+  return trimmed;
 }
 
 export function parseOverlayScene(raw: unknown): SportsOverlayScene {
@@ -360,6 +373,7 @@ export function getSportsBranding(
     upNextMatchId: parseUpNextMatchId(broadcast.upNextMatchId),
     spotlightSponsorUrl: parseSponsorUrlKey(broadcast.spotlightSponsorUrl),
     pinnedSponsorUrl: parseSponsorUrlKey(broadcast.pinnedSponsorUrl),
+    liveStreamUrl: parseLiveStreamUrl(broadcast.liveStreamUrl),
     venueMusicPlaying: parseVenueMusicPlaying(broadcast.venueMusicPlaying),
     venueMusicUrl,
     venueMusicFileName: venueMusicUrl
@@ -566,6 +580,9 @@ export async function updateBroadcastPresentation(
       ? {
           pinnedSponsorUrl: input.pinnedSponsorUrl?.trim() || null,
         }
+      : {}),
+    ...(input.liveStreamUrl !== undefined
+      ? { liveStreamUrl: parseLiveStreamUrl(input.liveStreamUrl) }
       : {}),
     ...(input.venueMusicPlaying !== undefined
       ? { venueMusicPlaying: input.venueMusicPlaying }

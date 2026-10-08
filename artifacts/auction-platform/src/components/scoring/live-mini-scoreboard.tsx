@@ -14,6 +14,8 @@ interface LiveMiniScoreboardProps {
   teamMap: Map<number, PublicTeam>;
   scorecardData?: PublicScorecardResponse | null;
   streamUrl?: string | null;
+  /** Organizers set the link above the scoreboard, so the public placeholder stays off. */
+  hideMissingStreamHint?: boolean;
   tournamentPlayers?: Array<{ id: number; name: string }>;
 }
 
@@ -28,6 +30,7 @@ export function LiveMiniScoreboard({
   teamMap,
   scorecardData,
   streamUrl,
+  hideMissingStreamHint = false,
   tournamentPlayers,
 }: LiveMiniScoreboardProps) {
   const state = (liveDisplay?.state as CricketScoreboardState | null) ?? null;
@@ -361,7 +364,7 @@ export function LiveMiniScoreboard({
               <CircleDot className="h-3 w-3 animate-ping text-white" />
               Watch Live Stream
             </button>
-          ) : (
+          ) : hideMissingStreamHint ? null : (
             <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/50">
               <Tv className="h-3 w-3 text-white/40 shrink-0" />
               Stream link not provided by organizer yet

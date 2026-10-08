@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FanLiveStreamEditor } from "@/components/scoring/fan-live-stream-editor";
 
 interface EssentialLinkItem {
   id: string;
@@ -399,6 +400,8 @@ export default function CricketLinksPage() {
       />
 
       <div className="max-w-5xl mx-auto px-3 sm:px-6 pt-6 pb-16 space-y-6">
+        <FanLiveStreamEditor tournamentId={tournamentId} />
+
         {/* Core Link Cards */}
         <div className="space-y-4">
           {linkItems.map((item) => (
