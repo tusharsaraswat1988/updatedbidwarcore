@@ -388,7 +388,7 @@ export default function ScoringPublicPage() {
                 <div>
                   <h2 className={cricketSectionTitleClass}>Standings & Tournament Ladder</h2>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Qualification race, NRR & championship playoff bracket
+                    Points percentage, net run rate, and the playoff bracket
                   </p>
                 </div>
 

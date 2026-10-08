@@ -295,6 +295,7 @@ export default function ScoringMatchListPage() {
     try {
       await deleteScoringMatch(tournamentId, matchId);
       await refetch();
+      await queryClient.invalidateQueries({ queryKey: ["scoring-fixtures", tournamentId] });
       toast({ title: "Match deleted successfully" });
     } catch (e) {
       toast({

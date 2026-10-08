@@ -770,7 +770,12 @@ export function SportsShell({
             />
           )}
           {noPadding ? (
-            <div className="flex-1 overflow-y-auto z-0 relative flex flex-col min-h-0">
+            <div
+              className={cn(
+                "flex-1 z-0 relative flex flex-col min-h-0",
+                themeVariant === "console" ? "overflow-hidden" : "overflow-y-auto",
+              )}
+            >
               {scoringDisabled ? <SportsUnavailableView /> : children}
             </div>
           ) : (

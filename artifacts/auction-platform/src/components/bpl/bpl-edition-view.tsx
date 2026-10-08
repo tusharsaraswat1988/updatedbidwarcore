@@ -22,7 +22,83 @@ import { cn } from "@/lib/utils";
 import type {
   BplEdition,
   BplEditionSponsor,
+  BplMatchScore,
+  BplPublicMatch,
+  BplPublicTeam,
 } from "@/lib/bpl-api";
+
+const TOURNAMENT_STAGE_LABELS: Record<string, string> = {
+  draft: "Draft",
+  setup: "Setup",
+  draw_ready: "Draw Ready",
+  match_scheduling: "Match Scheduling",
+  ready_to_start: "Ready To Start",
+  live: "Live",
+  completed: "Completed",
+  archived: "Archived",
+};
+
+function formatStage(status?: string | null): string {
+  if (!status) return "Scheduled";
+  const key = status.trim().toLowerCase();
+  return TOURNAMENT_STAGE_LABELS[key] ?? key.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatEditionDates(start?: string | null, end?: string | null): string {
+  if (!start) return "Dates TBA";
+  const parse = (value: string) => {
+    const date = new Date(`${value.slice(0, 10)}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+  const startDate = parse(start);
+  const endDate = end ? parse(end) : null;
+  if (!startDate) return start;
+  const day = (date: Date) => date.toLocaleDateString("en-GB", { day: "numeric" });
+  const monthYear = (date: Date) => date.toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  if (!endDate || startDate.getTime() === endDate.getTime()) {
+    return startDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  }
+  if (startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()) {
+    return `${day(startDate)}–${day(endDate)} ${monthYear(startDate)}`;
+  }
+  const short = (date: Date) => date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  if (startDate.getFullYear() === endDate.getFullYear()) {
+    return `${short(startDate)} – ${day(endDate)} ${monthYear(endDate)}`;
+  }
+  return `${startDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} – ${endDate.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`;
+}
+
+function publicRoundName(roundName?: string | null, matchLabel?: string | null): string {
+  const raw = (roundName || matchLabel || "Match day").trim();
+  const cleaned = raw
+    .replace(/bidwar\s+premier\s+league/gi, "")
+    .replace(/^[\s·•\-|–—]+/, "")
+    .replace(/[\s·•\-|–—]+$/, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return cleaned || "Match day";
+}
+
+function titleCaseSport(sport?: string | null): string {
+  if (!sport) return "Multi-sport";
+  return sport.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function teamDivision(name: string): "Junior" | "Senior" | null {
+  if (/\bjunior\b/i.test(name)) return "Junior";
+  if (/\bsenior\b/i.test(name)) return "Senior";
+  return null;
+}
+
+function inningsForTeam(score: BplMatchScore | null | undefined, teamId: number) {
+  return score?.innings.filter((innings) => innings.battingTeamId === teamId) ?? [];
+}
+
+function isBattingNow(score: BplMatchScore | null | undefined, teamId: number): boolean {
+  const innings = score?.innings ?? [];
+  if (innings.length === 0) return false;
+  return innings[innings.length - 1]?.battingTeamId === teamId;
+}
 
 interface BplEditionViewProps {
   edition: BplEdition;
@@ -35,9 +111,10 @@ export function BplEditionView({
   allEditions = [],
   isSpecificEditionRoute = false,
 }: BplEditionViewProps) {
-  const isLive = edition.status === "LIVE";
-  const isUpcoming = edition.status === "UPCOMING";
-  const isCompleted = edition.status === "COMPLETED";
+  const matchIsLive = Boolean(edition.liveMatch);
+  const isLive = matchIsLive || edition.status === "LIVE";
+  const isUpcoming = edition.status === "UPCOMING" && !matchIsLive;
+  const isCompleted = edition.status === "COMPLETED" && !matchIsLive;
 
   // Group sponsors by category hierarchy
   const sponsorsByCategory = useMemo(() => {
@@ -57,14 +134,49 @@ export function BplEditionView({
     return allEditions.filter((e) => e.id !== edition.id);
   }, [allEditions, edition.id]);
 
-  // Formatted date string
-  const formattedDates = useMemo(() => {
-    if (!edition.startDate) return "Dates TBA";
-    if (edition.startDate === edition.endDate || !edition.endDate) {
-      return edition.startDate;
+  const formattedDates = useMemo(
+    () => formatEditionDates(edition.startDate, edition.endDate),
+    [edition.startDate, edition.endDate],
+  );
+
+  const tournamentId = edition.linkedTournament?.id ?? edition.linkedTournamentId ?? null;
+
+  const matchStats = useMemo(() => {
+    const snap = edition.tournamentSnapshot;
+    const matches = snap?.matchesCount ?? 0;
+    const fixtures = snap?.fixturesCount ?? 0;
+    const completed = snap?.completedMatchesCount ?? 0;
+    const live = snap?.liveMatchesCount ?? (edition.liveMatch ? 1 : 0);
+    const scheduled = snap?.scheduledMatchesCount ?? 0;
+    const detail = [
+      completed > 0 ? `${completed} played` : null,
+      live > 0 ? `${live} live` : null,
+      scheduled > 0 ? `${scheduled} upcoming` : null,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return {
+      total: Math.max(fixtures, matches),
+      label: fixtures > matches ? "Fixtures" : "Matches",
+      detail: detail || "In this edition",
+    };
+  }, [edition.liveMatch, edition.tournamentSnapshot]);
+
+  const teamGroups = useMemo(() => {
+    const teams = edition.teams ?? [];
+    const junior = teams.filter((team) => teamDivision(team.name) === "Junior");
+    const senior = teams.filter((team) => teamDivision(team.name) === "Senior");
+    if (junior.length === 0 || senior.length === 0) {
+      return [{ label: null as string | null, teams }];
     }
-    return `${edition.startDate} – ${edition.endDate}`;
-  }, [edition.startDate, edition.endDate]);
+    const rest = teams.filter((team) => teamDivision(team.name) == null);
+    const groups = [
+      { label: "Senior", teams: senior },
+      { label: "Junior", teams: junior },
+    ];
+    if (rest.length > 0) groups.push({ label: "Teams", teams: rest });
+    return groups;
+  }, [edition.teams]);
 
   const hasStreamUrl = Boolean(
     edition.liveStreamUrl && /^https?:\/\/.+/i.test(edition.liveStreamUrl),
@@ -74,7 +186,10 @@ export function BplEditionView({
   );
 
   return (
-    <div className="space-y-10 sm:space-y-14">
+    <div className={cn("space-y-10 sm:space-y-14", edition.liveMatch && "pb-24 md:pb-0")}>
+      <BplMatchActivity edition={edition} />
+      {edition.liveMatch ? <LiveScoreDock match={edition.liveMatch} /> : null}
+
       {/* ─────────────────────────────────────────────────────────────────
           1. BPL HERO (P1.1, P1.2) - Championship Stadium Navy Theme
          ───────────────────────────────────────────────────────────────── */}
@@ -235,156 +350,6 @@ export function BplEditionView({
       </section>
 
       {/* ─────────────────────────────────────────────────────────────────
-          2. LIVE / UPCOMING MATCH ACTIVITY (P1.4)
-         ───────────────────────────────────────────────────────────────── */}
-      {edition.liveMatch ? (
-        <section className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-[#0d2248]/90 to-[#091836]/90 p-6 sm:p-8 shadow-xl">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="space-y-3 text-center md:text-left">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-black uppercase tracking-wider">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-                Live Match In Progress
-              </div>
-              <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white">
-                {edition.liveMatch.roundName || edition.liveMatch.matchLabel || "Match Day Action"}
-              </h2>
-              {edition.liveMatch.venue && (
-                <p className="text-xs text-blue-200/80 flex items-center justify-center md:justify-start gap-1">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-400" />
-                  {edition.liveMatch.venue}
-                </p>
-              )}
-            </div>
-
-            {/* Scoreboard Teams Matchup */}
-            <div className="flex items-center gap-4 sm:gap-6 bg-[#0a1835]/90 px-6 py-4 rounded-xl border border-blue-500/25 shadow-md">
-              <div className="flex flex-col items-center">
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm text-white shadow"
-                  style={{
-                    backgroundColor:
-                      edition.liveMatch.homeTeam.color || "#ea580c",
-                  }}
-                >
-                  {edition.liveMatch.homeTeam.shortCode || "T1"}
-                </div>
-                <span className="text-xs font-bold text-white mt-1 max-w-[90px] truncate text-center">
-                  {edition.liveMatch.homeTeam.name}
-                </span>
-              </div>
-
-              <div className="text-xs font-mono font-black text-blue-400 uppercase">
-                VS
-              </div>
-
-              <div className="flex flex-col items-center">
-                <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center font-black text-sm text-white shadow"
-                  style={{
-                    backgroundColor:
-                      edition.liveMatch.awayTeam.color || "#3b82f6",
-                  }}
-                >
-                  {edition.liveMatch.awayTeam.shortCode || "T2"}
-                </div>
-                <span className="text-xs font-bold text-white mt-1 max-w-[90px] truncate text-center">
-                  {edition.liveMatch.awayTeam.name}
-                </span>
-              </div>
-            </div>
-
-            {/* Action CTA */}
-            <div>
-              <Link href={edition.liveMatch.liveScoreRoute || `/tournament/${edition.linkedTournamentId}/score-display`}>
-                <Button className="gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 shadow-lg shadow-emerald-600/25">
-                  <Radio className="w-4 h-4 animate-pulse" />
-                  Watch Live Score
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
-      ) : edition.nextMatch ? (
-        <section className="rounded-2xl border border-blue-500/25 bg-gradient-to-r from-[#0d2249]/85 via-[#0a1a3b]/85 to-[#07142d]/85 p-6 sm:p-8 shadow-xl backdrop-blur-sm">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="space-y-2 text-center md:text-left">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                Next Scheduled Match
-              </span>
-              <h2 className="text-lg sm:text-xl font-black uppercase text-white">
-                {edition.nextMatch.roundName || edition.nextMatch.matchLabel || "Upcoming Fixture"}
-              </h2>
-              {edition.nextMatch.scheduledAt && (
-                <p className="text-xs text-blue-200/80 flex items-center justify-center md:justify-start gap-1">
-                  <Clock className="w-3.5 h-3.5 text-amber-400" />
-                  {new Date(edition.nextMatch.scheduledAt).toLocaleString("en-US", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center gap-4 bg-[#08152e]/90 px-5 py-3 rounded-xl border border-blue-400/20 shadow-sm">
-              <span className="text-sm font-bold text-white">
-                {edition.nextMatch.homeTeam.name}
-              </span>
-              <span className="text-xs font-mono font-bold text-amber-400/80">VS</span>
-              <span className="text-sm font-bold text-white">
-                {edition.nextMatch.awayTeam.name}
-              </span>
-            </div>
-
-            {edition.linkedTournament && (
-              <Link href={`/tournament/${edition.linkedTournament.id}/cricket/matches`}>
-                <Button variant="outline" size="sm" className="gap-1.5 border-blue-400/30 bg-[#0f2452]/60 hover:bg-[#16336e] text-blue-100 shadow-sm">
-                  Tournament Schedule
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Button>
-              </Link>
-            )}
-          </div>
-        </section>
-      ) : edition.recentMatch ? (
-        <section className="rounded-2xl border border-blue-500/25 bg-gradient-to-r from-[#0d2249]/85 via-[#0a1a3b]/85 to-[#07142d]/85 p-6 sm:p-8 shadow-xl backdrop-blur-sm">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="space-y-2 text-center md:text-left">
-              <span className="text-xs font-bold uppercase tracking-wider text-blue-300">
-                Recent Result
-              </span>
-              <h2 className="text-lg sm:text-xl font-black uppercase text-white">
-                {edition.recentMatch.roundName || "Match Result"}
-              </h2>
-              {edition.recentMatch.resultSummary && (
-                <p className="text-xs text-emerald-400 font-semibold">
-                  {edition.recentMatch.resultSummary}
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center gap-4 bg-[#08152e]/90 px-5 py-3 rounded-xl border border-blue-400/20 shadow-sm">
-              <span className="text-sm font-bold text-white">
-                {edition.recentMatch.homeTeam.name}
-              </span>
-              <span className="text-xs font-mono font-bold text-blue-400">VS</span>
-              <span className="text-sm font-bold text-white">
-                {edition.recentMatch.awayTeam.name}
-              </span>
-            </div>
-
-            {edition.linkedTournament && (
-              <Link href={`/tournament/${edition.linkedTournament.id}/cricket/matches`}>
-                <Button variant="outline" size="sm" className="gap-1.5 border-blue-400/30 bg-[#0f2452]/60 hover:bg-[#16336e] text-blue-100 shadow-sm">
-                  Full Scorecard
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Button>
-              </Link>
-            )}
-          </div>
-        </section>
-      ) : null}
-
-      {/* ─────────────────────────────────────────────────────────────────
           3. TOURNAMENT SNAPSHOT (P1.3)
          ───────────────────────────────────────────────────────────────── */}
       <section className="space-y-4">
@@ -410,19 +375,20 @@ export function BplEditionView({
             <CardContent className="p-4 sm:p-5 flex flex-col items-center sm:items-start">
               <Calendar className="w-5 h-5 text-amber-400 mb-2" />
               <div className="text-2xl sm:text-3xl font-black text-white font-mono">
-                {edition.tournamentSnapshot?.matchesCount ?? 0}
+                {matchStats.total}
               </div>
               <div className="text-xs font-medium text-blue-200/80 mt-0.5">
-                Total Matches
+                {matchStats.label}
               </div>
+              <div className="text-[11px] text-emerald-300/90 mt-1">{matchStats.detail}</div>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-b from-[#0e2249]/70 to-[#091733]/70 border-blue-500/20 shadow-md backdrop-blur-sm">
             <CardContent className="p-4 sm:p-5 flex flex-col items-center sm:items-start">
               <Shield className="w-5 h-5 text-blue-400 mb-2" />
-              <div className="text-base sm:text-lg font-black text-white uppercase truncate max-w-full">
-                {edition.linkedTournament?.sport || "Multi-Sport"}
+              <div className="text-base sm:text-lg font-black text-white">
+                {titleCaseSport(edition.linkedTournament?.sport)}
               </div>
               <div className="text-xs font-medium text-blue-200/80 mt-0.5">
                 Competition Sport
@@ -433,8 +399,8 @@ export function BplEditionView({
           <Card className="bg-gradient-to-b from-[#0e2249]/70 to-[#091733]/70 border-blue-500/20 shadow-md backdrop-blur-sm">
             <CardContent className="p-4 sm:p-5 flex flex-col items-center sm:items-start">
               <Trophy className="w-5 h-5 text-emerald-400 mb-2" />
-              <div className="text-base sm:text-lg font-black text-white uppercase truncate max-w-full">
-                {edition.linkedTournament?.status || edition.status}
+              <div className="text-base sm:text-lg font-black text-white">
+                {edition.liveMatch ? "Live" : formatStage(edition.linkedTournament?.status || edition.status)}
               </div>
               <div className="text-xs font-medium text-blue-200/80 mt-0.5">
                 Tournament Stage
@@ -444,152 +410,9 @@ export function BplEditionView({
         </div>
       </section>
 
-      {/* ─────────────────────────────────────────────────────────────────
-          4. PARTICIPATING TEAMS (P1.5)
-         ───────────────────────────────────────────────────────────────── */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-black uppercase tracking-widest text-blue-200 flex items-center gap-2">
-            <Users className="w-4 h-4 text-amber-400" />
-            Participating Teams
-          </h2>
-          {edition.teams && edition.teams.length > 0 && (
-            <span className="text-xs text-amber-300 font-mono font-semibold">
-              {edition.teams.length} Teams
-            </span>
-          )}
-        </div>
+      <BplStandings edition={edition} />
 
-        {edition.teams && edition.teams.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4">
-            {edition.teams.map((team) => (
-              <div
-                key={team.id}
-                className="group relative flex items-center gap-3 p-3.5 rounded-xl border border-blue-500/20 bg-gradient-to-b from-[#0e2249]/70 to-[#091733]/70 hover:bg-[#132854]/80 hover:border-amber-400/40 transition-all shadow-md"
-              >
-                {/* Team Color Strip & Badge */}
-                <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center font-black text-xs text-white shrink-0 shadow overflow-hidden"
-                  style={{ backgroundColor: team.color || "#ea580c" }}
-                >
-                  {team.logoUrl ? (
-                    <img
-                      src={team.logoUrl}
-                      alt={team.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span>{team.shortCode || team.name.slice(0, 2).toUpperCase()}</span>
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-bold text-white truncate group-hover:text-amber-300 transition-colors">
-                    {team.name}
-                  </h3>
-                  <p className="text-[11px] font-mono font-medium text-blue-200/70 uppercase">
-                    {team.shortCode || "TEAM"}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-blue-500/20 bg-[#0a1838]/40 p-8 text-center">
-            <Users className="w-8 h-8 text-blue-400/50 mx-auto mb-2" />
-            <p className="text-sm text-slate-300 font-medium">
-              Participating teams will appear once confirmed in the tournament engine.
-            </p>
-          </div>
-        )}
-      </section>
-
-      {/* ─────────────────────────────────────────────────────────────────
-          5. POINTS TABLE / STANDINGS PREVIEW (P1.6)
-         ───────────────────────────────────────────────────────────────── */}
-      {edition.standings && edition.standings.length > 0 ? (
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-black uppercase tracking-widest text-blue-200 flex items-center gap-2">
-              <Medal className="w-4 h-4 text-amber-400" />
-              Points Table Preview
-            </h2>
-            {edition.linkedTournament && (
-              <Link href={`/tournament/${edition.linkedTournament.id}/cricket/standings`}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs text-amber-400 hover:text-amber-300 gap-1 p-0 h-auto font-bold"
-                >
-                  View Full Standings
-                  <ChevronRight className="w-3.5 h-3.5" />
-                </Button>
-              </Link>
-            )}
-          </div>
-
-          <div className="overflow-x-auto rounded-xl border border-blue-500/20 bg-[#0b1a3a]/70 shadow-lg backdrop-blur-sm">
-            <table className="w-full text-xs sm:text-sm">
-              <thead>
-                <tr className="border-b border-blue-500/25 bg-[#0f2450]/80 text-left uppercase text-[11px] font-bold text-blue-200">
-                  <th className="px-4 py-3">#</th>
-                  <th className="px-4 py-3">Team</th>
-                  <th className="px-4 py-3 text-center">P</th>
-                  <th className="px-4 py-3 text-center">W</th>
-                  <th className="px-4 py-3 text-center">L</th>
-                  <th className="px-4 py-3 text-center">Pts</th>
-                  <th className="px-4 py-3 text-right">Pts %</th>
-                  <th className="px-4 py-3 text-right">NRR</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-blue-500/15 font-medium">
-                {edition.standings.slice(0, 6).map((row, idx) => (
-                  <tr
-                    key={row.teamId}
-                    className={cn(
-                      "hover:bg-blue-500/10 transition-colors",
-                      idx === 0 && "bg-amber-500/10",
-                    )}
-                  >
-                    <td className="px-4 py-2.5 text-blue-300 font-mono">
-                      {idx + 1}
-                    </td>
-                    <td className="px-4 py-2.5 text-white font-bold">
-                      <div className="flex items-center gap-2">
-                        {row.color && (
-                          <span
-                            className="w-2 h-4 rounded-sm shrink-0"
-                            style={{ backgroundColor: row.color }}
-                          />
-                        )}
-                        <span>{row.teamName}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-2.5 text-center font-mono text-slate-200">
-                      {row.played}
-                    </td>
-                    <td className="px-4 py-2.5 text-center font-mono text-emerald-400">
-                      {row.won}
-                    </td>
-                    <td className="px-4 py-2.5 text-center font-mono text-rose-400">
-                      {row.lost}
-                    </td>
-                    <td className="px-4 py-2.5 text-center font-mono font-black text-amber-400">
-                      {row.points}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-blue-100">
-                      {formatPointsPercentage(row.pointsPercentage)}
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-blue-200">
-                      {formatNetRunRate(row.netRunRate)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
+      <BplTeams edition={edition} tournamentId={tournamentId} groups={teamGroups} />
 
       {/* ─────────────────────────────────────────────────────────────────
           6. SPONSORS SHOWCASE & INTERACTIVE SLIDESHOW (Issue 2 & Issue 4)
@@ -643,25 +466,39 @@ export function BplEditionView({
             </div>
           )}
 
-          {/* Associate Partners Slideshow Marquee */}
           {sponsorsByCategory.associates.length > 0 && (
             <div className="relative z-10">
-              <SponsorSlideshow
-                title="Associate Partners"
-                subtitle="Official League Partners & Supporters"
-                sponsors={sponsorsByCategory.associates}
-              />
+              {sponsorsByCategory.associates.length <= 6 ? (
+                <StaticSponsorRow
+                  title="Associate Partners"
+                  subtitle="Official League Partners & Supporters"
+                  sponsors={sponsorsByCategory.associates}
+                />
+              ) : (
+                <SponsorSlideshow
+                  title="Associate Partners"
+                  subtitle="Official League Partners & Supporters"
+                  sponsors={sponsorsByCategory.associates}
+                />
+              )}
             </div>
           )}
 
-          {/* Media Partners Slideshow Marquee */}
           {sponsorsByCategory.media.length > 0 && (
             <div className="relative z-10">
-              <SponsorSlideshow
-                title="Media Partners"
-                subtitle="Broadcast & Media Network"
-                sponsors={sponsorsByCategory.media}
-              />
+              {sponsorsByCategory.media.length <= 6 ? (
+                <StaticSponsorRow
+                  title="Media Partners"
+                  subtitle="Broadcast & Media Network"
+                  sponsors={sponsorsByCategory.media}
+                />
+              ) : (
+                <SponsorSlideshow
+                  title="Media Partners"
+                  subtitle="Broadcast & Media Network"
+                  sponsors={sponsorsByCategory.media}
+                />
+              )}
             </div>
           )}
         </section>
@@ -705,7 +542,7 @@ export function BplEditionView({
                       )}
                     </div>
                     <p className="text-xs text-blue-200/70 font-mono">
-                      {ed.year} · {ed.status}
+                      {ed.year} · {formatStage(ed.status)}
                     </p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-blue-300 shrink-0" />
@@ -723,6 +560,399 @@ export function BplEditionView({
  * Interactive Auto-Scrolling Slideshow Carousel for Sponsors
  * Continuous marquee with pause-on-hover, arrow controls, and clean elevated cards.
  */
+function TeamMark({ team, size = "md" }: { team: BplPublicTeam; size?: "sm" | "md" }) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg flex items-center justify-center font-black text-white shrink-0 shadow overflow-hidden",
+        size === "sm" ? "w-8 h-8 text-[10px]" : "w-11 h-11 text-xs",
+      )}
+      style={{ backgroundColor: team.color || "#ea580c" }}
+    >
+      {team.logoUrl ? (
+        <img src={team.logoUrl} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <span>{team.shortCode || team.name.slice(0, 2).toUpperCase()}</span>
+      )}
+    </div>
+  );
+}
+
+function ScoreFigures({ score, teamId }: { score?: BplMatchScore | null; teamId: number }) {
+  const rows = inningsForTeam(score, teamId);
+  if (rows.length === 0) {
+    return <span className="text-xs font-semibold text-blue-200/70">Yet to bat</span>;
+  }
+  const latest = rows[rows.length - 1];
+  return (
+    <div className="text-right shrink-0">
+      <div className="text-2xl sm:text-3xl font-black font-mono text-white leading-none tabular-nums">
+        {latest.runs}/{latest.wickets}
+      </div>
+      <div className="text-[11px] font-mono text-blue-200/80 mt-1">{latest.overs} ov</div>
+    </div>
+  );
+}
+
+function TeamScoreRow({
+  team,
+  score,
+  batting,
+}: {
+  team: BplPublicTeam;
+  score?: BplMatchScore | null;
+  batting: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-xl border px-3 py-2.5",
+        batting ? "border-emerald-400/40 bg-emerald-500/10" : "border-blue-500/20 bg-[#0a1835]/80",
+      )}
+    >
+      <TeamMark team={team} />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm sm:text-base font-bold text-white leading-snug line-clamp-2">{team.name}</p>
+        <p className="text-[11px] font-mono text-blue-200/70">{team.shortCode}</p>
+      </div>
+      {batting && (
+        <span className="hidden sm:inline text-[10px] font-black uppercase tracking-wider text-emerald-300">
+          Batting
+        </span>
+      )}
+      <ScoreFigures score={score} teamId={team.id} />
+    </div>
+  );
+}
+
+function BplMatchActivity({ edition }: { edition: BplEdition }) {
+  if (edition.liveMatch) {
+    const match = edition.liveMatch;
+    const innings = match.score?.innings ?? [];
+    const battingId = innings.length > 0 ? innings[innings.length - 1]?.battingTeamId : null;
+    const target = match.score?.target;
+    const showTarget = target != null && (match.score?.currentInnings ?? innings.length) > 1;
+    return (
+      <section
+        aria-live="polite"
+        className="relative overflow-hidden rounded-2xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/50 via-[#0d2248]/95 to-[#091836]/95 p-4 sm:p-6 shadow-xl lg:sticky lg:top-20 lg:z-30"
+      >
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
+          <div className="space-y-2 lg:max-w-xs">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-black uppercase tracking-wider">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
+              Live Match In Progress
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              {publicRoundName(match.roundName, match.matchLabel)}
+            </h2>
+            {match.venue && (
+              <p className="text-xs text-blue-200/80 flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                {match.venue}
+              </p>
+            )}
+            <p className="text-[11px] text-blue-200/60">Scores refresh automatically</p>
+          </div>
+
+          <div className="flex-1 space-y-2 min-w-0">
+            <TeamScoreRow team={match.homeTeam} score={match.score} batting={battingId === match.homeTeam.id} />
+            <TeamScoreRow team={match.awayTeam} score={match.score} batting={battingId === match.awayTeam.id} />
+            {showTarget && (
+              <p className="text-xs font-bold text-amber-300 text-right pr-1">Target {target}</p>
+            )}
+          </div>
+
+          <Link href={match.liveScoreRoute || `/tournament/${edition.linkedTournamentId}/score-display`}>
+            <Button className="w-full lg:w-auto gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 shadow-lg shadow-emerald-600/25">
+              <Radio className="w-4 h-4 animate-pulse" />
+              Watch Live Score
+            </Button>
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  if (edition.nextMatch) {
+    return (
+      <section className="rounded-2xl border border-blue-500/25 bg-gradient-to-r from-[#0d2249]/85 via-[#0a1a3b]/85 to-[#07142d]/85 p-6 sm:p-8 shadow-xl backdrop-blur-sm">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="space-y-2 text-center md:text-left">
+            <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
+              Next Scheduled Match
+            </span>
+            <h2 className="text-lg sm:text-xl font-black text-white">
+              {publicRoundName(edition.nextMatch.roundName, edition.nextMatch.matchLabel)}
+            </h2>
+            {edition.nextMatch.scheduledAt && (
+              <p className="text-xs text-blue-200/80 flex items-center justify-center md:justify-start gap-1">
+                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                {new Date(edition.nextMatch.scheduledAt).toLocaleString("en-IN", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 bg-[#08152e]/90 px-5 py-3 rounded-xl border border-blue-400/20 shadow-sm text-center">
+            <span className="text-sm font-bold text-white max-w-[10rem] line-clamp-2">{edition.nextMatch.homeTeam.name}</span>
+            <span className="text-xs font-mono font-bold text-amber-400/80">VS</span>
+            <span className="text-sm font-bold text-white max-w-[10rem] line-clamp-2">{edition.nextMatch.awayTeam.name}</span>
+          </div>
+          {edition.linkedTournament && (
+            <Link href={`/tournament/${edition.linkedTournament.id}/cricket/matches`}>
+              <Button variant="outline" size="sm" className="gap-1.5 border-blue-400/30 bg-[#0f2452]/60 hover:bg-[#16336e] text-blue-100 shadow-sm">
+                Tournament Schedule
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+            </Link>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  if (edition.recentMatch) {
+    return (
+      <section className="rounded-2xl border border-blue-500/25 bg-gradient-to-r from-[#0d2249]/85 via-[#0a1a3b]/85 to-[#07142d]/85 p-6 sm:p-8 shadow-xl backdrop-blur-sm">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="space-y-2 text-center md:text-left">
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-300">
+              Recent Result
+            </span>
+            <h2 className="text-lg sm:text-xl font-black text-white">
+              {publicRoundName(edition.recentMatch.roundName, "Match Result")}
+            </h2>
+            {edition.recentMatch.resultSummary && (
+              <p className="text-xs text-emerald-400 font-semibold">{edition.recentMatch.resultSummary}</p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 bg-[#08152e]/90 px-5 py-3 rounded-xl border border-blue-400/20 shadow-sm text-center">
+            <span className="text-sm font-bold text-white max-w-[10rem] line-clamp-2">{edition.recentMatch.homeTeam.name}</span>
+            <span className="text-xs font-mono font-bold text-blue-400">VS</span>
+            <span className="text-sm font-bold text-white max-w-[10rem] line-clamp-2">{edition.recentMatch.awayTeam.name}</span>
+          </div>
+          {edition.linkedTournament && (
+            <Link href={`/tournament/${edition.linkedTournament.id}/cricket/matches`}>
+              <Button variant="outline" size="sm" className="gap-1.5 border-blue-400/30 bg-[#0f2452]/60 hover:bg-[#16336e] text-blue-100 shadow-sm">
+                Full Scorecard
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Button>
+            </Link>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  return null;
+}
+
+function LiveScoreDock({ match }: { match: BplPublicMatch }) {
+  const home = inningsForTeam(match.score, match.homeTeam.id);
+  const away = inningsForTeam(match.score, match.awayTeam.id);
+  const homeScore = home.length > 0 ? `${home[home.length - 1].runs}/${home[home.length - 1].wickets}` : "–";
+  const awayScore = away.length > 0 ? `${away[away.length - 1].runs}/${away[away.length - 1].wickets}` : "–";
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-emerald-400/30 bg-[#06101f]/95 backdrop-blur-md px-3 py-2 md:hidden pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <Link
+        href={match.liveScoreRoute || `/score-display/${match.tournamentId ?? ""}`}
+        className="flex items-center justify-between gap-3"
+      >
+        <div className="min-w-0">
+          <p className="text-[10px] font-black uppercase tracking-wider text-emerald-300">Live</p>
+          <p className="text-xs font-bold text-white truncate">
+            {match.homeTeam.shortCode} {homeScore}
+            <span className="text-blue-300 mx-1">vs</span>
+            {match.awayTeam.shortCode} {awayScore}
+          </p>
+        </div>
+        <span className="shrink-0 text-xs font-bold text-emerald-300">Watch Live Score</span>
+      </Link>
+    </div>
+  );
+}
+
+function BplStandings({ edition }: { edition: BplEdition }) {
+  const hasRows = Boolean(edition.standings && edition.standings.length > 0);
+  if (!hasRows && !edition.linkedTournament) return null;
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-xs font-black uppercase tracking-widest text-blue-200 flex items-center gap-2">
+          <Medal className="w-4 h-4 text-amber-400" />
+          Points Table Preview
+        </h2>
+        {edition.linkedTournament && (
+          <Link href={`/tournament/${edition.linkedTournament.id}/cricket/standings`}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-amber-400 hover:text-amber-300 gap-1 p-0 h-auto font-bold"
+            >
+              View Full Standings
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </Link>
+        )}
+      </div>
+
+      {edition.standings && edition.standings.length > 0 ? (
+        <div className="overflow-x-auto rounded-xl border border-blue-500/20 bg-[#0b1a3a]/70 shadow-lg backdrop-blur-sm">
+          <table className="w-full text-xs sm:text-sm">
+            <thead>
+              <tr className="border-b border-blue-500/25 bg-[#0f2450]/80 text-left uppercase text-[11px] font-bold text-blue-200">
+                <th className="px-4 py-3">#</th>
+                <th className="px-4 py-3">Team</th>
+                <th className="px-4 py-3 text-center">P</th>
+                <th className="px-4 py-3 text-center">W</th>
+                <th className="px-4 py-3 text-center">L</th>
+                <th className="px-4 py-3 text-center">Pts</th>
+                <th className="px-4 py-3 text-right">Pts %</th>
+                <th className="px-4 py-3 text-right">NRR</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-blue-500/15 font-medium">
+              {edition.standings.slice(0, 8).map((row, idx) => (
+                <tr
+                  key={`${row.drawId ?? "d"}-${row.teamId}`}
+                  className={cn("hover:bg-blue-500/10 transition-colors", idx === 0 && "bg-amber-500/10")}
+                >
+                  <td className="px-4 py-2.5 text-blue-300 font-mono">{idx + 1}</td>
+                  <td className="px-4 py-2.5 text-white font-bold">
+                    <div className="flex items-center gap-2 min-w-[8rem]">
+                      {row.color && (
+                        <span className="w-2 h-4 rounded-sm shrink-0" style={{ backgroundColor: row.color }} />
+                      )}
+                      <span className="line-clamp-2">{row.teamName}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-center font-mono text-slate-200">{row.played}</td>
+                  <td className="px-4 py-2.5 text-center font-mono text-emerald-400">{row.won}</td>
+                  <td className="px-4 py-2.5 text-center font-mono text-rose-400">{row.lost}</td>
+                  <td className="px-4 py-2.5 text-center font-mono font-black text-amber-400">{row.points}</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-blue-100">
+                    {formatPointsPercentage(row.pointsPercentage)}
+                  </td>
+                  <td className="px-4 py-2.5 text-right font-mono text-blue-200">
+                    {formatNetRunRate(row.netRunRate)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-blue-500/20 bg-[#0a1838]/40 p-6 text-center">
+          <p className="text-sm text-slate-300">The points table updates when a match is completed.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function BplTeams({
+  edition,
+  tournamentId,
+  groups,
+}: {
+  edition: BplEdition;
+  tournamentId: number | null;
+  groups: { label: string | null; teams: BplPublicTeam[] }[];
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xs font-black uppercase tracking-widest text-blue-200 flex items-center gap-2">
+          <Users className="w-4 h-4 text-amber-400" />
+          Participating Teams
+        </h2>
+        {edition.teams && edition.teams.length > 0 && (
+          <span className="text-xs text-amber-300 font-mono font-semibold">{edition.teams.length} Teams</span>
+        )}
+      </div>
+
+      {edition.teams && edition.teams.length > 0 ? (
+        <div className="space-y-5">
+          {groups.map((group) => (
+            <div key={group.label ?? "all"} className="space-y-3">
+              {group.label && (
+                <h3 className="text-[11px] font-black uppercase tracking-widest text-amber-300">{group.label}</h3>
+              )}
+              <div className="grid grid-cols-1 min-[420px]:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {group.teams.map((team) => {
+                  const card = (
+                    <>
+                      <TeamMark team={team} />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-bold text-white leading-snug line-clamp-2 group-hover:text-amber-300 transition-colors">
+                          {team.name}
+                        </h3>
+                        <p className="text-[11px] font-mono font-medium text-blue-200/70 uppercase">
+                          {team.shortCode || "TEAM"}
+                        </p>
+                      </div>
+                    </>
+                  );
+                  const className =
+                    "group relative flex items-center gap-3 p-3.5 rounded-xl border border-blue-500/20 bg-gradient-to-b from-[#0e2249]/70 to-[#091733]/70 hover:bg-[#132854]/80 hover:border-amber-400/40 transition-all shadow-md";
+                  if (!tournamentId) {
+                    return (
+                      <div key={team.id} className={className}>
+                        {card}
+                      </div>
+                    );
+                  }
+                  return (
+                    <Link key={team.id} href={`/tournament/${tournamentId}/cricket/team/${team.id}`} className={className}>
+                      {card}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-dashed border-blue-500/20 bg-[#0a1838]/40 p-8 text-center">
+          <Users className="w-8 h-8 text-blue-400/50 mx-auto mb-2" />
+          <p className="text-sm text-slate-300 font-medium">
+            Participating teams will appear once confirmed in the tournament engine.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function StaticSponsorRow({
+  sponsors,
+  title,
+  subtitle,
+}: {
+  sponsors: BplEditionSponsor[];
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <div className="space-y-3.5">
+      <div className="space-y-0.5 px-1">
+        <h3 className="text-xs font-black uppercase tracking-widest text-blue-200 flex items-center gap-2">
+          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+          {title}
+        </h3>
+        <p className="text-[11px] text-blue-200/70">{subtitle}</p>
+      </div>
+      <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
+        {sponsors.map((sponsor) => (
+          <SponsorLogoCard key={sponsor.id} sponsor={sponsor} size="carousel" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SponsorSlideshow({
   sponsors,
   title,

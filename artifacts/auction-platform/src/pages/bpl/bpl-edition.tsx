@@ -48,7 +48,7 @@ export default function BplEditionPage({ edition: slugOrNum }: { edition: string
 
   useEffect(() => {
     void loadData(true);
-    const timer = window.setInterval(() => void loadData(false), 30_000);
+    const timer = window.setInterval(() => void loadData(false), 10_000);
     return () => window.clearInterval(timer);
   }, [slugOrNum]);
 

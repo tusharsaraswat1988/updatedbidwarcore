@@ -44,10 +44,26 @@ export type BplEditionSponsor = {
 export type BplTournamentSnapshot = {
   teamsCount: number;
   matchesCount: number;
+  fixturesCount?: number;
   completedMatchesCount?: number;
   liveMatchesCount?: number;
+  scheduledMatchesCount?: number;
   sport?: string | null;
   tournamentStatus?: string | null;
+};
+
+export type BplInningsScore = {
+  battingTeamId: number;
+  runs: number;
+  wickets: number;
+  overs: string;
+};
+
+export type BplMatchScore = {
+  innings: BplInningsScore[];
+  target: number | null;
+  currentInnings: number | null;
+  resultText: string | null;
 };
 
 export type BplPublicTeam = {
@@ -73,6 +89,7 @@ export type BplPublicMatch = {
   winnerTeamId?: number | null;
   resultSummary?: string | null;
   liveScoreRoute?: string;
+  score?: BplMatchScore | null;
 };
 
 export type BplPublicStanding = {

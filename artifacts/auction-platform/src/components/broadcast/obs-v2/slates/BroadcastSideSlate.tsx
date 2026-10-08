@@ -39,6 +39,7 @@ import { listFixtures } from "@/lib/scoring-foundation-api";
 import {
   competitionGroupTitle,
   competitionSelectionLabel,
+  formatPointsPercentage,
   parseCompetitionSelection,
   resolveKnockoutStageSelection,
   rowsForCompetitionSelection,
@@ -843,10 +844,11 @@ function StandingsVariant({
         style={{ background: "rgba(18, 22, 32, 0.95)" }}
       >
         <div className="col-span-1 text-center">#</div>
-        <div className="col-span-6 pl-1">TEAM</div>
+        <div className="col-span-4 pl-1">TEAM</div>
         <div className="col-span-1 text-center font-mono">P</div>
         <div className="col-span-1 text-center font-mono">W</div>
         <div className="col-span-1 text-center font-mono">L</div>
+        <div className="col-span-2 text-right font-mono text-[#FFD700]">PTS %</div>
         <div className="col-span-2 text-right font-mono pr-2">PTS</div>
       </div>
 
@@ -874,12 +876,15 @@ function StandingsVariant({
                     {idx + 1}
                   </span>
                 </div>
-                <div className="col-span-6 pl-2 font-bold text-white uppercase truncate">
+                <div className="col-span-4 pl-2 font-bold text-white uppercase truncate">
                   {row.teamName} <span className="text-[#FFD700] font-mono text-[13px] ml-1">({row.shortCode})</span>
                 </div>
                 <div className="col-span-1 text-center font-mono text-slate-300 font-bold">{row.played}</div>
                 <div className="col-span-1 text-center font-mono font-bold text-white">{row.won}</div>
                 <div className="col-span-1 text-center font-mono text-slate-400">{row.lost}</div>
+                <div className="col-span-2 text-right font-mono font-bold text-[#FFD700]">
+                  {formatPointsPercentage(row.pointsPercentage)}
+                </div>
                 <div className="col-span-2 text-right font-mono font-black text-lg text-[#FFD700] pr-2">
                   {row.points}
                 </div>

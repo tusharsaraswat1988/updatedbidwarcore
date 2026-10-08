@@ -12,7 +12,7 @@
  */
 
 import { useMemo } from "react";
-import { formatNetRunRate } from "@workspace/scoring-core/cricket";
+import { formatNetRunRate, formatPointsPercentage } from "@workspace/scoring-core/cricket";
 import { useQuery } from "@tanstack/react-query";
 import { AnimatePresence, motion } from "framer-motion";
 import { getScoringStandings, listScoringMatches, getCricketMasterTeams } from "@/lib/scoring-api";
@@ -496,6 +496,7 @@ export function CricketObsMidOverlays({
                         <th className="py-3.5 px-5 text-center">P</th>
                         <th className="py-3.5 px-5 text-center text-[#06B6D4]">W</th>
                         <th className="py-3.5 px-5 text-center text-[#E11D48]">L</th>
+                        <th className="py-3.5 px-5 text-center text-[#FFD700]">PTS %</th>
                         <th className="py-3.5 px-5 text-center text-white/80">NRR</th>
                         <th className="py-3.5 px-8 text-right text-[#FFD700]">PTS</th>
                       </tr>
@@ -553,6 +554,12 @@ export function CricketObsMidOverlays({
                               {row.lost}
                             </td>
                             <td
+                              className="py-3.5 px-5 text-center tabular-nums text-[#FFD700]"
+                              style={{ fontFamily: BROADCAST_FONTS.mono }}
+                            >
+                              {formatPointsPercentage(row.pointsPercentage)}
+                            </td>
+                            <td
                               className="py-3.5 px-5 text-center tabular-nums text-white/80 font-mono"
                               style={{ fontFamily: BROADCAST_FONTS.mono }}
                             >
@@ -568,7 +575,7 @@ export function CricketObsMidOverlays({
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={7} className="py-12 text-center text-white/50">
+                          <td colSpan={8} className="py-12 text-center text-white/50">
                             No standings data currently calculated.
                           </td>
                         </tr>

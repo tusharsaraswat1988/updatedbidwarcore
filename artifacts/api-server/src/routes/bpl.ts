@@ -8,6 +8,7 @@ import {
   scoringMatchesTable,
   scoringStandingsTable,
   scoringFixturesTable,
+  scoringSessionsTable,
   type BplSponsorCategory,
 } from "@workspace/db";
 import { eq, and, ne, desc, asc, inArray, sql } from "drizzle-orm";
@@ -85,6 +86,35 @@ const updateEditionSchema = editionBaseSchema.partial().refine(
     path: ["endDate"],
   },
 );
+
+function readPublicScore(summaryJson: unknown) {
+  if (!summaryJson || typeof summaryJson !== "object") return null;
+  const summary = summaryJson as Record<string, unknown>;
+  const inningsRaw = Array.isArray(summary.innings) ? summary.innings : [];
+  const innings = inningsRaw.flatMap((row) => {
+    if (!row || typeof row !== "object") return [];
+    const inn = row as Record<string, unknown>;
+    const battingTeamId = Number(inn.battingTeamId);
+    const runs = Number(inn.runs);
+    const wickets = Number(inn.wickets);
+    let overs = "";
+    if (typeof inn.overs === "string") overs = inn.overs;
+    else if (Number.isFinite(Number(inn.over))) {
+      const ball = Number.isFinite(Number(inn.ball)) ? Number(inn.ball) : 0;
+      overs = `${Number(inn.over)}.${ball}`;
+    }
+    if (!Number.isFinite(battingTeamId) || !Number.isFinite(runs) || !Number.isFinite(wickets)) {
+      return [];
+    }
+    return [{ battingTeamId, runs, wickets, overs }];
+  });
+
+  const target = typeof summary.target === "number" ? summary.target : null;
+  const currentInnings = typeof summary.currentInnings === "number" ? summary.currentInnings : null;
+  const resultText = typeof summary.resultText === "string" ? summary.resultText : null;
+  if (innings.length === 0 && target == null && !resultText) return null;
+  return { innings, target, currentInnings, resultText };
+}
 
 /**
  * Lightweight tournament summary helper.
@@ -176,6 +206,15 @@ async function fetchLinkedTournamentActivity(tournamentId: number | null) {
     .orderBy(asc(scoringMatchesTable.scheduledAt), asc(scoringMatchesTable.id));
 
   const rawLive = matches.find((m) => m.status === "in_progress" || m.status === "live");
+  let liveState: unknown = rawLive?.summaryJson ?? null;
+  if (rawLive) {
+    const [session] = await db
+      .select({ stateJson: scoringSessionsTable.stateJson })
+      .from(scoringSessionsTable)
+      .where(eq(scoringSessionsTable.matchId, rawLive.id))
+      .limit(1);
+    if (session?.stateJson) liveState = session.stateJson;
+  }
   const liveMatch = rawLive
     ? {
         id: rawLive.id,
@@ -200,6 +239,7 @@ async function fetchLinkedTournamentActivity(tournamentId: number | null) {
         venue: rawLive.venue,
         resultSummary: rawLive.resultSummary,
         liveScoreRoute: `/score-display/${rawLive.tournamentId}`,
+        score: readPublicScore(liveState),
       }
     : null;
 
@@ -354,12 +394,19 @@ async function fetchLinkedTournamentActivity(tournamentId: number | null) {
     });
   }
 
+  const fixtures = await db
+    .select({ id: scoringFixturesTable.id })
+    .from(scoringFixturesTable)
+    .where(eq(scoringFixturesTable.tournamentId, tournamentId));
+
   return {
     snapshot: {
       teamsCount: teams.length,
       matchesCount: matches.length,
+      fixturesCount: fixtures.length,
       completedMatchesCount: completedMatches.length,
       liveMatchesCount: rawLive ? 1 : 0,
+      scheduledMatchesCount: matches.filter((match) => match.status === "scheduled").length,
     },
     teams,
     liveMatch,

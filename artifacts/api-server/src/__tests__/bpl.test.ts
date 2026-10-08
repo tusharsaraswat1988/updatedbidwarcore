@@ -40,6 +40,26 @@ const mockMatches: any[] = [
     completedAt: null,
     winnerTeamId: null,
     resultSummary: null,
+    summaryJson: {
+      innings: [
+        { battingTeamId: 1, runs: 42, wickets: 1, overs: "5.2", phase: "in_progress" },
+      ],
+      target: null,
+      currentInnings: 1,
+      resultText: null,
+    },
+  },
+];
+const mockFixtures: any[] = [];
+const mockSessions: any[] = [
+  {
+    matchId: 1,
+    stateJson: {
+      innings: [{ battingTeamId: 1, runs: 87, wickets: 2, over: 8, ball: 1, phase: "in_progress" }],
+      target: 120,
+      currentInnings: 2,
+      resultText: null,
+    },
   },
 ];
 const mockStandings: any[] = [
@@ -80,6 +100,12 @@ vi.mock("@workspace/db", () => {
               }
               if (tableName === "scoring_standings") {
                 return makeChainableQuery(mockStandings);
+              }
+              if (tableName === "scoring_fixtures") {
+                return makeChainableQuery(mockFixtures);
+              }
+              if (tableName === "scoring_sessions") {
+                return makeChainableQuery(mockSessions);
               }
               if (tableName === "bpl_edition_sponsors") {
                 const condStr = JSON.stringify(cond) || String(cond);
@@ -200,6 +226,16 @@ vi.mock("@workspace/db", () => {
       name: "scoring_standings",
       id: "id",
       tournamentId: "tournament_id",
+    },
+    scoringFixturesTable: {
+      name: "scoring_fixtures",
+      id: "id",
+      tournamentId: "tournament_id",
+    },
+    scoringSessionsTable: {
+      name: "scoring_sessions",
+      id: "id",
+      matchId: "match_id",
     },
   };
 });
@@ -526,6 +562,8 @@ describe("BPL Foundation API (P0)", () => {
       expect(edition.tournamentSnapshot).toBeDefined();
       expect(edition.tournamentSnapshot.teamsCount).toBe(2);
       expect(edition.tournamentSnapshot.matchesCount).toBe(1);
+      expect(edition.tournamentSnapshot.fixturesCount).toBe(0);
+      expect(edition.tournamentSnapshot.liveMatchesCount).toBe(1);
 
       // Teams
       expect(edition.teams).toHaveLength(2);
@@ -537,6 +575,10 @@ describe("BPL Foundation API (P0)", () => {
       expect(edition.liveMatch.homeTeam.name).toBe("Varanasi Warriors");
       expect(edition.liveMatch.awayTeam.name).toBe("Kashi Knights");
       expect(edition.liveMatch.liveScoreRoute).toBe("/score-display/101");
+      expect(edition.liveMatch.score.innings[0].runs).toBe(87);
+      expect(edition.liveMatch.score.innings[0].wickets).toBe(2);
+      expect(edition.liveMatch.score.innings[0].overs).toBe("8.1");
+      expect(edition.liveMatch.score.target).toBe(120);
 
       // Standings
       expect(edition.standings).toHaveLength(1);

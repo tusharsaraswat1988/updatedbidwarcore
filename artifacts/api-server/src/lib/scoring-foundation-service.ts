@@ -24,7 +24,7 @@ import {
   generateRoundRobinSchedule,
   type ScheduledFixture,
 } from "@workspace/scoring-core";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { resolveBadmintonSponsorLogos } from "@workspace/sports-badminton";
 import { ScoringServiceError } from "./scoring-service";
 import { parseLiveStreamUrl } from "./sports-branding";
@@ -727,7 +727,31 @@ export async function listScoringFixtures(
   drawId?: number,
 ) {
   await ensureScoringTournament(tournamentId);
-  const conditions = [eq(scoringFixturesTable.tournamentId, tournamentId)];
+
+  // Schedule cards are the fixture rows created with each match. A deleted
+  // match used to leave that row behind, so Schedule & Draws kept listing it.
+  const linked = await db
+    .select({ fixtureId: scoringMatchesTable.fixtureId })
+    .from(scoringMatchesTable)
+    .where(
+      and(
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+        isNotNull(scoringMatchesTable.fixtureId),
+      ),
+    );
+  const fixtureIds = [
+    ...new Set(
+      linked
+        .map((row) => row.fixtureId)
+        .filter((id): id is number => id != null),
+    ),
+  ];
+  if (fixtureIds.length === 0) return [];
+
+  const conditions = [
+    eq(scoringFixturesTable.tournamentId, tournamentId),
+    inArray(scoringFixturesTable.id, fixtureIds),
+  ];
   if (drawId != null) {
     conditions.push(eq(scoringFixturesTable.drawId, drawId));
   }

@@ -38,7 +38,7 @@ export function StandingsTable({
 
   return (
     <div className="overflow-x-auto rounded-xl border border-border">
-      <table className="w-full text-sm">
+      <table className="w-full min-w-[40rem] text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <th className="px-3 py-2.5 font-semibold">#</th>
@@ -101,7 +101,7 @@ export function StandingsTable({
               <td className="px-3 py-2.5 text-center tabular-nums font-semibold text-primary">
                 {row.points}
               </td>
-              <td className="px-3 py-2.5 text-right tabular-nums">
+              <td className="px-3 py-2.5 text-right tabular-nums whitespace-nowrap font-medium">
                 {formatPointsPercentage(row.pointsPercentage)}
               </td>
               <td

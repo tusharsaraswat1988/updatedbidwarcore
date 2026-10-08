@@ -57,6 +57,7 @@ export * from "./scheduling-configuration-history";
 export * from "./runtime-match-history";
 export * from "./cricket-rule-presets";
 export * from "./cricket-broadcast-message-templates";
+export * from "./cricket-sponsor-media";
 
 export * from "./contact_inquiries";
 export * from "./intelligence_archive";

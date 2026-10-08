@@ -17,6 +17,7 @@ import {
   competitionGroupTitle,
   competitionSelectionLabel,
   formatNetRunRate,
+  formatPointsPercentage,
   parseCompetitionSelection,
   resolveKnockoutStageSelection,
   rowsForCompetitionSelection,
@@ -708,11 +709,12 @@ export function CricketLedMidOverlays({
                       <tr>
                         <th className="w-16 sm:w-24 py-3.5 px-3 sm:px-4 text-center">POS</th>
                         <th className="py-3.5 px-3 sm:px-5">TEAM</th>
-                        <th className="w-24 sm:w-32 py-3.5 px-2 sm:px-4 text-center">PLAYED</th>
-                        <th className="w-24 sm:w-32 py-3.5 px-2 sm:px-4 text-center text-emerald-400">WON</th>
-                        <th className="w-24 sm:w-32 py-3.5 px-2 sm:px-4 text-center text-red-400">LOST</th>
-                        <th className="w-28 sm:w-36 py-3.5 px-2 sm:px-4 text-center text-cyan-300">NRR</th>
-                        <th className="w-28 sm:w-40 py-3.5 px-3 sm:px-6 text-right text-amber-400 font-extrabold">POINTS</th>
+                        <th className="w-20 sm:w-24 py-3.5 px-2 sm:px-4 text-center">PLAYED</th>
+                        <th className="w-20 sm:w-24 py-3.5 px-2 sm:px-4 text-center text-emerald-400">WON</th>
+                        <th className="w-20 sm:w-24 py-3.5 px-2 sm:px-4 text-center text-red-400">LOST</th>
+                        <th className="w-28 sm:w-36 py-3.5 px-2 sm:px-4 text-center text-amber-300">PTS %</th>
+                        <th className="w-24 sm:w-32 py-3.5 px-2 sm:px-4 text-center text-cyan-300">NRR</th>
+                        <th className="w-24 sm:w-32 py-3.5 px-3 sm:px-6 text-right text-amber-400 font-extrabold">POINTS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">
@@ -777,6 +779,9 @@ export function CricketLedMidOverlays({
                               <td className="py-2.5 sm:py-3.5 px-2 sm:px-4 text-center tabular-nums text-red-400 font-mono text-xl sm:text-2xl md:text-3xl font-black">
                                 {row.lost}
                               </td>
+                              <td className="py-2.5 sm:py-3.5 px-2 sm:px-4 text-center tabular-nums font-mono font-black text-amber-300 text-base sm:text-xl md:text-2xl whitespace-nowrap">
+                                {formatPointsPercentage(row.pointsPercentage)}
+                              </td>
                               <td className="py-2.5 sm:py-3.5 px-2 sm:px-4 text-center tabular-nums font-mono font-black text-cyan-300 text-lg sm:text-2xl md:text-3xl">
                                 {formatNetRunRate(row.netRunRate)}
                               </td>
@@ -788,7 +793,7 @@ export function CricketLedMidOverlays({
                         })
                       ) : (
                         <tr>
-                          <td colSpan={7} className="py-16 text-center text-muted-foreground text-base font-medium">
+                          <td colSpan={8} className="py-16 text-center text-muted-foreground text-base font-medium">
                             No tournament standings currently calculated.
                           </td>
                         </tr>

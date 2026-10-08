@@ -521,7 +521,11 @@ export async function deleteCricketMatch(
     }
   }
 
-  // Transactionally delete all dependent rows and the match row itself
+  const fixtureId = match.fixtureId;
+
+  // Transactionally delete all dependent rows and the match row itself.
+  // The generated fixture is the schedule card. Leave it and Schedule & Draws
+  // keeps showing a match that Matches Hub already removed.
   await db.transaction(async (tx) => {
     await tx.delete(scoringEventsTable).where(eq(scoringEventsTable.matchId, matchId));
     await tx.delete(scoringSessionsTable).where(eq(scoringSessionsTable.matchId, matchId));
@@ -541,6 +545,24 @@ export async function deleteCricketMatch(
           eq(scoringMatchesTable.tournamentId, tournamentId),
         ),
       );
+
+    if (fixtureId != null) {
+      const [stillLinked] = await tx
+        .select({ id: scoringMatchesTable.id })
+        .from(scoringMatchesTable)
+        .where(eq(scoringMatchesTable.fixtureId, fixtureId))
+        .limit(1);
+      if (!stillLinked) {
+        await tx
+          .delete(scoringFixturesTable)
+          .where(
+            and(
+              eq(scoringFixturesTable.id, fixtureId),
+              eq(scoringFixturesTable.tournamentId, tournamentId),
+            ),
+          );
+      }
+    }
   });
 
   return { ok: true, deletedMatchId: matchId };

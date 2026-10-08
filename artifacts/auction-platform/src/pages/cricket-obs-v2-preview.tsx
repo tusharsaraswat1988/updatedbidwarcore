@@ -22,6 +22,7 @@ import type { SponsorLogo } from "../components/broadcast/obs-v2/contracts";
 
 import { retainStageSelection } from "@workspace/scoring-core/cricket";
 import { useV2Sync, type V2SyncMessage } from "../components/broadcast/obs-v2/obs-v2-sync";
+import { SponsorMediaLayer } from "@/components/scoring/sponsor-media-layer";
 import { normalizeCricketFlashToObsV2Event } from "../components/broadcast/obs-v2/obs-v2-event-adapter";
 import { SuperBallActivationOverlay } from "@/components/scoring/super-ball-activation-overlay";
 
@@ -496,6 +497,10 @@ export default function CricketObsV2Page() {
       <SuperBallActivationOverlay
         tournamentId={tournamentId > 0 ? tournamentId : (isPreviewMode ? 1 : 0)}
       />
+
+      {tournamentId > 0 ? (
+        <SponsorMediaLayer tournamentId={tournamentId} surface="obs" cover="absolute" />
+      ) : null}
     </>
   );
 

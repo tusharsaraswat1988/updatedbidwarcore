@@ -48,11 +48,18 @@ import { cn } from "@/lib/utils";
 type Props = {
   tournamentId: number;
   className?: string;
+  /** Fits the live-control deck: shorter fields, templates in one menu. */
+  density?: "default" | "console";
 };
 
-export function CricketObsBroadcastMessageControl({ tournamentId, className }: Props) {
+export function CricketObsBroadcastMessageControl({
+  tournamentId,
+  className,
+  density = "default",
+}: Props) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const compact = density === "console";
 
   // Active Broadcast Message State on OBS
   const [activeMessage, setActiveMessage] = useState<CricketBroadcastMessage | null>(null);
@@ -61,6 +68,11 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
   const [name, setName] = useState("");
   const [details, setDetails] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+
+  // Inline edit of a saved template (quick list), independent of the live chyron draft
+  const [inlineEditId, setInlineEditId] = useState<number | null>(null);
+  const [inlineName, setInlineName] = useState("");
+  const [inlineDetails, setInlineDetails] = useState("");
 
   // Template Manager Modal
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
@@ -162,21 +174,36 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
   });
 
   const updateTemplateMutation = useMutation({
-    mutationFn: ({ id, tName, tDetails }: { id: number; tName: string; tDetails: string }) =>
-      updateCricketBroadcastMessageTemplate(tournamentId, id, tName, tDetails),
-    onSuccess: (updated) => {
+    mutationFn: ({
+      id,
+      tName,
+      tDetails,
+    }: {
+      id: number;
+      tName: string;
+      tDetails: string;
+      source: "inline" | "form" | "modal";
+    }) => updateCricketBroadcastMessageTemplate(tournamentId, id, tName, tDetails),
+    onSuccess: (updated, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["cricket-broadcast-message-templates", tournamentId],
       });
-      setTemplateModalOpen(false);
       setEditingTemplate(null);
-      if (selectedTemplateId === updated.id) {
+      if (variables.source === "modal") {
+        setTemplateModalOpen(false);
+      }
+      if (variables.source === "inline") {
+        setInlineEditId(null);
+        setInlineName("");
+        setInlineDetails("");
+      }
+      if (selectedTemplateId === updated.id && variables.source !== "inline") {
         setName(updated.name);
         setDetails(updated.details);
       }
       toast({
         title: "Template Updated",
-        description: `Updated template "${updated.name}".`,
+        description: `Saved changes to "${updated.name}".`,
       });
     },
     onError: (err: any) => {
@@ -368,6 +395,11 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
       setSelectedTemplateId(id);
       setName(found.name);
       setDetails(found.details);
+      if (inlineEditId != null && inlineEditId !== id) {
+        setInlineEditId(null);
+        setInlineName("");
+        setInlineDetails("");
+      }
     }
   };
 
@@ -390,23 +422,136 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
     });
   };
 
+  const handleUpdateLoadedTemplate = () => {
+    if (selectedTemplateId == null) return;
+    const trimmedName = name.trim();
+    const trimmedDetails = details.trim();
+    if (!trimmedName || !trimmedDetails) {
+      toast({
+        title: "Fill Name & Details",
+        description: "Please enter both name and details before updating the template.",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateTemplateMutation.mutate({
+      id: selectedTemplateId,
+      tName: trimmedName,
+      tDetails: trimmedDetails,
+      source: "form",
+    });
+  };
+
+  const beginEditTemplate = (template: CricketBroadcastMessageTemplate) => {
+    setInlineEditId(template.id);
+    setInlineName(template.name);
+    setInlineDetails(template.details);
+  };
+
+  const cancelInlineEdit = () => {
+    setInlineEditId(null);
+    setInlineName("");
+    setInlineDetails("");
+  };
+
+  const handleSaveInlineEdit = () => {
+    if (inlineEditId == null) return;
+    const trimmedName = inlineName.trim();
+    const trimmedDetails = inlineDetails.trim();
+    if (!trimmedName || !trimmedDetails) {
+      toast({
+        title: "Fill Name & Details",
+        description: "A saved template needs both a name and a details line.",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateTemplateMutation.mutate({
+      id: inlineEditId,
+      tName: trimmedName,
+      tDetails: trimmedDetails,
+      source: "inline",
+    });
+  };
+
+  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId) ?? null;
   const isLiveActive = Boolean(activeMessage?.active && activeMessage?.name);
 
+  const renderInlineTemplateEditor = () => (
+    <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-2 space-y-1.5">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-300">
+        Edit saved template
+      </div>
+      <Input
+        autoFocus
+        value={inlineName}
+        onChange={(e) => setInlineName(e.target.value)}
+        maxLength={100}
+        aria-label="Saved template name"
+        placeholder="Name"
+        className="h-8 text-xs font-medium"
+      />
+      <Input
+        value={inlineDetails}
+        onChange={(e) => setInlineDetails(e.target.value)}
+        maxLength={180}
+        aria-label="Saved template details"
+        placeholder="Details line"
+        className="h-8 text-xs font-medium"
+      />
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] text-muted-foreground font-mono">
+          {inlineName.length}/100 · {inlineDetails.length}/180
+        </span>
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={cancelInlineEdit}
+            className="h-7 px-2 text-[11px] font-semibold"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={
+              updateTemplateMutation.isPending ||
+              !inlineName.trim() ||
+              !inlineDetails.trim()
+            }
+            onClick={handleSaveInlineEdit}
+            className="h-7 px-2.5 text-[11px] font-bold bg-amber-500 text-black hover:bg-amber-400"
+          >
+            {updateTemplateMutation.isPending ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div className={cn("rounded-xl border border-border bg-card/80 p-4 shadow-sm space-y-4", className)}>
+    <div className={cn(
+      "rounded-xl border border-border bg-card/80 shadow-sm",
+      compact ? "p-2 space-y-1.5 overflow-hidden" : "p-4 space-y-4",
+      className,
+    )}>
       {/* Section Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center text-xs font-bold">
-            <Tv className="w-3.5 h-3.5" />
+      <div className={cn("flex items-center justify-between gap-2 border-b border-border/40", compact ? "pb-1.5" : "pb-3")}>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <div className="w-5 h-5 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+            <Tv className="w-3 h-3" />
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-foreground tracking-tight flex items-center gap-2">
+          <div className="min-w-0">
+            <h3 className={cn("font-bold text-foreground tracking-tight", compact ? "text-xs" : "text-sm")}>
               Broadcast Message
             </h3>
-            <p className="text-[11px] text-muted-foreground">
-              Lower-third chyron card for VIP guests, commentators, sponsors &amp; officials.
-            </p>
+            {compact ? null : (
+              <p className="text-[11px] text-muted-foreground">
+                Lower-third chyron card for VIP guests, commentators, sponsors &amp; officials.
+              </p>
+            )}
           </div>
         </div>
 
@@ -420,16 +565,19 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
             setTemplateFormDetails(details);
             setTemplateModalOpen(true);
           }}
-          className="h-7 text-xs font-semibold gap-1 px-2.5 rounded-lg border-border hover:bg-muted"
+          className={cn("font-semibold gap-1 rounded-lg border-border hover:bg-muted", compact ? "h-6 px-1.5 text-[10px]" : "h-7 text-xs px-2.5")}
         >
-          <Bookmark className="w-3.5 h-3.5 text-amber-500" />
-          <span>Saved Messages ({templates.length})</span>
+          <Bookmark className="w-3 h-3 text-amber-500" />
+          <span>{compact ? `Saved (${templates.length})` : `Saved Messages (${templates.length})`}</span>
         </Button>
       </div>
 
       {/* ACTIVE ON OBS BANNER (When Active) */}
       {isLiveActive && activeMessage ? (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+        <div className={cn(
+          "rounded-lg border border-red-500/40 bg-red-500/10 flex items-center justify-between gap-2 animate-in fade-in duration-200",
+          compact ? "px-2 py-1" : "p-3 flex-col sm:flex-row sm:items-center gap-3",
+        )}>
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-red-500 bg-red-500/15 border border-red-500/30 px-2 py-0.5 rounded-full">
@@ -453,7 +601,7 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
             variant="destructive"
             disabled={isClosing}
             onClick={handleCloseMessage}
-            className="h-8 px-3 text-xs font-bold gap-1.5 shrink-0 shadow-sm"
+            className={cn("font-bold shrink-0 shadow-sm", compact ? "h-6 px-2 text-[10px] gap-1" : "h-8 px-3 text-xs gap-1.5")}
           >
             <XCircle className="w-3.5 h-3.5" />
             <span>{isClosing ? "Closing…" : "Close Card"}</span>
@@ -462,12 +610,12 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
       ) : null}
 
       {/* OPERATOR INPUT CONTROLS */}
-      <div className="space-y-3">
+      <div className={compact ? "space-y-1.5" : "space-y-3"}>
         {/* Name Input */}
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <label htmlFor="broadcast-msg-name-input" className="text-xs font-semibold text-foreground">
-              Person / Entity Name <span className="text-red-500">*</span>
+            <label htmlFor="broadcast-msg-name-input" className={cn("font-semibold text-foreground", compact ? "text-[10px]" : "text-xs")}>
+              {compact ? "Name" : "Person / Entity Name"} <span className="text-red-500">*</span>
             </label>
             <span className="text-[10px] text-muted-foreground font-mono">
               {name.length}/100
@@ -479,15 +627,15 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
             onChange={(e) => setName(e.target.value)}
             maxLength={100}
             placeholder="e.g. Rahul Sharma, ABC Motors, Guest of Honour"
-            className="h-9 text-xs font-medium"
+            className={compact ? "h-7 text-[11px] font-medium" : "h-9 text-xs font-medium"}
           />
         </div>
 
         {/* Details Input */}
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <label htmlFor="broadcast-msg-details-input" className="text-xs font-semibold text-foreground">
-              Details Line <span className="text-red-500">*</span>
+            <label htmlFor="broadcast-msg-details-input" className={cn("font-semibold text-foreground", compact ? "text-[10px]" : "text-xs")}>
+              {compact ? "Details" : "Details Line"} <span className="text-red-500">*</span>
             </label>
             <span className="text-[10px] text-muted-foreground font-mono">
               {details.length}/180
@@ -499,24 +647,57 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
             onChange={(e) => setDetails(e.target.value)}
             maxLength={180}
             placeholder="e.g. Former India Player & Special Guest, Title Sponsor Representative"
-            className="h-9 text-xs font-medium"
+            className={compact ? "h-7 text-[11px] font-medium" : "h-9 text-xs font-medium"}
           />
         </div>
 
+        {selectedTemplate ? (
+          <p className="text-[10px] text-amber-200/90 leading-snug">
+            Editing saved template <span className="font-bold">{selectedTemplate.name}</span>
+          </p>
+        ) : null}
+
         {/* Action Buttons */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={createTemplateMutation.isPending || !name.trim() || !details.trim()}
-            onClick={handleSaveCurrentAsTemplate}
-            className="h-8 text-xs font-semibold gap-1.5 px-3 rounded-lg border-border hover:bg-muted"
-            title="Save these details as a reusable template"
-          >
-            <BookmarkPlus className="w-3.5 h-3.5 text-amber-500" />
-            <span>Save Template</span>
-          </Button>
+        <div className={cn("flex flex-wrap items-center justify-between gap-1.5", compact ? "pt-0" : "pt-1")}>
+          <div className="flex flex-col items-start gap-1">
+            {selectedTemplate ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={updateTemplateMutation.isPending || !name.trim() || !details.trim()}
+                onClick={handleUpdateLoadedTemplate}
+                className={cn("font-semibold gap-1 rounded-lg border-amber-500/40 text-amber-200 hover:bg-amber-500/10", compact ? "h-7 px-2 text-[10px]" : "h-8 text-xs px-3 gap-1.5")}
+                title="Save these changes onto the loaded template"
+              >
+                <Edit2 className="w-3.5 h-3.5 text-amber-400" />
+                <span>{updateTemplateMutation.isPending ? "Saving…" : "Update Template"}</span>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={createTemplateMutation.isPending || !name.trim() || !details.trim()}
+                onClick={handleSaveCurrentAsTemplate}
+                className={cn("font-semibold gap-1 rounded-lg border-border hover:bg-muted", compact ? "h-7 px-2 text-[10px]" : "h-8 text-xs px-3 gap-1.5")}
+                title="Save these details as a reusable template"
+              >
+                <BookmarkPlus className="w-3.5 h-3.5 text-amber-500" />
+                <span>{createTemplateMutation.isPending ? "Saving…" : "Save Template"}</span>
+              </Button>
+            )}
+            {selectedTemplate ? (
+              <button
+                type="button"
+                disabled={createTemplateMutation.isPending || !name.trim() || !details.trim()}
+                onClick={handleSaveCurrentAsTemplate}
+                className="text-[10px] font-semibold text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-40 disabled:no-underline"
+              >
+                Save as new template
+              </button>
+            ) : null}
+          </div>
 
           <div className="flex items-center gap-2">
             {isLiveActive ? (
@@ -538,7 +719,7 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
               size="sm"
               disabled={isPushing || !name.trim() || !details.trim()}
               onClick={handlePushToObs}
-              className="h-8 px-4 text-xs font-bold gap-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition"
+              className={cn("font-bold gap-1 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm transition", compact ? "h-7 px-2.5 text-[11px]" : "h-8 px-4 text-xs gap-1.5")}
             >
               <Send className="w-3.5 h-3.5" />
               <span>{isPushing ? "Pushing…" : isLiveActive ? "Update OBS Card" : "Push to OBS"}</span>
@@ -548,33 +729,38 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
 
         {/* Saved Templates Quick List / Dropdown */}
         {templates.length > 0 ? (
-          <div className="space-y-1.5 pt-2.5 border-t border-border/50">
-            <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground pb-0.5">
+          <div className={cn("space-y-1 border-t border-border/50", compact ? "pt-1.5" : "space-y-1.5 pt-2.5")}>
+            <div className={cn("flex items-center justify-between font-semibold text-muted-foreground", compact ? "text-[10px]" : "text-[11px] pb-0.5")}>
               <span className="flex items-center gap-1.5">
                 <Bookmark className="w-3.5 h-3.5 text-amber-500" />
-                <span className="text-foreground font-bold">Quick Templates ({templates.length})</span>
+                <span className="text-foreground font-bold">{compact ? `Templates (${templates.length})` : `Quick Templates (${templates.length})`}</span>
               </span>
-              <span className="text-[10px] text-muted-foreground">Click to fill inputs</span>
+              <span className="text-[10px] text-muted-foreground">{compact ? "Fills the fields" : "Use, edit, or save"}</span>
             </div>
 
-            {templates.length <= 6 ? (
+            {!compact && templates.length <= 6 ? (
               /* Compact Interactive List for <= 6 templates */
-              <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-0.5">
+              <div className="flex flex-col gap-1.5 max-h-64 overflow-y-auto pr-0.5">
                 {templates.map((t) => {
-                  const isSelected = selectedTemplateId === t.id || (name === t.name && details === t.details);
+                  const isSelected = selectedTemplateId === t.id;
+                  if (inlineEditId === t.id) {
+                    return <div key={t.id}>{renderInlineTemplateEditor()}</div>;
+                  }
                   return (
-                    <button
+                    <div
                       key={t.id}
-                      type="button"
-                      onClick={() => handleSelectTemplate(String(t.id))}
                       className={cn(
-                        "flex items-center justify-between p-2 rounded-lg border text-left transition-all text-xs group cursor-pointer",
+                        "flex items-center justify-between gap-1 p-2 rounded-lg border text-left transition-all text-xs",
                         isSelected
                           ? "border-amber-500/60 bg-amber-500/10 text-amber-200 ring-1 ring-amber-500/30"
-                          : "border-border/60 bg-background/50 hover:bg-muted/70 hover:border-border text-foreground"
+                          : "border-border/60 bg-background/50 text-foreground"
                       )}
                     >
-                      <div className="min-w-0 flex-1 pr-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectTemplate(String(t.id))}
+                        className="min-w-0 flex-1 pr-1 text-left cursor-pointer group"
+                      >
                         <div className="font-bold text-xs truncate group-hover:text-amber-400 flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                           <span className="truncate">{t.name}</span>
@@ -584,36 +770,66 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
                             {t.details}
                           </div>
                         )}
-                      </div>
-                      <span className={cn(
-                        "text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 transition-colors",
-                        isSelected
-                          ? "bg-amber-500 text-black font-black"
-                          : "bg-muted text-muted-foreground group-hover:bg-amber-500/20 group-hover:text-amber-300"
-                      )}>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => beginEditTemplate(t)}
+                        className="h-6 px-1.5 rounded text-[9px] font-bold uppercase tracking-wider shrink-0 text-amber-300 hover:bg-amber-500/20"
+                        aria-label={`Edit ${t.name}`}
+                        title="Edit this saved template"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectTemplate(String(t.id))}
+                        className={cn(
+                          "text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 transition-colors",
+                          isSelected
+                            ? "bg-amber-500 text-black font-black"
+                            : "bg-muted text-muted-foreground hover:bg-amber-500/20 hover:text-amber-300"
+                        )}
+                        aria-label={`Use ${t.name}`}
+                      >
                         {isSelected ? "Active" : "Use"}
-                      </span>
-                    </button>
+                      </button>
+                    </div>
                   );
                 })}
               </div>
             ) : (
               /* Dropdown if > 6 templates to prevent layout overflow */
-              <div className="space-y-1">
-                <select
-                  id="broadcast-msg-template-select"
-                  aria-label="Select saved template"
-                  value={selectedTemplateId ?? "none"}
-                  onChange={(e) => handleSelectTemplate(e.target.value)}
-                  className="h-8 w-full rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground focus:outline-none focus:border-primary"
-                >
-                  <option value="none">-- Select from {templates.length} saved templates --</option>
-                  {templates.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} ({t.details})
-                    </option>
-                  ))}
-                </select>
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5">
+                  <select
+                    id="broadcast-msg-template-select"
+                    aria-label="Select saved template"
+                    value={selectedTemplateId ?? "none"}
+                    onChange={(e) => handleSelectTemplate(e.target.value)}
+                    className={cn("min-w-0 flex-1 rounded-lg border border-border bg-background font-medium text-foreground focus:outline-none focus:border-primary", compact ? "h-7 px-2 text-[11px]" : "h-8 px-2.5 text-xs")}
+                  >
+                    <option value="none">-- Select from {templates.length} saved templates --</option>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({t.details})
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!selectedTemplate}
+                    onClick={() => {
+                      if (!selectedTemplate) return;
+                      beginEditTemplate(selectedTemplate);
+                    }}
+                    className="h-8 px-2.5 text-[11px] font-bold shrink-0"
+                  >
+                    Edit
+                  </Button>
+                </div>
+                {inlineEditId != null ? renderInlineTemplateEditor() : null}
               </div>
             )}
           </div>
@@ -699,6 +915,7 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
                         id: editingTemplate.id,
                         tName: templateFormName.trim(),
                         tDetails: templateFormDetails.trim(),
+                        source: "modal",
                       });
                     } else {
                       createTemplateMutation.mutate({
@@ -763,10 +980,11 @@ export function CricketObsBroadcastMessageControl({ tournamentId, className }: P
                             setTemplateFormName(t.name);
                             setTemplateFormDetails(t.details);
                           }}
-                          className="p-1.5 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition"
+                          className="h-7 px-2 rounded text-[11px] font-bold text-amber-700 hover:bg-amber-50 transition"
                           title="Edit template"
+                          aria-label={`Edit ${t.name}`}
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          Edit
                         </button>
 
                         <button

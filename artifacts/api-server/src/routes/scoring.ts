@@ -25,7 +25,7 @@ import {
   getCricketObsDirectorState,
   broadcastCricketObsDirector,
 } from "../lib/scoring-broadcast";
-import { buildCricketMatchSummary, InvalidEventPayloadError } from "@workspace/scoring-core";
+import { buildCricketMatchSummary, canPlaySponsorSlot, InvalidEventPayloadError, type SponsorMediaCue } from "@workspace/scoring-core";
 import { InvalidTournamentModuleStateError } from "@workspace/platform-core";
 import { db, scoringMatchesTable, tournamentsTable, cricketBroadcastMessageTemplatesTable, scoringEventsTable } from "@workspace/db";
 import { eq, and, desc, asc, or, sql } from "drizzle-orm";
@@ -54,6 +54,9 @@ import { getGlobalCricketLeaderboard, projectGlobalCricketStatsForMatch } from "
 import { advanceTournamentProgression } from "../lib/tournament-progression-service";
 import type { LeaderboardCategory } from "@workspace/scoring-core";
 import { applyCricketRulesToMatches } from "../lib/cricket-rules-service";
+import sponsorMediaRouter, { parseSponsorMediaDirectorCue } from "./sponsor-media";
+import { getSponsorMediaSlot } from "../lib/sponsor-media-service";
+import { getSponsorMediaReadiness, surfaceReadyFor } from "../lib/sponsor-media-readiness";
 import {
   requireScorerFromRequest,
   assertScorerCanScore,
@@ -75,6 +78,7 @@ import {
 const router = Router();
 
 router.use(scoringFeatureMiddleware);
+router.use(sponsorMediaRouter);
 
 function parseId(value: string): number | null {
   const id = parseInt(value, 10);
@@ -590,7 +594,8 @@ router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
   if (
     currentObs &&
     ((currentObs.overlay && currentObs.overlay !== "none") ||
-      (currentObs.broadcastMessage && currentObs.broadcastMessage.active))
+      (currentObs.broadcastMessage && currentObs.broadcastMessage.active) ||
+      currentObs.sponsorMedia)
   ) {
     res.write(
       `event: obs_director\ndata: ${JSON.stringify({
@@ -600,6 +605,7 @@ router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
         sponsorName: currentObs.sponsorName,
         stageOrGroup: currentObs.stageOrGroup,
         broadcastMessage: currentObs.broadcastMessage,
+        sponsorMedia: currentObs.sponsorMedia,
         timestamp: Date.now(),
       })}\n\n`,
     );
@@ -671,6 +677,43 @@ router.post("/tournaments/:tournamentId/scoring/obs-director", async (req, res) 
   const detail = typeof body.detail === "string" ? body.detail : undefined;
   const messageType = typeof body.messageType === "string" ? body.messageType : undefined;
 
+  let sponsorMedia: SponsorMediaCue | undefined;
+  if (body.sponsorMedia !== undefined && body.sponsorMedia !== null) {
+    if (typeof body.sponsorMedia !== "object") {
+      res.status(400).json({ error: "Sponsor media cue is missing" });
+      return;
+    }
+    const rawCue = { ...(body.sponsorMedia as Record<string, unknown>) };
+    delete rawCue.issuedAt;
+    const parsedCue = parseSponsorMediaDirectorCue(rawCue, Date.now());
+    if (!parsedCue.ok) {
+      res.status(400).json({ error: parsedCue.error });
+      return;
+    }
+    sponsorMedia = parsedCue.cue;
+    if (sponsorMedia.action === "play") {
+      try {
+        const row = await getSponsorMediaSlot(tournamentId, sponsorMedia.slotNumber);
+        const readiness = getSponsorMediaReadiness(tournamentId);
+        const gate = canPlaySponsorSlot({
+          destination: sponsorMedia.destination,
+          processingStatus: row?.processingStatus ?? "empty",
+          active: row?.active ?? false,
+          obsReady: surfaceReadyFor(readiness.obs, sponsorMedia.slotNumber, sponsorMedia.version),
+          ledReady: surfaceReadyFor(readiness.led, sponsorMedia.slotNumber, sponsorMedia.version),
+        });
+        if (!row || row.id !== sponsorMedia.slotId || row.version !== sponsorMedia.version || !gate.ok) {
+          res.status(409).json({ error: gate.ok ? "Sponsor target not ready" : gate.reason });
+          return;
+        }
+      } catch (err) {
+        logger.error({ err, tournamentId }, "Sponsor play cue rejected");
+        res.status(503).json({ error: "Sponsor director unavailable" });
+        return;
+      }
+    }
+  }
+
   let broadcastMessage: { active: boolean; name: string; details: string } | null | undefined = undefined;
   if (body.broadcastMessage !== undefined) {
     if (body.broadcastMessage === null) {
@@ -708,8 +751,9 @@ router.post("/tournaments/:tournamentId/scoring/obs-director", async (req, res) 
     detail,
     messageType,
     broadcastMessage,
+    sponsorMedia,
   });
-  res.json({ ok: true, overlay, matchId, sponsorName, stageOrGroup, flash, detail, messageType, broadcastMessage });
+  res.json({ ok: true, overlay, matchId, sponsorName, stageOrGroup, flash, detail, messageType, broadcastMessage, sponsorMedia });
 });
 
 /** GET /tournaments/:tournamentId/scoring/obs-director — get current OBS overlay state */

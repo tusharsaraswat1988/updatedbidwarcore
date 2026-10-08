@@ -13,4 +13,5 @@ export * from "./mom";
 export * from "./dls";
 export * from "./execution-rules";
 export * from "./broadcast-events";
+export * from "./sponsor-media";
 export * from "./progression";

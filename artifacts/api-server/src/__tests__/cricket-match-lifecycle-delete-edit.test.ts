@@ -39,10 +39,13 @@ describe("Cricket match delete and edit contract", () => {
       expect(deleteFn).toContain(".delete(scoringSessionsTable)");
       expect(deleteFn).toContain(".delete(scoringMatchSquadsTable)");
       expect(deleteFn).toContain(".delete(scoringMatchesTable)");
+      expect(deleteFn).toContain(".delete(scoringFixturesTable)");
 
       const sessionIdx = deleteFn.indexOf(".delete(scoringSessionsTable)");
       const matchIdx = deleteFn.indexOf(".delete(scoringMatchesTable)");
+      const fixtureIdx = deleteFn.indexOf(".delete(scoringFixturesTable)");
       expect(sessionIdx).toBeLessThan(matchIdx);
+      expect(matchIdx).toBeLessThan(fixtureIdx);
     });
 
     it("exposes DELETE /tournaments/:tournamentId/scoring/matches/:matchId route with organizer auth", () => {

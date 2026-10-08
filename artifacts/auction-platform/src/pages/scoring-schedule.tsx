@@ -57,6 +57,7 @@ import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { cricketPublicPath } from "@/lib/tournament-navigation";
 import { cricketScoreHubPath, cricketFixturesPath, cricketRulesPath, cricketSettingsPath } from "@/lib/cricket-routes";
+import { useScoringMatches } from "@/hooks/use-scoring-match";
 import {
   Calendar,
   Check,
@@ -157,6 +158,27 @@ export default function ScoringSchedulePage() {
     queryFn: () => listFixtures(tournamentId),
     enabled: scoringActive,
   });
+  const { data: matches, isLoading: matchesLoading } = useScoringMatches(
+    tournamentId,
+    scoringActive,
+  );
+
+  // Fixture rows outlive deleted matches. Only show a card when Matches Hub
+  // still has that match, and use the match status so a stale fixture badge
+  // cannot keep saying LIVE after the match is gone.
+  const matchStatusByFixtureId = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const match of matches ?? []) {
+      if (match.fixtureId != null) map.set(match.fixtureId, match.status);
+    }
+    return map;
+  }, [matches]);
+  const visibleFixtures = useMemo(() => {
+    const rows = fixtures ?? [];
+    if (!matches) return rows;
+    return rows.filter((fixture) => matchStatusByFixtureId.has(fixture.id));
+  }, [fixtures, matches, matchStatusByFixtureId]);
+  const fixturesSummaryLoading = fixturesLoading || matchesLoading;
 
   const { data: presets } = useQuery({
     queryKey: ["cricket-rule-presets", tournamentId],
@@ -602,7 +624,7 @@ export default function ScoringSchedulePage() {
           />
           <HubKpiCard
             label="Scheduled Fixtures"
-            value={fixtures?.length ?? 0}
+            value={fixturesSummaryLoading ? 0 : visibleFixtures.length}
             icon={Calendar}
             tint="green"
           />
@@ -718,7 +740,7 @@ export default function ScoringSchedulePage() {
             </BtnPrimary>
           </div>
 
-          {drawsLoading ? (
+          {drawsLoading || fixturesSummaryLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-14 w-full rounded-lg" />
               <Skeleton className="h-14 w-full rounded-lg" />
@@ -726,7 +748,7 @@ export default function ScoringSchedulePage() {
           ) : (draws?.length ?? 0) > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {(draws ?? []).map((d) => {
-                const drawFixtures = (fixtures ?? []).filter((f) => f.drawId === d.id);
+                const drawFixtures = visibleFixtures.filter((f) => f.drawId === d.id);
                 return (
                   <div
                     key={d.id}
@@ -744,7 +766,7 @@ export default function ScoringSchedulePage() {
                           {d.format.replace(/_/g, " ")}
                         </Badge>
                         <span>·</span>
-                        <span>{drawFixtures.length > 0 ? `${drawFixtures.length} matches` : "Generated"}</span>
+                        <span>{drawFixtures.length} match{drawFixtures.length === 1 ? "" : "es"}</span>
                       </div>
                     </div>
                     <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs">
@@ -784,10 +806,10 @@ export default function ScoringSchedulePage() {
                 Generated Fixtures Summary
               </h2>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {fixtures?.length ?? 0} match fixture{fixtures?.length === 1 ? "" : "s"} scheduled across active draws
+                {visibleFixtures.length} match fixture{visibleFixtures.length === 1 ? "" : "s"} scheduled across active draws
               </p>
             </div>
-            {(fixtures?.length ?? 0) > 0 ? (
+            {visibleFixtures.length > 0 ? (
               <BtnPrimary href={cricketScoreHubPath(tournamentId)} className={cn(btnCompactClass, "h-8 min-h-8 text-xs")}>
                 <Radio className="w-3.5 h-3.5 mr-1" />
                 Open Matches Hub
@@ -796,12 +818,12 @@ export default function ScoringSchedulePage() {
             ) : null}
           </div>
 
-          {fixturesLoading ? (
+          {fixturesSummaryLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-14 w-full rounded-lg" />
               <Skeleton className="h-14 w-full rounded-lg" />
             </div>
-          ) : (fixtures?.length ?? 0) > 0 ? (
+          ) : visibleFixtures.length > 0 ? (
             <div className="space-y-3">
               {/* Ready for Match Banner */}
               <div className="p-3.5 rounded-lg border border-primary/25 bg-primary/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -821,7 +843,7 @@ export default function ScoringSchedulePage() {
 
               {/* Compact Fixtures List */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                {(fixtures ?? []).slice(0, 6).map((f) => {
+                {visibleFixtures.slice(0, 6).map((f) => {
                   const home = teamMap.get(f.homeTeamId);
                   const away = teamMap.get(f.awayTeamId);
                   return (
@@ -834,7 +856,7 @@ export default function ScoringSchedulePage() {
                           {f.roundName ?? "Stage Match"}
                         </span>
                         <Badge variant="outline" className="text-[9px] uppercase font-bold shrink-0">
-                          {f.status}
+                          {matchStatusByFixtureId.get(f.id) ?? f.status}
                         </Badge>
                       </div>
 
@@ -857,10 +879,10 @@ export default function ScoringSchedulePage() {
                 })}
               </div>
 
-              {(fixtures?.length ?? 0) > 6 ? (
+              {visibleFixtures.length > 6 ? (
                 <div className="pt-2 text-center">
                   <BtnSecondary href={cricketScoreHubPath(tournamentId)} className={btnCompactClass}>
-                    View All {fixtures?.length} Matches in Matches Hub
+                    View All {visibleFixtures.length} Matches in Matches Hub
                     <ChevronRight className="w-4 h-4 ml-1" />
                   </BtnSecondary>
                 </div>

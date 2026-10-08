@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import type { SponsorMediaCue } from "@workspace/scoring-core";
 import { publishRealtimeMessage, subscribeRealtimeBus, type RealtimeMessage } from "./scoring-realtime-bus";
 import { logger } from "./logger";
 
@@ -211,6 +212,7 @@ export interface CricketObsDirectorPayload {
   detail?: string;
   messageType?: string;
   broadcastMessage?: CricketBroadcastMessage | null;
+  sponsorMedia?: SponsorMediaCue | null;
   timestamp: number;
 }
 
@@ -222,6 +224,7 @@ const cricketObsStates = new Map<
     sponsorName?: string;
     stageOrGroup?: string;
     broadcastMessage?: CricketBroadcastMessage | null;
+    sponsorMedia?: SponsorMediaCue | null;
     lastUpdated: number;
   }
 >();
@@ -232,6 +235,7 @@ export function getCricketObsDirectorState(tournamentId: number): {
   sponsorName?: string;
   stageOrGroup?: string;
   broadcastMessage?: CricketBroadcastMessage | null;
+  sponsorMedia?: SponsorMediaCue | null;
 } {
   const current = cricketObsStates.get(tournamentId);
   return {
@@ -240,6 +244,7 @@ export function getCricketObsDirectorState(tournamentId: number): {
     sponsorName: current?.sponsorName,
     stageOrGroup: current?.stageOrGroup,
     broadcastMessage: current?.broadcastMessage ?? null,
+    sponsorMedia: current?.sponsorMedia ?? null,
   };
 }
 
@@ -258,6 +263,20 @@ export function setCricketObsDirectorState(
     sponsorName: sponsorName !== undefined ? sponsorName : current?.sponsorName,
     stageOrGroup: stageOrGroup !== undefined ? stageOrGroup : current?.stageOrGroup,
     broadcastMessage: broadcastMessage !== undefined ? broadcastMessage : (current?.broadcastMessage ?? null),
+    sponsorMedia: current?.sponsorMedia ?? null,
+    lastUpdated: Date.now(),
+  });
+}
+
+export function setSponsorMediaCue(tournamentId: number, cue: SponsorMediaCue | null) {
+  const current = cricketObsStates.get(tournamentId);
+  cricketObsStates.set(tournamentId, {
+    overlay: current?.overlay ?? "none",
+    matchId: current?.matchId,
+    sponsorName: current?.sponsorName,
+    stageOrGroup: current?.stageOrGroup,
+    broadcastMessage: current?.broadcastMessage ?? null,
+    sponsorMedia: cue,
     lastUpdated: Date.now(),
   });
 }
@@ -273,6 +292,7 @@ export function broadcastCricketObsDirector(
     detail?: string;
     messageType?: string;
     broadcastMessage?: CricketBroadcastMessage | null;
+    sponsorMedia?: SponsorMediaCue | null;
   },
 ) {
   if (
@@ -291,6 +311,9 @@ export function broadcastCricketObsDirector(
       command.broadcastMessage,
     );
   }
+  if (command.sponsorMedia !== undefined) {
+    setSponsorMediaCue(tournamentId, command.sponsorMedia);
+  }
   const payload: CricketObsDirectorPayload = {
     type: "cricket_obs_director",
     overlay: command.overlay,
@@ -301,6 +324,7 @@ export function broadcastCricketObsDirector(
     detail: command.detail,
     messageType: command.messageType,
     broadcastMessage: command.broadcastMessage,
+    sponsorMedia: command.sponsorMedia,
     timestamp: Date.now(),
   };
 

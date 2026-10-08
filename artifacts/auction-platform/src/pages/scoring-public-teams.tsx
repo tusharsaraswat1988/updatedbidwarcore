@@ -118,7 +118,7 @@ export default function ScoringPublicTeamsPage() {
                       <ul className="mt-1.5 space-y-1">
                         {lines.map((line) => (
                           <li key={`${line.drawId ?? "legacy"}-${line.teamId}`} className="text-xs text-primary tabular-nums">
-                            {line.drawName ?? "Competition"} · {line.played}P · {line.points} pts · NRR {formatNetRunRate(line.netRunRate)}
+                            {line.drawName ?? "Competition"} · {line.played}P · {line.points} pts · {formatPointsPercentage(line.pointsPercentage)} · NRR {formatNetRunRate(line.netRunRate)}
                           </li>
                         ))}
                       </ul>
