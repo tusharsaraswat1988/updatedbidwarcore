@@ -14,6 +14,7 @@ import {
   ArrowRight,
   ShieldCheck,
 } from "lucide-react";
+import { apiFetch } from "@workspace/api-base/api-fetch";
 import { getPublicSchedule } from "@/lib/scoring-foundation-api";
 import { useListPlayers } from "@workspace/api-client-react";
 import {
@@ -29,6 +30,7 @@ import { ShareButtons } from "@/components/scoring/share-buttons";
 import { PublicMatchCard } from "@/components/scoring/public-match-card";
 import { PublicSponsorsStrip, parseTournamentSponsors } from "@/components/scoring/public-sponsors-strip";
 import { LiveMiniScoreboard } from "@/components/scoring/live-mini-scoreboard";
+import { FanLiveStreamEditor } from "@/components/scoring/fan-live-stream-editor";
 import {
   FanCheerFloatingWidget,
   FanArenaSection,
@@ -112,6 +114,18 @@ export default function ScoringPublicPage() {
 
   const tournamentId = numericId || codeContext?.tournament?.id || 0;
   const { data: playersData } = useListPlayers(tournamentId);
+  const { data: organizerSession } = useQuery({
+    queryKey: ["organizer-me", tournamentId],
+    queryFn: async () => {
+      const res = await apiFetch(`/auth/organizer/${tournamentId}/me`);
+      if (!res.ok) return { isOrganizer: false };
+      return (await res.json()) as { isOrganizer?: boolean };
+    },
+    enabled: tournamentId > 0,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const isOrganizer = organizerSession?.isOrganizer === true;
 
   const [lbTab, setLbTab] = useState<LeaderboardCategory>("runs");
   const [standingsView, setStandingsView] = useState<"table" | "bracket">("table");
@@ -278,7 +292,10 @@ export default function ScoringPublicPage() {
         completedCount={completed.length}
         soundEnabled={cheerState.soundEnabled}
         onToggleSound={cheerState.toggleSound}
+        streamUrl={streamUrl}
       />
+
+      {isOrganizer ? <FanLiveStreamEditor tournamentId={tournamentId} /> : null}
 
       {/* ── Persistent Floating Cheer & Reaction Overlay (Common across ALL tabs) ─ */}
       <FanCheerFloatingWidget cheerState={cheerState} teams={data.teams} />
@@ -297,6 +314,7 @@ export default function ScoringPublicPage() {
                 teamMap={teamMap}
                 scorecardData={liveScorecard}
                 streamUrl={streamUrl}
+                hideMissingStreamHint={isOrganizer}
                 tournamentPlayers={playersData}
               />
             ) : (
@@ -306,13 +324,25 @@ export default function ScoringPublicPage() {
                 <p className="text-xs text-white/60 mt-1 max-w-md mx-auto">
                   There is no match currently in progress. Head over to Upcoming Matches & Stats to view full schedules and standings.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setActiveSection("matches_stats")}
-                  className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white transition-colors cursor-pointer"
-                >
-                  View Upcoming Matches & Stats <ArrowRight className="h-3.5 w-3.5" />
-                </button>
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                  {streamUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => window.open(streamUrl, "_blank", "noopener,noreferrer")}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-500 px-4 py-2 text-xs font-bold text-white transition-colors"
+                    >
+                      <Tv className="h-3.5 w-3.5" />
+                      Watch Live Stream
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection("matches_stats")}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white transition-colors cursor-pointer"
+                  >
+                    View Upcoming Matches & Stats <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             )}
           </div>

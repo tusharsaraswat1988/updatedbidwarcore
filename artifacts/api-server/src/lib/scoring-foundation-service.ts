@@ -27,6 +27,7 @@ import {
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { resolveBadmintonSponsorLogos } from "@workspace/sports-badminton";
 import { ScoringServiceError } from "./scoring-service";
+import { parseLiveStreamUrl } from "./sports-branding";
 import {
   cricketFranchiseTeamExists,
   listCricketFranchiseTeams,
@@ -929,9 +930,14 @@ export async function getPublicTournamentSchedule(tournamentId: number) {
 
   const scoringSettings = (tournament.scoringSettingsJson ?? {}) as Record<string, unknown>;
   const brandingRaw = (scoringSettings.branding ?? {}) as Record<string, unknown>;
+  const broadcastRaw = (scoringSettings.broadcast ?? {}) as Record<string, unknown>;
+  const liveStreamUrl = parseLiveStreamUrl(broadcastRaw.liveStreamUrl);
+  const { scoringSettingsJson: _scoringSettingsJson, ...publicTournament } = tournament;
   const resolvedTournament = {
-    ...tournament,
+    ...publicTournament,
     sponsorLogos: resolveBadmintonSponsorLogos(brandingRaw, tournament.sponsorLogos),
+    streamUrl: liveStreamUrl,
+    liveStreamUrl,
   };
 
   const franchiseTeams = await listCricketFranchiseTeams(tournamentId);

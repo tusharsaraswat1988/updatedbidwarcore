@@ -16,6 +16,7 @@ import {
   Copy,
   Check,
   MessageCircle,
+  Tv,
   X,
 } from "lucide-react";
 import { useBranding } from "@/hooks/use-branding";
@@ -47,6 +48,7 @@ interface TournamentFanHeaderProps {
   soundEnabled?: boolean;
   onToggleSound?: () => void;
   tournamentCode?: string;
+  streamUrl?: string | null;
 }
 
 export function TournamentFanHeader({
@@ -62,6 +64,7 @@ export function TournamentFanHeader({
   soundEnabled = true,
   onToggleSound,
   tournamentCode,
+  streamUrl,
 }: TournamentFanHeaderProps) {
   const { logos, brandName } = useBranding();
   const miniLogoSrc = getBrandLogoSrc(logos, ["mini", "appIcon"]);
@@ -209,6 +212,18 @@ export function TournamentFanHeader({
                   SCHEDULED
                 </span>
               )}
+
+              {streamUrl ? (
+                <button
+                  type="button"
+                  onClick={() => window.open(streamUrl, "_blank", "noopener,noreferrer")}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-red-600 hover:bg-red-500 px-2.5 py-1 text-[11px] font-bold text-white transition-colors shadow-sm"
+                >
+                  <Tv className="h-3.5 w-3.5" />
+                  <span className="hidden min-[380px]:inline">Watch Live Stream</span>
+                  <span className="min-[380px]:hidden">Live</span>
+                </button>
+              ) : null}
 
               {onToggleSound ? (
                 <button

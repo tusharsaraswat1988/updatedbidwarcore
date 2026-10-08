@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
   getSportsBranding,
+  parseLiveStreamUrl,
   resolveSportsSponsorLogos,
   resolveVenueMusicUrl,
   resolveVenueBannerUrl,
@@ -117,6 +118,16 @@ describe("Sports Branding — Shared Service", () => {
       ).toBe("https://default.mp3");
     });
 
+    it("keeps only http(s) fan-page live stream URLs", () => {
+      expect(parseLiveStreamUrl("https://youtube.com/live/abc")).toBe(
+        "https://youtube.com/live/abc",
+      );
+      expect(parseLiveStreamUrl("  http://example.com/watch  ")).toBe("http://example.com/watch");
+      expect(parseLiveStreamUrl("javascript:alert(1)")).toBeNull();
+      expect(parseLiveStreamUrl("")).toBeNull();
+      expect(parseLiveStreamUrl(null)).toBeNull();
+    });
+
     it("resolves venue banner url fallback chain correctly", () => {
       expect(
         resolveVenueBannerUrl("https://sport-banner.png", "https://auction-banner.png"),
@@ -147,6 +158,7 @@ describe("Sports Branding — Shared Service", () => {
             venueScene: "standby",
             primaryMatchId: 5,
             venueMusicPlaying: true,
+            liveStreamUrl: "https://youtube.com/live/match",
           },
         },
         "https://platform-default.mp3",
@@ -159,6 +171,7 @@ describe("Sports Branding — Shared Service", () => {
       expect(branding.venueScene).toBe("standby");
       expect(branding.primaryBroadcastMatchId).toBe(5);
       expect(branding.venueMusicPlaying).toBe(true);
+      expect(branding.liveStreamUrl).toBe("https://youtube.com/live/match");
       expect(branding.resolvedVenueMusicUrl).toBe("https://break.mp3");
       expect(branding.resolvedVenueBannerUrl).toBe("https://main.png");
       expect(branding.resolvedVenueBannerFit).toBe("contain");

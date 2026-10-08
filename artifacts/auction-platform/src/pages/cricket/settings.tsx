@@ -18,6 +18,7 @@ import {
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { VenueMusicSettingsPanel } from "@/components/badminton/venue-music-settings-panel";
 import { VenueBannerSettingsPanel } from "@/components/badminton/venue-banner-settings-panel";
+import { FanLiveStreamEditor } from "@/components/scoring/fan-live-stream-editor";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
@@ -564,6 +565,10 @@ export default function CricketSettingsPage() {
           />
         ) : (
           <div className="space-y-6">
+            <div className="max-w-3xl">
+              <FanLiveStreamEditor tournamentId={tournamentId} />
+            </div>
+
             {/* 1. Tournament identity & Rotating Sponsors */}
             <section className={cn(hubPanelClass, "space-y-6 max-w-3xl")}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">

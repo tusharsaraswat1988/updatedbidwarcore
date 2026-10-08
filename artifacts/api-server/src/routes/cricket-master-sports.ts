@@ -373,6 +373,15 @@ router.patch("/broadcast-presentation", async (req, res) => {
       venueBannerPublicId: z.string().trim().max(400).nullable().optional(),
       venueBannerFit: z.enum(["cover", "contain"]).optional(),
       importAuctionBanner: z.literal(true).optional(),
+      liveStreamUrl: z
+        .string()
+        .max(500)
+        .nullable()
+        .optional()
+        .refine(
+          (v) => v == null || v === "" || /^https?:\/\//i.test(v),
+          "Live stream URL must be http(s)",
+        ),
     })
     .refine(
       (v) =>
@@ -384,7 +393,8 @@ router.patch("/broadcast-presentation", async (req, res) => {
         || v.venueBannerUrl !== undefined
         || v.venueBannerPublicId !== undefined
         || v.venueBannerFit !== undefined
-        || v.importAuctionBanner === true,
+        || v.importAuctionBanner === true
+        || v.liveStreamUrl !== undefined,
       { message: "At least one presentation field required" },
     );
   const parsed = schema.safeParse(req.body);
@@ -416,6 +426,12 @@ router.patch("/broadcast-presentation", async (req, res) => {
       venueBannerPublicId: parsed.data.venueBannerPublicId,
       venueBannerFit: parsed.data.venueBannerFit,
       importAuctionBanner: parsed.data.importAuctionBanner,
+      liveStreamUrl:
+        parsed.data.liveStreamUrl === undefined
+          ? undefined
+          : parsed.data.liveStreamUrl === ""
+            ? null
+            : parsed.data.liveStreamUrl,
     });
     broadcastScoringState(tournamentId, {
       type: "broadcast_presentation",

@@ -57,6 +57,8 @@ export interface SportsBranding {
   spotlightSponsorUrl?: string | null;
   /** Operator-pinned sponsor URL on live venue/OBS chrome until unpin. */
   pinnedSponsorUrl?: string | null;
+  /** YouTube, Facebook, or other https watch URL shown on the public fan page. */
+  liveStreamUrl?: string | null;
   /** Control Center On/Pause for venue LED loop music. */
   venueMusicPlaying?: boolean;
   /** Sport-specific override track (null = auction/platform fallthrough). */
