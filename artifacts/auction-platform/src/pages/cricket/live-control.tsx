@@ -45,6 +45,8 @@ import {
   getCricketTournamentRoster,
   getScoringStandings,
   isTerminalCricketMatchStatus,
+  isUpcomingCricketMatchStatus,
+  type ScoringMatchJson,
 } from "@/lib/scoring-api";
 import { parseTournamentSponsors } from "@/components/scoring/public-sponsors-strip";
 import {
@@ -146,7 +148,7 @@ const OVERLAY_OPTIONS: {
   { 
     id: "fixtures", 
     label: "Upcoming Matches", 
-    desc: "Upcoming match schedule & next fixtures card", 
+    desc: "Schedule slate for one match that has not started. Live and completed matches are not listed.", 
     activatesOn: "LED Scoreboard & OBS",
     icon: "📅", 
     tag: "SCHEDULE", 
@@ -155,7 +157,7 @@ const OVERLAY_OPTIONS: {
   { 
     id: "scorecard", 
     label: "Full Scorecard", 
-    desc: "Complete innings batting, bowling & fall of wickets card", 
+    desc: "Innings batting and bowling card for a live or finished match. Scheduled fixtures have no scorecard.", 
     activatesOn: "LED Scoreboard & OBS",
     icon: "📋", 
     tag: "SCORECARD", 
@@ -164,7 +166,7 @@ const OVERLAY_OPTIONS: {
   { 
     id: "summary", 
     label: "Match Summary", 
-    desc: "Post-match result summary & top performers spotlight", 
+    desc: "Result line, both totals, and top batter and bowler after the match is over.", 
     activatesOn: "LED Scoreboard & OBS",
     icon: "🏆", 
     tag: "RESULT", 
@@ -173,13 +175,41 @@ const OVERLAY_OPTIONS: {
   { 
     id: "intro", 
     label: "Match Intro / VS", 
-    desc: "Pre-match 3D team badges build-up & match details card", 
+    desc: "Walk-out card for one match: team badges, venue, and toss. This is not the schedule list.", 
     activatesOn: "LED Scoreboard & OBS",
     icon: "⚔️", 
     tag: "PRE-MATCH", 
     defaultDurationSec: 10 
   },
 ];
+
+type MatchPickerKind = "upcoming" | "intro" | "scorecard" | "summary";
+
+function matchPickerKind(id: CricketObsMidOverlayKind): MatchPickerKind | null {
+  if (id === "fixtures") return "upcoming";
+  if (id === "intro") return "intro";
+  if (id === "scorecard") return "scorecard";
+  if (id === "summary") return "summary";
+  return null;
+}
+
+function matchFitsPicker(status: string, kind: MatchPickerKind, tab: "live" | "upcoming" | "completed"): boolean {
+  if (kind === "upcoming") return isUpcomingCricketMatchStatus(status);
+  if (kind === "intro") {
+    return tab === "live" ? status === "live" : isUpcomingCricketMatchStatus(status);
+  }
+  if (kind === "scorecard") {
+    return tab === "completed" ? isTerminalCricketMatchStatus(status) : status === "live";
+  }
+  return isTerminalCricketMatchStatus(status);
+}
+
+function compareMatchNumber(a: ScoringMatchJson, b: ScoringMatchJson): number {
+  const na = a.tournamentMatchNumber ?? a.id;
+  const nb = b.tournamentMatchNumber ?? b.id;
+  if (na !== nb) return na - nb;
+  return a.id - b.id;
+}
 
 const ANIMATION_OPTIONS: { flash: CricketObsFlashKind; label: string; color: string; desc: string }[] = [
   { flash: "FOUR", label: "⚡ Four (Boundary)", color: "bg-blue-600 hover:bg-blue-500 text-white", desc: "Boundary 4 burst" },
@@ -307,24 +337,25 @@ export default function CricketLiveControlPage() {
   const [standingsSelectModalOpen, setStandingsSelectModalOpen] = useState(false);
 
   const [targetOverlayForMatch, setTargetOverlayForMatch] = useState<{ id: CricketObsMidOverlayKind; label: string; icon?: string } | null>(null);
-  const [matchFilterStatus, setMatchFilterStatus] = useState<"all" | "live" | "upcoming" | "completed">("all");
+  const [matchFilterStatus, setMatchFilterStatus] = useState<"live" | "upcoming" | "completed">("upcoming");
 
   const upcomingMatches = useMemo(
-    () => (matches ?? []).filter((m) => m.status === "upcoming" || m.status === "scheduled"),
+    () => (matches ?? []).filter((m) => isUpcomingCricketMatchStatus(m.status)).sort(compareMatchNumber),
     [matches],
   );
   const completedMatches = useMemo(
-    () => (matches ?? []).filter((m) => m.status === "completed"),
+    () => (matches ?? []).filter((m) => isTerminalCricketMatchStatus(m.status)).sort(compareMatchNumber),
     [matches],
   );
 
+  const pickerKind = targetOverlayForMatch ? matchPickerKind(targetOverlayForMatch.id) : null;
+
   const filteredMatches = useMemo(() => {
-    if (!matches) return [];
-    if (matchFilterStatus === "live") return liveMatches;
-    if (matchFilterStatus === "upcoming") return upcomingMatches;
-    if (matchFilterStatus === "completed") return completedMatches;
-    return matches;
-  }, [matches, matchFilterStatus, liveMatches, upcomingMatches, completedMatches]);
+    if (!matches || !pickerKind) return [];
+    return [...matches]
+      .filter((m) => matchFitsPicker(m.status, pickerKind, matchFilterStatus))
+      .sort(compareMatchNumber);
+  }, [matches, pickerKind, matchFilterStatus]);
 
   // Sync active overlay state with server
   const { data: serverState } = useQuery<{
@@ -499,12 +530,15 @@ export default function CricketLiveControlPage() {
       broadcastCommand({ type: "SET_OVERLAY", overlay, matchId, sponsorName, stageOrGroup });
 
       const stageLabel = competitionSelectionLabel(stageOrGroup);
+      const pushedMatchNo = matchId
+        ? (matches?.find((m) => m.id === matchId)?.tournamentMatchNumber ?? matchId)
+        : null;
       const extraText = sponsorName
         ? ` (${sponsorName})`
         : stageLabel
         ? ` (${stageLabel})`
-        : matchId
-        ? ` (Match #${matchId})`
+        : pushedMatchNo
+        ? ` (Match #${pushedMatchNo})`
         : "";
 
       toast({
@@ -515,7 +549,7 @@ export default function CricketLiveControlPage() {
             : `Pushed ${label}${extraText} to live displays.${dur ? ` (Auto-closes in ${dur}s)` : ""}`,
       });
     },
-    [tournamentId, broadcastCommand, toast, clearAutoCloseTimers],
+    [tournamentId, broadcastCommand, toast, clearAutoCloseTimers, matches],
   );
 
   useEffect(() => {
@@ -545,8 +579,18 @@ export default function CricketLiveControlPage() {
       setStandingsSelectModalOpen(true);
       return;
     }
-    // Match-dependent overlays: open match selection dialog
+    // Match-dependent overlays: open a list that only contains matches this slate can show.
+    const kind = matchPickerKind(item.id);
     setTargetOverlayForMatch(item);
+    if (kind === "scorecard") {
+      setMatchFilterStatus(liveMatches.length > 0 ? "live" : "completed");
+    } else if (kind === "summary") {
+      setMatchFilterStatus("completed");
+    } else if (kind === "intro") {
+      setMatchFilterStatus(upcomingMatches.length > 0 ? "upcoming" : "live");
+    } else {
+      setMatchFilterStatus("upcoming");
+    }
     setMatchSelectModalOpen(true);
   };
 
@@ -618,7 +662,18 @@ export default function CricketLiveControlPage() {
 
   function teamLabel(id: number) {
     const t = teamMap.get(id);
-    return t?.shortCode ?? t?.name ?? `Team ${id}`;
+    return t?.name || t?.shortCode || `Team ${id}`;
+  }
+
+  function teamShortLabel(id: number) {
+    const t = teamMap.get(id);
+    return t?.shortCode || t?.name || `Team ${id}`;
+  }
+
+  function teamCode(id: number) {
+    const t = teamMap.get(id);
+    if (!t?.shortCode || t.shortCode === t.name) return null;
+    return t.shortCode;
   }
 
   if (tournament?.sport === "badminton") {
@@ -675,7 +730,7 @@ export default function CricketLiveControlPage() {
       >
         {matches.map((m) => (
           <option key={m.id} value={m.id} className="bg-slate-900 text-white">
-            #{m.tournamentMatchNumber ?? m.id}: {teamLabel(m.homeTeamId)} vs {teamLabel(m.awayTeamId)} ({m.status})
+            #{m.tournamentMatchNumber ?? m.id}: {teamShortLabel(m.homeTeamId)} vs {teamShortLabel(m.awayTeamId)} ({m.status})
           </option>
         ))}
       </select>
@@ -801,7 +856,7 @@ export default function CricketLiveControlPage() {
                     </span>
                     {isChase && inn1 ? (
                       <span className="text-[10px] text-slate-300 bg-white/5 px-1.5 h-5 inline-flex items-center rounded border border-white/10 shrink-0">
-                        1st {teamLabel(inn1.battingTeamId || bowlingTeam?.id || 0)} {inn1.runs}/{inn1.wickets}
+                        1st {teamShortLabel(inn1.battingTeamId || bowlingTeam?.id || 0)} {inn1.runs}/{inn1.wickets}
                       </span>
                     ) : (
                       <span className="text-[11px] text-slate-400 truncate">vs {bowlingTeam?.name}</span>
@@ -923,7 +978,9 @@ export default function CricketLiveControlPage() {
                 )}
               >
                 {currentOverlay === "none" ? "Camera" : currentOverlay}
-                {currentOverlay !== "none" && overlayMatchId ? ` #${overlayMatchId}` : ""}
+                {currentOverlay !== "none" && overlayMatchId
+                  ? ` #${matches?.find((m) => m.id === overlayMatchId)?.tournamentMatchNumber ?? overlayMatchId}`
+                  : ""}
               </Badge>
               <div className="ml-auto flex items-center gap-1 shrink-0">
                 <Button
@@ -1152,45 +1209,51 @@ export default function CricketLiveControlPage() {
                     Select Match for {targetOverlayForMatch?.label || "Broadcast"}
                   </DialogTitle>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Choose which match to broadcast across Ground LED and OBS Live Stream.
+                    {pickerKind === "upcoming"
+                      ? "Scheduled fixtures only. Live and completed matches are not on this slate."
+                      : pickerKind === "scorecard"
+                      ? "Innings card for a match that has started. Upcoming fixtures have no scorecard."
+                      : pickerKind === "summary"
+                      ? "Result card after the match is over: both totals and the top batter and bowler."
+                      : pickerKind === "intro"
+                      ? "Walk-out card for one match. This is the VS graphic, not the upcoming schedule."
+                      : "Choose which match to broadcast across Ground LED and OBS Live Stream."}
                   </p>
                 </div>
               </div>
             </div>
-            {/* Filter Tabs */}
-            <div className="flex items-center gap-1.5 pt-3">
-              {(["all", "live", "upcoming", "completed"] as const).map((tab) => {
-                const count =
-                  tab === "all"
-                    ? matches?.length || 0
-                    : tab === "live"
-                    ? liveMatches.length
-                    : tab === "upcoming"
-                    ? upcomingMatches.length
-                    : completedMatches.length;
-
-                return (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setMatchFilterStatus(tab)}
-                    className={cn(
-                      "px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition",
-                      matchFilterStatus === tab
-                        ? "bg-amber-500 text-slate-950 shadow-sm"
-                        : "bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
-                    )}
-                  >
-                    {tab} ({count})
-                  </button>
-                );
-              })}
-            </div>
+            {pickerKind === "intro" || pickerKind === "scorecard" ? (
+              <div className="flex items-center gap-1.5 pt-3">
+                {(pickerKind === "intro" ? (["upcoming", "live"] as const) : (["live", "completed"] as const)).map((tab) => {
+                  const count =
+                    tab === "live"
+                      ? liveMatches.length
+                      : tab === "upcoming"
+                      ? upcomingMatches.length
+                      : completedMatches.length;
+                  const tabLabel = tab === "completed" ? "finished" : tab;
+                  return (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setMatchFilterStatus(tab)}
+                      className={cn(
+                        "px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider transition",
+                        matchFilterStatus === tab
+                          ? "bg-amber-500 text-slate-950 shadow-sm"
+                          : "bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
+                      )}
+                    >
+                      {tabLabel} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2.5">
-            {/* Quick Action: Use Active Match */}
-            {currentMatch && matchFilterStatus === "all" && (
+            {currentMatch && pickerKind && matchFitsPicker(currentMatch.status, pickerKind, matchFilterStatus) && (
               <div className="p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/80 mb-3 flex items-center justify-between gap-3 shadow-sm">
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
@@ -1199,7 +1262,7 @@ export default function CricketLiveControlPage() {
                       Currently Active Match
                     </span>
                     <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                      Match #{currentMatch.id}: {teamLabel(currentMatch.homeTeamId)} vs {teamLabel(currentMatch.awayTeamId)}
+                      Match #{currentMatch.tournamentMatchNumber ?? currentMatch.id}: {teamLabel(currentMatch.homeTeamId)} vs {teamLabel(currentMatch.awayTeamId)}
                     </p>
                   </div>
                 </div>
@@ -1213,7 +1276,7 @@ export default function CricketLiveControlPage() {
                   }}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shrink-0 shadow-sm"
                 >
-                  Broadcast Active ⚡
+                  Broadcast Active
                 </Button>
               </div>
             )}
@@ -1222,13 +1285,21 @@ export default function CricketLiveControlPage() {
               filteredMatches.map((m) => {
                 const home = teamLabel(m.homeTeamId);
                 const away = teamLabel(m.awayTeamId);
+                const homeCode = teamCode(m.homeTeamId);
+                const awayCode = teamCode(m.awayTeamId);
+                const matchNo = m.tournamentMatchNumber ?? m.id;
                 const isCurrentActive = m.id === currentMatch?.id;
                 const isScreenTarget = m.id === overlayMatchId && currentOverlay === targetOverlayForMatch?.id;
+                const statusLabel = isUpcomingCricketMatchStatus(m.status)
+                  ? "SCHEDULED"
+                  : m.status === "completed"
+                  ? "FINISHED"
+                  : m.status.toUpperCase();
 
                 const statusColor =
                   m.status === "live"
                     ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                    : m.status === "completed"
+                    : isTerminalCricketMatchStatus(m.status)
                     ? "bg-purple-50 text-purple-700 border-purple-300"
                     : "bg-blue-50 text-blue-700 border-blue-300";
 
@@ -1245,7 +1316,7 @@ export default function CricketLiveControlPage() {
                     <div className="space-y-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-mono font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                          MATCH #{m.id}
+                          Match #{matchNo}
                         </span>
                         {m.roundName && (
                           <span className="text-[11px] font-medium text-slate-500 border-l border-slate-200 pl-2">
@@ -1253,7 +1324,7 @@ export default function CricketLiveControlPage() {
                           </span>
                         )}
                         <span className={cn("text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border", statusColor)}>
-                          {m.status.toUpperCase()}
+                          {statusLabel}
                         </span>
                         {isCurrentActive && (
                           <span className="text-[10px] font-bold uppercase text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
@@ -1267,10 +1338,16 @@ export default function CricketLiveControlPage() {
                         )}
                       </div>
 
-                      <div className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                      <div className="text-sm font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
                         <span>{home}</span>
+                        {homeCode ? (
+                          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{homeCode}</span>
+                        ) : null}
                         <span className="text-amber-600 italic text-xs font-semibold">VS</span>
                         <span>{away}</span>
+                        {awayCode ? (
+                          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{awayCode}</span>
+                        ) : null}
                       </div>
 
                       <div className="text-[11px] text-slate-500 flex items-center gap-3 flex-wrap">
@@ -1278,7 +1355,7 @@ export default function CricketLiveControlPage() {
                         {m.scheduledAt && (
                           <span>🕒 {new Date(m.scheduledAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })}</span>
                         )}
-                        {m.resultSummary && (
+                        {pickerKind !== "upcoming" && m.resultSummary && (
                           <span className="text-amber-800 font-semibold">🏆 {m.resultSummary}</span>
                         )}
                       </div>
@@ -1307,8 +1384,16 @@ export default function CricketLiveControlPage() {
                 );
               })
             ) : (
-              <div className="text-center py-10 text-slate-400 text-xs font-medium">
-                No matches found under this filter.
+              <div className="text-center py-10 text-slate-500 text-xs font-medium px-6">
+                {pickerKind === "upcoming"
+                  ? "No scheduled matches. Live and completed matches are not listed here."
+                  : pickerKind === "summary"
+                  ? "No finished matches yet. Match Summary is the result card after a match ends."
+                  : pickerKind === "scorecard" && matchFilterStatus === "live"
+                  ? "No live match. Open Finished to show a completed innings card."
+                  : pickerKind === "intro" && matchFilterStatus === "live"
+                  ? "No live match. Open Upcoming for a fixture that has not started."
+                  : "No matches in this list."}
               </div>
             )}
           </div>

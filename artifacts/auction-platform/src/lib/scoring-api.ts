@@ -20,6 +20,11 @@ export function isTerminalCricketMatchStatus(status: string): boolean {
   return status === "completed" || status === "abandoned" || status === "walkover";
 }
 
+/** Fixtures that have not started. Live and finished matches are excluded. */
+export function isUpcomingCricketMatchStatus(status: string): boolean {
+  return status === "upcoming" || status === "scheduled";
+}
+
 export type ScoringMatchRulesJson = {
   overs?: number;
   maxWickets?: number;

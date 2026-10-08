@@ -101,14 +101,16 @@ export function CricketObsMidOverlays({
     return matches && matches.length > 0 ? matches[0] : null;
   }, [overlayMatchId, matches]);
 
-  // Fixtures Match: Targeted single match (if selected in live control / director) or first upcoming match
+  // Fixtures slate is upcoming-only. A live or finished selection does not become "Upcoming Match".
   const activeFixtureMatch = useMemo(() => {
+    const upcoming = (matches ?? [])
+      .filter((m) => m.status === "upcoming" || m.status === "scheduled")
+      .sort((a, b) => (a.tournamentMatchNumber ?? a.id) - (b.tournamentMatchNumber ?? b.id));
     if (overlayMatchId && matches && matches.length > 0) {
       const found = matches.find((m) => m.id === overlayMatchId);
-      if (found) return found;
+      if (found && (found.status === "upcoming" || found.status === "scheduled")) return found;
     }
-    const upcoming = (matches ?? []).filter((m) => m.status === "upcoming" || m.status === "scheduled" || m.status !== "completed");
-    return upcoming[0] ?? (matches && matches.length > 0 ? matches[0] : null);
+    return upcoming[0] ?? null;
   }, [overlayMatchId, matches]);
 
   const fixtureHomeTeam = useMemo(() => {
@@ -923,7 +925,7 @@ export function CricketObsMidOverlays({
                         className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
                         style={{ fontFamily: BROADCAST_FONTS.body }}
                       >
-                        {activeMatch ? `MATCH #${activeMatch.id}${groupOrRoundText ? ` · ${groupOrRoundText.toUpperCase()}` : ""}` : "OFFICIAL MATCH RESULT"}
+                        {activeMatch ? `MATCH #${activeMatch.tournamentMatchNumber || activeMatch.id}${groupOrRoundText ? ` · ${groupOrRoundText.toUpperCase()}` : ""}` : "OFFICIAL MATCH RESULT"}
                       </span>
                       {activeMatch?.status && (
                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
@@ -1108,7 +1110,7 @@ export function CricketObsMidOverlays({
                       className="text-xs font-bold uppercase tracking-[0.24em] text-[#FFD700]"
                       style={{ fontFamily: BROADCAST_FONTS.body }}
                     >
-                      {activeMatch ? `MATCH #${activeMatch.id}${activeMatch.roundName ? ` · ${activeMatch.roundName.toUpperCase()}` : ""}` : "MATCH PRESENTATION"}
+                      {activeMatch ? `MATCH #${activeMatch.tournamentMatchNumber || activeMatch.id}${activeMatch.roundName ? ` · ${activeMatch.roundName.toUpperCase()}` : ""}` : "MATCH PRESENTATION"}
                     </span>
                     {activeMatch?.status && (
                       <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${

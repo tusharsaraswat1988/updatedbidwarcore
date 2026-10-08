@@ -221,14 +221,16 @@ export function CricketLedMidOverlays({
 
   const teamMap = useMemo(() => new Map(effectiveTeams.map((t) => [t.id, t])), [effectiveTeams]);
 
-  // Fixtures Match: Targeted single match (if selected in live control / director) or first upcoming match
+  // Fixtures slate is upcoming-only. A live or finished selection does not become "Upcoming Match".
   const activeFixtureMatch = useMemo(() => {
+    const upcoming = (matches ?? [])
+      .filter((m) => m.status === "upcoming" || m.status === "scheduled")
+      .sort((a, b) => (a.tournamentMatchNumber ?? a.id) - (b.tournamentMatchNumber ?? b.id));
     if (overlayMatchId && matches && matches.length > 0) {
       const found = matches.find((m) => m.id === overlayMatchId);
-      if (found) return found;
+      if (found && (found.status === "upcoming" || found.status === "scheduled")) return found;
     }
-    const upcoming = (matches ?? []).filter((m) => m.status === "upcoming" || m.status === "scheduled" || m.status !== "completed");
-    return upcoming[0] ?? (matches && matches.length > 0 ? matches[0] : null);
+    return upcoming[0] ?? null;
   }, [overlayMatchId, matches]);
 
   const fixtureHomeTeam = useMemo(() => {
@@ -1236,7 +1238,7 @@ export function CricketLedMidOverlays({
                   <div className="text-center mb-3">
                     <div className="flex items-center justify-center gap-2 mb-2 flex-wrap">
                       <span className="text-sm sm:text-base font-black uppercase tracking-[0.22em] text-amber-400 font-display">
-                        {activeMatch ? `MATCH #${activeMatch.id}${groupOrRoundText ? ` · ${groupOrRoundText.toUpperCase()}` : ""}` : "OFFICIAL MATCH RESULT"}
+                        {activeMatch ? `MATCH #${activeMatch.tournamentMatchNumber || activeMatch.id}${groupOrRoundText ? ` · ${groupOrRoundText.toUpperCase()}` : ""}` : "OFFICIAL MATCH RESULT"}
                       </span>
                       {activeMatch?.status && (
                         <span className={cn(
@@ -1503,7 +1505,7 @@ export function CricketLedMidOverlays({
                 <div className="text-center">
                   <div className="flex items-center justify-center gap-2 mb-2">
                     <span className="text-xs sm:text-sm font-black uppercase tracking-[0.25em] text-amber-400 font-display">
-                      {activeMatch ? `MATCH #${activeMatch.id}${activeMatch.roundName ? ` · ${activeMatch.roundName.toUpperCase()}` : ""}` : "MATCH PRESENTATION"}
+                      {activeMatch ? `MATCH #${activeMatch.tournamentMatchNumber || activeMatch.id}${activeMatch.roundName ? ` · ${activeMatch.roundName.toUpperCase()}` : ""}` : "MATCH PRESENTATION"}
                     </span>
                     {activeMatch?.status && (
                       <span className={cn(
