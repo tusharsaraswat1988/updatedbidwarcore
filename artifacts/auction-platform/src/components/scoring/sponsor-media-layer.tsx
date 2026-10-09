@@ -34,10 +34,12 @@ function probeSponsorBlob(blob: Blob, assetType: "image" | "video"): Promise<voi
   const url = URL.createObjectURL(blob);
   return new Promise((resolve, reject) => {
     let settled = false;
+    let detach = () => {};
     const finish = (error?: Error) => {
       if (settled) return;
       settled = true;
       window.clearTimeout(timeout);
+      detach();
       URL.revokeObjectURL(url);
       if (error) reject(error);
       else resolve();
@@ -56,14 +58,18 @@ function probeSponsorBlob(blob: Blob, assetType: "image" | "video"): Promise<voi
     }
     const video = document.createElement("video");
     video.muted = true;
+    video.defaultMuted = true;
     video.preload = "auto";
     video.playsInline = true;
-    video.onloadeddata = () => {
+    video.setAttribute("playsinline", "");
+    video.style.cssText = "position:fixed;width:320px;height:180px;opacity:0;pointer-events:none";
+    document.body.appendChild(video);
+    detach = () => {
       video.pause();
       video.removeAttribute("src");
-      video.load();
-      finish();
+      video.remove();
     };
+    video.onloadeddata = () => finish();
     video.onerror = () => finish(new Error("Player could not load this asset"));
     video.src = url;
   });
@@ -407,15 +413,29 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     const slot = slotsRef.current.find((item) => item.id === playback.slotId);
     const video = videoRef.current;
     if (!video || slot?.assetType !== "video") return;
-    video.muted = surface === "led" || !slot.hasAudio;
+    const wantAudio = surface === "obs" && Boolean(slot.hasAudio);
+    video.muted = true;
+    video.defaultMuted = true;
     const token = playTokenRef.current;
     video.dataset.playToken = String(token);
     const onReady = () => {
       if (playTokenRef.current !== token || video.src !== objectUrl) return;
-      video.currentTime = 0;
-      void video.play().catch((err: unknown) => {
+      try { video.currentTime = 0; } catch { /* metadata not ready yet */ }
+      const start = () => video.play().then(() => {
         if (playTokenRef.current !== token) return;
-        hide("error", err instanceof Error ? err.message : "Playback failed");
+        if (!wantAudio) return;
+        video.muted = false;
+        if (!video.paused) return;
+        video.muted = true;
+        return video.play();
+      });
+      void start().catch(() => {
+        if (playTokenRef.current !== token) return;
+        video.muted = true;
+        void video.play().catch((err: unknown) => {
+          if (playTokenRef.current !== token) return;
+          hide("error", err instanceof Error ? err.message : "Playback failed");
+        });
       });
     };
     if (video.src !== objectUrl) video.src = objectUrl;
@@ -431,9 +451,16 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     if (!video || !canvas) return;
     let frame = 0;
     const draw = () => {
-      if (video.readyState >= 2) {
+      if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
         const context = canvas.getContext("2d");
-        context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+        if (context) {
+          const scale = Math.min(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
+          const width = video.videoWidth * scale;
+          const height = video.videoHeight * scale;
+          context.fillStyle = "#000";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(video, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+        }
       }
       frame = window.requestAnimationFrame(draw);
     };
@@ -463,7 +490,9 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
         <>
           <video
             ref={videoRef}
+            muted
             playsInline
+            preload="auto"
             onEnded={(event) => {
               const video = event.currentTarget;
               if (video.dataset.playToken !== String(playTokenRef.current)) return;
@@ -482,9 +511,9 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
               if (!objectUrlRef.current || video.src !== objectUrlRef.current) return;
               hide("error", "Playback failed");
             }}
-            style={{ position: "absolute", width: 1, height: 1, opacity: 0 }}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", opacity: 0.01 }}
           />
-          <canvas ref={canvasRef} width={1920} height={1080} style={{ width: "100%", height: "100%" }} />
+          <canvas ref={canvasRef} width={1920} height={1080} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 2 }} />
         </>
       )}
     </div>
