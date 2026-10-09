@@ -198,7 +198,7 @@ function SponsorLogoPreviewDialog({
             className="max-w-full max-h-[min(65vh,480px)] object-contain"
           />
         </div>
-        {(logo.type || logo.isTitleSponsor || logo.isCoSponsor) && (
+        {(logo.type || logo.isTitleSponsor || logo.isCoSponsor || isLiveStreamingPartnerLogo(logo)) && (
           <div className="flex items-center justify-center gap-2 pt-1">
             {logo.isTitleSponsor && (
               <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-xs">
@@ -530,7 +530,7 @@ export function SponsorLogosEditor({
                   <div className="space-y-1">
                     <span className="text-[10px] text-muted-foreground xl:hidden font-medium">Designation / Category</span>
                     <Input
-                      className="h-9 text-xs"
+                      className={`h-9 text-xs ${isLive ? "bg-cyan-500/10 text-cyan-200 border-cyan-500/40" : ""}`}
                       value={isLive ? LIVE_STREAMING_PARTNER_LABEL : (logo.type ?? "")}
                       onChange={e => {
                         if (isLive) return;

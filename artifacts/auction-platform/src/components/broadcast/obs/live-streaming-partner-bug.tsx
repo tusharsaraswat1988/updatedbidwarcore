@@ -29,7 +29,7 @@ export function LiveStreamingPartnerBug({
       data-obs-live-streaming-partner=""
       style={{
         position: "absolute",
-        zIndex: 32,
+        zIndex: 70,
         display: "flex",
         alignItems: "center",
         gap: 14,
