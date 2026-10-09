@@ -29,10 +29,10 @@ export interface CricketLedNeutralScreenProps {
 
 function getNeutralSponsorNameFontSize(name: string): string {
   const len = (name || "").trim().length;
-  if (len > 32) return "text-sm sm:text-base md:text-lg";
-  if (len > 22) return "text-base sm:text-lg md:text-xl";
-  if (len > 14) return "text-lg sm:text-xl md:text-2xl";
-  return "text-xl sm:text-2xl md:text-3xl";
+  if (len > 32) return "text-lg sm:text-xl md:text-2xl";
+  if (len > 22) return "text-xl sm:text-2xl md:text-3xl";
+  if (len > 14) return "text-2xl sm:text-3xl md:text-4xl";
+  return "text-3xl sm:text-4xl md:text-5xl";
 }
 
 export function CricketLedNeutralScreen({
@@ -115,7 +115,7 @@ export function CricketLedNeutralScreen({
       <div className="absolute inset-0 opacity-[0.035] bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
 
       {/* 1. TOP HEADER: "POWERED BY BIDWAR LOGO" (Centered & Prominent) */}
-      <header className="relative z-20 h-24 sm:h-28 flex items-center justify-between px-6 sm:px-10 border-b border-border/70 bg-card/90 backdrop-blur-md shrink-0 shadow-lg">
+      <header className="relative z-20 min-h-[8rem] sm:min-h-[9.5rem] md:min-h-[11rem] flex items-center justify-between px-6 sm:px-10 py-3 border-b border-border/70 bg-card/90 backdrop-blur-md shrink-0 shadow-lg">
         {/* Left balance spacer / Mini Tournament Icon */}
         <div className="w-48 sm:w-60 flex items-center gap-3 shrink-0">
           {tournamentLogoUrl ? (
@@ -131,14 +131,14 @@ export function CricketLedNeutralScreen({
               <Trophy className="w-5 h-5 text-primary" />
             </div>
           )}
-          <span className="text-xs font-black uppercase tracking-widest text-white/50 hidden sm:inline-block">
+          <span className="text-lg md:text-xl font-black uppercase tracking-widest text-white/80 hidden sm:inline-block">
             STADIUM LED
           </span>
         </div>
 
         {/* Center: "POWERED BY - BIDWAR LOGO" */}
         <div className="flex-1 flex flex-col items-center justify-center text-center">
-          <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.35em] text-amber-400 font-display mb-1 drop-shadow">
+          <span className="text-base sm:text-lg md:text-xl font-black uppercase tracking-[0.22em] text-amber-300 font-display mb-1 drop-shadow">
             POWERED BY
           </span>
           <div className="flex items-center justify-center">
@@ -146,10 +146,10 @@ export function CricketLedNeutralScreen({
               <img
                 src={logoSrc}
                 alt={logoAlt || "BidWar"}
-                className="h-9 sm:h-11 md:h-12 w-auto object-contain filter drop-shadow-[0_2px_14px_rgba(245,158,11,0.5)]"
+                className="h-16 sm:h-20 md:h-24 w-auto object-contain filter drop-shadow-[0_2px_14px_rgba(245,158,11,0.5)]"
               />
             ) : (
-              <span className="text-2xl sm:text-3xl font-black uppercase tracking-[0.2em] text-white font-display">
+              <span className="text-4xl sm:text-5xl md:text-6xl font-black uppercase tracking-[0.16em] text-white font-display">
                 BID<span className="text-amber-400">WAR</span>
               </span>
             )}
@@ -158,7 +158,7 @@ export function CricketLedNeutralScreen({
 
         {/* Right balance spacer / Connection status */}
         <div className="w-48 sm:w-60 flex items-center justify-end gap-3 shrink-0">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-base sm:text-lg font-black uppercase tracking-wider">
             {connectionStatus === "connected" ? (
               <>
                 <Wifi className="w-3.5 h-3.5" /> LIVE DISPLAY
@@ -184,7 +184,7 @@ export function CricketLedNeutralScreen({
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5 }}
-            className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 rounded-3xl bg-card/95 border-2 border-amber-400/50 p-3 shadow-[0_0_45px_rgba(245,158,11,0.3)] flex items-center justify-center overflow-hidden mb-5 shrink-0"
+            className="w-40 h-40 sm:w-52 sm:h-52 md:w-64 md:h-64 rounded-3xl bg-card/95 border-2 border-amber-400/50 p-4 shadow-[0_0_45px_rgba(245,158,11,0.3)] flex items-center justify-center overflow-hidden mb-6 shrink-0"
           >
             <img
               src={tournamentLogoUrl}
@@ -221,7 +221,7 @@ export function CricketLedNeutralScreen({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.45, delay: 0.2 }}
-          className="mt-5 inline-flex items-center gap-2.5 px-6 py-2 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 text-sm sm:text-base font-black uppercase tracking-[0.25em] shadow-lg shadow-black/50"
+          className="mt-6 inline-flex items-center gap-3 px-8 py-3 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-200 text-lg sm:text-xl md:text-2xl font-black uppercase tracking-[0.16em] shadow-lg shadow-black/50"
         >
           <Sparkles className="w-4 h-4 text-amber-400" />
           <span>OFFICIAL TOURNAMENT BROADCAST</span>
@@ -234,7 +234,7 @@ export function CricketLedNeutralScreen({
         {/* Section Tagline */}
         <div className="flex items-center gap-2 mb-3 sm:mb-4">
           <span className="text-amber-400 font-black text-sm sm:text-base">✦</span>
-          <span className="text-xs sm:text-sm font-black uppercase tracking-[0.3em] text-white/70">
+          <span className="text-lg sm:text-xl md:text-2xl font-black uppercase tracking-[0.18em] text-white">
             OFFICIAL TOURNAMENT SPONSORS &amp; PARTNERS
           </span>
           <span className="text-amber-400 font-black text-sm sm:text-base">✦</span>
@@ -268,7 +268,7 @@ export function CricketLedNeutralScreen({
                     >
                       {/* Sponsor Logo (Large) */}
                       {sp.url ? (
-                        <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-22 md:w-22 rounded-xl bg-black/60 border border-white/20 p-2 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+                        <div className="h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32 rounded-xl bg-black/60 border border-white/20 p-2 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
                           <img
                             src={sp.url}
                             alt={sp.name || "Sponsor"}
@@ -276,8 +276,8 @@ export function CricketLedNeutralScreen({
                           />
                         </div>
                       ) : (
-                        <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-22 md:w-22 rounded-xl bg-amber-500/15 border-2 border-amber-400/40 flex items-center justify-center shrink-0">
-                          <Award className="w-9 h-9 text-amber-400 drop-shadow" />
+                        <div className="h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32 rounded-xl bg-amber-500/15 border-2 border-amber-400/40 flex items-center justify-center shrink-0">
+                          <Award className="w-12 h-12 sm:w-14 sm:h-14 text-amber-400 drop-shadow" />
                         </div>
                       )}
 
@@ -295,7 +295,7 @@ export function CricketLedNeutralScreen({
                         </h3>
                         {/* Sponsor Type: thoda bada me */}
                         <div className="mt-1.5 flex items-center">
-                          <span className="inline-block px-3 py-1 rounded-lg bg-amber-500/20 border border-amber-400/50 text-xs sm:text-sm md:text-base font-black uppercase tracking-wider text-amber-300 drop-shadow">
+                          <span className="inline-block px-4 py-1.5 rounded-lg bg-amber-500/20 border border-amber-400/50 text-base sm:text-lg md:text-xl font-black uppercase tracking-wider text-amber-200 drop-shadow">
                             {typeLabel}
                           </span>
                         </div>
@@ -330,7 +330,7 @@ export function CricketLedNeutralScreen({
               {tournamentName}
             </span>
             <span className="text-amber-400 font-black">•</span>
-            <span className="text-sm sm:text-base font-bold uppercase tracking-widest text-amber-400">
+            <span className="text-xl md:text-2xl font-black uppercase tracking-widest text-amber-300">
               POWERED BY BIDWAR
             </span>
           </div>

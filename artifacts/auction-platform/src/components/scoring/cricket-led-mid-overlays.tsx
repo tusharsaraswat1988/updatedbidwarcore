@@ -424,7 +424,7 @@ export function CricketLedMidOverlays({
               <h2 className="text-3xl sm:text-4xl font-display font-black uppercase tracking-wider text-amber-400">
                 {tournamentName || "Tournament Banner"}
               </h2>
-              <p className="text-slate-400 text-sm font-medium leading-relaxed">
+              <p className="text-white/80 text-xl font-black leading-relaxed">
                 No banner uploaded yet. Upload a 16:9 banner in Tournament Settings &gt; Branding.
               </p>
             </div>
@@ -436,11 +436,11 @@ export function CricketLedMidOverlays({
               <img
                 src={logoSrc}
                 alt={logoAlt || "BidWar"}
-                className="h-6 sm:h-7 w-auto object-contain"
+                className="h-10 sm:h-12 w-auto object-contain"
                 loading="eager"
               />
             ) : (
-              <span className="text-xs font-black uppercase tracking-widest text-amber-400 font-display">
+              <span className="text-xl sm:text-2xl font-black uppercase tracking-widest text-amber-300 font-display">
                 BIDWAR
               </span>
             )}
@@ -465,61 +465,61 @@ export function CricketLedMidOverlays({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-3 md:p-4 pointer-events-auto select-none bg-black/90 backdrop-blur-xl overflow-hidden">
+      <div className="fixed inset-0 z-50 flex items-stretch justify-stretch p-0 pointer-events-auto select-none bg-black overflow-hidden">
         <motion.div
           key={`led-overlay-${overlay}`}
           initial={{ opacity: 0, x: "-100%" }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: "-100%" }}
           transition={{ duration: 0.42, ease: [0.16, 1, 0.3, 1] }}
-          className="relative flex h-[96vh] w-[98vw] max-w-[1880px] flex-col overflow-hidden rounded-3xl border-2 border-border/80 bg-[#07090e]/95 shadow-[0_30px_90px_rgba(0,0,0,0.95)]"
+          className="relative flex h-full w-full max-w-none flex-col overflow-hidden bg-[#07090e] shadow-none"
         >
           {/* Top LED Header Bar — Official BidWar Logo (Left) | Tournament Identity (Center) | Live Status (Right) */}
-          <div className="relative flex h-16 sm:h-20 items-center justify-between px-4 sm:px-8 border-b border-border/80 bg-card/90 backdrop-blur-md shrink-0">
+          <div className="relative flex min-h-[7.25rem] sm:min-h-[8.5rem] md:min-h-[9.75rem] items-center justify-between px-5 sm:px-10 py-3 border-b border-border/80 bg-card/90 backdrop-blur-md shrink-0">
             {/* Left Brand Identity: Official BidWar Logo */}
-            <div className="flex items-center gap-2.5 w-36 sm:w-56 md:w-64 shrink-0">
+            <div className="flex items-center gap-3 w-52 sm:w-72 md:w-80 shrink-0">
               {logoSrc ? (
                 <img
                   src={logoSrc}
                   alt={logoAlt || "BidWar"}
-                  className="h-7 sm:h-8 md:h-9 w-auto max-w-[130px] sm:max-w-[180px] md:max-w-[210px] object-contain object-left filter drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
+                  className="h-14 sm:h-16 md:h-20 w-auto max-w-[220px] sm:max-w-[280px] md:max-w-[340px] object-contain object-left filter drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
                   loading="eager"
                   decoding="sync"
                 />
               ) : (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-400 text-xs font-display font-black uppercase tracking-widest">
+                <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-400/15 border border-amber-400/30 text-amber-400 text-xl sm:text-2xl font-display font-black uppercase tracking-widest">
                   BIDWAR
                 </span>
               )}
             </div>
 
             {/* Centered Tournament Name & Logo */}
-            <div className="flex items-center justify-center gap-3 sm:gap-4 min-w-0 flex-1 max-w-4xl mx-auto">
+            <div className="flex items-center justify-center gap-4 sm:gap-5 min-w-0 flex-1 mx-auto">
               {tournamentLogoUrl ? (
-                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-card border-2 border-border p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-lg shadow-black/50">
+                <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 rounded-2xl bg-card border-2 border-border p-1.5 flex items-center justify-center overflow-hidden shrink-0 shadow-lg shadow-black/50">
                   <img src={tournamentLogoUrl} alt="" className="h-full w-full object-contain" />
                 </div>
               ) : (
-                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-primary/20 border-2 border-primary/40 flex items-center justify-center shrink-0 shadow-lg shadow-black/50">
-                  <Trophy className="w-5 h-5 text-primary" />
+                <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 rounded-2xl bg-primary/20 border-2 border-primary/40 flex items-center justify-center shrink-0 shadow-lg shadow-black/50">
+                  <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
                 </div>
               )}
-              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-display font-black tracking-wider text-white uppercase truncate drop-shadow text-center">
+              <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-black tracking-wide text-white uppercase line-clamp-2 drop-shadow text-center leading-tight">
                 {tournamentName || "LIVE CRICKET TOURNAMENT"}
               </h1>
             </div>
 
             {/* Right Status & Actions */}
-            <div className="flex items-center justify-end gap-3 w-36 sm:w-56 md:w-64 shrink-0">
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-black uppercase tracking-widest animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            <div className="flex items-center justify-end gap-3 w-52 sm:w-72 md:w-80 shrink-0">
+              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-base sm:text-lg md:text-xl font-black uppercase tracking-widest animate-pulse">
+                <span className="w-3 h-3 rounded-full bg-emerald-400" />
                 LIVE
               </span>
               {onClose && (
                 <button
                   type="button"
                   onClick={onClose}
-                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-full border-2 border-white/20 bg-white/10 hover:bg-white/25 text-white flex items-center justify-center text-base sm:text-lg font-black transition shadow-lg hover:scale-105 active:scale-95"
+                  className="h-12 w-12 sm:h-14 sm:w-14 rounded-full border-2 border-white/20 bg-white/10 hover:bg-white/25 text-white flex items-center justify-center text-xl sm:text-2xl font-black transition shadow-lg hover:scale-105 active:scale-95"
                   title="Close"
                   aria-label="Close"
                 >
@@ -533,19 +533,18 @@ export function CricketLedMidOverlays({
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col justify-between">
             {/* 1. SPONSOR SHOWCASE (Single Focal Sponsor Layout) */}
             {overlay === "sponsors" && (
-              <div className="flex h-full flex-col justify-between max-w-5xl mx-auto w-full">
-                {/* Title without yellow line above — Spaced nicely lower */}
-                <div className="text-center pt-8 sm:pt-14 mb-4 sm:mb-6">
-                  <h2 className="text-3xl sm:text-5xl md:text-6xl font-display font-black tracking-wider text-white uppercase drop-shadow">
+              <div className="flex h-full flex-col justify-between w-full px-2 sm:px-6">
+                <div className="text-center pt-2 mb-3 shrink-0">
+                  <h2 className="text-4xl sm:text-6xl md:text-7xl font-display font-black tracking-wide text-white uppercase drop-shadow">
                     {targetedSponsor ? `OFFICIAL PARTNER` : `OUR VALUED PARTNERS`}
                   </h2>
                 </div>
 
                 {activeSponsor ? (
-                  <div className="my-auto flex flex-col items-center justify-center w-full max-w-3xl mx-auto">
+                  <div className="flex-1 min-h-0 flex flex-col items-center justify-center w-full">
                     <div
                       className={cn(
-                        "w-full flex flex-col items-center justify-center rounded-3xl p-8 sm:p-12 transition-all duration-500 backdrop-blur-md",
+                        "w-full h-full flex flex-col items-center justify-center rounded-3xl p-8 sm:p-12 md:p-16 transition-all duration-500 backdrop-blur-md",
                         isTitle
                           ? "border-4 border-amber-400 bg-gradient-to-b from-[#1c1404] via-card/95 to-[#07090e] shadow-[0_0_90px_rgba(251,191,36,0.5),0_0_35px_rgba(251,191,36,0.3)] animate-pulse"
                           : isCo
@@ -554,7 +553,7 @@ export function CricketLedMidOverlays({
                       )}
                     >
                       {/* 1. Sponsor Logo (Frameless Clean Showcase) */}
-                      <div className="w-full h-56 sm:h-72 max-w-xl mx-auto flex items-center justify-center p-2 mb-6 sm:mb-8">
+                      <div className="w-full flex-1 min-h-[34vh] max-h-[46vh] max-w-5xl mx-auto flex items-center justify-center p-2 mb-6 sm:mb-8">
                         {activeSponsor.url ? (
                           <img
                             src={activeSponsor.url}
@@ -569,7 +568,7 @@ export function CricketLedMidOverlays({
                                 isTitle ? "text-amber-400" : isCo ? "text-cyan-400" : "text-primary"
                               )}
                             />
-                            <span className="text-base font-black text-muted-foreground uppercase">
+                            <span className="text-3xl md:text-4xl font-black text-white uppercase">
                               Official Sponsor
                             </span>
                           </div>
@@ -582,10 +581,10 @@ export function CricketLedMidOverlays({
                         className={cn(
                           "font-display font-black uppercase tracking-wide text-white text-center drop-shadow-[0_2px_15px_rgba(0,0,0,0.95)] mb-4 break-words max-w-full leading-tight",
                           (activeSponsor.name?.length ?? 0) > 30
-                            ? "text-2xl sm:text-3xl md:text-4xl"
+                            ? "text-4xl sm:text-5xl md:text-6xl lg:text-7xl"
                             : (activeSponsor.name?.length ?? 0) > 18
-                            ? "text-2xl sm:text-4xl md:text-5xl"
-                            : "text-3xl sm:text-5xl md:text-6xl"
+                            ? "text-5xl sm:text-6xl md:text-7xl lg:text-8xl"
+                            : "text-6xl sm:text-7xl md:text-8xl lg:text-9xl"
                         )}
                       >
                         {activeSponsor.name || "Tournament Partner"}
@@ -595,12 +594,12 @@ export function CricketLedMidOverlays({
                       <div>
                         <span
                           className={cn(
-                            "inline-block px-6 py-2 rounded-full font-display font-black uppercase tracking-[0.25em]",
+                            "inline-block px-8 py-3 rounded-full font-display font-black uppercase tracking-[0.14em]",
                             isTitle
-                              ? "bg-amber-400 text-black text-base sm:text-lg border-2 border-yellow-200 shadow-[0_0_30px_rgba(251,191,36,0.7)]"
+                              ? "bg-amber-400 text-black text-3xl md:text-4xl lg:text-5xl border-2 border-yellow-200 shadow-[0_0_30px_rgba(251,191,36,0.7)]"
                               : isCo
-                              ? "bg-cyan-500/20 border-2 border-cyan-400/70 text-cyan-300 text-sm sm:text-base shadow-[0_0_20px_rgba(34,211,238,0.4)]"
-                              : "bg-primary/20 border border-primary/40 text-primary text-xs sm:text-sm"
+                              ? "bg-cyan-500/20 border-2 border-cyan-400/70 text-cyan-100 text-3xl md:text-4xl lg:text-5xl shadow-[0_0_20px_rgba(34,211,238,0.4)]"
+                              : "bg-primary/20 border border-primary/40 text-primary text-3xl md:text-4xl lg:text-5xl"
                           )}
                         >
                           {sponsorTypeLabel}
@@ -634,7 +633,7 @@ export function CricketLedMidOverlays({
                     <h3 className="text-3xl sm:text-4xl font-display font-black text-amber-400 uppercase tracking-wide">
                       {tournamentName ? `${tournamentName.toUpperCase()} PARTNERS` : "TOURNAMENT PARTNERS"}
                     </h3>
-                    <p className="text-base text-muted-foreground mt-2 max-w-lg font-medium">
+                    <p className="text-xl sm:text-2xl text-white/80 mt-2 max-w-lg font-black">
                       Official Tournament Live Stadium Presentation Powered by BidWar Sports Platform
                     </p>
                   </div>
@@ -642,7 +641,7 @@ export function CricketLedMidOverlays({
 
                 {/* Footer branding */}
                 <div className="text-center pt-4 border-t border-border/50">
-                  <span className="text-xs sm:text-sm font-black uppercase tracking-[0.3em] text-amber-400 font-display">
+                  <span className="text-2xl md:text-4xl lg:text-5xl font-black uppercase tracking-[0.12em] text-amber-200 font-display">
                     POWERED BY BIDWAR.IN
                   </span>
                 </div>
@@ -651,10 +650,10 @@ export function CricketLedMidOverlays({
 
             {/* 2. POINTS TABLE / STANDINGS (LED Display - Maximized Broadcast Layout) */}
             {overlay === "standings" && (
-              <div className="flex h-full flex-col max-w-7xl mx-auto w-full justify-between">
+              <div className="flex h-full flex-col w-full justify-between px-2 sm:px-4">
                 <div className="flex items-center justify-between mb-3 shrink-0 px-2">
                   <div className="flex items-center gap-3">
-                    <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-display font-black tracking-wider text-white uppercase drop-shadow">
+                    <h2 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-black tracking-wide text-white uppercase drop-shadow">
                       {matchedGroup
                         ? `POINTS TABLE — ${competitionGroupTitle(matchedGroup).toUpperCase()}`
                         : isKnockoutStage
@@ -662,13 +661,13 @@ export function CricketLedMidOverlays({
                         : `POINTS TABLE & RANKINGS`}
                     </h2>
                     {matchedGroup && (
-                      <span className="px-3 py-1 rounded-full bg-amber-400 text-black font-display font-black text-xs uppercase tracking-widest">
+                      <span className="px-5 py-2 rounded-full bg-amber-400 text-black font-display font-black text-xl md:text-2xl lg:text-3xl uppercase tracking-wide">
                         GROUP VIEW
                       </span>
                     )}
                   </div>
                   {totalStandingsPages > 1 && !isKnockoutStage && (
-                    <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-400 font-display font-black text-xs sm:text-sm tracking-widest uppercase">
+                    <div className="flex items-center gap-2 px-5 py-2 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 font-display font-black text-base sm:text-lg md:text-xl tracking-widest uppercase">
                       <span>PAGE {(standingsPage % totalStandingsPages) + 1} OF {totalStandingsPages}</span>
                     </div>
                   )}
@@ -695,7 +694,7 @@ export function CricketLedMidOverlays({
                               <span className="flex-1 text-center font-display font-black text-white text-2xl sm:text-4xl uppercase tracking-wide">
                                 {home?.name || "Home"} <span className="text-amber-400">vs</span> {away?.name || "Away"}
                               </span>
-                              <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                              <span className="text-base sm:text-lg font-black uppercase tracking-widest text-white/80">
                                 {item.roundName || stageLabel}
                               </span>
                             </li>
@@ -705,18 +704,18 @@ export function CricketLedMidOverlays({
                     )}
                   </div>
                 ) : (
-                <div className="flex-1 w-full rounded-2xl border-2 border-border/80 bg-card/90 shadow-2xl backdrop-blur-md overflow-hidden flex flex-col justify-start">
-                  <table className="w-full border-collapse text-left table-fixed">
-                    <thead className="bg-[#0a0d14] border-b-2 border-border text-xs sm:text-base font-black tracking-widest text-muted-foreground uppercase">
+                <div className="flex-1 min-h-0 w-full rounded-2xl border-2 border-border/80 bg-card/90 shadow-2xl backdrop-blur-md overflow-hidden flex flex-col">
+                  <table className="w-full h-full border-collapse text-left table-fixed">
+                    <thead className="bg-[#0a0d14] border-b-2 border-border text-xl md:text-2xl lg:text-3xl font-black tracking-wide text-white uppercase">
                       <tr>
-                        <th className="w-16 sm:w-24 py-3.5 px-3 sm:px-4 text-center">POS</th>
-                        <th className="py-3.5 px-3 sm:px-5">TEAM</th>
-                        <th className="w-20 sm:w-24 py-3.5 px-2 sm:px-4 text-center">PLAYED</th>
-                        <th className="w-20 sm:w-24 py-3.5 px-2 sm:px-4 text-center text-emerald-400">WON</th>
-                        <th className="w-20 sm:w-24 py-3.5 px-2 sm:px-4 text-center text-red-400">LOST</th>
-                        <th className="w-28 sm:w-36 py-3.5 px-2 sm:px-4 text-center text-amber-300">PTS %</th>
-                        <th className="w-24 sm:w-32 py-3.5 px-2 sm:px-4 text-center text-cyan-300">NRR</th>
-                        <th className="w-24 sm:w-32 py-3.5 px-3 sm:px-6 text-right text-amber-400 font-extrabold">POINTS</th>
+                        <th className="w-[8%] py-5 px-3 text-center">POS</th>
+                        <th className="py-5 px-4">TEAM</th>
+                        <th className="w-[10%] py-5 px-2 text-center">PLAYED</th>
+                        <th className="w-[9%] py-5 px-2 text-center text-emerald-300">WON</th>
+                        <th className="w-[9%] py-5 px-2 text-center text-red-300">LOST</th>
+                        <th className="w-[12%] py-5 px-2 text-center text-amber-200">PTS %</th>
+                        <th className="w-[11%] py-5 px-2 text-center text-cyan-200">NRR</th>
+                        <th className="w-[12%] py-5 px-4 text-right text-amber-300 font-extrabold">POINTS</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">
@@ -727,67 +726,74 @@ export function CricketLedMidOverlays({
                             typeof row.qualified === "boolean"
                               ? row.qualified
                               : standingsQualifiers > 0 && globalIdx < standingsQualifiers;
+                          const rowShare =
+                            paginatedStandingsRows.length <= 8
+                              ? `calc((100vh - 22rem) / ${paginatedStandingsRows.length})`
+                              : undefined;
                           return (
                             <tr
                               key={`${row.drawId ?? "legacy"}-${row.teamId}`}
+                              style={rowShare ? { height: rowShare } : undefined}
                               className={cn(
                                 "transition",
                                 isTop4 ? "bg-amber-500/10 font-bold" : "hover:bg-white/5",
                               )}
                             >
-                              <td className="py-2.5 sm:py-3.5 px-3 sm:px-4 text-center">
+                              <td className="px-3 text-center">
                                 <span
                                   className={cn(
-                                    "inline-flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl text-base sm:text-xl md:text-2xl font-black shadow-md",
+                                    "inline-flex h-14 w-14 md:h-16 md:w-16 items-center justify-center rounded-2xl text-2xl md:text-3xl lg:text-4xl font-black shadow-md",
                                     isTop4
                                       ? "bg-amber-400 text-black border border-yellow-200"
-                                      : "bg-muted text-muted-foreground border border-border",
+                                      : "bg-muted text-white border border-border",
                                   )}
                                 >
                                   {globalIdx + 1}
                                 </span>
                               </td>
-                              <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 truncate">
-                                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                              <td className="px-4">
+                                <div className="flex items-center gap-4 min-w-0">
                                   {row.teamLogoUrl ? (
                                     <img
                                       src={row.teamLogoUrl}
                                       alt=""
-                                      className="h-9 w-9 sm:h-11 sm:w-11 object-contain shrink-0 drop-shadow"
+                                      className="h-16 w-16 md:h-20 md:w-20 object-contain shrink-0 drop-shadow"
                                     />
                                   ) : (
-                                    <div className="h-9 w-9 sm:h-11 sm:w-11 rounded-xl bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
-                                      <span className="text-xs sm:text-sm font-black text-primary uppercase">
+                                    <div className="h-16 w-16 md:h-20 md:w-20 rounded-2xl bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
+                                      <span className="text-xl md:text-2xl font-black text-primary uppercase">
                                         {row.shortCode || "TM"}
                                       </span>
                                     </div>
                                   )}
-                                  <span className="font-display font-black text-white text-lg sm:text-2xl md:text-3xl uppercase tracking-wide truncate">
-                                    {row.teamName}
-                                  </span>
-                                  {row.shortCode && (
-                                    <span className="text-xs sm:text-sm text-muted-foreground uppercase font-bold shrink-0">
-                                      ({row.shortCode})
-                                    </span>
-                                  )}
+                                  <div className="min-w-0">
+                                    <p className="font-display font-black text-white text-2xl md:text-3xl lg:text-4xl uppercase tracking-wide leading-tight line-clamp-2">
+                                      {row.teamName}
+                                    </p>
+                                    {row.shortCode && (
+                                      <span className="text-xl md:text-2xl text-amber-300 uppercase font-black">
+                                        {row.shortCode}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
-                              <td className="py-2.5 sm:py-3.5 px-2 sm:px-4 text-center tabular-nums text-white/95 font-mono text-xl sm:text-2xl md:text-3xl font-black">
+                              <td className="px-2 text-center tabular-nums text-white font-mono text-3xl md:text-4xl lg:text-5xl font-black">
                                 {row.played}
                               </td>
-                              <td className="py-2.5 sm:py-3.5 px-2 sm:px-4 text-center tabular-nums text-emerald-400 font-mono text-xl sm:text-2xl md:text-3xl font-black">
+                              <td className="px-2 text-center tabular-nums text-emerald-300 font-mono text-3xl md:text-4xl lg:text-5xl font-black">
                                 {row.won}
                               </td>
-                              <td className="py-2.5 sm:py-3.5 px-2 sm:px-4 text-center tabular-nums text-red-400 font-mono text-xl sm:text-2xl md:text-3xl font-black">
+                              <td className="px-2 text-center tabular-nums text-red-300 font-mono text-3xl md:text-4xl lg:text-5xl font-black">
                                 {row.lost}
                               </td>
-                              <td className="py-2.5 sm:py-3.5 px-2 sm:px-4 text-center tabular-nums font-mono font-black text-amber-300 text-base sm:text-xl md:text-2xl whitespace-nowrap">
+                              <td className="px-2 text-center tabular-nums font-mono font-black text-amber-200 text-2xl md:text-3xl lg:text-4xl whitespace-nowrap">
                                 {formatPointsPercentage(row.pointsPercentage)}
                               </td>
-                              <td className="py-2.5 sm:py-3.5 px-2 sm:px-4 text-center tabular-nums font-mono font-black text-cyan-300 text-lg sm:text-2xl md:text-3xl">
+                              <td className="px-2 text-center tabular-nums font-mono font-black text-cyan-200 text-2xl md:text-3xl lg:text-4xl">
                                 {formatNetRunRate(row.netRunRate)}
                               </td>
-                              <td className="py-2.5 sm:py-3.5 px-3 sm:px-6 text-right font-mono font-black text-2xl sm:text-4xl md:text-5xl tabular-nums text-amber-400">
+                              <td className="px-4 text-right font-mono font-black text-4xl md:text-5xl lg:text-6xl tabular-nums text-amber-300">
                                 {row.points}
                               </td>
                             </tr>
@@ -795,7 +801,7 @@ export function CricketLedMidOverlays({
                         })
                       ) : (
                         <tr>
-                          <td colSpan={8} className="py-16 text-center text-muted-foreground text-base font-medium">
+                          <td colSpan={8} className="py-16 text-center text-white text-2xl md:text-3xl font-black">
                             No tournament standings currently calculated.
                           </td>
                         </tr>
@@ -826,11 +832,11 @@ export function CricketLedMidOverlays({
 
             {/* 3. UPCOMING MATCH / FIXTURE (Full-Screen Single Match Showcase) */}
             {overlay === "fixtures" && (
-              <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full py-2 sm:py-4">
+              <div className="flex h-full flex-col justify-between w-full py-2 sm:py-4 px-2 sm:px-6">
                 {/* Top Subheader with Category Kicker & Group / Stage */}
                 <div className="text-center space-y-2">
-                  <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-400 text-xs sm:text-sm font-display font-black uppercase tracking-[0.25em] shadow-[0_0_20px_rgba(251,191,36,0.2)]">
-                    <Calendar className="w-4 h-4 text-amber-400" />
+                  <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-200 text-2xl md:text-3xl lg:text-4xl font-display font-black uppercase tracking-[0.08em] shadow-[0_0_20px_rgba(251,191,36,0.2)]">
+                    <Calendar className="w-8 h-8 md:w-10 md:h-10 text-amber-300" />
                     <span>UPCOMING MATCH</span>
                     {activeFixtureMatch?.roundName && (
                       <>
@@ -840,7 +846,7 @@ export function CricketLedMidOverlays({
                     )}
                   </div>
 
-                  <h2 className="text-3xl sm:text-5xl md:text-6xl font-display font-black tracking-wider text-white uppercase drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]">
+                  <h2 className="text-4xl sm:text-6xl md:text-7xl font-display font-black tracking-wide text-white uppercase drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] leading-tight">
                     {activeFixtureMatch?.roundName
                       ? `${activeFixtureMatch.roundName.toUpperCase()} — MATCH #${activeFixtureMatch.tournamentMatchNumber || activeFixtureMatch.id}`
                       : `MATCH #${activeFixtureMatch?.tournamentMatchNumber || activeFixtureMatch?.id || 1}`}
@@ -848,13 +854,13 @@ export function CricketLedMidOverlays({
                 </div>
 
                 {activeFixtureMatch ? (
-                  <div className="my-auto flex flex-col items-center justify-center w-full">
-                    <div className="w-full grid grid-cols-1 md:grid-cols-11 items-center gap-4 sm:gap-6 p-6 sm:p-10 md:p-12 rounded-3xl border-2 border-border/80 bg-gradient-to-b from-card/95 via-[#0c101a]/95 to-[#07090e]/95 shadow-[0_20px_60px_rgba(0,0,0,0.8)] backdrop-blur-xl">
+                  <div className="flex-1 min-h-0 flex flex-col items-center justify-center w-full">
+                    <div className="w-full flex-1 grid grid-cols-1 md:grid-cols-11 items-center gap-6 p-8 md:p-12 rounded-3xl border-2 border-border/80 bg-gradient-to-b from-card/95 via-[#0c101a]/95 to-[#07090e]/95 shadow-[0_20px_60px_rgba(0,0,0,0.8)] backdrop-blur-xl">
                       
                       {/* HOME TEAM (Left - Col Span 4) */}
                       <div className="md:col-span-4 flex flex-col items-center text-center space-y-4">
                         {/* Team Logo Frame */}
-                        <div className="h-32 w-32 sm:h-44 sm:w-44 md:h-52 md:w-52 rounded-3xl border-4 border-amber-400/80 bg-gradient-to-br from-[#1c1404] via-card to-[#07090e] p-4 flex items-center justify-center shadow-[0_0_40px_rgba(251,191,36,0.35)] overflow-hidden transition-transform duration-300 hover:scale-105">
+                        <div className="h-48 w-48 md:h-64 md:w-64 lg:h-80 lg:w-80 rounded-3xl border-4 border-amber-400/80 bg-gradient-to-br from-[#1c1404] via-card to-[#07090e] p-5 flex items-center justify-center shadow-[0_0_40px_rgba(251,191,36,0.35)] overflow-hidden">
                           {fixtureHomeTeam?.logoUrl ? (
                             <img
                               src={fixtureHomeTeam.logoUrl}
@@ -869,12 +875,12 @@ export function CricketLedMidOverlays({
                         </div>
 
                         {/* Team Name & Code */}
-                        <div className="space-y-1 max-w-xs">
-                          <h3 className="text-2xl sm:text-4xl md:text-5xl font-display font-black text-white uppercase tracking-wide truncate drop-shadow">
+                        <div className="space-y-2 w-full px-2">
+                          <h3 className="text-3xl md:text-5xl lg:text-6xl font-display font-black text-white uppercase tracking-wide leading-tight line-clamp-2 drop-shadow">
                             {fixtureHomeTeam?.name || "HOME TEAM"}
                           </h3>
                           {fixtureHomeTeam?.shortCode && (
-                            <span className="inline-block px-3 py-0.5 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-400 text-xs sm:text-sm font-mono font-black uppercase tracking-widest">
+                            <span className="inline-block px-5 py-1.5 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-200 text-2xl md:text-3xl font-mono font-black uppercase tracking-widest">
                               {fixtureHomeTeam.shortCode}
                             </span>
                           )}
@@ -891,14 +897,14 @@ export function CricketLedMidOverlays({
 
                         {/* Match Number Pill */}
                         <div className="px-4 py-1.5 rounded-xl bg-card border-2 border-border/80 shadow-md">
-                          <span className="text-xs sm:text-sm font-mono font-black text-white uppercase tracking-widest">
+                          <span className="text-2xl md:text-4xl lg:text-5xl font-mono font-black text-white uppercase tracking-wide">
                             MATCH #{activeFixtureMatch.tournamentMatchNumber || activeFixtureMatch.id}
                           </span>
                         </div>
 
                         {/* Match Overs / Rules if present */}
                         {activeFixtureMatch.rules?.overs ? (
-                          <span className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-muted-foreground">
+                          <span className="text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-wide text-white">
                             {activeFixtureMatch.rules.overs} OVERS PER SIDE
                           </span>
                         ) : null}
@@ -907,7 +913,7 @@ export function CricketLedMidOverlays({
                       {/* AWAY TEAM (Right - Col Span 4) */}
                       <div className="md:col-span-4 flex flex-col items-center text-center space-y-4">
                         {/* Team Logo Frame */}
-                        <div className="h-32 w-32 sm:h-44 sm:w-44 md:h-52 md:w-52 rounded-3xl border-4 border-cyan-400/80 bg-gradient-to-br from-[#041624] via-card to-[#07090e] p-4 flex items-center justify-center shadow-[0_0_40px_rgba(34,211,238,0.35)] overflow-hidden transition-transform duration-300 hover:scale-105">
+                        <div className="h-48 w-48 md:h-64 md:w-64 lg:h-80 lg:w-80 rounded-3xl border-4 border-cyan-400/80 bg-gradient-to-br from-[#041624] via-card to-[#07090e] p-5 flex items-center justify-center shadow-[0_0_40px_rgba(34,211,238,0.35)] overflow-hidden">
                           {fixtureAwayTeam?.logoUrl ? (
                             <img
                               src={fixtureAwayTeam.logoUrl}
@@ -922,12 +928,12 @@ export function CricketLedMidOverlays({
                         </div>
 
                         {/* Team Name & Code */}
-                        <div className="space-y-1 max-w-xs">
-                          <h3 className="text-2xl sm:text-4xl md:text-5xl font-display font-black text-white uppercase tracking-wide truncate drop-shadow">
+                        <div className="space-y-2 w-full px-2">
+                          <h3 className="text-3xl md:text-5xl lg:text-6xl font-display font-black text-white uppercase tracking-wide leading-tight line-clamp-2 drop-shadow">
                             {fixtureAwayTeam?.name || "AWAY TEAM"}
                           </h3>
                           {fixtureAwayTeam?.shortCode && (
-                            <span className="inline-block px-3 py-0.5 rounded-full bg-cyan-400/20 border border-cyan-400/40 text-cyan-300 text-xs sm:text-sm font-mono font-black uppercase tracking-widest">
+                            <span className="inline-block px-5 py-1.5 rounded-full bg-cyan-400/20 border border-cyan-400/40 text-cyan-100 text-2xl md:text-3xl font-mono font-black uppercase tracking-widest">
                               {fixtureAwayTeam.shortCode}
                             </span>
                           )}
@@ -937,14 +943,14 @@ export function CricketLedMidOverlays({
                     </div>
 
                     {/* BOTTOM SCHEDULE & VENUE STRIP */}
-                    <div className="mt-4 sm:mt-6 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-xs sm:text-base font-bold text-white/90">
-                      <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-card/80 border border-border shadow-md">
-                        <span className="text-amber-400">📍 VENUE:</span>
+                    <div className="mt-5 flex flex-wrap items-center justify-center gap-4 text-2xl md:text-3xl lg:text-4xl font-black text-white">
+                      <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-card/80 border border-border shadow-md">
+                        <span className="text-amber-300">VENUE:</span>
                         <span className="uppercase">{activeFixtureMatch.venue || "MAIN GROUND"}</span>
                       </div>
 
-                      <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-card/80 border border-border shadow-md">
-                        <span className="text-amber-400">🕒 TIME:</span>
+                      <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-card/80 border border-border shadow-md">
+                        <span className="text-amber-300">TIME:</span>
                         <span className="font-mono uppercase">
                           {activeFixtureMatch.scheduledAt
                             ? new Date(activeFixtureMatch.scheduledAt).toLocaleString([], {
@@ -956,7 +962,7 @@ export function CricketLedMidOverlays({
                       </div>
 
                       {activeFixtureMatch.roundName && (
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-amber-400/10 border border-amber-400/30 text-amber-300 shadow-md">
+                        <div className="flex items-center gap-3 px-6 py-3 rounded-2xl bg-amber-400/10 border border-amber-400/30 text-amber-200 shadow-md">
                           <span className="font-display font-black uppercase tracking-wider">
                             STAGE: {activeFixtureMatch.roundName.toUpperCase()}
                           </span>
@@ -972,7 +978,7 @@ export function CricketLedMidOverlays({
 
                 {/* Bottom Watermark */}
                 <div className="text-center pt-2">
-                  <span className="text-[11px] font-bold tracking-[0.25em] text-white/40 uppercase">
+                  <span className="text-xl md:text-2xl lg:text-3xl font-black tracking-[0.14em] text-white/80 uppercase">
                     BIDWAR SPORTS BROADCAST ENGINE
                   </span>
                 </div>
@@ -981,98 +987,95 @@ export function CricketLedMidOverlays({
 
             {/* 4. FULL SCORECARD (LED Optimized) */}
             {overlay === "scorecard" && (
-              <div className="flex h-full flex-col max-w-6xl mx-auto w-full">
-                <div className="flex items-center justify-between border-b-2 border-border pb-4 mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-amber-400 bg-black/80 shadow-lg">
-                      <span className="text-2xl font-black text-amber-400 font-display">
+              <div className="flex h-full flex-col w-full px-2 sm:px-4 min-h-0">
+                <div className="flex items-center justify-between border-b-2 border-border pb-4 mb-4 shrink-0">
+                  <div className="flex items-center gap-5 min-w-0">
+                    <div className="flex h-20 w-20 md:h-24 md:w-24 items-center justify-center rounded-2xl border-2 border-amber-400 bg-black/80 shadow-lg shrink-0">
+                      <span className="text-3xl md:text-4xl font-black text-amber-300 font-display">
                         {battingTeam?.shortCode || "BAT"}
                       </span>
                     </div>
-                    <div>
-                      <h2 className="text-2xl sm:text-4xl font-display font-black tracking-wide text-white uppercase">
+                    <div className="min-w-0">
+                      <h2 className="text-3xl md:text-5xl lg:text-6xl font-display font-black tracking-wide text-white uppercase leading-tight line-clamp-2">
                         {battingTeam?.name || "BATTING INNINGS"}
                       </h2>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    <div className="text-4xl sm:text-6xl font-black font-mono tabular-nums text-white">
+                  <div className="text-right shrink-0">
+                    <div className="text-6xl md:text-8xl font-black font-mono tabular-nums text-white leading-none">
                       {innings?.runs ?? 0}
                       <span className="text-primary mx-1">/</span>
                       {innings?.wickets ?? 0}
                     </div>
-                    <p className="text-sm sm:text-base font-bold text-amber-400 uppercase tracking-wider font-mono">
+                    <p className="text-2xl md:text-4xl font-black text-amber-200 uppercase tracking-wide font-mono mt-2">
                       {innings ? oversText(innings.over, innings.ball) : "0.0"} OVERS
                     </p>
                   </div>
                 </div>
 
-                {/* Scorecard Table Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1 min-h-0">
                   {/* Active Batter Figures */}
-                  <div className="rounded-3xl border-2 border-border/80 bg-card/90 p-6 shadow-2xl backdrop-blur-md flex flex-col justify-between gap-4">
-                    <div className="flex items-center justify-between pb-2 border-b border-border/60">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
-                        🏏 KEY BATSMEN FIGURES
+                  <div className="rounded-3xl border-2 border-border/80 bg-card/90 p-6 md:p-8 shadow-2xl backdrop-blur-md flex flex-col justify-between gap-5 h-full">
+                    <div className="flex items-center justify-between pb-3 border-b border-border/60">
+                      <span className="text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-wide text-primary flex items-center gap-2">
+                        KEY BATSMEN
                       </span>
-                      <span className="text-[11px] uppercase font-bold text-muted-foreground">
+                      <span className="text-xl md:text-2xl lg:text-3xl uppercase font-black text-white">
                         R (B) · 4s/6s · SR
                       </span>
                     </div>
-                    <div className="space-y-3">
-                      {/* Striker */}
-                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-black/45 border border-border/60">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-emerald-400 font-black text-lg sm:text-xl">*</span>
-                          <div>
-                            <p className="text-base sm:text-xl md:text-2xl font-black text-white uppercase tracking-wide truncate max-w-[200px] sm:max-w-[260px]">
+                    <div className="flex flex-col gap-4 flex-1 justify-center">
+                      <div className="flex items-center justify-between p-5 md:p-6 rounded-2xl bg-black/45 border border-border/60 flex-1">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="text-emerald-300 font-black text-4xl md:text-5xl">*</span>
+                          <div className="min-w-0">
+                            <p className="text-3xl md:text-4xl lg:text-5xl font-black text-white uppercase tracking-wide leading-tight line-clamp-2">
                               {strikerStats?.name || strikerPlayer?.name || "Striker Batter"}
                             </p>
-                            <span className="text-xs text-emerald-400 font-bold uppercase">(On Strike)</span>
+                            <span className="text-xl md:text-2xl lg:text-3xl text-emerald-200 font-black uppercase">(On Strike)</span>
                           </div>
                         </div>
-                        <div className="text-right font-mono shrink-0">
+                        <div className="text-right font-mono shrink-0 pl-4">
                           {strikerStats?.hasStats ? (
                             <>
-                              <span className="text-2xl sm:text-3xl font-black text-amber-300">
+                              <span className="text-4xl md:text-5xl lg:text-6xl font-black text-amber-200">
                                 {strikerStats.runs}* ({strikerStats.balls})
                               </span>
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-xl md:text-2xl lg:text-3xl text-white font-black">
                                 {strikerStats.fours}x4 · {strikerStats.sixes}x6 · SR {strikerStats.strikeRate.toFixed(1)}
                               </div>
                             </>
                           ) : (
-                            <span className="text-xs sm:text-sm font-medium text-muted-foreground/70 italic">
+                            <span className="text-2xl md:text-3xl lg:text-4xl font-black text-white">
                               {strikerPlayer?.role || "Top Order Batter"}
                             </span>
                           )}
                         </div>
                       </div>
 
-                      {/* Non-Striker */}
-                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-black/45 border border-border/60">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-muted-foreground/50 font-black text-lg sm:text-xl">·</span>
-                          <div>
-                            <p className="text-base sm:text-xl md:text-2xl font-bold text-white/90 uppercase tracking-wide truncate max-w-[200px] sm:max-w-[260px]">
+                      <div className="flex items-center justify-between p-5 md:p-6 rounded-2xl bg-black/45 border border-border/60 flex-1">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="text-white/70 font-black text-4xl md:text-5xl">·</span>
+                          <div className="min-w-0">
+                            <p className="text-3xl md:text-4xl lg:text-5xl font-black text-white uppercase tracking-wide leading-tight line-clamp-2">
                               {nonStrikerStats?.name || nonStrikerPlayer?.name || "Non-Striker"}
                             </p>
-                            <span className="text-xs text-muted-foreground font-bold uppercase">(Non-Striker)</span>
+                            <span className="text-xl md:text-2xl lg:text-3xl text-white font-black uppercase">(Non-Striker)</span>
                           </div>
                         </div>
-                        <div className="text-right font-mono shrink-0">
+                        <div className="text-right font-mono shrink-0 pl-4">
                           {nonStrikerStats?.hasStats ? (
                             <>
-                              <span className="text-2xl sm:text-3xl font-bold text-white">
+                              <span className="text-4xl md:text-5xl lg:text-6xl font-black text-white">
                                 {nonStrikerStats.runs} ({nonStrikerStats.balls})
                               </span>
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-xl md:text-2xl lg:text-3xl text-white font-black">
                                 {nonStrikerStats.fours}x4 · {nonStrikerStats.sixes}x6 · SR {nonStrikerStats.strikeRate.toFixed(1)}
                               </div>
                             </>
                           ) : (
-                            <span className="text-xs sm:text-sm font-medium text-muted-foreground/70 italic">
+                            <span className="text-2xl md:text-3xl lg:text-4xl font-black text-white">
                               {nonStrikerPlayer?.role || "Batter"}
                             </span>
                           )}
@@ -1081,42 +1084,41 @@ export function CricketLedMidOverlays({
                     </div>
                   </div>
 
-                  {/* Active Bowler Figures */}
-                  <div className="rounded-3xl border-2 border-border/80 bg-card/90 p-6 shadow-2xl backdrop-blur-md flex flex-col justify-between gap-4">
-                    <div className="flex items-center justify-between pb-2 border-b border-border/60">
-                      <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-amber-400 flex items-center gap-1.5">
-                        🎯 CURRENT BOWLING ATTACK
+                  <div className="rounded-3xl border-2 border-border/80 bg-card/90 p-6 md:p-8 shadow-2xl backdrop-blur-md flex flex-col justify-between gap-5 h-full">
+                    <div className="flex items-center justify-between pb-3 border-b border-border/60">
+                      <span className="text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-wide text-amber-200 flex items-center gap-2">
+                        BOWLING ATTACK
                       </span>
-                      <span className="text-[11px] uppercase font-bold text-muted-foreground">
+                      <span className="text-xl md:text-2xl lg:text-3xl uppercase font-black text-white">
                         O-M-R-W · ECON
                       </span>
                     </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-3.5 rounded-2xl bg-black/45 border border-border/60">
-                        <div>
-                          <p className="text-base sm:text-xl md:text-2xl font-black text-white uppercase tracking-wide truncate max-w-[200px] sm:max-w-[260px]">
-                            {bowlerStats?.name || bowlerPlayer?.name || "Active Bowler"} *
+                    <div className="flex flex-col gap-4 flex-1 justify-center">
+                      <div className="flex items-center justify-between p-5 md:p-6 rounded-2xl bg-black/45 border border-border/60 flex-1">
+                        <div className="min-w-0">
+                          <p className="text-3xl md:text-4xl lg:text-5xl font-black text-white uppercase tracking-wide leading-tight line-clamp-2">
+                            {bowlerStats?.name || bowlerPlayer?.name || "Active Bowler"}
                           </p>
-                          <span className="text-xs text-amber-300 font-bold uppercase">
+                          <span className="text-xl md:text-2xl lg:text-3xl text-amber-200 font-black uppercase">
                             {bowlerPlayer?.role || "Right-Arm Pace"}
                           </span>
                         </div>
-                        <div className="text-right font-mono shrink-0">
+                        <div className="text-right font-mono shrink-0 pl-4">
                           {bowlerStats?.hasStats ? (
                             <>
-                              <span className="text-2xl sm:text-3xl font-black text-amber-400">
+                              <span className="text-4xl md:text-5xl lg:text-6xl font-black text-amber-200">
                                 {bowlerStats.overs}-{bowlerStats.maidens}-{bowlerStats.runsConceded}-{bowlerStats.wickets}
                               </span>
-                              <p className="text-xs text-cyan-300">
+                              <p className="text-xl md:text-2xl lg:text-3xl text-cyan-100 font-black">
                                 Econ: {bowlerStats.economy.toFixed(2)} · Ball {innings?.ball ?? 0}/6
                               </p>
                             </>
                           ) : (
                             <>
-                              <div className="text-sm sm:text-base font-mono font-bold text-amber-300/80">
+                              <div className="text-3xl md:text-4xl lg:text-5xl font-mono font-black text-amber-200">
                                 Ball {innings?.ball ?? 0} of 6
                               </div>
-                              <div className="text-xs font-mono text-muted-foreground">
+                              <div className="text-xl md:text-2xl lg:text-3xl font-mono font-black text-white">
                                 {bowlerPlayer?.role || "Active Bowler"}
                               </div>
                             </>
@@ -1124,23 +1126,22 @@ export function CricketLedMidOverlays({
                         </div>
                       </div>
 
-                      <div className="p-3.5 rounded-2xl bg-black/30 border border-border/40 flex items-center justify-between text-xs sm:text-sm font-black uppercase text-muted-foreground">
-                        <span>Bowling Team: {bowlingTeam?.name}</span>
-                        <span>Overs Limit: {state?.oversLimit ?? 20} Ov</span>
+                      <div className="p-5 md:p-6 rounded-2xl bg-black/30 border border-border/40 flex items-center justify-between gap-4 text-2xl md:text-3xl lg:text-4xl font-black uppercase text-white flex-1">
+                        <span className="leading-tight">Bowling Team: {bowlingTeam?.name}</span>
+                        <span className="shrink-0">Overs Limit: {state?.oversLimit ?? 20}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Scorecard Bottom Summary Strip */}
-                <div className="mt-4 flex items-center justify-between rounded-2xl border-2 border-primary/40 bg-primary/10 px-8 py-3.5 text-sm sm:text-base font-black uppercase tracking-wider text-white shadow-xl">
+                <div className="mt-4 flex items-center justify-between rounded-2xl border-2 border-primary/40 bg-primary/10 px-8 py-5 text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-wide text-white shadow-xl shrink-0">
                   <div>
                     <span className="text-primary">TARGET: </span>
-                    <span className="font-mono text-xl font-black ml-1 text-white">{state?.target ?? "N/A"}</span>
+                    <span className="font-mono text-3xl md:text-5xl font-black ml-2 text-white">{state?.target ?? "N/A"}</span>
                   </div>
                   <div>
                     <span className="text-primary">TOTAL SCORE: </span>
-                    <span className="font-mono text-2xl font-black text-amber-400 ml-1">
+                    <span className="font-mono text-3xl md:text-5xl font-black text-amber-200 ml-2">
                       {innings?.runs ?? 0}/{innings?.wickets ?? 0}
                     </span>
                   </div>
@@ -1234,15 +1235,15 @@ export function CricketLedMidOverlays({
               };
 
               return (
-                <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full">
+                <div className="flex h-full flex-col justify-between w-full px-2 sm:px-4">
                   <div className="text-center mb-3">
                     <div className="flex items-center justify-center gap-2 mb-2 flex-wrap">
-                      <span className="text-sm sm:text-base font-black uppercase tracking-[0.22em] text-amber-400 font-display">
+                      <span className="text-2xl md:text-4xl lg:text-5xl font-black uppercase tracking-[0.1em] text-amber-200 font-display">
                         {activeMatch ? `MATCH #${activeMatch.tournamentMatchNumber || activeMatch.id}${groupOrRoundText ? ` · ${groupOrRoundText.toUpperCase()}` : ""}` : "OFFICIAL MATCH RESULT"}
                       </span>
                       {activeMatch?.status && (
                         <span className={cn(
-                          "text-xs font-black uppercase px-3 py-0.5 rounded-full border tracking-wider",
+                          "text-base sm:text-lg font-black uppercase px-4 py-1 rounded-full border tracking-wider",
                           activeMatch.status === "live"
                             ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 animate-pulse"
                             : activeMatch.status === "walkover"
@@ -1271,7 +1272,7 @@ export function CricketLedMidOverlays({
                     )}>
                       {/* Winner Ribbon Tag */}
                       {isHomeWinner && (
-                        <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 via-amber-400 to-yellow-400 text-black px-4 py-1.5 rounded-bl-2xl font-display font-black text-xs sm:text-sm uppercase tracking-widest shadow-lg flex items-center gap-1.5 z-10 animate-pulse">
+                        <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 via-amber-400 to-yellow-400 text-black px-5 py-2 rounded-bl-2xl font-display font-black text-base sm:text-lg md:text-xl uppercase tracking-widest shadow-lg flex items-center gap-1.5 z-10 animate-pulse">
                           <span>👑 WINNER</span>
                         </div>
                       )}
@@ -1296,7 +1297,7 @@ export function CricketLedMidOverlays({
                             <h3 className="text-2xl sm:text-3xl lg:text-4xl font-display font-black text-white uppercase truncate">
                               {homeTeam?.name || "HOME TEAM"}
                             </h3>
-                            <span className="text-xs sm:text-sm font-mono uppercase font-bold text-slate-400">
+                            <span className="text-lg sm:text-xl md:text-2xl font-mono uppercase font-black text-white">
                               OVERS: <strong className="text-white">{homeOvers}</strong>
                             </span>
                           </div>
@@ -1327,16 +1328,16 @@ export function CricketLedMidOverlays({
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-400/90 block">
+                                <span className="text-base sm:text-lg md:text-xl font-black uppercase tracking-widest text-amber-300 block">
                                   TOP BATTER
                                 </span>
-                                <p className="text-sm sm:text-base font-black text-white truncate">
+                                <p className="text-xl sm:text-2xl md:text-3xl font-black text-white truncate">
                                   {homeTopBatter.name}
                                 </p>
                               </div>
                             </div>
                             <div className="text-right shrink-0">
-                              <span className="text-base sm:text-lg font-mono font-black text-amber-300">
+                              <span className="text-xl sm:text-2xl md:text-3xl font-mono font-black text-amber-200">
                                 {homeTopBatter.runs != null ? `${homeTopBatter.runs} (${homeTopBatter.balls ?? 0}b)` : "—"}
                               </span>
                             </div>
@@ -1357,16 +1358,16 @@ export function CricketLedMidOverlays({
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-cyan-400/90 block">
+                                <span className="text-base sm:text-lg md:text-xl font-black uppercase tracking-widest text-cyan-200 block">
                                   KEY BOWLER
                                 </span>
-                                <p className="text-sm sm:text-base font-black text-white truncate">
+                                <p className="text-xl sm:text-2xl md:text-3xl font-black text-white truncate">
                                   {homeTopBowler.name}
                                 </p>
                               </div>
                             </div>
                             <div className="text-right shrink-0">
-                              <span className="text-base sm:text-lg font-mono font-black text-cyan-300">
+                              <span className="text-xl sm:text-2xl md:text-3xl font-mono font-black text-cyan-200">
                                 {homeTopBowler.wickets != null ? `${homeTopBowler.wickets}-${homeTopBowler.runsConceded}` : "—"}
                               </span>
                             </div>
@@ -1384,7 +1385,7 @@ export function CricketLedMidOverlays({
                     )}>
                       {/* Winner Ribbon Tag */}
                       {isAwayWinner && (
-                        <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 via-amber-400 to-yellow-400 text-black px-4 py-1.5 rounded-bl-2xl font-display font-black text-xs sm:text-sm uppercase tracking-widest shadow-lg flex items-center gap-1.5 z-10 animate-pulse">
+                        <div className="absolute top-0 right-0 bg-gradient-to-l from-amber-500 via-amber-400 to-yellow-400 text-black px-5 py-2 rounded-bl-2xl font-display font-black text-base sm:text-lg md:text-xl uppercase tracking-widest shadow-lg flex items-center gap-1.5 z-10 animate-pulse">
                           <span>👑 WINNER</span>
                         </div>
                       )}
@@ -1409,7 +1410,7 @@ export function CricketLedMidOverlays({
                             <h3 className="text-2xl sm:text-3xl lg:text-4xl font-display font-black text-white uppercase truncate">
                               {awayTeam?.name || "AWAY TEAM"}
                             </h3>
-                            <span className="text-xs sm:text-sm font-mono uppercase font-bold text-slate-400">
+                            <span className="text-lg sm:text-xl md:text-2xl font-mono uppercase font-black text-white">
                               OVERS: <strong className="text-white">{awayOvers}</strong>
                             </span>
                           </div>
@@ -1440,16 +1441,16 @@ export function CricketLedMidOverlays({
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-400/90 block">
+                                <span className="text-base sm:text-lg md:text-xl font-black uppercase tracking-widest text-amber-300 block">
                                   TOP BATTER
                                 </span>
-                                <p className="text-sm sm:text-base font-black text-white truncate">
+                                <p className="text-xl sm:text-2xl md:text-3xl font-black text-white truncate">
                                   {awayTopBatter.name}
                                 </p>
                               </div>
                             </div>
                             <div className="text-right shrink-0">
-                              <span className="text-base sm:text-lg font-mono font-black text-amber-300">
+                              <span className="text-xl sm:text-2xl md:text-3xl font-mono font-black text-amber-200">
                                 {awayTopBatter.runs != null ? `${awayTopBatter.runs} (${awayTopBatter.balls ?? 0}b)` : "—"}
                               </span>
                             </div>
@@ -1470,16 +1471,16 @@ export function CricketLedMidOverlays({
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-cyan-400/90 block">
+                                <span className="text-base sm:text-lg md:text-xl font-black uppercase tracking-widest text-cyan-200 block">
                                   KEY BOWLER
                                 </span>
-                                <p className="text-sm sm:text-base font-black text-white truncate">
+                                <p className="text-xl sm:text-2xl md:text-3xl font-black text-white truncate">
                                   {awayTopBowler.name}
                                 </p>
                               </div>
                             </div>
                             <div className="text-right shrink-0">
-                              <span className="text-base sm:text-lg font-mono font-black text-cyan-300">
+                              <span className="text-xl sm:text-2xl md:text-3xl font-mono font-black text-cyan-200">
                                 {awayTopBowler.wickets != null ? `${awayTopBowler.wickets}-${awayTopBowler.runsConceded}` : "—"}
                               </span>
                             </div>
@@ -1501,15 +1502,15 @@ export function CricketLedMidOverlays({
 
             {/* 6. MATCH INTRO / VS (Clean Frameless Broadcast Presentation) */}
             {overlay === "intro" && (
-              <div className="flex h-full flex-col justify-between max-w-6xl mx-auto w-full py-4">
+              <div className="flex h-full flex-col justify-between w-full py-4 px-4 sm:px-8">
                 <div className="text-center">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <span className="text-xs sm:text-sm font-black uppercase tracking-[0.25em] text-amber-400 font-display">
+                  <div className="flex items-center justify-center gap-3 mb-3">
+                    <span className="text-2xl md:text-4xl lg:text-5xl font-black uppercase tracking-[0.1em] text-amber-200 font-display">
                       {activeMatch ? `MATCH #${activeMatch.tournamentMatchNumber || activeMatch.id}${activeMatch.roundName ? ` · ${activeMatch.roundName.toUpperCase()}` : ""}` : "MATCH PRESENTATION"}
                     </span>
                     {activeMatch?.status && (
                       <span className={cn(
-                        "text-[10px] sm:text-xs font-black uppercase px-2.5 py-0.5 rounded-full border tracking-wider",
+                        "text-xl md:text-2xl lg:text-3xl font-black uppercase px-4 py-1.5 rounded-full border tracking-wider",
                         activeMatch.status === "live"
                           ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40 animate-pulse"
                           : activeMatch.status === "walkover"
@@ -1531,7 +1532,7 @@ export function CricketLedMidOverlays({
                 <div className="flex items-center justify-center gap-12 sm:gap-24 my-auto">
                   {/* Home Team */}
                   <div className="flex flex-col items-center gap-4">
-                    <div className="flex h-36 w-36 sm:h-52 sm:w-52 items-center justify-center">
+                    <div className="flex h-48 w-48 sm:h-64 sm:w-64 md:h-80 md:w-80 items-center justify-center">
                       {homeTeam?.logoUrl ? (
                         <img
                           src={homeTeam.logoUrl}
@@ -1544,7 +1545,7 @@ export function CricketLedMidOverlays({
                         </span>
                       )}
                     </div>
-                    <span className="text-2xl sm:text-4xl font-display font-black text-white uppercase text-center max-w-[260px] drop-shadow-md">
+                    <span className="text-3xl sm:text-5xl md:text-6xl font-display font-black text-white uppercase text-center max-w-[420px] drop-shadow-md">
                       {homeTeam?.name || "Home Team"}
                     </span>
                   </div>
@@ -1555,7 +1556,7 @@ export function CricketLedMidOverlays({
 
                   {/* Away Team */}
                   <div className="flex flex-col items-center gap-4">
-                    <div className="flex h-36 w-36 sm:h-52 sm:w-52 items-center justify-center">
+                    <div className="flex h-48 w-48 sm:h-64 sm:w-64 md:h-80 md:w-80 items-center justify-center">
                       {awayTeam?.logoUrl ? (
                         <img
                           src={awayTeam.logoUrl}
@@ -1568,19 +1569,19 @@ export function CricketLedMidOverlays({
                         </span>
                       )}
                     </div>
-                    <span className="text-2xl sm:text-4xl font-display font-black text-white uppercase text-center max-w-[260px] drop-shadow-md">
+                    <span className="text-3xl sm:text-5xl md:text-6xl font-display font-black text-white uppercase text-center max-w-[420px] drop-shadow-md">
                       {awayTeam?.name || "Away Team"}
                     </span>
                   </div>
                 </div>
 
                 {/* Match Venue / Toss Strip */}
-                <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/70 py-4 px-8 text-center shadow-xl">
-                  <p className="text-sm sm:text-base font-black uppercase tracking-widest text-emerald-300 font-display">
+                <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/70 py-6 px-10 text-center shadow-xl">
+                  <p className="text-2xl sm:text-4xl md:text-5xl font-black uppercase tracking-widest text-emerald-200 font-display">
                     LIVE FROM {activeMatch?.venue || match?.venue || "MAIN CRICKET GROUND"}
                   </p>
                   {state?.tossText && (
-                    <p className="mt-1 text-base sm:text-lg font-bold text-white tracking-wider">
+                    <p className="mt-2 text-xl sm:text-3xl md:text-4xl font-black text-white tracking-wide">
                       🪙 {state.tossText}
                     </p>
                   )}
