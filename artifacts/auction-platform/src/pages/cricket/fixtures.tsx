@@ -260,6 +260,8 @@ export default function CricketFixturesPage() {
   const [creating, setCreating] = useState(false);
 
   const [editMatch, setEditMatch] = useState<ScoringMatchRow | null>(null);
+  const [editHomeId, setEditHomeId] = useState("");
+  const [editAwayId, setEditAwayId] = useState("");
   const [editRoundName, setEditRoundName] = useState("");
   const [editPresetId, setEditPresetId] = useState<string>("");
   const [editOvers, setEditOvers] = useState(20);
@@ -276,6 +278,11 @@ export default function CricketFixturesPage() {
   const activeEditPreset = useMemo(
     () => (presets ?? []).find((p) => String(p.id) === editPresetId) || defaultPreset,
     [presets, editPresetId, defaultPreset],
+  );
+
+  const editTeamsLocked = Boolean(
+    editMatch &&
+      (editMatch.startedAt || (editMatch.status !== "scheduled" && editMatch.status !== "draft")),
   );
 
   const [matchToDelete, setMatchToDelete] = useState<ScoringMatchRow | null>(null);
@@ -304,6 +311,8 @@ export default function CricketFixturesPage() {
 
   function handleOpenEdit(m: ScoringMatchRow) {
     setEditMatch(m);
+    setEditHomeId(String(m.homeTeamId));
+    setEditAwayId(String(m.awayTeamId));
     setEditRoundName(m.roundName || "");
     const presetId = m.rulePresetId ? String(m.rulePresetId) : defaultPreset ? String(defaultPreset.id) : "";
     setEditPresetId(presetId);
@@ -333,16 +342,28 @@ export default function CricketFixturesPage() {
 
   async function handleSaveEdit() {
     if (!editMatch) return;
+    const isPreStart = !editMatch.startedAt && (editMatch.status === "scheduled" || editMatch.status === "draft");
+    const home = parseInt(editHomeId, 10);
+    const away = parseInt(editAwayId, 10);
+    if (isPreStart && (!home || !away || home === away)) {
+      toast({ title: "Pick two different teams", variant: "destructive" });
+      return;
+    }
     setSavingEdit(true);
     try {
-      const isPreStart = !editMatch.startedAt && (editMatch.status === "scheduled" || editMatch.status === "draft");
       await updateScoringMatch(tournamentId, editMatch.id, {
         roundName: editRoundName.trim() || null,
         oversLimit: editOvers || 6,
         venue: editVenue.trim() || null,
         resultSummary: editResultSummary.trim() || null,
         scheduledAt: editScheduledAt ? new Date(editScheduledAt).toISOString() : null,
-        ...(isPreStart && editPresetId ? { rulePresetId: parseInt(editPresetId, 10) } : {}),
+        ...(isPreStart
+          ? {
+              homeTeamId: home,
+              awayTeamId: away,
+              ...(editPresetId ? { rulePresetId: parseInt(editPresetId, 10) } : {}),
+            }
+          : {}),
       });
       toast({
         title: "Match updated",
@@ -1060,6 +1081,44 @@ export default function CricketFixturesPage() {
                     placeholder="e.g. Semi Final 1, Final"
                   />
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Home Team</Label>
+                    <Select value={editHomeId} onValueChange={setEditHomeId} disabled={editTeamsLocked}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Team" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teams.map((t) => (
+                          <SelectItem key={t.id} value={String(t.id)} disabled={editAwayId === String(t.id)}>
+                            {t.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Away Team</Label>
+                    <Select value={editAwayId} onValueChange={setEditAwayId} disabled={editTeamsLocked}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Team" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {teams.map((t) => (
+                          <SelectItem key={t.id} value={String(t.id)} disabled={editHomeId === String(t.id)}>
+                            {t.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                {editTeamsLocked ? (
+                  <p className="text-[11px] text-amber-500">
+                    Teams stay locked after toss or once scoring has started.
+                  </p>
+                ) : null}
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
