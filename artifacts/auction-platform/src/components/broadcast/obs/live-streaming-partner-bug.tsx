@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { LIVE_STREAMING_PARTNER_LABEL } from "@/lib/sponsor-logo";
 
 export type LiveStreamingPartnerBugSponsor = {
@@ -6,9 +6,47 @@ export type LiveStreamingPartnerBugSponsor = {
   logoUrl?: string | null;
 };
 
+const SHOW_EVERY_MS = 60_000;
+const VISIBLE_MS = 5_000;
+const FADE_MS = 600;
+
+/** Hidden, then on screen for 5 seconds at the end of every minute. */
+function useMinutePulse(active: boolean): boolean {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!active) {
+      setVisible(false);
+      return;
+    }
+    let showTimer = 0;
+    let hideTimer = 0;
+    let cancelled = false;
+    const arm = () => {
+      showTimer = window.setTimeout(() => {
+        if (cancelled) return;
+        setVisible(true);
+        hideTimer = window.setTimeout(() => {
+          if (cancelled) return;
+          setVisible(false);
+          arm();
+        }, VISIBLE_MS);
+      }, SHOW_EVERY_MS);
+    };
+    arm();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(showTimer);
+      window.clearTimeout(hideTimer);
+    };
+  }, [active]);
+
+  return visible;
+}
+
 /**
- * Permanent OBS bug for the Live Streaming Partner.
- * Stays on the broadcast with logo, brand name, and the fixed sponsor type.
+ * OBS bug for the Live Streaming Partner.
+ * Logo, brand name, and the fixed sponsor type fade in for 5 seconds after every minute.
  */
 export function LiveStreamingPartnerBug({
   sponsor,
@@ -21,12 +59,15 @@ export function LiveStreamingPartnerBug({
 }) {
   const name = sponsor?.name?.trim() || "";
   const logoUrl = sponsor?.logoUrl?.trim() || "";
-  if (!name && !logoUrl) return null;
+  const active = Boolean(name || logoUrl);
+  const visible = useMinutePulse(active);
+  if (!active) return null;
 
   return (
     <div
       className={className}
       data-obs-live-streaming-partner=""
+      aria-hidden={visible ? undefined : true}
       style={{
         position: "absolute",
         zIndex: 70,
@@ -41,6 +82,8 @@ export function LiveStreamingPartnerBug({
         boxShadow: "0 10px 28px rgba(0,0,0,0.62)",
         pointerEvents: "none",
         ...style,
+        opacity: visible ? 1 : 0,
+        transition: `opacity ${FADE_MS}ms ease`,
       }}
     >
       {logoUrl ? (

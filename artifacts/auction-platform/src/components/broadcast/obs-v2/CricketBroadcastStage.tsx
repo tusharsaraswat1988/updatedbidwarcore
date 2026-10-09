@@ -98,7 +98,7 @@ export function CricketBroadcastStage({
       {/* Compact LIVE bug just below header on the right */}
       <LiveBroadcastBug feed={frame.feed.status} />
 
-      {/* Permanent Live Streaming Partner — left side, above the scorebug */}
+      {/* Live Streaming Partner — 5 seconds each minute, above the scorebug */}
       <LiveStreamingPartnerBug
         sponsor={
           liveStreaming

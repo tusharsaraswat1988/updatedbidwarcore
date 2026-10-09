@@ -106,7 +106,7 @@ function BroadcastStageInner({
         <TitleSponsor sponsor={title} />
       </HeaderFrame>
 
-      {/* Permanent Live Streaming Partner — left side, above the lower third */}
+      {/* Live Streaming Partner — 5 seconds each minute, above the lower third */}
       <LiveStreamingPartnerBug
         sponsor={
           liveStreaming
