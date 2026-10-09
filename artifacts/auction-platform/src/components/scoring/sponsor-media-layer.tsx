@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   cueIsLightweight,
   emptySponsorPlayback,
+  isPlayableBroadcastMp4,
   localAssetMatchesCue,
   parseSponsorMediaCue,
   reduceSponsorPlayback,
@@ -97,6 +98,7 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
   const objectUrlRef = useRef<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const prepareTokenRef = useRef(0);
   const playTokenRef = useRef(0);
   const playbackErrorRef = useRef<string | undefined>(undefined);
@@ -202,6 +204,10 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
           if (!verified.ok) throw new Error(verified.reason);
           await writeCachedSponsorBlob(tournamentId, slot.slotNumber, slot.version, blob);
         }
+        if (slot.assetType === "video") {
+          const playable = isPlayableBroadcastMp4(new Uint8Array(await blob.arrayBuffer()));
+          if (!playable) throw new Error("Video file is not playable. Replace it.");
+        }
         if (slot.assetType === "image" || slot.assetType === "video") {
           await probeSponsorBlob(blob, slot.assetType);
         }
@@ -242,10 +248,13 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     }
     setObjectUrl(null);
     playingKeyRef.current = null;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
     const video = videoRef.current;
     if (video) {
       video.muted = true;
       video.pause();
+      delete video.dataset.boundUrl;
       video.removeAttribute("src");
       video.load();
     }
@@ -419,8 +428,14 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     const token = playTokenRef.current;
     video.dataset.playToken = String(token);
     const onReady = () => {
-      if (playTokenRef.current !== token || video.src !== objectUrl) return;
+      if (playTokenRef.current !== token || video.dataset.boundUrl !== objectUrl) return;
       try { video.currentTime = 0; } catch { /* metadata not ready yet */ }
+      try {
+        streamRef.current?.getTracks().forEach((track) => track.stop());
+        streamRef.current = typeof video.captureStream === "function" ? video.captureStream() : null;
+      } catch {
+        streamRef.current = null;
+      }
       const start = () => video.play().then(() => {
         if (playTokenRef.current !== token) return;
         if (!wantAudio) return;
@@ -438,7 +453,10 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
         });
       });
     };
-    if (video.src !== objectUrl) video.src = objectUrl;
+    if (video.dataset.boundUrl !== objectUrl) {
+      video.dataset.boundUrl = objectUrl;
+      video.src = objectUrl;
+    }
     if (video.readyState >= 2) onReady();
     else video.addEventListener("loadeddata", onReady, { once: true });
     return () => video.removeEventListener("loadeddata", onReady);

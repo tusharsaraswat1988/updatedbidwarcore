@@ -11,6 +11,8 @@ export const SPONSOR_IMAGE_DURATION_MAX_SEC = 60;
 export const SPONSOR_ORIGINAL_UPLOAD_MAX_BYTES = 500 * 1024 * 1024;
 /** Hard ceiling for the prepared broadcast file. Normal spots should land well under 30 MB. */
 export const SPONSOR_BROADCAST_ASSET_MAX_BYTES = 50 * 1024 * 1024;
+/** A derived Cloudinary response under this size is a stub, not a playable spot. */
+export const SPONSOR_BROADCAST_VIDEO_MIN_BYTES = 16 * 1024;
 export const SPONSOR_DOUBLE_PLAY_WINDOW_MS = 500;
 
 export type SponsorMediaAssetType = "image" | "video";
@@ -277,6 +279,30 @@ export function explainSurfaceReadiness(input: {
   if (input.report.status === "missing") return "Missing asset";
   if (input.report.status === "ready") return "Ready";
   return "Missing asset";
+}
+
+function boxPresent(bytes: Uint8Array, name: string): boolean {
+  const a = name.charCodeAt(0);
+  const b = name.charCodeAt(1);
+  const c = name.charCodeAt(2);
+  const d = name.charCodeAt(3);
+  for (let i = 4; i + 4 <= bytes.length; i += 1) {
+    if (bytes[i] === a && bytes[i + 1] === b && bytes[i + 2] === c && bytes[i + 3] === d) return true;
+  }
+  return false;
+}
+
+/**
+ * True only for a finished MP4. Cloudinary can answer a transform URL with a few
+ * kilobytes while a 4K source is still encoding; that body must not be marked ready.
+ */
+export function isPlayableBroadcastMp4(bytes: Uint8Array): boolean {
+  if (bytes.length < SPONSOR_BROADCAST_VIDEO_MIN_BYTES) return false;
+  if (bytes[4] !== 0x66 || bytes[5] !== 0x74 || bytes[6] !== 0x79 || bytes[7] !== 0x70) return false;
+  const windowBytes = 2 * 1024 * 1024;
+  const head = bytes.subarray(0, Math.min(bytes.length, windowBytes));
+  const tail = bytes.subarray(Math.max(0, bytes.length - windowBytes));
+  return boxPresent(head, "moov") || boxPresent(head, "mdat") || boxPresent(tail, "moov") || boxPresent(tail, "mdat");
 }
 
 export function sponsorCacheKey(tournamentId: number, slotNumber: number, version: number): string {

@@ -8,13 +8,14 @@ import {
   SPONSOR_MEDIA_SLOT_COUNT,
   buildCloudinaryBroadcastVideoUrl,
   buildCloudinaryPosterUrl,
+  isPlayableBroadcastMp4,
   type SponsorMediaProcessingStatus,
 } from "@workspace/scoring-core";
 import { getCloudinary, uploadBufferToCloudinary } from "./cloudinary-media-service";
 import { logger } from "./logger";
 import { sharpMetadata, sharpToBuffer } from "./sharp-pipeline";
 
-const PROCESS_TIMEOUT_MS = 180_000;
+const PROCESS_TIMEOUT_MS = 8 * 60_000;
 const SUITABLE_IMAGE_BYTES = 8 * 1024 * 1024;
 
 export type SponsorMediaSlotView = {
@@ -375,14 +376,19 @@ async function downloadBroadcastAsset(url: string): Promise<{ size: number; chec
       if ((probe.ok || probe.status === 206) && (type.includes("video") || type.includes("mp4") || type.includes("octet-stream"))) {
         const full = await fetch(url);
         if (!full.ok) throw new Error("Unable to download");
+        if (full.headers.get("x-cld-error")) throw new Error("Video is still processing");
+        const fullType = full.headers.get("content-type") || "";
+        if (!(fullType.includes("video") || fullType.includes("mp4") || fullType.includes("octet-stream"))) {
+          throw new Error("Broadcast file is not a video");
+        }
         const buffer = Buffer.from(await full.arrayBuffer());
-        if (buffer.length <= 0) throw new Error("Unable to download");
+        if (!isPlayableBroadcastMp4(buffer)) throw new Error("Video is still processing");
         if (buffer.length > SPONSOR_BROADCAST_ASSET_MAX_BYTES) {
           throw new Error("Broadcast asset is too large to preload");
         }
         return { size: buffer.length, checksum: sha256(buffer) };
       }
-      lastError = "Processing failed";
+      lastError = "Video is still processing";
     } catch (err) {
       lastError = err instanceof Error ? err.message : "Processing failed";
       if (lastError === "Broadcast asset is too large to preload") throw err;

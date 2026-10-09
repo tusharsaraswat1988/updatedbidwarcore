@@ -10,7 +10,9 @@ import {
   localAssetMatchesCue,
   parseSponsorMediaCue,
   reduceSponsorPlayback,
+  isPlayableBroadcastMp4,
   SPONSOR_BROADCAST_ASSET_MAX_BYTES,
+  SPONSOR_BROADCAST_VIDEO_MIN_BYTES,
   sponsorCacheKey,
   verifyLocalAsset,
   type SponsorMediaCue,
@@ -156,6 +158,23 @@ describe("sponsor media protocol", () => {
       report: null,
     })).toBe("Processing failed");
     expect(SPONSOR_BROADCAST_ASSET_MAX_BYTES).toBe(50 * 1024 * 1024);
+  });
+
+  it("rejects the short Cloudinary body OBS was downloading", () => {
+    const stub = new Uint8Array(4041);
+    stub.set([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70], 0);
+    expect(stub.length).toBeLessThan(SPONSOR_BROADCAST_VIDEO_MIN_BYTES);
+    expect(isPlayableBroadcastMp4(stub)).toBe(false);
+  });
+
+  it("accepts an MP4 that contains a media box and clears the size floor", () => {
+    const bytes = new Uint8Array(SPONSOR_BROADCAST_VIDEO_MIN_BYTES);
+    bytes.set([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70], 0);
+    bytes.set([0x6d, 0x6f, 0x6f, 0x76], 32);
+    expect(isPlayableBroadcastMp4(bytes)).toBe(true);
+    const html = new Uint8Array(SPONSOR_BROADCAST_VIDEO_MIN_BYTES);
+    html.set([0x3c, 0x68, 0x74, 0x6d, 0x6c], 0);
+    expect(isPlayableBroadcastMp4(html)).toBe(false);
   });
 
   it("does not play a stale or corrupt local file", () => {
