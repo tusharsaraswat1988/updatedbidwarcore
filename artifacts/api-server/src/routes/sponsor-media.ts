@@ -111,6 +111,7 @@ router.get("/tournaments/:tournamentId/scoring/sponsor-media", async (req, res) 
   const includeOriginal = isTournamentOrganizer(req, tournamentId, tournament.organizerId);
   try {
     const slots = await listSponsorMediaSlots(tournamentId, includeOriginal);
+    res.setHeader("Cache-Control", "no-store");
     res.json({ slots });
   } catch (err) {
     logger.error({ err, tournamentId }, "Failed to list sponsor media");
@@ -125,6 +126,7 @@ router.get("/tournaments/:tournamentId/scoring/sponsor-media/readiness", async (
     return;
   }
   if (!(await callerIsOperator(req, res, tournamentId))) return;
+  res.setHeader("Cache-Control", "no-store");
   res.json(getSponsorMediaReadiness(tournamentId));
 });
 

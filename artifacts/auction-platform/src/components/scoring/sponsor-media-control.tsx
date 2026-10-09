@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { scoringAppPath } from "@workspace/api-base/scoring-urls";
 import {
   createSponsorDisplaySession,
+  rememberSponsorDisplayToken,
   deleteSponsorMediaSlot,
   fetchSponsorMediaReadiness,
   fetchSponsorMediaSlots,
@@ -131,6 +132,25 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
   }, [loadReadiness, loadSlots]);
 
   useEffect(() => {
+    if (tournamentId <= 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [obsSession, ledSession] = await Promise.all([
+          createSponsorDisplaySession(tournamentId, "obs"),
+          createSponsorDisplaySession(tournamentId, "led"),
+        ]);
+        if (cancelled) return;
+        rememberSponsorDisplayToken(tournamentId, "obs", obsSession.token);
+        rememberSponsorDisplayToken(tournamentId, "led", ledSession.token);
+      } catch {
+        // Screen links still work from the button.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tournamentId]);
+
+  useEffect(() => {
     const filledNumbers = slots.filter(hasSponsor).map((item) => item.slotNumber);
     if (filledNumbers.length === 0) return;
     if (!filledNumbers.includes(selected)) setSelected(filledNumbers[0]);
@@ -211,16 +231,25 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
   );
   const compact = density === "console";
 
-  function prepareScreens() {
-    void sendSponsorMediaCue(tournamentId, {
-      action: "prepare",
-      slotId: 0,
-      slotNumber: 1,
-      version: 0,
-      destination: "both",
-    }).then(() => toast({ title: "Preparing screens" })).catch((err) => {
+  async function prepareScreens() {
+    try {
+      const [obsSession, ledSession] = await Promise.all([
+        createSponsorDisplaySession(tournamentId, "obs"),
+        createSponsorDisplaySession(tournamentId, "led"),
+      ]);
+      rememberSponsorDisplayToken(tournamentId, "obs", obsSession.token);
+      rememberSponsorDisplayToken(tournamentId, "led", ledSession.token);
+      await sendSponsorMediaCue(tournamentId, {
+        action: "prepare",
+        slotId: 0,
+        slotNumber: 1,
+        version: 0,
+        destination: "both",
+      }, { obs: obsSession.token, led: ledSession.token });
+      toast({ title: "Connecting screens", description: "Refresh the OBS browser source once if it stays offline. The video appears when you press Play." });
+    } catch (err) {
       toast({ title: "Prepare failed", description: err instanceof Error ? err.message : "Could not prepare", variant: "destructive" });
-    });
+    }
   }
 
   function play() {
@@ -245,9 +274,7 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
         : !sponsor.active
           ? "This sponsor is off."
           : broadcastReady && !destinationReady
-            ? destination === "both"
-              ? "Prepare OBS and the LED, then play. Or pick the screen that is ready."
-              : `Prepare ${destination === "obs" ? "OBS" : "the LED"}, then play.`
+            ? "OBS is not connected, so nothing is on screen yet. Press Prepare screens, then refresh the OBS page once. Play is what shows the video."
             : null;
 
   return (

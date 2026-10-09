@@ -35,7 +35,7 @@ async function readError(response: Response): Promise<string> {
 }
 
 export async function fetchSponsorMediaSlots(tournamentId: number): Promise<SponsorMediaSlotDto[]> {
-  const response = await apiFetch(`/tournaments/${tournamentId}/scoring/sponsor-media`);
+  const response = await apiFetch(`/tournaments/${tournamentId}/scoring/sponsor-media`, { cache: "no-store" });
   if (!response.ok) throw new Error(await readError(response));
   const body = await response.json() as { slots: SponsorMediaSlotDto[] };
   return body.slots;
@@ -84,7 +84,7 @@ export async function fetchSponsorMediaReadiness(tournamentId: number): Promise<
   obs: SponsorSurfaceReportDto | null;
   led: SponsorSurfaceReportDto | null;
 }> {
-  const response = await apiFetch(`/tournaments/${tournamentId}/scoring/sponsor-media/readiness`);
+  const response = await apiFetch(`/tournaments/${tournamentId}/scoring/sponsor-media/readiness`, { cache: "no-store" });
   if (!response.ok) throw new Error(await readError(response));
   return response.json();
 }
@@ -92,16 +92,26 @@ export async function fetchSponsorMediaReadiness(tournamentId: number): Promise<
 const displayTokenKey = (tournamentId: number, surface: SponsorMediaSurface) =>
   `bidwar-sponsor-display:${tournamentId}:${surface}`;
 
-/** The display token comes from the authorized screen link. It is not a surface name the page invents. */
+/** The display token comes from the authorized screen link, or from Live Control on this browser. */
 export function sponsorDisplayToken(tournamentId: number, surface: SponsorMediaSurface): string | null {
   if (typeof window === "undefined") return null;
   const key = displayTokenKey(tournamentId, surface);
   const fromUrl = new URLSearchParams(window.location.search).get("display");
   if (fromUrl) {
-    try { sessionStorage.setItem(key, fromUrl); } catch { /* private mode */ }
+    rememberSponsorDisplayToken(tournamentId, surface, fromUrl);
     return fromUrl;
   }
-  try { return sessionStorage.getItem(key); } catch { return null; }
+  try {
+    return sessionStorage.getItem(key) || localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+export function rememberSponsorDisplayToken(tournamentId: number, surface: SponsorMediaSurface, token: string): void {
+  const key = displayTokenKey(tournamentId, surface);
+  try { sessionStorage.setItem(key, token); } catch { /* private mode */ }
+  try { localStorage.setItem(key, token); } catch { /* private mode */ }
 }
 
 export async function createSponsorDisplaySession(
@@ -143,17 +153,25 @@ export async function sendSponsorMediaCue(
     version: number;
     destination: SponsorMediaDestination;
   },
+  sponsorDisplayTokens?: { obs?: string; led?: string },
 ): Promise<void> {
   const cueId = `cue-${crypto.randomUUID()}`;
   const sponsorMedia = { ...cue, cueId };
   const response = await apiFetch(`/tournaments/${tournamentId}/scoring/obs-director`, {
     method: "POST",
-    json: { messageType: "sponsor_media", sponsorMedia },
+    json: { messageType: "sponsor_media", sponsorMedia, sponsorDisplayTokens },
   });
   if (!response.ok) throw new Error(await readError(response));
-  const body = await response.json().catch(() => ({})) as { sponsorMedia?: typeof sponsorMedia & { issuedAt?: number } };
+  const body = await response.json().catch(() => ({})) as {
+    sponsorMedia?: typeof sponsorMedia & { issuedAt?: number };
+    sponsorDisplayTokens?: { obs?: string; led?: string };
+  };
   if (typeof BroadcastChannel === "undefined") return;
-  const message = { type: "SPONSOR_MEDIA", sponsorMedia: body.sponsorMedia ?? sponsorMedia };
+  const message = {
+    type: "SPONSOR_MEDIA",
+    sponsorMedia: body.sponsorMedia ?? sponsorMedia,
+    sponsorDisplayTokens: body.sponsorDisplayTokens ?? sponsorDisplayTokens,
+  };
   for (const name of [`bidwar_v2_${tournamentId}`, `bidwar_cricket_obs_${tournamentId}`]) {
     try {
       const channel = new BroadcastChannel(name);

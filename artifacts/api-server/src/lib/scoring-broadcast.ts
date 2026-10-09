@@ -213,6 +213,8 @@ export interface CricketObsDirectorPayload {
   messageType?: string;
   broadcastMessage?: CricketBroadcastMessage | null;
   sponsorMedia?: SponsorMediaCue | null;
+  /** One-shot screen credentials. Not stored in the director snapshot. */
+  sponsorDisplayTokens?: { obs?: string; led?: string };
   timestamp: number;
 }
 
@@ -293,6 +295,7 @@ export function broadcastCricketObsDirector(
     messageType?: string;
     broadcastMessage?: CricketBroadcastMessage | null;
     sponsorMedia?: SponsorMediaCue | null;
+    sponsorDisplayTokens?: { obs?: string; led?: string };
   },
 ) {
   if (
@@ -325,6 +328,7 @@ export function broadcastCricketObsDirector(
     messageType: command.messageType,
     broadcastMessage: command.broadcastMessage,
     sponsorMedia: command.sponsorMedia,
+    sponsorDisplayTokens: command.sponsorDisplayTokens,
     timestamp: Date.now(),
   };
 

@@ -19,6 +19,7 @@ import {
 } from "@/lib/sponsor-media-cache";
 import {
   fetchSponsorMediaSlots,
+  rememberSponsorDisplayToken,
   reportSponsorMediaReadiness,
   type SponsorMediaSlotDto,
 } from "@/lib/sponsor-media-api";
@@ -331,7 +332,15 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
   useEffect(() => {
     if (tournamentId <= 0 || typeof window === "undefined") return;
     const onDirector = (event: Event) => {
-      const detail = (event as CustomEvent).detail as { sponsorMedia?: unknown } | undefined;
+      const detail = (event as CustomEvent).detail as {
+        sponsorMedia?: unknown;
+        sponsorDisplayTokens?: { obs?: string; led?: string };
+      } | undefined;
+      const token = detail?.sponsorDisplayTokens?.[surface];
+      if (token) {
+        rememberSponsorDisplayToken(tournamentId, surface, token);
+        publish();
+      }
       if (detail?.sponsorMedia) applyCue(detail.sponsorMedia);
     };
     window.addEventListener("cricket_obs_director", onDirector);
@@ -340,7 +349,15 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
       for (const name of [`bidwar_v2_${tournamentId}`, `bidwar_cricket_obs_${tournamentId}`]) {
         const channel = new BroadcastChannel(name);
         channel.onmessage = (event) => {
-          const data = event.data as { sponsorMedia?: unknown } | undefined;
+          const data = event.data as {
+            sponsorMedia?: unknown;
+            sponsorDisplayTokens?: { obs?: string; led?: string };
+          } | undefined;
+          const token = data?.sponsorDisplayTokens?.[surface];
+          if (token) {
+            rememberSponsorDisplayToken(tournamentId, surface, token);
+            publish();
+          }
           if (data?.sponsorMedia) applyCue(data.sponsorMedia);
         };
         channels.push(channel);
@@ -350,7 +367,7 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
       window.removeEventListener("cricket_obs_director", onDirector);
       channels.forEach((channel) => channel.close());
     };
-  }, [applyCue, tournamentId]);
+  }, [applyCue, publish, surface, tournamentId]);
 
   useEffect(() => {
     if (!show || !playback.cueId) return;

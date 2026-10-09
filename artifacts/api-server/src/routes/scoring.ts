@@ -57,6 +57,7 @@ import { applyCricketRulesToMatches } from "../lib/cricket-rules-service";
 import sponsorMediaRouter, { parseSponsorMediaDirectorCue } from "./sponsor-media";
 import { getSponsorMediaSlot } from "../lib/sponsor-media-service";
 import { getSponsorMediaReadiness, surfaceReadyFor } from "../lib/sponsor-media-readiness";
+import { verifySponsorDisplaySession } from "../lib/sponsor-display-session";
 import {
   requireScorerFromRequest,
   assertScorerCanScore,
@@ -742,6 +743,19 @@ router.post("/tournaments/:tournamentId/scoring/obs-director", async (req, res) 
     }
   }
 
+  const sponsorDisplayTokens: { obs?: string; led?: string } = {};
+  const rawTokens = body.sponsorDisplayTokens;
+  if (rawTokens && typeof rawTokens === "object") {
+    for (const surface of ["obs", "led"] as const) {
+      const token = rawTokens[surface];
+      if (typeof token !== "string" || !token) continue;
+      const identity = verifySponsorDisplaySession(token);
+      if (identity?.tournamentId === tournamentId && identity.surface === surface) {
+        sponsorDisplayTokens[surface] = token;
+      }
+    }
+  }
+
   broadcastCricketObsDirector(tournamentId, {
     overlay,
     matchId: Number.isFinite(matchId) ? matchId : undefined,
@@ -752,8 +766,21 @@ router.post("/tournaments/:tournamentId/scoring/obs-director", async (req, res) 
     messageType,
     broadcastMessage,
     sponsorMedia,
+    sponsorDisplayTokens: sponsorDisplayTokens.obs || sponsorDisplayTokens.led ? sponsorDisplayTokens : undefined,
   });
-  res.json({ ok: true, overlay, matchId, sponsorName, stageOrGroup, flash, detail, messageType, broadcastMessage, sponsorMedia });
+  res.json({
+    ok: true,
+    overlay,
+    matchId,
+    sponsorName,
+    stageOrGroup,
+    flash,
+    detail,
+    messageType,
+    broadcastMessage,
+    sponsorMedia,
+    sponsorDisplayTokens: sponsorDisplayTokens.obs || sponsorDisplayTokens.led ? sponsorDisplayTokens : undefined,
+  });
 });
 
 /** GET /tournaments/:tournamentId/scoring/obs-director — get current OBS overlay state */
