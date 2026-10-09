@@ -147,14 +147,15 @@ export function CricketLedMidOverlays({
     staleTime: 5000,
   });
 
-  // Auto-rotating sponsor index for single large showcase
+  // Auto-rotating sponsor index. Hold long enough for fade-in, a pause, then fade-out
+  // before the next logo enters (AnimatePresence mode="wait").
   const [currentSponsorIndex, setCurrentSponsorIndex] = useState(0);
 
   useEffect(() => {
     if (overlay !== "sponsors" || sponsors.length <= 1 || (overlaySponsorName && overlaySponsorName !== "all")) return;
     const interval = setInterval(() => {
       setCurrentSponsorIndex((prev) => (prev + 1) % sponsors.length);
-    }, 5000);
+    }, 6500);
     return () => clearInterval(interval);
   }, [overlay, sponsors.length, overlaySponsorName]);
 
@@ -533,118 +534,107 @@ export function CricketLedMidOverlays({
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col justify-between">
             {/* 1. SPONSOR SHOWCASE (Single Focal Sponsor Layout) */}
             {overlay === "sponsors" && (
-              <div className="flex h-full flex-col justify-between w-full px-2 sm:px-6">
+              <div className="flex h-full flex-col w-full px-2 sm:px-6">
                 <div className="text-center pt-2 mb-3 shrink-0">
                   <h2 className="text-4xl sm:text-6xl md:text-7xl font-display font-black tracking-wide text-white uppercase drop-shadow">
                     {targetedSponsor ? `OFFICIAL PARTNER` : `OUR VALUED PARTNERS`}
                   </h2>
                 </div>
 
-                {activeSponsor ? (
-                  <div className="flex-1 min-h-0 flex flex-col items-center justify-center w-full">
-                    <div
-                      className={cn(
-                        "w-full h-full flex flex-col items-center justify-center rounded-3xl p-8 sm:p-12 md:p-16 transition-all duration-500 backdrop-blur-md",
-                        isTitle
-                          ? "border-4 border-amber-400 bg-gradient-to-b from-[#1c1404] via-card/95 to-[#07090e] shadow-[0_0_90px_rgba(251,191,36,0.5),0_0_35px_rgba(251,191,36,0.3)] animate-pulse"
-                          : isCo
-                          ? "border-3 border-cyan-400/80 bg-gradient-to-b from-[#041624] via-card/95 to-[#07090e] shadow-[0_0_50px_rgba(34,211,238,0.35)]"
-                          : "border-2 border-border/80 bg-gradient-to-b from-card/95 via-card/85 to-[#07090e] shadow-2xl"
-                      )}
+                <AnimatePresence mode="wait">
+                  {activeSponsor ? (
+                    <motion.div
+                      key={`${currentSponsorIndex}-${activeSponsor.url || activeSponsor.name || "sponsor"}`}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.9, ease: "easeInOut" }}
+                      className="flex-1 min-h-0 flex flex-col items-center justify-center w-full"
                     >
-                      {/* 1. Sponsor Logo (Frameless Clean Showcase) */}
-                      <div className="w-full flex-1 min-h-[34vh] max-h-[46vh] max-w-5xl mx-auto flex items-center justify-center p-2 mb-6 sm:mb-8">
-                        {activeSponsor.url ? (
-                          <img
-                            src={activeSponsor.url}
-                            alt={activeSponsor.name || "Sponsor"}
-                            className="max-h-full max-w-full object-contain filter drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)]"
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center justify-center gap-2">
-                            <Award
-                              className={cn(
-                                "w-24 h-24",
-                                isTitle ? "text-amber-400" : isCo ? "text-cyan-400" : "text-primary"
-                              )}
-                            />
-                            <span className="text-3xl md:text-4xl font-black text-white uppercase">
-                              Official Sponsor
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 2. Sponsor Name (Below Logo) */}
-                      <h3
-                        title={activeSponsor.name || "Tournament Partner"}
+                      <div
                         className={cn(
-                          "font-display font-black uppercase tracking-wide text-white text-center drop-shadow-[0_2px_15px_rgba(0,0,0,0.95)] mb-4 break-words max-w-full leading-tight",
-                          (activeSponsor.name?.length ?? 0) > 30
-                            ? "text-4xl sm:text-5xl md:text-6xl lg:text-7xl"
-                            : (activeSponsor.name?.length ?? 0) > 18
-                            ? "text-5xl sm:text-6xl md:text-7xl lg:text-8xl"
-                            : "text-6xl sm:text-7xl md:text-8xl lg:text-9xl"
+                          "w-full h-full flex flex-col items-center justify-center rounded-3xl p-8 sm:p-12 md:p-16 backdrop-blur-md",
+                          isTitle
+                            ? "border-4 border-amber-400 bg-gradient-to-b from-[#1c1404] via-card/95 to-[#07090e] shadow-[0_0_90px_rgba(251,191,36,0.5),0_0_35px_rgba(251,191,36,0.3)]"
+                            : isCo
+                            ? "border-3 border-cyan-400/80 bg-gradient-to-b from-[#041624] via-card/95 to-[#07090e] shadow-[0_0_50px_rgba(34,211,238,0.35)]"
+                            : "border-2 border-border/80 bg-gradient-to-b from-card/95 via-card/85 to-[#07090e] shadow-2xl"
                         )}
                       >
-                        {activeSponsor.name || "Tournament Partner"}
-                      </h3>
+                        {/* 1. Sponsor Logo (Frameless Clean Showcase) */}
+                        <div className="w-full flex-1 min-h-[34vh] max-h-[46vh] max-w-5xl mx-auto flex items-center justify-center p-2 mb-6 sm:mb-8">
+                          {activeSponsor.url ? (
+                            <img
+                              src={activeSponsor.url}
+                              alt={activeSponsor.name || "Sponsor"}
+                              className="max-h-full max-w-full object-contain filter drop-shadow-[0_10px_30px_rgba(0,0,0,0.8)]"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center justify-center gap-2">
+                              <Award
+                                className={cn(
+                                  "w-24 h-24",
+                                  isTitle ? "text-amber-400" : isCo ? "text-cyan-400" : "text-primary"
+                                )}
+                              />
+                              <span className="text-3xl md:text-4xl font-black text-white uppercase">
+                                Official Sponsor
+                              </span>
+                            </div>
+                          )}
+                        </div>
 
-                      {/* 3. Sponsor Type (Below Name) */}
-                      <div>
-                        <span
+                        {/* 2. Sponsor Name (Below Logo) */}
+                        <h3
+                          title={activeSponsor.name || "Tournament Partner"}
                           className={cn(
-                            "inline-block px-8 py-3 rounded-full font-display font-black uppercase tracking-[0.14em]",
-                            isTitle
-                              ? "bg-amber-400 text-black text-3xl md:text-4xl lg:text-5xl border-2 border-yellow-200 shadow-[0_0_30px_rgba(251,191,36,0.7)]"
-                              : isCo
-                              ? "bg-cyan-500/20 border-2 border-cyan-400/70 text-cyan-100 text-3xl md:text-4xl lg:text-5xl shadow-[0_0_20px_rgba(34,211,238,0.4)]"
-                              : "bg-primary/20 border border-primary/40 text-primary text-3xl md:text-4xl lg:text-5xl"
+                            "font-display font-black uppercase tracking-wide text-white text-center drop-shadow-[0_2px_15px_rgba(0,0,0,0.95)] mb-4 break-words max-w-full leading-tight",
+                            (activeSponsor.name?.length ?? 0) > 30
+                              ? "text-4xl sm:text-5xl md:text-6xl lg:text-7xl"
+                              : (activeSponsor.name?.length ?? 0) > 18
+                              ? "text-5xl sm:text-6xl md:text-7xl lg:text-8xl"
+                              : "text-6xl sm:text-7xl md:text-8xl lg:text-9xl"
                           )}
                         >
-                          {sponsorTypeLabel}
-                        </span>
-                      </div>
-                    </div>
+                          {activeSponsor.name || "Tournament Partner"}
+                        </h3>
 
-                    {/* Carousel Indicators (if multiple sponsors and not single targeted) */}
-                    {!targetedSponsor && sponsors.length > 1 && (
-                      <div className="flex items-center justify-center gap-3 mt-6">
-                        {sponsors.map((_, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setCurrentSponsorIndex(idx)}
+                        {/* 3. Sponsor Type (Below Name) */}
+                        <div>
+                          <span
                             className={cn(
-                              "h-3 rounded-full transition-all duration-300",
-                              idx === currentSponsorIndex % sponsors.length
-                                ? "w-10 bg-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.7)]"
-                                : "w-3 bg-white/30 hover:bg-white/60"
+                              "inline-block px-8 py-3 rounded-full font-display font-black uppercase tracking-[0.14em]",
+                              isTitle
+                                ? "bg-amber-400 text-black text-3xl md:text-4xl lg:text-5xl border-2 border-yellow-200 shadow-[0_0_30px_rgba(251,191,36,0.7)]"
+                                : isCo
+                                ? "bg-cyan-500/20 border-2 border-cyan-400/70 text-cyan-100 text-3xl md:text-4xl lg:text-5xl shadow-[0_0_20px_rgba(34,211,238,0.4)]"
+                                : "bg-primary/20 border border-primary/40 text-primary text-3xl md:text-4xl lg:text-5xl"
                             )}
-                            aria-label={`Go to sponsor ${idx + 1}`}
-                          />
-                        ))}
+                          >
+                            {sponsorTypeLabel}
+                          </span>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="my-auto flex flex-col items-center justify-center text-center p-12 rounded-3xl bg-card/60 border-2 border-border/80 shadow-2xl">
-                    <Award className="w-20 h-20 text-amber-400/80 mb-4 animate-bounce" />
-                    <h3 className="text-3xl sm:text-4xl font-display font-black text-amber-400 uppercase tracking-wide">
-                      {tournamentName ? `${tournamentName.toUpperCase()} PARTNERS` : "TOURNAMENT PARTNERS"}
-                    </h3>
-                    <p className="text-xl sm:text-2xl text-white/80 mt-2 max-w-lg font-black">
-                      Official Tournament Live Stadium Presentation Powered by BidWar Sports Platform
-                    </p>
-                  </div>
-                )}
-
-                {/* Footer branding */}
-                <div className="text-center pt-4 border-t border-border/50">
-                  <span className="text-2xl md:text-4xl lg:text-5xl font-black uppercase tracking-[0.12em] text-amber-200 font-display">
-                    POWERED BY BIDWAR.IN
-                  </span>
-                </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="no-sponsor"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.9, ease: "easeInOut" }}
+                      className="my-auto flex flex-col items-center justify-center text-center p-12 rounded-3xl bg-card/60 border-2 border-border/80 shadow-2xl"
+                    >
+                      <Award className="w-20 h-20 text-amber-400/80 mb-4 animate-bounce" />
+                      <h3 className="text-3xl sm:text-4xl font-display font-black text-amber-400 uppercase tracking-wide">
+                        {tournamentName ? `${tournamentName.toUpperCase()} PARTNERS` : "TOURNAMENT PARTNERS"}
+                      </h3>
+                      <p className="text-xl sm:text-2xl text-white/80 mt-2 max-w-lg font-black">
+                        Official Tournament Live Stadium Presentation
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )}
 

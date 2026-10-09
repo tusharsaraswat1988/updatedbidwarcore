@@ -44,6 +44,8 @@ import { SuperBallActivationOverlay } from "@/components/scoring/super-ball-acti
 import { SponsorMediaLayer } from "@/components/scoring/sponsor-media-layer";
 import { CricketLedMidOverlays } from "@/components/scoring/cricket-led-mid-overlays";
 import { CricketLedNeutralScreen } from "@/components/scoring/cricket-led-neutral-screen";
+import { CricketTossResultPanel } from "@/components/scoring/cricket-toss-result-panel";
+import { buildTossResultCopy, isTossResultHold } from "@/lib/cricket-toss-result";
 import {
   resolveBatterView,
   resolveBowlerView,
@@ -534,6 +536,11 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
       : null;
 
   const isIdle = !match || !state || state.matchStatus === "scheduled";
+  const tossCopy =
+    state && match && isTossResultHold(state)
+      ? buildTossResultCopy(state, teams, match.homeTeamId, match.awayTeamId)
+      : null;
+  const showTossResult = Boolean(tossCopy) && !isComplete;
 
   const targetRuns = state?.target ?? null;
   const needRuns = targetRuns != null && innings ? Math.max(0, targetRuns - innings.runs) : null;
@@ -888,6 +895,8 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                 Waiting for the official toss and scorer to start ball delivery.
               </p>
             </div>
+          ) : showTossResult && tossCopy ? (
+            <CricketTossResultPanel variant="led" copy={tossCopy} />
           ) : isComplete && summary ? (
             <div className="w-full max-w-4xl space-y-4 my-auto">
               <div className="flex items-center justify-center gap-3">

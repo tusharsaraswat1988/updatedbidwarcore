@@ -11,6 +11,8 @@ import {
 } from "@/components/scoring/public-tournament-shell";
 import { cricketMatchPublicPath, cricketFanMatchesPath } from "@/lib/tournament-navigation";
 import type { PublicSchedulePayload } from "@/lib/public-tournament-types";
+import type { CricketScoreboardState } from "@workspace/scoring-core";
+import { buildTossResultCopy, isTossResultHold } from "@/lib/cricket-toss-result";
 import { CircleDot } from "lucide-react";
 
 export default function ScoringMatchPublicPage() {
@@ -61,11 +63,25 @@ export default function ScoringMatchPublicPage() {
   }
 
   const liveScoreline = (() => {
-    if (!isLive || !liveDisplay?.state) return null;
-    const state = liveDisplay.state as Record<string, unknown>;
-    const runs = state.runs ?? state.totalRuns;
-    const wickets = state.wickets ?? state.totalWickets;
-    const overs = state.overs ?? state.oversBowled;
+    if (!isLive || !liveDisplay?.state || !data?.match) return null;
+    const state = liveDisplay.state as CricketScoreboardState;
+    if (isTossResultHold(state)) {
+      const teams = [data.match.homeTeam, data.match.awayTeam].filter(
+        (team): team is NonNullable<typeof team> => team != null,
+      );
+      return (
+        buildTossResultCopy(
+          state,
+          teams,
+          data.match.homeTeamId,
+          data.match.awayTeamId,
+        )?.sentence ?? null
+      );
+    }
+    const raw = liveDisplay.state as Record<string, unknown>;
+    const runs = raw.runs ?? raw.totalRuns;
+    const wickets = raw.wickets ?? raw.totalWickets;
+    const overs = raw.overs ?? raw.oversBowled;
     if (runs == null) return null;
     const wk = wickets != null ? `/${wickets}` : "";
     const ov = overs != null ? ` (${overs})` : "";

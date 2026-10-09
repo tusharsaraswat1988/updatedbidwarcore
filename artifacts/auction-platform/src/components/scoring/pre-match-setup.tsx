@@ -284,9 +284,13 @@ export function PreMatchSetup({
       {/* ─── Action Bar: Available when Toss is done but 0 balls/runs scored ─── */}
       {!needsToss ? (
         <div className="flex items-center justify-between bg-card/60 backdrop-blur-sm border border-border/70 rounded-xl px-4 py-2.5">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
-            <span>Toss Confirmed</span>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+            <span className="truncate text-foreground/90">
+              {state.tossWinnerTeamId != null && state.electedTo
+                ? `${teamName(teams, state.tossWinnerTeamId)} won the toss and elected to ${state.electedTo} first`
+                : "Toss confirmed"}
+            </span>
           </div>
           <div className="flex items-center gap-2">
             {!isPaused ? (

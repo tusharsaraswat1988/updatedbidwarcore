@@ -27,14 +27,6 @@ export interface CricketLedNeutralScreenProps {
   displayShellStyle?: CSSProperties;
 }
 
-function getNeutralSponsorNameFontSize(name: string): string {
-  const len = (name || "").trim().length;
-  if (len > 32) return "text-lg sm:text-xl md:text-2xl";
-  if (len > 22) return "text-xl sm:text-2xl md:text-3xl";
-  if (len > 14) return "text-2xl sm:text-3xl md:text-4xl";
-  return "text-3xl sm:text-4xl md:text-5xl";
-}
-
 export function CricketLedNeutralScreen({
   tournamentName,
   tournamentLogoUrl,
@@ -243,68 +235,56 @@ export function CricketLedNeutralScreen({
         {/* Prominent Large Sponsor Cards Grid ("thoda bada me") */}
         {activeSponsorsList.length > 0 ? (
           <div className="w-full max-w-7xl 2xl:max-w-[1500px]">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`page-${carouselIndex}`}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -16 }}
-                transition={{ duration: 0.35, ease: "easeInOut" }}
-                className={cn(
-                  "grid gap-4 sm:gap-6 w-full items-stretch justify-center",
-                  currentVisibleSponsors.length === 1
-                    ? "grid-cols-1 max-w-xl mx-auto"
-                    : currentVisibleSponsors.length === 2
-                    ? "grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto"
-                    : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3",
-                )}
-              >
-                {currentVisibleSponsors.map((sp, idx) => {
-                  const typeLabel = getSponsorCategoryLabel(sp);
-                  return (
-                    <div
-                      key={`sponsor-card-${sp.name}-${idx}`}
-                      className="flex items-center gap-4 sm:gap-5 p-3.5 sm:p-4 rounded-2xl bg-card/90 border-2 border-border/80 hover:border-amber-400/50 shadow-xl backdrop-blur-sm transition-all"
-                    >
-                      {/* Sponsor Logo (Large) */}
-                      {sp.url ? (
-                        <div className="h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32 rounded-xl bg-black/60 border border-white/20 p-2 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
-                          <img
-                            src={sp.url}
-                            alt={sp.name || "Sponsor"}
-                            className="max-h-full max-w-full object-contain filter drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
-                          />
-                        </div>
-                      ) : (
-                        <div className="h-24 w-24 sm:h-28 sm:w-28 md:h-32 md:w-32 rounded-xl bg-amber-500/15 border-2 border-amber-400/40 flex items-center justify-center shrink-0">
-                          <Award className="w-12 h-12 sm:w-14 sm:h-14 text-amber-400 drop-shadow" />
-                        </div>
-                      )}
+            {/* Fixed slot so carousel pages cannot resize the LED frame */}
+            <div className="relative h-[148px] sm:h-[164px] md:h-[176px] w-full">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={`page-${carouselIndex}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.35, ease: "easeInOut" }}
+                  className="absolute inset-0 grid grid-cols-3 gap-4 sm:gap-6 w-full"
+                >
+                  {currentVisibleSponsors.map((sp, idx) => {
+                    const typeLabel = getSponsorCategoryLabel(sp);
+                    return (
+                      <div
+                        key={`sponsor-card-${sp.name}-${idx}`}
+                        className="flex items-center gap-4 sm:gap-5 h-full min-h-0 px-3.5 sm:px-4 rounded-2xl bg-card/90 border-2 border-border/80 shadow-xl backdrop-blur-sm overflow-hidden"
+                      >
+                        {/* Sponsor logo: same transparent frame on every card */}
+                        {sp.url ? (
+                          <div className="h-24 w-24 sm:h-28 sm:w-28 shrink-0 flex items-center justify-center overflow-hidden bg-transparent">
+                            <img
+                              src={sp.url}
+                              alt={sp.name || "Sponsor"}
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <div className="h-24 w-24 sm:h-28 sm:w-28 shrink-0 flex items-center justify-center bg-transparent">
+                            <Award className="w-12 h-12 sm:w-14 sm:h-14 text-amber-400 drop-shadow" />
+                          </div>
+                        )}
 
-                      {/* Sponsor Details (Name + Type in Big Text) */}
-                      <div className="flex flex-col justify-center min-w-0 flex-1">
-                        {/* Sponsor Name: Proper full name, no cut-off, responsive auto-wrap */}
-                        <h3
-                          title={sp.name || "Tournament Partner"}
-                          className={cn(
-                            "font-black uppercase tracking-wide text-white drop-shadow-md leading-tight break-words line-clamp-2",
-                            getNeutralSponsorNameFontSize(sp.name || ""),
-                          )}
-                        >
-                          {sp.name || "Tournament Partner"}
-                        </h3>
-                        {/* Sponsor Type: thoda bada me */}
-                        <div className="mt-1.5 flex items-center">
-                          <span className="inline-block px-4 py-1.5 rounded-lg bg-amber-500/20 border border-amber-400/50 text-base sm:text-lg md:text-xl font-black uppercase tracking-wider text-amber-200 drop-shadow">
+                        <div className="flex flex-col justify-center min-w-0 flex-1">
+                          <h3
+                            title={sp.name || "Tournament Partner"}
+                            className="font-black uppercase tracking-wide text-white drop-shadow-md leading-tight break-words line-clamp-2 text-xl sm:text-2xl md:text-3xl"
+                          >
+                            {sp.name || "Tournament Partner"}
+                          </h3>
+                          <span className="mt-1.5 text-base sm:text-lg md:text-xl font-black uppercase tracking-wider text-amber-200 leading-tight line-clamp-2">
                             {typeLabel}
                           </span>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </motion.div>
-            </AnimatePresence>
+                    );
+                  })}
+                </motion.div>
+              </AnimatePresence>
+            </div>
 
             {/* Pagination dots if more than itemsPerPage sponsors */}
             {totalPages > 1 && (

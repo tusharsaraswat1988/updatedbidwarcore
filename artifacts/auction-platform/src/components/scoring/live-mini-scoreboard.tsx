@@ -6,6 +6,8 @@ import type { PublicMatch, PublicTeam } from "@/lib/public-tournament-types";
 import type { ScoringLiveDisplay, PublicScorecardResponse } from "@/lib/scoring-api";
 import { cricketFanMatchPath } from "@/lib/tournament-navigation";
 import { cn } from "@/lib/utils";
+import { CricketTossResultPanel } from "@/components/scoring/cricket-toss-result-panel";
+import { buildTossResultCopy, isTossResultHold } from "@/lib/cricket-toss-result";
 
 interface LiveMiniScoreboardProps {
   tournamentId: number;
@@ -114,6 +116,20 @@ export function LiveMiniScoreboard({
 
   // Deliveries in current over
   const thisOverDeliveries: BallDisplayOutcome[] = state?.thisOver ?? [];
+
+  const tossCopy =
+    state && isTossResultHold(state)
+      ? buildTossResultCopy(
+          state,
+          [...teamMap.values()],
+          match.homeTeamId,
+          match.awayTeamId,
+        )
+      : null;
+
+  if (tossCopy) {
+    return <CricketTossResultPanel variant="fan" copy={tossCopy} />;
+  }
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-[#0c2419] via-[#091e15] to-[#08151f] p-4 sm:p-6 shadow-xl text-white">

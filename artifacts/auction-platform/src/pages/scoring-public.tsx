@@ -74,6 +74,7 @@ import {
 } from "@/lib/public-tournament-utils";
 import { cn } from "@/lib/utils";
 import type { LeaderboardCategory, CricketScoreboardState } from "@workspace/scoring-core";
+import { buildTossResultCopy, isTossResultHold } from "@/lib/cricket-toss-result";
 
 const LEADERBOARD_TABS: { key: LeaderboardCategory; label: string; valueLabel: string }[] = [
   { key: "runs", label: "Runs", valueLabel: "Runs" },
@@ -224,11 +225,22 @@ export default function ScoringPublicPage() {
   const cheerState = useFanCheerState(tournamentId, data?.teams ?? [], activeMatchTeams);
 
   const liveScoreline = (() => {
-    if (!liveDisplay?.state || !primaryLiveId) return null;
-    const state = liveDisplay.state as Record<string, unknown>;
-    const runs = state.runs ?? state.totalRuns;
-    const wickets = state.wickets ?? state.totalWickets;
-    const overs = state.overs ?? state.oversBowled;
+    if (!liveDisplay?.state || !primaryLiveId || !live[0]) return null;
+    const state = liveDisplay.state as CricketScoreboardState;
+    if (isTossResultHold(state)) {
+      return (
+        buildTossResultCopy(
+          state,
+          [...teamMap.values()],
+          live[0].homeTeamId,
+          live[0].awayTeamId,
+        )?.sentence ?? null
+      );
+    }
+    const raw = liveDisplay.state as Record<string, unknown>;
+    const runs = raw.runs ?? raw.totalRuns;
+    const wickets = raw.wickets ?? raw.totalWickets;
+    const overs = raw.overs ?? raw.oversBowled;
     if (runs == null) return null;
     const wk = wickets != null ? `/${wickets}` : "";
     const ov = overs != null ? ` (${overs})` : "";
