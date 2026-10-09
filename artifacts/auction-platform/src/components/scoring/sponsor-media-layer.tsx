@@ -115,7 +115,6 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
   const objectUrlRef = useRef<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const prepareTokenRef = useRef(0);
   const playTokenRef = useRef(0);
   const playAttemptsRef = useRef<Map<string, number>>(new Map());
@@ -241,8 +240,6 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     }
     setObjectUrl(null);
     playingKeyRef.current = null;
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
     const video = videoRef.current;
     if (video) {
       video.muted = true;
@@ -427,32 +424,28 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     const slot = slotsRef.current.find((item) => item.id === playback.slotId);
     const video = videoRef.current;
     if (!video || slot?.assetType !== "video") return;
-    const wantAudio = surface === "obs" && Boolean(slot.hasAudio);
+    const wantAudio = surface === "obs";
+    video.volume = wantAudio ? 1 : 0;
     video.muted = true;
     video.defaultMuted = true;
     const token = playTokenRef.current;
     video.dataset.playToken = String(token);
+    const unmute = () => {
+      if (!wantAudio || playTokenRef.current !== token) return;
+      video.defaultMuted = false;
+      video.muted = false;
+      video.volume = 1;
+    };
     const onReady = () => {
       if (playTokenRef.current !== token || video.dataset.boundUrl !== objectUrl) return;
       try { video.currentTime = 0; } catch { /* metadata not ready yet */ }
-      try {
-        streamRef.current?.getTracks().forEach((track) => track.stop());
-        streamRef.current = typeof video.captureStream === "function" ? video.captureStream() : null;
-      } catch {
-        streamRef.current = null;
-      }
       const start = () => video.play().then(() => {
-        if (playTokenRef.current !== token) return;
-        if (!wantAudio) return;
-        video.muted = false;
-        if (!video.paused) return;
-        video.muted = true;
-        return video.play();
+        unmute();
       });
       void start().catch(() => {
         if (playTokenRef.current !== token) return;
         video.muted = true;
-        void video.play().catch((err: unknown) => {
+        void video.play().then(unmute).catch((err: unknown) => {
           if (playTokenRef.current !== token) return;
           hide("error", err instanceof Error ? err.message : "Playback failed");
         });
@@ -522,7 +515,6 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
         <>
           <video
             ref={videoRef}
-            muted
             playsInline
             preload="auto"
             onEnded={(event) => {
@@ -546,6 +538,25 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
             style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", zIndex: 1 }}
           />
           <canvas ref={canvasRef} width={1920} height={1080} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 2, opacity: 0 }} />
+          <div
+            style={{
+              position: "absolute",
+              top: 28,
+              left: 28,
+              zIndex: 5,
+              padding: "10px 16px",
+              background: "rgba(0,0,0,0.78)",
+              color: "#fff",
+              fontFamily: "'Inter', 'Segoe UI', Arial, sans-serif",
+              fontSize: 24,
+              fontWeight: 700,
+              letterSpacing: "0.03em",
+              lineHeight: 1.2,
+              borderRadius: 8,
+            }}
+          >
+            Video Managed by Bidwar.in Software
+          </div>
         </>
       )}
     </div>
