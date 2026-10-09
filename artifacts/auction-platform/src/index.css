@@ -53,6 +53,12 @@
   will-change: transform;
 }
 
+/* BPL partner strip: 20% slower than the shared 28s marquee. */
+@utility animate-bpl-marquee {
+  animation: marquee 33.6s linear infinite;
+  will-change: transform;
+}
+
 /* Live Viewer — mobile-only teams scroll clearance for sticky CHEER LIVE */
 @media (max-width: 767px) {
   .liveviewer-mobile-teams-scroll {

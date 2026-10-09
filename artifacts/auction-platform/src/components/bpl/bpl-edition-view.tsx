@@ -441,7 +441,7 @@ export function BplEditionView({
           {/* Title Sponsor Spotlight (Prestigious top billing) */}
           {sponsorsByCategory.title.length > 0 && (
             <div className="flex flex-col items-center gap-3 relative z-10">
-              <span className="text-[11px] font-black uppercase tracking-widest text-amber-300 bg-amber-500/15 px-4 py-1 rounded-full border border-amber-500/30 shadow-sm">
+              <span className="text-[11px] font-black uppercase tracking-widest text-amber-200 bg-amber-500/20 px-4 py-1 rounded-full border border-amber-300/50 shadow-[0_0_18px_rgba(251,191,36,0.45)]">
                 👑 Title Sponsor
               </span>
               <div className="flex flex-wrap justify-center gap-4">
@@ -455,8 +455,8 @@ export function BplEditionView({
           {/* Powered By Sponsors Spotlight */}
           {sponsorsByCategory.poweredBy.length > 0 && (
             <div className="flex flex-col items-center gap-3 relative z-10">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-blue-200 bg-blue-500/20 px-3.5 py-0.5 rounded-full border border-blue-400/30">
-                Powered By
+              <span className="text-[10px] font-bold uppercase tracking-widest text-sky-100 bg-sky-500/20 px-3.5 py-0.5 rounded-full border border-sky-300/40 shadow-[0_0_18px_rgba(56,189,248,0.35)]">
+                Co Sponsor
               </span>
               <div className="flex flex-wrap justify-center gap-4">
                 {sponsorsByCategory.poweredBy.map((sp) => (
@@ -499,6 +499,12 @@ export function BplEditionView({
                   sponsors={sponsorsByCategory.media}
                 />
               )}
+            </div>
+          )}
+
+          {edition.teams && edition.teams.length > 0 && (
+            <div className="relative z-10">
+              <TeamSponsorRow teams={edition.teams} />
             </div>
           )}
         </section>
@@ -635,7 +641,7 @@ function BplMatchActivity({ edition }: { edition: BplEdition }) {
     return (
       <section
         aria-live="polite"
-        className="relative overflow-hidden rounded-2xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/50 via-[#0d2248]/95 to-[#091836]/95 p-4 sm:p-6 shadow-xl lg:sticky lg:top-20 lg:z-30"
+        className="relative overflow-hidden rounded-2xl border border-emerald-500/40 bg-gradient-to-r from-emerald-950/50 via-[#0d2248]/95 to-[#091836]/95 p-4 sm:p-6 shadow-xl"
       >
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center">
           <div className="space-y-2 lg:max-w-xs">
@@ -926,14 +932,33 @@ function BplTeams({
   );
 }
 
+function sponsorTypeLabel(category: BplEditionSponsor["category"]): string {
+  if (category === "TITLE") return "Title Sponsor";
+  if (category === "POWERED_BY") return "Co Sponsor";
+  if (category === "ASSOCIATE") return "Associate Sponsor";
+  if (category === "MEDIA_PARTNER") return "Media Partner";
+  if (category === "PARTNER") return "Official Partner";
+  return "Sponsor";
+}
+
+function sponsorGlow(category: BplEditionSponsor["category"]): "title" | "co" | null {
+  if (category === "TITLE") return "title";
+  if (category === "POWERED_BY") return "co";
+  return null;
+}
+
 function StaticSponsorRow({
   sponsors,
   title,
   subtitle,
+  typeLabel,
+  marks,
 }: {
   sponsors: BplEditionSponsor[];
   title: string;
   subtitle: string;
+  typeLabel?: string;
+  marks?: BplPublicTeam[];
 }) {
   return (
     <div className="space-y-3.5">
@@ -944,9 +969,15 @@ function StaticSponsorRow({
         </h3>
         <p className="text-[11px] text-blue-200/70">{subtitle}</p>
       </div>
-      <div className="flex flex-wrap justify-center gap-3 sm:gap-4">
+      <div className="flex flex-wrap justify-center gap-4 sm:gap-5">
         {sponsors.map((sponsor) => (
-          <SponsorLogoCard key={sponsor.id} sponsor={sponsor} size="carousel" />
+          <SponsorLogoCard
+            key={sponsor.id}
+            sponsor={sponsor}
+            size="carousel"
+            typeLabel={typeLabel}
+            mark={marks?.find((team) => team.id === sponsor.id)}
+          />
         ))}
       </div>
     </div>
@@ -957,10 +988,14 @@ function SponsorSlideshow({
   sponsors,
   title,
   subtitle,
+  typeLabel,
+  marks,
 }: {
   sponsors: BplEditionSponsor[];
   title?: string;
   subtitle?: string;
+  typeLabel?: string;
+  marks?: BplPublicTeam[];
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -973,12 +1008,7 @@ function SponsorSlideshow({
   if (!sponsors || sponsors.length === 0) return null;
 
   // Duplicate items for continuous seamless marquee loop
-  const repeated = useMemo(() => {
-    if (sponsors.length === 0) return [];
-    if (sponsors.length >= 8) return [...sponsors, ...sponsors];
-    if (sponsors.length >= 4) return [...sponsors, ...sponsors, ...sponsors];
-    return [...sponsors, ...sponsors, ...sponsors, ...sponsors];
-  }, [sponsors]);
+  const repeated = useMemo(() => [...sponsors, ...sponsors], [sponsors]);
 
   return (
     <div className="space-y-3.5">
@@ -1037,7 +1067,7 @@ function SponsorSlideshow({
         >
           <div
             className={cn(
-              "flex gap-4 items-center shrink-0 animate-marquee group-hover:[animation-play-state:paused]",
+              "flex gap-5 items-start shrink-0 animate-bpl-marquee group-hover:[animation-play-state:paused]",
               isPaused && "[animation-play-state:paused]",
             )}
             style={{ width: "max-content" }}
@@ -1047,12 +1077,52 @@ function SponsorSlideshow({
                 key={`${sp.id}-${idx}`}
                 sponsor={sp}
                 size="carousel"
+                typeLabel={typeLabel}
+                mark={marks?.find((team) => team.id === sp.id)}
               />
             ))}
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function TeamSponsorRow({ teams }: { teams: BplPublicTeam[] }) {
+  const sponsors = useMemo<BplEditionSponsor[]>(
+    () =>
+      teams.map((team) => ({
+        id: team.id,
+        editionId: 0,
+        name: team.name,
+        logoUrl: team.logoUrl || "",
+        category: "PARTNER",
+        displayOrder: 0,
+        isActive: true,
+      })),
+    [teams],
+  );
+
+  if (sponsors.length <= 4) {
+    return (
+      <StaticSponsorRow
+        title="Team Sponsors"
+        subtitle="Franchises in this edition"
+        sponsors={sponsors}
+        typeLabel="TEAM SPONSOR"
+        marks={teams}
+      />
+    );
+  }
+
+  return (
+    <SponsorSlideshow
+      title="Team Sponsors"
+      subtitle="Franchises in this edition"
+      sponsors={sponsors}
+      typeLabel="TEAM SPONSOR"
+      marks={teams}
+    />
   );
 }
 
@@ -1063,32 +1133,66 @@ function SponsorSlideshow({
 function SponsorLogoCard({
   sponsor,
   size,
+  typeLabel,
+  mark,
 }: {
   sponsor: BplEditionSponsor;
   size: "large" | "medium" | "small" | "carousel";
+  typeLabel?: string;
+  mark?: BplPublicTeam;
 }) {
-  const containerClasses =
+  const glow = typeLabel ? null : sponsorGlow(sponsor.category);
+  const label = typeLabel ?? sponsorTypeLabel(sponsor.category);
+  const plateClasses =
     size === "large"
-      ? "h-24 sm:h-28 px-6 min-w-[220px] max-w-[280px]"
+      ? "h-32 w-[230px] sm:h-40 sm:w-[280px]"
       : size === "medium"
-        ? "h-20 px-5 min-w-[180px] max-w-[230px]"
+        ? "h-28 w-[200px] sm:h-32 sm:w-[240px]"
         : size === "carousel"
-          ? "h-16 sm:h-20 px-4 min-w-[160px] sm:min-w-[190px] max-w-[220px]"
-          : "h-14 px-4 min-w-[130px]";
+          ? "h-24 w-[168px] sm:h-28 sm:w-[196px]"
+          : "h-20 w-[140px]";
 
   const content = (
-    <div
-      className={cn(
-        "flex items-center justify-center rounded-2xl bg-white hover:bg-white border border-slate-200/60 shadow-md hover:shadow-xl hover:shadow-blue-500/15 transition-all duration-300",
-        containerClasses,
-      )}
-    >
-      <img
-        src={sponsor.logoUrl}
-        alt={sponsor.name}
-        className="max-h-full max-w-full object-contain p-2.5 transition-transform duration-300 hover:scale-105"
-        loading="lazy"
-      />
+    <div className="flex flex-col items-center gap-2 w-full">
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-2xl bg-white border border-slate-200/80 overflow-hidden",
+          plateClasses,
+          glow === "title" &&
+            "ring-2 ring-amber-300 shadow-[0_0_28px_rgba(251,191,36,0.55)]",
+          glow === "co" &&
+            "ring-2 ring-sky-300 shadow-[0_0_28px_rgba(56,189,248,0.5)]",
+        )}
+      >
+        {sponsor.logoUrl ? (
+          <img
+            src={sponsor.logoUrl}
+            alt={sponsor.name}
+            className="h-full w-full object-contain p-0.5"
+            loading="lazy"
+          />
+        ) : (
+          <span
+            className="text-lg font-black text-white"
+            style={{ color: mark?.color || "#0f172a" }}
+          >
+            {mark?.shortCode || sponsor.name.slice(0, 2).toUpperCase()}
+          </span>
+        )}
+      </div>
+      <div className={cn("text-center px-1", size === "large" ? "max-w-[280px]" : "max-w-[196px]")}>
+        <p className="text-xs sm:text-sm font-bold text-white leading-snug line-clamp-2">{sponsor.name}</p>
+        <p
+          className={cn(
+            "mt-0.5 text-[10px] font-black uppercase tracking-widest",
+            glow === "title" && "text-amber-300",
+            glow === "co" && "text-sky-300",
+            !glow && "text-blue-200/80",
+          )}
+        >
+          {label}
+        </p>
+      </div>
     </div>
   );
 
@@ -1099,16 +1203,12 @@ function SponsorLogoCard({
         target="_blank"
         rel="noopener noreferrer"
         title={sponsor.name}
-        className="block group shrink-0"
+        className="block shrink-0"
       >
         {content}
       </a>
     );
   }
 
-  return (
-    <div title={sponsor.name} className="shrink-0">
-      {content}
-    </div>
-  );
+  return <div className="shrink-0">{content}</div>;
 }
