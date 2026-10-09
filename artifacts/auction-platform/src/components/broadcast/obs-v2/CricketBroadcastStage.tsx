@@ -22,6 +22,8 @@ import {
   SponsorTicker,
 } from "./footer/Footer";
 import { OBS_V2 } from "./obs-v2-tokens";
+import { splitBroadcastSponsors } from "./branding";
+import { LiveStreamingPartnerBug } from "@/components/broadcast/obs/live-streaming-partner-bug";
 
 export interface CricketBroadcastStageProps {
   frame: BroadcastFrame;
@@ -55,8 +57,7 @@ export function CricketBroadcastStage({
   hideFooter = false,
   hideAssociateSponsor = false,
 }: CricketBroadcastStageProps) {
-  const title = frame.sponsors.find((s) => s.tier === "title") || frame.sponsors[0];
-  const associates = frame.sponsors.filter((s) => s.id !== title?.id);
+  const { liveStreaming, title, associates } = splitBroadcastSponsors(frame.sponsors);
   const isCricketScene = frame.scene === "CRICKET";
   const cricketModel = isCricketScene ? (frame.model as CricketScoreModel) : null;
 
@@ -96,6 +97,16 @@ export function CricketBroadcastStage({
 
       {/* Compact LIVE bug just below header on the right */}
       <LiveBroadcastBug feed={frame.feed.status} />
+
+      {/* Permanent Live Streaming Partner — left side, above the scorebug */}
+      <LiveStreamingPartnerBug
+        sponsor={
+          liveStreaming
+            ? { name: liveStreaming.name, logoUrl: liveStreaming.logoUrl }
+            : null
+        }
+        style={{ left: 72, bottom: 216 }}
+      />
 
       {/* ── ZONE 2: CAMERA SAFE AREA (96–880px) ── */}
       {/* Central Event Impact Layer (Authoritative Single Render Location) */}

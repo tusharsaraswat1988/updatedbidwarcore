@@ -63,7 +63,42 @@ describe("parseSponsorLogos", () => {
       url: "https://x",
       isTitleSponsor: false,
       isCoSponsor: false,
+      isLiveStreamingPartner: false,
       sponsorPriority: 0,
+    });
+  });
+});
+
+describe("live streaming partner", () => {
+  it("resolves the fixed category from the flag or the preset label", () => {
+    const ordered = getSponsorsByPriority([
+      { url: "https://a", name: "Normal" },
+      { url: "https://b", name: "Stream Co", type: "LIVE STREAMING PARTNER" },
+      { url: "https://c", name: "Title", isTitleSponsor: true },
+    ]);
+
+    expect(ordered.map((s) => s.name)).toEqual(["Title", "Stream Co", "Normal"]);
+    expect(ordered[1]?.priorityType).toBe(SponsorPriorityType.LIVE_STREAMING_PARTNER);
+  });
+
+  it("allows only one live streaming partner", () => {
+    const result = validateSponsorList([
+      { url: "https://a", isLiveStreamingPartner: true },
+      { url: "https://b", isLiveStreamingPartner: true },
+    ]);
+    expect(result).toEqual({
+      ok: false,
+      error: SPONSOR_VALIDATION_ERRORS.liveStreamingPartnerLimit,
+    });
+  });
+
+  it("rejects combining live streaming partner with title sponsor", () => {
+    const result = validateSponsorList([
+      { url: "https://a", isTitleSponsor: true, isLiveStreamingPartner: true },
+    ]);
+    expect(result).toEqual({
+      ok: false,
+      error: SPONSOR_VALIDATION_ERRORS.liveStreamingMutualExclusivity,
     });
   });
 });

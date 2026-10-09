@@ -14,11 +14,12 @@ import {
 import { BROADCAST_OVERLAY_SAFE_INSET_X } from "@/lib/broadcast-overlay";
 import { useCricketBidWarTheme } from "@/components/scoring/cricket-branding";
 import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
+import { isLiveStreamingPartnerLogo } from "@/lib/sponsor-logo";
 
 export function CricketObsBranding({ vm }: { vm: CricketObsViewModel }) {
   const { logoSrc, brandName } = useCricketBidWarTheme();
   const [logoFailed, setLogoFailed] = useState(false);
-  const sponsors = vm.sponsors ?? [];
+  const sponsors = (vm.sponsors ?? []).filter((sponsor) => !isLiveStreamingPartnerLogo(sponsor));
   const [activeSponsorIndex, setActiveSponsorIndex] = useState(0);
 
   // Rotate sponsors every 7s if multiple exist

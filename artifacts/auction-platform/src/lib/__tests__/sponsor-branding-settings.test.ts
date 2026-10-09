@@ -41,6 +41,7 @@ describe("Sponsor Branding Serialization & Persistence", () => {
           type: l.type?.trim() || "",
           isTitleSponsor: Boolean(l.isTitleSponsor),
           isCoSponsor: Boolean(l.isCoSponsor),
+          isLiveStreamingPartner: Boolean(l.isLiveStreamingPartner),
           priorityType: l.priorityType || undefined,
           sponsorPriority: l.sponsorPriority ?? idx,
           priority: (l as unknown as { priority?: number }).priority ?? idx,

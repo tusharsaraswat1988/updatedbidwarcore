@@ -18,6 +18,8 @@ import { CricketObsOperatorDock } from "@/components/scoring/cricket-obs/cricket
 import { CricketObsBroadcastMessage } from "@/components/scoring/cricket-obs/cricket-obs-broadcast-message";
 import { CricketObsNeutralFooter } from "@/components/scoring/cricket-obs/cricket-obs-neutral-footer";
 import { SuperBallActivationOverlay } from "@/components/scoring/super-ball-activation-overlay";
+import { LiveStreamingPartnerBug } from "@/components/broadcast/obs/live-streaming-partner-bug";
+import { findLiveStreamingPartner } from "@/lib/sponsor-logo";
 
 type Props = {
   vm: CricketObsViewModel;
@@ -70,6 +72,7 @@ export function CricketObsStage({
   } as CSSProperties;
 
   const isNeutral = vm.isNeutralActive;
+  const liveStreamingPartner = findLiveStreamingPartner(vm.sponsors ?? []);
 
   const showScorebug =
     !isNeutral &&
@@ -90,7 +93,16 @@ export function CricketObsStage({
       </div>
 
       {/* 2. MID SECTION (100% TRANSPARENT CAMERA VIEWPORT)
-          Kept completely clear so live video feed shines through */}
+          Kept completely clear so live video feed shines through.
+          Live Streaming Partner is a permanent bug just above the footer. */}
+      <LiveStreamingPartnerBug
+        sponsor={
+          liveStreamingPartner
+            ? { name: liveStreamingPartner.name, logoUrl: liveStreamingPartner.url }
+            : null
+        }
+        style={{ left: 96, bottom: 168 }}
+      />
 
       {/* 6. BROADCAST MESSAGE LOWER-THIRD CARD (VIP Guests / Officials / Sponsors) */}
       <CricketObsBroadcastMessage

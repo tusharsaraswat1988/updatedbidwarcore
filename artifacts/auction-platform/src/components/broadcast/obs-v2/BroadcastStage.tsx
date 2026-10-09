@@ -31,6 +31,8 @@ import {
   SponsorTicker,
   TeamTicker,
 } from "./footer/Footer";
+import { splitBroadcastSponsors } from "./branding";
+import { LiveStreamingPartnerBug } from "@/components/broadcast/obs/live-streaming-partner-bug";
 
 export interface BroadcastStageProps {
   frame?: BroadcastFrame;
@@ -87,8 +89,7 @@ function BroadcastStageInner({
   hideFooter?: boolean;
 }) {
   const frame = useBroadcastDirector();
-  const title = frame.sponsors.find((s) => s.tier === "title");
-  const associates = frame.sponsors.filter((s) => s.tier === "associate");
+  const { liveStreaming, title, associates } = splitBroadcastSponsors(frame.sponsors);
 
   return (
     <div
@@ -105,7 +106,15 @@ function BroadcastStageInner({
         <TitleSponsor sponsor={title} />
       </HeaderFrame>
 
-      {/* CAMERA SAFE AREA: nothing is rendered between y=96 and y=880. */}
+      {/* Permanent Live Streaming Partner — left side, above the lower third */}
+      <LiveStreamingPartnerBug
+        sponsor={
+          liveStreaming
+            ? { name: liveStreaming.name, logoUrl: liveStreaming.logoUrl }
+            : null
+        }
+        style={{ left: 72, bottom: 216 }}
+      />
 
 
       {!hideLower && (

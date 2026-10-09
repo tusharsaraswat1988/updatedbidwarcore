@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import type { AuctionState, Player, TeamPurse } from "@workspace/api-client-react";
-import type { SponsorLogo } from "@/lib/sponsor-logo";
+import { findLiveStreamingPartner, type SponsorLogo } from "@/lib/sponsor-logo";
+import { LiveStreamingPartnerBug } from "@/components/broadcast/obs/live-streaming-partner-bug";
 import { BROADCAST_OVERLAY_HEIGHT, BROADCAST_OVERLAY_WIDTH } from "@/lib/broadcast-overlay";
 import { BIDWAR_BROADCAST_YELLOW } from "@/lib/bidwar-broadcast-colors";
 import { BroadcastOverlayTopBar } from "@/components/display/broadcast-overlay-top-bar";
@@ -57,6 +58,10 @@ export const BroadcastLayout = memo(function BroadcastLayout(props: BroadcastLay
   });
 
   const teams = useMemo(() => buildTeamTickerRows(props.teamPurses), [props.teamPurses]);
+  const liveStreamingPartner = useMemo(
+    () => findLiveStreamingPartner(props.sponsorLogos),
+    [props.sponsorLogos],
+  );
   const bottomStackHeight = computeBottomStackHeight(teams.length);
   const showTeamTicker = teams.length > 0 && frame.sceneId !== "SOLD" && frame.sceneId !== "UNSOLD";
   const themeAccent = frame.palette.accent || BIDWAR_BROADCAST_YELLOW;
@@ -91,6 +96,15 @@ export const BroadcastLayout = memo(function BroadcastLayout(props: BroadcastLay
         tournamentLogoUrl={props.tournamentLogoUrl}
         tournamentName={props.tournamentName}
         sponsorLogos={props.sponsorLogos}
+      />
+
+      <LiveStreamingPartnerBug
+        sponsor={
+          liveStreamingPartner
+            ? { name: liveStreamingPartner.name, logoUrl: liveStreamingPartner.url }
+            : null
+        }
+        style={{ left: 72, bottom: bottomStackHeight + 188 }}
       />
 
       <ObsLowerThirdScene

@@ -24,7 +24,8 @@ import { useBadmintonMatch } from "@/hooks/use-badminton-match";
 import { useBadmintonLiveFollow } from "@/hooks/use-badminton-live-follow";
 import { sponsorLogosFromBranding } from "@/hooks/use-badminton-branding";
 import { useBadmintonLeaderboardBoards } from "@/hooks/use-badminton-leaderboard-boards";
-import type { SponsorLogo } from "@/lib/sponsor-logo";
+import { findLiveStreamingPartner, type SponsorLogo } from "@/lib/sponsor-logo";
+import { LiveStreamingPartnerBug } from "@/components/broadcast/obs/live-streaming-partner-bug";
 import {
   detectGamePointSide,
   detectMatchPointSide,
@@ -193,6 +194,10 @@ export default function BadmintonOverlayPage() {
     }
     return resolvePinnedSponsorLogos(brandingSponsors, branding?.pinnedSponsorUrl);
   }, [sponsorParam, brandingSponsors, branding?.pinnedSponsorUrl]);
+  const liveStreamingPartner = useMemo(
+    () => findLiveStreamingPartner(sponsorLogos),
+    [sponsorLogos],
+  );
   const scoreBoardSponsor = useMemo(
     () =>
       resolvePinnedScoreBoardSponsor(
@@ -257,6 +262,14 @@ export default function BadmintonOverlayPage() {
       className="relative h-screen w-screen overflow-hidden"
       style={{ ...stageStyle, background: "transparent" }}
     >
+      <LiveStreamingPartnerBug
+        sponsor={
+          liveStreamingPartner
+            ? { name: liveStreamingPartner.name, logoUrl: liveStreamingPartner.url }
+            : null
+        }
+        className="top-[14vh] left-[2.5vw] z-40"
+      />
       {loadError ? (
         <div className="absolute top-[max(3.5rem,8vh)] right-3 z-40 pointer-events-auto max-w-[220px]">
           <div className="rounded-lg border border-red-400/40 bg-black/75 px-3 py-2 shadow-lg backdrop-blur-sm">

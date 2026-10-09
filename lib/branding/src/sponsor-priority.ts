@@ -13,6 +13,7 @@
 export enum SponsorPriorityType {
   TITLE = "TITLE",
   CO_SPONSOR = "CO_SPONSOR",
+  LIVE_STREAMING_PARTNER = "LIVE_STREAMING_PARTNER",
   PLATINUM = "PLATINUM",
   GOLD = "GOLD",
   SILVER = "SILVER",
@@ -20,21 +21,26 @@ export enum SponsorPriorityType {
   NORMAL = "NORMAL",
 }
 
+/** Fixed designation shown in the sponsor list and on the OBS bug. */
+export const LIVE_STREAMING_PARTNER_LABEL = "LIVE STREAMING PARTNER";
+
 /** Lower number = higher display priority within the global sort order. */
 export const SPONSOR_TIER_SORT_ORDER: Record<SponsorPriorityType, number> = {
   [SponsorPriorityType.TITLE]: 0,
   [SponsorPriorityType.CO_SPONSOR]: 1,
-  [SponsorPriorityType.PLATINUM]: 2,
-  [SponsorPriorityType.GOLD]: 3,
-  [SponsorPriorityType.SILVER]: 4,
-  [SponsorPriorityType.BRONZE]: 5,
-  [SponsorPriorityType.NORMAL]: 6,
+  [SponsorPriorityType.LIVE_STREAMING_PARTNER]: 2,
+  [SponsorPriorityType.PLATINUM]: 3,
+  [SponsorPriorityType.GOLD]: 4,
+  [SponsorPriorityType.SILVER]: 5,
+  [SponsorPriorityType.BRONZE]: 6,
+  [SponsorPriorityType.NORMAL]: 7,
 };
 
 /** Numeric weight used when comparing sponsors (higher = more prominent). */
 export const SPONSOR_TIER_WEIGHT: Record<SponsorPriorityType, number> = {
   [SponsorPriorityType.TITLE]: 700,
   [SponsorPriorityType.CO_SPONSOR]: 600,
+  [SponsorPriorityType.LIVE_STREAMING_PARTNER]: 550,
   [SponsorPriorityType.PLATINUM]: 500,
   [SponsorPriorityType.GOLD]: 400,
   [SponsorPriorityType.SILVER]: 300,
@@ -45,7 +51,10 @@ export const SPONSOR_TIER_WEIGHT: Record<SponsorPriorityType, number> = {
 export const SPONSOR_VALIDATION_ERRORS = {
   titleLimit: "Only one Title Sponsor is allowed.",
   coSponsorLimit: "Maximum 3 Co Sponsors are allowed.",
+  liveStreamingPartnerLimit: "Only one Live Streaming Partner is allowed.",
   mutualExclusivity: "A sponsor cannot be both Title Sponsor and Co Sponsor.",
+  liveStreamingMutualExclusivity:
+    "A Live Streaming Partner cannot also be Title Sponsor or Co Sponsor.",
 } as const;
 
 /** Tournament / display sponsor entry (JSON in sponsor_logos). */
@@ -56,6 +65,8 @@ export interface SponsorLogo {
   type?: string;
   isTitleSponsor?: boolean;
   isCoSponsor?: boolean;
+  /** Dedicated OBS slot — designation is fixed to LIVE STREAMING PARTNER. */
+  isLiveStreamingPartner?: boolean;
   /** Tie-breaker within the same tier (higher first). */
   sponsorPriority?: number;
   /** Future tier — when set, takes precedence over legacy `type` string. */
@@ -68,6 +79,7 @@ export interface SponsorLogo {
 export interface MasterSponsorPriorityFields {
   isTitleSponsor?: boolean;
   isCoSponsor?: boolean;
+  isLiveStreamingPartner?: boolean;
   sponsorPriority?: number;
   priorityType?: SponsorPriorityType | string | null;
 }
@@ -87,6 +99,7 @@ export interface SponsorVisibilitySettings {
 
 const LEGACY_TYPE_PATTERNS: Array<{ pattern: RegExp; tier: SponsorPriorityType }> = [
   { pattern: /title\s*sponsor/i, tier: SponsorPriorityType.TITLE },
+  { pattern: /live\s*streaming\s*partner/i, tier: SponsorPriorityType.LIVE_STREAMING_PARTNER },
   { pattern: /co[\s-]*sponsor/i, tier: SponsorPriorityType.CO_SPONSOR },
   { pattern: /platinum/i, tier: SponsorPriorityType.PLATINUM },
   { pattern: /\bgold\b/i, tier: SponsorPriorityType.GOLD },
@@ -112,6 +125,7 @@ export function resolveSponsorPriorityType(
 ): SponsorPriorityType {
   if (sponsor.isTitleSponsor === true) return SponsorPriorityType.TITLE;
   if (sponsor.isCoSponsor === true) return SponsorPriorityType.CO_SPONSOR;
+  if (sponsor.isLiveStreamingPartner === true) return SponsorPriorityType.LIVE_STREAMING_PARTNER;
 
   const explicit = sponsor.priorityType;
   if (typeof explicit === "string" && isKnownPriorityType(explicit)) {
@@ -147,6 +161,7 @@ export function normalizeSponsorEntry(entry: unknown): SponsorLogo | null {
 
   const isTitleSponsor = e.isTitleSponsor === true;
   const isCoSponsor = e.isCoSponsor === true;
+  const isLiveStreamingPartner = e.isLiveStreamingPartner === true;
   const sponsorPriority =
     typeof e.sponsorPriority === "number" && Number.isFinite(e.sponsorPriority)
       ? e.sponsorPriority
@@ -163,6 +178,7 @@ export function normalizeSponsorEntry(entry: unknown): SponsorLogo | null {
     type: typeof e.type === "string" ? e.type : "",
     isTitleSponsor,
     isCoSponsor,
+    isLiveStreamingPartner,
     sponsorPriority,
     priorityType,
   };
@@ -204,7 +220,7 @@ function comparePrioritizedSponsors(a: PrioritizedSponsor, b: PrioritizedSponsor
 
 /**
  * Return sponsors sorted by priority hierarchy:
- * Title → Co Sponsors → Platinum → Gold → Silver → Bronze → Normal
+ * Title → Co Sponsors → Live Streaming Partner → Platinum → Gold → Silver → Bronze → Normal
  */
 export function getSponsorsByPriority(
   sponsors: readonly SponsorLogo[],
@@ -239,16 +255,25 @@ export function validateSponsorList(
 ): SponsorValidationResult {
   let titleCount = 0;
   let coCount = 0;
+  let liveStreamingCount = 0;
 
   for (const sponsor of sponsors) {
     const isTitle = sponsor.isTitleSponsor === true;
     const isCo = sponsor.isCoSponsor === true;
+    const isLive = sponsor.isLiveStreamingPartner === true;
+    const tier = resolveSponsorPriorityType(sponsor);
 
     if (isTitle && isCo) {
       return { ok: false, error: SPONSOR_VALIDATION_ERRORS.mutualExclusivity };
     }
+    if ((isTitle || isCo) && isLive) {
+      return { ok: false, error: SPONSOR_VALIDATION_ERRORS.liveStreamingMutualExclusivity };
+    }
     if (isTitle) titleCount += 1;
-    if (isCo) coCount += 1;
+    else if (isCo) coCount += 1;
+    else if (isLive || tier === SponsorPriorityType.LIVE_STREAMING_PARTNER) {
+      liveStreamingCount += 1;
+    }
   }
 
   if (titleCount > 1) {
@@ -256,6 +281,9 @@ export function validateSponsorList(
   }
   if (coCount > 3) {
     return { ok: false, error: SPONSOR_VALIDATION_ERRORS.coSponsorLimit };
+  }
+  if (liveStreamingCount > 1) {
+    return { ok: false, error: SPONSOR_VALIDATION_ERRORS.liveStreamingPartnerLimit };
   }
 
   return { ok: true };
@@ -294,6 +322,7 @@ export function validateMasterSponsorPriority(
     url: "placeholder",
     isTitleSponsor: s.isTitleSponsor === true,
     isCoSponsor: s.isCoSponsor === true,
+    isLiveStreamingPartner: s.isLiveStreamingPartner === true,
     sponsorPriority: s.sponsorPriority ?? 0,
     priorityType: s.priorityType ?? undefined,
   }));
@@ -305,6 +334,24 @@ export function validateMasterSponsorPriority(
 export function formatSponsorTickerSegment(logo: SponsorLogo): string | null {
   const name = logo.name?.trim();
   return name || null;
+}
+
+/** True when this sponsor owns the permanent OBS Live Streaming Partner slot. */
+export function isLiveStreamingPartnerLogo(
+  sponsor: SponsorLogo | MasterSponsorPriorityFields,
+): boolean {
+  return resolveSponsorPriorityType(sponsor) === SponsorPriorityType.LIVE_STREAMING_PARTNER;
+}
+
+/** First Live Streaming Partner in priority order, if the list has one. */
+export function findLiveStreamingPartner(
+  sponsors: readonly SponsorLogo[],
+): PrioritizedSponsor | null {
+  return (
+    getSponsorsByPriority(sponsors).find((sponsor) =>
+      isLiveStreamingPartnerLogo(sponsor),
+    ) ?? null
+  );
 }
 
 export function buildSponsorTickerText(logos: readonly SponsorLogo[]): string {

@@ -1,7 +1,11 @@
 import { memo, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { cldUrl } from "@/lib/cloudinary";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
-import { resolveSponsorPriorityType, SponsorPriorityType } from "@/lib/sponsor-logo";
+import {
+  isLiveStreamingPartnerLogo,
+  resolveSponsorPriorityType,
+  SponsorPriorityType,
+} from "@/lib/sponsor-logo";
 import {
   getSponsorCaptionNameStyle,
   getSponsorCaptionTypeStyle,
@@ -93,10 +97,10 @@ export const SponsorCarousel = memo(function SponsorCarousel({
   overlayLogoRow?: boolean;
   rotateMs?: number;
 }) {
-  const displayLogos = useMemo(
-    () => (overlay ? sortSponsorsForObsTicker(logos) : logos),
-    [logos, overlay],
-  );
+  const displayLogos = useMemo(() => {
+    const rotating = overlay ? logos.filter((logo) => !isLiveStreamingPartnerLogo(logo)) : logos;
+    return overlay ? sortSponsorsForObsTicker(rotating) : rotating;
+  }, [logos, overlay]);
   const [idx, setIdx] = useState(0);
   const [visible, setVisible] = useState(true);
 

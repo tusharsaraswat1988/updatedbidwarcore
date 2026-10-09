@@ -3,7 +3,12 @@
  * Shared, domain-neutral branding mapping functions for Broadcast Overlays.
  */
 
-import type { SponsorLogo as BidWarSponsorLogo } from "@/lib/sponsor-logo";
+import {
+  LIVE_STREAMING_PARTNER_LABEL,
+  resolveSponsorPriorityType,
+  SponsorPriorityType,
+  type SponsorLogo as BidWarSponsorLogo,
+} from "@/lib/sponsor-logo";
 import type { TeamPurse as BidWarTeamPurse } from "@workspace/api-client-react";
 import type {
   BroadcastBranding,
@@ -41,18 +46,40 @@ export function deriveBranding(
 export function mapSponsors(sponsorLogos: BidWarSponsorLogo[]): LovableSponsorLogo[] {
   if (!sponsorLogos || sponsorLogos.length === 0) return [];
 
+  const hasExplicitTitle = sponsorLogos.some(
+    (s) => resolveSponsorPriorityType(s) === SponsorPriorityType.TITLE,
+  );
+  let fallbackTitleAssigned = false;
+
   return sponsorLogos.map((s, idx) => {
-    const isTitle = Boolean(s.isTitleSponsor || s.priorityType === "title" || idx === 0);
-    const name = s.name || s.type || `Sponsor ${idx + 1}`;
-    const sponsorType = s.type || (s as any).label || (isTitle ? "Official Partner" : undefined);
+    const priority = resolveSponsorPriorityType(s);
+    const isLive = priority === SponsorPriorityType.LIVE_STREAMING_PARTNER;
+    let isTitle = priority === SponsorPriorityType.TITLE;
+    if (!isLive && !isTitle && !hasExplicitTitle && !fallbackTitleAssigned) {
+      isTitle = true;
+      fallbackTitleAssigned = true;
+    }
+    const name = s.name?.trim() || (isLive ? "" : s.type || `Sponsor ${idx + 1}`);
+    const sponsorType = isLive
+      ? LIVE_STREAMING_PARTNER_LABEL
+      : s.type || (s as { label?: string }).label || (isTitle ? "Official Partner" : undefined);
     return {
       id: s.publicId || `sponsor-${idx}`,
       name,
       logoUrl: s.url || undefined,
-      tier: isTitle ? ("title" as const) : ("associate" as const),
+      tier: isLive ? ("live_streaming" as const) : isTitle ? ("title" as const) : ("associate" as const),
       label: sponsorType,
     };
   });
+}
+
+/** Pull the permanent live-streaming slot out of the rotating sponsor pool. */
+export function splitBroadcastSponsors(sponsors: LovableSponsorLogo[]) {
+  const liveStreaming = sponsors.find((s) => s.tier === "live_streaming");
+  const pool = sponsors.filter((s) => s.tier !== "live_streaming");
+  const title = pool.find((s) => s.tier === "title") || pool[0];
+  const associates = pool.filter((s) => s.id !== title?.id);
+  return { liveStreaming, title, associates };
 }
 
 /**

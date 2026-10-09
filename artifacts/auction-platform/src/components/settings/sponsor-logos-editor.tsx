@@ -25,6 +25,7 @@ import {
   ArrowDown,
   Crown,
   Star,
+  Radio,
   Search,
   Sparkles,
   Info,
@@ -34,6 +35,9 @@ import {
   type SponsorLogo,
   validateSponsorList,
   SPONSOR_VALIDATION_ERRORS,
+  SponsorPriorityType,
+  LIVE_STREAMING_PARTNER_LABEL,
+  isLiveStreamingPartnerLogo,
 } from "@/lib/sponsor-logo";
 
 const TITLE_SPONSOR_INFO =
@@ -42,11 +46,18 @@ const TITLE_SPONSOR_INFO =
 const CO_SPONSOR_INFO =
   "Second highest branding category (Max 3). Shown alongside Title Sponsor on overlays, banners, and big screen displays.";
 
-type SponsorTier = "title" | "co" | "standard";
+const LIVE_STREAMING_PARTNER_INFO =
+  "Fixed category (Max 1). The linked sponsor stays on the OBS broadcast with logo, name, and this sponsor type.";
+
+const SPONSOR_ROW_GRID =
+  "grid-cols-1 xl:grid-cols-[3.5rem_minmax(0,1.2fr)_minmax(0,1.1fr)_16rem_5.5rem]";
+
+type SponsorTier = "title" | "co" | "live" | "standard";
 
 function getSponsorTier(logo: SponsorLogo): SponsorTier {
   if (logo.isTitleSponsor) return "title";
   if (logo.isCoSponsor) return "co";
+  if (isLiveStreamingPartnerLogo(logo)) return "live";
   return "standard";
 }
 
@@ -61,15 +72,41 @@ function setSponsorTier(
     if (tier === "title") {
       next.isTitleSponsor = true;
       next.isCoSponsor = false;
-      if (!next.type?.trim()) next.type = "Title Sponsor";
+      next.isLiveStreamingPartner = false;
+      if (next.priorityType === SponsorPriorityType.LIVE_STREAMING_PARTNER) {
+        next.priorityType = undefined;
+      }
+      if (!next.type?.trim() || next.type === LIVE_STREAMING_PARTNER_LABEL) {
+        next.type = "Title Sponsor";
+      }
     } else if (tier === "co") {
       next.isTitleSponsor = false;
       next.isCoSponsor = true;
-      if (!next.type?.trim()) next.type = "Co Sponsor";
+      next.isLiveStreamingPartner = false;
+      if (next.priorityType === SponsorPriorityType.LIVE_STREAMING_PARTNER) {
+        next.priorityType = undefined;
+      }
+      if (!next.type?.trim() || next.type === LIVE_STREAMING_PARTNER_LABEL) {
+        next.type = "Co Sponsor";
+      }
+    } else if (tier === "live") {
+      next.isTitleSponsor = false;
+      next.isCoSponsor = false;
+      next.isLiveStreamingPartner = true;
+      next.priorityType = SponsorPriorityType.LIVE_STREAMING_PARTNER;
+      next.type = LIVE_STREAMING_PARTNER_LABEL;
     } else {
       next.isTitleSponsor = false;
       next.isCoSponsor = false;
-      if (next.type === "Title Sponsor" || next.type === "Co Sponsor") {
+      next.isLiveStreamingPartner = false;
+      if (next.priorityType === SponsorPriorityType.LIVE_STREAMING_PARTNER) {
+        next.priorityType = undefined;
+      }
+      if (
+        next.type === "Title Sponsor" ||
+        next.type === "Co Sponsor" ||
+        next.type === LIVE_STREAMING_PARTNER_LABEL
+      ) {
         next.type = "";
       }
     }
@@ -80,16 +117,18 @@ function setSponsorTier(
 function countPriorityFlags(logos: SponsorLogo[]) {
   let titleCount = 0;
   let coCount = 0;
+  let liveCount = 0;
   for (const logo of logos) {
     if (logo.isTitleSponsor) titleCount += 1;
-    if (logo.isCoSponsor) coCount += 1;
+    else if (logo.isCoSponsor) coCount += 1;
+    else if (isLiveStreamingPartnerLogo(logo)) liveCount += 1;
   }
-  return { titleCount, coCount };
+  return { titleCount, coCount, liveCount };
 }
 
 function SponsorCountSummary({ logos, compact = false }: { logos: SponsorLogo[]; compact?: boolean }) {
   const total = logos.length;
-  const { titleCount, coCount } = countPriorityFlags(logos);
+  const { titleCount, coCount, liveCount } = countPriorityFlags(logos);
 
   if (total === 0) {
     if (compact) return null;
@@ -117,6 +156,12 @@ function SponsorCountSummary({ logos, compact = false }: { logos: SponsorLogo[];
           {coCount}/3 Co-Sponsors
         </Badge>
       ) : null}
+      {liveCount > 0 ? (
+        <Badge variant="outline" className="text-xs px-2 py-0.5 border-cyan-500/50 bg-cyan-500/10 text-cyan-300 font-medium flex items-center gap-1">
+          <Radio className="w-3 h-3 text-cyan-400" />
+          {liveCount}/1 Live Streaming Partner
+        </Badge>
+      ) : null}
     </div>
   );
 }
@@ -142,6 +187,7 @@ function SponsorLogoPreviewDialog({
           <DialogTitle className="flex items-center gap-2 truncate text-base font-semibold">
             {tier === "title" && <Crown className="w-4 h-4 text-amber-400" />}
             {tier === "co" && <Star className="w-4 h-4 text-violet-400" />}
+            {tier === "live" && <Radio className="w-4 h-4 text-cyan-400" />}
             {label}
           </DialogTitle>
         </DialogHeader>
@@ -164,7 +210,12 @@ function SponsorLogoPreviewDialog({
                 ⭐ Co-Sponsor
               </Badge>
             )}
-            {logo.type?.trim() && !logo.isTitleSponsor && !logo.isCoSponsor && (
+            {isLiveStreamingPartnerLogo(logo) && (
+              <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/40 text-xs">
+                LIVE STREAMING PARTNER
+              </Badge>
+            )}
+            {logo.type?.trim() && !logo.isTitleSponsor && !logo.isCoSponsor && !isLiveStreamingPartnerLogo(logo) && (
               <Badge variant="outline" className="text-xs text-muted-foreground">
                 {logo.type.trim()}
               </Badge>
@@ -260,10 +311,10 @@ export function SponsorLogosEditor({
   showToolbar?: boolean;
 }) {
   const validation = validateSponsorList(logos);
-  const { titleCount, coCount } = countPriorityFlags(logos);
+  const { titleCount, coCount, liveCount } = countPriorityFlags(logos);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterTier, setFilterTier] = useState<"all" | "title" | "co" | "standard">("all");
+  const [filterTier, setFilterTier] = useState<"all" | "title" | "co" | "live" | "standard">("all");
 
   const previewLogo = previewIndex !== null ? logos[previewIndex] ?? null : null;
 
@@ -278,6 +329,7 @@ export function SponsorLogosEditor({
       const tier = getSponsorTier(logo);
       if (filterTier === "title" && tier !== "title") return false;
       if (filterTier === "co" && tier !== "co") return false;
+      if (filterTier === "live" && tier !== "live") return false;
       if (filterTier === "standard" && tier !== "standard") return false;
 
       // Text search
@@ -342,6 +394,17 @@ export function SponsorLogosEditor({
               </button>
               <button
                 type="button"
+                onClick={() => setFilterTier("live")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                  filterTier === "live"
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                <Radio className="w-3 h-3 text-cyan-400" /> Live ({liveCount})
+              </button>
+              <button
+                type="button"
                 onClick={() => setFilterTier("standard")}
                 className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
                   filterTier === "standard"
@@ -349,7 +412,7 @@ export function SponsorLogosEditor({
                     : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
                 }`}
               >
-                Standard ({logos.length - titleCount - coCount})
+                Standard ({logos.length - titleCount - coCount - liveCount})
               </button>
             </div>
             <SponsorAddLogoButton onUploadFile={onUploadFile} uploadingIdx={uploadingIdx} />
@@ -379,13 +442,13 @@ export function SponsorLogosEditor({
       {filteredLogos.length > 0 ? (
         <div className="space-y-2.5 max-h-[calc(100dvh-18rem)] overflow-y-auto pr-1">
           {/* Header Row (Desktop) */}
-          <div className="hidden xl:grid grid-cols-[3.5rem_minmax(0,1.2fr)_minmax(0,1.1fr)_13rem_5.5rem] gap-3 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-wider">
+          <div className={`hidden xl:grid ${SPONSOR_ROW_GRID} gap-3 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-wider`}>
             <span>Logo</span>
             <span>Brand / Sponsor Name</span>
             <span>Category / Designation</span>
             <span className="flex items-center gap-1">
               Sponsorship Tier
-              <FieldTooltip text="Title Sponsor (max 1) and Co-Sponsors (max 3) receive primary visibility across all screens and overlays." />
+              <FieldTooltip text={`${TITLE_SPONSOR_INFO} ${CO_SPONSOR_INFO} ${LIVE_STREAMING_PARTNER_INFO}`} />
             </span>
             <span className="text-right pr-2">Actions</span>
           </div>
@@ -394,6 +457,7 @@ export function SponsorLogosEditor({
             const tier = getSponsorTier(logo);
             const isTitle = tier === "title";
             const isCo = tier === "co";
+            const isLive = tier === "live";
 
             return (
               <div
@@ -403,10 +467,12 @@ export function SponsorLogosEditor({
                     ? "border-amber-500/50 bg-amber-500/[0.04] ring-1 ring-amber-500/20 shadow-xs"
                     : isCo
                     ? "border-violet-500/50 bg-violet-500/[0.04] ring-1 ring-violet-500/20 shadow-xs"
+                    : isLive
+                    ? "border-cyan-500/50 bg-cyan-500/[0.04] ring-1 ring-cyan-500/20 shadow-xs"
                     : "border-border/60 bg-card/60 hover:bg-card/90"
                 }`}
               >
-                <div className="grid grid-cols-1 xl:grid-cols-[3.5rem_minmax(0,1.2fr)_minmax(0,1.1fr)_13rem_5.5rem] gap-3 items-center">
+                <div className={`grid ${SPONSOR_ROW_GRID} gap-3 items-center`}>
                   {/* 1. Logo Thumbnail */}
                   <label
                     className="cursor-pointer group relative block w-14 h-10 rounded-lg border border-border/70 bg-black/30 overflow-hidden shrink-0 shadow-inner"
@@ -465,12 +531,15 @@ export function SponsorLogosEditor({
                     <span className="text-[10px] text-muted-foreground xl:hidden font-medium">Designation / Category</span>
                     <Input
                       className="h-9 text-xs"
-                      value={logo.type ?? ""}
+                      value={isLive ? LIVE_STREAMING_PARTNER_LABEL : (logo.type ?? "")}
                       onChange={e => {
+                        if (isLive) return;
                         const next = [...logos];
                         next[i] = { ...next[i], type: e.target.value };
                         onChange(next);
                       }}
+                      readOnly={isLive}
+                      title={isLive ? LIVE_STREAMING_PARTNER_INFO : undefined}
                       placeholder="e.g. Scoreboard / Team Sponsor"
                     />
                   </div>
@@ -490,6 +559,8 @@ export function SponsorLogosEditor({
                             ? "border-amber-500/50 text-amber-300 bg-amber-500/10"
                             : isCo
                             ? "border-violet-500/50 text-violet-300 bg-violet-500/10"
+                            : isLive
+                            ? "border-cyan-500/50 text-cyan-300 bg-cyan-500/10"
                             : "border-border/70 text-muted-foreground"
                         }`}
                       >
@@ -512,6 +583,13 @@ export function SponsorLogosEditor({
                           className="text-xs text-violet-300 font-medium"
                         >
                           ⭐ Co-Sponsor {!isCo && coCount >= 3 ? "(3/3 Full)" : `(${coCount}/3)`}
+                        </SelectItem>
+                        <SelectItem
+                          value="live"
+                          disabled={!isLive && liveCount >= 1}
+                          className="text-xs text-cyan-300 font-medium"
+                        >
+                          LIVE STREAMING PARTNER {!isLive && liveCount >= 1 ? "(1/1 Full)" : "(Max 1)"}
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -635,7 +713,7 @@ export function SponsorLogosEditor({
         <div className="space-y-0.5">
           <p className="text-foreground/90 font-medium">Sponsor Rotation &amp; Overlay Logic:</p>
           <p className="text-[11px] leading-relaxed">
-            Logos cycle on the live LED screen every 4 seconds. <span className="text-amber-300 font-medium">Title Sponsor</span> (max 1) and <span className="text-violet-300 font-medium">Co-Sponsors</span> (max 3) receive primary placement on broadcast overlays, live stream headers, and auction reports.
+            Logos cycle on the live LED screen every 4 seconds. <span className="text-amber-300 font-medium">Title Sponsor</span> (max 1) and <span className="text-violet-300 font-medium">Co-Sponsors</span> (max 3) receive primary placement on broadcast overlays, live stream headers, and auction reports. <span className="text-cyan-300 font-medium">LIVE STREAMING PARTNER</span> (max 1) stays on the OBS broadcast with logo, name, and sponsor type.
           </p>
         </div>
       </div>

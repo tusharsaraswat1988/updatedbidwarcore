@@ -27,7 +27,7 @@ export interface SponsorLogo {
   id: string;
   name: string;
   logoUrl?: string;
-  tier: "title" | "associate";
+  tier: "title" | "associate" | "live_streaming";
   /** Optional tagline shown above title sponsor, e.g. "Official Partner" */
   label?: string;
 }
