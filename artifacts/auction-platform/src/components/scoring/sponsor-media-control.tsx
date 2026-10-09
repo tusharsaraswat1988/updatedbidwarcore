@@ -41,12 +41,53 @@ function surfaceLine(report: SponsorSurfaceReportDto | null, slot: SponsorMediaS
   return { ready: label === "Ready", label };
 }
 
-function statusLabel(slot: SponsorMediaSlotDto): string {
-  if (slot.processingStatus === "empty") return "Empty";
-  if (slot.processingStatus === "uploading" || slot.processingStatus === "processing") return "Processing";
-  if (slot.processingStatus === "failed") return "Failed";
-  if (!slot.active || slot.processingStatus === "disabled") return "Off";
-  return slot.assetType === "image" ? "Image" : "Video";
+const FILE_ACCEPT = "image/png,image/jpeg,image/webp,video/mp4,video/quicktime,.mp4,.mov,.png,.jpg,.jpeg,.webp";
+
+function hasSponsor(slot: SponsorMediaSlotDto): boolean {
+  return Boolean(slot.id) && slot.processingStatus !== "empty";
+}
+
+function screenPhrase(ready: boolean, label: string): string {
+  if (ready) return "Ready";
+  if (label === "Empty" || label === "Missing asset") return "Not prepared";
+  return label;
+}
+
+function FilePick({
+  label,
+  disabled,
+  primary,
+  onFile,
+}: {
+  label: string;
+  disabled?: boolean;
+  primary?: boolean;
+  onFile: (file: File | undefined) => void;
+}) {
+  return (
+    <label
+      className={cn(
+        "inline-flex h-7 shrink-0 items-center rounded-md px-2.5 text-[11px] font-bold",
+        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
+        primary
+          ? "bg-amber-400 text-black"
+          : "border border-white/15 bg-black/30 text-slate-200",
+      )}
+    >
+      {label}
+      <input
+        type="file"
+        accept={FILE_ACCEPT}
+        className="hidden"
+        disabled={disabled}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          onFile(file);
+        }}
+      />
+    </label>
+  );
 }
 
 export function SponsorMediaControl({ tournamentId, className, density = "default" }: Props) {
@@ -59,10 +100,15 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
   const [busy, setBusy] = useState(false);
   const [diagnostics, setDiagnostics] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [screenLinksOpen, setScreenLinksOpen] = useState(false);
+  const [slotsLoaded, setSlotsLoaded] = useState(false);
 
   const loadSlots = useCallback(() => {
     if (tournamentId <= 0) return;
-    void fetchSponsorMediaSlots(tournamentId).then(setSlots).catch(() => {});
+    void fetchSponsorMediaSlots(tournamentId).then((next) => {
+      setSlots(next);
+      setSlotsLoaded(true);
+    }).catch(() => setSlotsLoaded(true));
   }, [tournamentId]);
 
   const loadReadiness = useCallback(() => {
@@ -83,6 +129,12 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
       window.clearInterval(readyTimer);
     };
   }, [loadReadiness, loadSlots]);
+
+  useEffect(() => {
+    const filledNumbers = slots.filter(hasSponsor).map((item) => item.slotNumber);
+    if (filledNumbers.length === 0) return;
+    if (!filledNumbers.includes(selected)) setSelected(filledNumbers[0]);
+  }, [slots, selected]);
 
   const slot = slots.find((item) => item.slotNumber === selected) ?? null;
   const obsLine = slot ? surfaceLine(obs, slot) : { ready: false, label: "Offline" };
@@ -127,12 +179,15 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
     }
   }
 
-  async function onUpload(file: File | undefined) {
-    if (!file || !slot) return;
+  async function onUpload(file: File | undefined, target: SponsorMediaSlotDto | null) {
+    if (!file || !target) return;
+    setSelected(target.slotNumber);
     setBusy(true);
     try {
-      await uploadSponsorMediaSlot(tournamentId, slot.slotNumber, file, slot.title || file.name.replace(/\.[^.]+$/, ""), durationSec);
-      toast({ title: "Sponsor media uploaded", description: "It will be ready after processing. Then prepare the screens." });
+      const title = (target.id ? target.title : "") || file.name.replace(/\.[^.]+$/, "");
+      const seconds = target.assetType === "image" ? Math.round(target.durationMs / 1000) : 10;
+      await uploadSponsorMediaSlot(tournamentId, target.slotNumber, file, title, seconds);
+      toast({ title: "Sponsor added", description: "It will finish processing, then you can prepare the screens." });
       loadSlots();
     } catch (err) {
       toast({ title: "Upload failed", description: err instanceof Error ? err.message : "Could not upload", variant: "destructive" });
@@ -141,120 +196,131 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
     }
   }
 
-  if (density === "console") {
-    return (
-      <section className={cn("shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 space-y-1", className)}>
-        <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 shrink-0">Sponsors</span>
-          <div className="grid grid-cols-4 gap-1 flex-1 min-w-0">
-            {Array.from({ length: 4 }, (_, index) => {
-              const item = slots.find((slotItem) => slotItem.slotNumber === index + 1);
-              const active = selected === index + 1;
-              return (
-                <button
-                  key={index + 1}
-                  type="button"
-                  onClick={() => setSelected(index + 1)}
-                  title={item?.title || `Slot ${index + 1}`}
-                  className={cn(
-                    "h-6 rounded border px-1.5 text-left text-[10px] font-semibold truncate min-w-0",
-                    active ? "border-amber-400 bg-amber-500/15 text-amber-100" : "border-white/10 bg-black/30 text-slate-300",
-                  )}
-                >
-                  {index + 1} {item?.title || "Empty"}
-                </button>
-              );
-            })}
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {DESTINATIONS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setDestination(item.id)}
-                className={cn(
-                  "h-6 px-1.5 rounded text-[10px] font-bold border",
-                  destination === item.id ? "bg-amber-400 text-black border-amber-400" : "border-white/10 text-slate-300",
-                )}
-              >
-                {item.label}
-              </button>
-            ))}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-6 px-1.5 text-[10px]"
-              onClick={() => {
-                void sendSponsorMediaCue(tournamentId, {
-                  action: "prepare",
-                  slotId: 0,
-                  slotNumber: 1,
-                  version: 0,
-                  destination: "both",
-                }).then(() => toast({ title: "Preparing screens" })).catch((err) => {
-                  toast({ title: "Prepare failed", description: err instanceof Error ? err.message : "Could not prepare", variant: "destructive" });
-                });
-              }}
-            >
-              Prepare
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-6 px-1.5 text-[10px]"
-              onClick={() => {
-                if (!cueBase) return;
-                void sendSponsorMediaCue(tournamentId, { ...cueBase, action: "stop", destination: "both" })
-                  .catch((err) => toast({ title: "Stop failed", description: err instanceof Error ? err.message : "Could not stop", variant: "destructive" }));
-              }}
-            >
-              Stop
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="h-6 px-2 text-[10px] font-bold"
-              disabled={!gate.ok || busy || !cueBase}
-              title={gate.ok ? "Play the prepared asset" : gate.reason}
-              onClick={() => {
-                if (!cueBase || !gate.ok) return;
-                void sendSponsorMediaCue(tournamentId, { ...cueBase, action: "play", destination })
-                  .then(() => toast({ title: "Sponsor cue sent" }))
-                  .catch((err) => toast({ title: "Play failed", description: err instanceof Error ? err.message : "Could not play", variant: "destructive" }));
-              }}
-            >
-              Play
-            </Button>
-          </div>
+  const filled = slots.filter(hasSponsor);
+  const uploadTarget = slots.find((item) => !hasSponsor(item)) ?? null;
+  const sponsor = slot && hasSponsor(slot) ? slot : null;
+  const processing = sponsor?.processingStatus === "uploading" || sponsor?.processingStatus === "processing";
+  const failed = sponsor?.processingStatus === "failed";
+  const broadcastReady = sponsor?.processingStatus === "ready" && sponsor.active;
+  const destinationReady = destination === "obs" ? obsReady : destination === "led" ? ledReady : obsReady && ledReady;
+  const playing = Boolean(
+    sponsor && (
+      (obs?.playback.status === "playing" && obs.playback.slotNumber === sponsor.slotNumber)
+      || (led?.playback.status === "playing" && led.playback.slotNumber === sponsor.slotNumber)
+    ),
+  );
+  const compact = density === "console";
+
+  function prepareScreens() {
+    void sendSponsorMediaCue(tournamentId, {
+      action: "prepare",
+      slotId: 0,
+      slotNumber: 1,
+      version: 0,
+      destination: "both",
+    }).then(() => toast({ title: "Preparing screens" })).catch((err) => {
+      toast({ title: "Prepare failed", description: err instanceof Error ? err.message : "Could not prepare", variant: "destructive" });
+    });
+  }
+
+  function play() {
+    if (!cueBase || !gate.ok) return;
+    void sendSponsorMediaCue(tournamentId, { ...cueBase, action: "play", destination })
+      .then(() => toast({ title: "Sponsor is playing" }))
+      .catch((err) => toast({ title: "Play failed", description: err instanceof Error ? err.message : "Could not play", variant: "destructive" }));
+  }
+
+  function stop() {
+    if (!cueBase) return;
+    void sendSponsorMediaCue(tournamentId, { ...cueBase, action: "stop", destination: "both" })
+      .catch((err) => toast({ title: "Stop failed", description: err instanceof Error ? err.message : "Could not stop", variant: "destructive" }));
+  }
+
+  const nextStep = !sponsor
+    ? null
+    : processing
+      ? "Processing. Play stays off until this finishes."
+      : failed
+        ? (sponsor.errorMessage || "Processing failed. Replace the file.")
+        : !sponsor.active
+          ? "This sponsor is off."
+          : broadcastReady && !destinationReady
+            ? destination === "both"
+              ? "Prepare OBS and the LED, then play. Or pick the screen that is ready."
+              : `Prepare ${destination === "obs" ? "OBS" : "the LED"}, then play.`
+            : null;
+
+  return (
+    <section className={cn(
+      compact
+        ? "shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 space-y-1.5"
+        : "rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 space-y-2",
+      className,
+    )}>
+      <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 shrink-0">Sponsors</span>
+        {filled.length === 0 ? (
+          <FilePick
+            label={!slotsLoaded ? "Loading…" : busy ? "Uploading…" : "Add sponsor video"}
+            primary
+            disabled={busy || !slotsLoaded || !uploadTarget}
+            onFile={(file) => void onUpload(file, uploadTarget)}
+          />
+        ) : filled.map((item) => (
+          <button
+            key={item.slotNumber}
+            type="button"
+            onClick={() => { setSelected(item.slotNumber); setPreview(false); }}
+            className={cn(
+              "h-7 max-w-[9rem] truncate rounded-md border px-2 text-left text-[11px] font-semibold",
+              item.slotNumber === sponsor?.slotNumber
+                ? "border-amber-400 bg-amber-500/15 text-amber-100"
+                : "border-white/10 bg-black/30 text-slate-200",
+            )}
+          >
+            {item.title || "Sponsor"}
+          </button>
+        ))}
+        {filled.length > 0 && filled.length < 4 && uploadTarget ? (
+          <FilePick label={busy ? "Uploading…" : "Add another"} disabled={busy} onFile={(file) => void onUpload(file, uploadTarget)} />
+        ) : null}
+        <button
+          type="button"
+          className="ml-auto text-[10px] text-slate-400 underline"
+          onClick={() => setScreenLinksOpen((open) => !open)}
+        >
+          {screenLinksOpen ? "Hide screen links" : "Screen links"}
+        </button>
+      </div>
+
+      {screenLinksOpen ? (
+        <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400">
+          <span>Open each link on that screen once.</span>
+          <button type="button" className="text-slate-200 underline" onClick={() => void copyDisplayLink("obs")}>Copy OBS link</button>
+          <button type="button" className="text-slate-200 underline" onClick={() => void copyDisplayLink("led")}>Copy LED link</button>
         </div>
-        <div className="flex items-center gap-2 min-w-0 flex-wrap text-[10px]">
-          <span className={cn("shrink-0 font-semibold", obsReady ? "text-emerald-300" : "text-slate-400")}>
-            OBS {obsReady ? "✓ READY" : `✕ ${obsLine.label}`}
+      ) : null}
+
+      {sponsor ? (
+        <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+          <input
+            value={sponsor.title}
+            aria-label="Sponsor name"
+            onChange={(event) => {
+              const title = event.target.value;
+              setSlots((current) => current.map((item) => item.slotNumber === sponsor.slotNumber ? { ...item, title } : item));
+            }}
+            onBlur={() => {
+              if (!sponsor.id) return;
+              void updateSponsorMediaSlot(tournamentId, sponsor.slotNumber, { title: sponsor.title }).catch(() => {});
+            }}
+            className="h-7 w-36 min-w-0 rounded-md border border-white/10 bg-black/30 px-2 text-[11px] text-white"
+          />
+          <span className="text-[10px] text-slate-400">
+            {sponsor.assetType === "image" ? "Image" : sponsor.assetType === "video" ? "Video" : "File"}
+            {sponsor.assetType === "image" ? ` · ${durationSec}s` : ""}
           </span>
-          <span className={cn("shrink-0 font-semibold", ledReady ? "text-emerald-300" : "text-slate-400")}>
-            LED {ledReady ? "✓ READY" : `✕ ${ledLine.label}`}
-          </span>
-          <button type="button" className="text-slate-400 underline" onClick={() => void copyDisplayLink("obs")}>OBS link</button>
-          <button type="button" className="text-slate-400 underline" onClick={() => void copyDisplayLink("led")}>LED link</button>
-          {slot ? (
-            <input
-              value={slot.title}
-              aria-label="Sponsor title"
-              onChange={(event) => {
-                const title = event.target.value;
-                setSlots((current) => current.map((item) => item.slotNumber === slot.slotNumber ? { ...item, title } : item));
-              }}
-              onBlur={() => {
-                if (!slot.id) return;
-                void updateSponsorMediaSlot(tournamentId, slot.slotNumber, { title: slot.title }).catch(() => {});
-              }}
-              placeholder="Sponsor title"
-              className="h-6 min-w-0 flex-1 rounded border border-white/10 bg-black/30 px-1.5 text-[10px] text-white"
-            />
-          ) : null}
-          {slot?.assetType === "image" ? (
+          {sponsor.assetType === "image" ? (
             <input
               type="number"
               min={3}
@@ -263,286 +329,113 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
               value={durationSec}
               onChange={(event) => {
                 const next = Number(event.target.value);
-                setSlots((current) => current.map((item) => item.slotNumber === slot.slotNumber ? { ...item, durationMs: next * 1000 } : item));
+                setSlots((current) => current.map((item) => item.slotNumber === sponsor.slotNumber ? { ...item, durationMs: next * 1000 } : item));
               }}
               onBlur={() => {
-                if (!slot.id) return;
-                void updateSponsorMediaSlot(tournamentId, slot.slotNumber, { durationSec }).then(loadSlots).catch((err) => {
+                void updateSponsorMediaSlot(tournamentId, sponsor.slotNumber, { durationSec }).then(loadSlots).catch((err) => {
                   toast({ title: "Duration not saved", description: err instanceof Error ? err.message : "Check 3–60 seconds", variant: "destructive" });
                 });
               }}
-              className="h-6 w-12 rounded border border-white/10 bg-black/30 px-1 text-[10px] text-white"
+              className="h-7 w-14 rounded-md border border-white/10 bg-black/30 px-1.5 text-[11px] text-white"
             />
           ) : null}
-          <label className="shrink-0 font-bold text-amber-200 cursor-pointer">
-            {slot?.id ? "Replace" : "Upload"}
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,.mp4,.mov,.png,.jpg,.jpeg,.webp"
-              className="hidden"
-              disabled={busy || !slot}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
-                void onUpload(file);
-              }}
-            />
-          </label>
-          {slot?.id ? (
-            <button
+          {!sponsor.active && !processing && !failed ? (
+            <Button
               type="button"
-              className="shrink-0 text-slate-400 underline"
+              size="sm"
+              className="h-7 px-2 text-[11px] font-bold"
               onClick={() => {
-                void updateSponsorMediaSlot(tournamentId, slot.slotNumber, { active: !slot.active })
-                  .then(loadSlots)
-                  .catch(() => {});
+                void updateSponsorMediaSlot(tournamentId, sponsor.slotNumber, { active: true }).then(loadSlots).catch(() => {});
               }}
             >
-              {slot.active ? "Off" : "On"}
+              Turn on
+            </Button>
+          ) : null}
+          {broadcastReady ? (
+            <>
+              <span className={cn("text-[10px] font-semibold", obsReady ? "text-emerald-300" : "text-slate-400")}>
+                OBS {screenPhrase(obsReady, obsLine.label)}
+              </span>
+              <span className={cn("text-[10px] font-semibold", ledReady ? "text-emerald-300" : "text-slate-400")}>
+                LED {screenPhrase(ledReady, ledLine.label)}
+              </span>
+              {DESTINATIONS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setDestination(item.id)}
+                  className={cn(
+                    "h-7 px-2 rounded-md text-[11px] font-bold border",
+                    destination === item.id ? "bg-amber-400 text-black border-amber-400" : "border-white/10 text-slate-300",
+                  )}
+                >
+                  {item.label}
+                </button>
+              ))}
+              {destinationReady ? (
+                <Button type="button" size="sm" className="h-7 px-3 text-[11px] font-bold" disabled={busy} onClick={play}>
+                  Play
+                </Button>
+              ) : (
+                <Button type="button" size="sm" className="h-7 px-3 text-[11px] font-bold" onClick={prepareScreens}>
+                  Prepare screens
+                </Button>
+              )}
+              {destinationReady || playing ? (
+                <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={stop}>
+                  Stop
+                </Button>
+              ) : null}
+            </>
+          ) : null}
+          {!processing ? (
+            <FilePick
+              label={failed ? "Replace file" : "Replace"}
+              primary={failed}
+              disabled={busy}
+              onFile={(file) => void onUpload(file, sponsor)}
+            />
+          ) : null}
+          {sponsor.broadcastUrl && broadcastReady ? (
+            <button type="button" className="text-[10px] text-slate-400 underline" onClick={() => setPreview((open) => !open)}>
+              {preview ? "Close preview" : "Preview"}
             </button>
           ) : null}
-          {!gate.ok ? <span className="truncate text-amber-200/90">{gate.reason}</span> : null}
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className={cn("rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 space-y-3", className)}>
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-bold text-white">Sponsor / Promo Media</h3>
-          <p className="text-[11px] text-slate-400">Prepare before the match. Play sends only a cue.</p>
-          <div className="flex gap-3 text-[10px]">
-            <button type="button" className="text-slate-300 underline" onClick={() => void copyDisplayLink("obs")}>Copy OBS link</button>
-            <button type="button" className="text-slate-300 underline" onClick={() => void copyDisplayLink("led")}>Copy LED link</button>
-          </div>
-        </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-7 text-[11px]"
-          onClick={() => {
-            void sendSponsorMediaCue(tournamentId, {
-              action: "prepare",
-              slotId: 0,
-              slotNumber: 1,
-              version: 0,
-              destination: "both",
-            }).then(() => toast({ title: "Preparing screens" })).catch((err) => {
-              toast({ title: "Prepare failed", description: err instanceof Error ? err.message : "Could not prepare", variant: "destructive" });
-            });
-          }}
-        >
-          Prepare
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-4 gap-1.5">
-        {Array.from({ length: 4 }, (_, index) => {
-          const item = slots.find((slotItem) => slotItem.slotNumber === index + 1);
-          const active = selected === index + 1;
-          return (
-            <button
-              key={index + 1}
-              type="button"
-              onClick={() => setSelected(index + 1)}
-              className={cn(
-                "rounded-lg border px-1.5 py-1.5 text-left min-w-0",
-                active ? "border-amber-400/70 bg-amber-500/10" : "border-white/10 bg-black/20",
-              )}
-            >
-              <div className="text-[10px] font-bold text-slate-300">Slot {index + 1}</div>
-              <div className="truncate text-[11px] font-semibold text-white">{item?.title || "Empty"}</div>
-              <div className="text-[10px] text-slate-400">{item ? statusLabel(item) : "Empty"}</div>
-            </button>
-          );
-        })}
-      </div>
-
-      {slot ? (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            {slot.posterUrl ? (
-              <img src={slot.posterUrl} alt="" className="h-12 w-16 rounded object-cover bg-black" />
-            ) : (
-              <div className="h-12 w-16 rounded bg-black/40 border border-white/10" />
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="text-xs font-bold text-white truncate">{slot.title || "No asset"}</div>
-              <div className="text-[10px] text-slate-400">
-                {slot.assetType ? slot.assetType.toUpperCase() : "EMPTY"}
-                {slot.durationMs ? ` · ${Math.round(slot.durationMs / 1000)}s` : ""}
-                {slot.errorMessage ? ` · ${slot.errorMessage}` : ""}
-              </div>
-              <div className="text-[10px] mt-0.5">
-                <span className={obsReady ? "text-emerald-300" : "text-slate-400"}>OBS {obsReady ? "✓ READY" : `✕ ${obsLine.label}`}</span>
-                <span className="text-slate-600"> · </span>
-                <span className={ledReady ? "text-emerald-300" : "text-slate-400"}>LED {ledReady ? "✓ READY" : `✕ ${ledLine.label}`}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            <label className="text-[10px] text-slate-400">
-              Title
-              <input
-                value={slot.title}
-                onChange={(event) => {
-                  const title = event.target.value;
-                  setSlots((current) => current.map((item) => item.slotNumber === slot.slotNumber ? { ...item, title } : item));
-                }}
-                onBlur={() => {
-                  if (!slot.id) return;
-                  void updateSponsorMediaSlot(tournamentId, slot.slotNumber, { title: slot.title }).catch(() => {});
-                }}
-                className="mt-0.5 block h-7 w-36 rounded border border-white/10 bg-black/30 px-2 text-[11px] text-white"
-              />
-            </label>
-            {slot.assetType === "image" ? (
-              <label className="text-[10px] text-slate-400">
-                Seconds
-                <input
-                  type="number"
-                  min={3}
-                  max={60}
-                  value={durationSec}
-                  onChange={(event) => {
-                    const next = Number(event.target.value);
-                    setSlots((current) => current.map((item) => item.slotNumber === slot.slotNumber ? { ...item, durationMs: next * 1000 } : item));
-                  }}
-                  onBlur={() => {
-                    if (!slot.id) return;
-                    void updateSponsorMediaSlot(tournamentId, slot.slotNumber, { durationSec }).then(loadSlots).catch((err) => {
-                      toast({ title: "Duration not saved", description: err instanceof Error ? err.message : "Check 3–60 seconds", variant: "destructive" });
-                    });
-                  }}
-                  className="mt-0.5 block h-7 w-16 rounded border border-white/10 bg-black/30 px-2 text-[11px] text-white"
-                />
-              </label>
-            ) : null}
-            <label className="text-[10px] font-bold text-amber-200 cursor-pointer">
-              {slot.id ? "Replace" : "Upload"}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,.mp4,.mov,.png,.jpg,.jpeg,.webp"
-                className="hidden"
-                disabled={busy}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  event.target.value = "";
-                  void onUpload(file);
-                }}
-              />
-            </label>
-            {slot.id ? (
-              <button
-                type="button"
-                className="text-[10px] text-slate-400 underline"
-                onClick={() => {
-                  void updateSponsorMediaSlot(tournamentId, slot.slotNumber, { active: !slot.active })
-                    .then(loadSlots)
-                    .catch(() => {});
-                }}
-              >
-                {slot.active ? "Turn off" : "Turn on"}
-              </button>
-            ) : null}
-            {slot.broadcastUrl && slot.processingStatus === "ready" ? (
-              <button
-                type="button"
-                className="text-[10px] text-slate-300 underline"
-                onClick={() => setPreview(true)}
-              >
-                Preview here
-              </button>
-            ) : null}
-            {slot.id ? (
-              <button
-                type="button"
-                className="text-[10px] text-red-300 underline"
-                onClick={() => {
-                  void deleteSponsorMediaSlot(tournamentId, slot.slotNumber).then(loadSlots).catch((err) => {
-                    toast({ title: "Delete failed", description: err instanceof Error ? err.message : "Could not delete", variant: "destructive" });
-                  });
-                }}
-              >
-                Delete
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
-          {DESTINATIONS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setDestination(item.id)}
-              className={cn(
-                "h-7 px-2 rounded text-[11px] font-bold border",
-                destination === item.id ? "bg-amber-400 text-black border-amber-400" : "border-white/10 text-slate-300",
-              )}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Button
+          <button
             type="button"
-            size="sm"
-            variant="outline"
-            className="h-7 text-[11px]"
+            className="text-[10px] text-slate-500 underline"
             onClick={() => {
-              if (!cueBase) return;
-              void sendSponsorMediaCue(tournamentId, { ...cueBase, action: "stop", destination: "both" })
-                .catch((err) => toast({ title: "Stop failed", description: err instanceof Error ? err.message : "Could not stop", variant: "destructive" }));
+              void deleteSponsorMediaSlot(tournamentId, sponsor.slotNumber).then(loadSlots).catch((err) => {
+                toast({ title: "Remove failed", description: err instanceof Error ? err.message : "Could not remove", variant: "destructive" });
+              });
             }}
           >
-            Stop
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            className="h-7 text-[11px] font-bold"
-            disabled={!gate.ok || busy || !cueBase}
-            title={gate.ok ? "Play the prepared asset" : gate.reason}
-            onClick={() => {
-              if (!cueBase || !gate.ok) return;
-              void sendSponsorMediaCue(tournamentId, { ...cueBase, action: "play", destination })
-                .then(() => toast({ title: "Sponsor cue sent" }))
-                .catch((err) => toast({ title: "Play failed", description: err instanceof Error ? err.message : "Could not play", variant: "destructive" }));
-            }}
-          >
-            Play
-          </Button>
-        </div>
-      </div>
-      {!gate.ok ? <p className="text-[10px] text-amber-200/90">{gate.reason}</p> : null}
-      {preview && slot?.broadcastUrl ? (
-        <div className="rounded-lg border border-white/10 bg-black p-2 space-y-1">
-          <p className="text-[10px] text-slate-400">Preview on this computer only. OBS and the LED are unchanged.</p>
-          {slot.assetType === "video" ? (
-            <video src={slot.broadcastUrl} controls muted playsInline className="max-h-40 w-full bg-black" />
-          ) : (
-            <img src={slot.broadcastUrl} alt="" className="max-h-40 w-full object-contain bg-black" />
-          )}
-          <button type="button" className="text-[10px] text-slate-300 underline" onClick={() => setPreview(false)}>
-            Close preview
+            Remove
           </button>
         </div>
       ) : null}
 
-      <button type="button" className="text-[10px] text-slate-500 underline" onClick={() => setDiagnostics((open) => !open)}>
-        {diagnostics ? "Hide diagnostics" : "Diagnostics"}
-      </button>
-      {diagnostics ? (
+      {nextStep ? <p className="text-[10px] text-slate-300">{nextStep}</p> : null}
+
+      {preview && sponsor?.broadcastUrl ? (
+        <div className="rounded-md border border-white/10 bg-black p-2 space-y-1">
+          <p className="text-[10px] text-slate-400">Preview on this computer only. OBS and the LED stay as they are.</p>
+          {sponsor.assetType === "video" ? (
+            <video src={sponsor.broadcastUrl} controls muted playsInline className="max-h-40 w-full bg-black" />
+          ) : (
+            <img src={sponsor.broadcastUrl} alt="" className="max-h-40 w-full object-contain bg-black" />
+          )}
+        </div>
+      ) : null}
+
+      {sponsor ? (
+        <button type="button" className="text-[10px] text-slate-500 underline" onClick={() => setDiagnostics((open) => !open)}>
+          {diagnostics ? "Hide details" : "Details"}
+        </button>
+      ) : null}
+      {diagnostics && sponsor ? (
         <div className="text-[10px] text-slate-400 space-y-1 font-mono">
-          <div>Slot {slot?.slotNumber} · v{slot?.version ?? 0} · {slot?.fileSizeBytes ? `${Math.round(slot.fileSizeBytes / 1024 / 1024 * 10) / 10} MB` : "no broadcast file"} · {slot?.checksum?.slice(0, 12) || "no checksum"}</div>
+          <div>Slot {sponsor.slotNumber} · v{sponsor.version} · {sponsor.fileSizeBytes ? `${Math.round(sponsor.fileSizeBytes / 1024 / 1024 * 10) / 10} MB` : "no broadcast file"} · {sponsor.checksum?.slice(0, 12) || "no checksum"}</div>
           <div>OBS {obs ? `${obs.playback.status}${obs.playback.error ? ` (${obs.playback.error})` : ""}` : "offline"}</div>
           <div>LED {led ? `${led.playback.status}${led.playback.error ? ` (${led.playback.error})` : ""}` : "offline"}</div>
         </div>
