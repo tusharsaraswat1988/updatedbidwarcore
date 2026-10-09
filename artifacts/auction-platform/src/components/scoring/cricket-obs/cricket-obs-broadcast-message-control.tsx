@@ -37,13 +37,13 @@ import {
   XCircle,
   Bookmark,
   BookmarkPlus,
-  Edit2,
   Trash2,
   CheckCircle2,
   AlertCircle,
   Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { bindBroadcastTemplateDraft } from "@/components/scoring/cricket-obs/cricket-obs-broadcast-message-binding";
 
 type Props = {
   tournamentId: number;
@@ -67,7 +67,11 @@ export function CricketObsBroadcastMessageControl({
   // Form Inputs
   const [name, setName] = useState("");
   const [details, setDetails] = useState("");
+  // Template whose text is currently loaded and unchanged. Drives the dropdown only.
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  // Previous template to replace, kept only after the operator edits away from it.
+  // The big button must never keep updating this — Save Template creates a new row.
+  const [replaceTemplateId, setReplaceTemplateId] = useState<number | null>(null);
 
   // Inline edit of a saved template (quick list), independent of the live chyron draft
   const [inlineEditId, setInlineEditId] = useState<number | null>(null);
@@ -148,20 +152,55 @@ export function CricketObsBroadcastMessageControl({
     };
   }, [tournamentId]);
 
+  const rememberTemplate = useCallback((template: CricketBroadcastMessageTemplate) => {
+    queryClient.setQueryData<CricketBroadcastMessageTemplate[]>(
+      ["cricket-broadcast-message-templates", tournamentId],
+      (current) => {
+        const list = current ?? [];
+        const index = list.findIndex((item) => item.id === template.id);
+        if (index === -1) return [template, ...list];
+        const next = list.slice();
+        next[index] = template;
+        return next;
+      },
+    );
+  }, [queryClient, tournamentId]);
+
   // Mutations
   const createTemplateMutation = useMutation({
-    mutationFn: ({ tName, tDetails }: { tName: string; tDetails: string }) =>
-      createCricketBroadcastMessageTemplate(tournamentId, tName, tDetails),
-    onSuccess: (created) => {
+    mutationFn: ({
+      tName,
+      tDetails,
+    }: {
+      tName: string;
+      tDetails: string;
+      source: "form" | "modal";
+    }) => createCricketBroadcastMessageTemplate(tournamentId, tName, tDetails),
+    onSuccess: (created, variables) => {
+      rememberTemplate(created);
       queryClient.invalidateQueries({
         queryKey: ["cricket-broadcast-message-templates", tournamentId],
       });
-      setSelectedTemplateId(created.id);
-      setTemplateModalOpen(false);
       setEditingTemplate(null);
+      setReplaceTemplateId(null);
+      if (variables.source === "modal") {
+        setTemplateModalOpen(false);
+        setTemplateFormName("");
+        setTemplateFormDetails("");
+      }
+      // Bind the form to the row just saved so the button becomes "New template",
+      // not "Update Template". A later edit unbinds and saves a new row.
+      const draftIsThisTemplate =
+        variables.source === "form" ||
+        (name.trim() === created.name && details.trim() === created.details);
+      if (draftIsThisTemplate) {
+        setSelectedTemplateId(created.id);
+        setName(created.name);
+        setDetails(created.details);
+      }
       toast({
         title: "Template Saved",
-        description: `Saved template "${created.name}" for future matches.`,
+        description: `Saved template "${created.name}". New template starts a fresh save.`,
       });
     },
     onError: (err: any) => {
@@ -185,6 +224,7 @@ export function CricketObsBroadcastMessageControl({
       source: "inline" | "form" | "modal";
     }) => updateCricketBroadcastMessageTemplate(tournamentId, id, tName, tDetails),
     onSuccess: (updated, variables) => {
+      rememberTemplate(updated);
       queryClient.invalidateQueries({
         queryKey: ["cricket-broadcast-message-templates", tournamentId],
       });
@@ -196,8 +236,15 @@ export function CricketObsBroadcastMessageControl({
         setInlineEditId(null);
         setInlineName("");
         setInlineDetails("");
-      }
-      if (selectedTemplateId === updated.id && variables.source !== "inline") {
+        if (selectedTemplateId === updated.id || replaceTemplateId === updated.id) {
+          setSelectedTemplateId(updated.id);
+          setReplaceTemplateId(null);
+          setName(updated.name);
+          setDetails(updated.details);
+        }
+      } else {
+        setReplaceTemplateId(null);
+        setSelectedTemplateId(updated.id);
         setName(updated.name);
         setDetails(updated.details);
       }
@@ -223,6 +270,9 @@ export function CricketObsBroadcastMessageControl({
       });
       if (selectedTemplateId === deletedId) {
         setSelectedTemplateId(null);
+      }
+      if (replaceTemplateId === deletedId) {
+        setReplaceTemplateId(null);
       }
       toast({
         title: "Template Deleted",
@@ -387,12 +437,14 @@ export function CricketObsBroadcastMessageControl({
   const handleSelectTemplate = (templateIdStr: string) => {
     if (!templateIdStr || templateIdStr === "none") {
       setSelectedTemplateId(null);
+      setReplaceTemplateId(null);
       return;
     }
     const id = parseInt(templateIdStr, 10);
     const found = templates.find((t) => t.id === id);
     if (found) {
       setSelectedTemplateId(id);
+      setReplaceTemplateId(null);
       setName(found.name);
       setDetails(found.details);
       if (inlineEditId != null && inlineEditId !== id) {
@@ -402,6 +454,29 @@ export function CricketObsBroadcastMessageControl({
       }
     }
   };
+
+  const startNewTemplate = () => {
+    setSelectedTemplateId(null);
+    setReplaceTemplateId(null);
+    setName("");
+    setDetails("");
+  };
+
+  // Typing a different name/details must leave update mode. Otherwise the big
+  // button keeps writing the new person onto the template that was just saved.
+  useEffect(() => {
+    const next = bindBroadcastTemplateDraft(
+      { selectedTemplateId, replaceTemplateId },
+      { name, details },
+      templates,
+    );
+    if (next.selectedTemplateId !== selectedTemplateId) {
+      setSelectedTemplateId(next.selectedTemplateId);
+    }
+    if (next.replaceTemplateId !== replaceTemplateId) {
+      setReplaceTemplateId(next.replaceTemplateId);
+    }
+  }, [selectedTemplateId, replaceTemplateId, name, details, templates]);
 
   // Handle Save as Template directly from current form
   const handleSaveCurrentAsTemplate = () => {
@@ -419,11 +494,13 @@ export function CricketObsBroadcastMessageControl({
     createTemplateMutation.mutate({
       tName: trimmedName,
       tDetails: trimmedDetails,
+      source: "form",
     });
   };
 
   const handleUpdateLoadedTemplate = () => {
-    if (selectedTemplateId == null) return;
+    const targetId = selectedTemplateId ?? replaceTemplateId;
+    if (targetId == null) return;
     const trimmedName = name.trim();
     const trimmedDetails = details.trim();
     if (!trimmedName || !trimmedDetails) {
@@ -435,7 +512,7 @@ export function CricketObsBroadcastMessageControl({
       return;
     }
     updateTemplateMutation.mutate({
-      id: selectedTemplateId,
+      id: targetId,
       tName: trimmedName,
       tDetails: trimmedDetails,
       source: "form",
@@ -475,6 +552,12 @@ export function CricketObsBroadcastMessageControl({
   };
 
   const selectedTemplate = templates.find((t) => t.id === selectedTemplateId) ?? null;
+  const replaceTemplate = templates.find((t) => t.id === replaceTemplateId) ?? null;
+  const loadedUnchanged = Boolean(
+    selectedTemplate &&
+      name.trim() === selectedTemplate.name &&
+      details.trim() === selectedTemplate.details,
+  );
   const isLiveActive = Boolean(activeMessage?.active && activeMessage?.name);
 
   const renderInlineTemplateEditor = () => (
@@ -651,27 +734,32 @@ export function CricketObsBroadcastMessageControl({
           />
         </div>
 
-        {selectedTemplate ? (
+        {loadedUnchanged && selectedTemplate ? (
+          <p className="text-[10px] text-emerald-200/90 leading-snug">
+            Saved <span className="font-bold">{selectedTemplate.name}</span>.
+            {" "}New template clears this so the next save does not overwrite it.
+          </p>
+        ) : replaceTemplate ? (
           <p className="text-[10px] text-amber-200/90 leading-snug">
-            Editing saved template <span className="font-bold">{selectedTemplate.name}</span>
+            Save Template adds a new one. It will not change{" "}
+            <span className="font-bold">{replaceTemplate.name}</span>.
           </p>
         ) : null}
 
         {/* Action Buttons */}
         <div className={cn("flex flex-wrap items-center justify-between gap-1.5", compact ? "pt-0" : "pt-1")}>
           <div className="flex flex-col items-start gap-1">
-            {selectedTemplate ? (
+            {loadedUnchanged ? (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={updateTemplateMutation.isPending || !name.trim() || !details.trim()}
-                onClick={handleUpdateLoadedTemplate}
-                className={cn("font-semibold gap-1 rounded-lg border-amber-500/40 text-amber-200 hover:bg-amber-500/10", compact ? "h-7 px-2 text-[10px]" : "h-8 text-xs px-3 gap-1.5")}
-                title="Save these changes onto the loaded template"
+                onClick={startNewTemplate}
+                className={cn("font-semibold gap-1 rounded-lg border-emerald-500/40 text-emerald-200 hover:bg-emerald-500/10", compact ? "h-7 px-2 text-[10px]" : "h-8 text-xs px-3 gap-1.5")}
+                title="Clear the form. The next save creates a new template."
               >
-                <Edit2 className="w-3.5 h-3.5 text-amber-400" />
-                <span>{updateTemplateMutation.isPending ? "Saving…" : "Update Template"}</span>
+                <Plus className="w-3.5 h-3.5" />
+                <span>New template</span>
               </Button>
             ) : (
               <Button
@@ -680,21 +768,22 @@ export function CricketObsBroadcastMessageControl({
                 size="sm"
                 disabled={createTemplateMutation.isPending || !name.trim() || !details.trim()}
                 onClick={handleSaveCurrentAsTemplate}
-                className={cn("font-semibold gap-1 rounded-lg border-border hover:bg-muted", compact ? "h-7 px-2 text-[10px]" : "h-8 text-xs px-3 gap-1.5")}
-                title="Save these details as a reusable template"
+                className={cn("font-semibold gap-1 rounded-lg border-amber-500/50 bg-amber-500/15 text-amber-100 hover:bg-amber-500/25", compact ? "h-7 px-2 text-[10px]" : "h-8 text-xs px-3 gap-1.5")}
+                title="Save these details as a new template"
               >
-                <BookmarkPlus className="w-3.5 h-3.5 text-amber-500" />
+                <BookmarkPlus className="w-3.5 h-3.5 text-amber-400" />
                 <span>{createTemplateMutation.isPending ? "Saving…" : "Save Template"}</span>
               </Button>
             )}
-            {selectedTemplate ? (
+            {replaceTemplate ? (
               <button
                 type="button"
-                disabled={createTemplateMutation.isPending || !name.trim() || !details.trim()}
-                onClick={handleSaveCurrentAsTemplate}
-                className="text-[10px] font-semibold text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:opacity-40 disabled:no-underline"
+                disabled={updateTemplateMutation.isPending || !name.trim() || !details.trim()}
+                onClick={handleUpdateLoadedTemplate}
+                className="text-[10px] font-semibold text-amber-200/70 underline underline-offset-2 hover:text-amber-100 disabled:opacity-40 disabled:no-underline"
+                title={`Replace the saved template ${replaceTemplate.name}`}
               >
-                Save as new template
+                {updateTemplateMutation.isPending ? "Updating…" : `Update “${replaceTemplate.name}” only`}
               </button>
             ) : null}
           </div>
@@ -921,6 +1010,7 @@ export function CricketObsBroadcastMessageControl({
                       createTemplateMutation.mutate({
                         tName: templateFormName.trim(),
                         tDetails: templateFormDetails.trim(),
+                        source: "modal",
                       });
                     }
                   }}
