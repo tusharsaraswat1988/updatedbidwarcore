@@ -97,7 +97,7 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
   const [obs, setObs] = useState<SponsorSurfaceReportDto | null>(null);
   const [led, setLed] = useState<SponsorSurfaceReportDto | null>(null);
   const [selected, setSelected] = useState(1);
-  const [destination, setDestination] = useState<SponsorMediaDestination>("both");
+  const [destination, setDestination] = useState<SponsorMediaDestination>("obs");
   const [busy, setBusy] = useState(false);
   const [diagnostics, setDiagnostics] = useState(false);
   const [preview, setPreview] = useState(false);
@@ -246,6 +246,7 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
   function stop() {
     if (!cueBase) return;
     void sendSponsorMediaCue(tournamentId, { ...cueBase, action: "stop", destination: "both" })
+      .then(() => toast({ title: "Stopped", description: "The scoreboard is back." }))
       .catch((err) => toast({ title: "Stop failed", description: err instanceof Error ? err.message : "Could not stop", variant: "destructive" }));
   }
 

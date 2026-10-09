@@ -242,9 +242,11 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     playingKeyRef.current = null;
     const video = videoRef.current;
     if (video) {
+      video.loop = false;
       video.muted = true;
       video.pause();
       delete video.dataset.boundUrl;
+      delete video.dataset.startedToken;
       video.removeAttribute("src");
       video.load();
     }
@@ -256,6 +258,19 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     else playbackErrorRef.current = undefined;
     publish(playbackRef.current, playbackErrorRef.current);
   }, [publish, surface, tournamentId]);
+
+  const finishRound = useCallback(() => {
+    const current = playbackRef.current;
+    if (current.phase !== "playing" || !current.cueId) return;
+    if (endedCuesRef.current.has(current.cueId)) return;
+    endedCuesRef.current.add(current.cueId);
+    const idle = emptySponsorPlayback();
+    idle.issuedAt = current.issuedAt;
+    idle.cueId = current.cueId;
+    playbackRef.current = idle;
+    setPlayback(idle);
+    hide("ended");
+  }, [hide]);
 
   const startCue = useCallback(async (cue: SponsorMediaCue) => {
     const stillPlaying = () => playbackRef.current.cueId === cue.cueId && playbackRef.current.phase === "playing";
@@ -425,40 +440,72 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     const video = videoRef.current;
     if (!video || slot?.assetType !== "video") return;
     const wantAudio = surface === "obs";
+    video.loop = false;
     video.volume = wantAudio ? 1 : 0;
     video.muted = true;
     video.defaultMuted = true;
     const token = playTokenRef.current;
-    video.dataset.playToken = String(token);
+    const tokenKey = String(token);
+    video.dataset.playToken = tokenKey;
     const unmute = () => {
       if (!wantAudio || playTokenRef.current !== token) return;
       video.defaultMuted = false;
       video.muted = false;
       video.volume = 1;
     };
+    let endTimer = 0;
+    const finish = () => {
+      if (playTokenRef.current !== token) return;
+      finishRound();
+    };
+    const armTimer = () => {
+      window.clearTimeout(endTimer);
+      if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+      const remainingMs = Math.max(0, (video.duration - video.currentTime) * 1000);
+      endTimer = window.setTimeout(finish, Math.ceil(remainingMs) + 300);
+    };
+    const onEnded = () => finish();
+    video.addEventListener("ended", onEnded);
+    video.addEventListener("loadedmetadata", armTimer);
+    video.addEventListener("durationchange", armTimer);
     const onReady = () => {
       if (playTokenRef.current !== token || video.dataset.boundUrl !== objectUrl) return;
+      if (video.dataset.startedToken === tokenKey) return;
+      video.dataset.startedToken = tokenKey;
       try { video.currentTime = 0; } catch { /* metadata not ready yet */ }
       const start = () => video.play().then(() => {
         unmute();
+        armTimer();
       });
       void start().catch(() => {
         if (playTokenRef.current !== token) return;
         video.muted = true;
-        void video.play().then(unmute).catch((err: unknown) => {
+        void video.play().then(() => {
+          unmute();
+          armTimer();
+        }).catch((err: unknown) => {
           if (playTokenRef.current !== token) return;
           hide("error", err instanceof Error ? err.message : "Playback failed");
         });
       });
     };
-    if (video.dataset.boundUrl !== objectUrl) {
+    const alreadyStarted = video.dataset.startedToken === tokenKey;
+    if (!alreadyStarted && video.dataset.boundUrl !== objectUrl) {
       video.dataset.boundUrl = objectUrl;
       video.src = objectUrl;
     }
-    if (video.readyState >= 2) onReady();
-    else video.addEventListener("loadeddata", onReady, { once: true });
-    return () => video.removeEventListener("loadeddata", onReady);
-  }, [hide, objectUrl, playback.cueId, playback.slotId, show, surface]);
+    if (alreadyStarted && video.ended) finish();
+    else if (!alreadyStarted && video.readyState >= 2) onReady();
+    else if (!alreadyStarted) video.addEventListener("loadeddata", onReady, { once: true });
+    else armTimer();
+    return () => {
+      window.clearTimeout(endTimer);
+      video.removeEventListener("loadeddata", onReady);
+      video.removeEventListener("ended", onEnded);
+      video.removeEventListener("loadedmetadata", armTimer);
+      video.removeEventListener("durationchange", armTimer);
+    };
+  }, [finishRound, hide, objectUrl, playback.cueId, playback.slotId, show, surface]);
 
   useEffect(() => {
     if (!show) return;
@@ -517,17 +564,11 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
             ref={videoRef}
             playsInline
             preload="auto"
+            loop={false}
             onEnded={(event) => {
               const video = event.currentTarget;
               if (video.dataset.playToken !== String(playTokenRef.current)) return;
-              if (!objectUrlRef.current || video.src !== objectUrlRef.current) return;
-              if (playbackRef.current.cueId) endedCuesRef.current.add(playbackRef.current.cueId);
-              const idle = emptySponsorPlayback();
-              idle.issuedAt = playbackRef.current.issuedAt;
-              idle.cueId = playbackRef.current.cueId;
-              playbackRef.current = idle;
-              setPlayback(idle);
-              hide("ended");
+              finishRound();
             }}
             onError={(event) => {
               const video = event.currentTarget;
