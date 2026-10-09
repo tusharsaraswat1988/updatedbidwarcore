@@ -52,6 +52,7 @@ type ProcessJob = {
   durationMs: number;
   originalBytes: number;
   previousPublicId: string | null;
+  previousBroadcastPublicId: string | null;
   previousAssetType: string | null;
 };
 
@@ -155,6 +156,7 @@ export function beginSponsorMediaProcessing(job: ProcessJob): void {
 
 async function runSponsorMediaJob(job: ProcessJob): Promise<void> {
   let uploadedPublicId: string | null = null;
+  let broadcastStoredId: string | null = null;
   let uploadedResource: "image" | "video" = job.assetType;
   try {
     await markStatus(job, "processing", null);
@@ -211,11 +213,17 @@ async function runSponsorMediaJob(job: ProcessJob): Promise<void> {
     } else {
       const uploaded = await uploadLargeVideo(job.filePath);
       uploadedPublicId = uploaded.publicId;
-      const broadcastUrl = buildCloudinaryBroadcastVideoUrl(cloudName, uploaded.publicId);
+      const derivedUrl = buildCloudinaryBroadcastVideoUrl(cloudName, uploaded.publicId);
       const posterUrl = buildCloudinaryPosterUrl(cloudName, uploaded.publicId);
-      const broadcast = await downloadBroadcastAsset(broadcastUrl);
+      const broadcast = await downloadBroadcastAsset(derivedUrl);
+      const stored = await uploadBufferToCloudinary(broadcast.buffer, {
+        folder: "bidwar/sponsor-media/broadcast",
+        resource_type: "video",
+      });
+      broadcastStoredId = stored.publicId;
       const ready = await stillCurrent(job);
       if (!ready) {
+        await destroyAsset(stored.publicId, "video");
         await destroyAsset(uploaded.publicId, "video");
         return;
       }
@@ -227,8 +235,8 @@ async function runSponsorMediaJob(job: ProcessJob): Promise<void> {
         assetType: "video",
         originalUrl: uploaded.url,
         originalPublicId: uploaded.publicId,
-        broadcastUrl,
-        broadcastPublicId: uploaded.publicId,
+        broadcastUrl: stored.url,
+        broadcastPublicId: stored.publicId,
         posterUrl,
         durationMs,
         fileSizeBytes: broadcast.size,
@@ -251,9 +259,19 @@ async function runSponsorMediaJob(job: ProcessJob): Promise<void> {
     if (job.previousPublicId && job.previousPublicId !== uploadedPublicId) {
       await destroyAsset(job.previousPublicId, job.previousAssetType === "video" ? "video" : "image");
     }
+    if (
+      job.previousBroadcastPublicId
+      && job.previousBroadcastPublicId !== uploadedPublicId
+      && job.previousBroadcastPublicId !== broadcastStoredId
+    ) {
+      await destroyAsset(job.previousBroadcastPublicId, job.previousAssetType === "video" ? "video" : "image");
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Processing failed";
     logger.error({ err, tournamentId: job.tournamentId, slotId: job.slotId }, "Sponsor media processing failed");
+    if (broadcastStoredId) {
+      await destroyAsset(broadcastStoredId, "video");
+    }
     if (uploadedPublicId) {
       await destroyAsset(uploadedPublicId, uploadedResource);
     }
@@ -366,7 +384,7 @@ async function uploadLargeVideo(filePath: string): Promise<{
   };
 }
 
-async function downloadBroadcastAsset(url: string): Promise<{ size: number; checksum: string }> {
+async function downloadBroadcastAsset(url: string): Promise<{ buffer: Buffer; size: number; checksum: string }> {
   const started = Date.now();
   let lastError = "Processing failed";
   while (Date.now() - started < PROCESS_TIMEOUT_MS) {
@@ -386,7 +404,7 @@ async function downloadBroadcastAsset(url: string): Promise<{ size: number; chec
         if (buffer.length > SPONSOR_BROADCAST_ASSET_MAX_BYTES) {
           throw new Error("Broadcast asset is too large to preload");
         }
-        return { size: buffer.length, checksum: sha256(buffer) };
+        return { buffer, size: buffer.length, checksum: sha256(buffer) };
       }
       lastError = "Video is still processing";
     } catch (err) {

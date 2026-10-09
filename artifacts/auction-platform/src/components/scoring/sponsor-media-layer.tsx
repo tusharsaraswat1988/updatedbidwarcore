@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  acceptSponsorBroadcastDownload,
   cueIsLightweight,
   emptySponsorPlayback,
   isPlayableBroadcastMp4,
@@ -76,6 +77,22 @@ function probeSponsorBlob(blob: Blob, assetType: "image" | "video"): Promise<voi
   });
 }
 
+async function broadcastBlobAccepted(blob: Blob, slot: SponsorMediaSlotDto): Promise<boolean> {
+  const verified = await verifyCachedSponsorBlob({
+    blob,
+    expectedVersion: slot.version,
+    actualVersion: slot.version,
+    expectedChecksum: slot.checksum,
+    expectedSize: slot.fileSizeBytes ?? blob.size,
+  });
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  return acceptSponsorBroadcastDownload({
+    assetType: slot.assetType,
+    checksumOk: verified.ok,
+    bytes,
+  });
+}
+
 type LocalSlot = {
   slotId: number;
   version: number;
@@ -101,6 +118,7 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
   const streamRef = useRef<MediaStream | null>(null);
   const prepareTokenRef = useRef(0);
   const playTokenRef = useRef(0);
+  const playAttemptsRef = useRef<Map<string, number>>(new Map());
   const playbackErrorRef = useRef<string | undefined>(undefined);
   const reconnectRef = useRef(false);
 
@@ -157,18 +175,9 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
       if (sameAsset && existing && !force && Date.now() - existing.checkedAt < 60_000) continue;
       if (sameAsset && existing) {
         const cachedBlob = await readCachedSponsorBlob(tournamentId, slot.slotNumber, slot.version);
-        if (cachedBlob) {
-          const cached = await verifyCachedSponsorBlob({
-            blob: cachedBlob,
-            expectedVersion: slot.version,
-            actualVersion: slot.version,
-            expectedChecksum: slot.checksum,
-            expectedSize: slot.fileSizeBytes ?? cachedBlob.size,
-          });
-          if (cached.ok) {
-            localRef.current.set(slot.slotNumber, { ...existing, checkedAt: Date.now(), status: "ready", verified: true });
-            continue;
-          }
+        if (cachedBlob && await broadcastBlobAccepted(cachedBlob, slot)) {
+          localRef.current.set(slot.slotNumber, { ...existing, checkedAt: Date.now(), status: "ready", verified: true });
+          continue;
         }
       }
       localRef.current.set(slot.slotNumber, {
@@ -180,28 +189,12 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
       });
       try {
         let blob = await readCachedSponsorBlob(tournamentId, slot.slotNumber, slot.version);
-        if (blob) {
-          const cached = await verifyCachedSponsorBlob({
-            blob,
-            expectedVersion: slot.version,
-            actualVersion: slot.version,
-            expectedChecksum: slot.checksum,
-            expectedSize: slot.fileSizeBytes ?? blob.size,
-          });
-          if (!cached.ok) blob = null;
-        }
+        if (blob && !(await broadcastBlobAccepted(blob, slot))) blob = null;
         if (!blob) {
           const response = await fetch(slot.broadcastUrl, { cache: "no-store" });
           if (!response.ok) throw new Error("Unable to download");
           blob = await response.blob();
-          const verified = await verifyCachedSponsorBlob({
-            blob,
-            expectedVersion: slot.version,
-            actualVersion: slot.version,
-            expectedChecksum: slot.checksum,
-            expectedSize: slot.fileSizeBytes ?? 0,
-          });
-          if (!verified.ok) throw new Error(verified.reason);
+          if (!(await broadcastBlobAccepted(blob, slot))) throw new Error("Video file is not playable. Replace it.");
           await writeCachedSponsorBlob(tournamentId, slot.slotNumber, slot.version, blob);
         }
         if (slot.assetType === "video") {
@@ -268,24 +261,36 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
   }, [publish, surface, tournamentId]);
 
   const startCue = useCallback(async (cue: SponsorMediaCue) => {
+    const stillPlaying = () => playbackRef.current.cueId === cue.cueId && playbackRef.current.phase === "playing";
     const slot = slotsRef.current.find((item) => item.id === cue.slotId && item.version === cue.version);
     const local = localRef.current.get(cue.slotNumber);
     if (!slot || !localAssetMatchesCue(local ? { ...local } : null, cue)) {
+      const attempts = playAttemptsRef.current.get(cue.cueId) ?? 0;
+      if (attempts < 40 && stillPlaying()) {
+        playAttemptsRef.current.set(cue.cueId, attempts + 1);
+        window.setTimeout(() => {
+          if (stillPlaying()) void startCue(cue);
+        }, 500);
+        return;
+      }
       hide("error", local?.error || "Missing asset");
       return;
     }
     const blob = await readCachedSponsorBlob(tournamentId, cue.slotNumber, cue.version);
-    if (playbackRef.current.cueId !== cue.cueId || playbackRef.current.phase !== "playing") return;
+    if (!stillPlaying()) return;
     if (!blob) {
       hide("error", "Missing asset");
       return;
     }
     const checksum = await sha256Blob(blob);
-    if (playbackRef.current.cueId !== cue.cueId || playbackRef.current.phase !== "playing") return;
+    if (!stillPlaying()) return;
     if (slot.checksum && checksum !== slot.checksum) {
-      localRef.current.set(cue.slotNumber, { ...local, verified: false, status: "failed", error: "Checksum mismatch" });
-      hide("error", "Checksum mismatch");
-      return;
+      const playable = slot.assetType === "video" && isPlayableBroadcastMp4(new Uint8Array(await blob.arrayBuffer()));
+      if (!playable) {
+        localRef.current.set(cue.slotNumber, { ...local, verified: false, status: "failed", error: "Checksum mismatch" });
+        hide("error", "Checksum mismatch");
+        return;
+      }
     }
     playbackErrorRef.current = undefined;
     const token = ++playTokenRef.current;
@@ -468,9 +473,11 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
     let frame = 0;
+    let painted = false;
+    canvas.style.opacity = "0";
     const draw = () => {
       if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
-        const context = canvas.getContext("2d");
+        const context = canvas.getContext("2d", { willReadFrequently: true });
         if (context) {
           const scale = Math.min(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
           const width = video.videoWidth * scale;
@@ -478,6 +485,13 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
           context.fillStyle = "#000";
           context.fillRect(0, 0, canvas.width, canvas.height);
           context.drawImage(video, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+          if (!painted) {
+            const pixel = context.getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data;
+            if (pixel[0] + pixel[1] + pixel[2] > 16) {
+              painted = true;
+              canvas.style.opacity = "1";
+            }
+          }
         }
       }
       frame = window.requestAnimationFrame(draw);
@@ -529,9 +543,9 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
               if (!objectUrlRef.current || video.src !== objectUrlRef.current) return;
               hide("error", "Playback failed");
             }}
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", opacity: 0.01 }}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", zIndex: 1 }}
           />
-          <canvas ref={canvasRef} width={1920} height={1080} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 2 }} />
+          <canvas ref={canvasRef} width={1920} height={1080} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 2, opacity: 0 }} />
         </>
       )}
     </div>

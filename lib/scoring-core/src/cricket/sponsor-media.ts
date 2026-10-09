@@ -305,6 +305,21 @@ export function isPlayableBroadcastMp4(bytes: Uint8Array): boolean {
   return boxPresent(head, "moov") || boxPresent(head, "mdat") || boxPresent(tail, "moov") || boxPresent(tail, "mdat");
 }
 
+/**
+ * A Cloudinary transform URL can be re-encoded after we store its checksum.
+ * A finished MP4 from that same URL is still the sponsor spot and must play.
+ * Images stay checksum-strict.
+ */
+export function acceptSponsorBroadcastDownload(input: {
+  assetType: SponsorMediaAssetType | null;
+  checksumOk: boolean;
+  bytes: Uint8Array;
+}): boolean {
+  if (input.checksumOk) return true;
+  if (input.assetType !== "video") return false;
+  return isPlayableBroadcastMp4(input.bytes);
+}
+
 export function sponsorCacheKey(tournamentId: number, slotNumber: number, version: number): string {
   return `https://bidwar.local/sponsor-cache/${tournamentId}/slot-${slotNumber}/v${version}`;
 }

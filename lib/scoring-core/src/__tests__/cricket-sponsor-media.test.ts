@@ -10,6 +10,7 @@ import {
   localAssetMatchesCue,
   parseSponsorMediaCue,
   reduceSponsorPlayback,
+  acceptSponsorBroadcastDownload,
   isPlayableBroadcastMp4,
   SPONSOR_BROADCAST_ASSET_MAX_BYTES,
   SPONSOR_BROADCAST_VIDEO_MIN_BYTES,
@@ -175,6 +176,16 @@ describe("sponsor media protocol", () => {
     const html = new Uint8Array(SPONSOR_BROADCAST_VIDEO_MIN_BYTES);
     html.set([0x3c, 0x68, 0x74, 0x6d, 0x6c], 0);
     expect(isPlayableBroadcastMp4(html)).toBe(false);
+  });
+
+  it("plays a re-encoded sponsor video when the stored checksum no longer matches", () => {
+    const bytes = new Uint8Array(SPONSOR_BROADCAST_VIDEO_MIN_BYTES);
+    bytes.set([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70], 0);
+    bytes.set([0x6d, 0x6f, 0x6f, 0x76], 32);
+    expect(acceptSponsorBroadcastDownload({ assetType: "video", checksumOk: false, bytes })).toBe(true);
+    expect(acceptSponsorBroadcastDownload({ assetType: "video", checksumOk: true, bytes: new Uint8Array(8) })).toBe(true);
+    expect(acceptSponsorBroadcastDownload({ assetType: "image", checksumOk: false, bytes })).toBe(false);
+    expect(acceptSponsorBroadcastDownload({ assetType: "video", checksumOk: false, bytes: new Uint8Array(32) })).toBe(false);
   });
 
   it("does not play a stale or corrupt local file", () => {

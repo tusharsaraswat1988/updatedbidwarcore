@@ -285,6 +285,7 @@ router.post(
         durationMs: durationSec * 1000,
         originalBytes: req.file.size,
         previousPublicId: existing?.originalPublicId ?? null,
+        previousBroadcastPublicId: existing?.broadcastPublicId ?? null,
         previousAssetType: existing?.assetType ?? null,
       });
       res.status(202).json(toSponsorMediaView(tournamentId, slotNumber, row, true));
