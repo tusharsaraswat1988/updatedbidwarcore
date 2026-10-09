@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { canPlaySponsorSlot, explainSurfaceReadiness, type SponsorMediaDestination } from "@workspace/scoring-core";
+import { explainSurfaceReadiness, type SponsorMediaDestination } from "@workspace/scoring-core";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -161,15 +161,6 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
   const ledLine = slot ? surfaceLine(led, slot) : { ready: false, label: "Offline" };
   const obsReady = obsLine.ready;
   const ledReady = ledLine.ready;
-  const gate = slot
-    ? canPlaySponsorSlot({
-      destination,
-      processingStatus: slot.processingStatus,
-      active: slot.active,
-      obsReady,
-      ledReady,
-    })
-    : { ok: false as const, reason: "Choose a slot" };
 
   const durationSec = slot ? Math.round(slot.durationMs / 1000) : 10;
 
@@ -222,13 +213,6 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
   const processing = sponsor?.processingStatus === "uploading" || sponsor?.processingStatus === "processing";
   const failed = sponsor?.processingStatus === "failed";
   const broadcastReady = sponsor?.processingStatus === "ready" && sponsor.active;
-  const destinationReady = destination === "obs" ? obsReady : destination === "led" ? ledReady : obsReady && ledReady;
-  const playing = Boolean(
-    sponsor && (
-      (obs?.playback.status === "playing" && obs.playback.slotNumber === sponsor.slotNumber)
-      || (led?.playback.status === "playing" && led.playback.slotNumber === sponsor.slotNumber)
-    ),
-  );
   const compact = density === "console";
 
   async function prepareScreens() {
@@ -253,9 +237,9 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
   }
 
   function play() {
-    if (!cueBase || !gate.ok) return;
+    if (!cueBase || !broadcastReady) return;
     void sendSponsorMediaCue(tournamentId, { ...cueBase, action: "play", destination })
-      .then(() => toast({ title: "Sponsor is playing" }))
+      .then(() => toast({ title: "Play sent", description: "Refresh the OBS browser source once if the video does not appear." }))
       .catch((err) => toast({ title: "Play failed", description: err instanceof Error ? err.message : "Could not play", variant: "destructive" }));
   }
 
@@ -273,9 +257,7 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
         ? (sponsor.errorMessage || "Processing failed. Replace the file.")
         : !sponsor.active
           ? "This sponsor is off."
-          : broadcastReady && !destinationReady
-            ? "OBS is not connected, so nothing is on screen yet. Press Prepare screens, then refresh the OBS page once. Play is what shows the video."
-            : null;
+          : null;
 
   return (
     <section className={cn(
@@ -399,20 +381,15 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
                   {item.label}
                 </button>
               ))}
-              {destinationReady ? (
-                <Button type="button" size="sm" className="h-7 px-3 text-[11px] font-bold" disabled={busy} onClick={play}>
-                  Play
-                </Button>
-              ) : (
-                <Button type="button" size="sm" className="h-7 px-3 text-[11px] font-bold" onClick={prepareScreens}>
-                  Prepare screens
-                </Button>
-              )}
-              {destinationReady || playing ? (
-                <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={stop}>
-                  Stop
-                </Button>
-              ) : null}
+              <Button type="button" size="sm" className="h-7 px-3 text-[11px] font-bold" disabled={busy} onClick={play}>
+                Play
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => void prepareScreens()}>
+                Prepare
+              </Button>
+              <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={stop}>
+                Stop
+              </Button>
             </>
           ) : null}
           {!processing ? (

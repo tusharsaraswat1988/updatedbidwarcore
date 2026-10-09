@@ -35,7 +35,7 @@ async function readError(response: Response): Promise<string> {
 }
 
 export async function fetchSponsorMediaSlots(tournamentId: number): Promise<SponsorMediaSlotDto[]> {
-  const response = await apiFetch(`/tournaments/${tournamentId}/scoring/sponsor-media`, { cache: "no-store" });
+  const response = await apiFetch(`/tournaments/${tournamentId}/scoring/sponsor-media?t=${Date.now()}`, { cache: "no-store" });
   if (!response.ok) throw new Error(await readError(response));
   const body = await response.json() as { slots: SponsorMediaSlotDto[] };
   return body.slots;
@@ -84,7 +84,7 @@ export async function fetchSponsorMediaReadiness(tournamentId: number): Promise<
   obs: SponsorSurfaceReportDto | null;
   led: SponsorSurfaceReportDto | null;
 }> {
-  const response = await apiFetch(`/tournaments/${tournamentId}/scoring/sponsor-media/readiness`, { cache: "no-store" });
+  const response = await apiFetch(`/tournaments/${tournamentId}/scoring/sponsor-media/readiness?t=${Date.now()}`, { cache: "no-store" });
   if (!response.ok) throw new Error(await readError(response));
   return response.json();
 }

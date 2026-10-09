@@ -25,7 +25,7 @@ import {
   getCricketObsDirectorState,
   broadcastCricketObsDirector,
 } from "../lib/scoring-broadcast";
-import { buildCricketMatchSummary, canPlaySponsorSlot, InvalidEventPayloadError, type SponsorMediaCue } from "@workspace/scoring-core";
+import { buildCricketMatchSummary, InvalidEventPayloadError, type SponsorMediaCue } from "@workspace/scoring-core";
 import { InvalidTournamentModuleStateError } from "@workspace/platform-core";
 import { db, scoringMatchesTable, tournamentsTable, cricketBroadcastMessageTemplatesTable, scoringEventsTable } from "@workspace/db";
 import { eq, and, desc, asc, or, sql } from "drizzle-orm";
@@ -56,7 +56,6 @@ import type { LeaderboardCategory } from "@workspace/scoring-core";
 import { applyCricketRulesToMatches } from "../lib/cricket-rules-service";
 import sponsorMediaRouter, { parseSponsorMediaDirectorCue } from "./sponsor-media";
 import { getSponsorMediaSlot } from "../lib/sponsor-media-service";
-import { getSponsorMediaReadiness, surfaceReadyFor } from "../lib/sponsor-media-readiness";
 import { verifySponsorDisplaySession } from "../lib/sponsor-display-session";
 import {
   requireScorerFromRequest,
@@ -695,16 +694,8 @@ router.post("/tournaments/:tournamentId/scoring/obs-director", async (req, res) 
     if (sponsorMedia.action === "play") {
       try {
         const row = await getSponsorMediaSlot(tournamentId, sponsorMedia.slotNumber);
-        const readiness = getSponsorMediaReadiness(tournamentId);
-        const gate = canPlaySponsorSlot({
-          destination: sponsorMedia.destination,
-          processingStatus: row?.processingStatus ?? "empty",
-          active: row?.active ?? false,
-          obsReady: surfaceReadyFor(readiness.obs, sponsorMedia.slotNumber, sponsorMedia.version),
-          ledReady: surfaceReadyFor(readiness.led, sponsorMedia.slotNumber, sponsorMedia.version),
-        });
-        if (!row || row.id !== sponsorMedia.slotId || row.version !== sponsorMedia.version || !gate.ok) {
-          res.status(409).json({ error: gate.ok ? "Sponsor target not ready" : gate.reason });
+        if (!row || row.tournamentId !== tournamentId || row.id !== sponsorMedia.slotId || row.version !== sponsorMedia.version || row.processingStatus !== "ready" || !row.active) {
+          res.status(409).json({ error: "Sponsor target not ready" });
           return;
         }
       } catch (err) {
