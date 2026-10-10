@@ -941,7 +941,7 @@ export default function CricketScorerPage() {
       {/* ─── Main Scoring Viewport ─── */}
       <main className="flex-1 min-h-0 overflow-hidden flex flex-col p-2 sm:p-3 max-w-lg mx-auto w-full">
         {data && (!readyToScore || data.state.innings.length === 0 || data.state.tossWinnerTeamId == null) && !isFinished ? (
-          <div className="flex-1 overflow-y-auto px-1 py-2 space-y-3">
+          <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y px-1 py-2 space-y-3">
             <PreMatchSetup
               tournamentId={tournamentId}
               match={data.match}

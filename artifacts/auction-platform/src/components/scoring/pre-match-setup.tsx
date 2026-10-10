@@ -1111,7 +1111,7 @@ function SquadLineupPicker({
           No registered players for this team. Add players via Team Roster first.
         </p>
       ) : (
-        <ul className="max-h-72 overflow-y-auto space-y-1.5 pr-1">
+        <ul className="space-y-1.5 pr-1">
           {squad.map((p) => {
             const inXi = playingXi.includes(p.id);
             const onBench = bench.includes(p.id);
@@ -1294,7 +1294,7 @@ function OpenersPicker({
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             Striker (*) — Facing 1st Ball
           </Label>
-          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+          <div className="space-y-1.5 pr-1">
             {squad.map((p) => {
               const isSelected = striker === p.id;
               const isOther = nonStriker === p.id;
@@ -1327,7 +1327,7 @@ function OpenersPicker({
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Non-Striker (Runner End)
           </Label>
-          <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+          <div className="space-y-1.5 pr-1">
             {squad.map((p) => {
               const isSelected = nonStriker === p.id;
               const isOther = striker === p.id;
@@ -1414,7 +1414,7 @@ function BowlerPicker({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1">
         {squad.map((p) => {
           const isSelected = bowler === p.id;
           return (
