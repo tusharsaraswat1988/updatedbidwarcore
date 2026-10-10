@@ -1,11 +1,12 @@
 /**
  * Cricket roster — Player Registry is the live source of truth for scoring.
  *
- * Auction → Registry sync adapters below write PTA when auction runs; cricket
- * scoring read paths use `cricket-franchise-registry` only (no auction tables).
+ * Auction → Registry sync adapters below write PTA when auction runs. Scoring
+ * reads the franchise registry, and repairs any team-assigned playing player
+ * who is missing from that registry so the roster page and the scorer match.
  */
 
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne, isNotNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   playersTable,
@@ -83,52 +84,147 @@ export function isFranchiseRosterEligible(
   return player.teamId != null && !player.isNonPlayingMember;
 }
 
-/** Sync one auction player's current team into master roster assignments. */
-export async function syncAuctionPlayerRosterAssignment(
-  auctionPlayer: Player,
+/**
+ * Active PTA already records this exact player on this exact franchise team.
+ * Same master identity on the same team is not enough — another kid who shared
+ * a parent email/mobile must still get their own roster row.
+ */
+export function rosterAssignmentCoversPlayer(
+  active:
+    | {
+        teamId: string;
+        auctionTeamId: number | null;
+        auctionPlayerId: number | null;
+      }
+    | undefined,
+  masterTeamId: string,
+  player: { id: number; teamId: number | null },
+): boolean {
+  return Boolean(
+    active &&
+      active.auctionPlayerId === player.id &&
+      active.teamId === masterTeamId &&
+      active.auctionTeamId === player.teamId,
+  );
+}
+
+async function masterIdsClaimedByOtherPlayers(
   tournamentId: number,
-  assignmentType?: RosterAssignmentType,
-): Promise<string | null> {
-  // Unassigned / non-playing: clear any active PTA, then stop.
-  if (!isFranchiseRosterEligible(auctionPlayer) || !auctionPlayer.teamId) {
-    const syncResult = await syncAuctionPlayerToMaster(auctionPlayer.id, tournamentId);
-    if (syncResult?.masterPlayerId) {
-      await endActiveRosterAssignment(syncResult.masterPlayerId, tournamentId, "cricket");
-    }
-    return null;
+  auctionPlayerId: number,
+): Promise<Set<string>> {
+  const [linked, activeAssignments] = await Promise.all([
+    db
+      .select({ id: playersTable.globalPlayerId })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.tournamentId, tournamentId),
+          ne(playersTable.id, auctionPlayerId),
+          isNotNull(playersTable.globalPlayerId),
+        ),
+      ),
+    db
+      .select({ id: playerTeamAssignmentsTable.playerId })
+      .from(playerTeamAssignmentsTable)
+      .where(
+        and(
+          eq(playerTeamAssignmentsTable.tournamentId, tournamentId),
+          eq(playerTeamAssignmentsTable.sport, "cricket"),
+          eq(playerTeamAssignmentsTable.isActive, true),
+          isNotNull(playerTeamAssignmentsTable.auctionPlayerId),
+          ne(playerTeamAssignmentsTable.auctionPlayerId, auctionPlayerId),
+        ),
+      ),
+  ]);
+
+  const ids = new Set<string>();
+  for (const row of linked) {
+    if (row.id) ids.add(row.id);
   }
+  for (const row of activeAssignments) {
+    if (row.id) ids.add(row.id);
+  }
+  return ids;
+}
 
-  const syncResult = await syncAuctionPlayerToMaster(auctionPlayer.id, tournamentId);
-  if (!syncResult) return null;
-
-  const masterTeamId = await syncAuctionTeamToMaster(auctionPlayer.teamId, tournamentId);
-  if (!masterTeamId) return syncResult.masterPlayerId;
-
+async function activeCricketAssignment(masterPlayerId: string, tournamentId: number) {
   const [active] = await db
     .select()
     .from(playerTeamAssignmentsTable)
     .where(
       and(
-        eq(playerTeamAssignmentsTable.playerId, syncResult.masterPlayerId),
+        eq(playerTeamAssignmentsTable.playerId, masterPlayerId),
         eq(playerTeamAssignmentsTable.tournamentId, tournamentId),
         eq(playerTeamAssignmentsTable.sport, "cricket"),
         eq(playerTeamAssignmentsTable.isActive, true),
       ),
     )
     .limit(1);
+  return active;
+}
+
+/** Sync one auction player's current team into master roster assignments. */
+export async function syncAuctionPlayerRosterAssignment(
+  auctionPlayer: Player,
+  tournamentId: number,
+  assignmentType?: RosterAssignmentType,
+): Promise<string | null> {
+  const claimedMasterIds = await masterIdsClaimedByOtherPlayers(
+    tournamentId,
+    auctionPlayer.id,
+  );
+
+  // Unassigned / non-playing: clear this player's active PTA, then stop.
+  // Never end a row that belongs to a different player sharing the same master id.
+  if (!isFranchiseRosterEligible(auctionPlayer) || !auctionPlayer.teamId) {
+    const syncResult = await syncAuctionPlayerToMaster(auctionPlayer.id, tournamentId, {
+      claimedMasterIds,
+    });
+    if (syncResult?.masterPlayerId) {
+      const active = await activeCricketAssignment(syncResult.masterPlayerId, tournamentId);
+      if (!active || active.auctionPlayerId == null || active.auctionPlayerId === auctionPlayer.id) {
+        await endActiveRosterAssignment(syncResult.masterPlayerId, tournamentId, "cricket");
+      }
+    }
+    return null;
+  }
+
+  let syncResult = await syncAuctionPlayerToMaster(auctionPlayer.id, tournamentId, {
+    claimedMasterIds,
+  });
+  if (!syncResult) return null;
+
+  const masterTeamId = await syncAuctionTeamToMaster(auctionPlayer.teamId, tournamentId);
+  if (!masterTeamId) return syncResult.masterPlayerId;
+
+  let masterPlayerId = syncResult.masterPlayerId;
+  let active = await activeCricketAssignment(masterPlayerId, tournamentId);
+  if (active && active.auctionPlayerId != null && active.auctionPlayerId !== auctionPlayer.id) {
+    const blocked = new Set(claimedMasterIds);
+    blocked.add(masterPlayerId);
+    const fresh = await syncAuctionPlayerToMaster(auctionPlayer.id, tournamentId, {
+      claimedMasterIds: blocked,
+    });
+    if (!fresh || fresh.masterPlayerId === masterPlayerId) {
+      console.error(
+        "[cricket-roster] refused to reuse another player's roster identity",
+        auctionPlayer.id,
+      );
+      return null;
+    }
+    syncResult = fresh;
+    masterPlayerId = fresh.masterPlayerId;
+    active = await activeCricketAssignment(masterPlayerId, tournamentId);
+  }
 
   const type = assignmentType ?? rosterTypeFromPlayer(auctionPlayer);
 
-  if (
-    active &&
-    active.teamId === masterTeamId &&
-    active.auctionTeamId === auctionPlayer.teamId
-  ) {
-    return syncResult.masterPlayerId;
+  if (rosterAssignmentCoversPlayer(active, masterTeamId, auctionPlayer)) {
+    return masterPlayerId;
   }
 
   await assignPlayerToFranchiseRoster({
-    masterPlayerId: syncResult.masterPlayerId,
+    masterPlayerId,
     masterTeamId,
     tournamentId,
     auctionPlayerId: auctionPlayer.id,
@@ -137,9 +233,48 @@ export async function syncAuctionPlayerRosterAssignment(
     sport: "cricket",
   });
 
-  await ensureCricketStatisticsBaseline(syncResult.masterPlayerId, tournamentId);
+  await ensureCricketStatisticsBaseline(masterPlayerId, tournamentId);
 
-  return syncResult.masterPlayerId;
+  return masterPlayerId;
+}
+
+/**
+ * Organizer team assignment (players.teamId) is what the roster page shows.
+ * Scoring reads PTA, so a kid assigned on the team but missing a PTA row never
+ * appears in the playing XI picker. Create those rows before returning the squad.
+ */
+async function repairMissingTeamRoster(
+  tournamentId: number,
+  auctionTeamId?: number,
+): Promise<void> {
+  const filters = [
+    eq(playersTable.tournamentId, tournamentId),
+    eq(playersTable.isNonPlayingMember, false),
+    isNotNull(playersTable.teamId),
+  ];
+  if (auctionTeamId != null) {
+    filters.push(eq(playersTable.teamId, auctionTeamId));
+  }
+
+  const roster = await db
+    .select()
+    .from(playersTable)
+    .where(and(...filters));
+  const eligible = roster.filter((player: Player) => isFranchiseRosterEligible(player));
+  if (eligible.length === 0) return;
+
+  const assigned = await listCricketFranchisePlayers(tournamentId, auctionTeamId);
+  const teamByPlayer = new Map(assigned.map((player) => [player.playerId, player.teamId]));
+  const missing = eligible.filter((player: Player) => teamByPlayer.get(player.id) !== player.teamId);
+  if (missing.length === 0) return;
+
+  for (const player of missing) {
+    try {
+      await syncAuctionPlayerRosterAssignment(player, tournamentId);
+    } catch (err) {
+      console.error("[cricket-roster] squad repair failed:", player.id, err);
+    }
+  }
 }
 
 /**
@@ -390,6 +525,12 @@ export async function listCricketMasterPlayers(
   const cached = masterPlayersCache.get(cacheKey);
   if (cached && cached.expiresAt > now) {
     return cached.data;
+  }
+
+  try {
+    await repairMissingTeamRoster(tournamentId, auctionTeamId);
+  } catch (err) {
+    console.error("[cricket-roster] squad repair failed:", err);
   }
 
   const players = await listCricketFranchisePlayers(tournamentId, auctionTeamId);
