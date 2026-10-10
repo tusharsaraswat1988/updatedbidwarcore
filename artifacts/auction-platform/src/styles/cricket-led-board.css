@@ -1,0 +1,153 @@
+/**
+ * Ground LED scoreboard scale.
+ *
+ * The live board is a venue screen (laptop HDMI, projector, TV), not a phone
+ * page. Tailwind sm/md/lg steps stay at the phone size whenever the CSS
+ * viewport is under the next breakpoint — common on Windows laptops at 125–150%
+ * scaling — so the board looked like mobile mode in the middle of the screen.
+ *
+ * These sizes track the visible viewport and stay unlayered so they win over
+ * the mobile-first utilities. Floors keep a phone portrait readable; the
+ * preferred value fills a laptop and a 1080p screen without clipping a ~640px
+ * tall browser window.
+ */
+
+.cricket-led-board {
+  /* Width drives type so a 1080p / laptop screen is not stuck on the phone
+     step. Height only caps the hero number so a short window still fits. */
+  --led-header-h: clamp(4rem, 11dvh, 7.5rem);
+  --led-footer-h: clamp(2.5rem, 6dvh, 4.75rem);
+  --led-score: clamp(6rem, min(22dvh, 14dvw), 18rem);
+  --led-kicker: clamp(1.15rem, 2.6dvw, 2.75rem);
+  --led-num: clamp(1.5rem, 3.2dvw, 3.5rem);
+  --led-player: clamp(1.25rem, 2.7dvw, 3rem);
+  --led-role: clamp(1rem, 1.85dvw, 2.15rem);
+  --led-runs: clamp(2.75rem, 5dvw, 6.5rem);
+  --led-balls: clamp(1rem, 1.55dvw, 2rem);
+  --led-bowl: clamp(1.75rem, 3.4dvw, 4.5rem);
+  --led-team: clamp(1.2rem, 2.35dvw, 2.85rem);
+  --led-status: clamp(1rem, 1.7dvw, 2.1rem);
+  --led-chip: clamp(1rem, 1.8dvw, 2.25rem);
+  --led-title: clamp(1.25rem, 2.3dvw, 3.1rem);
+  --led-logo: clamp(2.75rem, min(8dvh, 6dvw), 6.5rem);
+  --led-mark: clamp(3rem, min(9dvh, 16dvw), 8rem);
+  --led-avatar: clamp(3.25rem, 6.2dvw, 6.25rem);
+  --led-team-logo: clamp(2.75rem, 4.8dvw, 5.5rem);
+  --led-ball: clamp(2.5rem, 4.6dvw, 5rem);
+  --led-sponsor: clamp(1.1rem, 2dvw, 2.5rem);
+}
+
+.cricket-led-board .led-header {
+  min-height: var(--led-header-h);
+}
+
+.cricket-led-board .led-footer {
+  height: var(--led-footer-h);
+}
+
+.cricket-led-board .led-arena {
+  width: 100%;
+  max-width: none;
+}
+
+.cricket-led-board .led-score {
+  font-size: var(--led-score);
+  line-height: 0.82;
+}
+
+.cricket-led-board .led-kicker {
+  font-size: var(--led-kicker);
+  line-height: 1.05;
+}
+
+.cricket-led-board .led-num {
+  font-size: var(--led-num);
+  line-height: 1;
+}
+
+.cricket-led-board .led-player {
+  font-size: var(--led-player);
+  line-height: 1.05;
+}
+
+.cricket-led-board .led-title {
+  font-size: var(--led-title);
+  line-height: 1.05;
+}
+
+.cricket-led-board .led-team {
+  font-size: var(--led-team);
+  line-height: 1.05;
+}
+
+.cricket-led-board .led-role {
+  font-size: var(--led-role);
+  line-height: 1.1;
+}
+
+.cricket-led-board .led-status {
+  font-size: var(--led-status);
+  line-height: 1.1;
+}
+
+.cricket-led-board .led-chip {
+  font-size: var(--led-chip);
+  line-height: 1.1;
+}
+
+.cricket-led-board .led-balls {
+  font-size: var(--led-balls);
+  line-height: 1;
+}
+
+.cricket-led-board .led-runs {
+  font-size: var(--led-runs);
+  line-height: 0.9;
+}
+
+.cricket-led-board .led-bowl {
+  font-size: var(--led-bowl);
+  line-height: 1;
+}
+
+.cricket-led-board .led-sponsor {
+  font-size: var(--led-sponsor);
+  line-height: 1.1;
+}
+
+.cricket-led-board .led-logo {
+  height: var(--led-logo);
+  width: auto;
+  max-width: 16dvw;
+}
+
+.cricket-led-board .led-mark {
+  height: var(--led-mark);
+  width: auto;
+  max-width: min(34dvw, 36rem);
+}
+
+.cricket-led-board .led-avatar {
+  width: var(--led-avatar);
+  height: var(--led-avatar);
+}
+
+.cricket-led-board .led-sponsor-logo {
+  width: var(--led-logo);
+  height: var(--led-logo);
+}
+
+.cricket-led-board .led-team-logo {
+  width: var(--led-team-logo);
+  height: var(--led-team-logo);
+}
+
+.cricket-led-board .led-ball {
+  height: var(--led-ball);
+  min-width: var(--led-ball);
+  font-size: calc(var(--led-ball) * 0.46);
+}
+
+.cricket-led-board .led-sponsor-slot {
+  max-width: min(100%, 36dvw);
+}
