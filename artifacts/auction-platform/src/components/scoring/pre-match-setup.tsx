@@ -1078,8 +1078,7 @@ function SquadLineupPicker({
         <div>
           <h2 className="text-sm sm:text-base font-bold text-foreground">{title}</h2>
           <p className="text-[11px] sm:text-xs text-muted-foreground">
-            Select {playingSquadSize} playing players + tag Captain (C) & Keeper (WK)
-            {squad.length > 0 ? ` · ${squad.length} in squad` : ""}
+            Select up to {playingSquadSize} playing players + tag Captain (C) & Keeper (WK)
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1106,6 +1105,13 @@ function SquadLineupPicker({
           </span>
         </div>
       </div>
+
+      {squad.length > 0 && squad.length < playingSquadSize ? (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+          This team has {squad.length} registered players, so Playing {playingSquadSize} cannot be filled from here.
+          Add the missing players on the team roster, then refresh. You can confirm these {squad.length} now.
+        </div>
+      ) : null}
 
       {squad.length === 0 ? (
         <p className="text-sm text-muted-foreground py-6 text-center">
