@@ -1079,6 +1079,7 @@ function SquadLineupPicker({
           <h2 className="text-sm sm:text-base font-bold text-foreground">{title}</h2>
           <p className="text-[11px] sm:text-xs text-muted-foreground">
             Select {playingSquadSize} playing players + tag Captain (C) & Keeper (WK)
+            {squad.length > 0 ? ` · ${squad.length} in squad` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">

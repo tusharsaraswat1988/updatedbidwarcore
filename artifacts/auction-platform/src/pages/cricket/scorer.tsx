@@ -680,6 +680,10 @@ export default function CricketScorerPage() {
     data?.state.matchStatus === "completed" ||
     data?.state.matchStatus === "abandoned" ||
     data?.state.matchStatus === "walkover";
+  const showSetup =
+    !!data &&
+    (!readyToScore || data.state.innings.length === 0 || data.state.tossWinnerTeamId == null) &&
+    !isFinished;
   const summary =
     data?.summary ?? (data && isFinished ? buildCricketMatchSummary(data.state) : null);
 
@@ -710,9 +714,16 @@ export default function CricketScorerPage() {
   }
 
   return (
-    <div className="fixed inset-0 h-[100dvh] max-h-[100dvh] w-full bg-[#070b19] text-white flex flex-col overflow-hidden select-none touch-manipulation overscroll-none">
+    <div
+      className={cn(
+        "w-full bg-[#070b19] text-white flex flex-col select-none",
+        showSetup
+          ? "relative min-h-[100dvh]"
+          : "fixed inset-0 h-[100dvh] max-h-[100dvh] overflow-hidden touch-manipulation overscroll-none",
+      )}
+    >
       {/* ─── Fixed Header Bar (min 46px) ─── */}
-      <header className="min-h-[46px] py-1 shrink-0 px-2.5 sm:px-3 border-b border-white/[0.08] bg-gradient-to-r from-[#090e24] via-[#0d1433] to-[#090e24] flex items-center justify-between gap-2 z-20 backdrop-blur-md">
+      <header className="sticky top-0 min-h-[46px] py-1 shrink-0 px-2.5 sm:px-3 border-b border-white/[0.08] bg-gradient-to-r from-[#090e24] via-[#0d1433] to-[#090e24] flex items-center justify-between gap-2 z-20 backdrop-blur-md">
         <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
           <Button
             type="button"
@@ -939,9 +950,14 @@ export default function CricketScorerPage() {
       ) : null}
 
       {/* ─── Main Scoring Viewport ─── */}
-      <main className="flex-1 min-h-0 overflow-hidden flex flex-col p-2 sm:p-3 max-w-lg mx-auto w-full">
-        {data && (!readyToScore || data.state.innings.length === 0 || data.state.tossWinnerTeamId == null) && !isFinished ? (
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y px-1 py-2 space-y-3">
+      <main
+        className={cn(
+          "flex flex-col p-2 sm:p-3 max-w-lg mx-auto w-full",
+          showSetup ? "pb-16" : "flex-1 min-h-0 overflow-hidden",
+        )}
+      >
+        {showSetup && data ? (
+          <div className="px-1 py-2 space-y-3">
             <PreMatchSetup
               tournamentId={tournamentId}
               match={data.match}
