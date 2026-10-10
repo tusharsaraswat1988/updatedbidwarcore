@@ -45,6 +45,11 @@ function isStale(lastHeartbeatAt: Date, now = new Date()): boolean {
   return lastHeartbeatAt.getTime() < staleCutoff(now).getTime();
 }
 
+/** True when a match lock is still inside the heartbeat window. */
+export function isScorerLockHeartbeatFresh(lastHeartbeatAt: Date, now = new Date()): boolean {
+  return !isStale(lastHeartbeatAt, now);
+}
+
 export type AcquireLockResult =
   | { ok: true; reacquired: boolean; lock: typeof scorerMatchLocksTable.$inferSelect }
   | { ok: false; code: "MATCH_LOCKED" };

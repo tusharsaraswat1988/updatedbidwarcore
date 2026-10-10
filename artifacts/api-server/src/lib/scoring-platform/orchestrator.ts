@@ -5,6 +5,7 @@ import {
   scoringFixturesTable,
   scoringMatchesTable,
   scoringSessionsTable,
+  scorerMatchLocksTable,
   teamsTable,
 } from "@workspace/db";
 import {
@@ -38,8 +39,15 @@ import {
 import { getScoringAdapter, runPostMatchProjectionPipeline } from "./projections";
 import { parseScoringEvent, replayScoringMatchState } from "../scoring-platform";
 import { isTerminalScoringMatchStatus } from "../scoring-match-terminal";
-import { assertAuthoritativeScorerLease, ScorerLockError } from "../scorer-match-locks";
-import { cricketLiveSlotsConflict } from "../cricket-competition-scope";
+import {
+  assertAuthoritativeScorerLease,
+  isScorerLockHeartbeatFresh,
+  ScorerLockError,
+} from "../scorer-match-locks";
+import {
+  cricketLiveSlotsConflict,
+  incompleteLiveMatchBlocksStart,
+} from "../cricket-competition-scope";
 
 export type ScoringActor = {
   /** 'scorer' = dedicated Empire scorer acting on a locked match. */
@@ -106,9 +114,22 @@ async function persistDlsCalculation(
   });
 }
 
+function actingScorerIdFromEvent(input: {
+  lease?: { scorerId: number } | null;
+  actor: ScoringActor;
+}): number | null {
+  if (input.lease?.scorerId != null) return input.lease.scorerId;
+  if (input.actor.type === "scorer" && input.actor.id) {
+    const parsed = Number(input.actor.id);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 async function ensureNoOtherLiveCricketMatch(
   tournamentId: number,
   matchId: number,
+  actingScorerId: number | null,
 ): Promise<void> {
   const liveRows = await db
     .select()
@@ -149,92 +170,120 @@ async function ensureNoOtherLiveCricketMatch(
   const candidateDrawId =
     current.fixtureId != null ? (drawByFixture.get(current.fixtureId) ?? null) : null;
 
-  const otherLive = others.find((match) => {
+  const conflicting = others.filter((match) => {
     const otherDrawId = match.fixtureId != null ? (drawByFixture.get(match.fixtureId) ?? null) : null;
     return cricketLiveSlotsConflict(candidateDrawId, otherDrawId);
   });
+  if (conflicting.length === 0) return;
 
-  if (!otherLive) return;
-
-  const otherDrawId =
-    otherLive.fixtureId != null ? (drawByFixture.get(otherLive.fixtureId) ?? null) : null;
-
-  // Check if otherLive has already reached an authoritative terminal winning state
-  const [session] = await db
-    .select({ stateJson: scoringSessionsTable.stateJson })
+  const conflictingIds = conflicting.map((match) => match.id);
+  const sessions = await db
+    .select({
+      matchId: scoringSessionsTable.matchId,
+      stateJson: scoringSessionsTable.stateJson,
+    })
     .from(scoringSessionsTable)
-    .where(eq(scoringSessionsTable.matchId, otherLive.id))
-    .limit(1);
+    .where(inArray(scoringSessionsTable.matchId, conflictingIds));
+  const locks = await db
+    .select({
+      matchId: scorerMatchLocksTable.matchId,
+      scorerId: scorerMatchLocksTable.scorerId,
+      lastHeartbeatAt: scorerMatchLocksTable.lastHeartbeatAt,
+    })
+    .from(scorerMatchLocksTable)
+    .where(inArray(scorerMatchLocksTable.matchId, conflictingIds));
+  const sessionByMatch = new Map(sessions.map((row) => [row.matchId, row]));
+  const lockByMatch = new Map(locks.map((row) => [row.matchId, row]));
 
-  let isLogicallyComplete = false;
-  if (session?.stateJson) {
-    const otherState = session.stateJson as CricketScoreboardState;
-    const terminalCheck = isCricketMatchTerminalState(otherState);
-    if (terminalCheck.valid) {
-      const derived = deriveCricketMatchResult(otherState);
-      // Unambiguous winner: not a tie needing super-over
-      if (!derived.isTie) {
-        try {
-          const matchMeta = buildMatchMetaFromRules({
-            matchId: otherLive.id,
-            tournamentId: otherLive.tournamentId,
-            homeTeamId: otherLive.homeTeamId,
-            awayTeamId: otherLive.awayTeamId,
-            rules: (otherLive.rulesJson ?? {}) as Record<string, unknown>,
-            ruleResolution:
-              ((otherLive.runtimePrepMetadataJson as Record<string, unknown> | null)
-                ?.ruleResolution as Record<string, unknown> | null) ?? null,
-            matchTypeId: otherLive.matchTypeId,
-          });
+  for (const otherLive of conflicting) {
+    const otherDrawId =
+      otherLive.fixtureId != null ? (drawByFixture.get(otherLive.fixtureId) ?? null) : null;
+    const session = sessionByMatch.get(otherLive.id);
+    let isLogicallyComplete = false;
 
-          await appendSingleMatchEvent(
-            {
-              tournamentId,
+    if (session?.stateJson) {
+      const otherState = session.stateJson as CricketScoreboardState;
+      const terminalCheck = isCricketMatchTerminalState(otherState);
+      if (terminalCheck.valid) {
+        const derived = deriveCricketMatchResult(otherState);
+        if (!derived.isTie) {
+          try {
+            const matchMeta = buildMatchMetaFromRules({
               matchId: otherLive.id,
-              sportSlug: "cricket",
-              eventType: CricketEventType.MATCH_COMPLETED,
-              payload: {
-                winnerTeamId: derived.winnerTeamId,
-                margin: derived.margin,
-                resultText: derived.resultText,
-                isTie: derived.isTie,
+              tournamentId: otherLive.tournamentId,
+              homeTeamId: otherLive.homeTeamId,
+              awayTeamId: otherLive.awayTeamId,
+              rules: (otherLive.rulesJson ?? {}) as Record<string, unknown>,
+              ruleResolution:
+                ((otherLive.runtimePrepMetadataJson as Record<string, unknown> | null)
+                  ?.ruleResolution as Record<string, unknown> | null) ?? null,
+              matchTypeId: otherLive.matchTypeId,
+            });
+
+            await appendSingleMatchEvent(
+              {
+                tournamentId,
+                matchId: otherLive.id,
+                sportSlug: "cricket",
+                eventType: CricketEventType.MATCH_COMPLETED,
+                payload: {
+                  winnerTeamId: derived.winnerTeamId,
+                  margin: derived.margin,
+                  resultText: derived.resultText,
+                  isTie: derived.isTie,
+                },
+                expectedSequence: otherState.lastSequence,
+                actor: { type: "system", id: "auto_completion" },
+                matchMeta,
               },
-              expectedSequence: otherState.lastSequence,
-              actor: { type: "system", id: "auto_completion" },
-              matchMeta,
-            },
-            otherLive,
-          );
-          // Match 1 was safely completed on behalf of the tournament! Live slot is freed.
-          return;
-        } catch (autoErr) {
-          logger.warn(
-            { err: autoErr, otherLiveMatchId: otherLive.id },
-            "Auto-completion of logically finished match encountered error, falling back to operator recovery",
-          );
+              otherLive,
+            );
+            continue;
+          } catch (autoErr) {
+            logger.warn(
+              { err: autoErr, otherLiveMatchId: otherLive.id },
+              "Auto-completion of logically finished match encountered error, falling back to operator recovery",
+            );
+            isLogicallyComplete = true;
+          }
+        } else {
           isLogicallyComplete = true;
         }
-      } else {
-        isLogicallyComplete = true;
       }
     }
-  }
 
-  const scope =
-    candidateDrawId != null && otherDrawId === candidateDrawId ? "competition" : "tournament";
-  throw new ScoringPlatformError(
-    `Match #${otherLive.id}${otherLive.matchLabel ? ` (${otherLive.matchLabel})` : ""} is already live in this ${scope}. Please pause or complete it before starting another match.`,
-    409,
-    "LIVE_MATCH_EXISTS",
-    {
-      liveMatchId: otherLive.id,
-      matchLabel: otherLive.matchLabel,
-      roundName: otherLive.roundName,
-      homeTeamId: otherLive.homeTeamId,
-      awayTeamId: otherLive.awayTeamId,
-      isLogicallyComplete,
-    },
-  );
+    if (!isLogicallyComplete) {
+      const lock = lockByMatch.get(otherLive.id);
+      const sessionStatus =
+        session?.stateJson &&
+        typeof (session.stateJson as { sessionStatus?: unknown }).sessionStatus === "string"
+          ? ((session.stateJson as { sessionStatus: string }).sessionStatus)
+          : null;
+      const blocks = incompleteLiveMatchBlocksStart({
+        sessionStatus,
+        lockScorerId: lock?.scorerId ?? null,
+        lockFresh: lock ? isScorerLockHeartbeatFresh(lock.lastHeartbeatAt) : false,
+        actingScorerId,
+      });
+      if (!blocks) continue;
+    }
+
+    const scope =
+      candidateDrawId != null && otherDrawId === candidateDrawId ? "competition" : "tournament";
+    throw new ScoringPlatformError(
+      `Match #${otherLive.id}${otherLive.matchLabel ? ` (${otherLive.matchLabel})` : ""} is still being scored in this ${scope}. Leave that match, or finish it, before starting another. An incomplete match you already left does not block you.`,
+      409,
+      "LIVE_MATCH_EXISTS",
+      {
+        liveMatchId: otherLive.id,
+        matchLabel: otherLive.matchLabel,
+        roundName: otherLive.roundName,
+        homeTeamId: otherLive.homeTeamId,
+        awayTeamId: otherLive.awayTeamId,
+        isLogicallyComplete,
+      },
+    );
+  }
 }
 
 type MatchProjection = {
@@ -383,7 +432,11 @@ export async function appendSingleMatchEvent(
     input.eventType === CricketEventType.MATCH_STARTED ||
     input.eventType === CricketEventType.MATCH_RESUMED
   ) {
-    await ensureNoOtherLiveCricketMatch(input.tournamentId, input.matchId);
+    await ensureNoOtherLiveCricketMatch(
+      input.tournamentId,
+      input.matchId,
+      actingScorerIdFromEvent(input),
+    );
   }
 
   let eventRow: ScoringEventEnvelope;

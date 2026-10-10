@@ -549,7 +549,7 @@ export function PreMatchSetup({
             </DialogTitle>
             <DialogDescription className="space-y-2 pt-2 text-left">
               <p className="text-foreground/90 text-xs sm:text-sm">
-                BidWar enforces <strong>one live cricket match at a time</strong> per tournament so LED stadium scoreboards, live streaming overlays, and tournament standings stay completely synchronized.
+                Another umpire is still scoring a match in this competition. An incomplete match you have already left does not block you — open the next match, start it, and complete it.
               </p>
               {liveMatchConflict && (
                 <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 space-y-1.5 mt-2">
@@ -568,7 +568,7 @@ export function PreMatchSetup({
                   <p className="text-[11px] text-muted-foreground pt-1">
                     {liveMatchConflict.isLogicallyComplete
                       ? "This match has completed all overs/target. Head over to its scorer pad to submit official confirmation."
-                      : "Please conclude or complete the live match before starting this new match."}
+                      : "This match is still open on another umpire console. Leave that console, or finish it, before starting this one. A match you already left can stay incomplete."}
                   </p>
                 </div>
               )}

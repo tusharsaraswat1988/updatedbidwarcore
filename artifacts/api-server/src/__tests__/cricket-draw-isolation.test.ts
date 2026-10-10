@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { cricketLiveSlotsConflict, hasCricketCompetitionLineage } from "../lib/cricket-competition-scope";
+import {
+  cricketLiveSlotsConflict,
+  hasCricketCompetitionLineage,
+  incompleteLiveMatchBlocksStart,
+} from "../lib/cricket-competition-scope";
 
 vi.mock("@workspace/db", () => ({
   db: {},
@@ -242,6 +246,44 @@ describe("cricket live competition slots", () => {
   it("allows one live match in each draw and blocks a second live match in the same draw", () => {
     expect(cricketLiveSlotsConflict(1, 2)).toBe(false);
     expect(cricketLiveSlotsConflict(1, 1)).toBe(true);
+  });
+
+  it("lets an umpire leave an incomplete match and start another", () => {
+    expect(
+      incompleteLiveMatchBlocksStart({
+        sessionStatus: "paused",
+        lockScorerId: 9,
+        lockFresh: true,
+        actingScorerId: 4,
+      }),
+    ).toBe(false);
+    expect(
+      incompleteLiveMatchBlocksStart({
+        sessionStatus: "live",
+        lockScorerId: null,
+        lockFresh: false,
+        actingScorerId: 4,
+      }),
+    ).toBe(false);
+    expect(
+      incompleteLiveMatchBlocksStart({
+        sessionStatus: "live",
+        lockScorerId: 4,
+        lockFresh: true,
+        actingScorerId: 4,
+      }),
+    ).toBe(false);
+  });
+
+  it("still blocks when a different umpire is actively scoring the other match", () => {
+    expect(
+      incompleteLiveMatchBlocksStart({
+        sessionStatus: "live",
+        lockScorerId: 9,
+        lockFresh: true,
+        actingScorerId: 4,
+      }),
+    ).toBe(true);
   });
 
   it("treats a fixture-less cricket match as having no competition lineage", () => {

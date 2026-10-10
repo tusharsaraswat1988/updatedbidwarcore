@@ -704,15 +704,14 @@ export function LiveScoringPad({
     : null;
 
   return (
-    <div className="flex flex-col h-full justify-between gap-1.5 sm:gap-3 overflow-hidden select-none">
+    <div className="flex flex-col h-full min-h-0 justify-between gap-1 sm:gap-2 overflow-hidden select-none">
       {isPaused ? (
-        <div className="mx-2 mt-1 rounded-xl border border-sky-500/40 bg-sky-500/15 px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-sky-100 shadow-sm">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="mx-0.5 mt-0.5 rounded-xl border border-sky-500/40 bg-sky-500/15 px-2.5 py-1.5 flex flex-wrap items-center justify-between gap-1.5 text-xs text-sky-100 shadow-sm shrink-0">
+          <div className="flex items-center gap-2 min-w-0 flex-1 basis-40">
             <CloudRain className="w-4 h-4 shrink-0 text-sky-300 animate-pulse" />
-            <span>
-              <strong>Match Paused</strong> (Rain delay
-              {state.interruptionReason ? ` — ${state.interruptionReason}` : ""}).
-              Keypad is locked until resumed.
+            <span className="min-w-0 leading-snug">
+              <strong>Match Paused</strong>
+              <span className="text-sky-100/80"> — keypad locked{state.interruptionReason ? ` · ${state.interruptionReason}` : ""}</span>
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -742,7 +741,7 @@ export function LiveScoringPad({
 
       {/* Super Ball Banner */}
       {isSuperBallActive ? (
-        <div className="mx-2 rounded-xl border border-amber-400/60 bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/20 px-3 py-1.5 flex items-center justify-between text-xs font-bold text-amber-300 shadow-sm animate-pulse">
+        <div className="mx-0.5 rounded-xl border border-amber-400/60 bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-amber-500/20 px-2.5 py-1 flex items-center justify-between gap-2 text-xs font-bold text-amber-300 shadow-sm shrink-0">
           <div className="flex items-center gap-1.5">
             <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
             <span className="text-[11px]">SUPER BALL: ALL runs DOUBLED (2x)!</span>
@@ -759,14 +758,14 @@ export function LiveScoringPad({
 
       {/* Free Hit Banner */}
       {state.freeHitActive ? (
-        <div className="mx-2 rounded-xl border border-emerald-500/50 bg-emerald-500/15 px-3 py-1.5 flex items-center gap-1.5 text-xs font-bold text-emerald-300 shadow-sm">
+        <div className="mx-0.5 rounded-xl border border-emerald-500/50 bg-emerald-500/15 px-2.5 py-1 flex items-center gap-1.5 text-xs font-bold text-emerald-300 shadow-sm shrink-0">
           <Zap className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" />
           <span className="text-[11px]">FREE HIT ACTIVE: Only Run Out dismissals!</span>
         </div>
       ) : null}
 
       {/* ─── Scoreboard Strip ─── */}
-      <div className="px-3 py-2 sm:px-4 sm:py-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#111938]/95 via-[#0c132a]/95 to-[#070b19]/98 shadow-xl shadow-black/40 space-y-2 shrink-0 backdrop-blur-md">
+      <div className="px-2.5 py-1.5 sm:px-4 sm:py-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#111938]/95 via-[#0c132a]/95 to-[#070b19]/98 shadow-xl shadow-black/40 space-y-1.5 sm:space-y-2 shrink-0 backdrop-blur-md">
         {/* Top Meta Row: Innings/Target & Teams Matchup */}
         <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-white/5">
           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
@@ -797,9 +796,9 @@ export function LiveScoringPad({
         </div>
 
         {/* Main Score (Left) & CRR / RRR Boxes (Right) */}
-        <div className="flex items-center justify-between gap-2 sm:gap-3">
+        <div className="flex items-center justify-between gap-2 min-w-0">
           <div className="min-w-0">
-            <p className="text-2xl sm:text-4xl font-black tabular-nums tracking-tight text-white flex items-baseline gap-1.5 sm:gap-2 font-mono">
+            <p className="text-xl sm:text-4xl font-black tabular-nums tracking-tight text-white flex flex-wrap items-baseline gap-x-1.5 gap-y-0 font-mono leading-none">
               <span>{innings.runs}/{innings.wickets}</span>
               <span className="text-xs sm:text-base text-white/60 font-semibold font-sans">
                 ({oversText(innings.over, innings.ball)} / {state.oversLimit} ov)
@@ -902,7 +901,7 @@ export function LiveScoringPad({
                   <span>Bowler</span>
                 </span>
                 <p
-                  className="font-bold text-slate-100 text-xs sm:text-sm mt-1 break-words"
+                  className="font-bold text-slate-100 text-xs sm:text-sm mt-1 truncate"
                   title={playerNameById(players, activeBowlerId) || "Select Bowler"}
                 >
                   {playerNameById(players, activeBowlerId) || (
@@ -929,7 +928,7 @@ export function LiveScoringPad({
           <span className="text-[10px] sm:text-[11px] font-bold text-white/50 uppercase tracking-wider shrink-0">
             This Over:
           </span>
-          <div className="flex flex-wrap items-center gap-1.5 flex-1 justify-end">
+          <div className="flex flex-nowrap items-center gap-1 flex-1 justify-end min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {(state?.thisOver?.length ?? 0) > 0 ? (
               (state?.thisOver ?? []).map((b, i) => {
                 const isW = b.isWicket;
@@ -1032,23 +1031,21 @@ export function LiveScoringPad({
 
       {/* ─── Match / Innings Complete State vs Main Keypad ─── */}
       {isMatchCompleteState ? (
-        <div className="relative rounded-2xl sm:rounded-3xl border border-emerald-500/30 bg-gradient-to-b from-[#0b211a] via-[#071611] to-[#040b09] p-4 sm:p-6 flex-1 min-h-0 flex flex-col items-center justify-between text-center shadow-2xl shadow-emerald-950/50 overflow-hidden">
-          {/* Ambient Glow */}
+        <div className="relative rounded-2xl sm:rounded-3xl border border-emerald-500/30 bg-gradient-to-b from-[#0b211a] via-[#071611] to-[#040b09] flex-1 min-h-0 flex flex-col text-center shadow-2xl shadow-emerald-950/50 overflow-hidden">
           <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 sm:w-64 sm:h-64 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Top Trophy & Status */}
-          <div className="space-y-2 relative z-10">
-            <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-emerald-300 bg-emerald-500/15 px-3.5 py-1 rounded-full border border-emerald-500/30 shadow-inner">
-              <Trophy className="w-3.5 h-3.5 text-amber-400" />
-              {isTargetReached ? "TARGET REACHED · MATCH WON" : "CHASE COMPLETE · MATCH FINISHED"}
+          <div className="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 pt-3 sm:px-6 sm:pt-6 flex flex-col items-center gap-2">
+            <span className="inline-flex max-w-full items-center justify-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-emerald-300 bg-emerald-500/15 px-3 py-1 rounded-full border border-emerald-500/30 shadow-inner text-center leading-tight">
+              <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              {isTargetReached ? "Target reached · Match won" : "Chase complete · Match finished"}
             </span>
 
-            <div className="w-14 h-14 sm:w-18 sm:h-18 mx-auto rounded-2xl bg-gradient-to-br from-amber-400/20 via-emerald-500/20 to-emerald-600/30 border border-amber-400/40 flex items-center justify-center shadow-xl shadow-amber-500/10 mt-1">
-              <Trophy className="w-7 h-7 sm:w-9 sm:h-9 text-amber-300 drop-shadow-md" />
+            <div className="w-11 h-11 sm:w-16 sm:h-16 mx-auto rounded-2xl bg-gradient-to-br from-amber-400/20 via-emerald-500/20 to-emerald-600/30 border border-amber-400/40 flex items-center justify-center shadow-xl shadow-amber-500/10 shrink-0">
+              <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-amber-300 drop-shadow-md" />
             </div>
 
-            <div className="space-y-0.5">
-              <h3 className="text-xl sm:text-3xl font-black text-white tracking-wide leading-tight">
+            <div className="space-y-0.5 w-full min-w-0 px-1">
+              <h3 className="text-lg sm:text-3xl font-black text-white tracking-wide leading-tight break-words">
                 {(() => {
                   const winnerTeam = teams.find((t) => t.id === matchResultPreview?.winnerTeamId);
                   if (matchResultPreview?.isTie) return "Match Tied!";
@@ -1056,36 +1053,34 @@ export function LiveScoringPad({
                   return "Match Complete";
                 })()}
               </h3>
-              <p className="text-base sm:text-xl font-extrabold text-emerald-400">
+              <p className="text-sm sm:text-xl font-extrabold text-emerald-400 break-words">
                 {matchResultPreview?.isTie ? "Scores are Level" : (matchResultPreview?.resultText ?? "Won")}
               </p>
             </div>
+
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2 w-full max-w-sm py-1">
+              <div className="rounded-xl bg-white/[0.04] border border-white/10 p-1.5 sm:p-2 text-center min-w-0">
+                <span className="text-[9px] uppercase font-bold text-white/50 block">Score</span>
+                <span className="text-sm sm:text-base font-black text-white font-mono tabular-nums">
+                  {innings?.runs}/{innings?.wickets}
+                </span>
+              </div>
+              <div className="rounded-xl bg-white/[0.04] border border-white/10 p-1.5 sm:p-2 text-center min-w-0">
+                <span className="text-[9px] uppercase font-bold text-white/50 block">Overs</span>
+                <span className="text-sm sm:text-base font-black text-white font-mono tabular-nums">
+                  {oversText(innings?.over ?? 0, innings?.ball ?? 0)}
+                </span>
+              </div>
+              <div className="rounded-xl bg-white/[0.04] border border-white/10 p-1.5 sm:p-2 text-center min-w-0">
+                <span className="text-[9px] uppercase font-bold text-white/50 block">Target</span>
+                <span className="text-sm sm:text-base font-black text-amber-300 font-mono tabular-nums">
+                  {state.target ?? "—"}
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Scorecard Stats Grid */}
-          <div className="grid grid-cols-3 gap-2 w-full max-w-xs sm:max-w-sm py-2 relative z-10">
-            <div className="rounded-xl bg-white/[0.04] border border-white/10 p-2 text-center">
-              <span className="text-[9px] uppercase font-bold text-white/50 block">Score</span>
-              <span className="text-sm sm:text-base font-black text-white font-mono tabular-nums">
-                {innings?.runs}/{innings?.wickets}
-              </span>
-            </div>
-            <div className="rounded-xl bg-white/[0.04] border border-white/10 p-2 text-center">
-              <span className="text-[9px] uppercase font-bold text-white/50 block">Overs</span>
-              <span className="text-sm sm:text-base font-black text-white font-mono tabular-nums">
-                {oversText(innings?.over ?? 0, innings?.ball ?? 0)}
-              </span>
-            </div>
-            <div className="rounded-xl bg-white/[0.04] border border-white/10 p-2 text-center">
-              <span className="text-[9px] uppercase font-bold text-white/50 block">Target</span>
-              <span className="text-sm sm:text-base font-black text-amber-300 font-mono tabular-nums">
-                {state.target ?? "—"}
-              </span>
-            </div>
-          </div>
-
-          {/* Action CTAs */}
-          <div className="flex flex-col gap-2 w-full max-w-sm relative z-10">
+          <div className="relative z-10 shrink-0 flex flex-col gap-2 w-full px-3 pt-2 pb-2 sm:px-6 sm:pb-5 border-t border-white/10 bg-[#040b09]/90">
             <Button
               className="w-full h-11 sm:h-12 text-sm sm:text-base font-black bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/30 rounded-xl active:scale-[0.98] transition-all"
               disabled={busy}
@@ -1114,41 +1109,37 @@ export function LiveScoringPad({
           </div>
         </div>
       ) : isInnings1Finished ? (
-        <div className="relative rounded-2xl sm:rounded-3xl border border-sky-500/30 bg-gradient-to-b from-[#0f2038] via-[#091526] to-[#040a14] p-4 sm:p-6 flex-1 min-h-0 flex flex-col items-center justify-between text-center shadow-2xl shadow-sky-950/50 overflow-hidden">
-          {/* Ambient Glow */}
+        <div className="relative rounded-2xl sm:rounded-3xl border border-sky-500/30 bg-gradient-to-b from-[#0f2038] via-[#091526] to-[#040a14] flex-1 min-h-0 flex flex-col text-center shadow-2xl shadow-sky-950/50 overflow-hidden">
           <div className="absolute -top-16 left-1/2 -translate-x-1/2 w-48 h-48 sm:w-64 sm:h-64 bg-sky-500/15 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Top Flag & Status */}
-          <div className="space-y-2 relative z-10">
-            <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-sky-300 bg-sky-500/15 px-3.5 py-1 rounded-full border border-sky-500/30 shadow-inner">
+          <div className="relative z-10 flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 pt-3 sm:px-6 sm:pt-6 flex flex-col items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-sky-300 bg-sky-500/15 px-3 py-1 rounded-full border border-sky-500/30 shadow-inner">
               <Flag className="w-3.5 h-3.5 text-sky-400" />
-              INNINGS 1 COMPLETE
+              Innings 1 complete
             </span>
 
-            <div className="w-14 h-14 sm:w-18 sm:h-18 mx-auto rounded-2xl bg-gradient-to-br from-sky-400/20 via-indigo-500/20 to-sky-600/30 border border-sky-400/40 flex items-center justify-center shadow-xl shadow-sky-500/10 mt-1">
-              <Flag className="w-7 h-7 sm:w-9 sm:h-9 text-sky-300" />
+            <div className="w-11 h-11 sm:w-16 sm:h-16 mx-auto rounded-2xl bg-gradient-to-br from-sky-400/20 via-indigo-500/20 to-sky-600/30 border border-sky-400/40 flex items-center justify-center shadow-xl shadow-sky-500/10 shrink-0">
+              <Flag className="w-6 h-6 sm:w-8 sm:h-8 text-sky-300" />
             </div>
 
-            <div className="space-y-0.5">
-              <h3 className="text-xl sm:text-3xl font-black text-white tracking-wide leading-tight">
+            <div className="space-y-0.5 w-full min-w-0 px-1">
+              <h3 className="text-lg sm:text-3xl font-black text-white tracking-wide leading-tight break-words">
                 {battingTeam?.name ?? "1st Innings"}
               </h3>
-              <p className="text-base sm:text-xl font-extrabold text-sky-400 font-mono">
+              <p className="text-sm sm:text-xl font-extrabold text-sky-400 font-mono break-words">
                 {innings?.runs}/{innings?.wickets} in {oversText(innings?.over ?? 0, innings?.ball ?? 0)} ov
               </p>
             </div>
+
+            <div className="w-full max-w-sm py-2 px-3 rounded-xl bg-sky-500/10 border border-sky-500/30 text-center">
+              <span className="text-[10px] uppercase font-bold text-sky-300/80 block">Target for 2nd Innings</span>
+              <span className="text-base sm:text-xl font-black text-white font-mono">
+                {innings?.runs ? innings.runs + 1 : 1} runs <span className="text-xs text-sky-200 font-semibold">in {state.oversLimit} overs</span>
+              </span>
+            </div>
           </div>
 
-          {/* Chase Target Pill */}
-          <div className="w-full max-w-xs sm:max-w-sm py-2 px-4 rounded-xl bg-sky-500/10 border border-sky-500/30 text-center relative z-10">
-            <span className="text-[10px] uppercase font-bold text-sky-300/80 block">Target for 2nd Innings</span>
-            <span className="text-lg sm:text-xl font-black text-white font-mono">
-              {innings?.runs ? innings.runs + 1 : 1} runs <span className="text-xs text-sky-200 font-semibold">in {state.oversLimit} overs</span>
-            </span>
-          </div>
-
-          {/* Action CTAs */}
-          <div className="flex flex-col gap-2 w-full max-w-sm relative z-10">
+          <div className="relative z-10 shrink-0 flex flex-col gap-2 w-full px-3 pt-2 pb-2 sm:px-6 sm:pb-5 border-t border-white/10 bg-[#040a14]/90">
             <Button
               className="w-full h-11 sm:h-12 text-sm sm:text-base font-black bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white shadow-lg shadow-sky-500/30 rounded-xl active:scale-[0.98] transition-all"
               disabled={busy}
@@ -1190,7 +1181,7 @@ export function LiveScoringPad({
         </Button>
       ) : (
         /* ─── Main Scorer Keypad Grid ─── */
-        <div className="p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c1328]/95 to-[#070b19]/98 flex-1 min-h-0 flex flex-col justify-between gap-1 sm:gap-1.5 shadow-2xl shadow-black/50 backdrop-blur-md">
+        <div className="p-1.5 sm:p-2.5 rounded-xl sm:rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c1328]/95 to-[#070b19]/98 flex-1 min-h-0 min-w-0 flex flex-col justify-between gap-1 sm:gap-1.5 shadow-2xl shadow-black/50 backdrop-blur-md overflow-hidden">
           {/* Row 1: Primary Runs 0, 1, 2, 3 */}
           <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
             <ScoreButton
@@ -1377,7 +1368,7 @@ export function LiveScoringPad({
           <div className="grid grid-cols-2 gap-1 sm:gap-1.5 flex-1 min-h-0">
             <ScoreButton
               label={
-                <span className="flex items-center justify-center gap-1.5 text-base sm:text-lg tracking-wider font-black">
+                <span className="flex items-center justify-center gap-1 text-sm sm:text-lg tracking-wide font-black">
                   <span>⚡</span> OUT / WICKET
                 </span>
               }
@@ -2043,11 +2034,15 @@ export function LiveScoringPad({
       {/* ─── Secondary / Match Actions Sheet ─── */}
       {/* ═══════════════════════════════════════════════════ */}
       <Sheet open={secondaryOpen} onOpenChange={setSecondaryOpen}>
-        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto">
-          <SheetHeader>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-2xl max-w-lg mx-auto flex min-h-0 max-h-[min(85dvh,calc(100dvh-env(safe-area-inset-top)))] flex-col overflow-hidden p-0"
+        >
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-5 sm:px-6 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <SheetHeader className="pr-8 text-left">
             <SheetTitle>Match Actions & Admin</SheetTitle>
           </SheetHeader>
-          <div className="grid gap-2 mt-4 pb-6">
+          <div className="grid gap-2 mt-4">
             {!isPaused ? (
               <Button
                 variant="outline"
@@ -2214,6 +2209,7 @@ export function LiveScoringPad({
             >
               Abandon Match
             </Button>
+          </div>
           </div>
         </SheetContent>
       </Sheet>

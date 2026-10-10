@@ -57,7 +57,7 @@ export function ScoreButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "group relative flex flex-col items-center justify-center rounded-xl sm:rounded-2xl border min-h-[3rem] sm:min-h-[3.85rem] h-full p-1 touch-manipulation select-none transition-all duration-150 backdrop-blur-md cursor-pointer",
+        "group relative flex flex-col items-center justify-center rounded-xl sm:rounded-2xl border min-h-[2.75rem] sm:min-h-[3.85rem] h-full w-full min-w-0 p-1 touch-manipulation select-none transition-all duration-150 backdrop-blur-md cursor-pointer",
         "disabled:opacity-30 disabled:pointer-events-none disabled:cursor-not-allowed",
         variantClasses[variant],
         className,

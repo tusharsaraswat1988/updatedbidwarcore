@@ -718,8 +718,8 @@ export default function CricketScorerPage() {
       className={cn(
         "w-full bg-[#070b19] text-white flex flex-col select-none",
         showSetup
-          ? "relative min-h-[100dvh]"
-          : "fixed inset-0 h-[100dvh] max-h-[100dvh] overflow-hidden touch-manipulation overscroll-none",
+          ? "relative min-h-[100dvh] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
+          : "fixed inset-0 h-[100dvh] max-h-[100dvh] overflow-hidden touch-manipulation overscroll-none pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
       )}
     >
       {/* ─── Fixed Header Bar (min 46px) ─── */}
