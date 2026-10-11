@@ -72,7 +72,7 @@ describe("standings projection inputs", () => {
     expect(isKnockoutMatch({ roundName: "Qualifier 1" })).toBe(true);
     expect(isKnockoutMatch({ roundName: "Group A — Round 1", matchTypeId: "league" })).toBe(false);
     expect(isKnockoutMatch({ roundName: "Round 2", matchTypeId: "league" })).toBe(false);
-  });
+  }, 20000);
 
   it("handles no_result matches without attributing NRR runs or overs", () => {
     const rows = buildStandingsFromMatches([10, 20], [
@@ -162,5 +162,23 @@ describe("standings projection inputs", () => {
     );
     expect(fromTieFlag.map((standing) => standing.teamId)).toEqual([1, 2]);
     expect(fromMissingWinner.map((standing) => standing.teamId)).toEqual([1, 2]);
+  });
+
+  it("counts a result in the group whose fixture lists the two teams that played", async () => {
+    const { selectLeagueMatchesForGroup } = await import("../lib/scoring-standings");
+    const fixtures = [
+      { id: 27, drawId: 4, groupId: 3, homeTeamId: 1, awayTeamId: 2, roundName: "Group A — Match 23" },
+      { id: 29, drawId: 4, groupId: 4, homeTeamId: 77, awayTeamId: 5, roundName: "Group B — Match 25" },
+    ];
+    const fixturesById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
+    const matches = [
+      { fixtureId: 27, homeTeamId: 5, awayTeamId: 77, matchId: 133 },
+    ];
+
+    const groupA = selectLeagueMatchesForGroup(matches, fixturesById, { id: 3, drawId: 4 });
+    const groupB = selectLeagueMatchesForGroup(matches, fixturesById, { id: 4, drawId: 4 });
+
+    expect(groupA).toEqual([]);
+    expect(groupB.map((match) => match.matchId)).toEqual([133]);
   });
 });

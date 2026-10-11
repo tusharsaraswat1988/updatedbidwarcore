@@ -82,6 +82,8 @@ export type CompetitionFixtureRef = {
   id: number;
   drawId: number | null;
   groupId: number | null;
+  homeTeamId?: number;
+  awayTeamId?: number;
   matchTypeId?: string | null;
   roundName?: string | null;
 };
@@ -105,15 +107,63 @@ export function fixtureBelongsToDrawGroup(
   return !isKnockoutMatch(fixture);
 }
 
-export function selectLeagueMatchesForGroup<T extends { fixtureId: number | null }>(
+function sameFixturePair(
+  fixture: { homeTeamId?: number; awayTeamId?: number },
+  homeTeamId: number,
+  awayTeamId: number,
+): boolean {
+  if (fixture.homeTeamId == null || fixture.awayTeamId == null) return false;
+  return (
+    (fixture.homeTeamId === homeTeamId && fixture.awayTeamId === awayTeamId) ||
+    (fixture.homeTeamId === awayTeamId && fixture.awayTeamId === homeTeamId)
+  );
+}
+
+/**
+ * Points follow the fixture that lists the two teams who actually played.
+ * A result saved on a different fixture in the same draw is counted in that
+ * pairing's group. Knockouts are never a stand-in for a league fixture.
+ */
+export function resolveStandingsFixture<
+  T extends { fixtureId: number | null; homeTeamId?: number; awayTeamId?: number },
+>(
+  match: T,
+  fixturesById: Map<number, CompetitionFixtureRef>,
+): CompetitionFixtureRef | undefined {
+  if (match.fixtureId == null) return undefined;
+  const linked = fixturesById.get(match.fixtureId);
+  if (!linked) return undefined;
+  if (
+    match.homeTeamId == null ||
+    match.awayTeamId == null ||
+    linked.homeTeamId == null ||
+    linked.awayTeamId == null ||
+    sameFixturePair(linked, match.homeTeamId, match.awayTeamId)
+  ) {
+    return linked;
+  }
+
+  const pairing = [...fixturesById.values()].filter(
+    (fixture) =>
+      fixture.drawId === linked.drawId &&
+      fixture.groupId != null &&
+      !isKnockoutMatch(fixture) &&
+      sameFixturePair(fixture, match.homeTeamId!, match.awayTeamId!),
+  );
+  if (pairing.length === 1) return pairing[0];
+  return linked;
+}
+
+export function selectLeagueMatchesForGroup<
+  T extends { fixtureId: number | null; homeTeamId?: number; awayTeamId?: number },
+>(
   matches: T[],
   fixturesById: Map<number, CompetitionFixtureRef>,
   group: { id: number; drawId: number },
 ): T[] {
-  return matches.filter((match) => {
-    if (match.fixtureId == null) return false;
-    return fixtureBelongsToDrawGroup(fixturesById.get(match.fixtureId), group);
-  });
+  return matches.filter((match) =>
+    fixtureBelongsToDrawGroup(resolveStandingsFixture(match, fixturesById), group),
+  );
 }
 
 /**
@@ -121,12 +171,15 @@ export function selectLeagueMatchesForGroup<T extends { fixtureId: number | null
  * When the draw has groups, only those groups' fixtures count. A draw with no groups uses
  * its own non-knockout fixtures.
  */
-export function selectLeagueMatchesForDraw<T extends { fixtureId: number | null }>(
+export function selectLeagueMatchesForDraw<
+  T extends { fixtureId: number | null; homeTeamId?: number; awayTeamId?: number },
+>(
   matches: T[],
   fixtures: CompetitionFixtureRef[],
   drawId: number,
   groupIds: Set<number>,
 ): T[] {
+  const fixturesById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
   const allowed = new Set(
     fixtures
       .filter((fixture) => {
@@ -138,7 +191,10 @@ export function selectLeagueMatchesForDraw<T extends { fixtureId: number | null 
       })
       .map((fixture) => fixture.id),
   );
-  return matches.filter((match) => match.fixtureId != null && allowed.has(match.fixtureId));
+  return matches.filter((match) => {
+    const fixture = resolveStandingsFixture(match, fixturesById);
+    return fixture != null && allowed.has(fixture.id);
+  });
 }
 
 /**
@@ -229,6 +285,8 @@ async function loadDrawCompetitionInputs(tournamentId: number, drawId: number) {
         id: scoringFixturesTable.id,
         drawId: scoringFixturesTable.drawId,
         groupId: scoringFixturesTable.groupId,
+        homeTeamId: scoringFixturesTable.homeTeamId,
+        awayTeamId: scoringFixturesTable.awayTeamId,
         roundName: scoringFixturesTable.roundName,
       })
       .from(scoringFixturesTable)
@@ -431,6 +489,8 @@ async function getScoringStandingsRaw(tournamentId: number) {
         id: scoringFixturesTable.id,
         drawId: scoringFixturesTable.drawId,
         groupId: scoringFixturesTable.groupId,
+        homeTeamId: scoringFixturesTable.homeTeamId,
+        awayTeamId: scoringFixturesTable.awayTeamId,
         roundName: scoringFixturesTable.roundName,
       })
       .from(scoringFixturesTable)
