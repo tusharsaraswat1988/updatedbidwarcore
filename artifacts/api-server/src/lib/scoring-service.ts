@@ -971,7 +971,7 @@ export async function resetCricketMatchSetup(
 
   const initialState = createInitialCricketState(matchMetaFromRow(match));
 
-  const [updatedMatch] = await db.transaction(async (tx) => {
+  const updatedMatch = await db.transaction(async (tx) => {
     if (lease) {
       await assertAuthoritativeScorerLease(tx, {
         matchId,
@@ -1012,7 +1012,7 @@ export async function resetCricketMatchSetup(
       .where(eq(scoringMatchesTable.id, matchId))
       .returning();
 
-    if (existing.fixtureId != null) {
+    if (match.fixtureId != null) {
       await tx
         .update(scoringFixturesTable)
         .set({
@@ -1020,7 +1020,7 @@ export async function resetCricketMatchSetup(
           winnerTeamId: null,
           resultSummary: null,
         })
-        .where(eq(scoringFixturesTable.id, existing.fixtureId));
+        .where(eq(scoringFixturesTable.id, match.fixtureId));
     }
 
     return updated;

@@ -840,6 +840,34 @@ export async function undoScoringEvent(
   );
 }
 
+export type CricketMatchRepairMode = "rebuild" | "reset";
+
+export type CricketMatchRepairResponse = {
+  mode: CricketMatchRepairMode;
+  repaired: Array<{
+    matchId: number;
+    status: string;
+    winnerTeamId: number | null;
+    resultSummary: string | null;
+  }>;
+  skipped: Array<{ matchId: number; reason: string }>;
+  tableRefreshError: string | null;
+};
+
+/** Rebuild derived scores from the ball log, or wipe a finished match so it can be scored again. */
+export async function repairCompletedScoringMatches(
+  tournamentId: number,
+  matchIds: number[],
+  mode: CricketMatchRepairMode,
+): Promise<CricketMatchRepairResponse> {
+  const r = await apiFetch(`/tournaments/${tournamentId}/scoring/matches/repair`, {
+    method: "POST",
+    body: JSON.stringify({ matchIds, mode }),
+  });
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
 export async function resetScoringMatch(
   tournamentId: number,
   matchId: number,

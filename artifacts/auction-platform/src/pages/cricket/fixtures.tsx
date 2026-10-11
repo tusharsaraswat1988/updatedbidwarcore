@@ -45,7 +45,9 @@ import {
   listCricketRulePresets,
   resolveCricketRulePresetSummary,
   formatCricketRulePresetLabel,
+  repairCompletedScoringMatches,
   updateScoringMatch,
+  type CricketMatchRepairMode,
   type CricketRulePresetJson,
   type ScoringMatchRow,
 } from "@/lib/scoring-api";
@@ -71,7 +73,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Calendar, CheckCircle2, ChevronRight, Edit2, ListOrdered, MapPin, Plus, Radio, Settings, Sliders, Trash2, Trophy, Zap } from "lucide-react";
+import { Calendar, CheckCircle2, ChevronRight, Edit2, ListOrdered, MapPin, Plus, Radio, RefreshCw, RotateCcw, Settings, Sliders, Trash2, Trophy, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type FilterKey = "all" | "today" | "upcoming" | "live" | "completed";
@@ -259,6 +261,13 @@ export default function CricketFixturesPage() {
   const [createScheduledAt, setCreateScheduledAt] = useState(""); // datetime-local string
   const [creating, setCreating] = useState(false);
 
+  const [selectedRepairIds, setSelectedRepairIds] = useState<number[]>([]);
+  const [repairConfirm, setRepairConfirm] = useState<{
+    mode: CricketMatchRepairMode;
+    ids: number[];
+  } | null>(null);
+  const [repairing, setRepairing] = useState(false);
+
   const [editMatch, setEditMatch] = useState<ScoringMatchRow | null>(null);
   const [editHomeId, setEditHomeId] = useState("");
   const [editAwayId, setEditAwayId] = useState("");
@@ -403,6 +412,69 @@ export default function CricketFixturesPage() {
       });
     } finally {
       setDeletingMatch(false);
+    }
+  }
+
+  function askRepair(mode: CricketMatchRepairMode, ids: number[]) {
+    const finished = new Set(
+      (matches ?? [])
+        .filter((m) => isTerminalCricketMatchStatus(m.status))
+        .map((m) => m.id),
+    );
+    const next = [...new Set(ids)].filter((id) => finished.has(id));
+    if (next.length === 0) {
+      toast({ title: "Choose a completed match", variant: "destructive" });
+      return;
+    }
+    setRepairConfirm({ mode, ids: next });
+  }
+
+  async function handleRepair() {
+    if (!repairConfirm) return;
+    setRepairing(true);
+    try {
+      const result = await repairCompletedScoringMatches(
+        tournamentId,
+        repairConfirm.ids,
+        repairConfirm.mode,
+      );
+      const done = result.repaired.length;
+      const skipped = result.skipped.length;
+      toast({
+        title:
+          repairConfirm.mode === "rebuild"
+            ? "Score data rebuilt"
+            : "Matches reset for rescoring",
+        description: [
+          done ? `${done} match${done === 1 ? "" : "es"} updated.` : null,
+          skipped ? `${skipped} skipped. ${result.skipped[0]?.reason ?? ""}` : null,
+          result.tableRefreshError ? `Points table: ${result.tableRefreshError}` : null,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        ...(result.tableRefreshError || (done === 0 && skipped > 0)
+          ? { variant: "destructive" as const }
+          : {}),
+      });
+      setSelectedRepairIds((prev) =>
+        prev.filter((id) => !result.repaired.some((row) => row.matchId === id)),
+      );
+      setRepairConfirm(null);
+      await qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-fixtures", tournamentId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-standings", tournamentId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-live", tournamentId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-public", tournamentId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-leaderboard", tournamentId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-awards", tournamentId] });
+    } catch (e) {
+      toast({
+        title: "Could not repair matches",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setRepairing(false);
     }
   }
 
@@ -590,6 +662,58 @@ export default function CricketFixturesPage() {
               badgeVariant="destructive"
             />
 
+            {filter === "completed" && filtered.some((m) => isTerminalCricketMatchStatus(m.status)) ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">Repair finished matches</p>
+                  <p className="text-xs text-muted-foreground max-w-xl">
+                    Rebuild keeps the ball-by-ball record and rewrites the score, player stats, and winner.
+                    Reset clears that record and returns the match to scheduled so it can be scored again.
+                    Squads stay. A knockout slot already filled from a wrong winner has to be edited on that later match.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    className="h-8 text-xs font-semibold"
+                    disabled={repairing}
+                    onClick={() => {
+                      const ids = filtered
+                        .filter((m) => isTerminalCricketMatchStatus(m.status))
+                        .map((m) => m.id);
+                      const allSelected =
+                        ids.length > 0 && ids.every((id) => selectedRepairIds.includes(id));
+                      setSelectedRepairIds(allSelected ? [] : ids);
+                    }}
+                  >
+                    {filtered
+                      .filter((m) => isTerminalCricketMatchStatus(m.status))
+                      .every((m) => selectedRepairIds.includes(m.id))
+                      ? "Clear selection"
+                      : "Select all shown"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-8 text-xs font-semibold gap-1.5"
+                    disabled={repairing || selectedRepairIds.length === 0}
+                    onClick={() => askRepair("rebuild", selectedRepairIds)}
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Rebuild {selectedRepairIds.length || ""}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-8 text-xs font-semibold gap-1.5 text-amber-200 border-amber-500/40 hover:bg-amber-500/10"
+                    disabled={repairing || selectedRepairIds.length === 0}
+                    onClick={() => askRepair("reset", selectedRepairIds)}
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Reset {selectedRepairIds.length || ""}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
             {filtered.length === 0 ? (
               <EmptyState
                 icon={Calendar}
@@ -642,6 +766,21 @@ export default function CricketFixturesPage() {
                         {/* Header: Match #, Stage, Status */}
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                            {filter === "completed" && isCompleted ? (
+                              <input
+                                type="checkbox"
+                                className="h-3.5 w-3.5 accent-amber-400 shrink-0"
+                                checked={selectedRepairIds.includes(m.id)}
+                                onChange={(e) => {
+                                  setSelectedRepairIds((prev) =>
+                                    e.target.checked
+                                      ? [...prev, m.id]
+                                      : prev.filter((id) => id !== m.id),
+                                  );
+                                }}
+                                aria-label={`Select match ${m.tournamentMatchNumber ?? m.id} for repair`}
+                              />
+                            ) : null}
                             <span className="font-black text-xs text-foreground bg-muted/60 px-2 py-0.5 rounded-md border border-border/70 shrink-0">
                               {m.tournamentMatchNumber != null ? `Match #${m.tournamentMatchNumber}` : `Match #${m.id}`}
                             </span>
@@ -839,7 +978,7 @@ export default function CricketFixturesPage() {
                       </div>
 
                       {/* Direct Operational Action Buttons */}
-                      <div className="flex items-center gap-2 pt-1 border-t border-border/40">
+                      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
                         {isLive ? (
                           <>
                             <Link href={scorerUrl} className="flex-1">
@@ -913,6 +1052,26 @@ export default function CricketFixturesPage() {
                               title="Edit match display & summary"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className="h-8.5 px-2.5 text-xs font-semibold rounded-lg shrink-0 gap-1"
+                              disabled={repairing}
+                              onClick={() => askRepair("rebuild", [m.id])}
+                              title="Rebuild score, player stats, and winner from the ball-by-ball record"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                              Rebuild
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className="h-8.5 px-2.5 text-xs font-semibold rounded-lg shrink-0 gap-1"
+                              disabled={repairing}
+                              onClick={() => askRepair("reset", [m.id])}
+                              title="Clear balls, scores, and winner so this match can be scored again"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              Reset
                             </Button>
                           </>
                         )}
@@ -1227,6 +1386,43 @@ export default function CricketFixturesPage() {
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {deletingMatch ? "Deleting..." : "Delete Match"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={!!repairConfirm} onOpenChange={(open) => !open && !repairing && setRepairConfirm(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {repairConfirm?.mode === "reset" ? "Reset and rescore" : "Rebuild score data"}{" "}
+                {repairConfirm ? `(${repairConfirm.ids.length})` : ""}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {repairConfirm?.mode === "reset"
+                  ? "This deletes the ball-by-ball record, player scores, and winner for the selected finished matches, then returns them to scheduled. Squads stay, so you can open the scorer and record the match again. Points and leaderboards are rebuilt from the matches that remain finished. A later knockout fixture that already received this winner is not cleared."
+                  : "This keeps the ball-by-ball record and rewrites the score, player card, awards, winner announcement, points table, and leaderboards from those balls. Use Reset instead when the balls themselves are wrong."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={repairing}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={repairing}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleRepair();
+                }}
+                className={
+                  repairConfirm?.mode === "reset"
+                    ? "bg-amber-500 text-slate-950 hover:bg-amber-400"
+                    : undefined
+                }
+              >
+                {repairing
+                  ? "Working..."
+                  : repairConfirm?.mode === "reset"
+                    ? "Reset matches"
+                    : "Rebuild matches"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

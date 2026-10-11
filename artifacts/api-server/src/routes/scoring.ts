@@ -17,6 +17,7 @@ import {
   ScoringServiceError,
   undoLastScoringEvent,
 } from "../lib/scoring-service";
+import { repairCompletedCricketMatches } from "../lib/cricket-match-repair";
 import {
   addScoringSseClient,
   flushAndActivateScoringSseClient,
@@ -1493,6 +1494,48 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/reset", async (
     });
   } catch (err) {
     if (sendScorerLockError(res, err)) return;
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+/**
+ * POST /tournaments/:tournamentId/scoring/matches/repair
+ *
+ * Organizer repair for finished matches with bad scores, ball-by-ball data,
+ * or winner announcements.
+ * rebuild keeps the ball log and rewrites derived data.
+ * reset wipes the ball log and returns the match to scheduled.
+ */
+router.post("/tournaments/:tournamentId/scoring/matches/repair", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const schema = z.object({
+    mode: z.enum(["rebuild", "reset"]),
+    matchIds: z.array(z.number().int().positive()).min(1).max(40),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  try {
+    const result = await repairCompletedCricketMatches(
+      tournamentId,
+      parsed.data.matchIds,
+      parsed.data.mode,
+    );
+    res.json(result);
+  } catch (err) {
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });
       return;
