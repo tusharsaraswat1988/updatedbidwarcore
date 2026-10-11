@@ -12,7 +12,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRoute, useSearch, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { CricketEventType, buildCricketMatchSummary } from "@workspace/scoring-core";
+import {
+  CricketEventType,
+  buildCricketMatchSummary,
+  type CricketScoreboardState,
+} from "@workspace/scoring-core";
 import { useScoringMatch, useScoringMatches, useInvalidateScoring } from "@/hooks/use-scoring-match";
 import {
   appendScoringEvent,
@@ -70,6 +74,64 @@ import {
   WifiOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function playSnapshot(state: CricketScoreboardState) {
+  const innings = state.innings ?? [];
+  return {
+    balls: innings.reduce((sum, inn) => sum + inn.over * 6 + inn.ball, 0),
+    runs: innings.reduce((sum, inn) => sum + inn.runs, 0),
+    wickets: innings.reduce((sum, inn) => sum + inn.wickets, 0),
+    thisOver: state.thisOver?.length ?? 0,
+  };
+}
+
+function describeCricketUndo(
+  before: CricketScoreboardState,
+  after: CricketScoreboardState,
+): string {
+  const beforePlay = playSnapshot(before);
+  const afterPlay = playSnapshot(after);
+  if (
+    afterPlay.balls < beforePlay.balls ||
+    afterPlay.runs < beforePlay.runs ||
+    afterPlay.wickets < beforePlay.wickets ||
+    afterPlay.thisOver < beforePlay.thisOver
+  ) {
+    return "Last ball removed.";
+  }
+
+  if (
+    (after.innings?.length ?? 0) === 0 ||
+    after.matchStatus === "scheduled" ||
+    after.tossWinnerTeamId == null
+  ) {
+    return "Back to the toss.";
+  }
+
+  const teamIds = new Set<number>([
+    ...Object.keys(before.lineups ?? {}).map(Number),
+    ...Object.keys(after.lineups ?? {}).map(Number),
+  ]);
+  for (const teamId of teamIds) {
+    const beforeLen = before.lineups?.[teamId]?.length ?? 0;
+    const afterLen = after.lineups?.[teamId]?.length ?? 0;
+    if (afterLen < beforeLen) {
+      const inn = after.innings.find(
+        (item) => item.battingTeamId === teamId || item.bowlingTeamId === teamId,
+      );
+      if (inn?.battingTeamId === teamId) return "Back to the batting squad.";
+      return "Back to the bowling squad.";
+    }
+  }
+
+  if (before.bowlerId != null && after.bowlerId == null) {
+    return "Back to the opening bowler.";
+  }
+  if (before.strikerId !== after.strikerId || before.nonStrikerId !== after.nonStrikerId) {
+    return "Batsman change undone.";
+  }
+  return "Last ball removed.";
+}
 
 const HEARTBEAT_INTERVAL_MS = 20_000;
 
@@ -429,7 +491,8 @@ export default function CricketScorerPage() {
             err.status === 409 &&
             (eventType === CricketEventType.LINEUP_SET ||
               eventType === CricketEventType.MATCH_STARTED ||
-              eventType === CricketEventType.BOWLER_CHANGED)
+              eventType === CricketEventType.BOWLER_CHANGED ||
+              eventType === CricketEventType.BATTER_SELECTED)
           ) {
             const refreshed = await refetch();
             const nextSeq =
@@ -671,6 +734,49 @@ export default function CricketScorerPage() {
       setBusy(false);
     }
   }, [applyDetail, busy, data, matchId, refetch, toast, tournamentId]);
+
+  const performUndo = useCallback(async () => {
+    if (!data || sendInFlightRef.current || queueDepth > 0) return;
+    sendInFlightRef.current = true;
+    setBusy(true);
+    const before = data.state;
+    try {
+      const result = await undoScoringEvent(
+        tournamentId,
+        matchId,
+        sequenceRef.current,
+      );
+      sequenceRef.current = result.state.lastSequence;
+      applyDetail({
+        match: result.match,
+        state: result.state,
+        eventCount: data.eventCount + 1,
+        lastSequence: result.state.lastSequence,
+      });
+      setLocalBowlerId(null);
+      setLocalStrikerId(null);
+      setLocalNonStrikerId(null);
+      setCreaseOverride(null);
+      setPendingNewBatsman(
+        result.state.matchStatus === "live" &&
+          result.state.innings.length > 0 &&
+          (result.state.strikerId == null || result.state.nonStrikerId == null),
+      );
+      toast({
+        title: "Undone",
+        description: describeCricketUndo(before, result.state),
+      });
+    } catch (e) {
+      toast({
+        title: "Undo failed",
+        description: e instanceof Error ? e.message : "Error",
+        variant: "destructive",
+      });
+    } finally {
+      sendInFlightRef.current = false;
+      setBusy(false);
+    }
+  }, [applyDetail, data, matchId, queueDepth, toast, tournamentId]);
 
   const home = teams.find((t) => t.id === data?.match.homeTeamId);
   const away = teams.find((t) => t.id === data?.match.awayTeamId);
@@ -988,6 +1094,7 @@ export default function CricketScorerPage() {
               busy={busy || lockLost}
               onEvent={lockLost ? () => Promise.resolve() : sendEvent}
               onResetMatch={lockLost ? () => Promise.resolve() : handleResetMatch}
+              onUndoStep={lockLost ? undefined : performUndo}
               onBowlerSelected={(bowlerId) => {
                 setLocalBowlerId(bowlerId);
                 if (data.state.matchStatus === "live" && data.state.innings.length > 0) {
@@ -1043,42 +1150,7 @@ export default function CricketScorerPage() {
                     : "Striker end is open for the next batter.",
                 });
               }}
-              onUndo={async () => {
-                if (!data || sendInFlightRef.current || queueDepth > 0) return;
-                sendInFlightRef.current = true;
-                setBusy(true);
-                try {
-                  const result = await undoScoringEvent(
-                    tournamentId,
-                    matchId,
-                    sequenceRef.current,
-                  );
-                  sequenceRef.current = result.state.lastSequence;
-                  applyDetail({
-                    match: result.match,
-                    state: result.state,
-                    eventCount: data.eventCount + 1,
-                    lastSequence: result.state.lastSequence,
-                  });
-                  setCreaseOverride(null);
-                  setPendingNewBatsman(
-                    result.state.strikerId == null || result.state.nonStrikerId == null,
-                  );
-                  toast({
-                    title: "Undone",
-                    description: "Last ball removed.",
-                  });
-                } catch (e) {
-                  toast({
-                    title: "Undo failed",
-                    description: e instanceof Error ? e.message : "Error",
-                    variant: "destructive",
-                  });
-                } finally {
-                  sendInFlightRef.current = false;
-                  setBusy(false);
-                }
-              }}
+              onUndo={performUndo}
               onInningsEnd={(payload) => {
                 setLocalBowlerId(null);
                 setPendingNewBatsman(false);
@@ -1096,7 +1168,7 @@ export default function CricketScorerPage() {
                   });
                 }
               }}
-              onNewBatsman={(playerId) => {
+              onNewBatsman={(playerId, position) => {
                 if (playerId < 0) {
                   setPendingNewBatsman(true);
                   return;
@@ -1105,25 +1177,36 @@ export default function CricketScorerPage() {
                   strikerId: data.state.strikerId ?? null,
                   nonStrikerId: data.state.nonStrikerId ?? null,
                 };
-                const next =
-                  curr.strikerId == null
-                    ? { strikerId: playerId, nonStrikerId: curr.nonStrikerId }
+                const end: "striker" | "non_striker" =
+                  position ??
+                  (curr.strikerId == null
+                    ? "striker"
                     : curr.nonStrikerId == null
-                      ? { strikerId: curr.strikerId, nonStrikerId: playerId }
-                      : { strikerId: playerId, nonStrikerId: curr.nonStrikerId };
+                      ? "non_striker"
+                      : "striker");
+                if (
+                  (end === "striker" && curr.strikerId === playerId) ||
+                  (end === "non_striker" && curr.nonStrikerId === playerId)
+                ) {
+                  return;
+                }
+                const next =
+                  end === "striker"
+                    ? { strikerId: playerId, nonStrikerId: curr.nonStrikerId }
+                    : { strikerId: curr.strikerId, nonStrikerId: playerId };
                 setCreaseOverride(next);
                 setLocalStrikerId(next.strikerId);
                 setLocalNonStrikerId(next.nonStrikerId);
                 setPendingNewBatsman(next.strikerId == null || next.nonStrikerId == null);
                 toast({
-                  title: "New batter selected",
+                  title: end === "striker" ? "Striker updated" : "Non-striker updated",
                   description: `${playerNameById(players, playerId)} is at the crease.`,
                 });
                 if (data.state.matchStatus === "live" && data.state.innings.length > 0) {
                   void sendEvent(CricketEventType.BATTER_SELECTED, {
                     innings: data.state.currentInnings,
                     playerId,
-                    position: next.strikerId === playerId ? "striker" : "non_striker",
+                    position: end,
                   });
                 }
               }}

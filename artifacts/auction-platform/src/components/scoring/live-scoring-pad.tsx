@@ -115,7 +115,7 @@ type LiveScoringPadProps = {
   onInningsEnd: (payload: Record<string, unknown>) => Promise<void>;
   onMatchComplete: (payload: Record<string, unknown>) => Promise<void>;
   onBowlerChange: (bowlerId: number) => void;
-  onNewBatsman: (playerId: number) => void;
+  onNewBatsman: (playerId: number, position?: "striker" | "non_striker") => void;
   onSwapStrike?: () => void;
   onResetMatch?: () => Promise<void>;
   pendingNewBatsman: boolean;
@@ -210,6 +210,7 @@ export function LiveScoringPad({
   const [walkoverReason, setWalkoverReason] = useState<string>("");
   const [awardingWalkover, setAwardingWalkover] = useState(false);
   const [bowlerSheet, setBowlerSheet] = useState(false);
+  const [batterSheet, setBatterSheet] = useState<null | "striker" | "non_striker">(null);
   const [overEndPrompt, setOverEndPrompt] = useState(false);
   const [retireSheet, setRetireSheet] = useState(false);
   const [dlsSheet, setDlsSheet] = useState(false);
@@ -265,6 +266,19 @@ export function LiveScoringPad({
   const strikerId = creaseLocked ? localStrikerId : (state?.strikerId ?? null);
   const nonStrikerId = creaseLocked ? localNonStrikerId : (state?.nonStrikerId ?? null);
   const activeBowlerId = bowlerId ?? state?.bowlerId;
+  const beforeFirstBall =
+    !!innings &&
+    innings.phase === "in_progress" &&
+    innings.runs === 0 &&
+    innings.wickets === 0 &&
+    innings.over === 0 &&
+    innings.ball === 0 &&
+    (state.thisOver?.length ?? 0) === 0;
+  const canChangeOpeningBatsmen =
+    beforeFirstBall &&
+    !pendingNewBatsman &&
+    strikerId != null &&
+    nonStrikerId != null;
 
   const battingId = battingTeamId(state);
   const bowlingId = bowlingTeamId(state);
@@ -277,6 +291,14 @@ export function LiveScoringPad({
     !!innings &&
     battingLineup.length > 0 &&
     battingLineup.length - innings.wickets <= 1;
+
+  const ballsPerOver = state?.ballsPerOver ?? 6;
+  const overJustCompleted = !!innings && innings.ball >= ballsPerOver;
+  // Finished-over balls stay on state until the next bowler is stored.
+  // Hide them immediately so the umpire pad is blank for the new over.
+  const thisOverTrail = (state?.thisOver ?? []).filter((delivery) =>
+    overJustCompleted ? delivery.over !== innings?.over : true,
+  );
 
   const inningsOversLimit = innings?.oversLimit ?? state.oversLimit;
   const isOversLimitReached =
@@ -890,6 +912,31 @@ export function LiveScoringPad({
             </div>
           </div>
 
+          {canChangeOpeningBatsmen ? (
+            <div className="grid grid-cols-2 gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-[11px] font-bold rounded-lg border-amber-400/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20 hover:text-white"
+                disabled={busy}
+                onClick={() => setBatterSheet("striker")}
+              >
+                Change striker
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-[11px] font-bold rounded-lg border-white/20 bg-white/[0.08] text-white hover:bg-white/20 hover:text-white"
+                disabled={busy}
+                onClick={() => setBatterSheet("non_striker")}
+              >
+                Change non-striker
+              </Button>
+            </div>
+          ) : null}
+
           {/* Row 2: Dedicated Full-Width Bowler Bar (No name truncation!) */}
           <div className="flex items-center justify-between rounded-xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 px-2.5 py-1.5 sm:px-3 sm:py-2 shadow-xs transition-colors">
             <div
@@ -929,8 +976,8 @@ export function LiveScoringPad({
             This Over:
           </span>
           <div className="flex flex-nowrap items-center gap-1 flex-1 justify-end min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {(state?.thisOver?.length ?? 0) > 0 ? (
-              (state?.thisOver ?? []).map((b, i) => {
+            {thisOverTrail.length > 0 ? (
+              thisOverTrail.map((b, i) => {
                 const isW = b.isWicket;
                 const isFour = b.runsOffBat === 4 || b.runsOffBat === 8;
                 const isSix = b.runsOffBat === 6 || b.runsOffBat === 12;
@@ -957,7 +1004,7 @@ export function LiveScoringPad({
               })
             ) : (
               <span className="text-xs text-white/40 italic font-medium">
-                Over started
+                {overJustCompleted ? "Next over" : "Over started"}
               </span>
             )}
           </div>
@@ -1395,7 +1442,7 @@ export function LiveScoringPad({
                   <span>UNDO</span>
                 </span>
               }
-              sublabel="last ball"
+              sublabel={beforeFirstBall ? "previous step" : "last ball"}
               variant="undo"
               disabled={busy}
               onClick={() => {
@@ -1952,6 +1999,56 @@ export function LiveScoringPad({
               </div>
             </div>
           )}
+        </SheetContent>
+      </Sheet>
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ─── Opening batter change (before the first ball) ─── */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <Sheet open={batterSheet != null} onOpenChange={(open) => { if (!open) setBatterSheet(null); }}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-w-lg mx-auto max-h-[75dvh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>
+              {batterSheet === "non_striker" ? "Change non-striker" : "Change striker"}
+            </SheetTitle>
+            <SheetDescription>
+              Pick a playing batter. You can change openers until the first ball is bowled.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="grid gap-2 mt-4 pb-6">
+            {(() => {
+              if (!battingId || !batterSheet) return null;
+              const otherId = batterSheet === "striker" ? nonStrikerId : strikerId;
+              const currentId = batterSheet === "striker" ? strikerId : nonStrikerId;
+              const squad = squadPlayersForTeam(players, battingId);
+              const lineupIds = state?.lineups?.[battingId] ?? [];
+              const pool =
+                lineupIds.length >= 2
+                  ? lineupIds
+                      .map((id) => squad.find((p) => p.id === id))
+                      .filter((p): p is CricketScorerPlayer => Boolean(p))
+                  : squad;
+              const choices = pool.filter((p) => p.id !== otherId);
+              return choices.map((p) => {
+                const isCurrent = currentId === p.id;
+                return (
+                  <Button
+                    key={p.id}
+                    variant={isCurrent ? "default" : "outline"}
+                    className="h-12 justify-between px-4 font-semibold"
+                    disabled={busy}
+                    onClick={() => {
+                      if (!isCurrent) onNewBatsman(p.id, batterSheet);
+                      setBatterSheet(null);
+                    }}
+                  >
+                    <span className="truncate">{p.name}</span>
+                    {isCurrent ? <Check className="w-4 h-4" /> : null}
+                  </Button>
+                );
+              });
+            })()}
+          </div>
         </SheetContent>
       </Sheet>
 

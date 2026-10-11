@@ -11,6 +11,7 @@ import {
 import {
   CricketEventType,
   buildCricketMatchSummary,
+  resolveCricketUndoTarget,
   buildAuthoritativeCricketBroadcastEvent,
   type CricketAuthoritativeBroadcastEvent,
   assertExpectedSequence,
@@ -313,6 +314,13 @@ async function updateCricketMatchAndSession(
   if (projection.setStartedAt && !match.startedAt) {
     matchPatch.startedAt = new Date();
   }
+  if (projection.matchStatus === "scheduled" || projection.matchStatus === "draft") {
+    matchPatch.startedAt = null;
+    matchPatch.completedAt = null;
+    matchPatch.winnerTeamId = null;
+    matchPatch.resultSummary = null;
+    matchPatch.summaryJson = null;
+  }
   if (projection.setCompletedAt) {
     matchPatch.completedAt = new Date();
     matchPatch.winnerTeamId = projection.winnerTeamId ?? null;
@@ -334,6 +342,10 @@ async function updateCricketMatchAndSession(
     if (projection.setCompletedAt) {
       fixturePatch.winnerTeamId = projection.winnerTeamId ?? null;
       fixturePatch.resultSummary = projection.resultSummary ?? null;
+    }
+    if (projection.matchStatus === "scheduled" || projection.matchStatus === "draft") {
+      fixturePatch.winnerTeamId = null;
+      fixturePatch.resultSummary = null;
     }
     if (Object.keys(fixturePatch).length > 0) {
       await tx
@@ -536,32 +548,15 @@ export async function appendSingleMatchEvent(
       };
 
       if (input.eventType === CricketEventType.BALL_UNDONE) {
-        const undoneSequences = new Set<number>();
-        for (const e of events) {
-          if (e.eventType === CricketEventType.BALL_UNDONE) {
-            const p = e.payload as { undoesSequence?: number };
-            if (typeof p?.undoesSequence === "number") {
-              undoneSequences.add(p.undoesSequence);
-            }
-          }
-        }
-
-        const lastActiveBall = [...events]
-          .reverse()
-          .find(
-            (e) =>
-              e.eventType === CricketEventType.BALL_RECORDED &&
-              !undoneSequences.has(e.sequence),
-          );
-
-        if (!lastActiveBall) {
+        const target = resolveCricketUndoTarget(events);
+        if (!target) {
           throw new ScoringPlatformError("No ball to undo", 400, "NOTHING_TO_UNDO");
         }
 
         const undoPayload = parsed.payload as { undoesSequence: number; undoesEventId?: number };
-        if (undoPayload.undoesSequence !== lastActiveBall.sequence) {
+        if (undoPayload.undoesSequence !== target.event.sequence) {
           throw new ScoringPlatformError(
-            `Target ball sequence ${undoPayload.undoesSequence} does not match last active ball ${lastActiveBall.sequence}`,
+            `Target sequence ${undoPayload.undoesSequence} does not match last undoable event ${target.event.sequence}`,
             409,
             "UNDO_TARGET_MISMATCH",
           );

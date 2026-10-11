@@ -19,6 +19,7 @@ import {
   buildMatchMetaFromRules,
   createInitialCricketState,
   deriveCricketMatchResult,
+  resolveCricketUndoTarget,
   isCricketMatchTerminalState,
   type MatchMeta,
   type CricketScoreboardState,
@@ -898,29 +899,17 @@ export async function undoLastScoringEvent(
   const { match } = await getScoringMatch(tournamentId, matchId);
 
   const events = await loadMatchEvents(matchId);
-  const undoneSequences = new Set(
-    events
-      .filter((e) => e.eventType === CricketEventType.BALL_UNDONE)
-      .map((e) => (e.payload as { undoesSequence: number }).undoesSequence),
-  );
+  const target = resolveCricketUndoTarget(events);
 
-  const lastBall = [...events]
-    .reverse()
-    .find(
-      (e) =>
-        e.eventType === CricketEventType.BALL_RECORDED &&
-        !undoneSequences.has(e.sequence),
-    );
-
-  if (!lastBall) {
+  if (!target) {
     throw new ScoringServiceError("No ball to undo", 400, "NOTHING_TO_UNDO");
   }
 
   return appendScoringEvent(tournamentId, matchId, {
     eventType: CricketEventType.BALL_UNDONE,
     payload: {
-      undoesEventId: lastBall.id ?? 0,
-      undoesSequence: lastBall.sequence,
+      undoesEventId: target.event.id ?? 0,
+      undoesSequence: target.event.sequence,
     },
     expectedSequence: input.expectedSequence,
     actor: input.actor,

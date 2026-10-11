@@ -83,14 +83,19 @@ export function StandingsTable({
                 </span>
               </td>
               <td className="px-3 py-2.5 font-medium">
-                <span className="inline-flex items-center gap-2">
+                <span className="inline-flex items-center gap-2 min-w-0">
                   {row.color ? (
                     <span
                       className="w-2 h-5 rounded-sm shrink-0"
                       style={{ backgroundColor: row.color }}
                     />
                   ) : null}
-                  {row.shortCode || row.teamName}
+                  <span className="truncate">{row.teamName || row.shortCode}</span>
+                  {row.shortCode && row.teamName && row.shortCode !== row.teamName ? (
+                    <span className="text-xs font-normal text-muted-foreground shrink-0">
+                      {row.shortCode}
+                    </span>
+                  ) : null}
                 </span>
               </td>
               <td className="px-3 py-2.5 text-center tabular-nums">{row.played}</td>

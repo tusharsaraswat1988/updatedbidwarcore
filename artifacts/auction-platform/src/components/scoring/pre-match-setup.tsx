@@ -69,6 +69,8 @@ type PreMatchSetupProps = {
     payload: Record<string, unknown>,
   ) => Promise<void>;
   onResetMatch?: () => Promise<void>;
+  /** Walk back one setup step (bowler, squad, then toss) when no ball has been bowled. */
+  onUndoStep?: () => Promise<void>;
   onBowlerSelected: (bowlerId: number) => void;
   /** Refresh match after Runtime Prepare so Start match unlocks. */
   onPrepared?: () => void | Promise<void>;
@@ -115,6 +117,7 @@ export function PreMatchSetup({
   busy,
   onEvent,
   onResetMatch,
+  onUndoStep,
   onBowlerSelected,
   onPrepared,
 }: PreMatchSetupProps) {
@@ -325,6 +328,20 @@ export function PreMatchSetup({
             >
               Award Walkover
             </Button>
+
+            {onUndoStep ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs border-sky-500/40 text-sky-300 hover:bg-sky-500/10 font-semibold"
+                disabled={busy}
+                onClick={() => void onUndoStep()}
+              >
+                <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                Undo last step
+              </Button>
+            ) : null}
 
             {onResetMatch ? (
               <Button

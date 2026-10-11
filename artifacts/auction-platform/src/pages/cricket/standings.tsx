@@ -133,7 +133,7 @@ export default function CricketStandingsPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
               <HubKpiCard
                 label={multiDraw ? "Competitions" : "Tournament Leader"}
-                value={multiDraw ? sections.length : leader?.shortCode || leader?.teamName || "—"}
+                value={multiDraw ? sections.length : leader?.teamName || leader?.shortCode || "—"}
                 subtitle={
                   multiDraw
                     ? "Each draw has its own table"
@@ -147,7 +147,7 @@ export default function CricketStandingsPage() {
               <HubKpiCard
                 label="Best Net Run Rate"
                 value={bestNrr && bestNrr.played > 0 ? formatNetRunRate(bestNrr.netRunRate) : "—"}
-                subtitle={bestNrr?.shortCode ? `${bestNrr.shortCode}` : "No matches yet"}
+                subtitle={bestNrr?.teamName || bestNrr?.shortCode || "No matches yet"}
                 icon={TrendingUp}
                 tint="green"
               />

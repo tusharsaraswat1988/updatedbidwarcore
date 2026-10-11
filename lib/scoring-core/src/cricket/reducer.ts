@@ -811,9 +811,21 @@ function applyBowlerChanged(
     }
   }
 
+  // A completed over still holds its ball trail until the next delivery.
+  // Selecting the bowler for the next over starts a fresh trail, so the
+  // umpire is not scoring the new bowler against the previous over's balls.
+  // A mid-over change keeps the balls already bowled in this over.
+  const currentInn = getCurrentInnings(state);
+  const ballsPerOver = state.ballsPerOver ?? 6;
+  const overJustCompleted =
+    !!currentInn &&
+    currentInn.phase === "in_progress" &&
+    currentInn.ball >= ballsPerOver;
+
   return {
     ...state,
     bowlerId: payload.bowlerId,
+    thisOver: overJustCompleted ? [] : state.thisOver,
   };
 }
 

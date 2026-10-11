@@ -229,6 +229,65 @@ describe("cricket reducer PR-2", () => {
     expect(state.lastSequence).toBe(2);
   });
 
+  it("clears the over trail when the next bowler starts a new over", () => {
+    let state = startedState();
+    for (let ball = 1; ball <= 6; ball++) {
+      state = reduceCricket(
+        state,
+        ballEvent(ball + 1, { over: 0, ball, runsOffBat: 1 }),
+      );
+    }
+    expect(state.thisOver).toHaveLength(6);
+    expect(state.innings[0]?.ball).toBe(6);
+
+    state = reduceCricket(
+      state,
+      createEventEnvelope({
+        matchId: 100,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.BOWLER_CHANGED,
+        sequence: 8,
+        payload: { innings: 1, bowlerId: 202 },
+        actorType: "organizer",
+      }),
+    );
+    expect(state.bowlerId).toBe(202);
+    expect(state.thisOver).toEqual([]);
+
+    state = reduceCricket(
+      state,
+      ballEvent(9, { over: 1, ball: 1, runsOffBat: 4 }),
+    );
+    expect(state.thisOver.map((delivery) => delivery.label)).toEqual(["4"]);
+  });
+
+  it("keeps the over trail when the bowler changes mid-over", () => {
+    let state = reduceCricket(
+      startedState(),
+      ballEvent(2, { over: 0, ball: 1, runsOffBat: 1 }),
+    );
+    state = reduceCricket(
+      state,
+      ballEvent(3, { over: 0, ball: 2, runsOffBat: 2 }),
+    );
+    state = reduceCricket(
+      state,
+      createEventEnvelope({
+        matchId: 100,
+        tournamentId: 10,
+        sportSlug: "cricket",
+        eventType: CricketEventType.BOWLER_CHANGED,
+        sequence: 4,
+        payload: { innings: 1, bowlerId: 202 },
+        actorType: "organizer",
+      }),
+    );
+    expect(state.bowlerId).toBe(202);
+    expect(state.thisOver).toHaveLength(2);
+    expect(state.thisOver.map((delivery) => delivery.label)).toEqual(["1", "2"]);
+  });
+
   it("abandons match", () => {
     const state = reduceCricket(
       startedState(),
