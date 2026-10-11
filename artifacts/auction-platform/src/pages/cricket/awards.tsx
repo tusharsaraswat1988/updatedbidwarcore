@@ -49,7 +49,7 @@ function topAward(
     id,
     title,
     playerName: row.playerName,
-    teamName: row.shortCode || row.teamName,
+    teamName: row.teamName || row.shortCode,
     detail: `${row.value} ${unit}`,
   };
 }
@@ -61,7 +61,7 @@ function potFromMoms(moms: ScoringAwardRow[]): DerivedAward | null {
     const cur = counts.get(a.playerId) ?? {
       count: 0,
       name: a.playerName,
-      team: a.shortCode || a.teamName,
+      team: a.teamName || a.shortCode,
     };
     cur.count += 1;
     counts.set(a.playerId, cur);
@@ -193,7 +193,7 @@ export default function CricketAwardsPage() {
                       <div className="min-w-0">
                         <p className="text-sm font-semibold truncate">{a.playerName}</p>
                         <p className="text-xs text-muted-foreground">
-                          {a.shortCode || a.teamName}
+                          {a.teamName || a.shortCode}
                           {a.reason ? ` · ${a.reason}` : ""}
                         </p>
                       </div>

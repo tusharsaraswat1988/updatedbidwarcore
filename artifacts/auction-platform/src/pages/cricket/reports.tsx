@@ -85,7 +85,7 @@ function topAward(
     id,
     title,
     playerName: row.playerName,
-    teamName: row.shortCode || row.teamName,
+    teamName: row.teamName || row.shortCode,
     detail: `${row.value} ${unit}`,
     icon,
   };
@@ -98,7 +98,7 @@ function potFromMoms(moms: ScoringAwardRow[]): DerivedAward | null {
     const cur = counts.get(a.playerId) ?? {
       count: 0,
       name: a.playerName,
-      team: a.shortCode || a.teamName,
+      team: a.teamName || a.shortCode,
     };
     cur.count += 1;
     counts.set(a.playerId, cur);
@@ -180,6 +180,13 @@ export default function CricketReportsPage() {
   );
   const teamMap = useMemo(() => new Map<number, CricketScorerTeam>(teams.map((t) => [t.id, t])), [teams]);
   const matchMap = useMemo(() => new Map((matches ?? []).map((m) => [m.id, m])), [matches]);
+  const groupTitleById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const group of standings?.groups ?? []) {
+      map.set(group.id, competitionGroupTitle(group));
+    }
+    return map;
+  }, [standings?.groups]);
 
   const summary = useMemo(() => {
     const list = matches ?? [];
@@ -350,7 +357,21 @@ export default function CricketReportsPage() {
                         const m = matchMap.get(a.matchId);
                         const home = m ? teamMap.get(m.homeTeamId) : null;
                         const away = m ? teamMap.get(m.awayTeamId) : null;
-                        const matchFixtureTitle = home && away ? `${home.shortCode} vs ${away.shortCode}` : `Match #${a.matchId}`;
+                        const homeName = home?.name || home?.shortCode || null;
+                        const awayName = away?.name || away?.shortCode || null;
+                        const matchNo = m?.tournamentMatchNumber ?? null;
+                        const groupTitle =
+                          (m?.groupId != null ? groupTitleById.get(m.groupId) : null) ||
+                          m?.roundName ||
+                          null;
+                        const matchMeta = [
+                          matchNo != null ? `Match #${matchNo}` : null,
+                          groupTitle,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ");
+                        const matchFixtureTitle =
+                          homeName && awayName ? `${homeName} vs ${awayName}` : `Match #${a.matchId}`;
 
                         return (
                           <div
@@ -358,14 +379,19 @@ export default function CricketReportsPage() {
                             className="bg-card/90 border border-border/70 rounded-xl p-4 flex flex-col justify-between gap-3 transition-colors hover:border-primary/40 shadow-xs"
                           >
                             <div>
-                              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground pb-2 border-b border-border/40 mb-2.5">
-                                <span className="font-semibold text-foreground/80 flex items-center gap-1.5">
-                                  <Medal className="w-3.5 h-3.5 text-amber-500" />
-                                  {matchFixtureTitle}
+                              <div className="flex items-start justify-between gap-2 text-xs text-muted-foreground pb-2 border-b border-border/40 mb-2.5">
+                                <span className="min-w-0 font-semibold text-foreground/80">
+                                  <span className="flex items-center gap-1.5">
+                                    <Medal className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                    <span>{matchMeta || `Match #${a.matchId}`}</span>
+                                  </span>
+                                  <span className="mt-1 block font-medium text-foreground/70">
+                                    {matchFixtureTitle}
+                                  </span>
                                 </span>
                                 <Link
                                   href={cricketMatchPublicPath(tournamentId, a.matchId)}
-                                  className="text-primary hover:underline inline-flex items-center gap-0.5 font-medium"
+                                  className="text-primary hover:underline inline-flex items-center gap-0.5 font-medium shrink-0"
                                 >
                                   Scorecard
                                   <ChevronRight className="w-3 h-3" />
@@ -384,7 +410,7 @@ export default function CricketReportsPage() {
                                 )}
                               </p>
                               <p className="text-xs font-medium text-muted-foreground mt-0.5">
-                                {a.shortCode || a.teamName}
+                                {a.teamName || a.shortCode}
                               </p>
                               {a.reason ? (
                                 <p className="text-xs text-foreground/80 mt-2 bg-muted/40 rounded-md px-2.5 py-1.5 italic">

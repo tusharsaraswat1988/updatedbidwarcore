@@ -464,7 +464,7 @@ export async function listTournamentAwards(tournamentId: number) {
     score: row.score,
     awardedAt: row.createdAt,
     playerId: row.playerId,
-    playerName: playerMap.get(row.playerId)?.name ?? `Player #${row.playerId}`,
+    playerName: playerMap.get(row.playerId)?.displayName ?? `Player #${row.playerId}`,
     teamId: row.teamId,
     teamName: teamMap.get(row.teamId)?.name ?? `Team #${row.teamId}`,
     shortCode: teamMap.get(row.teamId)?.shortCode ?? "",
