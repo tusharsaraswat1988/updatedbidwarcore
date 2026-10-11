@@ -29,8 +29,9 @@ import {
   hubPanelClass,
 } from "@/components/scoring/cricket-page-chrome";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ManOfTheMatchBoard } from "@/components/scoring/man-of-the-match-board";
 import { StandingsTable } from "@/components/scoring/standings-table";
-import { getScoringStandings } from "@/lib/scoring-api";
+import { getScoringStandings, listScoringAwards, listScoringMatches } from "@/lib/scoring-api";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scoring-sport-redirect";
 import { cricketPublicPath } from "@/lib/tournament-navigation";
@@ -49,6 +50,23 @@ export default function CricketStandingsPage() {
   const { data: standings, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["scoring-standings", tournamentId],
     queryFn: () => getScoringStandings(tournamentId),
+    enabled: scoringActive && !!tournamentId,
+    refetchInterval: 30000,
+  });
+  const {
+    data: awards,
+    isLoading: awardsLoading,
+    refetch: refetchAwards,
+    isFetching: awardsFetching,
+  } = useQuery({
+    queryKey: ["scoring-awards", tournamentId],
+    queryFn: () => listScoringAwards(tournamentId),
+    enabled: scoringActive && !!tournamentId,
+    refetchInterval: 30000,
+  });
+  const { data: matches, refetch: refetchMatches, isFetching: matchesFetching } = useQuery({
+    queryKey: ["scoring-matches", tournamentId],
+    queryFn: () => listScoringMatches(tournamentId),
     enabled: scoringActive && !!tournamentId,
     refetchInterval: 30000,
   });
@@ -86,10 +104,14 @@ export default function CricketStandingsPage() {
           <div className="flex flex-wrap items-center gap-2">
             <BtnSecondary
               className={btnCompactClass}
-              disabled={isFetching}
-              onClick={() => void refetch()}
+              disabled={isFetching || awardsFetching || matchesFetching}
+              onClick={() => {
+                void refetch();
+                void refetchAwards();
+                void refetchMatches();
+              }}
             >
-              <RefreshCw className={cn("w-4 h-4", isFetching && "animate-spin")} />
+              <RefreshCw className={cn("w-4 h-4", (isFetching || awardsFetching || matchesFetching) && "animate-spin")} />
               Refresh
             </BtnSecondary>
             <BtnSecondary
@@ -241,6 +263,19 @@ export default function CricketStandingsPage() {
                 <StandingsTable rows={rows} highlightTop={legacyBand.qualifiers} />
               </section>
             )}
+
+            <ManOfTheMatchBoard
+              tournamentId={tournamentId}
+              awards={awards}
+              matches={matches}
+              teams={(standings ?? []).map((row) => ({
+                teamId: row.teamId,
+                teamName: row.teamName,
+                shortCode: row.shortCode,
+                color: row.color,
+              }))}
+              isLoading={awardsLoading && !awards}
+            />
           </>
         )}
       </div>
