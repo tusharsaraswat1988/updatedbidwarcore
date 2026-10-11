@@ -262,8 +262,8 @@ export function LiveScoringPad({
     }
   }, [revisedOvers, state]);
 
-  const strikerId = creaseLocked ? localStrikerId : (localStrikerId ?? state?.strikerId ?? null);
-  const nonStrikerId = creaseLocked ? localNonStrikerId : (localNonStrikerId ?? state?.nonStrikerId ?? null);
+  const strikerId = creaseLocked ? localStrikerId : (state?.strikerId ?? null);
+  const nonStrikerId = creaseLocked ? localNonStrikerId : (state?.nonStrikerId ?? null);
   const activeBowlerId = bowlerId ?? state?.bowlerId;
 
   const battingId = battingTeamId(state);

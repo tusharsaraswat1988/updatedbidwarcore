@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { replaceEqualDeep, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getScoringLive,
   getScoringMatch,
@@ -20,6 +20,23 @@ export function scoringMatchesQueryKey(tournamentId: number) {
 
 export function scoringMatchQueryKey(tournamentId: number, matchId: number) {
   return ["scoring-match", tournamentId, matchId] as const;
+}
+
+function matchDetailSequence(detail: ScoringMatchDetail | undefined): number {
+  if (!detail) return -1;
+  if (typeof detail.lastSequence === "number") return detail.lastSequence;
+  if (typeof detail.state?.lastSequence === "number") return detail.state.lastSequence;
+  return -1;
+}
+
+/** A slower poll must not put an older crease back over a ball that already landed. */
+export function shareNewerMatchDetail<T>(oldData: T, newData: T): T {
+  const previous = oldData as ScoringMatchDetail | undefined;
+  const incoming = newData as ScoringMatchDetail | undefined;
+  if (matchDetailSequence(incoming) < matchDetailSequence(previous)) {
+    return oldData;
+  }
+  return replaceEqualDeep(oldData, newData);
 }
 
 export function scoringStandingsQueryKey(tournamentId: number) {
@@ -67,6 +84,7 @@ export function useScoringMatch(tournamentId: number, matchId: number, enabled =
     queryFn: () => getScoringMatch(tournamentId, matchId),
     enabled: tournamentId > 0 && matchId > 0 && enabled,
     refetchInterval: enabled ? 4000 : false,
+    structuralSharing: shareNewerMatchDetail,
   });
 }
 
@@ -100,9 +118,14 @@ export function useInvalidateScoring(tournamentId: number, matchId?: number) {
       }
     },
     setMatchDetail: (detail: ScoringMatchDetail) => {
-      if (matchId) {
-        qc.setQueryData(scoringMatchQueryKey(tournamentId, matchId), detail);
-      }
+      if (!matchId) return;
+      qc.setQueryData<ScoringMatchDetail>(
+        scoringMatchQueryKey(tournamentId, matchId),
+        (current) => {
+          if (matchDetailSequence(detail) < matchDetailSequence(current)) return current;
+          return detail;
+        },
+      );
     },
   };
 }

@@ -45,6 +45,7 @@ import {
   releaseScorerMatchLock,
 } from "@/lib/scorer-api";
 import { cricketScorerHomePath } from "@/lib/cricket-routes";
+import { nextCreaseAfterBall } from "@/lib/scoring-ball";
 import { useToast } from "@/hooks/use-toast";
 import { PreMatchSetup } from "@/components/scoring/pre-match-setup";
 import { LiveScoringPad } from "@/components/scoring/live-scoring-pad";
@@ -333,6 +334,14 @@ export default function CricketScorerPage() {
               eventCount: (data.eventCount ?? 0) + 1,
               lastSequence: result.state.lastSequence,
             });
+            if (
+              item.eventType === CricketEventType.BALL_RECORDED ||
+              item.eventType === CricketEventType.BATTER_SELECTED
+            ) {
+              setLocalStrikerId(null);
+              setLocalNonStrikerId(null);
+              setCreaseOverride(null);
+            }
             synced = true;
           } catch (e) {
             const err = e as Error & { status?: number; code?: string };
@@ -390,6 +399,14 @@ export default function CricketScorerPage() {
       sendInFlightRef.current = true;
       setBusy(true);
       const correlationId = crypto.randomUUID();
+      const isBall = eventType === CricketEventType.BALL_RECORDED;
+      let creaseSettled = false;
+      if (isBall) {
+        const delivery = payload as Parameters<typeof nextCreaseAfterBall>[0];
+        setCreaseOverride(
+          nextCreaseAfterBall(delivery, data.state.ballsPerOver ?? 6),
+        );
+      }
       if (process.env.NODE_ENV !== "production") {
         if (eventType === CricketEventType.BALL_RECORDED) {
           console.log(`[SCORER] BALL_RECORDED seq=${sequenceRef.current}`);
@@ -451,6 +468,7 @@ export default function CricketScorerPage() {
             setLocalStrikerId(null);
             setLocalNonStrikerId(null);
             setCreaseOverride(null);
+            creaseSettled = true;
           }
           if (result.state.bowlerId != null) {
             setLocalBowlerId(null);
@@ -559,6 +577,7 @@ export default function CricketScorerPage() {
               correlationId,
             });
             await refreshQueueDepth();
+            creaseSettled = true;
             toast({
               title: "Queued offline",
               description: "Will sync automatically when connected.",
@@ -578,6 +597,7 @@ export default function CricketScorerPage() {
           });
         }
       } finally {
+        if (isBall && !creaseSettled) setCreaseOverride(null);
         sendInFlightRef.current = false;
         setBusy(false);
       }

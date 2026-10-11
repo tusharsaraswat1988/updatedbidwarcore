@@ -8,6 +8,9 @@ import {
   CricketEventType,
 } from "@workspace/scoring-core";
 import { suggestInningsEndReason } from "@/lib/scoring-match-logic";
+import { nextCreaseAfterBall } from "@/lib/scoring-ball";
+import { shareNewerMatchDetail } from "@/hooks/use-scoring-match";
+import type { ScoringMatchDetail } from "@/lib/scoring-api";
 
 describe("Live Scoring Rules & Keypad helpers", () => {
   it("filters out LBW when lbwEnabled is false", () => {
@@ -67,6 +70,62 @@ describe("Live Scoring Rules & Keypad helpers", () => {
     expect(totalRunsOnBall(makeBall(3, true))).toBe(6);
     expect(totalRunsOnBall(makeBall(4, true))).toBe(8);
     expect(totalRunsOnBall(makeBall(6, true))).toBe(12);
+  });
+
+  it("rotates strike on a single and keeps it on a double", () => {
+    const base = {
+      innings: 1,
+      over: 0,
+      ball: 1,
+      strikerId: 10,
+      nonStrikerId: 11,
+      bowlerId: 20,
+      extras: { type: null, runs: 0 },
+      wicket: null,
+      isLegalDelivery: true,
+    };
+    expect(nextCreaseAfterBall({ ...base, runsOffBat: 1 })).toEqual({
+      strikerId: 11,
+      nonStrikerId: 10,
+    });
+    expect(nextCreaseAfterBall({ ...base, runsOffBat: 2 })).toEqual({
+      strikerId: 10,
+      nonStrikerId: 11,
+    });
+    expect(nextCreaseAfterBall({ ...base, runsOffBat: 3, ball: 4 })).toEqual({
+      strikerId: 11,
+      nonStrikerId: 10,
+    });
+  });
+
+  it("does not rotate a single on the last ball of the over", () => {
+    expect(
+      nextCreaseAfterBall({
+        innings: 1,
+        over: 0,
+        ball: 6,
+        strikerId: 10,
+        nonStrikerId: 11,
+        bowlerId: 20,
+        runsOffBat: 1,
+        extras: { type: null, runs: 0 },
+        wicket: null,
+        isLegalDelivery: true,
+      }),
+    ).toEqual({ strikerId: 10, nonStrikerId: 11 });
+  });
+
+  it("keeps a newer crease when an older poll arrives late", () => {
+    const newer = {
+      lastSequence: 4,
+      state: { lastSequence: 4, strikerId: 11, nonStrikerId: 10 },
+    } as ScoringMatchDetail;
+    const older = {
+      lastSequence: 3,
+      state: { lastSequence: 3, strikerId: 10, nonStrikerId: 11 },
+    } as ScoringMatchDetail;
+    expect(shareNewerMatchDetail(newer, older)).toBe(newer);
+    expect(shareNewerMatchDetail(older, newer).state.strikerId).toBe(11);
   });
 
   describe("Emergency End Innings & suggestInningsEndReason contract", () => {

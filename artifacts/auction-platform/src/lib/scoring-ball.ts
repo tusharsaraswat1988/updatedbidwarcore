@@ -1,4 +1,9 @@
-import type { CricketInningsState, CricketScoreboardState } from "@workspace/scoring-core";
+import {
+  shouldSwapStrike,
+  type CricketBallRecordedPayload,
+  type CricketInningsState,
+  type CricketScoreboardState,
+} from "@workspace/scoring-core";
 
 /**
  * Authoritative next delivery position (over and legal-ball index) for an innings.
@@ -19,6 +24,36 @@ export function nextLegalBallPosition(innings: CricketInningsState): { over: num
 /** Illegal deliveries attach to the upcoming legal ball slot. */
 export function illegalBallPosition(innings: CricketInningsState): { over: number; ball: number } {
   return expectedNextBall(innings);
+}
+
+/**
+ * Crease after this delivery. Odd running runs rotate strike.
+ * The last legal ball of the over rotates again, so a single on ball 6 stays put.
+ */
+export function nextCreaseAfterBall(
+  payload: Pick<
+    CricketBallRecordedPayload,
+    "strikerId" | "nonStrikerId" | "runsOffBat" | "extras" | "isLegalDelivery" | "ball"
+  > &
+    Partial<Pick<CricketBallRecordedPayload, "wicket" | "isSuperBall" | "innings" | "over" | "bowlerId">>,
+  ballsPerOver = 6,
+): { strikerId: number | null; nonStrikerId: number | null } {
+  let strikerId: number | null = payload.strikerId;
+  let nonStrikerId: number | null = payload.nonStrikerId ?? null;
+  const bpo = ballsPerOver > 0 ? ballsPerOver : 6;
+
+  if (nonStrikerId != null && shouldSwapStrike(payload as CricketBallRecordedPayload)) {
+    [strikerId, nonStrikerId] = [nonStrikerId, strikerId];
+  }
+  if (nonStrikerId != null && payload.isLegalDelivery && payload.ball === bpo) {
+    [strikerId, nonStrikerId] = [nonStrikerId, strikerId];
+  }
+  if (payload.wicket) {
+    const dismissed = payload.wicket.dismissedPlayerId;
+    if (strikerId === dismissed) strikerId = null;
+    if (nonStrikerId === dismissed) nonStrikerId = null;
+  }
+  return { strikerId, nonStrikerId };
 }
 
 export function getActiveInnings(state?: CricketScoreboardState | null) {
