@@ -528,11 +528,11 @@ export function SuperBallActivationOverlay({
               transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.45 }}
               className="flex items-center gap-2 px-6 py-1.5 -skew-x-12 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-700 border-2 border-cyan-300 shadow-[0_0_35px_rgba(6,182,212,0.8)] mb-3"
             >
-              <Zap className="skew-x-12 w-6 h-6 sm:w-8 sm:h-8 text-yellow-300 fill-yellow-300 animate-bounce" />
-              <span className="skew-x-12 text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-[0.14em] text-white">
+              <Zap className="skew-x-12 w-4 h-4 text-yellow-300 fill-yellow-300 animate-bounce" />
+              <span className="skew-x-12 text-xs sm:text-sm font-black uppercase tracking-[0.3em] text-white">
                 BIDWAR SPECIAL BROADCAST EVENT
               </span>
-              <Zap className="skew-x-12 w-6 h-6 sm:w-8 sm:h-8 text-yellow-300 fill-yellow-300 animate-bounce" />
+              <Zap className="skew-x-12 w-4 h-4 text-yellow-300 fill-yellow-300 animate-bounce" />
             </motion.div>
 
             {/* Giant Chiseled 3D Metallic "SUPER BALL" Title */}
@@ -578,11 +578,11 @@ export function SuperBallActivationOverlay({
               transition={{ duration: 0.45, ease: "easeOut", delay: 0.7 }}
               className="mt-3 sm:mt-4 flex items-center gap-3 px-8 py-2 -skew-x-12 rounded-xl bg-gradient-to-r from-amber-500/20 via-yellow-500/30 to-amber-500/20 border-2 border-amber-400/80 shadow-[0_0_40px_rgba(245,158,11,0.6)] backdrop-blur-md"
             >
-              <Sparkles className="skew-x-12 w-7 h-7 sm:w-8 sm:h-8 text-amber-200" />
-              <span className="skew-x-12 text-2xl sm:text-4xl md:text-5xl font-black uppercase tracking-[0.1em] text-amber-100">
+              <Sparkles className="skew-x-12 w-4 h-4 text-amber-300" />
+              <span className="skew-x-12 text-base sm:text-2xl font-black uppercase tracking-[0.25em] text-amber-200">
                 ⚡ 2X RUNS MULTIPLIER ACTIVATED ⚡
               </span>
-              <Sparkles className="skew-x-12 w-7 h-7 sm:w-8 sm:h-8 text-amber-200" />
+              <Sparkles className="skew-x-12 w-4 h-4 text-amber-300" />
             </motion.div>
           </div>
         </div>

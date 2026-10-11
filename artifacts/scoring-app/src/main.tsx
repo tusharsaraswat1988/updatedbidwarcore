@@ -6,7 +6,6 @@ import { Toaster } from "@/components/ui/toaster";
 import App from "./App";
 import "./index.css";
 import "@/styles/display-tv-mode.css";
-import "@/styles/cricket-led-board.css";
 
 document.documentElement.classList.add("dark");
 

@@ -27,6 +27,14 @@ export interface CricketLedNeutralScreenProps {
   displayShellStyle?: CSSProperties;
 }
 
+function getNeutralSponsorNameFontSize(name: string): string {
+  const len = (name || "").trim().length;
+  if (len > 32) return "text-sm sm:text-base md:text-lg";
+  if (len > 22) return "text-base sm:text-lg md:text-xl";
+  if (len > 14) return "text-lg sm:text-xl md:text-2xl";
+  return "text-xl sm:text-2xl md:text-3xl";
+}
+
 export function CricketLedNeutralScreen({
   tournamentName,
   tournamentLogoUrl,
@@ -107,7 +115,7 @@ export function CricketLedNeutralScreen({
       <div className="absolute inset-0 opacity-[0.035] bg-[linear-gradient(to_right,#808080_1px,transparent_1px),linear-gradient(to_bottom,#808080_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none" />
 
       {/* 1. TOP HEADER: "POWERED BY BIDWAR LOGO" (Centered & Prominent) */}
-      <header className="relative z-20 min-h-[8rem] sm:min-h-[9.5rem] md:min-h-[11rem] flex items-center justify-between px-6 sm:px-10 py-3 border-b border-border/70 bg-card/90 backdrop-blur-md shrink-0 shadow-lg">
+      <header className="relative z-20 h-24 sm:h-28 flex items-center justify-between px-6 sm:px-10 border-b border-border/70 bg-card/90 backdrop-blur-md shrink-0 shadow-lg">
         {/* Left balance spacer / Mini Tournament Icon */}
         <div className="w-48 sm:w-60 flex items-center gap-3 shrink-0">
           {tournamentLogoUrl ? (
@@ -123,14 +131,14 @@ export function CricketLedNeutralScreen({
               <Trophy className="w-5 h-5 text-primary" />
             </div>
           )}
-          <span className="text-lg md:text-xl font-black uppercase tracking-widest text-white/80 hidden sm:inline-block">
+          <span className="text-xs font-black uppercase tracking-widest text-white/50 hidden sm:inline-block">
             STADIUM LED
           </span>
         </div>
 
         {/* Center: "POWERED BY - BIDWAR LOGO" */}
         <div className="flex-1 flex flex-col items-center justify-center text-center">
-          <span className="text-base sm:text-lg md:text-xl font-black uppercase tracking-[0.22em] text-amber-300 font-display mb-1 drop-shadow">
+          <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.35em] text-amber-400 font-display mb-1 drop-shadow">
             POWERED BY
           </span>
           <div className="flex items-center justify-center">
@@ -138,10 +146,10 @@ export function CricketLedNeutralScreen({
               <img
                 src={logoSrc}
                 alt={logoAlt || "BidWar"}
-                className="h-16 sm:h-20 md:h-24 w-auto object-contain filter drop-shadow-[0_2px_14px_rgba(245,158,11,0.5)]"
+                className="h-9 sm:h-11 md:h-12 w-auto object-contain filter drop-shadow-[0_2px_14px_rgba(245,158,11,0.5)]"
               />
             ) : (
-              <span className="text-4xl sm:text-5xl md:text-6xl font-black uppercase tracking-[0.16em] text-white font-display">
+              <span className="text-2xl sm:text-3xl font-black uppercase tracking-[0.2em] text-white font-display">
                 BID<span className="text-amber-400">WAR</span>
               </span>
             )}
@@ -150,7 +158,7 @@ export function CricketLedNeutralScreen({
 
         {/* Right balance spacer / Connection status */}
         <div className="w-48 sm:w-60 flex items-center justify-end gap-3 shrink-0">
-          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-base sm:text-lg font-black uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
             {connectionStatus === "connected" ? (
               <>
                 <Wifi className="w-3.5 h-3.5" /> LIVE DISPLAY
@@ -176,7 +184,7 @@ export function CricketLedNeutralScreen({
             initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.5 }}
-            className="w-40 h-40 sm:w-52 sm:h-52 md:w-64 md:h-64 rounded-3xl bg-card/95 border-2 border-amber-400/50 p-4 shadow-[0_0_45px_rgba(245,158,11,0.3)] flex items-center justify-center overflow-hidden mb-6 shrink-0"
+            className="w-32 h-32 sm:w-40 sm:h-40 md:w-48 md:h-48 rounded-3xl bg-card/95 border-2 border-amber-400/50 p-3 shadow-[0_0_45px_rgba(245,158,11,0.3)] flex items-center justify-center overflow-hidden mb-5 shrink-0"
           >
             <img
               src={tournamentLogoUrl}
@@ -213,7 +221,7 @@ export function CricketLedNeutralScreen({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.45, delay: 0.2 }}
-          className="mt-6 inline-flex items-center gap-3 px-8 py-3 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-200 text-lg sm:text-xl md:text-2xl font-black uppercase tracking-[0.16em] shadow-lg shadow-black/50"
+          className="mt-5 inline-flex items-center gap-2.5 px-6 py-2 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 text-sm sm:text-base font-black uppercase tracking-[0.25em] shadow-lg shadow-black/50"
         >
           <Sparkles className="w-4 h-4 text-amber-400" />
           <span>OFFICIAL TOURNAMENT BROADCAST</span>
@@ -226,7 +234,7 @@ export function CricketLedNeutralScreen({
         {/* Section Tagline */}
         <div className="flex items-center gap-2 mb-3 sm:mb-4">
           <span className="text-amber-400 font-black text-sm sm:text-base">✦</span>
-          <span className="text-lg sm:text-xl md:text-2xl font-black uppercase tracking-[0.18em] text-white">
+          <span className="text-xs sm:text-sm font-black uppercase tracking-[0.3em] text-white/70">
             OFFICIAL TOURNAMENT SPONSORS &amp; PARTNERS
           </span>
           <span className="text-amber-400 font-black text-sm sm:text-base">✦</span>
@@ -235,56 +243,68 @@ export function CricketLedNeutralScreen({
         {/* Prominent Large Sponsor Cards Grid ("thoda bada me") */}
         {activeSponsorsList.length > 0 ? (
           <div className="w-full max-w-7xl 2xl:max-w-[1500px]">
-            {/* Fixed slot so carousel pages cannot resize the LED frame */}
-            <div className="relative h-[148px] sm:h-[164px] md:h-[176px] w-full">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={`page-${carouselIndex}`}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.35, ease: "easeInOut" }}
-                  className="absolute inset-0 grid grid-cols-3 gap-4 sm:gap-6 w-full"
-                >
-                  {currentVisibleSponsors.map((sp, idx) => {
-                    const typeLabel = getSponsorCategoryLabel(sp);
-                    return (
-                      <div
-                        key={`sponsor-card-${sp.name}-${idx}`}
-                        className="flex items-center gap-4 sm:gap-5 h-full min-h-0 px-3.5 sm:px-4 rounded-2xl bg-card/90 border-2 border-border/80 shadow-xl backdrop-blur-sm overflow-hidden"
-                      >
-                        {/* Sponsor logo: same transparent frame on every card */}
-                        {sp.url ? (
-                          <div className="h-24 w-24 sm:h-28 sm:w-28 shrink-0 flex items-center justify-center overflow-hidden bg-transparent">
-                            <img
-                              src={sp.url}
-                              alt={sp.name || "Sponsor"}
-                              className="max-h-full max-w-full object-contain"
-                            />
-                          </div>
-                        ) : (
-                          <div className="h-24 w-24 sm:h-28 sm:w-28 shrink-0 flex items-center justify-center bg-transparent">
-                            <Award className="w-12 h-12 sm:w-14 sm:h-14 text-amber-400 drop-shadow" />
-                          </div>
-                        )}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`page-${carouselIndex}`}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -16 }}
+                transition={{ duration: 0.35, ease: "easeInOut" }}
+                className={cn(
+                  "grid gap-4 sm:gap-6 w-full items-stretch justify-center",
+                  currentVisibleSponsors.length === 1
+                    ? "grid-cols-1 max-w-xl mx-auto"
+                    : currentVisibleSponsors.length === 2
+                    ? "grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto"
+                    : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3",
+                )}
+              >
+                {currentVisibleSponsors.map((sp, idx) => {
+                  const typeLabel = getSponsorCategoryLabel(sp);
+                  return (
+                    <div
+                      key={`sponsor-card-${sp.name}-${idx}`}
+                      className="flex items-center gap-4 sm:gap-5 p-3.5 sm:p-4 rounded-2xl bg-card/90 border-2 border-border/80 hover:border-amber-400/50 shadow-xl backdrop-blur-sm transition-all"
+                    >
+                      {/* Sponsor Logo (Large) */}
+                      {sp.url ? (
+                        <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-22 md:w-22 rounded-xl bg-black/60 border border-white/20 p-2 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
+                          <img
+                            src={sp.url}
+                            alt={sp.name || "Sponsor"}
+                            className="max-h-full max-w-full object-contain filter drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
+                          />
+                        </div>
+                      ) : (
+                        <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-22 md:w-22 rounded-xl bg-amber-500/15 border-2 border-amber-400/40 flex items-center justify-center shrink-0">
+                          <Award className="w-9 h-9 text-amber-400 drop-shadow" />
+                        </div>
+                      )}
 
-                        <div className="flex flex-col justify-center min-w-0 flex-1">
-                          <h3
-                            title={sp.name || "Tournament Partner"}
-                            className="font-black uppercase tracking-wide text-white drop-shadow-md leading-tight break-words line-clamp-2 text-xl sm:text-2xl md:text-3xl"
-                          >
-                            {sp.name || "Tournament Partner"}
-                          </h3>
-                          <span className="mt-1.5 text-base sm:text-lg md:text-xl font-black uppercase tracking-wider text-amber-200 leading-tight line-clamp-2">
+                      {/* Sponsor Details (Name + Type in Big Text) */}
+                      <div className="flex flex-col justify-center min-w-0 flex-1">
+                        {/* Sponsor Name: Proper full name, no cut-off, responsive auto-wrap */}
+                        <h3
+                          title={sp.name || "Tournament Partner"}
+                          className={cn(
+                            "font-black uppercase tracking-wide text-white drop-shadow-md leading-tight break-words line-clamp-2",
+                            getNeutralSponsorNameFontSize(sp.name || ""),
+                          )}
+                        >
+                          {sp.name || "Tournament Partner"}
+                        </h3>
+                        {/* Sponsor Type: thoda bada me */}
+                        <div className="mt-1.5 flex items-center">
+                          <span className="inline-block px-3 py-1 rounded-lg bg-amber-500/20 border border-amber-400/50 text-xs sm:text-sm md:text-base font-black uppercase tracking-wider text-amber-300 drop-shadow">
                             {typeLabel}
                           </span>
                         </div>
                       </div>
-                    );
-                  })}
-                </motion.div>
-              </AnimatePresence>
-            </div>
+                    </div>
+                  );
+                })}
+              </motion.div>
+            </AnimatePresence>
 
             {/* Pagination dots if more than itemsPerPage sponsors */}
             {totalPages > 1 && (
@@ -310,7 +330,7 @@ export function CricketLedNeutralScreen({
               {tournamentName}
             </span>
             <span className="text-amber-400 font-black">•</span>
-            <span className="text-xl md:text-2xl font-black uppercase tracking-widest text-amber-300">
+            <span className="text-sm sm:text-base font-bold uppercase tracking-widest text-amber-400">
               POWERED BY BIDWAR
             </span>
           </div>

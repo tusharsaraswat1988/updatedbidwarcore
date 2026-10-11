@@ -153,28 +153,28 @@ function ConnectionBadge({
 }) {
   if (matchStatus === "paused") {
     return (
-      <span className="led-chip inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xl md:text-2xl font-black uppercase tracking-wider animate-pulse">
-        <Pause className="w-5 h-5 fill-current" /> Paused
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold uppercase tracking-wider animate-pulse">
+        <Pause className="w-3.5 h-3.5 fill-current" /> Paused
       </span>
     );
   }
   if (status === "connected") {
     return (
-      <span className="led-chip inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xl md:text-2xl font-black uppercase tracking-wider">
-        <Wifi className="w-5 h-5" /> Live
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+        <Wifi className="w-3.5 h-3.5" /> Live
       </span>
     );
   }
   if (status === "disconnected") {
     return (
-      <span className="led-chip inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-xl md:text-2xl font-black uppercase tracking-wider">
-        <WifiOff className="w-5 h-5" /> Offline
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-bold uppercase tracking-wider">
+        <WifiOff className="w-3.5 h-3.5" /> Offline
       </span>
     );
   }
   return (
-    <span className="led-chip inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xl md:text-2xl font-black uppercase tracking-wider">
-      <RefreshCw className="w-5 h-5 animate-spin" /> Syncing
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-bold uppercase tracking-wider">
+      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Syncing
     </span>
   );
 }
@@ -263,12 +263,12 @@ function HeaderSponsorShowcase({
   return (
     <div
       className={cn(
-        "led-sponsor-slot flex items-center gap-3 sm:gap-4 max-w-[380px] sm:max-w-[460px] md:max-w-[560px] transition-opacity duration-300 ease-in-out shrink-0",
+        "flex items-center gap-2.5 max-w-[280px] sm:max-w-[320px] md:max-w-[360px] h-18 transition-opacity duration-300 ease-in-out shrink-0",
         isFading ? "opacity-0" : "opacity-100",
       )}
     >
       {current.url ? (
-        <div className="led-sponsor-logo h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24 flex items-center justify-center p-0.5 shrink-0 overflow-hidden">
+        <div className="h-12 w-12 sm:h-14 sm:w-14 flex items-center justify-center p-0.5 shrink-0 overflow-hidden">
           <img
             src={current.url}
             alt={current.name || "Sponsor"}
@@ -276,20 +276,20 @@ function HeaderSponsorShowcase({
           />
         </div>
       ) : (
-        <div className="h-16 w-16 sm:h-20 sm:w-20 flex items-center justify-center shrink-0">
-          <Award className="w-10 h-10 sm:w-12 sm:h-12 text-amber-400 drop-shadow" />
+        <div className="h-10 w-10 flex items-center justify-center shrink-0">
+          <Award className="w-6 h-6 text-amber-400 drop-shadow" />
         </div>
       )}
       <div className="flex flex-col justify-center min-w-0 flex-1">
         <span
           title={current.name || "Tournament Sponsor"}
-          className="led-player text-lg sm:text-xl md:text-2xl lg:text-3xl font-black uppercase tracking-wide text-white leading-tight drop-shadow break-words line-clamp-2"
+          className="text-xs sm:text-sm font-black uppercase tracking-wide text-white leading-tight drop-shadow break-words line-clamp-2"
         >
           {current.name || "Tournament Sponsor"}
         </span>
         <span
           title={typeText}
-          className="led-role text-xl md:text-2xl lg:text-3xl font-black uppercase tracking-wider text-amber-300 truncate mt-1"
+          className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-400 truncate mt-0.5"
         >
           {typeText}
         </span>
@@ -756,10 +756,10 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
   const tournamentTitle = tournament?.name || "LIVE CRICKET TOURNAMENT";
   const titleFontSizeClass = useMemo(() => {
     const len = tournamentTitle.length;
-    if (len > 50) return "text-xl sm:text-2xl md:text-3xl lg:text-4xl";
-    if (len > 32) return "text-2xl sm:text-3xl md:text-4xl lg:text-5xl";
-    if (len > 18) return "text-3xl sm:text-4xl md:text-5xl lg:text-6xl";
-    return "text-4xl sm:text-5xl md:text-6xl lg:text-7xl";
+    if (len > 50) return "text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl";
+    if (len > 32) return "text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl";
+    if (len > 18) return "text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl";
+    return "text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl";
   }, [tournamentTitle]);
 
   const isLiveMatch =
@@ -821,30 +821,30 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
   return (
     <FullscreenLayout className="h-screen max-h-screen overflow-hidden">
       <div
-        className="cricket-led-board h-full w-full bg-[#07090e] text-foreground flex flex-col justify-between relative dark overflow-hidden select-none"
+        className="h-screen max-h-screen w-full bg-[#07090e] text-foreground flex flex-col justify-between relative dark overflow-hidden select-none"
         style={displayShellStyle}
       >
         {/* Ambient Stadium Lighting Gradient */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/15 via-[#07090e] to-[#040507] pointer-events-none" />
 
         {/* 1. TOP HEADER: Tournament Logo + Name (Left) | BidWar Logo (Center) | Sponsor Showcase (Right) */}
-        <header className="led-header relative z-20 min-h-[7.25rem] sm:min-h-[8.5rem] md:min-h-[9.75rem] flex items-center justify-between px-4 sm:px-8 md:px-10 py-3 border-b border-border/60 bg-card/90 backdrop-blur-md shrink-0 gap-4 sm:gap-8">
+        <header className="relative z-20 h-16 sm:h-20 flex items-center justify-between px-3 sm:px-6 md:px-8 border-b border-border/60 bg-card/90 backdrop-blur-md shrink-0 gap-3 sm:gap-6">
           {/* Top Left: Tournament Logo + Tournament Name in CAPITAL with generous space reaching towards center */}
-          <div className="flex items-center gap-4 sm:gap-5 flex-1 min-w-0 max-w-[40%] shrink-0">
+          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 max-w-[42%] shrink-0">
             {tournament?.logoUrl ? (
               <img
                 src={tournament.logoUrl}
                 alt={tournament.name || "Tournament Logo"}
-                className="led-logo h-16 sm:h-20 md:h-24 w-auto max-w-[120px] sm:max-w-[150px] md:max-w-[190px] object-contain drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)] shrink-0"
+                className="h-11 sm:h-13 md:h-15 w-auto max-w-[70px] sm:max-w-[85px] md:max-w-[100px] object-contain drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)] shrink-0"
               />
             ) : (
-              <Trophy className="w-12 h-12 sm:w-16 sm:h-16 text-primary drop-shadow-md shrink-0" />
+              <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-primary drop-shadow-md shrink-0" />
             )}
             <div className="min-w-0 flex-1">
               <h2
                 title={tournamentTitle}
                 className={cn(
-                  "led-title font-display font-black uppercase tracking-wide text-white leading-tight line-clamp-2 drop-shadow-md break-words",
+                  "font-display font-black uppercase tracking-wide text-white leading-tight line-clamp-2 drop-shadow-md break-words",
                   titleFontSizeClass,
                 )}
               >
@@ -859,11 +859,11 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
               <img
                 src={logoSrc}
                 alt={logoAlt || "BidWar"}
-                className="led-mark h-16 sm:h-20 md:h-24 lg:h-28 w-auto max-w-[280px] sm:max-w-[380px] md:max-w-[480px] lg:max-w-[560px] object-contain drop-shadow-[0_4px_16px_rgba(0,0,0,0.85)]"
+                className="h-10 sm:h-12 md:h-14 w-auto max-w-[200px] sm:max-w-[260px] md:max-w-[320px] object-contain drop-shadow-[0_4px_16px_rgba(0,0,0,0.85)]"
               />
             ) : (
-              <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-primary/20 border border-primary/40">
-                <span className="text-2xl sm:text-3xl md:text-4xl font-black uppercase tracking-[0.18em] text-amber-400 font-display">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/20 border border-primary/40">
+                <span className="text-sm sm:text-base md:text-lg font-black uppercase tracking-[0.25em] text-amber-400 font-display">
                   BIDWAR CRICKET
                 </span>
               </div>
@@ -884,14 +884,14 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
         </header>
 
         {/* 2. MAIN SCORING ARENA */}
-        <main className="relative z-10 flex-1 min-h-0 w-full flex flex-col items-stretch justify-between px-3 sm:px-6 md:px-8 py-2 sm:py-3 gap-2 sm:gap-3 overflow-hidden">
+        <main className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-between px-3 sm:px-6 md:px-8 py-2 sm:py-3 gap-2 sm:gap-3 overflow-hidden">
           {isIdle ? (
             <div className="text-center space-y-4 max-w-xl p-8 rounded-3xl bg-card/60 border border-border/80 backdrop-blur-md my-auto">
               <Trophy className="w-14 h-14 text-primary/60 mx-auto animate-pulse" />
-              <h2 className="text-4xl sm:text-5xl font-display font-black uppercase tracking-wide text-foreground">
+              <h2 className="text-2xl sm:text-3xl font-display font-black uppercase tracking-wide text-foreground">
                 Match Waiting To Begin
               </h2>
-              <p className="text-xl sm:text-2xl font-black text-white/80">
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Waiting for the official toss and scorer to start ball delivery.
               </p>
             </div>
@@ -901,7 +901,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
             <div className="w-full max-w-4xl space-y-4 my-auto">
               <div className="flex items-center justify-center gap-3">
                 <Trophy className="w-7 h-7 text-primary" />
-                <h2 className="text-center text-4xl sm:text-5xl font-display font-black uppercase tracking-widest text-primary">
+                <h2 className="text-center text-2xl sm:text-3xl font-display font-black uppercase tracking-widest text-primary">
                   {state?.matchStatus === "walkover" || match?.status === "walkover"
                     ? "Walkover Awarded"
                     : state?.matchStatus === "abandoned" || match?.status === "abandoned"
@@ -912,12 +912,12 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
               <MatchSummaryCard summary={summary} teams={teams} />
             </div>
           ) : (
-            <div className="led-arena w-full flex-1 min-h-0 flex flex-col items-stretch justify-between gap-2 sm:gap-2.5">
+            <div className="w-full max-w-7xl flex-1 min-h-0 flex flex-col items-center justify-between gap-2 sm:gap-2.5">
               {/* Unified Match Context & Teams Strip */}
-              <div className="w-full min-h-[4.5rem] sm:min-h-[5.25rem] flex items-center justify-between px-4 sm:px-6 py-2 rounded-xl sm:rounded-2xl bg-card/95 border border-border/80 backdrop-blur-md shadow-xl gap-3 sm:gap-5 shrink-0">
+              <div className="w-full min-h-[50px] sm:min-h-[56px] flex items-center justify-between px-3 sm:px-5 py-1 rounded-xl sm:rounded-2xl bg-card/95 border border-border/80 backdrop-blur-md shadow-xl gap-2 sm:gap-4 shrink-0">
                 {/* Batting Team Badge */}
-                <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-                  <span className="led-chip px-3 py-1.5 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xl md:text-2xl lg:text-3xl font-black uppercase tracking-wider shrink-0">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[10px] sm:text-xs font-black uppercase tracking-wider shrink-0">
                     BAT
                   </span>
                   <TeamLogoBadge
@@ -925,13 +925,13 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                     name={battingTeam?.name || home?.name || "Batting Team"}
                     borderColor="border-emerald-500/40"
                     fallbackIconColor="text-emerald-400"
-                    className="led-team-logo w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 shrink-0"
+                    className="w-9 h-9 sm:w-10 sm:h-10 shrink-0"
                   />
                   <div className="text-left min-w-0 flex-1">
-                    <h3 className="led-team text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-wide text-white leading-tight truncate drop-shadow-sm">
+                    <h3 className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl font-black uppercase tracking-wide text-white leading-tight truncate drop-shadow-sm">
                       {battingTeam?.name || home?.name || "Batting Team"}
                     </h3>
-                    <p className="led-status text-xl md:text-2xl lg:text-3xl uppercase tracking-widest text-emerald-300 font-black leading-none mt-1">
+                    <p className="text-xs sm:text-sm uppercase tracking-widest text-emerald-400 font-black leading-none mt-0.5">
                       {battingTeam?.shortCode || home?.shortCode}
                     </p>
                   </div>
@@ -940,27 +940,27 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                 {/* Center Match Equation / Free Hit Alert */}
                 <div className="flex items-center justify-center text-center px-2 shrink-0">
                   {state?.freeHitActive ? (
-                    <div className="led-kicker px-5 py-2.5 rounded-lg bg-amber-500 text-black border border-yellow-200 font-black text-2xl md:text-3xl lg:text-4xl uppercase tracking-widest flex items-center gap-2 shadow-md animate-pulse">
-                      <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-black fill-current animate-bounce" />
+                    <div className="px-3 py-1 rounded-lg bg-amber-500 text-black border border-yellow-200 font-black text-xs sm:text-sm uppercase tracking-widest flex items-center gap-1.5 shadow-md animate-pulse">
+                      <Flame className="w-3.5 h-3.5 text-black fill-current animate-bounce" />
                       FREE HIT ACTIVE
                     </div>
                   ) : targetRuns != null ? (
-                    <div className="flex items-center gap-3 sm:gap-4 px-4 py-2 rounded-lg bg-card border border-border/80">
-                      <div className="led-kicker text-2xl md:text-3xl font-black uppercase text-amber-300">
-                        TARGET: <span className="led-num text-white font-mono text-3xl md:text-4xl font-black ml-1">{targetRuns}</span>
+                    <div className="flex items-center gap-2 sm:gap-3 px-3 py-1 rounded-lg bg-card border border-border/80">
+                      <div className="text-xs sm:text-sm font-black uppercase text-amber-400">
+                        TARGET: <span className="text-white font-mono text-sm sm:text-base font-black ml-0.5">{targetRuns}</span>
                       </div>
-                      <div className="led-kicker text-2xl md:text-3xl font-black uppercase text-white">
-                        NEED <span className="led-num text-amber-300 font-mono text-3xl md:text-4xl font-black">{needRuns}</span> IN <span className="led-num text-amber-300 font-mono text-3xl md:text-4xl font-black">{ballsRemaining}B</span>
+                      <div className="text-xs sm:text-sm font-black uppercase text-white">
+                        NEED <span className="text-amber-400 font-mono text-sm sm:text-base font-black">{needRuns}</span> IN <span className="text-amber-400 font-mono text-sm sm:text-base font-black">{ballsRemaining}B</span>
                       </div>
                       {rrr && (
-                        <div className="led-kicker text-2xl md:text-3xl font-black uppercase text-amber-200">
-                          RRR: <span className="led-num font-mono text-3xl md:text-4xl font-black ml-1">{rrr}</span>
+                        <div className="text-xs sm:text-sm font-black uppercase text-amber-300 hidden sm:block">
+                          RRR: <span className="font-mono text-sm sm:text-base font-black ml-0.5">{rrr}</span>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="px-4 py-2 rounded-lg bg-card/80 border border-border/80">
-                      <span className="led-kicker text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-widest text-white">
+                    <div className="px-3 py-1 rounded-lg bg-card/80 border border-border/80">
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-white/90">
                         1ST INNINGS IN PROGRESS
                       </span>
                     </div>
@@ -968,12 +968,12 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                 </div>
 
                 {/* Bowling Team Badge */}
-                <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1 text-right justify-end">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 text-right justify-end">
                   <div className="text-right min-w-0 flex-1">
-                    <h3 className="led-team text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-wide text-white leading-tight truncate drop-shadow-sm">
+                    <h3 className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl font-black uppercase tracking-wide text-white leading-tight truncate drop-shadow-sm">
                       {bowlingTeam?.name || away?.name || "Bowling Team"}
                     </h3>
-                    <p className="led-status text-xl md:text-2xl lg:text-3xl uppercase tracking-widest text-amber-300 font-black leading-none mt-1">
+                    <p className="text-xs sm:text-sm uppercase tracking-widest text-amber-400 font-black leading-none mt-0.5">
                       {bowlingTeam?.shortCode || away?.shortCode}
                     </p>
                   </div>
@@ -982,9 +982,9 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                     name={bowlingTeam?.name || away?.name || "Bowling Team"}
                     borderColor="border-amber-500/40"
                     fallbackIconColor="text-amber-400"
-                    className="led-team-logo w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 shrink-0"
+                    className="w-9 h-9 sm:w-10 sm:h-10 shrink-0"
                   />
-                  <span className="led-chip px-3 py-1.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-200 text-xl md:text-2xl lg:text-3xl font-black uppercase tracking-wider shrink-0">
+                  <span className="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] sm:text-xs font-black uppercase tracking-wider shrink-0">
                     BOWL
                   </span>
                 </div>
@@ -997,7 +997,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                   {/* Total Score Numerals with Optical Slash and tight number-focused glow (50% Larger) */}
                   <div
                     className={cn(
-                      "led-score font-black font-mono tabular-nums tracking-tight leading-none flex items-center justify-center transition-all duration-300 ease-out select-none relative drop-shadow-[0_10px_35px_rgba(0,0,0,0.95)]",
+                      "text-9xl sm:text-[12rem] md:text-[16rem] lg:text-[19.5rem] xl:text-[23rem] font-black font-mono tabular-nums tracking-tight leading-none flex items-center justify-center transition-all duration-300 ease-out select-none relative drop-shadow-[0_10px_35px_rgba(0,0,0,0.95)]",
                       scoreGlowType === "gold"
                         ? "text-amber-300 drop-shadow-[0_0_32px_rgba(251,191,36,0.95)] scale-[1.03]"
                         : scoreGlowType === "white"
@@ -1025,12 +1025,12 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                   <div className="flex items-center gap-3 sm:gap-5 mt-2 sm:mt-3 flex-wrap justify-center">
                     {/* Overs */}
                     <div className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-2xl bg-card/95 border-2 border-border shadow-lg flex items-center gap-2.5 sm:gap-3.5">
-                      <span className="led-kicker text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-widest text-white">
+                      <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-widest text-white/70">
                         OVERS
                       </span>
-                      <span className="led-num text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-mono font-black text-amber-400">
+                      <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-mono font-black text-amber-400">
                         {innings ? oversText(innings.over, innings.ball) : "0.0"}
-                        <span className="led-balls text-xl sm:text-2xl md:text-3xl text-white/80 font-black ml-1.5">
+                        <span className="text-base sm:text-lg md:text-xl text-white/50 font-bold ml-1.5">
                           / {state?.oversLimit ?? 0}
                         </span>
                       </span>
@@ -1039,10 +1039,10 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                     {/* CRR */}
                     {rr && (
                       <div className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-2xl bg-card/95 border-2 border-border flex items-center gap-2.5 sm:gap-3.5 shadow-lg">
-                        <span className="led-kicker text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-widest text-white">
+                        <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-widest text-white/70">
                           CRR
                         </span>
-                        <span className="led-num text-2xl sm:text-3xl md:text-4xl font-mono font-black text-white">
+                        <span className="text-2xl sm:text-3xl md:text-4xl font-mono font-black text-white">
                           {rr}
                         </span>
                       </div>
@@ -1051,10 +1051,10 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                     {/* REQ RR */}
                     {rrr && (
                       <div className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-2xl bg-card/95 border-2 border-border flex items-center gap-2.5 sm:gap-3.5 shadow-lg">
-                        <span className="led-kicker text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-widest text-amber-200">
+                        <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-widest text-amber-400/80">
                           REQ RR
                         </span>
-                        <span className="led-num text-2xl sm:text-3xl md:text-4xl font-mono font-black text-amber-400">
+                        <span className="text-2xl sm:text-3xl md:text-4xl font-mono font-black text-amber-400">
                           {rrr}
                         </span>
                       </div>
@@ -1062,12 +1062,12 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
 
                     {/* Partnership */}
                     <div className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-2xl bg-card/95 border-2 border-border flex items-center gap-2.5 sm:gap-3.5 shadow-lg">
-                      <span className="led-kicker text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-widest text-white">
+                      <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-widest text-white/70">
                         PARTNERSHIP
                       </span>
-                      <span className="led-num text-2xl sm:text-3xl md:text-4xl font-mono font-black text-white">
+                      <span className="text-2xl sm:text-3xl md:text-4xl font-mono font-black text-white">
                         {partnershipRuns}
-                        <span className="led-balls text-2xl md:text-3xl lg:text-4xl text-amber-200 font-black ml-2">
+                        <span className="text-sm sm:text-lg md:text-xl text-amber-400 font-bold ml-2">
                           ({partnershipBalls} {partnershipBalls === 1 ? "ball" : "balls"})
                         </span>
                       </span>
@@ -1080,7 +1080,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                   {/* 1. Both Batters in ONE Horizontal Row (Side-by-Side with Large High-Visibility Scores) */}
                   <div className="w-full p-2.5 sm:p-3 rounded-xl sm:rounded-2xl bg-black/60 border border-border/80 shadow-xl flex flex-col gap-1.5">
                     <div className="flex items-center justify-between pb-1 border-b border-border/40">
-                      <span className="led-kicker text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-[0.12em] text-white flex items-center gap-2">
+                      <span className="text-[11px] sm:text-xs font-black uppercase tracking-[0.2em] text-white/90 flex items-center gap-1.5">
                         🏏 BATTERS AT CREASE
                       </span>
                     </div>
@@ -1092,20 +1092,20 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                           <PlayerAvatar
                             photoUrl={strikerStats?.photoUrl || strikerPlayer?.photoUrl}
                             name={strikerStats?.name || strikerPlayer?.name}
-                            className="led-avatar w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-xl border-2 border-emerald-400 shrink-0 shadow-md"
+                            className="w-11 h-11 sm:w-13 sm:h-13 md:w-15 md:h-15 rounded-lg sm:rounded-xl border-2 border-emerald-400 shrink-0 shadow-md"
                           />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1">
                               <span className="text-emerald-400 font-black text-2xl sm:text-3xl shrink-0 leading-none animate-pulse">*</span>
                               <span
-                                className="led-player text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black uppercase text-white tracking-wide truncate leading-tight drop-shadow-md"
+                                className="text-base sm:text-xl md:text-2xl lg:text-3xl font-black uppercase text-white tracking-wide truncate leading-tight drop-shadow-md"
                                 title={strikerStats?.name || strikerPlayer?.name}
                               >
                                 {strikerStats?.name || strikerPlayer?.name || "Striker"}
                               </span>
                             </div>
                             {strikerPlayer?.role && (
-                              <p className="led-role text-xl md:text-2xl lg:text-3xl font-black uppercase tracking-wider text-emerald-200 ml-4 sm:ml-5 truncate">
+                              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-400/90 ml-4 sm:ml-5 truncate">
                                 {strikerPlayer.role}
                               </p>
                             )}
@@ -1114,15 +1114,15 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                         <div className="text-right shrink-0 pr-1 sm:pr-2">
                           {strikerStats?.hasStats ? (
                             <div className="flex items-baseline gap-1 sm:gap-2">
-                              <span className="led-runs text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-mono font-black text-amber-400 leading-none drop-shadow-[0_2px_14px_rgba(245,158,11,0.6)]">
+                              <span className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-mono font-black text-amber-400 leading-none drop-shadow-[0_2px_14px_rgba(245,158,11,0.6)]">
                                 {strikerStats.runs}*
                               </span>
-                              <span className="led-balls text-base sm:text-xl md:text-2xl font-mono font-bold text-white/80">
+                              <span className="text-base sm:text-xl md:text-2xl font-mono font-bold text-white/80">
                                 ({strikerStats.balls})
                               </span>
                             </div>
                           ) : (
-                            <span className="text-xl sm:text-2xl font-black text-white/80">
+                            <span className="text-sm sm:text-base font-bold text-white/60">
                               {strikerPlayer?.role || "Striker"}
                             </span>
                           )}
@@ -1135,20 +1135,20 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                           <PlayerAvatar
                             photoUrl={nonStrikerStats?.photoUrl || nonStrikerPlayer?.photoUrl}
                             name={nonStrikerStats?.name || nonStrikerPlayer?.name}
-                            className="led-avatar w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-xl border-2 border-border/80 shrink-0 shadow-md"
+                            className="w-11 h-11 sm:w-13 sm:h-13 md:w-15 md:h-15 rounded-lg sm:rounded-xl border-2 border-border/80 shrink-0 shadow-md"
                           />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1">
                               <span className="text-white/40 font-black text-2xl sm:text-3xl shrink-0 leading-none">·</span>
                               <span
-                                className="led-player text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black uppercase text-white tracking-wide truncate leading-tight drop-shadow-md"
+                                className="text-base sm:text-xl md:text-2xl lg:text-3xl font-bold uppercase text-white/90 tracking-wide truncate leading-tight drop-shadow-md"
                                 title={nonStrikerStats?.name || nonStrikerPlayer?.name}
                               >
                                 {nonStrikerStats?.name || nonStrikerPlayer?.name || "Non-Striker"}
                               </span>
                             </div>
                             {nonStrikerPlayer?.role && (
-                              <p className="led-role text-xl md:text-2xl lg:text-3xl font-black uppercase tracking-wider text-white ml-4 sm:ml-5 truncate">
+                              <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground ml-4 sm:ml-5 truncate">
                                 {nonStrikerPlayer.role}
                               </p>
                             )}
@@ -1157,15 +1157,15 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                         <div className="text-right shrink-0 pr-1 sm:pr-2">
                           {nonStrikerStats?.hasStats ? (
                             <div className="flex items-baseline gap-1 sm:gap-2">
-                              <span className="led-runs text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-mono font-black text-white leading-none drop-shadow-md">
+                              <span className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-mono font-black text-white leading-none drop-shadow-md">
                                 {nonStrikerStats.runs}
                               </span>
-                              <span className="led-balls text-base sm:text-xl md:text-2xl font-mono font-bold text-white/60">
+                              <span className="text-base sm:text-xl md:text-2xl font-mono font-bold text-white/60">
                                 ({nonStrikerStats.balls})
                               </span>
                             </div>
                           ) : (
-                            <span className="text-xl sm:text-2xl font-black text-white/80">
+                            <span className="text-sm sm:text-base font-bold text-white/60">
                               {nonStrikerPlayer?.role || "Non-Striker"}
                             </span>
                           )}
@@ -1178,7 +1178,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                   <div className="w-full px-2 py-1 flex items-center justify-between gap-3 sm:gap-4 shrink-0">
                     <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
                       {/* Active Bowler in crisp white text / badge */}
-                      <span className="led-chip px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white font-black text-xl md:text-2xl lg:text-3xl uppercase tracking-wider shrink-0 shadow-sm">
+                      <span className="px-2.5 py-1 rounded-lg bg-white/10 border border-white/20 text-white font-black text-xs sm:text-sm md:text-base uppercase tracking-wider shrink-0 shadow-sm">
                         ACTIVE BOWLER
                       </span>
 
@@ -1186,19 +1186,19 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                       <PlayerAvatar
                         photoUrl={bowlerStats?.photoUrl || bowlerPlayer?.photoUrl}
                         name={bowlerStats?.name || bowlerPlayer?.name}
-                        className="led-avatar w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-xl border-2 border-amber-400 shrink-0 shadow-md"
+                        className="w-11 h-11 sm:w-13 sm:h-13 md:w-15 md:h-15 rounded-lg sm:rounded-xl border-2 border-amber-400 shrink-0 shadow-md"
                       />
 
                       {/* Bowler Name */}
                       <div className="min-w-0 flex-1">
                         <h4
-                          className="led-player text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black uppercase text-white tracking-wide truncate leading-tight drop-shadow-md"
+                          className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-black uppercase text-white tracking-wide truncate leading-tight drop-shadow-md"
                           title={bowlerStats?.name || bowlerPlayer?.name}
                         >
                           {bowlerStats?.name || bowlerPlayer?.name || "Current Bowler"}
                         </h4>
                         {bowlerPlayer?.role && (
-                          <p className="led-role text-xl md:text-2xl lg:text-3xl font-black uppercase tracking-wider text-amber-200 mt-1 truncate">
+                          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-amber-400/90 mt-0.5 truncate">
                             {bowlerPlayer.role}
                           </p>
                         )}
@@ -1208,11 +1208,11 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                     {/* Bowler Figures */}
                     <div className="text-right shrink-0 pr-1 sm:pr-2">
                       {bowlerStats?.hasStats ? (
-                        <div className="led-bowl text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-mono font-black text-amber-400 tracking-wider drop-shadow-md">
+                        <div className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-mono font-black text-amber-400 tracking-wider drop-shadow-md">
                           {bowlerStats.overs}-{bowlerStats.maidens}-{bowlerStats.runsConceded}-{bowlerStats.wickets}
                         </div>
                       ) : (
-                        <div className="led-bowl text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-mono font-black text-amber-300">
+                        <div className="text-2xl sm:text-3xl md:text-4xl font-mono font-black text-amber-400">
                           BALL {innings?.ball ?? 0} OF 6
                         </div>
                       )}
@@ -1222,7 +1222,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
 
                 {/* This Over Deliveries Strip (Centered in Middle & Double Text Size) */}
                 <div className="w-full flex flex-col items-center justify-center gap-1.5 pt-2 border-t border-border/40 shrink-0">
-                  <span className="led-kicker text-2xl md:text-3xl lg:text-4xl font-black uppercase tracking-[0.12em] text-white">
+                  <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-[0.25em] text-muted-foreground">
                     THIS OVER DELIVERIES
                   </span>
                   <div className="flex items-center justify-center flex-wrap gap-2.5 sm:gap-3.5">
@@ -1240,7 +1240,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                           <span
                             key={`${b.over}-${b.ball}-${i}`}
                             className={cn(
-                              "led-ball inline-flex h-12 min-w-12 sm:h-16 sm:min-w-16 md:h-20 md:min-w-20 px-2 items-center justify-center rounded-2xl text-2xl sm:text-4xl md:text-5xl font-mono font-black border-2 transition-all shadow-lg leading-none",
+                              "inline-flex h-12 min-w-12 sm:h-16 sm:min-w-16 md:h-20 md:min-w-20 px-2 items-center justify-center rounded-2xl text-2xl sm:text-4xl md:text-5xl font-mono font-black border-2 transition-all shadow-lg leading-none",
                               isSix
                                 ? "bg-amber-500 text-black border-yellow-200 shadow-[0_0_24px_rgba(245,158,11,0.7)]"
                                 : isFour
@@ -1257,7 +1257,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                         );
                       })
                     ) : (
-                      <span className="text-xl sm:text-2xl uppercase tracking-widest text-white/80 font-black">
+                      <span className="text-sm sm:text-base uppercase tracking-widest text-muted-foreground/60 italic font-semibold">
                         Over commencing...
                       </span>
                     )}
@@ -1269,7 +1269,7 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
         </main>
 
         {/* 3. FOOTER: Full-Width Broadcast Sponsor Marquee */}
-        <footer className="led-footer relative z-20 h-16 sm:h-20 bg-[#05070a]/95 border-t border-border/70 overflow-hidden flex items-center select-none shadow-2xl shrink-0 w-full backdrop-blur-md">
+        <footer className="relative z-20 h-12 sm:h-14 bg-[#05070a]/95 border-t border-border/70 overflow-hidden flex items-center select-none shadow-2xl shrink-0 w-full backdrop-blur-md">
           {/* Continuous Infinite Marquee Sponsor Trail (Full Width) */}
           <div className="w-full overflow-hidden relative">
             <div className="flex animate-marquee whitespace-nowrap will-change-transform py-2">
@@ -1278,9 +1278,9 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
                   {sponsorTrailItems.map((item, idx) => (
                     <div key={`${copyIdx}-${idx}`} className="inline-flex items-center gap-3.5">
                       <span className="text-amber-400 font-black text-xl">✦</span>
-                      <span className="led-sponsor text-2xl sm:text-3xl md:text-4xl font-black uppercase tracking-wider text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+                      <span className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-wider text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
                         {item.name}
-                        <span className="text-amber-300 font-black text-xl sm:text-2xl md:text-3xl ml-2.5">
+                        <span className="text-amber-400 font-bold text-lg sm:text-xl md:text-2xl ml-2.5">
                           ({item.type})
                         </span>
                       </span>
