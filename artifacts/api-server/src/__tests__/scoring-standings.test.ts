@@ -164,21 +164,66 @@ describe("standings projection inputs", () => {
     expect(fromMissingWinner.map((standing) => standing.teamId)).toEqual([1, 2]);
   });
 
-  it("counts a result in the group whose fixture lists the two teams that played", async () => {
-    const { selectLeagueMatchesForGroup } = await import("../lib/scoring-standings");
+  it("counts a game in the official group of the two teams, not the fixture label", async () => {
+    const { projectGroupStandings } = await import("../lib/scoring-standings");
+    const summary = (winner: number, home: number, away: number) => ({
+      innings: [
+        { innings: 1, battingTeamId: home, bowlingTeamId: away, runs: winner === home ? 40 : 20, wickets: 2, overs: "5.0", phase: "completed" as const },
+        { innings: 2, battingTeamId: away, bowlingTeamId: home, runs: winner === away ? 41 : 20, wickets: 3, overs: "5.0", phase: "completed" as const },
+      ],
+      target: 41,
+      winnerTeamId: winner,
+      resultText: "win",
+      homeTeamId: home,
+      awayTeamId: away,
+      oversLimit: 5,
+      currentInnings: 2,
+      matchStatus: "completed" as const,
+    });
+    const groupA = [91, 89, 85, 84, 93];
+    const groupB = [80, 77, 87, 92];
     const fixtures = [
-      { id: 27, drawId: 4, groupId: 3, homeTeamId: 1, awayTeamId: 2, roundName: "Group A — Match 23" },
-      { id: 29, drawId: 4, groupId: 4, homeTeamId: 77, awayTeamId: 5, roundName: "Group B — Match 25" },
+      { id: 37, drawId: 4, groupId: 4, homeTeamId: 89, awayTeamId: 93, roundName: "Group B — Match 20" },
+      { id: 25, drawId: 4, groupId: 3, homeTeamId: 80, awayTeamId: 87, roundName: "Group A — Match 21" },
+      { id: 27, drawId: 4, groupId: 3, homeTeamId: 91, awayTeamId: 85, roundName: "Group A — Match 23" },
     ];
-    const fixturesById = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
     const matches = [
-      { fixtureId: 27, homeTeamId: 5, awayTeamId: 77, matchId: 133 },
+      { matchId: 130, fixtureId: 37, status: "completed" as const, homeTeamId: 89, awayTeamId: 93, summary: summary(89, 89, 93) },
+      { matchId: 132, fixtureId: 26, status: "completed" as const, homeTeamId: 80, awayTeamId: 87, summary: summary(80, 80, 87) },
+      { matchId: 133, fixtureId: 27, status: "completed" as const, homeTeamId: 87, awayTeamId: 77, summary: summary(77, 87, 77) },
+    ];
+    const fixturesWithStored = [
+      ...fixtures,
+      { id: 26, drawId: 4, groupId: 4, homeTeamId: 77, awayTeamId: 92, roundName: "Group B — Match 22" },
     ];
 
-    const groupA = selectLeagueMatchesForGroup(matches, fixturesById, { id: 3, drawId: 4 });
-    const groupB = selectLeagueMatchesForGroup(matches, fixturesById, { id: 4, drawId: 4 });
+    const tableA = projectGroupStandings({
+      drawId: 4,
+      groupId: 3,
+      teamIds: groupA,
+      fixtures: fixturesWithStored,
+      matches,
+    });
+    const tableB = projectGroupStandings({
+      drawId: 4,
+      groupId: 4,
+      teamIds: groupB,
+      fixtures: fixturesWithStored,
+      matches,
+    });
 
-    expect(groupA).toEqual([]);
-    expect(groupB.map((match) => match.matchId)).toEqual([133]);
+    const played = (rows: typeof tableA, teamId: number) => rows.find((row) => row.teamId === teamId);
+    expect([...tableA.map((row) => row.teamId)].sort((a, b) => a - b)).toEqual([...groupA].sort((a, b) => a - b));
+    expect(played(tableA, 89)?.played).toBe(1);
+    expect(played(tableA, 89)?.won).toBe(1);
+    expect(played(tableA, 93)?.lost).toBe(1);
+    expect(played(tableA, 91)?.played).toBe(0);
+    expect([...tableB.map((row) => row.teamId)].sort((a, b) => a - b)).toEqual([...groupB].sort((a, b) => a - b));
+    expect(played(tableB, 80)?.played).toBe(1);
+    expect(played(tableB, 80)?.won).toBe(1);
+    expect(played(tableB, 87)?.played).toBe(2);
+    expect(played(tableB, 87)?.lost).toBe(2);
+    expect(played(tableB, 77)?.won).toBe(1);
+    expect(played(tableB, 92)?.played).toBe(0);
   });
 });

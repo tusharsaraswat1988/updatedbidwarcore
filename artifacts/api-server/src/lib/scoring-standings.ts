@@ -167,6 +167,36 @@ export function selectLeagueMatchesForGroup<
 }
 
 /**
+ * Group points follow official membership. A finished league match in this draw
+ * counts when both sides are members, even if the fixture card is labeled with
+ * the other group or the result was saved on a neighboring fixture.
+ * Groups with no members keep the fixture-label rule.
+ */
+export function selectMatchesForGroupMembers<
+  T extends { fixtureId: number | null; homeTeamId: number; awayTeamId: number },
+>(
+  matches: T[],
+  fixturesById: Map<number, CompetitionFixtureRef>,
+  group: { id: number; drawId: number | null; teamIds: number[] },
+): T[] {
+  if (group.teamIds.length === 0 || group.drawId == null) {
+    if (group.drawId == null) return [];
+    return selectLeagueMatchesForGroup(matches, fixturesById, {
+      id: group.id,
+      drawId: group.drawId,
+    });
+  }
+  const members = new Set(group.teamIds);
+  return matches.filter((match) => {
+    if (!members.has(match.homeTeamId) || !members.has(match.awayTeamId)) return false;
+    if (match.fixtureId == null) return false;
+    const fixture = fixturesById.get(match.fixtureId);
+    if (!fixture || fixture.drawId !== group.drawId) return false;
+    return !isKnockoutMatch(fixture);
+  });
+}
+
+/**
  * League matches whose fixture is in this draw. Knockout and fixture-less matches stay out.
  * When the draw has groups, only those groups' fixtures count. A draw with no groups uses
  * its own non-knockout fixtures.
@@ -231,9 +261,10 @@ export function projectGroupStandings(input: {
   matches: CompetitionMatchRef[];
 }) {
   const fixturesById = new Map(input.fixtures.map((fixture) => [fixture.id, fixture]));
-  const leagueMatches = selectLeagueMatchesForGroup(input.matches, fixturesById, {
+  const leagueMatches = selectMatchesForGroupMembers(input.matches, fixturesById, {
     id: input.groupId,
     drawId: input.drawId,
+    teamIds: input.teamIds,
   });
   return buildStandingsFromMatches(input.teamIds, leagueMatches);
 }
@@ -597,9 +628,10 @@ async function getScoringStandingsRaw(tournamentId: number) {
       const members = groupMembers.filter((gm) => gm.groupId === g.id);
       const groupTeamIds = members.map((gm) => gm.teamId);
 
-      const groupMatches = selectLeagueMatchesForGroup(lineageMatches, fixturesById, {
+      const groupMatches = selectMatchesForGroupMembers(lineageMatches, fixturesById, {
         id: g.id,
         drawId: g.drawId,
+        teamIds: groupTeamIds,
       });
 
       const inputs: StandingsMatchInput[] = groupMatches.map((m) => ({
