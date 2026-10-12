@@ -2,7 +2,7 @@
  * Cricket Rules & format — chips for short catalogs + editable key rule overrides.
  * Route: /tournament/:id/score/rules
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRoute } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -164,6 +164,47 @@ const BALL_TYPE_OPTIONS: Array<{ id: string; label: string }> = [
   { id: "indoor", label: "Indoor / Soft" },
 ];
 
+const focusRing =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50";
+
+function choiceChipClass(selected: boolean, isLocked: boolean) {
+  return cn(
+    "min-h-10 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors",
+    focusRing,
+    selected
+      ? isLocked
+        ? "border-border bg-muted text-foreground"
+        : "border-primary bg-primary/20 text-primary ring-1 ring-primary/40 font-bold"
+      : "border-border/70 bg-card/60 text-muted-foreground hover:text-foreground",
+    isLocked && "cursor-default",
+  );
+}
+
+function rulesSnapshot(input: {
+  variantId: string;
+  ruleProfileId: string;
+  ruleProfileVersion: string;
+  keyRules: KeyRulesDraft;
+}) {
+  return JSON.stringify(input);
+}
+
+function powerplayHint(isLocked: boolean, enabled: boolean, count: number) {
+  if (!enabled) {
+    return isLocked
+      ? "Powerplay is off for this format."
+      : "Powerplay is off. Turn it on to choose overs.";
+  }
+  if (count === 0) {
+    return isLocked
+      ? "Powerplay is on, but no overs are selected. Unlock rules to choose them."
+      : "Select over numbers, or use Standard for the opening overs.";
+  }
+  return isLocked
+    ? "These overs stay fixed until you unlock the rules."
+    : "Select an over again to remove it from the powerplay.";
+}
+
 function RuleHelpTooltip({
   title,
   content,
@@ -172,12 +213,48 @@ function RuleHelpTooltip({
   content: string;
   category?: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointer(event: MouseEvent) {
+      if (!wrapRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   return (
-    <span
-      className="inline-flex items-center ml-1 text-muted-foreground/70 hover:text-foreground cursor-help"
-      title={`${title}: ${content}`}
-    >
-      <HelpCircle className="w-3.5 h-3.5" />
+    <span className="relative inline-flex" ref={wrapRef}>
+      <button
+        type="button"
+        className={cn(
+          "inline-flex items-center ml-1 rounded-sm text-muted-foreground/70 hover:text-foreground",
+          focusRing,
+        )}
+        aria-expanded={open}
+        aria-label={`${title}. ${content}`}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <HelpCircle className="w-3.5 h-3.5" aria-hidden="true" />
+      </button>
+      {open ? (
+        <span
+          role="tooltip"
+          className="absolute left-0 top-full z-30 mt-1 w-64 rounded-lg border border-border bg-popover px-3 py-2 text-left text-[11px] font-normal normal-case tracking-normal text-popover-foreground shadow-lg"
+        >
+          <span className="mb-0.5 block font-semibold">{title}</span>
+          {content}
+        </span>
+      ) : null}
     </span>
   );
 }
@@ -378,6 +455,10 @@ export default function CricketRulesPage() {
   const [newPresetName, setNewPresetName] = useState("");
   const [newPresetDesc, setNewPresetDesc] = useState("");
   const [deletingPreset, setDeletingPreset] = useState(false);
+  const [applyConfirm, setApplyConfirm] = useState(false);
+  const [savedSnapshot, setSavedSnapshot] = useState("");
+  const presetDialogRef = useRef<HTMLDivElement>(null);
+  const presetNameRef = useRef<HTMLInputElement>(null);
 
   const [competitionTypeId, setCompetitionTypeId] = useState("auction");
   const [variantId, setVariantId] = useState("cricket.box");
@@ -449,12 +530,20 @@ export default function CricketRulesPage() {
         CatalogRegistry.getRuleProfile(nextRuleId, nextRuleVersion) ??
         CatalogRegistry.getRuleProfile(nextRuleId) ??
         null;
-      setKeyRules(
-        draftFromProfileAndOverrides(
-          profile,
-          (activePreset?.ruleOverridesJson as RuleOverridesDocument) || cfg.ruleOverrides || null,
-        ),
+      const nextKeyRules = draftFromProfileAndOverrides(
+        profile,
+        (activePreset?.ruleOverridesJson as RuleOverridesDocument) || cfg.ruleOverrides || null,
       );
+      setKeyRules(nextKeyRules);
+      setSavedSnapshot(
+        rulesSnapshot({
+          variantId: nextVariant,
+          ruleProfileId: nextRuleId,
+          ruleProfileVersion: nextRuleVersion,
+          keyRules: nextKeyRules,
+        }),
+      );
+      setApplyConfirm(false);
     } catch (e) {
       setError(extractErrorMessage(e, "Failed to load tournament rules"));
     } finally {
@@ -465,6 +554,54 @@ export default function CricketRulesPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const dirty =
+    !locked &&
+    savedSnapshot !== "" &&
+    savedSnapshot !==
+      rulesSnapshot({
+        variantId,
+        ruleProfileId,
+        ruleProfileVersion,
+        keyRules,
+      });
+
+  useEffect(() => {
+    if (!dirty) return;
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
+
+  useEffect(() => {
+    if (!createPresetOpen) return;
+    presetNameRef.current?.focus();
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setCreatePresetOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !presetDialogRef.current) return;
+      const focusable = presetDialogRef.current.querySelectorAll<HTMLElement>(
+        'button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [createPresetOpen]);
 
   // Primary 3 Cricket Variants
   const variantOptions: Option[] = useMemo(() => [
@@ -738,7 +875,7 @@ export default function CricketRulesPage() {
       await load();
       toast({
         title: "Rules locked & finalized",
-        description: "Click 'Apply Rules to Matches' to sync settings with matches.",
+        description: "Apply rules to matches when you want upcoming fixtures to use them.",
       });
     } catch (e) {
       setError(extractErrorMessage(e, "Lock failed"));
@@ -809,6 +946,7 @@ export default function CricketRulesPage() {
       setError(extractErrorMessage(e, "Apply failed"));
     } finally {
       setApplying(false);
+      setApplyConfirm(false);
     }
   }
 
@@ -855,15 +993,19 @@ export default function CricketRulesPage() {
         ) : (
           <>
             {error ? (
-              <div className="rounded-xl border border-destructive/40 bg-destructive/15 px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-destructive">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{error}</span>
+              <div
+                role="status"
+                aria-live="polite"
+                className="rounded-xl border border-destructive/40 bg-destructive/15 px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-destructive"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <AlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span className="break-words">{error}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => void load()}
-                  className="underline font-semibold hover:opacity-80 shrink-0"
+                  className={cn("underline font-semibold hover:opacity-80 shrink-0 rounded-sm", focusRing)}
                 >
                   Retry
                 </button>
@@ -873,28 +1015,31 @@ export default function CricketRulesPage() {
             {/* Top Status Banner */}
             {locked ? (
               <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap text-xs">
-                <div className="flex items-center gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" aria-hidden="true" />
                   <span className="font-semibold text-foreground">
-                    Tournament rules are locked (Active)
+                    Rules are locked
                   </span>
                   <span className="text-muted-foreground hidden sm:inline">
-                    • Completed matches are immutable. Click Unlock to make edits.
+                    This page is view only. Unlock to edit. Completed matches stay unchanged.
                   </span>
                 </div>
                 <button
                   type="button"
                   disabled={unlocking}
                   onClick={() => void handleUnlock()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-border/80 bg-background/90 hover:bg-background text-xs font-semibold text-foreground transition-all shrink-0"
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/80 bg-background/90 hover:bg-background text-xs font-semibold text-foreground transition-colors shrink-0",
+                    focusRing,
+                  )}
                 >
                   {unlocking ? (
                     <>
-                      <Loader2 className="w-3 h-3 animate-spin" /> Unlocking…
+                      <Loader2 className="w-3 h-3 animate-spin" aria-hidden="true" /> Unlocking…
                     </>
                   ) : (
                     <>
-                      <Unlock className="w-3 h-3 text-primary" /> Unlock & Edit Rules
+                      <Unlock className="w-3 h-3 text-primary" aria-hidden="true" /> Unlock & Edit Rules
                     </>
                   )}
                 </button>
@@ -902,9 +1047,17 @@ export default function CricketRulesPage() {
             ) : (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2 flex items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-amber-400 motion-safe:animate-pulse" />
                   <span className="text-amber-200 font-medium">
-                    <b>Draft Mode:</b> All rules are editable. Click <b>Save Draft</b> or <b>Lock & Finalize</b> when done.
+                    {dirty ? (
+                      <>
+                        <b>Unsaved changes.</b> Save the draft, or lock the rules when you are finished.
+                      </>
+                    ) : (
+                      <>
+                        <b>Draft mode.</b> Save the draft, or lock the rules when you are finished.
+                      </>
+                    )}
                   </span>
                 </div>
               </div>
@@ -915,57 +1068,71 @@ export default function CricketRulesPage() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Sliders className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                    Tournament Rule Presets
+                  <span className="text-sm font-bold tracking-wide text-foreground text-balance">
+                    Fixture Rule Presets
                   </span>
                   <span className="text-[11px] text-muted-foreground hidden sm:inline">
-                    (Assign presets to matches & fixtures)
+                    Saved setups you can assign to fixtures
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setCreatePresetOpen(true)}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-lg border border-primary/20 transition-all"
+                  className={cn(
+                    "inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 bg-primary/10 hover:bg-primary/20 px-2.5 py-1.5 rounded-lg border border-primary/20 transition-colors",
+                    focusRing,
+                  )}
                 >
                   <Plus className="w-3.5 h-3.5" />
                   New Rule Preset
                 </button>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Fixture rule presets">
                 {presets.map((p) => {
                   const isActive = p.id === activePresetId;
                   return (
                     <div
                       key={p.id}
                       className={cn(
-                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all",
+                        "inline-flex items-center rounded-lg border text-xs font-semibold transition-colors",
                         isActive
-                          ? "border-primary bg-primary/15 text-primary shadow-sm ring-1 ring-primary/40 font-bold"
-                          : "border-border/70 bg-background text-muted-foreground hover:text-foreground hover:border-border",
+                          ? "border-primary bg-primary/15 text-primary ring-1 ring-primary/40"
+                          : "border-border/70 bg-background text-muted-foreground",
                       )}
-                      onClick={() => handleSelectPreset(p)}
                     >
-                      <span>{p.name}</span>
-                      {p.isDefault ? (
-                        <span className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-primary/20 text-primary font-bold">
-                          Default
-                        </span>
-                      ) : null}
+                      <button
+                        type="button"
+                        aria-pressed={isActive}
+                        onClick={() => handleSelectPreset(p)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 px-3 py-2 rounded-lg hover:text-foreground",
+                          focusRing,
+                        )}
+                      >
+                        <span>{p.name}</span>
+                        {p.isDefault ? (
+                          <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-primary/20 text-primary font-bold">
+                            Default
+                          </span>
+                        ) : null}
+                      </button>
                       {isActive && !p.isDefault && presets.length > 1 ? (
                         <button
                           type="button"
                           disabled={deletingPreset}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (window.confirm(`Delete preset "${p.name}"?`)) {
+                          aria-label={`Delete preset ${p.name}`}
+                          onClick={() => {
+                            if (window.confirm(`Delete preset “${p.name}”?`)) {
                               void handleDeletePreset(p.id);
                             }
                           }}
-                          className="text-muted-foreground hover:text-destructive ml-1 p-0.5"
-                          title="Delete this preset"
+                          className={cn(
+                            "text-muted-foreground hover:text-destructive mr-1.5 p-1 rounded-md",
+                            focusRing,
+                          )}
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="w-3 h-3" aria-hidden="true" />
                         </button>
                       ) : null}
                     </div>
@@ -982,8 +1149,8 @@ export default function CricketRulesPage() {
                   <div className="flex items-center justify-between pb-1.5 border-b border-border/50">
                     <div className="flex items-center gap-2">
                       <Scale className="w-4 h-4 text-primary" />
-                      <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                        1. Cricket Format & Match Ball
+                      <h2 className="text-sm font-bold tracking-wide text-foreground text-balance">
+                        1. Format & Ball
                       </h2>
                     </div>
                   </div>
@@ -991,7 +1158,7 @@ export default function CricketRulesPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     {/* Cricket Format Chips */}
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center">
+                      <label id="cricket-format-label" className="text-[11px] font-semibold tracking-wide text-muted-foreground flex items-center">
                         <span>Cricket Format</span>
                         <RuleHelpTooltip
                           title="Cricket Format"
@@ -999,7 +1166,7 @@ export default function CricketRulesPage() {
                           category="cricket"
                         />
                       </label>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="cricket-format-label">
                         {variantOptions.map((o) => {
                           const sel = o.id === variantId;
                           return (
@@ -1007,14 +1174,9 @@ export default function CricketRulesPage() {
                               key={o.id}
                               type="button"
                               disabled={locked}
+                              aria-pressed={sel}
                               onClick={() => setVariantId(o.id)}
-                              className={cn(
-                                "px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all",
-                                sel
-                                  ? "border-primary bg-primary/20 text-primary shadow-sm ring-1 ring-primary/40 font-bold"
-                                  : "border-border/70 bg-card/60 text-muted-foreground hover:text-foreground",
-                                locked && "opacity-60 cursor-not-allowed",
-                              )}
+                              className={choiceChipClass(sel, locked)}
                             >
                               {o.label}
                             </button>
@@ -1025,7 +1187,7 @@ export default function CricketRulesPage() {
 
                     {/* Match Ball Chips */}
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center">
+                      <label id="match-ball-label" className="text-[11px] font-semibold tracking-wide text-muted-foreground flex items-center">
                         <span>Match Ball</span>
                         <RuleHelpTooltip
                           title="Match Ball"
@@ -1033,7 +1195,7 @@ export default function CricketRulesPage() {
                           category="cricket"
                         />
                       </label>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="match-ball-label">
                         {BALL_TYPE_OPTIONS.map((ball) => {
                           const sel = keyRules.ballType === ball.id;
                           return (
@@ -1041,16 +1203,11 @@ export default function CricketRulesPage() {
                               key={ball.id}
                               type="button"
                               disabled={locked}
+                              aria-pressed={sel}
                               onClick={() =>
                                 setKeyRules((p) => ({ ...p, ballType: ball.id }))
                               }
-                              className={cn(
-                                "px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all",
-                                sel
-                                  ? "border-primary bg-primary/20 text-primary shadow-sm ring-1 ring-primary/40 font-bold"
-                                  : "border-border/70 bg-card/60 text-muted-foreground hover:text-foreground",
-                                locked && "opacity-60 cursor-not-allowed",
-                              )}
+                              className={choiceChipClass(sel, locked)}
                             >
                               {ball.label}
                             </button>
@@ -1066,8 +1223,8 @@ export default function CricketRulesPage() {
                   <div className="flex items-center justify-between pb-1.5 border-b border-border/50 flex-wrap gap-2">
                     <div className="flex items-center gap-2">
                       <Sliders className="w-4 h-4 text-primary" />
-                      <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                        2. Presets & Core Parameters
+                      <h2 className="text-sm font-bold tracking-wide text-foreground text-balance">
+                        2. Match Parameters
                       </h2>
                     </div>
                     {isCustomised ? (
@@ -1084,19 +1241,19 @@ export default function CricketRulesPage() {
                   {/* Preset Chips */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center">
-                        <span>Playing Rules Preset</span>
+                      <label id="playing-template-label" className="text-[11px] font-semibold tracking-wide text-muted-foreground flex items-center">
+                        <span>Playing Template</span>
                         <RuleHelpTooltip
-                          title="Playing Rules Preset"
-                          content="Pre-configured rule templates (e.g. Corporate Standard, Society Box). Selecting a preset populates recommended defaults while keeping all fields below fully editable."
+                          title="Playing Template"
+                          content="A starting set of numbers and scoring rules, such as Corporate Standard or Society Box. Choosing a template fills the fields below. Fixture presets, above, are the named setups you assign to matches."
                           category="bidwar"
                         />
                       </label>
-                      <span className="text-[10px] text-primary/80">
-                        *Presets pre-fill standard rules & are fully editable
+                      <span className="text-[10px] text-muted-foreground">
+                        Fills the fields below. It does not assign a fixture preset.
                       </span>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1.5" role="group" aria-labelledby="playing-template-label">
                       {ruleProfileOptions.map((p) => {
                         const sel = p.id === ruleProfileId;
                         return (
@@ -1104,14 +1261,9 @@ export default function CricketRulesPage() {
                             key={p.id}
                             type="button"
                             disabled={locked}
+                            aria-pressed={sel}
                             onClick={() => selectRuleProfile(p.id, p.version)}
-                            className={cn(
-                              "px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all",
-                              sel
-                                ? "border-primary bg-primary/20 text-primary shadow-sm ring-1 ring-primary/40 font-bold"
-                                : "border-border/70 bg-card/60 text-muted-foreground hover:text-foreground",
-                              locked && "opacity-60 cursor-not-allowed",
-                            )}
+                            className={choiceChipClass(sel, locked)}
                           >
                             {p.label}
                           </button>
@@ -1125,7 +1277,7 @@ export default function CricketRulesPage() {
                     <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs">
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
                         <div className="flex items-center justify-between">
-                          <label className="text-[10px] font-medium text-muted-foreground truncate">
+                          <label htmlFor="rule-overs" className="text-[11px] font-medium text-muted-foreground truncate">
                             Overs / Innings
                           </label>
                           <RuleHelpTooltip
@@ -1135,7 +1287,10 @@ export default function CricketRulesPage() {
                           />
                         </div>
                         <input
-                          className={cn(inputClass, "h-8 text-center text-xs font-bold")}
+                          id="rule-overs"
+                          name="overs"
+                          autoComplete="off"
+                          className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums")}
                           inputMode="numeric"
                           disabled={locked}
                           value={keyRules.overs}
@@ -1155,7 +1310,7 @@ export default function CricketRulesPage() {
 
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
                         <div className="flex items-center justify-between">
-                          <label className="text-[10px] font-medium text-muted-foreground truncate">
+                          <label htmlFor="rule-max-wickets" className="text-[11px] font-medium text-muted-foreground truncate">
                             Max Wickets
                           </label>
                           <RuleHelpTooltip
@@ -1165,7 +1320,10 @@ export default function CricketRulesPage() {
                           />
                         </div>
                         <input
-                          className={cn(inputClass, "h-8 text-center text-xs font-bold")}
+                          id="rule-max-wickets"
+                          name="maxWickets"
+                          autoComplete="off"
+                          className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums")}
                           inputMode="numeric"
                           disabled={locked}
                           value={keyRules.maxWickets}
@@ -1177,7 +1335,7 @@ export default function CricketRulesPage() {
 
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
                         <div className="flex items-center justify-between">
-                          <label className="text-[10px] font-medium text-muted-foreground truncate">
+                          <label htmlFor="rule-balls-per-over" className="text-[11px] font-medium text-muted-foreground truncate">
                             Balls / Over
                           </label>
                           <RuleHelpTooltip
@@ -1187,7 +1345,10 @@ export default function CricketRulesPage() {
                           />
                         </div>
                         <input
-                          className={cn(inputClass, "h-8 text-center text-xs font-bold")}
+                          id="rule-balls-per-over"
+                          name="ballsPerOver"
+                          autoComplete="off"
+                          className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums")}
                           inputMode="numeric"
                           disabled={locked}
                           value={keyRules.ballsPerOver}
@@ -1199,7 +1360,7 @@ export default function CricketRulesPage() {
 
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
                         <div className="flex items-center justify-between">
-                          <label className="text-[10px] font-medium text-muted-foreground truncate">
+                          <label htmlFor="rule-retire-runs" className="text-[11px] font-medium text-muted-foreground truncate">
                             Retire Runs
                           </label>
                           <RuleHelpTooltip
@@ -1209,10 +1370,13 @@ export default function CricketRulesPage() {
                           />
                         </div>
                         <input
-                          className={cn(inputClass, "h-8 text-center text-xs font-medium")}
+                          id="rule-retire-runs"
+                          name="retireAtRuns"
+                          autoComplete="off"
+                          className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums placeholder:font-normal")}
                           inputMode="numeric"
                           disabled={locked}
-                          placeholder="None"
+                          placeholder="No limit…"
                           value={keyRules.retireAtRuns}
                           onChange={(e) =>
                             setKeyRules((p) => ({ ...p, retireAtRuns: e.target.value }))
@@ -1222,7 +1386,7 @@ export default function CricketRulesPage() {
 
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
                         <div className="flex items-center justify-between">
-                          <label className="text-[10px] font-medium text-muted-foreground truncate">
+                          <label htmlFor="rule-playing-xi" className="text-[11px] font-medium text-muted-foreground truncate">
                             Playing XI
                           </label>
                           <RuleHelpTooltip
@@ -1232,7 +1396,10 @@ export default function CricketRulesPage() {
                           />
                         </div>
                         <input
-                          className={cn(inputClass, "h-8 text-center text-xs font-bold")}
+                          id="rule-playing-xi"
+                          name="playingSquadSize"
+                          autoComplete="off"
+                          className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums")}
                           inputMode="numeric"
                           disabled={locked}
                           value={keyRules.playingSquadSize}
@@ -1244,7 +1411,7 @@ export default function CricketRulesPage() {
 
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
                         <div className="flex items-center justify-between">
-                          <label className="text-[10px] font-medium text-muted-foreground truncate">
+                          <label htmlFor="rule-bench" className="text-[11px] font-medium text-muted-foreground truncate">
                             Bench / Subs
                           </label>
                           <RuleHelpTooltip
@@ -1254,7 +1421,10 @@ export default function CricketRulesPage() {
                           />
                         </div>
                         <input
-                          className={cn(inputClass, "h-8 text-center text-xs font-bold")}
+                          id="rule-bench"
+                          name="benchSize"
+                          autoComplete="off"
+                          className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums")}
                           inputMode="numeric"
                           disabled={locked}
                           value={keyRules.benchSize}
@@ -1289,17 +1459,19 @@ export default function CricketRulesPage() {
                           </label>
                           <span
                             className={cn(
-                              "text-[10px] px-2 py-0.5 rounded-full font-bold",
+                              "text-[10px] px-2 py-0.5 rounded-full font-bold tabular-nums",
                               keyRules.powerplayEnabled && keyRules.powerplayOvers.length > 0
                                 ? "bg-primary/20 text-primary border border-primary/30"
-                                : "bg-muted text-muted-foreground",
+                                : keyRules.powerplayEnabled
+                                  ? "bg-amber-500/20 text-amber-200 border border-amber-500/40"
+                                  : "bg-muted text-muted-foreground",
                             )}
                           >
                             {keyRules.powerplayEnabled
                               ? keyRules.powerplayOvers.length > 0
-                                ? `${keyRules.powerplayOvers.length} Selected (${keyRules.powerplayOvers.map((o) => `Ov ${o}`).join(", ")})`
-                                : "None Selected"
-                              : "Disabled"}
+                                ? `${keyRules.powerplayOvers.length} selected`
+                                : "On, none selected"
+                              : "Off"}
                           </span>
                         </div>
 
@@ -1317,14 +1489,20 @@ export default function CricketRulesPage() {
                                       powerplayOvers: Array.from({ length: defaultCount }, (_, i) => i + 1),
                                     }));
                                   }}
-                                  className="px-2 py-0.5 rounded border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors font-medium text-[10px]"
+                                  className={cn(
+                                    "min-h-9 px-2.5 py-1 rounded border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors font-medium text-xs",
+                                    focusRing,
+                                  )}
                                 >
                                   Standard (1–{Math.min(6, Math.max(1, Math.ceil((parseInt(keyRules.overs, 10) || 6) * 0.3)))})
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setKeyRules((p) => ({ ...p, powerplayOvers: [] }))}
-                                  className="px-2 py-0.5 rounded border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors font-medium text-[10px]"
+                                  className={cn(
+                                    "min-h-9 px-2.5 py-1 rounded border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors font-medium text-xs",
+                                    focusRing,
+                                  )}
                                 >
                                   Clear
                                 </button>
@@ -1337,7 +1515,10 @@ export default function CricketRulesPage() {
                                       powerplayOvers: [],
                                     }))
                                   }
-                                  className="px-2 py-0.5 rounded border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors font-medium text-[10px]"
+                                  className={cn(
+                                    "min-h-9 px-2.5 py-1 rounded border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors font-medium text-xs",
+                                    focusRing,
+                                  )}
                                 >
                                   Turn Off
                                 </button>
@@ -1354,7 +1535,10 @@ export default function CricketRulesPage() {
                                     powerplayOvers: Array.from({ length: defaultCount }, (_, i) => i + 1),
                                   }));
                                 }}
-                                className="px-2.5 py-0.5 rounded border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-semibold text-[10px]"
+                                className={cn(
+                                  "min-h-9 px-2.5 py-1 rounded border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-semibold text-xs",
+                                  focusRing,
+                                )}
                               >
                                 Enable Powerplay
                               </button>
@@ -1365,7 +1549,7 @@ export default function CricketRulesPage() {
 
                       {keyRules.powerplayEnabled ? (
                         <div className="space-y-1.5 pt-1">
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Powerplay overs">
                             {Array.from(
                               {
                                 length: Math.min(
@@ -1381,21 +1565,25 @@ export default function CricketRulesPage() {
                                   key={overNum}
                                   type="button"
                                   disabled={locked}
+                                  aria-pressed={isSelected}
+                                  aria-label={`Over ${overNum}${isSelected ? ", in powerplay" : ""}`}
                                   onClick={() => {
-                                    if (locked) return;
                                     setKeyRules((p) => {
                                       const next = isSelected
                                         ? p.powerplayOvers.filter((o) => o !== overNum)
-                                        : [...p.powerplayOvers, overNum].sort((a, b) => a - b);
+                                        : [...p.powerplayOvers, overNum].toSorted((a, b) => a - b);
                                       return { ...p, powerplayOvers: next };
                                     });
                                   }}
                                   className={cn(
-                                    "h-8 min-w-[34px] px-2 rounded-lg text-xs font-bold transition-all border select-none flex items-center justify-center",
+                                    "h-10 min-w-10 px-2 rounded-lg text-xs font-bold tabular-nums transition-colors border select-none flex items-center justify-center",
+                                    focusRing,
                                     isSelected
-                                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                                      ? locked
+                                        ? "bg-muted text-foreground border-border"
+                                        : "bg-primary text-primary-foreground border-primary"
                                       : "bg-background text-muted-foreground border-border/80 hover:border-foreground/40 hover:text-foreground",
-                                    locked && "opacity-60 cursor-not-allowed",
+                                    locked && "cursor-default",
                                   )}
                                 >
                                   {overNum}
@@ -1403,15 +1591,20 @@ export default function CricketRulesPage() {
                               );
                             })}
                           </div>
-                          <p className="text-[11px] text-muted-foreground">
-                            {keyRules.powerplayOvers.length > 0
-                              ? `Tap any over chip above to add or remove it from the Powerplay window.`
-                              : `Click any over number above or click 'Standard' to select powerplay overs.`}
+                          <p
+                            className={cn(
+                              "text-[11px]",
+                              keyRules.powerplayOvers.length === 0
+                                ? "text-amber-200"
+                                : "text-muted-foreground",
+                            )}
+                          >
+                            {powerplayHint(locked, true, keyRules.powerplayOvers.length)}
                           </p>
                         </div>
                       ) : (
                         <p className="text-[11px] text-muted-foreground">
-                          Powerplay is turned off for this match format. Click &apos;Enable Powerplay&apos; to designate powerplay overs.
+                          {powerplayHint(locked, false, 0)}
                         </p>
                       )}
                     </div>
@@ -1422,8 +1615,8 @@ export default function CricketRulesPage() {
                 <section className={cn(hubPanelClass, "p-4 space-y-3.5")}>
                   <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
                     <Trophy className="w-4 h-4 text-primary" />
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-foreground">
-                      3. ICC & Match Scoring Rules
+                    <h2 className="text-sm font-bold tracking-wide text-foreground text-balance">
+                      3. Scoring Rules
                     </h2>
                   </div>
 
@@ -1506,61 +1699,68 @@ export default function CricketRulesPage() {
                     ].map((item) => (
                       <div
                         key={item.label}
-                        onClick={locked ? undefined : item.toggle}
                         className={cn(
-                          "flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-semibold transition-all select-none",
-                          locked ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
+                          "flex items-center gap-1 min-h-11 px-2 py-1.5 rounded-lg border text-xs font-semibold transition-colors",
+                          locked && "cursor-default",
                           item.active
-                            ? "border-primary/50 bg-primary/15 text-primary"
-                            : "border-border/60 bg-card/50 text-muted-foreground hover:text-foreground",
+                            ? locked
+                              ? "border-border bg-muted/60 text-foreground"
+                              : "border-primary/50 bg-primary/15 text-primary"
+                            : "border-border/60 bg-card/50 text-muted-foreground",
                         )}
                       >
-                        <div className="flex items-center gap-0.5 min-w-0 pr-1">
-                          <span className="truncate">{item.label}</span>
-                          <RuleHelpTooltip
-                            title={item.help.title}
-                            content={item.help.content}
-                            category={item.help.category}
-                          />
-                        </div>
                         <button
                           type="button"
                           disabled={locked}
-                          aria-label={`Toggle ${item.label}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!locked) item.toggle();
-                          }}
+                          aria-pressed={item.active}
+                          onClick={item.toggle}
                           className={cn(
-                            "text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded shrink-0 transition-colors",
-                            item.active
-                              ? "bg-primary/20 text-primary hover:bg-primary/30"
-                              : "bg-muted text-muted-foreground hover:text-foreground",
+                            "flex flex-1 items-center justify-between gap-2 min-w-0 min-h-10 px-1 rounded-md text-left",
+                            focusRing,
+                            !locked && "hover:text-foreground",
                           )}
                         >
-                          {item.active ? "ON" : "OFF"}
+                          <span className="truncate">{item.label}</span>
+                          <span
+                            className={cn(
+                              "text-[10px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0",
+                              item.active
+                                ? "bg-primary/20 text-primary"
+                                : "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {item.active ? "On" : "Off"}
+                          </span>
                         </button>
+                        <RuleHelpTooltip
+                          title={item.help.title}
+                          content={item.help.content}
+                          category={item.help.category}
+                        />
                       </div>
                     ))}
                   </div>
 
                   {/* Super Ball Card with Inline Segmented Doubling Pill */}
-                  <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 space-y-2.5">
+                  <div className="rounded-xl border border-border bg-card/40 p-3 space-y-2.5">
+                    <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+                      BidWar special
+                    </p>
                     <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-                        <div>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Sparkles className="w-4 h-4 text-amber-400 shrink-0" aria-hidden="true" />
+                        <div className="min-w-0">
                           <div className="flex items-center">
-                            <p className="text-xs font-bold text-amber-200">
-                              Super Ball Feature (2x Run Ball)
+                            <p className="text-xs font-bold text-foreground">
+                              Super Ball
                             </p>
                             <RuleHelpTooltip
-                              title="Super Ball Feature"
-                              content="A special BIDWAR delivery that can be designated before it is bowled. Depending on the selected doubling mode, eligible runs scored from that delivery are counted at double value."
+                              title="Super Ball"
+                              content="A special BidWar delivery that can be designated before it is bowled. Eligible runs from that delivery count at double value. Extras are not doubled."
                               category="bidwar"
                             />
                           </div>
-                          <p className="text-[10px] text-muted-foreground">
+                          <p className="text-[11px] text-muted-foreground">
                             One pre-declared Super Ball per innings
                           </p>
                         </div>
@@ -1568,6 +1768,7 @@ export default function CricketRulesPage() {
                       <button
                         type="button"
                         disabled={locked}
+                        aria-pressed={keyRules.superBallEnabled}
                         onClick={() =>
                           setKeyRules((p) => ({
                             ...p,
@@ -1575,14 +1776,15 @@ export default function CricketRulesPage() {
                           }))
                         }
                         className={cn(
-                          "px-2.5 py-1 rounded-lg border text-xs font-bold transition-all",
+                          "min-h-9 px-2.5 py-1 rounded-lg border text-xs font-bold transition-colors",
+                          focusRing,
                           keyRules.superBallEnabled
-                            ? "border-amber-400 bg-amber-500/30 text-amber-200"
+                            ? "border-amber-400/70 bg-amber-500/15 text-amber-200"
                             : "border-border/70 bg-card text-muted-foreground",
-                          locked && "opacity-60 cursor-not-allowed",
+                          locked && "cursor-default",
                         )}
                       >
-                        {keyRules.superBallEnabled ? "ENABLED (ON)" : "DISABLED (OFF)"}
+                        {keyRules.superBallEnabled ? "On" : "Off"}
                       </button>
                     </div>
 
@@ -1599,10 +1801,11 @@ export default function CricketRulesPage() {
                             category="bidwar"
                           />
                         </div>
-                        <div className="inline-flex rounded-lg border border-amber-500/40 bg-background/60 p-0.5 text-xs">
+                        <div className="inline-flex rounded-lg border border-border bg-background/60 p-0.5 text-xs" role="group" aria-label="Super Ball doubling mode">
                           <button
                             type="button"
                             disabled={locked}
+                            aria-pressed={keyRules.superBallDoublesBoundariesOnly}
                             onClick={() =>
                               setKeyRules((p) => ({
                                 ...p,
@@ -1610,11 +1813,12 @@ export default function CricketRulesPage() {
                               }))
                             }
                             className={cn(
-                              "px-2.5 py-1 rounded-md text-[11px] font-bold transition-all",
+                              "min-h-9 px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors",
+                              focusRing,
                               keyRules.superBallDoublesBoundariesOnly
-                                ? "bg-amber-500/30 text-amber-200 shadow-sm"
+                                ? "bg-amber-500/20 text-amber-200"
                                 : "text-muted-foreground hover:text-foreground",
-                              locked && "opacity-60 cursor-not-allowed",
+                              locked && "cursor-default",
                             )}
                           >
                             4 & 6 only (2x)
@@ -1622,6 +1826,7 @@ export default function CricketRulesPage() {
                           <button
                             type="button"
                             disabled={locked}
+                            aria-pressed={!keyRules.superBallDoublesBoundariesOnly}
                             onClick={() =>
                               setKeyRules((p) => ({
                                 ...p,
@@ -1629,11 +1834,12 @@ export default function CricketRulesPage() {
                               }))
                             }
                             className={cn(
-                              "px-2.5 py-1 rounded-md text-[11px] font-bold transition-all",
+                              "min-h-9 px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors",
+                              focusRing,
                               !keyRules.superBallDoublesBoundariesOnly
-                                ? "bg-amber-500/30 text-amber-200 shadow-sm"
+                                ? "bg-amber-500/20 text-amber-200"
                                 : "text-muted-foreground hover:text-foreground",
-                              locked && "opacity-60 cursor-not-allowed",
+                              locked && "cursor-default",
                             )}
                           >
                             All Runs (2x)
@@ -1656,30 +1862,53 @@ export default function CricketRulesPage() {
                         />
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                          <span>Overs:</span>
+                        <label className="flex items-center gap-1 text-[11px] text-muted-foreground" htmlFor="super-over-overs">
+                          <span>Overs</span>
                           <input
-                            className="w-10 h-6 text-center text-xs font-bold rounded border border-border bg-background"
+                            id="super-over-overs"
+                            name="superOverOvers"
+                            autoComplete="off"
+                            inputMode="numeric"
+                            className={cn(
+                              "w-12 h-9 text-center text-xs font-bold tabular-nums rounded border border-border bg-background text-foreground",
+                              focusRing,
+                            )}
                             disabled={locked}
                             value={keyRules.superOverOvers}
                             onChange={(e) =>
                               setKeyRules((p) => ({ ...p, superOverOvers: e.target.value }))
                             }
                           />
-                        </div>
-                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                          <span>Wickets:</span>
+                        </label>
+                        <label className="flex items-center gap-1 text-[11px] text-muted-foreground" htmlFor="super-over-wickets">
+                          <span>Wickets</span>
                           <input
-                            className="w-10 h-6 text-center text-xs font-bold rounded border border-border bg-background"
+                            id="super-over-wickets"
+                            name="superOverWickets"
+                            autoComplete="off"
+                            inputMode="numeric"
+                            className={cn(
+                              "w-12 h-9 text-center text-xs font-bold tabular-nums rounded border border-border bg-background text-foreground",
+                              focusRing,
+                            )}
                             disabled={locked}
                             value={keyRules.superOverWickets}
                             onChange={(e) =>
                               setKeyRules((p) => ({ ...p, superOverWickets: e.target.value }))
                             }
                           />
-                        </div>
+                        </label>
+                        <label className="sr-only" htmlFor="super-over-trigger">
+                          Super Over trigger
+                        </label>
                         <select
-                          className="h-6 text-[10px] font-medium rounded border border-border bg-background px-1.5"
+                          id="super-over-trigger"
+                          name="superOverTrigger"
+                          aria-label="Super Over trigger"
+                          className={cn(
+                            "h-9 text-xs font-medium rounded border border-border bg-background text-foreground px-2",
+                            focusRing,
+                          )}
                           disabled={locked}
                           value={keyRules.superOverTrigger}
                           onChange={(e) =>
@@ -1699,21 +1928,21 @@ export default function CricketRulesPage() {
               <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-4">
                 <div className="rounded-2xl border-2 border-primary/40 bg-gradient-to-b from-card/90 via-slate-900/90 to-background p-4 sm:p-5 space-y-4 shadow-xl shadow-primary/5">
                   <div className="flex items-center justify-between pb-2.5 border-b border-primary/20">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-primary">
-                        Live Match Summary
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-2.5 h-2.5 rounded-full bg-primary shrink-0" aria-hidden="true" />
+                      <h3 className="text-sm font-bold tracking-wide text-foreground text-balance">
+                        Rules in Effect
                       </h3>
                     </div>
                     <span
                       className={cn(
-                        "text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full",
+                        "text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full",
                         locked
                           ? "bg-emerald-500/20 border border-emerald-500/40 text-emerald-300"
                           : "bg-amber-500/20 border border-amber-500/40 text-amber-300",
                       )}
                     >
-                      {locked ? "Locked (Active)" : "Draft Mode"}
+                      {locked ? "Locked" : dirty ? "Unsaved" : "Draft"}
                     </span>
                   </div>
 
@@ -1741,8 +1970,8 @@ export default function CricketRulesPage() {
                       <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
                         Overs / Wickets
                       </p>
-                      <p className="font-extrabold text-primary truncate text-xs">
-                        {keyRules.overs} Overs • {keyRules.maxWickets} Wkts
+                      <p className="font-extrabold text-foreground truncate text-xs tabular-nums">
+                        {keyRules.overs} overs · {keyRules.maxWickets} wickets
                       </p>
                     </div>
 
@@ -1750,8 +1979,37 @@ export default function CricketRulesPage() {
                       <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
                         Squad / Bench
                       </p>
-                      <p className="font-extrabold text-foreground truncate text-xs">
-                        {playingCount} XI + {benchCount} Bench
+                      <p className="font-extrabold text-foreground truncate text-xs tabular-nums">
+                        {playingCount} XI + {benchCount} bench
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-border/80 bg-background/70 p-2.5 space-y-0.5">
+                      <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
+                        Powerplay
+                      </p>
+                      <p
+                        className={cn(
+                          "font-bold truncate text-xs tabular-nums",
+                          keyRules.powerplayEnabled && keyRules.powerplayOvers.length === 0
+                            ? "text-amber-300"
+                            : "text-foreground",
+                        )}
+                      >
+                        {!keyRules.powerplayEnabled
+                          ? "Off"
+                          : keyRules.powerplayOvers.length === 0
+                            ? "On, none selected"
+                            : `Overs ${keyRules.powerplayOvers.join(", ")}`}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-border/80 bg-background/70 p-2.5 space-y-0.5">
+                      <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
+                        Balls / Over
+                      </p>
+                      <p className="font-bold text-foreground truncate text-xs tabular-nums">
+                        {keyRules.ballsPerOver}
                       </p>
                     </div>
 
@@ -1759,8 +2017,8 @@ export default function CricketRulesPage() {
                       <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
                         Super Over
                       </p>
-                      <p className="font-bold text-foreground truncate text-xs">
-                        {keyRules.superOverEnabled ? `${keyRules.superOverOvers} Over (ON)` : "OFF"}
+                      <p className="font-bold text-foreground truncate text-xs tabular-nums">
+                        {keyRules.superOverEnabled ? `${keyRules.superOverOvers} over, on` : "Off"}
                       </p>
                     </div>
 
@@ -1768,12 +2026,12 @@ export default function CricketRulesPage() {
                       <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
                         Super Ball
                       </p>
-                      <p className="font-bold text-amber-300 truncate text-xs">
+                      <p className={cn("font-bold truncate text-xs", keyRules.superBallEnabled ? "text-amber-300" : "text-foreground")}>
                         {keyRules.superBallEnabled
                           ? keyRules.superBallDoublesBoundariesOnly
                             ? "4 & 6 (2x)"
-                            : "All (2x)"
-                          : "OFF"}
+                            : "All runs (2x)"
+                          : "Off"}
                       </p>
                     </div>
                   </div>
@@ -1812,47 +2070,65 @@ export default function CricketRulesPage() {
                           )}
                         </BtnSecondary>
                       </>
-                    ) : (
-                      <>
+                    ) : applyConfirm ? (
+                      <div className="rounded-lg border border-border bg-background/70 p-3 space-y-2">
+                        <p className="text-xs text-foreground">
+                          Apply these rules to upcoming matches? Completed matches stay unchanged.
+                        </p>
                         <BtnPrimary
-                          className="w-full justify-center h-9 text-xs font-bold"
+                          className={cn("w-full justify-center h-9 text-xs font-bold", focusRing)}
                           disabled={applying}
                           onClick={() => void handleApplyToMatches()}
                         >
                           {applying ? (
                             <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Applying to Matches…
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> Applying…
                             </>
                           ) : (
-                            <>
-                              <PlayCircle className="w-3.5 h-3.5" /> Apply Rules to Matches
-                            </>
+                            "Apply to Upcoming Matches"
                           )}
                         </BtnPrimary>
-
                         <BtnSecondary
-                          className="w-full justify-center h-8 text-xs font-semibold"
+                          className={cn("w-full justify-center h-8 text-xs font-semibold", focusRing)}
+                          disabled={applying}
+                          onClick={() => setApplyConfirm(false)}
+                        >
+                          Cancel
+                        </BtnSecondary>
+                      </div>
+                    ) : (
+                      <>
+                        <BtnPrimary
+                          className={cn("w-full justify-center h-9 text-xs font-bold", focusRing)}
                           disabled={unlocking}
                           onClick={() => void handleUnlock()}
                         >
                           {unlocking ? (
                             <>
-                              <Loader2 className="w-3 h-3 animate-spin" /> Unlocking…
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" /> Unlocking…
                             </>
                           ) : (
                             <>
-                              <Unlock className="w-3 h-3 text-primary" /> Unlock & Edit Rules
+                              <Unlock className="w-3.5 h-3.5" aria-hidden="true" /> Unlock & Edit Rules
                             </>
                           )}
+                        </BtnPrimary>
+
+                        <BtnSecondary
+                          className={cn("w-full justify-center h-8 text-xs font-semibold", focusRing)}
+                          disabled={applying}
+                          onClick={() => setApplyConfirm(true)}
+                        >
+                          <PlayCircle className="w-3.5 h-3.5" aria-hidden="true" /> Apply Rules to Matches
                         </BtnSecondary>
                       </>
                     )}
                   </div>
 
-                  <p className="text-[10px] text-muted-foreground leading-tight text-center">
+                  <p className="text-[11px] text-muted-foreground leading-snug text-center text-pretty">
                     {locked
-                      ? "Rules active. Apply syncs scheduled matches (completed matches are untouched)."
-                      : "Lock rules to seal settings before starting match scoring."}
+                      ? "Unlock to edit. Apply copies these rules onto upcoming matches. Completed matches stay as played."
+                      : "Lock the rules when scoring should use this setup."}
                   </p>
                 </div>
               </div>
@@ -1860,39 +2136,69 @@ export default function CricketRulesPage() {
 
             {/* Create Rule Preset Modal */}
             {createPresetOpen ? (
-              <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-                <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-5 space-y-4">
+              <div
+                className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 overscroll-contain"
+                onMouseDown={(event) => {
+                  if (event.target === event.currentTarget) setCreatePresetOpen(false);
+                }}
+              >
+                <div
+                  ref={presetDialogRef}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="new-preset-title"
+                  className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-5 space-y-4"
+                >
                   <div className="flex items-center justify-between pb-2 border-b border-border/60">
                     <div className="flex items-center gap-2">
-                      <Sliders className="w-4 h-4 text-primary" />
-                      <h3 className="font-bold text-base">New Cricket Rule Preset</h3>
+                      <Sliders className="w-4 h-4 text-primary" aria-hidden="true" />
+                      <h3 id="new-preset-title" className="font-bold text-base text-balance">
+                        New Cricket Rule Preset
+                      </h3>
                     </div>
                   </div>
 
                   <p className="text-xs text-muted-foreground">
-                    Create a custom named preset (e.g. <em>&quot;League 12 Overs&quot;</em>, <em>&quot;Playoff 20 Overs&quot;</em>, <em>&quot;Rain Reduced Rules&quot;</em>) based on current configuration.
+                    Name a setup from the rules on this page, then assign it to fixtures.
                   </p>
 
                   <div className="space-y-3 text-sm">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-foreground">Preset Name</label>
+                      <label htmlFor="preset-name" className="text-xs font-semibold text-foreground">
+                        Preset Name
+                      </label>
                       <input
+                        ref={presetNameRef}
+                        id="preset-name"
+                        name="presetName"
                         type="text"
+                        autoComplete="off"
                         value={newPresetName}
                         onChange={(e) => setNewPresetName(e.target.value)}
-                        placeholder="e.g. Semi-Finals & Finals (15 Overs)"
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                        autoFocus
+                        placeholder="League 12 overs…"
+                        className={cn(
+                          "w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground",
+                          focusRing,
+                        )}
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-muted-foreground">Description (Optional)</label>
+                      <label htmlFor="preset-description" className="text-xs font-semibold text-muted-foreground">
+                        Description (optional)
+                      </label>
                       <input
+                        id="preset-description"
+                        name="presetDescription"
                         type="text"
+                        autoComplete="off"
+                        spellCheck={false}
                         value={newPresetDesc}
                         onChange={(e) => setNewPresetDesc(e.target.value)}
-                        placeholder="e.g. Standard knockout round rules with 15 overs per side"
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        placeholder="Knockout rounds, 15 overs per side…"
+                        className={cn(
+                          "w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground",
+                          focusRing,
+                        )}
                       />
                     </div>
                   </div>
@@ -1901,14 +2207,20 @@ export default function CricketRulesPage() {
                     <button
                       type="button"
                       onClick={() => void handleCreatePreset()}
-                      className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition-all"
+                      className={cn(
+                        "flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-bold text-xs hover:bg-primary/90 transition-colors",
+                        focusRing,
+                      )}
                     >
                       Create Preset
                     </button>
                     <button
                       type="button"
                       onClick={() => setCreatePresetOpen(false)}
-                      className="px-4 py-2 rounded-lg border border-border bg-muted/30 text-foreground text-xs font-semibold hover:bg-muted/60 transition-all"
+                      className={cn(
+                        "px-4 py-2 rounded-lg border border-border bg-muted/30 text-foreground text-xs font-semibold hover:bg-muted/60 transition-colors",
+                        focusRing,
+                      )}
                     >
                       Cancel
                     </button>

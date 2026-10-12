@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Tv } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   cricketBrandingQueryKey,
   getCricketBranding,
@@ -15,7 +17,14 @@ const STREAM_URL_PATTERN = /^https?:\/\/\S+$/i;
  * Organizer control that saves the public fan-page watch URL.
  * Mount only for a signed-in tournament organizer.
  */
-export function FanLiveStreamEditor({ tournamentId }: { tournamentId: number }) {
+export function FanLiveStreamEditor({
+  tournamentId,
+  plain = false,
+}: {
+  tournamentId: number;
+  /** Sit inside a parent section instead of drawing a second card. */
+  plain?: boolean;
+}) {
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -57,18 +66,25 @@ export function FanLiveStreamEditor({ tournamentId }: { tournamentId: number }) 
     },
   });
 
+  const inputId = `fan-live-stream-${tournamentId}`;
+
   return (
     <form
-      className="rounded-2xl border border-border bg-card p-4 space-y-3"
+      className={cn(
+        "space-y-3",
+        plain ? "py-3" : "rounded-2xl border border-border bg-card p-4",
+      )}
       onSubmit={(event) => {
         event.preventDefault();
         save.mutate();
       }}
     >
       <div className="flex items-start gap-2">
-        <Tv className="h-4 w-4 mt-0.5 text-red-500 shrink-0" aria-hidden />
+        <Tv className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" aria-hidden />
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Fan page live stream</h2>
+          <label htmlFor={inputId} className="text-sm font-semibold text-foreground">
+            Fan page live stream
+          </label>
           <p className="text-xs text-muted-foreground mt-0.5">
             Paste the YouTube, Facebook, or other live video link. Fans see Watch Live Stream on the cricket fan page.
           </p>
@@ -76,22 +92,21 @@ export function FanLiveStreamEditor({ tournamentId }: { tournamentId: number }) 
       </div>
       <div className="flex flex-col sm:flex-row gap-2">
         <input
+          id={inputId}
+          name="liveStreamUrl"
           type="url"
           inputMode="url"
+          autoComplete="url"
+          spellCheck={false}
           value={value}
           disabled={isLoading || save.isPending}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="https://youtube.com/live/..."
-          aria-label="Live stream URL"
-          className="flex-1 min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          placeholder="https://youtube.com/live/…"
+          className="flex-1 min-w-0 h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
-        <button
-          type="submit"
-          disabled={isLoading || save.isPending}
-          className="shrink-0 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-60 px-4 py-2 text-sm font-semibold text-white"
-        >
+        <Button type="submit" size="sm" disabled={isLoading || save.isPending} className="shrink-0">
           {save.isPending ? "Saving…" : "Save link"}
-        </button>
+        </Button>
       </div>
     </form>
   );

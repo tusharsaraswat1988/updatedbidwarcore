@@ -170,8 +170,10 @@ function PlatformRouter() {
         <Route path="/tournament/:id/obs/lab/preview" component={ObsLabOverlayPreview} />
         <Route path="/tournament/:id/obs/lab" component={ObsLabOverlay} />
 
-        {/* Legacy / Production OBS routes (Preserved untouched) */}
-        <Route path="/tournament/:id/cricket/obs/:matchId" component={RedirectToScoringApp} />
+        {/* Retired cricket OBS scorebug. Bookmarks open the V2 broadcast overlay. */}
+        <Route path="/tournament/:id/cricket/obs/:matchId">
+          {(params) => <Redirect to={`/tournament/${params?.id ?? "0"}/cricket/obs/v2`} />}
+        </Route>
         <Route path="/tournament/:id/obs/preview" component={ObsOverlayPreview} />
         <Route path="/tournament/:id/obs" component={ObsOverlay} />
 

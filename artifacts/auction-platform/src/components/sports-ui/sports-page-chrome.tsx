@@ -90,7 +90,7 @@ export function FormModal({
 }
 
 export const inputClass =
-  "w-full h-11 px-3.5 rounded-lg bg-background border border-border text-foreground text-sm placeholder:text-muted-foreground shadow-xs transition-colors focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/15 disabled:opacity-50 disabled:cursor-not-allowed";
+  "w-full h-11 px-3.5 rounded-lg bg-background border border-border text-foreground text-sm placeholder:text-muted-foreground shadow-xs transition-colors focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed";
 
 export const labelClass =
   "block text-muted-foreground text-xs font-semibold mb-2 uppercase tracking-wider";
@@ -249,7 +249,7 @@ export function SearchInput({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className={cn(
-          "w-full h-11 pl-11 pr-4 rounded-lg bg-background border border-border text-foreground text-sm placeholder:text-muted-foreground shadow-xs transition-colors focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/15",
+          "w-full h-11 pl-11 pr-4 rounded-lg bg-background border border-border text-foreground text-sm placeholder:text-muted-foreground shadow-xs transition-colors focus-visible:outline-none focus-visible:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/50",
           className,
         )}
       />

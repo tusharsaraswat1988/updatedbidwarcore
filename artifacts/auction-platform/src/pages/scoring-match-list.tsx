@@ -77,7 +77,6 @@ import {
   scoringSchedulePath,
   auctionRoomPath,
   scoreDisplayPath,
-  cricketObsLivePath,
 } from "@/lib/tournament-navigation";
 import {
   cricketLiveControlPath,

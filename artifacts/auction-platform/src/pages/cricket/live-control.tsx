@@ -10,7 +10,6 @@ import {
   useGetTournament,
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
-import { scoringAppPublicUrl } from "@workspace/api-base/scoring-urls";
 import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
 import {
   BtnPrimary,
@@ -65,28 +64,12 @@ import {
   cricketScoreHubPath,
   cricketScorerConsolePath,
 } from "@/lib/cricket-routes";
-import {
-  cricketMatchPublicPath,
-  cricketObsLivePath,
-  cricketObsV2Path,
-  cricketObsV2PreviewPath,
-  cricketPublicPath,
-  openCricketObsV2,
-  openCricketObsV2Preview,
-  openScoreDisplay,
-  scoreDisplayPath,
-} from "@/lib/tournament-navigation";
 import type { CricketObsFlashKind, CricketObsMidOverlayKind } from "@/lib/cricket-obs-view-model";
 import {
-  Copy,
-  Monitor,
   Radio,
   RefreshCw,
   Tv,
   AlertTriangle,
-  ExternalLink,
-  Eye,
-  Info,
   Sparkles,
   Layers,
   Flame,
@@ -630,44 +613,6 @@ export default function CricketLiveControlPage() {
     [tournamentId, broadcastCommand, toast],
   );
 
-  // Link URLs
-  const ledDisplayUrl = scoreDisplayPath(tournamentId, tournament?.auctionCode);
-  const obsStreamUrl = cricketObsLivePath(tournamentId, tournament?.auctionCode);
-  const obsV2Url = cricketObsV2Path(tournamentId);
-  const obsV2PreviewUrl = cricketObsV2PreviewPath(tournamentId);
-  const publicFanUrl = currentMatch
-    ? cricketMatchPublicPath(tournamentId, currentMatch.id)
-    : cricketPublicPath(tournamentId);
-
-  const obsFullUrl =
-    typeof window !== "undefined"
-      ? scoringAppPublicUrl(window.location.origin, obsStreamUrl)
-      : obsStreamUrl;
-
-  const obsV2FullUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}${obsV2Url}`
-      : obsV2Url;
-
-  const [copiedV2, setCopiedV2] = useState(false);
-
-  function handleCopyObsV2() {
-    copyTextToClipboard(obsV2Url, "OBS V2 Broadcast Overlay Link");
-    setCopiedV2(true);
-    setTimeout(() => setCopiedV2(false), 2000);
-  }
-
-  function copyTextToClipboard(text: string, label: string) {
-    const fullUrl =
-      typeof window !== "undefined" && text.startsWith("/")
-        ? `${window.location.origin}${text}`
-        : text;
-    void navigator.clipboard.writeText(fullUrl).then(
-      () => toast({ title: `${label} copied to clipboard!` }),
-      () => toast({ title: "Could not copy link", variant: "destructive" }),
-    );
-  }
-
   function teamLabel(id: number) {
     const t = teamMap.get(id);
     return t?.name || t?.shortCode || `Team ${id}`;
@@ -1174,7 +1119,7 @@ export default function CricketLiveControlPage() {
               <p className="text-slate-700">
                 1. OBS me <strong>Add Source (+) &gt; Browser</strong> chunein.
                 <br />
-                2. Upar ka <strong>OBS Stream URL</strong> copy karke paste karein.
+                2. Cricket Links page se <strong>OBS V2 Broadcast Overlay</strong> URL copy karke paste karein.
                 <br />
                 3. Settings: <strong>Width: 1920</strong>, <strong>Height: 1080</strong>, <strong>FPS: 60</strong> set karein.
                 <br />

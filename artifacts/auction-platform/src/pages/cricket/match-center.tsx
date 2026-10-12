@@ -70,8 +70,6 @@ import {
 } from "@/lib/cricket-routes";
 import {
   cricketMatchPublicPath,
-  cricketObsLivePath,
-  cricketObsMatchPath,
   cricketPublicPath,
   openScoreDisplay,
   scoreDisplayPath,

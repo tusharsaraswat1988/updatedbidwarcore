@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { CricketObsFlashKind, CricketObsMidOverlayKind } from "@/lib/cricket-obs-view-model";
-import { cricketObsLivePath } from "@/lib/tournament-navigation";
+import { cricketObsV2Path } from "@/lib/tournament-navigation";
 import {
   cricketBrandingQueryKey,
   getCricketBranding,
@@ -37,7 +37,7 @@ type Props = {
   auctionCode?: string | null;
 };
 
-export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
+export function CricketObsDirectorPanel({ tournamentId }: Props) {
   const { toast } = useToast();
   const [currentOverlay, setCurrentOverlay] = useState<CricketObsMidOverlayKind>("none");
   const [overlayMatchId, setOverlayMatchId] = useState<number | undefined>(undefined);
@@ -51,7 +51,7 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
   const [targetOverlayForMatch, setTargetOverlayForMatch] = useState<{ id: CricketObsMidOverlayKind; label: string; icon?: string } | null>(null);
   const [matchFilterStatus, setMatchFilterStatus] = useState<"all" | "live" | "upcoming" | "completed">("all");
 
-  const obsPath = cricketObsLivePath(tournamentId, auctionCode);
+  const obsPath = cricketObsV2Path(tournamentId);
   const obsUrl = typeof window !== "undefined" ? `${window.location.origin}${obsPath}` : obsPath;
 
   // Tournament details for sponsors

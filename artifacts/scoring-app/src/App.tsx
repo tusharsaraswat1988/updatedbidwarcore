@@ -1,5 +1,5 @@
-import { Suspense, lazy, useMemo } from "react";
-import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
+import { Suspense, lazy, useEffect, useMemo } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation, useRoute, Redirect } from "wouter";
 import { SCORING_APP_BASE, sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
 import { OrganizerGuard } from "@/components/organizer-guard";
 import { ScoringFeatureGuard } from "@/components/scoring-feature-guard";
@@ -73,7 +73,6 @@ const CricketGlobalLeaderboards = lazy(() => import("@/pages/cricket-global-lead
 const CricketScorerHomePage = lazy(() => import("@/pages/cricket/scorer-home"));
 const CricketScorerPage = lazy(() => import("@/pages/cricket/scorer"));
 const ScoreDisplay = lazy(() => import("@/pages/score-display"));
-const CricketObsOverlay = lazy(() => import("@/pages/cricket/obs-overlay"));
 const BadmintonScorerPage = lazy(() => import("@/pages/badminton/scorer"));
 const BadmintonScorerHomePage = lazy(() => import("@/pages/badminton/scorer-home"));
 const BadmintonPublicStandingsPage = lazy(() => import("@/pages/badminton/public-standings"));
@@ -127,6 +126,23 @@ function SportsTabSuspenseSkeleton() {
         <Skeleton className="h-12 w-full rounded-lg bg-muted/40" />
         <Skeleton className="h-12 w-full rounded-lg bg-muted/40" />
       </div>
+    </div>
+  );
+}
+
+/** Retired cricket OBS scorebug. Old browser sources open the V2 overlay. */
+function RedirectLegacyCricketObs() {
+  const [, params] = useRoute("/tournament/:id/cricket/obs/:matchId");
+  const tournamentId = params?.id ?? "";
+
+  useEffect(() => {
+    if (!tournamentId) return;
+    window.location.replace(`/tournament/${tournamentId}/cricket/obs/v2`);
+  }, [tournamentId]);
+
+  return (
+    <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+      Opening broadcast overlay…
     </div>
   );
 }
@@ -302,7 +318,7 @@ function Router() {
         </Route>
         <Route path="/login" component={ScoringLoginPage} />
         <Route path="/tournament/:id/score-display" component={ScoreDisplay} />
-        <Route path="/tournament/:id/cricket/obs/:matchId" component={CricketObsOverlay} />
+        <Route path="/tournament/:id/cricket/obs/:matchId" component={RedirectLegacyCricketObs} />
 
         <Route path="/badminton/scorer">
           {() => <ScoringFeatureGuard><BadmintonScorerHomePage /></ScoringFeatureGuard>}
