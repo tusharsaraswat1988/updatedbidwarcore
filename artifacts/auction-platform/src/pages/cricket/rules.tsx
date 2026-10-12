@@ -1272,118 +1272,13 @@ export default function CricketRulesPage() {
                     </div>
                   </div>
 
-                  {/* Core Numeric Inputs in Compact 6-col Grid */}
-                  <div className="pt-1">
-                    <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs">
-                      <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <label htmlFor="rule-overs" className="text-[11px] font-medium text-muted-foreground truncate">
-                            Overs / Innings
-                          </label>
-                          <RuleHelpTooltip
-                            title="Overs per Innings"
-                            content="The maximum number of overs scheduled for each batting team per innings, unless all out earlier."
-                            category="cricket"
-                          />
-                        </div>
-                        <input
-                          id="rule-overs"
-                          name="overs"
-                          autoComplete="off"
-                          className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums")}
-                          inputMode="numeric"
-                          disabled={locked}
-                          value={keyRules.overs}
-                          onChange={(e) => {
-                            const nextVal = e.target.value;
-                            const nextNum = parseInt(nextVal, 10);
-                            setKeyRules((p) => {
-                              const pruned =
-                                Number.isFinite(nextNum) && nextNum > 0
-                                  ? p.powerplayOvers.filter((o) => o <= nextNum)
-                                  : p.powerplayOvers;
-                              return { ...p, overs: nextVal, powerplayOvers: pruned };
-                            });
-                          }}
-                        />
-                      </div>
-
-                      <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <label htmlFor="rule-max-wickets" className="text-[11px] font-medium text-muted-foreground truncate">
-                            Max Wickets
-                          </label>
-                          <RuleHelpTooltip
-                            title="Max Wickets"
-                            content="The number of wickets after which the batting innings is declared all out (e.g. 10 for standard 11-player cricket, or fewer for box cricket)."
-                            category="cricket"
-                          />
-                        </div>
-                        <input
-                          id="rule-max-wickets"
-                          name="maxWickets"
-                          autoComplete="off"
-                          className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums")}
-                          inputMode="numeric"
-                          disabled={locked}
-                          value={keyRules.maxWickets}
-                          onChange={(e) =>
-                            setKeyRules((p) => ({ ...p, maxWickets: e.target.value }))
-                          }
-                        />
-                      </div>
-
-                      <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <label htmlFor="rule-balls-per-over" className="text-[11px] font-medium text-muted-foreground truncate">
-                            Balls / Over
-                          </label>
-                          <RuleHelpTooltip
-                            title="Balls per Over"
-                            content="The number of legal deliveries required to complete one over. Standard cricket uses 6 balls per over."
-                            category="cricket"
-                          />
-                        </div>
-                        <input
-                          id="rule-balls-per-over"
-                          name="ballsPerOver"
-                          autoComplete="off"
-                          className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums")}
-                          inputMode="numeric"
-                          disabled={locked}
-                          value={keyRules.ballsPerOver}
-                          onChange={(e) =>
-                            setKeyRules((p) => ({ ...p, ballsPerOver: e.target.value }))
-                          }
-                        />
-                      </div>
-
-                      <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <label htmlFor="rule-retire-runs" className="text-[11px] font-medium text-muted-foreground truncate">
-                            Retire Runs
-                          </label>
-                          <RuleHelpTooltip
-                            title="Retire Runs"
-                            content="The individual score threshold at which a batter is required to retire. When a batter reaches this score during live scoring, the app prompts the scorer to retire them so teammates get a turn to bat. Leave empty for no limit."
-                            category="bidwar"
-                          />
-                        </div>
-                        <input
-                          id="rule-retire-runs"
-                          name="retireAtRuns"
-                          autoComplete="off"
-                          className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums placeholder:font-normal")}
-                          inputMode="numeric"
-                          disabled={locked}
-                          placeholder="No limit…"
-                          value={keyRules.retireAtRuns}
-                          onChange={(e) =>
-                            setKeyRules((p) => ({ ...p, retireAtRuns: e.target.value }))
-                          }
-                        />
-                      </div>
-
+                  {/* Squad, then innings, then the overs those innings contain. */}
+                  <div className="pt-1 space-y-3">
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+                        Squad
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
                         <div className="flex items-center justify-between">
                           <label htmlFor="rule-playing-xi" className="text-[11px] font-medium text-muted-foreground truncate">
@@ -1433,20 +1328,110 @@ export default function CricketRulesPage() {
                           }
                         />
                       </div>
+
+                      <div className="col-span-2 flex items-center justify-between px-3 py-1.5 rounded-lg border border-primary/25 bg-primary/10 text-xs">
+                        <span className="text-muted-foreground text-[11px]">
+                          Squad Capacity ({playingCount} Playing + {benchCount} Bench)
+                        </span>
+                        <span className="font-bold text-primary text-xs tabular-nums">
+                          Total {totalSquadCapacity} Players / team
+                        </span>
+                      </div>
+                      </div>
                     </div>
 
-                    {/* Compact Live Total Squad Pill */}
-                    <div className="mt-2.5 flex items-center justify-between px-3 py-1.5 rounded-lg border border-primary/25 bg-primary/10 text-xs">
-                      <span className="text-muted-foreground text-[11px]">
-                        Squad Capacity ({playingCount} Playing + {benchCount} Bench)
-                      </span>
-                      <span className="font-bold text-primary text-xs">
-                        Total {totalSquadCapacity} Players / team
-                      </span>
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+                        Innings
+                      </p>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 text-xs">
+                      <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label htmlFor="rule-overs" className="text-[11px] font-medium text-muted-foreground truncate">
+                            Overs / Innings
+                          </label>
+                          <RuleHelpTooltip
+                            title="Overs per Innings"
+                            content="The maximum number of overs scheduled for each batting team per innings, unless all out earlier."
+                            category="cricket"
+                          />
+                        </div>
+                        <input
+                          id="rule-overs"
+                          name="overs"
+                          autoComplete="off"
+                          className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums")}
+                          inputMode="numeric"
+                          disabled={locked}
+                          value={keyRules.overs}
+                          onChange={(e) => {
+                            const nextVal = e.target.value;
+                            const nextNum = parseInt(nextVal, 10);
+                            setKeyRules((p) => {
+                              const pruned =
+                                Number.isFinite(nextNum) && nextNum > 0
+                                  ? p.powerplayOvers.filter((o) => o <= nextNum)
+                                  : p.powerplayOvers;
+                              return { ...p, overs: nextVal, powerplayOvers: pruned };
+                            });
+                          }}
+                        />
+                      </div>
+
+                      <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label htmlFor="rule-balls-per-over" className="text-[11px] font-medium text-muted-foreground truncate">
+                            Balls / Over
+                          </label>
+                          <RuleHelpTooltip
+                            title="Balls per Over"
+                            content="The number of legal deliveries required to complete one over. Standard cricket uses 6 balls per over."
+                            category="cricket"
+                          />
+                        </div>
+                        <input
+                          id="rule-balls-per-over"
+                          name="ballsPerOver"
+                          autoComplete="off"
+                          className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums")}
+                          inputMode="numeric"
+                          disabled={locked}
+                          value={keyRules.ballsPerOver}
+                          onChange={(e) =>
+                            setKeyRules((p) => ({ ...p, ballsPerOver: e.target.value }))
+                          }
+                        />
+                      </div>
+
+                      <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label htmlFor="rule-max-wickets" className="text-[11px] font-medium text-muted-foreground truncate">
+                            Max Wickets
+                          </label>
+                          <RuleHelpTooltip
+                            title="Max Wickets"
+                            content="The number of wickets after which the batting innings is declared all out (e.g. 10 for standard 11-player cricket, or fewer for box cricket)."
+                            category="cricket"
+                          />
+                        </div>
+                        <input
+                          id="rule-max-wickets"
+                          name="maxWickets"
+                          autoComplete="off"
+                          className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums")}
+                          inputMode="numeric"
+                          disabled={locked}
+                          value={keyRules.maxWickets}
+                          onChange={(e) =>
+                            setKeyRules((p) => ({ ...p, maxWickets: e.target.value }))
+                          }
+                        />
+                      </div>
+                      </div>
                     </div>
 
-                    {/* Powerplay Overs Selection (Interactive Chips) */}
-                    <div className="mt-3 rounded-lg border border-border/70 bg-card/40 p-3 space-y-2">
+                    {/* Powerplay follows the overs it selects. */}
+                    <div className="rounded-lg border border-border/70 bg-card/40 p-3 space-y-2">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-2">
                           <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -1607,6 +1592,39 @@ export default function CricketRulesPage() {
                           {powerplayHint(locked, false, 0)}
                         </p>
                       )}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
+                        Batting
+                      </p>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <label htmlFor="rule-retire-runs" className="text-[11px] font-medium text-muted-foreground truncate">
+                              Retire Runs
+                            </label>
+                            <RuleHelpTooltip
+                              title="Retire Runs"
+                              content="The individual score threshold at which a batter is required to retire. When a batter reaches this score during live scoring, the app prompts the scorer to retire them so teammates get a turn to bat. Leave empty for no limit."
+                              category="bidwar"
+                            />
+                          </div>
+                          <input
+                            id="rule-retire-runs"
+                            name="retireAtRuns"
+                            autoComplete="off"
+                            className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums placeholder:font-normal")}
+                            inputMode="numeric"
+                            disabled={locked}
+                            placeholder="No limit…"
+                            value={keyRules.retireAtRuns}
+                            onChange={(e) =>
+                              setKeyRules((p) => ({ ...p, retireAtRuns: e.target.value }))
+                            }
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -1968,6 +1986,15 @@ export default function CricketRulesPage() {
 
                     <div className="rounded-xl border border-border/80 bg-background/70 p-2.5 space-y-0.5">
                       <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
+                        Squad / Bench
+                      </p>
+                      <p className="font-extrabold text-foreground truncate text-xs tabular-nums">
+                        {playingCount} XI + {benchCount} bench
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-border/80 bg-background/70 p-2.5 space-y-0.5">
+                      <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
                         Overs / Wickets
                       </p>
                       <p className="font-extrabold text-foreground truncate text-xs tabular-nums">
@@ -1977,10 +2004,10 @@ export default function CricketRulesPage() {
 
                     <div className="rounded-xl border border-border/80 bg-background/70 p-2.5 space-y-0.5">
                       <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
-                        Squad / Bench
+                        Balls / Over
                       </p>
-                      <p className="font-extrabold text-foreground truncate text-xs tabular-nums">
-                        {playingCount} XI + {benchCount} bench
+                      <p className="font-bold text-foreground truncate text-xs tabular-nums">
+                        {keyRules.ballsPerOver}
                       </p>
                     </div>
 
@@ -2001,15 +2028,6 @@ export default function CricketRulesPage() {
                           : keyRules.powerplayOvers.length === 0
                             ? "On, none selected"
                             : `Overs ${keyRules.powerplayOvers.join(", ")}`}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border border-border/80 bg-background/70 p-2.5 space-y-0.5">
-                      <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">
-                        Balls / Over
-                      </p>
-                      <p className="font-bold text-foreground truncate text-xs tabular-nums">
-                        {keyRules.ballsPerOver}
                       </p>
                     </div>
 
