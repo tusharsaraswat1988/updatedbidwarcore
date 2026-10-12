@@ -775,7 +775,7 @@ export default function CricketLiveControlPage() {
 
               return (
                 <div className="shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5">
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <span className="flex items-center gap-1 h-5 px-1.5 rounded-full border text-[10px] font-bold uppercase tracking-wide text-red-300 bg-red-500/15 border-red-500/30 shrink-0">
                       <Radio className="w-2.5 h-2.5 text-red-500 animate-pulse" />
                       #{currentMatch.tournamentMatchNumber ?? currentMatch.id}
@@ -870,7 +870,7 @@ export default function CricketLiveControlPage() {
               const isT2Winner = currentMatch.winnerTeamId === t2?.id;
 
               return (
-                <div className="shrink-0 rounded-lg border border-white/10 bg-slate-900/70 px-2 py-1.5 flex items-center gap-2 min-w-0 text-[11px]">
+                <div className="shrink-0 rounded-lg border border-white/10 bg-slate-900/70 px-2 py-1.5 flex flex-wrap items-center gap-2 min-w-0 text-[11px]">
                   <span className="font-bold uppercase tracking-wide text-slate-400 shrink-0">Finished</span>
                   <span className="text-slate-500 shrink-0">#{currentMatch.tournamentMatchNumber ?? currentMatch.id}</span>
                   <span className={cn("font-semibold truncate", isT1Winner && "text-foreground")}>
@@ -890,7 +890,7 @@ export default function CricketLiveControlPage() {
 
             /* ─── CASE C: SCHEDULED / UPCOMING MATCH (HALF-WIDTH) ─── */
             return (
-              <div className="shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 flex items-center gap-2 min-w-0 text-[11px]">
+              <div className="shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 flex flex-wrap items-center gap-2 min-w-0 text-[11px]">
                 <span className="font-bold text-amber-400 shrink-0">Scheduled</span>
                 <span className="font-semibold text-foreground truncate">
                   {home?.name ?? "Home"} vs {away?.name ?? "Away"}
@@ -909,9 +909,9 @@ export default function CricketLiveControlPage() {
           <div className="shrink-0 px-1 text-[11px] text-slate-400">No active match selected.</div>
         )}
 
-        <div className="shrink-0 min-w-0 grid grid-cols-1 lg:grid-cols-12 gap-1.5 items-start">
-          <section className="lg:col-span-7 min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-1.5 flex flex-col gap-1.5">
-            <div className="flex items-center gap-1.5 min-w-0 px-0.5">
+        <div className="shrink-0 min-w-0 grid grid-cols-1 xl:grid-cols-12 gap-1.5 items-start">
+          <section className="xl:col-span-7 min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-1.5 flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 min-w-0 px-0.5">
               <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1 shrink-0">
                 <Layers className="w-3.5 h-3.5 text-primary" />
                 Screen modes
@@ -972,7 +972,7 @@ export default function CricketLiveControlPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
               {OVERLAY_OPTIONS.map((item) => {
                 const isActive = currentOverlay === item.id;
                 const playsOn = item.id === "none" ? "OBS + scorebug" : item.id === "banner" ? "LED only" : "LED + OBS";
@@ -1043,14 +1043,14 @@ export default function CricketLiveControlPage() {
             </div>
           </section>
 
-          <div className="lg:col-span-5 min-w-0">
+          <div className="xl:col-span-5 min-w-0">
             <CricketObsBroadcastMessageControl
               tournamentId={tournamentId}
               density="console"
             />
           </div>
 
-          <div className="lg:col-span-12 min-w-0">
+          <div className="xl:col-span-12 min-w-0">
             <SponsorMediaControl tournamentId={tournamentId} density="console" />
           </div>
         </div>

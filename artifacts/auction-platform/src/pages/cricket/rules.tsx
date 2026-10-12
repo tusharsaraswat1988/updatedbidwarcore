@@ -980,13 +980,13 @@ export default function CricketRulesPage() {
 
       <div className="max-w-7xl mx-auto px-3 sm:px-5 py-4 pb-16 space-y-4">
         {loading && !data ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-8 space-y-3">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+            <div className="xl:col-span-8 space-y-3">
               <Skeleton className="h-32 w-full rounded-xl" />
               <Skeleton className="h-44 w-full rounded-xl" />
               <Skeleton className="h-56 w-full rounded-xl" />
             </div>
-            <div className="lg:col-span-4 space-y-3">
+            <div className="xl:col-span-4 space-y-3">
               <Skeleton className="h-64 w-full rounded-xl" />
             </div>
           </div>
@@ -1141,9 +1141,9 @@ export default function CricketRulesPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
               {/* Left Column: Compact Rules Configuration */}
-              <div className="lg:col-span-8 space-y-4">
+              <div className="xl:col-span-8 space-y-4">
                 {/* 1. Format & Ball Type (Ultra Compact) */}
                 <section className={cn(hubPanelClass, "p-4 space-y-3.5")}>
                   <div className="flex items-center justify-between pb-1.5 border-b border-border/50">
@@ -1344,7 +1344,7 @@ export default function CricketRulesPage() {
                       <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
                         Innings
                       </p>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                       <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
                         <div className="flex items-center justify-between">
                           <label htmlFor="rule-overs" className="text-[11px] font-medium text-muted-foreground truncate">
@@ -1598,7 +1598,7 @@ export default function CricketRulesPage() {
                       <p className="text-[11px] font-semibold tracking-wide text-muted-foreground">
                         Batting
                       </p>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
                         <div className="rounded-lg border border-border/70 bg-card/40 p-2 space-y-1">
                           <div className="flex items-center justify-between">
                             <label htmlFor="rule-retire-runs" className="text-[11px] font-medium text-muted-foreground truncate">
@@ -1638,7 +1638,7 @@ export default function CricketRulesPage() {
                     </h2>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 text-xs">
                     {[
                       {
                         label: "LBW Dismissals",
@@ -1943,7 +1943,7 @@ export default function CricketRulesPage() {
               </div>
 
               {/* Right Column: Distinct Live Summary & Action Box */}
-              <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-4">
+              <div className="xl:col-span-4 space-y-4 xl:sticky xl:top-4">
                 <div className="rounded-2xl border-2 border-primary/40 bg-gradient-to-b from-card/90 via-slate-900/90 to-background p-4 sm:p-5 space-y-4 shadow-xl shadow-primary/5">
                   <div className="flex items-center justify-between pb-2.5 border-b border-primary/20">
                     <div className="flex items-center gap-2 min-w-0">

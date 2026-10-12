@@ -625,7 +625,7 @@ export default function CricketSettingsPage() {
               </div>
 
               <FormField label="Tournament Logo">
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-4">
                   {form.logoUrl ? (
                     <img
                       src={form.logoUrl}
@@ -637,7 +637,7 @@ export default function CricketSettingsPage() {
                       No logo
                     </div>
                   )}
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <BtnSecondary type="button" onClick={() => setLogoEditorOpen(true)}>
                       {form.logoUrl ? "Change Logo" : "Upload Logo"}
                     </BtnSecondary>
@@ -761,7 +761,7 @@ export default function CricketSettingsPage() {
                 </div>
 
                 <FormField label="Scoreboard Sponsor Logo">
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-4">
                     {scoreBoardSponsor.logoUrl ? (
                       <img
                         src={scoreBoardSponsor.logoUrl}
@@ -858,7 +858,7 @@ export default function CricketSettingsPage() {
                 </div>
                 {regUrl ? (
                   <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <p className="text-xs font-mono text-primary truncate flex-1 min-w-[200px] bg-background/60 border border-border/60 rounded-md px-3 py-2">
+                    <p className="text-xs font-mono text-primary truncate flex-1 min-w-0 basis-full sm:basis-auto bg-background/60 border border-border/60 rounded-md px-3 py-2">
                       {regUrl}
                     </p>
                     <Button size="sm" variant="outline" className="gap-1.5 text-xs h-9" onClick={() => void handleCopyLink()}>

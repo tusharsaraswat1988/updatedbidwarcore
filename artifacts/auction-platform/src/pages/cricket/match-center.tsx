@@ -552,7 +552,7 @@ export default function CricketMatchCenterPage() {
         {stats.length > 0 ? (
           <section>
             <HubSectionHeader title="Statistics snapshot" subtitle="From this match scorecard" />
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mt-3">
               {stats.map((s) => (
                 <div key={s.label} className={cn(hubCardClass, "p-3")}>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</p>

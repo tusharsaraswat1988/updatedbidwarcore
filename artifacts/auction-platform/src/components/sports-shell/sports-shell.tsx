@@ -219,7 +219,7 @@ function SportNavChildLink({
         )}
         aria-hidden
       />
-      <span className="truncate">{child.label}</span>
+      <span className="min-w-0 text-left leading-snug">{child.label}</span>
     </Link>
   );
 }
@@ -238,7 +238,7 @@ function SportNavSubmenu({
       className={cn(
         "overflow-hidden transition-[max-height,opacity] ",
         NAV_MOTION,
-        expanded ? "max-h-56 opacity-100" : "max-h-0 opacity-0 pointer-events-none",
+        expanded ? "max-h-80 opacity-100" : "max-h-0 opacity-0 pointer-events-none",
       )}
       aria-hidden={!expanded}
     >
@@ -389,7 +389,8 @@ function SportNavLink({
  * Shared tournament shell for scoring sports.
  * Auction continues to use AppLayout; badminton (and future sports) plug in via `nav`.
  *
- * Fully responsive: Collapsible sidebar on desktop (lg+), top app bar + slide-out drawer on mobile (<lg).
+ * Drawer through tablet. Collapsible sidebar only from xl (1280px), so a laptop
+ * still has a wide content area after the sidebar opens.
  */
 export function SportsShell({
   children,
@@ -582,12 +583,12 @@ export function SportsShell({
       <div
         className={cn(
           themeVariant === "console" ? "theme-broadcast-console" : "lovable-theme",
-          "flex flex-col lg:flex-row h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark",
+          "flex flex-col xl:flex-row h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark",
           className,
         )}
       >
         {/* Mobile Top Navigation Bar (< lg) */}
-        <header className="lg:hidden h-14 border-b border-border bg-card/95 backdrop-blur-md px-3 flex items-center justify-between gap-2 shrink-0 z-20">
+        <header className="xl:hidden h-14 border-b border-border bg-card/95 backdrop-blur-md px-3 flex items-center justify-between gap-2 shrink-0 z-20">
           <div className="flex items-center gap-2.5 min-w-0">
             <button
               type="button"
@@ -652,8 +653,8 @@ export function SportsShell({
 
         {/* Desktop Sidebar (lg+) */}
         <aside
-          className="hidden lg:flex flex-shrink-0 border-r border-border bg-card flex-col z-10 transition-[width] duration-200 ease-in-out overflow-hidden"
-          style={{ width: collapsed ? 56 : 256 }}
+          className="hidden xl:flex flex-shrink-0 border-r border-border bg-card flex-col z-10 transition-[width] duration-200 ease-in-out overflow-hidden"
+          style={{ width: collapsed ? 56 : 272 }}
         >
           <div className="h-16 flex items-center border-b border-border flex-shrink-0 px-4 gap-2 min-w-0">
             {collapsed ? (
@@ -706,7 +707,7 @@ export function SportsShell({
 
         <main className="flex-1 flex flex-col min-w-0 bg-transparent relative overflow-hidden">
           {/* Desktop Top Header Bar (lg+) */}
-          <header className="hidden lg:flex h-14 border-b border-border bg-card/90 backdrop-blur-md px-6 items-center justify-between gap-4 shrink-0 z-10">
+          <header className="hidden xl:flex h-14 border-b border-border bg-card/90 backdrop-blur-md px-6 items-center justify-between gap-4 shrink-0 z-10">
             <div className="flex items-center gap-3 min-w-0">
               {collapsed && (
                 <div className="flex items-center gap-2 pr-3 border-r border-border shrink-0">

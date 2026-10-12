@@ -395,6 +395,15 @@ export default function CricketPlayersPage() {
   const [battingFilter, setBattingFilter] = useState("all");
   const [bowlingFilter, setBowlingFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+  const [narrowRoster, setNarrowRoster] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const sync = () => setNarrowRoster(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+  const rosterTable = viewMode === "table" && !narrowRoster;
   const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
   const exportBusy = useRef(false);
   const [regSettingsOpen, setRegSettingsOpen] = useState(false);
@@ -1058,7 +1067,7 @@ export default function CricketPlayersPage() {
                 ) : null}
               </div>
 
-              <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-background/40 p-0.5 shrink-0 self-start sm:self-auto">
+              <div className="hidden md:flex items-center gap-1 rounded-lg border border-border/70 bg-background/40 p-0.5 shrink-0 self-start sm:self-auto">
                 <button
                   type="button"
                   onClick={() => setViewMode("table")}
@@ -1244,7 +1253,7 @@ export default function CricketPlayersPage() {
                         ) : null}
                       </div>
 
-                      {viewMode === "table" ? (
+                      {rosterTable ? (
                         <div className="overflow-x-auto rounded-xl border border-border/80 bg-card/40 backdrop-blur-sm shadow-sm">
                           <table className="w-full text-left text-sm border-collapse min-w-[760px]">
                             <thead>

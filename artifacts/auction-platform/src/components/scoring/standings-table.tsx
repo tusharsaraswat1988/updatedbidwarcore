@@ -36,18 +36,59 @@ export function StandingsTable({
     );
   }
 
+  const extraCol = compact ? "" : "hidden lg:table-cell";
+
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
-      <table className="w-full min-w-[40rem] text-sm">
+    <>
+      <ul className="md:hidden space-y-2">
+        {rows.map((row, idx) => {
+          const isQualified =
+            typeof row.qualified === "boolean"
+              ? row.qualified
+              : highlightTop > 0 && idx < highlightTop;
+          return (
+            <li
+              key={`card-${row.drawId ?? "legacy"}-${row.teamId}`}
+              className={
+                isQualified
+                  ? "rounded-xl border border-primary/30 bg-primary/5 p-3"
+                  : "rounded-xl border border-border p-3"
+              }
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs tabular-nums text-muted-foreground w-5 shrink-0">{idx + 1}</span>
+                {row.color ? (
+                  <span className="w-2 h-5 rounded-sm shrink-0" style={{ backgroundColor: row.color }} />
+                ) : null}
+                <span className="font-medium truncate">{row.teamName || row.shortCode}</span>
+                {isQualified ? (
+                  <span className="text-[10px] font-extrabold uppercase px-1 rounded bg-primary/20 text-primary border border-primary/30 shrink-0">
+                    Q
+                  </span>
+                ) : null}
+              </div>
+              <dl className="mt-2 grid grid-cols-3 gap-x-3 gap-y-1 text-xs">
+                <div><dt className="text-muted-foreground">P</dt><dd className="tabular-nums font-medium">{row.played}</dd></div>
+                <div><dt className="text-muted-foreground">W</dt><dd className="tabular-nums font-medium">{row.won}</dd></div>
+                <div><dt className="text-muted-foreground">Pts</dt><dd className="tabular-nums font-semibold text-primary">{row.points}</dd></div>
+                <div><dt className="text-muted-foreground">Pts %</dt><dd className="tabular-nums">{formatPointsPercentage(row.pointsPercentage)}</dd></div>
+                <div className="col-span-2"><dt className="text-muted-foreground">NRR</dt><dd className="tabular-nums" title={nrrBreakdownTooltip(row)}>{formatNetRunRate(row.netRunRate)}</dd></div>
+              </dl>
+            </li>
+          );
+        })}
+      </ul>
+    <div className="hidden md:block overflow-x-auto rounded-xl border border-border">
+      <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <th className="px-3 py-2.5 font-semibold">#</th>
             <th className="px-3 py-2.5 font-semibold">Team</th>
             <th className="px-3 py-2.5 font-semibold text-center">P</th>
             <th className="px-3 py-2.5 font-semibold text-center">W</th>
-            {!compact ? <th className="px-3 py-2.5 font-semibold text-center">L</th> : null}
-            {!compact ? <th className="px-3 py-2.5 font-semibold text-center">T</th> : null}
-            {!compact ? <th className="px-3 py-2.5 font-semibold text-center">NR</th> : null}
+            {!compact ? <th className={`px-3 py-2.5 font-semibold text-center ${extraCol}`}>L</th> : null}
+            {!compact ? <th className={`px-3 py-2.5 font-semibold text-center ${extraCol}`}>T</th> : null}
+            {!compact ? <th className={`px-3 py-2.5 font-semibold text-center ${extraCol}`}>NR</th> : null}
             <th className="px-3 py-2.5 font-semibold text-center">Pts</th>
             <th className="px-3 py-2.5 font-semibold text-right" title="Points percentage">
               Pts %
@@ -100,9 +141,9 @@ export function StandingsTable({
               </td>
               <td className="px-3 py-2.5 text-center tabular-nums">{row.played}</td>
               <td className="px-3 py-2.5 text-center tabular-nums">{row.won}</td>
-              {!compact ? <td className="px-3 py-2.5 text-center tabular-nums">{row.lost}</td> : null}
-              {!compact ? <td className="px-3 py-2.5 text-center tabular-nums">{row.tied}</td> : null}
-              {!compact ? <td className="px-3 py-2.5 text-center tabular-nums">{row.noResult}</td> : null}
+              {!compact ? <td className={`px-3 py-2.5 text-center tabular-nums ${extraCol}`}>{row.lost}</td> : null}
+              {!compact ? <td className={`px-3 py-2.5 text-center tabular-nums ${extraCol}`}>{row.tied}</td> : null}
+              {!compact ? <td className={`px-3 py-2.5 text-center tabular-nums ${extraCol}`}>{row.noResult}</td> : null}
               <td className="px-3 py-2.5 text-center tabular-nums font-semibold text-primary">
                 {row.points}
               </td>
@@ -121,5 +162,6 @@ export function StandingsTable({
         </tbody>
       </table>
     </div>
+    </>
   );
 }
