@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +11,13 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import type { CricketObsFlashKind, CricketObsMidOverlayKind } from "@/lib/cricket-obs-view-model";
 import { cricketObsLivePath } from "@/lib/tournament-navigation";
-import { listScoringMatches, getScoringStandings, isTerminalCricketMatchStatus } from "@/lib/scoring-api";
+import {
+  cricketBrandingQueryKey,
+  getCricketBranding,
+  getScoringStandings,
+  isTerminalCricketMatchStatus,
+  listScoringMatches,
+} from "@/lib/scoring-api";
 import { listDraws, listFixtures } from "@/lib/scoring-foundation-api";
 import {
   competitionGroupTitle,
@@ -22,7 +27,7 @@ import {
   knockoutBroadcastStageChoices,
   stageChoiceIsSelected,
 } from "@workspace/scoring-core/cricket";
-import { parseTournamentSponsors } from "@/components/scoring/public-sponsors-strip";
+import { resolveCricketBroadcastSponsors, sponsorTypeLabel } from "@/lib/cricket-broadcast-plates";
 import { CricketObsBroadcastMessageControl } from "@/components/scoring/cricket-obs/cricket-obs-broadcast-message-control";
 import { Tv, Radio, Sparkles, Eye, CheckCircle2, Copy, ExternalLink, Calendar, Trophy, Handshake, Table, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -50,12 +55,15 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
   const obsUrl = typeof window !== "undefined" ? `${window.location.origin}${obsPath}` : obsPath;
 
   // Tournament details for sponsors
-  const { data: tournament } = useGetTournament(tournamentId, {
-    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: tournamentId > 0 },
+  const { data: cricketBranding } = useQuery({
+    queryKey: cricketBrandingQueryKey(tournamentId),
+    queryFn: () => getCricketBranding<{ sponsorLogos?: string | null }>(tournamentId),
+    enabled: tournamentId > 0,
+    staleTime: 5_000,
   });
   const sponsors = useMemo(
-    () => parseTournamentSponsors(tournament?.sponsorLogos),
-    [tournament?.sponsorLogos],
+    () => resolveCricketBroadcastSponsors(cricketBranding?.sponsorLogos),
+    [cricketBranding?.sponsorLogos],
   );
 
   // Standings query for groups
@@ -618,8 +626,12 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
           <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2.5 bg-slate-50/40">
             {filteredMatches && filteredMatches.length > 0 ? (
               filteredMatches.map((m) => {
-                const home = m.homeTeam?.name || `Team ${m.homeTeamId}`;
-                const away = m.awayTeam?.name || `Team ${m.awayTeamId}`;
+                const named = m as typeof m & {
+                  homeTeam?: { name?: string | null } | null;
+                  awayTeam?: { name?: string | null } | null;
+                };
+                const home = named.homeTeam?.name || `Team ${m.homeTeamId}`;
+                const away = named.awayTeam?.name || `Team ${m.awayTeamId}`;
                 const isScreenTarget = m.id === overlayMatchId && currentOverlay === targetOverlayForMatch?.id;
 
                 const statusBadge =
@@ -762,25 +774,25 @@ export function CricketObsDirectorPanel({ tournamentId, auctionCode }: Props) {
                     <div
                       key={idx}
                       onClick={() => {
-                        void handleSetOverlay("sponsors", `Sponsor Spotlight: ${sp.name}`, undefined, { sponsorName: sp.name });
+                        void handleSetOverlay("sponsors", `Sponsor Spotlight: ${sp.name || "Sponsor"}`, undefined, { sponsorName: sp.name || "Sponsor" });
                         setSponsorSelectModalOpen(false);
                       }}
                       className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:border-amber-400 hover:shadow-sm cursor-pointer transition group"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         {sp.url ? (
-                          <img src={sp.url} alt={sp.name} className="w-8 h-8 object-contain rounded bg-slate-50 p-1 border border-slate-200 shrink-0" />
+                          <img src={sp.url} alt={sp.name || "Sponsor"} className="w-8 h-8 object-contain rounded bg-slate-50 p-1 border border-slate-200 shrink-0" />
                         ) : (
                           <div className="w-8 h-8 rounded bg-slate-100 text-slate-600 font-bold text-xs flex items-center justify-center shrink-0">
-                            {sp.name.charAt(0)}
+                            {(sp.name || "S").charAt(0)}
                           </div>
                         )}
                         <div className="min-w-0">
                           <div className="text-xs font-bold text-slate-900 truncate group-hover:text-amber-700 transition">
-                            {sp.name}
+                            {sp.name || "Sponsor"}
                           </div>
                           <div className="text-[10px] text-slate-400 uppercase font-semibold">
-                            {sp.category || "Official Partner"}
+                            {sponsorTypeLabel(sp) || "Official Partner"}
                           </div>
                         </div>
                       </div>

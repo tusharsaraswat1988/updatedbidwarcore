@@ -43,12 +43,14 @@ import { listDraws, listFixtures } from "@/lib/scoring-foundation-api";
 import {
   getCricketMasterTeams,
   getCricketTournamentRoster,
+  cricketBrandingQueryKey,
+  getCricketBranding,
   getScoringStandings,
   isTerminalCricketMatchStatus,
   isUpcomingCricketMatchStatus,
   type ScoringMatchJson,
 } from "@/lib/scoring-api";
-import { parseTournamentSponsors } from "@/components/scoring/public-sponsors-strip";
+import { resolveCricketBroadcastSponsors } from "@/lib/cricket-broadcast-plates";
 import {
   cricketMasterTeamToScorerTeam,
   cricketRosterToScorerPlayer,
@@ -287,9 +289,15 @@ export default function CricketLiveControlPage() {
   );
 
   // Tournament Sponsors
+  const { data: cricketBranding } = useQuery({
+    queryKey: cricketBrandingQueryKey(tournamentId),
+    queryFn: () => getCricketBranding<{ sponsorLogos?: string | null }>(tournamentId),
+    enabled: scoringActive && tournamentId > 0,
+    staleTime: 5_000,
+  });
   const sponsors = useMemo(
-    () => parseTournamentSponsors(tournament?.sponsorLogos),
-    [tournament?.sponsorLogos],
+    () => resolveCricketBroadcastSponsors(cricketBranding?.sponsorLogos),
+    [cricketBranding?.sponsorLogos],
   );
 
   // Standings & Groups query
@@ -1506,7 +1514,7 @@ export default function CricketLiveControlPage() {
                 })
               ) : (
                 <div className="text-center py-6 text-slate-400 text-xs">
-                  No sponsors configured in tournament settings yet.
+                  No sponsors added for this tournament.
                 </div>
               )}
             </div>

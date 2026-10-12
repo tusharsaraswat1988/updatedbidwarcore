@@ -32,7 +32,6 @@ import {
   getScoringStandings,
   listScoringMatches,
   getCricketMasterTeams,
-  getCricketTournamentRoster,
   getPublicMatchScorecard,
   publicMatchScorecardQueryKey,
 } from "@/lib/scoring-api";
@@ -40,15 +39,23 @@ import { listFixtures } from "@/lib/scoring-foundation-api";
 import {
   competitionGroupTitle,
   competitionSelectionLabel,
-  formatPointsPercentage,
+  formatNetRunRate,
   parseCompetitionSelection,
   resolveKnockoutStageSelection,
   rowsForCompetitionSelection,
 } from "@workspace/scoring-core/cricket";
 import {
+  broadcastMatchSummary,
+  inningsPlates,
+  knockoutBoardRows,
+  knockoutResultLine,
+  plateMatchId,
+  tossLine,
+  upcomingFixture,
+  type KnockoutBoardItem,
+} from "@/lib/cricket-broadcast-plates";
+import {
   cricketMasterTeamToScorerTeam,
-  cricketRosterToScorerPlayer,
-  type CricketScorerPlayer,
   type CricketScorerTeam,
 } from "@/lib/scoring-squad";
 import type { CricketObsViewModel } from "@/lib/cricket-obs-view-model";
@@ -308,157 +315,53 @@ function SummaryVariant({
     staleTime: 30_000,
   });
 
-  const activeMatch = useMemo(() => {
-    if (matchId && matches && matches.length > 0) {
-      const found = matches.find((m) => m.id === matchId);
-      if (found) return found as any;
-    }
-    return matches && matches.length > 0 ? (matches[0] as any) : null;
-  }, [matchId, matches]);
-
-  const targetMatchId = activeMatch?.id ?? matchId ?? vm.matchId;
-
-  // Tournament Roster for player avatars & details
-  const { data: rosterData } = useQuery({
-    queryKey: ["cricket-tournament-roster", tournamentId],
-    queryFn: () => getCricketTournamentRoster(tournamentId!),
+  const selectedId = plateMatchId({
+    overlay: "summary",
+    overlayMatchId: matchId,
+    liveMatchId: vm.matchId,
+    liveStatus: vm.phase === "completed" ? "completed" : null,
+  });
+  const activeMatch = useMemo(
+    () => (selectedId ? matches?.find((match) => match.id === selectedId) ?? null : null),
+    [matches, selectedId],
+  );
+  const { data: masterTeams } = useQuery({
+    queryKey: ["cricket-master-teams", tournamentId],
+    queryFn: () => getCricketMasterTeams(tournamentId!),
     enabled: !!tournamentId && tournamentId > 0,
-    staleTime: 120_000,
+    staleTime: 60_000,
   });
-
-  const players = useMemo(
-    () => (Array.isArray(rosterData) ? rosterData.map(cricketRosterToScorerPlayer) : []),
-    [rosterData],
+  const teams = useMemo(
+    () => (masterTeams ?? []).map(cricketMasterTeamToScorerTeam),
+    [masterTeams],
   );
-
-  // Scorecard for accurate completed match figures
   const { data: fullScorecard } = useQuery({
-    queryKey: publicMatchScorecardQueryKey(tournamentId ?? 0, targetMatchId ?? 0, vm.liveSequence ?? 0),
-    queryFn: () => getPublicMatchScorecard(tournamentId!, targetMatchId!),
-    enabled: !!tournamentId && !!targetMatchId,
-    staleTime: Infinity,
-    placeholderData: (previous, previousQuery) => {
-      if (!previous) return undefined;
-      if (previousQuery?.queryKey?.[2] !== targetMatchId) return undefined;
-      return previous;
-    },
+    queryKey: publicMatchScorecardQueryKey(tournamentId ?? 0, selectedId ?? 0, 0),
+    queryFn: () => getPublicMatchScorecard(tournamentId!, selectedId!),
+    enabled: !!tournamentId && !!selectedId,
+    refetchInterval: 4_000,
   });
-
-  const homeTeam = activeMatch?.homeTeam || vm.home;
-  const awayTeam = activeMatch?.awayTeam || vm.away;
-  const rawResult =
-    (activeMatch as any)?.resultSummary ||
-    vm.resultHeadline ||
-    vm.resultText ||
-    "MATCH IN PROGRESS";
-
-  const winnerTeamId = (activeMatch as any)?.winnerTeamId ?? vm.winner?.id ?? null;
-  const isHomeWinner = Boolean(
-    (winnerTeamId != null && homeTeam?.id === winnerTeamId) ||
-    (homeTeam?.name && rawResult.toLowerCase().includes(homeTeam.name.toLowerCase()))
-  );
-  const isAwayWinner = Boolean(
-    (winnerTeamId != null && awayTeam?.id === winnerTeamId) ||
-    (awayTeam?.name && rawResult.toLowerCase().includes(awayTeam.name.toLowerCase()))
-  );
-  const winnerTeam = isHomeWinner ? homeTeam : isAwayWinner ? awayTeam : null;
-
-  let formattedResult = rawResult;
-  if (winnerTeam && rawResult.toLowerCase().startsWith("won by")) {
-    formattedResult = `${winnerTeam.name.toUpperCase()} ${rawResult.toUpperCase()}`;
-  }
-
-  const scorecardInnings = fullScorecard?.scorecard?.innings || [];
-  const homeBattingInn = scorecardInnings.find((i: any) => i.battingTeamId === homeTeam?.id);
-  const awayBattingInn = scorecardInnings.find((i: any) => i.battingTeamId === awayTeam?.id);
-  const homeBowlingInn = scorecardInnings.find((i: any) => i.bowlingTeamId === homeTeam?.id);
-  const awayBowlingInn = scorecardInnings.find((i: any) => i.bowlingTeamId === awayTeam?.id);
-
-  const homeScore = homeBattingInn
-    ? `${homeBattingInn.totalRuns}-${homeBattingInn.totalWickets}`
-    : `${vm.runs}-${vm.wickets}`;
-
-  const homeOvers = homeBattingInn
-    ? `${homeBattingInn.overs}`
-    : vm.oversLabel;
-
-  const awayScore = awayBattingInn
-    ? `${awayBattingInn.totalRuns}-${awayBattingInn.totalWickets}`
-    : (vm.target != null ? `${vm.target - 1}` : "—");
-
-  const awayOvers = awayBattingInn
-    ? `${awayBattingInn.overs}`
-    : (vm.oversLimit ? `${vm.oversLimit}.0` : "—");
-
-  const getInitials = (name?: string | null) => {
-    if (!name) return "P";
-    const parts = name.trim().split(/\s+/);
-    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    return name.slice(0, 2).toUpperCase();
-  };
-
-  // Top batters resolution
-  const topBattersList = useMemo(() => {
-    const allBatting: any[] = [];
-    if (homeBattingInn?.batting) allBatting.push(...homeBattingInn.batting);
-    if (awayBattingInn?.batting) allBatting.push(...awayBattingInn.batting);
-    if (allBatting.length > 0) {
-      return [...allBatting]
-        .sort((a, b) => b.runs - a.runs || b.strikeRate - a.strikeRate)
-        .slice(0, 2)
-        .map((b) => {
-          const pl = players.find((p) => p.id === b.playerId);
-          return {
-            name: pl?.name || `Batter #${b.playerId}`,
-            photoUrl: pl?.photoUrl || null,
-            runs: b.runs,
-            balls: b.balls,
-          };
-        });
-    }
-    return [vm.striker, vm.nonStriker]
-      .filter(Boolean)
-      .map((b) => {
-        const pl = players.find((p) => p.id === b!.id);
-        return {
-          name: b!.name,
-          photoUrl: b!.photoUrl || pl?.photoUrl || null,
-          runs: b!.runs,
-          balls: b!.balls,
-        };
-      });
-  }, [homeBattingInn, awayBattingInn, vm.striker, vm.nonStriker, players]);
-
-  // Top bowler resolution
-  const topBowlerData = useMemo(() => {
-    const allBowling: any[] = [];
-    if (homeBowlingInn?.bowling) allBowling.push(...homeBowlingInn.bowling);
-    if (awayBowlingInn?.bowling) allBowling.push(...awayBowlingInn.bowling);
-    if (allBowling.length > 0) {
-      const best = [...allBowling].sort((a, b) => b.wickets - a.wickets || a.runs - b.runs || a.economy - b.economy)[0];
-      if (best) {
-        const pl = players.find((p) => p.id === best.playerId);
-        return {
-          name: pl?.name || `Bowler #${best.playerId}`,
-          photoUrl: pl?.photoUrl || null,
-          wickets: best.wickets,
-          runsConceded: best.runs,
-          economy: best.economy,
-        };
-      }
-    }
-    if (vm.bowler) {
-      const pl = players.find((p) => p.id === vm.bowler!.id);
-      return {
-        name: vm.bowler.name,
-        photoUrl: vm.bowler.photoUrl || pl?.photoUrl || null,
-        wickets: vm.bowler.wickets,
-        runsConceded: vm.bowler.runsConceded,
-        economy: vm.bowler.economy,
-      };
-    }
-    return null;
-  }, [homeBowlingInn, awayBowlingInn, vm.bowler, players]);
+  const homeTeam = teams.find((team) => team.id === activeMatch?.homeTeamId) ?? null;
+  const awayTeam = teams.find((team) => team.id === activeMatch?.awayTeamId) ?? null;
+  const winnerTeamId = activeMatch?.winnerTeamId ?? null;
+  const winnerName =
+    winnerTeamId === homeTeam?.id ? homeTeam?.name : winnerTeamId === awayTeam?.id ? awayTeam?.name : null;
+  const summary = broadcastMatchSummary({
+    scorecard: fullScorecard?.scorecard,
+    players: fullScorecard?.players,
+    homeTeamId: homeTeam?.id ?? activeMatch?.homeTeamId ?? 0,
+    awayTeamId: awayTeam?.id ?? activeMatch?.awayTeamId ?? 0,
+    winnerTeamId,
+    resultSummary: activeMatch?.resultSummary ?? null,
+    winnerName,
+  });
+  const isHomeWinner = winnerTeamId != null && homeTeam?.id === winnerTeamId;
+  const isAwayWinner = winnerTeamId != null && awayTeam?.id === winnerTeamId;
+  const formattedResult = activeMatch ? summary.resultText : "Choose a finished match.";
+  const homeScore = summary.home.score ?? "—";
+  const homeOvers = summary.home.overs ?? "—";
+  const awayScore = summary.away.score ?? "—";
+  const awayOvers = summary.away.overs ?? "—";
 
   return (
     <div className="flex flex-col gap-3">
@@ -523,9 +426,8 @@ function SummaryVariant({
               {homeScore}
             </span>
           </div>
-          <div className="pt-2 flex items-center justify-between text-[13px] font-mono text-slate-300">
+          <div className="pt-2 text-[13px] font-mono text-slate-300">
             <span>OVERS: <strong className="text-white">{homeOvers}</strong></span>
-            <span>CRR: <strong className="text-cyan-400">{vm.crr ?? "0.00"}</strong></span>
           </div>
         </div>
 
@@ -562,88 +464,38 @@ function SummaryVariant({
               {awayScore}
             </span>
           </div>
-          <div className="pt-2 flex items-center justify-between text-[13px] font-mono text-slate-300">
-            <span>TARGET: <strong className="text-[#FFD700]">{vm.target != null ? `${vm.target} RUNS` : "N/A"}</strong></span>
-            <span>STATUS: <strong className="text-emerald-400 uppercase">{vm.phase}</strong></span>
+          <div className="pt-2 text-[13px] font-mono text-slate-300">
+            <span>OVERS: <strong className="text-white">{awayOvers}</strong></span>
           </div>
         </div>
       </div>
 
       {/* Key Performers Strip */}
       <div className="grid grid-cols-2 gap-3">
-        {/* Top Batters */}
-        <div className="p-3 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col">
-          <span className="text-[11px] font-black uppercase tracking-widest text-[#FFD700] pb-1.5 border-b border-white/10 mb-2">
-            TOP BATTERS
-          </span>
-          <div className="space-y-2">
-            {topBattersList.map((b, i) => {
-              const nameLen = (b.name || "").trim().length;
-              const fontSize = nameLen > 20 ? "11.5px" : nameLen > 15 ? "12.5px" : "14px";
-              return (
-                <div key={i} className="flex items-center justify-between gap-2 text-[14px]">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="w-7 h-7 rounded-lg bg-white/10 border border-amber-400/40 overflow-hidden shrink-0 flex items-center justify-center">
-                      {b.photoUrl ? (
-                        <img src={b.photoUrl} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-[10px] font-black text-amber-300">{getInitials(b.name)}</span>
-                      )}
-                    </div>
-                    <span
-                      className="font-bold text-white whitespace-nowrap overflow-hidden leading-tight"
-                      style={{ fontSize, letterSpacing: nameLen > 16 ? "-0.01em" : undefined }}
-                      title={b.name}
-                    >
-                      {b.name}
-                    </span>
-                  </div>
-                  <span className="font-mono font-bold text-[#FFD700] shrink-0">
-                    {b.runs} ({b.balls}b)
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Top Bowler */}
-        <div className="p-3 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col">
-          <span className="text-[11px] font-black uppercase tracking-widest text-cyan-400 pb-1.5 border-b border-white/10 mb-2">
-            KEY BOWLER
-          </span>
-          {topBowlerData ? (
-            <div className="flex items-center justify-between gap-2 pt-0.5">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <div className="w-7 h-7 rounded-lg bg-white/10 border border-cyan-400/40 overflow-hidden shrink-0 flex items-center justify-center">
-                  {topBowlerData.photoUrl ? (
-                    <img src={topBowlerData.photoUrl} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-[10px] font-black text-cyan-300">{getInitials(topBowlerData.name)}</span>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span
-                    className="font-bold text-white block whitespace-nowrap overflow-hidden leading-tight"
-                    style={{
-                      fontSize: (topBowlerData.name || "").length > 18 ? "12px" : (topBowlerData.name || "").length > 14 ? "13px" : "14px",
-                      letterSpacing: (topBowlerData.name || "").length > 16 ? "-0.01em" : undefined,
-                    }}
-                    title={topBowlerData.name}
-                  >
-                    {topBowlerData.name}
-                  </span>
-                  <span className="text-[12px] text-slate-400 font-mono">Econ: {topBowlerData.economy?.toFixed(2)}</span>
-                </div>
-              </div>
-              <span className="font-mono text-lg font-black text-rose-400 shrink-0">
-                {topBowlerData.wickets}-{topBowlerData.runsConceded}
+        {[
+          { label: homeTeam?.name || "Home", side: summary.home },
+          { label: awayTeam?.name || "Away", side: summary.away },
+        ].map((column) => (
+          <div key={column.label} className="p-3 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col gap-2">
+            <span className="text-[11px] font-black uppercase tracking-widest text-[#FFD700]">
+              {column.label}
+            </span>
+            <div className="flex items-center justify-between gap-2 text-[14px]">
+              <span className="truncate font-bold text-white">{column.side.topBatter?.name || "—"}</span>
+              <span className="font-mono font-bold text-[#FFD700] shrink-0">
+                {column.side.topBatter ? `${column.side.topBatter.runs} (${column.side.topBatter.balls})` : ""}
               </span>
             </div>
-          ) : (
-            <div className="text-[13px] text-slate-400 pt-2">No bowler figures available</div>
-          )}
-        </div>
+            <div className="flex items-center justify-between gap-2 text-[14px]">
+              <span className="truncate font-bold text-white">{column.side.topBowler?.name || "—"}</span>
+              <span className="font-mono font-bold text-rose-400 shrink-0">
+                {column.side.topBowler
+                  ? `${column.side.topBowler.wickets}-${column.side.topBowler.runsConceded}`
+                  : ""}
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -651,92 +503,81 @@ function SummaryVariant({
 
 // ─── 2. VARIANT: SCORECARD SLATE (49% Width) ─────────────────────────────────
 
-function ScorecardVariant({ vm }: { vm: CricketObsViewModel }) {
+function ScorecardVariant({
+  vm,
+  tournamentId,
+  matchId,
+}: {
+  vm: CricketObsViewModel;
+  tournamentId?: number;
+  matchId?: number;
+}) {
+  const selectedId = plateMatchId({
+    overlay: "scorecard",
+    overlayMatchId: matchId,
+    liveMatchId: vm.matchId,
+    liveStatus: vm.phase === "completed" ? "completed" : vm.phase === "live" || vm.phase === "chase" || vm.phase === "innings_break" ? "live" : null,
+  });
+  const { data: masterTeams } = useQuery({
+    queryKey: ["cricket-master-teams", tournamentId],
+    queryFn: () => getCricketMasterTeams(tournamentId!),
+    enabled: !!tournamentId && tournamentId > 0,
+    staleTime: 60_000,
+  });
+  const { data: fullScorecard } = useQuery({
+    queryKey: publicMatchScorecardQueryKey(tournamentId ?? 0, selectedId ?? 0, vm.liveSequence ?? 0),
+    queryFn: () => getPublicMatchScorecard(tournamentId!, selectedId!),
+    enabled: !!tournamentId && !!selectedId,
+    refetchInterval: 4_000,
+  });
+  const teams = useMemo(
+    () => new Map((masterTeams ?? []).map(cricketMasterTeamToScorerTeam).map((team) => [team.id, team])),
+    [masterTeams],
+  );
+  const plates = inningsPlates(fullScorecard?.scorecard, fullScorecard?.players);
+  if (!selectedId) {
+    return <p className="py-8 text-center text-sm text-slate-400">Choose a live or finished match.</p>;
+  }
+  if (plates.length === 0) {
+    return <p className="py-8 text-center text-sm text-slate-400">Scorecard is not ready.</p>;
+  }
   return (
-    <div className="flex flex-col gap-3">
-      {/* Live Inning Score Banner */}
-      <div
-        className="p-3.5 rounded-xl border border-[#FFD700]/30 flex items-center justify-between"
-        style={{
-          background: "linear-gradient(90deg, rgba(255, 215, 0, 0.12) 0%, rgba(14, 16, 24, 0.9) 100%)",
-        }}
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-[#FFD700] text-black font-black flex items-center justify-center text-base font-mono">
-            {vm.batting?.shortCode || "BAT"}
-          </div>
-          <div>
-            <span className="text-lg font-black italic text-white uppercase block">
-              {vm.batting?.name || "BATTING TEAM"}
+    <div className="flex flex-col gap-3 max-h-[640px] overflow-y-auto pr-1">
+      {plates.map((plate) => (
+        <div key={plate.innings} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-black uppercase text-white">
+              {teams.get(plate.battingTeamId)?.name || "Batting"}
             </span>
-            <span className="text-[14px] text-slate-300 font-semibold">
-              {vm.phase.toUpperCase()} • CRR: {vm.crr ?? "0.00"}
+            <span className="font-mono text-lg font-black text-[#FFD700]">
+              {plate.totalRuns}-{plate.totalWickets} ({plate.overs})
             </span>
           </div>
-        </div>
-        <div className="text-right font-mono">
-          <span className="text-3xl font-black text-[#FFD700] block drop-shadow-[0_0_10px_rgba(255,215,0,0.35)]">
-            {vm.runs}-{vm.wickets}
-          </span>
-          <span className="text-[14px] text-slate-300 font-bold">({vm.oversLabel} OV)</span>
-        </div>
-      </div>
-
-      {/* Batters List */}
-      <div className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02] flex flex-col">
-        <span className="text-[12px] font-black uppercase tracking-widest text-[#FFD700] pb-1.5 border-b border-white/10 mb-2">
-          CREASE BATTERS
-        </span>
-        <div className="space-y-2">
-          {[vm.striker, vm.nonStriker].map((b, i) => {
-            if (!b) return null;
-            const nameLen = (b.name || "").trim().length;
-            const fontSize = nameLen > 22 ? "12.5px" : nameLen > 16 ? "14px" : "16px";
-            return (
-              <div key={i} className="flex items-center justify-between text-[15px] p-2.5 rounded-lg bg-white/[0.03] border border-white/5 gap-2">
-                <span
-                  className="font-bold text-white whitespace-nowrap overflow-hidden leading-tight flex-1 min-w-0"
-                  style={{ fontSize, letterSpacing: nameLen > 16 ? "-0.01em" : undefined }}
-                  title={b.name}
-                >
-                  {b.name} {i === 0 && <span className="text-[#FFD700] font-black">*</span>}
+          <div className="space-y-1">
+            {plate.batting.map((batter) => (
+              <div key={batter.playerId} className="grid grid-cols-[1fr_auto] gap-2 text-[13px]">
+                <span className="min-w-0 truncate text-white">
+                  {batter.name}
+                  <span className="ml-2 text-slate-400">{batter.dismissal}</span>
                 </span>
-                <span className="font-mono text-[17px] font-black text-[#FFD700] shrink-0">
-                  {b.runs} <span className="text-[13px] text-slate-400 font-normal">({b.balls}b • 4s:{b.fours} 6s:{b.sixes})</span>
+                <span className="font-mono text-[#FFD700]">{batter.runs} ({batter.balls})</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[12px] text-slate-300">{plate.extrasLine}</p>
+          {plate.fallLine ? <p className="text-[12px] text-slate-400">FOW {plate.fallLine}</p> : null}
+          <div className="mt-2 space-y-1 border-t border-white/10 pt-2">
+            {plate.bowling.map((bowler) => (
+              <div key={bowler.playerId} className="grid grid-cols-[1fr_auto] gap-2 text-[13px]">
+                <span className="truncate text-white">{bowler.name}</span>
+                <span className="font-mono text-cyan-300">
+                  {bowler.overs} · {bowler.runs} · {bowler.wickets}
                 </span>
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Bowler Details */}
-      {vm.bowler && (
-        <div className="p-3.5 rounded-xl border border-white/10 bg-white/[0.02] flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <span className="text-[12px] font-black uppercase tracking-widest text-cyan-400 block mb-0.5">
-              ACTIVE BOWLER
-            </span>
-            <span
-              className="font-bold text-white block whitespace-nowrap overflow-hidden leading-tight"
-              style={{
-                fontSize: (vm.bowler.name || "").length > 20 ? "13px" : (vm.bowler.name || "").length > 15 ? "15px" : "17px",
-                letterSpacing: (vm.bowler.name || "").length > 15 ? "-0.01em" : undefined,
-              }}
-              title={vm.bowler.name}
-            >
-              {vm.bowler.name}
-            </span>
-            <span className="text-[14px] text-slate-300 font-mono block">Econ: {vm.bowler.economy?.toFixed(2)}</span>
-          </div>
-          <div className="text-right font-mono">
-            <span className="text-2xl font-black text-rose-400 block">
-              {vm.bowler.wickets}-{vm.bowler.runsConceded}
-            </span>
-            <span className="text-[14px] text-slate-300">({vm.bowler.overs} ov)</span>
+            ))}
           </div>
         </div>
-      )}
+      ))}
     </div>
   );
 }
@@ -792,7 +633,6 @@ function StandingsVariant({
   const matchedGroup = resolved.group;
   const rows = resolved.rows;
   const qualifiers = resolved.qualifiers;
-  const stageLabel = competitionSelectionLabel(stageOrGroup);
   const isKnockoutStage =
     !matchedGroup &&
     (parseCompetitionSelection(stageOrGroup).kind === "round" ||
@@ -805,7 +645,10 @@ function StandingsVariant({
   );
 
   if (isKnockoutStage) {
-    const stageRows = knockoutStage.fixtures.length > 0 ? knockoutStage.fixtures : knockoutStage.matches;
+    const stageRows = knockoutBoardRows(
+      knockoutStage.fixtures as KnockoutBoardItem[],
+      knockoutStage.matches as KnockoutBoardItem[],
+    );
     return (
       <div className="flex flex-col rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
         {knockoutStage.ambiguous || stageRows.length === 0 ? (
@@ -825,10 +668,10 @@ function StandingsVariant({
                 <li key={item.id} className="flex items-center gap-3 px-4 py-3">
                   <span className="text-[#FFD700] font-black w-6 text-center">{idx + 1}</span>
                   <span className="flex-1 font-bold text-white uppercase truncate">
-                    {home?.shortCode || home?.name || "Home"} vs {away?.shortCode || away?.name || "Away"}
+                    {home?.name || "Home"} vs {away?.name || "Away"}
                   </span>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    {item.roundName || stageLabel}
+                  <span className="max-w-[46%] truncate text-right text-[11px] font-bold uppercase tracking-wider text-slate-300">
+                    {knockoutResultLine(item)}
                   </span>
                 </li>
               );
@@ -850,12 +693,14 @@ function StandingsVariant({
         style={{ background: "rgba(18, 22, 32, 0.95)" }}
       >
         <div className="col-span-1 text-center">#</div>
-        <div className="col-span-4 pl-1">TEAM</div>
+        <div className="col-span-3 pl-1">TEAM</div>
         <div className="col-span-1 text-center font-mono">P</div>
         <div className="col-span-1 text-center font-mono">W</div>
         <div className="col-span-1 text-center font-mono">L</div>
-        <div className="col-span-2 text-right font-mono text-[#FFD700]">PTS %</div>
-        <div className="col-span-2 text-right font-mono pr-2">PTS</div>
+        <div className="col-span-1 text-center font-mono">T</div>
+        <div className="col-span-1 text-center font-mono">NR</div>
+        <div className="col-span-1 text-center font-mono text-[#FFD700]">PTS</div>
+        <div className="col-span-2 text-right font-mono pr-1">NRR</div>
       </div>
 
       {/* Row Strips (Content-aware sizing, larger padding for few teams) */}
@@ -882,18 +727,16 @@ function StandingsVariant({
                     {idx + 1}
                   </span>
                 </div>
-                <div className="col-span-4 pl-2 font-bold text-white uppercase truncate">
-                  {row.teamName} <span className="text-[#FFD700] font-mono text-[13px] ml-1">({row.shortCode})</span>
+                <div className="col-span-3 pl-2 font-bold text-white uppercase truncate">
+                  {row.teamName}
                 </div>
                 <div className="col-span-1 text-center font-mono text-slate-300 font-bold">{row.played}</div>
                 <div className="col-span-1 text-center font-mono font-bold text-white">{row.won}</div>
                 <div className="col-span-1 text-center font-mono text-slate-400">{row.lost}</div>
-                <div className="col-span-2 text-right font-mono font-bold text-[#FFD700]">
-                  {formatPointsPercentage(row.pointsPercentage)}
-                </div>
-                <div className="col-span-2 text-right font-mono font-black text-lg text-[#FFD700] pr-2">
-                  {row.points}
-                </div>
+                <div className="col-span-1 text-center font-mono text-slate-300">{row.tied}</div>
+                <div className="col-span-1 text-center font-mono text-slate-300">{row.noResult}</div>
+                <div className="col-span-1 text-center font-mono font-black text-[#FFD700]">{row.points}</div>
+                <div className="col-span-2 text-right font-mono text-white pr-1">{formatNetRunRate(row.netRunRate)}</div>
               </div>
             );
           })
@@ -949,17 +792,10 @@ function FixturesVariant({
   const teamMap = useMemo(() => new Map(effectiveTeams.map((t) => [t.id, t])), [effectiveTeams]);
 
   // If a specific match was chosen, spotlight that match; otherwise list upcoming
-  const targetMatch = useMemo(() => {
-    if (matchId && matches && matches.length > 0) {
-      return matches.find((m) => m.id === matchId) || null;
-    }
-    return null;
-  }, [matchId, matches]);
-
   const upcoming = useMemo(() => {
-    if (targetMatch) return [targetMatch];
-    return (matches || []).filter((m) => m.status !== "completed").slice(0, 4);
-  }, [targetMatch, matches]);
+    const match = upcomingFixture(matches ?? [], matchId);
+    return match ? [match] : [];
+  }, [matchId, matches]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -975,16 +811,9 @@ function FixturesVariant({
             >
               {/* Header: Match # and Venue */}
               <div className="flex items-center justify-between text-[12px] font-mono text-slate-300 border-b border-white/10 pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-[#FFD700] font-bold">
-                    {m.roundName || `MATCH #${m.tournamentMatchNumber ?? m.id}`}
-                  </span>
-                  {m.roundName && (
-                    <span className="text-[10px] text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded font-black uppercase">
-                      {m.roundName}
-                    </span>
-                  )}
-                </div>
+                <span className="text-[#FFD700] font-bold">
+                  {`MATCH #${m.tournamentMatchNumber ?? m.id}`}
+                </span>
                 <span>{m.venue ? `📍 ${m.venue}` : "SESSION SCHEDULE"}</span>
               </div>
 
@@ -1020,8 +849,8 @@ function FixturesVariant({
                     ? new Date(m.scheduledAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" })
                     : "SCHEDULED"}
                 </span>
-                <span className="text-amber-400 font-bold uppercase text-[12px]">
-                  {m.status || "UPCOMING"}
+                <span className="text-slate-400 font-bold uppercase text-[12px]">
+                  {m.venue || ""}
                 </span>
               </div>
             </div>
@@ -1029,7 +858,7 @@ function FixturesVariant({
         })
       ) : (
         <div className="py-8 text-center text-sm text-slate-400">
-          No upcoming fixtures scheduled.
+          No upcoming match.
         </div>
       )}
     </div>
@@ -1047,7 +876,7 @@ function SponsorsVariant({
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center">
         <span className="text-sm text-slate-400 font-bold uppercase tracking-wider">
-          Official Partner
+          No sponsors added for this tournament.
         </span>
       </div>
     );
@@ -1083,9 +912,11 @@ function SponsorsVariant({
 
       {/* 2. Sponsor Name (Directly Below Logo) */}
       <div className="flex flex-col items-center gap-1.5 w-full mt-1">
+        {currentSponsor.url ? null : (
         <h3 className="text-2xl sm:text-[26px] font-black italic text-white uppercase tracking-wide font-sans leading-tight drop-shadow-[0_2px_10px_rgba(0,0,0,0.95)] truncate max-w-full">
           {currentSponsor.name || "OFFICIAL SPONSOR"}
         </h3>
+        )}
 
         {/* 3. Sponsor Type (Directly Below Sponsor Name) */}
         <div>
@@ -1126,16 +957,35 @@ function VsIntroVariant({
     staleTime: 30_000,
   });
 
-  const activeMatch = useMemo(() => {
-    if (matchId && matches && matches.length > 0) {
-      const found = matches.find((m) => m.id === matchId);
-      if (found) return found as any;
-    }
-    return matches && matches.length > 0 ? (matches[0] as any) : null;
-  }, [matchId, matches]);
+  const activeMatch = useMemo(
+    () => (matchId ? matches?.find((match) => match.id === matchId) ?? null : null),
+    [matchId, matches],
+  );
+  const { data: masterTeams } = useQuery({
+    queryKey: ["cricket-master-teams", tournamentId],
+    queryFn: () => getCricketMasterTeams(tournamentId!),
+    enabled: !!tournamentId && tournamentId > 0,
+    staleTime: 60_000,
+  });
+  const teams = useMemo(
+    () => (masterTeams ?? []).map(cricketMasterTeamToScorerTeam),
+    [masterTeams],
+  );
+  const homeTeam = teams.find((team) => team.id === activeMatch?.homeTeamId) ?? null;
+  const awayTeam = teams.find((team) => team.id === activeMatch?.awayTeamId) ?? null;
+  const tossState = activeMatch?.stateJson as { tossWinnerTeamId?: number | null; electedTo?: string | null } | null | undefined;
+  const toss =
+    activeMatch && activeMatch.id === vm.matchId
+      ? vm.tossText
+      : tossLine(tossState, teams.find((team) => team.id === tossState?.tossWinnerTeamId)?.name);
+  const venue =
+    activeMatch?.status === "live"
+      ? `Live from ${activeMatch.venue || vm.venueText || "the ground"}`
+      : activeMatch?.venue || "Venue to be confirmed";
 
-  const homeTeam = activeMatch?.homeTeam || vm.home;
-  const awayTeam = activeMatch?.awayTeam || vm.away;
+  if (!activeMatch) {
+    return <p className="py-8 text-center text-sm text-slate-400">Choose a match to introduce.</p>;
+  }
 
   return (
     <div className="flex flex-col justify-between gap-3 py-1 px-1">
@@ -1147,14 +997,11 @@ function VsIntroVariant({
             {homeTeam?.logoUrl ? (
               <img src={homeTeam.logoUrl} alt="" className="max-h-16 max-w-16 object-contain" />
             ) : (
-              homeTeam?.shortCode || "HOME"
+              homeTeam?.name?.slice(0, 1) || "H"
             )}
           </div>
           <span className="font-black text-base text-white uppercase truncate w-full tracking-wide">
-            {homeTeam?.name || "HOME SQUAD"}
-          </span>
-          <span className="text-[#FFD700] font-mono text-[13px] font-bold">
-            {homeTeam?.shortCode || "HOM"}
+            {homeTeam?.name || "Home"}
           </span>
         </div>
 
@@ -1174,23 +1021,20 @@ function VsIntroVariant({
             {awayTeam?.logoUrl ? (
               <img src={awayTeam.logoUrl} alt="" className="max-h-16 max-w-16 object-contain" />
             ) : (
-              awayTeam?.shortCode || "AWAY"
+              awayTeam?.name?.slice(0, 1) || "A"
             )}
           </div>
           <span className="font-black text-base text-white uppercase truncate w-full tracking-wide">
-            {awayTeam?.name || "AWAY SQUAD"}
-          </span>
-          <span className="text-cyan-400 font-mono text-[13px] font-bold">
-            {awayTeam?.shortCode || "AWY"}
+            {awayTeam?.name || "Away"}
           </span>
         </div>
       </div>
 
       {/* Match Info Strip at bottom of card */}
       <div className="p-3 rounded-xl border border-white/10 bg-black/60 text-[14px] text-slate-200 font-mono flex items-center justify-between">
-        <span className="truncate max-w-[50%]">🪙 {vm.tossText || "TOSS PENDING"}</span>
+        <span className="truncate max-w-[50%]">{toss || "Toss pending"}</span>
         <span className="text-cyan-400 font-bold uppercase truncate max-w-[48%] text-right">
-          📍 {activeMatch?.venue || vm.venueText || "LIVE MATCH"}
+          {venue}
         </span>
       </div>
     </div>
@@ -1258,7 +1102,7 @@ export function BroadcastSideSlate({
       case "SPONSORS":
         return "";
       case "VS_INTRO":
-        return `${vm.home?.shortCode || "HOME"} VS ${vm.away?.shortCode || "AWAY"}`;
+        return "MATCH INTRO";
     }
   }, [variant, vm, stageOrGroup]);
 
@@ -1282,7 +1126,7 @@ export function BroadcastSideSlate({
         <SummaryVariant vm={vm} tournamentId={tournamentId} matchId={matchId} />
       )}
       {variant === "SCORECARD" && (
-        <ScorecardVariant vm={vm} />
+        <ScorecardVariant vm={vm} tournamentId={tournamentId} matchId={matchId} />
       )}
       {variant === "STANDINGS" && (
         <StandingsVariant tournamentId={tournamentId} stageOrGroup={stageOrGroup} />

@@ -21,7 +21,7 @@ import {
   cricketMasterTeamToScorerTeam,
   cricketRosterToScorerPlayer,
 } from "@/lib/scoring-squad";
-import { parseTournamentSponsors } from "@/components/scoring/public-sponsors-strip";
+import { resolveCricketBroadcastSponsors } from "@/lib/cricket-broadcast-plates";
 import {
   cricketBrandingQueryKey,
   getCricketBranding,
@@ -146,8 +146,8 @@ export function useCricketObsLive(
   });
 
   const sponsors = useMemo(
-    () => parseTournamentSponsors(branding?.sponsorLogos ?? tournament?.sponsorLogos),
-    [branding?.sponsorLogos, tournament?.sponsorLogos],
+    () => resolveCricketBroadcastSponsors(branding?.sponsorLogos),
+    [branding?.sponsorLogos],
   );
 
   // Mid Overlay (80% screen) state: URL param initial value or operator selection

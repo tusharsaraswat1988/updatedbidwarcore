@@ -498,7 +498,7 @@ export default function CricketObsV2Page() {
         tournamentId={tournamentId > 0 ? tournamentId : (isPreviewMode ? 1 : 0)}
       />
 
-      {tournamentId > 0 ? (
+      {tournamentId > 0 && currentOverlay !== "sponsors" ? (
         <SponsorMediaLayer tournamentId={tournamentId} surface="obs" cover="absolute" />
       ) : null}
     </>

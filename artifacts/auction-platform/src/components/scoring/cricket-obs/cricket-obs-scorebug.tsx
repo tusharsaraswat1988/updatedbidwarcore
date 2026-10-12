@@ -178,13 +178,8 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
                     {striker.runs}
                   </span>
                   <span className="text-xs text-white/60 font-medium">
-                    ({striker.balls} {striker.balls === 1 ? "ball" : "balls"})
+                    ({striker.balls})
                   </span>
-                  {striker.balls > 0 && (
-                    <span className="text-[11px] text-white/40 font-normal pl-1">
-                      SR {striker.strikeRate.toFixed(1)}
-                    </span>
-                  )}
                 </>
               ) : (
                 <span className="text-xl font-bold text-white/40 leading-none">—</span>
@@ -221,13 +216,8 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
                     {nonStriker.runs}
                   </span>
                   <span className="text-xs text-white/50 font-medium">
-                    ({nonStriker.balls} {nonStriker.balls === 1 ? "ball" : "balls"})
+                    ({nonStriker.balls})
                   </span>
-                  {nonStriker.balls > 0 && (
-                    <span className="text-[11px] text-white/30 font-normal pl-1">
-                      SR {nonStriker.strikeRate.toFixed(1)}
-                    </span>
-                  )}
                 </>
               ) : (
                 <span className="text-xl font-bold text-white/40 leading-none">—</span>
@@ -268,11 +258,7 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
                     {bowler.wickets}-{bowler.runsConceded}
                   </span>
                   <span className="text-xs text-white/60">
-                    ({bowler.overs} ov)
-                  </span>
-                  <span className="text-white/30">|</span>
-                  <span className="text-xs text-[#06B6D4]">
-                    ECON {bowler.economy.toFixed(1)}
+                    ({bowler.overs})
                   </span>
                 </>
               ) : (
@@ -434,25 +420,15 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
       >
         {/* Left Side Context Statement */}
         <div className="flex items-center gap-4">
-          {isCompleted ? (
-            <span className="text-[#FFD700] font-bold">
-              FINAL: {vm.resultText || `${batting?.name || "BATTERS"} WON THE MATCH`}
-            </span>
-          ) : isChase && needRuns != null && ballsLeft != null ? (
-            <span className="text-[#FFD700] font-bold">
-              CHASE: NEED {needRuns} RUNS OFF {ballsLeft} BALLS {vm.target != null ? `(TARGET ${vm.target})` : ""}
-            </span>
-          ) : vm.firstInningsScoreLine ? (
+          {vm.firstInningsScoreLine && (isCompleted || isChase) ? (
             <span>
               <strong className="text-[#FFD700]">1ST INNINGS:</strong> {vm.firstInningsScoreLine}
             </span>
-          ) : vm.tossText ? (
+          ) : !isChase && !isCompleted && vm.tossText ? (
             <span>
               <strong className="text-[#FFD700]">TOSS:</strong> {vm.tossText}
             </span>
-          ) : (
-            <span className="text-white/60">BIDWAR CRICKET BROADCAST</span>
-          )}
+          ) : null}
 
           {/* Special Delivery Alerts */}
           {vm.freeHitActive && !isCompleted && (
@@ -473,9 +449,6 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
           className="flex items-center gap-4 text-xs font-bold tabular-nums"
           style={{ fontFamily: BROADCAST_FONTS.mono }}
         >
-          {vm.crr && <span>CRR <span className="text-[#FFD700]">{vm.crr}</span></span>}
-          {isChase && vm.rrr && !isCompleted && <span>RRR <span className="text-[#E11D48]">{vm.rrr}</span></span>}
-          {!isChase && vm.projectedScore && !isCompleted && <span>PROJ <span className="text-[#06B6D4]">{vm.projectedScore}</span></span>}
           {vm.powerplayText && !isCompleted && (
             <span className="text-[10px] font-bold text-white/70 border-l border-white/20 pl-3">
               {vm.powerplayText}

@@ -43,6 +43,7 @@ import {
   type CricketScorerPlayer,
   type CricketScorerTeam,
 } from "@/lib/scoring-squad";
+import { formatPowerplayOvers, resolvePowerplayOvers } from "@/lib/cricket-powerplay-overs";
 import { isTerminalCricketMatchStatus } from "@/lib/scoring-api";
 import { CricketEventType } from "@workspace/scoring-core";
 import {
@@ -117,6 +118,10 @@ type LiveScoringPadProps = {
   onBowlerChange: (bowlerId: number) => void;
   onNewBatsman: (playerId: number, position?: "striker" | "non_striker") => void;
   onSwapStrike?: () => void;
+  /** Before the first ball, reopen the opener step instead of a clipped sheet. */
+  onReviewOpeners?: () => void;
+  /** Before the first ball, reopen the bowler step. */
+  onReviewBowler?: () => void;
   onResetMatch?: () => Promise<void>;
   pendingNewBatsman: boolean;
   localStrikerId: number | null;
@@ -151,6 +156,8 @@ export function LiveScoringPad({
   onBowlerChange,
   onNewBatsman,
   onSwapStrike,
+  onReviewOpeners,
+  onReviewBowler,
   onResetMatch,
   pendingNewBatsman,
   localStrikerId,
@@ -279,6 +286,12 @@ export function LiveScoringPad({
     !pendingNewBatsman &&
     strikerId != null &&
     nonStrikerId != null;
+  const powerplayOvers = (state.powerplayOvers?.length ?? 0) > 0
+    ? state.powerplayOvers
+    : resolvePowerplayOvers(rules, state.oversLimit ?? innings?.oversLimit ?? 20);
+  const powerplayLabel = formatPowerplayOvers(powerplayOvers);
+  const currentOverNumber = (innings?.over ?? 0) + 1;
+  const currentOverIsPowerplay = powerplayOvers.includes(currentOverNumber);
 
   const battingId = battingTeamId(state);
   const bowlingId = bowlingTeamId(state);
@@ -747,16 +760,6 @@ export function LiveScoringPad({
               <Play className="w-3.5 h-3.5 fill-current" />
               Resume Play
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 px-2.5 text-xs border-sky-400/40 text-sky-200 hover:bg-sky-500/20"
-              disabled={busy}
-              onClick={() => setDlsSheet(true)}
-            >
-              DLS / Overs
-            </Button>
           </div>
         </div>
       ) : null}
@@ -787,7 +790,7 @@ export function LiveScoringPad({
       ) : null}
 
       {/* ─── Scoreboard Strip ─── */}
-      <div className="px-2.5 py-1.5 sm:px-4 sm:py-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#111938]/95 via-[#0c132a]/95 to-[#070b19]/98 shadow-xl shadow-black/40 space-y-1.5 sm:space-y-2 shrink-0 backdrop-blur-md">
+      <div className="px-2.5 py-1.5 sm:px-4 sm:py-3 rounded-2xl border border-white/10 bg-gradient-to-b from-[#111938]/95 via-[#0c132a]/95 to-[#070b19]/98 shadow-xl shadow-black/40 space-y-1.5 sm:space-y-2 min-h-0 max-h-[46%] overflow-y-auto overscroll-contain backdrop-blur-md">
         {/* Top Meta Row: Innings/Target & Teams Matchup */}
         <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-white/5">
           <div className="flex items-center gap-1.5 flex-wrap min-w-0">
@@ -796,8 +799,20 @@ export function LiveScoringPad({
               {state.target ? ` · Target ${state.target}` : ""}
             </span>
             {retireAtRuns != null ? (
-              <span className="text-[9.5px] text-white/50 hidden xs:inline">
+              <span className="text-[9.5px] text-white/50 hidden sm:inline">
                 (Retire limit: {retireAtRuns}r)
+              </span>
+            ) : null}
+            {powerplayLabel ? (
+              <span
+                className={cn(
+                  "text-[9.5px] font-bold px-1.5 py-0.5 rounded border",
+                  currentOverIsPowerplay
+                    ? "text-amber-200 bg-amber-500/20 border-amber-400/40"
+                    : "text-white/70 bg-white/5 border-white/10",
+                )}
+              >
+                {currentOverIsPowerplay ? `${powerplayLabel} · this over` : powerplayLabel}
               </span>
             ) : null}
           </div>
@@ -920,7 +935,10 @@ export function LiveScoringPad({
                 size="sm"
                 className="h-8 text-[11px] font-bold rounded-lg border-amber-400/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20 hover:text-white"
                 disabled={busy}
-                onClick={() => setBatterSheet("striker")}
+                onClick={() => {
+                  if (onReviewOpeners) onReviewOpeners();
+                  else setBatterSheet("striker");
+                }}
               >
                 Change striker
               </Button>
@@ -930,7 +948,10 @@ export function LiveScoringPad({
                 size="sm"
                 className="h-8 text-[11px] font-bold rounded-lg border-white/20 bg-white/[0.08] text-white hover:bg-white/20 hover:text-white"
                 disabled={busy}
-                onClick={() => setBatterSheet("non_striker")}
+                onClick={() => {
+                  if (onReviewOpeners) onReviewOpeners();
+                  else setBatterSheet("non_striker");
+                }}
               >
                 Change non-striker
               </Button>
@@ -938,36 +959,32 @@ export function LiveScoringPad({
           ) : null}
 
           {/* Row 2: Dedicated Full-Width Bowler Bar (No name truncation!) */}
-          <div className="flex items-center justify-between rounded-xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 px-2.5 py-1.5 sm:px-3 sm:py-2 shadow-xs transition-colors">
-            <div
-              className="min-w-0 flex-1 flex items-center gap-2 cursor-pointer"
-              onClick={() => setBowlerSheet(true)}
-            >
-              <div className="flex flex-col min-w-0 flex-1">
-                <span className="text-[9.5px] uppercase font-bold text-white/50 tracking-wider leading-none flex items-center gap-1">
-                  <span>Bowler</span>
-                </span>
-                <p
-                  className="font-bold text-slate-100 text-xs sm:text-sm mt-1 truncate"
-                  title={playerNameById(players, activeBowlerId) || "Select Bowler"}
-                >
-                  {playerNameById(players, activeBowlerId) || (
-                    <span className="text-amber-400 font-bold italic">Select Bowler 👆</span>
-                  )}
-                </p>
-              </div>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-xl bg-white/[0.05] hover:bg-white/[0.08] border border-white/10 px-2.5 py-1.5 sm:px-3 sm:py-2 shadow-xs transition-colors text-left"
+            onClick={() => {
+              if (onReviewBowler) onReviewBowler();
+              else setBowlerSheet(true);
+            }}
+          >
+            <div className="min-w-0 flex-1">
+              <span className="text-[9.5px] uppercase font-bold text-white/50 tracking-wider leading-none">
+                Bowler
+              </span>
+              <p
+                className="font-bold text-slate-100 text-xs sm:text-sm mt-1 truncate"
+                title={playerNameById(players, activeBowlerId) || "Select Bowler"}
+              >
+                {playerNameById(players, activeBowlerId) || (
+                  <span className="text-amber-400 font-bold italic">Select Bowler</span>
+                )}
+              </p>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-7 sm:h-8 px-2.5 sm:px-3 text-[11px] font-bold rounded-lg border-white/20 bg-white/[0.08] text-white hover:bg-white/20 hover:text-white shrink-0 gap-1.5 shadow-xs"
-              onClick={() => setBowlerSheet(true)}
-            >
+            <span className="h-7 sm:h-8 px-2.5 sm:px-3 text-[11px] font-bold rounded-lg border border-white/20 bg-white/[0.08] text-white shrink-0 inline-flex items-center gap-1.5">
               <RefreshCw className="w-3 h-3" />
-              <span>Change Bowler</span>
-            </Button>
-          </div>
+              Change
+            </span>
+          </button>
         </div>
 
         {/* ─── This Over Ball Strip ─── */}
@@ -1128,6 +1145,24 @@ export function LiveScoringPad({
           </div>
 
           <div className="relative z-10 shrink-0 flex flex-col gap-2 w-full px-3 pt-2 pb-2 sm:px-6 sm:pb-5 border-t border-white/10 bg-[#040b09]/90">
+            {superOverEnabled && matchResultPreview?.isTie ? (
+              <Button
+                variant="outline"
+                className="w-full h-11 text-sm font-bold border-amber-400/40 text-amber-200 hover:bg-amber-500/10 rounded-xl"
+                disabled={busy || !battingId || !bowlingId}
+                onClick={async () => {
+                  if (!battingId || !bowlingId) return;
+                  await onEvent(CricketEventType.SUPER_OVER_STARTED, {
+                    innings: Math.max(state.innings.length + 1, 3),
+                    battingTeamId: battingId,
+                    bowlingTeamId: bowlingId,
+                    oversLimit: rules?.superOverOvers ?? 1,
+                  });
+                }}
+              >
+                Start Super Over
+              </Button>
+            ) : null}
             <Button
               className="w-full h-11 sm:h-12 text-sm sm:text-base font-black bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/30 rounded-xl active:scale-[0.98] transition-all"
               disabled={busy}
@@ -1356,7 +1391,12 @@ export function LiveScoringPad({
           </div>
 
           {/* Row 3: Extras (Wide, No Ball, Byes, Leg Byes / Swap Strike) */}
-          <div className="grid grid-cols-4 gap-1 sm:gap-1.5 flex-1 min-h-0">
+          <div
+            className={cn(
+              "grid gap-1 sm:gap-1.5 flex-1 min-h-0",
+              superBallEnabled && legByeEnabled ? "grid-cols-4" : "grid-cols-3",
+            )}
+          >
             <ScoreButton
               label="Wd"
               sublabel="wide"
@@ -1398,17 +1438,7 @@ export function LiveScoringPad({
                 disabled={busy || pendingNewBatsman}
                 onClick={() => setLegByeSheet(true)}
               />
-            ) : (
-              <ScoreButton
-                label={<ArrowLeftRight className="w-5 h-5 text-sky-300 mx-auto" />}
-                sublabel="swap strike"
-                variant="default"
-                disabled={busy || pendingNewBatsman || !onSwapStrike}
-                onClick={() => {
-                  if (onSwapStrike) onSwapStrike();
-                }}
-              />
-            )}
+            ) : null}
           </div>
 
           {/* Row 4: Wicket & Undo Action Buttons */}
@@ -2155,19 +2185,7 @@ export function LiveScoringPad({
                 <CloudRain className="w-4 h-4 mr-2" />
                 Rain delay / Interruption
               </Button>
-            ) : (
-              <Button
-                variant="outline"
-                className="h-12 font-semibold"
-                disabled={busy}
-                onClick={async () => {
-                  setSecondaryOpen(false);
-                  await onEvent(CricketEventType.MATCH_RESUMED, {});
-                }}
-              >
-                Resume play
-              </Button>
-            )}
+            ) : null}
             <Button
               variant="outline"
               className="h-12 font-semibold"
@@ -2204,60 +2222,6 @@ export function LiveScoringPad({
               }}
             >
               Retired batter (Hurt / Out)
-            </Button>
-            {superOverEnabled ? (
-              <Button
-                variant="outline"
-                className="h-12 font-semibold"
-                disabled={busy}
-                onClick={async () => {
-                  if (!battingId || !bowlingId) return;
-                  setSecondaryOpen(false);
-                  await onEvent(CricketEventType.SUPER_OVER_STARTED, {
-                    innings: Math.max(state.innings.length + 1, 3),
-                    battingTeamId: battingId,
-                    bowlingTeamId: bowlingId,
-                    oversLimit: rules?.superOverOvers ?? 1,
-                  });
-                }}
-              >
-                Start Super Over
-              </Button>
-            ) : null}
-            <Button
-              variant="outline"
-              className="h-12 font-bold border-amber-500/40 text-amber-300"
-              disabled={busy}
-              onClick={async () => {
-                setSecondaryOpen(false);
-                const reason = suggestInningsEndReason(state);
-                await onInningsEnd({
-                  innings: state.currentInnings,
-                  reason,
-                  runs: innings.runs,
-                  wickets: innings.wickets,
-                  overs: oversText(innings.over, innings.ball),
-                });
-              }}
-            >
-              End Current Innings
-            </Button>
-            <Button
-              variant="destructive"
-              className="h-12 font-bold"
-              disabled={busy}
-              onClick={async () => {
-                setSecondaryOpen(false);
-                const result = buildMatchResult(state);
-                await onMatchComplete({
-                  winnerTeamId: result.winnerTeamId,
-                  margin: result.margin,
-                  resultText: result.resultText,
-                  isTie: result.isTie,
-                });
-              }}
-            >
-              Complete Match
             </Button>
             {onResetMatch &&
             (state.innings ?? []).reduce(

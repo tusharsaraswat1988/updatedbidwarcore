@@ -8,15 +8,20 @@
  * - Footer: Tournament Sponsors (Sponsor Name, Logo, and Sponsor Type "thoda bada me" - Large & Prominent)
  */
 
-import { useState, useEffect, useMemo, type CSSProperties } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getCricketMasterTeams, listScoringMatches } from "@/lib/scoring-api";
+import { isUpcomingCricketMatchStatus } from "@/lib/scoring-api";
+import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
+import { scoreboardSponsorLogo, sponsorsExceptLocked } from "@/lib/cricket-broadcast-plates";
+import { motion } from "framer-motion";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import type { ScoreBoardSponsor } from "@/hooks/use-badminton-branding";
-import { getSponsorCategoryLabel } from "@/components/scoring/score-display-shell";
-import { Trophy, Award, Sparkles, Wifi, WifiOff, RefreshCw } from "lucide-react";
+import { Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface CricketLedNeutralScreenProps {
+  tournamentId?: number;
   tournamentName: string;
   tournamentLogoUrl?: string | null;
   sponsors: SponsorLogo[];
@@ -27,72 +32,46 @@ export interface CricketLedNeutralScreenProps {
   displayShellStyle?: CSSProperties;
 }
 
-function getNeutralSponsorNameFontSize(name: string): string {
-  const len = (name || "").trim().length;
-  if (len > 32) return "text-sm sm:text-base md:text-lg";
-  if (len > 22) return "text-base sm:text-lg md:text-xl";
-  if (len > 14) return "text-lg sm:text-xl md:text-2xl";
-  return "text-xl sm:text-2xl md:text-3xl";
-}
-
 export function CricketLedNeutralScreen({
+  tournamentId = 0,
   tournamentName,
   tournamentLogoUrl,
   sponsors = [],
   scoreBoardSponsor,
-  connectionStatus = "connected",
   logoSrc,
   logoAlt = "BidWar",
   displayShellStyle,
 }: CricketLedNeutralScreenProps) {
-  // Combine Scoreboard sponsor + tournament sponsors
-  const activeSponsorsList = useMemo(() => {
-    const list: SponsorLogo[] = [];
-    if (
-      scoreBoardSponsor &&
-      (scoreBoardSponsor.logoUrl || scoreBoardSponsor.name || scoreBoardSponsor.title)
-    ) {
-      list.push({
-        url: scoreBoardSponsor.logoUrl || "",
-        name: scoreBoardSponsor.name || "",
-        type: scoreBoardSponsor.title || "Scoreboard Sponsor",
-        priorityType: scoreBoardSponsor.title || "Scoreboard Sponsor",
-        isTitleSponsor: true,
-      });
-    }
-    for (const s of sponsors) {
-      if (
-        !list.some(
-          (existing) =>
-            (existing.name && existing.name.toLowerCase() === (s.name || "").toLowerCase()) ||
-            (existing.url && existing.url === s.url),
-        )
-      ) {
-        list.push(s);
-      }
-    }
-    return list;
-  }, [scoreBoardSponsor, sponsors]);
-
-  // Carousel page index for prominent footer sponsor display
-  const [carouselIndex, setCarouselIndex] = useState(0);
-  const itemsPerPage = 3;
-  const totalPages = Math.max(1, Math.ceil(activeSponsorsList.length / itemsPerPage));
-
+  const locked = useMemo(() => scoreboardSponsorLogo(scoreBoardSponsor), [scoreBoardSponsor]);
+  const rotating = useMemo(() => sponsorsExceptLocked(sponsors, locked), [sponsors, locked]);
+  const [rotatingIndex, setRotatingIndex] = useState(0);
   useEffect(() => {
-    if (totalPages <= 1) return;
-    const timer = setInterval(() => {
-      setCarouselIndex((prev) => (prev + 1) % totalPages);
-    }, 5500);
+    if (rotating.length <= 1) return;
+    const timer = setInterval(() => setRotatingIndex((index) => (index + 1) % rotating.length), 5500);
     return () => clearInterval(timer);
-  }, [totalPages]);
+  }, [rotating.length]);
+  const rotatingSponsor = rotating.length > 0 ? rotating[rotatingIndex % rotating.length] : null;
 
-  const currentVisibleSponsors = useMemo(() => {
-    if (activeSponsorsList.length === 0) return [];
-    if (activeSponsorsList.length <= itemsPerPage) return activeSponsorsList;
-    const start = carouselIndex * itemsPerPage;
-    return activeSponsorsList.slice(start, start + itemsPerPage);
-  }, [activeSponsorsList, carouselIndex]);
+  const { data: matches } = useQuery({
+    queryKey: ["scoring-matches", tournamentId],
+    queryFn: () => listScoringMatches(tournamentId),
+    enabled: tournamentId > 0,
+    staleTime: 30_000,
+  });
+  const { data: masterTeams } = useQuery({
+    queryKey: ["cricket-master-teams", tournamentId],
+    queryFn: () => getCricketMasterTeams(tournamentId),
+    enabled: tournamentId > 0,
+    staleTime: 60_000,
+  });
+  const nextMatchLine = useMemo(() => {
+    const next = (matches ?? []).find((match) => isUpcomingCricketMatchStatus(match.status));
+    if (!next) return null;
+    const teams = (masterTeams ?? []).map(cricketMasterTeamToScorerTeam);
+    const home = teams.find((team) => team.id === next.homeTeamId)?.name || "Home";
+    const away = teams.find((team) => team.id === next.awayTeamId)?.name || "Away";
+    return `Next: ${home} vs ${away}`;
+  }, [matches, masterTeams]);
 
   // Title font sizing
   const titleFontSizeClass = useMemo(() => {
@@ -157,23 +136,7 @@ export function CricketLedNeutralScreen({
         </div>
 
         {/* Right balance spacer / Connection status */}
-        <div className="w-48 sm:w-60 flex items-center justify-end gap-3 shrink-0">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-            {connectionStatus === "connected" ? (
-              <>
-                <Wifi className="w-3.5 h-3.5" /> LIVE DISPLAY
-              </>
-            ) : connectionStatus === "disconnected" ? (
-              <>
-                <WifiOff className="w-3.5 h-3.5 text-red-400" /> OFFLINE
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> SYNCING
-              </>
-            )}
-          </span>
-        </div>
+        <div className="w-48 sm:w-60 shrink-0" />
       </header>
 
       {/* 2. MID SECTION: TOURNAMENT NAME (Grand Centered Showcase) */}
@@ -217,125 +180,21 @@ export function CricketLedNeutralScreen({
         </motion.h1>
 
         {/* Decorative Badge Pill */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.45, delay: 0.2 }}
-          className="mt-5 inline-flex items-center gap-2.5 px-6 py-2 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 text-sm sm:text-base font-black uppercase tracking-[0.25em] shadow-lg shadow-black/50"
-        >
-          <Sparkles className="w-4 h-4 text-amber-400" />
-          <span>OFFICIAL TOURNAMENT BROADCAST</span>
-          <Sparkles className="w-4 h-4 text-amber-400" />
-        </motion.div>
+        {nextMatchLine ? (
+          <p className="mt-5 text-lg sm:text-2xl font-black uppercase tracking-wide text-amber-300">
+            {nextMatchLine}
+          </p>
+        ) : null}
       </main>
 
-      {/* 3. FOOTER: SPONSORS (Sponsor Name + Logo + Sponsor Type "thoda bada me" - Large & Prominent) */}
-      <footer className="relative z-20 bg-[#05070a]/95 border-t-2 border-amber-400/40 backdrop-blur-md shadow-2xl shrink-0 w-full px-6 sm:px-12 py-5 sm:py-6 flex flex-col items-center justify-center">
-        {/* Section Tagline */}
-        <div className="flex items-center gap-2 mb-3 sm:mb-4">
-          <span className="text-amber-400 font-black text-sm sm:text-base">✦</span>
-          <span className="text-xs sm:text-sm font-black uppercase tracking-[0.3em] text-white/70">
-            OFFICIAL TOURNAMENT SPONSORS &amp; PARTNERS
-          </span>
-          <span className="text-amber-400 font-black text-sm sm:text-base">✦</span>
-        </div>
-
-        {/* Prominent Large Sponsor Cards Grid ("thoda bada me") */}
-        {activeSponsorsList.length > 0 ? (
-          <div className="w-full max-w-7xl 2xl:max-w-[1500px]">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`page-${carouselIndex}`}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -16 }}
-                transition={{ duration: 0.35, ease: "easeInOut" }}
-                className={cn(
-                  "grid gap-4 sm:gap-6 w-full items-stretch justify-center",
-                  currentVisibleSponsors.length === 1
-                    ? "grid-cols-1 max-w-xl mx-auto"
-                    : currentVisibleSponsors.length === 2
-                    ? "grid-cols-1 sm:grid-cols-2 max-w-3xl mx-auto"
-                    : "grid-cols-1 sm:grid-cols-2 md:grid-cols-3",
-                )}
-              >
-                {currentVisibleSponsors.map((sp, idx) => {
-                  const typeLabel = getSponsorCategoryLabel(sp);
-                  return (
-                    <div
-                      key={`sponsor-card-${sp.name}-${idx}`}
-                      className="flex items-center gap-4 sm:gap-5 p-3.5 sm:p-4 rounded-2xl bg-card/90 border-2 border-border/80 hover:border-amber-400/50 shadow-xl backdrop-blur-sm transition-all"
-                    >
-                      {/* Sponsor Logo (Large) */}
-                      {sp.url ? (
-                        <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-22 md:w-22 rounded-xl bg-black/60 border border-white/20 p-2 flex items-center justify-center shrink-0 overflow-hidden shadow-inner">
-                          <img
-                            src={sp.url}
-                            alt={sp.name || "Sponsor"}
-                            className="max-h-full max-w-full object-contain filter drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
-                          />
-                        </div>
-                      ) : (
-                        <div className="h-16 w-16 sm:h-20 sm:w-20 md:h-22 md:w-22 rounded-xl bg-amber-500/15 border-2 border-amber-400/40 flex items-center justify-center shrink-0">
-                          <Award className="w-9 h-9 text-amber-400 drop-shadow" />
-                        </div>
-                      )}
-
-                      {/* Sponsor Details (Name + Type in Big Text) */}
-                      <div className="flex flex-col justify-center min-w-0 flex-1">
-                        {/* Sponsor Name: Proper full name, no cut-off, responsive auto-wrap */}
-                        <h3
-                          title={sp.name || "Tournament Partner"}
-                          className={cn(
-                            "font-black uppercase tracking-wide text-white drop-shadow-md leading-tight break-words line-clamp-2",
-                            getNeutralSponsorNameFontSize(sp.name || ""),
-                          )}
-                        >
-                          {sp.name || "Tournament Partner"}
-                        </h3>
-                        {/* Sponsor Type: thoda bada me */}
-                        <div className="mt-1.5 flex items-center">
-                          <span className="inline-block px-3 py-1 rounded-lg bg-amber-500/20 border border-amber-400/50 text-xs sm:text-sm md:text-base font-black uppercase tracking-wider text-amber-300 drop-shadow">
-                            {typeLabel}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Pagination dots if more than itemsPerPage sponsors */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-3">
-                {Array.from({ length: totalPages }).map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setCarouselIndex(i)}
-                    className={cn(
-                      "h-2 rounded-full transition-all duration-300",
-                      i === carouselIndex ? "w-6 bg-amber-400" : "w-2 bg-white/30 hover:bg-white/50",
-                    )}
-                    aria-label={`Page ${i + 1}`}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center gap-3 text-center py-2">
-            <span className="text-base sm:text-lg font-black uppercase tracking-wider text-white">
-              {tournamentName}
-            </span>
-            <span className="text-amber-400 font-black">•</span>
-            <span className="text-sm sm:text-base font-bold uppercase tracking-widest text-amber-400">
-              POWERED BY BIDWAR
-            </span>
-          </div>
-        )}
+      {(locked || rotatingSponsor) ? (
+      <footer className="relative z-20 flex items-center justify-center gap-10 border-t border-white/10 px-8 py-4">
+        {locked?.url ? <img src={locked.url} alt={locked.name || ""} className="h-16 w-auto max-w-[180px] object-contain" /> : null}
+        {rotatingSponsor?.url ? <img src={rotatingSponsor.url} alt={rotatingSponsor.name || ""} className="h-16 w-auto max-w-[180px] object-contain" /> : null}
+        {!locked?.url && locked?.name ? <span className="text-xl font-black uppercase text-white">{locked.name}</span> : null}
+        {!rotatingSponsor?.url && rotatingSponsor?.name ? <span className="text-xl font-black uppercase text-white">{rotatingSponsor.name}</span> : null}
       </footer>
+      ) : null}
     </div>
   );
 }

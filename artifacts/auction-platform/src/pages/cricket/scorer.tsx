@@ -51,7 +51,7 @@ import {
 import { cricketScorerHomePath } from "@/lib/cricket-routes";
 import { nextCreaseAfterBall } from "@/lib/scoring-ball";
 import { useToast } from "@/hooks/use-toast";
-import { PreMatchSetup } from "@/components/scoring/pre-match-setup";
+import { PreMatchSetup, type CricketSetupStep } from "@/components/scoring/pre-match-setup";
 import { LiveScoringPad } from "@/components/scoring/live-scoring-pad";
 import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { CricketPublicBrandMark } from "@/components/scoring/cricket-branding";
@@ -223,6 +223,7 @@ export default function CricketScorerPage() {
     strikerId: number | null;
     nonStrikerId: number | null;
   } | null>(null);
+  const [editingStep, setEditingStep] = useState<CricketSetupStep | null>(null);
   const sequenceRef = useRef(0);
   const sendInFlightRef = useRef(false);
   const leaseVersionRef = useRef<number | undefined>(undefined);
@@ -806,10 +807,22 @@ export default function CricketScorerPage() {
     data?.state.matchStatus === "completed" ||
     data?.state.matchStatus === "abandoned" ||
     data?.state.matchStatus === "walkover";
-  const showSetup =
+  const activeInnings = data?.state.innings.find(
+    (innings) => innings.innings === data.state.currentInnings,
+  );
+  const beforeFirstDelivery =
     !!data &&
-    (!readyToScore || data.state.innings.length === 0 || data.state.tossWinnerTeamId == null) &&
-    !isFinished;
+    data.state.matchStatus === "live" &&
+    !!activeInnings &&
+    activeInnings.phase === "in_progress" &&
+    activeInnings.runs === 0 &&
+    activeInnings.wickets === 0 &&
+    activeInnings.over === 0 &&
+    activeInnings.ball === 0 &&
+    (data.state.thisOver?.length ?? 0) === 0;
+  const reviewingSetup = editingStep != null && beforeFirstDelivery;
+  const showSetup = !!data && !isFinished && (!readyToScore || reviewingSetup);
+  const showPad = !!readyToScore && !!data && !isFinished && !reviewingSetup;
   const summary =
     data?.summary ?? (data && isFinished ? buildCricketMatchSummary(data.state) : null);
 
@@ -892,8 +905,8 @@ export default function CricketScorerPage() {
               ) : null}
               {data?.match.venue ? (
                 <>
-                  <span className="text-white/30 hidden xs:inline">•</span>
-                  <span className="text-white/50 truncate hidden xs:inline">{data.match.venue}</span>
+                  <span className="text-white/30 hidden sm:inline">•</span>
+                  <span className="text-white/50 truncate hidden sm:inline">{data.match.venue}</span>
                 </>
               ) : null}
             </div>
@@ -1078,7 +1091,7 @@ export default function CricketScorerPage() {
       {/* ─── Main Scoring Viewport ─── */}
       <main
         className={cn(
-          "flex flex-col p-2 sm:p-3 max-w-lg mx-auto w-full",
+          "flex flex-col p-2 sm:p-3 max-w-lg md:max-w-2xl mx-auto w-full",
           showSetup ? "pb-16" : "flex-1 min-h-0 overflow-hidden",
         )}
       >
@@ -1091,6 +1104,8 @@ export default function CricketScorerPage() {
               teams={teams}
               players={players}
               localBowlerId={localBowlerId}
+              editingStep={editingStep}
+              onEditingStep={setEditingStep}
               busy={busy || lockLost}
               onEvent={lockLost ? () => Promise.resolve() : sendEvent}
               onResetMatch={lockLost ? () => Promise.resolve() : handleResetMatch}
@@ -1111,7 +1126,7 @@ export default function CricketScorerPage() {
           </div>
         ) : null}
 
-        {readyToScore && data && !isFinished ? (
+        {showPad && data ? (
           <div className="flex-1 min-h-0 flex flex-col justify-between overflow-hidden">
             <LiveScoringPad
               state={data.state}
@@ -1125,6 +1140,12 @@ export default function CricketScorerPage() {
               localNonStrikerId={creaseOverride ? creaseOverride.nonStrikerId : localNonStrikerId}
               creaseLocked={creaseOverride != null}
               dismissedBatters={dismissedFromScorecard}
+              onReviewOpeners={
+                beforeFirstDelivery ? () => setEditingStep("openers") : undefined
+              }
+              onReviewBowler={
+                beforeFirstDelivery ? () => setEditingStep("bowler") : undefined
+              }
               onBall={lockLost ? async (_p: Record<string, unknown>) => {} : (payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
               onEvent={lockLost ? () => Promise.resolve() : sendEvent}
               onResetMatch={lockLost ? () => Promise.resolve() : handleResetMatch}

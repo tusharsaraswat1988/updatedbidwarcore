@@ -22,10 +22,15 @@ import { useToast } from "@/hooks/use-toast";
 import { ScoringPlayerAvatar } from "@/components/scoring/scoring-player-row";
 import { cricketRulesPath, cricketScorerConsolePath, cricketScheduleOpsPath } from "@/lib/cricket-routes";
 import {
+  formatPowerplayOvers,
+  resolvePowerplayOvers,
+} from "@/lib/cricket-powerplay-overs";
+import {
   BtnSecondary,
   btnCompactClass,
 } from "@/components/scoring/cricket-page-chrome";
 import {
+  ArrowLeft,
   ArrowRight,
   Check,
   CheckCircle2,
@@ -56,6 +61,16 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
+export type CricketSetupStep = "toss" | "batting" | "bowling" | "openers" | "bowler";
+
+const SETUP_STEPS: { id: CricketSetupStep; label: string }[] = [
+  { id: "toss", label: "Toss" },
+  { id: "batting", label: "Batting XI" },
+  { id: "bowling", label: "Bowling XI" },
+  { id: "openers", label: "Openers" },
+  { id: "bowler", label: "Bowler" },
+];
+
 type PreMatchSetupProps = {
   tournamentId: number;
   match: ScoringMatchJson;
@@ -63,6 +78,9 @@ type PreMatchSetupProps = {
   teams: CricketScorerTeam[];
   players: CricketScorerPlayer[];
   localBowlerId: number | null;
+  /** Reopen a completed step without deleting the saved squad. */
+  editingStep?: CricketSetupStep | null;
+  onEditingStep?: (step: CricketSetupStep | null) => void;
   busy: boolean;
   onEvent: (
     eventType: string,
@@ -114,6 +132,8 @@ export function PreMatchSetup({
   teams,
   players,
   localBowlerId,
+  editingStep = null,
+  onEditingStep,
   busy,
   onEvent,
   onResetMatch,
@@ -207,32 +227,40 @@ export function PreMatchSetup({
     battingId != null && (state?.lineups?.[battingId]?.length ?? 0) < 2;
   const needsBowlingLineup =
     bowlingId != null && (state?.lineups?.[bowlingId]?.length ?? 0) < 1;
-  const needsOpeners =
-    !needsToss &&
-    !needsBattingLineup &&
-    !needsBowlingLineup &&
-    state?.strikerId == null &&
-    state?.nonStrikerId == null;
-  const needsBowler =
-    !needsToss &&
-    !needsBattingLineup &&
-    !needsBowlingLineup &&
-    !needsOpeners &&
-    state?.bowlerId == null &&
-    localBowlerId == null;
+  const [openersConfirmed, setOpenersConfirmed] = useState(
+    () =>
+      (state.bowlerId != null || localBowlerId != null) &&
+      state.strikerId != null &&
+      state.nonStrikerId != null,
+  );
+  const naturalStep: CricketSetupStep | null = needsToss
+    ? "toss"
+    : needsBattingLineup
+      ? "batting"
+      : needsBowlingLineup
+        ? "bowling"
+        : !openersConfirmed || state?.strikerId == null || state?.nonStrikerId == null
+          ? "openers"
+          : state?.bowlerId == null && localBowlerId == null
+            ? "bowler"
+            : null;
 
-  if (
-    !needsToss &&
-    !needsBattingLineup &&
-    !needsBowlingLineup &&
-    !needsOpeners &&
-    !needsBowler
-  ) {
-    return null;
+  function stepIsReachable(step: CricketSetupStep): boolean {
+    if (needsToss) return step === "toss";
+    if (step === "toss" || step === "batting") return battingId != null || step === "toss";
+    if (step === "bowling") return !needsBattingLineup && bowlingId != null;
+    if (step === "openers") return !needsBattingLineup && !needsBowlingLineup && battingId != null;
+    return !needsBattingLineup && !needsBowlingLineup && openersConfirmed && bowlingId != null;
   }
+
+  const requestedStep = editingStep ?? naturalStep;
+  const shownStep =
+    requestedStep && stepIsReachable(requestedStep) ? requestedStep : naturalStep;
 
   const squadBadgeText =
     playingSquadSize === 11 ? "Playing XI" : `Playing ${playingSquadSize}`;
+  const powerplayOvers = resolvePowerplayOvers(match.rules, oversLimit);
+  const powerplayLabel = formatPowerplayOvers(powerplayOvers);
 
   const isPaused =
     (state.matchStatus as string) === "paused" || state.sessionStatus === "paused";
@@ -256,6 +284,26 @@ export function PreMatchSetup({
   const [walkoverWinnerTeamId, setWalkoverWinnerTeamId] = useState<number>(match.homeTeamId);
   const [walkoverReason, setWalkoverReason] = useState<string>("");
   const [awardingWalkover, setAwardingWalkover] = useState(false);
+
+  if (!shownStep) return null;
+
+  const stepIndex = SETUP_STEPS.findIndex((step) => step.id === shownStep);
+  const furthestIndex = naturalStep
+    ? SETUP_STEPS.findIndex((step) => step.id === naturalStep)
+    : SETUP_STEPS.length - 1;
+
+  function openStep(step: CricketSetupStep) {
+    if (!stepIsReachable(step)) return;
+    const index = SETUP_STEPS.findIndex((item) => item.id === step);
+    if (index > furthestIndex) return;
+    onEditingStep?.(step === naturalStep ? null : step);
+  }
+
+  function goBack() {
+    const previous = SETUP_STEPS[stepIndex - 1];
+    if (!previous || !stepIsReachable(previous.id)) return;
+    onEditingStep?.(previous.id);
+  }
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
@@ -286,7 +334,7 @@ export function PreMatchSetup({
 
       {/* ─── Action Bar: Available when Toss is done but 0 balls/runs scored ─── */}
       {!needsToss ? (
-        <div className="flex items-center justify-between bg-card/60 backdrop-blur-sm border border-border/70 rounded-xl px-4 py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-card/60 backdrop-blur-sm border border-border/70 rounded-xl px-3 py-2.5 sm:px-4">
           <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
             <span className="truncate text-foreground/90">
@@ -295,7 +343,7 @@ export function PreMatchSetup({
                 : "Toss confirmed"}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {!isPaused ? (
               <Button
                 type="button"
@@ -374,8 +422,9 @@ export function PreMatchSetup({
             Match Format: <strong>{limits.oversLimit} Overs</strong> · <strong>{squadBadgeText}</strong> · Bench {limits.benchSize ?? "—"}
           </span>
           <span>
-            {match.rules?.superBallEnabled ? "⭐ Super Ball Active · " : ""}
-            {match.rules?.lbwEnabled === false ? "LBW Off · " : "LBW On · "}
+            {powerplayLabel ? `${powerplayLabel} · ` : "Powerplay off · "}
+            {match.rules?.superBallEnabled === true ? "Super Ball on · " : "Super Ball off · "}
+            {match.rules?.lbwEnabled === false ? "LBW off · " : "LBW on · "}
             {match.rules?.retireAtRuns != null ? `Retire @ ${match.rules.retireAtRuns}r` : ""}
           </span>
         </div>
@@ -618,8 +667,33 @@ export function PreMatchSetup({
         </DialogContent>
       </Dialog>
 
+      <div className="flex flex-wrap gap-1.5" aria-label="Setup steps">
+        {SETUP_STEPS.map((step, index) => {
+          const reachable = stepIsReachable(step.id) && index <= furthestIndex;
+          const current = step.id === shownStep;
+          return (
+            <button
+              key={step.id}
+              type="button"
+              disabled={!reachable || current}
+              onClick={() => openStep(step.id)}
+              className={cn(
+                "h-8 px-2.5 rounded-full text-[11px] font-bold border",
+                current
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : reachable
+                    ? "bg-card text-foreground border-border hover:bg-muted"
+                    : "bg-muted/30 text-muted-foreground border-border/50",
+              )}
+            >
+              {index + 1}. {step.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* ─── Step 1: Toss ─── */}
-      {needsToss ? (
+      {shownStep === "toss" ? (
         <TossStep
           match={match}
           teams={teams}
@@ -637,6 +711,8 @@ export function PreMatchSetup({
             setWalkoverReason("");
             setWalkoverDialogOpen(true);
           }}
+          reviewOnly={!needsToss}
+          onContinue={() => onEditingStep?.(null)}
           onStart={async () => {
             if (!limits.fromPolicy && !isMatchStarted) {
               try {
@@ -650,12 +726,7 @@ export function PreMatchSetup({
                 tossWinnerTeamId: parseInt(tossWinner, 10),
                 electedTo,
                 oversLimit,
-                powerplayOvers:
-                  match.rules?.powerplayOvers && match.rules.powerplayOvers.length > 0
-                    ? match.rules.powerplayOvers
-                    : match.rules?.powerplayEnabled
-                    ? [1]
-                    : [],
+                powerplayOvers,
               });
             } catch (err: any) {
               const code = err?.code || err?.response?.data?.code || err?.data?.code;
@@ -690,7 +761,7 @@ export function PreMatchSetup({
       ) : null}
 
       {/* ─── Step 2A: Batting Team Squad Lineup ─── */}
-      {needsBattingLineup &&
+      {shownStep === "batting" &&
       battingId &&
       playingSquadSize != null &&
       benchSize != null ? (
@@ -700,8 +771,12 @@ export function PreMatchSetup({
           players={players}
           playingSquadSize={playingSquadSize}
           benchSize={benchSize}
+          initialPlayingXi={state?.lineups?.[battingId] ?? []}
           busy={busy}
+          onBack={goBack}
           onConfirm={async (playingXi, bench, battingOrder, captainId, wicketKeeperId) => {
+            setOpenersConfirmed(false);
+            onEditingStep?.(null);
             await setMatchSquad(tournamentId, match.id, battingId, {
               playingXi,
               bench,
@@ -719,8 +794,7 @@ export function PreMatchSetup({
       ) : null}
 
       {/* ─── Step 2B: Bowling Team Squad Lineup (Sequential after Batting) ─── */}
-      {!needsBattingLineup &&
-      needsBowlingLineup &&
+      {shownStep === "bowling" &&
       bowlingId &&
       playingSquadSize != null &&
       benchSize != null ? (
@@ -730,8 +804,11 @@ export function PreMatchSetup({
           players={players}
           playingSquadSize={playingSquadSize}
           benchSize={benchSize}
+          initialPlayingXi={state?.lineups?.[bowlingId] ?? []}
           busy={busy}
+          onBack={goBack}
           onConfirm={async (playingXi, bench, _order, captainId, wicketKeeperId) => {
+            onEditingStep?.(null);
             await setMatchSquad(tournamentId, match.id, bowlingId, {
               playingXi,
               bench,
@@ -747,32 +824,42 @@ export function PreMatchSetup({
       ) : null}
 
       {/* ─── Step 3: Openers Picker ─── */}
-      {needsOpeners && battingId ? (
+      {shownStep === "openers" && battingId ? (
         <OpenersPicker
           teamId={battingId}
           teamName={teamName(teams, battingId)}
           players={players}
           lineup={state?.lineups?.[battingId] ?? []}
+          initialStrikerId={state?.strikerId ?? null}
+          initialNonStrikerId={state?.nonStrikerId ?? null}
           busy={busy}
-          onConfirm={(strikerId, nonStrikerId) =>
-            onEvent(CricketEventType.LINEUP_SET, {
+          onBack={goBack}
+          onConfirm={async (strikerId, nonStrikerId) => {
+            setOpenersConfirmed(true);
+            onEditingStep?.(null);
+            await onEvent(CricketEventType.LINEUP_SET, {
               teamId: battingId,
               playerIds: state?.lineups?.[battingId] ?? [],
               battingOrder: [strikerId, nonStrikerId],
-            })
-          }
+            });
+          }}
         />
       ) : null}
 
       {/* ─── Step 4: Opening Bowler Picker ─── */}
-      {needsBowler && bowlingId ? (
+      {shownStep === "bowler" && bowlingId ? (
         <BowlerPicker
           teamId={bowlingId}
           teamName={teamName(teams, bowlingId)}
           players={players}
           lineup={state?.lineups?.[bowlingId] ?? []}
+          initialBowlerId={localBowlerId ?? state?.bowlerId ?? null}
           busy={busy}
-          onSelect={onBowlerSelected}
+          onBack={goBack}
+          onSelect={(bowlerId) => {
+            onEditingStep?.(null);
+            onBowlerSelected(bowlerId);
+          }}
         />
       ) : null}
     </div>
@@ -794,6 +881,8 @@ function TossStep({
   preparing,
   prepareError,
   policyReady,
+  reviewOnly = false,
+  onContinue,
   onAwardWalkover,
   onStart,
 }: {
@@ -808,6 +897,8 @@ function TossStep({
   preparing?: boolean;
   prepareError?: string | null;
   policyReady: boolean;
+  reviewOnly?: boolean;
+  onContinue?: () => void;
   onAwardWalkover?: () => void;
   onStart: () => void | Promise<void>;
 }) {
@@ -857,7 +948,7 @@ function TossStep({
         <div className="grid grid-cols-2 gap-2 sm:gap-3">
           {/* Home Team Card */}
           <div
-            onClick={() => !busy && setTossWinner(String(match.homeTeamId))}
+            onClick={() => !busy && !reviewOnly && setTossWinner(String(match.homeTeamId))}
             className={cn(
               "p-3 sm:p-4 rounded-xl sm:rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-1.5 sm:gap-2 select-none",
               tossWinner === String(match.homeTeamId)
@@ -883,7 +974,7 @@ function TossStep({
 
           {/* Away Team Card */}
           <div
-            onClick={() => !busy && setTossWinner(String(match.awayTeamId))}
+            onClick={() => !busy && !reviewOnly && setTossWinner(String(match.awayTeamId))}
             className={cn(
               "p-3 sm:p-4 rounded-xl sm:rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-1.5 sm:gap-2 select-none",
               tossWinner === String(match.awayTeamId)
@@ -924,7 +1015,7 @@ function TossStep({
                 ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
                 : "border-border/70 bg-card/50 hover:bg-card",
             )}
-            disabled={!policyReady || busy}
+            disabled={!policyReady || busy || reviewOnly}
             onClick={() => setElectedTo("bat")}
           >
             <span>🏏 Bat First</span>
@@ -938,7 +1029,7 @@ function TossStep({
                 ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90"
                 : "border-border/70 bg-card/50 hover:bg-card",
             )}
-            disabled={!policyReady || busy}
+            disabled={!policyReady || busy || reviewOnly}
             onClick={() => setElectedTo("bowl")}
           >
             <span>⚾ Bowl First</span>
@@ -955,6 +1046,16 @@ function TossStep({
       </div>
 
       <div className="space-y-2">
+        {reviewOnly ? (
+          <Button
+            type="button"
+            className="w-full h-11 sm:h-12 font-bold rounded-xl"
+            onClick={() => onContinue?.()}
+          >
+            Continue
+            <ArrowRight className="w-4 h-4 ml-1" />
+          </Button>
+        ) : (
         <Button
           className="w-full h-11 sm:h-13 font-display font-black text-sm sm:text-base rounded-xl sm:rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 shadow-xl shadow-amber-400/20 cursor-pointer transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={startBlocked}
@@ -982,7 +1083,8 @@ function TossStep({
             </span>
           )}
         </Button>
-        {prepareError ? (
+        )}
+        {prepareError && !reviewOnly ? (
           <p className="text-[11px] text-amber-300/90 text-center flex items-center justify-center gap-1.5 px-2">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             <span>{prepareError}</span>
@@ -1002,7 +1104,9 @@ function SquadLineupPicker({
   players,
   playingSquadSize,
   benchSize,
+  initialPlayingXi = [],
   busy,
+  onBack,
   onConfirm,
 }: {
   title: string;
@@ -1010,7 +1114,9 @@ function SquadLineupPicker({
   players: CricketScorerPlayer[];
   playingSquadSize: number;
   benchSize: number;
+  initialPlayingXi?: number[];
   busy: boolean;
+  onBack?: () => void;
   onConfirm: (
     playingXi: number[],
     bench: number[],
@@ -1023,7 +1129,7 @@ function SquadLineupPicker({
     () => squadPlayersForTeam(players, teamId),
     [players, teamId],
   );
-  const [playingXi, setPlayingXi] = useState<number[]>([]);
+  const [playingXi, setPlayingXi] = useState<number[]>(initialPlayingXi);
   const [bench, setBench] = useState<number[]>([]);
   const [captainId, setCaptainId] = useState<number | null>(null);
   const [wicketKeeperId, setWicketKeeperId] = useState<number | null>(null);
@@ -1135,7 +1241,7 @@ function SquadLineupPicker({
           No registered players for this team. Add players via Team Roster first.
         </p>
       ) : (
-        <ul className="space-y-1.5 pr-1">
+        <ul className="space-y-1.5 pr-1 max-h-[min(52dvh,28rem)] overflow-y-auto overscroll-contain">
           {squad.map((p) => {
             const inXi = playingXi.includes(p.id);
             const onBench = bench.includes(p.id);
@@ -1239,11 +1345,24 @@ function SquadLineupPicker({
         </div>
       ) : null}
 
-      <Button
-        className="w-full h-11 sm:h-12 font-bold text-xs sm:text-base rounded-xl sm:rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20"
-        disabled={busy || submitting || playingXi.length < 2}
-        onClick={() => void handleConfirm()}
-      >
+      <div className="flex flex-col-reverse sm:flex-row gap-2">
+        {onBack ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 sm:h-12 sm:w-28 font-bold rounded-xl"
+            disabled={busy || submitting}
+            onClick={onBack}
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back
+          </Button>
+        ) : null}
+        <Button
+          className="w-full h-11 sm:h-12 font-bold text-xs sm:text-base rounded-xl sm:rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20"
+          disabled={busy || submitting || playingXi.length < 2}
+          onClick={() => void handleConfirm()}
+        >
         {submitting ? (
           <span className="flex items-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -1253,6 +1372,7 @@ function SquadLineupPicker({
           `Confirm ${playingSquadSize === 11 ? "Playing XI" : `Playing ${playingSquadSize}`} (${playingXi.length} Selected)`
         )}
       </Button>
+      </div>
     </section>
   );
 }
@@ -1265,14 +1385,20 @@ function OpenersPicker({
   teamName,
   players,
   lineup,
+  initialStrikerId = null,
+  initialNonStrikerId = null,
   busy,
+  onBack,
   onConfirm,
 }: {
   teamId: number;
   teamName: string;
   players: CricketScorerPlayer[];
   lineup: number[];
+  initialStrikerId?: number | null;
+  initialNonStrikerId?: number | null;
   busy: boolean;
+  onBack?: () => void;
   onConfirm: (strikerId: number, nonStrikerId: number) => void;
 }) {
   const squad = useMemo(() => {
@@ -1285,9 +1411,9 @@ function OpenersPicker({
     return matched.length >= 2 ? matched : allSquad;
   }, [players, teamId, lineup]);
 
-  const [striker, setStriker] = useState<number | null>(squad[0]?.id ?? null);
+  const [striker, setStriker] = useState<number | null>(initialStrikerId ?? squad[0]?.id ?? null);
   const [nonStriker, setNonStriker] = useState<number | null>(
-    squad[1]?.id ?? null,
+    initialNonStrikerId ?? squad[1]?.id ?? null,
   );
 
   useEffect(() => {
@@ -1318,7 +1444,7 @@ function OpenersPicker({
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             Striker (*) — Facing 1st Ball
           </Label>
-          <div className="space-y-1.5 pr-1">
+          <div className="space-y-1.5 pr-1 max-h-[min(42dvh,22rem)] overflow-y-auto overscroll-contain">
             {squad.map((p) => {
               const isSelected = striker === p.id;
               const isOther = nonStriker === p.id;
@@ -1351,7 +1477,7 @@ function OpenersPicker({
           <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Non-Striker (Runner End)
           </Label>
-          <div className="space-y-1.5 pr-1">
+          <div className="space-y-1.5 pr-1 max-h-[min(42dvh,22rem)] overflow-y-auto overscroll-contain">
             {squad.map((p) => {
               const isSelected = nonStriker === p.id;
               const isOther = striker === p.id;
@@ -1380,13 +1506,28 @@ function OpenersPicker({
         </div>
       </div>
 
-      <Button
-        className="w-full h-11 sm:h-12 font-bold text-xs sm:text-base rounded-xl sm:rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 cursor-pointer"
-        disabled={busy || !striker || !nonStriker || striker === nonStriker}
-        onClick={() => striker && nonStriker && onConfirm(striker, nonStriker)}
-      >
-        Confirm Openers & Pick Bowler →
-      </Button>
+      <div className="flex flex-col-reverse sm:flex-row gap-2">
+        {onBack ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 sm:h-12 sm:w-28 font-bold rounded-xl"
+            disabled={busy}
+            onClick={onBack}
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back
+          </Button>
+        ) : null}
+        <Button
+          className="w-full h-11 sm:h-12 font-bold text-xs sm:text-base rounded-xl sm:rounded-2xl bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 cursor-pointer"
+          disabled={busy || !striker || !nonStriker || striker === nonStriker}
+          onClick={() => striker && nonStriker && onConfirm(striker, nonStriker)}
+        >
+          Confirm Openers & Pick Bowler
+          <ArrowRight className="w-4 h-4 ml-1" />
+        </Button>
+      </div>
     </section>
   );
 }
@@ -1399,14 +1540,18 @@ function BowlerPicker({
   teamName,
   players,
   lineup,
+  initialBowlerId = null,
   busy,
+  onBack,
   onSelect,
 }: {
   teamId: number;
   teamName: string;
   players: CricketScorerPlayer[];
   lineup: number[];
+  initialBowlerId?: number | null;
   busy: boolean;
+  onBack?: () => void;
   onSelect: (bowlerId: number) => void;
 }) {
   const squad = useMemo(() => {
@@ -1419,7 +1564,7 @@ function BowlerPicker({
     return matched.length >= 1 ? matched : allSquad;
   }, [players, teamId, lineup]);
 
-  const [bowler, setBowler] = useState<number | null>(squad[0]?.id ?? null);
+  const [bowler, setBowler] = useState<number | null>(initialBowlerId ?? squad[0]?.id ?? null);
 
   useEffect(() => {
     if (squad.length > 0) {
@@ -1438,7 +1583,7 @@ function BowlerPicker({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pr-1 max-h-[min(48dvh,26rem)] overflow-y-auto overscroll-contain">
         {squad.map((p) => {
           const isSelected = bowler === p.id;
           return (
@@ -1467,13 +1612,27 @@ function BowlerPicker({
         })}
       </div>
 
-      <Button
-        className="w-full h-11 sm:h-13 font-display font-black text-sm sm:text-base rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-xl shadow-emerald-500/20 cursor-pointer transition-all active:scale-[0.98]"
-        disabled={busy || !bowler}
-        onClick={() => bowler && onSelect(bowler)}
-      >
-        <span>🚀 Start Match & Go Live</span>
-      </Button>
+      <div className="flex flex-col-reverse sm:flex-row gap-2">
+        {onBack ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="h-11 sm:h-12 sm:w-28 font-bold rounded-xl"
+            disabled={busy}
+            onClick={onBack}
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Back
+          </Button>
+        ) : null}
+        <Button
+          className="w-full h-11 sm:h-13 font-display font-black text-sm sm:text-base rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-xl shadow-emerald-500/20 cursor-pointer transition-all active:scale-[0.98]"
+          disabled={busy || !bowler}
+          onClick={() => bowler && onSelect(bowler)}
+        >
+          <span>Start Match & Go Live</span>
+        </Button>
+      </div>
     </section>
   );
 }
