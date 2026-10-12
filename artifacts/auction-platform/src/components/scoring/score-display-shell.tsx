@@ -18,6 +18,7 @@ import {
   getCricketTournamentRoster,
   getPublicMatchScorecard,
   isTerminalCricketMatchStatus,
+  publicMatchScorecardQueryKey,
   type ScoringMatchJson,
 } from "@/lib/scoring-api";
 import {
@@ -351,10 +352,15 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
 
   const matchId = match?.id;
   const { data: scorecardData } = useQuery({
-    queryKey: ["public-match-scorecard", tournamentId, matchId],
+    queryKey: publicMatchScorecardQueryKey(tournamentId, matchId ?? 0, state?.lastSequence ?? 0),
     queryFn: () => getPublicMatchScorecard(tournamentId, matchId!),
     enabled: !!tournamentId && !!matchId,
-    staleTime: 2000,
+    staleTime: Infinity,
+    placeholderData: (previous, previousQuery) => {
+      if (!previous) return undefined;
+      if (previousQuery?.queryKey?.[2] !== matchId) return undefined;
+      return previous;
+    },
   });
 
   const strikerStats = useMemo(() => {

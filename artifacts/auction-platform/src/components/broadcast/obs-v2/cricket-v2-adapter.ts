@@ -22,8 +22,8 @@ export function mapBallLabelToBallEvent(label: string): BallEvent {
   const trimmed = (label || "").trim();
   const lower = trimmed.toLowerCase();
 
-  if (trimmed === "0" || trimmed === "•" || trimmed === "-") {
-    return { kind: "dot", label: trimmed || "0" };
+  if (trimmed === "0" || trimmed === "·" || trimmed === "•" || trimmed === "-" || trimmed === ".") {
+    return { kind: "dot", label: trimmed === "·" || trimmed === "•" || trimmed === "." ? "0" : trimmed || "0" };
   }
   if (trimmed === "4") {
     return { kind: "four", label: "4" };
@@ -31,16 +31,16 @@ export function mapBallLabelToBallEvent(label: string): BallEvent {
   if (trimmed === "6") {
     return { kind: "six", label: "6" };
   }
-  if (trimmed.includes("W") && !trimmed.includes("Wd")) {
-    return { kind: "wicket", label: trimmed };
-  }
-  if (trimmed.includes("Wd") || lower.includes("wide")) {
+  if (lower.startsWith("wd") || lower.includes("wide")) {
     return { kind: "wide", label: trimmed };
   }
-  if (trimmed.includes("Nb") || lower.includes("no")) {
+  if (lower.startsWith("nb") || lower.includes("noball") || lower.includes("no ball") || lower === "no") {
     return { kind: "noball", label: trimmed };
   }
-  if (trimmed.includes("B") || trimmed.includes("Lb") || lower.includes("bye")) {
+  if (lower === "w" || (trimmed.includes("W") && !lower.includes("wd"))) {
+    return { kind: "wicket", label: trimmed };
+  }
+  if (lower.startsWith("lb") || lower.startsWith("b") || lower.includes("bye")) {
     return { kind: "bye", label: trimmed };
   }
   return { kind: "run", label: trimmed };
@@ -159,24 +159,27 @@ export function adaptCricketToBroadcastFrame(
 
   const striker: BatterLine = {
     name: vm.striker?.name || (isPreMatch ? "TBC" : "Striker"),
-    runs: vm.striker?.runs || 0,
-    balls: vm.striker?.balls || 0,
+    runs: vm.striker?.hasStats ? vm.striker.runs : 0,
+    balls: vm.striker?.hasStats ? vm.striker.balls : 0,
     onStrike: true,
+    hasStats: vm.striker?.hasStats === true,
   };
 
   const nonStriker: BatterLine = {
     name: vm.nonStriker?.name || (isPreMatch ? "TBC" : "Non-Striker"),
-    runs: vm.nonStriker?.runs || 0,
-    balls: vm.nonStriker?.balls || 0,
+    runs: vm.nonStriker?.hasStats ? vm.nonStriker.runs : 0,
+    balls: vm.nonStriker?.hasStats ? vm.nonStriker.balls : 0,
     onStrike: false,
+    hasStats: vm.nonStriker?.hasStats === true,
   };
 
   // Bowler
   const bowler: BowlerLine = {
     name: vm.bowler?.name || (isPreMatch ? "TBC" : "Bowler"),
-    wickets: vm.bowler?.wickets || 0,
-    runs: vm.bowler?.runsConceded || 0,
-    overs: vm.bowler?.overs || "0.0",
+    wickets: vm.bowler?.hasStats ? vm.bowler.wickets : 0,
+    runs: vm.bowler?.hasStats ? vm.bowler.runsConceded : 0,
+    overs: vm.bowler?.hasStats ? vm.bowler.overs : "0.0",
+    hasStats: vm.bowler?.hasStats === true,
   };
 
   // This Over balls
@@ -222,7 +225,7 @@ export function adaptCricketToBroadcastFrame(
     runs: vm.runs || 0,
     wickets: vm.wickets || 0,
     overs: vm.oversLabel || (vm.oversDisplay ? vm.oversDisplay.split("/")[0].trim() : "0.0"),
-    maxOvers: vm.oversLimit > 0 ? vm.oversLimit : 20,
+    maxOvers: vm.oversLimit > 0 ? vm.oversLimit : 0,
     crr: parseFloat(vm.crr || "0") || 0,
     striker,
     nonStriker,

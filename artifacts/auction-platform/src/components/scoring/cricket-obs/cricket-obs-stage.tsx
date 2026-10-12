@@ -78,7 +78,8 @@ export function CricketObsStage({
     !isNeutral &&
     (vm.phase === "live" ||
       vm.phase === "chase" ||
-      vm.phase === "innings_break");
+      vm.phase === "innings_break" ||
+      vm.phase === "completed");
 
   return (
     <div

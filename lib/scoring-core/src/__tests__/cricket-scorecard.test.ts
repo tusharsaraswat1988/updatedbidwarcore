@@ -7,6 +7,8 @@ import {
   aggregateTournamentPlayerStats,
   createEventEnvelope,
 } from "../index";
+import { formatBallLabel } from "../cricket/ball";
+import type { CricketBallRecordedPayload } from "../events/cricket";
 
 const meta = { homeTeamId: 1, awayTeamId: 2 };
 
@@ -446,5 +448,29 @@ describe("cricket scorecard projector", () => {
     const catchesBoard = buildLeaderboard(aggregates, "catches", 10);
     expect(catchesBoard[0]?.playerId).toBe(303);
     expect(catchesBoard[0]?.value).toBe(1);
+  });
+});
+
+describe("formatBallLabel", () => {
+  function label(extras: CricketBallRecordedPayload["extras"], runsOffBat = 0): string {
+    return formatBallLabel({
+      innings: 1,
+      over: 0,
+      ball: 1,
+      strikerId: 1,
+      nonStrikerId: 2,
+      bowlerId: 3,
+      runsOffBat,
+      extras,
+      isLegalDelivery: extras.type !== "wide" && extras.type !== "no_ball",
+      wicket: null,
+    } as CricketBallRecordedPayload);
+  }
+
+  it("keeps byes and leg-byes distinct from bat boundaries", () => {
+    expect(label({ type: "bye", runs: 4 })).toBe("B4");
+    expect(label({ type: "leg_bye", runs: 1 })).toBe("Lb1");
+    expect(label({ type: null, runs: 0 }, 4)).toBe("4");
+    expect(label({ type: null, runs: 0 }, 0)).toBe("·");
   });
 });

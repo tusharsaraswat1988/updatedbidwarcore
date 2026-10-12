@@ -50,6 +50,8 @@ export function formatBallLabel(payload: CricketBallRecordedPayload): string {
   const runs = totalRunsOnBall(payload);
   if (extra === "wide") return runs > 1 ? `Wd+${runs - 1}` : "Wd";
   if (extra === "no_ball") return runs > 1 ? `Nb+${runs - 1}` : "Nb";
+  if (extra === "bye") return runs > 0 ? `B${runs}` : "B";
+  if (extra === "leg_bye") return runs > 0 ? `Lb${runs}` : "Lb";
   if (extra === "penalty") return `P${runs}`;
   if (runs === 0) return "·";
   return String(runs);

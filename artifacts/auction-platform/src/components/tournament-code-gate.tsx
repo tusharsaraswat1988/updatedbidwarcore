@@ -24,10 +24,13 @@ export function TournamentCodeGate({
   tournamentId,
   children,
   requiredModule = "auction",
+  broadcastSafe = false,
 }: {
   tournamentId: number;
   children: ReactNode;
   requiredModule?: "auction" | "scoring" | "any";
+  /** OBS browser source: keep the page transparent so the camera is not covered. */
+  broadcastSafe?: boolean;
 }) {
   const search = useSearch();
   const { logos, brandName, poweredByText } = useBranding();
@@ -141,7 +144,12 @@ export function TournamentCodeGate({
     }
   }
 
+  const gateFrameClass = broadcastSafe
+    ? "relative flex h-[1080px] w-[1920px] items-end justify-center bg-transparent p-8 text-white"
+    : "lovable-theme dark min-h-screen flex flex-col items-center justify-center px-6 bg-background selection:bg-primary selection:text-primary-foreground";
+
   if (status === "loading") {
+    if (broadcastSafe) return null;
     return <BootSplash />;
   }
 
@@ -151,7 +159,7 @@ export function TournamentCodeGate({
 
   if (status === "auction_disabled") {
     return (
-      <div className="lovable-theme dark min-h-screen flex flex-col items-center justify-center px-6 bg-background selection:bg-primary selection:text-primary-foreground">
+      <div className={gateFrameClass}>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent pointer-events-none" />
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -187,7 +195,7 @@ export function TournamentCodeGate({
 
   if (status === "scoring_disabled") {
     return (
-      <div className="lovable-theme dark min-h-screen flex flex-col items-center justify-center px-6 bg-background selection:bg-primary selection:text-primary-foreground">
+      <div className={gateFrameClass}>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent pointer-events-none" />
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -223,7 +231,7 @@ export function TournamentCodeGate({
 
   if (status === "invalid_module_state") {
     return (
-      <div className="lovable-theme dark min-h-screen flex flex-col items-center justify-center px-6 bg-background selection:bg-primary selection:text-primary-foreground">
+      <div className={gateFrameClass}>
         <div className="w-full max-w-md space-y-6 text-center">
           <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-red-500/15 border-2 border-red-500/40">
             <AlertTriangle className="w-8 h-8 text-red-400" />
@@ -245,7 +253,7 @@ export function TournamentCodeGate({
 
   if (status === "error") {
     return (
-      <div className="lovable-theme dark min-h-screen flex flex-col items-center justify-center px-6 bg-background">
+      <div className={gateFrameClass}>
         <div className="w-full max-w-sm space-y-6 text-center">
           <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-red-500/15 border-2 border-red-500/40">
             <AlertTriangle className="w-8 h-8 text-red-400" />
@@ -272,7 +280,7 @@ export function TournamentCodeGate({
   const inputPlaceholder = requiredModule === "scoring" ? "ACCESS CODE" : "AUCTION CODE";
 
   return (
-    <div className="lovable-theme dark min-h-screen flex flex-col items-center justify-center px-6 bg-background selection:bg-primary selection:text-primary-foreground">
+    <div className={gateFrameClass}>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-yellow-500/10 via-transparent to-transparent pointer-events-none" />
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}

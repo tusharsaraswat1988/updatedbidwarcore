@@ -165,6 +165,8 @@ export type CricketObsViewModel = {
   midOverlay: CricketObsMidOverlayKind;
   broadcastMessage: CricketBroadcastMessage | null;
   broadcastEvent: CricketAuthoritativeBroadcastEvent | null;
+  /** Live scoreboard sequence. Scorecard reads are keyed by this so figures move with the total. */
+  liveSequence: number;
   isNeutralActive: boolean;
   neutralStatusText?: string;
   neutralStatusChip?: string;
@@ -203,9 +205,15 @@ function teamView(
   };
 }
 
-/** Legal balls remaining in the innings (6-ball overs). */
-export function ballsRemaining(oversLimit: number, over: number, ball: number): number {
-  return Math.max(0, oversLimit * 6 - (over * 6 + ball));
+/** Legal balls remaining in the innings. */
+export function ballsRemaining(
+  oversLimit: number,
+  over: number,
+  ball: number,
+  ballsPerOver = 6,
+): number {
+  const bpo = ballsPerOver > 0 ? ballsPerOver : 6;
+  return Math.max(0, oversLimit * bpo - (over * bpo + ball));
 }
 
 /**
@@ -222,11 +230,12 @@ export function mapBallToFlash(ball: BallDisplayOutcome | null | undefined): Cri
   if (ball.extrasType === "no_ball" || ball.label === "Nb" || ball.label.startsWith("Nb+")) {
     return "NO_BALL";
   }
-  // Boundaries: only when runs off the bat are exactly 4 or 6 (not extras-inflated totals).
+  // Boundaries: only runs off the bat. A 4-bye or 4-leg-bye must not flash as a four.
+  if (ball.extrasType === "bye" || ball.extrasType === "leg_bye") return null;
   if (ball.runsOffBat === 6 && !ball.extrasType) return "SIX";
   if (ball.runsOffBat === 4 && !ball.extrasType) return "FOUR";
-  if (ball.label === "6") return "SIX";
-  if (ball.label === "4") return "FOUR";
+  if (!ball.extrasType && ball.label === "6") return "SIX";
+  if (!ball.extrasType && ball.label === "4") return "FOUR";
   return null;
 }
 
@@ -299,20 +308,9 @@ function isInningsBreak(state: CricketScoreboardState): boolean {
   if (state.matchStatus !== "live") return false;
   const current = getActiveInnings(state);
   if (!current) return false;
-  if (current.phase === "not_started") return true;
-  // Fresh chase innings before first ball / crease set.
-  if (
-    state.target != null &&
-    current.phase === "in_progress" &&
-    current.runs === 0 &&
-    current.wickets === 0 &&
-    current.over === 0 &&
-    current.ball === 0 &&
-    state.strikerId == null
-  ) {
-    return true;
-  }
-  return false;
+  // The gap after an innings ends, before the next innings starts.
+  // A live first innings that has not started yet is pre-match, not a break.
+  return current.innings > 1 && current.phase === "not_started";
 }
 
 function firstInningsScoreLine(
@@ -571,6 +569,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     midOverlay,
     broadcastMessage,
     broadcastEvent: live?.broadcastEvent ?? null,
+    liveSequence: 0,
     isNeutralActive: midOverlay === "neutral" || midOverlay === "none",
     neutralStatusText: deriveCricketNeutralStatus({ phase: "no_live", midOverlay }).statusText,
     neutralStatusChip: deriveCricketNeutralStatus({ phase: "no_live", midOverlay }).statusChip,
@@ -599,6 +598,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   const away = teamView(teams, state.awayTeamId ?? match.awayTeamId);
   const innings = getActiveInnings(state);
   const oversLimit = innings?.oversLimit ?? state.oversLimit ?? 0;
+  const ballsPerOver = state.ballsPerOver && state.ballsPerOver > 0 ? state.ballsPerOver : 6;
   const runs = innings?.runs ?? 0;
   const wickets = innings?.wickets ?? 0;
   const over = innings?.over ?? 0;
@@ -611,7 +611,9 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   const isTargetReached =
     target != null && runs >= target && (state.currentInnings ?? 1) >= 2;
   const isOversLimitReached =
-    !!innings && oversLimit > 0 && (over >= oversLimit || (over === oversLimit - 1 && ball >= 6));
+    !!innings &&
+    oversLimit > 0 &&
+    (over >= oversLimit || (over === oversLimit - 1 && ball >= ballsPerOver));
   const isInnings2Finished =
     (state.currentInnings ?? 1) >= 2 &&
     !!innings &&
@@ -644,7 +646,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
       : null;
   const ballsLeft =
     target != null && !isMatchFinished && state.matchStatus === "live"
-      ? ballsRemaining(oversLimit, over, ball)
+      ? ballsRemaining(oversLimit, over, ball, ballsPerOver)
       : null;
   const rrr =
     target != null && !isMatchFinished && innings
@@ -727,7 +729,8 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
 
   let resultText = state.resultText ?? match.resultSummary ?? summary?.resultText ?? derivedResult?.resultText ?? null;
   if (!resultText && isTargetReached && batting) {
-    const wicketsInHand = Math.max(0, 10 - wickets);
+    const wicketLimit = state.maxWickets > 0 ? state.maxWickets : 10;
+    const wicketsInHand = Math.max(0, wicketLimit - wickets);
     resultText = `${batting.name} Won by ${wicketsInHand} wicket${wicketsInHand === 1 ? "" : "s"}`;
   } else if (!resultText && (state.matchStatus === "walkover" || match.status === "walkover")) {
     resultText = "Won by Walkover";
@@ -741,15 +744,16 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   const hasActivePlay =
     (innings && (innings.runs > 0 || innings.wickets > 0 || innings.over > 0 || innings.ball > 0)) ||
     state.thisOver.length > 0;
+  const awaitingFirstBall = !!innings && innings.phase === "not_started" && !hasActivePlay;
 
   let phase: CricketObsPhase = "no_live";
   if (isMatchFinished) {
     phase = "completed";
   } else if (isInningsBreak(state)) {
     phase = "innings_break";
-  } else if ((state.matchStatus === "live" || hasActivePlay) && target != null && innings) {
+  } else if ((state.matchStatus === "live" || hasActivePlay) && target != null && innings && !awaitingFirstBall) {
     phase = "chase";
-  } else if ((state.matchStatus === "live" || hasActivePlay) && innings) {
+  } else if ((state.matchStatus === "live" || hasActivePlay) && innings && !awaitingFirstBall) {
     phase = "live";
   } else if (
     state.matchStatus === "scheduled" ||
@@ -765,7 +769,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
 
   const isNeutralActive =
     midOverlay === "neutral" ||
-    (midOverlay === "none" && !isLiveMatch);
+    (midOverlay === "none" && !isLiveMatch && !isMatchFinished);
 
   const firstInningsScore = firstInningsScoreLine(state, summary, teams);
   const liveNeutralStatus = deriveCricketNeutralStatus(
@@ -830,6 +834,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     resultText,
     resultHeadline,
     firstInningsScoreLine: firstInningsScore,
+    liveSequence: state.lastSequence ?? 0,
     flash,
     flashToken,
     flashDetail: overrideFlashDetail ?? null,

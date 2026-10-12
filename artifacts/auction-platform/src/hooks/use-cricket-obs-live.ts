@@ -4,7 +4,7 @@ import {
   useGetTournament,
   getGetTournamentQueryKey,
 } from "@workspace/api-client-react";
-import { retainStageSelection } from "@workspace/scoring-core/cricket";
+import { isStaleDirectorSnapshot, retainStageSelection } from "@workspace/scoring-core/cricket";
 import { useScoringLive } from "@/hooks/use-scoring-match";
 import { useScoringSocket } from "@/hooks/use-scoring-socket";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
@@ -14,6 +14,7 @@ import {
   getCricketTournamentRoster,
   getPublicMatchScorecard,
   isTerminalCricketMatchStatus,
+  publicMatchScorecardQueryKey,
   type ScoringLiveDisplay,
 } from "@/lib/scoring-api";
 import {
@@ -84,6 +85,7 @@ export function useCricketObsLive(
 
   const [mergedLive, setMergedLive] = useState<ScoringLiveDisplay | null>(null);
   const preservedRef = useRef<ScoringLiveDisplay | null>(null);
+  const lastDirectorTimestampRef = useRef<number>(0);
 
   useEffect(() => {
     const merged = mergeLiveDisplayPreserveBranding(preservedRef.current, liveRaw ?? null);
@@ -120,17 +122,20 @@ export function useCricketObsLive(
   // Active match ID for scorecard
   const activeMatchId = pinnedMatchId ?? mergedLive?.match?.id ?? null;
 
-  // Real-time Match Scorecard for batter/bowler figures
+  // Batter and bowler innings figures are not on the live socket.
+  // Key the card by the scoreboard sequence so each delivery fetches the new
+  // totals, and keep the previous card on screen until that fetch lands.
+  const liveSequence = mergedLive?.state?.lastSequence ?? 0;
   const { data: scorecardData } = useQuery({
-    queryKey: ["scoring-scorecard", tournamentId, activeMatchId],
+    queryKey: publicMatchScorecardQueryKey(tournamentId, activeMatchId ?? 0, liveSequence),
     queryFn: () => getPublicMatchScorecard(tournamentId, activeMatchId!),
     enabled: !!tournamentId && !!activeMatchId,
-    refetchInterval:
-      connectionStatus === "connected"
-        ? false
-        : mergedLive?.match?.status === "live"
-          ? 10000
-          : 30000,
+    staleTime: Infinity,
+    placeholderData: (previous, previousQuery) => {
+      if (!previous) return undefined;
+      if (previousQuery?.queryKey?.[2] !== activeMatchId) return undefined;
+      return previous;
+    },
   });
 
   const { data: branding } = useQuery<BadmintonBranding>({
@@ -202,6 +207,7 @@ export function useCricketObsLive(
     sponsorName?: string;
     stageOrGroup?: string;
     broadcastMessage?: CricketBroadcastMessage | null;
+    timestamp?: number;
   }>({
     queryKey: ["cricket-obs-director", tournamentId],
     queryFn: async () => {
@@ -218,27 +224,39 @@ export function useCricketObsLive(
   });
 
   useEffect(() => {
-    if (serverObsState?.overlay) {
+    if (!serverObsState) return;
+    if (isStaleDirectorSnapshot(lastDirectorTimestampRef.current, serverObsState.timestamp)) {
+      return;
+    }
+    if (typeof serverObsState.timestamp === "number" && serverObsState.timestamp > 0) {
+      lastDirectorTimestampRef.current = Math.max(
+        lastDirectorTimestampRef.current,
+        serverObsState.timestamp,
+      );
+    }
+    if (serverObsState.overlay) {
       setMidOverlayState(serverObsState.overlay as CricketObsMidOverlayKind);
     }
-    if (serverObsState?.matchId !== undefined) {
+    if (serverObsState.matchId !== undefined) {
       setOverlayMatchId(serverObsState.matchId);
     }
-    if (serverObsState?.sponsorName !== undefined) {
+    if (serverObsState.sponsorName !== undefined) {
       setOverlaySponsorName(serverObsState.sponsorName);
     }
-    if (serverObsState?.stageOrGroup !== undefined) {
+    if (serverObsState.stageOrGroup !== undefined) {
       setOverlayStageOrGroup(serverObsState.stageOrGroup);
     }
-    if (serverObsState?.broadcastMessage !== undefined) {
+    if (serverObsState.broadcastMessage !== undefined) {
       setBroadcastMessage(serverObsState.broadcastMessage);
     }
   }, [
+    serverObsState,
     serverObsState?.overlay,
     serverObsState?.matchId,
     serverObsState?.sponsorName,
     serverObsState?.stageOrGroup,
     serverObsState?.broadcastMessage,
+    serverObsState?.timestamp,
   ]);
 
   // Manual / Operator / Injected Flash Event
@@ -338,9 +356,6 @@ export function useCricketObsLive(
     },
     [tournamentId],
   );
-
-  // Timestamp tracker to prevent stale/out-of-order SSE director events from overwriting newer state
-  const lastDirectorTimestampRef = useRef<number>(0);
 
   // Cross-device SSE Director listener (from useScoringSocket)
   useEffect(() => {

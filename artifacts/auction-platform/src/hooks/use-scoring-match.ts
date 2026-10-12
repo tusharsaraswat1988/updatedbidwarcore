@@ -5,6 +5,7 @@ import {
   getScoringStandings,
   getSquadReadiness,
   listScoringMatches,
+  type ScoringLiveDisplay,
   type ScoringMatchDetail,
 } from "@/lib/scoring-api";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
@@ -27,6 +28,24 @@ function matchDetailSequence(detail: ScoringMatchDetail | undefined): number {
   if (typeof detail.lastSequence === "number") return detail.lastSequence;
   if (typeof detail.state?.lastSequence === "number") return detail.state.lastSequence;
   return -1;
+}
+
+/** A slower poll or a late socket frame must not rewind the live scoreboard. */
+export function preferNewerLiveDisplay<T>(oldData: T, newData: T): T {
+  const previous = oldData as ScoringLiveDisplay | null | undefined;
+  const incoming = newData as ScoringLiveDisplay | null | undefined;
+  if (!incoming) return oldData;
+  if (!previous?.state || !incoming.state) {
+    if (!incoming.state && previous?.state) return oldData;
+    return replaceEqualDeep(oldData, newData);
+  }
+  if (previous.state.matchId !== incoming.state.matchId) {
+    return replaceEqualDeep(oldData, newData);
+  }
+  const previousSeq = previous.state.lastSequence ?? -1;
+  const incomingSeq = incoming.state.lastSequence ?? -1;
+  if (incomingSeq < previousSeq) return oldData;
+  return replaceEqualDeep(oldData, newData);
 }
 
 /** A slower poll must not put an older crease back over a ball that already landed. */
@@ -75,6 +94,7 @@ export function useScoringLive(
         : enabled
           ? 15000
           : false,
+    structuralSharing: preferNewerLiveDisplay,
   });
 }
 

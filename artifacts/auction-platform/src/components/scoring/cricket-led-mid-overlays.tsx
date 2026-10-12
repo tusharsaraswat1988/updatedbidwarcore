@@ -29,6 +29,7 @@ import {
   getScoringStandings,
   listScoringMatches,
   getPublicMatchScorecard,
+  publicMatchScorecardQueryKey,
   getCricketTournamentRoster,
   cricketBrandingQueryKey,
   getCricketBranding,
@@ -141,10 +142,15 @@ export function CricketLedMidOverlays({
 
   // Scorecard data query
   const { data: fullScorecard } = useQuery({
-    queryKey: ["public-match-scorecard", tournamentId, targetMatchId],
+    queryKey: publicMatchScorecardQueryKey(tournamentId, targetMatchId ?? 0, state?.lastSequence ?? 0),
     queryFn: () => getPublicMatchScorecard(tournamentId, targetMatchId!),
     enabled: (overlay === "scorecard" || overlay === "summary") && !!tournamentId && !!targetMatchId,
-    staleTime: 5000,
+    staleTime: Infinity,
+    placeholderData: (previous, previousQuery) => {
+      if (!previous) return undefined;
+      if (previousQuery?.queryKey?.[2] !== targetMatchId) return undefined;
+      return previous;
+    },
   });
 
   // Auto-rotating sponsor index for single large showcase

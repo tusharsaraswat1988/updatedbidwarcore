@@ -84,7 +84,7 @@ export const ObsV2Stage = forwardRef<HTMLDivElement, ObsV2StageProps>(
         runs: data.scorebug.runs ?? 124,
         wickets: data.scorebug.wickets ?? 4,
         overs: String(data.scorebug.overs ?? "17.3"),
-        maxOvers: data.scorebug.maxOvers ?? 20,
+        maxOvers: data.scorebug.maxOvers && data.scorebug.maxOvers > 0 ? data.scorebug.maxOvers : 0,
         crr: parseFloat(String(data.scorebug.crr ?? "7.08")) || 0,
         striker: {
           name: "Mayank Pahuja",

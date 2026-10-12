@@ -15,6 +15,7 @@ import {
   knockoutBroadcastStageChoices,
   listTeamCompetitionRows,
   matchForBracketFixture,
+  isStaleDirectorSnapshot,
   mergeObsDirectorSnapshot,
   parseCompetitionSelection,
   partitionByDraw,
@@ -269,6 +270,14 @@ describe("knockout stage identity", () => {
     expect(d2.fixtures.map((fixture) => fixture.id)).toEqual([602]);
     expect(d1.matches.map((match) => match.id)).toEqual([12]);
     expect(d2.matches.map((match) => match.id)).toEqual([22]);
+  });
+
+  it("drops a director poll that is older than the slate already on air", () => {
+    expect(isStaleDirectorSnapshot(0, 10)).toBe(false);
+    expect(isStaleDirectorSnapshot(20, 20)).toBe(false);
+    expect(isStaleDirectorSnapshot(20, 19)).toBe(true);
+    expect(isStaleDirectorSnapshot(20, 0)).toBe(true);
+    expect(isStaleDirectorSnapshot(20, undefined)).toBe(true);
   });
 
   it("preserves a stored D1 stage token when D2 has the same stage name", () => {

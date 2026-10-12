@@ -33,9 +33,11 @@ export function TeamScorePanel({ model }: { model: CricketScoreModel }) {
         </div>
         <div className="bw-ts-overs">
           <AnimatedValue value={cleanOvers} className="bw-gold" /> OVER{" "}
-          <small style={{ fontSize: "18px", color: "var(--bw-ink-dim)", letterSpacing: "0.05em", fontWeight: 700 }}>
-            ({model.maxOvers} OVER)
-          </small>
+          {model.maxOvers > 0 ? (
+            <small style={{ fontSize: "18px", color: "var(--bw-ink-dim)", letterSpacing: "0.05em", fontWeight: 700 }}>
+              ({model.maxOvers} OVER)
+            </small>
+          ) : null}
         </div>
         {model.crr != null && model.crr > 0 && (
           <div
@@ -101,11 +103,19 @@ function BatterRow({ b }: { b: BatterLine }) {
         {b.name}
       </span>
       <span className="bw-bruns">
-        <AnimatedValue value={b.runs} /> <small>({b.balls} {b.balls === 1 ? "ball" : "balls"})</small>
+        {b.hasStats === false ? (
+          "—"
+        ) : (
+          <>
+            <AnimatedValue value={b.runs} /> <small>({b.balls} {b.balls === 1 ? "ball" : "balls"})</small>
+          </>
+        )}
       </span>
-      <span className="bw-bsr">
-        <small>SR</small> {strikeRate(b.runs, b.balls)}
-      </span>
+      {b.hasStats === false ? null : (
+        <span className="bw-bsr">
+          <small>SR</small> {strikeRate(b.runs, b.balls)}
+        </span>
+      )}
     </div>
   );
 }
@@ -169,13 +179,19 @@ export function BowlerPanel({ bowler }: { bowler: BowlerLine }) {
       >
         {bowler.name}
       </span>
-      <span className="bw-bowl-fig">
-        <AnimatedValue value={`${bowler.wickets}-${bowler.runs}`} className="bw-gold" />
-        <small>({bowler.overs} ov)</small>
-      </span>
-      <span className="bw-bowl-econ">
-        <small>ECON</small> {economy(bowler.runs, bowler.overs)}
-      </span>
+      {bowler.hasStats === false ? (
+        <span className="bw-bowl-fig">—</span>
+      ) : (
+        <>
+          <span className="bw-bowl-fig">
+            <AnimatedValue value={`${bowler.wickets}-${bowler.runs}`} className="bw-gold" />
+            <small>({bowler.overs} ov)</small>
+          </span>
+          <span className="bw-bowl-econ">
+            <small>ECON</small> {economy(bowler.runs, bowler.overs)}
+          </span>
+        </>
+      )}
     </div>
   );
 }

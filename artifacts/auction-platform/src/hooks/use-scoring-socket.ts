@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { mergeObsDirectorSnapshot } from "@workspace/scoring-core/cricket";
-import { scoringLiveQueryKey } from "@/hooks/use-scoring-match";
+import { preferNewerLiveDisplay, scoringLiveQueryKey } from "@/hooks/use-scoring-match";
 import type { ScoringLiveDisplay } from "@/lib/scoring-api";
 
 export type ScoringConnectionStatus = "connected" | "reconnecting" | "disconnected";
@@ -59,20 +59,38 @@ export function useScoringSocket(
         }
 
         if (msg.type === "scoring_state") {
+          const payload: ScoringLiveDisplay = {
+            match: msg.match ?? null,
+            state: msg.state ?? null,
+            summary: msg.summary ?? null,
+            broadcastEvent: msg.broadcastEvent ?? null,
+          };
+          const cached = qc.getQueryData<ScoringLiveDisplay>(scoringLiveQueryKey(tournamentId));
+          const next = preferNewerLiveDisplay(cached, payload);
+          const accepted = next !== cached;
           if (msg.isOversized) {
-            qc.invalidateQueries({ queryKey: scoringLiveQueryKey(tournamentId) });
-          } else {
-            const payload: ScoringLiveDisplay = {
-              match: msg.match ?? null,
-              state: msg.state ?? null,
-              summary: msg.summary ?? null,
-              broadcastEvent: msg.broadcastEvent ?? null,
-            };
-            qc.setQueryData(scoringLiveQueryKey(tournamentId), payload);
+            const incomingSeq =
+              typeof msg.state?.lastSequence === "number" ? msg.state.lastSequence : msgSeq;
+            const cachedSeq = cached?.state?.lastSequence;
+            const sameMatch =
+              !cached?.state?.matchId ||
+              !msg.state?.matchId ||
+              cached.state.matchId === msg.state.matchId;
+            const stale =
+              sameMatch &&
+              typeof incomingSeq === "number" &&
+              typeof cachedSeq === "number" &&
+              incomingSeq < cachedSeq;
+            if (!stale) {
+              qc.invalidateQueries({ queryKey: scoringLiveQueryKey(tournamentId) });
+            }
+          } else if (accepted) {
+            qc.setQueryData(scoringLiveQueryKey(tournamentId), next);
           }
 
-          // Deduplicate broadcast animation events: only trigger once per sequence
-          if (msg.broadcastEvent && typeof window !== "undefined") {
+          // Deduplicate broadcast animation events: only trigger once per sequence.
+          // A frame older than the scoreboard must not replay its animation.
+          if (accepted && msg.broadcastEvent && typeof window !== "undefined") {
             const bSeq = msg.broadcastEvent.sequence;
             if (bSeq == null || bSeq > lastDispatchedBroadcastSeqRef.current) {
               if (bSeq != null) lastDispatchedBroadcastSeqRef.current = bSeq;

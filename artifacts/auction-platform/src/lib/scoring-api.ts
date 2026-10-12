@@ -637,6 +637,15 @@ export async function listScoringAwards(
   return data.awards ?? [];
 }
 
+/** Shared cache key so the scorebug and the full-card slate read one card. */
+export function publicMatchScorecardQueryKey(
+  tournamentId: number,
+  matchId: number,
+  sequence?: number | null,
+) {
+  return ["public-match-scorecard", tournamentId, matchId, sequence ?? 0] as const;
+}
+
 export async function getPublicMatchScorecard(
   tournamentId: number,
   matchId: number,

@@ -34,6 +34,7 @@ import {
   getCricketMasterTeams,
   getCricketTournamentRoster,
   getPublicMatchScorecard,
+  publicMatchScorecardQueryKey,
 } from "@/lib/scoring-api";
 import { listFixtures } from "@/lib/scoring-foundation-api";
 import {
@@ -332,10 +333,15 @@ function SummaryVariant({
 
   // Scorecard for accurate completed match figures
   const { data: fullScorecard } = useQuery({
-    queryKey: ["public-match-scorecard", tournamentId, targetMatchId],
+    queryKey: publicMatchScorecardQueryKey(tournamentId ?? 0, targetMatchId ?? 0, vm.liveSequence ?? 0),
     queryFn: () => getPublicMatchScorecard(tournamentId!, targetMatchId!),
     enabled: !!tournamentId && !!targetMatchId,
-    staleTime: 5000,
+    staleTime: Infinity,
+    placeholderData: (previous, previousQuery) => {
+      if (!previous) return undefined;
+      if (previousQuery?.queryKey?.[2] !== targetMatchId) return undefined;
+      return previous;
+    },
   });
 
   const homeTeam = activeMatch?.homeTeam || vm.home;

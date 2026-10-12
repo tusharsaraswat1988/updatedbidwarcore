@@ -238,6 +238,7 @@ export function getCricketObsDirectorState(tournamentId: number): {
   stageOrGroup?: string;
   broadcastMessage?: CricketBroadcastMessage | null;
   sponsorMedia?: SponsorMediaCue | null;
+  timestamp: number;
 } {
   const current = cricketObsStates.get(tournamentId);
   return {
@@ -247,6 +248,7 @@ export function getCricketObsDirectorState(tournamentId: number): {
     stageOrGroup: current?.stageOrGroup,
     broadcastMessage: current?.broadcastMessage ?? null,
     sponsorMedia: current?.sponsorMedia ?? null,
+    timestamp: current?.lastUpdated ?? 0,
   };
 }
 

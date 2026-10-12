@@ -135,6 +135,8 @@ export interface BatterLine {
   runs: number;
   balls: number;
   onStrike: boolean;
+  /** False when the innings card has not confirmed this batter yet. */
+  hasStats?: boolean;
 }
 
 export interface BowlerLine {
@@ -142,6 +144,8 @@ export interface BowlerLine {
   wickets: number;
   runs: number;
   overs: string;
+  /** False when the innings card has not confirmed this spell yet. */
+  hasStats?: boolean;
 }
 
 /** Production: existing cricket scoring state */

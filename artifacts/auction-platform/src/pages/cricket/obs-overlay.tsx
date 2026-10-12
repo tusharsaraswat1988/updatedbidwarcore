@@ -91,7 +91,7 @@ export default function CricketObsOverlayPage() {
   }
 
   return (
-    <TournamentCodeGate tournamentId={tournamentId} requiredModule="scoring">
+    <TournamentCodeGate tournamentId={tournamentId} requiredModule="scoring" broadcastSafe>
       <CricketObsInner tournamentId={tournamentId} pinnedMatchId={pinnedMatchId} />
     </TournamentCodeGate>
   );

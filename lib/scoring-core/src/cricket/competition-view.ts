@@ -603,6 +603,19 @@ export function retainStageSelection(
   return kept;
 }
 
+/**
+ * A slower director poll must not put an older slate back on air.
+ * A missing timestamp is stale once any timed director event has been applied.
+ */
+export function isStaleDirectorSnapshot(
+  lastSeenTimestamp: number,
+  incomingTimestamp: number | null | undefined,
+): boolean {
+  if (!(lastSeenTimestamp > 0)) return false;
+  const incoming = typeof incomingTimestamp === "number" ? incomingTimestamp : 0;
+  return incoming < lastSeenTimestamp;
+}
+
 export function mergeObsDirectorSnapshot<T extends { stageOrGroup?: string | null; type?: string }>(
   previous: T | null | undefined,
   incoming: T,

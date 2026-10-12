@@ -1004,7 +1004,7 @@ export function CricketObsMidOverlays({
                               </div>
                               <span className="text-white truncate">{vm.striker.name}</span>
                             </div>
-                            <span className="text-[#FFD700] font-mono shrink-0">{vm.striker.runs || 0} ({vm.striker.balls || 0}b)</span>
+                            <span className="text-[#FFD700] font-mono shrink-0">{vm.striker.hasStats ? `${vm.striker.runs} (${vm.striker.balls}b)` : "—"}</span>
                           </div>
                         )}
                         {vm.nonStriker && (
@@ -1019,7 +1019,7 @@ export function CricketObsMidOverlays({
                               </div>
                               <span className="text-white truncate">{vm.nonStriker.name}</span>
                             </div>
-                            <span className="text-white/70 font-mono shrink-0">{vm.nonStriker.runs || 0} ({vm.nonStriker.balls || 0}b)</span>
+                            <span className="text-white/70 font-mono shrink-0">{vm.nonStriker.hasStats ? `${vm.nonStriker.runs} (${vm.nonStriker.balls}b)` : "—"}</span>
                           </div>
                         )}
                       </div>

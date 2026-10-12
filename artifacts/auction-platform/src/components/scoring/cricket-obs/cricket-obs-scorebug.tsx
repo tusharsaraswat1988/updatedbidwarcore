@@ -143,7 +143,6 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
               style={{ fontFamily: BROADCAST_FONTS.mono }}
             >
               <span>{vm.oversDisplay}</span>
-              <span className="text-white/40">OV</span>
             </div>
           </div>
         </div>
@@ -173,16 +172,22 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
               className="flex items-center gap-2 text-xs font-bold tabular-nums shrink-0"
               style={{ fontFamily: BROADCAST_FONTS.mono }}
             >
-              <span className="text-xl font-bold text-white leading-none">
-                {striker?.runs ?? 0}
-              </span>
-              <span className="text-xs text-white/60 font-medium">
-                ({striker?.balls ?? 0} {striker?.balls === 1 ? "ball" : "balls"})
-              </span>
-              {striker?.strikeRate != null && (
-                <span className="text-[11px] text-white/40 font-normal pl-1">
-                  SR {striker.strikeRate.toFixed(1)}
-                </span>
+              {striker?.hasStats ? (
+                <>
+                  <span className="text-xl font-bold text-white leading-none">
+                    {striker.runs}
+                  </span>
+                  <span className="text-xs text-white/60 font-medium">
+                    ({striker.balls} {striker.balls === 1 ? "ball" : "balls"})
+                  </span>
+                  {striker.balls > 0 && (
+                    <span className="text-[11px] text-white/40 font-normal pl-1">
+                      SR {striker.strikeRate.toFixed(1)}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-xl font-bold text-white/40 leading-none">—</span>
               )}
             </div>
           </div>
@@ -210,16 +215,22 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
               className="flex items-center gap-2 text-xs font-bold tabular-nums shrink-0"
               style={{ fontFamily: BROADCAST_FONTS.mono }}
             >
-              <span className="text-xl font-bold text-white/90 leading-none">
-                {nonStriker?.runs ?? 0}
-              </span>
-              <span className="text-xs text-white/50 font-medium">
-                ({nonStriker?.balls ?? 0} {nonStriker?.balls === 1 ? "ball" : "balls"})
-              </span>
-              {nonStriker?.strikeRate != null && (
-                <span className="text-[11px] text-white/30 font-normal pl-1">
-                  SR {nonStriker.strikeRate.toFixed(1)}
-                </span>
+              {nonStriker?.hasStats ? (
+                <>
+                  <span className="text-xl font-bold text-white/90 leading-none">
+                    {nonStriker.runs}
+                  </span>
+                  <span className="text-xs text-white/50 font-medium">
+                    ({nonStriker.balls} {nonStriker.balls === 1 ? "ball" : "balls"})
+                  </span>
+                  {nonStriker.balls > 0 && (
+                    <span className="text-[11px] text-white/30 font-normal pl-1">
+                      SR {nonStriker.strikeRate.toFixed(1)}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-xl font-bold text-white/40 leading-none">—</span>
               )}
             </div>
           </div>
@@ -251,16 +262,22 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
               className="flex items-center gap-2 text-xs font-bold tabular-nums shrink-0"
               style={{ fontFamily: BROADCAST_FONTS.mono }}
             >
-              <span className="text-base text-[#FFD700]">
-                {bowler ? `${bowler.wickets}-${bowler.runsConceded}` : "0-0"}
-              </span>
-              <span className="text-xs text-white/60">
-                ({bowler?.overs || "0.0"} ov)
-              </span>
-              <span className="text-white/30">|</span>
-              <span className="text-xs text-[#06B6D4]">
-                ECON {bowler?.economy != null ? bowler.economy.toFixed(1) : "—"}
-              </span>
+              {bowler?.hasStats ? (
+                <>
+                  <span className="text-base text-[#FFD700]">
+                    {bowler.wickets}-{bowler.runsConceded}
+                  </span>
+                  <span className="text-xs text-white/60">
+                    ({bowler.overs} ov)
+                  </span>
+                  <span className="text-white/30">|</span>
+                  <span className="text-xs text-[#06B6D4]">
+                    ECON {bowler.economy.toFixed(1)}
+                  </span>
+                </>
+              ) : (
+                <span className="text-base text-white/40">—</span>
+              )}
             </div>
           </div>
 
@@ -279,7 +296,7 @@ export function CricketObsScorebug({ vm }: { vm: CricketObsViewModel }) {
                   const isWicket = ball === "W";
                   const isSix = ball === "6";
                   const isFour = ball === "4";
-                  const isExtra = ball.includes("Wd") || ball.includes("Nb");
+                  const isExtra = ball.includes("Wd") || ball.includes("Nb") || ball.startsWith("B") || ball.startsWith("Lb");
                   const isDot = ball === "·" || ball === "0";
 
                   let bg = BIDWAR_SCOREBOARD_PANEL;

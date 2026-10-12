@@ -9,6 +9,7 @@ import {
   mapBallToFlash,
   mergeLiveDisplayPreserveBranding,
   parseCricketObsMatchParam,
+  resolveBatterView,
 } from "../cricket-obs-view-model";
 
 const teams: CricketScorerTeam[] = [
@@ -642,7 +643,7 @@ describe("cricket-obs-view-model", () => {
   });
 
   describe("Neutral Screen Activation (Intervals & Walkover)", () => {
-    it("activates neutral screen when match is completed or walkover and overlay is none", () => {
+    it("keeps the final scorebug up when a match ends and no interval slate is selected", () => {
       const walkoverState = baseState({
         matchStatus: "walkover",
         sessionStatus: "completed",
@@ -656,6 +657,21 @@ describe("cricket-obs-view-model", () => {
         pinnedMatchId: null,
         connectionStatus: "connected",
         midOverlay: "none",
+      });
+      expect(vm.phase).toBe("completed");
+      expect(vm.isNeutralActive).toBe(false);
+    });
+
+    it("activates the interval plate when the director selects neutral", () => {
+      const vm = buildCricketObsViewModel({
+        live: liveFromState(baseState()),
+        teams,
+        tournamentName: "BidWar Premier League",
+        tournamentLogoUrl: null,
+        sponsors: [],
+        pinnedMatchId: null,
+        connectionStatus: "connected",
+        midOverlay: "neutral",
       });
       expect(vm.isNeutralActive).toBe(true);
     });
@@ -888,5 +904,253 @@ describe("cricket-obs-view-model", () => {
       });
       expect(vmOutside.powerplayText).toBeNull();
     });
+  });
+
+  it("does not flash a four byes as a boundary", () => {
+    expect(
+      mapBallToFlash({
+        over: 1,
+        ball: 1,
+        runsOffBat: 0,
+        extrasType: "bye",
+        extrasRuns: 4,
+        isWicket: false,
+        isLegalDelivery: true,
+        label: "B4",
+      }),
+    ).toBeNull();
+    expect(
+      mapBallToFlash({
+        over: 1,
+        ball: 2,
+        runsOffBat: 0,
+        extrasType: "leg_bye",
+        extrasRuns: 4,
+        isWicket: false,
+        isLegalDelivery: true,
+        label: "4",
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps a missing batter row distinct from a duck", () => {
+    const missing = resolveBatterView(44, true, [], null, 1);
+    expect(missing?.hasStats).toBe(false);
+    expect(missing?.runs).toBe(0);
+    expect(missing?.balls).toBe(0);
+  });
+
+  it("treats the start of the match as pre-match, not an innings break", () => {
+    const state = baseState({
+      thisOver: [],
+      innings: [
+        {
+          innings: 1,
+          battingTeamId: 1,
+          bowlingTeamId: 2,
+          runs: 0,
+          wickets: 0,
+          over: 0,
+          ball: 0,
+          phase: "not_started",
+          kind: "normal",
+          oversLimit: 6,
+        },
+      ],
+    });
+    const vm = buildCricketObsViewModel({
+      live: liveFromState(state),
+      teams,
+      tournamentName: "Box Cup",
+      tournamentLogoUrl: null,
+      sponsors: [],
+      pinnedMatchId: null,
+      connectionStatus: "connected",
+    });
+    expect(vm.phase).toBe("pre_match");
+  });
+
+  it("shows an innings break only before the next innings starts", () => {
+    const state = baseState({
+      target: 50,
+      currentInnings: 2,
+      thisOver: [],
+      innings: [
+        {
+          innings: 1,
+          battingTeamId: 1,
+          bowlingTeamId: 2,
+          runs: 49,
+          wickets: 4,
+          over: 6,
+          ball: 0,
+          phase: "completed",
+          kind: "normal",
+          oversLimit: 6,
+        },
+        {
+          innings: 2,
+          battingTeamId: 2,
+          bowlingTeamId: 1,
+          runs: 0,
+          wickets: 0,
+          over: 0,
+          ball: 0,
+          phase: "not_started",
+          kind: "normal",
+          oversLimit: 6,
+        },
+      ],
+    });
+    const vm = buildCricketObsViewModel({
+      live: liveFromState(state),
+      teams,
+      tournamentName: "Box Cup",
+      tournamentLogoUrl: null,
+      sponsors: [],
+      pinnedMatchId: null,
+      connectionStatus: "connected",
+    });
+    expect(vm.phase).toBe("innings_break");
+  });
+
+  it("shows the chase scorebug at 0/0 once the second innings is in progress", () => {
+    const state = baseState({
+      target: 50,
+      currentInnings: 2,
+      strikerId: null,
+      thisOver: [],
+      innings: [
+        {
+          innings: 1,
+          battingTeamId: 1,
+          bowlingTeamId: 2,
+          runs: 49,
+          wickets: 4,
+          over: 6,
+          ball: 0,
+          phase: "completed",
+          kind: "normal",
+          oversLimit: 6,
+        },
+        {
+          innings: 2,
+          battingTeamId: 2,
+          bowlingTeamId: 1,
+          runs: 0,
+          wickets: 0,
+          over: 0,
+          ball: 0,
+          phase: "in_progress",
+          kind: "normal",
+          oversLimit: 6,
+        },
+      ],
+    });
+    const vm = buildCricketObsViewModel({
+      live: liveFromState(state),
+      teams,
+      tournamentName: "Box Cup",
+      tournamentLogoUrl: null,
+      sponsors: [],
+      pinnedMatchId: null,
+      connectionStatus: "connected",
+    });
+    expect(vm.phase).toBe("chase");
+    expect(vm.isNeutralActive).toBe(false);
+  });
+
+  it("counts wickets in hand from the match wicket limit", () => {
+    const state = baseState({
+      maxWickets: 8,
+      resultText: null,
+      target: 40,
+      currentInnings: 2,
+      thisOver: [],
+      innings: [
+        {
+          innings: 1,
+          battingTeamId: 1,
+          bowlingTeamId: 2,
+          runs: 39,
+          wickets: 3,
+          over: 6,
+          ball: 0,
+          phase: "completed",
+          kind: "normal",
+          oversLimit: 6,
+        },
+        {
+          innings: 2,
+          battingTeamId: 2,
+          bowlingTeamId: 1,
+          runs: 40,
+          wickets: 0,
+          over: 3,
+          ball: 2,
+          phase: "in_progress",
+          kind: "normal",
+          oversLimit: 6,
+        },
+      ],
+    });
+    const vm = buildCricketObsViewModel({
+      live: liveFromState(state),
+      teams,
+      tournamentName: "Box Cup",
+      tournamentLogoUrl: null,
+      sponsors: [],
+      pinnedMatchId: null,
+      connectionStatus: "connected",
+    });
+    expect(vm.phase).toBe("completed");
+    expect(vm.resultText).toBe("Won by 8 wickets");
+  });
+
+  it("closes a 5-ball-over innings when the last legal ball is bowled", () => {
+    const state = baseState({
+      ballsPerOver: 5,
+      oversLimit: 5,
+      target: 80,
+      currentInnings: 2,
+      thisOver: [],
+      innings: [
+        {
+          innings: 1,
+          battingTeamId: 1,
+          bowlingTeamId: 2,
+          runs: 79,
+          wickets: 2,
+          over: 5,
+          ball: 0,
+          phase: "completed",
+          kind: "normal",
+          oversLimit: 5,
+        },
+        {
+          innings: 2,
+          battingTeamId: 2,
+          bowlingTeamId: 1,
+          runs: 20,
+          wickets: 1,
+          over: 4,
+          ball: 5,
+          phase: "in_progress",
+          kind: "normal",
+          oversLimit: 5,
+        },
+      ],
+    });
+    const vm = buildCricketObsViewModel({
+      live: liveFromState(state),
+      teams,
+      tournamentName: "Box Cup",
+      tournamentLogoUrl: null,
+      sponsors: [],
+      pinnedMatchId: null,
+      connectionStatus: "connected",
+    });
+    expect(vm.phase).toBe("completed");
+    expect(ballsRemaining(5, 4, 5, 5)).toBe(0);
   });
 });
