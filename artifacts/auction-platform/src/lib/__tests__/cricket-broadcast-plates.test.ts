@@ -1,13 +1,18 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type { CricketFullScorecard } from "@workspace/scoring-core";
+import { BattingScorecardCard } from "@/components/scoring/cricket-batting-scorecard-overlay";
 import {
   broadcastMatchSummary,
+  buildBattingBroadcastCard,
   dismissalLabel,
   knockoutBoardRows,
   knockoutResultLine,
   plateMatchId,
   resolveCricketBroadcastSponsors,
   scoreboardSponsorLogo,
+  selectBattingInnings,
   sponsorsExceptLocked,
   tossLine,
   upcomingFixture,
@@ -172,6 +177,11 @@ describe("plate identity", () => {
 
   it("uses the live match for a scorecard only while that match is live", () => {
     expect(plateMatchId({
+      overlay: "batting",
+      liveMatchId: 4,
+      liveStatus: "live",
+    })).toBe(4);
+    expect(plateMatchId({
       overlay: "scorecard",
       liveMatchId: 4,
       liveStatus: "live",
@@ -231,6 +241,71 @@ describe("knockout and sponsors", () => {
       locked,
     );
     expect(rotating.map((sponsor) => sponsor.name)).toEqual(["Cafe"]);
+  });
+
+  it("builds a crease-order batting card with yet to bat and the live total", () => {
+    const innings = card().innings[0]!;
+    innings.currentPartnership = {
+      runs: 4,
+      balls: 2,
+      batter1Id: 12,
+      batter1Runs: 18,
+      batter1Balls: 22,
+      batter2Id: 13,
+      batter2Runs: 0,
+      batter2Balls: 0,
+      extras: 0,
+    };
+    const built = buildBattingBroadcastCard({
+      innings,
+      teamName: "The Dominators by 2005",
+      players: { "11": "Aman", "12": "Dev", "13": "Gaurav", "21": "Ravi", "22": "Neil" },
+      captainId: 12,
+      battingOrder: [11, 12, 13, 14],
+    });
+    expect(built.rows.map((row) => row.name)).toEqual(["Aman", "Dev", "Gaurav"]);
+    expect(built.rows[1]?.captain).toBe(true);
+    expect(built.rows[1]?.dismissal).toBe("NOT OUT");
+    expect(built.rows[0]?.dismissal).toBe("c Neil b Ravi");
+    expect(built.rows[2]?.runs).toBe(0);
+    expect(built.yetToBat).toEqual(["Player 14"]);
+    expect(built.extras).toBe(6);
+    expect(built.totalRuns).toBe(140);
+    expect(built.totalWickets).toBe(8);
+    expect(selectBattingInnings(card().innings, "live", 0)?.innings).toBe(2);
+    expect(selectBattingInnings(card().innings, "completed", 0)?.innings).toBe(1);
+
+    const html = renderToStaticMarkup(createElement(BattingScorecardCard, {
+      tournamentName: "Alumni Premier League 2026",
+      card: built,
+      inningsNote: "1st Innings",
+      message: null,
+    }));
+    expect(html).toContain("Batting Scorecard");
+    expect(html).toContain("The Dominators by 2005");
+    expect(html).toContain("Dev (c)");
+    expect(html).toContain("NOT OUT");
+    expect(html).toContain("Yet To Bat");
+    expect(html).toContain("Player 14");
+    expect(html).toContain("Extras 6");
+    expect(html).toContain("20.0 Overs");
+    expect(html).toContain("Total 140/8");
+    expect(html).toContain("Alumni Premier League 2026");
+  });
+
+  it("writes caught-and-bowled as c& and a catch with both names", () => {
+    expect(dismissalLabel({
+      playerId: 11,
+      runs: 1,
+      balls: 2,
+      fours: 0,
+      sixes: 0,
+      strikeRate: 50,
+      notOut: false,
+      dismissalType: "caught",
+      dismissedByPlayerId: 21,
+      fielderId: 21,
+    }, () => "Archit")).toBe("c& b Archit");
   });
 
   it("writes a caught dismissal from the scorecard ids", () => {

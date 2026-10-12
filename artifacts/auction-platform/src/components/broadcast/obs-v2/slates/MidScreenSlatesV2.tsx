@@ -11,6 +11,9 @@
 
 import { AnimatePresence } from "framer-motion";
 import type { CricketObsViewModel, CricketObsMidOverlayKind } from "@/lib/cricket-obs-view-model";
+import { CricketBattingScorecardOverlay } from "@/components/scoring/cricket-batting-scorecard-overlay";
+import { plateMatchId } from "@/lib/cricket-broadcast-plates";
+import { OBS_V2 } from "../obs-v2-tokens";
 import {
   BroadcastSideSlate,
   type BroadcastSideSlateVariant,
@@ -34,6 +37,34 @@ export function MidScreenSlatesV2({
   tournamentId,
 }: MidScreenSlatesV2Props) {
   if (overlay === "none" || overlay === "neutral" || overlay === "banner") return null;
+
+  if (overlay === "batting") {
+    const live = vm.phase === "live" || vm.phase === "chase" || vm.phase === "innings_break";
+    const matchId = plateMatchId({
+      overlay: "batting",
+      overlayMatchId,
+      liveMatchId: vm.matchId,
+      liveStatus: live ? "live" : vm.phase === "completed" ? "completed" : null,
+    });
+    return (
+      <div
+        className="pointer-events-none absolute inset-x-0 flex items-center justify-center"
+        style={{
+          top: `${OBS_V2.canvas.headerHeight}px`,
+          height: `${OBS_V2.canvas.cameraHeight}px`,
+          zIndex: OBS_V2.layer.slates,
+          padding: "16px 64px",
+        }}
+      >
+        <CricketBattingScorecardOverlay
+          tournamentId={tournamentId}
+          matchId={matchId}
+          tournamentName={vm.tournamentName}
+          liveSequence={vm.liveSequence}
+        />
+      </div>
+    );
+  }
 
   const variantMap: Record<string, BroadcastSideSlateVariant | null> = {
     summary: "SUMMARY",

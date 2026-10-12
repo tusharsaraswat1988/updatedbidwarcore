@@ -3,6 +3,7 @@ import {
   CricketEventType,
   buildCricketScorecardFromEvents,
   buildLeaderboard,
+  resolveBattingOrder,
   scorecardToPlayerStats,
   aggregateTournamentPlayerStats,
   createEventEnvelope,
@@ -86,6 +87,30 @@ describe("cricket scorecard projector", () => {
     const bowler = inn.bowling.find((b) => b.playerId === 201);
     expect(bowler?.wickets).toBe(1);
     expect(bowler?.runs).toBe(4);
+  });
+
+  it("keeps crease order on each batter while the card stays sorted by runs", () => {
+    const events = [
+      startMatchEvent(),
+      ballEvent(2, { strikerId: 101, nonStrikerId: 102, runsOffBat: 1 }),
+      ballEvent(3, { ball: 2, strikerId: 102, nonStrikerId: 101, runsOffBat: 6 }),
+    ];
+    const inn = buildCricketScorecardFromEvents(1, events, meta).innings[0]!;
+    const first = inn.batting.find((row) => row.playerId === 101);
+    const second = inn.batting.find((row) => row.playerId === 102);
+    expect(first?.sequence).toBe(0);
+    expect(second?.sequence).toBe(1);
+    expect(inn.batting.map((row) => row.playerId)).toEqual([102, 101]);
+  });
+
+  it("prefers the squad batting order, then the live lineup", () => {
+    expect(resolveBattingOrder({
+      battingOrder: [3, 1, 1],
+      lineup: [9],
+      playingXi: [8],
+    })).toEqual([3, 1]);
+    expect(resolveBattingOrder({ lineup: [4, 5], playingXi: [8] })).toEqual([4, 5]);
+    expect(resolveBattingOrder({ playingXi: [7] })).toEqual([7]);
   });
 
   it("aggregates tournament leaderboards from player stats", () => {
