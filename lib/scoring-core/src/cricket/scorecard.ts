@@ -15,7 +15,31 @@ export type BattingCardRow = {
   dismissalType: DismissalType | "retired_hurt" | null;
   dismissedByPlayerId: number | null;
   fielderId: number | null;
+  /** Crease order, 0-based. The batting list itself stays sorted by runs. */
+  sequence?: number;
 };
+
+export function resolveBattingOrder(input: {
+  battingOrder?: readonly number[] | null;
+  lineup?: readonly number[] | null;
+  playingXi?: readonly number[] | null;
+}): number[] {
+  const clean = (ids?: readonly number[] | null) => {
+    const seen = new Set<number>();
+    const out: number[] = [];
+    for (const id of ids ?? []) {
+      if (!Number.isInteger(id) || id <= 0 || seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+    return out;
+  };
+  const order = clean(input.battingOrder);
+  if (order.length > 0) return order;
+  const lineup = clean(input.lineup);
+  if (lineup.length > 0) return lineup;
+  return clean(input.playingXi);
+}
 
 export type BowlingCardRow = {
   playerId: number;
@@ -531,7 +555,7 @@ export function buildCricketScorecardFromEvents(
         battingTeamId: inn.battingTeamId,
         bowlingTeamId: inn.bowlingTeamId,
         batting: [...inn.bats.entries()]
-          .map(([playerId, b]) => ({
+          .map(([playerId, b], sequence) => ({
             playerId,
             runs: b.runs,
             balls: b.balls,
@@ -542,8 +566,9 @@ export function buildCricketScorecardFromEvents(
             dismissalType: b.dismissalType,
             dismissedByPlayerId: b.dismissedByPlayerId,
             fielderId: b.fielderId,
+            sequence,
           }))
-          .sort((a, b) => b.runs - a.runs),
+          .sort((a, b) => b.runs - a.runs || (a.sequence ?? 0) - (b.sequence ?? 0)),
         bowling: [...inn.bowls.entries()]
           .map(([playerId, b]) => ({
             playerId,

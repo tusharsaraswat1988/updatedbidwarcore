@@ -161,6 +161,7 @@ export function useCricketObsLive(
         ov === "standings" ||
         ov === "fixtures" ||
         ov === "scorecard" ||
+        ov === "batting" ||
         ov === "summary" ||
         ov === "intro"
       ) {

@@ -66,6 +66,7 @@ export type CricketObsMidOverlayKind =
   | "standings"
   | "fixtures"
   | "scorecard"
+  | "batting"
   | "summary"
   | "intro";
 

@@ -148,6 +148,15 @@ const OVERLAY_OPTIONS: {
     tag: "SCORECARD", 
     defaultDurationSec: 15 
   },
+  {
+    id: "batting",
+    label: "Batting Scorecard",
+    desc: "Batting card with dismissal, fours, sixes, strike rate, extras, and players yet to bat.",
+    activatesOn: "LED Scoreboard & OBS",
+    icon: "🏏",
+    tag: "BATTING",
+    defaultDurationSec: 24,
+  },
   { 
     id: "summary", 
     label: "Match Summary", 
@@ -173,7 +182,7 @@ type MatchPickerKind = "upcoming" | "intro" | "scorecard" | "summary";
 function matchPickerKind(id: CricketObsMidOverlayKind): MatchPickerKind | null {
   if (id === "fixtures") return "upcoming";
   if (id === "intro") return "intro";
-  if (id === "scorecard") return "scorecard";
+  if (id === "scorecard" || id === "batting") return "scorecard";
   if (id === "summary") return "summary";
   return null;
 }
@@ -461,6 +470,8 @@ export default function CricketLiveControlPage() {
         dur = 15;
       } else if (overlay === "scorecard") {
         dur = 15;
+      } else if (overlay === "batting") {
+        dur = 24;
       } else if (overlay === "sponsors") {
         if (!sponsorName || sponsorName === "all") {
           // All sponsors: show every sponsor for 5s, then close after full rotation
@@ -1164,6 +1175,8 @@ export default function CricketLiveControlPage() {
                   <p className="text-xs text-slate-500 mt-0.5">
                     {pickerKind === "upcoming"
                       ? "Scheduled fixtures only. Live and completed matches are not on this slate."
+                      : targetOverlayForMatch?.id === "batting"
+                      ? "Batting card for a live or finished innings: dismissal, strike rate, extras, and yet to bat."
                       : pickerKind === "scorecard"
                       ? "Innings card for a match that has started. Upcoming fixtures have no scorecard."
                       : pickerKind === "summary"

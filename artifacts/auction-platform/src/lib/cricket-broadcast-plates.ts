@@ -96,19 +96,145 @@ export function dismissalLabel(row: BattingCardRow, nameOf: NameOf): string {
     case "bowled":
       return bowler ? `b ${bowler}` : "bowled";
     case "caught":
+      if (fielder && bowler && row.fielderId === row.dismissedByPlayerId) return `c& b ${bowler}`;
       if (fielder && bowler) return `c ${fielder} b ${bowler}`;
       return bowler ? `c b ${bowler}` : "caught";
     case "lbw":
       return bowler ? `lbw b ${bowler}` : "lbw";
     case "stumped":
+      if (fielder && bowler) return `st ${fielder} b ${bowler}`;
       return fielder ? `st ${fielder}` : "stumped";
     case "run_out":
-      return fielder ? `run out (${fielder})` : "run out";
+      return fielder ? `run out ${fielder}` : "run out";
     case "hit_wicket":
       return bowler ? `hit wicket b ${bowler}` : "hit wicket";
     default:
       return row.dismissalType.replace(/_/g, " ");
   }
+}
+
+export type BattingBroadcastRow = {
+  playerId: number;
+  name: string;
+  captain: boolean;
+  dismissal: string;
+  notOut: boolean;
+  runs: number;
+  balls: number;
+  fours: number;
+  sixes: number;
+  strikeRate: number;
+};
+
+export type BattingBroadcastCard = {
+  innings: number;
+  teamName: string;
+  rows: BattingBroadcastRow[];
+  yetToBat: string[];
+  extras: number;
+  overs: string;
+  totalRuns: number;
+  totalWickets: number;
+};
+
+function notOutShell(playerId: number, sequence: number): BattingCardRow {
+  return {
+    playerId,
+    runs: 0,
+    balls: 0,
+    fours: 0,
+    sixes: 0,
+    strikeRate: 0,
+    notOut: true,
+    dismissalType: null,
+    dismissedByPlayerId: null,
+    fielderId: null,
+    sequence,
+  };
+}
+
+export function selectBattingInnings(
+  innings: InningsScorecard[],
+  matchStatus: string | null | undefined,
+  page: number,
+): InningsScorecard | null {
+  if (innings.length === 0) return null;
+  if (matchStatus === "live") return innings[innings.length - 1] ?? null;
+  const count = innings.length;
+  const index = ((page % count) + count) % count;
+  return innings[index] ?? null;
+}
+
+export function buildBattingBroadcastCard(input: {
+  innings: InningsScorecard;
+  teamName: string;
+  players?: Record<string, string>;
+  captainId?: number | null;
+  battingOrder?: number[];
+}): BattingBroadcastCard {
+  const nameOf = (id: number) => playerNameFromMap(input.players, id);
+  const rowById = new Map(input.innings.batting.map((row) => [row.playerId, row]));
+  const atCrease = new Set<number>();
+  const partnership = input.innings.currentPartnership;
+  if (partnership?.batter1Id != null && partnership.batter1Id > 0) atCrease.add(partnership.batter1Id);
+  if (partnership?.batter2Id != null && partnership.batter2Id > 0) atCrease.add(partnership.batter2Id);
+
+  const shown: BattingCardRow[] = [];
+  const shownIds = new Set<number>();
+  const yetToBat: string[] = [];
+  const pushRow = (row: BattingCardRow) => {
+    if (shownIds.has(row.playerId)) return;
+    shownIds.add(row.playerId);
+    shown.push(row);
+  };
+
+  const order = (input.battingOrder ?? []).filter((id) => Number.isInteger(id) && id > 0);
+  if (order.length > 0) {
+    for (const id of order) {
+      const existing = rowById.get(id);
+      if (existing) {
+        pushRow(existing);
+        continue;
+      }
+      if (atCrease.has(id)) {
+        pushRow(notOutShell(id, shown.length));
+        continue;
+      }
+      yetToBat.push(nameOf(id));
+    }
+    const leftovers = [...rowById.values()]
+      .filter((row) => !shownIds.has(row.playerId))
+      .sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    for (const row of leftovers) pushRow(row);
+  } else {
+    const sorted = [...input.innings.batting].sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+    for (const row of sorted) pushRow(row);
+    for (const id of atCrease) {
+      if (!shownIds.has(id)) pushRow(notOutShell(id, shown.length));
+    }
+  }
+
+  return {
+    innings: input.innings.innings,
+    teamName: input.teamName,
+    extras: input.innings.extras.total,
+    overs: input.innings.overs,
+    totalRuns: input.innings.totalRuns,
+    totalWickets: input.innings.totalWickets,
+    yetToBat,
+    rows: shown.map((row) => ({
+      playerId: row.playerId,
+      name: nameOf(row.playerId),
+      captain: input.captainId != null && row.playerId === input.captainId,
+      dismissal: row.notOut ? "NOT OUT" : dismissalLabel(row, nameOf),
+      notOut: row.notOut,
+      runs: row.runs,
+      balls: row.balls,
+      fours: row.fours,
+      sixes: row.sixes,
+      strikeRate: row.strikeRate,
+    })),
+  };
 }
 
 function extrasLine(inn: InningsScorecard): string {
@@ -242,13 +368,17 @@ export function tossLine(
 }
 
 export function plateMatchId(input: {
-  overlay: "intro" | "scorecard" | "summary";
+  overlay: "intro" | "scorecard" | "summary" | "batting";
   overlayMatchId?: number | null;
   liveMatchId?: number | null;
   liveStatus?: string | null;
 }): number | null {
   if (input.overlayMatchId && input.overlayMatchId > 0) return input.overlayMatchId;
-  if (input.overlay === "scorecard" && input.liveStatus === "live" && input.liveMatchId) {
+  if (
+    (input.overlay === "scorecard" || input.overlay === "batting") &&
+    input.liveStatus === "live" &&
+    input.liveMatchId
+  ) {
     return input.liveMatchId;
   }
   if (

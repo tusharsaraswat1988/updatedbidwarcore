@@ -128,6 +128,7 @@ export function CricketLedMidOverlays({
       liveMatchId={match?.id ?? null}
       liveTossText={liveTossText}
       liveStatus={liveStatus}
+      liveSequence={state?.lastSequence}
     />
   );
 }

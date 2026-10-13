@@ -599,6 +599,11 @@ export type PublicScorecardResponse = {
     teamId: number;
     reason: string | null;
   } | null;
+  battingCards?: Array<{
+    innings: number;
+    captainId: number | null;
+    battingOrder: number[];
+  }>;
 };
 
 export async function getScoringLeaderboard(

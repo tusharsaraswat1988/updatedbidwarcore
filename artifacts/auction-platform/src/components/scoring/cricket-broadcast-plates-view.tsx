@@ -45,6 +45,7 @@ import {
 import { listFixtures, type ScoringFixture } from "@/lib/scoring-foundation-api";
 import { cricketMasterTeamToScorerTeam, type CricketScorerTeam } from "@/lib/scoring-squad";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
+import { CricketBattingScorecardOverlay } from "@/components/scoring/cricket-batting-scorecard-overlay";
 import type { CricketObsMidOverlayKind } from "@/lib/cricket-obs-view-model";
 
 const STANDINGS_PAGE_SIZE = 8;
@@ -60,6 +61,7 @@ type Props = {
   liveMatchId?: number | null;
   liveTossText?: string | null;
   liveStatus?: string | null;
+  liveSequence?: number;
 };
 
 function teamById(teams: CricketScorerTeam[], id: number | null | undefined) {
@@ -78,6 +80,7 @@ export function CricketBroadcastPlatesView({
   liveMatchId,
   liveTossText,
   liveStatus,
+  liveSequence = 0,
 }: Props) {
   const needsMatches = overlay === "fixtures" || overlay === "intro" || overlay === "summary" || overlay === "scorecard" || overlay === "standings";
   const { data: masterTeams } = useQuery({
@@ -116,9 +119,9 @@ export function CricketBroadcastPlatesView({
     liveMatchId,
     liveStatus,
   });
-  const cardMatchId = overlay === "scorecard" || overlay === "summary"
+  const cardMatchId = overlay === "scorecard" || overlay === "summary" || overlay === "batting"
     ? plateMatchId({
-        overlay,
+        overlay: overlay === "batting" ? "batting" : overlay,
         overlayMatchId,
         liveMatchId,
         liveStatus,
@@ -179,6 +182,19 @@ export function CricketBroadcastPlatesView({
   }, [overlay, standingsPages]);
 
   if (overlay === "none" || overlay === "neutral" || overlay === "banner") return null;
+
+  if (overlay === "batting") {
+    return (
+      <div className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center px-8 py-8">
+        <CricketBattingScorecardOverlay
+          tournamentId={tournamentId}
+          matchId={cardMatchId}
+          tournamentName={tournamentName ?? ""}
+          liveSequence={liveSequence}
+        />
+      </div>
+    );
+  }
 
   return (
     <AnimatePresence>

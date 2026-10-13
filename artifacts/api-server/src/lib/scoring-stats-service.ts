@@ -3,12 +3,15 @@ import {
   scoringEventsTable,
   scoringLeaderboardSnapshotsTable,
   scoringMatchPlayerStatsTable,
+  scoringMatchSquadsTable,
   scoringMatchesTable,
   scoringPlayerAwardsTable,
+  scoringSessionsTable,
 } from "@workspace/db";
 import {
   buildCricketScorecardFromEvents,
   buildLeaderboard,
+  resolveBattingOrder,
   scorecardToPlayerStats,
   aggregateTournamentPlayerStats,
   pickManOfTheMatch,
@@ -336,7 +339,21 @@ export async function getPublicMatchScorecard(tournamentId: number, matchId: num
     throw new ScoringPlatformError("Match not found", 404, "MATCH_NOT_FOUND");
   }
 
-  const scorecard = await buildMatchScorecard(match);
+  const [scorecard, sessionRows, squadRows] = await Promise.all([
+    buildMatchScorecard(match),
+    db
+      .select({ stateJson: scoringSessionsTable.stateJson })
+      .from(scoringSessionsTable)
+      .where(eq(scoringSessionsTable.matchId, matchId))
+      .limit(1),
+    db
+      .select({
+        teamId: scoringMatchSquadsTable.teamId,
+        squadJson: scoringMatchSquadsTable.squadJson,
+      })
+      .from(scoringMatchSquadsTable)
+      .where(eq(scoringMatchSquadsTable.matchId, matchId)),
+  ]);
 
   const teamMeta = await resolveCricketFranchiseTeamsByIds(tournamentId, [
     match.homeTeamId,
@@ -346,6 +363,20 @@ export async function getPublicMatchScorecard(tournamentId: number, matchId: num
   const awayTeam = teamMeta.get(match.awayTeamId);
 
   const playerIds = new Set<number>();
+  const sessionState = sessionRows[0]?.stateJson;
+  const battingCards = scorecard.innings.map((inn) => {
+    const squad = squadRows.find((row) => row.teamId === inn.battingTeamId)?.squadJson;
+    return {
+      innings: inn.innings,
+      captainId: typeof squad?.captainId === "number" ? squad.captainId : null,
+      battingOrder: resolveBattingOrder({
+        battingOrder: squad?.battingOrder,
+        lineup: lineupIds(sessionState, inn.battingTeamId),
+        playingXi: squad?.playingXi,
+      }),
+    };
+  });
+
   for (const inn of scorecard.innings) {
     for (const b of inn.batting) {
       playerIds.add(b.playerId);
@@ -354,6 +385,12 @@ export async function getPublicMatchScorecard(tournamentId: number, matchId: num
     }
     for (const b of inn.bowling) playerIds.add(b.playerId);
     for (const f of inn.fallOfWickets) playerIds.add(f.playerId);
+    if (inn.currentPartnership?.batter1Id) playerIds.add(inn.currentPartnership.batter1Id);
+    if (inn.currentPartnership?.batter2Id) playerIds.add(inn.currentPartnership.batter2Id);
+  }
+  for (const card of battingCards) {
+    if (card.captainId) playerIds.add(card.captainId);
+    for (const id of card.battingOrder) playerIds.add(id);
   }
 
   const playerMap = await resolveCricketFranchisePlayersByIds(tournamentId, [...playerIds]);
@@ -409,5 +446,15 @@ export async function getPublicMatchScorecard(tournamentId: number, matchId: num
     scorecard,
     players: Object.fromEntries(playerNames),
     manOfTheMatch,
+    battingCards,
   };
+}
+
+function lineupIds(state: unknown, teamId: number): number[] {
+  if (!state || typeof state !== "object") return [];
+  const lineups = (state as { lineups?: unknown }).lineups;
+  if (!lineups || typeof lineups !== "object") return [];
+  const raw = (lineups as Record<string, unknown>)[String(teamId)];
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((id): id is number => typeof id === "number" && Number.isInteger(id) && id > 0);
 }
