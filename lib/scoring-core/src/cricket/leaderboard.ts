@@ -37,9 +37,11 @@ export type LeaderboardRow = {
 
 function oversToDecimal(overs: string): number {
   const parts = overs.split(".");
-  const w = parseInt(parts[0] ?? "0", 10);
-  const b = parseInt(parts[1] ?? "0", 10);
-  return w + b / 6;
+  const wholeOvers = Number.parseInt(parts[0] ?? "0", 10);
+  const balls = Number.parseInt(parts[1] ?? "0", 10);
+  // Stored cricket overs use overs.balls notation, not a decimal fraction.
+  // This aggregate currently assumes the standard six-ball over format.
+  return wholeOvers + balls / 6;
 }
 
 export function aggregateTournamentPlayerStats(
