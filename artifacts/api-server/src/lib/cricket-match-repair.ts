@@ -28,6 +28,7 @@ import {
   projectMatchPlayerStats,
   rebuildTournamentLeaderboards,
 } from "./scoring-stats-service";
+import { rebuildCricketPlayerStatistics } from "./scoring-global-stats-service";
 import { ensureScoringEnabled, rebuildTournamentStandings } from "./scoring-standings";
 import { advanceTournamentProgression } from "./tournament-progression-service";
 
@@ -334,8 +335,8 @@ async function resetOne(tournamentId: number, matchId: number) {
  * reset — delete the ball-by-ball log and derived scores, return the match to
  * scheduled, and keep the playing squad so it can be scored again.
  *
- * Career (global) player totals are left untouched. They are additive and a
- * second write would double-count.
+ * Global and tournament player aggregates are rebuilt from the corrected match
+ * projections after the repairs, so removed/changed player contributions do not linger.
  */
 export async function repairCompletedCricketMatches(
   tournamentId: number,
@@ -371,6 +372,7 @@ export async function repairCompletedCricketMatches(
   let tableRefreshError: string | null = null;
   if (repaired.length > 0) {
     try {
+      await rebuildCricketPlayerStatistics();
       await rebuildTournamentStandings(tournamentId);
       await rebuildTournamentLeaderboards(tournamentId);
       await advanceTournamentProgression(tournamentId);
