@@ -5,8 +5,8 @@
 
 import { db } from "@workspace/db";
 import {
-  globalPlayersTable,
   playerStatisticsTable,
+  playerTeamAssignmentsTable,
   scoringMatchPlayerStatsTable,
   scoringMatchesTable,
 } from "@workspace/db";
@@ -20,7 +20,6 @@ import {
   type BowlingCardRow,
 } from "@workspace/scoring-core";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
-import { resolveCricketMasterPlayerIdsByOpaque } from "./master-sports/cricket-franchise-registry";
 
 export type CricketStatsJson = {
   matches: number;
@@ -93,54 +92,7 @@ function statRowToInput(row: typeof scoringMatchPlayerStatsTable.$inferSelect): 
     batting,
     bowling,
     fielding: row.fieldingJson ?? { catches: 0, runOuts: 0, stumpings: 0 },
-  async function replacePlayerStatistics(
-  masterPlayerId: string,
-  tournamentId: number | null,
-  stats: CricketStatsJson | null,
-): Promise<void> {
-  const scope = and(
-    eq(playerStatisticsTable.playerId, masterPlayerId),
-    eq(playerStatisticsTable.sport, "cricket"),
-    tournamentId === null
-      ? isNull(playerStatisticsTable.tournamentId)
-      : eq(playerStatisticsTable.tournamentId, tournamentId),
-  );
-
-  if (stats === null) {
-    await db.delete(playerStatisticsTable).where(scope);
-    return;
-  }
-
-  const [existing] = await db
-    .select({ id: playerStatisticsTable.id })
-    .from(playerStatisticsTable)
-    .where(scope)
-    .limit(1);
-
-  if (existing) {
-    await db
-      .update(playerStatisticsTable)
-      .set({
-        statsJson: stats,
-        matchesPlayed: stats.matches,
-        pointsScored: stats.runs,
-        updatedAt: new Date(),
-      })
-      .where(eq(playerStatisticsTable.id, existing.id));
-    return;
-  }
-
-  await db.insert(playerStatisticsTable).values({
-    playerId: masterPlayerId,
-    sport: "cricket",
-    tournamentId,
-    matchesPlayed: stats.matches,
-    pointsScored: stats.runs,
-    statsJson: stats,
-  });
-}
-
-/**
+  /**
  * Rebuild cricket statistics from completed match-player projections. The
  * canonical input is scoring_match_player_stats; player_statistics is a
  * replaceable projection, never an increment-only ledger.
@@ -178,7 +130,6 @@ export async function rebuildCricketPlayerStatistics(): Promise<void> {
   const sourceRows = new Map<string, PlayerMatchStatsInput[]>();
   const playerKeys = new Map<string, { masterPlayerId: string; tournamentId: number | null }>();
 
-  const canonical = new Map<string, typeof assignmentRows[number]>();
   for (const row of assignmentRows) {
     const key = `${row.tournamentId}:${row.opaquePlayerId}`;
     if (!masterByOpaque.has(key)) masterByOpaque.set(key, row.masterPlayerId);
@@ -238,15 +189,6 @@ export async function rebuildCricketPlayerStatistics(): Promise<void> {
     const [agg] = aggregateTournamentPlayerStats(rows).values();
     if (agg) rebuilt.set(scopeKey, aggregateToStatsJson(agg));
   }
-
-  const existingRows = await db
-    .select({
-      id: playerStatisticsTable.id,
-      playerId: playerStatisticsTable.playerId,
-      tournamentId: playerStatisticsTable.tournamentId,
-    })
-    .from(playerStatisticsTable)
-    .where(eq(playerStatisticsTable.sport, "cricket"));
 
   // Clear only cricket projections then write their canonical aggregate.
   // Non-cricket player_statistics records are never touched.
