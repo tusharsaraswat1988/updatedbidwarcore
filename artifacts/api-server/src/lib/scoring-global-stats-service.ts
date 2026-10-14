@@ -92,13 +92,13 @@ function statRowToInput(row: typeof scoringMatchPlayerStatsTable.$inferSelect): 
     batting,
     bowling,
     fielding: row.fieldingJson ?? { catches: 0, runOuts: 0, stumpings: 0 },
-  /**
- * Rebuild cricket statistics from completed match-player projections. The
- * canonical input is scoring_match_player_stats; player_statistics is a
- * replaceable projection, never an increment-only ledger.
- *
- * Repeated calls therefore produce the same result, and scorecard repairs
- * remove stale runs/wickets from both tournament and career totals.
+  };
+}
+
+/**
+ * Rebuild stats from authoritative completed-match player projections.
+ * player_statistics is a materialized projection, never an additive ledger.
+ * Replaying this function is safe and repairs stale tournament/career totals.
  */
 export async function rebuildCricketPlayerStatistics(): Promise<void> {
   const assignmentRows = await db
@@ -124,12 +124,9 @@ export async function rebuildCricketPlayerStatistics(): Promise<void> {
     .where(eq(scoringMatchesTable.status, "completed"))
     .orderBy(desc(playerTeamAssignmentsTable.assignedAt));
 
-  // Match the registry's historical resolution rule: latest assignment wins
-  // for a tournament-scoped opaque player ID.
+  // Historical roster rows can repeat an opaque player ID. Match the registry's
+  // resolution rule by selecting the most recently assigned canonical identity.
   const masterByOpaque = new Map<string, string>();
-  const sourceRows = new Map<string, PlayerMatchStatsInput[]>();
-  const playerKeys = new Map<string, { masterPlayerId: string; tournamentId: number | null }>();
-
   for (const row of assignmentRows) {
     const key = `${row.tournamentId}:${row.opaquePlayerId}`;
     if (!masterByOpaque.has(key)) masterByOpaque.set(key, row.masterPlayerId);
@@ -145,7 +142,6 @@ export async function rebuildCricketPlayerStatistics(): Promise<void> {
       battingJson: scoringMatchPlayerStatsTable.battingJson,
       bowlingJson: scoringMatchPlayerStatsTable.bowlingJson,
       fieldingJson: scoringMatchPlayerStatsTable.fieldingJson,
-      status: scoringMatchesTable.status,
     })
     .from(scoringMatchPlayerStatsTable)
     .innerJoin(
@@ -154,77 +150,70 @@ export async function rebuildCricketPlayerStatistics(): Promise<void> {
     )
     .where(eq(scoringMatchesTable.status, "completed"));
 
-  const stableIdByScope = new Map<string, number>();
-  let nextStableId = 1;
+  const grouped = new Map<string, PlayerMatchStatsInput[]>();
+  const identityByScope = new Map<string, { masterPlayerId: string; tournamentId: number | null }>();
+  const syntheticPlayerIds = new Map<string, number>();
+  let nextSyntheticPlayerId = 1;
+
   for (const row of rawRows) {
     const masterPlayerId = masterByOpaque.get(`${row.tournamentId}:${row.playerId}`);
     if (!masterPlayerId) continue;
 
-    const inputRow = statRowToInput({
+    const input = statRowToInput({
       ...row,
       createdAt: new Date(0),
       updatedAt: new Date(0),
     } as typeof scoringMatchPlayerStatsTable.$inferSelect);
 
-    const tournamentKey = `${masterPlayerId}:tournament:${row.tournamentId}`;
-    const careerKey = `${masterPlayerId}:career`;
-    for (const scopeKey of [tournamentKey, careerKey]) {
-      const existing = sourceRows.get(scopeKey) ?? [];
-      const stableKey = `${scopeKey}`;
-      if (!stableIdByScope.has(stableKey)) stableIdByScope.set(stableKey, nextStableId++);
-      existing.push({
-        ...inputRow,
-        playerId: stableIdByScope.get(stableKey)!,
-      });
-      sourceRows.set(scopeKey, existing);
-      playerKeys.set(scopeKey, {
-        masterPlayerId,
-        tournamentId: scopeKey === careerKey ? null : row.tournamentId,
-      });
+    const scopes = [
+      { key: `${masterPlayerId}:tournament:${row.tournamentId}`, tournamentId: row.tournamentId },
+      { key: `${masterPlayerId}:career`, tournamentId: null },
+    ];
+
+    for (const scope of scopes) {
+      if (!syntheticPlayerIds.has(scope.key)) {
+        syntheticPlayerIds.set(scope.key, nextSyntheticPlayerId++);
+      }
+      const rows = grouped.get(scope.key) ?? [];
+      rows.push({ ...input, playerId: syntheticPlayerIds.get(scope.key)! });
+      grouped.set(scope.key, rows);
+      identityByScope.set(scope.key, { masterPlayerId, tournamentId: scope.tournamentId });
     }
   }
 
-  const rebuilt = new Map<string, CricketStatsJson>();
-  for (const [scopeKey, rows] of sourceRows) {
-    const [agg] = aggregateTournamentPlayerStats(rows).values();
-    if (agg) rebuilt.set(scopeKey, aggregateToStatsJson(agg));
-  }
-
-  // Clear only cricket projections then write their canonical aggregate.
-  // Non-cricket player_statistics records are never touched.
-  await db
-    .delete(playerStatisticsTable)
-    .where(eq(playerStatisticsTable.sport, "cricket"));
-
-  if (rebuilt.size === 0) return;
-
-  const values = [...rebuilt.entries()].map(([scopeKey, stats]) => {
-    const identity = playerKeys.get(scopeKey)!;
-    return {
+  const rebuilt: { playerId: string; sport: string; tournamentId: number | null; matchesPlayed: number; pointsScored: number; statsJson: CricketStatsJson }[] = [];
+  for (const [scopeKey, rows] of grouped) {
+    const aggregate = [...aggregateTournamentPlayerStats(rows).values()][0];
+    if (!aggregate) continue;
+    const identity = identityByScope.get(scopeKey)!;
+    const stats = aggregateToStatsJson(aggregate);
+    rebuilt.push({
       playerId: identity.masterPlayerId,
       sport: "cricket",
       tournamentId: identity.tournamentId,
       matchesPlayed: stats.matches,
       pointsScored: stats.runs,
       statsJson: stats,
-    };
+    });
+  }
+
+  // Replace cricket projections atomically; other sports are not affected.
+  await db.transaction(async (tx) => {
+    await tx.delete(playerStatisticsTable).where(eq(playerStatisticsTable.sport, "cricket"));
+    if (rebuilt.length > 0) await tx.insert(playerStatisticsTable).values(rebuilt);
   });
-  await db.insert(playerStatisticsTable).values(values);
 }
 
-/** Rebuild the aggregate projection after any completed-match stats change. */
+/** Reconcile the materialized global and tournament aggregates from match stats. */
 export async function projectGlobalCricketStatsForMatch(matchId: number): Promise<void> {
   const [match] = await db
-    .select()
+    .select({ id: scoringMatchesTable.id, status: scoringMatchesTable.status })
     .from(scoringMatchesTable)
     .where(eq(scoringMatchesTable.id, matchId))
     .limit(1);
 
   if (!match || match.status !== "completed") return;
   await rebuildCricketPlayerStatistics();
-}
-
- }
 }
 
 export type GlobalLeaderboardRow = {
@@ -302,18 +291,3 @@ export async function getGlobalCricketLeaderboard(
   });
 }
 
-/** Full rebuild of career rows from all completed match stats (admin/recovery). */
-export async function rebuildGlobalCricketCareerStats(): Promise<void> {
-  await db
-    .delete(playerStatisticsTable)
-    .where(and(eq(playerStatisticsTable.sport, "cricket"), isNull(playerStatisticsTable.tournamentId)));
-
-  const completedMatches = await db
-    .select({ id: scoringMatchesTable.id })
-    .from(scoringMatchesTable)
-    .where(eq(scoringMatchesTable.status, "completed"));
-
-  for (const m of completedMatches) {
-    await projectGlobalCricketStatsForMatch(m.id);
-  }
-}
