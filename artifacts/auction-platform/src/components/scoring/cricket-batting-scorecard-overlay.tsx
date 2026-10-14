@@ -8,6 +8,14 @@ import { useQuery } from "@tanstack/react-query";
 import type { InningsScorecard } from "@workspace/scoring-core";
 import { BROADCAST_FONTS } from "@/components/broadcast/tokens";
 import {
+  BIDWAR_BROADCAST_YELLOW,
+  BIDWAR_BROADCAST_YELLOW_ON,
+  BIDWAR_BROADCAST_YELLOW_SOFT,
+  BIDWAR_SCOREBOARD_INSET,
+  BIDWAR_SCOREBOARD_PANEL,
+  BIDWAR_SCOREBOARD_SHELL,
+} from "@/lib/bidwar-broadcast-colors";
+import {
   buildBattingBroadcastCard,
   selectBattingInnings,
   type BattingBroadcastCard,
@@ -18,13 +26,10 @@ import {
   type PublicScorecardResponse,
 } from "@/lib/scoring-api";
 
-const TEAL = "#0e8a74";
-const TEAL_ROW = "#0c7564";
-const RED = "#e1262d";
-const INK = "#1b242c";
-const HEADER = "#1b222b";
-const PAPER = "#f7fbfb";
-const ALT = "#e5f4f1";
+const INK = "#F8FAFC";
+const DIM = "rgba(248, 250, 252, 0.72)";
+const MUTE = "rgba(248, 250, 252, 0.46)";
+const LINE = "rgba(255, 255, 255, 0.10)";
 
 type CardProps = {
   tournamentName: string;
@@ -41,31 +46,39 @@ export function BattingScorecardCard({ tournamentName, card, inningsNote, messag
       style={{
         maxHeight: "100%",
         borderRadius: 16,
-        background: "#f4f7f8",
+        background: BIDWAR_SCOREBOARD_SHELL,
+        borderTop: `3px solid ${BIDWAR_BROADCAST_YELLOW}`,
         boxShadow: "0 22px 60px rgba(0, 0, 0, 0.55)",
         fontFamily: BROADCAST_FONTS.body,
+        color: INK,
       }}
     >
       <header
-        className="px-6 py-3 text-center text-[28px] font-semibold tracking-wide text-white"
-        style={{ background: HEADER }}
+        className="px-6 py-3 text-center text-[28px] font-semibold tracking-wide"
+        style={{ background: BIDWAR_SCOREBOARD_PANEL, color: INK }}
       >
         Batting Scorecard
       </header>
       {card ? (
         <>
-          <div className="relative flex items-center justify-center px-6 py-2.5 text-white" style={{ background: TEAL }}>
+          <div
+            className="relative flex items-center justify-center px-6 py-2.5"
+            style={{ background: BIDWAR_SCOREBOARD_INSET, borderBottom: `1px solid ${LINE}`, color: INK }}
+          >
             <span className="min-w-0 truncate px-28 text-center text-[26px] font-bold">{card.teamName}</span>
             {inningsNote ? (
-              <span className="absolute right-6 text-[13px] font-bold uppercase tracking-[0.14em] text-white/85">
+              <span
+                className="absolute right-6 text-[13px] font-bold uppercase tracking-[0.14em]"
+                style={{ color: BIDWAR_BROADCAST_YELLOW }}
+              >
                 {inningsNote}
               </span>
             ) : null}
           </div>
-          <div className="min-h-0 overflow-auto" style={{ background: PAPER }}>
-            <table className="w-full border-collapse text-[16px] text-[#1b242c]">
+          <div className="min-h-0 overflow-auto" style={{ background: BIDWAR_SCOREBOARD_SHELL }}>
+            <table className="w-full border-collapse text-[16px]" style={{ color: INK }}>
               <thead>
-                <tr style={{ background: "#eef3f4", color: "#41505c" }}>
+                <tr style={{ background: BIDWAR_SCOREBOARD_PANEL, color: MUTE }}>
                   <th className="px-4 py-2 text-left font-semibold">Batter</th>
                   <th className="px-3 py-2 text-left font-semibold">Dismissal</th>
                   <th className="px-3 py-2 text-right font-semibold">Runs</th>
@@ -79,47 +92,54 @@ export function BattingScorecardCard({ tournamentName, card, inningsNote, messag
                   <tr
                     key={row.playerId}
                     style={{
-                      background: row.notOut ? TEAL_ROW : index % 2 === 0 ? "#ffffff" : ALT,
-                      color: row.notOut ? "#ffffff" : INK,
+                      background: row.notOut
+                        ? BIDWAR_BROADCAST_YELLOW_SOFT
+                        : index % 2 === 0
+                          ? "transparent"
+                          : BIDWAR_SCOREBOARD_INSET,
+                      color: row.notOut ? BIDWAR_BROADCAST_YELLOW : INK,
                     }}
                   >
                     <td className="px-4 py-1.5 font-semibold">
                       {row.name}
                       {row.captain ? " (c)" : ""}
                     </td>
-                    <td className={`px-3 py-1.5 ${row.notOut ? "font-bold tracking-wide" : ""}`}>
+                    <td className={`px-3 py-1.5 ${row.notOut ? "font-bold tracking-wide" : ""}`} style={{ color: row.notOut ? BIDWAR_BROADCAST_YELLOW : DIM }}>
                       {row.dismissal}
                     </td>
-                    <td className="px-3 py-1.5 text-right tabular-nums font-bold">
+                    <td className="px-3 py-1.5 text-right tabular-nums font-bold" style={{ color: BIDWAR_BROADCAST_YELLOW }}>
                       {row.runs}
-                      <span className="ml-1 text-[12px] font-semibold opacity-75">({row.balls})</span>
+                      <span className="ml-1 text-[12px] font-semibold" style={{ color: MUTE }}>({row.balls})</span>
                     </td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">{row.fours}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">{row.sixes}</td>
-                    <td className="px-4 py-1.5 text-right tabular-nums">{formatStrikeRate(row.strikeRate)}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums" style={{ color: DIM }}>{row.fours}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums" style={{ color: DIM }}>{row.sixes}</td>
+                    <td className="px-4 py-1.5 text-right tabular-nums" style={{ color: DIM }}>{formatStrikeRate(row.strikeRate)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             {card.yetToBat.length > 0 ? (
-              <div className="border-t border-black/5 px-4 py-2" style={{ background: "#ffffff" }}>
-                <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#60707c]">Yet To Bat</p>
-                <p className="mt-0.5 text-[16px] font-semibold text-[#1b242c]">{card.yetToBat.join(", ")}</p>
+              <div className="px-4 py-2" style={{ background: BIDWAR_SCOREBOARD_SHELL, borderTop: `1px solid ${LINE}` }}>
+                <p className="text-[12px] font-bold uppercase tracking-[0.16em]" style={{ color: MUTE }}>Yet To Bat</p>
+                <p className="mt-0.5 text-[16px] font-semibold" style={{ color: INK }}>{card.yetToBat.join(", ")}</p>
               </div>
             ) : null}
           </div>
-          <div className="grid grid-cols-[minmax(140px,0.7fr)_1.4fr_1fr] text-[20px] font-bold text-white">
-            <div className="px-4 py-2.5" style={{ background: TEAL }}>Extras {card.extras}</div>
-            <div className="px-4 py-2.5 text-center" style={{ background: RED }}>{card.overs} Overs</div>
-            <div className="px-4 py-2.5 text-right" style={{ background: RED }}>
+          <div className="grid grid-cols-[minmax(140px,0.7fr)_1.4fr_1fr] text-[20px] font-bold" style={{ borderTop: `1px solid ${LINE}` }}>
+            <div className="px-4 py-2.5" style={{ background: BIDWAR_SCOREBOARD_SHELL, color: DIM }}>Extras {card.extras}</div>
+            <div className="px-4 py-2.5 text-center" style={{ background: BIDWAR_SCOREBOARD_PANEL, color: BIDWAR_BROADCAST_YELLOW }}>{card.overs} Overs</div>
+            <div className="px-4 py-2.5 text-right" style={{ background: BIDWAR_BROADCAST_YELLOW, color: BIDWAR_BROADCAST_YELLOW_ON }}>
               Total {card.totalRuns}/{card.totalWickets}
             </div>
           </div>
         </>
       ) : (
-        <p className="px-8 py-16 text-center text-[22px] font-semibold text-[#41505c]">{message}</p>
+        <p className="px-8 py-16 text-center text-[22px] font-semibold" style={{ color: DIM }}>{message}</p>
       )}
-      <footer className="px-4 py-2 text-center text-[15px] font-semibold tracking-wide text-[#2c3842]" style={{ background: "#f3f5f6" }}>
+      <footer
+        className="px-4 py-2 text-center text-[15px] font-semibold tracking-wide"
+        style={{ background: BIDWAR_SCOREBOARD_SHELL, color: BIDWAR_BROADCAST_YELLOW, borderTop: `1px solid ${LINE}` }}
+      >
         {tournamentName || "Cricket"}
       </footer>
     </section>
