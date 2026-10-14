@@ -5,6 +5,7 @@
 
 import { db } from "@workspace/db";
 import {
+  globalPlayersTable,
   playerStatisticsTable,
   playerTeamAssignmentsTable,
   scoringMatchPlayerStatsTable,
