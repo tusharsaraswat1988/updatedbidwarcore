@@ -515,14 +515,17 @@ function ScorecardPlate({
       {plates.map((inn) => {
         const batting = teamById(teams, inn.battingTeamId);
         return (
-          <section key={inn.innings} className="border border-white/10" style={{ background: BIDWAR_SCOREBOARD_SHELL }}>
-            <div className="flex items-baseline justify-between border-b border-white/10 px-4 py-3">
+          <section
+            key={inn.innings}
+            className="border border-white/10"
+            style={{ background: BIDWAR_SCOREBOARD_SHELL, borderTop: `3px solid ${BIDWAR_BROADCAST_YELLOW}` }}
+          >
+            <div className="flex items-baseline justify-between border-b border-white/10 px-4 py-3" style={{ background: BIDWAR_SCOREBOARD_PANEL }}>
               <h2 className="text-3xl uppercase text-white" style={{ fontFamily: BROADCAST_FONTS.display }}>
                 {batting?.name || `Innings ${inn.innings}`}
               </h2>
-              <p className="text-4xl tabular-nums text-white" style={{ fontFamily: BROADCAST_FONTS.display }}>
-                {inn.totalRuns}-{inn.totalWickets}
-                <span className="ml-2 text-base" style={{ color: BIDWAR_BROADCAST_YELLOW }}>({inn.overs})</span>
+              <p className="text-base font-bold uppercase tracking-[0.14em]" style={{ color: BIDWAR_BROADCAST_YELLOW }}>
+                {inn.innings === 1 ? "1st" : inn.innings === 2 ? "2nd" : `${inn.innings}th`} innings
               </p>
             </div>
             <div className="grid grid-cols-2 gap-0">
@@ -539,16 +542,22 @@ function ScorecardPlate({
                 </thead>
                 <tbody>
                   {inn.batting.map((batter) => (
-                    <tr key={batter.playerId} className="border-t border-white/5">
-                      <td className="px-3 py-1.5 text-white">
-                        <span className="font-bold">{batter.name}{batter.notOut ? " *" : ""}</span>
-                        <span className="mt-0.5 block text-[11px] uppercase text-white/45">{batter.dismissal}</span>
+                    <tr
+                      key={batter.playerId}
+                      className="border-t border-white/10"
+                      style={{ background: batter.notOut ? "rgba(255, 215, 0, 0.10)" : "transparent" }}
+                    >
+                      <td className="px-3 py-1.5">
+                        <span className="font-bold" style={{ color: batter.notOut ? BIDWAR_BROADCAST_YELLOW : "#F8FAFC" }}>
+                          {batter.name}{batter.notOut ? " *" : ""}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] uppercase" style={{ color: "rgba(248, 250, 252, 0.46)" }}>{batter.dismissal}</span>
                       </td>
-                      <td className="px-2 py-1.5 text-right tabular-nums text-white">{batter.runs}</td>
-                      <td className="px-2 py-1.5 text-right tabular-nums text-white/70">{batter.balls}</td>
-                      <td className="px-2 py-1.5 text-right tabular-nums text-white/70">{batter.fours}</td>
-                      <td className="px-2 py-1.5 text-right tabular-nums text-white/70">{batter.sixes}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums text-white/70">{batter.strikeRate.toFixed(1)}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums font-bold" style={{ color: BIDWAR_BROADCAST_YELLOW }}>{batter.runs}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums" style={{ color: "rgba(248, 250, 252, 0.72)" }}>{batter.balls}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums" style={{ color: "rgba(248, 250, 252, 0.72)" }}>{batter.fours}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums" style={{ color: "rgba(248, 250, 252, 0.72)" }}>{batter.sixes}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums" style={{ color: "rgba(248, 250, 252, 0.72)" }}>{batter.strikeRate.toFixed(1)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -578,10 +587,18 @@ function ScorecardPlate({
                 </tbody>
               </table>
             </div>
-            <p className="border-t border-white/10 px-4 py-2 text-xs uppercase tracking-wide text-white/60">
-              {inn.extrasLine}
-              {inn.fallLine ? ` · Fall ${inn.fallLine}` : ""}
-            </p>
+            <div className="grid grid-cols-[1fr_auto_auto] items-stretch border-t border-white/10">
+              <p className="px-4 py-2 text-xs uppercase tracking-wide" style={{ color: "rgba(248, 250, 252, 0.72)" }}>
+                {inn.extrasLine}
+                {inn.fallLine ? ` · Fall ${inn.fallLine}` : ""}
+              </p>
+              <p className="px-4 py-2 font-mono text-sm font-bold" style={{ color: BIDWAR_BROADCAST_YELLOW }}>
+                {inn.overs} Overs
+              </p>
+              <p className="px-4 py-2 font-mono text-sm font-black" style={{ background: BIDWAR_BROADCAST_YELLOW, color: "#050507" }}>
+                Total {inn.totalRuns}/{inn.totalWickets}
+              </p>
+            </div>
           </section>
         );
       })}

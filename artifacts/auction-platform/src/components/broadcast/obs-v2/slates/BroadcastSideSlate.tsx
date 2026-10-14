@@ -282,7 +282,9 @@ function SideSlateShell({
             <div
               className="h-1.5 w-12 rounded-full"
               style={{
-                background: "linear-gradient(90deg, #FFD700 0%, #12CFFF 100%)",
+                background: variant === "SCORECARD"
+                  ? "#FFD700"
+                  : "linear-gradient(90deg, #FFD700 0%, #12CFFF 100%)",
               }}
             />
           </div>
@@ -544,38 +546,107 @@ function ScorecardVariant({
   return (
     <div className="flex flex-col gap-3 max-h-[640px] overflow-y-auto pr-1">
       {plates.map((plate) => (
-        <div key={plate.innings} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-black uppercase text-white">
+        <div
+          key={plate.innings}
+          className="overflow-hidden rounded-lg"
+          style={{
+            background: "#050507",
+            border: "1px solid rgba(255, 255, 255, 0.10)",
+            borderTop: "3px solid #FFD700",
+          }}
+        >
+          <div
+            className="flex items-center justify-between gap-3 px-3 py-2"
+            style={{ background: "#0C0C10", borderBottom: "1px solid rgba(255, 255, 255, 0.10)" }}
+          >
+            <span className="min-w-0 truncate text-[13px] font-black uppercase tracking-wide text-white">
               {teams.get(plate.battingTeamId)?.name || "Batting"}
             </span>
-            <span className="font-mono text-lg font-black text-[#FFD700]">
-              {plate.totalRuns}-{plate.totalWickets} ({plate.overs})
+            <span className="shrink-0 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[#FFD700]">
+              {plate.innings === 1 ? "1st" : plate.innings === 2 ? "2nd" : `${plate.innings}th`} innings
             </span>
           </div>
-          <div className="space-y-1">
-            {plate.batting.map((batter) => (
-              <div key={batter.playerId} className="grid grid-cols-[1fr_auto] gap-2 text-[13px]">
-                <span className="min-w-0 truncate text-white">
-                  {batter.name}
-                  <span className="ml-2 text-slate-400">{batter.dismissal}</span>
-                </span>
-                <span className="font-mono text-[#FFD700]">{batter.runs} ({batter.balls})</span>
-              </div>
-            ))}
+
+          <div
+            className="grid gap-1 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.14em]"
+            style={{
+              gridTemplateColumns: "1.4fr 0.9fr repeat(4, 0.45fr)",
+              color: "rgba(248, 250, 252, 0.46)",
+              borderBottom: "1px solid rgba(255, 255, 255, 0.10)",
+            }}
+          >
+            <span>Batter</span>
+            <span>Dismissal</span>
+            <span className="text-right">Runs</span>
+            <span className="text-right">4s</span>
+            <span className="text-right">6s</span>
+            <span className="text-right">SR</span>
           </div>
-          <p className="mt-2 text-[12px] text-slate-300">{plate.extrasLine}</p>
-          {plate.fallLine ? <p className="text-[12px] text-slate-400">FOW {plate.fallLine}</p> : null}
-          <div className="mt-2 space-y-1 border-t border-white/10 pt-2">
-            {plate.bowling.map((bowler) => (
-              <div key={bowler.playerId} className="grid grid-cols-[1fr_auto] gap-2 text-[13px]">
-                <span className="truncate text-white">{bowler.name}</span>
-                <span className="font-mono text-cyan-300">
-                  {bowler.overs} · {bowler.runs} · {bowler.wickets}
+
+          {plate.batting.map((batter) => (
+            <div
+              key={batter.playerId}
+              className="grid gap-1 px-3 py-1.5 text-[13px]"
+              style={{
+                gridTemplateColumns: "1.4fr 0.9fr repeat(4, 0.45fr)",
+                background: batter.notOut ? "rgba(255, 215, 0, 0.10)" : "transparent",
+                borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+              }}
+            >
+              <span
+                className="min-w-0 truncate font-bold uppercase"
+                style={{ color: batter.notOut ? "#FFD700" : "#F8FAFC" }}
+              >
+                {batter.name}
+              </span>
+              <span className="min-w-0 truncate uppercase" style={{ color: "rgba(248, 250, 252, 0.72)" }}>
+                {batter.dismissal}
+              </span>
+              <span className="text-right font-mono font-bold text-[#FFD700]">
+                {batter.runs}
+                <span className="ml-1 text-[11px] font-semibold" style={{ color: "rgba(248, 250, 252, 0.46)" }}>
+                  ({batter.balls})
                 </span>
-              </div>
-            ))}
+              </span>
+              <span className="text-right font-mono" style={{ color: "rgba(248, 250, 252, 0.72)" }}>{batter.fours}</span>
+              <span className="text-right font-mono" style={{ color: "rgba(248, 250, 252, 0.72)" }}>{batter.sixes}</span>
+              <span className="text-right font-mono" style={{ color: "rgba(248, 250, 252, 0.72)" }}>{batter.strikeRate.toFixed(1)}</span>
+            </div>
+          ))}
+
+          <div
+            className="grid grid-cols-[1fr_auto_auto] items-stretch"
+            style={{ borderTop: "1px solid rgba(255, 255, 255, 0.10)" }}
+          >
+            <span className="px-3 py-2 text-[12px] font-bold uppercase tracking-wide" style={{ color: "rgba(248, 250, 252, 0.72)" }}>
+              {plate.extrasLine}
+            </span>
+            <span className="px-3 py-2 font-mono text-[13px] font-bold text-[#FFD700]">
+              {plate.overs} Overs
+            </span>
+            <span className="bg-[#FFD700] px-3 py-2 font-mono text-[13px] font-black text-[#050507]">
+              Total {plate.totalRuns}/{plate.totalWickets}
+            </span>
           </div>
+
+          {plate.fallLine ? (
+            <p className="px-3 py-1.5 text-[11px] uppercase tracking-wide" style={{ color: "rgba(248, 250, 252, 0.46)" }}>
+              FOW {plate.fallLine}
+            </p>
+          ) : null}
+
+          {plate.bowling.length > 0 ? (
+            <div style={{ borderTop: "1px solid rgba(255, 255, 255, 0.10)", background: "#08080C" }}>
+              {plate.bowling.map((bowler) => (
+                <div key={bowler.playerId} className="grid grid-cols-[1fr_auto] gap-2 px-3 py-1.5 text-[13px]">
+                  <span className="truncate font-bold uppercase text-white">{bowler.name}</span>
+                  <span className="font-mono font-bold text-[#FFD700]">
+                    {bowler.overs} · {bowler.runs} · {bowler.wickets}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ))}
     </div>
