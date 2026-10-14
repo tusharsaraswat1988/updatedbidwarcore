@@ -125,8 +125,7 @@ export async function rebuildCricketPlayerStatistics(): Promise<void> {
     .where(eq(scoringMatchesTable.status, "completed"))
     .orderBy(desc(playerTeamAssignmentsTable.assignedAt));
 
-  // Historical roster rows can repeat an opaque player ID. Match the registry's
-  // resolution rule by selecting the most recently assigned canonical identity.
+  // Match the registry's latest-assignment resolution for each opaque ID.
   const masterByOpaque = new Map<string, string>();
   for (const row of assignmentRows) {
     const key = `${row.tournamentId}:${row.opaquePlayerId}`;
@@ -182,7 +181,15 @@ export async function rebuildCricketPlayerStatistics(): Promise<void> {
     }
   }
 
-  const rebuilt: { playerId: string; sport: string; tournamentId: number | null; matchesPlayed: number; pointsScored: number; statsJson: CricketStatsJson }[] = [];
+  const rebuilt: {
+    playerId: string;
+    sport: string;
+    tournamentId: number | null;
+    matchesPlayed: number;
+    pointsScored: number;
+    statsJson: CricketStatsJson;
+  }[] = [];
+
   for (const [scopeKey, rows] of grouped) {
     const aggregate = [...aggregateTournamentPlayerStats(rows).values()][0];
     if (!aggregate) continue;
@@ -198,7 +205,8 @@ export async function rebuildCricketPlayerStatistics(): Promise<void> {
     });
   }
 
-  // Replace cricket projections atomically; other sports are not affected.
+  // Replace the cricket projection atomically so retries and score repairs
+  // cannot add duplicate contributions. Other sports stay untouched.
   await db.transaction(async (tx) => {
     await tx.delete(playerStatisticsTable).where(eq(playerStatisticsTable.sport, "cricket"));
     if (rebuilt.length > 0) await tx.insert(playerStatisticsTable).values(rebuilt);
