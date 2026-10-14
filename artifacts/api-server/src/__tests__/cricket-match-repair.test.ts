@@ -34,7 +34,7 @@ describe("Completed cricket match repair", () => {
     expect(repairSource).toContain("rebuildTournamentStandings");
     expect(repairSource).toContain("rebuildTournamentLeaderboards");
     expect(repairSource).toContain("advanceTournamentProgression");
-    expect(repairSource).not.toContain("projectGlobalCricketStatsForMatch");
+    expect(repairSource).toContain("rebuildCricketPlayerStatistics");
   });
 
   it("reset deletes balls and derived scores but keeps the squad", () => {
