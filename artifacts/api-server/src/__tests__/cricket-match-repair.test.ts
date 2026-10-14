@@ -25,11 +25,12 @@ describe("Completed cricket match repair", () => {
     expect(routeSource).toContain("repairCompletedCricketMatches");
   });
 
-  it("rebuilds from the ball log and refreshes points without double-counting career stats", () => {
+  it("rebuilds canonical player aggregates after match repair", () => {
     expect(repairSource).toContain("deriveCricketMatchResult");
     expect(repairSource).toContain("replayScoringMatchState");
     expect(repairSource).toContain("projectMatchPlayerStats");
     expect(repairSource).toContain("projectMatchAwards");
+    expect(repairSource).toContain("rebuildCricketPlayerStatistics");
     expect(repairSource).toContain("rebuildTournamentStandings");
     expect(repairSource).toContain("rebuildTournamentLeaderboards");
     expect(repairSource).toContain("advanceTournamentProgression");
