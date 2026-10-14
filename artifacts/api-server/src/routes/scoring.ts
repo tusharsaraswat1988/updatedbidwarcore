@@ -51,7 +51,7 @@ import {
   getTournamentTeamPublicProfile,
   listTournamentAwards,
 } from "../lib/scoring-public-service";
-import { getGlobalCricketLeaderboard, projectGlobalCricketStatsForMatch } from "../lib/scoring-global-stats-service";
+import { getGlobalCricketLeaderboard, rebuildCricketPlayerStatistics } from "../lib/scoring-global-stats-service";
 import { advanceTournamentProgression } from "../lib/tournament-progression-service";
 import type { LeaderboardCategory } from "@workspace/scoring-core";
 import { applyCricketRulesToMatches } from "../lib/cricket-rules-service";
@@ -1684,9 +1684,11 @@ router.post("/tournaments/:tournamentId/scoring/reconcile", async (req, res) => 
     for (const m of finishedMatches) {
       await projectMatchPlayerStats(m.id);
       await projectMatchAwards(m.id);
-      await projectGlobalCricketStatsForMatch(m.id);
     }
 
+    // Rebuild global and tournament career projections once, after all match
+    // scorecards have been refreshed. This avoids repeated incremental writes.
+    await rebuildCricketPlayerStatistics();
     await rebuildTournamentStandings(tournamentId);
     await advanceTournamentProgression(tournamentId);
     await rebuildTournamentLeaderboards(tournamentId);
