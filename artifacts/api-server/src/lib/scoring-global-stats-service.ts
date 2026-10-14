@@ -56,24 +56,6 @@ function aggregateToStatsJson(agg: TournamentPlayerAggregate): CricketStatsJson 
   };
 }
 
-function mergeStatsJson(base: CricketStatsJson, add: CricketStatsJson): CricketStatsJson {
-  return {
-    matches: base.matches + add.matches,
-    runs: base.runs + add.runs,
-    balls: base.balls + add.balls,
-    fours: base.fours + add.fours,
-    sixes: base.sixes + add.sixes,
-    fifties: base.fifties + add.fifties,
-    hundreds: base.hundreds + add.hundreds,
-    wickets: base.wickets + add.wickets,
-    oversBowled: base.oversBowled + add.oversBowled,
-    runsConceded: base.runsConceded + add.runsConceded,
-    catches: base.catches + add.catches,
-    runOuts: base.runOuts + add.runOuts,
-    stumpings: base.stumpings + add.stumpings,
-  };
-}
-
 function statRowToInput(row: typeof scoringMatchPlayerStatsTable.$inferSelect): PlayerMatchStatsInput {
   const batting: BattingCardRow | null = row.battingJson
     ? {
