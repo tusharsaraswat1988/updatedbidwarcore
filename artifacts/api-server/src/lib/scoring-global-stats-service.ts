@@ -1,24 +1,24 @@
 /**
  * Global cricket career statistics and cross-tournament leaderboards.
- * Materializes into player_statistics (tournament_id NULL = career).
+ * Materializes from completed match-player projections into player_statistics.
  */
 
 import { db } from "@workspace/db";
 import {
+  globalPlayersTable,
   playerStatisticsTable,
   playerTeamAssignmentsTable,
   scoringMatchPlayerStatsTable,
   scoringMatchesTable,
-  globalPlayersTable,
 } from "@workspace/db";
 import {
   aggregateTournamentPlayerStats,
   buildLeaderboard,
+  type BattingCardRow,
+  type BowlingCardRow,
   type LeaderboardCategory,
   type PlayerMatchStatsInput,
   type TournamentPlayerAggregate,
-  type BattingCardRow,
-  type BowlingCardRow,
 } from "@workspace/scoring-core";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
@@ -56,7 +56,9 @@ function aggregateToStatsJson(agg: TournamentPlayerAggregate): CricketStatsJson 
   };
 }
 
-function statRowToInput(row: typeof scoringMatchPlayerStatsTable.$inferSelect): PlayerMatchStatsInput {
+function statRowToInput(
+  row: typeof scoringMatchPlayerStatsTable.$inferSelect,
+): PlayerMatchStatsInput {
   const batting: BattingCardRow | null = row.battingJson
     ? {
         playerId: row.playerId,
@@ -97,9 +99,9 @@ function statRowToInput(row: typeof scoringMatchPlayerStatsTable.$inferSelect): 
 }
 
 /**
- * Rebuild stats from authoritative completed-match player projections.
+ * Rebuild cricket stats from canonical completed-match player projections.
  * player_statistics is a materialized projection, never an additive ledger.
- * Replaying this function is safe and repairs stale tournament/career totals.
+ * Repeated runs are idempotent and repairs replace stale contributions.
  */
 export async function rebuildCricketPlayerStatistics(): Promise<void> {
   const assignmentRows = await db
@@ -125,14 +127,14 @@ export async function rebuildCricketPlayerStatistics(): Promise<void> {
     .where(eq(scoringMatchesTable.status, "completed"))
     .orderBy(desc(playerTeamAssignmentsTable.assignedAt));
 
-  // Match the registry's latest-assignment resolution for each opaque ID.
+  // One canonical master player per tournament-scoped opaque player ID.
   const masterByOpaque = new Map<string, string>();
-  for (const row of assignmentRows) {
-    const key = `${row.tournamentId}:${row.opaquePlayerId}`;
-    if (!masterByOpaque.has(key)) masterByOpaque.set(key, row.masterPlayerId);
+  for (const assignment of assignmentRows) {
+    const key = `${assignment.tournamentId}:${assignment.opaquePlayerId}`;
+    if (!masterByOpaque.has(key)) masterByOpaque.set(key, assignment.masterPlayerId);
   }
 
-  const rawRows = await db
+  const sourceRows = await db
     .select({
       matchId: scoringMatchPlayerStatsTable.matchId,
       tournamentId: scoringMatchPlayerStatsTable.tournamentId,
@@ -155,18 +157,21 @@ export async function rebuildCricketPlayerStatistics(): Promise<void> {
   const syntheticPlayerIds = new Map<string, number>();
   let nextSyntheticPlayerId = 1;
 
-  for (const row of rawRows) {
-    const masterPlayerId = masterByOpaque.get(`${row.tournamentId}:${row.playerId}`);
+  for (const source of sourceRows) {
+    const masterPlayerId = masterByOpaque.get(`${source.tournamentId}:${source.playerId}`);
     if (!masterPlayerId) continue;
 
     const input = statRowToInput({
-      ...row,
+      ...source,
       createdAt: new Date(0),
       updatedAt: new Date(0),
     } as typeof scoringMatchPlayerStatsTable.$inferSelect);
 
     const scopes = [
-      { key: `${masterPlayerId}:tournament:${row.tournamentId}`, tournamentId: row.tournamentId },
+      {
+        key: `${masterPlayerId}:tournament:${source.tournamentId}`,
+        tournamentId: source.tournamentId,
+      },
       { key: `${masterPlayerId}:career`, tournamentId: null },
     ];
 
@@ -177,7 +182,10 @@ export async function rebuildCricketPlayerStatistics(): Promise<void> {
       const rows = grouped.get(scope.key) ?? [];
       rows.push({ ...input, playerId: syntheticPlayerIds.get(scope.key)! });
       grouped.set(scope.key, rows);
-      identityByScope.set(scope.key, { masterPlayerId, tournamentId: scope.tournamentId });
+      identityByScope.set(scope.key, {
+        masterPlayerId,
+        tournamentId: scope.tournamentId,
+      });
     }
   }
 
@@ -205,22 +213,19 @@ export async function rebuildCricketPlayerStatistics(): Promise<void> {
     });
   }
 
-  // Replace the cricket projection atomically so retries and score repairs
-  // cannot add duplicate contributions. Other sports stay untouched.
   await db.transaction(async (tx) => {
     await tx.delete(playerStatisticsTable).where(eq(playerStatisticsTable.sport, "cricket"));
     if (rebuilt.length > 0) await tx.insert(playerStatisticsTable).values(rebuilt);
   });
 }
 
-/** Reconcile the materialized global and tournament aggregates from match stats. */
+/** Reconcile derived player aggregates after completed-match projections change. */
 export async function projectGlobalCricketStatsForMatch(matchId: number): Promise<void> {
   const [match] = await db
-    .select({ id: scoringMatchesTable.id, status: scoringMatchesTable.status })
+    .select({ status: scoringMatchesTable.status })
     .from(scoringMatchesTable)
     .where(eq(scoringMatchesTable.id, matchId))
     .limit(1);
-
   if (!match || match.status !== "completed") return;
   await rebuildCricketPlayerStatistics();
 }
