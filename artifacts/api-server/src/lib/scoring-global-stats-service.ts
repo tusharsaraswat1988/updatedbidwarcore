@@ -97,11 +97,6 @@ function statRowToInput(
   };
 }
 
-/**
- * Rebuild cricket stats from canonical completed-match player projections.
- * player_statistics is a materialized projection, never an additive ledger.
- * Repeated runs are idempotent and repairs replace stale contributions.
- */
 /** Reconcile derived player aggregates after completed-match projections change. */
 export async function projectGlobalCricketStatsForMatch(matchId: number): Promise<void> {
   const [match] = await db
