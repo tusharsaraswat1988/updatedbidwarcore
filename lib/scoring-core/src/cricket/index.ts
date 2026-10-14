@@ -9,6 +9,7 @@ export * from "./competition-view";
 export * from "./schedule";
 export * from "./scorecard";
 export * from "./leaderboard";
+export * from "./stat-projection";
 export * from "./mom";
 export * from "./dls";
 export * from "./execution-rules";

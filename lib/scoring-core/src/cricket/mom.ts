@@ -1,4 +1,5 @@
-import type { PlayerMatchStatsInput } from "./leaderboard";
+import { resolveBowlingSpell, type PlayerMatchStatsInput } from "./leaderboard";
+import { oversFromBalls } from "./scorecard";
 
 export type MomCandidate = {
   playerId: number;
@@ -62,15 +63,15 @@ function combineMatchStats(rows: PlayerMatchStatsInput[]): Map<number, PlayerMat
       bowl.wides += row.bowling.wides;
       bowl.noBalls += row.bowling.noBalls;
       bowl.maidens += row.bowling.maidens;
-      const [whole = "0", part = "0"] = bowl.overs.split(".");
-      const legalBalls = parseInt(whole, 10) * 6 + parseInt(part, 10);
-      const addLegal = (() => {
-        const [w = "0", p = "0"] = row.bowling!.overs.split(".");
-        return parseInt(w, 10) * 6 + parseInt(p, 10);
-      })();
-      const totalLegal = legalBalls + addLegal;
-      bowl.overs = `${Math.floor(totalLegal / 6)}.${totalLegal % 6}`;
-      bowl.economy = totalLegal > 0 ? Math.round((bowl.runs / totalLegal) * 6 * 100) / 100 : 0;
+      const current = resolveBowlingSpell(bowl);
+      const added = resolveBowlingSpell(row.bowling);
+      const ballsPerOver = added?.ballsPerOver ?? current?.ballsPerOver ?? 6;
+      const totalLegal = (current?.legalBalls ?? 0) + (added?.legalBalls ?? 0);
+      bowl.legalBalls = totalLegal;
+      bowl.ballsPerOver = ballsPerOver;
+      bowl.overs = oversFromBalls(totalLegal, ballsPerOver);
+      bowl.economy =
+        totalLegal > 0 ? Math.round((bowl.runs / (totalLegal / ballsPerOver)) * 100) / 100 : 0;
       existing.bowling = bowl;
     }
 

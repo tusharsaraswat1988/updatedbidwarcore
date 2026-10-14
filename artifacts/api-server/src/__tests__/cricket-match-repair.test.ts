@@ -25,11 +25,12 @@ describe("Completed cricket match repair", () => {
     expect(routeSource).toContain("repairCompletedCricketMatches");
   });
 
-  it("rebuilds from the ball log and refreshes points without double-counting career stats", () => {
+  it("rebuilds from the ball log and refreshes canonical player totals", () => {
     expect(repairSource).toContain("deriveCricketMatchResult");
     expect(repairSource).toContain("replayScoringMatchState");
     expect(repairSource).toContain("projectMatchPlayerStats");
     expect(repairSource).toContain("projectMatchAwards");
+    expect(repairSource).toContain("rebuildCricketPlayerStatistics");
     expect(repairSource).toContain("rebuildTournamentStandings");
     expect(repairSource).toContain("rebuildTournamentLeaderboards");
     expect(repairSource).toContain("advanceTournamentProgression");
@@ -41,7 +42,10 @@ describe("Completed cricket match repair", () => {
     const next = repairSource.indexOf("async function repairCompletedCricketMatches", start);
     const resetFn = repairSource.slice(start, next);
     expect(resetFn).toContain(".delete(scoringEventsTable)");
-    expect(resetFn).toContain(".delete(scoringMatchPlayerStatsTable)");
+    expect(resetFn).toContain("applyCricketMatchStatistics");
+    expect(resetFn.indexOf('status: "scheduled"')).toBeLessThan(
+      resetFn.indexOf("applyCricketMatchStatistics"),
+    );
     expect(resetFn).toContain(".delete(scoringPlayerAwardsTable)");
     expect(resetFn).toContain('status: "scheduled"');
     expect(resetFn).toContain("winnerTeamId: null");

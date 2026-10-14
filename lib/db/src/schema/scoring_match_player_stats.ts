@@ -19,10 +19,17 @@ export type BattingStatsJson = {
   strikeRate: number;
   notOut: boolean;
   dismissalType: string | null;
+  /** Copied from the scorecard so the ledger is not lossy. Null on older rows. */
+  dismissedByPlayerId?: number | null;
+  fielderId?: number | null;
 };
 
 export type BowlingStatsJson = {
+  /** Cricket notation `overs.balls`, not a decimal fraction. */
   overs: string;
+  /** Legal deliveries. Canonical volume. Absent on rows projected before this column existed. */
+  legalBalls?: number;
+  ballsPerOver?: number;
   maidens: number;
   runs: number;
   wickets: number;
@@ -50,6 +57,11 @@ export const scoringMatchPlayerStatsTable = pgTable(
     battingJson: jsonb("batting_json").$type<BattingStatsJson | null>(),
     bowlingJson: jsonb("bowling_json").$type<BowlingStatsJson | null>(),
     fieldingJson: jsonb("fielding_json").$type<FieldingStatsJson>(),
+    /**
+     * Master player this row was attributed to at the last projection.
+     * A refresh hint only. The current roster assignment is authoritative.
+     */
+    masterPlayerId: text("master_player_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
@@ -65,6 +77,7 @@ export const scoringMatchPlayerStatsTable = pgTable(
     index("ix_scoring_mps_tournament_id").on(t.tournamentId),
     index("ix_scoring_mps_match_id").on(t.matchId),
     index("ix_scoring_mps_player_id").on(t.playerId),
+    index("ix_scoring_mps_master_player_id").on(t.masterPlayerId),
   ],
 );
 
