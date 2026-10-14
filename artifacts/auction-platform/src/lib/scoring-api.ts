@@ -803,7 +803,15 @@ export type GlobalCricketPlayerProfile = {
     name: string;
     city?: string | null;
   };
-  careerStats: Record<string, number>;
+  careerStats: {
+    matches: number;
+    runs: number;
+    wickets: number;
+    strikeRate?: number | null;
+    economy?: number | null;
+    battingAverage?: number | null;
+  } | null;
+  tournamentStats?: Array<{ tournamentId: number; stats: Record<string, unknown> }>;
   manOfTheMatchCount: number;
   tournaments: Array<{ id: number; name: string }>;
 };

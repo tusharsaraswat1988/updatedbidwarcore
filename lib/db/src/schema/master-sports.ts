@@ -17,6 +17,7 @@ import {
   boolean,
   jsonb,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { globalPlayersTable } from "./global_players";
@@ -145,6 +146,11 @@ export const playerStatisticsTable = pgTable(
   },
   (t) => [
     uniqueIndex("uq_ps_player_sport_tournament").on(t.playerId, t.sport, t.tournamentId),
+    // Career rows use a NULL tournament id. Postgres unique indexes treat NULLs
+    // as distinct, so the index above does not stop duplicate career rows.
+    uniqueIndex("uq_ps_cricket_career")
+      .on(t.playerId)
+      .where(sql`${t.tournamentId} IS NULL AND ${t.sport} = 'cricket'`),
     index("ix_ps_player_id").on(t.playerId),
   ],
 );

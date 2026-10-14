@@ -12,8 +12,6 @@ import {
   buildCricketScorecardFromEvents,
   buildLeaderboard,
   resolveBattingOrder,
-  scorecardToPlayerStats,
-  aggregateTournamentPlayerStats,
   pickManOfTheMatch,
   type BattingCardRow,
   type BowlingCardRow,
@@ -24,6 +22,7 @@ import {
   type ScoringEventEnvelope,
 } from "@workspace/scoring-core";
 import { and, eq, inArray } from "drizzle-orm";
+import { aggregateCompletedTournamentPlayers } from "./cricket-player-statistics";
 import { ScoringPlatformError } from "./scoring-platform/errors";
 import { ensureScoringEnabled } from "./scoring-standings";
 import {
@@ -82,57 +81,14 @@ export async function buildMatchScorecard(
   });
 }
 
-/** Project and persist per-player stats for a completed match. */
+/**
+ * Project one completed match into the player ledger and refresh the canonical
+ * tournament and career totals for every player that match affects.
+ * A match that is no longer completed has its ledger rows removed.
+ */
 export async function projectMatchPlayerStats(matchId: number): Promise<void> {
-  const [match] = await db
-    .select()
-    .from(scoringMatchesTable)
-    .where(eq(scoringMatchesTable.id, matchId))
-    .limit(1);
-
-  if (!match || match.status !== "completed") return;
-
-  const scorecard = await buildMatchScorecard(match);
-  const playerRows = scorecardToPlayerStats(scorecard);
-
-  await db
-    .delete(scoringMatchPlayerStatsTable)
-    .where(eq(scoringMatchPlayerStatsTable.matchId, matchId));
-
-  if (playerRows.length === 0) return;
-
-  await db.insert(scoringMatchPlayerStatsTable).values(
-    playerRows.map((row) => ({
-      matchId: match.id,
-      tournamentId: match.tournamentId,
-      playerId: row.playerId,
-      teamId: row.teamId,
-      innings: row.innings,
-      battingJson: row.batting
-        ? {
-            runs: row.batting.runs,
-            balls: row.batting.balls,
-            fours: row.batting.fours,
-            sixes: row.batting.sixes,
-            strikeRate: row.batting.strikeRate,
-            notOut: row.batting.notOut,
-            dismissalType: row.batting.dismissalType,
-          }
-        : null,
-      bowlingJson: row.bowling
-        ? {
-            overs: row.bowling.overs,
-            maidens: row.bowling.maidens,
-            runs: row.bowling.runs,
-            wickets: row.bowling.wickets,
-            wides: row.bowling.wides,
-            noBalls: row.bowling.noBalls,
-            economy: row.bowling.economy,
-          }
-        : null,
-      fieldingJson: row.fielding,
-    })),
-  );
+  const { syncCricketMatchStatistics } = await import("./cricket-player-statistics");
+  await syncCricketMatchStatistics(matchId);
 }
 
 /** Project Man of the Match award for a completed match. */
@@ -161,8 +117,8 @@ export async function projectMatchAwards(matchId: number): Promise<void> {
           strikeRate: row.battingJson.strikeRate,
           notOut: row.battingJson.notOut,
           dismissalType: row.battingJson.dismissalType as BattingCardRow["dismissalType"],
-          dismissedByPlayerId: null,
-          fielderId: null,
+          dismissedByPlayerId: row.battingJson.dismissedByPlayerId ?? null,
+          fielderId: row.battingJson.fielderId ?? null,
         }
       : null;
 
@@ -170,6 +126,8 @@ export async function projectMatchAwards(matchId: number): Promise<void> {
       ? {
           playerId: row.playerId,
           overs: row.bowlingJson.overs,
+          legalBalls: row.bowlingJson.legalBalls,
+          ballsPerOver: row.bowlingJson.ballsPerOver,
           maidens: row.bowlingJson.maidens,
           runs: row.bowlingJson.runs,
           wickets: row.bowlingJson.wickets,
@@ -209,56 +167,15 @@ export async function projectMatchAwards(matchId: number): Promise<void> {
   });
 }
 
-/** Rebuild all leaderboard snapshots for a tournament. */
+/**
+ * Rebuild tournament leaderboard snapshots from completed scorecards and
+ * playing-XI appearances. Ranking categories use the same totals as the
+ * tournament player profile.
+ */
 export async function rebuildTournamentLeaderboards(tournamentId: number): Promise<void> {
   await ensureScoringEnabled(tournamentId);
 
-  const statRows = await db
-    .select()
-    .from(scoringMatchPlayerStatsTable)
-    .where(eq(scoringMatchPlayerStatsTable.tournamentId, tournamentId));
-
-  const playerStats: PlayerMatchStatsInput[] = statRows.map((row) => {
-    const batting: BattingCardRow | null = row.battingJson
-      ? {
-          playerId: row.playerId,
-          runs: row.battingJson.runs,
-          balls: row.battingJson.balls,
-          fours: row.battingJson.fours,
-          sixes: row.battingJson.sixes,
-          strikeRate: row.battingJson.strikeRate,
-          notOut: row.battingJson.notOut,
-          dismissalType: row.battingJson.dismissalType as BattingCardRow["dismissalType"],
-          dismissedByPlayerId: null,
-          fielderId: null,
-        }
-      : null;
-
-    const bowling: BowlingCardRow | null = row.bowlingJson
-      ? {
-          playerId: row.playerId,
-          overs: row.bowlingJson.overs,
-          maidens: row.bowlingJson.maidens,
-          runs: row.bowlingJson.runs,
-          wickets: row.bowlingJson.wickets,
-          wides: row.bowlingJson.wides,
-          noBalls: row.bowlingJson.noBalls,
-          economy: row.bowlingJson.economy,
-        }
-      : null;
-
-    return {
-      matchId: row.matchId,
-      playerId: row.playerId,
-      teamId: row.teamId,
-      innings: row.innings,
-      batting,
-      bowling,
-      fielding: row.fieldingJson ?? { catches: 0, runOuts: 0, stumpings: 0 },
-    };
-  });
-
-  const aggregates = aggregateTournamentPlayerStats(playerStats);
+  const { aggregates } = await aggregateCompletedTournamentPlayers(tournamentId);
 
   await db
     .delete(scoringLeaderboardSnapshotsTable)

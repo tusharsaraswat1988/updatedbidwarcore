@@ -43,7 +43,16 @@ export function resolveBattingOrder(input: {
 
 export type BowlingCardRow = {
   playerId: number;
+  /** Display notation `overs.balls`, not a decimal fraction. */
   overs: string;
+  /**
+   * Legal deliveries in this spell. Canonical bowling volume.
+   * `overs` is derived from this count and `ballsPerOver`.
+   * Absent only on historical rows projected before legal-ball storage.
+   */
+  legalBalls?: number;
+  /** Balls per over used to format `overs` and economy. */
+  ballsPerOver?: number;
   maidens: number;
   runs: number;
   wickets: number;
@@ -156,6 +165,9 @@ function strikeRate(runs: number, balls: number): number {
 
 function batsmanFacesBall(payload: CricketBallRecordedPayload): boolean {
   if (!payload.isLegalDelivery) {
+    // A wide is not a ball faced. A no-ball is a ball faced only when the
+    // batter plays it (runs off the bat). A no-ball that is not played does
+    // not add to balls faced; that matches the live scorecard rule.
     return payload.extras.type === "no_ball" && payload.runsOffBat > 0;
   }
   return payload.extras.type !== "wide";
@@ -573,6 +585,8 @@ export function buildCricketScorecardFromEvents(
           .map(([playerId, b]) => ({
             playerId,
             overs: oversFromBalls(b.legalBalls, ballsPerOver),
+            legalBalls: b.legalBalls,
+            ballsPerOver,
             maidens: b.maidens,
             runs: b.runs,
             wickets: b.wickets,

@@ -4,7 +4,6 @@ import {
   scoringDlsCalculationsTable,
   scoringEventsTable,
   scoringFixturesTable,
-  scoringMatchPlayerStatsTable,
   scoringMatchesTable,
   scoringPlayerAwardsTable,
   scoringSessionsTable,
@@ -30,6 +29,11 @@ import {
 } from "./scoring-stats-service";
 import { ensureScoringEnabled, rebuildTournamentStandings } from "./scoring-standings";
 import { advanceTournamentProgression } from "./tournament-progression-service";
+import {
+  applyCricketMatchStatistics,
+  rebuildCricketPlayerStatistics,
+  syncCricketMatchStatistics,
+} from "./cricket-player-statistics";
 
 const CRICKET_SPORT_SLUG = "cricket" as const;
 const REPAIRABLE_STATUSES = new Set(["completed", "abandoned", "walkover"]);
@@ -253,9 +257,7 @@ async function rebuildOne(tournamentId: number, matchId: number) {
     await projectMatchPlayerStats(updated.id);
     await projectMatchAwards(updated.id);
   } else {
-    await db
-      .delete(scoringMatchPlayerStatsTable)
-      .where(eq(scoringMatchPlayerStatsTable.matchId, updated.id));
+    await syncCricketMatchStatistics(updated.id);
     await db
       .delete(scoringPlayerAwardsTable)
       .where(eq(scoringPlayerAwardsTable.matchId, updated.id));
@@ -276,9 +278,6 @@ async function resetOne(tournamentId: number, matchId: number) {
 
   const updated = await db.transaction(async (tx) => {
     await tx.delete(scoringEventsTable).where(eq(scoringEventsTable.matchId, match.id));
-    await tx
-      .delete(scoringMatchPlayerStatsTable)
-      .where(eq(scoringMatchPlayerStatsTable.matchId, match.id));
     await tx.delete(scoringPlayerAwardsTable).where(eq(scoringPlayerAwardsTable.matchId, match.id));
     await tx
       .delete(scoringDlsCalculationsTable)
@@ -314,6 +313,9 @@ async function resetOne(tournamentId: number, matchId: number) {
     }
 
     await writeSession(tx, match, initialState, "idle", 0);
+    // Status is already scheduled, so this deletes the match ledger and
+    // replaces the affected players' cache inside the same transaction.
+    await applyCricketMatchStatistics(tx, match.id);
     return row ?? match;
   });
 
@@ -334,8 +336,8 @@ async function resetOne(tournamentId: number, matchId: number) {
  * reset — delete the ball-by-ball log and derived scores, return the match to
  * scheduled, and keep the playing squad so it can be scored again.
  *
- * Career (global) player totals are left untouched. They are additive and a
- * second write would double-count.
+ * Career and tournament totals are rebuilt from the corrected ledger afterwards.
+ * A reset removes that match's contribution instead of leaving it in the cache.
  */
 export async function repairCompletedCricketMatches(
   tournamentId: number,
@@ -371,6 +373,7 @@ export async function repairCompletedCricketMatches(
   let tableRefreshError: string | null = null;
   if (repaired.length > 0) {
     try {
+      await rebuildCricketPlayerStatistics();
       await rebuildTournamentStandings(tournamentId);
       await rebuildTournamentLeaderboards(tournamentId);
       await advanceTournamentProgression(tournamentId);
