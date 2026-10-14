@@ -9,6 +9,7 @@ import {
   playerTeamAssignmentsTable,
   scoringMatchPlayerStatsTable,
   scoringMatchesTable,
+  globalPlayersTable,
 } from "@workspace/db";
 import {
   aggregateTournamentPlayerStats,
