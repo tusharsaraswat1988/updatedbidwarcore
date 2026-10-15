@@ -38,6 +38,7 @@ import {
   buildCanonicalCricketAggregates,
   buildCricketScorecardFromEvents,
   identityKey,
+  mastersToRefreshForMatch,
   planCricketStatisticWrites,
   resolveOpaquePlayerIdentities,
   scorecardToPlayerStats,
@@ -417,21 +418,6 @@ async function replaceMatchLedger(
   return { previous, nextPlayerIds: playerRows.map((row) => row.playerId) };
 }
 
-function mastersForOpaqueIds(
-  assignments: AssignmentSnapshot[],
-  tournamentId: number,
-  opaqueIds: number[],
-): string[] {
-  const wanted = new Set(opaqueIds);
-  return [
-    ...new Set(
-      assignments
-        .filter((row) => row.tournamentId === tournamentId && wanted.has(row.opaquePlayerId))
-        .map((row) => row.masterPlayerId),
-    ),
-  ];
-}
-
 async function refreshMasters(tx: StatsTx, masterIds: string[]): Promise<void> {
   const uniqueMasters = [...new Set(masterIds.filter(Boolean))];
   if (uniqueMasters.length === 0) return;
@@ -495,17 +481,29 @@ async function syncWithin(tx: StatsTx, matchId: number): Promise<void> {
   const identities = resolveOpaquePlayerIdentities(assignments);
   const { previous, nextPlayerIds } = await replaceMatchLedger(tx, match, identities);
 
-  const opaqueIds = [
-    ...new Set([...previous.map((row) => row.playerId), ...nextPlayerIds]),
-  ];
-  const affected = new Set<string>();
-  for (const row of previous) {
-    if (row.masterPlayerId) affected.add(row.masterPlayerId);
-  }
-  for (const masterId of mastersForOpaqueIds(assignments, match.tournamentId, opaqueIds)) {
-    affected.add(masterId);
-  }
-  await refreshMasters(tx, [...affected]);
+  const squads = await tx
+    .select({ squadJson: scoringMatchSquadsTable.squadJson })
+    .from(scoringMatchSquadsTable)
+    .where(eq(scoringMatchSquadsTable.matchId, match.id));
+  const playingXiIds = squads.flatMap((squad) => squad.squadJson.playingXi ?? []);
+  const cached = await tx
+    .select({ playerId: playerStatisticsTable.playerId })
+    .from(playerStatisticsTable)
+    .where(
+      and(
+        eq(playerStatisticsTable.sport, CRICKET_SPORT),
+        eq(playerStatisticsTable.tournamentId, match.tournamentId),
+      ),
+    );
+  const affected = mastersToRefreshForMatch({
+    tournamentId: match.tournamentId,
+    assignments,
+    previousMasterIds: previous.map((row) => row.masterPlayerId),
+    ledgerOpaqueIds: [...previous.map((row) => row.playerId), ...nextPlayerIds],
+    playingXiIds,
+    cachedMasterIds: cached.map((row) => row.playerId),
+  });
+  await refreshMasters(tx, affected);
 }
 
 /**

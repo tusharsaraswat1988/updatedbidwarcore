@@ -8,6 +8,7 @@ import {
   buildLeaderboard,
   createEventEnvelope,
   identityKey,
+  mastersToRefreshForMatch,
   parseOversNotation,
   planCricketStatisticWrites,
   resolveBowlingSpell,
@@ -523,6 +524,22 @@ describe("canonical cricket projection", () => {
       identities: map,
     });
     expect(scoped.every((row) => row.masterPlayerId === "current-player")).toBe(true);
+  });
+
+  it("refreshes a playing XI player and a cached player who is no longer in the match", () => {
+    const masters = mastersToRefreshForMatch({
+      tournamentId: 10,
+      assignments: [
+        assignment({ tournamentId: 10, opaquePlayerId: 11, masterPlayerId: "batter" }),
+        assignment({ tournamentId: 10, opaquePlayerId: 501, masterPlayerId: "fielder" }),
+        assignment({ tournamentId: 10, opaquePlayerId: 77, masterPlayerId: "removed" }),
+      ],
+      previousMasterIds: ["batter"],
+      ledgerOpaqueIds: [11],
+      playingXiIds: [501],
+      cachedMasterIds: ["removed"],
+    });
+    expect(masters).toEqual(["batter", "fielder", "removed"]);
   });
 
   it("counts a playing XI appearance without a batting or bowling row", () => {

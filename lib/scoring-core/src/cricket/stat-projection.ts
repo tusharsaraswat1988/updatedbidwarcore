@@ -298,6 +298,35 @@ export function planCricketStatisticWrites(input: {
   return { upserts, deleteIds, excluded: [] };
 }
 
+/**
+ * Masters whose cricket cache must be rewritten after one match changes.
+ * Includes the current scorecard, the current playing XI, the previous
+ * attribution stored on the ledger, and anyone who already has a tournament
+ * cache row. The last group is what drops a player who left the XI.
+ */
+export function mastersToRefreshForMatch(input: {
+  tournamentId: number;
+  assignments: AssignmentSnapshot[];
+  previousMasterIds: Array<string | null | undefined>;
+  ledgerOpaqueIds: number[];
+  playingXiIds: number[];
+  cachedMasterIds: string[];
+}): string[] {
+  const opaqueIds = new Set<number>();
+  for (const id of [...input.ledgerOpaqueIds, ...input.playingXiIds]) {
+    if (Number.isInteger(id) && id > 0) opaqueIds.add(id);
+  }
+  const masters = new Set<string>();
+  for (const id of [...input.previousMasterIds, ...input.cachedMasterIds]) {
+    if (id) masters.add(id);
+  }
+  for (const row of input.assignments) {
+    if (row.tournamentId !== input.tournamentId || !opaqueIds.has(row.opaquePlayerId)) continue;
+    if (row.masterPlayerId) masters.add(row.masterPlayerId);
+  }
+  return [...masters].sort();
+}
+
 export function applyStatisticPlan(
   existing: StoredStatisticRow[],
   plan: Pick<StatisticWritePlan, "upserts" | "deleteIds">,
