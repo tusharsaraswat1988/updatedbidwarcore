@@ -294,6 +294,7 @@ async function sendAdminEmail<E extends AdminNotificationEventType>(
 export async function sendAdminNotification<E extends AdminNotificationEventType>(
   eventType: E,
   payload: AdminNotificationPayloadMap[E],
+  options?: { skipEmail?: boolean },
 ): Promise<{ notificationId: number | null }> {
   try {
     const settings = await getAdminNotificationSettings();
@@ -303,7 +304,9 @@ export async function sendAdminNotification<E extends AdminNotificationEventType
       notificationId = await insertInAppNotification(eventType, payload);
     }
 
-    await sendAdminEmail(eventType, payload, settings);
+    if (!options?.skipEmail) {
+      await sendAdminEmail(eventType, payload, settings);
+    }
 
     logger.info({ eventType, notificationId }, "Admin notification dispatched");
     return { notificationId };
@@ -328,8 +331,9 @@ export async function sendAdminNotification<E extends AdminNotificationEventType
 export function sendAdminNotificationAsync<E extends AdminNotificationEventType>(
   eventType: E,
   payload: AdminNotificationPayloadMap[E],
+  options?: { skipEmail?: boolean },
 ): void {
-  void sendAdminNotification(eventType, payload).catch((err) => {
+  void sendAdminNotification(eventType, payload, options).catch((err) => {
     logger.error({ eventType, err }, "Async admin notification failed");
   });
 }

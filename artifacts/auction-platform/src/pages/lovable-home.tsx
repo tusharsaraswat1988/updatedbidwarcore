@@ -1451,19 +1451,16 @@ function RealTournaments({
                 data-tournament-index={i}
                 aria-selected={i === idx}
                 onClick={() => setIdx(i)}
-                className={`min-h-11 shrink-0 snap-start whitespace-nowrap rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition ${
+                className={`min-h-11 shrink-0 cursor-pointer snap-start whitespace-nowrap rounded-md px-4 py-2 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                   i === idx
-                    ? "border-primary bg-primary/20 text-primary shadow-sm"
-                    : "border-white/10 bg-white/[0.03] text-muted-foreground hover:text-foreground"
+                    ? "gold-button"
+                    : "ghost-button ghost-button-hover"
                 }`}
               >
                 {tour.tabLabel || tour.name}
               </button>
             ))}
           </div>
-          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            {idx + 1} of {tournaments.length}
-          </p>
         </div>
 
         <div className="relative grid min-w-0 gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-center">
@@ -1765,9 +1762,13 @@ function ContactSection({ onOpen }: { onOpen: () => void }) {
 }
 
 function ContactForm({ compact = false }: { compact?: boolean }) {
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const [sending, setSending] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
     const name = String(fd.get("name") || "").trim();
     const mobile = String(fd.get("mobile") || "").trim();
     const email = String(fd.get("email") || "").trim();
@@ -1776,6 +1777,10 @@ function ContactForm({ compact = false }: { compact?: boolean }) {
     const teams = String(fd.get("teams") || "").trim();
     const contact = String(fd.get("contact") || "").trim();
     const message = String(fd.get("message") || "").trim();
+    if (name.length < 2) {
+      setFormError("Enter your name before requesting a consultation.");
+      return;
+    }
     const text = [
       "Hi, I want a live BidWar demo for my sports auction.",
       name && `Name: ${name}`,
@@ -1787,7 +1792,45 @@ function ContactForm({ compact = false }: { compact?: boolean }) {
       contact && `Preferred contact: ${contact}`,
       message && `Details: ${message}`,
     ].filter(Boolean).join("\n");
-    window.open(waMeUrl(text), "_blank", "noopener,noreferrer");
+    const whatsapp = window.open("", "_blank");
+    setSending(true);
+    setFormError(null);
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: name,
+          email,
+          phone: mobile,
+          inquiryType: "demo",
+          subject: "Live consultation request",
+          message: message || "No extra tournament details provided.",
+          consent: true,
+          source: "homepage_consultation",
+          city,
+          sport,
+          teamCount: teams,
+          preferredContact: contact,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { emailDelivered?: boolean } | null;
+      if (!response.ok || data?.emailDelivered === false) {
+        setFormError("The request email could not be sent. WhatsApp is opening with the same details.");
+      } else {
+        form.reset();
+      }
+    } catch {
+      setFormError("The request email could not be sent. WhatsApp is opening with the same details.");
+    } finally {
+      setSending(false);
+      const url = waMeUrl(text);
+      if (whatsapp) {
+        whatsapp.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+    }
   };
 
   return (
@@ -1806,9 +1849,14 @@ function ContactForm({ compact = false }: { compact?: boolean }) {
         <Select label="Preferred Contact" name="contact" options={["WhatsApp", "Phone Call", "Email"]} />
       </div>
       <Field label="Tournament Details" name="message" as="textarea" />
-      <button type="submit" className="gold-button gold-button-hover w-full rounded-md py-3 text-xs font-bold uppercase tracking-wider">
-        Request Live Consultation →
+      <button
+        type="submit"
+        disabled={sending}
+        className="gold-button gold-button-hover w-full rounded-md py-3 text-xs font-bold uppercase tracking-wider disabled:cursor-wait disabled:opacity-70"
+      >
+        {sending ? "Sending…" : "Request Live Consultation →"}
       </button>
+      {formError ? <p className="text-center text-xs text-amber-200">{formError}</p> : null}
       <p className="text-center text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-mono">
         We respond within 24 hours · Verified sports auction support
       </p>
