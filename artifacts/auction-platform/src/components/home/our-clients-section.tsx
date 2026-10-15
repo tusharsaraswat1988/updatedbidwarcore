@@ -191,7 +191,7 @@ export function OurClientsSection() {
             onMouseMove={onMouseMove}
             onMouseUp={onMouseUpOrLeave}
             onMouseLeave={onMouseUpOrLeave}
-            className={`flex items-stretch gap-4 sm:gap-5 overflow-x-auto py-3 pb-6 scroll-smooth cursor-grab active:cursor-grabbing [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+            className={`flex min-w-0 max-w-full items-stretch gap-4 overflow-x-auto overscroll-x-contain py-3 pb-6 sm:gap-5 cursor-grab active:cursor-grabbing [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
           >
             {allClients.map((client) => {
               const hasWebsite = Boolean(client.websiteUrl);

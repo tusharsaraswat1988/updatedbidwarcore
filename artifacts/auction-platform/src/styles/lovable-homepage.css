@@ -289,8 +289,28 @@
   font-family: "Anton", "Barlow Condensed", sans-serif !important;
   letter-spacing: 0.025em !important;
   text-transform: uppercase !important;
-  line-height: 1.05 !important;
+  line-height: 1.22 !important;
   font-weight: 400 !important;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+/*
+ * Homepage-only clearance for the fixed mobile trial bar.
+ * The bar measures itself into --bw-sticky-cta-offset. The fallback
+ * covers first paint. Desktop and other lovable-home pages stay flush.
+ */
+@media (max-width: 767px) {
+  .lovable-home.has-mobile-sticky-cta {
+    --bw-sticky-cta-offset: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--bw-sticky-cta-offset);
+  }
+}
+
+@media (min-width: 768px) {
+  .lovable-home.has-mobile-sticky-cta {
+    padding-bottom: 5.5rem;
+  }
 }
 
 .lovable-home h3,
@@ -324,19 +344,22 @@
 /* Exact Lovable utility declarations as plain classes */
 
 :is(.lovable-home, .lovable-theme) .text-hero {
+  display: flex;
+  flex-direction: column;
+  row-gap: 0.16em;
   font-size: clamp(2.75rem, 7vw, 6.5rem) !important;
-  line-height: 0.9 !important;
+  line-height: 1.05 !important;
   letter-spacing: -0.01em !important;
 }
 
 :is(.lovable-home, .lovable-theme) .text-display-lg {
   font-size: clamp(2rem, 4vw, 3.5rem);
-  line-height: 0.95;
+  line-height: 1.22 !important;
 }
 
 :is(.lovable-home, .lovable-theme) .text-display-md {
   font-size: clamp(1.5rem, 2.5vw, 2.25rem);
-  line-height: 1;
+  line-height: 1.22 !important;
 }
 
 :is(.lovable-home, .lovable-theme) .gold-text {
@@ -484,8 +507,10 @@
   :is(.lovable-home, .lovable-theme) [class*="ticker-track"],
   :is(.lovable-home, .lovable-theme) .live-dot,
   :is(.lovable-home, .lovable-theme) [class*="live-dot"],
-  :is(.lovable-home, .lovable-theme) .ecosystem-line {
+  :is(.lovable-home, .lovable-theme) .ecosystem-line,
+  :is(.lovable-home, .lovable-theme) .bw-scroll-top {
     animation: none !important;
+    transition: none !important;
   }
 }
 

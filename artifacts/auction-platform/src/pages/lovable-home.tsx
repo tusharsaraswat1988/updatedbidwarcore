@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState, useRef, type FormEvent, type MouseEvent, type WheelEvent } from "react";
+import { Suspense, lazy, useEffect, useState, useRef, type FormEvent, type MouseEvent } from "react";
 import { useLocation } from "wouter";
 import {
   Play,
@@ -16,12 +16,14 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  ArrowUp,
 } from "lucide-react";
 import { HomeSchemaMarkup } from "@/components/schema-markup";
 import type { PaymentPlan } from "@/components/payment-modal";
 import { BrandLogoImage } from "@/components/brand-logo-image";
 import { PublicAuthCta } from "@/components/public-auth-cta";
-import { ScrollToTopButton } from "@/components/scroll-to-top-button";
+import { ScrollToTopButton, scrollPageToTop, useScrolledPast } from "@/components/scroll-to-top-button";
+import { centeredScrollLeft, stickyContentOffsetPx } from "@/lib/home-mobile-chrome";
 import { getBrandLogoAlt, getBrandWordmarkSrc, getPublicBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
@@ -123,11 +125,11 @@ function StatTile({ value, label, sub }: { value: string; label: string; sub?: s
 
   return (
     <div className="scoreboard-tile flex flex-col justify-between gap-1 px-3.5 py-3 sm:px-4 sm:py-3.5 rounded-xl bg-card/60 border border-white/10 transition-colors hover:border-primary/40 min-h-[84px]">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground truncate" title={label}>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground break-words leading-tight" title={label}>
         {label}
       </span>
       <span
-        className={`font-display font-bold leading-tight text-primary count-flicker truncate ${
+        className={`font-display font-bold leading-tight text-primary count-flicker break-words ${
           isMini ? "text-lg sm:text-xl" : isCompact ? "text-2xl sm:text-2xl" : "text-2xl sm:text-3xl"
         }`}
         title={value}
@@ -135,7 +137,7 @@ function StatTile({ value, label, sub }: { value: string; label: string; sub?: s
         {value}
       </span>
       {sub ? (
-        <span className="text-[11px] text-muted-foreground/80 truncate leading-tight" title={sub}>
+        <span className="text-[11px] text-muted-foreground/80 break-words leading-tight" title={sub}>
           {sub}
         </span>
       ) : (
@@ -282,6 +284,31 @@ export default function LovableHome() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const showScrollTop = useScrolledPast();
+  const stickyCtaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const bar = stickyCtaRef.current;
+    const root = bar?.closest(".lovable-home");
+    if (!bar || !(root instanceof HTMLElement)) return;
+
+    const apply = () => {
+      const desktop = window.matchMedia("(min-width: 768px)").matches;
+      const height = desktop ? 0 : bar.getBoundingClientRect().height;
+      root.style.setProperty("--bw-sticky-cta-offset", `${stickyContentOffsetPx(height, desktop)}px`);
+    };
+
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(bar);
+    const query = window.matchMedia("(min-width: 768px)");
+    query.addEventListener("change", apply);
+    return () => {
+      observer.disconnect();
+      query.removeEventListener("change", apply);
+      root.style.removeProperty("--bw-sticky-cta-offset");
+    };
+  }, []);
 
   // Video Modal State
   const [videoModalProps, setVideoModalProps] = useState<VideoModalProps | null>(null);
@@ -340,7 +367,7 @@ export default function LovableHome() {
   return (
     <>
       <HomeSchemaMarkup />
-      <div className="lovable-home min-h-screen text-foreground bg-stage overflow-x-hidden">
+      <div className="lovable-home has-mobile-sticky-cta min-h-screen min-w-0 max-w-full text-foreground bg-stage">
         <Header
           onOpenDrawer={() => setDrawerOpen(true)}
           goBlog={goBlog}
@@ -355,13 +382,15 @@ export default function LovableHome() {
           />
         )}
 
-        <main>
+        <main className="min-w-0 max-w-full">
           {/* 1. Hero Section with Live Tournament Showcase */}
-          <Hero goSignup={goSignup} />
+          <Hero goSignup={goSignup} onDemo={openDemoWhatsApp} />
 
           {/* 2. Trust Strip & Live Tournament Ticker */}
           <TrustBadges />
           <Ticker />
+
+          <ProductOfferings />
 
           {/* 3. The 7 Connected Surfaces (Auction Control, Bidding Web App, LED Screen, OBS, Live View, Communications, Reports) */}
           <ProductShowcase onOpenLightbox={openLightbox} />
@@ -384,8 +413,7 @@ export default function LovableHome() {
           {/* 9. FAQ Section */}
           <FAQ />
 
-          {/* 10. Final Booking CTA & Contact Desk */}
-          <FinalCTA onContact={openDemoWhatsApp} goSignup={goSignup} />
+          {/* 10. Contact Desk */}
           <ContactSection onOpen={() => setContactOpen(true)} />
 
           {/* 11. Our Clients (Brands, Firms, and Auction Organisations) */}
@@ -418,15 +446,31 @@ export default function LovableHome() {
           <span>Book Live Demo</span>
           <span>→</span>
         </button>
-        <ScrollToTopButton />
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-stage/95 p-3 backdrop-blur-md md:hidden">
-          <button
-            type="button"
-            onClick={goSignup}
-            className="gold-button w-full rounded-md py-3 text-xs font-bold uppercase tracking-wider"
-          >
-            Start Free Trial (2 Teams)
-          </button>
+        <ScrollToTopButton placement="desktop-left" />
+        <div
+          ref={stickyCtaRef}
+          data-home-sticky-cta=""
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-stage/95 px-3 pt-3 backdrop-blur-md md:hidden pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        >
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={goSignup}
+              className="gold-button min-h-11 flex-1 rounded-md px-3 py-3 text-xs font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Start Free Trial (2 Teams)
+            </button>
+            {showScrollTop ? (
+              <button
+                type="button"
+                onClick={scrollPageToTop}
+                aria-label="Scroll back to top"
+                className="bw-scroll-top flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-primary/50 bg-black/85 text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <ArrowUp className="h-5 w-5" aria-hidden="true" />
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {contactOpen && <ContactDrawer onClose={() => setContactOpen(false)} />}
@@ -445,10 +489,10 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
   goAcademy: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-white/10 bg-stage/90 backdrop-blur-md">
-      <div className="w-full max-w-[1440px] mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8 h-16">
-        <a href="/" className="flex items-center shrink-0 mr-4 xl:mr-6 2xl:mr-8" aria-label={`${BRAND_NAME} Home`}>
-          <BrandMark />
+    <header className="sticky top-0 z-30 min-w-0 border-b border-white/10 bg-stage/90 backdrop-blur-md">
+      <div className="mx-auto flex h-16 w-full min-w-0 max-w-[1440px] items-center justify-between gap-2 px-3 sm:px-6 lg:px-8">
+        <a href="/" className="flex min-w-0 items-center mr-2 xl:mr-6 2xl:mr-8" aria-label={`${BRAND_NAME} Home`}>
+          <BrandMark className="h-9 w-auto max-w-[7.25rem] object-contain object-left sm:h-10 sm:max-w-[168px]" />
         </a>
 
         <nav className="hidden xl:flex items-center gap-1 xl:gap-2 2xl:gap-3.5 text-[13px] font-medium text-muted-foreground">
@@ -494,6 +538,12 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
             className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
           >
             Pricing
+          </a>
+          <a
+            href="/bpl"
+            className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
+          >
+            BPL
           </a>
 
           {/* More / Solutions Mega Dropdown */}
@@ -576,16 +626,7 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
           </div>
         </nav>
 
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto xl:ml-4">
-          <a
-            href="/bpl"
-            className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/20 px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-amber-300 shadow-sm transition hover:border-amber-400 hover:bg-amber-400/25 hover:text-white whitespace-nowrap"
-          >
-            <span className="text-amber-400">🏆</span>
-            <span className="hidden 2xl:inline">BidWar Premier League</span>
-            <span className="hidden sm:inline 2xl:hidden">BPL</span>
-            <span className="inline sm:hidden">BPL</span>
-          </a>
+        <div className="ml-auto flex min-w-0 shrink items-center gap-1.5 sm:gap-2.5 xl:ml-4">
           <PublicAuthCta variant="homepage" />
           <button
             type="button"
@@ -635,15 +676,8 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
           <PublicAuthCta variant="drawer" onBeforeNavigate={onClose} />
         </div>
 
-        <a
-          href="/bpl"
-          onClick={onClose}
-          className="mb-3 flex items-center justify-center gap-2 rounded-lg border border-amber-400/50 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 px-4 py-3 text-xs font-bold uppercase tracking-wider text-amber-300 transition hover:bg-amber-400/30 hover:text-white"
-        >
-          <span>🏆</span>
-          <span>BidWar Premier League</span>
-        </a>
         {([
+          { label: "BidWar Premier League", href: "/bpl" },
           { label: "Auction Screens", href: "#auction-screens", sectionId: "auction-screens" },
           { label: "Experience Bidding", href: "#experience-bidding", sectionId: "experience-bidding" },
           { label: "Tournament Galleries", href: "#tournament-galleries", sectionId: "tournament-galleries" },
@@ -711,42 +745,52 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
 
 function Hero({
   goSignup,
+  onDemo,
 }: {
   goSignup: () => void;
+  onDemo: () => void;
 }) {
   return (
     <section id="top" className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 grid-bg opacity-30" />
       <BidPulseMotif className="pointer-events-none absolute -right-20 -top-16 h-[520px] w-[520px] opacity-25" />
 
-      <div className="mx-auto grid max-w-7xl gap-10 px-5 py-14 lg:grid-cols-[1.1fr_0.9fr] lg:py-20">
-        <div className="flex flex-col justify-center">
+      <div className="mx-auto grid min-w-0 max-w-7xl gap-10 px-5 py-10 sm:py-14 lg:grid-cols-[1.1fr_0.9fr] lg:py-20">
+        <div className="flex min-w-0 flex-col justify-center">
           <div className="mb-5 flex flex-wrap items-center gap-2.5">
             <LiveBadge label="⚡ 2026 SEASON READY" />
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-mono">
-              #1 Sports Auction Platform in India
+              Auctions, scoring, and sponsor screens
             </span>
           </div>
 
           <h1 className="text-hero font-display tracking-tight">
             <span className="block">From Auction</span>
-            <span className="block gold-text">to Champion.</span>
+            <span className="block gold-text">to Champions.</span>
           </h1>
+          <p className="text-display-md mt-4 max-w-xl font-display text-foreground">
+            One Platform. Every Stage of the Game.
+          </p>
 
-          <p className="mt-5 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-            BidWar is India&rsquo;s <strong className="text-foreground">auction-first platform</strong> for
-            live sports player auctions — IPL-style bidding rooms for cricket, badminton, football, kabaddi,
-            and corporate leagues. Team owners bid in <strong className="text-foreground">virtual points</strong> from their phones,
-            your LED wall displays real-time graphics, and your operator stays in complete control.
+          <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            From player auctions to live cricket, box cricket and badminton scoring, BidWar helps tournaments
+            run the game and bring sponsors into the experience.
           </p>
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={goSignup}
-              className="gold-button gold-button-hover rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
+              className="gold-button gold-button-hover min-h-11 rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
             >
               Start Free Trial →
+            </button>
+            <button
+              type="button"
+              onClick={onDemo}
+              className="ghost-button ghost-button-hover min-h-11 rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
+            >
+              Book Live Demo
             </button>
           </div>
 
@@ -757,12 +801,11 @@ function Hero({
             <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Zero Software Install</span>
           </div>
 
-          {/* Clean 4-Stat Credibility Bar */}
           <div className="mt-8 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            <StatTile value="1,240+" label="Auctions" sub="run on BidWar" />
-            <StatTile value="86.4K" label="Players" sub="allotted live" />
-            <StatTile value="47" label="Cities" sub="across India" />
-            <StatTile value="100%" label="Points-Based" sub="safe & compliant" />
+            <StatTile value="Auctions" label="Player draft" sub="Virtual points purse" />
+            <StatTile value="Cricket" label="Live scoring" sub="Including box cricket" />
+            <StatTile value="Badminton" label="Live scoring" sub="Courts and standings" />
+            <StatTile value="Sponsors" label="On screen" sub="LED and overlays" />
           </div>
         </div>
 
@@ -785,9 +828,9 @@ function TrustBadges() {
     "1080p60 LED Ready",
     "OBS Livestream Overlay",
     "Mobile Phone Bidding",
-    "Cloud-Native 99.98% Uptime",
+    "Cloud-Hosted Rooms",
     "Zero App Install",
-    "Points Purse Compliant",
+    "Virtual Points Purse",
   ];
   return (
     <section aria-label="Trust badges" className="border-y border-white/5 bg-black/40">
@@ -821,8 +864,8 @@ function Ticker() {
   ];
   const track = [...items, ...items];
   return (
-    <div className="border-b border-white/5 bg-black/60 py-2.5 overflow-hidden">
-      <div className="flex overflow-hidden">
+    <div className="max-w-full border-b border-white/5 bg-black/60 py-2.5 overflow-hidden">
+      <div className="flex max-w-full overflow-hidden">
         <div className="ticker-track flex shrink-0 gap-8 whitespace-nowrap pr-8 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           {track.map((t, i) => (
             <span key={i} className="flex items-center gap-2.5">
@@ -833,6 +876,67 @@ function Ticker() {
         </div>
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Product discovery — auctions, scoring, sponsor screens             */
+/* ------------------------------------------------------------------ */
+
+const PRODUCT_OFFERINGS = [
+  {
+    title: "Player auctions",
+    body: "Team owners bid a virtual points purse from any phone. The operator runs the room and the LED.",
+    href: "#auction-screens",
+    sectionId: "auction-screens",
+  },
+  {
+    title: "Cricket scoring",
+    body: "Ball-by-ball cricket scoring, including box-cricket rule profiles, live LED overlays, and a points table.",
+    href: "#tournament-galleries",
+    sectionId: "tournament-galleries",
+  },
+  {
+    title: "Badminton scoring",
+    body: "Live court scoring, standings, and match overlays for badminton tournaments.",
+    href: "/badminton-scoring-software",
+  },
+  {
+    title: "Sponsor screens",
+    body: "Sponsor logos on the auction LED, the stream overlay, and the cricket and badminton scoreboard rails.",
+    href: "#auction-screens",
+    sectionId: "auction-screens",
+    surfaceIndex: 2,
+  },
+] as const;
+
+function ProductOfferings() {
+  return (
+    <section id="offerings" className="mx-auto min-w-0 max-w-7xl px-5 py-14">
+      <div className="mb-6 max-w-2xl">
+        <div className="text-[10px] uppercase tracking-[0.24em] text-primary font-semibold font-mono">
+          What BidWar runs
+        </div>
+        <h2 className="text-display-lg mt-2 font-display">Auctions, scoring, and the screens sponsors sit on.</h2>
+      </div>
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {PRODUCT_OFFERINGS.map((item) => (
+          <a
+            key={item.title}
+            href={item.href}
+            onClick={(event) => {
+              if ("sectionId" in item && item.sectionId) {
+                scrollToSection(item.sectionId, event, "surfaceIndex" in item ? item.surfaceIndex : undefined);
+              }
+            }}
+            className="flex min-h-11 min-w-0 flex-col rounded-xl border border-white/10 bg-card/60 p-4 transition hover:border-primary/40"
+          >
+            <span className="font-display text-lg tracking-wide text-foreground">{item.title}</span>
+            <span className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.body}</span>
+          </a>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -965,29 +1069,33 @@ function ProductShowcase({
       const custom = e as CustomEvent<{ index?: number }>;
       if (typeof custom.detail?.index === "number" && custom.detail.index >= 0 && custom.detail.index < surfaces.length) {
         setActiveTab(custom.detail.index);
-        if (tabsScrollRef.current) {
-          const tabBtn = tabsScrollRef.current.children[custom.detail.index] as HTMLElement | undefined;
-          tabBtn?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-        }
       }
     };
     window.addEventListener("bidwar:select-surface", handleSelect);
     return () => window.removeEventListener("bidwar:select-surface", handleSelect);
   }, [surfaces.length]);
 
+  useEffect(() => {
+    const container = tabsScrollRef.current;
+    const tab = container?.querySelector<HTMLElement>(`[data-surface-index="${activeTab}"]`);
+    if (!container || !tab) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const tabLeft =
+      tab.getBoundingClientRect().left - container.getBoundingClientRect().left + container.scrollLeft;
+    container.scrollTo({
+      left: centeredScrollLeft(container.clientWidth, tabLeft, tab.offsetWidth),
+      behavior: reduce ? "auto" : "smooth",
+    });
+  }, [activeTab]);
+
   const scrollTabs = (direction: "left" | "right") => {
     if (tabsScrollRef.current) {
-      const scrollAmount = 260;
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const scrollAmount = Math.max(180, tabsScrollRef.current.clientWidth * 0.7);
       tabsScrollRef.current.scrollBy({
         left: direction === "left" ? -scrollAmount : scrollAmount,
-        behavior: "smooth",
+        behavior: reduce ? "auto" : "smooth",
       });
-    }
-  };
-
-  const handleTabsWheel = (e: WheelEvent<HTMLDivElement>) => {
-    if (tabsScrollRef.current && e.deltaY !== 0) {
-      tabsScrollRef.current.scrollLeft += e.deltaY;
     }
   };
 
@@ -1017,61 +1125,86 @@ function ProductShowcase({
         </p>
       </div>
 
-      {/* Surface Selector Tabs - with mouse wheel horizontal scroll and left/right arrows */}
-      <div className="relative mb-6 flex items-center gap-2">
+      <div className="relative mb-6 flex min-w-0 items-center gap-2">
         <button
           type="button"
           onClick={() => scrollTabs("left")}
           aria-label="Scroll surfaces left"
-          className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-card/70 text-foreground hover:border-primary/50 hover:bg-primary/10 transition shadow-md"
+          className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-card/70 text-foreground hover:border-primary/50 hover:bg-primary/10 transition shadow-md sm:flex"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
 
         <div
           ref={tabsScrollRef}
-          onWheel={handleTabsWheel}
-          className="flex flex-1 gap-2.5 overflow-x-auto pb-2 scroll-smooth scrollbar-thin scrollbar-thumb-white/20 snap-x"
+          role="tablist"
+          aria-label="Connected auction screens"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+            event.preventDefault();
+            const next = event.key === "ArrowRight"
+              ? Math.min(surfaces.length - 1, activeTab + 1)
+              : Math.max(0, activeTab - 1);
+            setActiveTab(next);
+          }}
+          className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain pb-2 snap-x snap-mandatory focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
+          <div className="flex w-max gap-2.5">
           {surfaces.map((s, idx) => {
             const Icon = s.icon;
+            const selected = activeTab === idx;
             return (
               <button
                 key={s.id}
                 type="button"
+                role="tab"
+                data-surface-tab=""
+                data-surface-index={idx}
+                aria-selected={selected}
                 onClick={() => setActiveTab(idx)}
-                className={`panel flex items-center gap-2.5 px-4 py-2.5 rounded-xl border text-left transition shrink-0 snap-start ${
-                  activeTab === idx
+                className={`panel flex min-h-11 max-w-[15rem] items-center gap-2.5 px-4 py-2.5 rounded-xl border text-left transition shrink-0 snap-start ${
+                  selected
                     ? "border-primary bg-primary/20 text-foreground shadow-lg shadow-primary/10 ring-1 ring-primary/40"
                     : "border-white/10 bg-card/50 text-muted-foreground hover:bg-white/5 hover:text-foreground"
                 }`}
               >
-                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${activeTab === idx ? "bg-primary text-primary-foreground" : "bg-white/5 text-primary"}`}>
-                  <Icon className="h-4 w-4" />
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-primary text-primary-foreground" : "bg-white/5 text-primary"}`}>
+                  <Icon className="h-4 w-4" aria-hidden="true" />
                 </div>
-                <div className="whitespace-nowrap">
+                <div className="min-w-0 whitespace-normal">
                   <div className="font-display text-xs font-bold tracking-wide">{s.title}</div>
                   <div className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{s.tag}</div>
                 </div>
               </button>
             );
           })}
+          </div>
         </div>
 
         <button
           type="button"
           onClick={() => scrollTabs("right")}
           aria-label="Scroll surfaces right"
-          className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-card/70 text-foreground hover:border-primary/50 hover:bg-primary/10 transition shadow-md"
+          className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-card/70 text-foreground hover:border-primary/50 hover:bg-primary/10 transition shadow-md sm:flex"
         >
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
       {/* Surface Interactive Display Panel */}
-      <div className="panel-rail relative overflow-hidden rounded-2xl border border-primary/30 bg-card/60 p-6 lg:p-8">
+      <div className="panel-rail relative min-w-0 overflow-hidden rounded-2xl border border-primary/30 bg-card/60 p-4 sm:p-6 lg:p-8">
         <div className="pointer-events-none absolute inset-0 scan-lines opacity-20" />
-        <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] items-center">
+        <div className="relative mb-5 flex flex-wrap items-center gap-2">
+          <span className="rounded bg-primary/20 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-primary font-bold">
+            {current.tag}
+          </span>
+          <span className="font-mono text-[11px] text-muted-foreground">Surface 0{activeTab + 1} of 0{surfaces.length}</span>
+          <h3 className="w-full font-display text-2xl font-bold tracking-wide text-foreground lg:text-3xl">
+            {current.title}
+          </h3>
+        </div>
+        <div className="grid min-w-0 gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
           {/* Media Preview: Conditional Portrait Smartphone Mockup or Landscape Monitor */}
           {current.isPortrait ? (
             <div className="relative group flex items-center justify-center p-4 sm:p-6 rounded-2xl border-2 border-primary/30 bg-black/70 shadow-[0_20px_50px_rgba(0,0,0,0.9),0_0_35px_rgba(245,158,11,0.18)] ring-1 ring-white/10 min-h-[380px] sm:min-h-[440px] overflow-hidden">
@@ -1092,7 +1225,7 @@ function ProductShowcase({
                   <img
                     src={current.img}
                     alt={current.alt}
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    className="h-full w-full object-contain object-top"
                   />
                   <div className="absolute inset-0 ring-1 ring-inset ring-white/10 pointer-events-none" />
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent" />
@@ -1107,9 +1240,10 @@ function ProductShowcase({
               <button
                 type="button"
                 onClick={handleInspect}
-                className="absolute right-3 bottom-3 flex items-center gap-1.5 rounded-lg bg-black/85 px-3 py-1.5 font-mono text-xs text-primary border border-primary/30 backdrop-blur-md hover:bg-black hover:border-primary transition shadow-lg z-20"
+                aria-label={`Open fullscreen view of ${current.title}`}
+                className="absolute right-3 bottom-3 flex min-h-11 items-center gap-1.5 rounded-lg bg-black/85 px-3 py-2 font-mono text-xs text-primary border border-primary/30 backdrop-blur-md hover:bg-black hover:border-primary transition shadow-lg z-20"
               >
-                <Maximize2 className="h-3.5 w-3.5" /> Fullscreen View
+                <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" /> Fullscreen View
               </button>
             </div>
           ) : (
@@ -1132,35 +1266,25 @@ function ProductShowcase({
                 <img
                   src={current.img}
                   alt={current.alt}
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-102"
+                  className="h-full w-full object-contain object-center"
                 />
                 <div className="absolute inset-0 ring-1 ring-inset ring-white/10 pointer-events-none" />
 
                 <button
                   type="button"
                   onClick={handleInspect}
-                  className="absolute right-3 bottom-3 flex items-center gap-1.5 rounded-lg bg-black/85 px-3 py-1.5 font-mono text-xs text-primary border border-primary/30 backdrop-blur-md hover:bg-black hover:border-primary transition shadow-lg"
+                  aria-label={`Open fullscreen view of ${current.title}`}
+                  className="absolute right-3 bottom-3 flex min-h-11 items-center gap-1.5 rounded-lg bg-black/85 px-3 py-2 font-mono text-xs text-primary border border-primary/30 backdrop-blur-md hover:bg-black hover:border-primary transition shadow-lg"
                 >
-                  <Maximize2 className="h-3.5 w-3.5" /> Fullscreen View
+                  <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" /> Fullscreen View
                 </button>
               </div>
             </div>
           )}
 
           {/* Details & Features List */}
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded bg-primary/20 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-primary font-bold">
-                {current.tag}
-              </span>
-              <span className="font-mono text-[11px] text-muted-foreground">Surface 0{activeTab + 1} of 0{surfaces.length}</span>
-            </div>
-
-            <h3 className="font-display text-2xl lg:text-3xl font-bold text-foreground mt-2 tracking-wide">
-              {current.title}
-            </h3>
-
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          <div className="min-w-0">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               {current.desc}
             </p>
 
@@ -1270,7 +1394,21 @@ function RealTournaments({
   ];
 
   const [idx, setIdx] = useState(0);
+  const tournamentTabsRef = useRef<HTMLDivElement>(null);
   const t = tournaments[idx];
+
+  useEffect(() => {
+    const container = tournamentTabsRef.current;
+    const tab = container?.querySelector<HTMLElement>(`[data-tournament-index="${idx}"]`);
+    if (!container || !tab) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const tabLeft =
+      tab.getBoundingClientRect().left - container.getBoundingClientRect().left + container.scrollLeft;
+    container.scrollTo({
+      left: centeredScrollLeft(container.clientWidth, tabLeft, tab.offsetWidth),
+      behavior: reduce ? "auto" : "smooth",
+    });
+  }, [idx]);
 
   const handleInspectPhoto = () => {
     onOpenLightbox(
@@ -1295,44 +1433,53 @@ function RealTournaments({
         </p>
       </div>
 
-      <div className="panel-rail relative overflow-hidden p-6 md:p-8 rounded-2xl border border-primary/30 bg-card/60">
+      <div className="panel-rail relative min-w-0 overflow-hidden rounded-2xl border border-primary/30 bg-card/60 p-4 sm:p-6 md:p-8">
         <div className="pointer-events-none absolute inset-0 scan-lines opacity-20" />
 
-        {/* Carousel tab bar */}
-        <div className="relative mb-6 flex flex-wrap items-center gap-2">
-          {tournaments.map((tour, i) => (
-            <button
-              key={tour.id}
-              type="button"
-              onClick={() => setIdx(i)}
-              className={`rounded-full border px-4 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${
-                i === idx
-                  ? "border-primary bg-primary/20 text-primary shadow-sm"
-                  : "border-white/10 bg-white/[0.03] text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tour.tabLabel || tour.name}
-            </button>
-          ))}
-          <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
+        <div className="relative mb-6 min-w-0">
+          <div
+            ref={tournamentTabsRef}
+            role="tablist"
+            aria-label="Tournament evidence"
+            className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1"
+          >
+            {tournaments.map((tour, i) => (
+              <button
+                key={tour.id}
+                type="button"
+                role="tab"
+                data-tournament-index={i}
+                aria-selected={i === idx}
+                onClick={() => setIdx(i)}
+                className={`min-h-11 shrink-0 snap-start whitespace-nowrap rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition ${
+                  i === idx
+                    ? "border-primary bg-primary/20 text-primary shadow-sm"
+                    : "border-white/10 bg-white/[0.03] text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tour.tabLabel || tour.name}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
             {idx + 1} of {tournaments.length}
-          </span>
+          </p>
         </div>
 
-        <div className="relative grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-center">
-          <div>
+        <div className="relative grid min-w-0 gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-center">
+          <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-[color:var(--live)]/40 bg-[color:var(--live)]/10 px-3 py-1 text-[10px] font-bold tracking-[0.2em] text-[color:var(--live)]">
+              <span className="max-w-full break-words rounded-full border border-[color:var(--live)]/40 bg-[color:var(--live)]/10 px-3 py-1 text-[10px] font-bold tracking-[0.12em] text-[color:var(--live)] sm:tracking-[0.2em]">
                 <span className="live-dot mr-1.5 align-middle" />{t.seasonTag}
               </span>
-              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-mono">
+              <span className="max-w-full break-words rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-mono sm:tracking-[0.2em]">
                 {t.sportTag}
               </span>
-              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-mono">
+              <span className="max-w-full break-words rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-mono sm:tracking-[0.2em]">
                 {t.location}
               </span>
             </div>
-            <h3 className="text-display-md mt-3 font-display font-bold text-foreground tracking-wide">{t.name}</h3>
+            <h3 className="text-display-md mt-4 max-w-full break-words font-display font-bold tracking-wide text-foreground">{t.name}</h3>
             <p className="mt-3 max-w-lg text-sm text-muted-foreground leading-relaxed">{t.blurb}</p>
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {t.stats.map((s) => (
@@ -1355,19 +1502,19 @@ function RealTournaments({
                 <button
                   type="button"
                   onClick={onPlayReel}
-                  className="flex h-12 w-12 items-center justify-center rounded-full bg-[image:var(--gradient-gold)] text-lg text-[color:var(--primary-foreground)] shadow-[var(--shadow-broadcast)] transition hover:scale-110"
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-[image:var(--gradient-gold)] text-lg text-[color:var(--primary-foreground)] shadow-[var(--shadow-broadcast)]"
                   aria-label="Play highlight video"
                 >
                   ▶
                 </button>
               </div>
 
-              <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-white/90 font-mono">
-                <span>{t.reelLabel}</span>
+              <div className="absolute bottom-2.5 left-3 right-3 flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-[0.16em] text-white/90 font-mono">
+                <span className="min-w-0 break-words">{t.reelLabel}</span>
                 <button
                   type="button"
                   onClick={handleInspectPhoto}
-                  className="text-primary hover:underline flex items-center gap-1"
+                  className="inline-flex min-h-11 items-center gap-1 text-primary hover:underline"
                 >
                   <Maximize2 className="h-3 w-3" /> Zoom Photo
                 </button>
@@ -1482,7 +1629,7 @@ function AcademyPromo({
                   <button
                     type="button"
                     onClick={() => onPlayLesson(lesson.title, lesson.duration, lesson.tag)}
-                    className="inline-flex items-center gap-1 text-primary text-xs font-bold uppercase tracking-wider hover:underline"
+                    className="inline-flex min-h-11 items-center gap-1 px-1 text-primary text-xs font-bold uppercase tracking-wider hover:underline"
                   >
                     <Play className="h-3 w-3 fill-current" /> Watch Video
                   </button>
@@ -1714,49 +1861,40 @@ function ContactDrawer({ onClose }: { onClose: () => void }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Final High-Conversion CTA Banner                                   */
-/* ------------------------------------------------------------------ */
-
-function FinalCTA({ onContact, goSignup }: { onContact: () => void; goSignup: () => void }) {
-  return (
-    <section className="mx-auto max-w-7xl px-5 py-16">
-      <div className="panel-rail relative overflow-hidden p-10 md:p-14 rounded-2xl border border-primary/30 bg-card/60">
-        <BidPulseMotif className="pointer-events-none absolute -right-20 -top-20 h-96 w-96 opacity-35" />
-        <div className="pointer-events-none absolute inset-0 scan-lines opacity-20" />
-        <div className="relative mx-auto max-w-3xl text-center">
-          <div className="text-[10px] uppercase tracking-[0.24em] text-primary font-semibold font-mono">Ready to Go Live?</div>
-          <h2 className="text-hero mt-3 font-display">
-            <span className="block">Your League.</span>
-            <span className="block gold-text">Broadcast-Grade.</span>
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-xs sm:text-sm text-muted-foreground leading-relaxed">
-            Free 2-team trial · No setup fee · Any device · Ready in five minutes. Start your trial or talk to an auction specialist.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={goSignup}
-              className="gold-button gold-button-hover rounded-md px-7 py-3.5 text-xs font-bold uppercase tracking-wider"
-            >
-              Start Free Trial →
-            </button>
-            <button
-              type="button"
-              onClick={onContact}
-              className="ghost-button ghost-button-hover rounded-md px-7 py-3.5 text-xs font-semibold"
-            >
-              ▶ Book Live Consultation
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /* Footer                                                             */
 /* ------------------------------------------------------------------ */
+
+function SocialMark({ label }: { label: "IN" | "FB" | "YT" | "TW" }) {
+  const className = "h-[18px] w-[18px]";
+  if (label === "IN") {
+    return (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" strokeWidth="2" />
+        <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2" />
+        <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (label === "FB") {
+    return (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+        <path fill="currentColor" d="M14.2 8.4V6.9c0-.7.4-1 1.1-1H17V3.2h-2.2C12.1 3.2 11 4.5 11 6.7v1.7H9v2.6h2V21h3.2v-9.9h2.2l.4-2.7h-2.6z" />
+      </svg>
+    );
+  }
+  if (label === "YT") {
+    return (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+        <path fill="currentColor" d="M22.5 7.2a2.8 2.8 0 0 0-2-2C18.8 4.8 12 4.8 12 4.8s-6.8 0-8.5.4a2.8 2.8 0 0 0-2 2A29 29 0 0 0 1.1 12a29 29 0 0 0 .4 4.8 2.8 2.8 0 0 0 2 2c1.7.4 8.5.4 8.5.4s6.8 0 8.5-.4a2.8 2.8 0 0 0 2-2 29 29 0 0 0 .4-4.8 29 29 0 0 0-.4-4.8zM9.8 15.5v-7l6.2 3.5-6.2 3.5z" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="currentColor" d="M14.7 10.3 22.2 2h-1.8l-6.5 7L8.5 2H2.2l8 10.8L2.2 22h1.8l7-7.6L15.4 22h6.3l-8.3-11.2.1-.5zm-2.5 2.7-.8-1.1L4.7 3.3h2.7l5.1 6.8.8 1.1 6.7 8.9h-2.7l-5.1-6.8-.1-.3z" />
+    </svg>
+  );
+}
 
 function FooterBrandMark() {
   const { logos, iconVersion, brandName } = usePublicBranding();
@@ -1837,8 +1975,8 @@ function Footer() {
               <FooterBrandMark />
             </a>
             <p className="mt-4 max-w-sm text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              India&rsquo;s auction-first platform for live sports player auctions. Team owners bid in
-              virtual points — not money. From local leagues to state championship finals — from auction to champion.
+              India&rsquo;s platform for player auctions, live scoring, and sponsor screens. Team owners bid in
+              virtual points — not money. From local leagues to state championship finals — from auction to champions.
             </p>
             <div className="mt-6 flex gap-2">
               {socialLabels.map((label) => {
@@ -1851,9 +1989,9 @@ function Footer() {
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`BidWar on ${social.name}`}
-                      className="ghost-button ghost-button-hover flex h-9 w-9 items-center justify-center rounded-md text-[10px] font-bold tracking-widest"
+                      className="ghost-button ghost-button-hover flex h-9 w-9 items-center justify-center rounded-md"
                     >
-                      {label}
+                      <SocialMark label={label} />
                     </a>
                   );
                 }
@@ -1861,10 +1999,11 @@ function Footer() {
                   <span
                     key={label}
                     title={placeholderSocial.has(label) ? "Coming soon" : undefined}
-                    className="ghost-button flex h-9 w-9 cursor-default items-center justify-center rounded-md text-[10px] font-bold tracking-widest opacity-40"
+                    className="ghost-button flex h-9 w-9 cursor-default items-center justify-center rounded-md opacity-40"
                     aria-disabled="true"
+                    aria-label={label === "TW" ? "X, coming soon" : undefined}
                   >
-                    {label}
+                    <SocialMark label={label} />
                   </span>
                 );
               })}
@@ -1879,8 +2018,8 @@ function Footer() {
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
             {cols.map((c) => (
               <div key={c.h}>
-                <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-primary font-mono">{c.h}</div>
-                <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground">
+                <div className="mb-3 break-words text-[10px] font-semibold uppercase leading-snug tracking-[0.14em] text-primary font-mono sm:tracking-[0.24em]">{c.h}</div>
+                <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground break-words">
                   {c.items.map((i) => (
                     <li key={i.label}>
                       {i.label === "auth-cta" ? (

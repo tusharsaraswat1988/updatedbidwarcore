@@ -715,7 +715,7 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
       className={
         isFullscreen
           ? "fixed inset-0 z-[99999] w-screen h-screen bg-[#070913] p-2.5 sm:p-4 overflow-y-auto flex flex-col justify-between"
-          : "space-y-2.5"
+          : "min-w-0 max-w-full space-y-2.5"
       }
     >
       {/* Fullscreen Official Tournament Branding Bar */}
@@ -738,8 +738,8 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
       )}
 
       {/* ─── 1. CLEAN SCREEN SELECTOR TABS (NO COMBINATIONS) + FULLSCREEN ACTION ───────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-black/70 border border-white/10 rounded-xl p-1.5 sm:p-2">
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 max-w-full">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-black/70 p-1.5 sm:p-2">
+        <div className="flex min-w-0 max-w-full flex-1 basis-full items-center gap-1.5 overflow-x-auto overscroll-x-contain py-0.5 sm:basis-auto">
           <span className="text-[10px] font-mono text-white/50 uppercase tracking-widest font-bold mr-1 hidden sm:inline shrink-0">
             SELECT SCREEN:
           </span>
@@ -756,7 +756,8 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
                 key={item.key}
                 type="button"
                 onClick={() => setActiveScreen(item.key as any)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 whitespace-nowrap ${
+                aria-pressed={active}
+                className={`flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-xs font-bold transition ${
                   active
                     ? "bg-primary text-primary-foreground shadow-md"
                     : "text-white/70 hover:text-white hover:bg-white/5"
@@ -774,8 +775,9 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
           <button
             type="button"
             onClick={() => setMuted(!muted)}
+            aria-label={muted ? "Unmute sound effects" : "Mute sound effects"}
             title={muted ? "Unmute sound effects" : "Mute sound effects"}
-            className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg border text-xs transition cursor-pointer flex items-center gap-1 ${
+            className={`flex min-h-11 cursor-pointer items-center gap-1 rounded-lg border p-2 text-xs transition ${
               muted ? "border-white/10 bg-white/5 text-muted-foreground" : "border-primary/40 bg-primary/20 text-primary"
             }`}
           >
@@ -787,8 +789,9 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
           <button
             type="button"
             onClick={handleReset}
+            aria-label="Reset auction state"
             title="Reset auction state"
-            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground text-xs transition cursor-pointer flex items-center gap-1"
+            className="flex min-h-11 cursor-pointer items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-2 text-xs text-muted-foreground transition hover:bg-white/10 hover:text-foreground"
           >
             <RotateCcw className="h-3.5 w-3.5" />
             <span className="hidden md:inline text-[10px] font-mono">RESET</span>
@@ -798,8 +801,9 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
           <button
             type="button"
             onClick={toggleFullscreen}
+            aria-label={isFullscreen ? "Exit fullscreen simulator" : "Open fullscreen simulator"}
             title={isFullscreen ? "Exit Fullscreen (Esc)" : "Expand Simulator to Full Screen"}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition cursor-pointer ${
+            className={`flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-bold transition ${
               isFullscreen
                 ? "border-amber-400/60 bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.3)]"
                 : "border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary"
@@ -822,28 +826,42 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
 
       {/* ─── 2. TWO-COLUMN LAYOUT: SCREEN ON LEFT (68%) + OPERATOR DESK ON RIGHT (32%) ─── */}
       <div
-        className={`grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch ${
+        className={`grid min-w-0 grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch ${
           isFullscreen ? "flex-1 min-h-0 my-2" : ""
         }`}
       >
         {/* LEFT COLUMN: THE SELECTED LIVE SCREEN */}
         <div
-          className={`lg:col-span-8 flex flex-col justify-center rounded-xl border border-white/15 bg-black overflow-hidden shadow-2xl ${
+          className={`lg:col-span-8 flex min-w-0 max-w-full flex-col justify-center overflow-hidden rounded-xl border border-white/15 bg-black shadow-2xl ${
             isFullscreen
               ? "min-h-[460px] h-full"
-              : "min-h-[340px] sm:min-h-[460px] max-h-none sm:max-h-[540px]"
+              : "md:min-h-[460px] md:max-h-[540px]"
           }`}
         >
           {activeScreen === "led" && (
             ledSubView === "main" ? (
-              <ActualLedStageView
-                player={currentPlayer}
-                bid={currentBid}
-                leadingTeam={leadingTeam}
-                status={status}
-                timer={timerSeconds}
-                remainingPurse={leadingTeam.purse - (status === "sold" ? currentBid : 0)}
-              />
+              <>
+                {!isFullscreen ? (
+                  <MobileAuctionPreview
+                    player={currentPlayer}
+                    bid={currentBid}
+                    leadingTeam={leadingTeam}
+                    teams={teams}
+                    status={status}
+                    timer={timerSeconds}
+                  />
+                ) : null}
+                <div className={isFullscreen ? "block h-full min-h-0" : "hidden md:block"}>
+                  <ActualLedStageView
+                    player={currentPlayer}
+                    bid={currentBid}
+                    leadingTeam={leadingTeam}
+                    status={status}
+                    timer={timerSeconds}
+                    remainingPurse={leadingTeam.purse - (status === "sold" ? currentBid : 0)}
+                  />
+                </div>
+              </>
             ) : (
               <ActualTop5LedView />
             )
@@ -892,7 +910,7 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
         </div>
 
         {/* RIGHT COLUMN: THE OPERATOR DESK (DIRECTLY RESEMBLING media_1789817701930.png) */}
-        <div className={`lg:col-span-4 flex flex-col ${isFullscreen ? "h-full overflow-y-auto" : ""}`}>
+        <div className={`lg:col-span-4 flex min-w-0 flex-col ${isFullscreen ? "h-full overflow-y-auto" : ""}`}>
           <OperatorDeskPanel
             player={currentPlayer}
             bid={currentBid}
@@ -1146,7 +1164,7 @@ function OperatorDeskPanel({
             type="button"
             disabled={status !== "active"}
             onClick={onSold}
-            className="py-2.5 px-2 rounded-lg bg-[#063b2f] hover:bg-[#074b3c] border-2 border-emerald-500 text-emerald-300 font-display font-black text-xs uppercase tracking-wider flex flex-col items-center justify-center transition active:scale-95 disabled:opacity-40 cursor-pointer shadow-lg"
+            className="flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-emerald-500 bg-[#063b2f] px-2 py-2.5 font-display text-xs font-black uppercase tracking-wider text-emerald-300 shadow-lg transition hover:bg-[#074b3c] active:scale-95 disabled:opacity-40"
           >
             <div className="flex items-center gap-1">
               <CheckCircle className="h-3.5 w-3.5" />
@@ -1160,7 +1178,7 @@ function OperatorDeskPanel({
             type="button"
             disabled={status !== "active"}
             onClick={onUnsold}
-            className="py-2.5 px-2 rounded-lg bg-[#3b0b14] hover:bg-[#4b0e1a] border-2 border-rose-500 text-rose-300 font-display font-black text-xs uppercase tracking-wider flex flex-col items-center justify-center transition active:scale-95 disabled:opacity-40 cursor-pointer shadow-lg"
+            className="flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-rose-500 bg-[#3b0b14] px-2 py-2.5 font-display text-xs font-black uppercase tracking-wider text-rose-300 shadow-lg transition hover:bg-[#4b0e1a] active:scale-95 disabled:opacity-40"
           >
             <div className="flex items-center gap-1">
               <XCircle className="h-3.5 w-3.5" />
@@ -1174,7 +1192,7 @@ function OperatorDeskPanel({
             type="button"
             disabled={status !== "active"}
             onClick={onDefer}
-            className="py-2.5 px-2 rounded-lg bg-[#3b2b06] hover:bg-[#4b3707] border-2 border-amber-500 text-amber-300 font-display font-black text-xs uppercase tracking-wider flex flex-col items-center justify-center transition active:scale-95 disabled:opacity-40 cursor-pointer shadow-lg"
+            className="flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-amber-500 bg-[#3b2b06] px-2 py-2.5 font-display text-xs font-black uppercase tracking-wider text-amber-300 shadow-lg transition hover:bg-[#4b3707] active:scale-95 disabled:opacity-40"
           >
             <div className="flex items-center gap-1">
               <Hourglass className="h-3.5 w-3.5" />
@@ -1188,7 +1206,7 @@ function OperatorDeskPanel({
             type="button"
             disabled={status !== "active"}
             onClick={onManual}
-            className="py-2.5 px-2 rounded-lg bg-[#25103b] hover:bg-[#32164f] border-2 border-purple-500 text-purple-300 font-display font-black text-xs uppercase tracking-wider flex flex-col items-center justify-center transition active:scale-95 disabled:opacity-40 cursor-pointer shadow-lg"
+            className="flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-purple-500 bg-[#25103b] px-2 py-2.5 font-display text-xs font-black uppercase tracking-wider text-purple-300 shadow-lg transition hover:bg-[#32164f] active:scale-95 disabled:opacity-40"
           >
             <div className="flex items-center gap-1">
               <Settings2 className="h-3.5 w-3.5" />
@@ -1202,7 +1220,7 @@ function OperatorDeskPanel({
         <button
           type="button"
           onClick={onNext}
-          className="w-full py-2 rounded-lg bg-[#634a06] hover:bg-[#785907] border-2 border-amber-400 text-amber-200 font-display font-black text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition active:scale-98 cursor-pointer shadow-md"
+          className="flex min-h-11 w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border-2 border-amber-400 bg-[#634a06] py-2 font-display text-xs font-black uppercase tracking-wider text-amber-200 shadow-md transition hover:bg-[#785907]"
         >
           <span>NEXT PLAYER (Random)</span>
           <ArrowRight className="h-3.5 w-3.5" />
@@ -1220,7 +1238,7 @@ function OperatorDeskPanel({
             type="button"
             disabled={status !== "active"}
             onClick={() => onRaiseBid(5000, "t2")}
-            className="px-1.5 py-1.5 rounded bg-black/60 hover:bg-black/90 border border-red-500/40 text-red-200 text-[9px] sm:text-[10px] font-mono font-bold transition cursor-pointer disabled:opacity-30 truncate"
+            className="min-h-11 cursor-pointer truncate rounded border border-red-500/40 bg-black/60 px-1.5 py-2 font-mono text-[10px] font-bold text-red-200 transition hover:bg-black/90 disabled:opacity-30"
           >
             +5k (DEL)
           </button>
@@ -1228,7 +1246,7 @@ function OperatorDeskPanel({
             type="button"
             disabled={status !== "active"}
             onClick={() => onRaiseBid(10000, "t1")}
-            className="px-1.5 py-1.5 rounded bg-black/60 hover:bg-black/90 border border-blue-500/40 text-blue-200 text-[9px] sm:text-[10px] font-mono font-bold transition cursor-pointer disabled:opacity-30 truncate"
+            className="min-h-11 cursor-pointer truncate rounded border border-blue-500/40 bg-black/60 px-1.5 py-2 font-mono text-[10px] font-bold text-blue-200 transition hover:bg-black/90 disabled:opacity-30"
           >
             +10k (LUC)
           </button>
@@ -1236,7 +1254,7 @@ function OperatorDeskPanel({
             type="button"
             disabled={status !== "active"}
             onClick={() => onRaiseBid(5000, "pw")}
-            className="px-1.5 py-1.5 rounded bg-black/60 hover:bg-black/90 border border-emerald-500/40 text-emerald-200 text-[9px] sm:text-[10px] font-mono font-bold transition cursor-pointer disabled:opacity-30 truncate"
+            className="min-h-11 cursor-pointer truncate rounded border border-emerald-500/40 bg-black/60 px-1.5 py-2 font-mono text-[10px] font-bold text-emerald-200 transition hover:bg-black/90 disabled:opacity-30"
           >
             +5k (PW)
           </button>
@@ -1274,6 +1292,84 @@ function OperatorDeskPanel({
   );
 }
 
+function formatHammer(timer: number, status: "active" | "sold" | "unsold") {
+  if (status !== "active") return "00:00";
+  return `00:${timer < 10 ? `0${timer}` : timer}`;
+}
+
+/** Phone-width summary of the live lot. The full LED layout stays on md+ and in fullscreen. */
+function MobileAuctionPreview({
+  player,
+  bid,
+  leadingTeam,
+  teams,
+  status,
+  timer,
+}: {
+  player: DemoPlayer;
+  bid: number;
+  leadingTeam: DemoTeam;
+  teams: DemoTeam[];
+  status: "active" | "sold" | "unsold";
+  timer: number;
+}) {
+  return (
+    <div data-mobile-auction-preview="" className="space-y-3 p-3 md:hidden">
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-primary">
+          Current lot
+        </p>
+        <p className="text-right">
+          <span className="block font-mono text-[9px] uppercase tracking-wider text-white/50">Hammer</span>
+          <span className="font-mono text-xl font-black text-yellow-400">{formatHammer(timer, status)}</span>
+        </p>
+      </div>
+      <div className="flex min-w-0 items-center gap-3">
+        <img
+          src={player.photoUrl || "/assets/players/ankit-head.png"}
+          alt=""
+          className="h-16 w-14 shrink-0 rounded-md border border-white/15 object-cover object-top"
+        />
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] font-bold uppercase text-yellow-400">
+            #{player.serialNo} {player.role}
+          </p>
+          <p className="break-words font-display text-base font-black uppercase text-white">{player.name}</p>
+          <p className="font-display text-2xl font-black leading-none text-white">
+            {bid.toLocaleString("en-IN")} <span className="text-sm">PT.</span>
+          </p>
+        </div>
+      </div>
+      <div className="rounded-lg border border-white/10 bg-black/50 px-3 py-2">
+        <p className="font-mono text-[10px] uppercase tracking-wider text-white/50">Leading team</p>
+        <p className="break-words font-display text-sm font-black uppercase text-white">{leadingTeam.name}</p>
+      </div>
+      <ul className="space-y-1.5">
+        {teams.slice(0, 3).map((team) => (
+          <li
+            key={team.id}
+            className={`flex items-center justify-between gap-2 rounded-md border px-2.5 py-2 font-mono text-[11px] ${
+              team.id === leadingTeam.id && status === "active"
+                ? "border-primary/50 bg-primary/10 text-white"
+                : "border-white/10 bg-black/40 text-white/80"
+            }`}
+          >
+            <span className="min-w-0 truncate">{team.shortName}</span>
+            <span className="shrink-0 font-bold">{team.purse.toLocaleString("en-IN")} PT.</span>
+          </li>
+        ))}
+      </ul>
+      <p className="text-[11px] leading-relaxed text-white/60">
+        {status === "sold"
+          ? "Lot marked sold in this preview."
+          : status === "unsold"
+            ? "Lot marked unsold in this preview."
+            : "Phone preview of the live lot. Open fullscreen for the full LED, viewer, OBS, and team screens."}
+      </p>
+    </div>
+  );
+}
+
 // =============================================================================
 // SCREEN 1: ACTUAL STAGE LED DISPLAY (1080p WALL) — MATCHES media_1789816747528.png
 // =============================================================================
@@ -1297,12 +1393,12 @@ function ActualLedStageView({
 
   return (
     <div
-      className="relative rounded-xl overflow-hidden bg-black border-2 border-primary/40 shadow-2xl flex flex-col justify-between select-none aspect-[16/9] w-full min-h-[380px] max-h-[540px]"
+      className="relative rounded-xl overflow-hidden bg-black border-2 border-primary/40 shadow-2xl flex flex-col justify-between select-none aspect-[16/9] w-full min-w-0 max-w-full min-h-[380px] max-h-[540px]"
       style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
     >
       {/* Top Header Bar */}
-      <div className="bg-black px-3.5 py-2 flex items-center justify-between border-b border-white/10 shrink-0">
-        <div>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-black px-3.5 py-2">
+        <div className="min-w-0">
           <span className="text-[9px] font-mono uppercase tracking-widest text-white/50 block leading-none">
             TOURNAMENT
           </span>
@@ -1614,7 +1710,7 @@ function ActualLedStageView({
 function ActualTop5LedView() {
   return (
     <div
-      className="relative rounded-xl overflow-hidden bg-black border-2 border-primary/40 shadow-2xl flex flex-col justify-between select-none aspect-[16/9] w-full min-h-[380px] max-h-[540px]"
+      className="relative rounded-xl overflow-hidden bg-black border-2 border-primary/40 shadow-2xl flex flex-col justify-between select-none aspect-[16/9] w-full min-w-0 max-w-full min-h-[380px] max-h-[540px]"
       style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
     >
       {/* 1. Header */}
@@ -1724,7 +1820,7 @@ function ActualObsStreamView({
 }) {
   return (
     <div
-      className="relative rounded-xl overflow-hidden bg-black border-2 border-primary/40 shadow-2xl flex flex-col justify-between select-none aspect-[16/9] w-full min-h-[380px] max-h-[540px]"
+      className="relative rounded-xl overflow-hidden bg-black border-2 border-primary/40 shadow-2xl flex flex-col justify-between select-none aspect-[16/9] w-full min-w-0 max-w-full min-h-[380px] max-h-[540px]"
       style={{ fontFamily: "'Space Grotesk', system-ui, sans-serif" }}
     >
       {/* Top Bar: Center logo + Right jersey sponsor */}

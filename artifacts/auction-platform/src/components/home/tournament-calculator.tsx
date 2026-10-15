@@ -3,8 +3,8 @@ import { AuctionExperienceSimulator } from "./auction-experience-simulator";
 
 export function TournamentCalculator({ onStartTrial }: { onStartTrial: () => void }) {
   return (
-    <section id="simulator" className="mx-auto max-w-7xl px-2 sm:px-4 py-3 sm:py-5">
-      <div className="panel-rail relative overflow-hidden border border-primary/25 rounded-2xl bg-card/40 p-2 sm:p-3">
+    <section id="simulator" className="mx-auto min-w-0 max-w-7xl px-3 py-3 sm:px-4 sm:py-5">
+      <div className="panel-rail relative min-w-0 overflow-hidden rounded-2xl border border-primary/25 bg-card/40 p-2 sm:p-3">
         <div className="pointer-events-none absolute inset-0 scan-lines opacity-20" />
         <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-[image:var(--gradient-gold)] opacity-15 blur-3xl" />
 

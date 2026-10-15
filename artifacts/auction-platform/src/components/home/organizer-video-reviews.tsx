@@ -1,5 +1,6 @@
-import { useRef } from "react";
+import { useRef, type KeyboardEvent } from "react";
 import { Play, Star, ShieldCheck, Quote, ChevronLeft, ChevronRight } from "lucide-react";
+import { scrollBehavior } from "@/lib/home-mobile-chrome";
 
 export type OrganizerReview = {
   id: string;
@@ -117,17 +118,30 @@ export function OrganizerVideoReviews({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scroll = (direction: "left" | "right") => {
-    if (scrollRef.current) {
-      const scrollAmount = Math.min(scrollRef.current.clientWidth * 0.8, 400);
-      scrollRef.current.scrollBy({
-        left: direction === "left" ? -scrollAmount : scrollAmount,
-        behavior: "smooth",
-      });
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    const card = scroller.querySelector<HTMLElement>("[data-review-card]");
+    const gap = 16;
+    const scrollAmount = card ? card.offsetWidth + gap : scroller.clientWidth;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    scroller.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: scrollBehavior(reduce),
+    });
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      scroll("right");
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      scroll("left");
     }
   };
 
   return (
-    <section id="reviews" className="mx-auto max-w-7xl px-5 py-16 scroll-mt-24">
+    <section id="reviews" className="mx-auto min-w-0 max-w-7xl px-5 py-16 scroll-mt-24">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em] text-primary">
@@ -144,7 +158,7 @@ export function OrganizerVideoReviews({
             type="button"
             onClick={() => scroll("left")}
             aria-label="Previous review"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-card/60 text-foreground hover:border-primary/50 hover:bg-primary/10 transition"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-card/60 text-foreground hover:border-primary/50 hover:bg-primary/10 transition"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -152,7 +166,7 @@ export function OrganizerVideoReviews({
             type="button"
             onClick={() => scroll("right")}
             aria-label="Next review"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-card/60 text-foreground hover:border-primary/50 hover:bg-primary/10 transition"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-card/60 text-foreground hover:border-primary/50 hover:bg-primary/10 transition"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -161,13 +175,18 @@ export function OrganizerVideoReviews({
 
       <div
         ref={scrollRef}
-        className="flex gap-5 overflow-x-auto pb-6 pt-2 scrollbar-none snap-x snap-mandatory scroll-smooth"
+        tabIndex={0}
+        role="region"
+        aria-label="Organizer testimonials"
+        onKeyDown={onKeyDown}
+        className="flex min-w-0 gap-4 overflow-x-auto overscroll-x-contain pb-6 pt-2 snap-x snap-mandatory focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {ORGANIZER_REVIEWS.map((r) => (
           <div
             key={r.id}
-            className="panel group relative flex flex-col justify-between overflow-hidden rounded-xl border border-white/10 p-5 bg-card/40 transition hover:border-primary/40 hover:-translate-y-1 shadow-lg flex-shrink-0 w-[300px] sm:w-[350px] md:w-[380px] snap-start"
+            data-review-card=""
+            className="panel group relative flex w-full max-w-full min-w-0 shrink-0 snap-start flex-col justify-between overflow-hidden rounded-xl border border-white/10 bg-card/40 p-5 shadow-lg sm:w-[min(22rem,85%)] md:w-[380px]"
           >
             <div className="pointer-events-none absolute -right-16 -top-16 h-36 w-36 rounded-full bg-primary/10 opacity-30 blur-2xl group-hover:opacity-60 transition" />
 
@@ -182,7 +201,7 @@ export function OrganizerVideoReviews({
                       {r.avatarText}
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-display text-sm font-bold text-foreground truncate">{r.name}</h3>
+                      <h3 className="font-display text-sm font-bold text-foreground break-words">{r.name}</h3>
                       <p className="font-mono text-[10px] text-primary">{r.location}</p>
                     </div>
                   </div>
@@ -200,7 +219,7 @@ export function OrganizerVideoReviews({
                 </div>
 
                 {/* Role full line */}
-                <p className="mt-2 text-[11px] leading-snug text-muted-foreground line-clamp-2">
+                <p className="mt-2 text-[11px] leading-snug text-muted-foreground break-words">
                   {r.role}
                 </p>
               </div>
@@ -218,7 +237,7 @@ export function OrganizerVideoReviews({
               {/* Quote without double collision */}
               <div className="mt-3.5 flex items-start gap-2">
                 <Quote className="h-4 w-4 shrink-0 text-primary/40 mt-0.5" />
-                <p className="text-xs leading-relaxed text-foreground/85 font-normal italic">
+                <p className="min-w-0 break-words text-xs font-normal italic leading-relaxed text-foreground/85">
                   {r.quote}
                 </p>
               </div>
@@ -241,7 +260,7 @@ export function OrganizerVideoReviews({
               <button
                 type="button"
                 onClick={() => onPlayVideo(r)}
-                className="gold-button gold-button-hover flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-xs font-bold uppercase tracking-wider"
+                className="gold-button gold-button-hover flex min-h-11 w-full items-center justify-center gap-2 rounded-md px-3 py-2.5 text-xs font-bold uppercase tracking-wider"
               >
                 <Play className="h-3.5 w-3.5 fill-current" />
                 <span>Watch Story ({r.duration})</span>
