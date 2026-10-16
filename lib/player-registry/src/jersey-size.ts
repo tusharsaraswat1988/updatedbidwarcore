@@ -1,4 +1,4 @@
-export const JERSEY_SIZE_VALUES = ["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"] as const;
+export const JERSEY_SIZE_VALUES = ["XXS", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"] as const;
 export type JerseySize = (typeof JERSEY_SIZE_VALUES)[number];
 
 export function isJerseySize(value: string | null | undefined): value is JerseySize {
@@ -6,8 +6,7 @@ export function isJerseySize(value: string | null | undefined): value is JerseyS
   return (JERSEY_SIZE_VALUES as readonly string[]).includes(value);
 }
 
-export function normalizeJerseySize(value: string | null | undefined): JerseySize | null {
-  if (!value?.trim()) return null;
+function canonicalizeJerseySize(value: string): JerseySize | null {
   const trimmed = value.trim().toUpperCase().replace(/\s+/g, "");
   const normalized =
     trimmed === "XXL" ? "2XL"
@@ -16,4 +15,34 @@ export function normalizeJerseySize(value: string | null | undefined): JerseySiz
     : trimmed === "XXXXXL" ? "5XL"
     : trimmed;
   return isJerseySize(normalized) ? normalized : null;
+}
+
+export function normalizeJerseySize(value: string | null | undefined): JerseySize | null {
+  if (!value?.trim()) return null;
+  const direct = canonicalizeJerseySize(value);
+  if (direct) return direct;
+  const paren = value.match(/\(\s*(XXS|XS|5XL|4XL|3XL|2XL|XXXXXL|XXXXL|XXXL|XXL|XL|[SML])\s*\)/i);
+  return paren ? canonicalizeJerseySize(paren[1]) : null;
+}
+
+/** Numeric size and chest from the jersey chart. Length is not shown. */
+export const JERSEY_SIZE_CHART: Record<JerseySize, { size: string; letter: string; chest: string }> = {
+  XXS: { size: "32", letter: "XXS", chest: "33" },
+  XS: { size: "34", letter: "XS", chest: "35" },
+  S: { size: "36", letter: "S", chest: "37" },
+  M: { size: "38", letter: "M", chest: "39" },
+  L: { size: "40", letter: "L", chest: "41" },
+  XL: { size: "42", letter: "XL", chest: "43" },
+  "2XL": { size: "44", letter: "XXL", chest: "45" },
+  "3XL": { size: "46", letter: "3XL", chest: "47" },
+  "4XL": { size: "48", letter: "4XL", chest: "49" },
+  "5XL": { size: "50", letter: "5XL", chest: "51" },
+};
+
+/** Display label. Stored value stays the letter code (S, M, 2XL, …). */
+export function jerseySizeLabel(value: string | null | undefined): string {
+  const normalized = normalizeJerseySize(value);
+  if (!normalized) return value?.trim() ?? "";
+  const { size, letter, chest } = JERSEY_SIZE_CHART[normalized];
+  return `${size} (${letter}) - ${chest}`;
 }

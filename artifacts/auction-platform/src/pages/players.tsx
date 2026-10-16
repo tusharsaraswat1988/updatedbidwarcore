@@ -100,7 +100,7 @@ import { OptionalEmailField } from "@/components/optional-email-field";
 import { CityAutocomplete } from "@/components/city-autocomplete";
 import { JerseySizeSelect } from "@/components/jersey-size-select";
 import type { JerseySize } from "@workspace/api-base/jersey-size";
-import { normalizeJerseySize } from "@workspace/api-base/jersey-size";
+import { jerseySizeLabel, normalizeJerseySize } from "@workspace/api-base/jersey-size";
 import { useToast } from "@/hooks/use-toast";
 import {
   applySpecificationsToSelections,
@@ -2308,7 +2308,7 @@ function PlayerDetailPanel({
         {player.jerseySize && (
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Jersey Size</p>
-            <p>{player.jerseySize}</p>
+            <p>{jerseySizeLabel(player.jerseySize)}</p>
           </div>
         )}
         {player.basePrice != null && player.basePrice > 0 && (

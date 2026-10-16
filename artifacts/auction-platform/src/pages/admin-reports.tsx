@@ -25,6 +25,7 @@ import { cldUrl } from "@/lib/cloudinary";
 import { useBranding } from "@/hooks/use-branding";
 import { getObsBroadcastLogoSrc, getObsBrandMarkSrc, OBS_BROADCAST_LOGO_FALLBACK } from "@/lib/brand-assets";
 import { formatAuctionAmount, type AuctionUnit } from "@/lib/format";
+import { jerseySizeLabel } from "@workspace/api-base/jersey-size";
 
 const API = "/api";
 
@@ -1512,7 +1513,7 @@ function FilterBar({
           />
           <FilterMultiText
             label="Jersey Size"
-            options={(ctx.jerseySizeOptions.length ? ctx.jerseySizeOptions : ctx.jerseySizes).map(s => ({ id: s, label: s }))}
+            options={(ctx.jerseySizeOptions.length ? ctx.jerseySizeOptions : ctx.jerseySizes).map(s => ({ id: s, label: jerseySizeLabel(s) }))}
             selected={filters.jerseySizes ?? []}
             onToggle={s => toggle("jerseySizes", s, filters.jerseySizes)}
           />

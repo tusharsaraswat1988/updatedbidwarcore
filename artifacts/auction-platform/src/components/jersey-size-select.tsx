@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { JERSEY_SIZE_VALUES, type JerseySize } from "@workspace/api-base/jersey-size";
+import { JERSEY_SIZE_VALUES, jerseySizeLabel, type JerseySize } from "@workspace/api-base/jersey-size";
 
 type Props = {
   value: string;
@@ -39,7 +39,7 @@ export function JerseySizeSelect({
         <SelectContent position="popper" className="max-h-60">
           <SelectItem value="none">Not specified</SelectItem>
           {JERSEY_SIZE_VALUES.map(size => (
-            <SelectItem key={size} value={size}>{size}</SelectItem>
+            <SelectItem key={size} value={size}>{jerseySizeLabel(size)}</SelectItem>
           ))}
         </SelectContent>
       </Select>

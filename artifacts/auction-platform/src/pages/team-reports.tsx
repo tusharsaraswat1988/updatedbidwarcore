@@ -23,6 +23,7 @@ import { useBranding } from "@/hooks/use-branding";
 import { getBrandLogoAlt, getPublicBrandLogoSrc } from "@/lib/brand-assets";
 import { resolveRetainedSpend, type TeamReportAuctionRules } from "@workspace/api-base";
 import { PLATFORM_BASE_URL } from "@workspace/api-base/branding-assets";
+import { jerseySizeLabel } from "@workspace/api-base/jersey-size";
 import { toast } from "@/hooks/use-toast";
 import {
   FileText, Printer, Download, Lock, Users, ChevronRight,
@@ -221,7 +222,7 @@ function PlayerTable({
             {cols.has("categoryName") && <th className={`w-28 ${REPORT_TH} text-left`}>Category</th>}
             {cols.has("role") && <th className={`w-24 ${REPORT_TH} text-left`}>Role</th>}
             {cols.has("jerseyNumber") && <th className={`w-16 ${REPORT_TH} text-center`}>Jersey No.</th>}
-            {cols.has("jerseySize") && <th className={`w-16 ${REPORT_TH} text-center`}>Jersey Size</th>}
+            {cols.has("jerseySize") && <th className={`w-36 ${REPORT_TH} text-center`}>Jersey Size</th>}
             {cols.has("status") && <th className={`w-24 ${REPORT_TH} text-left`}>Type</th>}
             <th className={`w-24 ${REPORT_TH} text-right`}>Amount</th>
             {cols.has("remainingBalance") && <th className={`w-24 ${REPORT_TH} text-right`}>Balance</th>}
@@ -254,7 +255,7 @@ function PlayerTable({
                 )}
                 {cols.has("role") && <td className={`${cell} capitalize text-gray-600`}>{p.role?.replace(/_/g, " ") || "-"}</td>}
                 {cols.has("jerseyNumber") && <td className={`${cell} text-center text-gray-600`}>{p.jerseyNumber || "-"}</td>}
-                {cols.has("jerseySize") && <td className={`${cell} text-center text-gray-600`}>{p.jerseySize || "-"}</td>}
+                {cols.has("jerseySize") && <td className={`${cell} text-center text-gray-600 whitespace-nowrap`}>{p.jerseySize ? jerseySizeLabel(p.jerseySize) : "-"}</td>}
                 {cols.has("status") && (
                   <td className={cell}>
                     <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${p.status === "retained" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
@@ -312,7 +313,7 @@ function AuctionPlanningTable({
               {cols.has("categoryName") && <th className={`w-28 ${headCell} text-left`}>Category</th>}
               {cols.has("role") && <th className={`w-24 ${headCell} text-left`}>Role</th>}
               {cols.has("jerseyNumber") && <th className={`w-16 ${headCell} text-center`}>Jersey No.</th>}
-              {cols.has("jerseySize") && <th className={`w-16 ${headCell} text-center`}>Jersey Size</th>}
+              {cols.has("jerseySize") && <th className={`w-36 ${headCell} text-center`}>Jersey Size</th>}
               {cols.has("status") && <th className={`w-24 ${headCell} text-left`}>Type</th>}
               <th className={`w-24 ${headCell} text-right`}>Amount</th>
               {cols.has("remainingBalance") && <th className={`w-24 ${headCell} text-right`}>Balance</th>}

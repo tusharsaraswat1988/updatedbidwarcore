@@ -2960,7 +2960,7 @@ components:
     # Player schemas
     JerseySize:
       type: string
-      enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL]
+      enum: [XXS, XS, S, M, L, XL, 2XL, 3XL, 4XL, 5XL]
 
     PlayerSpecification:
       type: object
@@ -3042,7 +3042,7 @@ components:
           type: ["string", "null"]
         jerseySize:
           type: ["string", "null"]
-          enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
+          enum: [XXS, XS, S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
         achievements:
           type: ["string", "null"]
         mobileNumber:
@@ -4170,7 +4170,7 @@ components:
           type: ["string", "null"]
         jerseySize:
           type: ["string", "null"]
-          enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
+          enum: [XXS, XS, S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
         cricheroUrl:
           type: ["string", "null"]
         availabilityDates:
@@ -4242,7 +4242,7 @@ components:
           type: ["string", "null"]
         jerseySize:
           type: ["string", "null"]
-          enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
+          enum: [XXS, XS, S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
         isDuplicate:
           type: boolean
 
@@ -4359,7 +4359,7 @@ components:
           type: ["string", "null"]
         jerseySize:
           type: ["string", "null"]
-          enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
+          enum: [XXS, XS, S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
         categoryId:
           type: ["integer", "null"]
         categoryName:

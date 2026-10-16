@@ -1,4 +1,5 @@
 import type { Player, Team } from "@workspace/api-client-react";
+import { JERSEY_SIZE_VALUES, jerseySizeLabel, normalizeJerseySize } from "@workspace/api-base/jersey-size";
 
 export interface ParsedRosterPlayer {
   id?: number; // Present if updating an existing player
@@ -114,7 +115,7 @@ export async function exportRosterTemplateToExcel({
         "Batting Style": p.battingStyle || "Right Hand",
         "Bowling Style": p.bowlingStyle || "None",
         "Jersey #": p.jerseyNumber ? String(p.jerseyNumber).replace("#", "") : "",
-        "Jersey Size": p.jerseySize || "",
+        "Jersey Size": p.jerseySize ? jerseySizeLabel(p.jerseySize) : "",
         "DOB (YYYY-MM-DD)": "",
         Mobile: p.mobileNumber || "",
         City: p.city || "",
@@ -137,7 +138,7 @@ export async function exportRosterTemplateToExcel({
         "Batting Style": "Right Hand",
         "Bowling Style": "None",
         "Jersey #": "7",
-        "Jersey Size": "36",
+        "Jersey Size": jerseySizeLabel("L"),
         "DOB (YYYY-MM-DD)": "2014-05-12",
         Mobile: "9876543210",
         City: "Varanasi",
@@ -152,7 +153,7 @@ export async function exportRosterTemplateToExcel({
         "Batting Style": "Right Hand",
         "Bowling Style": "Right Arm Medium",
         "Jersey #": "18",
-        "Jersey Size": "38",
+        "Jersey Size": jerseySizeLabel("XL"),
         "DOB (YYYY-MM-DD)": "2013-09-22",
         Mobile: "9876543211",
         City: "Varanasi",
@@ -182,7 +183,7 @@ export async function exportRosterTemplateToExcel({
     { "HOW TO USE THIS TEMPLATE": "• Role: Batsman, Bowler, All Rounder, Wicket Keeper" },
     { "HOW TO USE THIS TEMPLATE": "• Batting Style: Right Hand, Left Hand" },
     { "HOW TO USE THIS TEMPLATE": "• Bowling Style: Right Arm Fast, Right Arm Medium, Right Arm Spin, Left Arm Fast, None" },
-    { "HOW TO USE THIS TEMPLATE": "• Jersey Size: 32, 34, 36, 38, 40, S, M, L, XL" },
+    { "HOW TO USE THIS TEMPLATE": `• Jersey Size: ${JERSEY_SIZE_VALUES.map((size) => jerseySizeLabel(size)).join(", ")}` },
   ];
 
   const refWs = XLSX.utils.json_to_sheet(instructionsRows);
@@ -345,7 +346,8 @@ export async function parseRosterExcelFile(
     const battingStyle = parseBattingStyle(findVal(row, ["Batting Style", "batting_style", "Batting", "Batting Hand"]));
     const bowlingStyle = parseBowlingStyle(findVal(row, ["Bowling Style", "bowling_style", "Bowling", "Bowling Type"]));
     const jerseyNumber = findVal(row, ["Jersey #", "Jersey Number", "jersey_number", "Jersey", "JerseyNo"]).replace(/#/g, "");
-    const jerseySize = findVal(row, ["Jersey Size", "jersey_size", "Size"]);
+    const rawJerseySize = findVal(row, ["Jersey Size", "jersey_size", "Size"]);
+    const jerseySize = normalizeJerseySize(rawJerseySize) ?? (rawJerseySize || undefined);
     const dob = findVal(row, ["DOB (YYYY-MM-DD)", "DOB", "dob", "Date of Birth"]);
     const mobileNumber = findVal(row, ["Mobile", "Mobile Number", "mobile", "Parent Mobile", "Phone"]);
     const city = findVal(row, ["City", "city"]);

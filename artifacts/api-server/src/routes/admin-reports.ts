@@ -10,7 +10,7 @@ import { and, eq, inArray, gte, lte, ilike, desc } from "drizzle-orm";
 import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
 import { z } from "zod";
-import { JERSEY_SIZE_VALUES } from "@workspace/api-base/jersey-size";
+import { JERSEY_SIZE_VALUES, jerseySizeLabel } from "@workspace/api-base/jersey-size";
 
 import { requireTournamentOrganizer } from "../middleware/require-organizer";
 
@@ -155,6 +155,12 @@ function fmtText(v: unknown): string {
   return String(v);
 }
 
+function formatJerseySize(v: unknown): string {
+  const text = fmtText(v);
+  if (text === "-") return text;
+  return jerseySizeLabel(text);
+}
+
 function buildFiltersDescription(f: Filters, ctx: { categories: Map<number, string>; teams: Map<number, string> }): string[] {
   const out: string[] = [];
   if (f.categoryIds?.length) out.push(`Categories: ${f.categoryIds.map(id => ctx.categories.get(id) ?? `#${id}`).join(", ")}`);
@@ -163,7 +169,7 @@ function buildFiltersDescription(f: Filters, ctx: { categories: Map<number, stri
   if (f.roles?.length) out.push(`Role: ${f.roles.join(", ")}`);
   if (f.city) out.push(`City: ${f.city}`);
   if (f.cities?.length) out.push(`Cities: ${f.cities.join(", ")}`);
-  if (f.jerseySizes?.length) out.push(`Jersey sizes: ${f.jerseySizes.join(", ")}`);
+  if (f.jerseySizes?.length) out.push(`Jersey sizes: ${f.jerseySizes.map(jerseySizeLabel).join(", ")}`);
   if (f.search) out.push(`Name contains: ${f.search}`);
   if (f.minPrice !== undefined) out.push(`Min price: ${fmtRupee(f.minPrice)}`);
   if (f.maxPrice !== undefined) out.push(`Max price: ${fmtRupee(f.maxPrice)}`);
@@ -206,7 +212,7 @@ const PLAYER_COLUMNS: Column[] = [
   { key: "role", label: "Role", width: 1, format: v => fmtText(v).replace(/_/g, " ") },
   { key: "city", label: "City", width: 1.1, format: v => fmtText(v) },
   { key: "jerseyNumber", label: "Jersey No.", width: 0.7, format: v => fmtText(v) },
-  { key: "jerseySize", label: "Jersey Size", width: 0.7, format: v => fmtText(v) },
+  { key: "jerseySize", label: "Jersey Size", width: 1.45, format: v => formatJerseySize(v) },
   { key: "categoryName", label: "Category", width: 1, format: v => fmtText(v) },
   { key: "basePrice", label: "Base Price", width: 1.1, format: v => fmtShortRupee(v as number) },
   { key: "status", label: "Status", width: 0.8, format: v => fmtText(v).toUpperCase() },
@@ -220,7 +226,7 @@ const CONTACT_COLUMNS: Column[] = [
   { key: "role", label: "Role", width: 1, format: v => fmtText(v).replace(/_/g, " ") },
   { key: "city", label: "City", width: 1.2, format: v => fmtText(v) },
   { key: "jerseyNumber", label: "Jersey No.", width: 0.7, format: v => fmtText(v) },
-  { key: "jerseySize", label: "Jersey Size", width: 0.7, format: v => fmtText(v) },
+  { key: "jerseySize", label: "Jersey Size", width: 1.45, format: v => formatJerseySize(v) },
   { key: "teamName", label: "Team", width: 1.2, format: v => fmtText(v) },
   { key: "status", label: "Status", width: 0.8, format: v => fmtText(v).toUpperCase() },
 ];
@@ -362,11 +368,11 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
     const sections = sizeOrder
       .filter(size => groups.has(size))
       .map(size => ({
-        heading: `${size} (${groups.get(size)!.length})`,
+        heading: `${jerseySizeLabel(size)} (${groups.get(size)!.length})`,
         columns: [
           { key: "name", label: "Name", width: 1.6 },
           { key: "jerseyNumber", label: "Jersey No.", width: 0.7, format: (v: unknown) => fmtText(v) },
-          { key: "jerseySize", label: "Size", width: 0.7, format: (v: unknown) => fmtText(v) },
+          { key: "jerseySize", label: "Size", width: 1.45, format: (v: unknown) => formatJerseySize(v) },
           { key: "role", label: "Role", width: 1, format: (v: unknown) => fmtText(v).replace(/_/g, " ") },
           { key: "city", label: "City", width: 1.1, format: (v: unknown) => fmtText(v) },
           { key: "mobileNumber", label: "Mobile", width: 1.2, format: (v: unknown) => fmtText(v) },

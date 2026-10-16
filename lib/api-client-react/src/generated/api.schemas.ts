@@ -745,6 +745,8 @@ export interface CategoryUpdate {
 export type JerseySize = (typeof JerseySize)[keyof typeof JerseySize];
 
 export const JerseySize = {
+  XXS: "XXS",
+  XS: "XS",
   S: "S",
   M: "M",
   L: "L",
@@ -809,6 +811,8 @@ export type PlayerJerseySize =
   | null;
 
 export const PlayerJerseySize = {
+  XXS: "XXS",
+  XS: "XS",
   S: "S",
   M: "M",
   L: "L",
@@ -1871,6 +1875,8 @@ export type GlobalPlayerSuggestionJerseySize =
   | null;
 
 export const GlobalPlayerSuggestionJerseySize = {
+  XXS: "XXS",
+  XS: "XS",
   S: "S",
   M: "M",
   L: "L",
@@ -1954,6 +1960,8 @@ export type ImportCandidatePlayerJerseySize =
   | null;
 
 export const ImportCandidatePlayerJerseySize = {
+  XXS: "XXS",
+  XS: "XS",
   S: "S",
   M: "M",
   L: "L",
@@ -2067,6 +2075,8 @@ export type TeamReportPlayerJerseySize =
   | null;
 
 export const TeamReportPlayerJerseySize = {
+  XXS: "XXS",
+  XS: "XS",
   S: "S",
   M: "M",
   L: "L",

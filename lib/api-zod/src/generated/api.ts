@@ -1104,6 +1104,8 @@ export const ExportTournamentForLocalResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -1681,6 +1683,8 @@ export const ListPlayersResponseItem = zod.object({
   jerseyNumber: zod.string().nullish(),
   jerseySize: zod
     .union([
+      zod.literal("XXS"),
+      zod.literal("XS"),
       zod.literal("S"),
       zod.literal("M"),
       zod.literal("L"),
@@ -1755,7 +1759,7 @@ export const CreatePlayerBody = zod.object({
     .describe("Required when tournament bidValueMode is player"),
   jerseyNumber: zod.string().optional(),
   jerseySize: zod
-    .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
+    .enum(["XXS", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
     .optional(),
   achievements: zod.string().optional(),
   mobileNumber: zod.string().optional(),
@@ -1927,7 +1931,7 @@ export const RegisterPlayerBody = zod.object({
     .describe("Required when tournament bidValueMode is player"),
   jerseyNumber: zod.string().optional(),
   jerseySize: zod
-    .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
+    .enum(["XXS", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
     .optional(),
   achievements: zod.string().optional(),
   mobileNumber: zod.string().optional(),
@@ -2016,7 +2020,7 @@ export const BulkCreatePlayersBody = zod.object({
         .describe("Required when tournament bidValueMode is player"),
       jerseyNumber: zod.string().optional(),
       jerseySize: zod
-        .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
+        .enum(["XXS", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
         .optional(),
       achievements: zod.string().optional(),
       mobileNumber: zod.string().optional(),
@@ -2143,6 +2147,8 @@ export const GetPlayerResponse = zod.object({
   jerseyNumber: zod.string().nullish(),
   jerseySize: zod
     .union([
+      zod.literal("XXS"),
+      zod.literal("XS"),
       zod.literal("S"),
       zod.literal("M"),
       zod.literal("L"),
@@ -2228,7 +2234,7 @@ export const UpdatePlayerBody = zod.object({
     .describe("Player-selected bid value when tournament uses player mode"),
   jerseyNumber: zod.string().optional(),
   jerseySize: zod
-    .enum(["S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
+    .enum(["XXS", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL"])
     .optional(),
   achievements: zod.string().optional(),
   mobileNumber: zod.string().optional(),
@@ -2312,6 +2318,8 @@ export const UpdatePlayerResponse = zod.object({
   jerseyNumber: zod.string().nullish(),
   jerseySize: zod
     .union([
+      zod.literal("XXS"),
+      zod.literal("XS"),
       zod.literal("S"),
       zod.literal("M"),
       zod.literal("L"),
@@ -2425,6 +2433,8 @@ export const ApproveRegistrationPaymentResponse = zod.object({
   jerseyNumber: zod.string().nullish(),
   jerseySize: zod
     .union([
+      zod.literal("XXS"),
+      zod.literal("XS"),
       zod.literal("S"),
       zod.literal("M"),
       zod.literal("L"),
@@ -2530,6 +2540,8 @@ export const RejectRegistrationPaymentResponse = zod.object({
   jerseyNumber: zod.string().nullish(),
   jerseySize: zod
     .union([
+      zod.literal("XXS"),
+      zod.literal("XS"),
       zod.literal("S"),
       zod.literal("M"),
       zod.literal("L"),
@@ -2635,6 +2647,8 @@ export const ResetRegistrationPaymentPendingResponse = zod.object({
   jerseyNumber: zod.string().nullish(),
   jerseySize: zod
     .union([
+      zod.literal("XXS"),
+      zod.literal("XS"),
       zod.literal("S"),
       zod.literal("M"),
       zod.literal("L"),
@@ -2751,6 +2765,8 @@ export const GetAuctionStateResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -3115,6 +3131,8 @@ export const UpdateAuctionSettingsResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -3477,6 +3495,8 @@ export const StartAuctionResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -3837,6 +3857,8 @@ export const PauseAuctionResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -4202,6 +4224,8 @@ export const NextPlayerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -4571,6 +4595,8 @@ export const PlaceBidResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -4931,6 +4957,8 @@ export const SellPlayerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -5300,6 +5328,8 @@ export const ManualSellResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -5660,6 +5690,8 @@ export const MarkUnsoldResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -6029,6 +6061,8 @@ export const ReAuctionPlayerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -6406,6 +6440,8 @@ export const ReAuctionAllUnsoldResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -6773,6 +6809,8 @@ export const ConcludeAuctionResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -7133,6 +7171,8 @@ export const UndoLastActionResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -7511,6 +7551,8 @@ export const ResetTrialAuctionResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -7875,6 +7917,8 @@ export const SetDisplayOverlayResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -8240,6 +8284,8 @@ export const SetPresentationContextResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -8608,6 +8654,8 @@ export const SetDisplayPlayerFilterResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -9032,6 +9080,8 @@ export const SyncFortuneWheelResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -9396,6 +9446,8 @@ export const SetCategoryFilterResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -9772,6 +9824,8 @@ export const SetBreakTimerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -10142,6 +10196,8 @@ export const StartTimerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -10502,6 +10558,8 @@ export const StopTimerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -10862,6 +10920,8 @@ export const DeferPlayerResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -11514,6 +11574,8 @@ export const SearchGlobalPlayersResponseItem = zod.object({
   jerseyNumber: zod.string().nullish(),
   jerseySize: zod
     .union([
+      zod.literal("XXS"),
+      zod.literal("XS"),
       zod.literal("S"),
       zod.literal("M"),
       zod.literal("L"),
@@ -11784,6 +11846,8 @@ export const ListImportCandidatesResponseItem = zod.object({
   jerseyNumber: zod.string().nullish(),
   jerseySize: zod
     .union([
+      zod.literal("XXS"),
+      zod.literal("XS"),
       zod.literal("S"),
       zod.literal("M"),
       zod.literal("L"),
@@ -11925,6 +11989,8 @@ export const GetTeamReportResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -11958,6 +12024,8 @@ export const GetTeamReportResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),
@@ -11991,6 +12059,8 @@ export const GetTeamReportResponse = zod.object({
       jerseyNumber: zod.string().nullish(),
       jerseySize: zod
         .union([
+          zod.literal("XXS"),
+          zod.literal("XS"),
           zod.literal("S"),
           zod.literal("M"),
           zod.literal("L"),

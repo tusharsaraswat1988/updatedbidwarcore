@@ -49,6 +49,7 @@ import { handoffAuctionParticipantsToSports } from "@/lib/scoring-api";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import {
   JERSEY_SIZE_VALUES,
+  jerseySizeLabel,
   normalizeJerseySize,
   type JerseySize,
 } from "@workspace/api-base/jersey-size";
@@ -1322,9 +1323,9 @@ export default function CricketPlayersPage() {
                                             {p.jerseySize ? (
                                               <span
                                                 className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-muted/80 text-foreground border border-border/60 shrink-0"
-                                                title={`Jersey size ${p.jerseySize}`}
+                                                title={`Jersey size ${jerseySizeLabel(p.jerseySize)}`}
                                               >
-                                                {p.jerseySize}
+                                                {jerseySizeLabel(p.jerseySize)}
                                               </span>
                                             ) : null}
                                           </div>
@@ -1412,7 +1413,7 @@ export default function CricketPlayersPage() {
                             const meta = [
                               p.role,
                               p.jerseyNumber ? `Jersey #${p.jerseyNumber}` : null,
-                              p.jerseySize ? `Size ${p.jerseySize}` : null,
+                              p.jerseySize ? jerseySizeLabel(p.jerseySize) : null,
                               p.gender ? formatPlayerGender(p.gender) : null,
                             ].filter(Boolean);
 
@@ -1712,7 +1713,7 @@ export default function CricketPlayersPage() {
                   }
                   options={[
                     { value: "none", label: "Not set" },
-                    ...JERSEY_SIZE_VALUES.map((size) => ({ value: size, label: size })),
+                    ...JERSEY_SIZE_VALUES.map((size) => ({ value: size, label: jerseySizeLabel(size) })),
                   ]}
                 />
               </FormField>
