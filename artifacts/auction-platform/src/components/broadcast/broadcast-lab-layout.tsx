@@ -33,8 +33,8 @@ export type BroadcastLabLayoutProps = {
  * Broadcast Overlay V2 Layout — Master presentation powered by the
  * new Lovable Broadcast Overlay Design System.
  *
- * Classic production `/obs` remains untouched on BroadcastLayout + obs/*.
- * This powers `/obs/v2` (and alias `/obs/lab`).
+ * This is the only auction broadcast overlay. It powers `/obs/v2`
+ * (and the `/obs/lab` alias). `/obs` redirects here.
  */
 export const BroadcastLabLayout = memo(function BroadcastLabLayout(props: BroadcastLabLayoutProps) {
   // Authoritative BidWar Broadcast Director handles scene transitions, ephemeral holds, timers

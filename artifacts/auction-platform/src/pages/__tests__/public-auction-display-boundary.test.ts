@@ -13,7 +13,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 describe("Phase 4D: Public Auction Display & Presentation Surfaces Module Boundary", () => {
   const codeGateSrc = readFileSync(path.resolve(__dirname, "../../components/tournament-code-gate.tsx"), "utf8");
   const liveViewerSrc = readFileSync(path.resolve(__dirname, "../liveviewer.tsx"), "utf8");
-  const obsOverlaySrc = readFileSync(path.resolve(__dirname, "../obs-overlay.tsx"), "utf8");
   const obsV2OverlaySrc = readFileSync(path.resolve(__dirname, "../obs-v2-overlay.tsx"), "utf8");
   const obsLabOverlaySrc = readFileSync(path.resolve(__dirname, "../obs-lab-overlay.tsx"), "utf8");
   const useAuctionSocketSrc = readFileSync(path.resolve(__dirname, "../../hooks/use-auction-socket.ts"), "utf8");
@@ -78,16 +77,11 @@ describe("Phase 4D: Public Auction Display & Presentation Surfaces Module Bounda
     });
   });
 
-  describe("3. OBS Overlays (/obs, /obs/v2, /obs/lab) Module Boundary", () => {
-    it("ObsOverlay disables socket and queries when auction is disabled", () => {
-      expect(obsOverlaySrc).toContain("isAuctionDisabled");
-      expect(obsOverlaySrc).toContain("enabled: !!tournamentId && !isAuctionDisabled");
-    });
-
-    it("ObsOverlay renders clean transparent canvas in OBS mode when auction is disabled", () => {
-      expect(obsOverlaySrc).toContain("if (isInvalidModuleState || isAuctionDisabled)");
-      expect(obsOverlaySrc).toContain('if (isObsMode)');
-      expect(obsOverlaySrc).toContain('background: "transparent"');
+  describe("3. OBS Overlays (/obs/v2, /obs/lab) Module Boundary", () => {
+    it("routes the retired classic overlay to v2", () => {
+      expect(appSrc).toContain('path="/tournament/:id/obs/v2"');
+      expect(appSrc).toContain("<LegacyObsRedirect");
+      expect(appSrc).not.toContain('import("@/pages/obs-overlay")');
     });
 
     it("ObsV2Overlay disables socket and queries when auction is disabled", () => {

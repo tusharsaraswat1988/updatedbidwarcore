@@ -1,36 +1,33 @@
-import { useRoute } from "wouter";
+import { useRoute, useSearch } from "wouter";
 import {
   useGetTournamentSummary,
   useGetTournament,
-  useGetTeamPurses,
   useGetTopBids,
   getGetTournamentSummaryQueryKey,
   getGetTournamentQueryKey,
-  getGetTeamPursesQueryKey,
   getGetTopBidsQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
 import { OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { Users, Wallet, TrendingUp, BarChart3, UserCheck, Award, FileText } from "lucide-react";
-import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { formatShortIndianRupee } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReportCenter } from "@/components/reports/report-center";
+import { TEAM_PLANNING_SHEET_ID } from "@/pages/team-reports";
 
 export default function Reports() {
   const [, params] = useRoute("/tournament/:id/reports");
+  const search = useSearch();
   const tournamentId = parseInt(params?.id || "0");
+  const openPlanningSheet = new URLSearchParams(search).get("doc") === "planning";
 
   const { data: summary, isLoading: loadingSummary } = useGetTournamentSummary(tournamentId, {
     query: { queryKey: getGetTournamentSummaryQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
-  });
-  const { data: teamPurses } = useGetTeamPurses(tournamentId, {
-    query: { queryKey: getGetTeamPursesQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const { data: topBids } = useGetTopBids(tournamentId, {
     query: { queryKey: getGetTopBidsQueryKey(tournamentId), enabled: !!tournamentId },
@@ -41,8 +38,8 @@ export default function Reports() {
       <div className="org-page-content">
         <OrganizerSectionHeader
           tournament={tournament}
-          title={<span className="flex items-center gap-2"><BarChart3 className="w-6 h-6 sm:w-7 sm:h-7 text-primary" /> Reports & Analytics</span>}
-          description="Auction performance overview and statistics."
+          title={<span className="flex items-center gap-2"><BarChart3 className="w-6 h-6 sm:w-7 sm:h-7 text-primary" /> Reports</span>}
+          description="Auction overview and documents."
         />
 
         {/* Summary Stats */}
@@ -83,54 +80,8 @@ export default function Reports() {
           </div>
         )}
 
-        {/* Overview Row: Team Purse Breakdown (2 columns) & Top 5 Sold Players (Compact) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Team Purse Breakdown */}
-          {teamPurses && teamPurses.length > 0 && (
-            <Card className="panel border-none lg:col-span-7 flex flex-col">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs sm:text-sm flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 font-bold">
-                    <Users className="w-4 h-4 text-primary" /> Team Purse Breakdown
-                  </span>
-                  <span className="text-[11px] font-mono text-muted-foreground font-normal">
-                    {teamPurses.length} Teams
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-1 flex-1">
-                <div className={`grid gap-2.5 ${teamPurses.length > 3 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"}`}>
-                  {teamPurses.map(team => {
-                    const pct = Math.min(100, (team.purseUsed / team.purse) * 100);
-                    return (
-                      <div key={team.teamId} className="p-2.5 rounded-xl bg-card/60 border border-border/40 space-y-1.5 shadow-sm">
-                        <div className="flex items-center justify-between gap-1.5 text-xs">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: team.color || "#666" }} />
-                            <span className="font-semibold text-xs truncate text-foreground">{team.teamName}</span>
-                          </div>
-                          <span className="text-[10px] text-muted-foreground shrink-0 font-mono">
-                            {team.playersBought}p
-                          </span>
-                        </div>
-                        <Progress value={pct} className="h-1.5" />
-                        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
-                          <span>{formatShortIndianRupee(team.purseUsed)} used</span>
-                          <span className="font-mono font-bold" style={{ color: team.color || "#fff" }}>
-                            {formatShortIndianRupee(team.purseRemaining)} left
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Top 5 Sold Players (Compact) */}
-          {topBids && topBids.length > 0 && (
-            <Card className="panel border-none lg:col-span-5 flex flex-col">
+        {topBids && topBids.length > 0 ? (
+          <Card className="panel border-none flex flex-col">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xs sm:text-sm flex items-center justify-between">
                   <span className="flex items-center gap-1.5 font-bold">
@@ -177,24 +128,27 @@ export default function Reports() {
                   ))}
                 </div>
               </CardContent>
-            </Card>
-          )}
-        </div>
+          </Card>
+        ) : null}
 
         {/* ─── Integrated Reports & Posters Center ─────────────────────────── */}
         <div className="pt-6 border-t border-border/60 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="text-lg sm:text-xl font-bold font-display text-foreground flex items-center gap-2">
-                <FileText className="w-5 h-5 text-primary" /> Reports & Showcase Posters
+                <FileText className="w-5 h-5 text-primary" /> Documents
               </h2>
               <p className="text-xs text-muted-foreground">
-                Generate social media squad posters, print official player sheets, and download PDF / Excel / CSV reports for this tournament.
+                Team planning sheets, posters, and PDF, Excel, or CSV exports for this tournament.
               </p>
             </div>
           </div>
 
-          <ReportCenter tournamentId={tournamentId} hideTournamentSelector={true} />
+          <ReportCenter
+            tournamentId={tournamentId}
+            hideTournamentSelector={true}
+            initialReport={openPlanningSheet ? TEAM_PLANNING_SHEET_ID : null}
+          />
         </div>
       </div>
     </AppLayout>

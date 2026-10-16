@@ -24,8 +24,8 @@ import { BroadcastLabLayout } from "@/components/broadcast/broadcast-lab-layout"
 import { loadDisplayFonts } from "@/lib/load-display-fonts";
 
 /**
- * Broadcast Overlay v2 — polished lower-thirds (Top5 strip, 6-team pages, bid pop).
- * Classic `/obs` is unchanged. Routes: `/obs/v2` (and legacy `/obs/lab` alias).
+ * Broadcast Overlay — polished lower-thirds (Top5 strip, 6-team pages, bid pop).
+ * Routes: `/obs/v2` (and legacy `/obs/lab` alias). `/obs` redirects here.
  */
 export default function ObsV2Overlay() {
   const [, v2Params] = useRoute("/tournament/:id/obs/v2");

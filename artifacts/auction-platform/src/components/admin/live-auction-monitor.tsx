@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { LiveConnectionStatus } from "./live-connection-status";
 import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { LiveTournamentPicker } from "./live-tournament-picker";
-import { liveViewerPath } from "@/lib/tournament-navigation";
+import { liveViewerPath, obsOverlayPath } from "@/lib/tournament-navigation";
 import { ServerCountdown } from "@/components/server-countdown";
 
 export function LiveAuctionMonitor({
@@ -257,7 +257,7 @@ function MonitorWorkspace({
               <div className="flex items-center justify-between rounded-lg bg-muted/20 px-3 py-2">
                 <span className="text-white">Broadcast Overlay</span>
                 <Button variant="outline" size="sm" asChild>
-                  <a href={`/tournament/${t.id}/obs`} target="_blank" rel="noreferrer">Open</a>
+                  <a href={obsOverlayPath(t.id)} target="_blank" rel="noreferrer">Open</a>
                 </Button>
               </div>
               <div className="flex items-center justify-between rounded-lg bg-muted/20 px-3 py-2 text-muted-foreground">

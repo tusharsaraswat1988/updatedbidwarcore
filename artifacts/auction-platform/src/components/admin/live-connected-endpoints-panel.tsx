@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { LiveConnectionStatus } from "./live-connection-status";
 import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { LiveTournamentPicker } from "./live-tournament-picker";
-import { liveViewerPath, sideDisplayPath } from "@/lib/tournament-navigation";
+import { liveViewerPath, obsOverlayPath, sideDisplayPath } from "@/lib/tournament-navigation";
 import { BroadcastControlPanel } from "@/components/broadcast/broadcast-control-panel";
 
 type HubSubSection = "displays" | "owner-apps" | "operator";
@@ -204,7 +204,7 @@ export function LiveConnectedEndpointsPanel({
                 <DisplayEndpointRow
                   label="Broadcast Overlay (OBS)"
                   description="Transparent lower-third graphics for live stream"
-                  href={`${base}/obs`}
+                  href={obsOverlayPath(t.id)}
                   tournamentId={t.id}
                 />
                 <DisplayEndpointRow

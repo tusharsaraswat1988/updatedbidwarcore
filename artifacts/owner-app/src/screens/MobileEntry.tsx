@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Phone } from "lucide-react";
 import { useBranding } from "@/hooks/useBranding";
 import { OWNER_AUTH_LOGIN } from "@/lib/brand-usage";
 import { parseOwnerDeepLink, submitOwnerMobile } from "@/lib/owner-flow";
@@ -64,9 +63,6 @@ export function MobileEntry() {
                 </div>
               )}
             </div>
-            <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-amber-400/15 border border-amber-400/30">
-              <Phone className="w-8 h-8 text-amber-400" />
-            </div>
             <div>
               <h1 className="font-display font-black text-3xl text-white">Join your auction</h1>
               <p className="text-[#a8a0c4] text-base mt-2 leading-relaxed">
@@ -118,12 +114,11 @@ export function MobileEntry() {
               ) : "Find my team"}
             </motion.button>
           </form>
-
-          <p className="text-sm text-[#3d3670] uppercase tracking-widest text-center">
-            {poweredByText}
-          </p>
         </motion.div>
       </div>
+      <p className="shrink-0 pb-6 text-center text-sm uppercase tracking-widest text-[#3d3670]">
+        {poweredByText} Engine
+      </p>
     </div>
   );
 }

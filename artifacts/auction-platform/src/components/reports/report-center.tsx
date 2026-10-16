@@ -19,6 +19,7 @@ import { useBranding } from "@/hooks/use-branding";
 import { getObsBroadcastLogoSrc, getObsBrandMarkSrc, OBS_BROADCAST_LOGO_FALLBACK } from "@/lib/brand-assets";
 import { formatAuctionAmount, type AuctionUnit } from "@/lib/format";
 import { jerseySizeLabel } from "@workspace/api-base/jersey-size";
+import { TEAM_PLANNING_SHEET_ID, TeamPlanningWorkspace } from "@/pages/team-reports";
 
 const API = "/api";
 
@@ -99,12 +100,20 @@ const REPORT_ICON: Record<string, typeof FileText> = {
   team_purse: Wallet,
 };
 
+const TEAM_PLANNING_SHEET: ReportType = {
+  id: TEAM_PLANNING_SHEET_ID,
+  title: "Team planning sheet",
+  description: "Franchise sheet with purse, access code, columns, and print layout.",
+  category: "pre",
+};
+
 export interface ReportCenterProps {
   tournamentId?: number | null;
   tournaments?: { id: number; name: string; sport?: string }[];
   onSelectTournament?: (id: number) => void;
   hideTournamentSelector?: boolean;
   className?: string;
+  initialReport?: string | null;
 }
 
 export function ReportCenter({
@@ -113,6 +122,7 @@ export function ReportCenter({
   onSelectTournament,
   hideTournamentSelector = true,
   className = "",
+  initialReport = null,
 }: ReportCenterProps) {
   const [internalTournamentId, setInternalTournamentId] = useState<number | null>(propTournamentId ?? null);
   const activeTournamentId = propTournamentId !== undefined ? propTournamentId : internalTournamentId;
@@ -136,6 +146,10 @@ export function ReportCenter({
       setInternalTournamentId(propTournamentId);
     }
   }, [propTournamentId]);
+
+  useEffect(() => {
+    if (initialReport) setActiveReport(initialReport);
+  }, [initialReport]);
 
   // Load report types on mount
   useEffect(() => {
@@ -208,7 +222,7 @@ export function ReportCenter({
 
   // Run preview when active report or active tournament changes
   useEffect(() => {
-    if (activeTournamentId && activeReport) {
+    if (activeTournamentId && activeReport && activeReport !== TEAM_PLANNING_SHEET_ID) {
       loadPreview(activeReport, filters);
     }
   }, [activeTournamentId, activeReport, loadPreview]);
@@ -221,9 +235,14 @@ export function ReportCenter({
 
   // Filtered catalogue
   const filteredTypes = useMemo(() => {
-    if (!search.trim()) return reportTypes;
-    const q = search.toLowerCase();
-    return reportTypes.filter(r => r.title.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
+    const q = search.trim().toLowerCase();
+    const apiTypes = q
+      ? reportTypes.filter(r => r.title.toLowerCase().includes(q) || r.description.toLowerCase().includes(q))
+      : reportTypes;
+    const sheetMatches = !q
+      || TEAM_PLANNING_SHEET.title.toLowerCase().includes(q)
+      || TEAM_PLANNING_SHEET.description.toLowerCase().includes(q);
+    return sheetMatches ? [TEAM_PLANNING_SHEET, ...apiTypes] : apiTypes;
   }, [reportTypes, search]);
 
   const groupedReports = useMemo(() => {
@@ -321,7 +340,7 @@ export function ReportCenter({
                 <h3 className="font-display font-bold text-sm tracking-tight text-foreground">Report Catalogue</h3>
               </div>
               <Badge variant="secondary" className="text-[10px] font-mono">
-                {reportTypes.length} Active
+                {reportTypes.length + 1} Active
               </Badge>
             </div>
 
@@ -436,6 +455,10 @@ export function ReportCenter({
             <NoTournamentState />
           ) : !activeReport ? (
             <EmptyState />
+          ) : activeReport === TEAM_PLANNING_SHEET_ID ? (
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <TeamPlanningWorkspace tournamentId={activeTournamentId} embedded />
+            </div>
           ) : (
             <>
               {/* Action Bar Header */}

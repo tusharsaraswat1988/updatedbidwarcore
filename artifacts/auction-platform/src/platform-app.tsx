@@ -43,8 +43,6 @@ const TournamentMasterWorkbook = lazy(() => import("@/pages/tournament-master-wo
 const AdminOrganiserDetail = lazy(() => import("@/pages/admin-organiser-detail"));
 const AdminReports = lazy(() => import("@/pages/admin-reports"));
 const AdminIntelligence = lazy(() => import("@/pages/admin-intelligence"));
-const ObsOverlayPreview = lazy(() => import("@/pages/obs-overlay-preview"));
-const ObsOverlay = lazy(() => import("@/pages/obs-overlay"));
 const ObsV2OverlayPreview = lazy(() => import("@/pages/obs-v2-overlay-preview"));
 const ObsV2Overlay = lazy(() => import("@/pages/obs-v2-overlay"));
 /** @deprecated Prefer /obs/v2 — kept for bookmarks during rollout */
@@ -65,7 +63,6 @@ const WaConsent = lazy(() => import("@/pages/wa-consent"));
 const CompleteProfile = lazy(() => import("@/pages/complete-profile"));
 const BreakTimerPage = lazy(() => import("@/pages/break-timer"));
 const LocalModePage = lazy(() => import("@/pages/local-mode"));
-const TeamReports = lazy(() => import("@/pages/team-reports"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 function RouteSuspenseFallback() {
@@ -128,6 +125,20 @@ function RouteSuspenseFallback() {
   return <BootSplash />;
 }
 
+/** Old classic overlay URLs. Graphics are v2; bookmarks and OBS sources keep working. */
+function LegacyObsRedirect({
+  tournamentId,
+  preview = false,
+}: {
+  tournamentId: string;
+  preview?: boolean;
+}) {
+  const search = useSearch();
+  const base = `/tournament/${tournamentId}/obs/v2${preview ? "/preview" : ""}`;
+  const qs = search ? (search.startsWith("?") ? search : `?${search}`) : "";
+  return <Redirect to={`${base}${qs}`} />;
+}
+
 function LegacyLiveRedirect() {
   const search = useSearch();
   const auction = useMemo(() => {
@@ -174,8 +185,14 @@ function PlatformRouter() {
         <Route path="/tournament/:id/cricket/obs/:matchId">
           {(params) => <Redirect to={`/tournament/${params?.id ?? "0"}/cricket/obs/v2`} />}
         </Route>
-        <Route path="/tournament/:id/obs/preview" component={ObsOverlayPreview} />
-        <Route path="/tournament/:id/obs" component={ObsOverlay} />
+        <Route path="/tournament/:id/obs/preview">
+          {(params) => (
+            <LegacyObsRedirect tournamentId={params?.id ?? "0"} preview />
+          )}
+        </Route>
+        <Route path="/tournament/:id/obs">
+          {(params) => <LegacyObsRedirect tournamentId={params?.id ?? "0"} />}
+        </Route>
 
         {/* Scoring — redirect legacy URLs to external scoring app */}
         <Route path="/badminton/scorer" component={RedirectToScoringApp} />
@@ -333,10 +350,7 @@ function PlatformRouter() {
           }}
         </Route>
         <Route path="/tournament/:id/team-reports">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><TeamReports /></OrganizerGuard>;
-          }}
+          {(params) => <Redirect to={`/tournament/${params?.id ?? "0"}/reports?doc=planning`} />}
         </Route>
         <Route path="/tournament/:id/links">
           {(params) => {

@@ -8,71 +8,61 @@ import { AppLayout } from "@/components/layout";
 import { OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Monitor, Link2, Copy, ExternalLink, MessageCircle, Radio } from "lucide-react";
-import { BroadcastOverlayInfo } from "@/components/broadcast/broadcast-overlay-info";
-import {
-  broadcastOverlayUrl,
-  broadcastOverlayPreviewUrl,
-  broadcastOverlayV2Url,
-  broadcastOverlayV2PreviewUrl,
-} from "@/lib/broadcast-overlay";
-import {
-  cricketPublicPath,
-  liveViewerPath,
-  scoreDisplayPath,
-  sideDisplayPath,
-} from "@/lib/tournament-navigation";
+import { Monitor, Link2, Copy, ExternalLink, MessageCircle, Radio, Users } from "lucide-react";
+import { ownerJoinPublicUrl } from "@workspace/platform-core";
+import { broadcastOverlayUrl } from "@/lib/broadcast-overlay";
+import { liveViewerPath, sideDisplayPath } from "@/lib/tournament-navigation";
 import { useToast } from "@/hooks/use-toast";
-import { getSportCapabilities } from "@/lib/sport-capabilities";
 
 function LinkSectionHeader({
   title,
-  description,
   icon,
 }: {
   title: string;
-  description: string;
   icon?: ReactNode;
 }) {
   return (
-    <div className="px-5 py-4 border-b border-border/60 bg-card/50">
-      <div className="flex items-center gap-2.5">
-        {icon ? <span className="text-primary">{icon}</span> : null}
-        <h2 className="font-display text-base font-bold text-foreground">{title}</h2>
-      </div>
-      <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+    <div className="flex items-center gap-2 px-4 py-2 border-b border-border/60 bg-card/50">
+      {icon ? <span className="text-primary">{icon}</span> : null}
+      <h2 className="font-display text-sm font-bold text-foreground">{title}</h2>
     </div>
   );
 }
 
 function LinkRow({ label, url, description, shareText }: { label: string; url: string; description: string; shareText?: string }) {
   const { toast } = useToast();
-  function copy() {
-    navigator.clipboard.writeText(url);
-    toast({ title: "Copied!", description: "Link copied to clipboard" });
+  const whatsappText = shareText ?? `${label}: ${url}`;
+
+  function copyUrl() {
+    void navigator.clipboard.writeText(url).then(
+      () => toast({ title: "Copied", description: "Link copied to clipboard" }),
+      () => toast({ title: "Copy failed", description: "Select the address and copy it manually.", variant: "destructive" }),
+    );
   }
-  const whatsappHref = `https://wa.me/?text=${encodeURIComponent(shareText ?? `${label}: ${url}`)}`;
+
+  function copyWhatsApp() {
+    void navigator.clipboard.writeText(whatsappText).then(
+      () => toast({ title: "Copied", description: "Message and link copied. Paste them in WhatsApp." }),
+      () => toast({ title: "Copy failed", description: "Could not copy the WhatsApp message.", variant: "destructive" }),
+    );
+  }
+
   return (
-    <div className="py-4 border-b border-border/50 last:border-0">
-      <div className="flex items-start gap-3 flex-wrap sm:flex-nowrap">
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm">{label}</p>
-          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
-          <p className="text-xs font-mono text-primary mt-1.5 break-all">{url}</p>
-        </div>
-        <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end w-full sm:w-auto">
-          <Button size="sm" variant="outline" className="gap-1.5 h-9 touch-target" onClick={copy}>
-            <Copy className="w-3.5 h-3.5" /> Copy
-          </Button>
-          <Button size="sm" variant="outline" className="gap-1.5 h-9 touch-target" asChild>
-            <a href={whatsappHref} target="_blank" rel="noopener noreferrer">
-              <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
-            </a>
-          </Button>
-          <Button size="sm" variant="outline" className="gap-1.5 h-9 touch-target" onClick={() => window.open(url, "_blank")}>
-            <ExternalLink className="w-3.5 h-3.5" /> Open
-          </Button>
-        </div>
+    <div className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold leading-tight">{label}</p>
+        <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{description}</p>
+      </div>
+      <div className="flex gap-1.5 shrink-0">
+        <Button size="sm" variant="outline" className="gap-1.5 h-8 px-2.5" onClick={copyUrl}>
+          <Copy className="w-3.5 h-3.5" /> Copy
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1.5 h-8 px-2.5" onClick={copyWhatsApp}>
+          <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1.5 h-8 px-2.5" onClick={() => window.open(url, "_blank")}>
+          <ExternalLink className="w-3.5 h-3.5" /> Open
+        </Button>
       </div>
     </div>
   );
@@ -91,137 +81,88 @@ export default function LinksPage() {
   const sidePlayerUrl = `${base}${sideDisplayPath(tournamentId, "player", tournament?.auctionCode)}`;
   const liveViewerUrl = `${base}${liveViewerPath(tournamentId)}`;
   const broadcastOverlayUrlValue = broadcastOverlayUrl(base, tournamentId);
-  const broadcastPreviewUrlValue = broadcastOverlayPreviewUrl(base, tournamentId);
-  const broadcastV2UrlValue = broadcastOverlayV2Url(base, tournamentId);
-  const broadcastV2PreviewUrlValue = broadcastOverlayV2PreviewUrl(base, tournamentId);
-  const cricketPublicUrl = `${base}${cricketPublicPath(tournamentId)}`;
-  const cricketScoreboardUrl = `${base}${scoreDisplayPath(tournamentId, tournament?.auctionCode)}`;
-  const sportCaps = getSportCapabilities(tournament?.sport);
-  const scoringOn = Boolean(tournament?.scoringEnabled) && sportCaps.hasPublicTournament;
+  const teamPortalUrl = ownerJoinPublicUrl(base, tournamentId);
 
   return (
     <AppLayout tournamentId={tournamentId}>
-      <div className="org-page-content max-w-3xl">
+      <div className="org-page-content max-w-3xl !space-y-4">
         <OrganizerSectionHeader
           tournament={tournament}
           title={<span className="flex items-center gap-3"><Link2 className="w-8 h-8 text-primary" /> Links</span>}
-          description={`Share links for auction day and ${sportCaps.sportLabel.toLowerCase()} match day — LED, stream, and fans.`}
+          description="Auction day screens, stream, and fans."
         />
 
-        {scoringOn ? (
-          <Card className="overflow-hidden panel border-none mb-6">
-            <CardContent className="p-0">
-              <LinkSectionHeader
-                title={`${sportCaps.sportLabel} public`}
-                description="Share with fans, sponsors, and franchise owners."
+        <Card className="overflow-hidden panel border-none">
+          <CardContent className="p-0">
+            <LinkSectionHeader title="LED" />
+            <div className="px-4">
+              <LinkRow
+                label="Big screen"
+                url={displayUrl}
+                description={
+                  tournament?.auctionCode
+                    ? `Projector or TV. Enter ${tournament.auctionCode} if the screen asks.`
+                    : "Projector or TV. Press F11 for full screen."
+                }
+                shareText={`Big screen link for ${tournament?.name ?? "our auction"}: ${displayUrl}`}
               />
-              <div className="p-6 pt-4">
-                <LinkRow
-                  label="Tournament home (fixtures · standings · stats)"
-                  url={cricketPublicUrl}
-                  description={sportCaps.publicTournamentDescription}
-                  shareText={`${tournament?.name ?? "Tournament"} ${sportCaps.sportLabel.toLowerCase()} page: ${cricketPublicUrl}`}
-                />
-                <LinkRow
-                  label={`${sportCaps.sportLabel} LED scoreboard`}
-                  url={cricketScoreboardUrl}
-                  description={`Venue scoreboard for live ${sportCaps.sportLabel.toLowerCase()} matches.`}
-                  shareText={`${sportCaps.sportLabel} scoreboard: ${cricketScoreboardUrl}`}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-        <Card className="overflow-hidden panel border-none">
-          <CardContent className="p-0">
-            <LinkSectionHeader
-              title="LED Big Screen"
-              description="Open on your projector laptop on auction day."
-            />
-            <div className="p-6 pt-4">
-            <LinkRow
-              label="LED Big Screen (projector / TV)"
-              url={displayUrl}
-              description={
-                tournament?.auctionCode
-                  ? `When the screen asks for a code, enter ${tournament.auctionCode}. Team owners do not need this code.`
-                  : "Open on the big screen at your venue. Press F11 for full screen."
-              }
-              shareText={`Big screen link for ${tournament?.name ?? "our auction"}: ${displayUrl}`}
-            />
-            <LinkRow
-              label="Side LED — Sponsors (left / right screen)"
-              url={sideSponsorUrl}
-              description="Portrait or landscape flanking screen — professional sponsor carousel. Stays on sponsors even when operator switches main LED to team/player/top 5 views."
-              shareText={`Sponsor side screen for ${tournament?.name ?? "our auction"}: ${sideSponsorUrl}`}
-            />
-            <LinkRow
-              label="Side LED — Live Player Profile"
-              url={sidePlayerUrl}
-              description="Portrait or landscape flanking screen — full profile of the player on block with live bid and timer. Independent of operator LED overlay controls."
-              shareText={`Player profile side screen for ${tournament?.name ?? "our auction"}: ${sidePlayerUrl}`}
-            />
+              <LinkRow
+                label="Side screen — sponsors"
+                url={sideSponsorUrl}
+                description="Left or right screen. Stays on the sponsor carousel."
+                shareText={`Sponsor side screen for ${tournament?.name ?? "our auction"}: ${sideSponsorUrl}`}
+              />
+              <LinkRow
+                label="Side screen — player"
+                url={sidePlayerUrl}
+                description="Player on the block, with the live bid and timer."
+                shareText={`Player profile side screen for ${tournament?.name ?? "our auction"}: ${sidePlayerUrl}`}
+              />
             </div>
           </CardContent>
         </Card>
 
         <Card className="overflow-hidden panel border-none">
           <CardContent className="p-0">
-            <LinkSectionHeader
-              icon={<Radio className="h-5 w-5" />}
-              title="Broadcast Overlay"
-              description="Transparent live graphics for streaming — add as a Browser Source in OBS, vMix, Wirecast, or similar (1920×1080)."
-            />
-            <div className="p-6 pt-4">
-            <LinkRow
-              label="Broadcast Overlay URL"
-              url={broadcastOverlayUrlValue}
-              description="Real-time player card, live bid, team ticker, and sponsor branding over your stream. Set browser source to 1920×1080 with a transparent background."
-              shareText={`Broadcast Overlay for ${tournament?.name ?? "our auction"}: ${broadcastOverlayUrlValue}`}
-            />
-            <LinkRow
-              label="Camera preview (test without OBS)"
-              url={broadcastPreviewUrlValue}
-              description="See the classic live overlay on your laptop or phone camera — same layout as /obs, no streaming software needed."
-              shareText={`Overlay camera preview: ${broadcastPreviewUrlValue}`}
-            />
-            <LinkRow
-              label="Broadcast Overlay v2 (recommended)"
-              url={broadcastV2UrlValue}
-              description="Polished graphics — Top 5 strip, 6-team overview pages, stronger bid pop. Same live feed as classic overlay. Set Browser Source to 1920×1080, transparent."
-              shareText={`Broadcast Overlay v2 for ${tournament?.name ?? "our auction"}: ${broadcastV2UrlValue}`}
-            />
-            <LinkRow
-              label="Overlay v2 camera preview"
-              url={broadcastV2PreviewUrlValue}
-              description="Camera + Overlay v2 — test the new graphics without OBS."
-              shareText={`Overlay v2 camera preview: ${broadcastV2PreviewUrlValue}`}
-            />
-            <div className="mt-4">
-              <BroadcastOverlayInfo />
-            </div>
+            <LinkSectionHeader icon={<Radio className="h-4 w-4" />} title="Broadcast" />
+            <div className="px-4">
+              <LinkRow
+                label="Overlay"
+                url={broadcastOverlayUrlValue}
+                description="Add a Browser Source, paste the link, set 1920×1080."
+                shareText={`Broadcast Overlay for ${tournament?.name ?? "our auction"}: ${broadcastOverlayUrlValue}`}
+              />
             </div>
           </CardContent>
         </Card>
 
         <Card className="overflow-hidden panel border-none">
           <CardContent className="p-0">
-            <LinkSectionHeader
-              icon={<Monitor className="h-5 w-5" />}
-              title="Spectator viewing (optional)"
-              description="Share this link on WhatsApp, Instagram, or QR codes — fans open it and watch immediately. No auction code required."
-            />
-            <div className="p-6 pt-4">
+            <LinkSectionHeader icon={<Monitor className="h-4 w-4" />} title="Spectators" />
+            <div className="px-4">
             <LinkRow
-              label="Live Auction Viewer (spectators)"
+              label="Live viewer"
               url={liveViewerUrl}
-              description="Opens directly on any phone, tablet, laptop, or OBS browser source — auction loads automatically."
+              description="Fans open this and the auction loads. No code needed."
               shareText={`Watch our auction live: ${liveViewerUrl}`}
             />
             </div>
           </CardContent>
         </Card>
 
+        <Card className="overflow-hidden panel border-none">
+          <CardContent className="p-0">
+            <LinkSectionHeader icon={<Users className="h-4 w-4" />} title="Team portal" />
+            <div className="px-4">
+              <LinkRow
+                label="Open team portal"
+                url={teamPortalUrl}
+                description="Owners sign in with their mobile and access code."
+                shareText={`Team portal for ${tournament?.name ?? "our auction"}: ${teamPortalUrl}`}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </AppLayout>
   );

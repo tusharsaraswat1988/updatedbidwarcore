@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { 
   LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, Sparkles, Menu, X,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, Gavel, Sparkles, Menu, X,
 } from "lucide-react";
 import {
   auctionRoomPath,
@@ -176,13 +176,9 @@ function SidebarNav({
             </SidebarLink>
             {auctionActive && (
               <>
-                <SidebarLink href={`/tournament/${tournamentId}/reports`} title="Reports & Analytics" className={cls(`/tournament/${tournamentId}/reports`)} active={active(`/tournament/${tournamentId}/reports`)} showAccent={expanded}>
+                <SidebarLink href={`/tournament/${tournamentId}/reports`} title="Reports" className={cls(`/tournament/${tournamentId}/reports`)} active={active(`/tournament/${tournamentId}/reports`)} showAccent={expanded}>
                   <BarChart3 className="w-5 h-5 flex-shrink-0" />
-                  {expanded && <span className="font-medium">Reports & Analytics</span>}
-                </SidebarLink>
-                <SidebarLink href={`/tournament/${tournamentId}/team-reports`} title="Pre-Auction Reports" className={cls(`/tournament/${tournamentId}/team-reports`)} active={active(`/tournament/${tournamentId}/team-reports`)} showAccent={expanded}>
-                  <FileText className="w-5 h-5 flex-shrink-0" />
-                  {expanded && <span className="font-medium">Pre-Auction Reports</span>}
+                  {expanded && <span className="font-medium">Reports</span>}
                 </SidebarLink>
               </>
             )}
@@ -229,9 +225,9 @@ function SidebarNav({
                     </span>
                   </a>
                 )}
-                <SidebarLink href={`/tournament/${tournamentId}/links`} title="Share Links" className={cls(`/tournament/${tournamentId}/links`)} active={active(`/tournament/${tournamentId}/links`)} showAccent={expanded}>
+                <SidebarLink href={`/tournament/${tournamentId}/links`} title="Links" className={cls(`/tournament/${tournamentId}/links`)} active={active(`/tournament/${tournamentId}/links`)} showAccent={expanded}>
                   <Link2 className="w-5 h-5 flex-shrink-0" />
-                  {expanded && <span>Share Links</span>}
+                  {expanded && <span>Links</span>}
                 </SidebarLink>
                 {expanded && (
                   <SidebarLink

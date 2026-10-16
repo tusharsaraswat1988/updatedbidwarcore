@@ -111,9 +111,9 @@ export function legacyLiveViewerPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/liveviewer`;
 }
 
-/** Broadcast Overlay path (internal `/obs` route; browser-source for streaming). */
+/** Broadcast Overlay path (browser-source for streaming). */
 export function obsOverlayPath(tournamentId: number): string {
-  return `/tournament/${tournamentId}/obs`;
+  return `/tournament/${tournamentId}/obs/v2`;
 }
 
 /** @alias obsOverlayPath */

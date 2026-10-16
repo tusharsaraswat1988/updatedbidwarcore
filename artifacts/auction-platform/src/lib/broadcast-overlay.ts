@@ -3,7 +3,8 @@
  * Compatible with OBS, vMix, Wirecast, XSplit, StreamYard, and any
  * browser-source capable broadcast software.
  *
- * Internal route remains `/tournament/:id/obs` for backward compatibility.
+ * Canonical route is `/tournament/:id/obs/v2`.
+ * `/tournament/:id/obs` redirects there so older OBS browser sources keep working.
  */
 
 /** Primary supported canvas size (16:9 landscape). */
@@ -74,24 +75,24 @@ export const BROADCAST_OVERLAY_QUICK_SETUP = [
   { step: 6, text: "Done" },
 ] as const;
 
-/** Relative path (internal route; user-facing name is Broadcast Overlay). */
-export function broadcastOverlayPath(tournamentId: number): string {
-  return `/tournament/${tournamentId}/obs`;
-}
-
-/** Browser preview — camera feed + live overlay (no OBS required). */
-export function broadcastOverlayPreviewPath(tournamentId: number): string {
-  return `/tournament/${tournamentId}/obs/preview`;
-}
-
-/** Broadcast Overlay v2 — polished graphics; classic `/obs` unchanged. */
+/** Broadcast Overlay — polished graphics at `/obs/v2`. */
 export function broadcastOverlayV2Path(tournamentId: number): string {
   return `/tournament/${tournamentId}/obs/v2`;
 }
 
-/** Camera preview for Overlay v2 (no OBS required). */
+/** Camera preview for the broadcast overlay (no OBS required). */
 export function broadcastOverlayV2PreviewPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/obs/v2/preview`;
+}
+
+/** Relative path. Same destination as {@link broadcastOverlayV2Path}. */
+export function broadcastOverlayPath(tournamentId: number): string {
+  return broadcastOverlayV2Path(tournamentId);
+}
+
+/** Browser preview — camera feed + live overlay (no OBS required). */
+export function broadcastOverlayPreviewPath(tournamentId: number): string {
+  return broadcastOverlayV2PreviewPath(tournamentId);
 }
 
 /** @deprecated Use broadcastOverlayV2Path */

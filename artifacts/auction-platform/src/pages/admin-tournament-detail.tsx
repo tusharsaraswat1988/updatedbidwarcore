@@ -67,7 +67,7 @@ import { AdminScrollPanel } from "@/components/admin/admin-scroll-panel";
 import { MetricCard } from "@/components/admin/admin-metric-card";
 import { StatusBadge, type StatusTone } from "@/components/admin/admin-status-badge";
 import { AdminListHeader } from "@/components/admin/admin-list-header";
-import { liveViewerPath, sideDisplayPath } from "@/lib/tournament-navigation";
+import { liveViewerPath, obsOverlayPath, sideDisplayPath } from "@/lib/tournament-navigation";
 
 type DataTab = "overview" | "players" | "teams" | "bids";
 type Tab = DataTab | `live-${LiveOpsSection}`;
@@ -691,7 +691,7 @@ export default function AdminTournamentDetailPage() {
                     </a>
                   </Button>
                   <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate" asChild>
-                    <a href={`/tournament/${t.id}/obs`} target="_blank" rel="noreferrer">
+                    <a href={obsOverlayPath(t.id)} target="_blank" rel="noreferrer">
                       <ExternalLink className="h-3.5 w-3.5 text-amber-400" />
                       OBS Overlay
                     </a>

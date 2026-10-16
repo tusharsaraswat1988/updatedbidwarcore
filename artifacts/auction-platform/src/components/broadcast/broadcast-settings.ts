@@ -115,5 +115,5 @@ export function broadcastSettingsToSearchParams(settings: BroadcastSettings): st
 
 export function buildObsOverlayUrl(origin: string, tournamentId: number, settings: BroadcastSettings): string {
   const qs = broadcastSettingsToSearchParams(settings);
-  return `${origin}/tournament/${tournamentId}/obs?${qs}`;
+  return `${origin}/tournament/${tournamentId}/obs/v2?${qs}`;
 }
