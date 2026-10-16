@@ -952,7 +952,6 @@ export default function ScoringSchedulePage() {
                 id="draw-name-input"
                 value={drawName}
                 onChange={(e) => setDrawName(e.target.value)}
-                placeholder="e.g. League Stage 2026, Premier Division"
                 className="h-10 text-sm"
               />
             </FormField>
@@ -1166,7 +1165,6 @@ export default function ScoringSchedulePage() {
                               value={group.name}
                               onChange={(e) => updateGroupName(group.id, e.target.value)}
                               className="bg-transparent font-bold text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 rounded px-1 py-0.5 w-24 truncate text-xs"
-                              placeholder="Group Name"
                             />
                             <div className="flex items-center gap-1">
                               <Badge variant={group.teamIds.length >= 2 ? "secondary" : "outline"} className={cn("text-[10px]", group.teamIds.length < 2 && "border-amber-500/50 text-amber-600 dark:text-amber-400")}>
@@ -1355,7 +1353,6 @@ export default function ScoringSchedulePage() {
             <FormField label="Venue / Ground Name" required htmlFor="venue-name-input">
               <Input
                 id="venue-name-input"
-                placeholder="e.g. Eden Sports Arena, Stadium 1"
                 value={newVenueName}
                 onChange={(e) => setNewVenueName(e.target.value)}
                 className="h-10 text-sm"
@@ -1366,7 +1363,6 @@ export default function ScoringSchedulePage() {
               <CityAutocomplete
                 value={newVenueCity}
                 onChange={setNewVenueCity}
-                placeholder="City"
                 className="h-10"
                 showHint={false}
               />

@@ -96,7 +96,12 @@ export default function TournamentSettings() {
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const { data: tournament, isLoading: loadingTournament } = useGetTournament(tournamentId, {
+  const {
+    data: tournament,
+    isLoading: loadingTournament,
+    isError: tournamentLoadFailed,
+    refetch: refetchTournament,
+  } = useGetTournament(tournamentId, {
     query: {
       queryKey: getGetTournamentQueryKey(tournamentId),
       enabled: !!tournamentId,
@@ -761,7 +766,23 @@ export default function TournamentSettings() {
 
   const tabs = allTabs.filter(tab => tab.module === "core" || isAuction);
 
-  const showInitialLoading = !initialized || (loadingTournament && !tournament);
+  const showInitialLoading = !tournamentLoadFailed && (!initialized || (loadingTournament && !tournament));
+
+  if (tournamentLoadFailed && !tournament) {
+    return (
+      <AppLayout tournamentId={tournamentId}>
+        <div className="max-w-lg space-y-3">
+          <h1 className="text-xl font-bold">Settings could not load</h1>
+          <p className="text-sm text-muted-foreground">
+            Tournament settings did not load. Try again in a moment.
+          </p>
+          <Button type="button" onClick={() => { void refetchTournament(); }}>
+            Try again
+          </Button>
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (showInitialLoading) {
     return (
@@ -911,7 +932,6 @@ export default function TournamentSettings() {
                     <Input
                       value={editForm.name as string || ""}
                       onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                      placeholder="e.g. Premier League 2026"
                       className="h-9 text-sm"
                     />
                   </div>
@@ -965,7 +985,6 @@ export default function TournamentSettings() {
                     <CityAutocomplete
                       value={editForm.city as string || ""}
                       onChange={city => setEditForm(f => ({ ...f, city }))}
-                      placeholder="Start typing city name"
                       minChars={3}
                     />
                     <p className="text-[10px] text-muted-foreground">Type at least 3 letters for suggestions</p>
@@ -975,7 +994,6 @@ export default function TournamentSettings() {
                     <Input
                       value={editForm.venue as string || ""}
                       onChange={e => setEditForm(f => ({ ...f, venue: e.target.value }))}
-                      placeholder="Stadium or ground name"
                       className="h-9 text-sm"
                     />
                   </div>
@@ -1149,7 +1167,6 @@ export default function TournamentSettings() {
                       min={1}
                       value={editForm.registrationLimit as string || ""}
                       onChange={e => setEditForm(f => ({ ...f, registrationLimit: e.target.value }))}
-                      placeholder="e.g. 100"
                       className="h-9 text-xs"
                     />
                     <p className="text-[10px] text-muted-foreground">Auto-closes when limit reached.</p>
@@ -1193,7 +1210,6 @@ export default function TournamentSettings() {
                             min={1}
                             value={editForm.registrationFee as string || ""}
                             onChange={e => setEditForm(f => ({ ...f, registrationFee: e.target.value }))}
-                            placeholder="e.g. 500"
                             className="h-9 text-xs"
                           />
                           <IndianAmountHint value={editForm.registrationFee as string} className="text-[10px]" />
@@ -1205,7 +1221,6 @@ export default function TournamentSettings() {
                           <Input
                             value={editForm.upiId as string || ""}
                             onChange={e => setEditForm(f => ({ ...f, upiId: e.target.value }))}
-                            placeholder="yourname@upi"
                             className="h-9 text-xs"
                           />
                         </div>
@@ -1446,7 +1461,6 @@ export default function TournamentSettings() {
                           <Textarea
                             value={editForm.registrationDeclarationText as string || ""}
                             onChange={e => setEditForm(f => ({ ...f, registrationDeclarationText: e.target.value }))}
-                            placeholder={"I consent to be present for all scheduled matches.\nI agree to abide by the league's rules and code of conduct.\nI declare that I am physically fit to participate."}
                             rows={6}
                             className="text-xs font-normal leading-relaxed resize-y min-h-[140px]"
                           />
@@ -1534,7 +1548,6 @@ export default function TournamentSettings() {
                             type="number"
                             value={editForm.basePurse as string || ""}
                             onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))}
-                            placeholder="e.g. 10000000"
                             className="h-9 text-xs font-mono"
                           />
                           <IndianAmountHint value={editForm.basePurse as string} unit={currentUnit} className="text-[10px]" />
@@ -1548,7 +1561,6 @@ export default function TournamentSettings() {
                             type="number"
                             value={editForm.minBid as string || ""}
                             onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))}
-                            placeholder="e.g. 10000"
                             className="h-9 text-xs font-mono"
                           />
                           <IndianAmountHint value={editForm.minBid as string} unit={currentUnit} className="text-[10px]" />
@@ -1585,7 +1597,6 @@ export default function TournamentSettings() {
                                 className="h-9 text-xs font-mono"
                                 value={bidTiers[0]?.increment || ""}
                                 onChange={e => setBidTiers([{ increment: Number(e.target.value) || 0 }])}
-                                placeholder="e.g. 10000"
                               />
                             </div>
                             <IndianAmountHint value={bidTiers[0]?.increment} unit={currentUnit} className="text-xs shrink-0" />
@@ -1615,7 +1626,6 @@ export default function TournamentSettings() {
                                             type="number"
                                             value={tier.upTo ?? ""}
                                             onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))}
-                                            placeholder="e.g. 100000"
                                             className="h-8 text-xs font-mono"
                                           />
                                           <IndianAmountHint value={tier.upTo} unit={currentUnit} className="text-[10px]" />
@@ -1630,7 +1640,6 @@ export default function TournamentSettings() {
                                         type="number"
                                         value={tier.increment || ""}
                                         onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, increment: Number(e.target.value) || 0 } : x))}
-                                        placeholder="e.g. 25000"
                                         className="h-8 text-xs font-mono"
                                       />
                                       <IndianAmountHint value={tier.increment} unit={currentUnit} className="text-[10px]" />

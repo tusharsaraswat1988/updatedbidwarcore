@@ -296,7 +296,6 @@ export function TournamentCreationWizard({
               <Input
                 value={draft.name}
                 onChange={(e) => patch({ name: e.target.value })}
-                placeholder="e.g. Mumbai Super League Season 3"
                 className="h-11 rounded-xl bg-background/80 border-border focus:border-primary text-foreground text-sm font-medium"
                 autoFocus
               />
@@ -342,7 +341,6 @@ export function TournamentCreationWizard({
                 <CityAutocomplete
                   value={draft.city}
                   onChange={(v) => patch({ city: v })}
-                  placeholder="Type city (e.g. Pune, Delhi)"
                   minChars={2}
                 />
               </div>
@@ -356,7 +354,6 @@ export function TournamentCreationWizard({
                 <Input
                   value={draft.venue}
                   onChange={(e) => patch({ venue: e.target.value })}
-                  placeholder="e.g. DY Patil Stadium, Court 1"
                   className="h-11 rounded-xl bg-background/80 border-border focus:border-primary text-foreground text-sm"
                 />
               </div>
@@ -515,7 +512,6 @@ export function TournamentCreationWizard({
                       type="number"
                       value={draft.basePurse}
                       onChange={(e) => patch({ basePurse: e.target.value })}
-                      placeholder="10000000"
                       className="h-10 text-sm font-medium"
                     />
                     <IndianAmountHint value={draft.basePurse} className="text-[10px]" />
@@ -527,7 +523,6 @@ export function TournamentCreationWizard({
                       type="number"
                       value={draft.minBid}
                       onChange={(e) => patch({ minBid: e.target.value })}
-                      placeholder="100000"
                       className="h-10 text-sm font-medium"
                     />
                     <IndianAmountHint value={draft.minBid} className="text-[10px]" />
@@ -539,7 +534,6 @@ export function TournamentCreationWizard({
                       type="number"
                       value={draft.bidIncrement}
                       onChange={(e) => patch({ bidIncrement: e.target.value })}
-                      placeholder="50000"
                       className="h-10 text-sm font-medium"
                     />
                     <IndianAmountHint value={draft.bidIncrement} className="text-[10px]" />

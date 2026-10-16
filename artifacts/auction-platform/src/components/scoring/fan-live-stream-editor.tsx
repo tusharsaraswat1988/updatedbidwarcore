@@ -101,7 +101,6 @@ export function FanLiveStreamEditor({
           value={value}
           disabled={isLoading || save.isPending}
           onChange={(event) => setDraft(event.target.value)}
-          placeholder="https://youtube.com/live/…"
           className="flex-1 min-w-0 h-9 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         />
         <Button type="submit" size="sm" disabled={isLoading || save.isPending} className="shrink-0">

@@ -1099,7 +1099,6 @@ export default function CricketFixturesPage() {
                   <Input
                     value={createRoundName}
                     onChange={(e) => setCreateRoundName(e.target.value)}
-                    placeholder="e.g. Semi Final 1, Final"
                   />
                 </div>
 
@@ -1190,7 +1189,6 @@ export default function CricketFixturesPage() {
                   <Input
                     value={createVenue}
                     onChange={(e) => setCreateVenue(e.target.value)}
-                    placeholder="Stadium / Ground"
                   />
                 </div>
               </div>
@@ -1237,7 +1235,6 @@ export default function CricketFixturesPage() {
                   <Input
                     value={editRoundName}
                     onChange={(e) => setEditRoundName(e.target.value)}
-                    placeholder="e.g. Semi Final 1, Final"
                   />
                 </div>
 
@@ -1321,7 +1318,6 @@ export default function CricketFixturesPage() {
                   <Input
                     value={editVenue}
                     onChange={(e) => setEditVenue(e.target.value)}
-                    placeholder="Stadium / Ground"
                   />
                 </div>
 
@@ -1330,7 +1326,6 @@ export default function CricketFixturesPage() {
                   <Input
                     value={editResultSummary}
                     onChange={(e) => setEditResultSummary(e.target.value)}
-                    placeholder="e.g. Team A won by 15 runs, No result due to rain"
                   />
                   <p className="text-[11px] text-muted-foreground">
                     Custom text displayed on cards, scorecards, and overlays.

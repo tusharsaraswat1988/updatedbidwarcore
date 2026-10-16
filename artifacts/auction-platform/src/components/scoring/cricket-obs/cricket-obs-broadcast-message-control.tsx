@@ -571,7 +571,6 @@ export function CricketObsBroadcastMessageControl({
         onChange={(e) => setInlineName(e.target.value)}
         maxLength={100}
         aria-label="Saved template name"
-        placeholder="Name"
         className="h-8 text-xs font-medium"
       />
       <Input
@@ -579,7 +578,6 @@ export function CricketObsBroadcastMessageControl({
         onChange={(e) => setInlineDetails(e.target.value)}
         maxLength={180}
         aria-label="Saved template details"
-        placeholder="Details line"
         className="h-8 text-xs font-medium"
       />
       <div className="flex items-center justify-between gap-2">
@@ -709,7 +707,6 @@ export function CricketObsBroadcastMessageControl({
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={100}
-            placeholder="e.g. Rahul Sharma, ABC Motors, Guest of Honour"
             className={compact ? "h-7 text-[11px] font-medium" : "h-9 text-xs font-medium"}
           />
         </div>
@@ -729,7 +726,6 @@ export function CricketObsBroadcastMessageControl({
             value={details}
             onChange={(e) => setDetails(e.target.value)}
             maxLength={180}
-            placeholder="e.g. Former India Player & Special Guest, Title Sponsor Representative"
             className={compact ? "h-7 text-[11px] font-medium" : "h-9 text-xs font-medium"}
           />
         </div>
@@ -968,7 +964,6 @@ export function CricketObsBroadcastMessageControl({
                     value={templateFormName}
                     onChange={(e) => setTemplateFormName(e.target.value)}
                     maxLength={100}
-                    placeholder="e.g. Rahul Sharma"
                     className="h-8 text-xs bg-white text-slate-900 border-slate-300"
                   />
                 </div>
@@ -982,7 +977,6 @@ export function CricketObsBroadcastMessageControl({
                     value={templateFormDetails}
                     onChange={(e) => setTemplateFormDetails(e.target.value)}
                     maxLength={180}
-                    placeholder="e.g. Former India Player & Special Guest"
                     className="h-8 text-xs bg-white text-slate-900 border-slate-300"
                   />
                 </div>

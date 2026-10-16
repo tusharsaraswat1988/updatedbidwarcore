@@ -35,7 +35,6 @@ export function OptionalEmailField({
         autoComplete="email"
         value={value}
         onChange={e => onChange(e.target.value)}
-        placeholder="you@example.com"
         className={inputClassName}
         disabled={disabled}
         readOnly={disabled}

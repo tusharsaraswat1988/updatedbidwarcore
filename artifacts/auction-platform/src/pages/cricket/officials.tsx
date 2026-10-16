@@ -339,7 +339,6 @@ export default function CricketOfficialsPage() {
                     id="off-name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Rahul Dravid"
                     className="mt-1.5"
                   />
                 </div>
@@ -368,7 +367,6 @@ export default function CricketOfficialsPage() {
                     inputMode="numeric"
                     value={mobile}
                     onChange={(e) => setMobile(sanitizeMobileInput(e.target.value))}
-                    placeholder="10-digit mobile number"
                     maxLength={10}
                     className="mt-1.5 font-mono"
                   />
@@ -383,7 +381,6 @@ export default function CricketOfficialsPage() {
                         inputMode="numeric"
                         value={pin}
                         onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))}
-                        placeholder="e.g. 1234"
                         maxLength={8}
                         className="font-mono pr-10"
                       />

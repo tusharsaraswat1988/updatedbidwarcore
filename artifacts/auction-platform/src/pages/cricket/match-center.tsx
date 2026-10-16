@@ -655,7 +655,6 @@ export default function CricketMatchCenterPage() {
                 <Input
                   value={editRoundName}
                   onChange={(e) => setEditRoundName(e.target.value)}
-                  placeholder="e.g. Semi Final 1, Final"
                 />
               </div>
 
@@ -675,7 +674,6 @@ export default function CricketMatchCenterPage() {
                   <Input
                     value={editVenue}
                     onChange={(e) => setEditVenue(e.target.value)}
-                    placeholder="Stadium / Ground"
                   />
                 </div>
               </div>
@@ -685,7 +683,6 @@ export default function CricketMatchCenterPage() {
                 <Input
                   value={editResultSummary}
                   onChange={(e) => setEditResultSummary(e.target.value)}
-                  placeholder="e.g. Team A won by 15 runs, Match Abandoned"
                 />
                 <p className="text-[11px] text-muted-foreground">
                   Custom text displayed on cards, scorecards, and overlays.

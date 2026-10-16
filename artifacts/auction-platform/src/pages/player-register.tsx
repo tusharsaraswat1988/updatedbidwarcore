@@ -767,7 +767,6 @@ export default function PlayerRegister() {
                       <Input
                         value={form.mobileNumber}
                         onChange={e => handleMobileChange(e.target.value)}
-                        placeholder="10-digit mobile (e.g. 9876543210)"
                         type="tel"
                         className="pr-8 h-11 sm:h-9 text-base"
                         inputMode="numeric"
@@ -972,7 +971,6 @@ export default function PlayerRegister() {
                             required
                             value={form.mobileNumber}
                             onChange={e => handleMobileChange(e.target.value)}
-                            placeholder="10-digit mobile (e.g. 9876543210)"
                             type="tel"
                             className="pr-8 h-11 sm:h-9 text-base border-primary/30 bg-background/60 focus-visible:border-primary focus-visible:ring-primary/25"
                             inputMode="numeric"
@@ -1079,7 +1077,6 @@ export default function PlayerRegister() {
                           required
                           value={form.name}
                           onChange={e => f("name", e.target.value)}
-                          placeholder="Your full name"
                           className="h-11 sm:h-9"
                           autoComplete="name"
                           disabled={identityFieldsLocked}
@@ -1199,7 +1196,6 @@ export default function PlayerRegister() {
                                 <Input
                                   value={specSelections[group.id] ?? ""}
                                   onChange={e => setSpecSelections(prev => ({ ...prev, [group.id]: e.target.value }))}
-                                  placeholder={group.groupName}
                                   className="h-11 sm:h-9"
                                   disabled={closedUpdateReadOnly}
                                   readOnly={closedUpdateReadOnly}
@@ -1252,7 +1248,6 @@ export default function PlayerRegister() {
                               <Input
                                 value={form.specialization}
                                 onChange={e => f("specialization", e.target.value)}
-                                placeholder="e.g. Top-order Batsman, Death Bowler, Finisher"
                                 className="h-11 sm:h-9"
                                 disabled={closedUpdateReadOnly}
                                 readOnly={closedUpdateReadOnly}

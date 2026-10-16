@@ -600,7 +600,6 @@ export default function CricketSettingsPage() {
                       setSaveError("");
                     }
                   }}
-                  placeholder="Box Cricket Cup 2026"
                   className={inputClass}
                 />
               </FormField>
@@ -610,7 +609,6 @@ export default function CricketSettingsPage() {
                   <input
                     value={form.venue}
                     onChange={(e) => setForm((f) => ({ ...f, venue: e.target.value }))}
-                    placeholder="City Sports Complex"
                     className={inputClass}
                   />
                 </FormField>
@@ -618,7 +616,6 @@ export default function CricketSettingsPage() {
                   <input
                     value={form.organizerName}
                     onChange={(e) => setForm((f) => ({ ...f, organizerName: e.target.value }))}
-                    placeholder="ABC Sports Association"
                     className={inputClass}
                   />
                 </FormField>
@@ -743,7 +740,6 @@ export default function CricketSettingsPage() {
                       onChange={(e) =>
                         setScoreBoardSponsor((s) => ({ ...s, title: e.target.value || null }))
                       }
-                      placeholder="e.g. Official Scoreboard Partner"
                       className={inputClass}
                     />
                   </FormField>
@@ -754,7 +750,6 @@ export default function CricketSettingsPage() {
                       onChange={(e) =>
                         setScoreBoardSponsor((s) => ({ ...s, name: e.target.value || null }))
                       }
-                      placeholder="e.g. VNS LIVE STUDIO"
                       className={inputClass}
                     />
                   </FormField>
@@ -899,7 +894,6 @@ export default function CricketSettingsPage() {
                   <Input
                     type="number"
                     min="1"
-                    placeholder="e.g. 100"
                     value={regForm.registrationLimit}
                     onChange={(e) => setRegForm((f) => ({ ...f, registrationLimit: e.target.value }))}
                     className={inputClass}
@@ -941,7 +935,6 @@ export default function CricketSettingsPage() {
                       onChange={(e) =>
                         setRegForm((f) => ({ ...f, registrationDeclarationText: e.target.value }))
                       }
-                      placeholder="1. I agree to abide by the tournament rules and match timings.&#10;2. I confirm I am medically fit to play cricket.&#10;3. Organizers decision on match disputes is final."
                       className="text-sm bg-background/50 border-border/70"
                     />
                   </div>

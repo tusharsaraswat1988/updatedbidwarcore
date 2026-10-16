@@ -227,7 +227,6 @@ export function TeamForm({
           value={form.name}
           onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
           required
-          placeholder="Mumbai Hawks"
         />
       </div>
 
@@ -249,7 +248,6 @@ export function TeamForm({
               setForm(f => ({ ...f, shortCode: e.target.value.toUpperCase() }));
             }}
             required
-            placeholder="CSK"
             maxLength={5}
             className={shortCodeDuplicate ? "border-destructive focus-visible:ring-destructive" : ""}
           />
@@ -279,7 +277,7 @@ export function TeamForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Owner Name <span className="text-destructive">*</span></Label>
-          <Input value={form.ownerName} onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))} required placeholder="Ravi Mehta" />
+          <Input value={form.ownerName} onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))} required />
         </div>
         <div className="space-y-2">
           <Label>Owner Mobile <span className="text-destructive">*</span></Label>
@@ -290,7 +288,6 @@ export function TeamForm({
             value={form.ownerMobile}
             onChange={e => setForm(f => ({ ...f, ownerMobile: sanitizeMobileInput(e.target.value) }))}
             required
-            placeholder="10-digit mobile (e.g. 9876543210)"
             maxLength={10}
           />
           <p className="text-xs text-muted-foreground">Digits only — must start with 6, 7, 8, or 9.</p>
@@ -311,7 +308,6 @@ export function TeamForm({
           <Input
             value={form.coachName}
             onChange={e => setForm(f => ({ ...f, coachName: e.target.value }))}
-            placeholder="Rahul Sharma"
           />
         </div>
         <div className="space-y-2">
@@ -322,7 +318,6 @@ export function TeamForm({
             autoComplete="tel"
             value={form.coachMobile}
             onChange={e => setForm(f => ({ ...f, coachMobile: sanitizeMobileInput(e.target.value) }))}
-            placeholder="10-digit mobile (e.g. 9876543210)"
             maxLength={10}
           />
         </div>
@@ -384,7 +379,7 @@ export function TeamForm({
           <Label>Team Color</Label>
           <div className="flex items-center gap-3">
             <input type="color" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} className="w-12 h-10 rounded cursor-pointer border border-border bg-transparent" />
-            <Input value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} placeholder="#3B82F6" className="font-mono" />
+            <Input value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} className="font-mono" />
           </div>
         </div>
         {/* Purse — Auction only, and only when editing an existing team */}

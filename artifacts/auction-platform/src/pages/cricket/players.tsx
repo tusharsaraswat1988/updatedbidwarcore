@@ -1671,7 +1671,6 @@ export default function CricketPlayersPage() {
                   className={inputClass}
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="Player name"
                   autoFocus
                 />
               </FormField>
@@ -1682,7 +1681,6 @@ export default function CricketPlayersPage() {
                   maxLength={10}
                   value={form.mobile}
                   onChange={(e) => setForm((f) => ({ ...f, mobile: sanitizeMobileInput(e.target.value) }))}
-                  placeholder="10-digit mobile"
                 />
               </FormField>
             </div>
@@ -1694,7 +1692,6 @@ export default function CricketPlayersPage() {
                   inputMode="numeric"
                   value={form.serialNo}
                   onChange={(e) => setForm((f) => ({ ...f, serialNo: e.target.value.replace(/\D/g, "") }))}
-                  placeholder={editing ? String(editing.serialNo ?? "") : "Auto"}
                 />
               </FormField>
               <FormField label="Jersey no.">
@@ -1702,7 +1699,6 @@ export default function CricketPlayersPage() {
                   className={inputClass}
                   value={form.jerseyNumber}
                   onChange={(e) => setForm((f) => ({ ...f, jerseyNumber: e.target.value }))}
-                  placeholder="e.g. 18"
                 />
               </FormField>
               <FormField label="Jersey size">
@@ -1764,7 +1760,6 @@ export default function CricketPlayersPage() {
                   className={inputClass}
                   value={form.city}
                   onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))}
-                  placeholder="City"
                 />
               </FormField>
               <FormField label="Gender">

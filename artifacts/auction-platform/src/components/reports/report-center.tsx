@@ -1456,7 +1456,6 @@ export function FilterBar({
             <CityAutocomplete
               value={filters.city ?? ""}
               onChange={v => setFilters(p => ({ ...p, city: v || undefined }))}
-              placeholder="e.g. Mumbai"
               className="h-8 text-xs"
               showHint={false}
             />
@@ -1466,7 +1465,7 @@ export function FilterBar({
             <Input type="number"
               value={filters.minPrice ?? ""}
               onChange={e => setFilters(p => ({ ...p, minPrice: e.target.value ? Number(e.target.value) : undefined }))}
-              className="h-8 text-xs" placeholder="e.g. 100000"
+              className="h-8 text-xs"
             />
             <IndianAmountHint value={filters.minPrice} className="text-[10px]" />
           </div>
@@ -1475,7 +1474,7 @@ export function FilterBar({
             <Input type="number"
               value={filters.maxPrice ?? ""}
               onChange={e => setFilters(p => ({ ...p, maxPrice: e.target.value ? Number(e.target.value) : undefined }))}
-              className="h-8 text-xs" placeholder="e.g. 5000000"
+              className="h-8 text-xs"
             />
             <IndianAmountHint value={filters.maxPrice} className="text-[10px]" />
           </div>

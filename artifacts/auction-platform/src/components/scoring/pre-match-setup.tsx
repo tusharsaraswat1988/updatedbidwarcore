@@ -558,7 +558,6 @@ export function PreMatchSetup({
                 Reason / Note (Optional)
               </Label>
               <Input
-                placeholder="e.g. Opponent forfeited / No show"
                 value={walkoverReason}
                 onChange={(e) => setWalkoverReason(e.target.value)}
                 className="h-9 text-xs"

@@ -136,7 +136,6 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
           value={form.name}
           onChange={e => setF("name", e.target.value)}
           required
-          placeholder="e.g. Platinum, Gold, Under-23, Fast Bowlers"
         />
       </div>
 
@@ -146,7 +145,6 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
           type="number"
           value={form.minBid}
           onChange={e => setF("minBid", e.target.value)}
-          placeholder="Leave blank to use tournament default"
         />
         <IndianAmountHint value={form.minBid} />
         <p className="text-xs text-muted-foreground">
@@ -192,7 +190,6 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
               type="number"
               value={form.flatIncrement}
               onChange={e => setF("flatIncrement", e.target.value)}
-              placeholder="e.g. 20000"
             />
             <IndianAmountHint value={form.flatIncrement} />
             <p className="text-xs text-muted-foreground">Fixed amount added per bid step for players in this category.</p>
@@ -246,7 +243,6 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
             type="number"
             value={form.maxPlayers}
             onChange={e => setF("maxPlayers", e.target.value)}
-            placeholder="No limit"
           />
           <p className="text-xs text-muted-foreground">Max players from this category a team can buy. Leave blank for no limit.</p>
         </div>
@@ -268,7 +264,6 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
         <AuditReasonField
           value={auditReason}
           onChange={setAuditReason}
-          placeholder="Explain why category bidding rules are being changed…"
         />
       )}
       <div className="flex gap-3 pt-4">

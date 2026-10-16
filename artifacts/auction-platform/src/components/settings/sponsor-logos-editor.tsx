@@ -522,7 +522,6 @@ export function SponsorLogosEditor({
                         next[i] = { ...next[i], name: e.target.value };
                         onChange(next);
                       }}
-                      placeholder="e.g. Electrical Cable India"
                     />
                   </div>
 
@@ -540,7 +539,6 @@ export function SponsorLogosEditor({
                       }}
                       readOnly={isLive}
                       title={isLive ? LIVE_STREAMING_PARTNER_INFO : undefined}
-                      placeholder="e.g. Scoreboard / Team Sponsor"
                     />
                   </div>
 

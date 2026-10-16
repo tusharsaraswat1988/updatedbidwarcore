@@ -2381,7 +2381,6 @@ export function LiveScoringPad({
                 Reason / Note (Optional)
               </Label>
               <Input
-                placeholder="e.g. Team conceded / Forfeited"
                 value={walkoverReason}
                 onChange={(e) => setWalkoverReason(e.target.value)}
                 className="h-9 text-xs"

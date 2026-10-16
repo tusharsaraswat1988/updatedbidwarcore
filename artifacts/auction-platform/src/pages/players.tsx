@@ -191,7 +191,6 @@ function GlobalPlayerSearch({ value, onChange, onFillFromProfile, sportSlug }: {
         onChange={e => { onChange(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         required
-        placeholder="Full name"
         autoComplete="off"
       />
       {showDropdown && (
@@ -984,7 +983,6 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
               value={form.mobileNumber}
               onChange={e => handleMobileChange(e.target.value)}
               required
-              placeholder="10-digit mobile number"
               type="tel"
               inputMode="numeric"
               maxLength={10}
@@ -1012,7 +1010,6 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             value={form.name}
             onChange={e => f("name", e.target.value)}
             required
-            placeholder="Full name"
             className="h-9 text-xs sm:text-sm"
           />
         </div>
@@ -1084,7 +1081,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold">Age</Label>
-          <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} placeholder="Age" className="h-9 text-xs sm:text-sm" />
+          <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} className="h-9 text-xs sm:text-sm" />
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs font-semibold">Gender</Label>
@@ -1171,7 +1168,6 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             <Input
               value={form.jerseyNumber}
               onChange={e => f("jerseyNumber", e.target.value)}
-              placeholder="No. (7)"
               className="h-9 text-xs sm:text-sm w-20 shrink-0"
             />
             <div className="flex-1 min-w-0">
@@ -1211,7 +1207,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                       </SelectContent>
                     </Select>
                   ) : (
-                    <Input value={value} onChange={e => onValueChange(e.target.value)} placeholder={group.groupName} className="h-8.5 text-xs" />
+                    <Input value={value} onChange={e => onValueChange(e.target.value)} className="h-8.5 text-xs" />
                   )}
                 </div>
               );
@@ -1280,12 +1276,12 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           </div>
           <div className="space-y-1">
             <Label className="text-xs font-semibold">Achievements (Optional)</Label>
-            <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} placeholder="e.g. State level winner, MVP" className="h-8 text-xs" />
+            <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} className="h-8 text-xs" />
           </div>
           {sportCaps.hasLegacyCricketSpecs && (
             <div className="space-y-1">
               <Label className="text-xs font-semibold">Crichero URL (Optional)</Label>
-              <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} placeholder="Profile URL" className="h-8 text-xs" />
+              <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} className="h-8 text-xs" />
             </div>
           )}
         </div>
@@ -1385,7 +1381,6 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                 type="number"
                 value={form.retainedPrice}
                 onChange={e => f("retainedPrice", e.target.value)}
-                placeholder="Retained Price (₹)"
                 className="h-8 text-xs"
               />
               <IndianAmountHint value={form.retainedPrice} className="text-[10px]" />

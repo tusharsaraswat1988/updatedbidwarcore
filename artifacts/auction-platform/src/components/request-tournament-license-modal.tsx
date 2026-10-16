@@ -238,7 +238,6 @@ export function RequestTournamentLicenseModal({
                 id="req-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Auction on 15th Oct, 8 teams, 120 players..."
                 className="text-xs resize-none h-20"
               />
             </div>

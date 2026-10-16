@@ -1617,7 +1617,6 @@ export default function CricketRulesPage() {
                             className={cn(inputClass, "h-10 text-center text-xs font-bold tabular-nums placeholder:font-normal")}
                             inputMode="numeric"
                             disabled={locked}
-                            placeholder="No limit…"
                             value={keyRules.retireAtRuns}
                             onChange={(e) =>
                               setKeyRules((p) => ({ ...p, retireAtRuns: e.target.value }))
@@ -2193,7 +2192,6 @@ export default function CricketRulesPage() {
                         autoComplete="off"
                         value={newPresetName}
                         onChange={(e) => setNewPresetName(e.target.value)}
-                        placeholder="League 12 overs…"
                         className={cn(
                           "w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground",
                           focusRing,
@@ -2212,7 +2210,6 @@ export default function CricketRulesPage() {
                         spellCheck={false}
                         value={newPresetDesc}
                         onChange={(e) => setNewPresetDesc(e.target.value)}
-                        placeholder="Knockout rounds, 15 overs per side…"
                         className={cn(
                           "w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground",
                           focusRing,

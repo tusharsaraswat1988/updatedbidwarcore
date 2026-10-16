@@ -3212,7 +3212,6 @@ export default function AuctionOperator() {
                           type="number"
                           value={manualAmount}
                           onChange={(e) => setManualAmount(e.target.value)}
-                          placeholder={`e.g. ${basePrice || 50000}`}
                           className={`font-mono text-sm ${
                             isOverMaxBid ? "border-red-500 text-red-300 focus-visible:ring-red-500" : ""
                           }`}
@@ -3399,16 +3398,16 @@ export default function AuctionOperator() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Minutes</Label>
-                  <Input type="number" value={countdownMinutes} onChange={e => setCountdownMinutes(e.target.value)} min={0} max={60} step={1} placeholder="5" />
+                  <Input type="number" value={countdownMinutes} onChange={e => setCountdownMinutes(e.target.value)} min={0} max={60} step={1} />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">Seconds</Label>
-                  <Input type="number" value={countdownSeconds} onChange={e => setCountdownSeconds(e.target.value)} min={0} max={59} step={1} placeholder="0" />
+                  <Input type="number" value={countdownSeconds} onChange={e => setCountdownSeconds(e.target.value)} min={0} max={59} step={1} />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Label (optional)</Label>
-                <Input value={countdownLabel} onChange={e => setCountdownLabel(e.target.value)} placeholder="e.g. Pre Auction, Lunch Break" />
+                <Input value={countdownLabel} onChange={e => setCountdownLabel(e.target.value)} />
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setCountdownDialogOpen(false)}>Cancel</Button>
@@ -3579,7 +3578,6 @@ export default function AuctionOperator() {
                           type="number"
                           min={tournament?.minBid ?? 1}
                           step={1000}
-                          placeholder={tournament?.minBid ? String(tournament.minBid) : "25000"}
                           value={reAuctionFixedAmount}
                           onChange={(e) => setReAuctionFixedAmount(e.target.value)}
                         />

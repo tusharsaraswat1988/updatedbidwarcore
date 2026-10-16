@@ -255,7 +255,6 @@ export default function BreakTimerPage() {
                 maxLength={60}
                 value={breakLabel}
                 onChange={(e) => setBreakLabel(e.target.value)}
-                placeholder="e.g. Pre Auction"
                 className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
               />
             </div>

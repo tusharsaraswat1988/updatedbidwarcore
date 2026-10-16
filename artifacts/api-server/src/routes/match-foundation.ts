@@ -19,6 +19,7 @@ import {
 import { db, tournamentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireScoringModule } from "../middleware/require-module";
+import { shouldApplyScoringFoundationGate } from "../middleware/scoring-foundation-scope";
 
 const router: IRouter = Router();
 
@@ -28,6 +29,10 @@ function parseId(raw: string): number | null {
 }
 
 router.use("/tournaments/:tournamentId", async (req, res, next) => {
+  if (!shouldApplyScoringFoundationGate("matches", req.url)) {
+    next();
+    return;
+  }
   const tid = parseId(req.params.tournamentId);
   if (tid == null) return void res.status(400).json({ error: "Invalid tournament id" });
   const [tournament] = await db

@@ -523,7 +523,6 @@ export default function CricketScorerHomePage() {
                 autoComplete="tel"
                 value={mobileInput}
                 onChange={(e) => setMobileInput(sanitizeMobileInput(e.target.value))}
-                placeholder="10-digit mobile number"
                 maxLength={10}
                 className="bg-white/5 border-white/15 text-white font-mono text-center h-12 text-lg tracking-wider"
                 required
