@@ -13,7 +13,7 @@ import {
 function applyObs(context: PresentationContextState["context"], selectedTeamId: number | null = null) {
   return {
     overlay: overlayModeFromPresentationContext(context),
-    presentationContext: { context, selectedTeamId } satisfies PresentationContextState,
+    presentationContext: { context, selectedTeamId, revision: 0 } satisfies PresentationContextState,
   };
 }
 
@@ -91,7 +91,11 @@ describe("LED MAIN VIEW resets OBS to LIVE AUCTION", () => {
 
     const afterMain = applyLed("off", afterObs.presentationContext);
     expect(afterMain.overlay).toBeNull();
-    expect(afterMain.presentationContext).toEqual({ context: "auction", selectedTeamId: 42 });
+    expect(afterMain.presentationContext).toEqual({
+      context: "auction",
+      selectedTeamId: 42,
+      revision: 1,
+    });
   });
 
   it("OBS TOP 5 → OBS TEAM → LED MAIN VIEW => OBS LIVE AUCTION", () => {
@@ -122,30 +126,39 @@ describe("LED MAIN VIEW resets OBS to LIVE AUCTION", () => {
     expect(afterObs.presentationContext.context).toBe("top5");
   });
 
-  it("LED TEAM / PLAYER / TOP 5 do not change OBS presentation context", () => {
-    const current: PresentationContextState = { context: "auction", selectedTeamId: 7 };
+  it("LED TEAM / PLAYER / TOP 5 / BANNER do not change OBS presentation context", () => {
+    const current: PresentationContextState = { context: "auction", selectedTeamId: 7, revision: 0 };
     expect(applyLed("team", current).presentationContext).toEqual(current);
     expect(applyLed("player", current).presentationContext).toEqual(current);
     expect(applyLed("top5", current).presentationContext).toEqual(current);
+    expect(applyLed("banner", current).presentationContext).toEqual(current);
     expect(applyLed("team", current).overlay).toBe("team");
     expect(applyLed("player", current).overlay).toBe("player");
     expect(applyLed("top5", current).overlay).toBe("top5");
+    expect(applyLed("banner", current).overlay).toBe("banner");
   });
 
   it("preserves selectedTeamId when LED returns to MAIN VIEW", () => {
     expect(
-      presentationContextAfterLedOverlay("off", { context: "team", selectedTeamId: 9 }),
-    ).toEqual({ context: "auction", selectedTeamId: 9 });
+      presentationContextAfterLedOverlay("off", { context: "team", selectedTeamId: 9, revision: 4 }),
+    ).toEqual({ context: "auction", selectedTeamId: 9, revision: 5 });
   });
 
   it("parses persisted and legacy OBS payloads", () => {
     expect(parsePersistedPresentationContext('{"context":"top5","selectedTeamId":3}')).toEqual({
       context: "top5",
       selectedTeamId: 3,
+      revision: 0,
+    });
+    expect(parsePersistedPresentationContext('{"context":"team","selectedTeamId":4,"revision":6}')).toEqual({
+      context: "team",
+      selectedTeamId: 4,
+      revision: 6,
     });
     expect(parsePersistedPresentationContext({ screen: "team", selectedTeamId: 4 })).toEqual({
       context: "team",
       selectedTeamId: 4,
+      revision: 0,
     });
   });
 });

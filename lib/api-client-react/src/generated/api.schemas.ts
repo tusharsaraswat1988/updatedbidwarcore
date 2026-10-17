@@ -1431,6 +1431,8 @@ export interface PresentationContext {
    * @nullable
    */
   selectedTeamId?: number | null;
+  /** Presentation revision the operator sends back as expectedRevision. */
+  revision?: number;
 }
 
 export interface AuctionState {
@@ -1524,6 +1526,8 @@ export interface SetPresentationContextBody {
   context?: SetPresentationContextBodyContext;
   /** @nullable */
   selectedTeamId?: number | null;
+  /** Revision the operator observed. A stale value is rejected. */
+  expectedRevision?: number;
 }
 
 export type ApplyPurseBoosterRequestTarget =
@@ -2405,6 +2409,8 @@ export const SetDisplayOverlayBodyMode = {
 
 export type SetDisplayOverlayBody = {
   mode: SetDisplayOverlayBodyMode;
+  /** Required by the current operator for MAIN, so a stale reset cannot overwrite a newer OBS selection. */
+  expectedRevision?: number;
 };
 
 export type LookupOwnerOnboardingBody = {

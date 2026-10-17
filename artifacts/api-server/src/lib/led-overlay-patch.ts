@@ -41,12 +41,19 @@ export function overlayModeFromPresentationContext(
 export type PresentationContextState = {
   context: "auction" | "top5" | "team";
   selectedTeamId: number | null;
+  /** Monotonic presentation revision. Missing persisted values are revision 0. */
+  revision: number;
 };
 
 export const DEFAULT_PRESENTATION_CONTEXT_STATE: PresentationContextState = {
   context: "auction",
   selectedTeamId: null,
+  revision: 0,
 };
+
+function readPresentationRevision(value: unknown): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
+}
 
 /** Parse persisted `obsContextJson` (current or legacy `{ screen }` payloads). */
 export function parsePersistedPresentationContext(raw: unknown): PresentationContextState {
@@ -63,16 +70,19 @@ export function parsePersistedPresentationContext(raw: unknown): PresentationCon
   }
   const parsed = value as Record<string, unknown>;
   const selectedTeamId = typeof parsed.selectedTeamId === "number" ? parsed.selectedTeamId : null;
+  const revision = readPresentationRevision(parsed.revision);
   if (typeof parsed.context === "string") {
     return {
       context: parsed.context === "top5" || parsed.context === "team" ? parsed.context : "auction",
       selectedTeamId,
+      revision,
     };
   }
   const screen = typeof parsed.screen === "string" ? parsed.screen : undefined;
   return {
     context: screen === "top5" || screen === "team" ? screen : "auction",
     selectedTeamId,
+    revision,
   };
 }
 
@@ -85,7 +95,11 @@ export function presentationContextAfterLedOverlay(
   current: PresentationContextState,
 ): PresentationContextState {
   if (mode === "off") {
-    return { context: "auction", selectedTeamId: current.selectedTeamId };
+    return {
+      context: "auction",
+      selectedTeamId: current.selectedTeamId,
+      revision: current.revision + 1,
+    };
   }
   return current;
 }

@@ -518,11 +518,24 @@ export default function AuctionOperator() {
     selectedTeamId: number | null = null,
   ) {
     if (controlsLocked || setPresentationMut.isPending) return;
-    const result = await setPresentationMut.mutateAsync({
-      tournamentId,
-      data: { context, selectedTeamId },
-    });
-    applyMutationResult(result);
+    try {
+      const result = await setPresentationMut.mutateAsync({
+        tournamentId,
+        data: {
+          context,
+          selectedTeamId,
+          expectedRevision: presentationContext.revision ?? 0,
+        },
+      });
+      applyMutationResult(result);
+    } catch (err: unknown) {
+      invalidateFallback();
+      toast({
+        title: "OBS did not change",
+        description: err instanceof Error ? err.message : "The broadcast changed on another screen. Try again.",
+        variant: "destructive",
+      });
+    }
   }
 
   async function handleLedOverlay(mode: "off" | "team" | "player" | "top5" | "banner") {
@@ -540,22 +553,30 @@ export default function AuctionOperator() {
         teamPurseViewActive: overlay !== null,
         fortuneWheelActive: false,
         wheelSpinning: false,
-        ...(mode === "off"
-          ? {
-              presentationContext: {
-                context: "auction" as const,
-                selectedTeamId: currentPresentation.selectedTeamId,
-              },
-            }
-          : {}),
+            ...(mode === "off"
+              ? {
+                  presentationContext: {
+                    context: "auction" as const,
+                    selectedTeamId: currentPresentation.selectedTeamId,
+                    revision: (currentPresentation.revision ?? 0) + 1,
+                  },
+                }
+              : {}),
       };
     });
     try {
-      const result = await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode } });
+      const result = await setDisplayOverlay.mutateAsync({
+        tournamentId,
+        data: {
+          mode,
+          ...(mode === "off" ? { expectedRevision: presentationContext.revision ?? 0 } : {}),
+        },
+      });
       if (epoch !== ledOverlayEpochRef.current) return;
       applyMutationResult(result);
     } catch (err: unknown) {
       if (epoch !== ledOverlayEpochRef.current) return;
+      invalidateFallback();
       toast({
         title: "LED screen did not change",
         description: err instanceof Error ? err.message : "Could not switch the display. Try again.",
@@ -618,7 +639,10 @@ export default function AuctionOperator() {
     const result = await nextPlayer.mutateAsync({ tournamentId, data: { mode, playerId } });
     setCurrentBidPaused(false);
     if (state?.displayOverlay) {
-      await setDisplayOverlay.mutateAsync({ tournamentId, data: { mode: "off" } });
+      await setDisplayOverlay.mutateAsync({
+        tournamentId,
+        data: { mode: "off", expectedRevision: presentationContext.revision ?? 0 },
+      });
     }
     applyMutationResult(result);
   }

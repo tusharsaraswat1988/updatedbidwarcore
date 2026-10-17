@@ -41,6 +41,7 @@ import {
   rememberLedOverlayPatch,
   type LedOverlaySessionPatch,
 } from "../lib/led-overlay-patch";
+import { commitPresentationContext, presentationWriteFailure } from "../lib/presentation-context-write";
 import {
   EVENT_BUFFER_MAX,
   formatSseFrame,
@@ -898,25 +899,7 @@ async function buildAuctionStateInner(tournamentId: number, timings: AuctionStat
     null;
   timings.other += Date.now() - activityT0;
 
-  let presentationContext = { context: "auction" as const, selectedTeamId: null as number | null };
-  if (session.obsContextJson) {
-    try {
-      const parsed = JSON.parse(session.obsContextJson as string) as Record<string, unknown>;
-      if (typeof parsed.context === "string") {
-        presentationContext = {
-          context:
-            parsed.context === "top5" || parsed.context === "team" ? parsed.context : "auction",
-          selectedTeamId: typeof parsed.selectedTeamId === "number" ? parsed.selectedTeamId : null,
-        };
-      } else {
-        const screen = typeof parsed.screen === "string" ? parsed.screen : undefined;
-        presentationContext = {
-          context: screen === "top5" || screen === "team" ? screen : "auction",
-          selectedTeamId: typeof parsed.selectedTeamId === "number" ? parsed.selectedTeamId : null,
-        };
-      }
-    } catch { /* ignore legacy */ }
-  }
+  const presentationContext = parsePersistedPresentationContext(session.obsContextJson);
 
   const serT0 = Date.now();
   const result = {
@@ -2984,29 +2967,48 @@ router.post("/tournaments/:tournamentId/auction/display-overlay", async (req, re
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!requireAuctionModule(res, tournament)) return;
 
-  const body = z.object({ mode: z.enum(["off", "team", "player", "top5", "banner"]) }).safeParse(req.body);
+  const body = z.object({
+    mode: z.enum(["off", "team", "player", "top5", "banner"]),
+    expectedRevision: z.number().int().nonnegative().optional(),
+  }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   await getOrCreateSession(tid);
   const overlayPatch = ledOverlaySessionPatch(body.data.mode);
   let presentationExtra: { presentationContext: ReturnType<typeof presentationContextAfterLedOverlay> } | undefined;
   if (body.data.mode === "off") {
-    const [session] = await db
-      .select({ obsContextJson: auctionSessionsTable.obsContextJson })
-      .from(auctionSessionsTable)
-      .where(eq(auctionSessionsTable.tournamentId, tid))
-      .limit(1);
-    const next = presentationContextAfterLedOverlay(
-      "off",
-      parsePersistedPresentationContext(session?.obsContextJson),
-    );
-    await db
-      .update(auctionSessionsTable)
-      .set({
-        ...overlayPatch,
-        obsContextJson: JSON.stringify(next),
-      })
-      .where(eq(auctionSessionsTable.tournamentId, tid));
-    presentationExtra = { presentationContext: next };
+    if (body.data.expectedRevision === undefined) {
+      const [session] = await db
+        .select({ obsContextJson: auctionSessionsTable.obsContextJson })
+        .from(auctionSessionsTable)
+        .where(eq(auctionSessionsTable.tournamentId, tid))
+        .limit(1);
+      const next = presentationContextAfterLedOverlay(
+        "off",
+        parsePersistedPresentationContext(session?.obsContextJson),
+      );
+      await db
+        .update(auctionSessionsTable)
+        .set({
+          ...overlayPatch,
+          obsContextJson: JSON.stringify(next),
+        })
+        .where(eq(auctionSessionsTable.tournamentId, tid));
+      presentationExtra = { presentationContext: next };
+    } else {
+      const committed = await commitPresentationContext(db, {
+        tournamentId: tid,
+        expectedRevision: body.data.expectedRevision,
+        context: "auction",
+        preserveSelectedTeamId: true,
+        overlayPatch,
+      });
+      if (!committed.ok) {
+        const failure = presentationWriteFailure(committed.code);
+        res.status(failure.status).json({ error: failure.error, code: failure.code });
+        return;
+      }
+      presentationExtra = { presentationContext: committed.presentation };
+    }
   } else {
     await db
       .update(auctionSessionsTable)
@@ -3027,6 +3029,7 @@ router.post("/tournaments/:tournamentId/auction/presentation-context", async (re
   const body = z.object({
     context: z.enum(["auction", "top5", "team"]).optional(),
     selectedTeamId: z.number().int().nullable().optional(),
+    expectedRevision: z.number().int().nonnegative().optional(),
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   await getOrCreateSession(tid);
@@ -3035,39 +3038,22 @@ router.post("/tournaments/:tournamentId/auction/presentation-context", async (re
     .from(auctionSessionsTable)
     .where(eq(auctionSessionsTable.tournamentId, tid))
     .limit(1);
-  let current = { context: "auction" as const, selectedTeamId: null as number | null };
-  if (session?.obsContextJson) {
-    try {
-      const parsed = JSON.parse(session.obsContextJson) as Record<string, unknown>;
-      if (typeof parsed.context === "string") {
-        current = {
-          context:
-            parsed.context === "top5" || parsed.context === "team" ? parsed.context : "auction",
-          selectedTeamId: typeof parsed.selectedTeamId === "number" ? parsed.selectedTeamId : null,
-        };
-      } else {
-        const screen = typeof parsed.screen === "string" ? parsed.screen : undefined;
-        current = {
-          context: screen === "top5" || screen === "team" ? screen : "auction",
-          selectedTeamId: typeof parsed.selectedTeamId === "number" ? parsed.selectedTeamId : null,
-        };
-      }
-    } catch { /* ignore */ }
+  const current = parsePersistedPresentationContext(session?.obsContextJson);
+  const nextContext = body.data.context ?? current.context;
+  const overlayPatch = ledOverlaySessionPatch(overlayModeFromPresentationContext(nextContext));
+  const committed = await commitPresentationContext(db, {
+    tournamentId: tid,
+    expectedRevision: body.data.expectedRevision,
+    context: nextContext,
+    selectedTeamId: body.data.selectedTeamId,
+    overlayPatch,
+  });
+  if (!committed.ok) {
+    const failure = presentationWriteFailure(committed.code);
+    res.status(failure.status).json({ error: failure.error, code: failure.code });
+    return;
   }
-  const next = {
-    context: body.data.context ?? current.context,
-    selectedTeamId:
-      body.data.selectedTeamId !== undefined ? body.data.selectedTeamId : current.selectedTeamId,
-  };
-  const overlayPatch = ledOverlaySessionPatch(overlayModeFromPresentationContext(next.context));
-  await db
-    .update(auctionSessionsTable)
-    .set({
-      obsContextJson: JSON.stringify(next),
-      ...overlayPatch,
-    })
-    .where(eq(auctionSessionsTable.tournamentId, tid));
-  res.json(await broadcastLedOverlayPatch(tid, overlayPatch, { presentationContext: next }));
+  res.json(await broadcastLedOverlayPatch(tid, overlayPatch, { presentationContext: committed.presentation }));
 });
 
 // POST set Player View filter (status/category/team) shown on LED display

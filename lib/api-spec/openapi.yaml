@@ -1106,6 +1106,10 @@ paths:
                 mode:
                   type: string
                   enum: [off, team, player, top5, banner]
+                expectedRevision:
+                  type: integer
+                  minimum: 0
+                  description: Observed presentation revision. Sent with MAIN so a stale reset cannot overwrite a newer OBS selection.
       responses:
         "200":
           description: State updated
@@ -1138,6 +1142,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuctionState"
+        "400":
+          description: expectedRevision was not sent
+        "409":
+          description: expectedRevision does not match the stored presentation revision
 
   /tournaments/{tournamentId}/auction/display-player-filter:
     post:
@@ -3530,15 +3538,24 @@ components:
         selectedTeamId:
           type: ["integer", "null"]
           description: Team highlighted in team presentation. Null cycles all teams.
+        revision:
+          type: integer
+          minimum: 0
+          description: Presentation revision. Clients send this back as expectedRevision.
 
     SetPresentationContextBody:
       type: object
+      required: [expectedRevision]
       properties:
         context:
           type: string
           enum: [auction, top5, team]
         selectedTeamId:
           type: ["integer", "null"]
+        expectedRevision:
+          type: integer
+          minimum: 0
+          description: Revision the caller observed. A stale value is rejected with 409.
 
     LastPurseBooster:
       type: object

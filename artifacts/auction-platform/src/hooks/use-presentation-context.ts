@@ -6,6 +6,7 @@ import type { PresentationContextKind } from "@/lib/presentation-context";
 export type SetPresentationContextBody = {
   context?: PresentationContextKind;
   selectedTeamId?: number | null;
+  expectedRevision: number;
 };
 
 export async function setPresentationContext(

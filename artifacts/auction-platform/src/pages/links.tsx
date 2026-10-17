@@ -29,7 +29,19 @@ function LinkSectionHeader({
   );
 }
 
-function LinkRow({ label, url, description, shareText }: { label: string; url: string; description: string; shareText?: string }) {
+function LinkRow({
+  label,
+  url,
+  description,
+  shareText,
+  accessCode,
+}: {
+  label: string;
+  url: string;
+  description: string;
+  shareText?: string;
+  accessCode?: string;
+}) {
   const { toast } = useToast();
   const whatsappText = shareText ?? `${label}: ${url}`;
 
@@ -37,6 +49,14 @@ function LinkRow({ label, url, description, shareText }: { label: string; url: s
     void navigator.clipboard.writeText(url).then(
       () => toast({ title: "Copied", description: "Link copied to clipboard" }),
       () => toast({ title: "Copy failed", description: "Select the address and copy it manually.", variant: "destructive" }),
+    );
+  }
+
+  function copyCode() {
+    if (!accessCode) return;
+    void navigator.clipboard.writeText(accessCode).then(
+      () => toast({ title: "Code copied", description: accessCode }),
+      () => toast({ title: "Copy failed", description: "Select the code and copy it manually.", variant: "destructive" }),
     );
   }
 
@@ -48,11 +68,22 @@ function LinkRow({ label, url, description, shareText }: { label: string; url: s
   }
 
   return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
+    <div className="flex flex-wrap items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold leading-tight">{label}</p>
         <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{description}</p>
       </div>
+      {accessCode ? (
+        <button
+          type="button"
+          onClick={copyCode}
+          title="Copy auction code"
+          className="shrink-0 flex flex-col items-center gap-0.5 rounded-xl border border-primary/35 bg-primary/10 px-3.5 py-1.5 text-left transition-colors hover:bg-primary/15"
+        >
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary/80">Auction code</span>
+          <span className="font-mono text-xl font-bold leading-none tracking-[0.22em] text-primary">{accessCode}</span>
+        </button>
+      ) : null}
       <div className="flex gap-1.5 shrink-0">
         <Button size="sm" variant="outline" className="gap-1.5 h-8 px-2.5" onClick={copyUrl}>
           <Copy className="w-3.5 h-3.5" /> Copy
@@ -82,6 +113,7 @@ export default function LinksPage() {
   const liveViewerUrl = `${base}${liveViewerPath(tournamentId)}`;
   const broadcastOverlayUrlValue = broadcastOverlayUrl(base, tournamentId);
   const teamPortalUrl = ownerJoinPublicUrl(base, tournamentId);
+  const auctionCode = tournament?.auctionCode?.trim() || undefined;
 
   return (
     <AppLayout tournamentId={tournamentId}>
@@ -99,12 +131,17 @@ export default function LinksPage() {
               <LinkRow
                 label="Big screen"
                 url={displayUrl}
+                accessCode={auctionCode}
                 description={
-                  tournament?.auctionCode
-                    ? `Projector or TV. Enter ${tournament.auctionCode} if the screen asks.`
+                  auctionCode
+                    ? "Projector or TV. Type this code when the screen asks."
                     : "Projector or TV. Press F11 for full screen."
                 }
-                shareText={`Big screen link for ${tournament?.name ?? "our auction"}: ${displayUrl}`}
+                shareText={
+                  auctionCode
+                    ? `Big screen for ${tournament?.name ?? "our auction"}: ${displayUrl}\nAuction code: ${auctionCode}`
+                    : `Big screen link for ${tournament?.name ?? "our auction"}: ${displayUrl}`
+                }
               />
               <LinkRow
                 label="Side screen — sponsors"

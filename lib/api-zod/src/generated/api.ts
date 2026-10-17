@@ -7854,6 +7854,7 @@ export const SetDisplayOverlayParams = zod.object({
 
 export const SetDisplayOverlayBody = zod.object({
   mode: zod.enum(["off", "team", "player", "top5", "banner"]),
+  expectedRevision: zod.number().int().nonnegative().optional(),
 });
 
 export const setDisplayOverlayResponsePresentationContextContextDefault = `auction`;
@@ -8221,6 +8222,7 @@ export const SetPresentationContextParams = zod.object({
 export const SetPresentationContextBody = zod.object({
   context: zod.enum(["auction", "top5", "team"]).optional(),
   selectedTeamId: zod.number().nullish(),
+  expectedRevision: zod.number().int().nonnegative(),
 });
 
 export const setPresentationContextResponsePresentationContextContextDefault = `auction`;

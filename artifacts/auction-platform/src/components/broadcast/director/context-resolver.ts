@@ -10,6 +10,7 @@ import {
 } from "@/lib/presentation-context";
 import type { BroadcastSceneId } from "../types";
 import type { DirectorContext } from "./types";
+import { effectiveTop5Price } from "@/lib/player-acquisition-price";
 
 export type Top5PlayerModel = {
   rank: number;
@@ -18,6 +19,8 @@ export type Top5PlayerModel = {
   teamLogoSrc: string | null;
   teamName: string | null;
   teamAccentColor: string | null;
+  /** Raw acquisition price. The OBS adapter renders this instead of parsing priceLabel. */
+  price: number;
   priceLabel: string;
 };
 
@@ -50,19 +53,23 @@ export function buildTop5Players(
 ): Top5PlayerModel[] {
   const teamMap = new Map((teamPurses ?? []).map((t) => [t.teamId, t]));
   return (players ?? [])
-    .filter((p) => p.status === "sold" && (p.soldPrice ?? 0) > 0)
-    .toSorted((a, b) => (b.soldPrice ?? 0) - (a.soldPrice ?? 0) || a.id - b.id)
+    .flatMap((player) => {
+      const price = effectiveTop5Price(player);
+      return price == null ? [] : [{ player, price }];
+    })
+    .toSorted((a, b) => b.price - a.price)
     .slice(0, 5)
-    .map((p, idx) => {
-      const team = p.teamId ? teamMap.get(p.teamId) : undefined;
+    .map(({ player, price }, idx) => {
+      const team = player.teamId ? teamMap.get(player.teamId) : undefined;
       return {
         rank: idx + 1,
-        name: p.name,
-        photoSrc: resolvePhotoSrc(p.photoUrl, "playerCard"),
+        name: player.name,
+        photoSrc: resolvePhotoSrc(player.photoUrl, "playerCard"),
         teamLogoSrc: resolvePhotoSrc(team?.logoUrl ?? null, "teamLogo"),
         teamName: team?.teamName ?? null,
         teamAccentColor: team?.color ?? null,
-        priceLabel: formatAmount(p.soldPrice ?? 0),
+        price,
+        priceLabel: formatAmount(price),
       };
     });
 }

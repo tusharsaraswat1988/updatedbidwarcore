@@ -13,12 +13,19 @@ export type BroadcastCurrentContext =
 export type PresentationContext = {
   context: PresentationContextKind;
   selectedTeamId: number | null;
+  /** Revision the operator must send back. Missing snapshots are revision 0. */
+  revision?: number;
 };
 
 export const DEFAULT_PRESENTATION_CONTEXT: PresentationContext = {
   context: "auction",
   selectedTeamId: null,
+  revision: 0,
 };
+
+function readRevision(value: unknown): number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : 0;
+}
 
 const PRESENTATION_KINDS = new Set<PresentationContextKind>(["auction", "top5", "team"]);
 
@@ -32,10 +39,12 @@ export function parsePresentationContext(raw: unknown): PresentationContext {
   if (!raw || typeof raw !== "object") return DEFAULT_PRESENTATION_CONTEXT;
   const value = raw as Record<string, unknown>;
 
+  const revision = readRevision(value.revision);
   if (typeof value.context === "string" && PRESENTATION_KINDS.has(value.context as PresentationContextKind)) {
     return {
       context: value.context as PresentationContextKind,
       selectedTeamId: typeof value.selectedTeamId === "number" ? value.selectedTeamId : null,
+      revision,
     };
   }
 
@@ -47,6 +56,7 @@ export function parsePresentationContext(raw: unknown): PresentationContext {
   return {
     context: legacyKind,
     selectedTeamId: typeof value.selectedTeamId === "number" ? value.selectedTeamId : null,
+    revision,
   };
 }
 

@@ -29,6 +29,7 @@ export interface AdaptAuctionToBroadcastFrameOptions {
 }
 
 import { deriveBranding, mapSponsors, mapTeamPurses } from "./branding";
+import { effectiveTop5Price, squadAcquisitionPrice } from "@/lib/player-acquisition-price";
 export { deriveBranding, mapSponsors, mapTeamPurses };
 
 /**
@@ -81,8 +82,189 @@ export function adaptAuctionToBroadcastFrame(
   };
 
   const sceneId = directorFrame.sceneId as BroadcastSceneId;
+  // The director keeps sceneId on the auction lifecycle (AUCTION, SOLD, BREAK, …).
+  // Operator Top 5 / Team Details are stored on currentContext, not sceneId.
+  const presentation = directorFrame.currentContext;
 
-  // 1. AUCTION SCENE
+  // Automatic lifecycle scenes win over an operator board. A sold hold can
+  // still carry currentContext TOP5; the stamp must stay on screen.
+  if (sceneId === "SOLD") {
+    const s = directorFrame.scene.kind === "SOLD" ? directorFrame.scene : null;
+    const playerName = s?.player?.name || state?.currentPlayer?.name || "Sold Player";
+    const playerRole = s?.player?.category || state?.currentPlayer?.role || "Player";
+    const photoUrl = s?.player?.photoSrc || s?.player?.photoUrl || state?.currentPlayer?.photoUrl || undefined;
+    const soldPrice = s?.soldAmount ?? state?.currentBid ?? 0;
+    const teamName = s?.teamName || "Winning Team";
+    const teamObj = teams.find((t) => t.name === teamName) || {
+      teamId: "sold-team",
+      name: teamName,
+      short: teamName.slice(0, 3).toUpperCase(),
+      logoUrl: s?.teamLogoSrc || undefined,
+      purseRemaining: 0,
+      playersBought: 0,
+      slotsRemaining: 0,
+    };
+
+    const payload: ScenePayload = {
+      scene: "SOLD",
+      model: {
+        player: {
+          id: String(state?.currentPlayer?.id ?? "p1"),
+          name: playerName,
+          role: playerRole,
+          photoUrl: photoUrl && !photoUrl.startsWith("data:") ? photoUrl : undefined,
+          basePrice: 0,
+        },
+        soldPrice,
+        team: teamObj,
+      },
+    };
+
+    return { ...baseFrame, ...payload };
+  }
+
+  if (sceneId === "UNSOLD") {
+    const u = directorFrame.scene.kind === "UNSOLD" ? directorFrame.scene : null;
+    const playerName = u?.player?.name || state?.currentPlayer?.name || "Unsold Player";
+    const playerRole = u?.player?.category || state?.currentPlayer?.role || "Player";
+    const photoUrl = u?.player?.photoSrc || u?.player?.photoUrl || state?.currentPlayer?.photoUrl || undefined;
+    const basePrice = state?.currentPlayer?.basePrice ?? 0;
+
+    const payload: ScenePayload = {
+      scene: "UNSOLD",
+      model: {
+        player: {
+          id: String(state?.currentPlayer?.id ?? "p1"),
+          name: playerName,
+          role: playerRole,
+          photoUrl: photoUrl && !photoUrl.startsWith("data:") ? photoUrl : undefined,
+          basePrice,
+        },
+      },
+    };
+
+    return { ...baseFrame, ...payload };
+  }
+
+  if (sceneId === "BREAK") {
+    const b = directorFrame.scene.kind === "BREAK" ? directorFrame.scene : null;
+    const headline = b?.breakMessage || "Strategic Break";
+
+    const payload: ScenePayload = {
+      scene: "BREAK",
+      model: {
+        headline,
+        subline: "BREAK",
+      },
+    };
+
+    return { ...baseFrame, ...payload };
+  }
+
+  if (sceneId === "SUMMARY") {
+    const totalSold = state?.soldPlayersCount ?? 0;
+    const totalUnsold = state?.unsoldPlayersCount ?? 0;
+    const totalSpent = (teamPurses ?? []).reduce((acc, t) => acc + (t.purseUsed ?? 0), 0);
+
+    const payload: ScenePayload = {
+      scene: "SUMMARY",
+      model: {
+        totalSold,
+        totalUnsold,
+        totalSpent,
+        highest: undefined,
+      },
+    };
+
+    return { ...baseFrame, ...payload };
+  }
+
+  if (sceneId === "WAITING") {
+    return { ...baseFrame, ...waitingPayload(tournamentName, auctionStartsAt) };
+  }
+
+  if (presentation === "TOP5" || sceneId === "TOP5") {
+    const entries = directorFrame.top5
+      ? directorFrame.top5.players.slice(0, 5).map((p) => {
+          const matchedTeam = teams.find((t) => t.name === p.teamName);
+          return {
+            rank: p.rank,
+            playerName: p.name,
+            role: "Player",
+            teamShort: matchedTeam?.short || (p.teamName ? p.teamName.slice(0, 3).toUpperCase() : ""),
+            price: p.price,
+          };
+        })
+      : (soldPlayers ?? [])
+          .flatMap((p) => {
+            const price = effectiveTop5Price(p);
+            return price == null ? [] : [{ player: p, price }];
+          })
+          .toSorted((a, b) => b.price - a.price)
+          .slice(0, 5)
+          .map(({ player, price }, idx) => {
+            const matchedTeam = teams.find((t) => t.teamId === String(player.teamId));
+            return {
+              rank: idx + 1,
+              playerName: player.name,
+              role: player.role || "Player",
+              teamShort: matchedTeam?.short || "",
+              price,
+            };
+          });
+
+    const payload: ScenePayload = {
+      scene: "TOP5",
+      model: {
+        title: directorFrame.top5?.title || "Top Buys",
+        entries,
+      },
+    };
+
+    return { ...baseFrame, ...payload };
+  }
+
+  if (presentation === "TEAM" || sceneId === "TEAM") {
+    const overview = directorFrame.team;
+    const teamObj = overview
+      ? teams.find((t) => t.teamId === String(overview.teamId) || t.name === overview.name) || teams[0] || {
+          teamId: String(overview.teamId),
+          name: overview.name || "Team",
+          short: overview.shortCode || "TEA",
+          purseRemaining: 0,
+          playersBought: 0,
+          slotsRemaining: 0,
+        }
+      : {
+          teamId: "none",
+          name: "No teams yet",
+          short: "—",
+          purseRemaining: 0,
+          playersBought: 0,
+          slotsRemaining: 0,
+        };
+
+    const squad = overview
+      ? (soldPlayers ?? [])
+          .filter((p) => p.teamId === overview.teamId)
+          .map((p) => ({
+            name: p.name,
+            role: p.role || "Player",
+            price: squadAcquisitionPrice(p),
+          }))
+      : [];
+
+    const payload: ScenePayload = {
+      scene: "TEAM",
+      model: {
+        team: teamObj,
+        squad,
+      },
+    };
+
+    return { ...baseFrame, ...payload };
+  }
+
   if (sceneId === "AUCTION") {
     const p = directorFrame.scene.kind === "AUCTION" ? directorFrame.scene.player : null;
     const currentPlayer = state?.currentPlayer;
@@ -123,173 +305,13 @@ export function adaptAuctionToBroadcastFrame(
     return { ...baseFrame, ...payload };
   }
 
-  // 2. SOLD SCENE
-  if (sceneId === "SOLD") {
-    const s = directorFrame.scene.kind === "SOLD" ? directorFrame.scene : null;
-    const playerName = s?.player?.name || state?.currentPlayer?.name || "Sold Player";
-    const playerRole = s?.player?.category || state?.currentPlayer?.role || "Player";
-    const photoUrl = s?.player?.photoSrc || s?.player?.photoUrl || state?.currentPlayer?.photoUrl || undefined;
-    const soldPrice = s?.soldAmount ?? state?.currentBid ?? 0;
-    const teamName = s?.teamName || "Winning Team";
-    const teamObj = teams.find((t) => t.name === teamName) || {
-      teamId: "sold-team",
-      name: teamName,
-      short: teamName.slice(0, 3).toUpperCase(),
-      logoUrl: s?.teamLogoSrc || undefined,
-      purseRemaining: 0,
-      playersBought: 0,
-      slotsRemaining: 0,
-    };
+  return { ...baseFrame, ...waitingPayload(tournamentName, auctionStartsAt) };
+}
 
-    const payload: ScenePayload = {
-      scene: "SOLD",
-      model: {
-        player: {
-          id: String(state?.currentPlayer?.id ?? "p1"),
-          name: playerName,
-          role: playerRole,
-          photoUrl: photoUrl && !photoUrl.startsWith("data:") ? photoUrl : undefined,
-          basePrice: 0,
-        },
-        soldPrice,
-        team: teamObj,
-      },
-    };
-
-    return { ...baseFrame, ...payload };
-  }
-
-  // 3. UNSOLD SCENE
-  if (sceneId === "UNSOLD") {
-    const u = directorFrame.scene.kind === "UNSOLD" ? directorFrame.scene : null;
-    const playerName = u?.player?.name || state?.currentPlayer?.name || "Unsold Player";
-    const playerRole = u?.player?.category || state?.currentPlayer?.role || "Player";
-    const photoUrl = u?.player?.photoSrc || u?.player?.photoUrl || state?.currentPlayer?.photoUrl || undefined;
-    const basePrice = state?.currentPlayer?.basePrice ?? 0;
-
-    const payload: ScenePayload = {
-      scene: "UNSOLD",
-      model: {
-        player: {
-          id: String(state?.currentPlayer?.id ?? "p1"),
-          name: playerName,
-          role: playerRole,
-          photoUrl: photoUrl && !photoUrl.startsWith("data:") ? photoUrl : undefined,
-          basePrice,
-        },
-      },
-    };
-
-    return { ...baseFrame, ...payload };
-  }
-
-  // 4. BREAK SCENE
-  if (sceneId === "BREAK") {
-    const b = directorFrame.scene.kind === "BREAK" ? directorFrame.scene : null;
-    const headline = b?.breakMessage || "Strategic Break";
-
-    const payload: ScenePayload = {
-      scene: "BREAK",
-      model: {
-        headline,
-        subline: "BREAK",
-      },
-    };
-
-    return { ...baseFrame, ...payload };
-  }
-
-  // 5. SUMMARY SCENE
-  if (sceneId === "SUMMARY") {
-    const totalSold = state?.soldPlayersCount ?? 0;
-    const totalUnsold = state?.unsoldPlayersCount ?? 0;
-    const totalSpent = (teamPurses ?? []).reduce((acc, t) => acc + (t.purseUsed ?? 0), 0);
-
-    const payload: ScenePayload = {
-      scene: "SUMMARY",
-      model: {
-        totalSold,
-        totalUnsold,
-        totalSpent,
-        highest: undefined,
-      },
-    };
-
-    return { ...baseFrame, ...payload };
-  }
-
-  // 6. TOP5 SCENE
-  if (sceneId === "TOP5") {
-    const entries = directorFrame.top5
-      ? directorFrame.top5.players.slice(0, 5).map((p) => {
-          const matchedTeam = teams.find((t) => t.name === p.teamName);
-          const parsedPrice = parseInt(p.priceLabel.replace(/[^0-9]/g, ""), 10) || 0;
-          return {
-            rank: p.rank,
-            playerName: p.name,
-            role: "Player",
-            teamShort: matchedTeam?.short || (p.teamName ? p.teamName.slice(0, 3).toUpperCase() : ""),
-            price: parsedPrice,
-          };
-        })
-      : (soldPlayers ?? [])
-          .filter((p) => p.status === "sold" && (p.soldPrice ?? 0) > 0)
-          .toSorted((a, b) => (b.soldPrice ?? 0) - (a.soldPrice ?? 0))
-          .slice(0, 5)
-          .map((p, idx) => {
-            const matchedTeam = teams.find((t) => t.teamId === String(p.teamId));
-            return {
-              rank: idx + 1,
-              playerName: p.name,
-              role: p.role || "Player",
-              teamShort: matchedTeam?.short || "",
-              price: p.soldPrice || 0,
-            };
-          });
-
-    const payload: ScenePayload = {
-      scene: "TOP5",
-      model: {
-        title: directorFrame.top5?.title || "Top Buys",
-        entries,
-      },
-    };
-
-    return { ...baseFrame, ...payload };
-  }
-
-  // 7. TEAM SCENE
-  if (sceneId === "TEAM" && directorFrame.team) {
-    const overview = directorFrame.team;
-    const teamObj = teams.find((t) => t.teamId === String(overview.teamId) || t.name === overview.name) || teams[0] || {
-      teamId: String(overview.teamId),
-      name: overview.name || "Team",
-      short: overview.shortCode || "TEA",
-      purseRemaining: 0,
-      playersBought: 0,
-      slotsRemaining: 0,
-    };
-
-    const squad = (soldPlayers ?? [])
-      .filter((p) => p.teamId === overview.teamId)
-      .map((p) => ({
-        name: p.name,
-        role: p.role || "Player",
-        price: p.soldPrice || 0,
-      }));
-
-    const payload: ScenePayload = {
-      scene: "TEAM",
-      model: {
-        team: teamObj,
-        squad,
-      },
-    };
-
-    return { ...baseFrame, ...payload };
-  }
-
-  // 8. WAITING / STANDBY (Default)
+function waitingPayload(
+  tournamentName: string | null,
+  auctionStartsAt: string | null | undefined,
+): ScenePayload {
   let subline: string | undefined;
   if (auctionStartsAt) {
     try {
@@ -305,13 +327,11 @@ export function adaptAuctionToBroadcastFrame(
     subline = "Standby for Next Player";
   }
 
-  const payload: ScenePayload = {
+  return {
     scene: "WAITING",
     model: {
       headline: tournamentName ? `${tournamentName} Auction` : "Auction Resumes Shortly",
       subline,
     },
   };
-
-  return { ...baseFrame, ...payload };
 }

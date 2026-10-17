@@ -1,7 +1,13 @@
 /** Presentation-only formatting. No business logic. */
+function formatLakh(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
 export function formatAmount(n: number): string {
+  if (!Number.isFinite(n)) return "₹0";
   if (n >= 1e7) return `₹${(n / 1e7).toFixed(2)} Cr`;
-  if (n >= 1e5) return `₹${Math.round(n / 1e5)} L`;
+  if (n >= 1e5) return `₹${formatLakh(n / 1e5)} L`;
   return `₹${n.toLocaleString("en-IN")}`;
 }
 

@@ -8,7 +8,6 @@ import {
 import {
   auctionRoomPath,
   auctionResetPath,
-  displayScreenPath,
 } from "@/lib/tournament-navigation";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth, useOrganizerAccountAuth } from "@/hooks/use-auth";
@@ -165,14 +164,14 @@ function SidebarNav({
                   {expanded && <span className="font-medium">Players</span>}
                 </SidebarLink>
                 <SidebarLink href={`/tournament/${tournamentId}/categories`} title="Categories" className={cls(`/tournament/${tournamentId}/categories`)} active={active(`/tournament/${tournamentId}/categories`)} showAccent={expanded}>
-                  <Settings className="w-5 h-5 flex-shrink-0" />
-                  {expanded && <span className="font-medium">Categories <span className="text-[10px] text-muted-foreground font-normal">(optional)</span></span>}
+                  <SlidersHorizontal className="w-5 h-5 flex-shrink-0" />
+                  {expanded && <span className="font-medium">Categories</span>}
                 </SidebarLink>
               </>
             )}
-            <SidebarLink href={`/tournament/${tournamentId}/settings`} title="Tournament Settings" className={cls(`/tournament/${tournamentId}/settings`)} active={active(`/tournament/${tournamentId}/settings`)} showAccent={expanded}>
-              <SlidersHorizontal className="w-5 h-5 flex-shrink-0" />
-              {expanded && <span className="font-medium">Settings</span>}
+            <SidebarLink href={`/tournament/${tournamentId}/settings`} title={auctionActive ? "Auction Setting" : "Tournament Settings"} className={cls(`/tournament/${tournamentId}/settings`)} active={active(`/tournament/${tournamentId}/settings`)} showAccent={expanded}>
+              <Settings className="w-5 h-5 flex-shrink-0" />
+              {expanded && <span className="font-medium">{auctionActive ? "Auction Setting" : "Settings"}</span>}
             </SidebarLink>
             {auctionActive && (
               <>
@@ -204,27 +203,6 @@ function SidebarNav({
                   <Gavel className="w-5 h-5 flex-shrink-0" />
                   {expanded && <span>Auction Control</span>}
                 </a>
-                {expanded && (
-                  <a
-                    href={displayScreenPath(tournamentId, tournament?.auctionCode)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={
-                      tournament?.auctionCode
-                        ? `LED display screen — tournament code: ${tournament.auctionCode}`
-                        : "LED display screen — use tournament code to open"
-                    }
-                    className="flex items-center gap-3 px-3 py-2 rounded-md border border-border text-muted-foreground hover:bg-white/[0.06] hover:text-foreground transition-all mt-1"
-                  >
-                    <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
-                    <span className="flex flex-col leading-tight min-w-0">
-                      <span className="font-medium">LED Display Screen</span>
-                      <span className="text-[10px] text-muted-foreground/80 normal-case">
-                        (use tournament code to open)
-                      </span>
-                    </span>
-                  </a>
-                )}
                 <SidebarLink href={`/tournament/${tournamentId}/links`} title="Links" className={cls(`/tournament/${tournamentId}/links`)} active={active(`/tournament/${tournamentId}/links`)} showAccent={expanded}>
                   <Link2 className="w-5 h-5 flex-shrink-0" />
                   {expanded && <span>Links</span>}
