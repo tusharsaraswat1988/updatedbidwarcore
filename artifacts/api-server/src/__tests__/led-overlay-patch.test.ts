@@ -145,6 +145,28 @@ describe("LED MAIN VIEW resets OBS to LIVE AUCTION", () => {
     ).toEqual({ context: "auction", selectedTeamId: 9, revision: 5 });
   });
 
+  it("keeps a prize plate when the scene returns to the live auction", () => {
+    const current: PresentationContextState = {
+      context: "top5",
+      selectedTeamId: null,
+      revision: 2,
+      prize: { line1: "Orange Cap", line2: "Ravi" },
+    };
+    expect(presentationContextAfterLedOverlay("off", current)).toEqual({
+      context: "auction",
+      selectedTeamId: null,
+      revision: 3,
+      prize: { line1: "Orange Cap", line2: "Ravi" },
+    });
+    const live = liveAuctionSessionWrite(JSON.stringify(current));
+    expect(JSON.parse(live.obsContextJson)).toEqual({
+      context: "auction",
+      selectedTeamId: null,
+      revision: 3,
+      prize: { line1: "Orange Cap", line2: "Ravi" },
+    });
+  });
+
   it("parses persisted and legacy OBS payloads", () => {
     expect(parsePersistedPresentationContext('{"context":"top5","selectedTeamId":3}')).toEqual({
       context: "top5",

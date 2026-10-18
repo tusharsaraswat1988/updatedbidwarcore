@@ -4,7 +4,7 @@
  * Play cues carry a slot id and version. They never carry media bytes or URLs.
  */
 
-export const SPONSOR_MEDIA_SLOT_COUNT = 4;
+export const SPONSOR_MEDIA_SLOT_COUNT = 5;
 export const SPONSOR_IMAGE_DURATION_DEFAULT_SEC = 10;
 export const SPONSOR_IMAGE_DURATION_MIN_SEC = 3;
 export const SPONSOR_IMAGE_DURATION_MAX_SEC = 60;
@@ -106,7 +106,7 @@ export function parseSponsorMediaCue(
   const slotId = Number(body.slotId ?? 0);
   const version = Number(body.version ?? 0);
   if (!Number.isInteger(slotNumber) || slotNumber < 1 || slotNumber > SPONSOR_MEDIA_SLOT_COUNT) {
-    return { ok: false, error: "Slot must be between 1 and 4" };
+    return { ok: false, error: `Slot must be between 1 and ${SPONSOR_MEDIA_SLOT_COUNT}` };
   }
   if (!Number.isInteger(slotId) || slotId < 0) {
     return { ok: false, error: "Invalid sponsor media slot" };

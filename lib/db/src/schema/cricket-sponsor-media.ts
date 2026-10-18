@@ -3,7 +3,7 @@ import { tournamentsTable } from "./tournaments";
 
 /**
  * Cricket sponsor / promo media slots.
- * One tournament holds up to four slots. The original upload and the
+ * One tournament holds up to five slots. The original upload and the
  * broadcast-ready asset are stored separately. Scoring tables are not involved.
  */
 export const cricketSponsorMediaSlotsTable = pgTable(

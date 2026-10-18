@@ -22,6 +22,7 @@ import { CricketScorebar } from "./lower/Cricket";
 import {
   AuctionScene,
   BreakScene,
+  PrizePlate,
   SoldScene,
   SummaryScene,
   TeamScene,
@@ -46,6 +47,8 @@ export interface BroadcastStageProps {
   className?: string;
   hideLower?: boolean;
   hideFooter?: boolean;
+  /** Replaces the thick lower third until the operator closes it. The scene underneath is kept. */
+  prizePlate?: { line1: string; line2: string } | null;
 }
 
 /**
@@ -60,6 +63,7 @@ export function BroadcastStage({
   className,
   hideLower = false,
   hideFooter = false,
+  prizePlate = null,
 }: BroadcastStageProps = {}) {
   if (frame) {
     return (
@@ -69,6 +73,7 @@ export function BroadcastStage({
           className={className}
           hideLower={hideLower}
           hideFooter={hideFooter}
+          prizePlate={prizePlate}
         />
       </BroadcastFrameProvider>
     );
@@ -79,6 +84,7 @@ export function BroadcastStage({
       className={className}
       hideLower={hideLower}
       hideFooter={hideFooter}
+      prizePlate={prizePlate}
     />
   );
 }
@@ -88,14 +94,17 @@ function BroadcastStageInner({
   className,
   hideLower = false,
   hideFooter = false,
+  prizePlate = null,
 }: {
   activeEvent?: ObsV2BroadcastEvent | null;
   className?: string;
   hideLower?: boolean;
   hideFooter?: boolean;
+  prizePlate?: { line1: string; line2: string } | null;
 }) {
   const frame = useBroadcastDirector();
   const auction = frame.scene !== "CRICKET";
+  const showPrize = auction && Boolean(prizePlate?.line1 && prizePlate?.line2);
   const { liveStreaming, title, associates } = splitBroadcastSponsors(frame.sponsors);
 
   return (
@@ -140,7 +149,7 @@ function BroadcastStageInner({
         <section className="bw-lower">
           <AnimatePresence mode="wait">
             <motion.div
-              key={frame.scene}
+              key={showPrize ? "prize" : frame.scene}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
@@ -148,7 +157,11 @@ function BroadcastStageInner({
               className="bw-scene-enter"
               style={{ width: "100%", height: "100%" }}
             >
-              <SceneSwitch frame={frame} />
+              {showPrize && prizePlate ? (
+                <PrizePlate line1={prizePlate.line1} line2={prizePlate.line2} />
+              ) : (
+                <SceneSwitch frame={frame} />
+              )}
             </motion.div>
           </AnimatePresence>
         </section>

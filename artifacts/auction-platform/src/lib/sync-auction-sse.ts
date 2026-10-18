@@ -54,6 +54,9 @@ export type SseAuctionMessage = {
   unsoldPlayersCount?: number;
   remainingPlayersCount?: number;
   currentPlayerId?: number | null;
+  /** Full-screen sponsor cue for auction OBS. */
+  sponsorMedia?: unknown;
+  sponsorDisplayTokens?: { obs?: string; led?: string };
   lastSoldPlayer?: unknown;
   // cheer / misc
   supporterLabel?: string;

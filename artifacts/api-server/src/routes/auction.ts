@@ -3041,6 +3041,10 @@ router.post("/tournaments/:tournamentId/auction/presentation-context", async (re
     context: z.enum(["auction", "top5", "team"]).optional(),
     selectedTeamId: z.number().int().nullable().optional(),
     expectedRevision: z.number().int().nonnegative().optional(),
+    prize: z.object({
+      line1: z.string().trim().min(1).max(100),
+      line2: z.string().trim().min(1).max(180),
+    }).strict().nullable().optional(),
   }).safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
   await getOrCreateSession(tid);
@@ -3051,17 +3055,28 @@ router.post("/tournaments/:tournamentId/auction/presentation-context", async (re
     .limit(1);
   const current = parsePersistedPresentationContext(session?.obsContextJson);
   const nextContext = body.data.context ?? current.context;
-  const overlayPatch = ledOverlaySessionPatch(overlayModeFromPresentationContext(nextContext));
+  const sceneWrite = body.data.context !== undefined || body.data.selectedTeamId !== undefined;
+  const overlayPatch = sceneWrite
+    ? ledOverlaySessionPatch(overlayModeFromPresentationContext(nextContext))
+    : undefined;
   const committed = await commitPresentationContext(db, {
     tournamentId: tid,
     expectedRevision: body.data.expectedRevision,
     context: nextContext,
     selectedTeamId: body.data.selectedTeamId,
     overlayPatch,
+    prize: body.data.prize,
   });
   if (!committed.ok) {
     const failure = presentationWriteFailure(committed.code);
     res.status(failure.status).json({ error: failure.error, code: failure.code });
+    return;
+  }
+  if (!overlayPatch) {
+    const cached = peekAuctionStateCache(tid) ?? await getCachedOrBuildState(tid);
+    const state = Object.assign(cached, { presentationContext: committed.presentation });
+    writeAuctionStateCache(tid, state);
+    res.json(await emitAuctionStateEvent(tid, state, []));
     return;
   }
   res.json(await broadcastLedOverlayPatch(tid, overlayPatch, { presentationContext: committed.presentation }));

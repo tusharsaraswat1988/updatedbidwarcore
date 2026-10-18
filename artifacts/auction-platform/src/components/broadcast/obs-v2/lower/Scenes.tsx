@@ -38,6 +38,32 @@ function getHeadlinePlayerFontSize(name: string): string {
   return "21px";
 }
 
+/** Natural letterforms. Shrinks only when the words would run past the given share of the bar. */
+function prizeLineSize(text: string, maxPx: number, widthRatio: number): number {
+  const len = Math.max(text.trim().length, 1);
+  const fit = (1920 * widthRatio) / (len * 0.55);
+  return Math.round(Math.min(maxPx, fit));
+}
+
+export function PrizePlate({ line1, line2 }: { line1: string; line2: string }) {
+  return (
+    <div className="bw-lt-row bw-lt-solid bw-prize-plate" data-prize-plate="">
+      <div className="bw-prize-copy">
+        <div className="bw-prize-title-row">
+          <span className="bw-prize-rule" aria-hidden />
+          <strong className="bw-prize-line1" style={{ fontSize: `${prizeLineSize(line1, 104, 0.56)}px` }}>
+            {line1}
+          </strong>
+          <span className="bw-prize-rule" aria-hidden />
+        </div>
+        <span className="bw-prize-line2" style={{ fontSize: `${prizeLineSize(line2, 34, 0.7)}px` }} title={line2}>
+          {line2}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function AuctionScene({ model }: { model: AuctionSceneModel }) {
   const { player } = model;
   return (

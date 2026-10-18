@@ -45,6 +45,7 @@ import { useAuctionConnectionState } from "@/hooks/use-auction-connection-state"
 import { DisplayConnectionBanner } from "@/components/display/display-connection-banner";
 import { useMutationSync } from "@/hooks/use-mutation-sync";
 import { useOperatorSessionLock } from "@/hooks/use-operator-session-lock";
+import { AuctionObsBroadcastTools } from "@/components/auction/auction-obs-broadcast-tools";
 import { useSetPresentationContext } from "@/hooks/use-presentation-context";
 import {
   parsePresentationContext,
@@ -559,6 +560,7 @@ export default function AuctionOperator() {
                     context: "auction" as const,
                     selectedTeamId: currentPresentation.selectedTeamId,
                     revision: (currentPresentation.revision ?? 0) + 1,
+                    ...(currentPresentation.prize ? { prize: currentPresentation.prize } : {}),
                   },
                 }
               : {}),
@@ -2191,6 +2193,15 @@ export default function AuctionOperator() {
             </span>
           </div>
 
+          <AuctionObsBroadcastTools
+            tournamentId={tournamentId}
+            revision={presentationContext.revision ?? 0}
+            prize={presentationContext.prize ?? null}
+            disabled={operatorReadOnly}
+            layout="bar"
+            onApplied={applyMutationResult}
+          />
+
           <div className="flex items-center gap-1 flex-shrink-0">
             <button
               type="button"
@@ -2566,6 +2577,15 @@ export default function AuctionOperator() {
                   })}
                 </div>
               </section>
+
+              <AuctionObsBroadcastTools
+                tournamentId={tournamentId}
+                revision={presentationContext.revision ?? 0}
+                prize={presentationContext.prize ?? null}
+                disabled={operatorReadOnly}
+                layout="panel"
+                onApplied={applyMutationResult}
+              />
 
               {/* ── UTILITIES ────── */}
               <section>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { explainSurfaceReadiness, type SponsorMediaDestination } from "@workspace/scoring-core";
+import { explainSurfaceReadiness, SPONSOR_MEDIA_SLOT_COUNT, type SponsorMediaDestination } from "@workspace/scoring-core";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -291,7 +291,7 @@ export function SponsorMediaControl({ tournamentId, className, density = "defaul
             {item.title || "Sponsor"}
           </button>
         ))}
-        {filled.length > 0 && filled.length < 4 && uploadTarget ? (
+        {filled.length > 0 && filled.length < SPONSOR_MEDIA_SLOT_COUNT && uploadTarget ? (
           <FilePick label={busy ? "Uploading…" : "Add another"} disabled={busy} onFile={(file) => void onUpload(file, uploadTarget)} />
         ) : null}
         <button

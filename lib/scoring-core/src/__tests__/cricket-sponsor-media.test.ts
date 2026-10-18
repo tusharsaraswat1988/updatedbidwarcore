@@ -46,6 +46,27 @@ describe("sponsor media protocol", () => {
     expect(parsed.ok).toBe(false);
   });
 
+  it("accepts slot 5 and rejects slot 6", () => {
+    const accepted = parseSponsorMediaCue({
+      action: "stop",
+      slotId: 0,
+      slotNumber: 5,
+      version: 0,
+      destination: "obs",
+      cueId: "cue-abcdefgh",
+    });
+    expect(accepted.ok).toBe(true);
+    const rejected = parseSponsorMediaCue({
+      action: "stop",
+      slotId: 0,
+      slotNumber: 6,
+      version: 0,
+      destination: "obs",
+      cueId: "cue-abcdefgh",
+    });
+    expect(rejected.ok).toBe(false);
+  });
+
   it("accepts a lightweight play cue", () => {
     const parsed = parseSponsorMediaCue({
       action: "play",

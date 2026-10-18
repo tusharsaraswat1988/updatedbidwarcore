@@ -478,6 +478,87 @@
 .bw-seg:last-child { clip-path: polygon(var(--bw-chamfer) 0, 100% 0, 100% 100%, 0 100%); padding-right: 36px; }
 .bw-seg-grow { flex: 1; }
 .bw-center { justify-content: center; }
+.bw-prize-plate { align-items: center; justify-content: center; }
+.bw-prize-plate::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 54%;
+  width: 980px;
+  height: 120px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse at center, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0) 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+.bw-prize-copy {
+  position: relative;
+  z-index: 1;
+  width: 94%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 2px;
+  min-width: 0;
+}
+.bw-prize-title-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  min-width: 0;
+}
+.bw-prize-rule {
+  flex: 1;
+  min-width: 72px;
+  height: 2px;
+  position: relative;
+}
+.bw-prize-rule::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  background: #ffd700;
+  transform: translateY(-50%) rotate(45deg);
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.85);
+}
+.bw-prize-title-row .bw-prize-rule:first-child {
+  background: linear-gradient(90deg, transparent, #ffd700);
+}
+.bw-prize-title-row .bw-prize-rule:first-child::before { right: 0; }
+.bw-prize-title-row .bw-prize-rule:last-child {
+  background: linear-gradient(90deg, #ffd700, transparent);
+}
+.bw-prize-title-row .bw-prize-rule:last-child::before { left: 0; }
+.bw-prize-line1 {
+  flex: none;
+  max-width: 70%;
+  color: #fff;
+  font-family: "Bebas Neue", var(--bw-font-display);
+  font-weight: 400;
+  line-height: 0.82;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  background-image: linear-gradient(180deg, #ffffff 0%, #fff6cc 46%, #f0c014 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.55)) drop-shadow(0 0 8px rgba(255, 215, 0, 0.28));
+}
+.bw-prize-line2 {
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.28em;
+  white-space: nowrap;
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .bw-stack { display: flex; flex-direction: column; line-height: 1.05; min-width: 0; }
 .bw-center-text { align-items: center; text-align: center; }
 .bw-kicker { font-size: 17px; font-weight: 600; letter-spacing: 0.2em; color: var(--bw-ink-mute); }

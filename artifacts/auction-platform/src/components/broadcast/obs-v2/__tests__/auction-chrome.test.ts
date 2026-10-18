@@ -70,6 +70,23 @@ describe("auction stage composition", () => {
   });
 });
 
+describe("prize plate", () => {
+  it("replaces the thick lower third and keeps the line pair", () => {
+    const html = renderToStaticMarkup(createElement(BroadcastStage, {
+      frame: makeFrame("AUCTION"),
+      prizePlate: { line1: "Man of the Auction", line2: "Rahul Sharma" },
+    }));
+    expect(html).toContain("data-prize-plate");
+    expect(html).toContain("bw-prize-copy");
+    expect(html).toContain("bw-prize-rule");
+    expect(html).toContain("Man of the Auction");
+    expect(html).toContain("Rahul Sharma");
+    expect(html).not.toContain(">PRIZE<");
+    expect(html).not.toContain("textLength");
+    expect(html).not.toContain("CURRENT BID");
+  });
+});
+
 describe("top 5 lower third", () => {
   it("keeps each sale in its own card with the buying team and price", () => {
     const html = renderToStaticMarkup(createElement(BroadcastStage, { frame: makeFrame("TOP5") }));

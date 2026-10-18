@@ -29,6 +29,8 @@ import {
   type SponsorSurfaceSlotReport,
 } from "../lib/sponsor-media-readiness";
 import { readBearerToken, signSponsorDisplaySession, verifySponsorDisplaySession } from "../lib/sponsor-display-session";
+import { broadcastCricketObsDirector } from "../lib/scoring-broadcast";
+import { publishAuctionEvent } from "../lib/auction-events";
 
 const router = Router();
 
@@ -210,6 +212,87 @@ router.post("/tournaments/:tournamentId/scoring/sponsor-media/readiness", async 
     slots: scopeReadinessToCurrentVersions(parsedSlots, current),
     playback,
   }));
+});
+
+/**
+ * Auction OBS cue. Registered before /:slotNumber so "cue" is not parsed as a slot.
+ * This router is mounted ahead of the scoring-module gate, so an auction-only
+ * tournament can play a spot. Destination is OBS only.
+ */
+router.post("/tournaments/:tournamentId/scoring/sponsor-media/cue", async (req, res) => {
+  const tournamentId = parseTournamentId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await callerIsOperator(req, res, tournamentId))) return;
+
+  const rawCue = req.body?.sponsorMedia;
+  if (!rawCue || typeof rawCue !== "object") {
+    res.status(400).json({ error: "Sponsor media cue is missing" });
+    return;
+  }
+  const cueBody = { ...(rawCue as Record<string, unknown>) };
+  delete cueBody.issuedAt;
+  const parsed = parseSponsorMediaCue(cueBody, Date.now());
+  if (!parsed.ok) {
+    res.status(400).json({ error: parsed.error });
+    return;
+  }
+  const sponsorMedia = parsed.cue;
+  if (sponsorMedia.destination !== "obs") {
+    res.status(400).json({ error: "Auction sponsor cues play on OBS only" });
+    return;
+  }
+  if (sponsorMedia.action === "play") {
+    try {
+      const row = await getSponsorMediaSlot(tournamentId, sponsorMedia.slotNumber);
+      if (
+        !row
+        || row.tournamentId !== tournamentId
+        || row.id !== sponsorMedia.slotId
+        || row.version !== sponsorMedia.version
+        || row.processingStatus !== "ready"
+        || !row.active
+      ) {
+        res.status(409).json({ error: "Sponsor target not ready" });
+        return;
+      }
+    } catch (err) {
+      logger.error({ err, tournamentId }, "Sponsor play cue rejected");
+      res.status(503).json({ error: "Sponsor director unavailable" });
+      return;
+    }
+  }
+
+  const sponsorDisplayTokens: { obs?: string } = {};
+  const rawTokens = req.body?.sponsorDisplayTokens;
+  if (rawTokens && typeof rawTokens === "object") {
+    const token = (rawTokens as { obs?: unknown }).obs;
+    if (typeof token === "string" && token) {
+      const identity = verifySponsorDisplaySession(token);
+      if (identity?.tournamentId === tournamentId && identity.surface === "obs") {
+        sponsorDisplayTokens.obs = token;
+      }
+    }
+  }
+
+  broadcastCricketObsDirector(tournamentId, {
+    messageType: "sponsor_media",
+    sponsorMedia,
+    sponsorDisplayTokens,
+  });
+  await publishAuctionEvent(tournamentId, {
+    type: "sponsor_media",
+    sponsorMedia,
+    sponsorDisplayTokens: sponsorDisplayTokens.obs ? sponsorDisplayTokens : undefined,
+  });
+
+  res.json({
+    ok: true,
+    sponsorMedia,
+    sponsorDisplayTokens: sponsorDisplayTokens.obs ? sponsorDisplayTokens : undefined,
+  });
 });
 
 router.post(

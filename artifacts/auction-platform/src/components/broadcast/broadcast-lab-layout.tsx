@@ -3,6 +3,8 @@ import type { AuctionState, Player, TeamPurse } from "@workspace/api-client-reac
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import { BROADCAST_OVERLAY_HEIGHT, BROADCAST_OVERLAY_WIDTH } from "@/lib/broadcast-overlay";
 import type { AuctionFeedState } from "@/hooks/use-auction-connection-state";
+import { parsePresentationContext } from "@/lib/presentation-context";
+import { SponsorMediaLayer } from "@/components/scoring/sponsor-media-layer";
 import { useBroadcastDirector } from "./use-broadcast-director";
 import type { BroadcastOutputTarget, BroadcastSettings } from "./types";
 import "./obs-v2/broadcast.css";
@@ -56,6 +58,13 @@ export const BroadcastLabLayout = memo(function BroadcastLabLayout(props: Broadc
   });
 
   // Adapt authoritative director frame and live state to Lovable BroadcastFrame presentation model
+  const prizePlate = useMemo(() => {
+    const parsed = parsePresentationContext(
+      (props.state as { presentationContext?: unknown } | undefined)?.presentationContext,
+    );
+    return parsed.prize ?? null;
+  }, [props.state]);
+
   const lovableFrame = useMemo(() => {
     return adaptAuctionToBroadcastFrame({
       directorFrame,
@@ -106,7 +115,10 @@ export const BroadcastLabLayout = memo(function BroadcastLabLayout(props: Broadc
         overflow: "hidden",
       }}
     >
-      <BroadcastStage frame={lovableFrame} activeEvent={props.activeEvent} />
+      <BroadcastStage frame={lovableFrame} activeEvent={props.activeEvent} prizePlate={prizePlate} />
+      {props.tournamentId > 0 ? (
+        <SponsorMediaLayer tournamentId={props.tournamentId} surface="obs" cover="absolute" />
+      ) : null}
     </div>
   );
 });

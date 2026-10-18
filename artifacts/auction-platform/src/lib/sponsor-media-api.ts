@@ -144,6 +144,45 @@ export async function reportSponsorMediaReadiness(
   }
 }
 
+/** Auction operator cue. Plays on OBS only and also rides the auction live stream. */
+export async function sendAuctionSponsorCue(
+  tournamentId: number,
+  cue: {
+    action: "play" | "stop" | "prepare";
+    slotId: number;
+    slotNumber: number;
+    version: number;
+  },
+  sponsorDisplayTokens?: { obs?: string },
+): Promise<void> {
+  const cueId = `cue-${crypto.randomUUID()}`;
+  const sponsorMedia = { ...cue, cueId, destination: "obs" as const };
+  const response = await apiFetch(`/tournaments/${tournamentId}/scoring/sponsor-media/cue`, {
+    method: "POST",
+    json: { messageType: "sponsor_media", sponsorMedia, sponsorDisplayTokens },
+  });
+  if (!response.ok) throw new Error(await readError(response));
+  const body = await response.json().catch(() => ({})) as {
+    sponsorMedia?: typeof sponsorMedia & { issuedAt?: number };
+    sponsorDisplayTokens?: { obs?: string };
+  };
+  if (typeof BroadcastChannel === "undefined") return;
+  const message = {
+    type: "SPONSOR_MEDIA",
+    sponsorMedia: body.sponsorMedia ?? sponsorMedia,
+    sponsorDisplayTokens: body.sponsorDisplayTokens ?? sponsorDisplayTokens,
+  };
+  for (const name of [`bidwar_v2_${tournamentId}`, `bidwar_cricket_obs_${tournamentId}`]) {
+    try {
+      const channel = new BroadcastChannel(name);
+      channel.postMessage(message);
+      channel.close();
+    } catch {
+      // ignore
+    }
+  }
+}
+
 export async function sendSponsorMediaCue(
   tournamentId: number,
   cue: {

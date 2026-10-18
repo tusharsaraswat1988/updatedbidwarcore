@@ -88,6 +88,15 @@ export function useAuctionSocket(
           qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
         }
 
+        if (msg.type === "sponsor_media" && typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("cricket_obs_director", {
+            detail: {
+              sponsorMedia: msg.sponsorMedia,
+              sponsorDisplayTokens: msg.sponsorDisplayTokens,
+            },
+          }));
+        }
+
         if (msg.type === "cheer_message" && onCheerRef.current) {
           onCheerRef.current({
             supporterLabel: msg.supporterLabel as string,

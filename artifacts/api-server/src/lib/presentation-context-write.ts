@@ -22,6 +22,7 @@ import { auctionSessionsTable } from "@workspace/db/schema";
 import type * as schema from "@workspace/db/schema";
 import {
   parsePersistedPresentationContext,
+  presentationRecord,
   type LedOverlaySessionPatch,
   type PresentationContextState,
 } from "./led-overlay-patch";
@@ -35,7 +36,13 @@ export type PresentationWriteInput = {
   selectedTeamId?: number | null;
   /** When true, keep the stored team id and ignore selectedTeamId. Used by LED MAIN. */
   preserveSelectedTeamId?: boolean;
-  overlayPatch: LedOverlaySessionPatch;
+  /** Omit when the write must not touch the LED overlay. */
+  overlayPatch?: LedOverlaySessionPatch;
+  /**
+   * Undefined keeps the plate already on air.
+   * Null closes it. A plate replaces it.
+   */
+  prize?: PresentationContextState["prize"];
 };
 
 export type PresentationWriteFailure = "stale_presentation" | "presentation_revision_required";
@@ -83,7 +90,7 @@ export async function commitPresentationContext(
     .where(eq(auctionSessionsTable.tournamentId, input.tournamentId))
     .limit(1);
   const current = parsePersistedPresentationContext(session?.obsContextJson);
-  const next: PresentationContextState = {
+  const next: PresentationContextState = presentationRecord({
     context: input.context ?? current.context,
     selectedTeamId: input.preserveSelectedTeamId
       ? current.selectedTeamId
@@ -91,12 +98,13 @@ export async function commitPresentationContext(
         ? input.selectedTeamId
         : current.selectedTeamId,
     revision: expectedRevision + 1,
-  };
+    prize: input.prize !== undefined ? input.prize : (current.prize ?? null),
+  });
   const updated = await database
     .update(auctionSessionsTable)
     .set({
       obsContextJson: JSON.stringify(next),
-      ...input.overlayPatch,
+      ...(input.overlayPatch ?? {}),
     })
     .where(
       and(

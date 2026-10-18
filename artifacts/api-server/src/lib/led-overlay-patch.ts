@@ -38,12 +38,39 @@ export function overlayModeFromPresentationContext(
   return "off";
 }
 
+/** Two-line prize plate held on the auction lower third until the operator closes it. */
+export type PrizePlate = {
+  line1: string;
+  line2: string;
+};
+
 export type PresentationContextState = {
   context: "auction" | "top5" | "team";
   selectedTeamId: number | null;
   /** Monotonic presentation revision. Missing persisted values are revision 0. */
   revision: number;
+  /** Present only while a prize plate is on air. Omitted when idle so older snapshots stay unchanged. */
+  prize?: PrizePlate | null;
 };
+
+export function readPrizePlate(value: unknown): PrizePlate | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Record<string, unknown>;
+  const line1 = typeof raw.line1 === "string" ? raw.line1.trim() : "";
+  const line2 = typeof raw.line2 === "string" ? raw.line2.trim() : "";
+  if (!line1 || line1.length > 100 || !line2 || line2.length > 180) return null;
+  return { line1, line2 };
+}
+
+/** Drop an idle prize so persisted JSON keeps the original three fields. */
+export function presentationRecord(state: PresentationContextState): PresentationContextState {
+  const base: PresentationContextState = {
+    context: state.context,
+    selectedTeamId: state.selectedTeamId,
+    revision: state.revision,
+  };
+  return state.prize ? { ...base, prize: state.prize } : base;
+}
 
 export const DEFAULT_PRESENTATION_CONTEXT_STATE: PresentationContextState = {
   context: "auction",
@@ -71,19 +98,22 @@ export function parsePersistedPresentationContext(raw: unknown): PresentationCon
   const parsed = value as Record<string, unknown>;
   const selectedTeamId = typeof parsed.selectedTeamId === "number" ? parsed.selectedTeamId : null;
   const revision = readPresentationRevision(parsed.revision);
+  const prize = readPrizePlate(parsed.prize);
   if (typeof parsed.context === "string") {
-    return {
+    return presentationRecord({
       context: parsed.context === "top5" || parsed.context === "team" ? parsed.context : "auction",
       selectedTeamId,
       revision,
-    };
+      prize,
+    });
   }
   const screen = typeof parsed.screen === "string" ? parsed.screen : undefined;
-  return {
+  return presentationRecord({
     context: screen === "top5" || screen === "team" ? screen : "auction",
     selectedTeamId,
     revision,
-  };
+    prize,
+  });
 }
 
 /**
@@ -95,11 +125,12 @@ export function presentationContextAfterLedOverlay(
   current: PresentationContextState,
 ): PresentationContextState {
   if (mode === "off") {
-    return {
+    return presentationRecord({
       context: "auction",
       selectedTeamId: current.selectedTeamId,
       revision: current.revision + 1,
-    };
+      prize: current.prize ?? null,
+    });
   }
   return current;
 }

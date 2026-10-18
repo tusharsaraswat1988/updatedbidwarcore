@@ -373,6 +373,18 @@ describe("OBS presentation reaches the stream renderer", () => {
     }).scene).toBe("SUMMARY");
   });
 
+  it("reads a prize plate without changing the scene", () => {
+    const restored = parsePresentationContext({
+      context: "top5",
+      selectedTeamId: null,
+      revision: 3,
+      prize: { line1: "Orange Cap", line2: "Ravi" },
+    });
+    expect(restored.prize).toEqual({ line1: "Orange Cap", line2: "Ravi" });
+    const tick = new BroadcastDirector().tick(directorContext({ presentationContext: restored }));
+    expect(tick.frame.currentContext).toBe("TOP5");
+  });
+
   it("reconnection restores Top 5 from the persisted presentation context", () => {
     const restored = parsePresentationContext(JSON.parse('{"context":"top5","selectedTeamId":null}'));
     const tick = new BroadcastDirector().tick(directorContext({ presentationContext: restored }));
