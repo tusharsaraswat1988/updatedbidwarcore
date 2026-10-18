@@ -104,6 +104,26 @@ export function presentationContextAfterLedOverlay(
   return current;
 }
 
+export type LiveAuctionSessionWrite = LedOverlaySessionPatch & {
+  obsContextJson: string;
+};
+
+/**
+ * Fields to persist when a player is put on the block.
+ * LED Team / Player / Top 5 / Banner and OBS Top 5 / Team Details all return
+ * to the live auction together. The selected team is kept for the next Team view.
+ */
+export function liveAuctionSessionWrite(currentObsJson: unknown): LiveAuctionSessionWrite {
+  const presentationContext = presentationContextAfterLedOverlay(
+    "off",
+    parsePersistedPresentationContext(currentObsJson),
+  );
+  return {
+    ...ledOverlaySessionPatch("off"),
+    obsContextJson: JSON.stringify(presentationContext),
+  };
+}
+
 export function rememberLedOverlayPatch(
   tournamentId: number,
   patch: LedOverlayRememberedPatch,

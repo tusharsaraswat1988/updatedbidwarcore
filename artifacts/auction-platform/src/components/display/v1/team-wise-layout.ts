@@ -65,6 +65,12 @@ export function getTeamWiseTypography(rows: number) {
     squad:     `clamp(1.25rem, ${3.0 * s + 1.0}vw, 3.4rem)`,
     label:     `clamp(0.78rem, ${0.95 * s + 0.58}vw, 1.15rem)`,
     meta:      `clamp(0.72rem, ${0.85 * s + 0.52}vw, 1.05rem)`,
+    /** Last Purchase heading */
+    purchase:  `clamp(0.95rem, ${1.55 * s + 0.75}vw, 1.7rem)`,
+    /** Last purchase name and the empty-state line */
+    purchaseName: `clamp(1.25rem, ${3.35 * s + 1.05}vw, 3.45rem)`,
+    /** Last purchase amount */
+    purchaseAmount: `clamp(1.3rem, ${3.55 * s + 1.1}vw, 3.65rem)`,
     badge:     `clamp(0.8rem,  ${0.95 * s + 0.6}vw, 1.2rem)`,
     /** ~20% larger franchise badge */
     logo:      `clamp(2.4rem,  ${5.2 * s + 1.8}vw, 6.2rem)`,
@@ -174,20 +180,17 @@ export type TeamWiseStatus = {
   badgeClass: string;
 };
 
-export function getTeamWiseStatus(team: LedTeam, minimumBid: number): TeamWiseStatus {
+/**
+ * Status chip for a state the squad fraction does not already show.
+ * "0 / 4" covers yet-to-buy and slots remaining, so those chips are omitted.
+ */
+export function getTeamWiseStatus(team: LedTeam, minimumBid: number): TeamWiseStatus | null {
   const isFull = team.maximumSquadSize > 0 && team.playersBought >= team.maximumSquadSize;
   if (isFull) {
     return {
       label: "FULL",
       dotClass: "team-wise-badge-dot team-wise-badge-dot--full",
       badgeClass: "team-wise-badge team-wise-badge--full",
-    };
-  }
-  if (team.playersBought === 0) {
-    return {
-      label: "YET TO BUY",
-      dotClass: "team-wise-badge-dot team-wise-badge-dot--ready",
-      badgeClass: "team-wise-badge team-wise-badge--ready",
     };
   }
   if (minimumBid > 0 && team.maxBidAllowed < minimumBid) {
@@ -208,12 +211,7 @@ export function getTeamWiseStatus(team: LedTeam, minimumBid: number): TeamWiseSt
       badgeClass: "team-wise-badge team-wise-badge--ok",
     };
   }
-  const slots = team.slotsRemaining;
-  return {
-    label: slots === 1 ? "1 SLOT LEFT" : `${slots} SLOTS LEFT`,
-    dotClass: "team-wise-badge-dot team-wise-badge-dot--slots",
-    badgeClass: "team-wise-badge team-wise-badge--slots",
-  };
+  return null;
 }
 
 export function formatTeamWiseMoney(value: number, unit: AuctionUnit = "rupee") {

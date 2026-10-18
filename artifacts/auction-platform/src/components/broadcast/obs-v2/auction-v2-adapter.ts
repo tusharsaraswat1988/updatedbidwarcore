@@ -91,7 +91,8 @@ export function adaptAuctionToBroadcastFrame(
   if (sceneId === "SOLD") {
     const s = directorFrame.scene.kind === "SOLD" ? directorFrame.scene : null;
     const playerName = s?.player?.name || state?.currentPlayer?.name || "Sold Player";
-    const playerRole = s?.player?.category || state?.currentPlayer?.role || "Player";
+    const facts = playerBroadcastFacts(playerName, state, soldPlayers, state?.currentPlayer?.id ?? state?.outcome?.playerId);
+    const playerRole = facts.role || s?.player?.category || "Player";
     const photoUrl = s?.player?.photoSrc || s?.player?.photoUrl || state?.currentPlayer?.photoUrl || undefined;
     const soldPrice = s?.soldAmount ?? state?.currentBid ?? 0;
     const teamName = s?.teamName || "Winning Team";
@@ -114,6 +115,8 @@ export function adaptAuctionToBroadcastFrame(
           role: playerRole,
           photoUrl: photoUrl && !photoUrl.startsWith("data:") ? photoUrl : undefined,
           basePrice: 0,
+          ...(facts.age ? { age: facts.age } : {}),
+          ...(facts.detail ? { detail: facts.detail } : {}),
         },
         soldPrice,
         team: teamObj,
@@ -180,18 +183,23 @@ export function adaptAuctionToBroadcastFrame(
   }
 
   if (sceneId === "WAITING") {
-    return { ...baseFrame, ...waitingPayload(tournamentName, auctionStartsAt) };
+    return { ...baseFrame, ...betweenLotsOrWaiting(state, teams, tournamentName, auctionStartsAt, soldPlayers) };
   }
 
   if (presentation === "TOP5" || sceneId === "TOP5") {
     const entries = directorFrame.top5
       ? directorFrame.top5.players.slice(0, 5).map((p) => {
           const matchedTeam = teams.find((t) => t.name === p.teamName);
+          const record = (soldPlayers ?? []).find(
+            (sp) => sp.name.trim().toLowerCase() === p.name.trim().toLowerCase(),
+          );
+          const teamName = (p.teamName || matchedTeam?.name || "").trim();
           return {
             rank: p.rank,
             playerName: p.name,
-            role: "Player",
-            teamShort: matchedTeam?.short || (p.teamName ? p.teamName.slice(0, 3).toUpperCase() : ""),
+            role: record?.role?.trim() || record?.specialization?.trim() || "Player",
+            teamShort: matchedTeam?.short || (teamName ? teamName.slice(0, 3).toUpperCase() : ""),
+            ...(teamName ? { teamName } : {}),
             price: p.price,
           };
         })
@@ -204,11 +212,13 @@ export function adaptAuctionToBroadcastFrame(
           .slice(0, 5)
           .map(({ player, price }, idx) => {
             const matchedTeam = teams.find((t) => t.teamId === String(player.teamId));
+            const teamName = matchedTeam?.name?.trim() || "";
             return {
               rank: idx + 1,
               playerName: player.name,
-              role: player.role || "Player",
+              role: player.role?.trim() || player.specialization?.trim() || "Player",
               teamShort: matchedTeam?.short || "",
+              ...(teamName ? { teamName } : {}),
               price,
             };
           });
@@ -268,7 +278,10 @@ export function adaptAuctionToBroadcastFrame(
   if (sceneId === "AUCTION") {
     const p = directorFrame.scene.kind === "AUCTION" ? directorFrame.scene.player : null;
     const currentPlayer = state?.currentPlayer;
-    const playerName = p?.name || currentPlayer?.name || "Player on Block";
+    const playerName = (p?.name || currentPlayer?.name || "").trim();
+    if (!playerName) {
+      return { ...baseFrame, ...betweenLotsOrWaiting(state, teams, tournamentName, auctionStartsAt, soldPlayers) };
+    }
     const playerRole = p?.category || currentPlayer?.role || "Player";
     const photoUrl = p?.photoSrc || p?.photoUrl || currentPlayer?.photoUrl || undefined;
     const basePrice = currentPlayer?.basePrice ?? 0;
@@ -305,7 +318,100 @@ export function adaptAuctionToBroadcastFrame(
     return { ...baseFrame, ...payload };
   }
 
-  return { ...baseFrame, ...waitingPayload(tournamentName, auctionStartsAt) };
+  return { ...baseFrame, ...betweenLotsOrWaiting(state, teams, tournamentName, auctionStartsAt, soldPlayers) };
+}
+
+function playerBroadcastFacts(
+  name: string,
+  state: AuctionState | undefined,
+  soldPlayers: Player[] | undefined,
+  playerId?: number | null,
+): { role: string; age?: number; detail?: string } {
+  const named = name.trim().toLowerCase();
+  const record =
+    (playerId != null ? soldPlayers?.find((p) => p.id === playerId) : undefined) ||
+    (state?.currentPlayer &&
+    (state.currentPlayer.id === playerId || state.currentPlayer.name.trim().toLowerCase() === named)
+      ? state.currentPlayer
+      : undefined) ||
+    soldPlayers?.find((p) => p.name.trim().toLowerCase() === named);
+  const role = record?.role?.trim() || record?.specialization?.trim() || "Player";
+  const age = typeof record?.age === "number" && record.age > 0 ? record.age : undefined;
+  const style = [record?.battingStyle, record?.bowlingStyle]
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part))
+    .join(" · ");
+  const detail = [age ? `Age ${age}` : "", style || record?.city?.trim() || ""].filter(Boolean).join(" · ");
+  return { role, ...(age ? { age } : {}), ...(detail ? { detail } : {}) };
+}
+
+/**
+ * After a sale or unsold, keep that result on the lower third until the next
+ * player is called. The "starts at" slate is only for before the auction begins.
+ */
+function betweenLotsOrWaiting(
+  state: AuctionState | undefined,
+  teams: LovableTeamPurse[],
+  tournamentName: string | null,
+  auctionStartsAt: string | null | undefined,
+  soldPlayers: Player[] | undefined,
+): ScenePayload {
+  const outcome = state?.outcome;
+  const name = outcome?.playerName?.trim();
+  if (outcome && name && outcome.type === "unsold") {
+    return {
+      scene: "UNSOLD",
+      model: {
+        player: {
+          id: String(outcome.playerId ?? "unsold"),
+          name,
+          role: "Player",
+          photoUrl: outcome.photoUrl && !outcome.photoUrl.startsWith("data:") ? outcome.photoUrl : undefined,
+          basePrice: 0,
+        },
+      },
+    };
+  }
+  if (outcome && name && outcome.type === "sold") {
+    const facts = playerBroadcastFacts(name, state, soldPlayers, outcome.playerId);
+    const teamName = outcome.teamName || "Winning Team";
+    const teamObj = teams.find((t) => t.name === teamName) || {
+      teamId: String(outcome.teamId ?? "sold-team"),
+      name: teamName,
+      short: teamName.slice(0, 3).toUpperCase(),
+      logoUrl: outcome.teamLogoUrl || undefined,
+      purseRemaining: 0,
+      playersBought: 0,
+      slotsRemaining: 0,
+    };
+    return {
+      scene: "SOLD",
+      model: {
+        player: {
+          id: String(outcome.playerId ?? "sold"),
+          name,
+          role: facts.role,
+          photoUrl: outcome.photoUrl && !outcome.photoUrl.startsWith("data:") ? outcome.photoUrl : undefined,
+          basePrice: 0,
+          ...(facts.age ? { age: facts.age } : {}),
+          ...(facts.detail ? { detail: facts.detail } : {}),
+        },
+        soldPrice: outcome.amount ?? 0,
+        team: teamObj,
+      },
+    };
+  }
+  const auctionHasStarted = (state?.soldPlayersCount ?? 0) > 0 || (state?.unsoldPlayersCount ?? 0) > 0;
+  if (auctionHasStarted) {
+    return {
+      scene: "WAITING",
+      model: {
+        headline: tournamentName ? `${tournamentName} Auction` : "Next player",
+        subline: "Next player shortly",
+      },
+    };
+  }
+  return waitingPayload(tournamentName, auctionStartsAt);
 }
 
 function waitingPayload(

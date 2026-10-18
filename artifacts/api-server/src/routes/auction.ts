@@ -35,6 +35,7 @@ import {
 import {
   applyRememberedLedOverlayPatch,
   ledOverlaySessionPatch,
+  liveAuctionSessionWrite,
   overlayModeFromPresentationContext,
   parsePersistedPresentationContext,
   presentationContextAfterLedOverlay,
@@ -1569,6 +1570,9 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
     selectedPlayer,
     session.reAuctionStrategyJson,
   );
+  // Same write as the player load, so LED and OBS cannot stay on Team / Player /
+  // Top 5 / Banner after the operator forgot to press MAIN.
+  const returnToLive = liveAuctionSessionWrite(session.obsContextJson);
 
   // Optimistic concurrency: only commit if no other next-player call mutated
   // the session since we read it (prevents concurrent random-draw queue corruption).
@@ -1589,6 +1593,7 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
       lastAction: `Now bidding: ${selectedPlayer.name}`,
       lastOutcome: null,
       revision: sql`COALESCE(revision, 0) + 1`,
+      ...returnToLive,
     })
     .where(and(
       eq(auctionSessionsTable.tournamentId, tid),
@@ -1601,6 +1606,9 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
   // broadcast the current state — the operator sees whatever the winning call
   // selected, which is correct.
   if (nextPlayerCommitted.length > 0) {
+    // A layout click remembers its overlay for a few seconds. Pin live auction
+    // so the broadcast rebuild cannot put Team / Player / Top 5 back on screen.
+    rememberLedOverlayPatch(tid, returnToLive);
     logPlayerAuctionStart({
       tournamentId: tid,
       playerId: selectedPlayer.id,
@@ -2390,6 +2398,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
   const startingBid = startFromBase ? player.basePrice : (player.soldPrice ?? player.basePrice);
   const reTournament = tournament;
   const timerSecs = reTournament?.timerSeconds ?? 30;
+  const returnToLive = liveAuctionSessionWrite(session.obsContextJson);
 
   // Atomic: purse reversal + bid deletion + player reset + session update.
   await db.transaction(async (tx) => {
@@ -2423,9 +2432,11 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
         revision: sql`COALESCE(revision, 0) + 1`,
         lastAction: `RE-AUCTION: ${player.name}`,
         lastOutcome: null,
+        ...returnToLive,
       })
       .where(eq(auctionSessionsTable.tournamentId, tid));
   });
+  rememberLedOverlayPatch(tid, returnToLive);
 
   notifyPlayerReAuction({
     mobile: player.mobileNumber ?? null,

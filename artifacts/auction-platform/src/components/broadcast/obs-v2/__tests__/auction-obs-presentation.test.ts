@@ -153,6 +153,8 @@ describe("OBS presentation reaches the stream renderer", () => {
       700_000,
     ]);
     expect(frame.model.entries[0]?.teamShort).toBe("BT");
+    expect(frame.model.entries[0]?.teamName).toBe("Blazing Titans");
+    expect(frame.model.entries[0]?.role).toBe("Batsman");
   });
 
   it("renders an empty Top 5 board when nobody is sold", () => {
@@ -342,6 +344,22 @@ describe("OBS presentation reaches the stream renderer", () => {
     );
     expect(waiting.frame.sceneId).toBe("WAITING");
     expect(render(waiting.frame).scene).toBe("WAITING");
+    const stillSold = render(waiting.frame, {
+      state: {
+        outcome: {
+          type: "sold",
+          playerName: "Ankit Jain",
+          teamName: "Tushar Warriors",
+          amount: 35_000,
+        },
+        soldPlayersCount: 1,
+      } as Parameters<typeof render>[1]["state"],
+    });
+    expect(stillSold.scene).toBe("SOLD");
+    if (stillSold.scene === "SOLD") {
+      expect(stillSold.model.player.name).toBe("Ankit Jain");
+      expect(stillSold.model.team.name).toBe("Tushar Warriors");
+    }
 
     const summary = new BroadcastDirector().tick(
       directorContext({

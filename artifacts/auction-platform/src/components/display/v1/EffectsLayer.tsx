@@ -1062,37 +1062,31 @@ function TeamWiseBroadcastPanel({
 
         <div className="team-wise-divider" role="separator" />
 
-        {/* Squad counts + status */}
-        <div className="grid grid-cols-[1.05fr_1.05fr_1.4fr] gap-[0.4em] items-center">
-          <div className="min-w-0">
-            <p className="team-wise-label" style={{ fontSize: type.label }}>
-              Bought
-            </p>
-            <p className="team-wise-stat-tertiary whitespace-nowrap leading-none mt-[0.16em] font-bold" style={{ fontSize: type.money }}>
-              {team.playersBought}
-            </p>
-          </div>
-          <div className="min-w-0">
-            <p className="team-wise-label" style={{ fontSize: type.label }}>
-              Slots Left
-            </p>
-            <p
-              className="team-wise-stat-slots whitespace-nowrap leading-none mt-[0.16em] font-extrabold"
-              style={{ fontSize: type.squad }}
-            >
-              {team.slotsRemaining}
-            </p>
-          </div>
-          <div className={`${status.badgeClass} whitespace-nowrap`}>
-            <span className={status.dotClass} aria-hidden />
-            <span style={{ fontSize: type.badge }}>{status.label}</span>
-          </div>
-        </div>
-
-        {/* Progress bar */}
+        {/* One squad readout. The bar is the same ratio, not a second count. */}
         <div className="min-w-0">
+          <div className="flex items-end justify-between gap-[0.55em]">
+            <div className="min-w-0">
+              <p className="team-wise-label" style={{ fontSize: type.label }}>
+                Squad
+              </p>
+              <p
+                className="team-wise-stat-slots whitespace-nowrap leading-none mt-[0.12em] font-extrabold"
+                style={{ fontSize: type.squad }}
+                aria-label={`${team.playersBought} of ${squadCap} players`}
+              >
+                {team.playersBought}
+                <span className="text-white/45"> / {squadCap}</span>
+              </p>
+            </div>
+            {status ? (
+              <div className={`${status.badgeClass} whitespace-nowrap shrink-0 mb-[0.15em]`}>
+                <span className={status.dotClass} aria-hidden />
+                <span style={{ fontSize: type.badge }}>{status.label}</span>
+              </div>
+            ) : null}
+          </div>
           <div
-            className="team-wise-progress-track h-[0.7em] min-h-[7px]"
+            className="team-wise-progress-track h-[0.7em] min-h-[7px] mt-[0.45em]"
             style={getTeamWiseProgressTrackStyle(team.color)}
           >
             <div
@@ -1103,35 +1097,35 @@ function TeamWiseBroadcastPanel({
               }}
             />
           </div>
-          <p className="team-wise-label mt-[0.45em] text-white/85 font-bold" style={{ fontSize: type.meta }}>
-            {team.playersBought} / {squadCap} Players
-          </p>
         </div>
 
         <div className="team-wise-divider" role="separator" />
 
         {/* Last purchase */}
         <div className="min-w-0">
-          <p className="team-wise-label" style={{ fontSize: type.meta }}>
+          <p className="team-wise-label" style={{ fontSize: type.purchase }}>
             Last Purchase
           </p>
           {team.lastPurchase ? (
             <div className="team-wise-purchase-strip flex items-baseline justify-between gap-[0.55em]">
               <p
                 className={`team-wise-purchase-name ${LED_HEADLINE_CLASS} truncate text-white leading-tight flex-1 min-w-0 font-bold`}
-                style={{ fontSize: type.purse }}
+                style={{ fontSize: type.purchaseName }}
               >
                 {team.lastPurchase.playerName}
               </p>
               <p
                 className="team-wise-stat-hero whitespace-nowrap tabular-nums shrink-0 leading-none text-right font-extrabold"
-                style={{ fontSize: type.spendable, ...getTeamWisePurseValueStyle(true) }}
+                style={{ fontSize: type.purchaseAmount, ...getTeamWisePurseValueStyle(true) }}
               >
                 {formatTeamWiseMoneyShort(team.lastPurchase.amount, unit)}
               </p>
             </div>
           ) : (
-            <p className="team-wise-label mt-[0.24em] text-white/70 font-semibold" style={{ fontSize: type.meta }}>
+            <p
+              className={`team-wise-purchase-name ${LED_HEADLINE_CLASS} mt-[0.2em] truncate text-white/85 leading-tight font-bold`}
+              style={{ fontSize: type.purchaseName }}
+            >
               No Purchase Yet —
             </p>
           )}

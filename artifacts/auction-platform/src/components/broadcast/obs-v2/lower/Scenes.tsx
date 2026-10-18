@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type {
   AuctionSceneModel,
   BreakSceneModel,
@@ -5,16 +6,17 @@ import type {
   SponsorLogo,
   SummaryModel,
   TeamModel,
+  TeamPurse,
   Top5Model,
   UnsoldSceneModel,
   WaitingSceneModel,
 } from "../contracts";
 import { formatAmount } from "../format";
-import { AnimatedValue, Avatar, Crest } from "../primitives";
+import { Avatar, Crest } from "../primitives";
 
 export function WaitingScene({ model }: { model: WaitingSceneModel }) {
   return (
-    <div className="bw-lt-row">
+    <div className="bw-lt-row bw-lt-solid">
       <div className="bw-seg bw-seg-grow bw-center">
         <span className="bw-pulse-dot" />
         <div className="bw-stack">
@@ -39,7 +41,7 @@ function getHeadlinePlayerFontSize(name: string): string {
 export function AuctionScene({ model }: { model: AuctionSceneModel }) {
   const { player } = model;
   return (
-    <div className="bw-lt-row">
+    <div className="bw-lt-row bw-lt-solid">
       <div className="bw-seg bw-seg-player">
         <Avatar name={player.name} photoUrl={player.photoUrl} />
         <div className="bw-stack" style={{ minWidth: 0, flex: 1 }}>
@@ -55,18 +57,16 @@ export function AuctionScene({ model }: { model: AuctionSceneModel }) {
           >
             {player.name}
           </strong>
-          <small className="bw-sub">{player.role}</small>
+          <small className="bw-sub">
+            {player.role}
+            {player.basePrice ? ` · Base ${formatAmount(player.basePrice)}` : ""}
+          </small>
         </div>
       </div>
-      <div className="bw-seg bw-stat">
-        <span className="bw-kicker">BASE</span>
-        <strong>{formatAmount(player.basePrice)}</strong>
-      </div>
-      <div className="bw-seg bw-stat bw-stat-hero">
+      <div className="bw-seg bw-stat bw-stat-hero bw-seg-bid">
         <span className="bw-kicker bw-gold">CURRENT BID</span>
-        <strong className="bw-bid">
-          <AnimatedValue value={formatAmount(model.currentBid)} />
-        </strong>
+        <strong className="bw-bid">{formatAmount(model.currentBid)}</strong>
+        <small className="bw-sub">{model.bidCount} bids</small>
       </div>
       <div className="bw-seg bw-seg-lead">
         {model.leadingTeam ? (
@@ -75,26 +75,28 @@ export function AuctionScene({ model }: { model: AuctionSceneModel }) {
             <div className="bw-stack">
               <span className="bw-kicker bw-cyan">LEADING</span>
               <strong>{model.leadingTeam.name}</strong>
-              <small className="bw-sub">Purse {formatAmount(model.leadingTeam.purseRemaining)}</small>
+              <small className="bw-sub">
+                Purse {formatAmount(model.leadingTeam.purseRemaining)}
+                {model.timerSeconds !== undefined ? ` · ${model.timerSeconds}s` : ""}
+              </small>
             </div>
           </div>
         ) : (
-          <span className="bw-sub">AWAITING OPENING BID</span>
+          <div className="bw-stack">
+            <span className="bw-kicker">LEADING</span>
+            <strong className="bw-sub">Awaiting opening bid</strong>
+            {model.timerSeconds !== undefined && <small className="bw-sub">{model.timerSeconds}s</small>}
+          </div>
         )}
-      </div>
-      <div className="bw-seg bw-stat">
-        <span className="bw-kicker">{model.timerSeconds !== undefined ? "TIMER" : "BIDS"}</span>
-        <strong>
-          <AnimatedValue value={model.timerSeconds !== undefined ? `${model.timerSeconds}s` : model.bidCount} />
-        </strong>
       </div>
     </div>
   );
 }
 
-export function SoldScene({ model }: { model: SoldSceneModel }) {
+export function SoldScene({ model, teams = [] }: { model: SoldSceneModel; teams?: TeamPurse[] }) {
+  const roster = teams.length ? teams : [model.team];
   return (
-    <div className="bw-lt-row">
+    <div className="bw-lt-row bw-lt-solid">
       <div className="bw-seg bw-seg-player">
         <Avatar name={model.player.name} photoUrl={model.player.photoUrl} />
         <div className="bw-stack" style={{ minWidth: 0, flex: 1 }}>
@@ -110,20 +112,50 @@ export function SoldScene({ model }: { model: SoldSceneModel }) {
           >
             {model.player.name}
           </strong>
+          {model.player.detail ? <small className="bw-sub">{model.player.detail}</small> : null}
         </div>
       </div>
-      <div className="bw-seg bw-seg-grow bw-center">
-        <span className="bw-stamp" data-tone="gold">SOLD</span>
-        <strong className="bw-bid bw-gold">{formatAmount(model.soldPrice)}</strong>
+      <div className="bw-seg bw-seg-grow bw-sold-block">
+        <div className="bw-sold-line">
+          <span className="bw-sold-kicker">SOLD AT</span>
+          <strong className="bw-sold-amount">{formatAmount(model.soldPrice)}</strong>
+        </div>
+        <span className="bw-sold-team">{model.team.name}</span>
       </div>
       <div className="bw-seg bw-seg-lead">
-        <div className="bw-lead-inner">
-          <Crest text={model.team.short} logoUrl={model.team.logoUrl} size={60} />
-          <div className="bw-stack">
-            <span className="bw-kicker bw-cyan">TO</span>
-            <strong>{model.team.name}</strong>
-          </div>
-        </div>
+        <TeamPurseLoop teams={roster} />
+      </div>
+    </div>
+  );
+}
+
+function TeamPurseLoop({ teams }: { teams: TeamPurse[] }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [teams.length]);
+
+  useEffect(() => {
+    if (teams.length < 2) return;
+    const timer = window.setInterval(() => {
+      setIndex((value) => (value + 1) % teams.length);
+    }, 3400);
+    return () => window.clearInterval(timer);
+  }, [teams.length]);
+
+  const team = teams[index % teams.length];
+  if (!team) return null;
+  const squadSize = team.slotsRemaining;
+  const squad = squadSize > 0 ? `${team.playersBought}/${squadSize}` : String(team.playersBought);
+
+  return (
+    <div key={team.teamId} className="bw-team-loop">
+      <Crest text={team.short} logoUrl={team.logoUrl} size={58} />
+      <div className="bw-stack">
+        <strong>{team.name}</strong>
+        <small className="bw-sub">Squad {squad}</small>
+        <small className="bw-sub bw-gold">{formatAmount(team.purseRemaining)} available</small>
       </div>
     </div>
   );
@@ -131,7 +163,7 @@ export function SoldScene({ model }: { model: SoldSceneModel }) {
 
 export function UnsoldScene({ model }: { model: UnsoldSceneModel }) {
   return (
-    <div className="bw-lt-row" data-muted>
+    <div className="bw-lt-row bw-lt-solid" data-muted>
       <div className="bw-seg bw-seg-player">
         <Avatar name={model.player.name} photoUrl={model.player.photoUrl} />
         <div className="bw-stack" style={{ minWidth: 0, flex: 1 }}>
@@ -151,7 +183,10 @@ export function UnsoldScene({ model }: { model: UnsoldSceneModel }) {
       </div>
       <div className="bw-seg bw-seg-grow bw-center">
         <span className="bw-stamp" data-tone="muted">UNSOLD</span>
-        <small className="bw-sub">Base {formatAmount(model.player.basePrice)}</small>
+      </div>
+      <div className="bw-seg bw-stat bw-seg-purse">
+        <span className="bw-kicker">BASE</span>
+        <strong>{formatAmount(model.player.basePrice)}</strong>
       </div>
     </div>
   );
@@ -159,7 +194,7 @@ export function UnsoldScene({ model }: { model: UnsoldSceneModel }) {
 
 export function BreakScene({ model, sponsor }: { model: BreakSceneModel; sponsor?: SponsorLogo | undefined }) {
   return (
-    <div className="bw-lt-row">
+    <div className="bw-lt-row bw-lt-solid">
       <div className="bw-seg bw-seg-grow bw-center">
         <div className="bw-stack bw-center-text">
           <span className="bw-kicker bw-gold">{model.subline ?? "BREAK"}</span>
@@ -185,7 +220,7 @@ export function SummaryScene({ model }: { model: SummaryModel }) {
     { k: "TOTAL SPENT", v: formatAmount(model.totalSpent) },
   ];
   return (
-    <div className="bw-lt-row">
+    <div className="bw-lt-row bw-lt-solid">
       <div className="bw-seg bw-seg-title">
         <span className="bw-kicker bw-gold">AUCTION</span>
         <strong className="bw-headline">SUMMARY</strong>
@@ -211,25 +246,49 @@ export function SummaryScene({ model }: { model: SummaryModel }) {
   );
 }
 
+function top5Subtitle(entry: Top5Model["entries"][number], count: number): string {
+  const team = (entry.teamName || entry.teamShort || "").trim();
+  const role = entry.role.trim();
+  const namedRole = role && role.toLowerCase() !== "player" ? role : "";
+  if (count <= 3 && namedRole && team) return `${namedRole} · ${team}`;
+  return team || namedRole;
+}
+
 export function Top5Scene({ model }: { model: Top5Model }) {
+  const entries = model.entries.slice(0, 5);
   return (
-    <div className="bw-lt-row">
-      <div className="bw-seg bw-seg-title">
+    <div className="bw-lt-row bw-lt-solid bw-top5-row">
+      <div className="bw-top5-brand">
         <span className="bw-kicker bw-gold">TOP 5</span>
-        <strong className="bw-headline">{model.title}</strong>
+        <strong>
+          HIGHEST
+          <br />
+          SOLD
+        </strong>
       </div>
-      {model.entries.slice(0, 5).map((e, i) => (
-        <div key={e.rank} className="bw-seg bw-top5 bw-stagger" style={{ animationDelay: `${i * 90}ms` }}>
-          <span className="bw-rank">{e.rank}</span>
-          <div className="bw-stack">
-            <strong>{e.playerName}</strong>
-            <small className="bw-sub">
-              {e.role} · {e.teamShort}
-            </small>
-            <span className="bw-gold bw-price">{formatAmount(e.price)}</span>
-          </div>
+      {entries.length === 0 ? (
+        <div className="bw-top5-empty">
+          <span className="bw-kicker">NO SALES YET</span>
         </div>
-      ))}
+      ) : (
+        <div className="bw-top5-rail" data-count={entries.length}>
+          {entries.map((e, i) => (
+            <article
+              key={e.rank}
+              className="bw-top5-card bw-stagger"
+              data-rank={e.rank}
+              style={{ animationDelay: `${i * 70}ms` }}
+            >
+              <span className="bw-top5-medal">{e.rank}</span>
+              <div className="bw-top5-copy">
+                <strong title={e.playerName}>{e.playerName}</strong>
+                <small>{top5Subtitle(e, entries.length)}</small>
+              </div>
+              <span className="bw-top5-price">{formatAmount(e.price)}</span>
+            </article>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -237,7 +296,7 @@ export function Top5Scene({ model }: { model: Top5Model }) {
 export function TeamScene({ model }: { model: TeamModel }) {
   const { team } = model;
   return (
-    <div className="bw-lt-row">
+    <div className="bw-lt-row bw-lt-solid">
       <div className="bw-seg bw-seg-player">
         <Crest text={team.short} logoUrl={team.logoUrl} size={78} />
         <div className="bw-stack">
@@ -248,9 +307,9 @@ export function TeamScene({ model }: { model: TeamModel }) {
           </small>
         </div>
       </div>
-      <div className="bw-seg bw-seg-grow bw-squad">
-        {model.squad.slice(0, 10).map((p, i) => (
-          <span key={p.name} className="bw-squad-chip bw-stagger" style={{ animationDelay: `${i * 50}ms` }}>
+      <div className="bw-seg bw-seg-grow bw-squad-row">
+        {model.squad.slice(0, 6).map((p, i) => (
+          <span key={`${p.name}-${i}`} className="bw-squad-chip bw-stagger" style={{ animationDelay: `${i * 40}ms` }}>
             <b>{p.name}</b>
             <small>
               {p.role} · {formatAmount(p.price)}
@@ -258,7 +317,7 @@ export function TeamScene({ model }: { model: TeamModel }) {
           </span>
         ))}
       </div>
-      <div className="bw-seg bw-stat">
+      <div className="bw-seg bw-stat bw-seg-purse">
         <span className="bw-kicker bw-gold">PURSE LEFT</span>
         <strong>{formatAmount(team.purseRemaining)}</strong>
       </div>

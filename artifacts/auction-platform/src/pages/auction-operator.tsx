@@ -638,12 +638,7 @@ export default function AuctionOperator() {
     if (controlsLocked || state?.currentPlayer) return;
     const result = await nextPlayer.mutateAsync({ tournamentId, data: { mode, playerId } });
     setCurrentBidPaused(false);
-    if (state?.displayOverlay) {
-      await setDisplayOverlay.mutateAsync({
-        tournamentId,
-        data: { mode: "off", expectedRevision: presentationContext.revision ?? 0 },
-      });
-    }
+    // The server returns LED and OBS to the live auction in this same snapshot.
     applyMutationResult(result);
   }
 
@@ -2426,7 +2421,7 @@ export default function AuctionOperator() {
                                 disabled={controlsLocked || !isActive || hasPlayer || timerActive || nextPlayer.isPending || selectionMode !== "manual"}
                                 title={hasPlayer ? "Sold, unsold, or defer the current player first" : timerActive ? "Pause current bid first" : selectionMode !== "manual" ? "Switch to Manual mode to pick from queue" : "Load this player"}
                                 onClick={() => handleNextPlayer("sequential", player.id)}
-                                className="text-[9px] px-2.5 py-0.5 rounded bg-yellow-400/20 text-yellow-300 hover:bg-yellow-400/30 disabled:opacity-30 disabled:cursor-not-allowed font-bold transition-all leading-none"
+                                className="inline-flex items-center justify-center min-h-7 min-w-11 px-3 text-xs font-black tracking-wide rounded-md border border-yellow-400/55 bg-yellow-400/20 text-yellow-200 cursor-pointer shadow-sm transition-all duration-150 hover:bg-yellow-400 hover:text-black hover:border-yellow-200 hover:shadow-[0_0_14px_rgba(250,204,21,0.5)] hover:-translate-y-px active:translate-y-0 active:scale-[0.97] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-yellow-400/20 disabled:hover:text-yellow-200 disabled:hover:border-yellow-400/55 disabled:hover:shadow-none disabled:hover:translate-y-0 leading-none"
                               >
                                 Go
                               </button>
@@ -2640,6 +2635,12 @@ export default function AuctionOperator() {
               {(() => {
                 const teamList = teams || [];
                 const isDense = teamList.length > 7;
+                const purseFigure = (amount: number) => {
+                  const text = formatAmount(amount);
+                  const splitAt = text.lastIndexOf(" ");
+                  if (splitAt === -1) return { value: text, unit: "" };
+                  return { value: text.slice(0, splitAt), unit: text.slice(splitAt + 1) };
+                };
                 return (
                   <div className={`p-2.5 sm:p-3 pr-3.5 sm:pr-4 flex flex-col ${isDense ? "gap-1.5" : "gap-2.5"} min-h-full`}>
                     {teamList.map(team => {
@@ -2647,18 +2648,22 @@ export default function AuctionOperator() {
                       const spent = purseData?.purseUsed ?? team.purseUsed ?? 0;
                       const maxAllowedBid = purseData?.maxAllowedBid ?? ((purseData?.effectiveCapacity ?? team.purse) - spent);
                       const reserved = purseData?.futureReservePurse ?? purseData?.reservePurse ?? 0;
-                      const slotsNeeded = purseData?.futureSlotsRequired ?? purseData?.slotsRequired ?? 0;
                       const bought = purseData?.playersBought ?? 0;
-                      const maxSquad = purseData?.maximumSquadSize ?? 0;
+                      const maxSquad = purseData?.maximumSquadSize || tournament?.maximumSquadSize || 0;
+                      const minSquad = purseData?.minimumSquadSize || tournament?.minimumSquadSize || 0;
+                      const squadTarget = maxSquad > 0 ? maxSquad : minSquad;
                       const maxReached = maxSquad > 0 && bought >= maxSquad;
                       const isLeading = state?.currentBidTeamId === team.id;
                       const capacity = purseData?.effectiveCapacity ?? team.purse;
                       const purseRemaining = purseData?.purseRemaining ?? Math.max(0, capacity - spent);
-                      const slotsToGo = maxSquad > 0 ? Math.max(0, maxSquad - bought) : slotsNeeded;
+                      const availFigure = purseFigure(purseRemaining);
+                      const maxFigure = purseFigure(maxAllowedBid);
+                      const reserveFigure = purseFigure(reserved);
+                      const squadLabel = squadTarget > 0 ? `${bought}/${squadTarget}` : String(bought);
                       return (
                         <div
                           key={team.id}
-                          className={`rounded-xl ${isDense ? "px-2.5 py-1.5" : "p-2.5 sm:p-3"} border transition-all ${
+                          className={`rounded-xl ${isDense ? "px-3 py-2.5" : "p-3 sm:p-3.5"} border transition-all ${
                             isLeading
                               ? "border-yellow-400 bg-yellow-500/10 shadow-[0_0_12px_rgba(234,179,8,0.25)] ring-1 ring-yellow-400/50"
                               : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
@@ -2668,65 +2673,67 @@ export default function AuctionOperator() {
                             borderLeftColor: team.color || (isLeading ? "#facc15" : "#3b82f6"),
                           }}
                         >
-                          {/* Row 1: Team Logo/Badge + Name + LEAD Tag + Max Bid */}
                           <div className="flex items-center justify-between gap-2 min-w-0">
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <div className="flex items-center gap-2 min-w-0">
                               {team.logoUrl ? (
                                 <img
                                   src={team.logoUrl}
                                   alt={team.name}
-                                  className={`${isDense ? "w-4 h-4" : "w-5 h-5 sm:w-6 sm:h-6"} rounded object-contain flex-shrink-0 bg-white/10 p-0.5`}
+                                  className={`${isDense ? "w-5 h-5" : "w-6 h-6"} rounded object-contain flex-shrink-0 bg-white/10 p-0.5`}
                                 />
                               ) : (
                                 <div
-                                  className={`${isDense ? "w-4 h-4 text-[9px]" : "w-5 h-5 sm:w-6 sm:h-6 text-[10px] sm:text-xs"} rounded font-black flex items-center justify-center flex-shrink-0`}
+                                  className={`${isDense ? "w-5 h-5 text-[10px]" : "w-6 h-6 text-xs"} rounded font-black flex items-center justify-center flex-shrink-0`}
                                   style={{ backgroundColor: `${team.color || "#3b82f6"}33`, color: team.color || "#fff" }}
                                 >
                                   {team.name.slice(0, 1)}
                                 </div>
                               )}
-                              <span className={`font-bold text-white truncate leading-tight ${isDense ? "text-xs" : "text-xs sm:text-[13px]"}`} title={team.name}>
+                              <span className="font-bold text-white truncate leading-tight text-sm" title={team.name}>
                                 {team.name}
                               </span>
                               {isLeading && (
-                                <span className="px-1 py-0.2 rounded text-[8px] font-black uppercase tracking-wider bg-yellow-400 text-black flex-shrink-0 animate-pulse leading-none">
+                                <span className="px-1 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-yellow-400 text-black flex-shrink-0 animate-pulse leading-none">
                                   LEAD
                                 </span>
                               )}
                             </div>
-
-                            {/* Max Bid */}
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              <span className="text-[9px] uppercase font-bold text-white/40">Max</span>
-                              <span
-                                className={`font-mono font-black tabular-nums ${isDense ? "text-xs" : "text-xs sm:text-[13px]"} ${maxReached ? "text-red-400" : "text-emerald-400"}`}
-                                title={`Max Allowed Bid: ${formatAmount(maxAllowedBid)}`}
-                              >
-                                {maxReached ? "FULL" : formatAmount(maxAllowedBid)}
-                              </span>
+                            <div className="flex-shrink-0 text-right leading-none" title={`Squad ${squadLabel}`}>
+                              <p className="text-[9px] font-bold uppercase tracking-wider text-white/35">Squad</p>
+                              <p className={`mt-1 font-mono font-black tabular-nums text-white ${isDense ? "text-sm" : "text-base"}`}>
+                                {squadLabel}
+                              </p>
                             </div>
                           </div>
 
-                          {/* Row 2: Squad Stats + Purse Available & Reserved */}
-                          <div className={`flex items-center justify-between gap-1 text-[10px] sm:text-[11px] ${isDense ? "mt-1 pt-1" : "mt-2 pt-1.5"} border-t border-white/5 text-white/60`}>
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="text-white/40">Squad</span>
-                              <span className="font-semibold text-white/90 tabular-nums">
-                                {bought}/{maxSquad || "—"}
-                              </span>
-                              <span className="text-white/40 text-[9px] sm:text-[10px] truncate">({slotsToGo} left)</span>
-                            </div>
+                          <div className={`${isDense ? "mt-1.5" : "mt-2"}`} title={`Available Purse: ${formatAmount(purseRemaining)}`}>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-amber-200/50">Avail</p>
+                            <p className={`mt-0.5 font-mono font-bold tabular-nums text-amber-300 leading-none ${isDense ? "text-sm" : "text-base"}`}>
+                              {availFigure.value}
+                              {availFigure.unit ? (
+                                <span className="ml-1 text-[0.7em] font-semibold text-amber-200/70">{availFigure.unit}</span>
+                              ) : null}
+                            </p>
+                          </div>
 
-                            <div className="flex items-center gap-1.5 font-mono tabular-nums flex-shrink-0">
-                              <span className="text-white/40 text-[9px] sm:text-[10px]">Avail</span>
-                              <span className="font-bold text-amber-300 text-[11px] sm:text-xs" title={`Available Purse: ${formatAmount(purseRemaining)}`}>
-                                {formatAmount(purseRemaining)}
-                              </span>
-                              {reserved > 0 && (
-                                <span className="text-amber-400/70 text-[9px] sm:text-[10px]" title={`Reserved: ${formatAmount(reserved)}`}>
-                                  (R:{formatShort(reserved)})
-                                </span>
-                              )}
+                          <div className={`${isDense ? "mt-1.5 pt-1.5" : "mt-2 pt-2"} grid grid-cols-2 gap-3 border-t border-white/8`}>
+                            <div title={`Max Allowed Bid: ${formatAmount(maxAllowedBid)}`}>
+                              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/35">Max</p>
+                              <p className={`mt-0.5 font-mono font-bold tabular-nums leading-none ${isDense ? "text-sm" : "text-base"} ${maxReached ? "text-red-400" : "text-emerald-400"}`}>
+                                {maxReached ? "FULL" : maxFigure.value}
+                                {!maxReached && maxFigure.unit ? (
+                                  <span className="ml-1 text-[0.7em] font-semibold text-emerald-200/60">{maxFigure.unit}</span>
+                                ) : null}
+                              </p>
+                            </div>
+                            <div title={`Reserved: ${formatAmount(reserved)}`}>
+                              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/35">Reserve</p>
+                              <p className={`mt-0.5 font-mono font-bold tabular-nums leading-none text-amber-100/90 ${isDense ? "text-sm" : "text-base"}`}>
+                                {reserveFigure.value}
+                                {reserveFigure.unit ? (
+                                  <span className="ml-1 text-[0.7em] font-semibold text-amber-100/50">{reserveFigure.unit}</span>
+                                ) : null}
+                              </p>
                             </div>
                           </div>
                         </div>

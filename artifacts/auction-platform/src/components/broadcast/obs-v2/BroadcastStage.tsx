@@ -12,6 +12,12 @@ import {
   TitleSponsor,
   TournamentBrand,
 } from "./header/Header";
+import {
+  AuctionLiveBug,
+  AuctionOutcomePatti,
+  AuctionSponsorFade,
+  HeaderSponsorSlot,
+} from "./overlay/auction-chrome";
 import { CricketScorebar } from "./lower/Cricket";
 import {
   AuctionScene,
@@ -89,6 +95,7 @@ function BroadcastStageInner({
   hideFooter?: boolean;
 }) {
   const frame = useBroadcastDirector();
+  const auction = frame.scene !== "CRICKET";
   const { liveStreaming, title, associates } = splitBroadcastSponsors(frame.sponsors);
 
   return (
@@ -97,24 +104,36 @@ function BroadcastStageInner({
       data-perf={frame.settings.performanceMode ? "on" : "off"}
       data-broadcast-scene={frame.scene}
     >
-      <HeaderFrame>
+      <HeaderFrame className={auction ? "bw-header-zones" : undefined}>
         <HeaderEnergy />
         <HeaderAccents />
         <TournamentBrand branding={frame.branding} />
-        <BidWarLiveBrand feed={frame.feed.status} />
-        <AssociateSponsorRail sponsors={associates} />
-        <TitleSponsor sponsor={title} />
+        <BidWarLiveBrand feed={frame.feed.status} showLive={!auction} />
+        {auction ? (
+          <HeaderSponsorSlot sponsors={frame.sponsors} />
+        ) : (
+          <>
+            <AssociateSponsorRail sponsors={associates} />
+            <TitleSponsor sponsor={title} />
+          </>
+        )}
       </HeaderFrame>
 
-      {/* Live Streaming Partner — 5 seconds each minute, above the lower third */}
-      <LiveStreamingPartnerBug
-        sponsor={
-          liveStreaming
-            ? { name: liveStreaming.name, logoUrl: liveStreaming.logoUrl }
-            : null
-        }
-        style={{ left: 72, bottom: 216 }}
-      />
+      {auction ? (
+        <>
+          <AuctionLiveBug feed={frame.feed.status} />
+          <AuctionSponsorFade sponsors={frame.sponsors} />
+        </>
+      ) : (
+        <LiveStreamingPartnerBug
+          sponsor={
+            liveStreaming
+              ? { name: liveStreaming.name, logoUrl: liveStreaming.logoUrl }
+              : null
+          }
+          style={{ left: 72, bottom: 216 }}
+        />
+      )}
 
 
       {!hideLower && (
@@ -135,13 +154,19 @@ function BroadcastStageInner({
         </section>
       )}
 
-      {!hideFooter && (
-        <FooterBar
-          left={<FooterLeft frame={frame} />}
-          center={frame.settings.showTicker ? <FooterTicker frame={frame} /> : null}
-          right={<FooterRight frame={frame} />}
-        />
-      )}
+      {!hideFooter &&
+        (auction ? (
+          <FooterBar
+            center={<AuctionOutcomePatti frame={frame} />}
+            right={<FooterRight frame={frame} />}
+          />
+        ) : (
+          <FooterBar
+            left={<FooterLeft frame={frame} />}
+            center={frame.settings.showTicker ? <FooterTicker frame={frame} /> : null}
+            right={<FooterRight frame={frame} />}
+          />
+        ))}
     </div>
   );
 }
@@ -156,7 +181,7 @@ function SceneSwitch({ frame }: { frame: BroadcastFrame }) {
     case "AUCTION":
       return <AuctionScene model={frame.model} />;
     case "SOLD":
-      return <SoldScene model={frame.model} />;
+      return <SoldScene model={frame.model} teams={frame.teams} />;
     case "UNSOLD":
       return <UnsoldScene model={frame.model} />;
     case "BREAK":

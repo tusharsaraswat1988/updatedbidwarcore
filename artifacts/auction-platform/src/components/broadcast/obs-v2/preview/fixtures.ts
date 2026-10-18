@@ -76,11 +76,11 @@ export function makeFrame(scene: BroadcastSceneId): BroadcastFrame {
         model: {
           title: "Top Buys",
           entries: [
-            { rank: 1, playerName: "Rohan Mehra", role: "AR", teamShort: "SUN", price: 12_000_000 },
-            { rank: 2, playerName: "Mayank Pahuja", role: "BAT", teamShort: "DPS", price: 10_500_000 },
-            { rank: 3, playerName: "Anubhav Bassi", role: "BWL", teamShort: "SUN", price: 9_000_000 },
-            { rank: 4, playerName: "Vikram Rao", role: "WK", teamShort: "RHN", price: 8_200_000 },
-            { rank: 5, playerName: "Arjun Sethi", role: "BAT", teamShort: "TGR", price: 7_600_000 },
+            { rank: 1, playerName: "Rohan Mehra", role: "All-Rounder", teamShort: "SUN", teamName: "Sunbeams Anaadis", price: 12_000_000 },
+            { rank: 2, playerName: "Mayank Pahuja", role: "Batsman", teamShort: "DPS", teamName: "Delhi Panthers", price: 10_500_000 },
+            { rank: 3, playerName: "Anubhav Bassi", role: "Bowler", teamShort: "SUN", teamName: "Sunbeams Anaadis", price: 9_000_000 },
+            { rank: 4, playerName: "Vikram Rao", role: "Wicket Keeper", teamShort: "RHN", teamName: "Rhino Knights", price: 8_200_000 },
+            { rank: 5, playerName: "Arjun Sethi", role: "Batsman", teamShort: "TGR", teamName: "Tigers United", price: 7_600_000 },
           ],
         },
       };

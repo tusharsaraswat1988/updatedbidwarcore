@@ -54,20 +54,27 @@ export function mapSponsors(sponsorLogos: BidWarSponsorLogo[]): LovableSponsorLo
   return sponsorLogos.map((s, idx) => {
     const priority = resolveSponsorPriorityType(s);
     const isLive = priority === SponsorPriorityType.LIVE_STREAMING_PARTNER;
+    const isCo = priority === SponsorPriorityType.CO_SPONSOR;
     let isTitle = priority === SponsorPriorityType.TITLE;
-    if (!isLive && !isTitle && !hasExplicitTitle && !fallbackTitleAssigned) {
+    if (!isLive && !isCo && !isTitle && !hasExplicitTitle && !fallbackTitleAssigned) {
       isTitle = true;
       fallbackTitleAssigned = true;
     }
     const name = s.name?.trim() || (isLive ? "" : s.type || `Sponsor ${idx + 1}`);
     const sponsorType = isLive
       ? LIVE_STREAMING_PARTNER_LABEL
-      : s.type || (s as { label?: string }).label || (isTitle ? "Official Partner" : undefined);
+      : s.type || (s as { label?: string }).label || (isTitle ? "Title Sponsor" : isCo ? "Co Sponsor" : undefined);
     return {
       id: s.publicId || `sponsor-${idx}`,
       name,
       logoUrl: s.url || undefined,
-      tier: isLive ? ("live_streaming" as const) : isTitle ? ("title" as const) : ("associate" as const),
+      tier: isLive
+        ? ("live_streaming" as const)
+        : isTitle
+          ? ("title" as const)
+          : isCo
+            ? ("co" as const)
+            : ("associate" as const),
       label: sponsorType,
     };
   });
@@ -77,9 +84,11 @@ export function mapSponsors(sponsorLogos: BidWarSponsorLogo[]): LovableSponsorLo
 export function splitBroadcastSponsors(sponsors: LovableSponsorLogo[]) {
   const liveStreaming = sponsors.find((s) => s.tier === "live_streaming");
   const pool = sponsors.filter((s) => s.tier !== "live_streaming");
-  const title = pool.find((s) => s.tier === "title") || pool[0];
+  const explicitTitle = pool.find((s) => s.tier === "title");
+  const title = explicitTitle || pool[0];
+  const coSponsors = pool.filter((s) => s.tier === "co");
   const associates = pool.filter((s) => s.id !== title?.id);
-  return { liveStreaming, title, associates };
+  return { liveStreaming, title, explicitTitle, coSponsors, associates };
 }
 
 /**

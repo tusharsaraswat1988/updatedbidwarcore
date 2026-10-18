@@ -163,6 +163,28 @@ export function createAuctionRouter(db: LocalDb) {
 
   const AUCTION_PAUSED_ERROR = "Auction is paused. Resume the auction before continuing.";
 
+  /** LED and OBS return to the live player when the next player is put on the block. */
+  function liveAuctionColumns(obsContextJson: string | null | undefined) {
+    let selectedTeamId: number | null = null;
+    let revision = 0;
+    if (obsContextJson) {
+      try {
+        const parsed = JSON.parse(obsContextJson) as Record<string, unknown>;
+        if (typeof parsed.selectedTeamId === "number") selectedTeamId = parsed.selectedTeamId;
+        if (typeof parsed.revision === "number" && Number.isInteger(parsed.revision) && parsed.revision >= 0) {
+          revision = parsed.revision;
+        }
+      } catch { /* keep defaults */ }
+    }
+    return {
+      displayOverlay: null as null,
+      teamPurseViewActive: false,
+      fortuneWheelActive: false,
+      wheelSpinning: false,
+      obsContextJson: JSON.stringify({ context: "auction", selectedTeamId, revision: revision + 1 }),
+    };
+  }
+
   function rejectIfAuctionPaused(
     session: { status: string },
     res: Response,
@@ -656,6 +678,7 @@ export function createAuctionRouter(db: LocalDb) {
       deferredPlayerIds: newDeferredIds.length > 0 ? JSON.stringify(newDeferredIds) : null,
       randomDrawQueue: newRandomDrawQueue,
       lastAction: `Now bidding: ${selectedPlayer.name}`,
+      ...liveAuctionColumns(session.obsContextJson),
     }).where(eq(auctionSessionsTable.tournamentId, tid));
     res.json(await broadcastState(tid, ["players"]));
   });
@@ -901,6 +924,7 @@ export function createAuctionRouter(db: LocalDb) {
       currentBidTeamId: null, timerSeconds: timerSecs, timerEndsAt: null,
       randomDrawQueue: null,
       lastAction: `RE-AUCTION: ${player.name}`,
+      ...liveAuctionColumns(session.obsContextJson),
     }).where(eq(auctionSessionsTable.tournamentId, tid));
     res.json(await broadcastState(tid, ["bids", "purses", "players"]));
   });

@@ -27,7 +27,7 @@ export interface SponsorLogo {
   id: string;
   name: string;
   logoUrl?: string;
-  tier: "title" | "associate" | "live_streaming";
+  tier: "title" | "co" | "associate" | "live_streaming";
   /** Optional tagline shown above title sponsor, e.g. "Official Partner" */
   label?: string;
 }
@@ -64,6 +64,10 @@ export interface AuctionPlayer {
   photoUrl?: string;
   basePrice: number;
   category?: string;
+  /** Age in years, when the player record has one. */
+  age?: number;
+  /** Extra line: batting/bowling style, or city. */
+  detail?: string;
 }
 
 /** Production: AuctionSceneModel */
@@ -111,7 +115,15 @@ export interface SummaryModel {
 /** Production: Top5 */
 export interface Top5Model {
   title: string;
-  entries: { rank: number; playerName: string; role: string; teamShort: string; price: number }[];
+  entries: {
+    rank: number;
+    playerName: string;
+    role: string;
+    teamShort: string;
+    /** Buying team, when the purse record has a name. */
+    teamName?: string;
+    price: number;
+  }[];
 }
 
 /** Production: Team */

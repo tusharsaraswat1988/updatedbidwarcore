@@ -4,8 +4,8 @@ import type { BroadcastBranding, FeedStatus, SponsorLogo } from "../contracts";
 import { Crest } from "../primitives";
 
 /** Container: 1920x96, clip-path chamfer, overflow hidden — all header motion stays inside. */
-export function HeaderFrame({ children }: { children: ReactNode }) {
-  return <header className="bw-header">{children}</header>;
+export function HeaderFrame({ children, className }: { children: ReactNode; className?: string }) {
+  return <header className={`bw-header${className ? ` ${className}` : ""}`}>{children}</header>;
 }
 
 /** Sweep light that travels inside the header only. Disabled in performance mode by CSS. */

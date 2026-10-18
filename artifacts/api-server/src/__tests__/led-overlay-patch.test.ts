@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   applyRememberedLedOverlayPatch,
   ledOverlaySessionPatch,
+  liveAuctionSessionWrite,
   overlayModeFromPresentationContext,
   parsePersistedPresentationContext,
   presentationContextAfterLedOverlay,
@@ -160,6 +161,65 @@ describe("LED MAIN VIEW resets OBS to LIVE AUCTION", () => {
       selectedTeamId: 4,
       revision: 0,
     });
+  });
+});
+
+describe("loading the next player returns LED and OBS to the live auction", () => {
+  afterEach(() => {
+    resetLedOverlayPatchesForTests();
+  });
+
+  it("clears Team, Player, Top 5, and Banner and sends OBS back to live auction", () => {
+    const live = liveAuctionSessionWrite(
+      JSON.stringify({ context: "team", selectedTeamId: 9, revision: 4 }),
+    );
+    expect(live.displayOverlay).toBeNull();
+    expect(live.teamPurseViewActive).toBe(false);
+    expect(live.fortuneWheelActive).toBe(false);
+    expect(JSON.parse(live.obsContextJson)).toEqual({
+      context: "auction",
+      selectedTeamId: 9,
+      revision: 5,
+    });
+  });
+
+  it("also clears a LED player list that left OBS on Top 5", () => {
+    const live = liveAuctionSessionWrite(
+      JSON.stringify({ context: "top5", selectedTeamId: null, revision: 1 }),
+    );
+    expect(live.displayOverlay).toBeNull();
+    expect(JSON.parse(live.obsContextJson).context).toBe("auction");
+  });
+
+  it("a remembered Team layout cannot overwrite the live-auction broadcast", () => {
+    rememberLedOverlayPatch(1, ledOverlaySessionPatch("player"));
+    const live = liveAuctionSessionWrite(
+      JSON.stringify({ context: "top5", selectedTeamId: 2, revision: 0 }),
+    );
+    rememberLedOverlayPatch(1, live);
+    const rebuilt = { displayOverlay: "player" as const, teamPurseViewActive: true };
+    applyRememberedLedOverlayPatch(1, rebuilt);
+    expect(rebuilt.displayOverlay).toBeNull();
+    expect(rebuilt.teamPurseViewActive).toBe(false);
+  });
+});
+
+describe("next player route returns both screens to MAIN", () => {
+  it("persists the live-auction write when a player is loaded or re-auctioned", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const src = await readFile(new URL("../routes/auction.ts", import.meta.url), "utf8");
+    const nextStart = src.indexOf('router.post("/tournaments/:tournamentId/auction/next-player"');
+    const nextEnd = src.indexOf('router.post("/tournaments/:tournamentId/auction/bid"');
+    const reStart = src.indexOf('router.post("/tournaments/:tournamentId/auction/re-auction"');
+    const reEnd = src.indexOf('router.post("/tournaments/:tournamentId/auction/re-auction-unsold"');
+    expect(nextStart).toBeGreaterThan(-1);
+    expect(reStart).toBeGreaterThan(nextEnd);
+    const nextHandler = src.slice(nextStart, nextEnd);
+    const reHandler = src.slice(reStart, reEnd);
+    for (const handler of [nextHandler, reHandler]) {
+      expect(handler).toContain("liveAuctionSessionWrite");
+      expect(handler).toContain("rememberLedOverlayPatch(tid, returnToLive)");
+    }
   });
 });
 
