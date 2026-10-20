@@ -70,8 +70,8 @@ export function RegistrationPaymentFormSection({
         <a href={upiLink}>Pay {amountLabel}</a>
       </Button>
 
-      <div className="reg-qr">
-        <QRCodeSVG value={upiLink} size={168} level="M" bgColor="#ffffff" fgColor="#1a1a2e" aria-label={`UPI QR code for ${amountLabel}`} />
+      <div className="reg-qr" role="img" aria-label={`UPI QR code for ${amountLabel}`}>
+        <QRCodeSVG value={upiLink} size={168} level="M" bgColor="#ffffff" fgColor="#1a1a2e" />
         <p className="reg-hint text-center">Scan with PhonePe, Google Pay, Paytm, or another UPI app.</p>
         <p className="reg-upi">UPI ID <strong>{upiId}</strong></p>
       </div>

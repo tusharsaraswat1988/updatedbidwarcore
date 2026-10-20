@@ -378,6 +378,14 @@
   min-height: 20px;
 }
 
+.reg-label-meta {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  justify-content: flex-end;
+  min-height: 16px;
+}
+
 .reg-badge {
   flex: none;
   font-size: 11px;
@@ -499,13 +507,14 @@
 
 .reg-declaration {
   margin: 0;
-  padding-left: 1.15rem;
+  padding-left: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 8px;
   color: var(--foreground);
   font-size: 14px;
   line-height: 1.5;
+  list-style: decimal;
 }
 
 .reg-chips {
@@ -672,6 +681,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .reg-grid-2 .reg-span-2 {
+    grid-column: 1 / -1;
+  }
+
   .reg-grid-3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -699,5 +712,141 @@
   .reg-brand-mark {
     width: 44px;
     height: 44px;
+  }
+
+  .reg-brand-mark img {
+    max-height: 32px;
+  }
+}
+
+.reg-welcome {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--reg-success-border);
+  background: var(--reg-success-bg);
+  color: var(--reg-navy);
+}
+
+.reg-welcome p {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.reg-welcome strong {
+  font-weight: 700;
+}
+
+.reg-welcome span {
+  color: var(--reg-success);
+}
+
+.reg-welcome-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 1px;
+  color: var(--reg-success);
+}
+
+.reg-autofill-badge {
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--primary) 40%, white);
+  color: var(--reg-navy-deep);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.45;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@property --reg-autofill-bg {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@property --reg-autofill-border {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
+
+@keyframes reg-autofill-field {
+  0%,
+  100% {
+    --reg-autofill-bg: var(--rail);
+    --reg-autofill-border: var(--border);
+    outline-color: transparent;
+  }
+  24%,
+  68% {
+    --reg-autofill-bg: color-mix(in oklab, var(--primary) 32%, white);
+    --reg-autofill-border: color-mix(in oklab, var(--reg-navy) 18%, var(--primary));
+    outline-color: color-mix(in oklab, var(--primary) 78%, var(--reg-navy));
+  }
+}
+
+@keyframes reg-autofill-badge {
+  0% { opacity: 0; }
+  24% { opacity: 1; }
+  68% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.reg-autofill :is(input:not([type="checkbox"]):not([type="file"]), button[role="combobox"], textarea),
+.reg-autofill .reg-photo-preview,
+.reg-autofill .reg-chips {
+  --reg-autofill-bg: var(--rail);
+  --reg-autofill-border: var(--border);
+  background-color: var(--reg-autofill-bg) !important;
+  border-color: var(--reg-autofill-border) !important;
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+  animation: reg-autofill-field 2.6s ease both;
+  animation-delay: var(--autofill-delay, 0ms);
+}
+
+.reg-autofill .reg-autofill-badge {
+  animation: reg-autofill-badge 2.6s ease both;
+  animation-delay: var(--autofill-delay, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reg-autofill :is(input:not([type="checkbox"]):not([type="file"]), button[role="combobox"], textarea),
+  .reg-autofill .reg-photo-preview,
+  .reg-autofill .reg-chips,
+  .reg-autofill .reg-autofill-badge {
+    animation: none;
+  }
+
+  .reg-autofill :is(input:not([type="checkbox"]):not([type="file"]), button[role="combobox"], textarea),
+  .reg-autofill .reg-photo-preview,
+  .reg-autofill .reg-chips {
+    --reg-autofill-bg: color-mix(in oklab, var(--primary) 32%, white);
+    --reg-autofill-border: color-mix(in oklab, var(--reg-navy) 18%, var(--primary));
+    background-color: var(--reg-autofill-bg) !important;
+    border-color: var(--reg-autofill-border) !important;
+    outline: 2px solid color-mix(in oklab, var(--primary) 78%, var(--reg-navy));
+    outline-offset: 1px;
+  }
+
+  .reg-autofill .reg-autofill-badge {
+    opacity: 1;
   }
 }

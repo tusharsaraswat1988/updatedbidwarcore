@@ -31,28 +31,41 @@ export function RegSection({
   );
 }
 
+export function RegAutofillMark() {
+  return (
+    <span className="reg-autofill-badge">
+      <span aria-hidden="true">✓</span> Auto-filled
+    </span>
+  );
+}
+
 export function RegLabel({
   htmlFor,
   children,
   marker,
   locked,
+  autofilled = false,
 }: {
   htmlFor?: string;
   children: ReactNode;
   marker?: "required" | "optional";
   locked?: boolean;
+  autofilled?: boolean;
 }) {
   return (
     <div className="reg-label-row">
-      <Label htmlFor={htmlFor} className="inline-flex items-center gap-2">
+      <Label htmlFor={htmlFor} className="inline-flex items-center gap-2 min-w-0">
         {children}
         {locked ? <span className="reg-badge reg-badge--lock">Locked</span> : null}
       </Label>
-      {marker === "required" ? (
-        <span className="reg-badge reg-badge--req">Required</span>
-      ) : marker === "optional" ? (
-        <span className="reg-badge reg-badge--opt">Optional</span>
-      ) : null}
+      <span className="reg-label-meta">
+        {autofilled ? <RegAutofillMark /> : null}
+        {marker === "required" ? (
+          <span className="reg-badge reg-badge--req">Required</span>
+        ) : marker === "optional" ? (
+          <span className="reg-badge reg-badge--opt">Optional</span>
+        ) : null}
+      </span>
     </div>
   );
 }

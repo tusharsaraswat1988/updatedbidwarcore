@@ -1,4 +1,6 @@
+import type { CSSProperties } from "react";
 import { Label } from "@/components/ui/label";
+import { RegAutofillMark } from "@/components/registration/registration-chrome";
 import {
   Select,
   SelectContent,
@@ -17,6 +19,9 @@ type Props = {
   contentClassName?: string;
   marker?: "required" | "optional";
   disabled?: boolean;
+  className?: string;
+  style?: CSSProperties;
+  autofilled?: boolean;
 };
 
 export function JerseySizeSelect({
@@ -28,16 +33,22 @@ export function JerseySizeSelect({
   contentClassName,
   marker,
   disabled = false,
+  className,
+  style,
+  autofilled = false,
 }: Props) {
   return (
-    <div className="space-y-2">
+    <div className={className ? `space-y-2 ${className}` : "space-y-2"} style={style}>
       <div className="reg-label-row">
         <Label htmlFor={id}>{label}</Label>
-        {marker === "required" ? (
-          <span className="reg-badge reg-badge--req">Required</span>
-        ) : marker === "optional" ? (
-          <span className="reg-badge reg-badge--opt">Optional</span>
-        ) : null}
+        <span className="reg-label-meta">
+          {autofilled ? <RegAutofillMark /> : null}
+          {marker === "required" ? (
+            <span className="reg-badge reg-badge--req">Required</span>
+          ) : marker === "optional" ? (
+            <span className="reg-badge reg-badge--opt">Optional</span>
+          ) : null}
+        </span>
       </div>
       <Select
         value={value || "none"}

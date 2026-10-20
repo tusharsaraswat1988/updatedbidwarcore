@@ -9,10 +9,10 @@ interface UtrHelpModalProps {
 export function UtrHelpModal({ open, onOpenChange }: UtrHelpModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="registration-portal sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg">
-            <HelpCircle className="w-5 h-5 text-primary" />
+          <DialogTitle className="flex items-center gap-2 text-lg text-foreground">
+            <HelpCircle className="w-5 h-5 text-foreground" />
             What is a UTR Number?
           </DialogTitle>
         </DialogHeader>
@@ -24,14 +24,14 @@ export function UtrHelpModal({ open, onOpenChange }: UtrHelpModalProps) {
             You can find it in PhonePe, Google Pay, Paytm, BHIM, or your banking app under transaction details.
           </p>
 
-          <div className="rounded-xl border border-border bg-card/50 p-4 space-y-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-green-400">Payment Successful</p>
+          <div className="rounded-xl border border-border bg-muted p-4 space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--reg-success)" }}>Payment Successful</p>
             <div className="space-y-1.5 text-sm">
               <p><span className="text-muted-foreground">Amount:</span> <span className="text-foreground">₹1,200</span></p>
-              <p><span className="text-muted-foreground">Transaction ID:</span> <span className="font-mono text-foreground/80">T240615183746283</span></p>
-              <div className="rounded-lg border border-primary/40 bg-primary/10 px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wider text-primary mb-0.5">UTR Number</p>
-                <p className="font-mono text-base font-bold text-primary">415672839102</p>
+              <p><span className="text-muted-foreground">Transaction ID:</span> <span className="font-mono text-foreground">T240615183746283</span></p>
+              <div className="rounded-lg border border-border bg-card px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">UTR Number</p>
+                <p className="font-mono text-base font-bold text-foreground">415672839102</p>
               </div>
             </div>
           </div>
@@ -50,10 +50,10 @@ export function UtrHelpTrigger({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center justify-center w-5 h-5 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+      className="inline-flex items-center justify-center min-w-11 min-h-11 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
       aria-label="What is a UTR number?"
     >
-      <HelpCircle className="w-3.5 h-3.5" />
+      <HelpCircle className="w-5 h-5" />
     </button>
   );
 }
