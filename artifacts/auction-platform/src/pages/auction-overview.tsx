@@ -18,8 +18,9 @@ import { useAuctionUnit } from "@/hooks/use-auction-unit";
 import { readinessFixPath } from "@/lib/settings-navigation";
 import {
   Users, UserCheck, UserMinus, Wallet, Activity,
-  CheckCircle2, Circle, AlertCircle, ArrowLeft,
+  CheckCircle2, Circle, AlertCircle, ArrowRight,
 } from "lucide-react";
+import { resolveScoringEntryPath } from "@/lib/tournament-navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { PlatformSurface } from "@/components/platform/platform-surface";
@@ -143,11 +144,11 @@ export default function AuctionOverview() {
             </div>
             <Button
               variant="outline"
-              onClick={() => navigate(`/tournament/${tournamentId}`)}
+              onClick={() => navigate(resolveScoringEntryPath(tournamentId, tournament?.sport))}
               className="gap-2"
             >
-              <ArrowLeft className="w-4 h-4" />
-              Return to Tournament Home
+              Go to Sports Scoring
+              <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
         </div>
@@ -167,7 +168,7 @@ export default function AuctionOverview() {
                 className="h-8 w-8 sm:h-10 sm:w-10 object-contain rounded flex-shrink-0"
               />
             )}
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight leading-tight">
               {tournament?.name}
             </h1>
             {readinessMode === "trial" ? <TrialLicenseBadge /> : null}

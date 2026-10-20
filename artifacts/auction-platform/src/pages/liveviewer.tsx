@@ -1567,12 +1567,6 @@ export default function LiveViewerPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <a
-              href={`/tournament/${tournamentId}`}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#27272a] text-white hover:bg-[#3f3f46] transition-colors text-sm font-semibold"
-            >
-              Tournament Home
-            </a>
             {tournament?.scoringEnabled && (
               <a
                 href={tournament?.sport === "badminton" ? `/tournament/${tournamentId}/badminton` : `/tournament/${tournamentId}/cricket`}

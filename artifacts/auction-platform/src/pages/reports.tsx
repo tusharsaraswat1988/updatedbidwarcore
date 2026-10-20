@@ -97,7 +97,7 @@ export default function Reports() {
                   {topBids.slice(0, 5).map((entry, i) => (
                     <div
                       key={entry.playerId}
-                      className="flex items-center gap-2.5 py-1.5 px-2.5 rounded-lg bg-card/50 border border-border/30 hover:border-border/60 transition"
+                      className="org-list-row gap-2.5 py-1.5 px-1"
                     >
                       <div
                         className="w-5 h-5 rounded-full flex items-center justify-center font-display font-black text-[10px] flex-shrink-0"

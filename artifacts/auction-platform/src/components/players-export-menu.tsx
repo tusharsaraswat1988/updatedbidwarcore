@@ -344,7 +344,7 @@ export function PlayersExportMenu({
             type="button"
             variant="outline"
             size="sm"
-            className={cn("h-8 gap-1.5 px-2.5 text-xs shrink-0 cursor-pointer bg-card/30 border-border/40 hover:bg-card/50 hover:border-border/70 transition-colors", className)}
+            className={cn("h-9 w-auto gap-1.5 px-2.5 text-xs shrink-0 cursor-pointer bg-card/30 border-border/40 hover:bg-card/50 hover:border-border/70 transition-colors", className)}
             disabled={exportBusy || isConnecting}
             aria-label="Export players"
           >
@@ -353,7 +353,7 @@ export function PlayersExportMenu({
             ) : (
               <Download className="w-3.5 h-3.5" aria-hidden />
             )}
-            <span>
+            <span className="hidden sm:inline">
               {exportingTarget === "excel"
                 ? "Exporting Excel…"
                 : exportingTarget === "csv"
@@ -362,7 +362,7 @@ export function PlayersExportMenu({
                     ? "Connecting…"
                     : "Export"}
             </span>
-            <ChevronDown className="w-3 h-3 opacity-70" aria-hidden />
+            <ChevronDown className="w-3 h-3 opacity-70 hidden sm:block" aria-hidden />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent

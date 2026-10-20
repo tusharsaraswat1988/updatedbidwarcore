@@ -29,7 +29,7 @@ import { HintLabel } from "@/components/ui/hint-label";
 import type { SettingsFocusField, SettingsTab } from "@/lib/settings-navigation";
 import { resolveSettingsTabFromSearch, settingsPath } from "@/lib/settings-navigation";
 import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
-import { auctionResetPath } from "@/lib/tournament-navigation";
+import { auctionResetPath, resolveTournamentOrganizerLandingPath } from "@/lib/tournament-navigation";
 import { AuctionAudioManager } from "@/lib/audio-manager";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -806,7 +806,7 @@ export default function TournamentSettings() {
             variant="ghost"
             size="sm"
             className="gap-1.5 text-muted-foreground hover:text-foreground flex-shrink-0 h-9 px-2.5 sm:px-3"
-            onClick={() => navigate(`/tournament/${tournamentId}`)}
+            onClick={() => navigate(resolveTournamentOrganizerLandingPath(tournamentId, tournament))}
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">Back</span>

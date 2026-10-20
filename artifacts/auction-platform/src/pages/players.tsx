@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useCallback, type Dispatch, type SetStateAction } from "react";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import {
   PLAYER_PHOTO_ASPECT,
@@ -37,7 +37,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { playerRegistrationShareUrl } from "@workspace/api-base/registration-url";
 import { AppLayout } from "@/components/layout";
-import { OrganizerFormDialogHeader, OrganizerSectionHeader, TournamentContextLabel } from "@/components/organizer-page-chrome";
+import { OrganizerFormDialogHeader, OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -70,6 +70,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RegistrationPaymentReview } from "@/components/registration-payment/registration-payment-review";
+import { PaymentStatusBadge } from "@/components/registration-payment/payment-status-badge";
 import type { RegistrationPaymentStatus } from "@workspace/api-base/registration-payment";
 import {
   Table,
@@ -79,7 +80,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, ChevronUp, MoreHorizontal, Copy, Check, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle, ListOrdered } from "lucide-react";
+import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, MoreHorizontal, Copy, Check, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle, ListOrdered } from "lucide-react";
 import { formatIndianRupee, normalizeAuctionUnit, type AuctionUnit } from "@/lib/format";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { cldUrl } from "@/lib/cloudinary";
@@ -1701,10 +1702,9 @@ function StatusBadge({ status, className }: { status: string; className?: string
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border shrink-0 tracking-wide",
+        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0 tracking-wide",
         cfg.bg,
         cfg.text,
-        cfg.border,
         className,
       )}
     >
@@ -1721,7 +1721,7 @@ function formatPlayerBaseValue(
   if (player.basePrice != null && player.basePrice > 0) {
     return { text: formatIndianRupee(player.basePrice, unit), className: "text-foreground font-mono font-medium" };
   }
-  return { text: "—", className: "text-muted-foreground/50 font-mono" };
+  return { text: "", className: "" };
 }
 
 function formatSoldAtAmount(
@@ -1738,7 +1738,7 @@ function formatSoldAtAmount(
   if (player.status === "retained" && player.retainedPrice) {
     return { text: formatIndianRupee(player.retainedPrice, unit), className: "text-purple-300 font-mono font-semibold" };
   }
-  return { text: "—", className: "text-muted-foreground/50 font-mono" };
+  return { text: "", className: "" };
 }
 
 function playerBaseValueForSort(player: { basePrice?: number | null }) {
@@ -1885,6 +1885,13 @@ function sortPlayers(
   });
 }
 
+function toggleSetItem<T>(set: Set<T>, value: T): Set<T> {
+  const next = new Set(set);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  return next;
+}
+
 function playerPassesAdvancedFilters(
   player: any,
   opts: {
@@ -1938,8 +1945,8 @@ function MultiFilterPopover({
           variant={isActive ? "secondary" : "outline"}
           size="sm"
           className={cn(
-            "h-8 gap-1.5 px-2.5 text-xs max-w-[220px]",
-            isActive && "border-primary/60 bg-primary/15 text-primary font-medium ring-1 ring-primary/30",
+            "h-7 gap-1 px-2 text-[11px] max-w-[200px] border-0 bg-transparent shadow-none hover:bg-white/[0.05]",
+            isActive && "bg-primary/12 text-primary font-semibold",
           )}
           disabled={disabled}
           title={isActive ? `${label}: ${selectedLabels.join(", ")}` : label}
@@ -1996,69 +2003,181 @@ const STATUS_FILTER_TABS: {
   value: StatusFilterValue;
   label: string;
   dotClass?: string;
-  activeClass: string;
 }[] = [
-  {
-    value: "all",
-    label: "All",
-    activeClass: "bg-card border-border text-foreground font-semibold shadow-xs ring-1 ring-border",
-  },
-  {
-    value: "available",
-    label: "Available",
-    dotClass: "bg-blue-400",
-    activeClass: "bg-blue-500/15 border-blue-500/40 text-blue-200 font-semibold ring-1 ring-blue-500/30",
-  },
-  {
-    value: "retained",
-    label: "Retained",
-    dotClass: "bg-purple-400",
-    activeClass: "bg-purple-500/15 border-purple-500/40 text-purple-200 font-semibold ring-1 ring-purple-500/30",
-  },
-  {
-    value: "sold",
-    label: "Sold",
-    dotClass: "bg-emerald-400",
-    activeClass: "bg-emerald-500/15 border-emerald-500/40 text-emerald-200 font-semibold ring-1 ring-emerald-500/30",
-  },
-  {
-    value: "unsold",
-    label: "Unsold",
-    dotClass: "bg-rose-400",
-    activeClass: "bg-rose-500/15 border-rose-500/40 text-rose-200 font-semibold ring-1 ring-rose-500/30",
-  },
-  {
-    value: "withdrawn",
-    label: "Withdrawn",
-    dotClass: "bg-amber-400",
-    activeClass: "bg-amber-500/15 border-amber-500/40 text-amber-200 font-semibold ring-1 ring-amber-500/30",
-  },
+  { value: "all", label: "All" },
+  { value: "available", label: "Available", dotClass: "bg-[var(--ops-available)]" },
+  { value: "retained", label: "Retained", dotClass: "bg-[var(--ops-retained)]" },
+  { value: "sold", label: "Sold", dotClass: "bg-[var(--ops-sold)]" },
+  { value: "unsold", label: "Unsold", dotClass: "bg-[var(--ops-unsold)]" },
+  { value: "withdrawn", label: "Withdrawn", dotClass: "bg-[var(--ops-withdrawn)]" },
 ];
+
+function CombinedPlayersFiltersPopover({
+  teamOptions,
+  teamIds,
+  setTeamIds,
+  teamFilterEnabled,
+  tagOptions,
+  tagFilters,
+  setTagFilters,
+  genderOptions,
+  genderFilters,
+  setGenderFilters,
+  hasCategories,
+  categoryOptions,
+  categoryIds,
+  setCategoryIds,
+  onClearAll,
+  activeCount,
+  triggerClassName,
+}: {
+  teamOptions: { value: string | number; label: string; color?: string | null }[];
+  teamIds: Set<number>;
+  setTeamIds: Dispatch<SetStateAction<Set<number>>>;
+  teamFilterEnabled: boolean;
+  tagOptions: { value: string | number; label: string }[];
+  tagFilters: Set<string>;
+  setTagFilters: Dispatch<SetStateAction<Set<string>>>;
+  genderOptions: { value: string | number; label: string }[];
+  genderFilters: Set<string>;
+  setGenderFilters: Dispatch<SetStateAction<Set<string>>>;
+  hasCategories: boolean;
+  categoryOptions: { value: string | number; label: string }[];
+  categoryIds: Set<number>;
+  setCategoryIds: Dispatch<SetStateAction<Set<number>>>;
+  onClearAll: () => void;
+  activeCount: number;
+  triggerClassName?: string;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn(
+            "h-10 w-auto gap-1.5 text-xs shrink-0 org-data-toolbar__filter-btn",
+            activeCount > 0 && "border-primary/50 bg-primary/10 text-primary",
+            triggerClassName,
+          )}
+        >
+          <Filter className="w-3.5 h-3.5" />
+          Filters
+          {activeCount > 0 ? (
+            <span className="font-mono text-[10px] px-1 rounded bg-primary/20">{activeCount}</span>
+          ) : null}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-0 dark" align="end">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
+          <span className="text-xs font-semibold">Filter players</span>
+          {activeCount > 0 ? (
+            <button type="button" className="text-[11px] text-primary hover:underline" onClick={onClearAll}>
+              Clear all
+            </button>
+          ) : null}
+        </div>
+        <div className="max-h-[min(60vh,320px)] overflow-y-auto p-2 space-y-3">
+          <FilterCheckboxSection
+            title="Team"
+            options={teamOptions}
+            selected={teamIds}
+            onToggle={(v) => setTeamIds((prev) => toggleSetItem(prev, v as number))}
+            disabled={!teamFilterEnabled}
+          />
+          <FilterCheckboxSection
+            title="Tag"
+            options={tagOptions}
+            selected={tagFilters}
+            onToggle={(v) => setTagFilters((prev) => toggleSetItem(prev, v as string))}
+          />
+          <FilterCheckboxSection
+            title="Gender"
+            options={genderOptions}
+            selected={genderFilters}
+            onToggle={(v) => setGenderFilters((prev) => toggleSetItem(prev, v as string))}
+          />
+          {hasCategories ? (
+            <FilterCheckboxSection
+              title="Category"
+              options={categoryOptions}
+              selected={categoryIds}
+              onToggle={(v) => setCategoryIds((prev) => toggleSetItem(prev, v as number))}
+            />
+          ) : null}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function FilterCheckboxSection({
+  title,
+  options,
+  selected,
+  onToggle,
+  disabled,
+}: {
+  title: string;
+  options: { value: string | number; label: string; color?: string | null }[];
+  selected: Set<string | number>;
+  onToggle: (value: string | number) => void;
+  disabled?: boolean;
+}) {
+  if (disabled) {
+    return (
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 px-1 mb-1">{title}</p>
+        <p className="text-[11px] text-muted-foreground px-1">Add teams to filter by team.</p>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 px-1 mb-1">{title}</p>
+      <div className="space-y-0.5">
+        {options.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground px-1 py-1">No options</p>
+        ) : (
+          options.map((opt) => (
+            <label
+              key={String(opt.value)}
+              className="flex items-center gap-2 px-1 py-1 rounded hover:bg-accent/50 cursor-pointer text-xs"
+            >
+              <Checkbox checked={selected.has(opt.value)} onCheckedChange={() => onToggle(opt.value)} />
+              {opt.color ? <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: opt.color }} /> : null}
+              <span className="truncate">{opt.label}</span>
+            </label>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
 
 function StatusInventoryTab({
   label,
   count,
   active,
   dotClass,
-  activeClass,
   onClick,
 }: {
   label: string;
   count: number;
   active: boolean;
   dotClass?: string;
-  activeClass: string;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
       className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all shrink-0 cursor-pointer",
-        active
-          ? activeClass
-          : "bg-card/30 border-border/40 text-muted-foreground hover:bg-card/60 hover:text-foreground hover:border-border/70",
+        "ops-status-tab inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium transition-colors shrink-0 cursor-pointer",
+        active ? "ops-status-tab--active" : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]",
       )}
     >
       {dotClass && (
@@ -2067,8 +2186,8 @@ function StatusInventoryTab({
       <span>{label}</span>
       <span
         className={cn(
-          "font-mono text-[11px] tabular-nums px-1.5 py-0.5 rounded-md leading-none",
-          active ? "bg-white/10 text-foreground font-semibold" : "bg-white/[0.04] text-muted-foreground/70",
+          "font-mono text-[10px] tabular-nums leading-none opacity-80",
+          active ? "text-foreground font-semibold" : "text-muted-foreground/70",
         )}
       >
         {count}
@@ -2131,6 +2250,65 @@ const statusBorderAccent: Record<string, string> = {
   retained: "border-l-purple-500/60",
   withdrawn: "border-l-amber-500/60",
 };
+
+type PlayerRowActionTarget = { id: number; name: string; status: string };
+
+function PlayerRowActionsMenu({
+  player,
+  onEdit,
+  onWithdraw,
+  onReinstate,
+  onDelete,
+  triggerClassName,
+  labeled = false,
+}: {
+  player: PlayerRowActionTarget;
+  onEdit: () => void;
+  onWithdraw: () => void;
+  onReinstate: () => void;
+  onDelete: () => void;
+  triggerClassName?: string;
+  labeled?: boolean;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          size={labeled ? "sm" : "icon"}
+          variant="outline"
+          className={cn(
+            labeled
+              ? "h-7 px-2 text-[11px] font-medium text-foreground"
+              : "h-8 w-8 text-muted-foreground hover:text-foreground",
+            triggerClassName,
+          )}
+          title="Edit, withdraw, or delete"
+          aria-label={`Actions for ${player.name}`}
+          onClick={e => e.stopPropagation()}
+        >
+          {labeled ? "More" : <MoreHorizontal className="w-4 h-4" />}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="dark" onClick={e => e.stopPropagation()}>
+        <DropdownMenuItem onClick={onEdit}>
+          <Pencil className="w-3.5 h-3.5 mr-2" /> Edit player
+        </DropdownMenuItem>
+        {player.status === "withdrawn" ? (
+          <DropdownMenuItem onClick={onReinstate}>
+            <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-green-400" /> Reinstate
+          </DropdownMenuItem>
+        ) : player.status !== "sold" && player.status !== "retained" ? (
+          <DropdownMenuItem className="text-amber-400 focus:text-amber-400" onClick={onWithdraw}>
+            <CalendarX className="w-3.5 h-3.5 mr-2" /> Withdraw
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>
+          <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete player
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 function PlayerPhoto({ photoUrl, name, gender, size = "sm" }: { photoUrl?: string | null; name: string; gender?: string | null; size?: "sm" | "lg" }) {
   const dim = size === "lg" ? "w-14 h-14" : "w-8 h-8";
@@ -2201,231 +2379,179 @@ function PlayerDetailPanel({
 }) {
   const tagTheme = getTagTheme(player.playerTag);
   const sportCaps = getSportCapabilities(tournament?.sport);
-  const specValues = [player.battingStyle, player.bowlingStyle, player.specialization];
+  const specParts = [player.battingStyle, player.bowlingStyle, player.specialization]
+    .map((val, i) => (val ? { label: roleSpecGroups[i]?.groupName || "Spec", value: String(val) } : null))
+    .filter((part): part is { label: string; value: string } => part != null);
+  const contact = [
+    player.mobileNumber,
+    player.email,
+    player.city,
+    player.age != null && player.age > 0 ? `${player.age} yrs` : null,
+    formatPlayerGender(player.gender) || null,
+  ].filter(Boolean).join(" · ");
+  const jersey = [
+    player.jerseyNumber ? `#${player.jerseyNumber}` : null,
+    player.jerseySize ? jerseySizeLabel(player.jerseySize) : null,
+  ].filter(Boolean).join(" · ");
+  const soldLabel = player.status === "retained" ? "Retained" : "Sold";
+  const soldAmount = player.status === "retained" ? player.retainedPrice : player.soldPrice;
+  const soldTone = player.status === "retained" ? "text-purple-300" : "text-emerald-300";
+
+  const showSpecs = Boolean(player.role) || specParts.length > 0 || Boolean(jersey) || Boolean(cat) || Boolean(categories?.length) || Boolean(tagTeam);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start gap-4">
-        <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} size="lg" />
+    <div className="ops-detail">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-xs text-muted-foreground">#{player.serialNo ?? player.id}</span>
-            <h3 className="font-bold text-lg truncate">{player.name}</h3>
-            {tagTheme && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-mono text-[11px] text-muted-foreground tabular-nums">#{player.serialNo ?? player.id}</span>
+            <span className="font-semibold truncate">{player.name}</span>
+            <StatusBadge status={player.status} />
+            {tagTheme ? (
               <span
-                style={{
-                  padding: "2px 9px",
-                  borderRadius: 999,
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  background: tagTheme.bg,
-                  border: `1px solid ${tagTheme.border}`,
-                  color: tagTheme.color,
-                  animation: TAG_PULSE_ANIMATION,
-                }}
+                className="text-[9px] font-bold px-1.5 py-px rounded-full"
+                style={{ background: tagTheme.bg, border: `1px solid ${tagTheme.border}`, color: tagTheme.color }}
               >
                 {tagTheme.label}
               </span>
-            )}
-            {player.isNonPlayingMember && (
-              <Badge variant="outline" className="text-[10px] bg-slate-500/10 text-slate-400 border-slate-500/20">
-                Non-Playing
-              </Badge>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 mt-1">
-            <StatusBadge status={player.status} />
-            {categories && categories.length > 0 ? (
-              <PlayerCategorySelect
-                tournamentId={tournamentId}
-                playerId={player.id}
-                categoryId={player.categoryId}
-                categories={categories}
-              />
-            ) : cat ? (
-              <Badge
-                variant="outline"
-                className="text-[10px] font-medium"
-                style={{ color: cat.colorCode || "#F59E0B", borderColor: `${cat.colorCode || "#F59E0B"}44` }}
-              >
-                {cat.name}
-              </Badge>
+            ) : null}
+            {player.isNonPlayingMember ? (
+              <Badge variant="outline" className="text-[10px] h-5">Non-playing</Badge>
             ) : null}
           </div>
+          {contact ? <p className="text-[11px] text-muted-foreground truncate mt-0.5">{contact}</p> : null}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <Button size="sm" variant="ghost" className="h-8 px-2 text-xs gap-1" onClick={onEdit}>
+            <Pencil className="w-3 h-3" /> Edit
+          </Button>
+          {player.status === "withdrawn" ? (
+            <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={onReinstate}>Reinstate</Button>
+          ) : player.status !== "sold" && player.status !== "retained" ? (
+            <Button size="sm" variant="ghost" className="h-8 px-2 text-xs text-amber-300" onClick={onWithdraw}>Withdraw</Button>
+          ) : null}
+          <Button size="sm" variant="ghost" className="h-8 w-8 px-0 text-destructive" onClick={onDelete} aria-label={`Delete ${player.name}`}>
+            <Trash2 className="w-3 h-3" />
+          </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
-        {player.mobileNumber && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Mobile</p>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs">{player.mobileNumber}</span>
-              <CopyTextButton text={player.mobileNumber} label="Copy" />
-            </div>
-          </div>
-        )}
-        {player.email && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Email</p>
-            <div className="flex items-center gap-2">
-              <span className="text-xs break-all">{player.email}</span>
-              <CopyTextButton text={player.email} label="Copy" />
-            </div>
-          </div>
-        )}
-        {player.city && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">City</p>
-            <p>{player.city}</p>
-          </div>
-        )}
-        {player.role && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Role</p>
-            <p className="capitalize">{player.role}</p>
-          </div>
-        )}
-        {player.age != null && player.age > 0 && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Age</p>
-            <p>{player.age}</p>
-          </div>
-        )}
-        {formatPlayerGender(player.gender) && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Gender</p>
-            <p>{formatPlayerGender(player.gender)}</p>
-          </div>
-        )}
-        {player.jerseyNumber && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Jersey #</p>
-            <p className="font-mono">#{player.jerseyNumber}</p>
-          </div>
-        )}
-        {player.jerseySize && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Jersey Size</p>
-            <p>{jerseySizeLabel(player.jerseySize)}</p>
-          </div>
-        )}
-        {player.basePrice != null && player.basePrice > 0 && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Base Price</p>
-            <p className="font-mono text-primary">{formatIndianRupee(player.basePrice, auctionUnit)}</p>
-          </div>
-        )}
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Bid Value Source</p>
-          <p>{bidValueSourceLabel(player.bidValueSource)}</p>
-        </div>
-        {player.bidValueSource === "player" && player.selectedBidValue != null && player.selectedBidValue > 0 && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Selected Bid Value</p>
-            <p className="font-mono text-primary">{formatIndianRupee(player.selectedBidValue, auctionUnit)}</p>
-          </div>
-        )}
-        {specValues.map((val, i) => {
-          if (!val) return null;
-          const label = roleSpecGroups[i]?.groupName;
-          return (
-            <div key={i}>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">{label || "Spec"}</p>
-              <p>{val}</p>
-            </div>
-          );
-        })}
-        {player.availabilityDates && (
-          <div className="col-span-2 sm:col-span-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Availability</p>
-            <p className="text-blue-300">{player.availabilityDates}</p>
-          </div>
-        )}
-        {tagTeam && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Tag Team</p>
-            <p style={{ color: tagTeam.color || undefined }}>{tagTeam.name}</p>
-          </div>
-        )}
-        {team && (player.status === "sold" || player.status === "retained") && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Team</p>
-            <p className="font-medium" style={{ color: team.color || undefined }}>{team.name}</p>
-          </div>
-        )}
-        {player.status === "sold" && player.soldPrice && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Sold For</p>
-            <p className="font-mono font-semibold text-green-400">{formatIndianRupee(player.soldPrice, auctionUnit)}</p>
-          </div>
-        )}
-        {player.status === "retained" && player.retainedPrice && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Retained At</p>
-            <p className="font-mono font-semibold text-purple-400">{formatIndianRupee(player.retainedPrice, auctionUnit)}</p>
-          </div>
-        )}
-        {player.achievements && (
-          <div className="col-span-2 sm:col-span-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Achievements</p>
-            <p className="text-muted-foreground">{player.achievements}</p>
-          </div>
-        )}
-        {sportCaps.hasLegacyCricketSpecs && player.cricheroUrl && (
-          <div className="col-span-2 sm:col-span-3">
-            <a
-              href={player.cricheroUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-blue-400 hover:underline inline-flex items-center gap-1"
-            >
-              Crichero Profile <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
-        )}
-        {tournament?.enableRegistrationPayment && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Payment</p>
-            <PlayerPaymentStatusSelect
+      <div className="ops-detail__sections">
+        <section>
+          <h3 className="ops-detail__label">Auction</h3>
+          <dl>
+            <dt>Base</dt>
+            <dd className="font-mono tabular-nums text-primary">
+              {player.basePrice ? formatIndianRupee(player.basePrice, auctionUnit) : "—"}
+            </dd>
+            {soldAmount ? (
+              <>
+                <dt>{soldLabel}</dt>
+                <dd className={`font-mono font-semibold tabular-nums ${soldTone}`}>
+                  {formatIndianRupee(soldAmount, auctionUnit)}
+                </dd>
+              </>
+            ) : null}
+            <dt>Team</dt>
+            <dd className="truncate">
+              {team && (player.status === "sold" || player.status === "retained") ? (
+                <span className="font-medium" style={{ color: team.color || undefined }}>{team.name}</span>
+              ) : (
+                <span className="text-muted-foreground">{bidValueSourceLabel(player.bidValueSource)}</span>
+              )}
+            </dd>
+          </dl>
+        </section>
+
+        {showSpecs ? (
+          <section>
+            <h3 className="ops-detail__label">Specifications</h3>
+            <dl>
+              {player.role ? (
+                <>
+                  <dt>Role</dt>
+                  <dd className="capitalize truncate">{player.role}</dd>
+                </>
+              ) : null}
+              {specParts.map(part => (
+                <Fragment key={part.label}>
+                  <dt className="truncate">{part.label}</dt>
+                  <dd className="truncate">{part.value}</dd>
+                </Fragment>
+              ))}
+              {jersey ? (
+                <>
+                  <dt>Jersey</dt>
+                  <dd className="truncate">{jersey}</dd>
+                </>
+              ) : null}
+              {categories && categories.length > 0 ? (
+                <>
+                  <dt>Category</dt>
+                  <dd>
+                    <PlayerCategorySelect
+                      tournamentId={tournamentId}
+                      playerId={player.id}
+                      categoryId={player.categoryId}
+                      categories={categories}
+                      triggerClassName="h-8 min-h-8 w-full max-w-[12rem] text-[11px]"
+                    />
+                  </dd>
+                </>
+              ) : cat ? (
+                <>
+                  <dt>Category</dt>
+                  <dd className="truncate">{cat.name}</dd>
+                </>
+              ) : null}
+              {tagTeam ? (
+                <>
+                  <dt>Tag team</dt>
+                  <dd className="truncate" style={{ color: tagTeam.color || undefined }}>{tagTeam.name}</dd>
+                </>
+              ) : null}
+            </dl>
+          </section>
+        ) : null}
+
+        {tournament?.enableRegistrationPayment ? (
+          <section className="ops-detail__payment">
+            <RegistrationPaymentReview
               tournamentId={tournamentId}
               playerId={player.id}
-              status={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+              playerName={player.name}
+              registrationFee={tournament.registrationFee}
+              utrNumber={player.utrNumber}
+              paymentScreenshotUrl={player.paymentScreenshotUrl}
+              registrationPaymentStatus={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+              statusControl={(
+                <PlayerPaymentStatusSelect
+                  tournamentId={tournamentId}
+                  playerId={player.id}
+                  status={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+                />
+              )}
             />
-          </div>
-        )}
-      </div>
-
-      {tournament?.enableRegistrationPayment && (
-        <RegistrationPaymentReview
-          tournamentId={tournamentId}
-          playerId={player.id}
-          playerName={player.name}
-          registrationFee={tournament.registrationFee}
-          utrNumber={player.utrNumber}
-          paymentScreenshotUrl={player.paymentScreenshotUrl}
-          registrationPaymentStatus={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
-        />
-      )}
-
-      <div className="flex flex-wrap gap-2 pt-2 border-t border-border/60">
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={onEdit}>
-          <Pencil className="w-3.5 h-3.5" /> Edit
-        </Button>
-        {player.status === "withdrawn" ? (
-          <Button size="sm" variant="outline" className="gap-1.5" onClick={onReinstate}>
-            <CheckCircle2 className="w-3.5 h-3.5" /> Reinstate
-          </Button>
-        ) : player.status !== "sold" && player.status !== "retained" ? (
-          <Button size="sm" variant="outline" className="gap-1.5 text-amber-400 hover:text-amber-300" onClick={onWithdraw}>
-            <CalendarX className="w-3.5 h-3.5" /> Withdraw
-          </Button>
+          </section>
         ) : null}
-        <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:text-destructive" onClick={onDelete}>
-          <Trash2 className="w-3.5 h-3.5" /> Delete
-        </Button>
       </div>
+
+      {(player.achievements || player.availabilityDates || (sportCaps.hasLegacyCricketSpecs && player.cricheroUrl)) ? (
+        <p className="text-[11px] text-muted-foreground leading-snug">
+          {player.availabilityDates ? <span className="text-blue-300">{player.availabilityDates}</span> : null}
+          {player.availabilityDates && player.achievements ? " · " : null}
+          {player.achievements || null}
+          {sportCaps.hasLegacyCricketSpecs && player.cricheroUrl ? (
+            <>
+              {(player.availabilityDates || player.achievements) ? " · " : null}
+              <a href={player.cricheroUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+                Crichero
+              </a>
+            </>
+          ) : null}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -2481,15 +2607,15 @@ function PlayerPaymentStatusSelect({
   }
 
   const statusTone: Record<RegistrationPaymentStatus, string> = {
-    approved: "text-green-400 border-green-500/30",
-    pending: "text-amber-400 border-amber-500/30",
-    rejected: "text-red-400 border-red-500/30",
+    approved: "text-[var(--ops-approved)]",
+    pending: "text-[var(--ops-pending)]",
+    rejected: "text-[var(--ops-rejected)]",
   };
 
   return (
     <Select value={current} onValueChange={handleChange} disabled={saving}>
       <SelectTrigger
-        className={`h-8 min-w-[108px] max-w-[132px] text-xs ${statusTone[current]}`}
+        className={`ops-payment-select ${statusTone[current]}`}
         onClick={e => e.stopPropagation()}
       >
         {saving ? (
@@ -2694,13 +2820,6 @@ export default function Players() {
     }
   }
 
-  function toggleSetItem<T>(set: Set<T>, value: T): Set<T> {
-    const next = new Set(set);
-    if (next.has(value)) next.delete(value);
-    else next.add(value);
-    return next;
-  }
-
   function clearAdvancedFilters() {
     setCategoryIds(new Set());
     setTeamIds(new Set());
@@ -2765,7 +2884,30 @@ export default function Players() {
     || tagFilters.size > 0
     || genderFilters.size > 0;
 
+  const advancedFilterCount =
+    (teamFilterEnabled ? teamIds.size : 0)
+    + tagFilters.size
+    + genderFilters.size
+    + (hasCategories ? categoryIds.size : 0);
+
   const paymentEnabled = tournament?.enableRegistrationPayment === true;
+
+  useEffect(() => {
+    if (drawerPlayer == null || !players) return;
+    const fresh = players.find((p) => p.id === drawerPlayer.id);
+    if (!fresh) return;
+    if (
+      fresh.registrationPaymentStatus !== drawerPlayer.registrationPaymentStatus
+      || fresh.status !== drawerPlayer.status
+      || fresh.soldPrice !== drawerPlayer.soldPrice
+      || fresh.retainedPrice !== drawerPlayer.retainedPrice
+      || fresh.teamId !== drawerPlayer.teamId
+      || fresh.categoryId !== drawerPlayer.categoryId
+      || fresh.name !== drawerPlayer.name
+    ) {
+      setDrawerPlayer(fresh);
+    }
+  }, [players, drawerPlayer]);
 
   const serialGaps = useMemo(
     () => playersHaveSerialGaps(players || []),
@@ -2838,11 +2980,10 @@ export default function Players() {
     }
   }
 
-  const retainedCount = statusCounts.retained;
   const teamCount = teams?.length ?? 0;
   const auctionUnit = normalizeAuctionUnit(tournament?.auctionUnit);
 
-  const tableColCount = 9 + (hasCategories ? 1 : 0);
+  const tableColCount = 10 + (hasCategories ? 1 : 0);
   const teamOptions = (teams || []).map(t => ({
     value: t.id,
     label: t.name,
@@ -2885,32 +3026,31 @@ export default function Players() {
         {/* 1. Context & Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2.5 pb-2.5 border-b border-border/30">
           <div className="min-w-0 flex-1">
-            <TournamentContextLabel tournament={tournament} className="mb-0.5" />
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
               Players
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
               Manage registered, retained and auction players.
             </p>
-            <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{players?.length || 0} registered</span>
-              <span className="text-muted-foreground/40">·</span>
-              <span className="text-purple-300/85 font-medium">{retainedCount} retained</span>
-            </div>
           </div>
 
           <div className="shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
-                  className="h-8.5 px-3.5 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-xs sm:text-sm gap-2 shadow-xs rounded-lg cursor-pointer transition-colors"
+                  className="h-10 px-3.5 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold text-sm gap-2 rounded-lg cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Add Players</span>
                   <ChevronDown className="w-3.5 h-3.5 opacity-70" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72 p-1.5 dark border-border/60 bg-popover/95 backdrop-blur-md shadow-xl">
+              <DropdownMenuContent
+                align="end"
+                sideOffset={6}
+                collisionPadding={12}
+                className="w-72 max-h-[min(28rem,var(--radix-dropdown-menu-content-available-height))] p-1.5 dark border-border/60 bg-popover shadow-md"
+              >
                 <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
                   Add Players
                 </div>
@@ -3002,145 +3142,120 @@ export default function Players() {
           </div>
         ) : null}
 
-        {/* 2. Inventory: Status Summary Controls */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5 min-w-0">
-          {STATUS_FILTER_TABS.map(tabItem => (
-            <StatusInventoryTab
-              key={tabItem.value}
-              label={tabItem.label}
-              count={statusCounts[tabItem.value]}
-              active={tab === tabItem.value}
-              dotClass={tabItem.dotClass}
-              activeClass={tabItem.activeClass}
-              onClick={() => setTab(tabItem.value)}
-            />
-          ))}
-          {filtered.length !== statusCounts[tab] && (
-            <span className="text-[11px] text-muted-foreground/70 whitespace-nowrap px-1.5 font-medium">
-              Showing {filtered.length} of {statusCounts[tab]}
-            </span>
-          )}
-        </div>
-
-        {/* 3. Find: Search Bar */}
-        <div className="relative w-full">
-          <Search className="absolute left-2.75 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/45 pointer-events-none" />
-          <Input
-            placeholder="Search by serial #, player name or mobile…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="h-9 pl-8.5 pr-8 text-xs sm:text-sm bg-card/25 border-border/40 hover:border-border/70 focus-visible:border-primary/50 rounded-lg w-full placeholder:text-muted-foreground/40 transition-colors"
-          />
-          {search ? (
-            <button
-              type="button"
-              onClick={() => setSearch("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded transition-colors cursor-pointer"
-              title="Clear search"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          ) : null}
-        </div>
-
-        {/* 4. Filter & Tools */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 pt-0.5 w-full">
-          <div className="flex flex-wrap items-center gap-1.5 min-w-0">
-            <MultiFilterPopover
-              label="Team"
-              options={teamOptions}
-              selected={teamIds}
-              onToggle={v => setTeamIds(prev => toggleSetItem(prev, v as number))}
-              onClear={() => setTeamIds(new Set())}
-              disabled={!teamFilterEnabled}
-            />
-            <MultiFilterPopover
-              label="Tag"
-              options={tagOptions}
-              selected={tagFilters}
-              onToggle={v => setTagFilters(prev => toggleSetItem(prev, v as string))}
-              onClear={() => setTagFilters(new Set())}
-            />
-            <MultiFilterPopover
-              label="Gender"
-              options={genderOptions}
-              selected={genderFilters}
-              onToggle={v => setGenderFilters(prev => toggleSetItem(prev, v as string))}
-              onClear={() => setGenderFilters(new Set())}
-            />
-            {hasCategories && (
-              <MultiFilterPopover
-                label="Category"
-                options={categoryOptions}
-                selected={categoryIds}
-                onToggle={v => setCategoryIds(prev => toggleSetItem(prev, v as number))}
-                onClear={() => setCategoryIds(new Set())}
+        {/* List controls — status strip + search + filter/sort/export */}
+        <div className="org-data-toolbar">
+          <div className="org-data-toolbar__strip" role="tablist" aria-label="Filter by player status">
+            {STATUS_FILTER_TABS.map(tabItem => (
+              <StatusInventoryTab
+                key={tabItem.value}
+                label={tabItem.label}
+                count={statusCounts[tabItem.value]}
+                active={tab === tabItem.value}
+                dotClass={tabItem.dotClass}
+                onClick={() => setTab(tabItem.value)}
               />
-            )}
-            {hasAdvancedFilters && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 text-xs gap-1 text-muted-foreground/70 hover:text-foreground cursor-pointer"
-                onClick={clearAdvancedFilters}
+            ))}
+          </div>
+
+          <div className="org-data-toolbar__row">
+            <div className="org-data-toolbar__search">
+              <Label htmlFor="players-search" className="sr-only">
+                Search by serial number, name, or mobile
+              </Label>
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" aria-hidden />
+              <Input
+                id="players-search"
+                type="search"
+                placeholder="Search serial #, name, or mobile"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="h-10 pl-9 pr-8 text-sm"
+              />
+              {search ? (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded"
+                  title="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              ) : null}
+            </div>
+
+            <div className="org-data-toolbar__actions">
+              <CombinedPlayersFiltersPopover
+                teamOptions={teamOptions}
+                teamIds={teamIds}
+                setTeamIds={setTeamIds}
+                teamFilterEnabled={teamFilterEnabled}
+                tagOptions={tagOptions}
+                tagFilters={tagFilters}
+                setTagFilters={setTagFilters}
+                genderOptions={genderOptions}
+                genderFilters={genderFilters}
+                setGenderFilters={setGenderFilters}
+                hasCategories={hasCategories}
+                categoryOptions={categoryOptions}
+                categoryIds={categoryIds}
+                setCategoryIds={setCategoryIds}
+                onClearAll={clearAdvancedFilters}
+                activeCount={advancedFilterCount}
+              />
+              <Select
+                value={`${sortKey}:${sortDir}`}
+                onValueChange={v => {
+                  const [k, d] = v.split(":") as [PlayerSortKey, SortDir];
+                  setSortKey(k);
+                  setSortDir(d);
+                }}
               >
-                <X className="w-3 h-3" /> Clear
-              </Button>
-            )}
+                <SelectTrigger
+                  className="org-data-toolbar__sort-trigger lg:!w-[11.5rem] lg:!min-w-[11.5rem] lg:!max-w-[11.5rem] lg:!flex-none"
+                  aria-label="Sort players"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="dark min-w-[200px]">
+                  <SelectItem value="id:asc">Serial # (1, 2, 3…)</SelectItem>
+                  <SelectItem value="id:desc">Serial # (High to Low)</SelectItem>
+                  <SelectItem value="name:asc">Name (A → Z)</SelectItem>
+                  <SelectItem value="name:desc">Name (Z → A)</SelectItem>
+                  <SelectItem value="status:asc">Status</SelectItem>
+                  {hasCategories ? <SelectItem value="category:asc">Category</SelectItem> : null}
+                  <SelectItem value="baseValue:desc">Base value (High to Low)</SelectItem>
+                  <SelectItem value="amount:desc">Sold amount (High to Low)</SelectItem>
+                  <SelectItem value="team:asc">Team name</SelectItem>
+                </SelectContent>
+              </Select>
+              <PlayersExportMenu
+                filteredCount={filtered.length}
+                exportingTarget={exportingTarget}
+                onExportExcel={() => void handleExportExcel()}
+                onExportCsv={() => void handleExportCsv()}
+                googleSheetsStatus={googleSheetsStatus}
+                sheetsConnected={sheetsConnected}
+                sheetsNeedsReconnect={sheetsNeedsReconnect}
+                sheetsIsSyncing={sheetsIsSyncing}
+                isConnecting={isConnecting}
+                syncSuccessFlash={syncSuccessFlash}
+                showDisconnectDialog={showDisconnectDialog}
+                onShowDisconnectDialog={setShowDisconnectDialog}
+                onConnect={() => void handleConnectGoogleSheets()}
+                onSyncNow={() => void handleSyncGoogleSheetsNow()}
+                onOpenSheet={() => void handleOpenGoogleSheet()}
+                onReconnect={() => handleReconnectGoogleSheets()}
+                onConfirmDisconnect={() => void confirmDisconnectGoogleSheet()}
+                className="org-data-toolbar__export-btn"
+              />
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <Select
-              value={`${sortKey}:${sortDir}`}
-              onValueChange={v => {
-                const [k, d] = v.split(":") as [PlayerSortKey, SortDir];
-                setSortKey(k);
-                setSortDir(d);
-              }}
-            >
-              <SelectTrigger className="w-auto h-8 px-2.5 text-xs bg-card/30 border-border/40 hover:bg-card/50 hover:border-border/70 text-foreground cursor-pointer transition-colors gap-2 shrink-0 font-medium">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-muted-foreground font-normal">Sort:</span>
-                  <span className="font-semibold text-foreground truncate">
-                    {SORT_LABEL_MAP[`${sortKey}:${sortDir}`] || "Serial # (1, 2, 3…)"}
-                  </span>
-                </div>
-              </SelectTrigger>
-              <SelectContent className="dark min-w-[200px]">
-                <SelectItem value="id:asc">Serial # (1, 2, 3…)</SelectItem>
-                <SelectItem value="id:desc">Serial # (High to Low)</SelectItem>
-                <SelectItem value="name:asc">Name (A → Z)</SelectItem>
-                <SelectItem value="name:desc">Name (Z → A)</SelectItem>
-                <SelectItem value="status:asc">Status</SelectItem>
-                {hasCategories ? <SelectItem value="category:asc">Category</SelectItem> : null}
-                <SelectItem value="baseValue:desc">Base value (High to Low)</SelectItem>
-                <SelectItem value="amount:desc">Sold amount (High to Low)</SelectItem>
-                <SelectItem value="team:asc">Team name</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <PlayersExportMenu
-              filteredCount={filtered.length}
-              exportingTarget={exportingTarget}
-              onExportExcel={() => void handleExportExcel()}
-              onExportCsv={() => void handleExportCsv()}
-              googleSheetsStatus={googleSheetsStatus}
-              sheetsConnected={sheetsConnected}
-              sheetsNeedsReconnect={sheetsNeedsReconnect}
-              sheetsIsSyncing={sheetsIsSyncing}
-              isConnecting={isConnecting}
-              syncSuccessFlash={syncSuccessFlash}
-              showDisconnectDialog={showDisconnectDialog}
-              onShowDisconnectDialog={setShowDisconnectDialog}
-              onConnect={() => void handleConnectGoogleSheets()}
-              onSyncNow={() => void handleSyncGoogleSheetsNow()}
-              onOpenSheet={() => void handleOpenGoogleSheet()}
-              onReconnect={() => handleReconnectGoogleSheets()}
-              onConfirmDisconnect={() => void confirmDisconnectGoogleSheet()}
-            />
-          </div>
+          {filtered.length !== statusCounts[tab] ? (
+            <p className="org-data-toolbar__hint">
+              Showing {filtered.length} of {statusCounts[tab]} in this tab.
+            </p>
+          ) : null}
         </div>
 
         {sheetsNeedsReconnect && googleSheetsStatus?.sheetConfigured ? (
@@ -3193,9 +3308,9 @@ export default function Players() {
           <>
             <style>{TAG_PULSE_KEYFRAMES}</style>
             {/* Desktop: scannable table + inline expand */}
-            <div className="hidden lg:block rounded-xl border border-border/40 bg-card/20 overflow-hidden shadow-xs">
-              <Table>
-                <TableHeader className="bg-muted/25 border-b border-border/40">
+            <div className="hidden lg:block org-table-wrapper">
+              <Table className="ops-player-table">
+                <TableHeader className="bg-muted/15 border-b border-border/30">
                   <TableRow className="hover:bg-transparent border-0">
                     <SortableTableHead
                       label="#"
@@ -3203,18 +3318,18 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="w-12 text-center text-xs font-mono text-muted-foreground/60"
+                      className="text-center text-[11px] font-mono text-muted-foreground/70"
                     />
-                    <TableHead className="w-12 text-center text-xs text-muted-foreground/60">Photo</TableHead>
+                    <TableHead className="text-center text-[11px] text-muted-foreground/70">Photo</TableHead>
                     <SortableTableHead
-                      label="Player Name"
+                      label="Player"
                       sortKey="name"
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="min-w-[170px] text-xs font-semibold text-foreground/90"
+                      className="ops-col-player text-xs font-semibold text-foreground/90"
                     />
-                    <TableHead className="min-w-[120px] text-xs text-muted-foreground/60">Mobile</TableHead>
+                    <TableHead className="text-[11px] text-muted-foreground/70">Mobile</TableHead>
                     {hasCategories && (
                       <SortableTableHead
                         label="Category"
@@ -3222,7 +3337,7 @@ export default function Players() {
                         activeKey={sortKey}
                         sortDir={sortDir}
                         onSort={handleSort}
-                        className="min-w-[130px] text-xs text-muted-foreground/60"
+                        className="text-[11px] text-muted-foreground/70"
                       />
                     )}
                     <SortableTableHead
@@ -3231,25 +3346,25 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="min-w-[110px] text-xs text-muted-foreground/60"
+                      className="text-[11px] text-muted-foreground/70"
                     />
                     <SortableTableHead
-                      label="Base value"
-                      title="Starting bid value from auction settings, player selection, or category"
+                      label="Base"
+                      title="Starting bid value"
                       sortKey="baseValue"
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="min-w-[100px] text-right text-xs text-muted-foreground/60"
+                      className="text-[11px] text-muted-foreground/70 tabular-nums"
                     />
                     <SortableTableHead
-                      label="Sold at"
+                      label="Sold"
                       title="Final sold or retained price"
                       sortKey="amount"
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="min-w-[100px] text-right text-xs text-muted-foreground/60"
+                      className="text-[11px] text-muted-foreground/70 tabular-nums"
                     />
                     <SortableTableHead
                       label="Team"
@@ -3257,9 +3372,12 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="min-w-[120px] text-xs text-muted-foreground/60"
+                      className="text-[11px] text-muted-foreground/70"
                     />
-                    <TableHead className="w-20 text-right pr-4 text-xs text-muted-foreground/60">Actions</TableHead>
+                    <TableHead className="text-[11px] text-muted-foreground/70">
+                      <span className="sr-only">More</span>
+                    </TableHead>
+                    <TableHead className="ops-col-fill" aria-hidden />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -3276,137 +3394,114 @@ export default function Players() {
                     return (
                       <Fragment key={player.id}>
                         <TableRow
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={isExpanded}
+                          aria-label={`${player.name}, ${player.status}. Open details`}
+                          data-expanded={isExpanded ? "true" : "false"}
+                          title="Open player details"
                           className={cn(
-                            "border-b border-white/[0.04] last:border-0 hover:bg-white/[0.03] transition-colors cursor-pointer border-l-2",
+                            "group org-table-row-interactive border-b border-white/[0.04] last:border-0",
                             statusBorderAccent[player.status] || "border-l-transparent",
-                            isExpanded && "bg-white/[0.04]",
                           )}
                           onClick={() => toggleExpand(player.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              toggleExpand(player.id);
+                            }
+                          }}
                         >
-                          <TableCell className="text-center font-mono text-[11px] text-muted-foreground/45 tabular-nums py-2.5">
+                          <TableCell className="text-center font-mono text-[11px] text-muted-foreground/55 tabular-nums py-1.5 align-middle">
                             {player.serialNo ?? player.id}
                           </TableCell>
-                          <TableCell className="py-2.5">
+                          <TableCell className="py-1.5 align-middle">
                             <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
                           </TableCell>
-                          <TableCell className="py-2.5">
-                            <div className="flex flex-col gap-0.5 min-w-0">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="font-semibold text-foreground text-[13.5px] leading-snug tracking-tight truncate">{player.name}</span>
-                                {tagTheme && (
-                                  <Badge
-                                    variant="outline"
-                                    className="text-[9px] font-bold tracking-wider shrink-0"
-                                    style={{
-                                       color: tagTheme.color,
-                                       borderColor: tagTheme.border,
-                                       background: tagTheme.bg,
-                                    }}
-                                  >
-                                    {tagTheme.label}
-                                  </Badge>
-                                )}
-                              </div>
+                          <TableCell className="ops-col-player py-1.5 align-middle">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="font-semibold text-foreground text-sm leading-snug truncate" title={player.name}>
+                                {player.name}
+                              </span>
+                              {tagTheme ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[9px] font-bold tracking-wider shrink-0 hidden xl:inline-flex"
+                                  style={{
+                                    color: tagTheme.color,
+                                    borderColor: tagTheme.border,
+                                    background: tagTheme.bg,
+                                  }}
+                                >
+                                  {tagTheme.label}
+                                </Badge>
+                              ) : null}
                             </div>
                           </TableCell>
-                          <TableCell className="font-mono text-[11px] text-muted-foreground/50 py-2.5">
-                            {player.mobileNumber || "—"}
+                          <TableCell className="font-mono text-[11px] text-muted-foreground/80 py-1.5 align-middle">
+                            {player.mobileNumber || null}
                           </TableCell>
                           {hasCategories && (
-                            <TableCell className="py-2.5" onClick={e => e.stopPropagation()}>
-                              <PlayerCategorySelect
-                                tournamentId={tournamentId}
-                                playerId={player.id}
-                                categoryId={player.categoryId}
-                                categories={categories || []}
-                              />
+                            <TableCell className="py-1.5 align-middle">
+                              {cat ? (
+                                <span
+                                  className="text-xs font-medium"
+                                  style={{ color: cat.colorCode || undefined }}
+                                  title={cat.name}
+                                >
+                                  {cat.name}
+                                </span>
+                              ) : null}
                             </TableCell>
                           )}
-                          <TableCell className="py-2.5">
+                          <TableCell className="py-1.5 align-middle">
                             <StatusBadge status={player.status} />
                           </TableCell>
-                          <TableCell className={`text-right text-xs sm:text-sm font-mono text-foreground/75 py-2.5 ${baseValue.className}`}>
+                          <TableCell className={`text-xs font-mono tabular-nums py-1.5 align-middle ${baseValue.className}`}>
                             {baseValue.text}
                           </TableCell>
-                          <TableCell className={`text-right text-xs sm:text-sm font-mono font-semibold py-2.5 ${soldAt.className}`}>
+                          <TableCell className={`text-xs font-mono tabular-nums font-semibold py-1.5 align-middle ${soldAt.className}`}>
                             {soldAt.text}
                           </TableCell>
-                          <TableCell className="py-2.5">
+                          <TableCell className="py-1.5 align-middle">
                             {showTeam && team ? (
-                              <span className="text-sm font-medium truncate block" style={{ color: team.color || undefined }}>
+                              <span className="text-xs font-medium" style={{ color: team.color || undefined }}>
                                 {team.name}
                               </span>
-                            ) : (
-                              <span className="text-muted-foreground/45 text-xs">—</span>
-                            )}
+                            ) : null}
                           </TableCell>
-                          <TableCell className="py-2.5 pr-4" onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-6.5 w-6.5 text-muted-foreground/50 hover:text-foreground hover:bg-white/[0.06] cursor-pointer"
-                                onClick={() => toggleExpand(player.id)}
-                                title={isExpanded ? "Collapse details" : "Expand details"}
-                              >
-                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                              </Button>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-6.5 w-6.5 text-muted-foreground/50 hover:text-foreground hover:bg-white/[0.06] cursor-pointer"
-                                    title="More actions"
-                                  >
-                                    <MoreHorizontal className="w-3.5 h-3.5" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="dark">
-                                  <DropdownMenuItem onClick={() => openEdit(player)}>
-                                    <Pencil className="w-3.5 h-3.5 mr-2" /> Edit player
-                                  </DropdownMenuItem>
-                                  {player.status === "withdrawn" ? (
-                                    <DropdownMenuItem onClick={() => void handleReinstate({ id: player.id, name: player.name })}>
-                                      <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-green-400" /> Reinstate
-                                    </DropdownMenuItem>
-                                  ) : player.status !== "sold" && player.status !== "retained" ? (
-                                    <DropdownMenuItem
-                                      className="text-amber-400 focus:text-amber-400"
-                                      onClick={() => void handleWithdraw({ id: player.id, name: player.name })}
-                                    >
-                                      <CalendarX className="w-3.5 h-3.5 mr-2" /> Withdraw
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  <DropdownMenuItem
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={() => openDelete({ id: player.id, name: player.name })}
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete player
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
+                          <TableCell className="py-1.5 align-middle">
+                            <PlayerRowActionsMenu
+                              player={player}
+                              labeled
+                              onEdit={() => openEdit(player)}
+                              onWithdraw={() => void handleWithdraw({ id: player.id, name: player.name })}
+                              onReinstate={() => void handleReinstate({ id: player.id, name: player.name })}
+                              onDelete={() => openDelete({ id: player.id, name: player.name })}
+                            />
                           </TableCell>
+                          <TableCell className="ops-col-fill" />
                         </TableRow>
                         {isExpanded && (
-                          <TableRow key={`${player.id}-detail`} className="border-b border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.02]">
-                            <TableCell colSpan={tableColCount} className="py-3.5 px-5">
-                              <PlayerDetailPanel
-                                player={player}
-                                cat={cat}
-                                team={team}
-                                tagTeam={tagTeam}
-                                roleSpecGroups={roleSpecGroups}
-                                tournamentId={tournamentId}
-                                tournament={tournament}
-                                categories={hasCategories ? categories || [] : undefined}
-                                onEdit={() => openEdit(player)}
-                                onDelete={() => openDelete({ id: player.id, name: player.name })}
-                                onWithdraw={() => handleWithdraw({ id: player.id, name: player.name })}
-                                onReinstate={() => handleReinstate({ id: player.id, name: player.name })}
-                                auctionUnit={auctionUnit}
-                              />
+                          <TableRow className="hover:bg-transparent border-0">
+                            <TableCell colSpan={tableColCount} className="p-0 bg-transparent">
+                              <div className="ops-player-expand">
+                                <PlayerDetailPanel
+                                  player={player}
+                                  cat={cat}
+                                  team={team}
+                                  tagTeam={tagTeam}
+                                  roleSpecGroups={roleSpecGroups}
+                                  tournamentId={tournamentId}
+                                  tournament={tournament}
+                                  categories={hasCategories ? categories || [] : undefined}
+                                  onEdit={() => openEdit(player)}
+                                  onDelete={() => openDelete({ id: player.id, name: player.name })}
+                                  onWithdraw={() => handleWithdraw({ id: player.id, name: player.name })}
+                                  onReinstate={() => handleReinstate({ id: player.id, name: player.name })}
+                                  auctionUnit={auctionUnit}
+                                />
+                              </div>
                             </TableCell>
                           </TableRow>
                         )}
@@ -3418,7 +3513,7 @@ export default function Players() {
             </div>
 
             {/* Mobile: compact cards + bottom drawer */}
-            <div className="lg:hidden space-y-2">
+            <div className="lg:hidden space-y-1.5">
               {filtered.map(player => {
                 const cat = player.categoryId ? catMap[player.categoryId] : null;
                 const team = player.teamId ? teamMap[player.teamId] : null;
@@ -3426,65 +3521,71 @@ export default function Players() {
                 const soldAt = formatSoldAtAmount(player, auctionUnit);
                 const showTeam = player.status === "sold" || player.status === "retained";
                 const tagTheme = getTagTheme(player.playerTag);
+                const meta = [
+                  player.mobileNumber,
+                  hasCategories ? cat?.name : null,
+                  showTeam && team ? team.name : null,
+                ].filter(Boolean).join(" · ");
+                const price = soldAt.text ? soldAt : baseValue.text ? baseValue : null;
                 return (
                   <div
                     key={player.id}
-                    className={`w-full text-left rounded-xl border border-border/60 bg-card/30 p-3 transition-colors hover:bg-card/50 border-l-[3px] ${statusBorderAccent[player.status] || ""}`}
-                    style={{ contentVisibility: "auto", containIntrinsicSize: "0 72px" }}
+                    className={cn("org-mobile-player-card", statusBorderAccent[player.status] || "")}
                   >
+                    <div className="absolute top-1/2 right-0 z-10 -translate-y-1/2">
+                      <PlayerRowActionsMenu
+                        player={player}
+                        onEdit={() => openEdit(player)}
+                        onWithdraw={() => void handleWithdraw({ id: player.id, name: player.name })}
+                        onReinstate={() => void handleReinstate({ id: player.id, name: player.name })}
+                        onDelete={() => openDelete({ id: player.id, name: player.name })}
+                        triggerClassName="h-11 w-11"
+                      />
+                    </div>
                     <button
                       type="button"
-                      className="w-full flex items-center gap-3"
+                      className="org-mobile-player-card__tap"
                       onClick={() => setDrawerPlayer(player)}
+                      aria-label={`Open details for ${player.name}`}
                     >
-                      <span className="font-mono text-xs text-muted-foreground w-8 text-right shrink-0">{player.serialNo ?? player.id}</span>
-                      <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold truncate">{player.name}</span>
-                          {tagTheme && (
-                            <Badge
-                              variant="outline"
-                              className="text-[9px] font-bold shrink-0"
-                              style={{ color: tagTheme.color, borderColor: tagTheme.border, background: tagTheme.bg }}
-                            >
-                              {tagTheme.label}
-                            </Badge>
-                          )}
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] text-muted-foreground min-w-[1.75rem] text-right shrink-0 tabular-nums">
+                          {player.serialNo ?? player.id}
+                        </span>
+                        <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p className="font-semibold text-sm leading-tight truncate">{player.name}</p>
+                            {tagTheme ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] font-bold shrink-0"
+                                style={{ color: tagTheme.color, borderColor: tagTheme.border, background: tagTheme.bg }}
+                              >
+                                {tagTheme.label}
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                            <StatusBadge status={player.status} />
+                            {paymentEnabled ? (
+                              <PaymentStatusBadge
+                                status={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+                                compact
+                              />
+                            ) : null}
+                            {meta ? (
+                              <span className="text-[11px] text-muted-foreground truncate">{meta}</span>
+                            ) : null}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <StatusBadge status={player.status} />
-                          <span className="text-xs text-muted-foreground truncate">
-                            {[
-                              player.mobileNumber,
-                              hasCategories ? cat?.name : null,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
-                            {showTeam && team ? ` · ${team.name}` : ""}
-                          </span>
-                        </div>
+                        {price ? (
+                          <p className={`text-sm font-mono font-semibold tabular-nums shrink-0 ${price.className}`}>
+                            {price.text}
+                          </p>
+                        ) : null}
                       </div>
-                      <div className="text-right shrink-0 space-y-0.5">
-                        {baseValue.text !== "—" && (
-                          <p className={`text-xs font-mono ${baseValue.className}`}>{baseValue.text}</p>
-                        )}
-                        {soldAt.text !== "—" && (
-                          <p className={`text-sm font-mono ${soldAt.className}`}>{soldAt.text}</p>
-                        )}
-                      </div>
-                      <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
                     </button>
-                    {paymentEnabled && (
-                      <div className="mt-2 pt-2 border-t border-border/40 flex items-center justify-between gap-2" onClick={e => e.stopPropagation()}>
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Payment</span>
-                        <PlayerPaymentStatusSelect
-                          tournamentId={tournamentId}
-                          playerId={player.id}
-                          status={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
-                        />
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -3612,7 +3713,7 @@ export default function Players() {
       </Dialog>
 
       <Sheet open={drawerPlayer !== null} onOpenChange={open => { if (!open) setDrawerPlayer(null); }}>
-        <SheetContent side="bottom" className="dark max-h-[88vh] overflow-y-auto rounded-t-2xl">
+        <SheetContent side="bottom" className="ops-player-sheet dark gap-3">
           {drawerPlayer && (() => {
             const cat = drawerPlayer.categoryId ? catMap[drawerPlayer.categoryId] : null;
             const team = drawerPlayer.teamId ? teamMap[drawerPlayer.teamId] : null;
@@ -3620,8 +3721,8 @@ export default function Players() {
             const roleSpecGroups = roleSpecMap.get((drawerPlayer.role || "").toLowerCase().trim()) || [];
             return (
               <>
-                <SheetHeader className="text-left mb-4">
-                  <SheetTitle>Player Details</SheetTitle>
+                <SheetHeader className="text-left mb-1 pr-8">
+                  <SheetTitle className="text-sm font-semibold">Player details</SheetTitle>
                 </SheetHeader>
                 <PlayerDetailPanel
                   player={drawerPlayer}

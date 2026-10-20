@@ -178,10 +178,10 @@ export function TournamentCodeGate({
           </div>
           <div className="pt-2">
             <a
-              href={`/tournament/${tournamentId}`}
+              href={`/tournament/${tournamentId}/settings`}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#27272a] text-white hover:bg-[#3f3f46] transition-colors text-sm font-semibold"
             >
-              Go to Tournament Home
+              Tournament Settings
             </a>
           </div>
           <div className="flex flex-col items-center gap-2 pt-4">
@@ -214,10 +214,10 @@ export function TournamentCodeGate({
           </div>
           <div className="pt-2">
             <a
-              href={`/tournament/${tournamentId}`}
+              href={`/tournament/${tournamentId}/auction-overview`}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#27272a] text-white hover:bg-[#3f3f46] transition-colors text-sm font-semibold"
             >
-              Go to Tournament Home
+              Go to Auction Overview
             </a>
           </div>
           <div className="flex flex-col items-center gap-2 pt-4">

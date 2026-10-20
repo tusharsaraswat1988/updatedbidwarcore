@@ -3,7 +3,7 @@
  *
  * Canonical Auction Overview route: /tournament/:id/auction-overview
  * Compatibility alias route: /tournament/:id/overview
- * Generic Tournament Home: /tournament/:id (tournament-home.tsx)
+ * Legacy URL /tournament/:id redirects to module landing (tournament-home.tsx)
  *
  * Follows Mandatory Correction 4: single Auction Overview implementation.
  */

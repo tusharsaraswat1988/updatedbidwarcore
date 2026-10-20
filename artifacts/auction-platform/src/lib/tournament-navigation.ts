@@ -3,6 +3,7 @@ import {
   sportsMissionControlAppPath,
   sportsMissionControlPath,
 } from "@workspace/api-base/scoring-urls";
+import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
 
 export { sportsMissionControlAppPath, sportsMissionControlPath };
 
@@ -20,7 +21,9 @@ export function auctionResetPath(tournamentId: number, from?: string | null): st
 
 /** Safe return target after leaving the reset page. */
 export function resolveReturnPath(from: string | null | undefined, tournamentId: number): string {
-  if (from?.startsWith("/") && !from.startsWith("//")) return from;
+  if (from?.startsWith("/") && !from.startsWith("//") && !from.includes("/reset")) {
+    return from.split("?")[0] ?? from;
+  }
   return setupAreaPath(tournamentId);
 }
 
@@ -32,12 +35,18 @@ export function returnPathBackLabel(path: string): string {
   }
   if (path.includes("/auction")) return "Back to Auction Room";
   if (/^\/tournament\/\d+\/?$/.test(path.replace(/\?.*$/, ""))) {
-    return "Back to Tournament Home";
+    return "Back to Auction Overview";
   }
   if (path.includes("/mission-control")) {
     return "Back to Tournament Dashboard";
   }
-  return "Go back";
+  if (path.includes("/links")) return "Back to Links";
+  if (path.includes("/reports")) return "Back to Reports";
+  if (path.includes("/teams")) return "Back to Teams";
+  if (path.includes("/players")) return "Back to Players";
+  if (path.includes("/categories")) return "Back to Categories";
+  if (path.includes("/reset")) return "Back to Auction Overview";
+  return "Back to Auction Overview";
 }
 
 /**
@@ -49,10 +58,38 @@ export function openAuctionRoom(tournamentId: number): void {
 }
 
 /**
- * Generic Tournament Home — neutral tournament home for all modules.
+ * Legacy compatibility URL for `/tournament/:id` (redirects to module landing).
  */
 export function tournamentHomePath(tournamentId: number): string {
   return `/tournament/${tournamentId}`;
+}
+
+/** Platform-relative entry into the independent Sports Scoring shell. */
+export function resolveScoringEntryPath(tournamentId: number, sport?: string | null): string {
+  const s = (sport || "").toLowerCase();
+  if (s.includes("badminton")) return `/tournament/${tournamentId}/badminton`;
+  if (s.includes("cricket")) return `/tournament/${tournamentId}/score`;
+  return `/tournament/${tournamentId}/mission-control`;
+}
+
+type TournamentModuleFlags = {
+  auctionEnabled?: boolean | null;
+  scoringEnabled?: boolean | null;
+  sport?: string | null;
+};
+
+/** Default organizer landing after auth, creation, or legacy `/tournament/:id` URLs. */
+export function resolveTournamentOrganizerLandingPath(
+  tournamentId: number,
+  tournament: TournamentModuleFlags | null | undefined,
+): string {
+  if (tournament && isAuctionEnabled(tournament)) {
+    return auctionOverviewPath(tournamentId);
+  }
+  if (tournament && isScoringEnabled(tournament)) {
+    return resolveScoringEntryPath(tournamentId, tournament.sport);
+  }
+  return `/tournament/${tournamentId}/settings`;
 }
 
 /**

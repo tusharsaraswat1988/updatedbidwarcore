@@ -2,6 +2,8 @@
 export const BROADCAST_CANVAS_WIDTH = 1080;
 export const BROADCAST_CANVAS_HEIGHT = 1920;
 export const BROADCAST_CANVAS_ASPECT = 9 / 16;
+/** Human-readable aspect for organiser Links UI */
+export const BROADCAST_CANVAS_ASPECT_LABEL = "9:16" as const;
 
 /** LED safe margins — important content must stay inside. */
 export const BROADCAST_SAFE_TOP = 80;

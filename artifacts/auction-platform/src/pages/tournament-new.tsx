@@ -8,6 +8,7 @@ import {
   TournamentCreationWizard,
   type TournamentCreationPayload,
 } from "@/components/tournament-creation/tournament-creation-wizard";
+import { resolveScoringEntryPath } from "@/lib/tournament-navigation";
 
 export default function NewTournament() {
   const [, setLocation] = useLocation();
@@ -56,7 +57,11 @@ export default function NewTournament() {
                 title: "Tournament created",
                 description: tournament.auctionEnabled ? `Code: ${tournament.auctionCode ?? "—"}` : "Sports Scoring Ready",
               });
-              setLocation(`/tournament/${tournament.id}`);
+              setLocation(
+                tournament.auctionEnabled
+                  ? `/tournament/${tournament.id}/auction-overview`
+                  : resolveScoringEntryPath(tournament.id, tournament.sport),
+              );
             }}
           />
         </div>

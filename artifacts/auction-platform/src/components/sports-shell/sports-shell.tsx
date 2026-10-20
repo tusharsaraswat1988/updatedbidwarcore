@@ -18,6 +18,10 @@ import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import type { SportNavChild, SportNavConfig, SportNavItem } from "@/lib/sports-shell-types";
 import { cn } from "@/lib/utils";
 import { SportsUnavailableView } from "@/components/sports-unavailable-view";
+import {
+  BidwarOrganizerBrandMark,
+  OrganizerShellChromeContext,
+} from "@/components/organizer-app-chrome";
 import { isTournamentScoringSport } from "@/hooks/use-platform-features";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
@@ -578,8 +582,13 @@ export function SportsShell({
     </>
   );
 
+  const shellChrome = {
+    tournamentInAppChrome: !!(tournamentId && tournamentTitle && tournamentTitle !== "Tournament"),
+  };
+
   return (
     <SportsShellContext.Provider value={true}>
+      <OrganizerShellChromeContext.Provider value={shellChrome}>
       <div
         className={cn(
           themeVariant === "console" ? "theme-broadcast-console" : "lovable-theme",
@@ -588,30 +597,25 @@ export function SportsShell({
         )}
       >
         {/* Mobile Top Navigation Bar (< lg) */}
-        <header className="xl:hidden h-14 border-b border-border bg-card/95 backdrop-blur-md px-3 flex items-center justify-between gap-2 shrink-0 z-20">
-          <div className="flex items-center gap-2.5 min-w-0">
+        <header className="xl:hidden min-h-12 py-2 border-b border-border bg-card/95 backdrop-blur-md px-3 flex items-center justify-between gap-2 shrink-0 z-20">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
               aria-label="Open navigation menu"
-              className="w-9 h-9 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent border border-border/60 transition-colors cursor-pointer shrink-0"
+              className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent border border-border/60 transition-colors cursor-pointer shrink-0 touch-manipulation"
             >
               <Menu className="w-5 h-5" />
             </button>
-            {brandingLoading ? (
-              <div className="h-8 w-8 shrink-0" />
-            ) : (
-              <img
-                src={headerLogoSrc}
-                alt={logoAlt}
-                className="h-8 w-auto max-w-[6.5rem] object-contain shrink-0 rounded-sm"
-              />
-            )}
             <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm font-bold text-foreground truncate leading-tight" title={tournamentTitle}>
+              <BidwarOrganizerBrandMark surface="organizer-main-toolbar" className="max-w-[9rem]" />
+              <p
+                className="text-xs font-medium text-muted-foreground truncate leading-tight mt-0.5"
+                title={tournamentTitle}
+              >
                 {tournamentTitle}
               </p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold leading-tight">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold leading-tight truncate">
                 {nav.sportLabel}
               </p>
             </div>
@@ -630,11 +634,7 @@ export function SportsShell({
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetContent side="left" className="w-[85vw] max-w-xs p-0 bg-card border-r border-border flex flex-col z-50">
             <div className="h-14 flex items-center border-b border-border px-4 gap-2.5 shrink-0 min-w-0">
-              {brandingLoading ? (
-                <div className="h-8 w-8 shrink-0" />
-              ) : (
-                <img src={sidebarLogoSrc} alt={logoAlt} className="h-8 w-auto max-w-[5.5rem] object-contain shrink-0" />
-              )}
+              <BidwarOrganizerBrandMark surface="sidebar-compact" className="shrink-0" />
               <div className="min-w-0 flex-1">
                 <SheetTitle className="text-xs font-bold text-foreground truncate">{tournamentTitle}</SheetTitle>
                 <p className="text-[10px] font-semibold text-muted-foreground/80 uppercase tracking-wider">{nav.sportLabel}</p>
@@ -788,6 +788,7 @@ export function SportsShell({
           )}
         </main>
       </div>
+      </OrganizerShellChromeContext.Provider>
     </SportsShellContext.Provider>
   );
 }

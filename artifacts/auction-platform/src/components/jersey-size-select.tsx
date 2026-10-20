@@ -14,6 +14,8 @@ type Props = {
   id?: string;
   label?: string;
   triggerClassName?: string;
+  contentClassName?: string;
+  marker?: "required" | "optional";
   disabled?: boolean;
 };
 
@@ -23,11 +25,20 @@ export function JerseySizeSelect({
   id = "jersey-size",
   label = "Jersey Size",
   triggerClassName,
+  contentClassName,
+  marker,
   disabled = false,
 }: Props) {
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+      <div className="reg-label-row">
+        <Label htmlFor={id}>{label}</Label>
+        {marker === "required" ? (
+          <span className="reg-badge reg-badge--req">Required</span>
+        ) : marker === "optional" ? (
+          <span className="reg-badge reg-badge--opt">Optional</span>
+        ) : null}
+      </div>
       <Select
         value={value || "none"}
         onValueChange={(v) => onChange(v === "none" ? "" : (v as JerseySize))}
@@ -36,7 +47,7 @@ export function JerseySizeSelect({
         <SelectTrigger id={id} className={triggerClassName}>
           <SelectValue placeholder="Select size" />
         </SelectTrigger>
-        <SelectContent position="popper" className="max-h-60">
+        <SelectContent position="popper" className={contentClassName ?? "max-h-60"}>
           <SelectItem value="none">Not specified</SelectItem>
           {JERSEY_SIZE_VALUES.map(size => (
             <SelectItem key={size} value={size}>{jerseySizeLabel(size)}</SelectItem>

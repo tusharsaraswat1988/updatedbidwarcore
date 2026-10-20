@@ -343,8 +343,8 @@ export default function Categories() {
           actions={
           <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
             <DialogTrigger asChild>
-              <Button size="lg" className="gap-2" onClick={() => setEditing(null)}>
-                <Plus className="w-5 h-5" /> Add Category
+              <Button className="h-10 gap-2" onClick={() => setEditing(null)}>
+                <Plus className="w-4 h-4" /> Add Category
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
@@ -386,7 +386,7 @@ export default function Categories() {
               const assignedCount = playersByCategory.get(cat.id) ?? 0;
               const deleteBlocked = assignedCount > 0;
               return (
-                <Card key={cat.id} className="overflow-hidden panel border-none hover:shadow-[0_16px_48px_-20px_oklch(0.85_0.17_88_/_0.25)] transition-all">
+                <Card key={cat.id} className="overflow-hidden panel border-none transition-colors hover:border-primary/40">
                   <div className="h-1.5" style={{ backgroundColor: cat.colorCode || "#F59E0B" }} />
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-4">

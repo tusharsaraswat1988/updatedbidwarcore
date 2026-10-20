@@ -1,9 +1,9 @@
 import { registrationPaymentStatusLabel, type RegistrationPaymentStatus } from "@workspace/api-base/registration-payment";
 
-const STATUS_STYLES: Record<RegistrationPaymentStatus, { emoji: string; className: string }> = {
-  approved: { emoji: "🟢", className: "text-green-400" },
-  pending: { emoji: "🟡", className: "text-amber-400" },
-  rejected: { emoji: "🔴", className: "text-red-400" },
+const STATUS_CLASS: Record<RegistrationPaymentStatus, string> = {
+  approved: "ops-pay-badge ops-pay-badge--approved",
+  pending: "ops-pay-badge ops-pay-badge--pending",
+  rejected: "ops-pay-badge ops-pay-badge--rejected",
 };
 
 export function PaymentStatusBadge({
@@ -17,12 +17,11 @@ export function PaymentStatusBadge({
 }) {
   if (!status) return null;
   const label = registrationPaymentStatusLabel(status);
-  const style = STATUS_STYLES[status];
-  if (!label) return null;
+  const tone = STATUS_CLASS[status];
+  if (!label || !tone) return null;
 
   return (
-    <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${style.className} ${className}`}>
-      <span aria-hidden>{style.emoji}</span>
+    <span className={`${tone} ${className}`}>
       {compact ? label.replace("Payment ", "") : label}
     </span>
   );

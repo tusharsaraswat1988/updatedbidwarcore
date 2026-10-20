@@ -32,7 +32,7 @@ import {
 } from "@/lib/organizer-account-auth-cache";
 import { cldUrl } from "@/lib/cloudinary";
 import { FullscreenLayout } from "@/components/layout";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,6 +72,9 @@ import {
   resolveOrganizerScoringCta,
 } from "@/lib/organizer-tournament-display";
 import { scoringAppHomePath } from "@workspace/api-base/scoring-urls";
+import { auctionOverviewPath, resolveScoringEntryPath } from "@/lib/tournament-navigation";
+import { sortOrganizerTournamentsOldestFirst } from "@/lib/organizer-tournament-list";
+import "@/styles/organizer-dashboard-premium.css";
 
 const authLoginPreset = getBrandSurfacePreset("auth-login");
 const organizerHeaderPreset = getBrandSurfacePreset("organizer-dashboard-header");
@@ -91,6 +94,13 @@ type Tournament = {
   logoUrl?: string | null;
   matchDates?: string | null;
 };
+
+function tournamentCardSportDecorClass(sport?: string | null): string {
+  const s = (sport || "").toLowerCase();
+  if (s.includes("badminton")) return "od-card-decor--badminton";
+  if (s.includes("cricket")) return "od-card-decor--cricket";
+  return "od-card-decor--generic";
+}
 
 function sportEmoji(sport?: string | null) {
   const s = (sport || "").toLowerCase();
@@ -252,19 +262,6 @@ function CreateTournamentModal({
                 >
                   Add Teams Now →
                 </Button>
-                {isScoring && (
-                  <Button
-                    variant="outline"
-                    className="w-full h-11 rounded-xl border-sky-500/30 text-sky-400 hover:bg-sky-500/10"
-                    onClick={() => {
-                      const id = createdTournament.id;
-                      handleClose();
-                      navigate(`/tournament/${id}`);
-                    }}
-                  >
-                    Open Tournament Home
-                  </Button>
-                )}
                 <Button
                   variant="outline"
                   className="w-full h-11 rounded-xl border-border/60 bg-muted/30 hover:bg-muted text-foreground"
@@ -298,17 +295,6 @@ function CreateTournamentModal({
                     >
                       Open Cricket Scoring Hub
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full h-11 rounded-xl border-border/60 bg-muted/30 hover:bg-muted text-foreground"
-                      onClick={() => {
-                        const id = createdTournament.id;
-                        handleClose();
-                        navigate(`/tournament/${id}`);
-                      }}
-                    >
-                      Go to Tournament Home
-                    </Button>
                   </>
                 ) : isBadminton ? (
                   <>
@@ -322,17 +308,6 @@ function CreateTournamentModal({
                     >
                       Open Badminton Scoring →
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full h-11 rounded-xl border-border/60 bg-muted/30 hover:bg-muted text-foreground"
-                      onClick={() => {
-                        const id = createdTournament.id;
-                        handleClose();
-                        navigate(`/tournament/${id}`);
-                      }}
-                    >
-                      Go to Tournament Home
-                    </Button>
                   </>
                 ) : (
                   <Button
@@ -340,10 +315,10 @@ function CreateTournamentModal({
                     onClick={() => {
                       const id = createdTournament.id;
                       handleClose();
-                      navigate(`/tournament/${id}`);
+                      navigate(resolveScoringEntryPath(id, createdTournament.sport));
                     }}
                   >
-                    Open Tournament Home →
+                    Open Scoring Hub →
                   </Button>
                 )}
                 <Button
@@ -1612,7 +1587,7 @@ function OrganizerAvatarMenu({ organizer, onLogout }: { organizer: OrganizerInfo
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2.5 rounded-xl pl-1.5 pr-3 py-1.5 bg-muted/15 hover:bg-muted/30 border border-border/60 hover:border-border transition-all cursor-pointer shadow-sm"
+        className="flex items-center gap-2.5 rounded-xl pl-1.5 pr-3 py-1.5 bg-slate-900/50 hover:bg-slate-800/60 border border-sky-500/20 hover:border-sky-400/30 transition-all cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
         aria-label="Account menu"
       >
         {avatarSrc ? (
@@ -1821,16 +1796,17 @@ function OrganizerDashboard({
     return Array.from(new Set(safeTournaments.map(t => t.sport).filter(Boolean)));
   }, [safeTournaments]);
 
+  const sortedSportsList = useMemo(
+    () => [...sportsList].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" })),
+    [sportsList],
+  );
+
   const filteredTournaments = useMemo(() => {
-    return safeTournaments.filter(t => {
-      // Status filter
+    const filtered = safeTournaments.filter(t => {
       if (statusFilter === "active" && !isOrganizerTournamentActive(t)) return false;
       if (statusFilter === "completed" && !isOrganizerTournamentCompleted(t)) return false;
-
-      // Sport filter
       if (sportFilter !== "all" && t.sport?.toLowerCase() !== sportFilter.toLowerCase()) return false;
 
-      // Text search
       const q = search.trim().toLowerCase();
       if (!q) return true;
       return (
@@ -1840,20 +1816,18 @@ function OrganizerDashboard({
         (t.venue || "").toLowerCase().includes(q)
       );
     });
+    return sortOrganizerTournamentsOldestFirst(filtered);
   }, [safeTournaments, statusFilter, sportFilter, search]);
 
-  const statusColor: Record<string, string> = {
-    setup: "text-amber-400",
-    active: "text-emerald-400",
-    paused: "text-yellow-400",
-    completed: "text-sky-400",
-  };
+  const reduceMotion = useReducedMotion();
 
   return (
-    <div className="lovable-theme min-h-screen text-foreground dark">
+    <div className="organizer-dashboard-premium lovable-theme min-h-screen text-foreground dark">
+      <div className="organizer-dashboard-bg" aria-hidden />
+      <div className="organizer-dashboard-content">
       {/* ── Enhanced Header ── */}
-      <div className="border-b border-border/50 bg-background/80 sticky top-0 backdrop-blur-xl z-20 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <div className="organizer-dash-header sticky top-0 backdrop-blur-xl z-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-[4.25rem] sm:h-[4.5rem] flex items-center justify-between gap-3">
           {/* Brand & Portal Title */}
           <div className="flex items-center gap-3 min-w-0">
             {/* BidWar brand mark */}
@@ -1871,11 +1845,11 @@ function OrganizerDashboard({
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-display font-black text-sm tracking-tight text-foreground leading-none">BIDWAR</span>
-                <span className="px-1.5 py-0.5 rounded-md bg-primary/10 border border-primary/25 text-[10px] font-bold text-primary tracking-wider uppercase leading-none hidden sm:inline-block">
+                <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/35 text-[10px] font-bold text-amber-300 tracking-wider uppercase leading-none hidden sm:inline-block">
                   Organizer Hub
                 </span>
               </div>
-              <span className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5 hidden sm:block">
+              <span className="text-[11px] text-slate-400 truncate leading-tight mt-0.5 hidden sm:block">
                 Sports Auction &amp; Event Management
               </span>
             </div>
@@ -1888,7 +1862,7 @@ function OrganizerDashboard({
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-7 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 overflow-x-hidden">
         {isLocked && (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             <div className="flex items-start gap-2">
@@ -1972,147 +1946,143 @@ function OrganizerDashboard({
           </div>
         )}
 
-        {/* ── Interactive KPI Stats Bar ── */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-4">
-          {/* Total */}
+        {/* Page header — title + primary create action */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="font-display font-black text-xl sm:text-2xl text-white tracking-tight">
+              My Tournaments
+            </h1>
+            <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">
+              Open auction or match scoring for each event
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            className="od-btn-gold gap-1.5 h-10 sm:h-11 text-sm px-4 w-full sm:w-auto shrink-0 focus-visible:ring-2 focus-visible:ring-amber-300"
+            disabled={isLocked}
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="w-4 h-4" aria-hidden />
+            New Tournament
+          </Button>
+        </div>
+
+        {/* Status filters — summary cards (sole status control) */}
+        <div
+          className="grid grid-cols-3 gap-1.5 sm:gap-2 od-status-filter-grid"
+          role="group"
+          aria-label="Filter tournaments by status"
+        >
           <button
             type="button"
+            aria-pressed={statusFilter === "all"}
             onClick={() => setStatusFilter("all")}
-            className={`relative overflow-hidden rounded-xl border p-3.5 sm:p-4 text-left transition-all duration-200 cursor-pointer ${
+            className={`od-stat-card od-stat-card--gold od-stat-card--compact relative overflow-hidden rounded-lg p-2 sm:p-2.5 text-left transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${
               statusFilter === "all"
-                ? "border-primary/60 bg-primary/10 shadow-[0_0_24px_-8px_rgba(234,179,8,0.3)] ring-1 ring-primary/50"
-                : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border"
+                ? "od-stat-card--selected ring-1 ring-amber-400/55 shadow-[0_0_20px_-8px_rgba(245,184,0,0.35)]"
+                : "hover:border-slate-500/30 opacity-90 hover:opacity-100"
             }`}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] sm:text-xs font-medium text-muted-foreground">Total Tournaments</span>
-              <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-400 flex items-center justify-center">
-                <Trophy className="w-3.5 h-3.5" />
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 leading-tight">Total Tournaments</span>
+              <div className="w-6 h-6 rounded-md bg-amber-500/15 border border-amber-500/25 text-amber-400 flex items-center justify-center shrink-0">
+                <Trophy className="w-3 h-3" aria-hidden />
               </div>
             </div>
-            <p className="text-2xl sm:text-3xl font-display font-black text-foreground mt-1.5">{safeTournaments.length}</p>
+            <p className="text-lg sm:text-xl font-display font-black text-white mt-0.5 tabular-nums">{safeTournaments.length}</p>
           </button>
 
-          {/* Active */}
           <button
             type="button"
-            onClick={() => setStatusFilter(f => f === "active" ? "all" : "active")}
-            className={`relative overflow-hidden rounded-xl border p-3.5 sm:p-4 text-left transition-all duration-200 cursor-pointer ${
+            aria-pressed={statusFilter === "active"}
+            onClick={() => setStatusFilter("active")}
+            className={`od-stat-card od-stat-card--green od-stat-card--compact relative overflow-hidden rounded-lg p-2 sm:p-2.5 text-left transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 ${
               statusFilter === "active"
-                ? "border-emerald-500/60 bg-emerald-500/10 shadow-[0_0_24px_-8px_rgba(16,185,129,0.3)] ring-1 ring-emerald-500/50"
-                : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border"
+                ? "od-stat-card--selected ring-1 ring-emerald-400/55 shadow-[0_0_20px_-8px_rgba(52,211,153,0.28)]"
+                : "hover:border-slate-500/30 opacity-90 hover:opacity-100"
             }`}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] sm:text-xs font-medium text-muted-foreground">Active &amp; Live</span>
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
-                <Zap className="w-3.5 h-3.5" />
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 leading-tight">Active &amp; Live</span>
+              <div className="w-6 h-6 rounded-md bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 flex items-center justify-center shrink-0">
+                <Zap className="w-3 h-3" aria-hidden />
               </div>
             </div>
-            <p className="text-2xl sm:text-3xl font-display font-black text-emerald-400 mt-1.5">{activeTournaments.length}</p>
+            <p className="text-lg sm:text-xl font-display font-black text-emerald-400 mt-0.5 tabular-nums">{activeTournaments.length}</p>
           </button>
 
-          {/* Completed */}
           <button
             type="button"
-            onClick={() => setStatusFilter(f => f === "completed" ? "all" : "completed")}
-            className={`relative overflow-hidden rounded-xl border p-3.5 sm:p-4 text-left transition-all duration-200 cursor-pointer ${
+            aria-pressed={statusFilter === "completed"}
+            onClick={() => setStatusFilter("completed")}
+            className={`od-stat-card od-stat-card--cyan od-stat-card--compact relative overflow-hidden rounded-lg p-2 sm:p-2.5 text-left transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 ${
               statusFilter === "completed"
-                ? "border-sky-500/60 bg-sky-500/10 shadow-[0_0_24px_-8px_rgba(14,165,233,0.3)] ring-1 ring-sky-500/50"
-                : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border"
+                ? "od-stat-card--selected ring-1 ring-cyan-400/55 shadow-[0_0_20px_-8px_rgba(34,211,238,0.25)]"
+                : "hover:border-slate-500/30 opacity-90 hover:opacity-100"
             }`}
           >
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] sm:text-xs font-medium text-muted-foreground">Completed</span>
-              <div className="w-7 h-7 rounded-lg bg-sky-500/15 text-sky-400 flex items-center justify-center">
-                <CheckCircle2 className="w-3.5 h-3.5" />
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 leading-tight">Completed</span>
+              <div className="w-6 h-6 rounded-md bg-cyan-500/15 border border-cyan-500/25 text-cyan-400 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-3 h-3" aria-hidden />
               </div>
             </div>
-            <p className="text-2xl sm:text-3xl font-display font-black text-sky-400 mt-1.5">{completedTournaments.length}</p>
+            <p className="text-lg sm:text-xl font-display font-black text-cyan-400 mt-0.5 tabular-nums">{completedTournaments.length}</p>
           </button>
         </div>
 
         {/* ── Tournaments Section ── */}
-        <div className="space-y-4">
-          {/* Filter Tabs & Search Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            {/* Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-              {[
-                { id: "all", label: "All", count: safeTournaments.length },
-                { id: "active", label: "Active", count: activeTournaments.length, dot: "bg-emerald-400" },
-                { id: "completed", label: "Completed", count: completedTournaments.length, dot: "bg-sky-400" },
-              ].map(tab => (
+        <div className="space-y-2.5">
+          <div className="od-discovery-toolbar flex flex-col sm:flex-row sm:items-center gap-2 min-w-0">
+            {safeTournaments.length > 0 && (
+              <div className="od-sport-filter-row flex items-center gap-1.5 min-w-0 flex-1 overflow-x-auto pb-0.5 scrollbar-none">
                 <button
-                  key={tab.id}
                   type="button"
-                  onClick={() => setStatusFilter(tab.id as any)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
-                    statusFilter === tab.id
-                      ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                      : "bg-muted/15 border border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  onClick={() => setSportFilter("all")}
+                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 ${
+                    sportFilter === "all"
+                      ? "bg-cyan-500/20 border-cyan-400/45 text-cyan-100 font-semibold"
+                      : "bg-slate-900/35 border-slate-600/40 text-slate-400 hover:text-slate-200"
                   }`}
                 >
-                  {tab.dot && <span className={`w-1.5 h-1.5 rounded-full ${tab.dot}`} />}
-                  {tab.label}
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                    statusFilter === tab.id ? "bg-black/20 text-primary-foreground" : "bg-muted/30 text-muted-foreground"
-                  }`}>
-                    {tab.count}
-                  </span>
+                  All Sports
                 </button>
-              ))}
-
-              {/* Sport Filter Pills if multiple sports exist */}
-              {sportsList.length > 1 && (
-                <>
-                  <div className="w-px h-4 bg-border/60 mx-1 shrink-0" />
-                  {sportsList.map((sport: string) => (
-                    <button
-                      key={sport}
-                      type="button"
-                      onClick={() => setSportFilter(s => s === sport ? "all" : sport)}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium capitalize transition-all cursor-pointer ${
-                        sportFilter === sport
-                          ? "bg-white/15 border border-white/30 text-foreground font-semibold"
-                          : "bg-muted/10 border border-border/40 text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {sportEmoji(sport)} {sport}
-                    </button>
-                  ))}
-                </>
-              )}
-            </div>
-
-            {/* Search and Create Action */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-60">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search tournaments..."
-                  className="pl-8 pr-7 h-9 text-xs"
-                />
-                {search && (
+                {sortedSportsList.map((sport: string) => (
                   <button
+                    key={sport}
                     type="button"
-                    onClick={() => setSearch("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                    onClick={() => setSportFilter(s => (s.toLowerCase() === sport.toLowerCase() ? "all" : sport))}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium capitalize transition-all cursor-pointer border shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 ${
+                      sportFilter.toLowerCase() === sport.toLowerCase()
+                        ? "bg-cyan-500/20 border-cyan-400/45 text-cyan-100 font-semibold"
+                        : "bg-slate-900/35 border-slate-600/40 text-slate-400 hover:text-slate-200"
+                    }`}
                   >
-                    <X className="w-3 h-3" />
+                    <span aria-hidden>{sportEmoji(sport)}</span> {sport}
                   </button>
-                )}
+                ))}
               </div>
-              <Button
-                size="sm"
-                className="gap-1.5 shrink-0 h-9 text-xs font-semibold px-3"
-                disabled={isLocked}
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus className="w-4 h-4" /> New Tournament
-              </Button>
+            )}
+            <div className="relative w-full sm:max-w-xs md:max-w-sm sm:ml-auto min-w-0 shrink-0">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" aria-hidden />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search tournaments..."
+                aria-label="Search tournaments"
+                className="od-search-input pl-9 pr-8 h-9 text-sm text-slate-100 placeholder:text-slate-500 w-full"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                  aria-label="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -2169,7 +2139,7 @@ function OrganizerDashboard({
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-3.5 od-tournament-grid">
               {filteredTournaments.map((t: Tournament, i: number) => {
                 const isAuction = t.auctionEnabled !== false;
                 const isActive = isOrganizerTournamentActive(t);
@@ -2193,59 +2163,60 @@ function OrganizerDashboard({
                 return (
                 <motion.div
                   key={t.id}
-                  initial={{ opacity: 0, y: 8 }}
+                  className="motion-safe-hover"
+                  initial={reduceMotion ? false : { opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  whileHover={{ y: -3 }}
+                  transition={reduceMotion ? { duration: 0 } : { delay: i * 0.04 }}
+                  whileHover={reduceMotion ? undefined : { y: -2 }}
                 >
                   <Card
                     aria-disabled={isLocked}
-                    className={`group relative overflow-hidden rounded-2xl border transition-all duration-200 ${
-                      isLocked
-                        ? "opacity-50 border-border/30 bg-card/20"
-                        : isCompleted
-                          ? "border-border/60 bg-gradient-to-b from-card/60 to-card/30 hover:border-sky-500/40 hover:shadow-xl hover:shadow-sky-500/5"
-                          : isActive
-                            ? "border-emerald-500/30 bg-gradient-to-b from-card/80 to-card/40 hover:border-emerald-500/60 hover:shadow-xl hover:shadow-emerald-500/10"
-                            : "border-border/60 bg-gradient-to-b from-card/60 to-card/30 hover:border-primary/40 hover:shadow-xl hover:shadow-primary/5"
+                    className={`od-tournament-card group relative overflow-hidden rounded-2xl transition-all duration-200 ${
+                      isLocked ? "opacity-60" : ""
                     }`}
                   >
-                    <CardContent className="p-4 sm:p-5 space-y-4">
-                      {/* Top Header: Prominent Logo + Tournament Title & Badges + 3-Dot Menu */}
-                      <div className="flex items-start gap-3.5">
-                        {/* Prominent Logo Emblem */}
+                    <div
+                      className={`od-card-decor ${tournamentCardSportDecorClass(t.sport)}`}
+                      aria-hidden
+                    />
+                    <CardContent className="relative z-10 p-3 sm:p-3.5 flex flex-col gap-2 h-full pointer-events-auto">
+                      <div className="flex items-start gap-2 min-w-0">
                         <div className="shrink-0">
-                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-white/[0.08] via-white/[0.03] to-transparent border border-white/10 p-1.5 shadow-md flex items-center justify-center group-hover:border-primary/40 group-hover:shadow-primary/10 transition-all">
+                          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg bg-slate-950/40 border border-sky-500/20 p-1 flex items-center justify-center">
                             {logo ? (
                               <img
                                 src={logo}
                                 alt={t.name}
-                                className="w-full h-full object-contain rounded-xl drop-shadow"
+                                className="w-full h-full object-contain rounded-lg"
                               />
                             ) : (
-                              <span className="text-2xl drop-shadow select-none">
+                              <span className="text-2xl select-none" aria-hidden>
                                 {sportEmoji(t.sport)}
                               </span>
                             )}
                           </div>
                         </div>
 
-                        {/* Tournament Title & Sport/Status Pills */}
                         <div className="flex-1 min-w-0 pt-0.5">
-                          <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/5 border border-white/10 text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-1.5 pr-1">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide bg-slate-800/80 border border-slate-600/50 text-slate-300">
                               {t.sport}
                             </span>
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                              isActive
-                                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                                : isCompleted
-                                  ? "bg-sky-500/15 text-sky-400 border border-sky-500/30"
-                                  : "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                            }`}>
-                              <span className={`w-1.5 h-1.5 rounded-full ${
-                                isActive ? "bg-emerald-400 animate-pulse" : isCompleted ? "bg-sky-400" : "bg-amber-400"
-                              }`} />
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${
+                                isActive
+                                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/35"
+                                  : isCompleted
+                                    ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/35"
+                                    : "bg-amber-500/15 text-amber-300 border-amber-500/35"
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                  isActive ? "bg-emerald-400 animate-pulse" : isCompleted ? "bg-cyan-400" : "bg-amber-400"
+                                }`}
+                                aria-hidden
+                              />
                               {isAuction
                                 ? getOrganizerAuctionStatusLabel(t.status)
                                 : t.status === "active"
@@ -2257,8 +2228,8 @@ function OrganizerDashboard({
 
                             {isAuction && t.licenseStatus !== "active" && !isCompleted && (
                               pendingLicenseRequests[t.id] ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                                  <Clock className="w-2.5 h-2.5 animate-pulse" />
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                  <Clock className="w-2.5 h-2.5" aria-hidden />
                                   License Requested
                                 </span>
                               ) : (
@@ -2268,37 +2239,33 @@ function OrganizerDashboard({
                                     e.stopPropagation();
                                     handleOpenLicenseRequest(t);
                                   }}
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-amber-500/20 to-amber-600/20 text-amber-300 border border-amber-500/40 hover:border-amber-400 hover:bg-amber-500/30 transition-all cursor-pointer shadow-sm"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold text-amber-300 border border-amber-500/40 hover:bg-amber-500/15 transition-colors cursor-pointer"
                                   title="Upgrade tournament from Trial to Live license"
                                 >
-                                  <Zap className="w-2.5 h-2.5 text-amber-400" />
+                                  <Zap className="w-2.5 h-2.5 text-amber-400" aria-hidden />
                                   Need License
                                 </button>
                               )
                             )}
                           </div>
-
-                          <h3
-                            className="font-display font-black text-base sm:text-lg leading-snug text-foreground group-hover:text-primary transition-colors break-words"
-                            title={t.name}
-                          >
-                            {t.name}
-                          </h3>
                         </div>
 
-                        {/* 3-Dot Quick Actions Menu */}
-                        <DropdownMenu>
+                        <div className="od-card-actions relative z-20 shrink-0 self-start -mr-0.5">
+                        <DropdownMenu modal={false}>
                           <DropdownMenuTrigger asChild>
                             <Button
+                              type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground/70 hover:text-foreground shrink-0 -mr-1"
+                              className="h-8 w-8 text-muted-foreground/70 hover:text-foreground hover:bg-white/10 shrink-0 pointer-events-auto"
                               disabled={isLocked}
+                              aria-label={`Actions for ${t.name}`}
+                              onPointerDown={(e) => e.stopPropagation()}
                             >
                               <MoreVertical className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 dark">
+                          <DropdownMenuContent align="end" className="w-48 dark z-[100]">
                             {isAuction && t.licenseStatus !== "active" && !isCompleted && (
                               <DropdownMenuItem
                                 disabled={isLocked}
@@ -2317,8 +2284,18 @@ function OrganizerDashboard({
                                 <Tv className="w-3.5 h-3.5 text-sky-400" /> LED Big Screen
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onClick={() => navigate(`/tournament/${t.id}`)} className="gap-2 cursor-pointer">
-                              <Share2 className="w-3.5 h-3.5 text-amber-400" /> Overview &amp; Links
+                            <DropdownMenuItem
+                              onClick={() =>
+                                navigate(
+                                  isAuction
+                                    ? `/tournament/${t.id}/links`
+                                    : `/tournament/${t.id}/settings`,
+                                )
+                              }
+                              className="gap-2 cursor-pointer"
+                            >
+                              <Share2 className="w-3.5 h-3.5 text-amber-400" />{" "}
+                              {isAuction ? "Share Links" : "Tournament Settings"}
                             </DropdownMenuItem>
                             {isAuction && (
                               <>
@@ -2346,18 +2323,25 @@ function OrganizerDashboard({
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
+                        </div>
                       </div>
 
-                      {/* Location & Distinct Dates Strip (No Cut-Offs) */}
-                      <div className="space-y-2 pt-2.5 border-t border-border/40 text-xs">
+                      <h3
+                        className="font-display font-bold text-base sm:text-[1.05rem] leading-snug text-white line-clamp-2 pr-1"
+                        title={t.name}
+                      >
+                        {t.name}
+                      </h3>
+
+                      <div className="space-y-1.5 pt-1 border-t border-sky-500/15 text-[11px] sm:text-xs flex-1 min-h-0">
                         {locationStr ? (
-                          <div className="flex items-start gap-1.5 text-muted-foreground/90">
-                            <MapPin className="w-3.5 h-3.5 text-primary/80 shrink-0 mt-0.5" />
-                            <span className="font-medium text-foreground/90 leading-tight break-words">{locationStr}</span>
+                          <div className="flex items-start gap-1 text-muted-foreground/90">
+                            <MapPin className="w-3 h-3 text-primary/80 shrink-0 mt-0.5" aria-hidden />
+                            <span className="font-medium text-foreground/90 leading-tight line-clamp-2">{locationStr}</span>
                           </div>
                         ) : null}
 
-                        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 pt-0.5">
+                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                           {auctionDateStr && (
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
@@ -2385,19 +2369,15 @@ function OrganizerDashboard({
 
                       {/* Primary Actions Row */}
                       {isAuction ? (
-                        <div className="flex items-center gap-2.5 pt-0.5">
+                        <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-1.5 mt-auto">
                           <Button
                             type="button"
                             size="sm"
-                            className={`flex-1 h-11 gap-2 font-bold text-xs transition-all ${
-                              isActive
-                                ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/15"
-                                : "bg-muted/30 border border-border/60 hover:bg-muted/50 text-foreground"
-                            }`}
+                            className="od-btn-enter-auction flex-1 min-h-10 h-10 gap-1.5 text-xs rounded-lg focus-visible:ring-2 focus-visible:ring-amber-300"
                             disabled={isLocked}
-                            onClick={() => navigate(`/tournament/${t.id}`)}
+                            onClick={() => navigate(auctionOverviewPath(t.id))}
                           >
-                            <Gavel className="h-4 w-4 shrink-0" />
+                            <Gavel className="h-4 w-4 shrink-0" aria-hidden />
                             {isActive ? "Enter Auction" : "View Auction"}
                           </Button>
 
@@ -2406,20 +2386,20 @@ function OrganizerDashboard({
                               type="button"
                               size="sm"
                               variant="outline"
-                              className="h-11 px-3.5 rounded-xl border-sky-500/40 bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 font-bold text-xs gap-1.5 shrink-0 transition-all shadow-sm active:scale-95 cursor-pointer"
+                              className="od-btn-match-scoring flex-1 min-h-10 h-10 rounded-lg text-xs gap-1.5 transition-all focus-visible:ring-2 focus-visible:ring-cyan-400/50"
                               disabled={isLocked}
                               onClick={() => navigate(scoringRoute)}
                             >
-                              <Radio className="h-3.5 w-3.5 text-sky-400 animate-pulse" />
+                              <Radio className="h-3.5 w-3.5 shrink-0" aria-hidden />
                               <span>Match Scoring</span>
                             </Button>
                           ) : (
                             <div
-                              className="h-11 px-3 rounded-xl border border-dashed border-border/60 bg-muted/10 opacity-70 flex flex-col items-center justify-center cursor-not-allowed select-none shrink-0"
+                              className="flex-1 min-h-10 h-10 px-2 rounded-lg border border-dashed border-slate-600/50 bg-slate-900/30 opacity-80 flex flex-col items-center justify-center cursor-not-allowed select-none"
                               title="Match Scoring is not enabled for this tournament"
                             >
-                              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground/75 leading-none">
-                                <Radio className="h-3 w-3 opacity-60 text-muted-foreground" />
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 leading-none">
+                                <Radio className="h-3 w-3 opacity-60" aria-hidden />
                                 <span>Match Scoring</span>
                               </div>
                               <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest leading-none mt-1">
@@ -2429,15 +2409,15 @@ function OrganizerDashboard({
                           )}
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2.5 pt-0.5">
+                        <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-1.5 mt-auto">
                           <Button
                             type="button"
                             size="sm"
-                            className="flex-1 h-11 gap-2 font-bold text-xs bg-sky-500 hover:bg-sky-400 text-slate-950 rounded-xl shadow-md shadow-sky-500/20 transition-all active:scale-95 cursor-pointer"
+                            className="od-btn-match-scoring flex-1 min-h-10 h-10 gap-1.5 text-xs rounded-lg focus-visible:ring-2 focus-visible:ring-cyan-400/50"
                             disabled={isLocked}
                             onClick={() => navigate(scoringRoute)}
                           >
-                            <Radio className="h-4 w-4 shrink-0 text-slate-950 animate-pulse" />
+                            <Radio className="h-3.5 w-3.5 shrink-0" aria-hidden />
                             <span>Match Scoring</span>
                           </Button>
 
@@ -2445,12 +2425,12 @@ function OrganizerDashboard({
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="h-11 px-3.5 rounded-xl border-border/60 bg-muted/30 hover:bg-muted/50 text-foreground font-bold text-xs gap-1.5 shrink-0 transition-all cursor-pointer"
+                            className="flex-1 min-h-10 h-10 rounded-lg border-slate-600/50 bg-slate-900/40 hover:bg-slate-800/50 text-slate-200 font-bold text-xs gap-1.5 focus-visible:ring-2 focus-visible:ring-slate-400/40"
                             disabled={isLocked}
-                            onClick={() => navigate(`/tournament/${t.id}`)}
+                            onClick={() => navigate(`/tournament/${t.id}/settings`)}
                           >
-                            <Share2 className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span>Tournament Home</span>
+                            <Share2 className="h-3.5 w-3.5 text-slate-400" aria-hidden />
+                            <span>Settings</span>
                           </Button>
                         </div>
                       )}
@@ -2520,6 +2500,7 @@ function OrganizerDashboard({
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

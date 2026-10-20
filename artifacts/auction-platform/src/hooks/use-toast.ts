@@ -6,7 +6,12 @@ import type {
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
-const TOAST_REMOVE_DELAY = 1000000
+/** Unmount after close animation — keep short so dismissed toasts don’t linger in memory */
+const TOAST_REMOVE_DELAY = 400
+
+/** Default visible time (ms) — quick acks; errors stay a bit longer */
+export const TOAST_DURATION_DEFAULT = 2_200
+export const TOAST_DURATION_ERROR = 4_500
 
 type ToasterToast = ToastProps & {
   id: string
@@ -139,8 +144,11 @@ function dispatch(action: Action) {
 
 type Toast = Omit<ToasterToast, "id">
 
-function toast({ ...props }: Toast) {
+function toast({ duration, variant, ...props }: Toast) {
   const id = genId()
+  const resolvedDuration =
+    duration ??
+    (variant === "destructive" ? TOAST_DURATION_ERROR : TOAST_DURATION_DEFAULT)
 
   const update = (props: ToasterToast) =>
     dispatch({
@@ -153,6 +161,8 @@ function toast({ ...props }: Toast) {
     type: "ADD_TOAST",
     toast: {
       ...props,
+      variant,
+      duration: resolvedDuration,
       id,
       open: true,
       onOpenChange: (open) => {

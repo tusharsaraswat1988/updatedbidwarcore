@@ -11,51 +11,35 @@ import {
   auctionOverviewPath,
   tournamentHomePath,
   returnPathBackLabel,
+  resolveTournamentOrganizerLandingPath,
 } from "../../lib/tournament-navigation";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-describe("Phase 3: Generic Tournament Home Architecture", () => {
+describe("Phase 3: Auction module landing & compatibility routes", () => {
   const homeSrc = readFileSync(path.resolve(__dirname, "../tournament-home.tsx"), "utf8");
   const appSrc = readFileSync(path.resolve(__dirname, "../../platform-app.tsx"), "utf8");
   const layoutSrc = readFileSync(path.resolve(__dirname, "../../components/layout.tsx"), "utf8");
   const guardSrc = readFileSync(path.resolve(__dirname, "../../components/organizer-guard.tsx"), "utf8");
   const overviewSrc = readFileSync(path.resolve(__dirname, "../auction-overview.tsx"), "utf8");
   const hubAliasSrc = readFileSync(path.resolve(__dirname, "../tournament-hub.tsx"), "utf8");
+  const portalSrc = readFileSync(path.resolve(__dirname, "../organizer-portal.tsx"), "utf8");
+  const contextSrc = readFileSync(
+    path.resolve(__dirname, "../../components/current-tournament-context.tsx"),
+    "utf8",
+  );
 
-  describe("1. Static verification — Tournament Home is lightweight & neutral", () => {
-    it("does NOT import useAuctionSocket or any WebSockets", () => {
+  describe("1. `/tournament/:id` compatibility redirect (no standalone home page)", () => {
+    it("redirects via resolveTournamentOrganizerLandingPath with replace navigation", () => {
+      expect(homeSrc).toContain("resolveTournamentOrganizerLandingPath");
+      expect(homeSrc).toContain('navigate(target, { replace: true })');
+      expect(homeSrc).toContain('data-testid="tournament-root-redirect"');
+    });
+
+    it("does NOT host auction/scoring runtimes on the compatibility route", () => {
       expect(homeSrc).not.toContain("useAuctionSocket");
-      expect(homeSrc).not.toMatch(/new\s+WebSocket/);
-      expect(homeSrc).not.toContain("socket.io");
-    });
-
-    it("does NOT import useTournamentInsightsFeed", () => {
       expect(homeSrc).not.toContain("useTournamentInsightsFeed");
-    });
-
-    it("does NOT import or establish SSE connections", () => {
-      expect(homeSrc).not.toContain("useSyncAuctionSse");
-      expect(homeSrc).not.toMatch(/new\s+EventSource/);
-      expect(homeSrc).not.toContain("EventSource");
-    });
-
-    it("does NOT initialize auction session creation or live bidding feeds", () => {
-      expect(homeSrc).not.toContain("useCreateAuctionSession");
-      expect(homeSrc).not.toContain("useLiveAuction");
-    });
-
-    it("does NOT import scoring runtimes or live scoring engines", () => {
-      expect(homeSrc).not.toContain("useScoringLive");
-      expect(homeSrc).not.toContain("useBadmintonLiveEngine");
-      expect(homeSrc).not.toContain("useCricketLiveEngine");
-    });
-
-    it("uses module-neutral status labels and does NOT display 'Auction Running'", () => {
-      expect(homeSrc).not.toContain("Auction Running");
-      expect(homeSrc).toContain("Getting Ready");
-      expect(homeSrc).toContain("Live");
-      expect(homeSrc).toContain("Completed");
+      expect(homeSrc).not.toContain("Available Workspaces");
     });
   });
 
@@ -70,14 +54,14 @@ describe("Phase 3: Generic Tournament Home Architecture", () => {
       expect(overviewSrc).toContain("useGetTeamPurses");
     });
 
-    it("auction-overview.tsx guards against auction-disabled tournaments", () => {
-      expect(overviewSrc).toContain("isAuctionEnabled");
-      expect(overviewSrc).toContain("Auction Workspace Not Enabled");
+    it("auction-overview.tsx does not link back to legacy Tournament Home", () => {
+      expect(overviewSrc).not.toContain("Return to Tournament Home");
+      expect(overviewSrc).not.toContain("Go to Tournament Home");
     });
   });
 
   describe("3. Routing & Module Guarding in platform-app.tsx and organizer-guard.tsx", () => {
-    it("routes /tournament/:id to TournamentHome", () => {
+    it("routes /tournament/:id to compatibility redirect component", () => {
       expect(appSrc).toContain('<Route path="/tournament/:id">');
       expect(appSrc).toContain("<TournamentHome");
     });
@@ -87,28 +71,9 @@ describe("Phase 3: Generic Tournament Home Architecture", () => {
       expect(appSrc).toMatch(/path="\/tournament\/:id\/auction-overview"[\s\S]*?requiredModule="auction"/);
     });
 
-    it("routes /tournament/:id/overview alias to AuctionOverview with requiredModule='auction'", () => {
-      expect(appSrc).toContain('<Route path="/tournament/:id/overview">');
-      expect(appSrc).toMatch(/path="\/tournament\/:id\/overview"[\s\S]*?requiredModule="auction"/);
-    });
-
-    it("guards auction subroutes with requiredModule='auction'", () => {
-      const auctionRoutes = [
-        "/tournament/:id/teams",
-        "/tournament/:id/categories",
-        "/tournament/:id/players",
-        "/tournament/:id/auction",
-        "/tournament/:id/reset",
-        "/tournament/:id/reports",
-        "/tournament/:id/team-reports",
-        "/tournament/:id/links",
-        "/tournament/:id/fortune-wheel",
-        "/tournament/:id/break-timer",
-        "/tournament/:id/local-mode",
-      ];
-      for (const route of auctionRoutes) {
-        expect(appSrc).toContain(`path="${route}"`);
-      }
+    it("organizer-guard does not send users to legacy Tournament Home", () => {
+      expect(guardSrc).not.toContain("Go to Tournament Home");
+      expect(guardSrc).toContain("Go to Auction Overview");
     });
 
     it("guards scoring entry points with requiredModule='scoring'", () => {
@@ -116,75 +81,52 @@ describe("Phase 3: Generic Tournament Home Architecture", () => {
       expect(appSrc).toMatch(/path="\/tournament\/:id\/score"[\s\S]*?requiredModule="scoring"/);
       expect(appSrc).toMatch(/path="\/tournament\/:id\/badminton"[\s\S]*?requiredModule="scoring"/);
     });
-
-    it("redirects scoring teams and subroutes to scoring-app via RedirectToScoringApp", () => {
-      expect(appSrc).toContain('path="/tournament/:id/score/teams" component={RedirectToScoringApp}');
-      expect(appSrc).toContain('path="/tournament/:id/score/players" component={RedirectToScoringApp}');
-      expect(appSrc).toContain('path="/tournament/:id/score/dashboard" component={RedirectToScoringApp}');
-    });
-
-    it("organizer-guard renders clean 'Module Not Enabled' screen and NEVER silently redirects", () => {
-      expect(guardSrc).toContain("Auction Workspace Not Enabled");
-      expect(guardSrc).toContain("Sports Scoring Not Enabled");
-      expect(guardSrc).not.toContain('navigate(`/tournament/${tournamentId}/auction-overview`)');
-      expect(guardSrc).not.toContain('navigate(`/scoring-app');
-    });
-
-    it("organizer-guard provides a direct CTA to Sports Scoring when scoring is enabled", () => {
-      expect(guardSrc).toContain("Go to Sports Scoring");
-      expect(guardSrc).toContain("Go to Cricket Teams");
-    });
   });
 
-  describe("4. Module-aware sidebar navigation in layout.tsx", () => {
-    it("imports isAuctionEnabled and isScoringEnabled from @workspace/platform-core", () => {
-      expect(layoutSrc).toContain('from "@workspace/platform-core"');
-      expect(layoutSrc).toContain("isAuctionEnabled");
-      expect(layoutSrc).toContain("isScoringEnabled");
+  describe("4. Auction sidebar — no Tournament Home or scoring group in auction shell", () => {
+    it("does NOT render Tournament Home in the auction sidebar", () => {
+      expect(layoutSrc).not.toContain('title="Tournament Home"');
+      expect(layoutSrc).not.toContain("Tournament Home</span>");
     });
 
-    it("derives module state from existing tournament data with zero extra fetches", () => {
-      expect(layoutSrc).toContain("const auctionActive = isAuctionEnabled(tournament);");
-      expect(layoutSrc).toContain("const scoringActive = isScoringEnabled(tournament);");
-      expect(layoutSrc).not.toContain("useGetTournamentSummary");
-      expect(layoutSrc).not.toContain("useTournamentInsightsFeed");
-    });
-
-    it("links top navigation to Tournament Home", () => {
-      expect(layoutSrc).toContain('title="Tournament Home"');
-      expect(layoutSrc).toContain("Tournament Home</span>");
-    });
-
-    it("renders Auction Overview and auction setup under auctionActive conditional", () => {
-      expect(layoutSrc).toContain("{auctionActive && (");
+    it("lists Auction Overview first under Setup when auction is active", () => {
       expect(layoutSrc).toContain('title="Auction Overview"');
       expect(layoutSrc).toContain('href={`/tournament/${tournamentId}/auction-overview`}');
     });
 
-    it("renders Run the Auction section only when auctionActive is true", () => {
-      expect(layoutSrc).toMatch(/\{auctionActive && \([\s\S]*?Run the Auction/);
+    it("hides Match Scoring nav when auction module is active (scoring-only sidebar remains)", () => {
+      expect(layoutSrc).toMatch(/\{scoringActive && !auctionActive && \(/);
     });
 
-    it("renders Match Scoring section only when scoringActive is true", () => {
-      expect(layoutSrc).toMatch(/\{scoringActive && \([\s\S]*?Match Scoring/);
+    it("Current Tournament chip links to module landing href, not legacy root", () => {
+      expect(contextSrc).toContain("overviewHref");
+      expect(contextSrc).not.toMatch(/overviewHref = `\/tournament\/\$\{tournamentId\}`/);
     });
   });
 
-  describe("5. Navigation helpers and return path labels", () => {
-    it("returns canonical paths for tournament home and auction overview", () => {
+  describe("5. All Tournaments auction entry", () => {
+    it("Enter/View Auction navigates to Auction Overview", () => {
+      expect(portalSrc).toContain("navigate(auctionOverviewPath(t.id))");
+      expect(portalSrc).toContain("Enter Auction");
+    });
+  });
+
+  describe("6. Navigation helpers", () => {
+    it("returns canonical paths for compatibility root and auction overview", () => {
       expect(tournamentHomePath(99)).toBe("/tournament/99");
       expect(auctionOverviewPath(99)).toBe("/tournament/99/auction-overview");
+      expect(
+        resolveTournamentOrganizerLandingPath(99, { auctionEnabled: true, scoringEnabled: false }),
+      ).toBe("/tournament/99/auction-overview");
     });
 
-    it("labels tournament home and auction overview distinctly in returnPathBackLabel", () => {
-      expect(returnPathBackLabel("/tournament/99")).toBe("Back to Tournament Home");
-      expect(returnPathBackLabel("/tournament/99/")).toBe("Back to Tournament Home");
+    it("labels legacy root paths as Auction Overview in returnPathBackLabel", () => {
       expect(returnPathBackLabel("/tournament/99/auction-overview")).toBe("Back to Auction Overview");
-      expect(returnPathBackLabel("/tournament/99/overview")).toBe("Back to Auction Overview");
+      expect(returnPathBackLabel("/tournament/99")).toBe("Back to Auction Overview");
     });
   });
 
-  describe("6. Product Mode matrix logic", () => {
+  describe("7. Product Mode matrix logic", () => {
     it("auction_only: auctionEnabled=true, scoringEnabled=false", () => {
       const t = { auctionEnabled: true, scoringEnabled: false };
       expect(isAuctionEnabled(t)).toBe(true);

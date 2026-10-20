@@ -3,27 +3,28 @@ import { Link, useLocation } from "wouter";
 import { 
   LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, Gavel, Sparkles, Menu, X,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, Gavel, Sparkles, X,
 } from "lucide-react";
 import {
   auctionRoomPath,
   auctionResetPath,
+  resolveTournamentOrganizerLandingPath,
 } from "@/lib/tournament-navigation";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth, useOrganizerAccountAuth } from "@/hooks/use-auth";
-import { useBranding } from "@/hooks/use-branding";
 import { logoutOrganizerAccount } from "@/lib/auth";
 import { clearOrganizerClientState } from "@/lib/organizer-account-auth-cache";
 import { useQueryClient } from "@tanstack/react-query";
-import { cldUrl } from "@/lib/cloudinary";
-import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
-import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { CurrentTournamentContext } from "@/components/current-tournament-context";
+import {
+  BidwarOrganizerBrandMark,
+  OrganizerDesktopBrandBar,
+  OrganizerMobileTopBar,
+  OrganizerShellChromeContext,
+} from "@/components/organizer-app-chrome";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
 import { sidebarActiveScrollDelta } from "@/lib/sidebar-active-scroll";
-
-const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
 
 /** Set by the mounted organiser shell so page-level AppLayout wrappers do not render a second sidebar. */
 const OrganizerShellContext = createContext(false);
@@ -105,6 +106,12 @@ function SidebarNav({
   const active = (path: string) => isNavActive(path, location, tournamentId);
   const auctionActive = isAuctionEnabled(tournament);
   const scoringActive = isScoringEnabled(tournament);
+  const tournamentLandingHref =
+    tournamentId && tournament
+      ? resolveTournamentOrganizerLandingPath(tournamentId, tournament)
+      : tournamentId
+        ? `/tournament/${tournamentId}/auction-overview`
+        : "/organizer";
   const scrollRef = useRef<HTMLDivElement>(null);
   const menuLayoutKey = [
     expanded,
@@ -162,6 +169,7 @@ function SidebarNav({
             status={tournament?.status}
             licenseStatus={tournament?.licenseStatus}
             expanded={expanded}
+            overviewHref={tournamentLandingHref}
           />
           {expanded && (
             <div className="px-4 mb-3 text-xs font-semibold text-muted-foreground/50 uppercase tracking-wider">
@@ -170,10 +178,6 @@ function SidebarNav({
           )}
           {!expanded && <div className="mb-2 border-t border-border mx-2" />}
           <nav className={`space-y-1 ${!expanded ? "px-1.5" : "px-2"}`}>
-            <SidebarLink href={`/tournament/${tournamentId}`} title="Tournament Home" className={cls(`/tournament/${tournamentId}`)} active={active(`/tournament/${tournamentId}`)} showAccent={expanded}>
-              <Activity className="w-5 h-5 flex-shrink-0" />
-              {expanded && <span className="font-medium">Tournament Home</span>}
-            </SidebarLink>
             {auctionActive && (
               <>
                 <SidebarLink href={`/tournament/${tournamentId}/auction-overview`} title="Auction Overview" className={cls(`/tournament/${tournamentId}/auction-overview`)} active={active(`/tournament/${tournamentId}/auction-overview`) || active(`/tournament/${tournamentId}/overview`)} showAccent={expanded}>
@@ -256,8 +260,8 @@ function SidebarNav({
             </>
           )}
 
-          {/* ── Match Scoring Hub Navigation ── */}
-          {scoringActive && (
+          {/* ── Match Scoring (scoring-only shell — hidden inside Auction module sidebar) ── */}
+          {scoringActive && !auctionActive && (
             <>
               {expanded && (
                 <div className="px-4 mt-7 mb-3 text-xs font-semibold text-sky-400 uppercase tracking-wider flex items-center justify-between">
@@ -393,12 +397,6 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
 
 function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const [location] = useLocation();
-  const { logos, brandName, loading: brandingLoading } = useBranding();
-  const sidebarLogoSrc =
-    cldUrl(logos.appIcon, "appIcon") ||
-    cldUrl(logos.mini, "headerLogo") ||
-    getBrandLogoSrc(logos, sidebarPreset.logoOrder);
-  const logoAlt = getBrandLogoAlt(brandName);
   const { data: tournament } = useGetTournament(tournamentId ?? 0, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId ?? 0), enabled: !!tournamentId },
   });
@@ -464,8 +462,14 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
     expanded: false,
   };
 
+  const tournamentName = tournament?.name?.trim() || null;
+  const shellChrome = {
+    tournamentInAppChrome: !!(tournamentId && tournamentName),
+  };
+
   return (
-    <div className="lovable-theme flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark">
+    <OrganizerShellChromeContext.Provider value={shellChrome}>
+    <div className="lovable-theme auction-ops flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark">
       {/* Mobile sidebar backdrop */}
       {mobileOpen && (
         <div
@@ -478,13 +482,12 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
       {/* Mobile sidebar overlay */}
       <aside
         className={`fixed inset-y-0 left-0 z-30 w-64 bg-card/95 backdrop-blur-md border-r border-border flex flex-col transition-transform duration-200 ease-in-out md:hidden ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          mobileOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none"
         }`}
+        aria-hidden={!mobileOpen}
       >
         <div className="h-14 flex items-center border-b border-border flex-shrink-0 px-3 gap-2 min-w-0">
-          {brandingLoading
-            ? <div className="h-8 w-8 flex-shrink-0" />
-            : <img src={sidebarLogoSrc} alt={logoAlt} className={sidebarPreset.sizeClass} />}
+          <BidwarOrganizerBrandMark surface="organizer-main-toolbar" className="min-w-0 flex-1" />
           <button
             onClick={() => setMobileOpen(false)}
             title="Close menu"
@@ -508,18 +511,19 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
         {/* Header */}
         <div className="h-14 flex items-center border-b border-border flex-shrink-0 px-3 gap-2 min-w-0">
           {collapsed ? (
-            <button
-              onClick={toggleCollapsed}
-              title="Expand sidebar"
-              className="mx-auto text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="flex flex-col items-center gap-1.5 w-full py-0.5">
+              <BidwarOrganizerBrandMark surface="organizer-main-toolbar" iconOnly />
+              <button
+                onClick={toggleCollapsed}
+                title="Expand sidebar"
+                className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           ) : (
             <>
-              {brandingLoading
-                ? <div className="h-8 w-8 flex-shrink-0" />
-                : <img src={sidebarLogoSrc} alt={logoAlt} className={sidebarPreset.sizeClass} />}
+              <BidwarOrganizerBrandMark surface="organizer-sidebar-wordmark" className="min-w-0 flex-1" />
               <button
                 onClick={toggleCollapsed}
                 title="Collapse sidebar"
@@ -541,41 +545,25 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 bg-transparent relative overflow-hidden">
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(ellipse at 20% -10%, oklch(0.42 0.15 265 / 0.45), transparent 55%), radial-gradient(ellipse at 90% 0%, oklch(0.85 0.17 88 / 0.08), transparent 50%)",
-          }}
-        />
         {noPadding ? (
           <div className="flex-1 overflow-hidden z-0 relative flex flex-col min-h-0">
-            {/* Mobile hamburger for noPadding pages */}
-            <button
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
-              className="md:hidden absolute top-3 left-3 z-10 p-2 rounded-md bg-card/80 border border-border text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
-            >
-              <Menu className="w-4 h-4" />
-            </button>
+            <OrganizerMobileTopBar
+              onOpenMenu={() => setMobileOpen(true)}
+              menuExpanded={mobileOpen}
+              tournamentName={tournamentName}
+            />
+            <OrganizerDesktopBrandBar tournamentName={tournamentName} />
             {children}
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto overflow-x-hidden z-0 relative">
-            {/* Mobile top bar with hamburger */}
-            <div className="md:hidden sticky top-0 z-10 h-12 flex items-center px-4 gap-3 border-b border-border bg-background/80 backdrop-blur-md flex-shrink-0">
-              <button
-                onClick={() => setMobileOpen(true)}
-                aria-label="Open navigation"
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-              {tournament?.name && (
-                <p className="text-sm font-medium text-foreground truncate">{tournament.name}</p>
-              )}
-            </div>
-            <div className="px-4 py-5 sm:px-6 sm:py-6 lg:p-8 max-w-7xl mx-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden z-0 relative flex flex-col min-h-0">
+            <OrganizerMobileTopBar
+              onOpenMenu={() => setMobileOpen(true)}
+              menuExpanded={mobileOpen}
+              tournamentName={tournamentName}
+            />
+            <OrganizerDesktopBrandBar tournamentName={tournamentName} />
+            <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7 w-full max-w-[90rem] mx-auto flex-1 min-w-0">
               {children}
             </div>
           </div>
@@ -583,6 +571,7 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
       </main>
 
     </div>
+    </OrganizerShellChromeContext.Provider>
   );
 }
 

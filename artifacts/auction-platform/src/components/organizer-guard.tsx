@@ -21,7 +21,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, ArrowLeft, ArrowRight } from "lucide-react";
+import { AlertCircle, ArrowRight } from "lucide-react";
+import {
+  auctionOverviewPath,
+  resolveScoringEntryPath,
+} from "@/lib/tournament-navigation";
 
 function OrganizerAccessLoading({ badmintonRoute }: { badmintonRoute: boolean }) {
   if (badmintonRoute) {
@@ -226,16 +230,8 @@ export function OrganizerGuard({
               This tournament is configured for Sports Scoring only. The Auction module is disabled.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 justify-center pt-1">
-            <Button
-              variant="outline"
-              onClick={() => navigate(`/tournament/${tournamentId}`)}
-              className="gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Go to Tournament Home
-            </Button>
-            {isScoringEnabled(tournament) && (
+          {isScoringEnabled(tournament) && (
+            <div className="flex justify-center pt-1">
               <Button
                 onClick={() => {
                   const s = (tournament?.sport || "").toLowerCase();
@@ -244,7 +240,7 @@ export function OrganizerGuard({
                   } else if (s.includes("cricket") && location.endsWith("/teams")) {
                     navigate(`/tournament/${tournamentId}/score/teams`);
                   } else {
-                    navigate(`/tournament/${tournamentId}/score`);
+                    navigate(resolveScoringEntryPath(tournamentId, tournament?.sport));
                   }
                 }}
                 className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
@@ -256,8 +252,8 @@ export function OrganizerGuard({
                 </span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -276,11 +272,11 @@ export function OrganizerGuard({
           </div>
           <Button
             variant="outline"
-            onClick={() => navigate(`/tournament/${tournamentId}`)}
+            onClick={() => navigate(auctionOverviewPath(tournamentId))}
             className="gap-2"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Go to Tournament Home
+            Go to Auction Overview
+            <ArrowRight className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -307,11 +303,17 @@ export function OrganizerGuard({
             </div>
             <Button
               variant="outline"
-              onClick={() => navigate(`/tournament/${tournamentId}`)}
+              onClick={() =>
+                navigate(
+                  isAuctionEnabled(tournament)
+                    ? auctionOverviewPath(tournamentId)
+                    : resolveScoringEntryPath(tournamentId, tournament?.sport),
+                )
+              }
               className="gap-2"
             >
-              <ArrowLeft className="w-4 h-4" />
-              Go to Tournament Home
+              {isAuctionEnabled(tournament) ? "Go to Auction Overview" : "Go to Sports Scoring"}
+              <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
         </div>

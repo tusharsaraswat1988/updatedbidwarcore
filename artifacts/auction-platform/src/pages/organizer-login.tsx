@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRoute, useLocation, useSearch } from "wouter";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
+import { resolveTournamentOrganizerLandingPath } from "@/lib/tournament-navigation";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -38,7 +39,13 @@ export default function OrganizerLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const defaultPath = `/tournament/${tournamentId}`;
+  const defaultPath = useMemo(
+    () =>
+      tournament
+        ? resolveTournamentOrganizerLandingPath(tournamentId, tournament)
+        : `/tournament/${tournamentId}`,
+    [tournament, tournamentId],
+  );
   const postLoginPath = useMemo(() => safeNextPath(search) ?? defaultPath, [search, defaultPath]);
 
   function goAfterLogin(path: string) {

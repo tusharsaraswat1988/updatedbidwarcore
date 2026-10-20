@@ -151,7 +151,7 @@ export function TeamSetupCard({ tournamentId, onQuickPeek }: TeamSetupCardProps)
 
   const manageTeamsLink = (
     <Link
-      href={`/tournament/${tournamentId}/teams?from=${encodeURIComponent(`/tournament/${tournamentId}`)}`}
+      href={`/tournament/${tournamentId}/teams?from=${encodeURIComponent(`/tournament/${tournamentId}/auction-overview`)}`}
       className="text-xs font-medium text-primary hover:underline shrink-0"
     >
       Manage teams

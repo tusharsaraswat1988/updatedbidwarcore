@@ -381,8 +381,7 @@ export default function Teams() {
               {teams && teams.length > 0 && (
                 <Button
                   variant="outline"
-                  size="lg"
-                  className="gap-2 border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 font-medium transition-colors"
+                  className="h-10 gap-2 font-medium"
                   onClick={handleCopyAllCredentials}
                   title="Copy all team credentials"
                 >
@@ -401,8 +400,8 @@ export default function Teams() {
               )}
               <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
                 <DialogTrigger asChild>
-                  <Button size="lg" className="gap-2" onClick={() => setEditing(null)}>
-                    <Plus className="w-5 h-5" /> Add Team
+                  <Button className="h-10 gap-2" onClick={() => setEditing(null)}>
+                    <Plus className="w-4 h-4" /> Add Team
                   </Button>
                 </DialogTrigger>
                 <DialogContent

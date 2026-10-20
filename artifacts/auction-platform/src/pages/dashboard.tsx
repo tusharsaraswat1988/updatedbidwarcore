@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, Calendar, MapPin, Activity, Trophy } from "lucide-react";
 import { formatIndianRupee } from "@/lib/format";
+import { resolveTournamentOrganizerLandingPath } from "@/lib/tournament-navigation";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -64,7 +65,9 @@ export default function Dashboard() {
               <Card 
                 key={tournament.id} 
                 className="group cursor-pointer hover:border-primary/50 transition-all hover:shadow-[0_0_20px_rgba(234,179,8,0.1)] overflow-hidden flex flex-col"
-                onClick={() => setLocation(`/tournament/${tournament.id}`)}
+                onClick={() =>
+                  setLocation(resolveTournamentOrganizerLandingPath(tournament.id, tournament))
+                }
               >
                 <CardHeader className="pb-4">
                   <div className="flex justify-between items-start">

@@ -8,6 +8,8 @@ type CurrentTournamentContextProps = {
   status?: string | null;
   licenseStatus?: string | null;
   expanded: boolean;
+  /** Module landing (Auction Overview or scoring entry) — not legacy Tournament Home. */
+  overviewHref: string;
 };
 
 /** Real tournament.status only — never invent a status label. */
@@ -28,10 +30,10 @@ export function CurrentTournamentContext({
   status,
   licenseStatus,
   expanded,
+  overviewHref,
 }: CurrentTournamentContextProps) {
   const displayName = name?.trim() || "Tournament";
   const statusLabel = formatTournamentStatusLabel(status);
-  const overviewHref = `/tournament/${tournamentId}`;
   const showTrialBadge =
     !!licenseStatus && licenseStatus !== "active" && licenseStatus !== "completed";
   const accessibleLabel = statusLabel

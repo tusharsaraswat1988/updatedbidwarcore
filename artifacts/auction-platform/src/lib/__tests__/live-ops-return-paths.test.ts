@@ -43,9 +43,9 @@ describe("Live Ops return + cricket path helpers", () => {
     assert.match(returnPathBackLabel(`/tournament/${TID}/overview`), /Auction Overview/i);
   });
 
-  it("returnPathBackLabel names Tournament Home for root tournament path", () => {
-    assert.match(returnPathBackLabel(`/tournament/${TID}`), /Tournament Home/i);
-    assert.match(returnPathBackLabel(`/tournament/${TID}/`), /Tournament Home/i);
+  it("returnPathBackLabel names Auction Overview for legacy root tournament path", () => {
+    assert.match(returnPathBackLabel(`/tournament/${TID}`), /Auction Overview/i);
+    assert.match(returnPathBackLabel(`/tournament/${TID}/`), /Auction Overview/i);
   });
 
   it("returnPathBackLabel names Tournament Dashboard for Sports home paths", () => {
