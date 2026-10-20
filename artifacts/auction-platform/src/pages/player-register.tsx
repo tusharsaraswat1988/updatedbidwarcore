@@ -848,11 +848,22 @@ export default function PlayerRegister() {
   const showConfirmSection = !closedSelfUpdateMode && (
     declarationRequired || showWhatsappConsent || (paymentEnabled && paymentConfigured)
   );
-  const confirmTitle = paymentConfigured
+  const confirmTitle = paymentConfigured && declarationRequired
     ? "Declaration and payment"
-    : declarationRequired
-      ? "Declaration"
-      : "Updates";
+    : paymentConfigured
+      ? "Payment"
+      : declarationRequired
+        ? "Declaration"
+        : "Updates";
+  const confirmDescription = paymentConfigured && declarationRequired
+    ? "Accept the declaration to register. Payment is confirmed only after the organizer verifies it."
+    : paymentConfigured
+      ? "Payment is confirmed only after the organizer verifies it."
+      : declarationRequired && showWhatsappConsent
+        ? "Accept the declaration to register. WhatsApp messages are optional."
+        : declarationRequired
+          ? "Read the points below and accept them before you submit."
+          : "Optional. Turn this on if you want schedule and result messages on WhatsApp.";
 
   const nameAuto = autofillAttrs("name");
   const cityAuto = autofillAttrs("city");
@@ -1540,9 +1551,7 @@ export default function PlayerRegister() {
                 <RegSection
                   step="3"
                   title={confirmTitle}
-                  description={paymentConfigured
-                    ? "The declaration is separate from optional updates. Payment is confirmed only after the organizer verifies it."
-                    : "The declaration is separate from optional message updates."}
+                  description={confirmDescription}
                 >
                   {declarationRequired ? (
                     <div className="reg-field">
