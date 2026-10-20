@@ -2983,7 +2983,7 @@ export default function Players() {
   const teamCount = teams?.length ?? 0;
   const auctionUnit = normalizeAuctionUnit(tournament?.auctionUnit);
 
-  const tableColCount = 10 + (hasCategories ? 1 : 0);
+  const tableColCount = 9 + (hasCategories ? 1 : 0);
   const teamOptions = (teams || []).map(t => ({
     value: t.id,
     label: t.name,
@@ -3310,7 +3310,7 @@ export default function Players() {
             {/* Desktop: scannable table + inline expand */}
             <div className="hidden lg:block org-table-wrapper">
               <Table className="ops-player-table">
-                <TableHeader className="bg-muted/15 border-b border-border/30">
+                <TableHeader className="border-b border-border/30">
                   <TableRow className="hover:bg-transparent border-0">
                     <SortableTableHead
                       label="#"
@@ -3329,7 +3329,6 @@ export default function Players() {
                       onSort={handleSort}
                       className="ops-col-player text-xs font-semibold text-foreground/90"
                     />
-                    <TableHead className="text-[11px] text-muted-foreground/70">Mobile</TableHead>
                     {hasCategories && (
                       <SortableTableHead
                         label="Category"
@@ -3401,15 +3400,16 @@ export default function Players() {
                           data-expanded={isExpanded ? "true" : "false"}
                           title="Open player details"
                           className={cn(
-                            "group org-table-row-interactive border-b border-white/[0.04] last:border-0",
+                            "group org-table-row-interactive border-b border-border/40 last:border-0",
                             statusBorderAccent[player.status] || "border-l-transparent",
                           )}
                           onClick={() => toggleExpand(player.id)}
                           onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              toggleExpand(player.id);
-                            }
+                            if (e.key !== "Enter" && e.key !== " ") return;
+                            const target = e.target as HTMLElement;
+                            if (target.closest("[data-row-control]")) return;
+                            e.preventDefault();
+                            toggleExpand(player.id);
                           }}
                         >
                           <TableCell className="text-center font-mono text-[11px] text-muted-foreground/55 tabular-nums py-1.5 align-middle">
@@ -3438,20 +3438,20 @@ export default function Players() {
                               ) : null}
                             </div>
                           </TableCell>
-                          <TableCell className="font-mono text-[11px] text-muted-foreground/80 py-1.5 align-middle">
-                            {player.mobileNumber || null}
-                          </TableCell>
                           {hasCategories && (
-                            <TableCell className="py-1.5 align-middle">
-                              {cat ? (
-                                <span
-                                  className="text-xs font-medium"
-                                  style={{ color: cat.colorCode || undefined }}
-                                  title={cat.name}
-                                >
-                                  {cat.name}
-                                </span>
-                              ) : null}
+                            <TableCell
+                              className="py-1 align-middle"
+                              data-row-control=""
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            >
+                              <PlayerCategorySelect
+                                tournamentId={tournamentId}
+                                playerId={player.id}
+                                categoryId={player.categoryId}
+                                categories={categories || []}
+                                triggerClassName="h-7 min-h-7 py-0 px-2 w-[9.5rem] max-w-[11rem] text-[11px]"
+                              />
                             </TableCell>
                           )}
                           <TableCell className="py-1.5 align-middle">
@@ -3522,7 +3522,6 @@ export default function Players() {
                 const showTeam = player.status === "sold" || player.status === "retained";
                 const tagTheme = getTagTheme(player.playerTag);
                 const meta = [
-                  player.mobileNumber,
                   hasCategories ? cat?.name : null,
                   showTeam && team ? team.name : null,
                 ].filter(Boolean).join(" · ");

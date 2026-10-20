@@ -799,11 +799,7 @@ export default function PlayerRegister() {
     return (
       <div className={availabilityAuto.className ? `reg-field ${availabilityAuto.className}` : "reg-field"} style={availabilityAuto.style}>
         <RegLabel marker="optional" locked={identityFieldsLocked} autofilled={availabilityAuto.autofilled}>Match availability</RegLabel>
-        <p className="reg-hint">
-          {identityFieldsLocked
-            ? "To change availability, contact your organiser."
-            : "Select the match days you will be available to play."}
-        </p>
+        {identityFieldsLocked ? <p className="reg-hint">To change availability, contact your organiser.</p> : null}
         <div className="reg-chips">
           {matchDates.map((iso: string) => {
             const label = new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -855,15 +851,6 @@ export default function PlayerRegister() {
       : declarationRequired
         ? "Declaration"
         : "Updates";
-  const confirmDescription = paymentConfigured && declarationRequired
-    ? "Accept the declaration to register. Payment is confirmed only after the organizer verifies it."
-    : paymentConfigured
-      ? "Payment is confirmed only after the organizer verifies it."
-      : declarationRequired && showWhatsappConsent
-        ? "Accept the declaration to register. WhatsApp messages are optional."
-        : declarationRequired
-          ? "Read the points below and accept them before you submit."
-          : "Optional. Turn this on if you want schedule and result messages on WhatsApp.";
 
   const nameAuto = autofillAttrs("name");
   const cityAuto = autofillAttrs("city");
@@ -1050,15 +1037,10 @@ export default function PlayerRegister() {
               <RegSection
                 step="1"
                 title={closedSelfUpdateMode ? "Your registration" : "Personal details"}
-                description={identityFieldsLocked
-                  ? "These details are locked. Contact your organiser to change them."
-                  : "Start with your mobile number. If you have registered before, we fill in what we already have. You can edit it before submitting."}
+                description={identityFieldsLocked ? "These details are locked. Contact your organiser to change them." : undefined}
               >
                 <div className="reg-field">
                   <RegLabel htmlFor="register-mobile" marker="required" locked={identityFieldsLocked}>Mobile number</RegLabel>
-                  {!identityFieldsLocked ? (
-                    <p className="reg-hint" id="register-mobile-hint">We look up your profile from past registrations using this number.</p>
-                  ) : null}
                   <div className="relative">
                     <Input
                       id="register-mobile"
@@ -1071,7 +1053,7 @@ export default function PlayerRegister() {
                       maxLength={10}
                       disabled={identityFieldsLocked}
                       readOnly={identityFieldsLocked}
-                      aria-describedby={identityFieldsLocked ? "register-mobile-status" : "register-mobile-hint register-mobile-status"}
+                      aria-describedby="register-mobile-status"
                     />
                     {lookupLoading ? (
                       <Loader2 className="absolute right-3 top-3.5 w-4 h-4 animate-spin text-primary" aria-hidden="true" />
@@ -1146,6 +1128,7 @@ export default function PlayerRegister() {
                     value={form.email}
                     onChange={v => { if (!identityFieldsLocked) { f("email", v); if (emailError) setEmailError(""); } }}
                     error={emailError || undefined}
+                    hint=""
                     disabled={identityFieldsLocked}
                   />
                 ) : null}
@@ -1174,6 +1157,7 @@ export default function PlayerRegister() {
                           value={form.city}
                           onChange={v => { if (!identityFieldsLocked) f("city", v); }}
                           disabled={identityFieldsLocked}
+                          showHint={false}
                         />
                       </div>
                     ) : null}
@@ -1214,9 +1198,7 @@ export default function PlayerRegister() {
               <RegSection
                 step="2"
                 title="Playing profile"
-                description={closedUpdateReadOnly
-                  ? "This profile is view only."
-                  : "Tell organisers how you play. A photo is required."}
+                description={closedUpdateReadOnly ? "This profile is view only." : undefined}
               >
                 {closedSelfUpdateMode ? (
                   <p className="reg-hint">
@@ -1354,7 +1336,6 @@ export default function PlayerRegister() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="reg-hint">Choose one of the organizer-approved base values for this auction.</p>
                   </div>
                 ) : null}
 
@@ -1411,11 +1392,7 @@ export default function PlayerRegister() {
                 {showCrichero ? (
                   <div className={cricheroAuto.className ? `reg-field ${cricheroAuto.className}` : "reg-field"} style={cricheroAuto.style}>
                     <RegLabel htmlFor="register-crichero" marker="optional" locked={identityFieldsLocked} autofilled={cricheroAuto.autofilled}>Crichero profile URL</RegLabel>
-                    <p className="reg-hint">
-                      {identityFieldsLocked
-                        ? "To change this, contact your organiser."
-                        : "Add your CricHero profile link so organisers can view your match stats."}
-                    </p>
+                    {identityFieldsLocked ? <p className="reg-hint">To change this, contact your organiser.</p> : null}
                     <Input
                       id="register-crichero"
                       value={form.cricheroUrl}
@@ -1469,13 +1446,9 @@ export default function PlayerRegister() {
                   </div>
                   {photoError ? (
                     <p id="register-photo-error" className="text-sm text-destructive" role="alert">{photoError}</p>
-                  ) : (
-                    <p id="register-photo-hint" className="reg-hint">
-                      {closedUpdateReadOnly
-                        ? "To change your photo, contact your organiser."
-                        : `JPG, PNG, WEBP, or HEIC. Crop it in the editor before it is saved (up to ${PLAYER_PHOTO_EXPORT_MAX_MB} MB).`}
-                    </p>
-                  )}
+                  ) : closedUpdateReadOnly ? (
+                    <p id="register-photo-hint" className="reg-hint">To change your photo, contact your organiser.</p>
+                  ) : null}
                   <ImageEditorDialog
                     open={photoEditorOpen}
                     onClose={() => setPhotoEditorOpen(false)}
@@ -1516,7 +1489,6 @@ export default function PlayerRegister() {
                             ))}
                           </SelectContent>
                         </Select>
-                        <p className="reg-hint">Choose which team you belong to for fixtures and scoring.</p>
                       </div>
                     ) : null}
                     {showCategorySelect ? (
@@ -1539,7 +1511,6 @@ export default function PlayerRegister() {
                             ))}
                           </SelectContent>
                         </Select>
-                        <p className="reg-hint">Optional. Leave blank if the organizer will assign your division later.</p>
                       </div>
                     ) : null}
                     {showMatchAvailability ? renderMatchAvailability() : null}
@@ -1551,7 +1522,6 @@ export default function PlayerRegister() {
                 <RegSection
                   step="3"
                   title={confirmTitle}
-                  description={confirmDescription}
                 >
                   {declarationRequired ? (
                     <div className="reg-field">

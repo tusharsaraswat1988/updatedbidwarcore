@@ -446,8 +446,8 @@
   background: var(--ops-surface, var(--card));
 }
 .auction-ops .org-table-wrapper {
-  background: color-mix(in oklab, var(--panel-2) 78%, var(--foreground)) !important;
-  border-color: color-mix(in oklab, var(--foreground) 24%, transparent) !important;
+  background: var(--ops-surface) !important;
+  border-color: var(--ops-border) !important;
 }
 
 /*
@@ -572,14 +572,28 @@
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--ops-text-secondary);
-  background: color-mix(in oklab, var(--stage) 55%, transparent);
-  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 16%, transparent);
+  background: color-mix(in oklab, var(--stage) 70%, var(--ops-surface));
+  border-bottom: 1px solid var(--ops-border);
+}
+.auction-ops .ops-player-table tbody > tr.org-table-row-interactive {
+  background: var(--ops-surface);
+  border-color: var(--ops-border);
+}
+.auction-ops .ops-player-table tbody > tr.org-table-row-interactive:hover {
+  background: color-mix(in oklab, var(--foreground) 6%, var(--ops-surface));
+}
+.auction-ops .ops-player-table tbody > tr.org-table-row-interactive[data-expanded="true"] {
+  background: color-mix(in oklab, var(--primary) 10%, var(--ops-surface));
+}
+.auction-ops .ops-player-table tbody > tr.org-table-row-interactive[data-expanded="true"]:hover {
+  background: color-mix(in oklab, var(--primary) 14%, var(--ops-surface));
 }
 .ops-player-table tbody > tr.org-table-row-interactive > td {
   height: 2.875rem;
   padding-top: 0.25rem;
   padding-bottom: 0.25rem;
-  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 6%, transparent);
+  border-bottom: 1px solid var(--ops-border);
+  background: transparent;
 }
 .ops-player-table .tabular-nums,
 .ops-player-table .font-mono {
