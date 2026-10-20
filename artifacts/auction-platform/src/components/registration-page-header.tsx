@@ -110,7 +110,7 @@ export function RegistrationPageHeader({
           {tournamentLogoUrl ? (
             <img
               src={tournamentLogoUrl}
-              alt=""
+              alt={`${title} logo`}
               className="reg-tournament-logo"
             />
           ) : (

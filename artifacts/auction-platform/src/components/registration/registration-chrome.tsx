@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { Label } from "@/components/ui/label";
 
 /** Passed to portaled select menus so they inherit the registration palette. */
-export const registrationSelectContentClass = "registration-portal max-h-[min(50dvh,320px)]";
+export const registrationSelectContentClass =
+  "registration-portal max-h-[min(50dvh,320px)] w-[var(--radix-select-trigger-width)]";
 
 export function RegSection({
   step,

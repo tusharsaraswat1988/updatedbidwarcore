@@ -66,7 +66,7 @@ export function CityAutocomplete({
                 key={city}
                 type="button"
                 className={cn(
-                  "w-full text-left px-3 py-2.5 text-sm hover:bg-accent transition-colors",
+                  "w-full text-left px-3 min-h-11 text-sm hover:bg-accent hover:text-accent-foreground transition-colors",
                   "border-b border-border/40 last:border-0",
                   value === city && "bg-accent/50",
                 )}

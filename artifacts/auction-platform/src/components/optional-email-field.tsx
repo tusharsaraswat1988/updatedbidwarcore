@@ -25,6 +25,7 @@ export function OptionalEmailField({
   inputClassName,
   disabled = false,
 }: OptionalEmailFieldProps) {
+  const hintId = `${id}-hint`;
   return (
     <div className={className ? `space-y-2 ${className}` : "space-y-2"}>
       <Label htmlFor={id}>{label}</Label>
@@ -38,12 +39,12 @@ export function OptionalEmailField({
         className={inputClassName}
         disabled={disabled}
         readOnly={disabled}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={hintId}
       />
-      {error ? (
-        <p className="text-xs text-destructive">{error}</p>
-      ) : (
-        <p className="text-xs text-muted-foreground">{OPTIONAL_EMAIL_HINT}</p>
-      )}
+      <p id={hintId} className={error ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+        {error || OPTIONAL_EMAIL_HINT}
+      </p>
     </div>
   );
 }

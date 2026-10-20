@@ -1,13 +1,12 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
-import { Smartphone, QrCode, IndianRupee } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { buildUpiPaymentUrl, type PaymentVerificationMethod } from "@workspace/api-base/registration-payment";
+import { formatIndianRupee } from "@/lib/format";
 import { CompactScreenshotUpload } from "./compact-screenshot-upload";
 import { UtrHelpModal, UtrHelpTrigger } from "./utr-help-modal";
+import { RegLabel } from "@/components/registration/registration-chrome";
 
 interface RegistrationPaymentFormSectionProps {
   registrationFee: number;
@@ -32,100 +31,85 @@ export function RegistrationPaymentFormSection({
   tournamentName,
   disabled,
 }: RegistrationPaymentFormSectionProps) {
-  const [showQr, setShowQr] = useState(() => typeof window !== "undefined" && window.innerWidth >= 640);
   const [utrHelpOpen, setUtrHelpOpen] = useState(false);
 
   const upiLink = buildUpiPaymentUrl(upiId, registrationFee, tournamentName);
   const showUtr = verificationMethod === "utr" || verificationMethod === "utr_and_screenshot";
   const showScreenshot = verificationMethod === "screenshot" || verificationMethod === "utr_and_screenshot";
+  const amountLabel = formatIndianRupee(registrationFee);
 
   return (
-    <Card className="border-primary/20 bg-primary/[0.03]">
-      <CardContent className="p-4 sm:p-5 space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-primary/80">Registration Fee</p>
-            <p className="text-2xl font-display font-black text-white flex items-center gap-1 mt-0.5">
-              <IndianRupee className="w-5 h-5" />
-              {registrationFee.toLocaleString("en-IN")}
-            </p>
+    <div className="reg-fields">
+      <div>
+        <p className="reg-kicker">Amount due</p>
+        <p className="reg-pay-amount">{amountLabel}</p>
+      </div>
+
+      <ol className="reg-pay-steps">
+        <li>
+          <span>1</span>
+          <p>Pay {amountLabel} with any UPI app. Use the button below, or scan the QR code.</p>
+        </li>
+        <li>
+          <span>2</span>
+          <p>
+            {showUtr && showScreenshot
+              ? "Enter the UTR from your payment receipt and upload a screenshot."
+              : showUtr
+                ? "Enter the UTR or reference number from your UPI app."
+                : "Upload a screenshot of the completed payment."}
+          </p>
+        </li>
+        <li>
+          <span>3</span>
+          <p>Submit this form. Payment stays pending until the organizer verifies it. A successful UPI payment alone does not complete registration.</p>
+        </li>
+      </ol>
+
+      <Button asChild className="w-full min-h-12 text-base font-bold">
+        <a href={upiLink}>Pay {amountLabel}</a>
+      </Button>
+
+      <div className="reg-qr">
+        <QRCodeSVG value={upiLink} size={168} level="M" bgColor="#ffffff" fgColor="#1a1a2e" aria-label={`UPI QR code for ${amountLabel}`} />
+        <p className="reg-hint text-center">Scan with PhonePe, Google Pay, Paytm, or another UPI app.</p>
+        <p className="reg-upi">UPI ID <strong>{upiId}</strong></p>
+      </div>
+
+      {showUtr && (
+        <div className="reg-field">
+          <div className="flex items-center gap-1.5">
+            <div className="flex-1">
+              <RegLabel htmlFor="register-utr" marker="required">UTR or reference number</RegLabel>
+            </div>
+            <UtrHelpTrigger onClick={() => setUtrHelpOpen(true)} />
           </div>
-        </div>
-
-        <a
-          href={upiLink}
-          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-primary text-black font-bold text-sm hover:bg-primary/90 active:scale-[0.98] transition-all"
-        >
-          <Smartphone className="w-4 h-4" />
-          Pay Now
-        </a>
-
-        <button
-          type="button"
-          onClick={() => setShowQr(v => !v)}
-          className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-white/10 text-white/60 text-sm font-medium hover:bg-white/5 hover:text-white/80 transition-colors sm:hidden"
-        >
-          <QrCode className="w-4 h-4" />
-          {showQr ? "Hide QR Code" : "Show QR Code"}
-        </button>
-
-        <div className="hidden sm:flex flex-col items-center gap-2 p-4 rounded-xl bg-white">
-          <QRCodeSVG value={upiLink} size={160} level="M" bgColor="#ffffff" fgColor="#000000" />
-          <p className="text-[10px] text-black/40 text-center font-medium">
-            Scan with any UPI app — PhonePe, GPay, Paytm
+          <Input
+            id="register-utr"
+            type="text"
+            value={utrNumber}
+            onChange={e => onUtrChange(e.target.value.replace(/\s/g, ""))}
+            disabled={disabled}
+            autoComplete="off"
+            spellCheck={false}
+            aria-describedby="register-utr-hint"
+            className="font-mono tracking-wide"
+          />
+          <p id="register-utr-hint" className="reg-hint">
+            Use the reference shown in your UPI app after the payment succeeds.
           </p>
         </div>
+      )}
 
-        <AnimatePresence initial={false}>
-          {showQr && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden sm:hidden"
-            >
-              <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white">
-                <QRCodeSVG value={upiLink} size={160} level="M" bgColor="#ffffff" fgColor="#000000" />
-                <p className="text-[10px] text-black/40 text-center font-medium">
-                  Scan with any UPI app
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {showScreenshot && (
+        <CompactScreenshotUpload
+          value={paymentScreenshotUrl}
+          onChange={onScreenshotChange}
+          disabled={disabled}
+        />
+      )}
 
-        <p className="text-xs text-muted-foreground text-center">
-          Complete the payment and submit the details below.
-        </p>
-
-        {showUtr && (
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-1.5">
-              <Label>
-                UTR Number <span className="text-destructive">*</span>
-              </Label>
-              <UtrHelpTrigger onClick={() => setUtrHelpOpen(true)} />
-            </div>
-            <input
-              type="text"
-              value={utrNumber}
-              onChange={e => onUtrChange(e.target.value.replace(/\s/g, ""))}
-              disabled={disabled}
-              className="flex h-11 sm:h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-mono ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </div>
-        )}
-
-        {showScreenshot && (
-          <CompactScreenshotUpload
-            value={paymentScreenshotUrl}
-            onChange={onScreenshotChange}
-            disabled={disabled}
-          />
-        )}
-
-        <UtrHelpModal open={utrHelpOpen} onOpenChange={setUtrHelpOpen} />
-      </CardContent>
-    </Card>
+      <UtrHelpModal open={utrHelpOpen} onOpenChange={setUtrHelpOpen} />
+    </div>
   );
 }
