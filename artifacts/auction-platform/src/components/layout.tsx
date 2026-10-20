@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect } from "react";
+import { createContext, ReactNode, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   LayoutDashboard, Users, UserPlus, 
@@ -21,8 +21,12 @@ import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { CurrentTournamentContext } from "@/components/current-tournament-context";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
 import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
+import { sidebarActiveScrollDelta } from "@/lib/sidebar-active-scroll";
 
 const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
+
+/** Set by the mounted organiser shell so page-level AppLayout wrappers do not render a second sidebar. */
+const OrganizerShellContext = createContext(false);
 
 interface LayoutProps {
   children: ReactNode;
@@ -101,9 +105,30 @@ function SidebarNav({
   const active = (path: string) => isNavActive(path, location, tournamentId);
   const auctionActive = isAuctionEnabled(tournament);
   const scoringActive = isScoringEnabled(tournament);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const menuLayoutKey = [
+    expanded,
+    auctionActive,
+    scoringActive,
+    localVenue,
+    tournament?.name,
+    tournament?.status,
+    tournament?.licenseStatus,
+    tournament?.sport,
+    tournament?.localModeEnabled,
+  ].join("|");
+
+  useLayoutEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const active = container.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!active) return;
+    const delta = sidebarActiveScrollDelta(container.getBoundingClientRect(), active.getBoundingClientRect());
+    if (delta !== 0) container.scrollTop += delta;
+  }, [location, menuLayoutKey]);
 
   return (
-    <div className="flex-1 overflow-y-auto py-4 overflow-x-hidden">
+    <div ref={scrollRef} className="flex-1 overflow-y-auto py-4 overflow-x-hidden">
       {expanded && (
         <div className="px-4 mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Main Menu
@@ -355,6 +380,18 @@ function LogoutButton({
 }
 
 export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
+  const inShell = useContext(OrganizerShellContext);
+  if (inShell) return <>{children}</>;
+  return (
+    <OrganizerShellContext.Provider value={true}>
+      <OrganizerAppLayout tournamentId={tournamentId} noPadding={noPadding}>
+        {children}
+      </OrganizerAppLayout>
+    </OrganizerShellContext.Provider>
+  );
+}
+
+function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const [location] = useLocation();
   const { logos, brandName, loading: brandingLoading } = useBranding();
   const sidebarLogoSrc =

@@ -1,8 +1,10 @@
 import { lazy, Suspense, useMemo } from "react";
-import { Switch, Route, Redirect, useSearch } from "wouter";
+import { Switch, Route, Redirect, useLocation, useSearch } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OrganizerGuard } from "@/components/organizer-guard";
+import { AppLayout } from "@/components/layout";
+import { parseAuctionOrganizerShell } from "@/lib/auction-organizer-shell";
 import { AdminPwaProvider } from "@/contexts/admin-pwa-context";
 import { LocalVenueGate } from "@/components/local-venue-gate";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
@@ -155,7 +157,73 @@ function LegacyLiveRedirect() {
   return <Redirect to="/upcoming-auctions" />;
 }
 
+function OrganizerPageFallback() {
+  return (
+    <div
+      className="flex items-center justify-center py-24 text-sm text-muted-foreground"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Loading tournament page"
+    >
+      Loading…
+    </div>
+  );
+}
+
+/**
+ * One organiser shell for auction setup pages. Lazy pages suspend inside the
+ * main pane, so the sidebar stays mounted across those route changes.
+ * Auction Control, scoring, and OBS stay on their own routes.
+ */
+function AuctionOrganizerShell({
+  tournamentId,
+  requiredModule,
+}: {
+  tournamentId: number;
+  requiredModule?: "auction";
+}) {
+  return (
+    <OrganizerGuard tournamentId={tournamentId} requiredModule={requiredModule}>
+      <AppLayout tournamentId={tournamentId}>
+        <Suspense fallback={<OrganizerPageFallback />}>
+          <Switch>
+            <Route path="/tournament/:id/auction-overview">
+              {() => <AuctionOverview />}
+            </Route>
+            <Route path="/tournament/:id/overview">
+              {() => <AuctionOverview />}
+            </Route>
+            <Route path="/tournament/:id/teams" component={Teams} />
+            <Route path="/tournament/:id/categories" component={Categories} />
+            <Route path="/tournament/:id/players" component={Players} />
+            <Route path="/tournament/:id/reset" component={AuctionReset} />
+            <Route path="/tournament/:id/reports" component={Reports} />
+            <Route path="/tournament/:id/links" component={LinksPage} />
+            <Route path="/tournament/:id/fortune-wheel" component={FortuneWheel} />
+            <Route path="/tournament/:id/break-timer" component={BreakTimerPage} />
+            <Route path="/tournament/:id/local-mode" component={LocalModePage} />
+            <Route path="/tournament/:id/settings" component={TournamentSettings} />
+            <Route path="/tournament/:id">{() => <TournamentHome />}</Route>
+          </Switch>
+        </Suspense>
+      </AppLayout>
+    </OrganizerGuard>
+  );
+}
+
 function PlatformRouter() {
+  const [location] = useLocation();
+  const organizerShell = parseAuctionOrganizerShell(location);
+  if (organizerShell) {
+    return (
+      <AuctionOrganizerShell
+        tournamentId={organizerShell.tournamentId}
+        requiredModule={organizerShell.requiredModule}
+      />
+    );
+  }
+
   return (
     <Suspense fallback={<RouteSuspenseFallback />}>
       <Switch>
@@ -294,93 +362,15 @@ function PlatformRouter() {
           {(params) => <Redirect to={`/tournament/${params?.id}/fan`} />}
         </Route>
 
-        {/* Organizer-protected routes */}
-        <Route path="/tournament/:id">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><TournamentHome /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/auction-overview">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><AuctionOverview /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/overview">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><AuctionOverview /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/teams">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><Teams /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/categories">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><Categories /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/players">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><Players /></OrganizerGuard>;
-          }}
-        </Route>
+        {/* Auction Control stays outside the persistent organiser shell. */}
         <Route path="/tournament/:id/auction">
           {(params) => {
             const tid = parseInt(params?.id || "0");
             return <OrganizerGuard tournamentId={tid} requiredModule="auction"><AuctionOperator /></OrganizerGuard>;
           }}
         </Route>
-        <Route path="/tournament/:id/reset">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><AuctionReset /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/reports">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><Reports /></OrganizerGuard>;
-          }}
-        </Route>
         <Route path="/tournament/:id/team-reports">
           {(params) => <Redirect to={`/tournament/${params?.id ?? "0"}/reports?doc=planning`} />}
-        </Route>
-        <Route path="/tournament/:id/links">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><LinksPage /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/fortune-wheel">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><FortuneWheel /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/break-timer">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><BreakTimerPage /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/local-mode">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><LocalModePage /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/settings">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><TournamentSettings /></OrganizerGuard>;
-          }}
         </Route>
         {/* Sports Mission Control — temporary host under scoring-app */}
         <Route path="/tournament/:id/mission-control">
