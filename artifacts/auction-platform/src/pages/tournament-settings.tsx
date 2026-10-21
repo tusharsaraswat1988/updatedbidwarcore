@@ -876,55 +876,8 @@ export default function TournamentSettings() {
                 description="Logo, name, and sport shown across your tournament hub and LED display."
                 icon={<ImageIcon className="w-4 h-4 text-primary" />}
               >
-                {/* Logo & Photo Section */}
-                <div className="flex items-center gap-4 pb-1">
-                  <div className="w-16 h-16 rounded-xl border border-border/70 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
-                    {editForm.logoUrl ? (
-                      <img
-                        src={editForm.logoUrl as string}
-                        alt="Logo preview"
-                        className="w-full h-full object-contain"
-                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                      />
-                    ) : (
-                      <ImageIcon className="w-7 h-7 text-muted-foreground/40" />
-                    )}
-                  </div>
-                  <div className="space-y-1.5 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="h-8 gap-1.5 text-xs font-medium"
-                        onClick={() => setLogoEditorOpen(true)}
-                      >
-                        {editForm.logoUrl ? (
-                          <><Pencil className="w-3.5 h-3.5" /> Change Photo</>
-                        ) : (
-                          <><Upload className="w-3.5 h-3.5" /> Upload Photo</>
-                        )}
-                      </Button>
-                      {editForm.logoUrl ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
-                          onClick={() => setEditForm(f => ({ ...f, logoUrl: "" }))}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" /> Remove
-                        </Button>
-                      ) : null}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Square 1:1 ratio recommended (JPG, PNG, WebP)
-                    </p>
-                  </div>
-                </div>
-
                 {/* Name & Sport */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-foreground/90">
                       Tournament Name <span className="text-destructive">*</span>
@@ -967,6 +920,58 @@ export default function TournamentSettings() {
                         Locked while players exist in the tournament pool.
                       </p>
                     ) : null}
+                  </div>
+                </div>
+
+                {/* Logo & Photo Section */}
+                <div className="space-y-1.5 pt-1">
+                  <Label className="text-xs font-medium text-foreground/90">
+                    Tournament Logo / Photo
+                  </Label>
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-xl border border-border/70 bg-muted/20 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                      {editForm.logoUrl ? (
+                        <img
+                          src={editForm.logoUrl as string}
+                          alt="Logo preview"
+                          className="w-full h-full object-contain"
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <ImageIcon className="w-7 h-7 text-muted-foreground/40" />
+                      )}
+                    </div>
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1.5 text-xs font-medium"
+                          onClick={() => setLogoEditorOpen(true)}
+                        >
+                          {editForm.logoUrl ? (
+                            <><Pencil className="w-3.5 h-3.5" /> Change Photo</>
+                          ) : (
+                            <><Upload className="w-3.5 h-3.5" /> Upload Photo</>
+                          )}
+                        </Button>
+                        {editForm.logoUrl ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 gap-1"
+                            onClick={() => setEditForm(f => ({ ...f, logoUrl: "" }))}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" /> Remove
+                          </Button>
+                        ) : null}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Square 1:1 ratio recommended (JPG, PNG, WebP)
+                      </p>
+                    </div>
                   </div>
                 </div>
               </SettingsCard>
