@@ -152,8 +152,8 @@ export default function AdminDashboardOverview() {
   }, [isLoggedIn, loading, tournaments]);
 
   const stats = useMemo(() => {
-    const live = tournaments.filter((t) => (t.status === "active" || t.licenseStatus === "active") && !t.adminLocked);
-    const activeTournaments = tournaments.filter((t) => t.licenseStatus !== "completed");
+    const live = tournaments.filter((t) => t.status === "active" && !t.adminLocked);
+    const activeTournaments = tournaments.filter((t) => t.status !== "completed");
     const scheduledThisMonth = tournaments.filter((t) => isDateInCurrentMonthOrUpcoming(t.auctionDate));
     const verifiedOrganisers = organisers.filter((o) => o.phoneVerified || o.phoneStatus === "verified");
 
@@ -241,7 +241,7 @@ export default function AdminDashboardOverview() {
                 BidWar Platform Active & Operational
               </div>
               <h1 className="font-display text-2xl sm:text-3xl font-black text-foreground tracking-tight">
-                Welcome back to BidWar Admin 🎯
+                Welcome back! 👋
               </h1>
               <p className="text-sm text-muted-foreground">
                 Track live auctions, scheduled matchdays, organizer registrations, and player pipelines in real time.

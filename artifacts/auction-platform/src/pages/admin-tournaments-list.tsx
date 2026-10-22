@@ -46,7 +46,7 @@ function getSportTag(sportName?: string) {
 
 type FilterStatus = "all" | "active" | "trial" | "completed" | "locked";
 
-const GRID_COLS = "lg:grid lg:grid-cols-[minmax(220px,2fr)_minmax(140px,1.2fr)_110px_110px_130px_90px] lg:items-center lg:gap-4";
+const GRID_COLS = "lg:grid lg:grid-cols-[minmax(200px,1.8fr)_minmax(130px,1fr)_100px_135px_160px_80px] lg:items-center lg:gap-3";
 
 export default function AdminTournamentsListPage() {
   const [, navigate] = useLocation();
@@ -95,9 +95,9 @@ export default function AdminTournamentsListPage() {
     let locked = 0;
     for (const t of tournaments) {
       if (t.adminLocked) locked += 1;
-      if (t.licenseStatus === "active" || t.status === "active") active += 1;
+      if (t.status === "active") active += 1;
       else if (t.licenseStatus === "trial") trial += 1;
-      else if (t.licenseStatus === "completed" || t.status === "completed") completed += 1;
+      else if (t.status === "completed") completed += 1;
     }
     return { active, trial, completed, locked };
   }, [tournaments]);
@@ -106,9 +106,9 @@ export default function AdminTournamentsListPage() {
     return tournaments.filter((t) => {
       // Status filter
       if (statusFilter === "locked" && !t.adminLocked) return false;
-      if (statusFilter === "active" && (t.status !== "active" && t.licenseStatus !== "active")) return false;
+      if (statusFilter === "active" && t.status !== "active") return false;
       if (statusFilter === "trial" && t.licenseStatus !== "trial") return false;
-      if (statusFilter === "completed" && (t.licenseStatus !== "completed" && t.status !== "completed")) return false;
+      if (statusFilter === "completed" && t.status !== "completed") return false;
 
       // Sport filter
       if (sportFilter !== "all" && (t.sport || "").toLowerCase() !== sportFilter) return false;
@@ -350,15 +350,15 @@ export default function AdminTournamentsListPage() {
                     </div>
 
                     {/* Col 4: License */}
-                    <div className="mt-1.5 flex items-center gap-1.5 lg:mt-0">
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 min-w-0 lg:mt-0">
                       <LicenseBadge status={t.licenseStatus} />
                       {t.adminLocked && <LockBadge locked />}
                     </div>
 
                     {/* Col 5: Auction Date */}
-                    <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground lg:mt-0">
-                      <Calendar className="h-3 w-3 text-muted-foreground/60 hidden lg:inline" />
-                      <span>{t.auctionDate ? `${t.auctionDate}${t.auctionTime ? ` (${t.auctionTime})` : ''}` : "Not scheduled"}</span>
+                    <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground min-w-0 lg:mt-0">
+                      <Calendar className="h-3 w-3 text-muted-foreground/60 flex-shrink-0 hidden lg:inline" />
+                      <span className="truncate">{t.auctionDate ? `${t.auctionDate}${t.auctionTime ? ` (${t.auctionTime})` : ''}` : "Not scheduled"}</span>
                     </div>
 
                     {/* Col 6: Action */}

@@ -131,14 +131,14 @@ export function LicenseBadge({ status }: { status: string }) {
   if (status === "active") {
     return (
       <Badge className="bg-green-500/15 text-green-400 border-green-500/30 gap-1 text-[10px]">
-        <BadgeCheck className="w-3 h-3" /> Live
+        <BadgeCheck className="w-3 h-3" /> Licensed
       </Badge>
     );
   }
   if (status === "completed") {
     return (
       <Badge className="bg-blue-500/15 text-blue-400 border-blue-500/30 gap-1 text-[10px]">
-        <Check className="w-3 h-3" /> Completed
+        <BadgeCheck className="w-3 h-3" /> Licensed
       </Badge>
     );
   }

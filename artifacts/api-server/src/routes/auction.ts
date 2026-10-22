@@ -44,6 +44,11 @@ import {
 } from "../lib/led-overlay-patch";
 import { commitPresentationContext, presentationWriteFailure } from "../lib/presentation-context-write";
 import {
+  clearRandomPlayerReveal,
+  getRandomPlayerReveal,
+  recordRandomPlayerReveal,
+} from "../lib/random-player-reveal";
+import {
   EVENT_BUFFER_MAX,
   formatSseFrame,
   getCurrentEventVersion,
@@ -954,6 +959,15 @@ async function buildAuctionStateInner(tournamentId: number, timings: AuctionStat
     teamPurses,
     lastAuctionActivityAt,
     presentationContext,
+    randomPlayerReveal: (() => {
+      const activeReveal = getRandomPlayerReveal(tournamentId);
+      return activeReveal &&
+        activeReveal.playerId === session.currentPlayerId &&
+        !session.timerEndsAt &&
+        !session.currentBidTeamId
+        ? { playerId: activeReveal.playerId, startedAt: activeReveal.startedAt }
+        : null;
+    })(),
   };
   timings.serialization += Date.now() - serT0;
   return result;
@@ -1606,6 +1620,14 @@ router.post("/tournaments/:tournamentId/auction/next-player", async (req, res) =
   // broadcast the current state — the operator sees whatever the winning call
   // selected, which is correct.
   if (nextPlayerCommitted.length > 0) {
+    const isRandomDraw =
+      mode === "random" ||
+      (!mode && normalizePlayerSelectionMode(tournament?.playerSelectionMode) === "random");
+    if (isRandomDraw) {
+      recordRandomPlayerReveal(tid, selectedPlayer.id);
+    } else {
+      clearRandomPlayerReveal(tid);
+    }
     // A layout click remembers its overlay for a few seconds. Pin live auction
     // so the broadcast rebuild cannot put Team / Player / Top 5 back on screen.
     rememberLedOverlayPatch(tid, returnToLive);
@@ -3244,6 +3266,7 @@ router.post("/tournaments/:tournamentId/auction/start-timer", async (req, res) =
   const session = await getOrCreateSession(tid);
   if (rejectIfAuctionPaused(session, res)) return;
   const timerType = resolveTimerPhase(session);
+  clearRandomPlayerReveal(tid);
   const endsAt = new Date(Date.now() + body.data.seconds * 1000).toISOString();
   await db
     .update(auctionSessionsTable)

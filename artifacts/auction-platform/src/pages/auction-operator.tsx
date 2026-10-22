@@ -78,6 +78,8 @@ import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import { useAuctionUnit } from "@/hooks/use-auction-unit";
 import { useBranding } from "@/hooks/use-branding";
+import { broadcastRandomReveal } from "@/lib/auction-reveal-broadcast";
+import { getRevealDurations } from "@/components/display/random-player-reveal";
 import { getBrandLogoSrc, getBrandWordmarkSrc } from "@/lib/brand-assets";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { computeNextBidAmount } from "@workspace/api-base/auction-bid";
@@ -432,6 +434,13 @@ export default function AuctionOperator() {
   const deferPlayerMut     = useDeferPlayer();
   const setBreakTimerMut   = useSetBreakTimer();
   const updateAuctionSettingsMut = useUpdateAuctionSettings();
+  const [isRandomRevealing, setIsRandomRevealing] = useState(false);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    };
+  }, []);
 
   const ownerBiddingEnabled =
     (state as { ownerBiddingEnabled?: boolean } | undefined)?.ownerBiddingEnabled ??
@@ -637,11 +646,29 @@ export default function AuctionOperator() {
   }
 
   async function handleNextPlayer(mode: "sequential" | "random", playerId?: number) {
-    if (controlsLocked || state?.currentPlayer) return;
-    const result = await nextPlayer.mutateAsync({ tournamentId, data: { mode, playerId } });
-    setCurrentBidPaused(false);
-    // The server returns LED and OBS to the live auction in this same snapshot.
-    applyMutationResult(result);
+    if (controlsLocked || state?.currentPlayer || nextPlayer.isPending || isRandomRevealing) return;
+    if (mode === "random") {
+      setIsRandomRevealing(true);
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      const poolCount = state?.remainingPlayersCount ?? 1;
+      const revealDuration = getRevealDurations(poolCount).totalMs;
+      revealTimerRef.current = setTimeout(() => {
+        setIsRandomRevealing(false);
+      }, revealDuration);
+    }
+    try {
+      const result = await nextPlayer.mutateAsync({ tournamentId, data: { mode, playerId } });
+      setCurrentBidPaused(false);
+      // The server returns LED and OBS to the live auction in this same snapshot.
+      applyMutationResult(result);
+      if (mode === "random" && result?.currentPlayer?.id) {
+        broadcastRandomReveal(tournamentId, result.currentPlayer.id, Date.now());
+      }
+    } catch (err) {
+      setIsRandomRevealing(false);
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+      throw err;
+    }
   }
 
   function handleBid(teamId: number) {
@@ -861,6 +888,8 @@ export default function AuctionOperator() {
 
   function handleStartBiddingClick() {
     if (!isActive) return;
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    setIsRandomRevealing(false);
     if (currentBidPaused && hasPlayer) {
       setResumeBidDialogOpen(true);
       return;
@@ -1423,8 +1452,14 @@ export default function AuctionOperator() {
             key={state?.currentPlayer?.id}
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.15 }}
-            className="relative rounded-xl border border-white/10 overflow-hidden min-h-[110px] lg:min-h-[135px] bg-card flex flex-row items-stretch"
+            className={`relative rounded-xl border overflow-hidden min-h-[110px] lg:min-h-[135px] bg-card flex flex-row items-stretch transition-all ${isRandomRevealing ? "border-yellow-400 shadow-[0_0_24px_rgba(234,179,8,0.35)]" : "border-white/10"}`}
           >
+            {isRandomRevealing && (
+              <div className="absolute top-1 right-2 z-20 flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-400 text-black text-[9px] font-black uppercase tracking-wider animate-pulse">
+                <Shuffle className="w-2.5 h-2.5" />
+                <span>Random Reveal on LED</span>
+              </div>
+            )}
             {/* Dedicated player portrait frame — preserves exact 4:5 crop with centered alignment */}
             <div className="relative w-[95px] sm:w-[115px] lg:w-[130px] shrink-0 bg-black/40 overflow-hidden border-r border-white/10 flex items-center justify-center">
               {state?.currentPlayer?.photoUrl ? (
@@ -1627,15 +1662,15 @@ export default function AuctionOperator() {
   const nextPlayerAndStartRow = (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-1.5 lg:gap-2">
       <button
-        disabled={controlsLocked || !isActive || hasPlayer || timerActive || nextPlayer.isPending}
+        disabled={controlsLocked || !isActive || hasPlayer || timerActive || nextPlayer.isPending || isRandomRevealing}
         onClick={() => handleNextPlayer(selectionMode === "random" ? "random" : "sequential")}
         title={hasPlayer ? "Sold, unsold, or defer the current player first" : timerActive ? "Stop bidding first" : undefined}
         className="lg:col-span-3 flex items-center justify-center gap-2 min-h-[48px] lg:min-h-0 py-2.5 lg:py-3 rounded-xl font-display font-black text-base lg:text-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-yellow-400 text-black hover:bg-yellow-300 enabled:shadow-[0_0_16px_rgba(234,179,8,0.3)]"
       >
         {selectionMode === "random" ? <Shuffle className="w-4 h-4 lg:w-5 lg:h-5" /> : <SkipForward className="w-4 h-4 lg:w-5 lg:h-5" />}
         NEXT PLAYER
-        {nextPlayer.isPending
-          ? <span className="text-xs font-normal opacity-60">Loading…</span>
+        {nextPlayer.isPending || isRandomRevealing
+          ? <span className="text-xs font-normal opacity-60">Drawing…</span>
           : selectionMode === "random"
           ? <span className="text-xs font-normal opacity-60">(Random)</span>
           : <span className="hidden lg:inline text-xs font-normal opacity-60 font-mono">N</span>

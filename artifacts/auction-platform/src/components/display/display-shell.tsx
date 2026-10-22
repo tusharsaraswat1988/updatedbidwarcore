@@ -136,7 +136,7 @@ export function DisplayShell({
   return (
     <DisplayStageViewport>
       <StageThemeProvider initialTheme={resolvedTheme}>
-        <LedStageContent view={view} />
+        <LedStageContent view={view} tournamentId={tournamentId} />
       </StageThemeProvider>
 
       <DisplayConnectionBanner

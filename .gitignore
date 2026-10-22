@@ -53,6 +53,7 @@ Thumbs.db
 .env.local
 .env.*.local
 *.zip
+*.xlsx
 *.sql
 # Versioned DB migrations must be tracked (override *.sql above).
 !lib/db/migrations/*.sql

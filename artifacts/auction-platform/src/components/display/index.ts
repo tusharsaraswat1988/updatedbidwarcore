@@ -29,6 +29,7 @@ export { DisplayConnectionBanner } from "./display-connection-banner";
 export { OutcomeResultPanel } from "./outcome-result-panel";
 export type { OutcomeResultData } from "./outcome-result-panel";
 export { FortuneWheelOverlay } from "./fortune-wheel-overlay";
+export { RandomPlayerReveal } from "./random-player-reveal";
 export type {
   WheelItem,
   SoldRecord,

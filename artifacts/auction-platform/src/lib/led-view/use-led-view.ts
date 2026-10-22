@@ -808,6 +808,7 @@ export function useLedView(
       topSoldPlayers,
       timerCeiling,
       minimumBid: minBid,
+      randomPlayerReveal: (state as any)?.randomPlayerReveal ?? null,
       loading: false,
       error: error ? String(error) : null,
       connectionStatus,

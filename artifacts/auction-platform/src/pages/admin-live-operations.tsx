@@ -26,8 +26,8 @@ function getId(pathname: string) {
 }
 
 function LiveStatus({ tournament }: { tournament: AdminTournamentRow }) {
-  const live = tournament.licenseStatus === "active" && !tournament.adminLocked;
-  return <StatusBadge tone={live ? "green" : "muted"}>{live ? "Live" : tournament.licenseStatus}</StatusBadge>;
+  const live = tournament.status === "active" && !tournament.adminLocked;
+  return <StatusBadge tone={live ? "green" : "muted"}>{live ? "Live" : (tournament.status || "Setup")}</StatusBadge>;
 }
 
 function LiveAuctions({
@@ -39,7 +39,7 @@ function LiveAuctions({
   allTournaments: AdminTournamentRow[];
   navigate: (path: string) => void;
 }) {
-  const scheduled = allTournaments.filter((t) => t.licenseStatus !== "completed" && t.licenseStatus !== "active");
+  const scheduled = allTournaments.filter((t) => t.status !== "completed" && t.status !== "active");
   const rows = liveTournaments.length ? liveTournaments : scheduled.slice(0, 8);
   return (
     <div className="rounded-xl border border-border bg-card/70 overflow-hidden">
@@ -71,7 +71,7 @@ function LiveAuctions({
           <div className="mt-1.5 text-xs text-muted-foreground lg:mt-0">{t.auctionDate || "Not set"}</div>
           <div className="mt-2 text-xs font-semibold text-primary lg:mt-0 lg:text-right">
             <span className="inline-block rounded-md bg-primary/10 px-2.5 py-1 hover:bg-primary/20 transition-colors">
-              {t.licenseStatus === "active" ? "Open tournament →" : "Prepare →"}
+              {t.status === "active" ? "Open tournament →" : "Prepare →"}
             </span>
           </div>
         </button>
@@ -113,7 +113,7 @@ export default function AdminLiveOperations() {
   }, [isLoggedIn, reloadTournaments]);
 
   const liveTournaments = useMemo(
-    () => tournaments.filter((t) => t.licenseStatus === "active" && !t.adminLocked),
+    () => tournaments.filter((t) => t.status === "active" && !t.adminLocked),
     [tournaments],
   );
 
