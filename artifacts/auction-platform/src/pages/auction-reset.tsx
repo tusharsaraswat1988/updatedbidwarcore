@@ -118,10 +118,12 @@ export default function AuctionReset() {
         <div className="min-w-0">
           <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <RefreshCw className="w-6 h-6 text-red-400 shrink-0" aria-hidden />
-            Clear practice data
+            {demoLoaded ? "Clear Trial Demo Data" : "Clear Practice Data"}
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-snug">
-            Removes loaded demo data and its practice auction activity. Your original tournament data is preserved.
+            {demoLoaded
+              ? "Removes loaded sample teams, players, sponsors, and demo auction activity. Your original tournament data is preserved."
+              : "Removes practice auction activity and resets team purses. Your original tournament data is preserved."}
           </p>
         </div>
 
@@ -218,7 +220,7 @@ export default function AuctionReset() {
                       onClick={handleReset}
                     >
                       <RefreshCw className={`w-3.5 h-3.5 ${resetMut.isPending ? "animate-spin" : ""}`} aria-hidden />
-                      {resetMut.isPending ? "Resetting…" : "Reset everything"}
+                      {resetMut.isPending ? "Clearing…" : demoLoaded ? "Clear Trial Demo Data" : "Reset Auction Bids"}
                     </Button>
                     <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={goBack}>
                       <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
@@ -236,7 +238,7 @@ export default function AuctionReset() {
           </CardContent>
         </Card>
 
-        {tournament?.licenseStatus === "trial" && (
+        {tournament?.licenseStatus === "trial" && !demoLoaded && (
           <TrialDemoCard
             tournamentId={tournamentId}
             tournament={tournament}
