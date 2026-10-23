@@ -236,11 +236,13 @@ export default function AuctionReset() {
           </CardContent>
         </Card>
 
-        <TrialDemoCard
-          tournamentId={tournamentId}
-          tournament={tournament}
-          returnTo={returnTo}
-        />
+        {tournament?.licenseStatus === "trial" && (
+          <TrialDemoCard
+            tournamentId={tournamentId}
+            tournament={tournament}
+            returnTo={returnTo}
+          />
+        )}
       </div>
     </AppLayout>
   );

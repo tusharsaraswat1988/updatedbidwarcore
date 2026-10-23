@@ -599,8 +599,8 @@ export async function loadOrganizerDemoSession(rawInput: OrganizerDemoLoadInput)
     if (!tournament || tournament.organizerId !== input.organizerId) {
       throw new Error("You do not have permission to load demo data for this tournament");
     }
-    if (tournament.licenseStatus === "active") {
-      throw new Error("Demo data can only be loaded while the tournament license is a trial.");
+    if (tournament.licenseStatus !== "trial") {
+      throw new Error("Demo data can only be loaded while the tournament license is a trial. Licensed tournaments cannot load trial demo data.");
     }
 
     const settingsBefore: Record<string, unknown> = {};

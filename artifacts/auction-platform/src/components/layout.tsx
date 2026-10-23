@@ -236,7 +236,7 @@ function SidebarNav({
                   <Link2 className="w-5 h-5 flex-shrink-0" />
                   {expanded && <span>Links</span>}
                 </SidebarLink>
-                {expanded && (
+                {expanded && tournament?.licenseStatus === "trial" && (
                   <SidebarLink
                     href={auctionResetPath(tournamentId, location)}
                     title="Clear practice auction data before going live"

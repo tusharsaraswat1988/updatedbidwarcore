@@ -2610,15 +2610,21 @@ router.get("/tournaments/:tournamentId/auction/demo-session", async (req, res) =
   const tid = parseInt(req.params.tournamentId as string);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (tournament?.licenseStatus !== "trial") {
+    res.json({ loaded: false, eligible: false });
+    return;
+  }
   const demoReset = await import("../lib/auction-demo-reset");
   const loaded = await demoReset.findLoadedDemoSession(tid);
   if (!loaded) {
-    res.json({ loaded: false });
+    res.json({ loaded: false, eligible: true });
     return;
   }
   const counts = await demoReset.getDemoSessionCounts(loaded.id);
   res.json({
     loaded: true,
+    eligible: true,
     sessionId: loaded.id,
     createdAt: loaded.createdAt,
     ...counts,
@@ -2686,8 +2692,8 @@ router.post("/tournaments/:tournamentId/auction/demo-session", async (req, res) 
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!requireAuctionModule(res, tournament)) return;
-  if (tournament?.licenseStatus === "active") {
-    res.status(403).json({ error: "Demo data can only be loaded while the tournament license is a trial." });
+  if (tournament?.licenseStatus !== "trial") {
+    res.status(403).json({ error: "Demo data can only be loaded while the tournament license is a trial. Licensed tournaments cannot load trial demo data." });
     return;
   }
   const parsed = demoLoadSchema.safeParse(req.body ?? {});

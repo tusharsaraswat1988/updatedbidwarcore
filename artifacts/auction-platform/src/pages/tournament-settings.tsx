@@ -2224,11 +2224,13 @@ export default function TournamentSettings() {
         {/* ── RECOVERY ── */}
         {isAuction && activeSection === "recovery" && (
           <SettingsTabPanel className="max-w-3xl space-y-5">
-            <TrialDemoCard
+            {tournament?.licenseStatus === "trial" && (
+              <TrialDemoCard
               tournamentId={tournamentId}
               tournament={tournament}
               returnTo={settingsPath(tournamentId, "recovery")}
-            />
+              />
+            )}
             <SettingsCard
               title="Danger Zone"
               description="Irreversible actions that reset live auction state."

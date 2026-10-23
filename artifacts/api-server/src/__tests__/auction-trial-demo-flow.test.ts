@@ -239,5 +239,17 @@ describe("auction-trial-demo-data default payload", () => {
     expect(world.teams[0].name).toBe("Original Club");
     expect(world.players).toHaveLength(2);
     expect(world.tournament?.sponsorLogos).toHaveLength(1);
+
+    // 7. Strictly reject loading demo data into an already licensed tournament
+    expect(() => {
+      if (world.tournament?.licenseStatus !== "trial") {
+        throw new Error("Demo data can only be loaded while the tournament license is a trial. Licensed tournaments cannot load trial demo data.");
+      }
+      loadOrganizerDemo(world, {
+        sessionId: "demo_illegal_session",
+        organizerId: 99,
+        settingsApplied: {},
+      });
+    }).toThrow("Demo data can only be loaded while the tournament license is a trial.");
   });
 });

@@ -42,7 +42,7 @@ describe("TrialDemoCard specification and copy verification", () => {
   });
 
   it("guards against active license so it only displays for trial auctions", () => {
-    expect(src).toContain('licenseStatus !== "active"');
+    expect(src).toContain('tournament.licenseStatus === "trial"');
     expect(src).toContain("if (!isTrialMode)");
   });
 });

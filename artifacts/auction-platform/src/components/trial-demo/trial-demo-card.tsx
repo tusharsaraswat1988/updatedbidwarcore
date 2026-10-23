@@ -65,9 +65,12 @@ export function TrialDemoCard({
     ownerSessions?: number;
   } | null>(null);
 
+  const isTrialMode = !!tournament && tournament.licenseStatus === "trial";
+  const isCompleted = tournament?.status === "completed";
+
   const demoSessionQuery = useQuery({
     queryKey: ["auction-demo-session", tournamentId],
-    enabled: !!tournamentId,
+    enabled: !!tournamentId && isTrialMode,
     queryFn: async (): Promise<DemoSessionState> => {
       const res = await apiFetch(`/tournaments/${tournamentId}/auction/demo-session`);
       if (!res.ok) return { loaded: false };
@@ -77,8 +80,6 @@ export function TrialDemoCard({
   });
 
   const demoLoaded = demoSessionQuery.data?.loaded === true;
-  const isTrialMode = tournament?.licenseStatus !== "active";
-  const isCompleted = tournament?.status === "completed";
 
   async function handleLoadDemo() {
     if (!tournamentId || loading || demoLoaded) return;
@@ -130,7 +131,7 @@ export function TrialDemoCard({
     }
   }
 
-  // Hide entirely if tournament license is active (not eligible for trial mode)
+  // Strictly hide if tournament is already licensed or not in trial mode (prevents conflicts)
   if (!isTrialMode) {
     return null;
   }
