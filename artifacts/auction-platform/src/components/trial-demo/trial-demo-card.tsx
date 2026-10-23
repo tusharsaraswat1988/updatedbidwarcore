@@ -12,12 +12,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
-  Gavel,
   ShieldCheck,
   Users,
   Image as ImageIcon,
 } from "lucide-react";
-import { auctionResetPath, auctionRoomPath } from "@/lib/tournament-navigation";
+import { auctionResetPath } from "@/lib/tournament-navigation";
 
 export interface DemoSessionState {
   loaded: boolean;
@@ -215,20 +214,14 @@ export function TrialDemoCard({
             </div>
 
             {/* Next actions */}
-            <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-border/40">
-              <a
-                href={auctionRoomPath(tournamentId)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
-              >
-                <Gavel className="w-3.5 h-3.5" />
-                Open Auction Control
-              </a>
+            <div className="flex items-center justify-between gap-3 pt-2 border-t border-border/40">
+              <span className="text-xs text-muted-foreground">
+                Demo session active. Use the left sidebar to run the auction.
+              </span>
               <Button
                 variant="outline"
                 size="sm"
-                className="border-rose-500/30 text-rose-300 hover:bg-rose-500/10 hover:text-rose-200 gap-1.5 text-xs h-9 px-3"
+                className="border-rose-500/30 text-rose-300 hover:bg-rose-500/10 hover:text-rose-200 gap-1.5 text-xs h-9 px-3 shrink-0"
                 onClick={() => navigate(auctionResetPath(tournamentId, returnTo))}
               >
                 <RefreshCw className="w-3.5 h-3.5" />
