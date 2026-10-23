@@ -1,61 +1,56 @@
 /*
  * Public player registration only.
- * Layout stays the registration-link system (sidebar card, numbered
- * sections, required/optional markers). Colors match the organizer
- * Add Player surface: navy stage, lifted navy cards, gold accent.
- * Portaled menus opt in with .registration-portal.
+ * Tokens are scoped so auction, scoring, print, and marketing surfaces
+ * keep the broadcast theme. Portaled menus opt in with .registration-portal.
  */
 
 .lovable-theme.dark.registration-experience,
 .lovable-theme.dark.registration-portal {
-  --reg-navy: oklch(0.22 0.13 265);
-  --reg-navy-deep: oklch(0.16 0.11 265);
-  --reg-page: oklch(0.18 0.11 265);
-  --reg-success: oklch(0.82 0.14 155);
-  --reg-success-bg: oklch(0.30 0.06 155);
-  --reg-success-border: oklch(0.48 0.08 155);
-  --reg-pending: oklch(0.88 0.14 88);
-  --reg-pending-bg: oklch(0.32 0.06 86);
-  --reg-pending-border: oklch(0.55 0.10 86);
-  --reg-error: oklch(0.80 0.14 25);
-  --reg-error-bg: oklch(0.30 0.07 25);
-  --reg-error-border: oklch(0.50 0.12 25);
+  --reg-navy: oklch(0.30 0.085 264);
+  --reg-navy-deep: oklch(0.24 0.07 264);
+  --reg-page: oklch(0.955 0.008 260);
+  --reg-success: oklch(0.40 0.09 155);
+  --reg-success-bg: oklch(0.97 0.02 155);
+  --reg-success-border: oklch(0.86 0.04 155);
+  --reg-pending: oklch(0.42 0.08 75);
+  --reg-pending-bg: oklch(0.97 0.025 85);
+  --reg-pending-border: oklch(0.88 0.05 85);
+  --reg-error: oklch(0.45 0.15 25);
+  --reg-error-bg: oklch(0.97 0.015 25);
+  --reg-error-border: oklch(0.86 0.04 25);
 
   --background: var(--reg-page);
-  --foreground: oklch(0.98 0.005 90);
-  --stage: oklch(0.16 0.10 265);
-  --gradient-stage:
-    radial-gradient(ellipse at 18% -8%, oklch(0.38 0.14 265 / 0.65), transparent 52%),
-    radial-gradient(ellipse at 92% 0%, oklch(0.85 0.17 88 / 0.10), transparent 46%),
-    linear-gradient(180deg, oklch(0.22 0.12 265), oklch(0.14 0.09 265));
+  --foreground: var(--reg-navy);
+  --stage: var(--reg-page);
+  --gradient-stage: var(--reg-page);
 
-  --card: oklch(0.26 0.11 265);
-  --card-foreground: var(--foreground);
-  --popover: oklch(0.28 0.11 265);
-  --popover-foreground: var(--foreground);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--reg-navy);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--reg-navy);
 
-  --primary: oklch(0.85 0.17 88);
-  --primary-foreground: oklch(0.20 0.13 265);
+  --primary: oklch(0.78 0.14 86);
+  --primary-foreground: var(--reg-navy-deep);
 
-  --secondary: oklch(0.32 0.10 265);
-  --secondary-foreground: var(--foreground);
+  --secondary: oklch(0.95 0.01 260);
+  --secondary-foreground: var(--reg-navy);
 
-  --muted: oklch(0.30 0.09 265);
-  --muted-foreground: oklch(0.78 0.04 250);
+  --muted: oklch(0.955 0.008 260);
+  --muted-foreground: oklch(0.46 0.03 262);
 
-  --accent: oklch(0.34 0.08 265);
-  --accent-foreground: var(--foreground);
+  --accent: oklch(0.94 0.02 264);
+  --accent-foreground: var(--reg-navy);
 
-  --destructive: oklch(0.66 0.22 25);
-  --destructive-foreground: oklch(0.98 0.005 90);
+  --destructive: oklch(0.52 0.18 25);
+  --destructive-foreground: oklch(0.99 0.002 90);
 
-  --border: oklch(0.40 0.07 265);
-  --input: oklch(0.42 0.07 265);
-  --ring: oklch(0.85 0.17 88);
+  --border: oklch(0.88 0.012 260);
+  --input: oklch(0.88 0.012 260);
+  --ring: oklch(0.72 0.13 86);
 
-  --panel: oklch(0.26 0.11 265);
-  --panel-2: oklch(0.30 0.10 265);
-  --rail: oklch(0.32 0.09 265);
+  --panel: oklch(1 0 0);
+  --panel-2: oklch(0.97 0.006 260);
+  --rail: oklch(0.975 0.004 260);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -81,12 +76,13 @@
   --color-panel-2: var(--panel-2);
   --color-rail: var(--rail);
 
-  accent-color: var(--primary);
+  accent-color: var(--reg-navy);
 }
 
 .lovable-theme.registration-experience:not([data-state]):not([role="dialog"]):not([role="alertdialog"]):not([role="menu"]):not([role="listbox"]) {
-  background: var(--gradient-stage);
-  background-attachment: fixed;
+  background: var(--reg-page);
+  background-image: none;
+  background-attachment: scroll;
 }
 
 .registration-portal [role="option"] {
@@ -141,7 +137,6 @@
   color: var(--card-foreground);
   border: 1px solid var(--border);
   border-radius: 16px;
-  box-shadow: 0 18px 40px -28px oklch(0 0 0 / 0.8);
   min-width: 0;
   max-width: 100%;
 }
@@ -179,8 +174,7 @@
   width: 52px;
   height: 52px;
   border-radius: 12px;
-  background: var(--reg-navy-deep);
-  border: 1px solid color-mix(in oklab, var(--primary) 50%, transparent);
+  background: var(--reg-navy);
   padding: 6px;
 }
 
@@ -205,7 +199,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--foreground);
+  color: var(--reg-navy);
   font-weight: 700;
   font-size: 13px;
 }
@@ -278,7 +272,7 @@
   font-size: 1.45rem;
   line-height: 1.15;
   font-weight: 700;
-  color: var(--foreground);
+  color: var(--reg-navy);
   text-wrap: balance;
 }
 
@@ -319,18 +313,12 @@
 .reg-fact dd {
   font-size: 13px;
   font-weight: 600;
-  color: var(--foreground);
+  color: var(--reg-navy);
   line-height: 1.3;
 }
 
 .reg-fact--capacity {
-  background: var(--primary);
-  border-color: transparent;
-}
-
-.reg-fact--capacity dt,
-.reg-fact--capacity dd {
-  color: var(--primary-foreground);
+  background: color-mix(in oklab, var(--primary) 28%, white);
 }
 
 .reg-section-head {
@@ -359,7 +347,7 @@
   font-size: 1.05rem;
   line-height: 1.25;
   font-weight: 700;
-  color: var(--foreground);
+  color: var(--reg-navy);
 }
 
 .reg-section-head p {
@@ -407,7 +395,7 @@
 }
 
 .reg-badge--req {
-  color: var(--primary);
+  color: var(--reg-navy);
 }
 
 .reg-badge--opt,
@@ -549,9 +537,9 @@
 }
 
 .reg-chip[data-checked="true"] {
-  border-color: transparent;
-  background: var(--primary);
-  color: var(--primary-foreground);
+  border-color: var(--reg-navy);
+  background: var(--accent);
+  color: var(--reg-navy);
   font-weight: 600;
 }
 
@@ -564,7 +552,7 @@
 .reg-subhead {
   font-size: 15px;
   font-weight: 700;
-  color: var(--foreground);
+  color: var(--reg-navy);
 }
 
 .reg-actions {
@@ -584,7 +572,7 @@
   font-size: 1.75rem;
   line-height: 1.1;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--reg-navy);
   font-variant-numeric: tabular-nums;
 }
 
@@ -626,7 +614,6 @@
   padding: 16px;
   border-radius: 12px;
   border: 1px solid var(--border);
-  /* Light pad is required so UPI apps can scan the code. */
   background: white;
 }
 
@@ -638,7 +625,7 @@
 }
 
 .reg-upi strong {
-  color: var(--foreground);
+  color: var(--reg-navy);
   font-weight: 600;
 }
 
@@ -646,7 +633,7 @@
   font-size: 1.45rem;
   line-height: 1.2;
   font-weight: 700;
-  color: var(--foreground);
+  color: var(--reg-navy);
 }
 
 .reg-meta-list {
@@ -673,7 +660,7 @@
 
 .reg-meta-list dd {
   font-weight: 600;
-  color: var(--foreground);
+  color: var(--reg-navy);
 }
 
 @media (min-width: 768px) {
@@ -741,7 +728,7 @@
   border-radius: 10px;
   border: 1px solid var(--reg-success-border);
   background: var(--reg-success-bg);
-  color: var(--foreground);
+  color: var(--reg-navy);
 }
 
 .reg-welcome p {
@@ -778,8 +765,8 @@
   transform: translateY(-50%);
   padding: 1px 6px;
   border-radius: 999px;
-  background: var(--primary);
-  color: var(--primary-foreground);
+  background: color-mix(in oklab, var(--primary) 40%, white);
+  color: var(--reg-navy-deep);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.01em;
@@ -809,9 +796,9 @@
   }
   24%,
   68% {
-    --reg-autofill-bg: color-mix(in oklab, var(--primary) 28%, var(--rail));
-    --reg-autofill-border: var(--primary);
-    outline-color: color-mix(in oklab, var(--primary) 70%, transparent);
+    --reg-autofill-bg: color-mix(in oklab, var(--primary) 32%, white);
+    --reg-autofill-border: color-mix(in oklab, var(--reg-navy) 18%, var(--primary));
+    outline-color: color-mix(in oklab, var(--primary) 78%, var(--reg-navy));
   }
 }
 
@@ -851,11 +838,11 @@
   .reg-autofill :is(input:not([type="checkbox"]):not([type="file"]), button[role="combobox"], textarea),
   .reg-autofill .reg-photo-preview,
   .reg-autofill .reg-chips {
-    --reg-autofill-bg: color-mix(in oklab, var(--primary) 28%, var(--rail));
-    --reg-autofill-border: var(--primary);
+    --reg-autofill-bg: color-mix(in oklab, var(--primary) 32%, white);
+    --reg-autofill-border: color-mix(in oklab, var(--reg-navy) 18%, var(--primary));
     background-color: var(--reg-autofill-bg) !important;
     border-color: var(--reg-autofill-border) !important;
-    outline: 2px solid color-mix(in oklab, var(--primary) 70%, transparent);
+    outline: 2px solid color-mix(in oklab, var(--primary) 78%, var(--reg-navy));
     outline-offset: 1px;
   }
 
