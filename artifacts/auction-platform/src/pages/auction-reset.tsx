@@ -1,3 +1,4 @@
+import { TrialDemoCard } from "@/components/trial-demo/trial-demo-card";
 import { useState } from "react";
 import { useRoute, useLocation, useSearch } from "wouter";
 import { useResetTrialAuction, useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
@@ -234,6 +235,12 @@ export default function AuctionReset() {
             )}
           </CardContent>
         </Card>
+
+        <TrialDemoCard
+          tournamentId={tournamentId}
+          tournament={tournament}
+          returnTo={returnTo}
+        />
       </div>
     </AppLayout>
   );

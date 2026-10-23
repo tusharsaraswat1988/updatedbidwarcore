@@ -1,3 +1,4 @@
+import { TrialDemoCard } from "@/components/trial-demo/trial-demo-card";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useRoute, useLocation, useSearch } from "wouter";
 import {
@@ -38,7 +39,7 @@ import {
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
   Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop, IndianRupee, ClipboardList, Handshake,
-  Play, Coffee, Plus,
+  Play, Coffee, Plus, Sparkles,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -761,7 +762,7 @@ export default function TournamentSettings() {
     { id: "auction", label: "Auction Rules", icon: Gavel, module: "auction" },
     { id: "sponsors", label: "Sponsors", icon: Handshake, module: "core" },
     { id: "broadcast", label: "Screen & Sound", icon: Megaphone, module: "auction" },
-    { id: "recovery", label: "Reset", icon: ShieldAlert, module: "auction" },
+    { id: "recovery", label: tournament?.licenseStatus !== "active" ? "Trial Demo & Reset" : "Reset", icon: tournament?.licenseStatus !== "active" ? Sparkles : ShieldAlert, module: "auction" },
   ];
 
   const tabs = allTabs.filter(tab => tab.module === "core" || isAuction);
@@ -868,7 +869,31 @@ export default function TournamentSettings() {
 
         {/* ── IDENTITY ── */}
         {activeSection === "identity" && (
-          <SettingsTabPanel>
+          <SettingsTabPanel className="space-y-5">
+            {tournament?.licenseStatus !== "active" && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-semibold text-amber-200">
+                      Trial Mode — Sample Players & Teams Available
+                    </p>
+                    <p className="text-xs text-amber-300/80 leading-relaxed">
+                      Practise your live auction workflow: load 10 sample players, 2 teams, 5 sponsors, and demo owner logins in the Trial Demo panel.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => navigate(settingsPath(tournamentId, "recovery"))}
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs gap-1.5 flex-shrink-0 shadow-sm"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Load Trial Demo
+                </Button>
+              </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {/* Tournament Information */}
               <SettingsCard
@@ -2198,7 +2223,12 @@ export default function TournamentSettings() {
 
         {/* ── RECOVERY ── */}
         {isAuction && activeSection === "recovery" && (
-          <SettingsTabPanel className="max-w-3xl">
+          <SettingsTabPanel className="max-w-3xl space-y-5">
+            <TrialDemoCard
+              tournamentId={tournamentId}
+              tournament={tournament}
+              returnTo={settingsPath(tournamentId, "recovery")}
+            />
             <SettingsCard
               title="Danger Zone"
               description="Irreversible actions that reset live auction state."

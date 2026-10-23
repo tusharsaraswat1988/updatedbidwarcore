@@ -457,6 +457,28 @@ export async function findLoadedDemoSession(tournamentId: number) {
   return session ?? null;
 }
 
+export async function getDemoSessionCounts(sessionId: string) {
+  const records = await db
+    .select({
+      entityType: auctionDemoOwnedRecordsTable.entityType,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(auctionDemoOwnedRecordsTable)
+    .where(eq(auctionDemoOwnedRecordsTable.demoSessionId, sessionId))
+    .groupBy(auctionDemoOwnedRecordsTable.entityType);
+
+  const counts: Record<string, number> = {};
+  for (const r of records) counts[r.entityType] = Number(r.count);
+  return {
+    teams: counts["team"] ?? 0,
+    players: counts["player"] ?? 0,
+    sponsors: (counts["sponsor"] ?? 0) + (counts["master_sponsor"] ?? 0),
+    categories: counts["category"] ?? 0,
+    retentions: counts["retention"] ?? 0,
+    ownerSessions: counts["owner_session"] ?? 0,
+  };
+}
+
 export async function commitLoadedDemoReset(
   input: DemoCleanupInput,
   hooks?: { failAfterApply?: boolean },
@@ -490,18 +512,26 @@ export interface OrganizerDemoLoadInput {
     accessCode?: string | null;
     logoUrl?: string | null;
     color?: string | null;
+    purse?: number;
+    purseUsed?: number;
   }[];
   players?: {
     name: string;
     photoUrl?: string | null;
+    role?: string | null;
+    city?: string | null;
+    battingStyle?: string | null;
+    bowlingStyle?: string | null;
+    age?: number | null;
+    basePrice?: number | null;
     teamIndex?: number | null;
     categoryIndex?: number | null;
     status?: string;
     soldPrice?: number | null;
     retainedPrice?: number | null;
   }[];
-  sponsors?: { demoSponsorId: string; name?: string; url: string }[];
-  categories?: { name: string }[];
+  sponsors?: { demoSponsorId: string; name?: string; url: string; tier?: string }[];
+  categories?: { name: string; minBid?: number; bidIncrement?: number; colorCode?: string }[];
   ownerSessions?: { id: string; teamIndex: number }[];
   retentions?: { auctionPlayerIndex: number; auctionTeamIndex: number }[];
   masterSponsors?: { id: string; name: string; logoUrl?: string | null }[];
@@ -537,9 +567,19 @@ export async function grantTournamentLiveLicense(
   });
 }
 
-export async function loadOrganizerDemoSession(input: OrganizerDemoLoadInput) {
+export async function loadOrganizerDemoSession(rawInput: OrganizerDemoLoadInput) {
   return db.transaction(async (tx) => {
-    await lockAuctionMutation(tx, input.tournamentId);
+    await lockAuctionMutation(tx, rawInput.tournamentId);
+    let input = rawInput;
+    if ((!input.teams || input.teams.length === 0) && (!input.players || input.players.length === 0)) {
+      const { buildDefaultTrialDemoPayload } = await import("./auction-trial-demo-data");
+      const defaultPayload = buildDefaultTrialDemoPayload(input.tournamentId, input.organizerId);
+      input = {
+        ...defaultPayload,
+        ...input,
+        settingsApplied: { ...defaultPayload.settingsApplied, ...(input.settingsApplied ?? {}) },
+      };
+    }
     const existing = await tx
       .select({ id: auctionDemoSessionsTable.id })
       .from(auctionDemoSessionsTable)
@@ -606,6 +646,8 @@ export async function loadOrganizerDemoSession(input: OrganizerDemoLoadInput) {
           accessCode: team.accessCode ?? null,
           logoUrl: team.logoUrl ?? null,
           color: team.color ?? "#3B82F6",
+          purse: team.purse ?? 10000000,
+          purseUsed: team.purseUsed ?? 0,
         })
         .returning({ id: teamsTable.id });
       teamIds.push(created!.id);
@@ -625,6 +667,9 @@ export async function loadOrganizerDemoSession(input: OrganizerDemoLoadInput) {
         .values({
           tournamentId: input.tournamentId,
           name: category.name,
+          minBid: category.minBid ?? null,
+          bidIncrement: category.bidIncrement ?? null,
+          colorCode: category.colorCode ?? "#F59E0B",
           sortOrder: 1000 + index,
         })
         .returning({ id: categoriesTable.id });
@@ -666,6 +711,12 @@ export async function loadOrganizerDemoSession(input: OrganizerDemoLoadInput) {
           status: player.status ?? "available",
           soldPrice: player.soldPrice ?? null,
           retainedPrice: player.retainedPrice ?? null,
+          role: player.role ?? "Player",
+          city: player.city ?? null,
+          battingStyle: player.battingStyle ?? null,
+          bowlingStyle: player.bowlingStyle ?? null,
+          age: player.age ?? null,
+          basePrice: player.basePrice ?? 100000,
         })
         .returning({ id: playersTable.id });
       playerIds.push(created!.id);
@@ -771,6 +822,9 @@ export async function loadOrganizerDemoSession(input: OrganizerDemoLoadInput) {
       teams: teamIds.length,
       players: playerIds.length,
       sponsors: (input.sponsors ?? []).length + (input.masterSponsors ?? []).length,
+      categories: categoryIds.length,
+      retentions: (input.retentions ?? []).length,
+      ownerSessions: (input.ownerSessions ?? []).length,
     };
   });
 }

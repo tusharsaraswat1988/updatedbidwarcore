@@ -2607,7 +2607,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction-unsold", async (req, 
 });
 
 router.get("/tournaments/:tournamentId/auction/demo-session", async (req, res) => {
-  const tid = parseInt(req.params.tournamentId);
+  const tid = parseInt(req.params.tournamentId as string);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   if (!(await requireTournamentOrganizer(req, res, tid))) return;
   const demoReset = await import("../lib/auction-demo-reset");
@@ -2616,7 +2616,13 @@ router.get("/tournaments/:tournamentId/auction/demo-session", async (req, res) =
     res.json({ loaded: false });
     return;
   }
-  res.json({ loaded: true, sessionId: loaded.id });
+  const counts = await demoReset.getDemoSessionCounts(loaded.id);
+  res.json({
+    loaded: true,
+    sessionId: loaded.id,
+    createdAt: loaded.createdAt,
+    ...counts,
+  });
 });
 
 const demoLoadSchema = z.object({
@@ -2629,10 +2635,18 @@ const demoLoadSchema = z.object({
     accessCode: z.string().nullable().optional(),
     logoUrl: z.string().nullable().optional(),
     color: z.string().nullable().optional(),
+    purse: z.number().int().optional(),
+    purseUsed: z.number().int().optional(),
   })).optional(),
   players: z.array(z.object({
     name: z.string().min(1),
     photoUrl: z.string().nullable().optional(),
+    role: z.string().nullable().optional(),
+    city: z.string().nullable().optional(),
+    battingStyle: z.string().nullable().optional(),
+    bowlingStyle: z.string().nullable().optional(),
+    age: z.number().int().nullable().optional(),
+    basePrice: z.number().int().nullable().optional(),
     teamIndex: z.number().int().nullable().optional(),
     categoryIndex: z.number().int().nullable().optional(),
     status: z.string().optional(),
@@ -2643,8 +2657,14 @@ const demoLoadSchema = z.object({
     demoSponsorId: z.string().min(1),
     name: z.string().optional(),
     url: z.string().min(1),
+    tier: z.string().optional(),
   })).optional(),
-  categories: z.array(z.object({ name: z.string().min(1) })).optional(),
+  categories: z.array(z.object({
+    name: z.string().min(1),
+    minBid: z.number().int().optional(),
+    bidIncrement: z.number().int().optional(),
+    colorCode: z.string().optional(),
+  })).optional(),
   ownerSessions: z.array(z.object({
     id: z.string().min(1),
     teamIndex: z.number().int(),
@@ -2692,6 +2712,7 @@ router.post("/tournaments/:tournamentId/auction/demo-session", async (req, res) 
       alertKey: "auction_demo_load",
     });
     invalidateIntelCacheForTournament(tid);
+    invalidateStateCache(tid);
     bumpTournamentInsights(tid);
     afterPlayerDataChanged(tid, req.log);
     res.status(201).json(created);
