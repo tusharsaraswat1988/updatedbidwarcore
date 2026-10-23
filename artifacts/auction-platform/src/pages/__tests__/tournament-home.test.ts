@@ -105,9 +105,15 @@ describe("Phase 3: Auction module landing & compatibility routes", () => {
   });
 
   describe("5. All Tournaments auction entry", () => {
-    it("Enter/View Auction navigates to Auction Overview", () => {
+    it("puts Enter Auction on the left and Enter Scoring on the right", () => {
       expect(portalSrc).toContain("navigate(auctionOverviewPath(t.id))");
-      expect(portalSrc).toContain("Enter Auction");
+      expect(portalSrc).toContain("navigate(resolveScoringEntryPath(t.id, t.sport))");
+      const auctionLabel = portalSrc.indexOf('kind === "auction" ? "Enter Auction"');
+      const scoringLabel = portalSrc.indexOf(': "Enter Scoring"');
+      expect(auctionLabel).toBeGreaterThan(-1);
+      expect(scoringLabel).toBeGreaterThan(auctionLabel);
+      expect(portalSrc).not.toContain("View Auction");
+      expect(portalSrc).not.toContain(">Match Scoring<");
     });
   });
 

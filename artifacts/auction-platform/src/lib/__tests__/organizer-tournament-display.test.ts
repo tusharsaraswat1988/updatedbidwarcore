@@ -4,6 +4,7 @@ import {
   getOrganizerLicenseBadgeKind,
   isOrganizerTournamentActive,
   isOrganizerTournamentCompleted,
+  resolveOrganizerAuctionCta,
   resolveOrganizerScoringCta,
 } from "../organizer-tournament-display";
 
@@ -59,40 +60,64 @@ describe("getOrganizerAuctionStatusLabel", () => {
   });
 });
 
+describe("resolveOrganizerAuctionCta", () => {
+  it("is active when auction was selected, including legacy tournaments that omit the flag", () => {
+    expect(resolveOrganizerAuctionCta({ auctionEnabled: true })).toBe("active");
+    expect(resolveOrganizerAuctionCta({ auctionEnabled: undefined })).toBe("active");
+    expect(resolveOrganizerAuctionCta({})).toBe("active");
+  });
+
+  it("is not selected when the organizer did not take auction", () => {
+    expect(resolveOrganizerAuctionCta({ auctionEnabled: false })).toBe("not-selected");
+  });
+});
+
 describe("resolveOrganizerScoringCta", () => {
-  it("returns active only when scoringEnabled is explicitly true", () => {
+  it("follows the scoring option for cricket and badminton", () => {
     expect(
       resolveOrganizerScoringCta({
         sport: "cricket",
         scoringEnabled: true,
       }),
     ).toBe("active");
-    // Explicitly disabled — coming-soon (admin intentionally omitted, no false warning)
+    expect(
+      resolveOrganizerScoringCta({
+        sport: "Badminton",
+        scoringEnabled: true,
+      }),
+    ).toBe("active");
     expect(
       resolveOrganizerScoringCta({
         sport: "cricket",
         scoringEnabled: false,
       }),
-    ).toBe("coming-soon");
-    // Older /me payloads omit the field — do not show a false admin warning
+    ).toBe("not-selected");
     expect(
       resolveOrganizerScoringCta({
         sport: "cricket",
         scoringEnabled: undefined,
       }),
-    ).toBe("coming-soon");
+    ).toBe("not-selected");
     expect(
       resolveOrganizerScoringCta({
         sport: "badminton",
         scoringEnabled: null,
       }),
-    ).toBe("coming-soon");
-    // scoringEnabled is the gate, not sport; a sport-gate is a separate concern
+    ).toBe("not-selected");
+  });
+
+  it("keeps Coming Soon for sports whose scoring is not live", () => {
     expect(
       resolveOrganizerScoringCta({
         sport: "football",
         scoringEnabled: true,
       }),
-    ).toBe("active");
+    ).toBe("coming-soon");
+    expect(
+      resolveOrganizerScoringCta({
+        sport: "kabaddi",
+        scoringEnabled: false,
+      }),
+    ).toBe("coming-soon");
   });
 });

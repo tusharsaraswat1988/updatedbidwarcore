@@ -1,3 +1,5 @@
+import { isAuctionEnabled, isScoringEnabled, isScoringSupportedSport } from "@workspace/platform-core";
+
 /**
  * Organizer dashboard display helpers.
  *
@@ -55,15 +57,26 @@ export function getOrganizerAuctionStatusLabel(status: string): string {
   }
 }
 
-/** Scoring CTA state for organizer dashboard module chooser. */
-export type OrganizerScoringCtaState = "active" | "coming-soon";
+/** Module button state on organizer tournament cards. */
+export type OrganizerModuleCtaState = "active" | "not-selected" | "coming-soon";
 
-const SCORING_SPORTS = new Set(["cricket", "badminton"]);
+/** @deprecated Use OrganizerModuleCtaState. */
+export type OrganizerScoringCtaState = OrganizerModuleCtaState;
 
 /**
- * Organizer-card scoring affordance.
- * Active ONLY when match scoring is enabled by admin for the tournament (scoringEnabled === true).
- * Otherwise "Coming Soon".
+ * Left card button. Auction is available for every sport, so the only off state
+ * is when the organizer did not take the auction option.
+ */
+export function resolveOrganizerAuctionCta(input: {
+  auctionEnabled?: boolean | null;
+}): Exclude<OrganizerModuleCtaState, "coming-soon"> {
+  return isAuctionEnabled(input) ? "active" : "not-selected";
+}
+
+/**
+ * Right card button.
+ * Cricket and badminton scoring are live: the button follows scoringEnabled.
+ * Every other sport stays Coming Soon, because that scoring product is not ready.
  */
 export function resolveOrganizerScoringCta(input: {
   sport?: string | null;
@@ -72,7 +85,8 @@ export function resolveOrganizerScoringCta(input: {
   platformCricket?: boolean;
   /** @deprecated Ignored — kept for call-site compatibility. */
   platformBadminton?: boolean;
-}): OrganizerScoringCtaState {
-  if (input.scoringEnabled === true) return "active";
-  return "coming-soon";
+}): OrganizerModuleCtaState {
+  if (!isScoringSupportedSport(input.sport)) return "coming-soon";
+  if (isScoringEnabled(input)) return "active";
+  return "not-selected";
 }

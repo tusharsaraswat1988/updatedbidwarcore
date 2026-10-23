@@ -6,6 +6,7 @@ export * from "./player-spec-values";
 export * from "./player-sport-profiles";
 export * from "./bids";
 export * from "./auction_sessions";
+export * from "./auction-demo-sessions";
 export * from "./organizers";
 export * from "./google-sheet-syncs";
 export * from "./global_players";

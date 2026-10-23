@@ -18,6 +18,7 @@ import {
   getGetTournamentSummaryQueryKey,
   getListBidsQueryKey,
   getListPlayersQueryKey,
+  getListTeamsQueryKey,
   type Bid,
   type TeamPurse,
 } from "@workspace/api-client-react";
@@ -334,12 +335,22 @@ export function applyAuctionSseMessage(
 export function applyAuctionResetState(
   qc: QueryClient,
   tournamentId: number,
-  state: AuctionStateCache,
+  state: {
+    teamPurses?: TeamPurse[];
+    resetMode?: string;
+  },
 ): void {
-  qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), state);
+  qc.setQueryData(getGetAuctionStateQueryKey(tournamentId), state as AuctionStateCache);
   syncTeamPurses(qc, tournamentId, state.teamPurses);
-  qc.setQueryData(getListBidsQueryKey(tournamentId), []);
-  void qc.invalidateQueries({ queryKey: getListBidsQueryKey(tournamentId) });
+  const preserveOriginalBids = state.resetMode === "demo";
+  if (preserveOriginalBids) {
+    void qc.invalidateQueries({ queryKey: getListBidsQueryKey(tournamentId) });
+    void qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
+    void qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
+  } else {
+    qc.setQueryData(getListBidsQueryKey(tournamentId), []);
+    void qc.invalidateQueries({ queryKey: getListBidsQueryKey(tournamentId) });
+  }
   void qc.refetchQueries({ queryKey: getListPlayersQueryKey(tournamentId), type: "active" });
   if (!state.teamPurses?.length) {
     void qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });

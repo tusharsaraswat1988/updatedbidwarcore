@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useRoute, useLocation, useSearch } from "wouter";
 import { useResetTrialAuction, useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@workspace/api-base/api-fetch";
 import { applyAuctionResetState } from "@/lib/sync-auction-sse";
 import { AppLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
@@ -11,11 +12,21 @@ import { Label } from "@/components/ui/label";
 import { AlertTriangle, RefreshCw, ShieldCheck, CheckCircle2, ArrowLeft } from "lucide-react";
 import { resolveReturnPath, returnPathBackLabel } from "@/lib/tournament-navigation";
 
-const ERASED_ITEMS = [
+const PRACTICE_ERASED_ITEMS = [
   "Sold / unsold results — players back to Available",
   "All bids and live feed history",
   "AI reports (replay, behavior, demand, briefing)",
   "Team purse usage and active boosters",
+] as const;
+
+const DEMO_ERASED_ITEMS = [
+  "Demo teams, players, and their photos",
+  "Demo sponsors and logos",
+  "Demo categories created for the sample auction",
+  "Demo owner access codes and sign-in sessions",
+  "Demo bids, sold and unsold results, and feed history",
+  "Demo retained-player assignments",
+  "Demo auction settings you have not changed since loading",
 ] as const;
 
 export default function AuctionReset() {
@@ -34,8 +45,21 @@ export default function AuctionReset() {
   });
 
   const resetMut = useResetTrialAuction();
+  const demoSession = useQuery({
+    queryKey: ["auction-demo-session", tournamentId],
+    enabled: !!tournamentId,
+    queryFn: async () => {
+      const response = await apiFetch(`/tournaments/${tournamentId}/auction/demo-session`);
+      if (!response.ok) return { loaded: false as const };
+      const body = (await response.json()) as { loaded?: boolean };
+      return { loaded: body.loaded === true };
+    },
+  });
+  const demoLoaded = demoSession.data?.loaded === true;
+  const erasedItems = demoLoaded ? DEMO_ERASED_ITEMS : PRACTICE_ERASED_ITEMS;
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
 
   const confirmPhrase = "reset";
@@ -65,10 +89,17 @@ export default function AuctionReset() {
         data: { password: "", reason: "", resetContext: "organizer" },
       });
       applyAuctionResetState(qc, tournamentId, state);
+      const resetMode = (state as { resetMode?: string }).resetMode;
+      setSuccessMessage(
+        resetMode === "demo"
+          ? "Demo data removed. Your original tournament records are still here."
+          : "Reset complete. Practice auction activity is cleared.",
+      );
       setSuccess(true);
       setConfirmText("");
       qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
-      await refetchTournament();
+      qc.invalidateQueries({ queryKey: ["auction-demo-session", tournamentId] });
+      void refetchTournament();
     } catch (e: unknown) {
       const err = e as { data?: { error?: string } | null; message?: string };
       const apiMessage =
@@ -89,7 +120,7 @@ export default function AuctionReset() {
             Clear practice data
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-snug">
-            Clears trial bids only. Teams, players, and settings stay.
+            Removes loaded demo data and its practice auction activity. Your original tournament data is preserved.
           </p>
         </div>
 
@@ -134,13 +165,14 @@ export default function AuctionReset() {
                     Permanently erased
                   </p>
                   <ul className="mt-1.5 grid sm:grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] sm:text-xs text-red-100/75 list-disc list-inside">
-                    {ERASED_ITEMS.map((item) => (
+                    {erasedItems.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
                   <p className="text-[11px] sm:text-xs text-muted-foreground mt-1.5 leading-snug">
-                    Retained players and reserved purses are{" "}
-                    <span className="font-semibold text-foreground">not</span> affected.{" "}
+                    {demoLoaded
+                      ? "Original teams, players, sponsors, photos, and settings stay. "
+                      : "No demo session is loaded, so this only clears practice auction activity. Teams, players, sponsors, and settings stay. Retained players are kept. "}
                     <span className="font-bold text-red-400 uppercase">Cannot be undone.</span>
                   </p>
                 </div>
@@ -154,7 +186,7 @@ export default function AuctionReset() {
                 {success ? (
                   <div className="flex items-start gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300">
                     <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden />
-                    <span>Reset complete. Tournament is back to setup state.</span>
+                    <span>{successMessage}</span>
                   </div>
                 ) : null}
 

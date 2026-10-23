@@ -69,7 +69,9 @@ import {
   getOrganizerLicenseBadgeKind,
   isOrganizerTournamentActive,
   isOrganizerTournamentCompleted,
+  resolveOrganizerAuctionCta,
   resolveOrganizerScoringCta,
+  type OrganizerModuleCtaState,
 } from "@/lib/organizer-tournament-display";
 import { scoringAppHomePath } from "@workspace/api-base/scoring-urls";
 import { auctionOverviewPath, resolveScoringEntryPath } from "@/lib/tournament-navigation";
@@ -1634,6 +1636,68 @@ function OrganizerAvatarMenu({ organizer, onLogout }: { organizer: OrganizerInfo
 
 // ─── Organizer Dashboard ──────────────────────────────────────────────────────
 
+function TournamentModuleCta({
+  kind,
+  state,
+  locked,
+  onClick,
+}: {
+  kind: "auction" | "scoring";
+  state: OrganizerModuleCtaState;
+  locked: boolean;
+  onClick: () => void;
+}) {
+  const label = kind === "auction" ? "Enter Auction" : "Enter Scoring";
+  const Icon = kind === "auction" ? Gavel : Radio;
+  const statement =
+    state === "coming-soon" ? "Coming Soon" : state === "not-selected" ? "Not selected" : null;
+  const title =
+    state === "coming-soon"
+      ? "Match scoring for this sport is coming soon"
+      : state === "not-selected"
+        ? kind === "auction"
+          ? "Auction was not selected for this tournament"
+          : "Scoring was not selected for this tournament"
+        : label;
+
+  if (state !== "active") {
+    return (
+      <button
+        type="button"
+        disabled
+        className="flex-1 min-h-10 h-10 px-2 rounded-lg border border-dashed border-slate-600/50 bg-slate-900/30 text-slate-300 opacity-80 flex flex-col items-center justify-center cursor-not-allowed select-none"
+        title={title}
+        aria-label={`${label}. ${statement}`}
+      >
+        <span className="flex items-center gap-1.5 text-xs font-semibold leading-none">
+          <Icon className="h-3 w-3 opacity-60 shrink-0" aria-hidden />
+          {label}
+        </span>
+        <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest leading-none mt-1">
+          {statement}
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={`inline-flex items-center justify-center flex-1 min-h-10 h-10 gap-1.5 px-3 text-xs font-bold rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 ${
+        kind === "auction"
+          ? "od-btn-enter-auction focus-visible:ring-amber-300"
+          : "od-btn-match-scoring focus-visible:ring-cyan-200"
+      }`}
+      disabled={locked}
+      title={title}
+      onClick={onClick}
+    >
+      <Icon className="h-4 w-4 shrink-0" aria-hidden />
+      <span>{label}</span>
+    </button>
+  );
+}
+
 function OrganizerDashboard({
   organizer, tournaments, onLogout, onRefresh, onPasswordSet,
 }: {
@@ -2148,17 +2212,11 @@ function OrganizerDashboard({
                 const auctionDateStr = isAuction ? formatTournamentDate(t.auctionDate) : null;
                 const tournamentDateStr = formatDateRange(t.matchDates);
                 const logo = t.logoUrl ? cldUrl(t.logoUrl, "thumbnail") || t.logoUrl : null;
-                const isScoringActive = resolveOrganizerScoringCta({ sport: t.sport, scoringEnabled: t.scoringEnabled }) === "active";
-                const scoringRoute = (() => {
-                  const sportLower = (t.sport || "").toLowerCase();
-                  if (sportLower.includes("badminton")) {
-                    return `/tournament/${t.id}/badminton`;
-                  } else if (sportLower.includes("cricket")) {
-                    return `/tournament/${t.id}/score`;
-                  } else {
-                    return `/tournament/${t.id}/mission-control`;
-                  }
-                })();
+                const auctionCta = resolveOrganizerAuctionCta({ auctionEnabled: t.auctionEnabled });
+                const scoringCta = resolveOrganizerScoringCta({
+                  sport: t.sport,
+                  scoringEnabled: t.scoringEnabled,
+                });
 
                 return (
                 <motion.div
@@ -2341,23 +2399,21 @@ function OrganizerDashboard({
                           </div>
                         ) : null}
 
-                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                        <div className="flex flex-col gap-0.5 text-white">
                           {auctionDateStr && (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">
-                                Auction Date
-                              </span>
-                              <span className="font-semibold text-foreground/90">{auctionDateStr}</span>
-                            </div>
+                            <p className="leading-tight">
+                              <span>Auction Date</span>
+                              <span className="px-1">:</span>
+                              <span className="font-semibold">{auctionDateStr}</span>
+                            </p>
                           )}
 
                           {tournamentDateStr ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 rounded">
-                                Tournament Date
-                              </span>
-                              <span className="font-semibold text-foreground/90">{tournamentDateStr}</span>
-                            </div>
+                            <p className="leading-tight">
+                              <span>Tournament Date</span>
+                              <span className="px-1">:</span>
+                              <span className="font-semibold">{tournamentDateStr}</span>
+                            </p>
                           ) : (
                             <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
                               <Calendar className="w-3 h-3 text-muted-foreground/50 shrink-0" />
@@ -2367,73 +2423,20 @@ function OrganizerDashboard({
                         </div>
                       </div>
 
-                      {/* Primary Actions Row */}
-                      {isAuction ? (
-                        <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-1.5 mt-auto">
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="od-btn-enter-auction flex-1 min-h-10 h-10 gap-1.5 text-xs rounded-lg focus-visible:ring-2 focus-visible:ring-amber-300"
-                            disabled={isLocked}
-                            onClick={() => navigate(auctionOverviewPath(t.id))}
-                          >
-                            <Gavel className="h-4 w-4 shrink-0" aria-hidden />
-                            {isActive ? "Enter Auction" : "View Auction"}
-                          </Button>
-
-                          {isScoringActive ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="od-btn-match-scoring flex-1 min-h-10 h-10 rounded-lg text-xs gap-1.5 transition-all focus-visible:ring-2 focus-visible:ring-cyan-400/50"
-                              disabled={isLocked}
-                              onClick={() => navigate(scoringRoute)}
-                            >
-                              <Radio className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                              <span>Match Scoring</span>
-                            </Button>
-                          ) : (
-                            <div
-                              className="flex-1 min-h-10 h-10 px-2 rounded-lg border border-dashed border-slate-600/50 bg-slate-900/30 opacity-80 flex flex-col items-center justify-center cursor-not-allowed select-none"
-                              title="Match Scoring is not enabled for this tournament"
-                            >
-                              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 leading-none">
-                                <Radio className="h-3 w-3 opacity-60" aria-hidden />
-                                <span>Match Scoring</span>
-                              </div>
-                              <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest leading-none mt-1">
-                                Coming Soon
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-1.5 mt-auto">
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="od-btn-match-scoring flex-1 min-h-10 h-10 gap-1.5 text-xs rounded-lg focus-visible:ring-2 focus-visible:ring-cyan-400/50"
-                            disabled={isLocked}
-                            onClick={() => navigate(scoringRoute)}
-                          >
-                            <Radio className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                            <span>Match Scoring</span>
-                          </Button>
-
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 min-h-10 h-10 rounded-lg border-slate-600/50 bg-slate-900/40 hover:bg-slate-800/50 text-slate-200 font-bold text-xs gap-1.5 focus-visible:ring-2 focus-visible:ring-slate-400/40"
-                            disabled={isLocked}
-                            onClick={() => navigate(`/tournament/${t.id}/settings`)}
-                          >
-                            <Share2 className="h-3.5 w-3.5 text-slate-400" aria-hidden />
-                            <span>Settings</span>
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex flex-col sm:flex-row items-stretch gap-2 pt-1.5 mt-auto">
+                        <TournamentModuleCta
+                          kind="auction"
+                          state={auctionCta}
+                          locked={isLocked}
+                          onClick={() => navigate(auctionOverviewPath(t.id))}
+                        />
+                        <TournamentModuleCta
+                          kind="scoring"
+                          state={scoringCta}
+                          locked={isLocked}
+                          onClick={() => navigate(resolveScoringEntryPath(t.id, t.sport))}
+                        />
+                      </div>
                     </CardContent>
                   </Card>
                 </motion.div>

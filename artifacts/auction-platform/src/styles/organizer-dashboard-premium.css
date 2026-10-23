@@ -180,28 +180,40 @@
   opacity: 0.05;
 }
 
-.od-btn-enter-auction {
-  background: var(--od-gold) !important;
-  color: #0f172a !important;
+/* Beat .lovable-theme .bg-primary, which remaps Button's default fill to gold. */
+.organizer-dashboard-premium .od-btn-enter-auction,
+.organizer-dashboard-premium .od-btn-match-scoring {
   border: none !important;
   font-weight: 700;
-  box-shadow: 0 2px 12px rgba(245, 184, 0, 0.25);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
 }
 
-.od-btn-enter-auction:hover:not(:disabled) {
-  background: var(--od-gold-hover) !important;
+.organizer-dashboard-premium .od-btn-enter-auction {
+  background: #f5b800 !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 12px rgba(245, 184, 0, 0.28);
 }
 
-.od-btn-match-scoring {
-  border: 1px solid rgba(34, 211, 238, 0.45) !important;
-  background: rgba(6, 78, 99, 0.35) !important;
-  color: #a5f3fc !important;
-  font-weight: 700;
+.organizer-dashboard-premium .od-btn-enter-auction:hover:not(:disabled) {
+  background: #e0a800 !important;
+  color: #0f172a !important;
 }
 
-.od-btn-match-scoring:hover:not(:disabled) {
-  background: rgba(8, 145, 178, 0.45) !important;
-  border-color: rgba(34, 211, 238, 0.65) !important;
+.organizer-dashboard-premium .od-btn-match-scoring {
+  background: #22d3ee !important;
+  color: #042f3a !important;
+  box-shadow: 0 2px 12px rgba(34, 211, 238, 0.32);
+}
+
+.organizer-dashboard-premium .od-btn-match-scoring:hover:not(:disabled) {
+  background: #06b6d4 !important;
+  color: #042f3a !important;
+}
+
+.organizer-dashboard-premium .od-btn-enter-auction:disabled,
+.organizer-dashboard-premium .od-btn-match-scoring:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 @media (max-width: 640px) {

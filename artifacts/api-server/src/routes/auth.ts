@@ -677,25 +677,22 @@ router.post("/auth/admin/tournaments/:tournamentId/grant-license", async (req, r
   if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-  const [t] = await db.update(tournamentsTable)
-    .set({ licenseStatus: "active", licenseGrantedAt: new Date(), licenseGrantedBy: "master" })
-    .where(eq(tournamentsTable.id, tid))
-    .returning();
-  if (!t) { res.status(404).json({ error: "Not found" }); return; }
-  auditLog(req, {
-    category: "admin",
-    action: "tournament.license_granted",
-    summary: `License granted for tournament "${t.name}"`,
-    severity: "critical",
-    reason: reasonResult.reason,
+  const { commitAdminLicenseTransition } = await import("../lib/auction-license-activation");
+  const result = await commitAdminLicenseTransition(req, {
     tournamentId: tid,
-    resource: { type: "tournament", id: tid },
-    before: before ? snapshotTournament(before) : null,
-    after: snapshotTournament(t),
+    nextStatus: "active",
+    grantedBy: "master",
+    recordGrant: true,
+    reason: reasonResult.reason,
+    auditAction: "tournament.license_granted",
+    auditSummary: (name) => `License granted for tournament "${name}"`,
     alertKey: "license_granted",
   });
-  res.json({ success: true });
+  if (!result.ok) {
+    res.status(result.status).json(result.body);
+    return;
+  }
+  res.json({ success: true, demoRemoved: result.demoRemoved });
 });
 
 // ─── Admin: Revoke license (master only) ──────────────────────────────────────
@@ -2515,32 +2512,22 @@ router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) =
   const reasonResult = parseAuditReason(req.body, true);
   if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
 
-  const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
-  if (!before) { res.status(404).json({ error: "Tournament not found" }); return; }
-
-  const [updated] = await db.update(tournamentsTable)
-    .set({
-      licenseStatus: body.data.status,
-      licenseGrantedAt: body.data.status === "active" ? new Date() : undefined,
-      licenseGrantedBy: body.data.status === "active" ? (req.jwtUser.adminLevel ?? undefined) : undefined,
-    })
-    .where(eq(tournamentsTable.id, tournamentId))
-    .returning();
-
-  auditLog(req, {
-    category: "admin",
-    action: "tournament.license_status_set",
-    summary: `License status set to "${body.data.status}" for tournament "${before.name}"`,
-    severity: "critical",
-    reason: reasonResult.reason,
+  const { commitAdminLicenseTransition } = await import("../lib/auction-license-activation");
+  const result = await commitAdminLicenseTransition(req, {
     tournamentId,
-    resource: { type: "tournament", id: tournamentId },
-    before: snapshotTournament(before),
-    after: updated ? snapshotTournament(updated) : null,
+    nextStatus: body.data.status,
+    grantedBy: req.jwtUser.adminLevel ?? null,
+    recordGrant: body.data.status === "active",
+    reason: reasonResult.reason,
+    auditAction: "tournament.license_status_set",
+    auditSummary: (name) => `License status set to "${body.data.status}" for tournament "${name}"`,
     alertKey: "license_status_changed",
   });
-
-  res.json({ success: true });
+  if (!result.ok) {
+    res.status(result.status).json(result.body);
+    return;
+  }
+  res.json({ success: true, demoRemoved: result.demoRemoved });
 });
 
 // ─── Google OAuth: complete profile (collect + OTP-verify mobile) ─────────────

@@ -1315,7 +1315,8 @@ router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin
   const adminIdentifier = req.jwtUser?.email || req.jwtUser?.adminLevel || "Super Admin";
   const { paymentAmount, paymentMode, paymentRef, notes, requestId } = parsed.data;
 
-  // Find or determine requested modules from request record
+  // Read the request first so scoring is enabled from the same modules the payment covers.
+  // The granted status is written in the license transaction so a demo-cleanup failure rolls it back.
   let requestedModules: "auction" | "scoring" | "both" = "auction";
   if (requestId) {
     const [reqRow] = await db
@@ -1323,24 +1324,8 @@ router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin
       .from(tournamentLicenseRequestsTable)
       .where(eq(tournamentLicenseRequestsTable.id, requestId))
       .limit(1);
-    if (reqRow) {
-      requestedModules = reqRow.requestedModules as "auction" | "scoring" | "both";
-      await db
-        .update(tournamentLicenseRequestsTable)
-        .set({
-          status: "granted",
-          paymentVerified: true,
-          paymentAmount: paymentAmount ?? reqRow.paymentAmount,
-          paymentMode: paymentMode ?? reqRow.paymentMode,
-          paymentRef: paymentRef ?? reqRow.paymentRef,
-          verifiedBy: adminIdentifier,
-          verifiedAt: new Date(),
-          notes: notes ? `${reqRow.notes ? reqRow.notes + "\n" : ""}Admin: ${notes}` : reqRow.notes,
-        })
-        .where(eq(tournamentLicenseRequestsTable.id, requestId));
-    }
+    if (reqRow) requestedModules = reqRow.requestedModules as "auction" | "scoring" | "both";
   } else {
-    // Update any pending request for this tournament
     const [reqRow] = await db
       .select()
       .from(tournamentLicenseRequestsTable)
@@ -1351,77 +1336,116 @@ router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin
         ),
       )
       .limit(1);
-    if (reqRow) {
-      requestedModules = reqRow.requestedModules as "auction" | "scoring" | "both";
-      await db
-        .update(tournamentLicenseRequestsTable)
-        .set({
-          status: "granted",
-          paymentVerified: true,
-          paymentAmount: paymentAmount ?? reqRow.paymentAmount,
-          paymentMode: paymentMode ?? reqRow.paymentMode,
-          paymentRef: paymentRef ?? reqRow.paymentRef,
-          verifiedBy: adminIdentifier,
-          verifiedAt: new Date(),
-        })
-        .where(eq(tournamentLicenseRequestsTable.id, reqRow.id));
-    }
+    if (reqRow) requestedModules = reqRow.requestedModules as "auction" | "scoring" | "both";
   }
 
-  // Update tournament: switch licenseStatus to active and enable scoring if requested
   const shouldEnableScoring =
     requestedModules === "scoring" || requestedModules === "both" || tournament.scoringEnabled;
 
-  const [updatedTournament] = await db
-    .update(tournamentsTable)
-    .set({
-      licenseStatus: "active",
-      scoringEnabled: shouldEnableScoring,
-      updatedAt: new Date(),
-    })
-    .where(eq(tournamentsTable.id, tid))
-    .returning();
+  const { commitAdminLicenseTransition } = await import("../lib/auction-license-activation");
+  const result = await commitAdminLicenseTransition(req, {
+    tournamentId: tid,
+    nextStatus: "active",
+    grantedBy: null,
+    recordGrant: false,
+    scoringEnabled: shouldEnableScoring,
+    touchUpdatedAt: true,
+    auditAction: "tournament.license_granted",
+    auditSummary: (name) => `Payment verified and live license granted for "${name}"`,
+    alertKey: "license_granted",
+    afterWrite: async (tx) => {
+      if (requestId) {
+        const [reqRow] = await tx
+          .select()
+          .from(tournamentLicenseRequestsTable)
+          .where(eq(tournamentLicenseRequestsTable.id, requestId))
+          .limit(1);
+        if (reqRow) {
+          await tx
+            .update(tournamentLicenseRequestsTable)
+            .set({
+              status: "granted",
+              paymentVerified: true,
+              paymentAmount: paymentAmount ?? reqRow.paymentAmount,
+              paymentMode: paymentMode ?? reqRow.paymentMode,
+              paymentRef: paymentRef ?? reqRow.paymentRef,
+              verifiedBy: adminIdentifier,
+              verifiedAt: new Date(),
+              notes: notes ? `${reqRow.notes ? reqRow.notes + "\n" : ""}Admin: ${notes}` : reqRow.notes,
+            })
+            .where(eq(tournamentLicenseRequestsTable.id, requestId));
+        }
+      } else {
+        const [reqRow] = await tx
+          .select()
+          .from(tournamentLicenseRequestsTable)
+          .where(
+            and(
+              eq(tournamentLicenseRequestsTable.tournamentId, tid),
+              eq(tournamentLicenseRequestsTable.status, "pending"),
+            ),
+          )
+          .limit(1);
+        if (reqRow) {
+          await tx
+            .update(tournamentLicenseRequestsTable)
+            .set({
+              status: "granted",
+              paymentVerified: true,
+              paymentAmount: paymentAmount ?? reqRow.paymentAmount,
+              paymentMode: paymentMode ?? reqRow.paymentMode,
+              paymentRef: paymentRef ?? reqRow.paymentRef,
+              verifiedBy: adminIdentifier,
+              verifiedAt: new Date(),
+            })
+            .where(eq(tournamentLicenseRequestsTable.id, reqRow.id));
+        }
+      }
 
-  // Resolve pending admin notifications for this tournament license request
-  const pendingNotifs = await db
-    .select()
-    .from(adminNotificationsTable)
-    .where(
-      and(
-        eq(adminNotificationsTable.type, "LICENSE_REQUESTED"),
-        eq(adminNotificationsTable.entityId, tid),
-        eq(adminNotificationsTable.resolutionStatus, "pending"),
-      ),
-    );
-
-  for (const notif of pendingNotifs) {
-    await db
-      .update(adminNotificationsTable)
-      .set({
-        resolutionStatus: "resolved",
-        resolvedAt: new Date(),
-        resolvedBy: adminIdentifier,
-        isRead: true,
-        actionMetadata: {
-          ...((notif.actionMetadata as Record<string, unknown>) || {}),
-          paymentVerified: true,
-          paymentAmount,
-          paymentMode,
-          paymentRef,
-          verifiedBy: adminIdentifier,
-          verifiedAt: new Date().toISOString(),
-        },
-      })
-      .where(eq(adminNotificationsTable.id, notif.id));
+      const pendingNotifs = await tx
+        .select()
+        .from(adminNotificationsTable)
+        .where(
+          and(
+            eq(adminNotificationsTable.type, "LICENSE_REQUESTED"),
+            eq(adminNotificationsTable.entityId, tid),
+            eq(adminNotificationsTable.resolutionStatus, "pending"),
+          ),
+        );
+      for (const notif of pendingNotifs) {
+        await tx
+          .update(adminNotificationsTable)
+          .set({
+            resolutionStatus: "resolved",
+            resolvedAt: new Date(),
+            resolvedBy: adminIdentifier,
+            isRead: true,
+            actionMetadata: {
+              ...((notif.actionMetadata as Record<string, unknown>) || {}),
+              paymentVerified: true,
+              paymentAmount,
+              paymentMode,
+              paymentRef,
+              verifiedBy: adminIdentifier,
+              verifiedAt: new Date().toISOString(),
+            },
+          })
+          .where(eq(adminNotificationsTable.id, notif.id));
+      }
+    },
+  });
+  if (!result.ok) {
+    res.status(result.status).json(result.body);
+    return;
   }
 
-  // Broadcast to live clients if connected
   invalidateAuctionBuildCache(tid);
 
   res.json({
     success: true,
     message: "Payment verified and license successfully activated",
-    tournament: privateTournamentSerializer(updatedTournament),
+    demoRemoved: result.demoRemoved,
+    tournament: privateTournamentSerializer(result.tournament),
   });
 });
 

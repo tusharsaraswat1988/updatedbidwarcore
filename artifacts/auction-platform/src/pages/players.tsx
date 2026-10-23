@@ -95,6 +95,7 @@ import { getTagTheme, TAG_PULSE_ANIMATION, TAG_PULSE_KEYFRAMES, PLAYER_TAG_OPTIO
 import { filterPlayerTagOptions, getSportCapabilities } from "@/lib/sport-capabilities";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRoleSpecMap } from "@/hooks/use-role-spec-groups";
+import { buildPlayerRoleSelectOptions, playerRoleUpdateValue } from "@/lib/player-role-options";
 import { parseIndianMobile, sanitizeMobileInput, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
@@ -796,7 +797,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
     const data = {
       name: form.name,
       city: form.city || undefined,
-      role: form.role || undefined,
+      role: playerRoleUpdateValue(form.role),
       battingStyle: form.battingStyle || undefined,
       bowlingStyle: form.bowlingStyle || undefined,
       specialization: form.specialization || undefined,
@@ -1098,10 +1099,11 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           <Select value={form.role} onValueChange={v => f("role", v)}>
             <SelectTrigger className="h-9 text-xs sm:text-sm"><SelectValue placeholder="Select role" /></SelectTrigger>
             <SelectContent position="popper" className="max-h-60 dark">
-              {(sportRoles.length > 0
-                ? sportRoles.map(r => ({ value: r.roleName, label: r.roleName }))
-                : [{ value: "Player", label: "Player" }]
-              ).map(r => (
+              {buildPlayerRoleSelectOptions(
+                sportRoles.map((r) => r.roleName),
+                form.role,
+                player?.role,
+              ).map((r) => (
                 <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
               ))}
             </SelectContent>
