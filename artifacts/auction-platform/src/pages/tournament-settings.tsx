@@ -2233,41 +2233,31 @@ export default function TournamentSettings() {
             )}
             <SettingsCard
               title="Danger Zone"
-              description="Irreversible actions that reset live auction state."
-              icon={<AlertTriangle className="w-4 h-4 text-destructive" />}
-              className="border-destructive/40 bg-destructive/5"
+              description="Irreversible actions that affect live auction records."
+              icon={<AlertTriangle className="w-4 h-4 text-rose-400" />}
+              className="border-rose-500/25 bg-rose-950/[0.06]"
+              headerClassName="border-rose-500/15"
             >
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 space-y-3">
-                <div className="flex items-start gap-3">
-                  <RotateCcw className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-semibold text-destructive">Auction Reset</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Clears all bids, returns sold players to the pool, and restores team purses. Teams and your player list are not deleted.
-                    </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-rose-500/20 bg-card/60 backdrop-blur-sm">
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <RotateCcw className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span className="text-sm font-semibold text-foreground">Auction Reset</span>
                   </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Clears live bids, returns sold players to the pool, and restores team purses. Your player list and team rosters are preserved.
+                  </p>
                 </div>
                 <Button
                   variant="outline"
-                  className="w-full justify-start gap-2 border-destructive/40 text-destructive hover:bg-destructive/15 hover:text-destructive h-auto py-3 disabled:opacity-50 disabled:pointer-events-none"
+                  size="sm"
+                  className="border-rose-500/30 text-rose-400 hover:bg-rose-500/15 hover:text-rose-200 font-medium text-xs h-9 px-4 shrink-0 transition-colors gap-1.5"
                   disabled={tournament?.status === "completed"}
                   onClick={() => navigate(auctionResetPath(tournamentId, settingsPath(tournamentId, "recovery")))}
                 >
-                  <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                  <div className="flex flex-col items-start text-left">
-                    <span className="text-sm font-semibold">Open Auction Reset Page</span>
-                    <span className="text-[11px] text-muted-foreground font-normal">
-                      {tournament?.status === "completed"
-                        ? "Unavailable after the tournament is marked completed."
-                        : "Requires an active organizer session."}
-                    </span>
-                  </div>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Reset Auction...
                 </Button>
-              </div>
-              <div className="rounded-lg border border-dashed border-border/60 bg-muted/10 p-3">
-                <p className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground/80">Coming soon:</span> Crash recovery snapshots, lock team bidding, and re-auction queue management.
-                </p>
               </div>
             </SettingsCard>
           </SettingsTabPanel>

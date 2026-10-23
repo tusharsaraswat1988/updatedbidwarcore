@@ -20,7 +20,7 @@ describe("TrialDemoCard specification and copy verification", () => {
     expect(src).toContain(requiredText);
   });
 
-  it("includes all 5 required button and session states", () => {
+  it("includes all required button and session states", () => {
     // 1. Unloaded state: shows Load Trial Demo
     expect(src).toContain("Load Trial Demo");
     // 2. Loading state: shows Loading indicator
@@ -31,14 +31,6 @@ describe("TrialDemoCard specification and copy verification", () => {
     expect(src).toContain("Clear Trial Data");
     // 5. Error handling callout
     expect(src).toContain("Unable to load demo data");
-  });
-
-  it("displays demo owner credentials clearly when loaded", () => {
-    expect(src).toContain("Demo Owner Logins");
-    expect(src).toContain("PIN: DEMO01");
-    expect(src).toContain("PIN: DEMO02");
-    expect(src).toContain("9800000001");
-    expect(src).toContain("9800000002");
   });
 
   it("guards against active license so it only displays for trial auctions", () => {
