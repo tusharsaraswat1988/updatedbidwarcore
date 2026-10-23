@@ -20,9 +20,12 @@ export function buildDefaultTrialDemoPayload(tournamentId: number, organizerId: 
       bidTier2UpTo: 5000000,
       bidTier2Increment: 250000,
       bidTier3Increment: 500000,
+      bidTiers: JSON.stringify([{ increment: 50000 }]),
       timerSeconds: 30,
       bidTimerSeconds: 15,
       playerSelectionMode: "random",
+      minimumSquadSize: 4,
+      maximumSquadSize: 6,
       status: "setup",
     },
     categories: [

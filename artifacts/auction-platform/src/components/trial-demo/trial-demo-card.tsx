@@ -196,7 +196,7 @@ export function TrialDemoCard({
             </div>
 
             {/* Counts breakdown */}
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               <div className="rounded-lg border border-border/50 bg-secondary/25 px-3 py-2 text-center">
                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Players</p>
                 <p className="text-sm font-semibold text-foreground mt-0.5">
@@ -210,6 +210,10 @@ export function TrialDemoCard({
               <div className="rounded-lg border border-border/50 bg-secondary/25 px-3 py-2 text-center">
                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Sponsors</p>
                 <p className="text-sm font-semibold text-foreground mt-0.5">{counts.sponsors}</p>
+              </div>
+              <div className="rounded-lg border border-border/50 bg-secondary/25 px-3 py-2 text-center">
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Squad Rules</p>
+                <p className="text-sm font-semibold text-amber-300 mt-0.5">Min 4 · Max 6</p>
               </div>
             </div>
 
@@ -237,7 +241,7 @@ export function TrialDemoCard({
             </p>
 
             {/* Feature highlights pill strip */}
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               <div className="rounded-lg border border-border/50 bg-secondary/20 p-2.5 flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary shrink-0" />
                 <div className="min-w-0">
@@ -257,6 +261,13 @@ export function TrialDemoCard({
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase font-bold text-muted-foreground">Sponsors</p>
                   <p className="text-xs font-semibold text-foreground truncate">5 Sample Logos</p>
+                </div>
+              </div>
+              <div className="rounded-lg border border-border/50 bg-secondary/20 p-2.5 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[10px] uppercase font-bold text-muted-foreground">Squad Rules</p>
+                  <p className="text-xs font-semibold text-amber-300 truncate">Min 4 · Max 6</p>
                 </div>
               </div>
             </div>

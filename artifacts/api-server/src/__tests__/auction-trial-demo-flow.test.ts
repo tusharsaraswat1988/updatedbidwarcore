@@ -69,6 +69,8 @@ describe("auction-trial-demo-data default payload", () => {
       timerSeconds: 30,
       bidTimerSeconds: 15,
       playerSelectionMode: "random",
+      minimumSquadSize: 4,
+      maximumSquadSize: 6,
       status: "setup",
     });
   });

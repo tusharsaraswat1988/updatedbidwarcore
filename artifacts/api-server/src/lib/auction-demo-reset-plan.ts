@@ -18,6 +18,9 @@ export const DEMO_RESTORABLE_SETTING_KEYS = [
   "timerSeconds",
   "bidTimerSeconds",
   "playerSelectionMode",
+  "minimumSquadSize",
+  "maximumSquadSize",
+  "bidTiers",
   "status",
 ] as const;
 

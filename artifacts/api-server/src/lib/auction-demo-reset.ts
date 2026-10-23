@@ -79,6 +79,9 @@ const SETTING_COLUMNS = {
   timerSeconds: tournamentsTable.timerSeconds,
   bidTimerSeconds: tournamentsTable.bidTimerSeconds,
   playerSelectionMode: tournamentsTable.playerSelectionMode,
+  minimumSquadSize: tournamentsTable.minimumSquadSize,
+  maximumSquadSize: tournamentsTable.maximumSquadSize,
+  bidTiers: tournamentsTable.bidTiers,
   status: tournamentsTable.status,
 } as const;
 

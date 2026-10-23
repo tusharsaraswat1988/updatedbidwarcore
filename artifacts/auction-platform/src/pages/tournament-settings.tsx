@@ -1805,11 +1805,39 @@ export default function TournamentSettings() {
                       icon={<ShieldAlert className="w-4 h-4 text-amber-400" />}
                     >
                       <div className="space-y-3.5">
+                        {/* Quick Presets for Demo / Standard */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg border border-border/60 bg-muted/20">
+                          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                            <span className="font-medium text-foreground/80">Quick Roster Presets:</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-[10px] px-2.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 font-medium"
+                              onClick={() => setEditForm(f => ({ ...f, minimumSquadSize: "4", maximumSquadSize: "6" }))}
+                            >
+                              Trial Demo (4 – 6)
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-[10px] px-2.5 text-foreground/80 hover:text-foreground font-medium"
+                              onClick={() => setEditForm(f => ({ ...f, minimumSquadSize: "11", maximumSquadSize: "15" }))}
+                            >
+                              Cricket (11 – 15)
+                            </Button>
+                          </div>
+                        </div>
+
                         {/* Squad Limits */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                           <div id="settings-field-minSquad" className={`space-y-1.5 ${fieldWrapClass("minSquad", Number(editForm.minimumSquadSize) <= 0)}`}>
                             <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1">
-                              Minimum Players / Team
+                              Minimum Players / Team <span className="text-destructive">*</span>
                               <FieldTooltip text="Teams must buy at least this many players. Budget is reserved automatically for unfilled mandatory slots." />
                             </Label>
                             <Input
@@ -1820,7 +1848,9 @@ export default function TournamentSettings() {
                               onChange={e => setEditForm(f => ({ ...f, minimumSquadSize: e.target.value }))}
                               className="h-9 text-xs font-mono"
                             />
-                            <p className="text-[10px] text-muted-foreground">Set 0 if no minimum requirement.</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              Required for purse reserve protection. Demo: 4, Cricket: 11.
+                            </p>
                           </div>
 
                           <div id="settings-field-maxSquad" className={`space-y-1.5 ${fieldWrapClass("maxSquad", !!squadSizeError)}`}>
@@ -1839,7 +1869,7 @@ export default function TournamentSettings() {
                             {squadSizeError ? (
                               <p className="text-[10px] text-destructive">{squadSizeError}</p>
                             ) : (
-                              <p className="text-[10px] text-muted-foreground">Set 0 for unlimited squad cap.</p>
+                              <p className="text-[10px] text-muted-foreground">Roster cap per team. Demo: 6 (or 0 for unlimited).</p>
                             )}
                           </div>
                         </div>
