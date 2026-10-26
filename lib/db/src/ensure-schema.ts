@@ -1174,6 +1174,76 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS ix_bpl_edition_sponsors_edition_id ON bpl_edition_sponsors (edition_id);
     CREATE INDEX IF NOT EXISTS ix_bpl_edition_sponsors_order ON bpl_edition_sponsors (edition_id, display_order);
+
+    -- Master sports & global players (ensure present in auto-heal / legacy bootstrap)
+    CREATE TABLE IF NOT EXISTS sports (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_sports_slug ON sports (slug);
+
+    CREATE TABLE IF NOT EXISTS sport_roles (
+      id SERIAL PRIMARY KEY,
+      sport_id INTEGER NOT NULL,
+      role_name TEXT NOT NULL,
+      display_order INTEGER NOT NULL DEFAULT 0,
+      active BOOLEAN NOT NULL DEFAULT true
+    );
+    CREATE INDEX IF NOT EXISTS ix_sport_roles_sport_id ON sport_roles (sport_id);
+
+    CREATE TABLE IF NOT EXISTS role_spec_groups (
+      id SERIAL PRIMARY KEY,
+      role_id INTEGER NOT NULL,
+      group_name TEXT NOT NULL,
+      display_order INTEGER NOT NULL DEFAULT 0,
+      optional BOOLEAN NOT NULL DEFAULT true,
+      active BOOLEAN NOT NULL DEFAULT true
+    );
+    CREATE INDEX IF NOT EXISTS ix_role_spec_groups_role_id ON role_spec_groups (role_id);
+
+    CREATE TABLE IF NOT EXISTS role_spec_options (
+      id SERIAL PRIMARY KEY,
+      group_id INTEGER NOT NULL,
+      option_name TEXT NOT NULL,
+      display_order INTEGER NOT NULL DEFAULT 0,
+      active BOOLEAN NOT NULL DEFAULT true
+    );
+    CREATE INDEX IF NOT EXISTS ix_role_spec_options_group_id ON role_spec_options (group_id);
+
+    CREATE TABLE IF NOT EXISTS global_players (
+      id TEXT PRIMARY KEY,
+      canonical_name TEXT NOT NULL,
+      first_name TEXT,
+      last_name TEXT,
+      display_name TEXT,
+      mobile_number TEXT,
+      email TEXT,
+      dob TEXT,
+      gender TEXT,
+      country TEXT,
+      state TEXT,
+      city TEXT,
+      academy TEXT,
+      handedness TEXT,
+      world_ranking INTEGER,
+      national_ranking INTEGER,
+      sponsor_id TEXT,
+      auction_player_id INTEGER,
+      sport TEXT NOT NULL DEFAULT 'cricket',
+      default_role TEXT,
+      age INTEGER,
+      photo_url TEXT,
+      photo_public_id TEXT,
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_gp_mobile ON global_players (mobile_number);
+    CREATE INDEX IF NOT EXISTS ix_gp_canonical_name ON global_players (canonical_name);
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_gp_auction_player_id ON global_players (auction_player_id) WHERE auction_player_id IS NOT NULL;
   `);
     success = true;
   } catch (err) {

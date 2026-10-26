@@ -241,6 +241,42 @@ describe("platform-aware CORS origins", () => {
     expect(origins).not.toContain("https://bidwarlive.up.railway.app");
     expect(isCorsOriginAllowed("https://bidwar.in")).toBe(false);
   });
+
+  it("allows staging Railway origin https://stagingbidwar.up.railway.app in staging and production", () => {
+    clearEnv();
+    process.env.NODE_ENV = "production";
+    process.env.BIDWAR_ENV = "staging";
+    process.env.PORT = "3000";
+    process.env.DATABASE_URL =
+      "postgresql://u:p@ep-staging-example-pooler.example.neon.tech/neondb?sslmode=require";
+    process.env.SESSION_SECRET = "x".repeat(32);
+    process.env.ADMIN_PASSWORD = "test-admin-password";
+    process.env.APP_DOMAIN = "stagingbidwar.up.railway.app";
+    process.env.APP_PUBLIC_SCHEME = "https";
+    process.env.APP_URL = "https://stagingbidwar.up.railway.app";
+    process.env.SERVE_STATIC = "true";
+
+    assertRuntimeEnv();
+    expect(isCorsOriginAllowed("https://stagingbidwar.up.railway.app")).toBe(true);
+
+    // Also in production fallback
+    resetRuntimeConfigForTests();
+    clearEnv();
+    process.env.NODE_ENV = "production";
+    process.env.BIDWAR_ENV = "production";
+    process.env.PORT = "3000";
+    process.env.DATABASE_URL =
+      "postgresql://u:p@ep-prod-example-pooler.example.neon.tech/neondb?sslmode=require";
+    process.env.SESSION_SECRET = "x".repeat(32);
+    process.env.ADMIN_PASSWORD = "test-admin-password";
+    process.env.APP_DOMAIN = "bidwar.in";
+    process.env.APP_PUBLIC_SCHEME = "https";
+    process.env.APP_URL = "https://bidwar.in";
+    process.env.SERVE_STATIC = "true";
+
+    assertRuntimeEnv();
+    expect(isCorsOriginAllowed("https://stagingbidwar.up.railway.app")).toBe(true);
+  });
 });
 
 function createCorsProbeApp(): Express {

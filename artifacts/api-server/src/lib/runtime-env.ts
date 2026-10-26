@@ -100,6 +100,13 @@ const PRODUCTION_SITE_ORIGINS = [
   "https://bidwar.in",
   "https://www.bidwar.in",
   "https://bidwarlive.up.railway.app",
+  "https://stagingbidwar.up.railway.app",
+] as const;
+
+const STAGING_SITE_ORIGINS = [
+  "https://stagingbidwar.up.railway.app",
+  "https://bidwar-staging.up.railway.app",
+  "https://bidwar-staging.onrender.com",
 ] as const;
 
 const RAILWAY_PUBLIC_ORIGIN_KEYS = [
@@ -156,6 +163,11 @@ function resolvePlatformPublicOrigins(
     if (origin) origins.push(origin);
   }
 
+  if (env.RAILWAY_SERVICE_NAME) {
+    const origin = originFromHostOrUrl(`https://${env.RAILWAY_SERVICE_NAME}.up.railway.app`);
+    if (origin) origins.push(origin);
+  }
+
   const renderOrigin = resolveRenderExternalOrigin(env);
   if (renderOrigin) origins.push(normalizeOrigin(renderOrigin));
 
@@ -176,8 +188,12 @@ function buildCorsOrigins(
     ? []
     : mergeDevCorsOrigins(process.env.EXTRA_CORS_ORIGINS);
   const platformOrigins = resolvePlatformPublicOrigins();
-  const productionSiteOrigins =
-    bidwarEnv === "production" ? [...PRODUCTION_SITE_ORIGINS] : [];
+    const siteOrigins =
+    bidwarEnv === "staging"
+      ? [...STAGING_SITE_ORIGINS]
+      : bidwarEnv === "production"
+        ? [...PRODUCTION_SITE_ORIGINS]
+        : [];
   return [
     ...new Set(
       [
@@ -185,7 +201,7 @@ function buildCorsOrigins(
         ...fromHosts,
         ...devExtras,
         ...platformOrigins,
-        ...productionSiteOrigins,
+        ...siteOrigins,
       ]
         .map((origin) => normalizeOrigin(origin))
         .filter(Boolean),

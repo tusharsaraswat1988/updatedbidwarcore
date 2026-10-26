@@ -1924,9 +1924,9 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     teamId,
     actor: isOrganizerOverride
       ? {
-          type: "organizer",
+          type: "tournament_organizer",
           id: String(req.jwtUser?.organizerAccountId || tournament?.organizerId || "organizer"),
-          label: req.jwtUser?.name || tournament?.organizerName || "Organizer",
+          label: (req.jwtUser as any)?.name || tournament?.organizerName || "Organizer",
         }
       : {
           type: "team_owner",

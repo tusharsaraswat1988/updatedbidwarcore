@@ -198,6 +198,16 @@ void systemCQuery(`
 
 /** Normalized player specification values (multi-sport Sprint 1). */
 void systemCQuery(`
+    CREATE TABLE IF NOT EXISTS role_spec_groups (
+      id SERIAL PRIMARY KEY,
+      role_id INTEGER NOT NULL,
+      group_name TEXT NOT NULL,
+      display_order INTEGER NOT NULL DEFAULT 0,
+      optional BOOLEAN NOT NULL DEFAULT true,
+      active BOOLEAN NOT NULL DEFAULT true
+    );
+    CREATE INDEX IF NOT EXISTS ix_role_spec_groups_role_id ON role_spec_groups (role_id);
+
     CREATE TABLE IF NOT EXISTS player_spec_values (
       id SERIAL PRIMARY KEY,
       player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -217,6 +227,23 @@ void systemCQuery(`
 
 /** Per-sport profiles for global player identities (multi-sport Sprint 2). */
 void systemCQuery(`
+    CREATE TABLE IF NOT EXISTS sports (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_sports_slug ON sports (slug);
+
+    CREATE TABLE IF NOT EXISTS global_players (
+      id TEXT PRIMARY KEY,
+      canonical_name TEXT NOT NULL,
+      sport TEXT NOT NULL DEFAULT 'cricket',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS player_sport_profiles (
       id SERIAL PRIMARY KEY,
       global_player_id TEXT NOT NULL REFERENCES global_players(id) ON DELETE CASCADE,
@@ -646,6 +673,16 @@ void systemCQuery(`
 
 /** Master Sports Core — shared player/team/sponsor identity */
 void systemCQuery(`
+    CREATE TABLE IF NOT EXISTS global_players (
+      id TEXT PRIMARY KEY,
+      canonical_name TEXT NOT NULL,
+      sport TEXT NOT NULL DEFAULT 'cricket',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_gp_mobile ON global_players (mobile_number);
+    CREATE INDEX IF NOT EXISTS ix_gp_canonical_name ON global_players (canonical_name);
+
     ALTER TABLE global_players ADD COLUMN IF NOT EXISTS first_name TEXT;
     ALTER TABLE global_players ADD COLUMN IF NOT EXISTS last_name TEXT;
     ALTER TABLE global_players ADD COLUMN IF NOT EXISTS display_name TEXT;
