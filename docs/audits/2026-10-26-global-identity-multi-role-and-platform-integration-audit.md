@@ -1084,4 +1084,82 @@ All TypeScript monorepo builds pass with zero type errors (`pnpm run typecheck:l
   - Final product sign-off remains recommended for the policy decision on dual-organizer approvals versus the existing strict conflict prohibition setting (`strictConflictPolicy`).
 
 ---
+
+## 25. PHASE 1 STAGING RELEASE VERIFICATION & GO/NO-GO
+
+**Release Branch:** `staging/phase1-hardening`  
+**Base Commit:** `0dd91665c66588d4e5fa25ec0a8c976861d76a0c`  
+**Release Candidate Commit SHA:** `315abd44ade1024aeee4ec475ce494d6950ea558`  
+**Execution Timestamp:** 2026-10-26T14:14:01+05:30  
+**Staging Host Target:** Render Web Service (`bidwar-staging.onrender.com` / Nixpacks)  
+**Staging Database Target:** Neon PostgreSQL Staging Branch  
+**Staging Gate Verdict:** **STAGING BLOCKED** *(Pending Staging Host Deployment Credentials & Database Access)*
+
+---
+
+### 25.1 Release Candidate Freeze & Verification
+The release candidate was frozen and committed on dedicated branch `staging/phase1-hardening`:
+- **Branch:** `staging/phase1-hardening`
+- **Release Commit:** `315abd44ade1024aeee4ec475ce494d6950ea558`
+- **Clean Diff Verified:** 15 files changed (1,591 insertions, 142 deletions). Zero secrets, tokens, or plaintext credentials committed.
+- **Verification Test Suites Included:**
+  1. [`artifacts/api-server/src/__tests__/p0-final-remediation-production-gate.test.ts`](file:///c:/Users/win%2010/updatedbidwarcore/artifacts/api-server/src/__tests__/p0-final-remediation-production-gate.test.ts) (12 tests)
+  2. [`artifacts/api-server/src/__tests__/p0-independent-review-adversarial.test.ts`](file:///c:/Users/win%2010/updatedbidwarcore/artifacts/api-server/src/__tests__/p0-independent-review-adversarial.test.ts) (16 tests)
+  3. [`artifacts/api-server/src/__tests__/p0-security-hardening-verified.test.ts`](file:///c:/Users/win%2010/updatedbidwarcore/artifacts/api-server/src/__tests__/p0-security-hardening-verified.test.ts) (12 tests)
+- **Monorepo Typecheck:** `pnpm run typecheck:libs` (`tsc --build`) passed with exit code 0.
+- **Regression Suite:** All 180 tests across 11 test suites passed with 100% pass rate.
+
+---
+
+### 25.2 Staging Verification & Gate Matrix
+
+| Verification Gate | Target Requirement | Evaluation Status | Evidence & Notes |
+|:---|:---|:---:|:---|
+| **Gate 1: Release Candidate Integrity** | Exact git commit, clean diff, no secrets, zero accidental files | **PASS** | Commit `315abd44ade1024aeee4ec475ce494d6950ea558` on `staging/phase1-hardening`. Diff inspected and verified clean. |
+| **Gate 2: Schema & DDL Compatibility** | Zero breaking migrations, backward-compatible rollback | **PASS** | 0 DDL migrations added. `scoring_officials.pin` remains nullable for seamless zero-downtime rollback. |
+| **Gate 3: Required Environment Variables** | `SESSION_SECRET`, `APP_DOMAIN`, `DATABASE_URL`, `BIDWAR_ENV=staging` | **PASS** *(Code)* / **NOT VERIFIED** *(Live Host)* | Code contract verified via `runtime-env.ts`. Live staging environment credentials not accessible from current CLI context. |
+| **Gate 4: Staging DB Backup & Restore Drill** | Staging snapshot taken and restore drill verified | **NOT VERIFIED** | Direct access to Neon staging branch console/API is not present in local CLI shell. Must be executed by DevOps before traffic switch. |
+| **Gate 5: Live PostgreSQL Concurrency** | First-time migration under real concurrent PostgreSQL TCP connections | **NOT VERIFIED** *(Live DB)* / **PASS** *(Unit Mock)* | In-memory transaction mock passed (12/12). Live multi-client PostgreSQL connection concurrency must be verified on staging instance. |
+| **Gate 6: Organizer Journey Smoke Test** | Official creation, masked PIN, credential-conflict 409 handling | **NOT VERIFIED** *(Live Domain)* | Express route and React UI verified in unit tests. Live browser verification blocked on staging deployment. |
+| **Gate 7: Team Owner Journey Smoke Test** | Access-code verification, `bidwar_owner` cookie, no plaintext code in bids | **NOT VERIFIED** *(Live Domain)* | Backend session service and client auth verified in unit tests. Live browser verification blocked on staging deployment. |
+| **Gate 8: Scorer Journey Smoke Test** | Scorer PIN login, lazy migration to `scorer_accounts`, lock scoping | **NOT VERIFIED** *(Live Domain)* | Scorer auth service and migration logic verified in unit tests. Live browser verification blocked on staging deployment. |
+| **Gate 9: Public Auction & Live Scoring Views** | Unauthenticated public ticker and scorecard access | **PASS** | Public endpoints unaffected by Phase 1 auth changes; verified by regression test suite. |
+| **Gate 10: Android WebView Compatibility** | Cookie synchronization for `bidwar_owner`, OAuth via Custom Tabs | **PASS** *(Config)* / **NOT VERIFIED** *(Device)* | Configuration verified in `capacitor.config.ts` and `jwt.ts` (`google_native_handoff`). Physical device smoke test pending. |
+| **Gate 11: Rollback Readiness** | Known stable base, zero-DDL rollback, no lockout creation | **PASS** | Rollback target `0dd91665c66588d4e5fa25ec0a8c976861d76a0c`. No database rollback required. |
+
+---
+
+### 25.3 Staging Access Prerequisites to Unblock Deployment
+
+To proceed from **STAGING BLOCKED** to **STAGING DEPLOYED — VERIFICATION IN PROGRESS**, the following staging environment access is required:
+
+1. **Staging Deploy Mechanism:**
+   - Render Deploy Hook URL or Render API Token / CLI for service `bidwar-staging.onrender.com` (or Railway deployment access).
+   - Alternatively: push branch `staging/phase1-hardening` to remote `origin` and configure Render staging service to track `staging/phase1-hardening`.
+2. **Staging Neon Database Access:**
+   - Isolated staging connection string: `DATABASE_URL=postgresql://...@ep-long-sky-...neon.tech/bidwar_staging`.
+   - Access to perform snapshot and restore drill before live tests.
+3. **Environment Verification:**
+   - Confirm `BIDWAR_ENV=staging` is set in Render dashboard environment settings.
+   - Confirm `SESSION_SECRET` is set to an isolated staging secret (distinct from production).
+
+---
+
+### 25.4 Rollback Specification
+
+- **Rollback Commit Target:** `0dd91665c66588d4e5fa25ec0a8c976861d76a0c` (`origin/main`)
+- **Rollback Command (Hosting):**
+  - Render: Click **Rollback** to previous deploy in Render dashboard, or redeploy commit `0dd91665`.
+  - Git: `git checkout main && git push origin main`
+- **Database Rollback:** **None required.** Because no DDL migrations were executed, rolling back application code leaves existing database tables (`scorer_accounts`, `scoring_officials`) in a valid, functional state.
+- **Session Safety:** Reverted code will continue to accept legacy plaintext credentials for unmigrated scorers and ignore `owner_sessions` without crashing.
+
+---
+
+### 25.5 Final Staging Verdict
+
+**Verdict:** **STAGING BLOCKED**  
+*The release candidate code is frozen, verified, and committed at `315abd44ade1024aeee4ec475ce494d6950ea558`. Staging deployment is currently blocked pending staging hosting provider credentials (Render/Neon). Production deployment remains strictly prohibited.*
+
+---
 *End of Complete Code Audit, Phase 1 Hardening Report & Independent Security Verification.*
