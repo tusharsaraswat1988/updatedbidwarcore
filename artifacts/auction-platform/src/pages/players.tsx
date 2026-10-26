@@ -128,7 +128,12 @@ import { exportPlayersToCsv } from "@/lib/export-players-csv";
 import { useGoogleSheetsExport } from "@/hooks/use-google-sheets-export";
 import { GoogleSheetsReconnectBanner, PlayersExportMenu } from "@/components/players-export-menu";
 import { PlayerCategorySelect, type PlayerCategoryOption } from "@/components/player-category-select";
-import type { RegistrationCustomQuestion } from "@workspace/api-base";
+import {
+  parseRegistrationFieldsConfig,
+  buildRegistrationFieldRequirements,
+  type RegistrationCustomQuestion,
+  type RegistrationFieldsConfig,
+} from "@workspace/api-base";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -593,6 +598,28 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
   });
 
   const [submitError, setSubmitError] = useState("");
+  const regConfig: RegistrationFieldsConfig = useMemo(() => {
+    return parseRegistrationFieldsConfig(
+      (tournament as any)?.registrationFields ?? (tournament as any)?.registrationFieldsJson,
+    );
+  }, [tournament]);
+
+  const customQuestions: RegistrationCustomQuestion[] = useMemo(() => {
+    return regConfig.customQuestions ?? [];
+  }, [regConfig]);
+
+  const fieldRequirements = useMemo(() => {
+    return buildRegistrationFieldRequirements(regConfig, tournament?.sport);
+  }, [regConfig, tournament?.sport]);
+
+  const [customAnswers, setCustomAnswers] = useState<Record<string, any>>(() => {
+    const raw = (player?.customAnswers as Record<string, any>) || (player?.customAnswersJson as Record<string, any>);
+    return raw && typeof raw === "object" ? { ...raw } : {};
+  });
+
+  const handleCustomAnswerChange = (questionId: string, val: any) => {
+    setCustomAnswers(prev => ({ ...prev, [questionId]: val }));
+  };
   const [releaseRetainedOpen, setReleaseRetainedOpen] = useState(false);
   const isLiveAuction =
     tournament?.status === "active" || tournament?.status === "paused";
@@ -705,6 +732,12 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         setMatchedTournamentPlayer(tournamentMatch);
         setMobileLookedUp(true);
         setFilledFromProfile(true);
+        if (tournamentMatch.customAnswers || tournamentMatch.customAnswersJson) {
+          const matchedAnswers = (tournamentMatch.customAnswers || tournamentMatch.customAnswersJson) as Record<string, any>;
+          if (matchedAnswers && typeof matchedAnswers === "object") {
+            setCustomAnswers(matchedAnswers);
+          }
+        }
         setForm(prev => ({
           ...prev,
           name: tournamentMatch.name || prev.name,
@@ -786,6 +819,54 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       setEmailError(emailResult.error);
       return;
     }
+    if (fieldRequirements.photo && !form.photoUrl) {
+      setSubmitError("Player photo is required for this tournament.");
+      return;
+    }
+    if (fieldRequirements.role && !form.role) {
+      setSubmitError("Playing role is required for this tournament.");
+      return;
+    }
+    if (fieldRequirements.city && !form.city.trim()) {
+      setSubmitError("City is required for this tournament.");
+      return;
+    }
+    if (fieldRequirements.age && !form.age) {
+      setSubmitError("Age is required for this tournament.");
+      return;
+    }
+    if (fieldRequirements.gender && !form.gender) {
+      setSubmitError("Gender is required for this tournament.");
+      return;
+    }
+    if (fieldRequirements.jerseyNumber && !form.jerseyNumber.trim()) {
+      setSubmitError("Jersey number is required for this tournament.");
+      return;
+    }
+    if (fieldRequirements.jerseySize && !form.jerseySize) {
+      setSubmitError("Jersey size is required for this tournament.");
+      return;
+    }
+    if (fieldRequirements.email && !form.email.trim()) {
+      setEmailError("Email is required for this tournament.");
+      return;
+    }
+    if (customQuestions.length > 0) {
+      for (const q of customQuestions) {
+        if (q.required) {
+          const val = customAnswers[q.id];
+          const empty =
+            val === undefined ||
+            val === null ||
+            val === "" ||
+            (Array.isArray(val) && val.length === 0);
+          if (empty) {
+            setSubmitError(`"${q.label}" is required.`);
+            return;
+          }
+        }
+      }
+    }
     const specifications = buildSpecificationsPayload(
       sortedSpecGroups,
       {
@@ -841,6 +922,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       playerTagTeamId: form.playerTagTeamId ? parseInt(form.playerTagTeamId) : undefined,
       isNonPlayingMember: form.isNonPlayingMember || undefined,
       markPaymentCompleted: !player && tournament?.enableRegistrationPayment ? form.markPaymentCompleted : undefined,
+      customAnswers: Object.keys(customAnswers).length > 0 ? customAnswers : undefined,
     };
     try {
       const saveTarget = player ?? matchedTournamentPlayer;
@@ -848,10 +930,10 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         await updatePlayer.mutateAsync({
           tournamentId,
           playerId: saveTarget.id,
-          data,
+          data: data as any,
         });
       } else {
-        await createPlayer.mutateAsync({ tournamentId, data });
+        await createPlayer.mutateAsync({ tournamentId, data: data as any });
       }
       qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
       qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
@@ -919,6 +1001,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
     setPendingMobileProfile(null);
     setMatchedTournamentPlayer(null);
     setExtraSpecSelections({});
+    setCustomAnswers({});
   }
 
   function fillFromProfile(p: SuggestionProfile) {
@@ -1032,6 +1115,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           <div className="space-y-1.5">
             <OptionalEmailField
               id="player-email"
+              label={fieldRequirements.email ? "Email Address *" : "Email Address (Optional)"}
               value={form.email}
               onChange={v => { f("email", v); if (emailError) setEmailError(""); }}
               error={emailError || undefined}
@@ -1072,6 +1156,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           <div className="space-y-1.5">
             <OptionalEmailField
               id="player-email"
+              label={fieldRequirements.email ? "Email Address *" : "Email Address (Optional)"}
               value={form.email}
               onChange={v => { f("email", v); if (emailError) setEmailError(""); }}
               error={emailError || undefined}
@@ -1079,15 +1164,15 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           </div>
         )}
         <div className="space-y-1.5">
-          <Label className="text-xs font-semibold">City</Label>
+          <Label className="text-xs font-semibold">City {fieldRequirements.city && <span className="text-destructive">*</span>}</Label>
           <CityAutocomplete value={form.city} onChange={v => f("city", v)} />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs font-semibold">Age</Label>
-          <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} className="h-9 text-xs sm:text-sm" />
+          <Label className="text-xs font-semibold">Age {fieldRequirements.age && <span className="text-destructive">*</span>}</Label>
+          <Input type="number" value={form.age} onChange={e => f("age", e.target.value)} required={fieldRequirements.age} className="h-9 text-xs sm:text-sm" />
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs font-semibold">Gender</Label>
+          <Label className="text-xs font-semibold">Gender {fieldRequirements.gender && <span className="text-destructive">*</span>}</Label>
           <PlayerGenderSelect value={form.gender} onChange={(v) => f("gender", v)} />
         </div>
       </div>
@@ -1096,7 +1181,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
         {/* Role */}
         <div className="space-y-1.5">
-          <Label className="text-xs font-semibold">Role</Label>
+          <Label className="text-xs font-semibold">Role {fieldRequirements.role && <span className="text-destructive">*</span>}</Label>
           <Select value={form.role} onValueChange={v => f("role", v)}>
             <SelectTrigger className="h-9 text-xs sm:text-sm"><SelectValue placeholder="Select role" /></SelectTrigger>
             <SelectContent position="popper" className="max-h-60 dark">
@@ -1167,7 +1252,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
 
         {/* Jersey No & Size combined */}
         <div className="space-y-1.5">
-          <Label className="text-xs font-semibold">Jersey</Label>
+          <Label className="text-xs font-semibold">Jersey {(fieldRequirements.jerseyNumber || fieldRequirements.jerseySize) && <span className="text-destructive">*</span>}</Label>
           <div className="flex gap-2">
             <Input
               value={form.jerseyNumber}
@@ -1240,7 +1325,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         {/* Left: Photo & Achievements */}
         <div className="space-y-2.5 p-3 rounded-lg border border-border/60 bg-muted/10">
           <div className="space-y-1">
-            <Label className="text-xs font-semibold">Player Photo</Label>
+            <Label className="text-xs font-semibold">Player Photo {fieldRequirements.photo && <span className="text-destructive">*</span>}</Label>
             <div className="flex gap-2.5 items-center">
               <div className="w-10 h-10 rounded-full border border-border bg-muted/30 flex items-center justify-center overflow-hidden shrink-0">
                 {form.photoUrl ? (
@@ -1279,12 +1364,12 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs font-semibold">Achievements (Optional)</Label>
+            <Label className="text-xs font-semibold">Achievements {fieldRequirements.achievements ? <span className="text-destructive">*</span> : "(Optional)"}</Label>
             <Input value={form.achievements} onChange={e => f("achievements", e.target.value)} className="h-8 text-xs" />
           </div>
           {sportCaps.hasLegacyCricketSpecs && (
             <div className="space-y-1">
-              <Label className="text-xs font-semibold">Crichero URL (Optional)</Label>
+              <Label className="text-xs font-semibold">Crichero URL {fieldRequirements.cricheroUrl ? <span className="text-destructive">*</span> : "(Optional)"}</Label>
               <Input value={form.cricheroUrl} onChange={e => f("cricheroUrl", e.target.value)} className="h-8 text-xs" />
             </div>
           )}
@@ -1315,7 +1400,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold flex items-center gap-1.5">
                   <CalendarDays className="w-3.5 h-3.5 text-amber-400" />
-                  Match Availability
+                  Match Availability {fieldRequirements.matchAvailability && <span className="text-destructive">*</span>}
                 </Label>
                 <div className="flex flex-wrap gap-1.5 pt-0.5">
                   {matchDates.map((iso: string) => {
@@ -1354,6 +1439,114 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         exportHint="Higher resolution for sharp LED display — use a clear, well-lit photo."
         onSave={upload => { f("photoUrl", upload.url); f("photoPublicId", upload.publicId); }}
       />
+
+      {/* Custom Registration Questions */}
+      {customQuestions.length > 0 && (
+        <div className="space-y-3 p-3.5 rounded-lg border border-border/60 bg-muted/10">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-foreground">
+              Additional Registration Questions
+            </p>
+            <Badge variant="outline" className="text-[10px] text-muted-foreground">
+              {customQuestions.length} {customQuestions.length === 1 ? "question" : "questions"}
+            </Badge>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+            {customQuestions.map((q) => {
+              const val = customAnswers[q.id];
+              return (
+                <div key={q.id} className="space-y-1.5">
+                  <Label className="text-xs font-semibold">
+                    {q.label} {q.required && <span className="text-destructive">*</span>}
+                  </Label>
+                  {q.type === "short_text" ? (
+                    <Input
+                      type="text"
+                      value={typeof val === "string" ? val : ""}
+                      onChange={(e) => handleCustomAnswerChange(q.id, e.target.value)}
+                      placeholder="Enter answer"
+                      className="h-9 text-xs sm:text-sm"
+                    />
+                  ) : q.type === "number" ? (
+                    <Input
+                      type="number"
+                      value={val !== undefined && val !== null ? val : ""}
+                      onChange={(e) =>
+                        handleCustomAnswerChange(
+                          q.id,
+                          e.target.value === "" ? "" : Number(e.target.value),
+                        )
+                      }
+                      placeholder="Enter a number"
+                      className="h-9 text-xs sm:text-sm"
+                    />
+                  ) : q.type === "dropdown" ? (
+                    <Select
+                      value={typeof val === "string" ? val : ""}
+                      onValueChange={(newVal) => handleCustomAnswerChange(q.id, newVal)}
+                    >
+                      <SelectTrigger className="h-9 text-xs sm:text-sm">
+                        <SelectValue placeholder="Select an option" />
+                      </SelectTrigger>
+                      <SelectContent className="dark">
+                        {(q.options || []).map((opt) => (
+                          <SelectItem key={opt} value={opt}>
+                            {opt}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : q.type === "single_choice" ? (
+                    <div className="space-y-1.5 pt-0.5">
+                      {(q.options || []).map((opt) => (
+                        <label
+                          key={opt}
+                          className="flex items-center gap-2 text-xs cursor-pointer select-none"
+                        >
+                          <input
+                            type="radio"
+                            name={`form_custom_q_${q.id}`}
+                            checked={val === opt}
+                            onChange={() => handleCustomAnswerChange(q.id, opt)}
+                            className="w-3.5 h-3.5 text-primary focus:ring-primary"
+                          />
+                          <span className="text-foreground">{opt}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : q.type === "multiple_choice" ? (
+                    <div className="space-y-1.5 pt-0.5">
+                      {(q.options || []).map((opt) => {
+                        const arr: string[] = Array.isArray(val) ? val : [];
+                        const checked = arr.includes(opt);
+                        return (
+                          <label
+                            key={opt}
+                            className="flex items-center gap-2 text-xs cursor-pointer select-none"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                const next = e.target.checked
+                                  ? [...arr, opt]
+                                  : arr.filter((x) => x !== opt);
+                                handleCustomAnswerChange(q.id, next);
+                              }}
+                              className="w-3.5 h-3.5 rounded text-primary focus:ring-primary"
+                            />
+                            <span className="text-foreground">{opt}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 5. Auction Status / Retained & Tags (Compact box) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-lg border border-border/60 bg-muted/10">

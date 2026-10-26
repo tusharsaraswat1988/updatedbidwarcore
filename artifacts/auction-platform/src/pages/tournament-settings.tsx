@@ -650,7 +650,11 @@ export default function TournamentSettings() {
         ? parsePlayerRegistrationMode(editForm.playerRegistrationMode as string)
         : "scoring",
       registrationCategoryMode: parseRegistrationCategoryMode(editForm.registrationCategoryMode as string),
-      registrationFields: serializeRegistrationFieldsConfig(registrationFieldsHidden),
+      registrationFields: serializeRegistrationFieldsConfig(
+        registrationFieldsHidden,
+        registrationFieldsRequired,
+        customQuestions,
+      ),
     };
 
     if (isAuction) {
@@ -732,6 +736,8 @@ export default function TournamentSettings() {
     qc,
     sponsorLogos,
     registrationFieldsHidden,
+    registrationFieldsRequired,
+    customQuestions,
     toast,
     tournamentId,
     updateTournament,
