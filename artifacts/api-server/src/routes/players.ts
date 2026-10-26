@@ -18,6 +18,9 @@ import { JERSEY_SIZE_VALUES } from "@workspace/api-base/jersey-size";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
 import {
   validateMandatoryRegistrationFields,
+  validatePlayerRegistrationRequirements,
+  parseRegistrationFieldsConfig,
+  validateCustomAnswers,
 } from "@workspace/api-base/registration-fields";
 import { playerGenderSchema } from "../lib/player-gender-schema";
 import { auditLog } from "../lib/audit-service";
@@ -75,6 +78,7 @@ import {
 import { copyPlayerSpecifications, validateRequiredRoleSpecifications } from "../lib/player-specification-service";
 import {
   resolveRegistrationFieldVisibilityFromTournament,
+  resolveRegistrationFieldRequirementsFromTournament,
   sanitizeRegistrationInputByVisibility,
 } from "../lib/registration-field-validation";
 import {
@@ -187,6 +191,7 @@ async function computeRegistrationStatus(tid: number) {
       sport: tournamentsTable.sport,
       playerRegistrationMode: tournamentsTable.playerRegistrationMode,
       registrationCategoryMode: tournamentsTable.registrationCategoryMode,
+      matchDates: tournamentsTable.matchDates,
     })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
@@ -270,10 +275,17 @@ async function computeRegistrationStatus(tid: number) {
         : [],
     bidValueMode: scoring ? "system" : (tournament.bidValueMode ?? "system"),
     bidValueOptions: scoring ? [] : parseBidValueOptions(tournament.bidValueOptions),
+    matchDates: tournament.matchDates ?? null,
     registrationFieldVisibility: resolveRegistrationFieldVisibilityFromTournament(
       tournament.registrationFieldsJson,
       tournament.sport,
     ),
+    registrationFieldRequirements: resolveRegistrationFieldRequirementsFromTournament(
+      tournament.registrationFieldsJson,
+      tournament.sport,
+    ),
+    registrationFields: parseRegistrationFieldsConfig(tournament.registrationFieldsJson),
+    customQuestions: parseRegistrationFieldsConfig(tournament.registrationFieldsJson).customQuestions ?? [],
   };
 }
 
@@ -476,6 +488,7 @@ const playerInputSchema = z.object({
   markPaymentCompleted: z.boolean().optional(),
   registrationDeclarationAccepted: z.boolean().optional(),
   specifications: z.array(playerSpecificationInputSchema).optional(),
+  customAnswers: z.record(z.string(), z.unknown()).optional(),
 });
 
 router.get("/tournaments/:tournamentId/players", async (req, res) => {
@@ -602,11 +615,23 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
     targetSerialNo = await allocateNextPlayerSerialNo(tid);
   }
 
+  const [tRowForCustom] = await db
+    .select({ registrationFieldsJson: tournamentsTable.registrationFieldsJson })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  const customQuestionsForCreate = parseRegistrationFieldsConfig(tRowForCustom?.registrationFieldsJson).customQuestions ?? [];
+  const customValForCreate = validateCustomAnswers(customQuestionsForCreate, d.customAnswers);
+  if (!customValForCreate.ok) {
+    res.status(400).json({ error: customValForCreate.error, field: customValForCreate.field });
+    return;
+  }
+
   const [player] = await db
     .insert(playersTable)
     .values({
       tournamentId: tid,
       serialNo: targetSerialNo,
+      customAnswersJson: customValForCreate.sanitizedAnswers,
       categoryId: d.categoryId ?? null,
       name: d.name,
       city: d.city ?? null,
@@ -772,14 +797,26 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
   const sanitizedBody = sanitizeRegistrationInputByVisibility(parsed.data, visibility);
   const d = { ...parsed.data, ...sanitizedBody };
 
-  const mandatory = validateMandatoryRegistrationFields({
-    name: d.name,
-    mobileNumber: d.mobileNumber,
-    photoUrl: d.photoUrl,
-    role: d.role,
-  });
-  if (!mandatory.ok) {
-    res.status(400).json({ error: mandatory.error, field: mandatory.field });
+  const regConfig = status.registrationFields
+    ?? parseRegistrationFieldsConfig((status as any).registrationFieldsJson);
+
+  const fieldValidation = validatePlayerRegistrationRequirements(
+    d,
+    regConfig,
+    {
+      sportId: status.sport,
+      hasMatchDates: Boolean(status.matchDates),
+      isClosedUpdate: !status.open,
+    },
+  );
+  if (!fieldValidation.ok) {
+    res.status(400).json({ error: fieldValidation.error, field: fieldValidation.field });
+    return;
+  }
+
+  const customAnswersValidation = validateCustomAnswers(status.customQuestions, d.customAnswers);
+  if (!customAnswersValidation.ok) {
+    res.status(400).json({ error: customAnswersValidation.error, field: customAnswersValidation.field });
     return;
   }
 
@@ -947,6 +984,7 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
       bowlingStyle: legacySpecFields.bowlingStyle,
       specialization: legacySpecFields.specialization,
       ...(categoryIdForUpdate !== undefined ? { categoryId: categoryIdForUpdate } : {}),
+      customAnswersJson: customAnswersValidation.sanitizedAnswers,
     };
 
     const imageChanges: ImageFieldChange[] = [{
@@ -1111,6 +1149,7 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
       whatsappConsent: d.whatsappConsent ?? false,
       whatsappConsentAt: d.whatsappConsent ? new Date() : null,
       whatsappConsentMethod: d.whatsappConsent ? "web_checkbox" : null,
+      customAnswersJson: customAnswersValidation.sanitizedAnswers,
       ...paymentFields,
     })
     .returning();
@@ -1328,6 +1367,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     reason: z.string().optional(),
     registrationPaymentStatus: z.enum(REGISTRATION_PAYMENT_STATUSES).optional(),
     specifications: z.array(playerSpecificationInputSchema).optional(),
+    customAnswers: z.record(z.string(), z.unknown()).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
@@ -1503,6 +1543,19 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.playerTag !== undefined) updates.playerTag = d.playerTag;
   if (d.playerTagTeamId !== undefined) updates.playerTagTeamId = d.playerTagTeamId;
   if (d.isNonPlayingMember !== undefined) updates.isNonPlayingMember = d.isNonPlayingMember;
+  if (d.customAnswers !== undefined) {
+    const [tRow] = await db
+      .select({ registrationFieldsJson: tournamentsTable.registrationFieldsJson })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid));
+    const customQuestions = parseRegistrationFieldsConfig(tRow?.registrationFieldsJson).customQuestions ?? [];
+    const customVal = validateCustomAnswers(customQuestions, d.customAnswers);
+    if (!customVal.ok) {
+      res.status(400).json({ error: customVal.error, field: customVal.field });
+      return;
+    }
+    updates.customAnswersJson = customVal.sanitizedAnswers;
+  }
 
   const finalStatus = (updates.status as string | undefined) ?? existing.status;
   const finalBasePrice = (updates.basePrice as number | undefined) ?? existing.basePrice;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { collectSpecColumnLabels } from "@workspace/api-base/player-spec-export";
+import { buildPlayerExportRows } from "@workspace/api-base/export-players-rows";
 import { exportPlayersToExcel } from "../export-players-excel";
 
 describe("exportPlayersToExcel", () => {
@@ -27,5 +28,26 @@ describe("exportPlayersToExcel", () => {
     await expect(
       exportPlayersToExcel([], {}, {}, "empty.xlsx"),
     ).rejects.toThrow("No players to export.");
+  });
+
+  it("includes custom questions columns in exported player rows", () => {
+    const players = [
+      {
+        id: 1,
+        serialNo: 1,
+        name: "Test Player",
+        customAnswers: {
+          q1: "Medium",
+          q2: ["Mon", "Wed"],
+        },
+      },
+    ];
+    const customQuestions = [
+      { id: "q1", label: "T-Shirt Size", type: "dropdown" as const, required: true },
+      { id: "q2", label: "Days Available", type: "multiple_choice" as const, required: false },
+    ];
+    const rows = buildPlayerExportRows(players, {}, {}, null, customQuestions);
+    expect(rows[0]["T-Shirt Size"]).toBe("Medium");
+    expect(rows[0]["Days Available"]).toBe("Mon, Wed");
   });
 });

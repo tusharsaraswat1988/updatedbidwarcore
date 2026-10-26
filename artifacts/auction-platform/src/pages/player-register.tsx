@@ -43,8 +43,11 @@ import {
 } from "@workspace/api-base/player-registration-mode";
 import {
   buildRegistrationFieldVisibility,
+  buildRegistrationFieldRequirements,
   type RegistrationFieldsConfig,
+  type RegistrationConfigurableFieldKey,
   type RegistrationOptionalFieldKey,
+  type RegistrationCustomQuestion,
 } from "@workspace/api-base/registration-fields";
 import { formatIndianRupee } from "@/lib/format";
 import {
@@ -182,6 +185,7 @@ export default function PlayerRegister() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [emailError, setEmailError] = useState("");
   const [photoError, setPhotoError] = useState("");
+  const [customAnswers, setCustomAnswers] = useState<Record<string, any>>({});
 
   // Mobile lookup state (Phase 5)
   const [mobileLookedUp, setMobileLookedUp] = useState(false);
@@ -440,9 +444,25 @@ export default function PlayerRegister() {
 
   const declarationRequired = declarationPoints.length > 0;
 
+  const customQuestions: RegistrationCustomQuestion[] = useMemo(() => {
+    const fromStatus = (status as { customQuestions?: RegistrationCustomQuestion[] } | null)?.customQuestions;
+    if (Array.isArray(fromStatus) && fromStatus.length > 0) return fromStatus;
+    const fromTournament = (tournament as { registrationFields?: RegistrationFieldsConfig } | null)?.registrationFields?.customQuestions;
+    if (Array.isArray(fromTournament)) return fromTournament;
+    return [];
+  }, [status, tournament]);
+
+  const hasCustomQuestionsSection = !closedSelfUpdateMode && customQuestions.length > 0;
+  const customQuestionsStep = "3";
+  const confirmSectionStep = hasCustomQuestionsSection ? "4" : "3";
+
+  function handleCustomAnswerChange(questionId: string, val: any) {
+    setCustomAnswers(prev => ({ ...prev, [questionId]: val }));
+  }
+
   const fieldVisibility = useMemo(() => {
     const fromStatus = (status as {
-      registrationFieldVisibility?: Record<RegistrationOptionalFieldKey, boolean>;
+      registrationFieldVisibility?: Record<RegistrationConfigurableFieldKey, boolean>;
     } | null)?.registrationFieldVisibility;
     if (fromStatus) return fromStatus;
     return buildRegistrationFieldVisibility(
@@ -451,16 +471,44 @@ export default function PlayerRegister() {
     );
   }, [status, tournament, sportSlug]);
 
+  const fieldRequirements = useMemo(() => {
+    const fromStatus = (status as {
+      registrationFieldRequirements?: Record<RegistrationConfigurableFieldKey, boolean>;
+    } | null)?.registrationFieldRequirements;
+    if (fromStatus) return fromStatus;
+    return buildRegistrationFieldRequirements(
+      (tournament as { registrationFields?: RegistrationFieldsConfig } | null)?.registrationFields,
+      sportSlug,
+    );
+  }, [status, tournament, sportSlug]);
+
+  const showPhoto = fieldVisibility.photo !== false;
+  const showRole = fieldVisibility.role !== false;
   const showEmail = fieldVisibility.email;
   const showCity = fieldVisibility.city;
   const showAge = fieldVisibility.age;
   const showGender = fieldVisibility.gender;
-  const showJersey = fieldVisibility.jerseyNumber || fieldVisibility.jerseySize;
+  const showJerseyNumber = fieldVisibility.jerseyNumber;
+  const showJerseySize = fieldVisibility.jerseySize;
+  const showJersey = showJerseyNumber || showJerseySize;
   const showAchievements = fieldVisibility.achievements;
   const showCrichero = sportCaps.hasLegacyCricketSpecs && fieldVisibility.cricheroUrl;
   const showMatchAvailability = fieldVisibility.matchAvailability;
   const showWhatsappConsent = fieldVisibility.whatsappConsent;
   const showProfileDetails = showCity || showAge || showGender;
+
+  const requirePhoto = fieldRequirements.photo;
+  const requireRole = fieldRequirements.role;
+  const requireEmail = fieldRequirements.email;
+  const requireCity = fieldRequirements.city;
+  const requireAge = fieldRequirements.age;
+  const requireGender = fieldRequirements.gender;
+  const requireJerseyNumber = fieldRequirements.jerseyNumber;
+  const requireJerseySize = fieldRequirements.jerseySize;
+  const requireAchievements = fieldRequirements.achievements;
+  const requireCrichero = fieldRequirements.cricheroUrl;
+  const requireMatchAvailability = fieldRequirements.matchAvailability;
+  const requireWhatsappConsent = fieldRequirements.whatsappConsent;
 
   function formatDeadline(d: string | null | undefined) {
     if (!d) return "";
@@ -624,16 +672,87 @@ export default function PlayerRegister() {
       return;
     }
 
-    if (!form.photoUrl.trim()) {
-      setPhotoError("Player photo is required. Please upload your photo before submitting.");
-      photoFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
+    if (!closedSelfUpdateMode) {
+      if (!form.name.trim()) {
+        setErrorMsg("Full name is required.");
+        return;
+      }
+      if (showPhoto && requirePhoto && !form.photoUrl.trim()) {
+        setPhotoError("Player photo is required. Please upload your photo before submitting.");
+        photoFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (showRole && requireRole && !form.role.trim()) {
+        setErrorMsg("Role is required.");
+        return;
+      }
+      if (showEmail && requireEmail && !form.email.trim()) {
+        setEmailError("Email address is required.");
+        return;
+      }
+      if (showCity && requireCity && !form.city.trim()) {
+        setErrorMsg("City is required.");
+        return;
+      }
+      if (showAge && requireAge && (!form.age || parseInt(form.age, 10) <= 0)) {
+        setErrorMsg("Age is required.");
+        return;
+      }
+      if (showGender && requireGender && !form.gender) {
+        setErrorMsg("Gender is required.");
+        return;
+      }
+      if (showJerseyNumber && requireJerseyNumber && !form.jerseyNumber.trim()) {
+        setErrorMsg("Jersey number is required.");
+        return;
+      }
+      if (showJerseySize && requireJerseySize && !form.jerseySize.trim()) {
+        setErrorMsg("Jersey size is required.");
+        return;
+      }
+      if (showAchievements && requireAchievements && !form.achievements.trim()) {
+        setErrorMsg("Achievements / bio is required.");
+        return;
+      }
+      if (showCrichero && requireCrichero && !form.cricheroUrl.trim()) {
+        setErrorMsg("CricHero profile URL is required.");
+        return;
+      }
+      if (showMatchAvailability && requireMatchAvailability && !form.availabilityDates.trim()) {
+        setErrorMsg("Match availability is required.");
+        return;
+      }
+      if (showWhatsappConsent && requireWhatsappConsent && !waConsent) {
+        setErrorMsg("WhatsApp updates consent is required.");
+        return;
+      }
+    } else {
+      if (requirePhoto && !form.photoUrl.trim()) {
+        setPhotoError("Player photo is required. Please upload your photo before submitting.");
+        photoFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
     }
 
-    for (const group of specs) {
-      if (!group.optional && !specSelections[group.id]?.trim()) {
-        setErrorMsg(`${group.groupName} is required.`);
-        return;
+    if (form.role) {
+      for (const group of specs) {
+        if (!group.optional && !specSelections[group.id]?.trim()) {
+          setErrorMsg(`${group.groupName} is required.`);
+          return;
+        }
+      }
+    }
+
+    if (!closedSelfUpdateMode && customQuestions.length > 0) {
+      for (const q of customQuestions) {
+        if (q.required) {
+          const val = customAnswers[q.id];
+          const isEmpty = val === undefined || val === null || val === "" || (Array.isArray(val) && val.length === 0);
+          if (isEmpty) {
+            setErrorMsg(`Please answer the required question: "${q.label}"`);
+            return;
+          }
+        }
       }
     }
 
@@ -689,6 +808,7 @@ export default function PlayerRegister() {
             utrNumber: utrNumber.trim() || undefined,
             paymentScreenshotUrl: paymentScreenshotUrl.trim() || undefined,
             paymentScreenshotPublicId: paymentScreenshotPublicId.trim() || undefined,
+            customAnswers: Object.keys(customAnswers).length > 0 ? customAnswers : undefined,
           };
       const res = await fetch(`/api/register/${encodeURIComponent(registrationCode)}`, {
         method: "POST",
@@ -798,7 +918,7 @@ export default function PlayerRegister() {
     const availabilityAuto = autofillAttrs("availability");
     return (
       <div className={availabilityAuto.className ? `reg-field ${availabilityAuto.className}` : "reg-field"} style={availabilityAuto.style}>
-        <RegLabel marker="optional" locked={identityFieldsLocked} autofilled={availabilityAuto.autofilled}>Match availability</RegLabel>
+        <RegLabel marker={requireMatchAvailability ? "required" : "optional"} locked={identityFieldsLocked} autofilled={availabilityAuto.autofilled}>Match availability</RegLabel>
         {identityFieldsLocked ? <p className="reg-hint">To change availability, contact your organiser.</p> : null}
         <div className="reg-chips">
           {matchDates.map((iso: string) => {
@@ -1001,7 +1121,7 @@ export default function PlayerRegister() {
                 variant="outline"
                 onClick={() => {
                   setSubmitted(false); setWaConsent(false); setDeclarationAccepted(false); setErrorMsg(null); setEmailError(""); setPhotoError("");
-                  setUtrNumber(""); setPaymentScreenshotUrl(""); setPaymentScreenshotPublicId("");
+                  setUtrNumber(""); setPaymentScreenshotUrl(""); setPaymentScreenshotPublicId(""); setCustomAnswers({});
                   setFoundProfile(null); setExistingRegistration(null); setMobileLookedUp(false); setRegistrationUpdated(false);
                   resetAutofillReveal();
                   setForm({
@@ -1125,6 +1245,7 @@ export default function PlayerRegister() {
                 {showEmail ? (
                   <OptionalEmailField
                     id="register-email"
+                    label={requireEmail ? "Email address (Required)" : "Email address (Optional)"}
                     value={form.email}
                     onChange={v => { if (!identityFieldsLocked) { f("email", v); if (emailError) setEmailError(""); } }}
                     error={emailError || undefined}
@@ -1151,7 +1272,7 @@ export default function PlayerRegister() {
                   <div className="reg-grid-3">
                     {showCity ? (
                       <div className={cityAuto.className ? `reg-field ${cityAuto.className}` : "reg-field"} style={cityAuto.style}>
-                        <RegLabel htmlFor="register-city" marker="optional" locked={identityFieldsLocked} autofilled={cityAuto.autofilled}>City</RegLabel>
+                        <RegLabel htmlFor="register-city" marker={requireCity ? "required" : "optional"} locked={identityFieldsLocked} autofilled={cityAuto.autofilled}>City</RegLabel>
                         <CityAutocomplete
                           id="register-city"
                           value={form.city}
@@ -1163,7 +1284,7 @@ export default function PlayerRegister() {
                     ) : null}
                     {showAge ? (
                       <div className={ageAuto.className ? `reg-field ${ageAuto.className}` : "reg-field"} style={ageAuto.style}>
-                        <RegLabel htmlFor="register-age" marker="optional" locked={identityFieldsLocked} autofilled={ageAuto.autofilled}>Age</RegLabel>
+                        <RegLabel htmlFor="register-age" marker={requireAge ? "required" : "optional"} locked={identityFieldsLocked} autofilled={ageAuto.autofilled}>Age</RegLabel>
                         <Input
                           id="register-age"
                           type="number"
@@ -1180,7 +1301,7 @@ export default function PlayerRegister() {
                         id="register-gender"
                         value={form.gender}
                         onChange={(v) => { if (!identityFieldsLocked) f("gender", v); }}
-                        marker="optional"
+                        marker={requireGender ? "required" : "optional"}
                         contentClassName={registrationSelectContentClass}
                         disabled={identityFieldsLocked}
                         className={genderAuto.className || undefined}
@@ -1211,7 +1332,7 @@ export default function PlayerRegister() {
                 ) : null}
 
                 <div className={roleAuto.className ? `reg-field ${roleAuto.className}` : "reg-field"} style={roleAuto.style}>
-                  <RegLabel htmlFor="register-role" marker="required" autofilled={roleAuto.autofilled}>Role</RegLabel>
+                  <RegLabel htmlFor="register-role" marker={requireRole ? "required" : "optional"} autofilled={roleAuto.autofilled}>Role</RegLabel>
                   <Select
                     value={form.role}
                     onValueChange={v => f("role", v)}
@@ -1344,7 +1465,7 @@ export default function PlayerRegister() {
                     <div className="reg-grid-2">
                       {fieldVisibility.jerseyNumber ? (
                         <div className={jerseyNumberAuto.className ? `reg-field ${jerseyNumberAuto.className}` : "reg-field"} style={jerseyNumberAuto.style}>
-                          <RegLabel htmlFor="register-jersey-number" marker="optional" locked={identityFieldsLocked} autofilled={jerseyNumberAuto.autofilled}>Jersey number</RegLabel>
+                          <RegLabel htmlFor="register-jersey-number" marker={requireJerseyNumber ? "required" : "optional"} locked={identityFieldsLocked} autofilled={jerseyNumberAuto.autofilled}>Jersey number</RegLabel>
                           <Input
                             id="register-jersey-number"
                             value={form.jerseyNumber}
@@ -1360,7 +1481,7 @@ export default function PlayerRegister() {
                           id="register-jersey-size"
                           value={form.jerseySize}
                           onChange={v => { if (!identityFieldsLocked) f("jerseySize", v); }}
-                          marker="optional"
+                          marker={requireJerseySize ? "required" : "optional"}
                           contentClassName={registrationSelectContentClass}
                           disabled={identityFieldsLocked}
                           className={jerseySizeAuto.className || undefined}
@@ -1377,7 +1498,7 @@ export default function PlayerRegister() {
 
                 {showAchievements ? (
                   <div className={achievementsAuto.className ? `reg-field ${achievementsAuto.className}` : "reg-field"} style={achievementsAuto.style}>
-                    <RegLabel htmlFor="register-achievements" marker="optional" locked={identityFieldsLocked} autofilled={achievementsAuto.autofilled}>Achievements / bio</RegLabel>
+                    <RegLabel htmlFor="register-achievements" marker={requireAchievements ? "required" : "optional"} locked={identityFieldsLocked} autofilled={achievementsAuto.autofilled}>Achievements / bio</RegLabel>
                     <Input
                       id="register-achievements"
                       value={form.achievements}
@@ -1391,7 +1512,7 @@ export default function PlayerRegister() {
 
                 {showCrichero ? (
                   <div className={cricheroAuto.className ? `reg-field ${cricheroAuto.className}` : "reg-field"} style={cricheroAuto.style}>
-                    <RegLabel htmlFor="register-crichero" marker="optional" locked={identityFieldsLocked} autofilled={cricheroAuto.autofilled}>Crichero profile URL</RegLabel>
+                    <RegLabel htmlFor="register-crichero" marker={requireCrichero ? "required" : "optional"} locked={identityFieldsLocked} autofilled={cricheroAuto.autofilled}>Crichero profile URL</RegLabel>
                     {identityFieldsLocked ? <p className="reg-hint">To change this, contact your organiser.</p> : null}
                     <Input
                       id="register-crichero"
@@ -1406,7 +1527,7 @@ export default function PlayerRegister() {
                 ) : null}
 
                 <div ref={photoFieldRef} className={photoAuto.className ? `reg-field ${photoAuto.className}` : "reg-field"} style={photoAuto.style}>
-                  <RegLabel marker="required" locked={closedUpdateReadOnly} autofilled={photoAuto.autofilled}>Player photo</RegLabel>
+                  <RegLabel marker={requirePhoto ? "required" : "optional"} locked={closedUpdateReadOnly} autofilled={photoAuto.autofilled}>Player photo</RegLabel>
                   <div className="reg-photo">
                     <div className="reg-photo-preview" data-invalid={photoError ? "true" : "false"}>
                       {form.photoUrl ? (
@@ -1518,9 +1639,116 @@ export default function PlayerRegister() {
                 ) : null}
               </RegSection>
 
+              {hasCustomQuestionsSection ? (
+                <RegSection
+                  step={customQuestionsStep}
+                  title="Additional questions"
+                  description="Please provide the information requested by the organiser."
+                >
+                  {customQuestions.map((q) => {
+                    const val = customAnswers[q.id];
+                    return (
+                      <div key={q.id} className="reg-field">
+                        <RegLabel htmlFor={`custom_q_${q.id}`} marker={q.required ? "required" : "optional"}>
+                          {q.label}
+                        </RegLabel>
+
+                        {q.type === "short_text" ? (
+                          <Input
+                            id={`custom_q_${q.id}`}
+                            type="text"
+                            value={typeof val === "string" ? val : ""}
+                            onChange={(e) => handleCustomAnswerChange(q.id, e.target.value)}
+                            placeholder="Your answer"
+                            disabled={registerPending}
+                          />
+                        ) : q.type === "number" ? (
+                          <Input
+                            id={`custom_q_${q.id}`}
+                            type="number"
+                            value={val !== undefined && val !== null ? val : ""}
+                            onChange={(e) =>
+                              handleCustomAnswerChange(
+                                q.id,
+                                e.target.value === "" ? "" : Number(e.target.value),
+                              )
+                            }
+                            placeholder="Enter a number"
+                            disabled={registerPending}
+                          />
+                        ) : q.type === "dropdown" ? (
+                          <Select
+                            value={typeof val === "string" ? val : ""}
+                            onValueChange={(newVal) => handleCustomAnswerChange(q.id, newVal)}
+                            disabled={registerPending}
+                          >
+                            <SelectTrigger id={`custom_q_${q.id}`}>
+                              <SelectValue placeholder="Select an option" />
+                            </SelectTrigger>
+                            <SelectContent className={registrationSelectContentClass}>
+                              {(q.options || []).map((opt) => (
+                                <SelectItem key={opt} value={opt}>
+                                  {opt}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : q.type === "single_choice" ? (
+                          <div className="space-y-2 pt-1">
+                            {(q.options || []).map((opt) => (
+                              <label
+                                key={opt}
+                                className="flex items-center gap-2.5 text-sm cursor-pointer select-none"
+                              >
+                                <input
+                                  type="radio"
+                                  name={`custom_q_${q.id}`}
+                                  checked={val === opt}
+                                  onChange={() => handleCustomAnswerChange(q.id, opt)}
+                                  disabled={registerPending}
+                                  className="w-4 h-4 text-primary focus:ring-primary"
+                                />
+                                <span className="text-foreground">{opt}</span>
+                              </label>
+                            ))}
+                          </div>
+                        ) : q.type === "multiple_choice" ? (
+                          <div className="space-y-2 pt-1">
+                            {(q.options || []).map((opt) => {
+                              const arr: string[] = Array.isArray(val) ? val : [];
+                              const checked = arr.includes(opt);
+                              return (
+                                <label
+                                  key={opt}
+                                  className="flex items-center gap-2.5 text-sm cursor-pointer select-none"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={(e) => {
+                                      const next = e.target.checked
+                                        ? [...arr, opt]
+                                        : arr.filter((x) => x !== opt);
+                                      handleCustomAnswerChange(q.id, next);
+                                    }}
+                                    disabled={registerPending}
+                                    className="w-4 h-4 rounded text-primary focus:ring-primary"
+                                  />
+                                  <span className="text-foreground">{opt}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </RegSection>
+              ) : null}
+
               {showConfirmSection ? (
                 <RegSection
-                  step="3"
+                  step={confirmSectionStep}
                   title={confirmTitle}
                 >
                   {declarationRequired ? (
@@ -1556,6 +1784,7 @@ export default function PlayerRegister() {
                         {scoringMode
                           ? "Main tournament ke WhatsApp updates chahiye? (schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain."
                           : "Main tournament ke WhatsApp updates chahiye? (auction alerts, schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain."}
+                        {requireWhatsappConsent ? <span className="reg-badge reg-badge--req ml-2">Required</span> : null}
                       </span>
                     </label>
                   ) : null}

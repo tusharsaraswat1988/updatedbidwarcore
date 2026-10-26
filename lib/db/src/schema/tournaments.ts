@@ -110,9 +110,16 @@ export const tournamentsTable = pgTable("tournaments", {
   // When set, player availability is shown as date checkboxes instead of free text.
   // When null/empty, availability field is hidden everywhere.
   matchDates: text("match_dates"),
-  /** Organizer toggles for optional public registration form fields. */
+  /** Organizer toggles for optional public registration form fields and custom questions. */
   registrationFieldsJson: jsonb("registration_fields_json").$type<{
     hidden?: string[];
+    customQuestions?: Array<{
+      id: string;
+      label: string;
+      type: "short_text" | "number" | "single_choice" | "multiple_choice" | "dropdown";
+      required: boolean;
+      options?: string[];
+    }>;
   }>(),
   /**
    * Public player registration purpose: `auction` (default) or `scoring`.

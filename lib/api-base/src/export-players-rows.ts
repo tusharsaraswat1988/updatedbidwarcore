@@ -8,6 +8,7 @@ import {
   type PlayerSpecSource,
 } from "./player-spec-export";
 import { getSportCapabilities } from "@workspace/platform-core";
+import { type RegistrationCustomQuestion } from "./registration-fields";
 
 export type ExportCategoryMap = Record<number, { name: string; colorCode?: string | null }>;
 export type ExportTeamMap = Record<number, { name: string; color?: string | null }>;
@@ -43,6 +44,7 @@ function buildRow(
   teamMap: ExportTeamMap,
   specColumns: string[],
   includeCrichero: boolean,
+  customQuestions?: RegistrationCustomQuestion[] | null,
 ) {
   const categoryId = player.categoryId as number | null | undefined;
   const teamId = player.teamId as number | null | undefined;
@@ -99,6 +101,23 @@ function buildRow(
     row[label] = specByLabel.get(label) ?? "";
   }
 
+  if (customQuestions && customQuestions.length > 0) {
+    const rawCustomAnswers =
+      (player.customAnswers as Record<string, unknown> | undefined) ??
+      (player.customAnswersJson as Record<string, unknown> | undefined) ??
+      {};
+    for (const q of customQuestions) {
+      const ans = rawCustomAnswers[q.id];
+      if (ans === undefined || ans === null) {
+        row[q.label] = "";
+      } else if (Array.isArray(ans)) {
+        row[q.label] = ans.join(", ");
+      } else {
+        row[q.label] = typeof ans === "number" ? ans : String(ans);
+      }
+    }
+  }
+
   return row;
 }
 
@@ -107,11 +126,12 @@ export function buildPlayerExportRows(
   catMap: ExportCategoryMap,
   teamMap: ExportTeamMap,
   sportId?: string | null,
+  customQuestions?: RegistrationCustomQuestion[] | null,
 ): Record<string, string | number>[] {
   const includeCrichero = getSportCapabilities(sportId).hasLegacyCricketSpecs;
   const specColumns = collectSpecColumnLabels(players as PlayerSpecSource[]);
   return players.map((player) =>
-    buildRow(player, catMap, teamMap, specColumns, includeCrichero),
+    buildRow(player, catMap, teamMap, specColumns, includeCrichero, customQuestions),
   );
 }
 
@@ -137,8 +157,9 @@ export function buildPlayerExportSheetValues(
   catMap: ExportCategoryMap,
   teamMap: ExportTeamMap,
   sportId?: string | null,
+  customQuestions?: RegistrationCustomQuestion[] | null,
 ): string[][] {
   return playerExportRowsToSheetValues(
-    buildPlayerExportRows(players, catMap, teamMap, sportId),
+    buildPlayerExportRows(players, catMap, teamMap, sportId, customQuestions),
   );
 }

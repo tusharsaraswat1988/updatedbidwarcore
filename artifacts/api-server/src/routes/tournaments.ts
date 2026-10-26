@@ -13,8 +13,12 @@ import {
   parsePlayerRegistrationMode,
 } from "@workspace/api-base/player-registration-mode";
 import {
+  REGISTRATION_CONFIGURABLE_FIELD_KEYS,
   REGISTRATION_OPTIONAL_FIELD_KEYS,
   serializeRegistrationFieldsConfig,
+  parseRegistrationFieldsConfig,
+  validateCustomQuestionsDefinition,
+  validateRegistrationFieldsUpdate,
 } from "@workspace/api-base/registration-fields";
 import { randomBytes, randomInt } from "crypto";
 import { isAccountOrAdmin, requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
@@ -419,7 +423,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     registrationCategoryMode: z.enum(REGISTRATION_CATEGORY_MODES).optional(),
     registrationFields: z
       .object({
-        hidden: z.array(z.enum(REGISTRATION_OPTIONAL_FIELD_KEYS)).optional(),
+        hidden: z.array(z.string()).optional(),
+        required: z.array(z.string()).optional(),
+        customQuestions: z.array(z.any()).optional(),
       })
       .optional(),
     minimumSquadSize: z.number().int().min(0).nullable().optional(),
@@ -609,8 +615,37 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.playerRegistrationMode !== undefined) updates.playerRegistrationMode = d.playerRegistrationMode;
   if (d.registrationCategoryMode !== undefined) updates.registrationCategoryMode = d.registrationCategoryMode;
   if (d.registrationFields !== undefined) {
+    const existingConfig = parseRegistrationFieldsConfig(beforeTournament.registrationFieldsJson);
+    let customQuestions = existingConfig.customQuestions;
+    if (d.registrationFields.customQuestions !== undefined) {
+      const qVal = validateCustomQuestionsDefinition(d.registrationFields.customQuestions);
+      if (!qVal.ok) {
+        res.status(400).json({ error: qVal.error });
+        return;
+      }
+      customQuestions = qVal.questions;
+    }
+    const hidden = d.registrationFields.hidden !== undefined
+      ? d.registrationFields.hidden
+      : (existingConfig.hidden ?? []);
+    const required = d.registrationFields.required !== undefined
+      ? d.registrationFields.required
+      : existingConfig.required;
+
+    const validatedConfig = validateRegistrationFieldsUpdate({
+      hidden,
+      required,
+      customQuestions,
+    });
+    if (!validatedConfig.ok) {
+      res.status(400).json({ error: validatedConfig.error });
+      return;
+    }
+
     updates.registrationFieldsJson = serializeRegistrationFieldsConfig(
-      d.registrationFields.hidden ?? [],
+      validatedConfig.config.hidden ?? [],
+      validatedConfig.config.required,
+      validatedConfig.config.customQuestions,
     );
   }
   if (d.minimumSquadSize !== undefined) updates.minimumSquadSize = d.minimumSquadSize ?? 0;

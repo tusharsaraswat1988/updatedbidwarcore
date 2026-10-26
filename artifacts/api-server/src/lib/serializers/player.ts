@@ -41,6 +41,7 @@ export function privatePlayerSerializer(p: PlayerRow) {
     utrNumber: p.utrNumber ?? null,
     paymentScreenshotUrl: p.paymentScreenshotUrl ?? null,
     paymentSubmittedAt: p.paymentSubmittedAt ? p.paymentSubmittedAt.toISOString() : null,
+    customAnswers: (p.customAnswersJson as Record<string, unknown> | null) ?? {},
     createdAt: p.createdAt.toISOString(),
   };
 }

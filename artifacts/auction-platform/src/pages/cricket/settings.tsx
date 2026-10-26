@@ -30,12 +30,20 @@ import {
 } from "@workspace/api-client-react";
 import { playerRegistrationShareUrl } from "@workspace/api-base/registration-url";
 import {
+  REGISTRATION_PERMANENT_MANDATORY_FIELD_KEYS,
+  REGISTRATION_CONFIGURABLE_FIELD_KEYS,
+  REGISTRATION_CONFIGURABLE_FIELD_LABELS,
   REGISTRATION_MANDATORY_FIELD_KEYS,
   REGISTRATION_OPTIONAL_FIELD_KEYS,
   REGISTRATION_OPTIONAL_FIELD_LABELS,
   serializeRegistrationFieldsConfig,
+  parseRegistrationFieldsConfig,
+  type RegistrationConfigurableFieldKey,
   type RegistrationOptionalFieldKey,
+  type RegistrationCustomQuestion,
+  type RegistrationFieldsConfig,
 } from "@workspace/api-base/registration-fields";
+import { CustomQuestionsEditor } from "@/components/registration/custom-questions-editor";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -239,7 +247,9 @@ export default function CricketSettingsPage() {
     enableRegistrationDeclaration: false,
     registrationDeclarationText: "",
   });
-  const [registrationFieldsHidden, setRegistrationFieldsHidden] = useState<RegistrationOptionalFieldKey[]>([]);
+  const [registrationFieldsHidden, setRegistrationFieldsHidden] = useState<RegistrationConfigurableFieldKey[]>([]);
+  const [registrationFieldsRequired, setRegistrationFieldsRequired] = useState<RegistrationConfigurableFieldKey[]>(["photo", "role"]);
+  const [customQuestions, setCustomQuestions] = useState<RegistrationCustomQuestion[]>([]);
   const [regSaving, setRegSaving] = useState(false);
   const [regSaved, setRegSaved] = useState(false);
   const [regCopied, setRegCopied] = useState(false);
@@ -259,8 +269,12 @@ export default function CricketSettingsPage() {
       enableRegistrationDeclaration: tournament.enableRegistrationDeclaration === true,
       registrationDeclarationText: tournament.registrationDeclarationText || "",
     });
-    const hidden = (tournament as { registrationFields?: { hidden?: RegistrationOptionalFieldKey[] } }).registrationFields?.hidden ?? [];
-    setRegistrationFieldsHidden(hidden);
+    const regConfig = parseRegistrationFieldsConfig(
+      (tournament as any)?.registrationFields ?? (tournament as any)?.registrationFieldsJson,
+    );
+    setRegistrationFieldsHidden(regConfig.hidden ?? []);
+    setRegistrationFieldsRequired(regConfig.required !== undefined ? regConfig.required : ["photo", "role"]);
+    setCustomQuestions(regConfig.customQuestions ?? []);
   }, [tournament]);
 
   const handleCopyLink = useCallback(async () => {
@@ -286,7 +300,7 @@ export default function CricketSettingsPage() {
           enableRegistrationDeclaration: regForm.enableRegistrationDeclaration === true,
           registrationDeclarationText: regForm.registrationDeclarationText.trim() || null,
           playerRegistrationMode: "scoring",
-          registrationFields: serializeRegistrationFieldsConfig(registrationFieldsHidden),
+          registrationFields: serializeRegistrationFieldsConfig(registrationFieldsHidden, registrationFieldsRequired, customQuestions),
           reason: "Tournament registration settings updated by organizer",
         } as unknown as import("@workspace/api-client-react").TournamentUpdate,
       });
@@ -953,40 +967,100 @@ export default function CricketSettingsPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-border/40">
+                {/* Always Required Fields Strip */}
+                <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-lg bg-muted/20 border border-border/40">
                   <span className="text-[11px] font-medium text-muted-foreground mr-1">Always Required:</span>
-                  {REGISTRATION_MANDATORY_FIELD_KEYS.map((key) => (
-                    <Badge key={key} variant="secondary" className="text-[10px] h-5 px-2 font-normal bg-muted/60 text-foreground/80">
-                      {key === "mobile" ? "Mobile" : key.replace(/([A-Z])/g, " $1").trim()}
-                    </Badge>
-                  ))}
+                  <Badge variant="secondary" className="text-[10px] h-5 px-2 font-medium bg-muted/60 text-foreground">
+                    Player Name
+                  </Badge>
+                  <Badge variant="secondary" className="text-[10px] h-5 px-2 font-medium bg-muted/60 text-foreground">
+                    Mobile Number
+                  </Badge>
+                  <span className="text-[10px] text-muted-foreground ml-auto hidden sm:inline">Permanently mandatory on all registration forms</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {REGISTRATION_OPTIONAL_FIELD_KEYS.map((key) => {
+                {/* Configurable Field List with Show/Hide & Mandatory/Optional */}
+                <div className="space-y-2">
+                  {REGISTRATION_CONFIGURABLE_FIELD_KEYS.map((key) => {
                     const visible = !registrationFieldsHidden.includes(key);
+                    const isRequired = visible && registrationFieldsRequired.includes(key);
+                    if (key === "matchAvailability" && !tournament?.matchDates) {
+                      return null;
+                    }
                     return (
-                      <label
+                      <div
                         key={key}
-                        className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer transition-colors ${
-                          visible
-                            ? "border-border/70 bg-card hover:bg-muted/20"
-                            : "border-border/40 bg-muted/10 opacity-70 hover:opacity-100"
+                        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-lg border text-xs transition-colors ${
+                          visible ? "border-border/70 bg-card" : "border-border/40 bg-muted/10 opacity-70"
                         }`}
                       >
-                        <span className="font-medium truncate">{REGISTRATION_OPTIONAL_FIELD_LABELS[key]}</span>
-                        <Switch
-                          checked={visible}
-                          onCheckedChange={(checked) => {
-                            setRegistrationFieldsHidden((prev) => {
-                              if (checked) return prev.filter((item) => item !== key);
-                              return prev.includes(key) ? prev : [...prev, key];
-                            });
-                          }}
-                        />
-                      </label>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-foreground truncate">
+                              {REGISTRATION_CONFIGURABLE_FIELD_LABELS[key]}
+                            </span>
+                            {visible ? (
+                              isRequired ? (
+                                <Badge variant="destructive" className="text-[9px] h-4 px-1.5 font-bold uppercase tracking-wide">
+                                  Required
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="text-[9px] h-4 px-1.5 font-normal text-muted-foreground">
+                                  Optional
+                                </Badge>
+                              )
+                            ) : (
+                              <Badge variant="outline" className="text-[9px] h-4 px-1.5 text-muted-foreground">
+                                Hidden
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-muted-foreground">Visible</span>
+                            <Switch
+                              checked={visible}
+                              onCheckedChange={(checked) => {
+                                if (!checked) {
+                                  setRegistrationFieldsHidden((prev) => (prev.includes(key) ? prev : [...prev, key]));
+                                  setRegistrationFieldsRequired((prev) => prev.filter((k) => k !== key));
+                                } else {
+                                  setRegistrationFieldsHidden((prev) => prev.filter((k) => k !== key));
+                                }
+                              }}
+                            />
+                          </div>
+
+                          <div className="h-4 w-px bg-border/60" />
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-muted-foreground">Mandatory</span>
+                            <Switch
+                              disabled={!visible}
+                              checked={visible && isRequired}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setRegistrationFieldsRequired((prev) => (prev.includes(key) ? prev : [...prev, key]));
+                                  setRegistrationFieldsHidden((prev) => prev.filter((k) => k !== key));
+                                } else {
+                                  setRegistrationFieldsRequired((prev) => prev.filter((k) => k !== key));
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </div>
                     );
                   })}
+                </div>
+                <div className="pt-4 border-t border-border/40">
+                  <CustomQuestionsEditor
+                    questions={customQuestions}
+                    onChange={setCustomQuestions}
+                    disabled={regSaving}
+                  />
                 </div>
               </div>
 

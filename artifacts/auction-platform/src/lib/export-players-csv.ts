@@ -2,6 +2,7 @@ import {
   buildPlayerExportRows,
   type ExportCategoryMap,
   type ExportTeamMap,
+  type RegistrationCustomQuestion,
 } from "@workspace/api-base";
 
 function escapeCsvCell(value: unknown): string {
@@ -16,12 +17,13 @@ export function exportPlayersToCsv(
   teamMap: ExportTeamMap,
   fileName: string,
   sportId?: string | null,
+  customQuestions?: RegistrationCustomQuestion[] | null,
 ): void {
   if (players.length === 0) {
     throw new Error("No players to export.");
   }
 
-  const rows = buildPlayerExportRows(players, catMap, teamMap, sportId);
+  const rows = buildPlayerExportRows(players, catMap, teamMap, sportId, customQuestions);
   const headers = Object.keys(rows[0] ?? {});
   const lines = [
     headers.map(escapeCsvCell).join(","),

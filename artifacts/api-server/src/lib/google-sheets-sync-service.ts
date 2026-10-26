@@ -1,5 +1,6 @@
 import { db, googleSheetSyncsTable, playersTable, tournamentsTable, categoriesTable, teamsTable } from "@workspace/db";
 import { buildPlayerExportSheetValues } from "@workspace/api-base/export-players-rows";
+import { parseRegistrationFieldsConfig } from "@workspace/api-base/registration-fields";
 import { asc, eq } from "drizzle-orm";
 import type { Logger } from "pino";
 import { googleSheetsOwnerKey } from "./google-sheets-oauth.js";
@@ -31,17 +32,19 @@ async function buildTournamentSheetValues(tournamentId: number): Promise<string[
   const [categories, teams, tournament] = await Promise.all([
     db.select({ id: categoriesTable.id, name: categoriesTable.name }).from(categoriesTable).where(eq(categoriesTable.tournamentId, tournamentId)),
     db.select({ id: teamsTable.id, name: teamsTable.name }).from(teamsTable).where(eq(teamsTable.tournamentId, tournamentId)),
-    db.select({ sport: tournamentsTable.sport }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId)).limit(1),
+    db.select({ sport: tournamentsTable.sport, registrationFieldsJson: tournamentsTable.registrationFieldsJson }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId)).limit(1),
   ]);
 
   const catMap = Object.fromEntries(categories.map((c) => [c.id, { name: c.name }]));
   const teamMap = Object.fromEntries(teams.map((t) => [t.id, { name: t.name }]));
 
+  const customQuestions = parseRegistrationFieldsConfig(tournament[0]?.registrationFieldsJson).customQuestions;
   return buildPlayerExportSheetValues(
     serializedPlayers,
     catMap,
     teamMap,
     tournament[0]?.sport ?? null,
+    customQuestions,
   );
 }
 

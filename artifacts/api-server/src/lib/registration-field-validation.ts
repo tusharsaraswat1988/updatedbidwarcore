@@ -1,7 +1,9 @@
 import {
   buildRegistrationFieldVisibility,
+  buildRegistrationFieldRequirements,
+  parseRegistrationFieldsConfig,
+  type RegistrationConfigurableFieldKey,
   type RegistrationFieldsConfig,
-  type RegistrationOptionalFieldKey,
 } from "@workspace/api-base/registration-fields";
 
 type PlayerRegistrationInput = {
@@ -15,12 +17,15 @@ type PlayerRegistrationInput = {
   cricheroUrl?: string | null;
   availabilityDates?: string | null;
   whatsappConsent?: boolean | null;
+  photoUrl?: string | null;
+  photoPublicId?: string | null;
+  role?: string | null;
 };
 
-/** Drop values for optional fields hidden by the organizer. */
+/** Drop values for fields hidden by the organizer. */
 export function sanitizeRegistrationInputByVisibility(
   input: PlayerRegistrationInput,
-  visibility: Record<RegistrationOptionalFieldKey, boolean>,
+  visibility: Record<RegistrationConfigurableFieldKey, boolean>,
 ): PlayerRegistrationInput {
   const next = { ...input };
   if (!visibility.email) next.email = undefined;
@@ -33,15 +38,32 @@ export function sanitizeRegistrationInputByVisibility(
   if (!visibility.cricheroUrl) next.cricheroUrl = undefined;
   if (!visibility.matchAvailability) next.availabilityDates = undefined;
   if (!visibility.whatsappConsent) next.whatsappConsent = false;
+  if (visibility.photo === false) {
+    next.photoUrl = undefined;
+    next.photoPublicId = undefined;
+  }
+  if (visibility.role === false) {
+    next.role = undefined;
+  }
   return next;
 }
 
 export function resolveRegistrationFieldVisibilityFromTournament(
   raw: unknown,
   sportId?: string | null,
-): Record<RegistrationOptionalFieldKey, boolean> {
+): Record<RegistrationConfigurableFieldKey, boolean> {
   return buildRegistrationFieldVisibility(
-    raw as RegistrationFieldsConfig | null | undefined,
+    parseRegistrationFieldsConfig(raw),
+    sportId,
+  );
+}
+
+export function resolveRegistrationFieldRequirementsFromTournament(
+  raw: unknown,
+  sportId?: string | null,
+): Record<RegistrationConfigurableFieldKey, boolean> {
+  return buildRegistrationFieldRequirements(
+    parseRegistrationFieldsConfig(raw),
     sportId,
   );
 }

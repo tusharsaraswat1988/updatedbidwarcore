@@ -62,13 +62,20 @@ import {
 } from "@workspace/api-base/auction-timer";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
 import {
+  REGISTRATION_PERMANENT_MANDATORY_FIELD_KEYS,
+  REGISTRATION_CONFIGURABLE_FIELD_KEYS,
+  REGISTRATION_CONFIGURABLE_FIELD_LABELS,
   REGISTRATION_MANDATORY_FIELD_KEYS,
   REGISTRATION_OPTIONAL_FIELD_KEYS,
   REGISTRATION_OPTIONAL_FIELD_LABELS,
   parseRegistrationFieldsConfig,
   serializeRegistrationFieldsConfig,
+  type RegistrationConfigurableFieldKey,
   type RegistrationOptionalFieldKey,
+  type RegistrationCustomQuestion,
+  type RegistrationFieldsConfig,
 } from "@workspace/api-base/registration-fields";
+import { CustomQuestionsEditor } from "@/components/registration/custom-questions-editor";
 import {
   parsePlayerRegistrationMode,
   parseRegistrationCategoryMode,
@@ -128,7 +135,9 @@ export default function TournamentSettings() {
     { increment: 0 },
   ]);
   const [bidValueOptions, setBidValueOptions] = useState<number[]>([]);
-  const [registrationFieldsHidden, setRegistrationFieldsHidden] = useState<RegistrationOptionalFieldKey[]>([]);
+  const [registrationFieldsHidden, setRegistrationFieldsHidden] = useState<RegistrationConfigurableFieldKey[]>([]);
+  const [registrationFieldsRequired, setRegistrationFieldsRequired] = useState<RegistrationConfigurableFieldKey[]>(["photo", "role"]);
+  const [customQuestions, setCustomQuestions] = useState<RegistrationCustomQuestion[]>([]);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
   const [datePickerVal, setDatePickerVal] = useState("");
   const [bannerEditorOpen, setBannerEditorOpen] = useState(false);
@@ -171,8 +180,10 @@ export default function TournamentSettings() {
     tiers: Array<{ upTo?: number; increment: number }>,
     logos: SponsorLogo[],
     bidOptions: number[],
-    hiddenRegistrationFields: RegistrationOptionalFieldKey[],
-  ) => JSON.stringify({ form, tiers, logos: logos.filter(l => l.url.trim()), bidOptions, hiddenRegistrationFields }), []);
+    hiddenRegistrationFields: RegistrationConfigurableFieldKey[],
+    requiredRegistrationFields: RegistrationConfigurableFieldKey[] = ["photo", "role"],
+    questions: RegistrationCustomQuestion[] = [],
+  ) => JSON.stringify({ form, tiers, logos: logos.filter(l => l.url.trim()), bidOptions, hiddenRegistrationFields, requiredRegistrationFields, questions }), []);
 
   const hydrateFromTournament = useCallback((t: NonNullable<typeof tournament>) => {
     const initialForm = {
@@ -286,11 +297,16 @@ export default function TournamentSettings() {
       initialSponsors = normalizeSponsorLogos(parsed);
     } catch { initialSponsors = []; }
     setSponsorLogos(initialSponsors);
-    const initialHidden = parseRegistrationFieldsConfig(
-      (t as { registrationFields?: { hidden?: RegistrationOptionalFieldKey[] } }).registrationFields,
-    ).hidden ?? [];
+    const initialRegConfig = parseRegistrationFieldsConfig(
+      (t as any)?.registrationFields ?? (t as any)?.registrationFieldsJson,
+    );
+    const initialHidden = initialRegConfig.hidden ?? [];
+    const initialRequired = initialRegConfig.required !== undefined ? initialRegConfig.required : ["photo", "role"];
+    const initialQuestions = initialRegConfig.customQuestions ?? [];
     setRegistrationFieldsHidden(initialHidden);
-    setBaselineSnapshot(buildSnapshot(initialForm, initialTiers, initialSponsors, initialBidOptions, initialHidden));
+    setRegistrationFieldsRequired(initialRequired);
+    setCustomQuestions(initialQuestions);
+    setBaselineSnapshot(buildSnapshot(initialForm, initialTiers, initialSponsors, initialBidOptions, initialHidden, initialRequired, initialQuestions));
   }, [buildSnapshot]);
 
   useEffect(() => {
@@ -504,13 +520,13 @@ export default function TournamentSettings() {
   }
 
   const isDirty = useMemo(
-    () => baselineSnapshot !== "" && buildSnapshot(editForm, bidTiers, sponsorLogos, bidValueOptions, registrationFieldsHidden) !== baselineSnapshot,
-    [baselineSnapshot, buildSnapshot, editForm, bidTiers, sponsorLogos, bidValueOptions, registrationFieldsHidden],
+    () => baselineSnapshot !== "" && buildSnapshot(editForm, bidTiers, sponsorLogos, bidValueOptions, registrationFieldsHidden, registrationFieldsRequired, customQuestions) !== baselineSnapshot,
+    [baselineSnapshot, buildSnapshot, editForm, bidTiers, sponsorLogos, bidValueOptions, registrationFieldsHidden, registrationFieldsRequired, customQuestions],
   );
 
   const saveKey = useMemo(
-    () => buildSnapshot(editForm, bidTiers, sponsorLogos, bidValueOptions, registrationFieldsHidden),
-    [buildSnapshot, editForm, bidTiers, sponsorLogos, bidValueOptions, registrationFieldsHidden],
+    () => buildSnapshot(editForm, bidTiers, sponsorLogos, bidValueOptions, registrationFieldsHidden, registrationFieldsRequired, customQuestions),
+    [buildSnapshot, editForm, bidTiers, sponsorLogos, bidValueOptions, registrationFieldsHidden, registrationFieldsRequired, customQuestions],
   );
 
   const squadSizeError = useMemo(() => {
@@ -689,7 +705,7 @@ export default function TournamentSettings() {
         qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
         qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
       }
-      setBaselineSnapshot(buildSnapshot(editForm, bidTiers, filteredLogos, bidValueOptions.filter((n) => n > 0), registrationFieldsHidden));
+      setBaselineSnapshot(buildSnapshot(editForm, bidTiers, filteredLogos, bidValueOptions.filter((n) => n > 0), registrationFieldsHidden, registrationFieldsRequired, customQuestions));
       if (options?.notify) {
         toast({
           title: "Settings saved",
@@ -1287,46 +1303,101 @@ export default function TournamentSettings() {
               >
                 <div className="space-y-3.5">
                   {/* Always Required Fields Strip */}
-                  <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-border/40">
-                    <span className="text-[11px] font-medium text-muted-foreground mr-1">Required:</span>
-                    {REGISTRATION_MANDATORY_FIELD_KEYS.map((key) => (
-                      <Badge key={key} variant="secondary" className="text-[10px] h-5 px-2 font-normal bg-muted/60 text-foreground/80">
-                        {key === "mobile" ? "Mobile" : key.replace(/([A-Z])/g, " $1").trim()}
-                      </Badge>
-                    ))}
+                  <div className="flex flex-wrap items-center gap-2 p-2.5 rounded-lg bg-muted/20 border border-border/40">
+                    <span className="text-[11px] font-medium text-muted-foreground mr-1">Always Required:</span>
+                    <Badge variant="secondary" className="text-[10px] h-5 px-2 font-medium bg-muted/60 text-foreground">
+                      Player Name
+                    </Badge>
+                    <Badge variant="secondary" className="text-[10px] h-5 px-2 font-medium bg-muted/60 text-foreground">
+                      Mobile Number
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground ml-auto hidden sm:inline">Permanently mandatory on all registration forms</span>
                   </div>
 
-                  {/* Optional Field Toggles */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {REGISTRATION_OPTIONAL_FIELD_KEYS.map((key) => {
+                  {/* Configurable Field List with Show/Hide & Mandatory/Optional */}
+                  <div className="space-y-2">
+                    {REGISTRATION_CONFIGURABLE_FIELD_KEYS.map((key) => {
                       const visible = !registrationFieldsHidden.includes(key);
+                      const isRequired = visible && registrationFieldsRequired.includes(key);
                       const sport = (editForm.sport as string) || tournament?.sport || "cricket";
                       if (key === "cricheroUrl" && sport !== "cricket") return null;
                       if (key === "matchAvailability" && !(editForm.matchDates as string)?.trim() && !tournament?.matchDates) {
                         return null;
                       }
                       return (
-                        <label
+                        <div
                           key={key}
-                          className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer transition-colors ${
-                            visible
-                              ? "border-border/70 bg-card hover:bg-muted/20"
-                              : "border-border/40 bg-muted/10 opacity-70 hover:opacity-100"
+                          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-lg border text-xs transition-colors ${
+                            visible ? "border-border/70 bg-card" : "border-border/40 bg-muted/10 opacity-70"
                           }`}
                         >
-                          <span className="font-medium truncate">{REGISTRATION_OPTIONAL_FIELD_LABELS[key]}</span>
-                          <Switch
-                            checked={visible}
-                            onCheckedChange={(checked) => {
-                              setRegistrationFieldsHidden((prev) => {
-                                if (checked) return prev.filter((item) => item !== key);
-                                return prev.includes(key) ? prev : [...prev, key];
-                              });
-                            }}
-                          />
-                        </label>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-foreground truncate">
+                                {REGISTRATION_CONFIGURABLE_FIELD_LABELS[key]}
+                              </span>
+                              {visible ? (
+                                isRequired ? (
+                                  <Badge variant="destructive" className="text-[9px] h-4 px-1.5 font-bold uppercase tracking-wide">
+                                    Required
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary" className="text-[9px] h-4 px-1.5 font-normal text-muted-foreground">
+                                    Optional
+                                  </Badge>
+                                )
+                              ) : (
+                                <Badge variant="outline" className="text-[9px] h-4 px-1.5 text-muted-foreground">
+                                  Hidden
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] text-muted-foreground">Visible</span>
+                              <Switch
+                                checked={visible}
+                                onCheckedChange={(checked) => {
+                                  if (!checked) {
+                                    setRegistrationFieldsHidden((prev) => (prev.includes(key) ? prev : [...prev, key]));
+                                    setRegistrationFieldsRequired((prev) => prev.filter((k) => k !== key));
+                                  } else {
+                                    setRegistrationFieldsHidden((prev) => prev.filter((k) => k !== key));
+                                  }
+                                }}
+                              />
+                            </div>
+
+                            <div className="h-4 w-px bg-border/60" />
+
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] text-muted-foreground">Mandatory</span>
+                              <Switch
+                                disabled={!visible}
+                                checked={visible && isRequired}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setRegistrationFieldsRequired((prev) => (prev.includes(key) ? prev : [...prev, key]));
+                                    setRegistrationFieldsHidden((prev) => prev.filter((k) => k !== key));
+                                  } else {
+                                    setRegistrationFieldsRequired((prev) => prev.filter((k) => k !== key));
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
                       );
                     })}
+                  </div>
+                  <div className="pt-4 border-t border-border/40">
+                    <CustomQuestionsEditor
+                      questions={customQuestions}
+                      onChange={setCustomQuestions}
+                      disabled={updateTournament.isPending}
+                    />
                   </div>
                 </div>
               </SettingsCard>

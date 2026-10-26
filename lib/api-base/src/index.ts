@@ -223,3 +223,26 @@ export {
   type RegistrationCategoryMode,
   type PlayerRosterAssignmentType,
 } from "./player-registration-mode";
+
+
+export {
+  REGISTRATION_MANDATORY_FIELD_KEYS,
+  type RegistrationMandatoryFieldKey,
+  REGISTRATION_OPTIONAL_FIELD_KEYS,
+  type RegistrationOptionalFieldKey,
+  REGISTRATION_QUESTION_TYPES,
+  type RegistrationQuestionType,
+  type RegistrationCustomQuestion,
+  type RegistrationFieldsConfig,
+  REGISTRATION_OPTIONAL_FIELD_LABELS,
+  registrationOptionalFieldKeysForSport,
+  parseRegistrationFieldsConfig,
+  buildRegistrationFieldVisibility,
+  isRegistrationFieldVisible,
+  serializeRegistrationFieldsConfig,
+  validateMandatoryRegistrationFields,
+  sanitizeCustomQuestionOptions,
+  parseRegistrationCustomQuestions,
+  validateCustomQuestionsDefinition,
+  validateCustomAnswers,
+} from "./registration-fields";

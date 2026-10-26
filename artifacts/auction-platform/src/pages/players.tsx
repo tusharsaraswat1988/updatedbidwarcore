@@ -128,6 +128,7 @@ import { exportPlayersToCsv } from "@/lib/export-players-csv";
 import { useGoogleSheetsExport } from "@/hooks/use-google-sheets-export";
 import { GoogleSheetsReconnectBanner, PlayersExportMenu } from "@/components/players-export-menu";
 import { PlayerCategorySelect, type PlayerCategoryOption } from "@/components/player-category-select";
+import type { RegistrationCustomQuestion } from "@workspace/api-base";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -2371,7 +2372,7 @@ function PlayerDetailPanel({
   tagTeam: { name: string; color?: string | null } | null;
   roleSpecGroups: { groupName: string }[];
   tournamentId: number;
-  tournament?: { enableRegistrationPayment?: boolean; registrationFee?: number | null; sport?: string | null };
+  tournament?: { enableRegistrationPayment?: boolean; registrationFee?: number | null; sport?: string | null; registrationFields?: any };
   categories?: PlayerCategoryOption[];
   onEdit: () => void;
   onDelete: () => void;
@@ -2381,6 +2382,31 @@ function PlayerDetailPanel({
 }) {
   const tagTheme = getTagTheme(player.playerTag);
   const sportCaps = getSportCapabilities(tournament?.sport);
+  const customQuestions = (tournament as any)?.registrationFields?.customQuestions as RegistrationCustomQuestion[] | undefined;
+  const customAnswers = (player.customAnswers || {}) as Record<string, unknown>;
+  const customAnswersList = useMemo(() => {
+    const result: { label: string; value: string }[] = [];
+    if (!customAnswers || typeof customAnswers !== "object") return result;
+
+    if (Array.isArray(customQuestions) && customQuestions.length > 0) {
+      for (const q of customQuestions) {
+        if (customAnswers[q.id] !== undefined && customAnswers[q.id] !== null && customAnswers[q.id] !== "") {
+          const raw = customAnswers[q.id];
+          const valStr = Array.isArray(raw) ? raw.join(", ") : String(raw);
+          result.push({ label: q.label, value: valStr });
+        }
+      }
+    } else {
+      for (const [k, v] of Object.entries(customAnswers)) {
+        if (v !== undefined && v !== null && v !== "") {
+          const valStr = Array.isArray(v) ? v.join(", ") : String(v);
+          result.push({ label: k, value: valStr });
+        }
+      }
+    }
+    return result;
+  }, [customQuestions, customAnswers]);
+
   const specParts = [player.battingStyle, player.bowlingStyle, player.specialization]
     .map((val, i) => (val ? { label: roleSpecGroups[i]?.groupName || "Spec", value: String(val) } : null))
     .filter((part): part is { label: string; value: string } => part != null);
@@ -2535,6 +2561,20 @@ function PlayerDetailPanel({
                 />
               )}
             />
+          </section>
+        ) : null}
+
+        {customAnswersList.length > 0 ? (
+          <section className="ops-detail__payment">
+            <h3 className="ops-detail__label">Registration Questions</h3>
+            <dl className="grid sm:grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1">
+              {customAnswersList.map((item) => (
+                <Fragment key={item.label}>
+                  <dt className="text-muted-foreground truncate" title={item.label}>{item.label}</dt>
+                  <dd className="font-medium text-foreground break-words">{item.value}</dd>
+                </Fragment>
+              ))}
+            </dl>
           </section>
         ) : null}
       </div>
@@ -2957,7 +2997,8 @@ export default function Players() {
     setExportingTarget("excel");
     try {
       const fileStem = (tournament?.name || `tournament_${tournamentId}`).replace(/[^a-zA-Z0-9]+/g, "_");
-      await exportPlayersToExcel(filtered, catMap, teamMap, `${fileStem}_Players_Master`, tournament?.sport);
+      const customQuestions = (tournament as { registrationFields?: { customQuestions?: RegistrationCustomQuestion[] } } | null)?.registrationFields?.customQuestions;
+      await exportPlayersToExcel(filtered, catMap, teamMap, `${fileStem}_Players_Master`, tournament?.sport, customQuestions);
       toast({ title: "Excel exported", description: `${filtered.length} players downloaded.` });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not export players.";
@@ -2972,7 +3013,8 @@ export default function Players() {
     setExportingTarget("csv");
     try {
       const fileStem = (tournament?.name || `tournament_${tournamentId}`).replace(/[^a-zA-Z0-9]+/g, "_");
-      exportPlayersToCsv(filtered, catMap, teamMap, `${fileStem}_Players_Master`, tournament?.sport);
+      const customQuestions = (tournament as { registrationFields?: { customQuestions?: RegistrationCustomQuestion[] } } | null)?.registrationFields?.customQuestions;
+      exportPlayersToCsv(filtered, catMap, teamMap, `${fileStem}_Players_Master`, tournament?.sport, customQuestions);
       toast({ title: "CSV exported", description: `${filtered.length} players downloaded.` });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not export players.";

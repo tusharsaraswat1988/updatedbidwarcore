@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, index, uniqueIndex, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -60,6 +60,8 @@ export const playersTable = pgTable(
     paymentScreenshotUrl: text("payment_screenshot_url"),
     paymentScreenshotPublicId: text("payment_screenshot_public_id"),
     paymentSubmittedAt: timestamp("payment_submitted_at", { withTimezone: true }),
+    // Organizer-defined custom registration question responses
+    customAnswersJson: jsonb("custom_answers_json").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
   },
