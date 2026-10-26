@@ -27,6 +27,8 @@ import {
   getScorerAuthSession,
   patchScorerAuthCanScore,
   setScorerAuthSession,
+  getScorerSavedTournamentId,
+  setScorerSavedTournamentId,
 } from "@/lib/badminton-scorer-session";
 import { loginScorer, logoutScorer } from "@/lib/scorer-api";
 import { sanitizeMobileInput } from "@workspace/api-base/mobile";
@@ -36,6 +38,7 @@ import {
 } from "@/lib/badminton-routes";
 import { TeamPlayerVs } from "@/components/badminton/team-player-card";
 import { identityFromCombinedLabel } from "@/lib/team-player-identity";
+import { ScorerPwaInstallBanner } from "@/components/scoring/scorer-pwa-install-banner";
 import { cn } from "@/lib/utils";
 
 function formatScheduledTime(iso: string | null): string {
@@ -551,10 +554,14 @@ export default function BadmintonScorerHomePage() {
   const searchParams = new URLSearchParams(search);
   const tidFromQuery = parseInt(searchParams.get("tid") ?? "0", 10);
 
+  const [session, setSession] = useState<ScorerHomeSessionPayload | null>(null);
+  const initialSavedTid = getScorerAuthSession()?.tournamentId || getScorerSavedTournamentId();
+  const effectiveTid = tidFromQuery > 0 ? tidFromQuery : initialSavedTid;
+
   const [tournamentIdInput, setTournamentIdInput] = useState(
-    tidFromQuery > 0 ? String(tidFromQuery) : "",
+    effectiveTid > 0 ? String(effectiveTid) : "",
   );
-  const tournamentId = tidFromQuery > 0 ? tidFromQuery : parseInt(tournamentIdInput || "0", 10) || 0;
+  const tournamentId = tidFromQuery > 0 ? tidFromQuery : parseInt(tournamentIdInput || "0", 10) || (initialSavedTid > 0 ? initialSavedTid : 0);
 
   const [mobileInput, setMobileInput] = useState("");
   const [pinInput, setPinInput] = useState("");
@@ -563,7 +570,6 @@ export default function BadmintonScorerHomePage() {
   // Never seed verifying=true from session — that skipped the restore effect forever
   // ("Restoring your session…" stuck, no login / no home).
   const [verifying, setVerifying] = useState(false);
-  const [session, setSession] = useState<ScorerHomeSessionPayload | null>(null);
   const [selectedCourtId, setSelectedCourtId] = useState<number | null>(null);
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
   const [homeTab, setHomeTab] = useState<"matches" | "points">("matches");
@@ -571,6 +577,12 @@ export default function BadmintonScorerHomePage() {
   const [refreshing, setRefreshing] = useState(false);
   const [scorerName, setScorerName] = useState(() => getScorerAuthSession()?.scorer.name ?? "");
   const sessionRestoreAttemptedRef = useRef(false);
+
+  useEffect(() => {
+    if (tidFromQuery > 0) {
+      setScorerSavedTournamentId(tidFromQuery);
+    }
+  }, [tidFromQuery]);
 
   const { data: branding } = useBadmintonBranding(authAccepted ? tournamentId : 0);
   const pointsEnabled = authAccepted && homeTab === "points" && tournamentId > 0;
@@ -604,6 +616,7 @@ export default function BadmintonScorerHomePage() {
   }
 
   async function loadHomeSession(tid: number) {
+    setScorerSavedTournamentId(tid);
     const result = await fetchBadmintonScorerSession(tid);
     applySession(result);
     setAuthAccepted(true);
@@ -637,12 +650,15 @@ export default function BadmintonScorerHomePage() {
           scorer: { ...login.scorer, isActive: loginCanScore },
           canScore: loginCanScore,
           expiresAt: login.expiresAt,
+          tournamentId: tid,
         });
+        setScorerSavedTournamentId(tid);
         setScorerName(login.scorer.name);
         setCanScore(loginCanScore);
       } else {
         setScorerName(existing.scorer.name);
         setCanScore(existing.canScore !== false);
+        setScorerSavedTournamentId(tid);
       }
       await loadHomeSession(tid);
     } catch (err) {
@@ -662,8 +678,21 @@ export default function BadmintonScorerHomePage() {
     setVerifying(true);
     void loadHomeSession(tournamentId)
       .catch((err) => {
-        clearScorerAuthSession();
-        setAuthError(err instanceof Error ? err.message : "Session expired. Sign in again.");
+        const msg = err instanceof Error ? err.message : "";
+        const isAuthError =
+          msg.includes("401") ||
+          msg.includes("Session") ||
+          msg.includes("revoked") ||
+          msg.includes("expired") ||
+          msg.includes("Authentication required");
+        if (isAuthError) {
+          clearScorerAuthSession();
+          setAuthError(msg || "Session expired. Sign in again.");
+        } else {
+          // Network hiccup on mobile wakeup — keep auth, allow retry
+          setAuthAccepted(true);
+          setAuthError(msg || "Connection error. Pull to refresh or tap Refresh.");
+        }
       })
       .finally(() => setVerifying(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -675,11 +704,23 @@ export default function BadmintonScorerHomePage() {
     try {
       const next = await fetchBadmintonScorerSession(tournamentId);
       applySession(next);
-    } catch {
-      clearScorerAuthSession();
-      setAuthAccepted(false);
-      setSession(null);
-      setAuthError("Session expired. Sign in again.");
+      setAuthError("");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      const isAuthError =
+        msg.includes("401") ||
+        msg.includes("Session") ||
+        msg.includes("revoked") ||
+        msg.includes("expired") ||
+        msg.includes("Authentication required");
+      if (isAuthError) {
+        clearScorerAuthSession();
+        setAuthAccepted(false);
+        setSession(null);
+        setAuthError("Session expired. Sign in again.");
+      } else {
+        setAuthError(msg || "Failed to update match list. Check connection.");
+      }
     } finally {
       setRefreshing(false);
     }
@@ -762,6 +803,8 @@ export default function BadmintonScorerHomePage() {
                   Enter your mobile number and personal PIN to open scoring.
                 </p>
               </div>
+
+              <ScorerPwaInstallBanner className="mb-4" />
 
               <div className="space-y-4">
                 {tidFromQuery <= 0 ? (
@@ -888,6 +931,8 @@ export default function BadmintonScorerHomePage() {
 
         <main className="flex-1 px-4 py-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <div className="max-w-lg mx-auto space-y-3">
+            <ScorerPwaInstallBanner />
+
             {viewOnly ? (
               <div className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3">
                 <p className="text-amber-100 text-sm font-semibold">View-only access</p>

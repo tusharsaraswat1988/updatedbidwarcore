@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildRegistrationShareDescription,
   isRegistrationPublicPath,
@@ -7,6 +7,15 @@ import {
 } from "../lib/registration-meta-builders.js";
 
 describe("registration-page-meta", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-01T00:00:00Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("detects valid registration paths", () => {
     expect(isRegistrationPublicPath("/register/VN410108")).toBe(true);
     expect(parseRegistrationCodeFromPath("/register/vn410108")).toBe("VN410108");

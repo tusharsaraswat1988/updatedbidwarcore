@@ -21,6 +21,7 @@ export type CachedTournamentSettings = {
   maximumSquadSize: number | null;
   minBid: number | null;
   sponsorLogos: string | null;
+  ownerBiddingEnabled: boolean | null;
 };
 
 export type CachedTeamRow = {
@@ -77,8 +78,17 @@ export function invalidateAuctionBuildCache(
   if (scope === "all" || scope === "roster") rosterCache.delete(tournamentId);
 }
 
+export const ROSTER_CACHE_TTL_MS = 5000;
+export const STATIC_CACHE_TTL_MS = 15000;
+
 export function getCachedStatic(tournamentId: number): StaticCacheEntry | null {
-  return staticCache.get(tournamentId) ?? null;
+  const entry = staticCache.get(tournamentId);
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAt > STATIC_CACHE_TTL_MS) {
+    staticCache.delete(tournamentId);
+    return null;
+  }
+  return entry;
 }
 
 export function setCachedStatic(tournamentId: number, entry: Omit<StaticCacheEntry, "cachedAt">): void {
@@ -86,7 +96,13 @@ export function setCachedStatic(tournamentId: number, entry: Omit<StaticCacheEnt
 }
 
 export function getCachedRoster(tournamentId: number): RosterCacheEntry | null {
-  return rosterCache.get(tournamentId) ?? null;
+  const entry = rosterCache.get(tournamentId);
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAt > ROSTER_CACHE_TTL_MS) {
+    rosterCache.delete(tournamentId);
+    return null;
+  }
+  return entry;
 }
 
 export function setCachedRoster(tournamentId: number, entry: Omit<RosterCacheEntry, "cachedAt">): void {

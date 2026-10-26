@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { cldUrl } from "@/lib/cloudinary";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { useOrganizerShellChrome } from "@/components/organizer-app-chrome";
 
 type TournamentLike = {
   name?: string | null;
@@ -66,7 +67,9 @@ export function SectionHeader({
   titleExtra?: ReactNode;
   className?: string;
 }) {
-  const showContext = !hideTournamentContext && !!tournament?.name;
+  const shellChrome = useOrganizerShellChrome();
+  const showContext =
+    !hideTournamentContext && !shellChrome.tournamentInAppChrome && !!tournament?.name;
 
   return (
     <div className={cn("flex items-start justify-between gap-3 flex-wrap", className)}>
@@ -77,7 +80,7 @@ export function SectionHeader({
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <h1
             className={cn(
-              "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight leading-tight text-foreground",
+              "text-xl sm:text-2xl font-bold tracking-tight leading-tight text-foreground",
               titleClassName,
             )}
           >
@@ -86,7 +89,7 @@ export function SectionHeader({
           {titleExtra}
         </div>
         {description ? (
-          <p className="text-muted-foreground mt-1.5 text-sm sm:text-base max-w-2xl leading-relaxed">
+          <p className="text-muted-foreground mt-1 text-sm max-w-2xl leading-snug">
             {description}
           </p>
         ) : null}

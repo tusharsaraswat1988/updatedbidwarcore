@@ -151,7 +151,6 @@ export function PurseBoosterDialog({
               id="booster-amount"
               inputMode="numeric"
               pattern="[0-9]*"
-              placeholder="e.g. 500000"
               value={amount}
               onChange={(e) => setAmount(e.target.value.replace(/\D/g, ""))}
             />
@@ -162,7 +161,6 @@ export function PurseBoosterDialog({
             value={reason}
             onChange={setReason}
             optional
-            placeholder="e.g. Committee approval for sponsor top-up"
           />
 
           {error && <p className="text-sm text-red-500">{error}</p>}

@@ -32,11 +32,13 @@ export const SideEffectsLayer = memo(function SideEffectsLayer({
     return (
       <div className="absolute inset-0 z-30 grid place-items-center bg-black/85 p-[6%] pointer-events-none">
         <div
-          className="w-full max-w-md border-4 border-red-500 bg-black/90 p-6 text-center"
+          className="w-full max-w-xl border-4 border-red-500 bg-black/95 p-10 text-center shadow-[0_0_60px_rgba(239,68,68,0.35)]"
           style={{ animation: "auction-sold-slam 0.7s ease-out both" }}
         >
-          <p className="font-['Bebas_Neue'] text-6xl tracking-tighter text-red-500">UNSOLD</p>
-          <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.3em] text-white/60">
+          <p className="font-['Bebas_Neue'] text-8xl font-bold tracking-tight text-red-500 drop-shadow-[0_0_24px_rgba(239,68,68,0.6)]">
+            UNSOLD
+          </p>
+          <p className="mt-4 font-['Space_Grotesk'] text-2xl font-bold uppercase tracking-[0.10em] text-white/90">
             {playerName} · Base {basePriceLabel}
           </p>
         </div>

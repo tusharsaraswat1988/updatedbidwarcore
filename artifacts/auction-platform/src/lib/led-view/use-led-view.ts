@@ -17,6 +17,7 @@ import {
 } from "@workspace/api-client-react";
 import { useBranding } from "@/hooks/use-branding";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
+import { ledPlayerRoleRaw } from "@/lib/player-role-options";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import {
   getSponsorsByPriority,
@@ -145,7 +146,7 @@ function toLedPlayer(
   categoryName?: string | null,
   specGroupLabels?: string[],
 ): LedPlayer {
-  const roleRaw = p.role?.trim() || "Player";
+  const roleRaw = ledPlayerRoleRaw(p.role);
   const specs = resolvePlayerSpecifications(
     p as Player & {
       specifications?: { specGroupId: number; groupName: string; value: string }[];
@@ -808,6 +809,7 @@ export function useLedView(
       topSoldPlayers,
       timerCeiling,
       minimumBid: minBid,
+      randomPlayerReveal: (state as any)?.randomPlayerReveal ?? null,
       loading: false,
       error: error ? String(error) : null,
       connectionStatus,

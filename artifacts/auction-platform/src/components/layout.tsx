@@ -1,31 +1,33 @@
-import { ReactNode, useState, useEffect } from "react";
+import { createContext, ReactNode, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { 
   LayoutDashboard, Users, UserPlus, 
   Settings, Activity, BarChart3,
-  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, FileText, Gavel, Sparkles, Menu, X,
+  Link2, LogOut, RefreshCw, ChevronLeft, ChevronRight, MonitorDown, SlidersHorizontal, Gavel, Sparkles, X,
 } from "lucide-react";
 import {
   auctionRoomPath,
   auctionResetPath,
-  displayScreenPath,
-  mediaCenterPath,
-  mediaCenterTournamentPath,
+  resolveTournamentOrganizerLandingPath,
 } from "@/lib/tournament-navigation";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { useOrganizerAuth, useOrganizerAccountAuth } from "@/hooks/use-auth";
-import { useBranding } from "@/hooks/use-branding";
 import { logoutOrganizerAccount } from "@/lib/auth";
-import { clearOrganizerAccountAuth } from "@/lib/organizer-account-auth-cache";
+import { clearOrganizerClientState } from "@/lib/organizer-account-auth-cache";
 import { useQueryClient } from "@tanstack/react-query";
-import { isBuzzStudioEnabled } from "@workspace/api-base/tournament-features";
-import { cldUrl } from "@/lib/cloudinary";
-import { getBrandLogoAlt, getBrandLogoSrc } from "@/lib/brand-assets";
-import { getBrandSurfacePreset } from "@/lib/brand-usage";
-import { TrialLicenseBadge } from "@/components/trial-license-badge";
+import { CurrentTournamentContext } from "@/components/current-tournament-context";
+import {
+  BidwarOrganizerBrandMark,
+  OrganizerDesktopBrandBar,
+  OrganizerMobileTopBar,
+  OrganizerShellChromeContext,
+} from "@/components/organizer-app-chrome";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
+import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
+import { sidebarActiveScrollDelta } from "@/lib/sidebar-active-scroll";
 
-const sidebarPreset = getBrandSurfacePreset("sidebar-compact");
+/** Set by the mounted organiser shell so page-level AppLayout wrappers do not render a second sidebar. */
+const OrganizerShellContext = createContext(false);
 
 interface LayoutProps {
   children: ReactNode;
@@ -41,6 +43,7 @@ type TournamentData = {
   status?: string | null;
   licenseStatus?: string | null;
   features?: unknown;
+  auctionEnabled?: boolean | null;
   scoringEnabled?: boolean | null;
   localModeEnabled?: boolean | null;
 };
@@ -50,26 +53,18 @@ interface SidebarNavProps {
   location: string;
   tournamentId: number | undefined;
   tournament: TournamentData | undefined;
-  buzzStudioActive: boolean;
   localVenue: boolean;
 }
 
-function navLinkCls(path: string, currentLocation: string, expanded: boolean, tournamentId?: number) {
-  let active = currentLocation === path;
-  if (!active && tournamentId && path === mediaCenterPath(tournamentId)) {
-    active = currentLocation === mediaCenterTournamentPath(tournamentId);
-  }
+function navLinkCls(path: string, currentLocation: string, expanded: boolean, _tournamentId?: number) {
+  const active = currentLocation === path;
   return `relative flex items-center rounded-md transition-colors cursor-pointer ${
     !expanded ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
   } ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"}`;
 }
 
-function isNavActive(path: string, currentLocation: string, tournamentId?: number) {
-  if (currentLocation === path) return true;
-  if (tournamentId && path === mediaCenterPath(tournamentId)) {
-    return currentLocation === mediaCenterTournamentPath(tournamentId);
-  }
-  return false;
+function isNavActive(path: string, currentLocation: string, _tournamentId?: number) {
+  return currentLocation === path;
 }
 
 function SidebarLink({
@@ -105,14 +100,42 @@ function SidebarNav({
   location,
   tournamentId,
   tournament,
-  buzzStudioActive,
   localVenue,
 }: SidebarNavProps) {
   const cls = (path: string) => navLinkCls(path, location, expanded, tournamentId);
   const active = (path: string) => isNavActive(path, location, tournamentId);
+  const auctionActive = isAuctionEnabled(tournament);
+  const scoringActive = isScoringEnabled(tournament);
+  const tournamentLandingHref =
+    tournamentId && tournament
+      ? resolveTournamentOrganizerLandingPath(tournamentId, tournament)
+      : tournamentId
+        ? `/tournament/${tournamentId}/auction-overview`
+        : "/organizer";
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const menuLayoutKey = [
+    expanded,
+    auctionActive,
+    scoringActive,
+    localVenue,
+    tournament?.name,
+    tournament?.status,
+    tournament?.licenseStatus,
+    tournament?.sport,
+    tournament?.localModeEnabled,
+  ].join("|");
+
+  useLayoutEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const active = container.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!active) return;
+    const delta = sidebarActiveScrollDelta(container.getBoundingClientRect(), active.getBoundingClientRect());
+    if (delta !== 0) container.scrollTop += delta;
+  }, [location, menuLayoutKey]);
 
   return (
-    <div className="flex-1 overflow-y-auto py-4 overflow-x-hidden">
+    <div ref={scrollRef} className="flex-1 overflow-y-auto py-4 overflow-x-hidden">
       {expanded && (
         <div className="px-4 mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
           Main Menu
@@ -140,162 +163,151 @@ function SidebarNav({
 
       {tournamentId && (
         <>
-          {expanded && (
-            <div className="px-4 mt-7 mb-1 flex items-center gap-2 min-w-0">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                {tournament?.name || "Tournament"}
-              </span>
-              {tournament?.licenseStatus && tournament.licenseStatus !== "active" && tournament.licenseStatus !== "completed" ? (
-                <TrialLicenseBadge className="shrink-0" />
-              ) : null}
-            </div>
-          )}
+          <CurrentTournamentContext
+            tournamentId={tournamentId}
+            name={tournament?.name}
+            status={tournament?.status}
+            licenseStatus={tournament?.licenseStatus}
+            expanded={expanded}
+            overviewHref={tournamentLandingHref}
+          />
           {expanded && (
             <div className="px-4 mb-3 text-xs font-semibold text-muted-foreground/50 uppercase tracking-wider">
               Setup
             </div>
           )}
-          {!expanded && <div className="mt-6 mb-2 border-t border-border mx-2" />}
+          {!expanded && <div className="mb-2 border-t border-border mx-2" />}
           <nav className={`space-y-1 ${!expanded ? "px-1.5" : "px-2"}`}>
-            <SidebarLink href={`/tournament/${tournamentId}`} title="Overview" className={cls(`/tournament/${tournamentId}`)} active={active(`/tournament/${tournamentId}`)} showAccent={expanded}>
-              <Activity className="w-5 h-5 flex-shrink-0" />
-              {expanded && <span className="font-medium">Overview</span>}
-            </SidebarLink>
-            <SidebarLink href={`/tournament/${tournamentId}/teams`} title="Teams" className={cls(`/tournament/${tournamentId}/teams`)} active={active(`/tournament/${tournamentId}/teams`)} showAccent={expanded}>
-              <Users className="w-5 h-5 flex-shrink-0" />
-              {expanded && <span className="font-medium">Teams</span>}
-            </SidebarLink>
-            <SidebarLink href={`/tournament/${tournamentId}/players`} title="Players" className={cls(`/tournament/${tournamentId}/players`)} active={active(`/tournament/${tournamentId}/players`)} showAccent={expanded}>
-              <UserPlus className="w-5 h-5 flex-shrink-0" />
-              {expanded && <span className="font-medium">Players</span>}
-            </SidebarLink>
-            <SidebarLink href={`/tournament/${tournamentId}/categories`} title="Categories" className={cls(`/tournament/${tournamentId}/categories`)} active={active(`/tournament/${tournamentId}/categories`)} showAccent={expanded}>
-              <Settings className="w-5 h-5 flex-shrink-0" />
-              {expanded && <span className="font-medium">Categories <span className="text-[10px] text-muted-foreground font-normal">(optional)</span></span>}
-            </SidebarLink>
-            <SidebarLink href={`/tournament/${tournamentId}/settings`} title="Tournament Settings" className={cls(`/tournament/${tournamentId}/settings`)} active={active(`/tournament/${tournamentId}/settings`)} showAccent={expanded}>
-              <SlidersHorizontal className="w-5 h-5 flex-shrink-0" />
-              {expanded && <span className="font-medium">Settings</span>}
-            </SidebarLink>
-            {buzzStudioActive && !localVenue ? (
-              <SidebarLink href={mediaCenterPath(tournamentId)} title="Media Center" className={cls(mediaCenterPath(tournamentId))} active={active(mediaCenterPath(tournamentId))} showAccent={expanded}>
-                <Sparkles className="w-5 h-5 flex-shrink-0" />
-                {expanded && <span className="font-medium">Media Center</span>}
-              </SidebarLink>
-            ) : null}
-            {tournament?.status === "completed" ? (
-              <SidebarLink href={`/tournament/${tournamentId}/reports`} title="Reports & Analytics" className={cls(`/tournament/${tournamentId}/reports`)} active={active(`/tournament/${tournamentId}/reports`)} showAccent={expanded}>
-                <BarChart3 className="w-5 h-5 flex-shrink-0" />
-                {expanded && <span className="font-medium">Reports & Analytics</span>}
-              </SidebarLink>
-            ) : (
-              <div
-                title="Opens after auction is marked completed"
-                className={`flex items-center rounded-md cursor-not-allowed select-none ${
-                  !expanded ? "justify-center w-9 h-9 mx-auto opacity-30" : "gap-3 px-3 py-2"
-                }`}
-              >
-                <BarChart3 className={`w-5 h-5 flex-shrink-0 ${!expanded ? "" : "opacity-30"}`} />
-                {expanded && (
-                  <div className="flex flex-col min-w-0 flex-1">
-                    <div className="flex items-center gap-2 opacity-30">
-                      <span className="font-medium">Reports & Analytics</span>
-                      <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto shrink-0">Locked</span>
-                    </div>
-                    <span className="text-[11px] text-amber-300/85 leading-tight mt-0.5 normal-case">
-                      Opens after auction is marked completed
-                    </span>
-                  </div>
-                )}
-              </div>
+            {auctionActive && (
+              <>
+                <SidebarLink href={`/tournament/${tournamentId}/auction-overview`} title="Auction Overview" className={cls(`/tournament/${tournamentId}/auction-overview`)} active={active(`/tournament/${tournamentId}/auction-overview`) || active(`/tournament/${tournamentId}/overview`)} showAccent={expanded}>
+                  <Gavel className="w-5 h-5 flex-shrink-0" />
+                  {expanded && <span className="font-medium">Auction Overview</span>}
+                </SidebarLink>
+                <SidebarLink href={`/tournament/${tournamentId}/teams`} title="Teams" className={cls(`/tournament/${tournamentId}/teams`)} active={active(`/tournament/${tournamentId}/teams`)} showAccent={expanded}>
+                  <Users className="w-5 h-5 flex-shrink-0" />
+                  {expanded && <span className="font-medium">Teams</span>}
+                </SidebarLink>
+                <SidebarLink href={`/tournament/${tournamentId}/players`} title="Players" className={cls(`/tournament/${tournamentId}/players`)} active={active(`/tournament/${tournamentId}/players`)} showAccent={expanded}>
+                  <UserPlus className="w-5 h-5 flex-shrink-0" />
+                  {expanded && <span className="font-medium">Players</span>}
+                </SidebarLink>
+                <SidebarLink href={`/tournament/${tournamentId}/categories`} title="Categories" className={cls(`/tournament/${tournamentId}/categories`)} active={active(`/tournament/${tournamentId}/categories`)} showAccent={expanded}>
+                  <SlidersHorizontal className="w-5 h-5 flex-shrink-0" />
+                  {expanded && <span className="font-medium">Categories</span>}
+                </SidebarLink>
+              </>
             )}
-            {tournament?.licenseStatus === "active" ? (
-              <SidebarLink href={`/tournament/${tournamentId}/team-reports`} title="Pre-Auction Reports" className={cls(`/tournament/${tournamentId}/team-reports`)} active={active(`/tournament/${tournamentId}/team-reports`)} showAccent={expanded}>
-                <FileText className="w-5 h-5 flex-shrink-0" />
-                {expanded && <span className="font-medium">Pre-Auction Reports</span>}
-              </SidebarLink>
-            ) : (
-              <div
-                title="Pre-Auction Reports available only for licensed tournaments"
-                className={`flex items-center rounded-md opacity-30 cursor-not-allowed select-none ${
-                  !expanded ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2"
-                }`}
-              >
-                <FileText className="w-5 h-5 flex-shrink-0" />
-                {expanded && (
-                  <>
-                    <span className="font-medium">Pre-Auction Reports</span>
-                    <span className="text-[10px] bg-border text-muted-foreground px-1.5 py-0.5 rounded ml-auto">Trial</span>
-                  </>
-                )}
-              </div>
+            <SidebarLink href={`/tournament/${tournamentId}/settings`} title={auctionActive ? "Auction Setting" : "Tournament Settings"} className={cls(`/tournament/${tournamentId}/settings`)} active={active(`/tournament/${tournamentId}/settings`)} showAccent={expanded}>
+              <Settings className="w-5 h-5 flex-shrink-0" />
+              {expanded && <span className="font-medium">{auctionActive ? "Auction Setting" : "Settings"}</span>}
+            </SidebarLink>
+            {auctionActive && (
+              <>
+                <SidebarLink href={`/tournament/${tournamentId}/reports`} title="Reports" className={cls(`/tournament/${tournamentId}/reports`)} active={active(`/tournament/${tournamentId}/reports`)} showAccent={expanded}>
+                  <BarChart3 className="w-5 h-5 flex-shrink-0" />
+                  {expanded && <span className="font-medium">Reports</span>}
+                </SidebarLink>
+              </>
             )}
           </nav>
 
-          {expanded && (
-            <div className="px-4 mt-7 mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Run the Auction
-            </div>
+          {auctionActive && (
+            <>
+              {expanded && (
+                <div className="px-4 mt-7 mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Run the Auction
+                </div>
+              )}
+              {!expanded && <div className="mt-6 mb-2 border-t border-border mx-2" />}
+              <nav className={`space-y-1 ${!expanded ? "px-1.5" : "px-2"}`}>
+                <a
+                  href={auctionRoomPath(tournamentId)}
+                  target="_blank"
+                  title="Open auction control in a new tab"
+                  className={`flex items-center rounded-md transition-colors font-bold ${
+                    !expanded ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
+                  } text-muted-foreground hover:bg-white/[0.06] hover:text-foreground border border-primary/20`}
+                >
+                  <Gavel className="w-5 h-5 flex-shrink-0" />
+                  {expanded && <span>Auction Control</span>}
+                </a>
+                <SidebarLink href={`/tournament/${tournamentId}/links`} title="Links" className={cls(`/tournament/${tournamentId}/links`)} active={active(`/tournament/${tournamentId}/links`)} showAccent={expanded}>
+                  <Link2 className="w-5 h-5 flex-shrink-0" />
+                  {expanded && <span>Links</span>}
+                </SidebarLink>
+                {expanded && tournament?.licenseStatus === "trial" && (
+                  <SidebarLink
+                    href={auctionResetPath(tournamentId, location)}
+                    title="Clear practice auction data before going live"
+                    className={`relative flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                      location === `/tournament/${tournamentId}/reset` ? "bg-red-500/15 text-red-300" : "text-muted-foreground hover:bg-red-500/10 hover:text-red-300"
+                    }`}
+                    active={location === `/tournament/${tournamentId}/reset`}
+                    showAccent={false}
+                  >
+                    <RefreshCw className="w-5 h-5 flex-shrink-0" />
+                    <span>Clear Trial Data</span>
+                  </SidebarLink>
+                )}
+                {tournament?.localModeEnabled && !localVenue ? (
+                  <SidebarLink href={`/tournament/${tournamentId}/local-mode`} title="Local Mode setup" className={cls(`/tournament/${tournamentId}/local-mode`)} active={active(`/tournament/${tournamentId}/local-mode`)} showAccent={expanded}>
+                    <MonitorDown className="w-5 h-5 flex-shrink-0" />
+                    {expanded && <span>Local Mode (Offline)</span>}
+                  </SidebarLink>
+                ) : null}
+              </nav>
+            </>
           )}
-          {!expanded && <div className="mt-6 mb-2 border-t border-border mx-2" />}
-          <nav className={`space-y-1 ${!expanded ? "px-1.5" : "px-2"}`}>
-            <a
-              href={auctionRoomPath(tournamentId)}
-              target="_blank"
-              title="Open auction control in a new tab"
-              className={`flex items-center rounded-md transition-colors font-bold ${
-                !expanded ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
-              } text-muted-foreground hover:bg-white/[0.06] hover:text-foreground border border-primary/20`}
-            >
-              <Gavel className="w-5 h-5 flex-shrink-0" />
-              {expanded && <span>Auction Control</span>}
-            </a>
-            {expanded && (
-              <a
-                href={displayScreenPath(tournamentId, tournament?.auctionCode)}
-                target="_blank"
-                rel="noopener noreferrer"
-                title={
-                  tournament?.auctionCode
-                    ? `LED display screen — tournament code: ${tournament.auctionCode}`
-                    : "LED display screen — use tournament code to open"
-                }
-                className="flex items-center gap-3 px-3 py-2 rounded-md border border-border text-muted-foreground hover:bg-white/[0.06] hover:text-foreground transition-all mt-1"
-              >
-                <LayoutDashboard className="w-5 h-5 flex-shrink-0" />
-                <span className="flex flex-col leading-tight min-w-0">
-                  <span className="font-medium">LED Display Screen</span>
-                  <span className="text-[10px] text-muted-foreground/80 normal-case">
-                    (use tournament code to open)
-                  </span>
-                </span>
-              </a>
-            )}
-            <SidebarLink href={`/tournament/${tournamentId}/links`} title="Share Links" className={cls(`/tournament/${tournamentId}/links`)} active={active(`/tournament/${tournamentId}/links`)} showAccent={expanded}>
-              <Link2 className="w-5 h-5 flex-shrink-0" />
-              {expanded && <span>Share Links</span>}
-            </SidebarLink>
-            {expanded && (
-              <SidebarLink
-                href={auctionResetPath(tournamentId, location)}
-                title="Clear practice auction data before going live"
-                className={`relative flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-                  location === `/tournament/${tournamentId}/reset` ? "bg-red-500/15 text-red-300" : "text-muted-foreground hover:bg-red-500/10 hover:text-red-300"
-                }`}
-                active={location === `/tournament/${tournamentId}/reset`}
-                showAccent={false}
-              >
-                <RefreshCw className="w-5 h-5 flex-shrink-0" />
-                <span>Clear Trial Data</span>
-              </SidebarLink>
-            )}
-            {tournament?.localModeEnabled && !localVenue ? (
-              <SidebarLink href={`/tournament/${tournamentId}/local-mode`} title="Local Mode setup" className={cls(`/tournament/${tournamentId}/local-mode`)} active={active(`/tournament/${tournamentId}/local-mode`)} showAccent={expanded}>
-                <MonitorDown className="w-5 h-5 flex-shrink-0" />
-                {expanded && <span>Local Mode</span>}
-              </SidebarLink>
-            ) : null}
-          </nav>
+
+          {/* ── Match Scoring (scoring-only shell — hidden inside Auction module sidebar) ── */}
+          {scoringActive && !auctionActive && (
+            <>
+              {expanded && (
+                <div className="px-4 mt-7 mb-3 text-xs font-semibold text-sky-400 uppercase tracking-wider flex items-center justify-between">
+                  <span>Match Scoring</span>
+                  <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+                </div>
+              )}
+              {!expanded && <div className="mt-6 mb-2 border-t border-sky-500/30 mx-2" />}
+              <nav className={`space-y-1 ${!expanded ? "px-1.5" : "px-2"}`}>
+                <SidebarLink
+                  href={tournament?.sport === "badminton" ? `/scoring-app/tournament/${tournamentId}/badminton` : `/scoring-app/tournament/${tournamentId}/score`}
+                  title="Match Scoring Hub & Dashboard"
+                  className={cls(tournament?.sport === "badminton" ? `/scoring-app/tournament/${tournamentId}/badminton` : `/scoring-app/tournament/${tournamentId}/score`)}
+                  active={active(tournament?.sport === "badminton" ? `/scoring-app/tournament/${tournamentId}/badminton` : `/scoring-app/tournament/${tournamentId}/score`)}
+                  showAccent={expanded}
+                >
+                  <Activity className="w-5 h-5 flex-shrink-0 text-sky-400" />
+                  {expanded && <span className="font-semibold text-sky-200">Scoring Hub</span>}
+                </SidebarLink>
+                {tournament?.sport === "cricket" && (
+                  <>
+                    <SidebarLink
+                      href={`/scoring-app/tournament/${tournamentId}/score/fixtures`}
+                      title="Fixtures & Matches"
+                      className={cls(`/scoring-app/tournament/${tournamentId}/score/fixtures`)}
+                      active={active(`/scoring-app/tournament/${tournamentId}/score/fixtures`)}
+                      showAccent={expanded}
+                    >
+                      <LayoutDashboard className="w-5 h-5 flex-shrink-0 text-sky-400/80" />
+                      {expanded && <span>Fixtures</span>}
+                    </SidebarLink>
+                    <SidebarLink
+                      href={`/scoring-app/tournament/${tournamentId}/score/rules`}
+                      title="Rules & Format"
+                      className={cls(`/scoring-app/tournament/${tournamentId}/score/rules`)}
+                      active={active(`/scoring-app/tournament/${tournamentId}/score/rules`)}
+                      showAccent={expanded}
+                    >
+                      <SlidersHorizontal className="w-5 h-5 flex-shrink-0 text-sky-400/80" />
+                      {expanded && <span>Rules & Format</span>}
+                    </SidebarLink>
+                  </>
+                )}
+              </nav>
+            </>
+          )}
         </>
       )}
     </div>
@@ -339,10 +351,11 @@ function LogoutButton({
   const [, navigate] = useLocation();
 
   async function handleLogout() {
-    await logout();
-    if (!isBidWarLocalHost()) {
+    if (isBidWarLocalHost()) {
+      await logout();
+    } else {
       await logoutOrganizerAccount();
-      clearOrganizerAccountAuth(queryClient);
+      clearOrganizerClientState(queryClient);
       navigate("/organizer");
     }
   }
@@ -371,17 +384,22 @@ function LogoutButton({
 }
 
 export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
+  const inShell = useContext(OrganizerShellContext);
+  if (inShell) return <>{children}</>;
+  return (
+    <OrganizerShellContext.Provider value={true}>
+      <OrganizerAppLayout tournamentId={tournamentId} noPadding={noPadding}>
+        {children}
+      </OrganizerAppLayout>
+    </OrganizerShellContext.Provider>
+  );
+}
+
+function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) {
   const [location] = useLocation();
-  const { logos, brandName, loading: brandingLoading } = useBranding();
-  const sidebarLogoSrc =
-    cldUrl(logos.appIcon, "appIcon") ||
-    cldUrl(logos.mini, "headerLogo") ||
-    getBrandLogoSrc(logos, sidebarPreset.logoOrder);
-  const logoAlt = getBrandLogoAlt(brandName);
   const { data: tournament } = useGetTournament(tournamentId ?? 0, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId ?? 0), enabled: !!tournamentId },
   });
-  const buzzStudioActive = isBuzzStudioEnabled(tournament?.features);
   const localVenue = isBidWarLocalHost();
 
   // Three sidebar states:
@@ -440,13 +458,18 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
     location,
     tournamentId,
     tournament,
-    buzzStudioActive,
     localVenue,
     expanded: false,
   };
 
+  const tournamentName = tournament?.name?.trim() || null;
+  const shellChrome = {
+    tournamentInAppChrome: !!(tournamentId && tournamentName),
+  };
+
   return (
-    <div className="lovable-theme flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark">
+    <OrganizerShellChromeContext.Provider value={shellChrome}>
+    <div className="lovable-theme auction-ops flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark">
       {/* Mobile sidebar backdrop */}
       {mobileOpen && (
         <div
@@ -459,13 +482,12 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
       {/* Mobile sidebar overlay */}
       <aside
         className={`fixed inset-y-0 left-0 z-30 w-64 bg-card/95 backdrop-blur-md border-r border-border flex flex-col transition-transform duration-200 ease-in-out md:hidden ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          mobileOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none"
         }`}
+        aria-hidden={!mobileOpen}
       >
         <div className="h-14 flex items-center border-b border-border flex-shrink-0 px-3 gap-2 min-w-0">
-          {brandingLoading
-            ? <div className="h-8 w-8 flex-shrink-0" />
-            : <img src={sidebarLogoSrc} alt={logoAlt} className={sidebarPreset.sizeClass} />}
+          <BidwarOrganizerBrandMark surface="organizer-main-toolbar" className="min-w-0 flex-1" />
           <button
             onClick={() => setMobileOpen(false)}
             title="Close menu"
@@ -489,18 +511,19 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
         {/* Header */}
         <div className="h-14 flex items-center border-b border-border flex-shrink-0 px-3 gap-2 min-w-0">
           {collapsed ? (
-            <button
-              onClick={toggleCollapsed}
-              title="Expand sidebar"
-              className="mx-auto text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            <div className="flex flex-col items-center gap-1.5 w-full py-0.5">
+              <BidwarOrganizerBrandMark surface="organizer-main-toolbar" iconOnly />
+              <button
+                onClick={toggleCollapsed}
+                title="Expand sidebar"
+                className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           ) : (
             <>
-              {brandingLoading
-                ? <div className="h-8 w-8 flex-shrink-0" />
-                : <img src={sidebarLogoSrc} alt={logoAlt} className={sidebarPreset.sizeClass} />}
+              <BidwarOrganizerBrandMark surface="organizer-sidebar-wordmark" className="min-w-0 flex-1" />
               <button
                 onClick={toggleCollapsed}
                 title="Collapse sidebar"
@@ -522,41 +545,25 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 bg-transparent relative overflow-hidden">
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(ellipse at 20% -10%, oklch(0.42 0.15 265 / 0.45), transparent 55%), radial-gradient(ellipse at 90% 0%, oklch(0.85 0.17 88 / 0.08), transparent 50%)",
-          }}
-        />
         {noPadding ? (
           <div className="flex-1 overflow-hidden z-0 relative flex flex-col min-h-0">
-            {/* Mobile hamburger for noPadding pages */}
-            <button
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open navigation"
-              className="md:hidden absolute top-3 left-3 z-10 p-2 rounded-md bg-card/80 border border-border text-muted-foreground hover:text-foreground hover:bg-card transition-colors"
-            >
-              <Menu className="w-4 h-4" />
-            </button>
+            <OrganizerMobileTopBar
+              onOpenMenu={() => setMobileOpen(true)}
+              menuExpanded={mobileOpen}
+              tournamentName={tournamentName}
+            />
+            <OrganizerDesktopBrandBar tournamentName={tournamentName} />
             {children}
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto z-0 relative">
-            {/* Mobile top bar with hamburger */}
-            <div className="md:hidden sticky top-0 z-10 h-12 flex items-center px-4 gap-3 border-b border-border bg-background/80 backdrop-blur-md flex-shrink-0">
-              <button
-                onClick={() => setMobileOpen(true)}
-                aria-label="Open navigation"
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-              {tournament?.name && (
-                <p className="text-sm font-medium text-foreground truncate">{tournament.name}</p>
-              )}
-            </div>
-            <div className="px-4 py-5 sm:px-6 sm:py-6 lg:p-8 max-w-7xl mx-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden z-0 relative flex flex-col min-h-0">
+            <OrganizerMobileTopBar
+              onOpenMenu={() => setMobileOpen(true)}
+              menuExpanded={mobileOpen}
+              tournamentName={tournamentName}
+            />
+            <OrganizerDesktopBrandBar tournamentName={tournamentName} />
+            <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7 w-full max-w-[90rem] mx-auto flex-1 min-w-0">
               {children}
             </div>
           </div>
@@ -564,6 +571,7 @@ export function AppLayout({ children, tournamentId, noPadding }: LayoutProps) {
       </main>
 
     </div>
+    </OrganizerShellChromeContext.Provider>
   );
 }
 

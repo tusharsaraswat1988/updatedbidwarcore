@@ -17,16 +17,17 @@ import {
 import { formatAuctionAmount, normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
 import { cldUrl } from "@/lib/cloudinary";
 import { EyesMascot } from "./EyesMascot";
+import { LedTopBrandMark } from "./led-top-brand-mark";
 
 const GRID_COLS = 3;
 const PAGE_INTERVAL_MS = 10_000;
-const MIN_CARD_HEIGHT_PX = 68;
-const MAX_CARD_HEIGHT_PX = 96;
+const MIN_CARD_HEIGHT_PX = 76;
+const MAX_CARD_HEIGHT_PX = 124;
 function computeGridLayout(gridHeight: number) {
   const height = Math.max(120, gridHeight);
   const gapPx = Math.round(Math.max(10, height * 0.018));
   const cardHeight = Math.round(
-    Math.max(MIN_CARD_HEIGHT_PX, Math.min(MAX_CARD_HEIGHT_PX, height * 0.115)),
+    Math.max(MIN_CARD_HEIGHT_PX, Math.min(MAX_CARD_HEIGHT_PX, height * 0.14)),
   );
   const rows = Math.max(1, Math.floor((height + gapPx) / (cardHeight + gapPx)));
   return { rows, pageSize: rows * GRID_COLS, gapPx };
@@ -44,7 +45,7 @@ type PlayerDirectoryOverlayProps = {
 };
 
 type DirectoryHeader = {
-  kicker: string;
+  kicker?: string;
   headline: string;
   headlineColor?: string;
   subheadline?: string;
@@ -69,7 +70,7 @@ function resolveDirectoryHeader(
   teams: LedTeam[],
 ): DirectoryHeader {
   if (playerFilterLabel === "All Players") {
-    return { kicker: "Player Directory", headline: "All Players" };
+    return { headline: "All Players" };
   }
 
   const team = filter?.teamId
@@ -80,7 +81,6 @@ function resolveDirectoryHeader(
 
   if (team && statusLabel) {
     return {
-      kicker: "Player Directory",
       headline: statusLabel,
       subheadline: team.name,
       subheadlineColor: team.color,
@@ -96,7 +96,6 @@ function resolveDirectoryHeader(
   }
 
   return {
-    kicker: "Player Directory",
     headline: playerFilterLabel,
   };
 }
@@ -172,7 +171,7 @@ function PlayerDirectoryCard({
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-[0.2em]">
         <p
           className={`${LED_PLAYER_NAME_CLASS} truncate text-white`}
-          style={{ fontSize: "clamp(1.05rem, 1.85vw, 1.55rem)" }}
+          style={{ fontSize: "clamp(1.4rem, 2.45vw, 2.15rem)", letterSpacing: "0.14em" }}
         >
           {player.name}
         </p>
@@ -206,8 +205,8 @@ function PlayerDirectoryCard({
 
         {(isSold || isRetained) && team ? (
           <p
-            className="font-['Barlow_Condensed'] font-semibold uppercase truncate leading-tight text-white/55"
-            style={{ fontSize: "clamp(0.72rem, 1.05vw, 0.95rem)", letterSpacing: "0.06em" }}
+            className="font-['Barlow_Condensed'] font-bold uppercase truncate leading-tight text-white/80"
+            style={{ fontSize: "clamp(1.05rem, 1.7vw, 1.5rem)", letterSpacing: "0.08em" }}
           >
             {team.name}
           </p>
@@ -310,9 +309,14 @@ export const PlayerDirectoryOverlay = memo(function PlayerDirectoryOverlay({
   return (
     <div className={`absolute inset-0 z-30 bg-black/95 overflow-hidden ${LED_STAGE_FONT_CLASS}`}>
       <div className="absolute inset-0 p-[2%] flex flex-col min-h-0">
-        <header className="flex items-end justify-between shrink-0 mb-[1.2%]">
+        <header className="relative flex items-center justify-between shrink-0 mb-[1.2%] min-h-[3.4rem]">
+          <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
+            <LedTopBrandMark />
+          </div>
           <div className="min-w-0">
-            <p className={`${LED_SECTION_KICKER_CLASS} text-white/55`}>{header.kicker}</p>
+            {header.kicker ? (
+              <p className={`${LED_SECTION_KICKER_CLASS} text-white/55`}>{header.kicker}</p>
+            ) : null}
             <p
               className={`${LED_HEADLINE_CLASS} tracking-widest leading-none mt-0.5 line-clamp-2`}
               style={{

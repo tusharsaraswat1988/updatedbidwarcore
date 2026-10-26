@@ -2,7 +2,7 @@
  * Cricket Tournament settings — identity, sponsors, venue music/banner + Import from Auction.
  * Route: /tournament/:id/score/settings
  */
-import { Suspense, lazy, useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { useRoute } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CricketOrganizerPageShell } from "@/components/scoring/cricket-page-chrome";
@@ -14,10 +14,11 @@ import {
   PageHeader,
   hubPanelClass,
   inputClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
 import { VenueMusicSettingsPanel } from "@/components/badminton/venue-music-settings-panel";
 import { VenueBannerSettingsPanel } from "@/components/badminton/venue-banner-settings-panel";
+import { FanLiveStreamEditor } from "@/components/scoring/fan-live-stream-editor";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
@@ -25,7 +26,22 @@ import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scorin
 import {
   getGetTournamentQueryKey,
   useGetTournament,
+  useUpdateTournament,
 } from "@workspace/api-client-react";
+import { playerRegistrationShareUrl } from "@workspace/api-base/registration-url";
+import {
+  REGISTRATION_MANDATORY_FIELD_KEYS,
+  REGISTRATION_OPTIONAL_FIELD_KEYS,
+  REGISTRATION_OPTIONAL_FIELD_LABELS,
+  serializeRegistrationFieldsConfig,
+  type RegistrationOptionalFieldKey,
+} from "@workspace/api-base/registration-fields";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import {
   cricketBrandingQueryKey,
   getCricketBranding,
@@ -39,9 +55,23 @@ import {
   validateSponsorList,
   type SponsorLogo,
 } from "@/lib/sponsor-logo";
-import type { BadmintonBranding, ScoreBoardSponsor } from "@/hooks/use-badminton-branding";
+import type { SportsBranding, ScoreBoardSponsor } from "@/lib/sports-branding-types";
 import { cn } from "@/lib/utils";
-import { Settings, Upload } from "lucide-react";
+import {
+  Calendar,
+  Check,
+  CheckCircle2,
+  ClipboardList,
+  Copy,
+  ExternalLink,
+  Link2,
+  Lock,
+  MessageCircle,
+  Settings,
+  ShieldCheck,
+  Upload,
+  Users,
+} from "lucide-react";
 
 const ImageEditorDialog = lazy(() =>
   import("@/components/image-editor-dialog").then((m) => ({ default: m.ImageEditorDialog })),
@@ -69,7 +99,7 @@ type BrandingFormState = {
   accentColor: string;
 };
 
-function brandingFromApi(branding: BadmintonBranding): {
+function brandingFromApi(branding: SportsBranding): {
   form: BrandingFormState;
   sponsorLogos: SponsorLogo[];
   scoreBoardSponsor: ScoreBoardSponsor;
@@ -107,7 +137,22 @@ function buildBrandingPatchPayload(
     displayName: form.displayName.trim(),
     logoUrl: form.logoUrl.trim() || null,
     logoPublicId: form.logoPublicId.trim() || null,
-    sponsorLogos: JSON.stringify(sponsorLogos.filter((l) => l.url.trim())),
+    sponsorLogos: JSON.stringify(
+      sponsorLogos
+        .filter((l) => l.url && l.url.trim())
+        .map((l, idx) => ({
+          url: l.url.trim(),
+          publicId: l.publicId?.trim() || null,
+          name: l.name?.trim() || "",
+          type: l.type?.trim() || "",
+          isTitleSponsor: Boolean(l.isTitleSponsor),
+          isCoSponsor: Boolean(l.isCoSponsor),
+          isLiveStreamingPartner: Boolean(l.isLiveStreamingPartner),
+          priorityType: l.priorityType || undefined,
+          sponsorPriority: l.sponsorPriority ?? idx,
+          priority: (l as unknown as { priority?: number }).priority ?? idx,
+        })),
+    ),
     venue: form.venue.trim() || null,
     organizerName: form.organizerName.trim() || null,
     primaryColor: form.primaryColor,
@@ -125,7 +170,7 @@ function brandingPayloadSignature(
 }
 
 function applyBrandingState(
-  branding: BadmintonBranding,
+  branding: SportsBranding,
   setters: {
     setForm: (form: BrandingFormState) => void;
     setSponsorLogos: (logos: SponsorLogo[]) => void;
@@ -158,7 +203,7 @@ export default function CricketSettingsPage() {
 
   const { data: branding, isLoading } = useQuery({
     queryKey: brandingKey,
-    queryFn: () => getCricketBranding<BadmintonBranding>(tournamentId),
+    queryFn: () => getCricketBranding<SportsBranding>(tournamentId),
     enabled: scoringActive && !!tournamentId,
   });
 
@@ -173,7 +218,6 @@ export default function CricketSettingsPage() {
   });
   const [sponsorLogos, setSponsorLogos] = useState<SponsorLogo[]>([]);
   const [scoreBoardSponsor, setScoreBoardSponsor] = useState<ScoreBoardSponsor>(EMPTY_SCOREBOARD_SPONSOR);
-  const [scoreBoardExpanded, setScoreBoardExpanded] = useState(false);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
   const [scoreBoardLogoEditorOpen, setScoreBoardLogoEditorOpen] = useState(false);
   const [sponsorUploadIdx, setSponsorUploadIdx] = useState<number | "new" | null>(null);
@@ -188,8 +232,81 @@ export default function CricketSettingsPage() {
   const savedFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const notifySaveToastRef = useRef(false);
 
+  const updateTournament = useUpdateTournament();
+  const [regForm, setRegForm] = useState({
+    registrationDeadline: "",
+    registrationLimit: "",
+    enableRegistrationDeclaration: false,
+    registrationDeclarationText: "",
+  });
+  const [registrationFieldsHidden, setRegistrationFieldsHidden] = useState<RegistrationOptionalFieldKey[]>([]);
+  const [regSaving, setRegSaving] = useState(false);
+  const [regSaved, setRegSaved] = useState(false);
+  const [regCopied, setRegCopied] = useState(false);
+
+  const regUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    const code = tournament?.auctionCode;
+    if (!code) return "";
+    return playerRegistrationShareUrl(window.location.origin, code);
+  }, [tournament?.auctionCode]);
+
+  useEffect(() => {
+    if (!tournament) return;
+    setRegForm({
+      registrationDeadline: tournament.registrationDeadline || "",
+      registrationLimit: tournament.registrationLimit != null ? String(tournament.registrationLimit) : "",
+      enableRegistrationDeclaration: tournament.enableRegistrationDeclaration === true,
+      registrationDeclarationText: tournament.registrationDeclarationText || "",
+    });
+    const hidden = (tournament as { registrationFields?: { hidden?: RegistrationOptionalFieldKey[] } }).registrationFields?.hidden ?? [];
+    setRegistrationFieldsHidden(hidden);
+  }, [tournament]);
+
+  const handleCopyLink = useCallback(async () => {
+    if (!regUrl) return;
+    try {
+      await navigator.clipboard.writeText(regUrl);
+      setRegCopied(true);
+      toast({ title: "Registration link copied to clipboard" });
+      setTimeout(() => setRegCopied(false), 2000);
+    } catch {
+      toast({ title: "Failed to copy link", variant: "destructive" });
+    }
+  }, [regUrl, toast]);
+
+  async function handleSaveRegistration() {
+    setRegSaving(true);
+    try {
+      await updateTournament.mutateAsync({
+        tournamentId,
+        data: {
+          registrationDeadline: regForm.registrationDeadline ? regForm.registrationDeadline : null,
+          registrationLimit: regForm.registrationLimit !== "" && regForm.registrationLimit != null ? Number(regForm.registrationLimit) || null : null,
+          enableRegistrationDeclaration: regForm.enableRegistrationDeclaration === true,
+          registrationDeclarationText: regForm.registrationDeclarationText.trim() || null,
+          playerRegistrationMode: "scoring",
+          registrationFields: serializeRegistrationFieldsConfig(registrationFieldsHidden),
+          reason: "Tournament registration settings updated by organizer",
+        } as unknown as import("@workspace/api-client-react").TournamentUpdate,
+      });
+      await qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
+      setRegSaved(true);
+      toast({ title: "Registration settings saved" });
+      setTimeout(() => setRegSaved(false), 2500);
+    } catch (err) {
+      toast({
+        title: "Failed to save registration settings",
+        description: err instanceof Error ? err.message : "Error saving",
+        variant: "destructive",
+      });
+    } finally {
+      setRegSaving(false);
+    }
+  }
+
   const importBrandingMutation = useMutation({
-    mutationFn: () => importCricketTournamentBranding<BadmintonBranding>(tournamentId),
+    mutationFn: () => importCricketTournamentBranding<SportsBranding>(tournamentId),
     onSuccess: (data) => {
       applyBrandingState(data, {
         setForm,
@@ -197,7 +314,6 @@ export default function CricketSettingsPage() {
         setScoreBoardSponsor,
         lastSavedPayloadRef,
       });
-      setScoreBoardExpanded(hasScoreBoardSponsor(data.scoreBoardSponsor ?? EMPTY_SCOREBOARD_SPONSOR));
       hydratedTournamentRef.current = tournamentId;
       qc.setQueryData(brandingKey, data);
       setImportMessage(
@@ -230,26 +346,20 @@ export default function CricketSettingsPage() {
       setScoreBoardSponsor,
       lastSavedPayloadRef,
     });
-    setScoreBoardExpanded(hasScoreBoardSponsor(branding.scoreBoardSponsor ?? EMPTY_SCOREBOARD_SPONSOR));
     hydratedTournamentRef.current = tournamentId;
     autoSaveReadyRef.current = false;
     const timer = window.setTimeout(() => {
       autoSaveReadyRef.current = true;
-    }, 150);
+    }, 300);
     return () => window.clearTimeout(timer);
   }, [branding, tournamentId]);
 
   const saveMutation = useMutation({
     mutationFn: (payload: ReturnType<typeof buildBrandingPatchPayload>) =>
-      patchCricketBranding<BadmintonBranding>(tournamentId, payload),
-    onSuccess: (data) => {
+      patchCricketBranding<SportsBranding>(tournamentId, payload),
+    onSuccess: (data, variables) => {
       qc.setQueryData(brandingKey, data);
-      const synced = brandingFromApi(data);
-      lastSavedPayloadRef.current = brandingPayloadSignature(
-        synced.form,
-        synced.sponsorLogos,
-        synced.scoreBoardSponsor,
-      );
+      lastSavedPayloadRef.current = JSON.stringify(variables);
       setSaveError("");
       setJustSaved(true);
       if (savedFlashTimerRef.current) clearTimeout(savedFlashTimerRef.current);
@@ -266,6 +376,9 @@ export default function CricketSettingsPage() {
     },
   });
 
+  const saveMutationRef = useRef(saveMutation);
+  saveMutationRef.current = saveMutation;
+
   const persistBranding = useCallback(
     (immediate = false) => {
       if (!tournamentId) return;
@@ -280,7 +393,7 @@ export default function CricketSettingsPage() {
         return;
       }
       const payload = buildBrandingPatchPayload(form, sponsorLogos, scoreBoardSponsor);
-      const signature = brandingPayloadSignature(form, sponsorLogos, scoreBoardSponsor);
+      const signature = JSON.stringify(payload);
       if (signature === lastSavedPayloadRef.current) {
         if (immediate) {
           setJustSaved(true);
@@ -297,14 +410,17 @@ export default function CricketSettingsPage() {
       }
 
       notifySaveToastRef.current = immediate;
-      const run = () => saveMutation.mutate(payload);
+      const run = () => {
+        lastSavedPayloadRef.current = signature;
+        saveMutationRef.current.mutate(payload);
+      };
       if (immediate) {
         run();
         return;
       }
-      autoSaveTimerRef.current = setTimeout(run, 600);
+      autoSaveTimerRef.current = setTimeout(run, 800);
     },
-    [form, sponsorLogos, scoreBoardSponsor, saveMutation, toast, tournamentId],
+    [form, sponsorLogos, scoreBoardSponsor, toast, tournamentId],
   );
 
   useEffect(() => {
@@ -316,7 +432,7 @@ export default function CricketSettingsPage() {
         autoSaveTimerRef.current = null;
       }
     };
-  }, [form, sponsorLogos, scoreBoardSponsor, tournamentId, scoringActive, persistBranding]);
+  }, [form, sponsorLogos, scoreBoardSponsor, tournamentId, scoringActive]);
 
   async function handleSponsorUpload(file: File | File[], idx: number | "new") {
     const files = Array.isArray(file) ? file : [file];
@@ -450,12 +566,27 @@ export default function CricketSettingsPage() {
           />
         ) : (
           <div className="space-y-6">
-            <section className={cn(hubPanelClass, "space-y-5 max-w-3xl")}>
-              <div>
-                <h2 className="text-foreground font-display font-bold text-lg">Tournament identity</h2>
-                <p className="text-muted-foreground text-sm mt-0.5">
-                  Name, venue, and organizer used on scoreboards and broadcasts.
-                </p>
+            <div className="max-w-3xl">
+              <FanLiveStreamEditor tournamentId={tournamentId} />
+            </div>
+
+            {/* 1. Tournament identity & Rotating Sponsors */}
+            <section className={cn(hubPanelClass, "space-y-6 max-w-3xl")}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">
+                <div>
+                  <h2 className="text-foreground font-display font-bold text-lg">Tournament Identity &amp; Sponsors</h2>
+                  <p className="text-muted-foreground text-sm mt-0.5">
+                    Name, venue, colors, and rotating sponsor logos for LED screens, live streams, and match broadcasts.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => persistBranding(true)}
+                  disabled={saveMutation.isPending || isLoading || !form.displayName.trim()}
+                  className="shrink-0 gap-1.5"
+                >
+                  {saveMutation.isPending ? "Saving…" : justSaved ? "Saved" : "Save Details & Sponsors"}
+                </Button>
               </div>
 
               <FormField label="Tournament Name" required htmlFor="cricket-branding-display-name">
@@ -469,7 +600,6 @@ export default function CricketSettingsPage() {
                       setSaveError("");
                     }
                   }}
-                  placeholder="Box Cricket Cup 2026"
                   className={inputClass}
                 />
               </FormField>
@@ -479,7 +609,6 @@ export default function CricketSettingsPage() {
                   <input
                     value={form.venue}
                     onChange={(e) => setForm((f) => ({ ...f, venue: e.target.value }))}
-                    placeholder="City Sports Complex"
                     className={inputClass}
                   />
                 </FormField>
@@ -487,14 +616,13 @@ export default function CricketSettingsPage() {
                   <input
                     value={form.organizerName}
                     onChange={(e) => setForm((f) => ({ ...f, organizerName: e.target.value }))}
-                    placeholder="ABC Sports Association"
                     className={inputClass}
                   />
                 </FormField>
               </div>
 
               <FormField label="Tournament Logo">
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-4">
                   {form.logoUrl ? (
                     <img
                       src={form.logoUrl}
@@ -506,7 +634,7 @@ export default function CricketSettingsPage() {
                       No logo
                     </div>
                   )}
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <BtnSecondary type="button" onClick={() => setLogoEditorOpen(true)}>
                       {form.logoUrl ? "Change Logo" : "Upload Logo"}
                     </BtnSecondary>
@@ -541,135 +669,337 @@ export default function CricketSettingsPage() {
                 </FormField>
               </div>
 
-              <FormField label="Sponsor Logos">
+              <div className="pt-2">
+                <div className="mb-2">
+                  <label className="text-foreground text-sm font-semibold block">Tournament Sponsor Logos</label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Add brand logos below. Logos rotate on live LED screens and appear on stream headers, broadcast overlays, and reports.
+                  </p>
+                </div>
                 <SponsorLogosEditor
                   logos={sponsorLogos}
                   onChange={setSponsorLogos}
                   onUploadFile={handleSponsorUpload}
                   uploadingIdx={sponsorUploadIdx}
                 />
-                <p className="text-muted-foreground text-xs mt-2">
-                  Used on cricket Sports displays — changes here do not affect Auction panel sponsors.
-                </p>
-              </FormField>
-
-              {/* Compact optional scoreboard sponsor — expands only when chosen */}
-              <div
-                className={cn(
-                  "rounded-lg border border-border/50 bg-muted/10",
-                  scoreBoardExpanded ? "p-4 space-y-4" : "px-3 py-2.5",
-                )}
-              >
-                <div className="flex items-center justify-between gap-3 min-h-9">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">Scoreboard sponsor</p>
-                    {!scoreBoardExpanded ? (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {hasScoreBoardSponsor(scoreBoardSponsor)
-                          ? ([scoreBoardSponsor.title, scoreBoardSponsor.name].filter(Boolean).join(" · ")
-                            || "Configured")
-                          : "Optional — add for live scoreboard / OBS"}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">
-                        Shown on live scoreboard / OBS chrome, separate from rotating logos.
-                      </p>
-                    )}
-                  </div>
-                  {!scoreBoardExpanded ? (
-                    <BtnSecondary
-                      type="button"
-                      className="shrink-0 h-8"
-                      onClick={() => setScoreBoardExpanded(true)}
-                    >
-                      {hasScoreBoardSponsor(scoreBoardSponsor) ? "Edit" : "Add"}
-                    </BtnSecondary>
-                  ) : null}
-                </div>
-
-                {scoreBoardExpanded ? (
-                  <div className="space-y-4">
-                    <FormField label="Title (e.g. Official Scoreboard Partner)">
-                      <input
-                        value={scoreBoardSponsor.title ?? ""}
-                        onChange={(e) =>
-                          setScoreBoardSponsor((s) => ({ ...s, title: e.target.value || null }))
-                        }
-                        placeholder="Official Scoreboard Partner"
-                        className={inputClass}
-                      />
-                    </FormField>
-
-                    <FormField label="Sponsor Name">
-                      <input
-                        value={scoreBoardSponsor.name ?? ""}
-                        onChange={(e) =>
-                          setScoreBoardSponsor((s) => ({ ...s, name: e.target.value || null }))
-                        }
-                        placeholder="Acme Sports Ltd."
-                        className={inputClass}
-                      />
-                    </FormField>
-
-                    <FormField label="Sponsor Logo">
-                      <div className="flex items-center gap-4">
-                        {scoreBoardSponsor.logoUrl ? (
-                          <img
-                            src={scoreBoardSponsor.logoUrl}
-                            alt={scoreBoardSponsor.name?.trim() || "Scoreboard sponsor logo"}
-                            className="w-16 h-16 rounded-xl object-contain bg-white p-2 border border-[#ffd700]/30"
-                          />
-                        ) : (
-                          <div className="w-16 h-16 rounded-xl bg-white/5 border border-dashed border-[#ffd700]/25 flex items-center justify-center text-white/30 text-xs">
-                            No logo
-                          </div>
-                        )}
-                        <div className="flex flex-wrap gap-2">
-                          <BtnSecondary type="button" onClick={() => setScoreBoardLogoEditorOpen(true)}>
-                            {scoreBoardSponsor.logoUrl ? "Change Logo" : "Upload Logo"}
-                          </BtnSecondary>
-                          {scoreBoardSponsor.logoUrl ? (
-                            <BtnSecondary
-                              type="button"
-                              onClick={() =>
-                                setScoreBoardSponsor((s) => ({
-                                  ...s,
-                                  logoUrl: null,
-                                  logoPublicId: null,
-                                }))
-                              }
-                            >
-                              Remove
-                            </BtnSecondary>
-                          ) : null}
-                        </div>
-                      </div>
-                    </FormField>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setScoreBoardExpanded(false)}
-                        className="text-muted-foreground hover:text-foreground text-xs underline"
-                      >
-                        Done
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setScoreBoardSponsor(EMPTY_SCOREBOARD_SPONSOR);
-                          setScoreBoardExpanded(false);
-                        }}
-                        className="text-white/40 hover:text-white/60 text-xs underline"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
               </div>
 
-              {saveError ? <p className="text-red-400 text-sm">{saveError}</p> : null}
+              {saveError ? <p className="text-destructive text-sm font-medium">{saveError}</p> : null}
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-border/40">
+                <p className="text-xs text-muted-foreground">
+                  {saveError
+                    ? saveError
+                    : saveMutation.isPending
+                      ? "Saving changes…"
+                      : justSaved
+                        ? "✓ All changes saved"
+                        : "Changes save automatically as you edit."}
+                </p>
+                <Button
+                  type="button"
+                  onClick={() => persistBranding(true)}
+                  disabled={saveMutation.isPending || isLoading || !form.displayName.trim()}
+                  className="w-full sm:w-auto"
+                >
+                  {saveMutation.isPending ? "Saving…" : justSaved ? "Saved" : "Save Details & Sponsors"}
+                </Button>
+              </div>
+            </section>
+
+            {/* 2. Standalone Scoreboard Sponsor Panel */}
+            <section className={cn(hubPanelClass, "space-y-5 max-w-3xl border-primary/25")}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">
+                <div>
+                  <h2 className="text-foreground font-display font-bold text-lg flex items-center gap-2">
+                    Scoreboard Sponsor
+                    <Badge variant="outline" className="text-[11px] font-normal border-amber-500/40 text-amber-300 bg-amber-500/10">
+                      Match Overlays &amp; Scorebug
+                    </Badge>
+                  </h2>
+                  <p className="text-muted-foreground text-sm mt-0.5">
+                    Optional fixed sponsor shown permanently on the live match scoreboard bar and OBS scorebug during cricket matches.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => persistBranding(true)}
+                  disabled={saveMutation.isPending || isLoading}
+                  className="shrink-0 gap-1.5"
+                >
+                  {saveMutation.isPending ? "Saving…" : justSaved ? "Saved" : "Save Scoreboard Sponsor"}
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField label="Partner Designation / Title">
+                    <input
+                      value={scoreBoardSponsor.title ?? ""}
+                      onChange={(e) =>
+                        setScoreBoardSponsor((s) => ({ ...s, title: e.target.value || null }))
+                      }
+                      className={inputClass}
+                    />
+                  </FormField>
+
+                  <FormField label="Sponsor / Brand Name">
+                    <input
+                      value={scoreBoardSponsor.name ?? ""}
+                      onChange={(e) =>
+                        setScoreBoardSponsor((s) => ({ ...s, name: e.target.value || null }))
+                      }
+                      className={inputClass}
+                    />
+                  </FormField>
+                </div>
+
+                <FormField label="Scoreboard Sponsor Logo">
+                  <div className="flex flex-wrap items-center gap-4">
+                    {scoreBoardSponsor.logoUrl ? (
+                      <img
+                        src={scoreBoardSponsor.logoUrl}
+                        alt={scoreBoardSponsor.name?.trim() || "Scoreboard sponsor logo"}
+                        className="w-20 h-16 rounded-xl object-contain bg-white p-2 border border-amber-400/40 shadow-xs"
+                      />
+                    ) : (
+                      <div className="w-20 h-16 rounded-xl bg-white/5 border border-dashed border-border/80 flex items-center justify-center text-muted-foreground text-xs">
+                        No logo
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <BtnSecondary type="button" onClick={() => setScoreBoardLogoEditorOpen(true)}>
+                        {scoreBoardSponsor.logoUrl ? "Change Logo" : "Upload Logo"}
+                      </BtnSecondary>
+                      {scoreBoardSponsor.logoUrl ? (
+                        <BtnSecondary
+                          type="button"
+                          onClick={() =>
+                            setScoreBoardSponsor((s) => ({
+                              ...s,
+                              logoUrl: null,
+                              logoPublicId: null,
+                            }))
+                          }
+                        >
+                          Remove Logo
+                        </BtnSecondary>
+                      ) : null}
+                      {hasScoreBoardSponsor(scoreBoardSponsor) ? (
+                        <BtnSecondary
+                          type="button"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setScoreBoardSponsor(EMPTY_SCOREBOARD_SPONSOR)}
+                        >
+                          Clear All
+                        </BtnSecondary>
+                      ) : null}
+                    </div>
+                  </div>
+                </FormField>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border/40">
+                <p className="text-xs text-muted-foreground">
+                  Scoreboard sponsor appears fixed in the match scorebug and overlay header.
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => persistBranding(true)}
+                  disabled={saveMutation.isPending || isLoading}
+                  className="w-full sm:w-auto"
+                >
+                  {saveMutation.isPending ? "Saving…" : justSaved ? "Saved" : "Save Scoreboard Sponsor"}
+                </Button>
+              </div>
+            </section>
+
+            {/* Player Registration Settings Panel */}
+            <section id="registration" className={cn(hubPanelClass, "space-y-5 max-w-3xl scroll-mt-20")}>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">
+                <div>
+                  <h2 className="text-foreground font-display font-bold text-lg flex items-center gap-2">
+                    <Users className="w-5 h-5 text-primary" />
+                    Player Registration Settings
+                  </h2>
+                  <p className="text-muted-foreground text-sm mt-0.5">
+                    Configure link capacity, deadline dates, declaration, and field visibility for public player registration.
+                  </p>
+                </div>
+                <Button
+                  onClick={handleSaveRegistration}
+                  disabled={regSaving}
+                  className="shrink-0 gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  {regSaving ? "Saving…" : regSaved ? "Saved" : "Save Registration"}
+                </Button>
+              </div>
+
+              {/* Share Registration Link Card */}
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Link2 className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">Public Registration Link</span>
+                  </div>
+                  {tournament?.auctionCode && (
+                    <Badge variant="secondary" className="font-mono text-xs">
+                      Code: {tournament.auctionCode}
+                    </Badge>
+                  )}
+                </div>
+                {regUrl ? (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <p className="text-xs font-mono text-primary truncate flex-1 min-w-0 basis-full sm:basis-auto bg-background/60 border border-border/60 rounded-md px-3 py-2">
+                      {regUrl}
+                    </p>
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs h-9" onClick={() => void handleCopyLink()}>
+                      {regCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {regCopied ? "Copied" : "Copy"}
+                    </Button>
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs h-9" asChild>
+                      <a href={`https://wa.me/?text=${encodeURIComponent(`Register for our cricket tournament: ${regUrl}`)}`} target="_blank" rel="noopener noreferrer">
+                        <MessageCircle className="w-3.5 h-3.5 text-emerald-400" /> WhatsApp
+                      </a>
+                    </Button>
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs h-9" onClick={() => window.open(regUrl, "_blank")}>
+                      <ExternalLink className="w-3.5 h-3.5" /> Open
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Link is generated automatically from the tournament code.
+                  </p>
+                )}
+              </div>
+
+              {/* Deadlines & Capacity */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField label="Registration Deadline">
+                  <Input
+                    type="date"
+                    value={regForm.registrationDeadline}
+                    onChange={(e) => setRegForm((f) => ({ ...f, registrationDeadline: e.target.value }))}
+                    className={inputClass}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Leave blank for open-ended registration.
+                  </p>
+                </FormField>
+
+                <FormField label="Maximum Players Limit">
+                  <Input
+                    type="number"
+                    min="1"
+                    value={regForm.registrationLimit}
+                    onChange={(e) => setRegForm((f) => ({ ...f, registrationLimit: e.target.value }))}
+                    className={inputClass}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Registration automatically closes when capacity is reached.
+                  </p>
+                </FormField>
+              </div>
+
+              {/* Declaration & Consent */}
+              <div className="space-y-3 pt-2 border-t border-border/40">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-semibold flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-primary" />
+                      Player Declaration &amp; Consent
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Require players to agree to tournament terms &amp; conditions during registration.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={regForm.enableRegistrationDeclaration}
+                    onCheckedChange={(checked) =>
+                      setRegForm((f) => ({ ...f, enableRegistrationDeclaration: checked }))
+                    }
+                  />
+                </div>
+
+                {regForm.enableRegistrationDeclaration && (
+                  <div className="space-y-2 pt-2">
+                    <Label className="text-xs text-muted-foreground">
+                      Declaration Points (one per line)
+                    </Label>
+                    <Textarea
+                      rows={4}
+                      value={regForm.registrationDeclarationText}
+                      onChange={(e) =>
+                        setRegForm((f) => ({ ...f, registrationDeclarationText: e.target.value }))
+                      }
+                      className="text-sm bg-background/50 border-border/70"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Optional Form Fields Toggle */}
+              <div className="space-y-3 pt-2 border-t border-border/40">
+                <div>
+                  <Label className="text-sm font-semibold flex items-center gap-1.5">
+                    <ClipboardList className="w-4 h-4 text-primary" />
+                    Registration Form Fields
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Toggle optional fields shown on the public cricket registration form.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-border/40">
+                  <span className="text-[11px] font-medium text-muted-foreground mr-1">Always Required:</span>
+                  {REGISTRATION_MANDATORY_FIELD_KEYS.map((key) => (
+                    <Badge key={key} variant="secondary" className="text-[10px] h-5 px-2 font-normal bg-muted/60 text-foreground/80">
+                      {key === "mobile" ? "Mobile" : key.replace(/([A-Z])/g, " $1").trim()}
+                    </Badge>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {REGISTRATION_OPTIONAL_FIELD_KEYS.map((key) => {
+                    const visible = !registrationFieldsHidden.includes(key);
+                    return (
+                      <label
+                        key={key}
+                        className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer transition-colors ${
+                          visible
+                            ? "border-border/70 bg-card hover:bg-muted/20"
+                            : "border-border/40 bg-muted/10 opacity-70 hover:opacity-100"
+                        }`}
+                      >
+                        <span className="font-medium truncate">{REGISTRATION_OPTIONAL_FIELD_LABELS[key]}</span>
+                        <Switch
+                          checked={visible}
+                          onCheckedChange={(checked) => {
+                            setRegistrationFieldsHidden((prev) => {
+                              if (checked) return prev.filter((item) => item !== key);
+                              return prev.includes(key) ? prev : [...prev, key];
+                            });
+                          }}
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-3 border-t border-border/40">
+                <Button
+                  onClick={handleSaveRegistration}
+                  disabled={regSaving}
+                  className="gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  {regSaving ? "Saving…" : regSaved ? "Saved" : "Save Registration Settings"}
+                </Button>
+              </div>
             </section>
 
             <VenueMusicSettingsPanel
@@ -678,8 +1008,10 @@ export default function CricketSettingsPage() {
               sportLabel="cricket"
               brandingQueryKey={brandingKey}
               patchPresentation={(body) =>
-                patchCricketBroadcastPresentation<BadmintonBranding>(tournamentId, body)
+                patchCricketBroadcastPresentation<SportsBranding>(tournamentId, body)
               }
+              auctionEnabled={tournament?.auctionEnabled}
+              scoringEnabled={tournament?.scoringEnabled}
             />
 
             <VenueBannerSettingsPanel
@@ -688,8 +1020,10 @@ export default function CricketSettingsPage() {
               sportLabel="cricket"
               brandingQueryKey={brandingKey}
               patchPresentation={(body) =>
-                patchCricketBroadcastPresentation<BadmintonBranding>(tournamentId, body)
+                patchCricketBroadcastPresentation<SportsBranding>(tournamentId, body)
               }
+              auctionEnabled={tournament?.auctionEnabled}
+              scoringEnabled={tournament?.scoringEnabled}
             />
           </div>
         )}

@@ -38,6 +38,9 @@ export const teamsTable = pgTable("teams", {
   purseUsed: integer("purse_used").notNull().default(0),
   isBiddingEnabled: boolean("is_bidding_enabled").notNull().default(true),
   accessCode: text("access_code"),
+  /** Team coach / mentor — not part of public player registration. */
+  coachName: text("coach_name"),
+  coachMobile: text("coach_mobile"),
   // WhatsApp consent (Meta-compliant opt-in for team owner)
   whatsappConsent: boolean("whatsapp_consent").notNull().default(false),
   whatsappConsentAt: timestamp("whatsapp_consent_at", { withTimezone: true }),

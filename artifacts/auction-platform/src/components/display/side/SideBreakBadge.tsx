@@ -3,7 +3,7 @@ import type { LedView } from "@/lib/led-view/types";
 import { SIDE_LED_LAYOUT } from "@/lib/broadcast-canvas/constants";
 
 const flexBadgeShellClassName =
-  "mx-auto w-full max-w-md border border-amber-400/60 bg-black/15 px-6 py-4 text-center backdrop-blur-[2px]";
+  "mx-auto w-full max-w-md border border-amber-400/60 bg-black/85 px-6 py-4 text-center backdrop-blur-sm rounded-lg shadow-[0_0_30px_rgba(245,158,11,0.2)]";
 
 const canvasBadgeStyle = {
   position: "absolute" as const,
@@ -13,10 +13,12 @@ const canvasBadgeStyle = {
   margin: "0 auto",
   maxWidth: 480,
   border: "1px solid rgba(251, 191, 36, 0.6)",
-  background: "rgba(0,0,0,0.15)",
-  padding: "12px 20px",
+  background: "rgba(0,0,0,0.85)",
+  padding: "16px 24px",
   textAlign: "center" as const,
-  backdropFilter: "blur(2px)",
+  backdropFilter: "blur(4px)",
+  borderRadius: 8,
+  boxShadow: "0 0 30px rgba(245, 158, 11, 0.25)",
 };
 
 /** Compact break / pause / pre-auction status. */

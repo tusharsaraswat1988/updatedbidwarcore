@@ -1,3 +1,5 @@
+import { getScorerAuthSession } from "./badminton-scorer-session";
+
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export type ScorerProfile = {
@@ -7,11 +9,20 @@ export type ScorerProfile = {
   isActive?: boolean;
 };
 
+export type ScorerAssignedTournament = {
+  id: number;
+  name: string;
+  sport: string | null;
+  status: string;
+  hasLiveMatch: boolean;
+};
+
 export type ScorerLoginResult = {
   token: string;
   scorer: ScorerProfile;
   canScore?: boolean;
   expiresAt: string;
+  tournaments?: ScorerAssignedTournament[];
 };
 
 export class ScorerApiError extends Error {
@@ -34,11 +45,41 @@ async function parseError(res: Response): Promise<ScorerApiError> {
   return new ScorerApiError(message, typeof body.code === "string" ? body.code : undefined, res.status);
 }
 
-export async function loginScorer(mobile: string, pin: string): Promise<ScorerLoginResult> {
+/**
+ * Authenticated fetch for dedicated scorer / Empire scoring mutations.
+ * Reads the scorer JWT from session storage and adds `Authorization: Bearer <token>`.
+ * Throws ScorerApiError on non-2xx responses.
+ */
+export async function scorerApiFetch<T = unknown>(
+  path: string,
+  options?: RequestInit,
+): Promise<T> {
+  const session = getScorerAuthSession();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options?.headers as Record<string, string> | undefined),
+  };
+  if (session?.token) {
+    headers["Authorization"] = `Bearer ${session.token}`;
+  }
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  if (!res.ok) throw await parseError(res);
+  return res.json() as Promise<T>;
+}
+
+export async function loginScorer(
+  mobile: string,
+  pin: string,
+  tournamentId?: number | null,
+): Promise<ScorerLoginResult> {
   const res = await fetch(`${API_BASE}/api/scorer/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mobile, pin }),
+    body: JSON.stringify({
+      mobile,
+      pin,
+      ...(tournamentId ? { tournamentId } : {}),
+    }),
   });
   if (!res.ok) throw await parseError(res);
   return res.json() as Promise<ScorerLoginResult>;
@@ -51,11 +92,22 @@ export async function logoutScorer(token: string): Promise<void> {
   }).catch(() => undefined);
 }
 
+export type ScorerMatchLockDto = {
+  matchId: number;
+  scorerId: number;
+  sessionId: string;
+  leaseId?: string;
+  leaseVersion?: number;
+  lockedAt?: string;
+  lastHeartbeatAt?: string;
+  expiresAt?: string;
+};
+
 export async function acquireScorerMatchLock(
   matchId: number,
   token: string,
-  meta?: { tournamentId?: number; sport?: string },
-): Promise<{ ok: true } | { ok: false; code: string; message: string }> {
+  meta?: { tournamentId?: number; sport?: string; forceTakeover?: boolean },
+): Promise<{ ok: true; reacquired?: boolean; lock?: ScorerMatchLockDto } | { ok: false; code: string; message: string }> {
   const res = await fetch(`${API_BASE}/api/scorer/matches/${matchId}/lock`, {
     method: "POST",
     headers: {
@@ -64,7 +116,8 @@ export async function acquireScorerMatchLock(
     },
     body: JSON.stringify({
       tournamentId: meta?.tournamentId,
-      sport: meta?.sport ?? "badminton",
+      sport: meta?.sport ?? "cricket",
+      forceTakeover: meta?.forceTakeover,
     }),
   });
   if (res.status === 409) {
@@ -90,7 +143,8 @@ export async function acquireScorerMatchLock(
     };
   }
   if (!res.ok) throw await parseError(res);
-  return { ok: true };
+  const data = await res.json().catch(() => ({ ok: true }));
+  return { ok: true, reacquired: data?.reacquired, lock: data?.lock };
 }
 
 export async function heartbeatScorerMatchLock(matchId: number, token: string): Promise<void> {

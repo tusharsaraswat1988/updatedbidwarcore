@@ -1,5 +1,5 @@
 import { Copy, MessageCircle, Share2 } from "lucide-react";
-import { BtnSecondary, btnCompactClass } from "@/components/badminton/page-chrome";
+import { BtnSecondary, btnCompactClass } from "@/components/sports-ui/sports-page-chrome";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 

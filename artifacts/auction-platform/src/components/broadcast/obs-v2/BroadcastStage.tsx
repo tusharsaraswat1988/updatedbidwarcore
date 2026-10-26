@@ -1,0 +1,249 @@
+import React from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { BroadcastFrameProvider, useBroadcastDirector } from "./director";
+import type { BroadcastFrame } from "./contracts";
+import type { ObsV2BroadcastEvent } from "./obs-v2-events";
+import {
+  AssociateSponsorRail,
+  BidWarLiveBrand,
+  HeaderAccents,
+  HeaderEnergy,
+  HeaderFrame,
+  TitleSponsor,
+  TournamentBrand,
+} from "./header/Header";
+import {
+  AuctionLiveBug,
+  AuctionOutcomePatti,
+  AuctionSponsorFade,
+  HeaderSponsorSlot,
+} from "./overlay/auction-chrome";
+import { CricketScorebar } from "./lower/Cricket";
+import {
+  AuctionScene,
+  BreakScene,
+  PrizePlate,
+  SoldScene,
+  SummaryScene,
+  TeamScene,
+  Top5Scene,
+  UnsoldScene,
+  WaitingScene,
+} from "./lower/Scenes";
+import {
+  ConnectionStatus,
+  FooterBar,
+  FooterStat,
+  FooterStatus,
+  SponsorTicker,
+  TeamTicker,
+} from "./footer/Footer";
+import { splitBroadcastSponsors } from "./branding";
+import { LiveStreamingPartnerBug } from "@/components/broadcast/obs/live-streaming-partner-bug";
+
+export interface BroadcastStageProps {
+  frame?: BroadcastFrame;
+  activeEvent?: ObsV2BroadcastEvent | null;
+  className?: string;
+  hideLower?: boolean;
+  hideFooter?: boolean;
+  /** Replaces the thick lower third until the operator closes it. The scene underneath is kept. */
+  prizePlate?: { line1: string; line2: string } | null;
+}
+
+/**
+ * 1920x1080 OBS canvas. Three zones:
+ *   header   0–96
+ *   CAMERA SAFE AREA 96–880 — intentionally no element rendered here
+ *   lower third 880–1040, footer 1040–1080
+ */
+export function BroadcastStage({
+  frame,
+  activeEvent,
+  className,
+  hideLower = false,
+  hideFooter = false,
+  prizePlate = null,
+}: BroadcastStageProps = {}) {
+  if (frame) {
+    return (
+      <BroadcastFrameProvider frame={frame}>
+        <BroadcastStageInner
+          activeEvent={activeEvent}
+          className={className}
+          hideLower={hideLower}
+          hideFooter={hideFooter}
+          prizePlate={prizePlate}
+        />
+      </BroadcastFrameProvider>
+    );
+  }
+  return (
+    <BroadcastStageInner
+      activeEvent={activeEvent}
+      className={className}
+      hideLower={hideLower}
+      hideFooter={hideFooter}
+      prizePlate={prizePlate}
+    />
+  );
+}
+
+function BroadcastStageInner({
+  activeEvent,
+  className,
+  hideLower = false,
+  hideFooter = false,
+  prizePlate = null,
+}: {
+  activeEvent?: ObsV2BroadcastEvent | null;
+  className?: string;
+  hideLower?: boolean;
+  hideFooter?: boolean;
+  prizePlate?: { line1: string; line2: string } | null;
+}) {
+  const frame = useBroadcastDirector();
+  const auction = frame.scene !== "CRICKET";
+  const showPrize = auction && Boolean(prizePlate?.line1 && prizePlate?.line2);
+  const { liveStreaming, title, associates } = splitBroadcastSponsors(frame.sponsors);
+
+  return (
+    <div
+      className={`bw-stage ${className ?? ""}`}
+      data-perf={frame.settings.performanceMode ? "on" : "off"}
+      data-broadcast-scene={frame.scene}
+    >
+      <HeaderFrame className={auction ? "bw-header-zones" : undefined}>
+        <HeaderEnergy />
+        <HeaderAccents />
+        <TournamentBrand branding={frame.branding} />
+        <BidWarLiveBrand feed={frame.feed.status} showLive={!auction} />
+        {auction ? (
+          <HeaderSponsorSlot sponsors={frame.sponsors} />
+        ) : (
+          <>
+            <AssociateSponsorRail sponsors={associates} />
+            <TitleSponsor sponsor={title} />
+          </>
+        )}
+      </HeaderFrame>
+
+      {auction ? (
+        <>
+          <AuctionLiveBug feed={frame.feed.status} />
+          <AuctionSponsorFade sponsors={frame.sponsors} />
+        </>
+      ) : (
+        <LiveStreamingPartnerBug
+          sponsor={
+            liveStreaming
+              ? { name: liveStreaming.name, logoUrl: liveStreaming.logoUrl }
+              : null
+          }
+          style={{ left: 72, bottom: 216 }}
+        />
+      )}
+
+
+      {!hideLower && (
+        <section className="bw-lower">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={showPrize ? "prize" : frame.scene}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="bw-scene-enter"
+              style={{ width: "100%", height: "100%" }}
+            >
+              {showPrize && prizePlate ? (
+                <PrizePlate line1={prizePlate.line1} line2={prizePlate.line2} />
+              ) : (
+                <SceneSwitch frame={frame} />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </section>
+      )}
+
+      {!hideFooter &&
+        (auction ? (
+          <FooterBar
+            center={<AuctionOutcomePatti frame={frame} />}
+            right={<FooterRight frame={frame} />}
+          />
+        ) : (
+          <FooterBar
+            left={<FooterLeft frame={frame} />}
+            center={frame.settings.showTicker ? <FooterTicker frame={frame} /> : null}
+            right={<FooterRight frame={frame} />}
+          />
+        ))}
+    </div>
+  );
+}
+
+/** Scene selection is purely a render of frame.scene — BidWar controls transitions. */
+function SceneSwitch({ frame }: { frame: BroadcastFrame }) {
+  switch (frame.scene) {
+    case "CRICKET":
+      return <CricketScorebar model={frame.model} />;
+    case "WAITING":
+      return <WaitingScene model={frame.model} />;
+    case "AUCTION":
+      return <AuctionScene model={frame.model} />;
+    case "SOLD":
+      return <SoldScene model={frame.model} teams={frame.teams} />;
+    case "UNSOLD":
+      return <UnsoldScene model={frame.model} />;
+    case "BREAK":
+      return <BreakScene model={frame.model} sponsor={frame.sponsors.find((s) => s.tier === "title")} />;
+    case "SUMMARY":
+      return <SummaryScene model={frame.model} />;
+    case "TOP5":
+      return <Top5Scene model={frame.model} />;
+    case "TEAM":
+      return <TeamScene model={frame.model} />;
+  }
+}
+
+const SCENE_CHIP: Record<BroadcastFrame["scene"], string> = {
+  CRICKET: "LIVE",
+  WAITING: "STANDBY",
+  AUCTION: "AUCTION",
+  SOLD: "SOLD",
+  UNSOLD: "UNSOLD",
+  BREAK: "BREAK",
+  SUMMARY: "SUMMARY",
+  TOP5: "TOP 5",
+  TEAM: "TEAM",
+};
+
+function FooterLeft({ frame }: { frame: BroadcastFrame }) {
+  if (frame.scene === "CRICKET") {
+    return <FooterStatus chip={frame.model.status.chip} text={frame.model.status.text} />;
+  }
+  const subtitle = frame.branding.tournamentAccent
+    ? `${frame.branding.tournamentName} ${frame.branding.tournamentAccent}`
+    : frame.branding.tournamentName;
+  return <FooterStatus chip={SCENE_CHIP[frame.scene]} text={subtitle} />;
+}
+
+function FooterTicker({ frame }: { frame: BroadcastFrame }) {
+  const auctionish = ["AUCTION", "SOLD", "UNSOLD", "TEAM", "WAITING"].includes(frame.scene);
+  return auctionish && frame.teams.length ? (
+    <TeamTicker teams={frame.teams} />
+  ) : (
+    <SponsorTicker sponsors={frame.sponsors} />
+  );
+}
+
+function FooterRight({ frame }: { frame: BroadcastFrame }) {
+  return (
+    <>
+      <ConnectionStatus status={frame.feed.status} seconds={frame.feed.secondsSinceUpdate} />
+      {frame.scene === "CRICKET" && <FooterStat label="CRR" value={frame.model.crr.toFixed(2)} />}
+    </>
+  );
+}

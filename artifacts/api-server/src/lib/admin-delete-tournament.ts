@@ -17,7 +17,6 @@ import {
   commLogsTable,
   consentBlastLogTable,
   consentTokensTable,
-  creativeJobsTable,
   displayAuctionsTable,
   masterPlayerIdMappingsTable,
   notificationLogsTable,
@@ -160,7 +159,6 @@ export async function adminDeleteTournamentCascade(tournamentId: number): Promis
     await tx
       .delete(ownerSessionsTable)
       .where(eq(ownerSessionsTable.tournamentId, tournamentId));
-    await tx.delete(creativeJobsTable).where(eq(creativeJobsTable.tournamentId, tournamentId));
     await tx
       .delete(displayAuctionsTable)
       .where(eq(displayAuctionsTable.tournamentId, tournamentId));

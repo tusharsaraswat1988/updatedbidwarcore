@@ -1,6 +1,6 @@
 /**
  * Resolve build commit / timestamp for diagnostics without changing deploy scripts.
- * Sources (priority): BIDWAR_* env → RENDER_* env → optional build-info.json file.
+ * Sources (priority): BIDWAR_* env → RAILWAY_* env → RENDER_* env → optional build-info.json file.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -8,6 +8,7 @@ import path from "node:path";
 
 export type BuildInfoSource =
   | "env_override"
+  | "railway_env"
   | "render_env"
   | "build_info_file"
   | "unavailable";
@@ -32,6 +33,7 @@ function shortSha(sha: string | null): string | null {
 function fromEnv(): BuildInfo | null {
   const overrideSha =
     process.env.BIDWAR_GIT_SHA?.trim() ||
+    process.env.RAILWAY_GIT_COMMIT_SHA?.trim() ||
     process.env.RENDER_GIT_COMMIT?.trim() ||
     process.env.RENDER_GIT_COMMIT_SHA?.trim() ||
     "";
@@ -43,6 +45,7 @@ function fromEnv(): BuildInfo | null {
   const hasBidwar =
     Boolean(process.env.BIDWAR_GIT_SHA?.trim()) ||
     Boolean(process.env.BIDWAR_BUILD_TIMESTAMP?.trim());
+  const hasRailway = Boolean(process.env.RAILWAY_GIT_COMMIT_SHA?.trim());
   const hasRender =
     Boolean(process.env.RENDER_GIT_COMMIT?.trim()) ||
     Boolean(process.env.RENDER_GIT_COMMIT_SHA?.trim());
@@ -53,7 +56,13 @@ function fromEnv(): BuildInfo | null {
     commitSha: overrideSha || null,
     commitShaShort: shortSha(overrideSha || null),
     buildTimestamp: overrideTs || null,
-    source: hasBidwar ? "env_override" : hasRender ? "render_env" : "env_override",
+    source: hasBidwar
+      ? "env_override"
+      : hasRailway
+        ? "railway_env"
+        : hasRender
+          ? "render_env"
+          : "env_override",
   };
 }
 
@@ -88,7 +97,7 @@ function readBuildInfoFile(): BuildInfo | null {
 export function resolveBuildInfo(): BuildInfo {
   const fromEnvironment = fromEnv();
   if (fromEnvironment?.commitSha || fromEnvironment?.buildTimestamp) {
-    // Prefer BIDWAR_/RENDER_ when present; fill gaps from file if needed.
+    // Prefer BIDWAR_/RAILWAY_/RENDER_ when present; fill gaps from file if needed.
     const file = readBuildInfoFile();
     return {
       commitSha: fromEnvironment.commitSha ?? file?.commitSha ?? null,

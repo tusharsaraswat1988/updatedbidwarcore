@@ -3,6 +3,7 @@ import {
   sportsMissionControlAppPath,
   sportsMissionControlPath,
 } from "@workspace/api-base/scoring-urls";
+import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
 
 export { sportsMissionControlAppPath, sportsMissionControlPath };
 
@@ -20,13 +21,18 @@ export function auctionResetPath(tournamentId: number, from?: string | null): st
 
 /** Safe return target after leaving the reset page. */
 export function resolveReturnPath(from: string | null | undefined, tournamentId: number): string {
-  if (from?.startsWith("/") && !from.startsWith("//")) return from;
+  if (from?.startsWith("/") && !from.startsWith("//") && !from.includes("/reset")) {
+    return from.split("?")[0] ?? from;
+  }
   return setupAreaPath(tournamentId);
 }
 
 /** Short label for the reset page back button. */
 export function returnPathBackLabel(path: string): string {
   if (path.includes("/settings")) return "Back to Settings";
+  if (path.includes("/auction-overview") || path.includes("/overview")) {
+    return "Back to Auction Overview";
+  }
   if (path.includes("/auction")) return "Back to Auction Room";
   if (/^\/tournament\/\d+\/?$/.test(path.replace(/\?.*$/, ""))) {
     return "Back to Auction Overview";
@@ -34,7 +40,13 @@ export function returnPathBackLabel(path: string): string {
   if (path.includes("/mission-control")) {
     return "Back to Tournament Dashboard";
   }
-  return "Go back";
+  if (path.includes("/links")) return "Back to Links";
+  if (path.includes("/reports")) return "Back to Reports";
+  if (path.includes("/teams")) return "Back to Teams";
+  if (path.includes("/players")) return "Back to Players";
+  if (path.includes("/categories")) return "Back to Categories";
+  if (path.includes("/reset")) return "Back to Auction Overview";
+  return "Back to Auction Overview";
 }
 
 /**
@@ -46,11 +58,46 @@ export function openAuctionRoom(tournamentId: number): void {
 }
 
 /**
- * Auction Overview — Auction product home (not Sports Mission Control).
- * Historical name `tournamentMissionControlPath` kept as alias for Auction Overview.
+ * Legacy compatibility URL for `/tournament/:id` (redirects to module landing).
+ */
+export function tournamentHomePath(tournamentId: number): string {
+  return `/tournament/${tournamentId}`;
+}
+
+/** Platform-relative entry into the independent Sports Scoring shell. */
+export function resolveScoringEntryPath(tournamentId: number, sport?: string | null): string {
+  const s = (sport || "").toLowerCase();
+  if (s.includes("badminton")) return `/tournament/${tournamentId}/badminton`;
+  if (s.includes("cricket")) return `/tournament/${tournamentId}/score`;
+  return `/tournament/${tournamentId}/mission-control`;
+}
+
+type TournamentModuleFlags = {
+  auctionEnabled?: boolean | null;
+  scoringEnabled?: boolean | null;
+  sport?: string | null;
+};
+
+/** Default organizer landing after auth, creation, or legacy `/tournament/:id` URLs. */
+export function resolveTournamentOrganizerLandingPath(
+  tournamentId: number,
+  tournament: TournamentModuleFlags | null | undefined,
+): string {
+  if (tournament && isAuctionEnabled(tournament)) {
+    return auctionOverviewPath(tournamentId);
+  }
+  if (tournament && isScoringEnabled(tournament)) {
+    return resolveScoringEntryPath(tournamentId, tournament.sport);
+  }
+  return `/tournament/${tournamentId}/settings`;
+}
+
+/**
+ * Auction Overview — Dedicated Auction workspace overview.
+ * Canonical path: `/tournament/${tournamentId}/auction-overview`
  */
 export function auctionOverviewPath(tournamentId: number): string {
-  return `/tournament/${tournamentId}`;
+  return `/tournament/${tournamentId}/auction-overview`;
 }
 
 /**
@@ -64,32 +111,6 @@ export function tournamentMissionControlPath(tournamentId: number): string {
 /** @alias auctionOverviewPath — historical name used by auction operator return. */
 export function setupAreaPath(tournamentId: number): string {
   return auctionOverviewPath(tournamentId);
-}
-
-/** BidWar Media Center — organizer Buzz Studio hub (requires features.buzzStudio). */
-export function mediaCenterPath(tournamentId: number): string {
-  return `/organizer/media-center/${tournamentId}`;
-}
-
-/** Template Studio — organizer route for a specific template. */
-export function templateStudioPath(
-  tournamentId: number,
-  templateId: string,
-): string {
-  return `/organizer/media-center/${tournamentId}/${templateId}`;
-}
-
-/** Canonical tournament-scoped path (alias). */
-export function mediaCenterTournamentPath(tournamentId: number): string {
-  return `/tournament/${tournamentId}/media-center`;
-}
-
-/** Template Studio — tournament-scoped route for a specific template. */
-export function templateStudioTournamentPath(
-  tournamentId: number,
-  templateId: string,
-): string {
-  return `/tournament/${tournamentId}/media-center/${templateId}`;
 }
 
 /** LED big-screen display path (optional auction code for public gate). */
@@ -127,9 +148,9 @@ export function legacyLiveViewerPath(tournamentId: number): string {
   return `/tournament/${tournamentId}/liveviewer`;
 }
 
-/** Broadcast Overlay path (internal `/obs` route; browser-source for streaming). */
+/** Broadcast Overlay path (browser-source for streaming). */
 export function obsOverlayPath(tournamentId: number): string {
-  return `/tournament/${tournamentId}/obs`;
+  return `/tournament/${tournamentId}/obs/v2`;
 }
 
 /** @alias obsOverlayPath */
@@ -197,8 +218,13 @@ export function cricketFanPlayerPath(tournamentId: number, playerId: number): st
   return `/tournament/${tournamentId}/cricket/player/${playerId}`;
 }
 
-export function cricketFanTeamPath(tournamentId: number, teamId: number): string {
-  return `/tournament/${tournamentId}/cricket/team/${teamId}`;
+export function cricketFanTeamPath(
+  tournamentId: number,
+  teamId: number,
+  drawId?: number | null,
+): string {
+  const path = `/tournament/${tournamentId}/cricket/team/${teamId}`;
+  return drawId != null ? `${path}?drawId=${drawId}` : path;
 }
 
 /** Public cricket tournament page (fans) — external scoring app. */
@@ -217,8 +243,12 @@ export function cricketPlayerPublicPath(tournamentId: number, playerId: number):
 }
 
 /** Public tournament team profile. */
-export function cricketTeamPublicPath(tournamentId: number, teamId: number): string {
-  return scoringAppPath(cricketFanTeamPath(tournamentId, teamId));
+export function cricketTeamPublicPath(
+  tournamentId: number,
+  teamId: number,
+  drawId?: number | null,
+): string {
+  return scoringAppPath(cricketFanTeamPath(tournamentId, teamId, drawId));
 }
 
 /** Global cricket player career profile. */
@@ -288,6 +318,29 @@ export function openScoreDisplay(
     "_blank",
     "noopener,noreferrer",
   );
+}
+
+/** In-app Cricket OBS V2 Broadcast Overlay path (transparent 1920x1080). */
+export function cricketObsV2Path(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/obs/v2`;
+}
+
+/** In-app Cricket OBS V2 Broadcast Preview path. */
+export function cricketObsV2PreviewPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/obs/v2/preview`;
+}
+
+/** In-app Cricket OBS V2 Test Control path (QA only). */
+export function cricketObsV2ControlPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/obs/v2/control`;
+}
+
+export function openCricketObsV2(tournamentId: number): void {
+  window.open(cricketObsV2Path(tournamentId), "_blank", "noopener,noreferrer");
+}
+
+export function openCricketObsV2Preview(tournamentId: number): void {
+  window.open(cricketObsV2PreviewPath(tournamentId), "_blank", "noopener,noreferrer");
 }
 
 /** Open setup in the opener tab when launched from Setup; otherwise new tab. */

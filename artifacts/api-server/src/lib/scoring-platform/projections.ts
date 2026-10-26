@@ -26,23 +26,71 @@ export async function runPostMatchProjectionPipeline(
 
   if (!isTerminalScoringMatchStatus(matchStatus)) return;
 
+  const errors: { step: string; error: unknown }[] = [];
+
   if (statsAdapter.calculateTournamentStandings) {
-    await statsAdapter.calculateTournamentStandings(tournamentId);
+    try {
+      await statsAdapter.calculateTournamentStandings(tournamentId);
+    } catch (err) {
+      console.error(
+        `[PROJECTION_PIPELINE] calculateTournamentStandings failed for tournament ${tournamentId}:`,
+        err,
+      );
+      errors.push({ step: "standings", error: err });
+    }
   }
 
   // Match-level awards/stats historically ran for completed only; include all terminals
   // so walkover/retired/DQ still materialize after S3-08 status preservation.
   if (statsAdapter.calculateMatchStatistics) {
-    await statsAdapter.calculateMatchStatistics(matchId);
+    try {
+      await statsAdapter.calculateMatchStatistics(matchId);
+    } catch (err) {
+      console.error(
+        `[PROJECTION_PIPELINE] calculateMatchStatistics failed for match ${matchId}:`,
+        err,
+      );
+      errors.push({ step: "match_stats", error: err });
+    }
   }
   if (statsAdapter.calculateMatchAwards) {
-    await statsAdapter.calculateMatchAwards(matchId);
+    try {
+      await statsAdapter.calculateMatchAwards(matchId);
+    } catch (err) {
+      console.error(
+        `[PROJECTION_PIPELINE] calculateMatchAwards failed for match ${matchId}:`,
+        err,
+      );
+      errors.push({ step: "awards", error: err });
+    }
   }
   if (statsAdapter.calculateTournamentLeaderboards) {
-    await statsAdapter.calculateTournamentLeaderboards(tournamentId);
+    try {
+      await statsAdapter.calculateTournamentLeaderboards(tournamentId);
+    } catch (err) {
+      console.error(
+        `[PROJECTION_PIPELINE] calculateTournamentLeaderboards failed for tournament ${tournamentId}:`,
+        err,
+      );
+      errors.push({ step: "leaderboards", error: err });
+    }
   }
   if (statsAdapter.calculateGlobalStatistics) {
-    await statsAdapter.calculateGlobalStatistics(matchId);
+    try {
+      await statsAdapter.calculateGlobalStatistics(matchId);
+    } catch (err) {
+      console.error(
+        `[PROJECTION_PIPELINE] calculateGlobalStatistics failed for match ${matchId}:`,
+        err,
+      );
+      errors.push({ step: "global_stats", error: err });
+    }
+  }
+
+  if (errors.length > 0) {
+    console.warn(
+      `[PROJECTION_PIPELINE] Completed with ${errors.length} step error(s) for match ${matchId} (tournament ${tournamentId})`,
+    );
   }
 }
 

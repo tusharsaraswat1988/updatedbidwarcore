@@ -366,7 +366,7 @@ export function resolveStage(
   }
 
   const outcomes: ConflictOutcome[] = [];
-  const policiesApplied: ConflictReport["policiesApplied"] = [];
+  const policiesApplied: Array<NonNullable<ConflictReport["policiesApplied"]>[number]> = [];
   const disabledByConflicts: string[] = [];
   const forcedValues: ForcedValueEntry[] = [];
 
@@ -386,7 +386,7 @@ export function resolveStage(
       strategy: p.strategy,
     });
 
-    const effects: ConflictOutcome["effects"] = [];
+    const effects: Array<ConflictOutcome["effects"][number]> = [];
     if (p.strategy === "FAIL") {
       semantic.push({
         severity: "ERROR",

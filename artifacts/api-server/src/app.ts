@@ -45,6 +45,7 @@ import {
   buildAdminAppManifest,
   buildAuctionPlatformManifest,
   buildOwnerAppManifest,
+  buildScoringAppManifest,
 } from "./lib/branding-manifest.js";
 
 const app: Express = express();
@@ -246,6 +247,18 @@ app.get("/admin.webmanifest", async (_req, res) => {
   }
 });
 
+app.get(["/scoring-app/manifest.webmanifest", "/scoring-app/site.webmanifest"], async (_req, res) => {
+  try {
+    const manifest = await buildScoringAppManifest();
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.json(manifest);
+  } catch (err) {
+    logger.error({ err }, "Failed to build scoring-app manifest");
+    res.status(500).json({ error: "Manifest unavailable" });
+  }
+});
+
 // ── Optional single-process static file serving ───────────────────────────────
 // Enabled when SERVE_STATIC=true (or automatically in production when not
 // explicitly disabled). Serves pre-built Vite frontends from the same Node
@@ -280,8 +293,9 @@ if (serveStatic) {
             "sitemap-blog.xml",
             "sitemap-taxonomy.xml",
             "sitemap-images.xml",
+            "sw.js",
           ]);
-          if (noCacheFiles.has(base) || base.endsWith(".webmanifest")) {
+          if (noCacheFiles.has(base) || base.endsWith(".webmanifest") || base === "sw.js") {
             res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
           } else {
             // Vite content-hashes every JS/CSS asset — safe to cache forever
@@ -384,6 +398,12 @@ if (serveStatic) {
         const rest = pathname === "/scoring/app" ? "/" : pathname.slice("/scoring/app".length);
         const qs = req.url?.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
         res.redirect(302, `/scoring-app${rest === "/" ? "/" : rest}${qs}`);
+        return;
+      }
+      if (pathname === "/scoring-app/scoring-app" || pathname.startsWith("/scoring-app/scoring-app/")) {
+        const rest = pathname === "/scoring-app/scoring-app" ? "/" : pathname.slice("/scoring-app/scoring-app".length);
+        const qs = req.url?.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+        res.redirect(301, `/scoring-app${rest === "/" ? "/" : rest}${qs}`);
         return;
       }
       next();

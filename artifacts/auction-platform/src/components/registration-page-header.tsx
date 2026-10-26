@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { Trophy, Users } from "lucide-react";
 import { cldUrl } from "@/lib/cloudinary";
 import { getSponsorsByPriority, parseSponsorLogos, type SponsorLogo } from "@/lib/sponsor-logo";
 import { PoweredByBidWarLink } from "@/components/powered-by-bidwar-link";
@@ -20,53 +19,40 @@ function RegistrationSponsors({ logos }: { logos: SponsorLogo[] }) {
     return () => clearInterval(id);
   }, [logos.length]);
 
-  if (!logos.length) {
-    return <div className="w-12 sm:w-14 shrink-0" aria-hidden />;
-  }
+  if (!logos.length) return null;
 
   const current = logos[idx];
   const label = current.name?.trim() || current.type?.trim() || "Sponsor";
 
   return (
-    <div className="flex flex-col items-end min-w-0 w-full">
-      {current.type?.trim() ? (
-        <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.14em] text-amber-400/80 text-right w-full leading-tight break-words">
-          {current.type}
-        </p>
-      ) : null}
-      <div
-        className="flex items-center justify-end transition-opacity duration-300 my-0.5"
-        style={{ opacity: visible ? 1 : 0 }}
-      >
+    <div className="reg-sponsor">
+      {current.type?.trim() ? <p className="reg-sponsor-type">{current.type}</p> : null}
+      <div style={{ opacity: visible ? 1 : 0, transition: "opacity 300ms" }}>
         <img
           key={current.url}
           src={cldUrl(current.url, "teamLogo")}
           alt={label}
-          className="h-10 sm:h-12 max-w-full object-contain"
           loading="lazy"
           decoding="async"
           onError={e => { e.currentTarget.style.display = "none"; }}
         />
       </div>
-      {current.name?.trim() ? (
-        <p className="text-[10px] sm:text-[11px] font-semibold text-white/90 text-right w-full leading-tight break-words">
-          {current.name}
-        </p>
-      ) : null}
+      {current.name?.trim() ? <p className="reg-sponsor-name">{current.name}</p> : null}
       {logos.length > 1 ? (
-        <div className="flex gap-1 justify-end mt-1">
+        <div className="reg-sponsor-dots" aria-hidden="true">
           {logos.map((_, i) => (
-            <div
-              key={i}
-              className="w-1.5 h-1.5 rounded-full transition-all duration-300"
-              style={{ backgroundColor: i === idx ? "#fbbf24" : "#ffffff30" }}
-            />
+            <span key={i} data-active={i === idx ? "true" : "false"} />
           ))}
         </div>
       ) : null}
     </div>
   );
 }
+
+export type RegistrationHeaderFact = {
+  label: string;
+  value: string;
+};
 
 type RegistrationPageHeaderProps = {
   tournamentName?: string;
@@ -75,7 +61,28 @@ type RegistrationPageHeaderProps = {
   brandNameFallback?: string;
   registeredCount?: number;
   registrationLimit?: number | null;
+  subtitle?: string;
+  tagline?: string;
+  facts?: RegistrationHeaderFact[];
 };
+
+function capacityFact(
+  registeredCount: number | undefined,
+  registrationLimit: number | null | undefined,
+): RegistrationHeaderFact | null {
+  if (registeredCount == null) return null;
+  if (registrationLimit == null) {
+    return {
+      label: "Registered",
+      value: `${registeredCount} player${registeredCount === 1 ? "" : "s"}`,
+    };
+  }
+  const remaining = Math.max(0, registrationLimit - registeredCount);
+  return {
+    label: "Capacity",
+    value: `${registeredCount} of ${registrationLimit} registered · ${remaining} slot${remaining === 1 ? "" : "s"} left`,
+  };
+}
 
 export function RegistrationPageHeader({
   tournamentName,
@@ -84,30 +91,36 @@ export function RegistrationPageHeader({
   brandNameFallback = "BidWar",
   registeredCount,
   registrationLimit,
+  subtitle = "Player Registration",
+  tagline,
+  facts = [],
 }: RegistrationPageHeaderProps) {
   const sponsorLogos = useMemo(
     () => getSponsorsByPriority(parseSponsorLogos(sponsorLogosJson)),
     [sponsorLogosJson],
   );
+  const title = tournamentName?.trim() || brandNameFallback;
+  const capacity = capacityFact(registeredCount, registrationLimit);
+  const visibleFacts = [capacity, ...facts].filter((fact): fact is RegistrationHeaderFact => !!fact?.value);
 
   return (
-    <div className="mb-6 sm:mb-8">
-      <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2 sm:gap-3 mb-5 sm:mb-6">
+    <header className="reg-header">
+      <div className="reg-brand-row">
         <div className="flex justify-start min-w-0">
           {tournamentLogoUrl ? (
             <img
               src={tournamentLogoUrl}
-              alt={tournamentName ?? "Tournament logo"}
-              className="h-14 w-14 sm:h-16 sm:w-16 object-contain rounded-xl border border-white/10 bg-white/[0.03]"
+              alt={`${title} logo`}
+              className="reg-tournament-logo"
             />
           ) : (
-            <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-xl border border-white/10 bg-white/[0.03] flex items-center justify-center">
-              <Trophy className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
+            <div className="reg-tournament-fallback" aria-hidden="true">
+              {title.slice(0, 1).toUpperCase()}
             </div>
           )}
         </div>
 
-        <div className="flex justify-center px-1">
+        <div className="reg-brand-mark">
           <PoweredByBidWarLink variant="headerLogo" />
         </div>
 
@@ -116,22 +129,21 @@ export function RegistrationPageHeader({
         </div>
       </div>
 
-      <div className="text-center">
-        <h1 className="text-2xl sm:text-3xl font-display font-black text-white leading-tight px-1">
-          {tournamentName || brandNameFallback}
-        </h1>
-        <p className="text-muted-foreground mt-1">Player Registration</p>
-        {registeredCount != null ? (
-          <p className="text-sm text-white/70 mt-1.5 flex items-center justify-center gap-1.5">
-            <Users className="w-3.5 h-3.5 text-primary shrink-0" />
-            <span>
-              {registrationLimit != null
-                ? `${registeredCount} / ${registrationLimit} players registered`
-                : `${registeredCount} player${registeredCount === 1 ? "" : "s"} registered`}
-            </span>
-          </p>
+      <div className="reg-header-copy">
+        <p className="reg-kicker">{subtitle}</p>
+        <h1>{title}</h1>
+        {tagline ? <p className="reg-tagline">{tagline}</p> : null}
+        {visibleFacts.length > 0 ? (
+          <dl className="reg-facts">
+            {visibleFacts.map(fact => (
+              <div key={fact.label} className={fact.label === "Capacity" || fact.label === "Registered" ? "reg-fact reg-fact--capacity" : "reg-fact"}>
+                <dt>{fact.label}</dt>
+                <dd>{fact.value}</dd>
+              </div>
+            ))}
+          </dl>
         ) : null}
       </div>
-    </div>
+    </header>
   );
 }

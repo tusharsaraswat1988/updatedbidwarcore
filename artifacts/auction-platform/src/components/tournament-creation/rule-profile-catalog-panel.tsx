@@ -4,6 +4,7 @@ import {
   type RuleProfileValueEntry,
 } from "@workspace/platform-core/catalog";
 import { cn } from "@/lib/utils";
+import { RuleHelpTooltip } from "@/components/ui/rule-help-tooltip";
 
 type RuleProfileCatalogPanelProps = {
   profile: RuleProfileCatalogEntry | null;
@@ -68,10 +69,17 @@ export function RuleProfileCatalogPanel({ profile }: RuleProfileCatalogPanelProp
                   return (
                     <li
                       key={`${entry.definitionId}@${entry.definitionVersion}`}
-                      className="flex items-baseline justify-between gap-3 text-xs"
+                      className="flex items-center justify-between gap-3 text-xs py-0.5"
                     >
-                      <span className="text-foreground/90">
-                        {def?.name ?? entry.definitionId}
+                      <span className="text-foreground/90 flex items-center">
+                        <span>{def?.name ?? entry.definitionId}</span>
+                        {def?.description ? (
+                          <RuleHelpTooltip
+                            title={def?.name ?? entry.definitionId}
+                            content={def.description}
+                            category={entry.definitionId.includes("special") ? "bidwar" : "cricket"}
+                          />
+                        ) : null}
                       </span>
                       <span className="font-mono text-muted-foreground shrink-0">
                         {entry.value === "inherit" ? "inherit" : formatValue(entry.value)}

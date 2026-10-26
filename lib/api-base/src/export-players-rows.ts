@@ -1,4 +1,5 @@
 import { bidValueSourceLabel } from "./bid-value";
+import { jerseySizeLabel } from "./jersey-size";
 import { formatPlayerGender } from "./player-gender";
 import { playerTagLabel } from "./player-tag-label";
 import {
@@ -71,7 +72,7 @@ function buildRow(
     "Sold Price": (player.soldPrice ?? "") as string | number,
     "Retained Price": (player.retainedPrice ?? "") as string | number,
     "Jersey Number": (player.jerseyNumber ?? "") as string,
-    "Jersey Size": (player.jerseySize ?? "") as string,
+    "Jersey Size": player.jerseySize ? jerseySizeLabel(String(player.jerseySize)) : "",
     Achievements: (player.achievements ?? "") as string,
     "Availability Dates": (player.availabilityDates ?? "") as string,
   };

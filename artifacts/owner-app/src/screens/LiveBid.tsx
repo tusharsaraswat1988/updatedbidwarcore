@@ -12,7 +12,7 @@ import { useBidLifecycle } from "@/hooks/use-bid-lifecycle";
 import type { ConnectionStatus } from "@/hooks/use-auction-socket";
 import { hapticBid, hapticSuccess, hapticError, hapticLeading, hapticBooster } from "@/lib/haptics";
 import { formatIndianRupee, formatShortIndianRupee, resolveAuctionUnit } from "@/lib/format";
-import { computeNextBidAmount, resolveRetainedSpend, isTeamEligibleForTrialAuction } from "@workspace/api-base";
+import { computeNextBidAmount, resolveRetainedSpend, isTeamEligibleForTrialAuction, resolveOwnerLiveBidFooterPurse, resolveOwnerPlayingSquadTotal, resolveOwnerSquadRequirement, ownerSquadMinSubline, ownerSquadMaxSubline } from "@workspace/api-base";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
 import { PlayerTagBadge } from "@/components/PlayerTagBadge";
@@ -97,6 +97,7 @@ interface AuctionState {
     appliedAt: string;
   } | null;
   lastAuctionActivityAt?: string | null;
+  ownerBiddingEnabled?: boolean;
 }
 
 interface Team {
@@ -114,6 +115,7 @@ interface Tournament {
   name?: string;
   sport?: string;
   auctionUnit?: string | null;
+  ownerBiddingEnabled?: boolean;
 }
 
 interface TeamPurse {
@@ -127,6 +129,7 @@ interface TeamPurse {
   maxAllowedBid?: number;
   playersBought?: number;
   retainedCount?: number;
+  minimumSquadSize?: number;
   maximumSquadSize?: number;
   lowestBasePrice?: number;
   purseUsed?: number;
@@ -361,11 +364,19 @@ function TeamSquadSnapshot({
     };
   }, [allPlayers, teamId]);
 
-  const maxSquad = teamPurse?.maximumSquadSize ?? 0;
-  const totalInSquad = teamPurse?.playersBought ?? retainedPlayers.length + boughtPlayers.length;
+  const totalInSquad = resolveOwnerPlayingSquadTotal({
+    playersBought: teamPurse?.playersBought,
+    retainedPlayingCount: retainedPlayers.length,
+    boughtPlayingCount: boughtPlayers.length,
+    rosterLoaded: allPlayers != null,
+  });
   const retainedCount = teamPurse?.retainedCount ?? retainedPlayers.length;
   const boughtCount = boughtPlayers.length;
-  const stillNeed = maxSquad > 0 ? Math.max(0, maxSquad - totalInSquad) : null;
+  const squadDue = resolveOwnerSquadRequirement({
+    minimumSquadSize: teamPurse != null ? (teamPurse.minimumSquadSize ?? 0) : null,
+    maximumSquadSize: teamPurse != null ? (teamPurse.maximumSquadSize ?? 0) : null,
+    totalInSquad,
+  });
 
   const expandedPlayers = expanded === "retained" ? retainedPlayers : boughtPlayers;
   const expandedTitle = expanded === "retained" ? "Retained Players" : "Bought Players";
@@ -376,30 +387,44 @@ function TeamSquadSnapshot({
 
   const statValueClass = tier === "mobile" ? "text-xl" : tier === "tablet" ? "text-2xl" : "text-2xl";
   const statLabelClass = tier === "mobile" ? "text-[10px]" : "text-[11px]";
+  const cellPad = tier === "mobile" ? "px-1.5 py-3" : "px-3 py-3";
+  const squadCols =
+    2 + (squadDue.minDue != null ? 1 : 0) + (squadDue.maxDue != null ? 1 : 0);
 
   return (
     <div className="rounded-2xl border border-[#4a4478] bg-[#2a2458] overflow-hidden">
-      <div className="grid grid-cols-3 divide-x divide-[#4a4478]">
-        <div className="px-3 py-3 text-center">
-          <p className={`font-display font-black leading-none ${statValueClass}`} style={{ color: BIDWAR_AMBER }}>
-            {maxSquad > 0 ? maxSquad : totalInSquad}
-          </p>
-          <p className={`font-bold uppercase tracking-wider text-[#6b6490] mt-1.5 ${statLabelClass}`}>
-            Squad Target
-          </p>
-          <p className="text-[10px] text-[#a8a0c4] mt-0.5">
-            {maxSquad > 0
-              ? stillNeed != null && stillNeed > 0
-                ? `${stillNeed} more needed`
-                : `${totalInSquad}/${maxSquad} filled`
-              : `${totalInSquad} in squad`}
-          </p>
-        </div>
+      <div
+        className="grid divide-x divide-[#4a4478]"
+        style={{ gridTemplateColumns: `repeat(${squadCols}, minmax(0, 1fr))` }}
+      >
+        {squadDue.minDue != null ? (
+          <div className={`${cellPad} text-center min-w-0`}>
+            <p className={`font-display font-black leading-none ${statValueClass}`} style={{ color: BIDWAR_AMBER }}>
+              {squadDue.minDue}
+            </p>
+            <p className={`font-bold uppercase tracking-wider text-[#6b6490] mt-1.5 ${statLabelClass}`}>
+              Min Squad
+            </p>
+            <p className="text-[10px] text-[#a8a0c4] mt-0.5">{ownerSquadMinSubline(squadDue.minDue)}</p>
+          </div>
+        ) : null}
+
+        {squadDue.maxDue != null ? (
+          <div className={`${cellPad} text-center min-w-0`}>
+            <p className={`font-display font-black leading-none ${statValueClass}`} style={{ color: BIDWAR_AMBER }}>
+              {squadDue.maxDue}
+            </p>
+            <p className={`font-bold uppercase tracking-wider text-[#6b6490] mt-1.5 ${statLabelClass}`}>
+              Max Squad
+            </p>
+            <p className="text-[10px] text-[#a8a0c4] mt-0.5">{ownerSquadMaxSubline(squadDue.maxDue)}</p>
+          </div>
+        ) : null}
 
         <button
           type="button"
           onClick={() => toggleCategory("retained")}
-          className={`px-3 py-3 text-center transition-colors active:scale-[0.98] ${
+          className={`${cellPad} text-center min-w-0 transition-colors active:scale-[0.98] ${
             expanded === "retained" ? "bg-[#4a4478]" : "hover:bg-[#1f1f23]"
           }`}
         >
@@ -415,7 +440,7 @@ function TeamSquadSnapshot({
         <button
           type="button"
           onClick={() => toggleCategory("bought")}
-          className={`px-3 py-3 text-center transition-colors active:scale-[0.98] ${
+          className={`${cellPad} text-center min-w-0 transition-colors active:scale-[0.98] ${
             expanded === "bought" ? "bg-[#4a4478]" : "hover:bg-[#1f1f23]"
           }`}
         >
@@ -523,19 +548,21 @@ function TeamPurseFooter({
     [allPlayers, teamId],
   );
 
-  const totalPurse = purseOverride?.totalPurse ?? teamPurse?.effectiveCapacity ?? teamPurse?.purse ?? team.purse;
-  const totalSpent = teamPurse?.purseUsed ?? team.purseUsed ?? 0;
-  const purseRemaining = teamPurse?.purseRemaining ?? Math.max(0, totalPurse - totalSpent);
-  const reserve = teamPurse?.futureReservePurse ?? teamPurse?.reservePurse ?? 0;
-  const boosterTotal = purseOverride?.boosterTotal ?? teamPurse?.boosterTotal ?? 0;
-  const maxAllowedBid = purseOverride?.maxAllowedBid ?? teamPurse?.maxAllowedBid ?? purseRemaining;
-  const maxBid = maxAllowedBid;
+  const footerPurse = resolveOwnerLiveBidFooterPurse(teamPurse, team, purseOverride);
+  const totalPurse = footerPurse.totalPurse;
+  const totalSpent = footerPurse.totalSpent;
+  const purseRemaining = footerPurse.purseRemaining;
+  const reserve = footerPurse.reservePurse;
+  const boosterTotal = footerPurse.boosterTotal;
+  const maxBid = footerPurse.maxAllowedBid;
 
   const syncBoostValues = highlightBoost && purseOverride != null;
   const fmtFooter = (amount: number, synced = false) =>
     synced && syncBoostValues
       ? formatIndianRupee(amount, unit)
       : formatShortIndianRupee(amount, unit);
+  const fmtOrDash = (amount: number | null, synced = false) =>
+    amount == null ? "—" : fmtFooter(amount, synced);
 
   const valueClass =
     tier === "mobile" ? "text-sm sm:text-base" : tier === "tablet" ? "text-lg sm:text-xl" : "text-xl sm:text-2xl";
@@ -588,8 +615,8 @@ function TeamPurseFooter({
       {
         key: "reserve",
         label: "Reserve",
-        value: fmtFooter(reserve),
-        accent: bidwarNum(reserve > 0),
+        value: fmtOrDash(reserve),
+        accent: bidwarNum(reserve != null && reserve > 0),
       },
     );
 
@@ -606,7 +633,7 @@ function TeamPurseFooter({
     cols.push({
       key: "max-bid",
       label: "Max Bid",
-      value: fmtFooter(maxBid, true),
+      value: fmtOrDash(maxBid, true),
       accent: teamNum,
       pulseOnBoost: true,
     });
@@ -695,6 +722,7 @@ interface BidDisabledHint {
 }
 
 function getBidDisabledHint(params: {
+  ownerBiddingEnabled?: boolean;
   isPaused: boolean;
   isActive: boolean;
   isTrialRestricted: boolean;
@@ -713,6 +741,12 @@ function getBidDisabledHint(params: {
   slotsRequired: number;
   unit: ReturnType<typeof resolveAuctionUnit>;
 }): BidDisabledHint {
+  if (params.ownerBiddingEnabled === false) {
+    return {
+      headline: "BIDDING DISABLED",
+      subline: "Online bidding is disabled by the organizer.",
+    };
+  }
   if (params.isTrialRestricted) {
     return {
       headline: "Trial locked",
@@ -815,10 +849,12 @@ function AuctionPauseBanner({
 }
 
 function BidButton({
+  ownerBiddingEnabled = true,
   canBid, isLeading, timerExpired, timerActive, hasPlayer, isActive, isPaused, isIdle, isOnBreak,
   hasLiveCountdown, breakMins, breakSecs, breakMessage, breakLabel,
   bidding, bidFeedback, nextBidAmount, teamColor, onBid, layout, tier, unit, dock = false,
 }: {
+  ownerBiddingEnabled?: boolean;
   canBid: boolean;
   isLeading: boolean;
   timerExpired: boolean;
@@ -901,6 +937,27 @@ function BidButton({
         <div className="text-center">
           <p className={`font-display font-black ${dock ? "text-xl" : "text-3xl"}`} style={{ color: teamColor }}>HIGHEST BIDDER</p>
           {!dock && <p className="text-base text-[#a8a0c4] mt-2">Waiting for other teams...</p>}
+        </div>
+      </motion.div>
+    );
+  }
+
+  if (ownerBiddingEnabled === false) {
+    return (
+      <motion.div
+        key="owner-bidding-disabled"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className={`w-full ${dock ? dockStatusH : buttonH} rounded-3xl border-2 border-red-500/30 bg-red-500/10 flex flex-col items-center justify-center gap-2 px-4 text-center`}
+      >
+        <XCircle className={`${dock ? "w-8 h-8" : "w-12 h-12"} text-red-400`} />
+        <div>
+          <p className={`font-display font-black text-red-400 ${dock ? "text-lg" : "text-2xl"}`}>
+            BIDDING DISABLED
+          </p>
+          <p className={`text-[#a8a0c4] font-medium ${dock ? "text-xs" : "text-sm"} mt-1`}>
+            Online bidding is disabled by the organizer.
+          </p>
         </div>
       </motion.div>
     );
@@ -1719,8 +1776,12 @@ export function LiveBid({
     trialTeamIds: state?.trialTeamIds,
   });
 
+  const ownerBiddingEnabled =
+    state?.ownerBiddingEnabled ?? (tournament as any)?.ownerBiddingEnabled ?? true;
+
   const canBid =
     isActive && hasPlayer && timerActive && !isLeading && !isOnBreak &&
+    ownerBiddingEnabled &&
     maxAllowedBid >= nextBidAmount &&
     (team.isBiddingEnabled ?? true) &&
     !maxSquadReached && !categoryLimitReached &&
@@ -1764,6 +1825,7 @@ export function LiveBid({
   const bidDisabledHint =
     !isOnBreak && !canBid && !isLeading && !expired && hasPlayer
       ? getBidDisabledHint({
+          ownerBiddingEnabled,
           isPaused,
           isActive,
           isTrialRestricted,
@@ -2044,7 +2106,8 @@ export function LiveBid({
 
           <AnimatePresence mode="wait">
             <BidButton
-              key={`${isOnBreak}-${isLeading}-${expired}-${timerActive}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
+              key={`${ownerBiddingEnabled}-${isOnBreak}-${isLeading}-${expired}-${timerActive}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
+              ownerBiddingEnabled={ownerBiddingEnabled}
               canBid={canBid}
               isLeading={isLeading}
               timerExpired={expired}
@@ -2302,7 +2365,8 @@ export function LiveBid({
         <div className={`flex-1 flex flex-col ${tier === "mobile" ? "min-h-[42vh]" : tier === "tablet" ? "min-h-[44vh]" : "min-h-[40vh]"}`}>
           <AnimatePresence mode="wait">
             <BidButton
-              key={`split-${isOnBreak}-${isLeading}-${expired}-${timerActive}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
+              key={`split-${ownerBiddingEnabled}-${isOnBreak}-${isLeading}-${expired}-${timerActive}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
+              ownerBiddingEnabled={ownerBiddingEnabled}
               canBid={canBid}
               isLeading={isLeading}
               timerExpired={expired}

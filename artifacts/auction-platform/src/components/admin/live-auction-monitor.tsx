@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { LiveConnectionStatus } from "./live-connection-status";
 import { tournamentLiveOpsPath } from "@/lib/admin-live-ops-paths";
 import { LiveTournamentPicker } from "./live-tournament-picker";
-import { liveViewerPath } from "@/lib/tournament-navigation";
+import { liveViewerPath, obsOverlayPath } from "@/lib/tournament-navigation";
 import { ServerCountdown } from "@/components/server-countdown";
 
 export function LiveAuctionMonitor({
@@ -139,7 +139,7 @@ function MonitorWorkspace({
       />
 
       <div className="rounded-xl border border-border bg-card/70 p-4">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge className="bg-green-500/15 text-green-400">Live workspace</Badge>
@@ -148,15 +148,15 @@ function MonitorWorkspace({
               {t.localModeEnabled && <Badge className="bg-amber-500/15 text-amber-300">Local mode</Badge>}
               <LiveConnectionStatus tournamentId={tournamentId} />
             </div>
-            <h2 className="mt-2 font-display text-xl font-black text-white">{t.name}</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="mt-2 font-display text-lg sm:text-xl font-black text-white">{t.name}</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {t.sport} · ID #{t.id} · {t.organizerName || "No organiser linked"}
             </p>
             {connectionStatus === "disconnected" && (
               <p className="mt-1 text-xs text-amber-300">Event stream offline — bid feed may be stale.</p>
             )}
           </div>
-          <Button variant="destructive" onClick={() => navigate(emergencyHref(t.id))}>
+          <Button variant="destructive" size="sm" className="self-start sm:self-auto text-xs" onClick={() => navigate(emergencyHref(t.id))}>
             Emergency Controls
           </Button>
         </div>
@@ -257,7 +257,7 @@ function MonitorWorkspace({
               <div className="flex items-center justify-between rounded-lg bg-muted/20 px-3 py-2">
                 <span className="text-white">Broadcast Overlay</span>
                 <Button variant="outline" size="sm" asChild>
-                  <a href={`/tournament/${t.id}/obs`} target="_blank" rel="noreferrer">Open</a>
+                  <a href={obsOverlayPath(t.id)} target="_blank" rel="noreferrer">Open</a>
                 </Button>
               </div>
               <div className="flex items-center justify-between rounded-lg bg-muted/20 px-3 py-2 text-muted-foreground">
@@ -270,24 +270,9 @@ function MonitorWorkspace({
               </div>
             </div>
           </div>
-
-          <div className="rounded-xl border border-border bg-card/70 p-4">
-            <h3 className="font-display font-black text-white">Quick Actions</h3>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button variant="outline" asChild>
-                <a href={liveViewerPath(t.id)} target="_blank" rel="noreferrer">Open Viewer</a>
-              </Button>
-              <Button variant="outline" asChild>
-                <a href={`/tournament/${t.id}/obs`} target="_blank" rel="noreferrer">Open Overlay</a>
-              </Button>
-              <Button variant="outline" asChild>
-                <a href={`/tournament/${t.id}/auction`} target="_blank" rel="noreferrer">Operator Panel</a>
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/admin/settings/reports")}>Sold Report</Button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
   );
 }
+

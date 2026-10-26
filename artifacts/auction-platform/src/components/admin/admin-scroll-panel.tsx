@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 /** Scrollable list panels inside AdminShell (tournaments, players, organisers). */
 export const ADMIN_LIST_SCROLL_CLASS =
-  "max-h-[calc(100dvh-22rem)] overflow-y-auto overscroll-y-contain";
+  "max-h-[72vh] md:max-h-[calc(100dvh-18rem)] overflow-y-auto overscroll-y-contain";
 
 /** Scroll region that fills a flex column parent (detail panels, sidebars). */
 export const ADMIN_FLEX_SCROLL_CLASS =

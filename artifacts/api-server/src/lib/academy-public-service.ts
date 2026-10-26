@@ -81,6 +81,7 @@ const lessonSummarySelect = {
   contentFormat: academyLessonsTable.contentFormat,
   youtubeUrl: academyLessonsTable.youtubeUrl,
   youtubeVideoId: academyLessonsTable.youtubeVideoId,
+  thumbnailUrl: academyLessonsTable.thumbnailUrl,
   categoryId: academyLessonsTable.categoryId,
   categoryName: academyCategoriesTable.name,
   categorySlug: academyCategoriesTable.slug,
@@ -100,6 +101,7 @@ function mapSummary(row: {
   contentFormat: string;
   youtubeUrl: string | null;
   youtubeVideoId: string | null;
+  thumbnailUrl?: string | null;
   categoryId: number | null;
   categoryName: string | null;
   categorySlug: string | null;
@@ -118,7 +120,7 @@ function mapSummary(row: {
     contentFormat,
     youtubeUrl: row.youtubeUrl,
     youtubeVideoId: row.youtubeVideoId,
-    thumbnailUrl: youtubeThumbnailUrl(row.youtubeVideoId),
+    thumbnailUrl: row.thumbnailUrl?.trim() || youtubeThumbnailUrl(row.youtubeVideoId),
     categoryId: row.categoryId,
     categoryName: row.categoryName,
     categorySlug: row.categorySlug,

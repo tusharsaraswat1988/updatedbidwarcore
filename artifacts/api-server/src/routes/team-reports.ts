@@ -11,6 +11,7 @@ import { PLATFORM_BASE_URL } from "@workspace/api-base/branding-assets";
 import { canAccessPrivateTournamentData } from "../middleware/require-organizer";
 import { brandingService } from "../lib/branding-service.js";
 import { drawPdfPageWatermark, fetchImageBuffer } from "../lib/pdf-branding.js";
+import { jerseySizeLabel } from "@workspace/api-base/jersey-size";
 
 function playerAcquisitionAmount(p: {
   status: string;
@@ -51,7 +52,6 @@ router.get("/tournaments/:tournamentId/team-reports", async (req: Request, res: 
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
-  if (tournament.licenseStatus !== "active") { res.status(403).json({ error: "Team reports require an active license" }); return; }
 
   const teams = await db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tid)).orderBy(teamsTable.createdAt);
   const players = await db.select({
@@ -87,7 +87,6 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
-  if (tournament.licenseStatus !== "active") { res.status(403).json({ error: "Team reports require an active license" }); return; }
 
   const [team] = await db.select().from(teamsTable).where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   if (!team) { res.status(404).json({ error: "Team not found" }); return; }
@@ -383,7 +382,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     categoryName: { label: "Category", width: 0.9, get: (p) => p.categoryName || "-" },
     role: { label: "Role", width: 0.9, get: (p) => p.role?.replace(/_/g, " ") || "-" },
     jerseyNumber: { label: "Jersey", width: 0.55, get: (p) => p.jerseyNumber || "-" },
-    jerseySize: { label: "Size", width: 0.55, get: (p) => p.jerseySize || "-" },
+    jerseySize: { label: "Size", width: 1.45, get: (p) => p.jerseySize ? jerseySizeLabel(p.jerseySize) : "-" },
     status: { label: "Type", width: 0.7, get: (p) => p.status === "retained" ? "Retained" : "Pre-Sold" },
     remainingBalance: { label: "Balance", width: 0.95, get: (_p, balance) => fmtShort(balance) },
   };

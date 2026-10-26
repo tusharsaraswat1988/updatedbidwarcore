@@ -278,7 +278,13 @@ export async function resolveBulkRecipients(
     }
   }
 
-  if (filter.type === "tournament" && filter.tournamentId) {
+  if (
+    (filter.type === "organiser" ||
+      filter.type === "tournament_organiser" ||
+      filter.type === "tournament" ||
+      filter.type === "organiser_teams_credentials") &&
+    filter.tournamentId
+  ) {
     const [tournament] = await db
       .select()
       .from(tournamentsTable)
@@ -295,25 +301,7 @@ export async function resolveBulkRecipients(
         tournamentId: tournament.id,
       });
     }
-  }
-
-  if (filter.type === "organiser_teams_credentials" && filter.tournamentId) {
-    const [tournament] = await db
-      .select()
-      .from(tournamentsTable)
-      .where(eq(tournamentsTable.id, filter.tournamentId))
-      .limit(1);
-
-    if (tournament && isValidEmail(tournament.organizerEmail)) {
-      results.push({
-        name: tournament.organizerName,
-        email: tournament.organizerEmail!.trim(),
-        role: "organiser",
-        entityType: "organizer",
-        entityId: tournament.organizerId ?? undefined,
-        tournamentId: tournament.id,
-      });
-    }
+    return results;
   }
 
   const seen = new Set<string>();
@@ -345,6 +333,12 @@ export async function queueBulkCommunication(params: {
     organiserBundleMerge = bundle?.mergeData ?? null;
   }
 
+  const [template] = await db
+    .select({ internalKey: communicationTemplatesTable.internalKey })
+    .from(communicationTemplatesTable)
+    .where(eq(communicationTemplatesTable.id, params.templateId))
+    .limit(1);
+
   for (const recipient of params.recipients) {
     const mergeData =
       organiserBundleMerge ??
@@ -355,6 +349,7 @@ export async function queueBulkCommunication(params: {
         entityType: recipient.entityType,
         entityId: recipient.entityId,
         tournamentId: recipient.tournamentId,
+        templateKey: template?.internalKey,
       }));
 
     const jobId = await createCommunicationJob({
@@ -388,6 +383,19 @@ export async function getBulkTargets(
   tournamentId: number,
   opts?: { emailOnly?: boolean; playerStatus?: string },
 ) {
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      name: tournamentsTable.name,
+      organizerId: tournamentsTable.organizerId,
+      organizerName: tournamentsTable.organizerName,
+      organizerEmail: tournamentsTable.organizerEmail,
+      organizerMobile: tournamentsTable.organizerMobile,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
   const teams = await db
     .select({
       id: teamsTable.id,
@@ -431,11 +439,20 @@ export async function getBulkTargets(
     hasEmail: isValidEmail(p.email),
   }));
 
-  // Default: only show selectable (email-available) targets in dropdowns.
-  // Pass emailOnly=false to include no-email rows for diagnostics.
   const emailOnly = opts?.emailOnly !== false;
 
+  const organiser = tournament
+    ? {
+        id: tournament.organizerId,
+        name: tournament.organizerName,
+        email: tournament.organizerEmail,
+        mobile: tournament.organizerMobile,
+        hasEmail: isValidEmail(tournament.organizerEmail),
+      }
+    : null;
+
   return {
+    organiser,
     teams: emailOnly ? mappedTeams.filter((t) => t.hasEmail) : mappedTeams,
     players: emailOnly ? mappedPlayers.filter((p) => p.hasEmail) : mappedPlayers,
     totals: {

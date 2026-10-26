@@ -147,6 +147,9 @@ const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   priority: z.enum(["info", "warning", "critical", "all"]).default("all"),
   read: z.enum(["all", "read", "unread"]).default("all"),
+  tab: z.enum(["action_required", "activity", "all"]).default("all"),
+  resolutionStatus: z.enum(["all", "pending", "resolved", "dismissed"]).default("all"),
+  type: z.string().trim().max(64).optional(),
   search: z.string().trim().max(120).optional(),
 });
 
@@ -157,7 +160,7 @@ router.get("/auth/admin/admin-notifications", requireAdmin, async (req, res) => 
     return;
   }
 
-  const { page, limit, priority, read, search } = parsed.data;
+  const { page, limit, priority, read, tab, resolutionStatus, type, search } = parsed.data;
   const offset = (page - 1) * limit;
 
   const conditions = [];
@@ -169,6 +172,32 @@ router.get("/auth/admin/admin-notifications", requireAdmin, async (req, res) => 
   } else if (read === "unread") {
     conditions.push(eq(adminNotificationsTable.isRead, false));
   }
+  if (resolutionStatus !== "all") {
+    conditions.push(eq(adminNotificationsTable.resolutionStatus, resolutionStatus));
+  }
+  if (type && type !== "all") {
+    conditions.push(eq(adminNotificationsTable.type, type));
+  }
+
+  if (tab === "action_required") {
+    conditions.push(
+      or(
+        eq(adminNotificationsTable.type, "LICENSE_REQUESTED"),
+        eq(adminNotificationsTable.type, "CONTACT_FORM_SUBMISSION"),
+        eq(adminNotificationsTable.priority, "warning"),
+        eq(adminNotificationsTable.priority, "critical"),
+      ),
+    );
+  } else if (tab === "activity") {
+    conditions.push(
+      or(
+        eq(adminNotificationsTable.type, "NEW_ORGANISER_REGISTERED"),
+        eq(adminNotificationsTable.type, "NEW_TOURNAMENT_CREATED"),
+        eq(adminNotificationsTable.resolutionStatus, "resolved"),
+      ),
+    );
+  }
+
   if (search) {
     const pattern = `%${search}%`;
     conditions.push(
@@ -187,6 +216,21 @@ router.get("/auth/admin/admin-notifications", requireAdmin, async (req, res) => 
     .from(adminNotificationsTable)
     .where(whereClause);
 
+  const [pendingActionRow] = await db
+    .select({ count: count() })
+    .from(adminNotificationsTable)
+    .where(
+      and(
+        eq(adminNotificationsTable.resolutionStatus, "pending"),
+        or(
+          eq(adminNotificationsTable.type, "LICENSE_REQUESTED"),
+          eq(adminNotificationsTable.type, "CONTACT_FORM_SUBMISSION"),
+          eq(adminNotificationsTable.priority, "warning"),
+          eq(adminNotificationsTable.priority, "critical"),
+        ),
+      ),
+    );
+
   const rows = await db
     .select()
     .from(adminNotificationsTable)
@@ -198,13 +242,14 @@ router.get("/auth/admin/admin-notifications", requireAdmin, async (req, res) => 
   res.json({
     items: rows.map(toDto),
     total: totalRow?.count ?? 0,
+    actionRequiredCount: pendingActionRow?.count ?? 0,
     page,
     limit,
     totalPages: Math.ceil((totalRow?.count ?? 0) / limit),
   });
 });
 
-/** Latest notifications for header dropdown. */
+/** Latest notifications for header dropdown (split by action-required & activity). */
 router.get("/auth/admin/admin-notifications/recent", requireAdmin, async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 8, 20);
   const rows = await db
@@ -213,14 +258,48 @@ router.get("/auth/admin/admin-notifications/recent", requireAdmin, async (req, r
     .orderBy(desc(adminNotificationsTable.createdAt))
     .limit(limit);
 
+  const actionRequiredRows = await db
+    .select()
+    .from(adminNotificationsTable)
+    .where(
+      and(
+        eq(adminNotificationsTable.resolutionStatus, "pending"),
+        or(
+          eq(adminNotificationsTable.type, "LICENSE_REQUESTED"),
+          eq(adminNotificationsTable.type, "CONTACT_FORM_SUBMISSION"),
+          eq(adminNotificationsTable.priority, "warning"),
+          eq(adminNotificationsTable.priority, "critical"),
+        ),
+      ),
+    )
+    .orderBy(desc(adminNotificationsTable.createdAt))
+    .limit(limit);
+
   const [unreadRow] = await db
     .select({ count: count() })
     .from(adminNotificationsTable)
     .where(eq(adminNotificationsTable.isRead, false));
 
+  const [actionRequiredCountRow] = await db
+    .select({ count: count() })
+    .from(adminNotificationsTable)
+    .where(
+      and(
+        eq(adminNotificationsTable.resolutionStatus, "pending"),
+        or(
+          eq(adminNotificationsTable.type, "LICENSE_REQUESTED"),
+          eq(adminNotificationsTable.type, "CONTACT_FORM_SUBMISSION"),
+          eq(adminNotificationsTable.priority, "warning"),
+          eq(adminNotificationsTable.priority, "critical"),
+        ),
+      ),
+    );
+
   res.json({
     items: rows.map(toDto),
+    actionRequired: actionRequiredRows.map(toDto),
     unreadCount: unreadRow?.count ?? 0,
+    actionRequiredCount: actionRequiredCountRow?.count ?? 0,
   });
 });
 
@@ -234,6 +313,35 @@ router.patch("/auth/admin/admin-notifications/:id/read", requireAdmin, async (re
   const [updated] = await db
     .update(adminNotificationsTable)
     .set({ isRead: true, readAt: new Date() })
+    .where(eq(adminNotificationsTable.id, id))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "Notification not found" });
+    return;
+  }
+
+  res.json(toDto(updated));
+});
+
+router.patch("/auth/admin/admin-notifications/:id/resolve", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "Invalid notification id" });
+    return;
+  }
+
+  const adminIdentifier = req.jwtUser?.email || req.jwtUser?.adminLevel || "Super Admin";
+
+  const [updated] = await db
+    .update(adminNotificationsTable)
+    .set({
+      resolutionStatus: "resolved",
+      resolvedAt: new Date(),
+      resolvedBy: adminIdentifier,
+      isRead: true,
+      readAt: new Date(),
+    })
     .where(eq(adminNotificationsTable.id, id))
     .returning();
 
@@ -269,6 +377,30 @@ router.post("/auth/admin/admin-notifications/bulk-read", requireAdmin, async (re
   const result = await db
     .update(adminNotificationsTable)
     .set({ isRead: true, readAt: new Date() })
+    .where(inArray(adminNotificationsTable.id, parsed.data.ids))
+    .returning({ id: adminNotificationsTable.id });
+
+  res.json({ updated: result.length });
+});
+
+router.post("/auth/admin/admin-notifications/bulk-resolve", requireAdmin, async (req, res) => {
+  const parsed = bulkReadSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid ids" });
+    return;
+  }
+
+  const adminIdentifier = req.jwtUser?.email || req.jwtUser?.adminLevel || "Super Admin";
+
+  const result = await db
+    .update(adminNotificationsTable)
+    .set({
+      resolutionStatus: "resolved",
+      resolvedAt: new Date(),
+      resolvedBy: adminIdentifier,
+      isRead: true,
+      readAt: new Date(),
+    })
     .where(inArray(adminNotificationsTable.id, parsed.data.ids))
     .returning({ id: adminNotificationsTable.id });
 

@@ -2,10 +2,28 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   applyRememberedLedOverlayPatch,
   ledOverlaySessionPatch,
+  liveAuctionSessionWrite,
   overlayModeFromPresentationContext,
+  parsePersistedPresentationContext,
+  presentationContextAfterLedOverlay,
   rememberLedOverlayPatch,
   resetLedOverlayPatchesForTests,
+  type PresentationContextState,
 } from "../lib/led-overlay-patch";
+
+function applyObs(context: PresentationContextState["context"], selectedTeamId: number | null = null) {
+  return {
+    overlay: overlayModeFromPresentationContext(context),
+    presentationContext: { context, selectedTeamId, revision: 0 } satisfies PresentationContextState,
+  };
+}
+
+function applyLed(mode: "off" | "team" | "player" | "top5" | "banner", current: PresentationContextState) {
+  return {
+    overlay: ledOverlaySessionPatch(mode).displayOverlay,
+    presentationContext: presentationContextAfterLedOverlay(mode, current),
+  };
+}
 
 describe("ledOverlaySessionPatch", () => {
   it("clears overlay for MAIN", () => {
@@ -54,5 +72,196 @@ describe("remembered LED overlay patch", () => {
     const state = { displayOverlay: "team" as const };
     applyRememberedLedOverlayPatch(1, state);
     expect(state.displayOverlay).toBe("team");
+  });
+});
+
+describe("LED MAIN VIEW resets OBS to LIVE AUCTION", () => {
+  it("OBS TOP 5 → LED MAIN VIEW => OBS LIVE AUCTION, LED MAIN VIEW", () => {
+    const afterObs = applyObs("top5");
+    expect(afterObs.overlay).toBe("top5");
+    expect(afterObs.presentationContext.context).toBe("top5");
+
+    const afterMain = applyLed("off", afterObs.presentationContext);
+    expect(afterMain.overlay).toBeNull();
+    expect(afterMain.presentationContext.context).toBe("auction");
+  });
+
+  it("OBS TEAM → LED MAIN VIEW => OBS LIVE AUCTION", () => {
+    const afterObs = applyObs("team", 42);
+    expect(afterObs.overlay).toBe("team");
+
+    const afterMain = applyLed("off", afterObs.presentationContext);
+    expect(afterMain.overlay).toBeNull();
+    expect(afterMain.presentationContext).toEqual({
+      context: "auction",
+      selectedTeamId: 42,
+      revision: 1,
+    });
+  });
+
+  it("OBS TOP 5 → OBS TEAM → LED MAIN VIEW => OBS LIVE AUCTION", () => {
+    const afterTop5 = applyObs("top5");
+    const afterTeam = applyObs("team", afterTop5.presentationContext.selectedTeamId);
+    expect(afterTeam.overlay).toBe("team");
+    expect(afterTeam.presentationContext.context).toBe("team");
+
+    const afterMain = applyLed("off", afterTeam.presentationContext);
+    expect(afterMain.overlay).toBeNull();
+    expect(afterMain.presentationContext.context).toBe("auction");
+  });
+
+  it("OBS has no player context; LED PLAYER then MAIN VIEW still resets leftover OBS", () => {
+    const afterObs = applyObs("top5");
+    const afterLedPlayer = applyLed("player", afterObs.presentationContext);
+    expect(afterLedPlayer.overlay).toBe("player");
+    expect(afterLedPlayer.presentationContext.context).toBe("top5");
+
+    const afterMain = applyLed("off", afterLedPlayer.presentationContext);
+    expect(afterMain.overlay).toBeNull();
+    expect(afterMain.presentationContext.context).toBe("auction");
+  });
+
+  it("OBS TOP 5 still drives LED to TOP 5", () => {
+    const afterObs = applyObs("top5");
+    expect(afterObs.overlay).toBe("top5");
+    expect(afterObs.presentationContext.context).toBe("top5");
+  });
+
+  it("LED TEAM / PLAYER / TOP 5 / BANNER do not change OBS presentation context", () => {
+    const current: PresentationContextState = { context: "auction", selectedTeamId: 7, revision: 0 };
+    expect(applyLed("team", current).presentationContext).toEqual(current);
+    expect(applyLed("player", current).presentationContext).toEqual(current);
+    expect(applyLed("top5", current).presentationContext).toEqual(current);
+    expect(applyLed("banner", current).presentationContext).toEqual(current);
+    expect(applyLed("team", current).overlay).toBe("team");
+    expect(applyLed("player", current).overlay).toBe("player");
+    expect(applyLed("top5", current).overlay).toBe("top5");
+    expect(applyLed("banner", current).overlay).toBe("banner");
+  });
+
+  it("preserves selectedTeamId when LED returns to MAIN VIEW", () => {
+    expect(
+      presentationContextAfterLedOverlay("off", { context: "team", selectedTeamId: 9, revision: 4 }),
+    ).toEqual({ context: "auction", selectedTeamId: 9, revision: 5 });
+  });
+
+  it("keeps a prize plate when the scene returns to the live auction", () => {
+    const current: PresentationContextState = {
+      context: "top5",
+      selectedTeamId: null,
+      revision: 2,
+      prize: { line1: "Orange Cap", line2: "Ravi" },
+    };
+    expect(presentationContextAfterLedOverlay("off", current)).toEqual({
+      context: "auction",
+      selectedTeamId: null,
+      revision: 3,
+      prize: { line1: "Orange Cap", line2: "Ravi" },
+    });
+    const live = liveAuctionSessionWrite(JSON.stringify(current));
+    expect(JSON.parse(live.obsContextJson)).toEqual({
+      context: "auction",
+      selectedTeamId: null,
+      revision: 3,
+      prize: { line1: "Orange Cap", line2: "Ravi" },
+    });
+  });
+
+  it("parses persisted and legacy OBS payloads", () => {
+    expect(parsePersistedPresentationContext('{"context":"top5","selectedTeamId":3}')).toEqual({
+      context: "top5",
+      selectedTeamId: 3,
+      revision: 0,
+    });
+    expect(parsePersistedPresentationContext('{"context":"team","selectedTeamId":4,"revision":6}')).toEqual({
+      context: "team",
+      selectedTeamId: 4,
+      revision: 6,
+    });
+    expect(parsePersistedPresentationContext({ screen: "team", selectedTeamId: 4 })).toEqual({
+      context: "team",
+      selectedTeamId: 4,
+      revision: 0,
+    });
+  });
+});
+
+describe("loading the next player returns LED and OBS to the live auction", () => {
+  afterEach(() => {
+    resetLedOverlayPatchesForTests();
+  });
+
+  it("clears Team, Player, Top 5, and Banner and sends OBS back to live auction", () => {
+    const live = liveAuctionSessionWrite(
+      JSON.stringify({ context: "team", selectedTeamId: 9, revision: 4 }),
+    );
+    expect(live.displayOverlay).toBeNull();
+    expect(live.teamPurseViewActive).toBe(false);
+    expect(live.fortuneWheelActive).toBe(false);
+    expect(JSON.parse(live.obsContextJson)).toEqual({
+      context: "auction",
+      selectedTeamId: 9,
+      revision: 5,
+    });
+  });
+
+  it("also clears a LED player list that left OBS on Top 5", () => {
+    const live = liveAuctionSessionWrite(
+      JSON.stringify({ context: "top5", selectedTeamId: null, revision: 1 }),
+    );
+    expect(live.displayOverlay).toBeNull();
+    expect(JSON.parse(live.obsContextJson).context).toBe("auction");
+  });
+
+  it("a remembered Team layout cannot overwrite the live-auction broadcast", () => {
+    rememberLedOverlayPatch(1, ledOverlaySessionPatch("player"));
+    const live = liveAuctionSessionWrite(
+      JSON.stringify({ context: "top5", selectedTeamId: 2, revision: 0 }),
+    );
+    rememberLedOverlayPatch(1, live);
+    const rebuilt = { displayOverlay: "player" as const, teamPurseViewActive: true };
+    applyRememberedLedOverlayPatch(1, rebuilt);
+    expect(rebuilt.displayOverlay).toBeNull();
+    expect(rebuilt.teamPurseViewActive).toBe(false);
+  });
+});
+
+describe("next player route returns both screens to MAIN", () => {
+  it("persists the live-auction write when a player is loaded or re-auctioned", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const src = await readFile(new URL("../routes/auction.ts", import.meta.url), "utf8");
+    const nextStart = src.indexOf('router.post("/tournaments/:tournamentId/auction/next-player"');
+    const nextEnd = src.indexOf('router.post("/tournaments/:tournamentId/auction/bid"');
+    const reStart = src.indexOf('router.post("/tournaments/:tournamentId/auction/re-auction"');
+    const reEnd = src.indexOf('router.post("/tournaments/:tournamentId/auction/re-auction-unsold"');
+    expect(nextStart).toBeGreaterThan(-1);
+    expect(reStart).toBeGreaterThan(nextEnd);
+    const nextHandler = src.slice(nextStart, nextEnd);
+    const reHandler = src.slice(reStart, reEnd);
+    for (const handler of [nextHandler, reHandler]) {
+      expect(handler).toContain("liveAuctionSessionWrite");
+      expect(handler).toContain("rememberLedOverlayPatch(tid, returnToLive)");
+    }
+  });
+});
+
+describe("display-overlay MAIN VIEW route wiring", () => {
+  it("persists and broadcasts presentationContext when LED returns to MAIN VIEW", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const src = await readFile(new URL("../routes/auction.ts", import.meta.url), "utf8");
+    const overlayHandlerStart = src.indexOf(
+      'router.post("/tournaments/:tournamentId/auction/display-overlay"',
+    );
+    const overlayHandlerEnd = src.indexOf(
+      'router.post("/tournaments/:tournamentId/auction/presentation-context"',
+    );
+    expect(overlayHandlerStart).toBeGreaterThan(-1);
+    expect(overlayHandlerEnd).toBeGreaterThan(overlayHandlerStart);
+    const handler = src.slice(overlayHandlerStart, overlayHandlerEnd);
+    expect(handler).toContain('body.data.mode === "off"');
+    expect(handler).toContain("presentationContextAfterLedOverlay");
+    expect(handler).toContain("obsContextJson: JSON.stringify(next)");
+    expect(handler).toContain("presentationContext: next");
+    expect(handler).toContain("broadcastLedOverlayPatch(tid, overlayPatch, presentationExtra)");
   });
 });

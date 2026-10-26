@@ -4,7 +4,7 @@
  */
 
 import { parseIndianMobile } from "@workspace/api-base/mobile";
-import { normalizeJerseySize, type JerseySize } from "@workspace/api-base/jersey-size";
+import { jerseySizeLabel, normalizeJerseySize, type JerseySize } from "@workspace/api-base/jersey-size";
 import { getSportCapabilities } from "@workspace/platform-core";
 
 export type SpecGroupDef = {
@@ -283,7 +283,7 @@ export function buildCsvTemplateExampleRow(catalog: SportSpecCatalog | null): st
     example.age,
     example.gender,
     example.jerseyNumber,
-    example.jerseySize,
+    jerseySizeLabel(example.jerseySize),
     example.achievements,
     example.mobileNumber,
     example.email,

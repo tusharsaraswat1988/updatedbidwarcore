@@ -3,6 +3,7 @@ import {
   Activity,
   Bell,
   Building2,
+  Crown,
   FileBarChart,
   Gauge,
   Gavel,
@@ -25,12 +26,9 @@ type NavItem = {
 
 const tournamentItems: NavItem[] = [
   { label: "Tournaments", href: "/admin/tournaments", icon: Trophy },
+  { label: "BPL Editions", href: "/admin/bpl", icon: Crown },
   { label: "Organisers", href: "/admin/organisers", icon: Building2 },
   { label: "Sports & Specs", href: "/admin/tournaments/sports", icon: Gavel },
-];
-
-const creativeItems: NavItem[] = [
-  { label: "Creative Assets", href: "/admin/creative-assets", icon: Image },
 ];
 
 const knowledgeCenterItems: NavItem[] = [
@@ -44,11 +42,10 @@ const communicationItems: NavItem[] = [
 const settingItems: NavItem[] = [
   { label: "Reports", href: "/admin/settings/reports", icon: FileBarChart },
   { label: "Branding", href: "/admin/settings/branding", icon: Settings },
+  { label: "Our Clients", href: "/admin/settings/system/clients", icon: Building2 },
   { label: "Admin Notifications", href: "/admin/settings/admin-notifications", icon: Bell },
   { label: "AI & Intelligence", href: "/admin/settings/intelligence", icon: Activity },
-  { label: "SMS / WhatsApp", href: "/admin/settings/communication", icon: LifeBuoy },
-  { label: "Email Logs (Legacy)", href: "/admin/settings/notifications", icon: Mail },
-  { label: "System", href: "/admin/settings/system/sms", icon: Monitor },
+  { label: "System", href: "/admin/settings/system/diagnostics", icon: Monitor },
 ];
 
 function isActive(location: string, href: string) {
@@ -133,8 +130,12 @@ export function AdminSidebarNav({
         location={location}
         onNavigate={onNavigate}
       />
+      <NavLink
+        item={{ label: "Events & Activities", href: "/admin/events-activities", icon: Activity }}
+        location={location}
+        onNavigate={onNavigate}
+      />
       <NavSection label="Tournament & Organisers" items={tournamentItems} location={location} onNavigate={onNavigate} />
-      <NavSection label="Buzz Studio" items={creativeItems} location={location} onNavigate={onNavigate} />
       <NavSection label="Knowledge Center" items={knowledgeCenterItems} location={location} onNavigate={onNavigate} />
       {isMaster && (
         <NavSection label="Platform" items={communicationItems} location={location} onNavigate={onNavigate} />

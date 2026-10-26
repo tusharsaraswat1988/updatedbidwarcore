@@ -57,13 +57,25 @@ export function PublicNavbar() {
   }, []);
 
   const onSectionClick = useCallback(
-    (sectionId: string, event: MouseEvent<HTMLAnchorElement>) => {
+    (sectionId: string, event?: MouseEvent<HTMLAnchorElement>) => {
+      const targetId =
+        sectionId === "surfaces" || sectionId === "features"
+          ? "auction-screens"
+          : sectionId === "tournaments" || sectionId === "cases"
+            ? "tournament-galleries"
+            : sectionId;
+
       if (!isHome) {
         closeMobileMenu();
         return;
       }
-      event.preventDefault();
-      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" });
+      event?.preventDefault();
+      const el = document.getElementById(targetId) || document.getElementById(sectionId);
+      if (el) {
+        const yOffset = -95;
+        const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+        window.scrollTo({ top: y, behavior: "smooth" });
+      }
       closeMobileMenu();
     },
     [isHome, closeMobileMenu],
@@ -103,9 +115,9 @@ export function PublicNavbar() {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-stage/85 backdrop-blur-md">
-        <div className="h-16 w-full px-3 sm:px-6 lg:px-8 flex items-center gap-3">
-          <a href="/" className="h-full flex items-center flex-shrink-0 pr-1">
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-stage/90 backdrop-blur-md">
+        <div className="h-16 w-full max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+          <a href="/" className="flex items-center shrink-0 mr-4 xl:mr-6 2xl:mr-8" aria-label="BidWar Home">
             <BrandLogoImage
               src={headerLogoSrc}
               alt={logoAlt}
@@ -116,29 +128,71 @@ export function PublicNavbar() {
             />
           </a>
 
-          <div className="hidden lg:flex flex-1 items-center justify-center gap-6 text-sm text-muted-foreground">
-            <a href="/#features" onClick={(e) => onSectionClick("features", e)} className="hover:text-foreground transition-colors">Features</a>
+          <div className="hidden xl:flex items-center gap-1 xl:gap-2 2xl:gap-3.5 text-[13px] font-medium text-muted-foreground">
+            <a
+              href="/#auction-screens"
+              onClick={(e) => onSectionClick("auction-screens", e)}
+              className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
+            >
+              Auction Screens
+            </a>
+            <a
+              href="/#experience-bidding"
+              onClick={(e) => onSectionClick("experience-bidding", e)}
+              className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
+            >
+              Experience Bidding
+            </a>
+            <a
+              href="/#tournament-galleries"
+              onClick={(e) => onSectionClick("tournament-galleries", e)}
+              className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
+            >
+              Tournament Galleries
+            </a>
+
+            <a
+              href="/academy"
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap ${isAcademyPath ? "text-foreground bg-white/5" : ""}`}
+            >
+              <span>Academy</span>
+              <span className="rounded bg-primary/20 px-1.5 py-0.5 font-mono text-[9px] text-primary font-bold">
+                VIDEOS
+              </span>
+            </a>
+
+            <a
+              href="/pricing"
+              onClick={(e) => { if (isHome) onSectionClick("pricing", e); }}
+              className={`px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap ${isPricingPath ? "text-foreground bg-white/5" : ""}`}
+            >
+              Pricing
+            </a>
+
+            {/* More / Solutions Mega Dropdown */}
             <div className="relative group">
-              <a
-                href="/#solutions"
-                onClick={(e) => onSectionClick("solutions", e)}
-                className={`inline-flex items-center gap-1 transition-colors ${isSolutionsPath ? "text-foreground" : "hover:text-foreground"}`}
-                aria-haspopup="true"
+              <button
+                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap ${
+                  isMorePath || isSolutionsPath ? "text-foreground bg-white/5" : ""
+                }`}
+                type="button"
+                aria-label="Open more and solutions navigation menu"
               >
-                Solutions <ChevronDown className="w-3.5 h-3.5" />
-              </a>
-              <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-[520px] -translate-x-1/2 translate-y-2 rounded-md border border-white/10 bg-stage p-3 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
-                <div className="grid grid-cols-2 gap-3">
+                More <ChevronDown className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity" />
+              </button>
+              <div className="invisible absolute right-0 top-full z-40 mt-2 w-[620px] rounded-xl border border-white/10 bg-stage/95 backdrop-blur-xl p-4 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+                <div className="grid grid-cols-3 gap-4">
+                  {/* Column 1: By Sport */}
                   <div>
-                    <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">By Sport</div>
-                    <div className="space-y-0.5">
+                    <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground font-mono">By Sport</div>
+                    <div className="space-y-0.5 mt-1">
                       {SOLUTION_SPORT_LINKS.map((link) => (
                         <a
                           key={link.href}
                           href={link.href}
                           className={`block rounded-md px-2 py-1.5 text-[13px] transition-colors ${
                             path === link.href
-                              ? "bg-white/5 text-foreground"
+                              ? "bg-white/5 text-foreground font-medium"
                               : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
                           }`}
                         >
@@ -147,16 +201,43 @@ export function PublicNavbar() {
                       ))}
                     </div>
                   </div>
+
+                  {/* Column 2: Platform */}
                   <div>
-                    <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">Platform</div>
-                    <div className="space-y-0.5">
+                    <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground font-mono">Platform</div>
+                    <div className="space-y-0.5 mt-1">
                       {SOLUTION_PLATFORM_LINKS.map((link) => (
                         <a
                           key={link.href}
                           href={link.href}
                           className={`block rounded-md px-2 py-1.5 text-[13px] transition-colors ${
                             path === link.href
-                              ? "bg-white/5 text-foreground"
+                              ? "bg-white/5 text-foreground font-medium"
+                              : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                          }`}
+                        >
+                          {link.label}
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Column 3: Resources */}
+                  <div>
+                    <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground font-mono">Resources</div>
+                    <div className="space-y-0.5 mt-1">
+                      {MORE_NAV_LINKS.map((link) => (
+                        <a
+                          key={link.label}
+                          href={link.href}
+                          onClick={(e) => {
+                            if ("sectionId" in link && link.sectionId) {
+                              onSectionClick(link.sectionId, e);
+                            }
+                          }}
+                          className={`block rounded-md px-2 py-1.5 text-[13px] transition-colors ${
+                            path === link.href
+                              ? "bg-white/5 text-foreground font-medium"
                               : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
                           }`}
                         >
@@ -166,87 +247,39 @@ export function PublicNavbar() {
                     </div>
                   </div>
                 </div>
-                <div className="pt-2 mt-2 border-t border-white/10">
+                <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between text-xs text-muted-foreground px-1">
                   <a
                     href="/#solutions"
                     onClick={(e) => onSectionClick("solutions", e)}
-                    className="block rounded-md px-2 py-1.5 text-[13px] font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+                    className="hover:text-primary transition font-medium"
                   >
                     View all solutions →
                   </a>
-                </div>
-              </div>
-            </div>
-            <a
-              href="/pricing"
-              onClick={(e) => { if (isHome) onSectionClick("pricing", e); }}
-              className={`transition-colors ${isPricingPath ? "text-foreground" : "hover:text-foreground"}`}
-            >
-              Pricing
-            </a>
-            <a
-              href="/academy"
-              className={`inline-flex items-center gap-1 transition-colors ${isAcademyPath ? "text-foreground" : "hover:text-foreground"}`}
-            >
-              <GraduationCap className="w-3.5 h-3.5" /> Academy
-            </a>
-            <div className="relative group">
-              <a href="/blog" className={`inline-flex items-center gap-1 transition-colors ${isBlogPath ? "text-foreground" : "hover:text-foreground"}`}>
-                <BookOpen className="w-3.5 h-3.5" /> Blog <ChevronDown className="w-3.5 h-3.5" />
-              </a>
-              {!isAcademyPath && navBlogPosts.length > 0 ? (
-              <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-[360px] -translate-x-1/2 translate-y-2 rounded-md border border-white/10 bg-stage p-2 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
-                <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">Top Blog Pages</div>
-                <div className="space-y-0.5">
-                  {navBlogPosts.map((post) => (
-                    <a
-                      key={post.slug}
-                      href={`/blog/${post.slug}`}
-                      className="block rounded-md px-2 py-1.5 text-[13px] leading-snug text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
-                    >
-                      {post.title}
-                    </a>
-                  ))}
-                </div>
-                <div className="pt-1 mt-1 border-t border-white/10">
-                  <a href="/blog" className="block rounded-md px-2 py-1.5 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors">
-                    More Articles
+                  <a href="/contact" className="hover:text-primary transition">
+                    Custom tournament setup? Contact us →
                   </a>
                 </div>
-              </div>
-              ) : null}
-            </div>
-            <div className="relative group">
-              <button className={`inline-flex items-center gap-1 transition-colors ${isMorePath ? "text-foreground" : "hover:text-foreground"}`} type="button" aria-label="Open more navigation links">
-                More <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-              <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-56 -translate-x-1/2 translate-y-2 rounded-md border border-white/10 bg-stage p-2 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
-                {MORE_NAV_LINKS.map((link) => (
-                  <a
-                    key={link.label}
-                    href={link.href}
-                    onClick={(e) => {
-                      if ("sectionId" in link && link.sectionId) {
-                        onSectionClick(link.sectionId, e);
-                      }
-                    }}
-                    className="block rounded-md px-2 py-2 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
-                  >
-                    {link.label}
-                  </a>
-                ))}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 ml-auto lg:pl-2">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto xl:ml-4">
+            <a
+              href="/bpl"
+              className="inline-flex items-center gap-1 sm:gap-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/20 px-2 sm:px-3 py-1 sm:py-1.5 text-[11px] sm:text-xs font-bold uppercase tracking-wider text-amber-300 shadow-sm transition hover:border-amber-400 hover:bg-amber-400/25 hover:text-white whitespace-nowrap"
+            >
+              <span className="text-amber-400">🏆</span>
+              <span className="hidden 2xl:inline">BidWar Premier League</span>
+              <span className="hidden sm:inline 2xl:hidden">BPL</span>
+              <span className="inline sm:hidden">BPL</span>
+            </a>
             <PublicAuthCta
               variant="navbar"
               primaryColor={colors.primary || undefined}
             />
             <button
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="ghost-button lg:hidden rounded-md p-2"
+              className="ghost-button xl:hidden rounded-md p-2"
               aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileMenuOpen}
             >
@@ -261,23 +294,40 @@ export function PublicNavbar() {
             <button
               type="button"
               onClick={closeMobileMenu}
-              className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200"
+              className="xl:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-[2px] animate-in fade-in duration-200"
               aria-label="Close mobile navigation"
             />
-            <div className="lg:hidden fixed top-0 right-0 bottom-0 z-50 w-[86vw] max-w-sm bg-stage shadow-2xl border-l border-white/10 p-6 pt-20 overflow-y-auto animate-in slide-in-from-right duration-200">
-              <div className="space-y-2">
+            <div className="xl:hidden fixed top-0 right-0 bottom-0 z-50 w-[86vw] max-w-sm bg-stage shadow-2xl border-l border-white/10 p-6 pt-20 overflow-y-auto animate-in slide-in-from-right duration-200 flex flex-col justify-between">
+              <div className="space-y-1.5">
+                <div className="mb-4">
+                  <PublicAuthCta
+                    variant="drawer"
+                    onBeforeNavigate={closeMobileMenu}
+                    primaryColor={colors.primary || undefined}
+                  />
+                </div>
+
+                <a
+                  href="/bpl"
+                  onClick={closeMobileMenu}
+                  className="mb-3 flex items-center justify-center gap-2 rounded-lg border border-amber-400/50 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 px-4 py-3 text-sm font-bold uppercase tracking-wider text-amber-300 transition hover:bg-amber-400/30 hover:text-white"
+                >
+                  <span>🏆</span>
+                  <span>BidWar Premier League</span>
+                </a>
+
                 {[
-                  { label: "Features", href: "/#features", action: () => { if (isHome) document.getElementById("features")?.scrollIntoView({ behavior: "smooth" }); } },
-                  { label: "Use Cases", href: "/#solutions", action: () => { if (isHome) document.getElementById("solutions")?.scrollIntoView({ behavior: "smooth" }); } },
+                  { label: "Auction Screens", href: "/#auction-screens", sectionId: "auction-screens" },
+                  { label: "Experience Bidding", href: "/#experience-bidding", sectionId: "experience-bidding" },
+                  { label: "Tournament Galleries", href: "/#tournament-galleries", sectionId: "tournament-galleries" },
                 ].map((item) => (
                   <a
                     key={item.label}
                     href={item.href}
-                    onClick={() => {
-                      item.action?.();
-                      closeMobileMenu();
+                    onClick={(e) => {
+                      onSectionClick(item.sectionId, e);
                     }}
-                    className="block w-full text-left px-3 py-3 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-white/5"
+                    className="block w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-white/5"
                   >
                     {item.label}
                   </a>
@@ -287,18 +337,18 @@ export function PublicNavbar() {
                   <button
                     type="button"
                     onClick={() => setMobileSolutionsOpen((prev) => !prev)}
-                    className={`flex w-full items-center justify-between px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex w-full items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       isSolutionsPath ? "bg-white/5 text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                     }`}
                     aria-expanded={mobileSolutionsOpen}
                   >
-                    Solutions
+                    Solutions by Sport
                     <ChevronDown className={`w-4 h-4 transition-transform ${mobileSolutionsOpen ? "rotate-180" : ""}`} />
                   </button>
                   {mobileSolutionsOpen ? (
                     <div className="px-2 pb-2 space-y-3">
                       <div>
-                        <p className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">By Sport</p>
+                        <p className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground font-mono">By Sport</p>
                         {SOLUTION_SPORT_LINKS.map((link) => (
                           <a
                             key={link.href}
@@ -315,7 +365,7 @@ export function PublicNavbar() {
                         ))}
                       </div>
                       <div>
-                        <p className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">Platform</p>
+                        <p className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground font-mono">Platform</p>
                         {SOLUTION_PLATFORM_LINKS.map((link) => (
                           <a
                             key={link.href}
@@ -343,25 +393,30 @@ export function PublicNavbar() {
                 </div>
 
                 {[
+                  { label: "Academy (Video Hub)", href: "/academy" },
                   { label: "Pricing", href: "/pricing" },
-                  { label: "FAQ", href: "/#faq", action: () => { if (isHome) document.getElementById("faq")?.scrollIntoView({ behavior: "smooth" }); } },
-                  { label: "Academy", href: "/academy" },
-                  { label: "Auction Tips", href: "/auction-tips" },
                   { label: "Blog", href: "/blog" },
+                  { label: "Organizer Reviews", href: "/#reviews", sectionId: "reviews" },
+                  { label: "Tournament Calculator", href: "/#calculator", sectionId: "calculator" },
                   { label: "Upcoming Auctions", href: "/upcoming-auctions" },
+                  { label: "Auction Tips", href: "/auction-tips" },
                   { label: "Contact Us", href: "/contact" },
+                  { label: "FAQs", href: "/#faq", sectionId: "faq" },
                 ].map((item) => (
                   <a
                     key={item.label}
                     href={item.href}
-                    onClick={() => {
-                      item.action?.();
-                      closeMobileMenu();
+                    onClick={(e) => {
+                      if ("sectionId" in item && item.sectionId) {
+                        onSectionClick(item.sectionId, e);
+                      } else {
+                        closeMobileMenu();
+                      }
                     }}
-                    className={`block w-full text-left px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    className={`block w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                       (item.label === "Blog" && isBlogPath)
                       || (item.label === "Pricing" && isPricingPath)
-                      || (item.label === "Academy" && isAcademyPath)
+                      || (item.label.startsWith("Academy") && isAcademyPath)
                       || (item.label === "Upcoming Auctions" && isUpcomingPath)
                       || (item.label === "Contact Us" && isContactPath)
                       || (item.label === "Auction Tips" && isAuctionTipsPath)

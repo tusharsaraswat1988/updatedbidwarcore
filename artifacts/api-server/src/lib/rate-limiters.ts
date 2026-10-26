@@ -111,15 +111,18 @@ export const otpVerifyLimiter = rateLimit({
 });
 
 /**
- * TIER 3 — Heavy DB operations: export (5 req / 15 min per IP).
- * Export builds a full tournament snapshot — expensive query.
+ * TIER 3 — Heavy DB operations: export (60 req / 15 min per IP; relaxed for admins).
  */
 export const exportLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: Number(process.env.RATE_LIMIT_EXPORT_MAX ?? 5),
+  limit: (req) => {
+    if (req.jwtUser?.isAdmin) return isDev ? 500 : 200;
+    const configured = Number(process.env.RATE_LIMIT_EXPORT_MAX ?? 60);
+    return isDev ? Math.max(configured, 200) : configured;
+  },
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  skip: () => disabled,
+  skip: (req) => disabled || (!!req.jwtUser?.isAdmin && req.jwtUser?.adminLevel === "master"),
   message: { error: "Too many export requests, please try again later." },
   handler(req, res, next, options) {
     onLimitReached(req, res, "export");
@@ -128,14 +131,18 @@ export const exportLimiter = rateLimit({
 });
 
 /**
- * TIER 3 — Heavy DB operations: reports / search (10 req / 15 min per IP).
+ * TIER 3 — Heavy DB operations: reports / search (300 req / 15 min per IP; bypassed for master admins).
  */
 export const heavyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 10,
+  limit: (req) => {
+    if (req.jwtUser?.isAdmin) return isDev ? 1000 : 500;
+    const configured = Number(process.env.RATE_LIMIT_HEAVY_MAX ?? 300);
+    return isDev ? Math.max(configured, 500) : configured;
+  },
   standardHeaders: "draft-7",
   legacyHeaders: false,
-  skip: () => disabled,
+  skip: (req) => disabled || (!!req.jwtUser?.isAdmin && req.jwtUser?.adminLevel === "master"),
   message: { error: "Too many requests, please try again later." },
   handler(req, res, next, options) {
     onLimitReached(req, res, "heavy");

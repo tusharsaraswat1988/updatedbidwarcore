@@ -12,10 +12,10 @@ export function SideSponsorLogoGlow({
   tier?: SponsorBroadcastTier;
 }) {
   const maxDim = Math.max(width, height);
-  const haloScale = tier === "title" ? 1.45 : tier === "co_sponsor" ? 1.4 : 1.38;
+  const haloScale = tier === "title" ? 1.28 : tier === "co_sponsor" ? 1.24 : 1.2;
   const haloSize = Math.round(maxDim * haloScale);
-  const goldSize = Math.round(maxDim * (tier === "title" ? 1.28 : 1.22));
-  const whiteSize = Math.round(maxDim * 1.02);
+  const goldSize = Math.round(maxDim * (tier === "title" ? 1.15 : 1.1));
+  const whiteSize = Math.round(maxDim * 0.95);
   const glowClass = getSideLedGlowClass(tier);
 
   return (

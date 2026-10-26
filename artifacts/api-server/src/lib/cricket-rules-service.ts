@@ -77,6 +77,18 @@ export async function applyCricketRulesToMatches(
   let failedCount = 0;
 
   for (const match of matches) {
+    const isStarted =
+      (match.status !== "scheduled" && match.status !== "draft") ||
+      (match.lifecycleStatus !== null &&
+        match.lifecycleStatus !== "draft" &&
+        match.lifecycleStatus !== "ready" &&
+        match.lifecycleStatus !== "locked" &&
+        match.lifecycleStatus !== "scheduled") ||
+      match.startedAt !== null;
+    if (isStarted) {
+      // Started, active, completed, or abandoned matches are immutable and unaffected by rule updates.
+      continue;
+    }
     const steps = { drawsReady: true, matchLocked: false, prepared: false };
     try {
       // Ensure linked draw (if any) is covered even if tournament-wide update raced.

@@ -33,11 +33,11 @@ export type SoldDeltaFields = {
   lastSoldPlayer: BuiltAuctionState["lastSoldPlayer"];
 };
 
-export async function emitAuctionStateEvent(
+export async function emitAuctionStateEvent<T extends BuiltAuctionState = BuiltAuctionState>(
   tournamentId: number,
   state: BuiltAuctionState,
   invalidate: string[] = [],
-): Promise<BuiltAuctionState> {
+): Promise<T> {
   const sseInvalidate = state.teamPurses?.length
     ? invalidate.filter((key) => key !== "purses")
     : invalidate;

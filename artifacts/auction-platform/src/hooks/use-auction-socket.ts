@@ -17,14 +17,24 @@ export type CheerMessage = {
   heatLevel?: string;
   fanBattle?: Record<string, number>;
 };
-export type ConnectionStatus = "connected" | "reconnecting" | "disconnected";
+export type ConnectionStatus = "connected" | "disconnected" | "reconnecting";
+
+export type UseAuctionSocketOptions = {
+  enabled?: boolean;
+};
 
 export function useAuctionSocket(
   tournamentId: number,
-  onCheerMessage?: (msg: CheerMessage) => void,
+  onCheerMessageOrOptions?: ((msg: CheerMessage) => void) | UseAuctionSocketOptions,
+  maybeOptions?: UseAuctionSocketOptions,
 ): { connectionStatus: ConnectionStatus } {
   const qc = useQueryClient();
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("reconnecting");
+  const onCheerMessage = typeof onCheerMessageOrOptions === "function" ? onCheerMessageOrOptions : undefined;
+  const options = typeof onCheerMessageOrOptions === "object" && onCheerMessageOrOptions !== null
+    ? onCheerMessageOrOptions
+    : maybeOptions;
+  const enabled = options?.enabled ?? true;
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(enabled ? "reconnecting" : "disconnected");
 
   const onCheerRef = useRef(onCheerMessage);
   useEffect(() => { onCheerRef.current = onCheerMessage; });
@@ -33,7 +43,10 @@ export function useAuctionSocket(
   useEffect(() => { setStatusRef.current = setConnectionStatus; });
 
   useEffect(() => {
-    if (!tournamentId) return;
+    if (!tournamentId || !enabled) {
+      setConnectionStatus("disconnected");
+      return;
+    }
 
     let current: EventSource | null = null;
     let retryTimer: ReturnType<typeof setTimeout>;
@@ -73,6 +86,15 @@ export function useAuctionSocket(
           qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
           qc.invalidateQueries({ queryKey: getListTeamsQueryKey(tournamentId) });
           qc.invalidateQueries({ queryKey: getGetTeamPursesQueryKey(tournamentId) });
+        }
+
+        if (msg.type === "sponsor_media" && typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("cricket_obs_director", {
+            detail: {
+              sponsorMedia: msg.sponsorMedia,
+              sponsorDisplayTokens: msg.sponsorDisplayTokens,
+            },
+          }));
         }
 
         if (msg.type === "cheer_message" && onCheerRef.current) {
@@ -141,7 +163,7 @@ export function useAuctionSocket(
       current = null;
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [tournamentId, qc]);
+  }, [tournamentId, enabled, qc]);
 
   return { connectionStatus };
 }

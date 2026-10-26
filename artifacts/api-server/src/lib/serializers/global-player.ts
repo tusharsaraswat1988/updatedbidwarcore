@@ -33,7 +33,7 @@ type GlobalPlayerSpecificationDto = {
   value: string;
 };
 
-/** Public search result — identity fields only (Sprint 2 sport-neutral search). */
+/** Public search result — identity fields with sport attributes. */
 export function publicGlobalPlayerIdentitySearchSerializer(row: {
   id: number;
   name: string;
@@ -46,6 +46,14 @@ export function publicGlobalPlayerIdentitySearchSerializer(row: {
   basePrice: number | null;
   appearanceCount: number;
   sport?: string | null;
+  battingStyle?: string | null;
+  bowlingStyle?: string | null;
+  specialization?: string | null;
+  jerseyNumber?: string | null;
+  jerseySize?: string | null;
+  achievements?: string | null;
+  cricheroUrl?: string | null;
+  availabilityDates?: string | null;
   specifications?: GlobalPlayerSpecificationDto[];
 }) {
   return {
@@ -60,6 +68,14 @@ export function publicGlobalPlayerIdentitySearchSerializer(row: {
     basePrice: row.basePrice,
     appearanceCount: row.appearanceCount,
     sport: row.sport ?? null,
+    battingStyle: row.battingStyle ?? null,
+    bowlingStyle: row.bowlingStyle ?? null,
+    specialization: row.specialization ?? null,
+    jerseyNumber: row.jerseyNumber ?? null,
+    jerseySize: row.jerseySize ?? null,
+    achievements: row.achievements ?? null,
+    cricheroUrl: row.cricheroUrl ?? null,
+    availabilityDates: row.availabilityDates ?? null,
     ...(row.specifications?.length ? { specifications: row.specifications } : {}),
   };
 }
@@ -87,6 +103,7 @@ export function publicGlobalPlayerSearchSerializer(row: {
   bowlingStyle: string | null;
   specialization: string | null;
   jerseyNumber: string | null;
+  jerseySize?: string | null;
   achievements: string | null;
   cricheroUrl: string | null;
   availabilityDates: string | null;
@@ -107,6 +124,7 @@ export function publicGlobalPlayerSearchSerializer(row: {
     bowlingStyle: row.bowlingStyle,
     specialization: row.specialization,
     jerseyNumber: row.jerseyNumber,
+    jerseySize: row.jerseySize ?? null,
     achievements: row.achievements,
     cricheroUrl: row.cricheroUrl,
     availabilityDates: row.availabilityDates,

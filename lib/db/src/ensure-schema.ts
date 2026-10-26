@@ -6,6 +6,7 @@ import {
   resolveEnvironment,
   runSchemaGovernance,
 } from "./schema-governance/index.js";
+import { runVersionedMigrations } from "./migrator.js";
 import {
   assertEnvironmentDatabaseIsolation,
   classifyDatabaseRole,
@@ -74,12 +75,23 @@ async function runEnsureCoreSchemaWithClient(pool: pg.Pool): Promise<void> {
     await client.query(`SET lock_timeout = '15s'`);
     await client.query(`SET statement_timeout = '30s'`);
 
+    // Canonical versioned migrations: execute pending versioned migrations across all environments (including production)
+    try {
+      const migResult = await runVersionedMigrations(client, {
+        log: (msg) => console.info(`[schema] ${msg}`),
+      });
+      console.info("[schema] versioned migrations result:", {
+        applied: migResult.appliedCount,
+        alreadyApplied: migResult.alreadyAppliedCount,
+        files: migResult.appliedFiles,
+      });
+    } catch (migErr) {
+      console.error("[schema] versioned migrations execution error:", migErr);
+    }
+
+    // Idempotent safe additive bootstrap: ensures all IF NOT EXISTS tables and columns are created (local/staging only)
     if (autoHeal) {
       await runLegacyBootstrapDdl(client);
-    } else {
-      console.info(
-        "[schema] validate-only mode — skipping boot DDL mutations; validating against Drizzle",
-      );
     }
 
     await runSchemaGovernance(client, {
@@ -142,6 +154,7 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS export_token_synced_at timestamptz;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS export_token_last_mirror_at timestamptz;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS features_json jsonb;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS auction_enabled boolean NOT NULL DEFAULT true;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS scoring_enabled boolean NOT NULL DEFAULT false;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS scoring_phase text NOT NULL DEFAULT 'disabled';
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS scoring_pin text;
@@ -153,6 +166,10 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS presentation_profile_id text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS presentation_profile_version text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_mode_id text;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS player_registration_mode text NOT NULL DEFAULT 'auction';
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_category_mode text NOT NULL DEFAULT 'hidden';
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS coach_name text;
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS coach_mobile text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS team_formation_strategy_id text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS squad_rules_json jsonb;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rule_overrides_json jsonb;
@@ -604,6 +621,36 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS execution_phase text DEFAULT 'preparing';
     ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS current_runtime_version integer;
     ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS runtime_prep_metadata_json jsonb;
+    ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS rule_preset_id integer;
+    ALTER TABLE scoring_fixtures ADD COLUMN IF NOT EXISTS rule_preset_id integer;
+
+    CREATE TABLE IF NOT EXISTS cricket_rule_presets (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      name text NOT NULL,
+      description text,
+      variant_id text NOT NULL DEFAULT 'cricket.box',
+      rule_profile_id text NOT NULL DEFAULT 'cricket.box.corporate_standard',
+      rule_profile_version text NOT NULL DEFAULT '1.0.0',
+      rule_overrides_json jsonb,
+      squad_rules_json jsonb,
+      is_default boolean NOT NULL DEFAULT false,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS ix_cricket_rule_presets_tournament_id
+      ON cricket_rule_presets (tournament_id);
+
+    CREATE TABLE IF NOT EXISTS cricket_broadcast_message_templates (
+      id serial PRIMARY KEY,
+      tournament_id integer NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      name text NOT NULL,
+      details text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS ix_cricket_broadcast_message_templates_tournament_id
+      ON cricket_broadcast_message_templates (tournament_id);
 
     CREATE TABLE IF NOT EXISTS runtime_match_history (
       id serial PRIMARY KEY,
@@ -805,6 +852,7 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     CREATE INDEX IF NOT EXISTS ix_academy_lessons_status ON academy_lessons (status);
     CREATE INDEX IF NOT EXISTS ix_academy_lessons_category_id ON academy_lessons (category_id);
     CREATE INDEX IF NOT EXISTS ix_academy_lessons_display_order ON academy_lessons (display_order);
+    ALTER TABLE academy_lessons ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;
   `);
 
   await q(`
@@ -838,11 +886,21 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
       match_id INTEGER PRIMARY KEY,
       scorer_id INTEGER NOT NULL,
       session_id TEXT NOT NULL,
+      lease_id TEXT NOT NULL DEFAULT gen_random_uuid()::text,
+      lease_version INTEGER NOT NULL DEFAULT 1,
       locked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      last_heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      last_heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '180 seconds')
     );
     CREATE INDEX IF NOT EXISTS ix_scorer_match_locks_session_id ON scorer_match_locks (session_id);
     CREATE INDEX IF NOT EXISTS ix_scorer_match_locks_last_heartbeat ON scorer_match_locks (last_heartbeat_at);
+    CREATE INDEX IF NOT EXISTS ix_scorer_match_locks_lease_id ON scorer_match_locks (lease_id);
+
+    ALTER TABLE scorer_match_locks ADD COLUMN IF NOT EXISTS lease_id TEXT;
+    ALTER TABLE scorer_match_locks ADD COLUMN IF NOT EXISTS lease_version INTEGER NOT NULL DEFAULT 1;
+    ALTER TABLE scorer_match_locks ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+    UPDATE scorer_match_locks SET lease_id = gen_random_uuid()::text WHERE lease_id IS NULL;
+    UPDATE scorer_match_locks SET expires_at = last_heartbeat_at + INTERVAL '180 seconds' WHERE expires_at IS NULL;
 
     CREATE TABLE IF NOT EXISTS scorer_audit_log (
       id SERIAL PRIMARY KEY,
@@ -879,9 +937,313 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     ALTER TABLE badminton_match_details
       ADD COLUMN IF NOT EXISTS pre_match_toss_json JSONB;
 
-    -- S3-08: idempotent master-stats processed marker (nullable until first apply)
     ALTER TABLE badminton_match_details
       ADD COLUMN IF NOT EXISTS master_stats_applied_at TIMESTAMPTZ;
+
+    CREATE TABLE IF NOT EXISTS clients (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      logo_url TEXT,
+      logo_public_id TEXT,
+      website_url TEXT,
+      client_type TEXT NOT NULL DEFAULT 'brand',
+      display_order INTEGER NOT NULL DEFAULT 0,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_clients_active ON clients (active);
+    CREATE INDEX IF NOT EXISTS ix_clients_display_order ON clients (display_order);
+
+    -- Seed initial 8 clients if table is empty
+    INSERT INTO clients (name, client_type, display_order, active)
+    SELECT seed.name, seed.client_type, seed.display_order, true
+    FROM (
+      VALUES
+        ('Vyapari Network', 'brand', 0),
+        ('Rotary Shine', 'organisation', 1),
+        ('SJMAA (St. John''s Marhauli Alumni Association)', 'organisation', 2),
+        ('Lions Diamond Varanasi', 'organisation', 3),
+        ('Heritage Hospitals', 'brand', 4),
+        ('Good Morning', 'brand', 5),
+        ('Live VNS Studio', 'brand', 6),
+        ('KV Tech Media', 'brand', 7)
+    ) AS seed(name, client_type, display_order)
+    WHERE NOT EXISTS (SELECT 1 FROM clients LIMIT 1);
+
+    -- Admin notifications resolution fields & tournament license requests
+    ALTER TABLE admin_notifications ADD COLUMN IF NOT EXISTS resolution_status text NOT NULL DEFAULT 'pending';
+    ALTER TABLE admin_notifications ADD COLUMN IF NOT EXISTS resolved_at timestamptz;
+    ALTER TABLE admin_notifications ADD COLUMN IF NOT EXISTS resolved_by text;
+    ALTER TABLE admin_notifications ADD COLUMN IF NOT EXISTS action_metadata jsonb;
+    CREATE INDEX IF NOT EXISTS ix_admin_notifications_resolution_status ON admin_notifications (resolution_status);
+
+    CREATE TABLE IF NOT EXISTS tournament_license_requests (
+      id SERIAL PRIMARY KEY,
+      tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      organizer_id INTEGER NOT NULL REFERENCES organizers(id) ON DELETE CASCADE,
+      requested_modules TEXT NOT NULL DEFAULT 'auction',
+      status TEXT NOT NULL DEFAULT 'pending',
+      organizer_mobile TEXT,
+      notes TEXT,
+      payment_verified BOOLEAN NOT NULL DEFAULT FALSE,
+      payment_amount INTEGER,
+      payment_mode TEXT,
+      payment_ref TEXT,
+      verified_by TEXT,
+      verified_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_tournament_license_requests_tournament_id ON tournament_license_requests (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_tournament_license_requests_organizer_id ON tournament_license_requests (organizer_id);
+    CREATE INDEX IF NOT EXISTS ix_tournament_license_requests_status ON tournament_license_requests (status);
+  `);
+
+  await q(`
+    CREATE TABLE IF NOT EXISTS members (
+      id TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      first_name TEXT,
+      last_name TEXT,
+      primary_mobile TEXT,
+      primary_email TEXT,
+      is_mobile_verified BOOLEAN NOT NULL DEFAULT FALSE,
+      is_email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+      dob TEXT,
+      gender TEXT,
+      country TEXT,
+      state TEXT,
+      city TEXT,
+      avatar_url TEXT,
+      avatar_public_id TEXT,
+      account_status TEXT NOT NULL DEFAULT 'active',
+      metadata_json JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_members_display_name ON members (display_name);
+    CREATE INDEX IF NOT EXISTS ix_members_primary_mobile ON members (primary_mobile);
+    CREATE INDEX IF NOT EXISTS ix_members_primary_email ON members (primary_email);
+    CREATE INDEX IF NOT EXISTS ix_members_account_status ON members (account_status);
+
+    CREATE TABLE IF NOT EXISTS member_roles (
+      id SERIAL PRIMARY KEY,
+      member_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      scope TEXT NOT NULL DEFAULT 'global',
+      tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
+      team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+      match_id INTEGER REFERENCES scoring_matches(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_member_roles_member_id ON member_roles (member_id);
+    CREATE INDEX IF NOT EXISTS ix_member_roles_role ON member_roles (role);
+    CREATE INDEX IF NOT EXISTS ix_member_roles_scope ON member_roles (scope);
+    CREATE INDEX IF NOT EXISTS ix_member_roles_tournament_id ON member_roles (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_member_roles_team_id ON member_roles (team_id);
+    CREATE INDEX IF NOT EXISTS ix_member_roles_match_id ON member_roles (match_id);
+
+    CREATE TABLE IF NOT EXISTS member_sport_profiles (
+      id SERIAL PRIMARY KEY,
+      member_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+      sport_slug TEXT NOT NULL,
+      primary_role TEXT,
+      secondary_role TEXT,
+      handedness TEXT,
+      federation_code TEXT,
+      profile_json JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_msp_member_sport ON member_sport_profiles (member_id, sport_slug);
+    CREATE INDEX IF NOT EXISTS ix_msp_member_id ON member_sport_profiles (member_id);
+    CREATE INDEX IF NOT EXISTS ix_msp_sport_slug ON member_sport_profiles (sport_slug);
+
+    CREATE TABLE IF NOT EXISTS tournament_participations (
+      id SERIAL PRIMARY KEY,
+      tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
+      member_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+      role TEXT NOT NULL DEFAULT 'player',
+      status TEXT NOT NULL DEFAULT 'active',
+      team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
+      category_id INTEGER,
+      display_name_override TEXT,
+      initials TEXT,
+      jersey_number TEXT,
+      metadata_json JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_tp_tournament_member_role ON tournament_participations (tournament_id, member_id, role);
+    CREATE INDEX IF NOT EXISTS ix_tp_tournament_id ON tournament_participations (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_tp_member_id ON tournament_participations (member_id);
+    CREATE INDEX IF NOT EXISTS ix_tp_team_id ON tournament_participations (team_id);
+    CREATE INDEX IF NOT EXISTS ix_tp_role ON tournament_participations (role);
+    CREATE INDEX IF NOT EXISTS ix_tp_status ON tournament_participations (status);
+
+    CREATE TABLE IF NOT EXISTS member_identity_links (
+      id SERIAL PRIMARY KEY,
+      member_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+      source_table TEXT NOT NULL,
+      source_record_id TEXT NOT NULL,
+      link_type TEXT NOT NULL DEFAULT 'direct_fk',
+      confidence_score INTEGER NOT NULL DEFAULT 100,
+      provenance_json JSONB,
+      status TEXT NOT NULL DEFAULT 'active',
+      reviewed_by TEXT,
+      reviewed_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_mil_source_record_member ON member_identity_links (source_table, source_record_id, member_id);
+    CREATE INDEX IF NOT EXISTS ix_mil_member_id ON member_identity_links (member_id);
+    CREATE INDEX IF NOT EXISTS ix_mil_source ON member_identity_links (source_table, source_record_id);
+    CREATE INDEX IF NOT EXISTS ix_mil_status ON member_identity_links (status);
+
+    CREATE TABLE IF NOT EXISTS member_auth_identities (
+      id SERIAL PRIMARY KEY,
+      member_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+      provider TEXT NOT NULL,
+      provider_subject TEXT,
+      normalized_identifier TEXT,
+      password_hash TEXT,
+      is_verified BOOLEAN NOT NULL DEFAULT FALSE,
+      is_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      metadata_json JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_mai_provider_subject ON member_auth_identities (provider, provider_subject);
+    CREATE INDEX IF NOT EXISTS ix_mai_member_id ON member_auth_identities (member_id);
+    CREATE INDEX IF NOT EXISTS ix_mai_identifier ON member_auth_identities (normalized_identifier);
+    CREATE INDEX IF NOT EXISTS ix_mai_provider_identifier ON member_auth_identities (provider, normalized_identifier);
+
+    CREATE TABLE IF NOT EXISTS member_sessions (
+      id TEXT PRIMARY KEY,
+      member_id TEXT NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+      auth_identity_id INTEGER REFERENCES member_auth_identities(id) ON DELETE CASCADE,
+      token_hash TEXT,
+      device_name TEXT,
+      ip_address TEXT,
+      user_agent TEXT,
+      expires_at TIMESTAMPTZ NOT NULL,
+      revoked_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_ms_member_id ON member_sessions (member_id);
+    CREATE INDEX IF NOT EXISTS ix_ms_expires_at ON member_sessions (expires_at);
+    CREATE INDEX IF NOT EXISTS ix_ms_revoked_at ON member_sessions (revoked_at);
+
+    CREATE TABLE IF NOT EXISTS bpl_editions (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      edition_number INTEGER NOT NULL,
+      slug TEXT NOT NULL,
+      year INTEGER NOT NULL,
+      start_date TEXT NOT NULL,
+      end_date TEXT NOT NULL,
+      venue TEXT,
+      city TEXT,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'DRAFT',
+      linked_tournament_id INTEGER REFERENCES tournaments(id) ON DELETE SET NULL,
+      live_stream_url TEXT,
+      fan_page_url TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_bpl_editions_edition_number ON bpl_editions (edition_number);
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_bpl_editions_slug ON bpl_editions (slug);
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_bpl_editions_single_live ON bpl_editions (status) WHERE status = 'LIVE';
+    CREATE INDEX IF NOT EXISTS ix_bpl_editions_linked_tournament_id ON bpl_editions (linked_tournament_id);
+
+    CREATE TABLE IF NOT EXISTS bpl_edition_sponsors (
+      id SERIAL PRIMARY KEY,
+      edition_id INTEGER NOT NULL REFERENCES bpl_editions(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      logo_url TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'PARTNER',
+      website_url TEXT,
+      display_order INTEGER NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS ix_bpl_edition_sponsors_edition_id ON bpl_edition_sponsors (edition_id);
+    CREATE INDEX IF NOT EXISTS ix_bpl_edition_sponsors_order ON bpl_edition_sponsors (edition_id, display_order);
+
+    -- Master sports & global players (ensure present in auto-heal / legacy bootstrap)
+    CREATE TABLE IF NOT EXISTS sports (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_sports_slug ON sports (slug);
+
+    CREATE TABLE IF NOT EXISTS sport_roles (
+      id SERIAL PRIMARY KEY,
+      sport_id INTEGER NOT NULL,
+      role_name TEXT NOT NULL,
+      display_order INTEGER NOT NULL DEFAULT 0,
+      active BOOLEAN NOT NULL DEFAULT true
+    );
+    CREATE INDEX IF NOT EXISTS ix_sport_roles_sport_id ON sport_roles (sport_id);
+
+    CREATE TABLE IF NOT EXISTS role_spec_groups (
+      id SERIAL PRIMARY KEY,
+      role_id INTEGER NOT NULL,
+      group_name TEXT NOT NULL,
+      display_order INTEGER NOT NULL DEFAULT 0,
+      optional BOOLEAN NOT NULL DEFAULT true,
+      active BOOLEAN NOT NULL DEFAULT true
+    );
+    CREATE INDEX IF NOT EXISTS ix_role_spec_groups_role_id ON role_spec_groups (role_id);
+
+    CREATE TABLE IF NOT EXISTS role_spec_options (
+      id SERIAL PRIMARY KEY,
+      group_id INTEGER NOT NULL,
+      option_name TEXT NOT NULL,
+      display_order INTEGER NOT NULL DEFAULT 0,
+      active BOOLEAN NOT NULL DEFAULT true
+    );
+    CREATE INDEX IF NOT EXISTS ix_role_spec_options_group_id ON role_spec_options (group_id);
+
+    CREATE TABLE IF NOT EXISTS global_players (
+      id TEXT PRIMARY KEY,
+      canonical_name TEXT NOT NULL,
+      first_name TEXT,
+      last_name TEXT,
+      display_name TEXT,
+      mobile_number TEXT,
+      email TEXT,
+      dob TEXT,
+      gender TEXT,
+      country TEXT,
+      state TEXT,
+      city TEXT,
+      academy TEXT,
+      handedness TEXT,
+      world_ranking INTEGER,
+      national_ranking INTEGER,
+      sponsor_id TEXT,
+      auction_player_id INTEGER,
+      sport TEXT NOT NULL DEFAULT 'cricket',
+      default_role TEXT,
+      age INTEGER,
+      photo_url TEXT,
+      photo_public_id TEXT,
+      notes TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_gp_mobile ON global_players (mobile_number);
+    CREATE INDEX IF NOT EXISTS ix_gp_canonical_name ON global_players (canonical_name);
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_gp_auction_player_id ON global_players (auction_player_id) WHERE auction_player_id IS NOT NULL;
   `);
     success = true;
   } catch (err) {

@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-/** Shared elevated surface for tournament settings — lovable panel tokens only. */
+/** Shared elevated surface for tournament settings cards. */
 export const settingsCardSurfaceClass =
-  "panel border-border/80 shadow-md ring-1 ring-inset ring-white/[0.06]";
+  "border border-border/70 bg-card/90 rounded-xl shadow-sm backdrop-blur-sm transition-all duration-200 hover:border-border/90";
 
 type SettingsCardProps = {
   title?: string;
@@ -32,23 +32,23 @@ export function SettingsCard({
       {title ? (
         <CardHeader
           className={cn(
-            "pb-3 pt-4 px-4 sm:px-5 border-b border-border/50 bg-white/[0.03]",
+            "px-5 py-4 border-b border-border/50 bg-white/[0.02]",
             headerClassName,
           )}
         >
-          <CardTitle className="text-sm font-semibold flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <CardTitle className="text-sm font-semibold flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-foreground">
             <span className="flex items-center gap-2 min-w-0">
               {icon}
               {title}
             </span>
             {headerAction ? (
-              <span className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 shrink-0 ml-auto">
+              <span className="flex flex-wrap items-center justify-end gap-2 shrink-0 ml-auto font-normal">
                 {headerAction}
               </span>
             ) : null}
           </CardTitle>
           {description ? (
-            <CardDescription className="text-xs leading-relaxed text-muted-foreground/90">
+            <CardDescription className="text-xs leading-relaxed text-muted-foreground mt-1">
               {description}
             </CardDescription>
           ) : null}
@@ -56,7 +56,7 @@ export function SettingsCard({
       ) : null}
       <CardContent
         className={cn(
-          title ? "px-4 sm:px-5 pb-4 sm:pb-5 space-y-3 bg-stage/50" : "p-0",
+          title ? "p-5 space-y-4" : "p-0",
           contentClassName,
         )}
       >
@@ -71,15 +71,10 @@ type SettingsTabPanelProps = {
   className?: string;
 };
 
-/** Outer shell for each settings tab — separates tab content from page background. */
+/** Wrapper for each settings tab content. */
 export function SettingsTabPanel({ children, className }: SettingsTabPanelProps) {
   return (
-    <div
-      className={cn(
-        "rounded-2xl border border-border/70 bg-stage p-4 sm:p-5 shadow-lg ring-1 ring-white/[0.03]",
-        className,
-      )}
-    >
+    <div className={cn("w-full space-y-6", className)}>
       {children}
     </div>
   );
@@ -102,15 +97,16 @@ export function SettingsInsetBlock({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/60 bg-panel-2 p-3 sm:p-4",
+        "rounded-lg border border-border/50 bg-muted/20 p-3.5 sm:p-4 space-y-2.5",
         className,
       )}
     >
-      {title ? <p className="text-xs font-medium text-foreground mb-1">{title}</p> : null}
+      {title ? <p className="text-xs font-semibold text-foreground tracking-tight">{title}</p> : null}
       {description ? (
-        <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">{description}</p>
+        <p className="text-[11px] text-muted-foreground leading-relaxed">{description}</p>
       ) : null}
       {children}
     </div>
   );
 }
+

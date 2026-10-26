@@ -20,7 +20,12 @@ import {
   buildPublicUrlForRequest,
   getAdminDataPassword,
   getAdminPassword,
+  requestHostFromHeaders,
 } from "../lib/runtime-env";
+import {
+  isProductionBidwarHost,
+  isStagingLikeHost,
+} from "../lib/public-origin-guard.js";
 import { tryCompleteGoogleSheetsOAuth } from "../lib/google-sheets-oauth-callback.js";
 import {
   DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
@@ -392,7 +397,22 @@ router.post("/auth/organizer/:tournamentId/logout", (req, res) => {
   const hadAccess = !!req.jwtUser.organizer?.[tidKey];
   const organizer = { ...(req.jwtUser.organizer ?? {}) };
   delete organizer[tidKey];
-  setAuthCookie(res, { ...req.jwtUser, isAdmin: undefined, adminLevel: undefined, organizer });
+  const remainingClaims = {
+    ...req.jwtUser,
+    isAdmin: undefined,
+    adminLevel: undefined,
+    organizer: Object.keys(organizer).length > 0 ? organizer : undefined,
+  };
+  const hasRemainingSession =
+    !!remainingClaims.organizerAccountId ||
+    !!remainingClaims.tournamentDirector ||
+    (remainingClaims.organizer && Object.keys(remainingClaims.organizer).length > 0);
+
+  if (hasRemainingSession) {
+    setAuthCookie(res, remainingClaims);
+  } else {
+    clearAuthCookie(res);
+  }
   if (!isNaN(tid) && hadAccess) {
     auditLog(req, {
       category: "auth",
@@ -529,13 +549,29 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     minBid: z.number().int().optional(),
     timerSeconds: z.number().int().optional(),
     bidTimerSeconds: z.number().int().optional(),
+    auctionEnabled: z.boolean().optional(),
+    scoringEnabled: z.boolean().optional(),
+    playerRegistrationMode: z.enum(["auction", "scoring"]).optional(),
   }).merge(tournamentCatalogBindingSchema);
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
 
+  const auctionEnabled = d.auctionEnabled !== undefined ? d.auctionEnabled : true;
+  const scoringEnabled = d.scoringEnabled !== undefined ? d.scoringEnabled : false;
+
+  if (!auctionEnabled && !scoringEnabled) {
+    res.status(400).json({ error: "A tournament must have at least one enabled product module (auction or scoring)." });
+    return;
+  }
+
   if (!await isKnownActiveSportSlug(d.sport)) {
     res.status(400).json({ error: "Unknown or inactive sport" });
+    return;
+  }
+
+  if (scoringEnabled && !isScoringSupportedSport(d.sport)) {
+    res.status(400).json({ error: "Match scoring is only supported for cricket and badminton." });
     return;
   }
 
@@ -589,6 +625,10 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     playerSelectionMode: DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE,
     minimumSquadSize: 0,
     maximumSquadSize: 0,
+    auctionEnabled,
+    scoringEnabled,
+    scoringPhase: scoringEnabled ? "active" : "disabled",
+    playerRegistrationMode: d.playerRegistrationMode ?? (scoringEnabled && !auctionEnabled ? "scoring" : "auction"),
   }).returning();
 
   notifyAsync("TOURNAMENT_CREATED", {
@@ -642,25 +682,22 @@ router.post("/auth/admin/tournaments/:tournamentId/grant-license", async (req, r
   if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-  const [t] = await db.update(tournamentsTable)
-    .set({ licenseStatus: "active", licenseGrantedAt: new Date(), licenseGrantedBy: "master" })
-    .where(eq(tournamentsTable.id, tid))
-    .returning();
-  if (!t) { res.status(404).json({ error: "Not found" }); return; }
-  auditLog(req, {
-    category: "admin",
-    action: "tournament.license_granted",
-    summary: `License granted for tournament "${t.name}"`,
-    severity: "critical",
-    reason: reasonResult.reason,
+  const { commitAdminLicenseTransition } = await import("../lib/auction-license-activation");
+  const result = await commitAdminLicenseTransition(req, {
     tournamentId: tid,
-    resource: { type: "tournament", id: tid },
-    before: before ? snapshotTournament(before) : null,
-    after: snapshotTournament(t),
+    nextStatus: "active",
+    grantedBy: "master",
+    recordGrant: true,
+    reason: reasonResult.reason,
+    auditAction: "tournament.license_granted",
+    auditSummary: (name) => `License granted for tournament "${name}"`,
     alertKey: "license_granted",
   });
-  res.json({ success: true });
+  if (!result.ok) {
+    res.status(result.status).json(result.body);
+    return;
+  }
+  res.json({ success: true, demoRemoved: result.demoRemoved });
 });
 
 // ─── Admin: Revoke license (master only) ──────────────────────────────────────
@@ -872,6 +909,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     status: z.enum(TOURNAMENT_LIFECYCLE_STATUSES).optional(),
     bidTiers: z.string().optional(),
     localModeEnabled: z.boolean().optional(),
+    auctionEnabled: z.boolean().optional(),
     scoringEnabled: z.boolean().optional(),
     features: z.object({
       buzzStudio: z.boolean().optional(),
@@ -905,10 +943,20 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   }
   const nextSport =
     typeof updates.sport === "string" ? updates.sport : (beforeTournament?.sport ?? "cricket");
+  const nextAuctionEnabled =
+    d.auctionEnabled !== undefined
+      ? d.auctionEnabled
+      : (beforeTournament?.auctionEnabled ?? true);
   const nextScoringEnabled =
     d.scoringEnabled !== undefined
       ? d.scoringEnabled
       : (beforeTournament?.scoringEnabled ?? false);
+  if (!nextAuctionEnabled && !nextScoringEnabled) {
+    res.status(400).json({
+      error: "A tournament must have at least one enabled product module (auction or scoring).",
+    });
+    return;
+  }
   if (nextScoringEnabled && !isScoringSupportedSport(nextSport)) {
     res.status(400).json({
       error: "Match scoring can only be enabled for cricket or badminton tournaments.",
@@ -941,6 +989,9 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (d.playerSelectionMode !== undefined) updates.playerSelectionMode = d.playerSelectionMode;
   if (d.bidTiers !== undefined) updates.bidTiers = d.bidTiers;
   if (d.localModeEnabled !== undefined) updates.localModeEnabled = d.localModeEnabled;
+  if (d.auctionEnabled !== undefined) {
+    updates.auctionEnabled = d.auctionEnabled;
+  }
   if (d.scoringEnabled !== undefined) {
     updates.scoringEnabled = d.scoringEnabled;
     updates.scoringPhase = d.scoringEnabled ? "active" : "disabled";
@@ -1633,10 +1684,15 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     registrationLimit: z.number().int().min(0).nullable().optional(),
     enableRegistrationPayment: z.boolean().optional(),
     registrationFee: z.number().int().min(0).nullable().optional(),
+    auctionEnabled: z.boolean().optional(),
+    scoringEnabled: z.boolean().optional(),
+    playerRegistrationMode: z.string().optional(),
   }).merge(tournamentCatalogBindingSchema);
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
+
+  const auctionEnabled = d.auctionEnabled !== undefined ? d.auctionEnabled : true;
 
   if (!await isKnownActiveSportSlug(d.sport)) {
     res.status(400).json({ error: "Unknown or inactive sport" });
@@ -1649,13 +1705,34 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     return;
   }
 
-  const needsAuctionEconomics =
-    !!catalogBindings.columns.competitionTypeId &&
-    CatalogRegistry.requiresAuctionEconomics(catalogBindings.columns.competitionTypeId);
+  const legacyScoringDefault =
+    !auctionEnabled ||
+    (
+      !!catalogBindings.columns.competitionTypeId &&
+      !CatalogRegistry.requiresAuctionEconomics(catalogBindings.columns.competitionTypeId)
+    );
+  const scoringEnabled = d.scoringEnabled !== undefined ? d.scoringEnabled : (legacyScoringDefault && !!catalogBindings.columns.competitionTypeId);
 
-  // Legacy path (no catalog bindings): keep requiring purse/bid fields.
+  if (!auctionEnabled && !scoringEnabled) {
+    res.status(400).json({ error: "A tournament must have at least one enabled product module (auction or scoring)." });
+    return;
+  }
+
+  if (scoringEnabled && !isScoringSupportedSport(d.sport)) {
+    res.status(400).json({ error: "Match scoring is only supported for cricket and badminton." });
+    return;
+  }
+
+  const needsAuctionEconomics =
+    auctionEnabled &&
+    (
+      !catalogBindings.columns.competitionTypeId ||
+      CatalogRegistry.requiresAuctionEconomics(catalogBindings.columns.competitionTypeId)
+    );
+
+  // Legacy path (no catalog bindings): keep requiring purse/bid fields if auctionEnabled.
   // Catalog path: require economics only for auction/hybrid.
-  if (!catalogBindings.columns.competitionTypeId || needsAuctionEconomics) {
+  if (needsAuctionEconomics) {
     if (d.basePurse == null || d.basePurse < 1) {
       res.status(400).json({ error: "Team budget (purse) is required" });
       return;
@@ -1716,6 +1793,10 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
     registrationLimit: d.registrationLimit ?? null,
     enableRegistrationPayment: d.enableRegistrationPayment ?? false,
     registrationFee: d.registrationFee ?? null,
+    auctionEnabled,
+    scoringEnabled,
+    scoringPhase: scoringEnabled ? "active" : "disabled",
+    playerRegistrationMode: d.playerRegistrationMode ?? (scoringEnabled && !auctionEnabled ? "scoring" : "auction"),
     licenseStatus: "trial",
     variantId: catalogBindings.columns.variantId,
     competitionTypeId: catalogBindings.columns.competitionTypeId,
@@ -1748,7 +1829,17 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   const updatedOrgMap = { ...(req.jwtUser.organizer ?? {}), [String(tournament.id)]: true as const };
   setAuthCookie(res, { ...req.jwtUser, organizer: updatedOrgMap });
 
-  res.status(201).json({ success: true, tournament: { id: tournament.id, name: tournament.name, auctionCode: tournament.auctionCode } });
+  res.status(201).json({
+    success: true,
+    tournament: {
+      id: tournament.id,
+      name: tournament.name,
+      auctionCode: tournament.auctionCode,
+      auctionEnabled: tournament.auctionEnabled,
+      scoringEnabled: tournament.scoringEnabled,
+      sport: tournament.sport,
+    },
+  });
 });
 
 // ─── OTP: Send code via BulkSMS Gateway ──────────────────────────────────────
@@ -1896,13 +1987,48 @@ router.patch("/auth/admin/sms-settings", async (req, res) => {
 // ─── Google OAuth ─────────────────────────────────────────────────────────────
 
 /** Safe post-login redirect — blocks auth/setup pages that would loop back to sign-in. */
-function sanitizeOAuthNext(raw: string | undefined): string | undefined {
-  if (!raw?.startsWith("/")) return undefined;
-  const blocked = new Set(["/complete-profile", "/organizer", "/api"]);
-  if (blocked.has(raw) || raw.startsWith("/complete-profile?") || raw.startsWith("/api/")) {
+/** Safe post-login redirect — blocks auth/setup pages and open redirects. */
+export function sanitizeOAuthNext(raw: string | undefined): string | undefined {
+  if (!raw || typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.startsWith("/\\")) {
     return undefined;
   }
-  return raw;
+  if (/[\r\n\t]/.test(trimmed)) {
+    return undefined;
+  }
+  try {
+    const dummy = new URL(trimmed, "https://bidwar.internal");
+    if (dummy.origin !== "https://bidwar.internal") return undefined;
+    if (dummy.pathname.startsWith("//")) return undefined;
+  } catch {
+    return undefined;
+  }
+  const blocked = new Set(["/complete-profile", "/organizer", "/api"]);
+  if (blocked.has(trimmed) || trimmed.startsWith("/complete-profile?") || trimmed.startsWith("/api/")) {
+    return undefined;
+  }
+  return trimmed;
+}
+
+/**
+ * Build canonical Google OAuth redirect_uri for this request.
+ * Guaranteed never to redirect staging requests to production.
+ */
+export function resolveGoogleOAuthRedirectUri(headers: import("node:http").IncomingHttpHeaders): string {
+  let redirectUri = buildPublicUrlForRequest(headers, "/api/auth/google/callback");
+  const host = requestHostFromHeaders(headers);
+  if (host && isStagingLikeHost(host)) {
+    try {
+      const parsed = new URL(redirectUri);
+      if (isProductionBidwarHost(parsed.hostname)) {
+        redirectUri = `https://${host}/api/auth/google/callback`;
+      }
+    } catch {
+      redirectUri = `https://${host}/api/auth/google/callback`;
+    }
+  }
+  return redirectUri;
 }
 
 /** Return Google OAuth errors to the originating app (e.g. /mobile login) when possible. */
@@ -1968,7 +2094,7 @@ router.get("/auth/google", (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) { res.status(503).send("Google login not configured"); return; }
   // Prefer the trusted request host so staging never sends Google back to production.
-  const redirectUri = buildPublicUrlForRequest(req.headers, "/api/auth/google/callback");
+  const redirectUri = resolveGoogleOAuthRedirectUri(req.headers);
 
   // Preserve the ?next= redirect destination through the OAuth round-trip
   const next = sanitizeOAuthNext(req.query.next as string | undefined);
@@ -2020,7 +2146,7 @@ router.get("/auth/google/callback", async (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   // Must match the redirect_uri used in /auth/google (request host when trusted).
-  const redirectUri = buildPublicUrlForRequest(req.headers, "/api/auth/google/callback");
+  const redirectUri = resolveGoogleOAuthRedirectUri(req.headers);
   if (!clientId || !clientSecret) {
     res.redirect(googleOAuthErrorRedirect(pendingNext, "not_configured", "", nativeApp));
     return;
@@ -2426,32 +2552,22 @@ router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) =
   const reasonResult = parseAuditReason(req.body, true);
   if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
 
-  const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
-  if (!before) { res.status(404).json({ error: "Tournament not found" }); return; }
-
-  const [updated] = await db.update(tournamentsTable)
-    .set({
-      licenseStatus: body.data.status,
-      licenseGrantedAt: body.data.status === "active" ? new Date() : undefined,
-      licenseGrantedBy: body.data.status === "active" ? (req.jwtUser.adminLevel ?? undefined) : undefined,
-    })
-    .where(eq(tournamentsTable.id, tournamentId))
-    .returning();
-
-  auditLog(req, {
-    category: "admin",
-    action: "tournament.license_status_set",
-    summary: `License status set to "${body.data.status}" for tournament "${before.name}"`,
-    severity: "critical",
-    reason: reasonResult.reason,
+  const { commitAdminLicenseTransition } = await import("../lib/auction-license-activation");
+  const result = await commitAdminLicenseTransition(req, {
     tournamentId,
-    resource: { type: "tournament", id: tournamentId },
-    before: snapshotTournament(before),
-    after: updated ? snapshotTournament(updated) : null,
+    nextStatus: body.data.status,
+    grantedBy: req.jwtUser.adminLevel ?? null,
+    recordGrant: body.data.status === "active",
+    reason: reasonResult.reason,
+    auditAction: "tournament.license_status_set",
+    auditSummary: (name) => `License status set to "${body.data.status}" for tournament "${name}"`,
     alertKey: "license_status_changed",
   });
-
-  res.json({ success: true });
+  if (!result.ok) {
+    res.status(result.status).json(result.body);
+    return;
+  }
+  res.json({ success: true, demoRemoved: result.demoRemoved });
 });
 
 // ─── Google OAuth: complete profile (collect + OTP-verify mobile) ─────────────

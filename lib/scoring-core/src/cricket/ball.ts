@@ -1,8 +1,47 @@
 import type { CricketBallRecordedPayload } from "../events/cricket";
-import type { BallDisplayOutcome } from "./state";
+import type { BallDisplayOutcome, CricketInningsState } from "./state";
+
+/**
+ * Authoritative next delivery position (over and legal-ball index) for an innings.
+ * Both legal deliveries and extras/illegal deliveries are bowled into the upcoming slot.
+ * Illegal deliveries do not advance legal ball count; legal deliveries do.
+ */
+export function expectedNextBall(
+  innings: CricketInningsState,
+  ballsPerOver = 6,
+): { over: number; ball: number } {
+  const bpo = ballsPerOver > 0 ? ballsPerOver : 6;
+  if (innings.ball >= bpo) {
+    return { over: innings.over + 1, ball: 1 };
+  }
+  return { over: innings.over, ball: innings.ball + 1 };
+}
+
+/**
+ * Authoritatively determines whether the quota of overs for an innings has completed.
+ * In CricketInningsState, over is 0-indexed (e.g. over 0..4 for a 5-over match).
+ * When over 4 finishes with 6 legal balls, innings.over is 4 and innings.ball is 6.
+ */
+export function isOversComplete(
+  innings: CricketInningsState,
+  oversLimit?: number,
+  ballsPerOver = 6,
+): boolean {
+  const limit = oversLimit ?? innings.oversLimit;
+  if (!limit || limit <= 0) return false;
+  const bpo = ballsPerOver > 0 ? ballsPerOver : 6;
+  return (
+    innings.over >= limit ||
+    (innings.over === limit - 1 && innings.ball >= bpo) ||
+    expectedNextBall(innings, bpo).over >= limit
+  );
+}
 
 export function totalRunsOnBall(payload: CricketBallRecordedPayload): number {
-  return payload.runsOffBat + payload.extras.runs;
+  const batRuns = payload.isSuperBall
+    ? payload.runsOffBat * 2
+    : payload.runsOffBat;
+  return batRuns + payload.extras.runs;
 }
 
 export function formatBallLabel(payload: CricketBallRecordedPayload): string {
@@ -11,21 +50,28 @@ export function formatBallLabel(payload: CricketBallRecordedPayload): string {
   const runs = totalRunsOnBall(payload);
   if (extra === "wide") return runs > 1 ? `Wd+${runs - 1}` : "Wd";
   if (extra === "no_ball") return runs > 1 ? `Nb+${runs - 1}` : "Nb";
+  if (extra === "bye") return runs > 0 ? `B${runs}` : "B";
+  if (extra === "leg_bye") return runs > 0 ? `Lb${runs}` : "Lb";
   if (extra === "penalty") return `P${runs}`;
   if (runs === 0) return "·";
   return String(runs);
 }
 
-export function toBallDisplay(payload: CricketBallRecordedPayload): BallDisplayOutcome {
+export function toBallDisplay(
+  payload: CricketBallRecordedPayload,
+): BallDisplayOutcome {
   return {
     over: payload.over,
     ball: payload.ball,
-    runsOffBat: payload.runsOffBat,
+    runsOffBat: payload.isSuperBall
+      ? payload.runsOffBat * 2
+      : payload.runsOffBat,
     extrasType: payload.extras.type,
     extrasRuns: payload.extras.runs,
     isWicket: !!payload.wicket,
     isLegalDelivery: payload.isLegalDelivery,
     label: formatBallLabel(payload),
+    isSuperBall: payload.isSuperBall,
   };
 }
 
@@ -33,7 +79,9 @@ export function toBallDisplay(payload: CricketBallRecordedPayload): BallDisplayO
  * Runs that rotate the strike (batter-completed running), excluding automatic
  * wide/no-ball penalty extras. Bye/leg-bye rotate from extras.runs only.
  */
-export function strikeRotatingRuns(payload: CricketBallRecordedPayload): number {
+export function strikeRotatingRuns(
+  payload: CricketBallRecordedPayload,
+): number {
   const extra = payload.extras.type;
   if (extra === "bye" || extra === "leg_bye") {
     return payload.extras.runs;

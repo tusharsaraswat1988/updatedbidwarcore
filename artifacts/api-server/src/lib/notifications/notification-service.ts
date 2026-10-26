@@ -451,18 +451,38 @@ export async function dispatchNotification<E extends NotificationEventType>(
             const recipient = resolveRecipients(eventType, resolvedPayload);
             if (!recipient) return;
 
-            const entityKey = buildEntityKey(eventType, resolvedPayload);
+            let mergeData: Record<string, unknown> = recipient.templateParams;
+            const entityId = extractEntityId(entityKey);
+            if (eventType === "PLAYER_REGISTERED" && entityId) {
+              const { buildPlayerRegistrationMergeData } = await import(
+                "../communication/player-registration-merge-data.js"
+              );
+              mergeData = {
+                ...mergeData,
+                ...(await buildPlayerRegistrationMergeData(entityId)),
+              };
+            }
+            if (eventType === "TEAM_OWNER_REGISTERED" && entityId) {
+              const { buildTeamOwnerWelcomeMergeData } = await import(
+                "../communication/team-owner-welcome-merge-data.js"
+              );
+              mergeData = {
+                ...mergeData,
+                ...(await buildTeamOwnerWelcomeMergeData(entityId)),
+              };
+            }
+
             await createCommunicationJob({
               channel: "email",
               templateInternalKey: mapEventToTemplateKey(eventType),
               tournamentId: recipient.tournamentId,
               triggeredByEvent: eventType,
               entityType: entityKey.split(":")[0] ?? null,
-              entityId: extractEntityId(entityKey),
+              entityId,
               recipientName: recipient.name,
               recipientEmail: recipient.email,
               recipientPhone: recipient.mobile,
-              mergeData: recipient.templateParams,
+              mergeData,
               idempotencyKey: `resend:${options.resendOfLogId ?? "manual"}:${randomUUID()}`,
               sentBy: "admin",
               skipAutoQueue: false,

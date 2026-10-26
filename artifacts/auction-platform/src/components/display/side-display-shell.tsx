@@ -28,6 +28,7 @@ import {
   BroadcastCanvasProvider,
   DisplayViewport,
   DisplayPreviewControls,
+  SideLedStretchControls,
 } from "./broadcast-canvas";
 import type { AudioSettings } from "@/lib/audio-manager";
 import { resolveBroadcastAudioUrls } from "@workspace/api-base/platform-audio";
@@ -164,6 +165,9 @@ export function SideDisplayShell({
           <SideLedStageContent view={view} panel={panel} tournamentId={tournamentId} />
         </StageThemeProvider>
       </DisplayViewport>
+
+      {/* On-screen LED Screen Stretch & Aspect ratio controls for venue operators */}
+      <SideLedStretchControls />
 
       {isDeveloperMode(initialPreview) ? (
         <>

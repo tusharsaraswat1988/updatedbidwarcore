@@ -24,6 +24,13 @@ export function configuredSharedCookieDomain(
 
   const apex =
     appHosts.find((h) => !h.toLowerCase().startsWith("www.")) ?? appHosts[0]!;
+  if (
+    apex.endsWith("railway.app") ||
+    apex.endsWith("onrender.com") ||
+    apex.includes("staging")
+  ) {
+    return undefined;
+  }
   return apex.startsWith(".") ? apex : `.${apex}`;
 }
 
@@ -68,6 +75,15 @@ export function cookieDomainForResponse(res: Response): string | undefined {
 
   if (isLoopbackHostname(host)) return undefined;
 
+  if (
+    host.endsWith(".railway.app") ||
+    host.endsWith(".up.railway.app") ||
+    host.endsWith(".onrender.com") ||
+    host.includes("staging")
+  ) {
+    return undefined;
+  }
+
   if (!configured) return undefined;
 
   if (hostMatchesCookieDomain(host, configured)) return configured;
@@ -106,11 +122,40 @@ export function clearAuthCookieVariants(res: Response, name: string): void {
   res.clearCookie(name, { ...base, maxAge: 0 });
 
   const host = resolveRequestHostname(res.req);
+  const domainsToClear = new Set<string>();
+
   const shouldClearShared =
     !!configured &&
     (!host || hostMatchesCookieDomain(host, configured));
 
   if (shouldClearShared && configured) {
-    res.clearCookie(name, { ...base, domain: configured, maxAge: 0 });
+    domainsToClear.add(configured);
+    domainsToClear.add(
+      configured.startsWith(".") ? configured.slice(1) : `.${configured}`,
+    );
+  }
+
+  if (host && !isLoopbackHostname(host)) {
+    const parts = host.split(".");
+    if (parts.length >= 2) {
+      const apex = parts.slice(-2).join(".");
+      if (
+        apex !== "railway.app" &&
+        apex !== "onrender.com" &&
+        !host.endsWith(".railway.app") &&
+        !host.endsWith(".onrender.com")
+      ) {
+        domainsToClear.add(apex);
+        domainsToClear.add(`.${apex}`);
+        if (host !== apex) {
+          domainsToClear.add(host);
+          domainsToClear.add(`.${host}`);
+        }
+      }
+    }
+  }
+
+  for (const domain of domainsToClear) {
+    res.clearCookie(name, { ...base, domain, maxAge: 0 });
   }
 }

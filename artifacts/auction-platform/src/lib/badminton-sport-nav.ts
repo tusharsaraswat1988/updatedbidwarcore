@@ -125,6 +125,14 @@ function preloadNav(id: string) {
   void loader();
 }
 
+/** Preload all badminton organizer route chunks in background idle time */
+export function preloadAllBadmintonChunks() {
+  const ids = Object.keys(PRELOAD);
+  for (const id of ids) {
+    preloadNav(id);
+  }
+}
+
 /**
  * Primary organizer destinations — Sports home + lifecycle ops.
  * Tournament Dashboard is Sports product home; remaining items are operational.

@@ -30,8 +30,13 @@ export function rowToAdminNotificationDto(
     entityId: row.entityId,
     actionUrl: row.actionUrl,
     isRead: row.isRead,
+    resolutionStatus: (row.resolutionStatus as "pending" | "resolved" | "dismissed") ?? "pending",
     createdAt: row.createdAt.toISOString(),
     readAt: row.readAt?.toISOString() ?? null,
+    resolvedAt: row.resolvedAt?.toISOString() ?? null,
+    resolvedBy: row.resolvedBy ?? null,
     metadata: (row.metadata as Record<string, unknown> | null) ?? null,
+    actionMetadata: (row.actionMetadata as Record<string, unknown> | null) ?? null,
   };
 }
+

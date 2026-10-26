@@ -171,11 +171,12 @@ export async function findMatchEventByIdempotencyKey(
 export async function findMatchEventByCorrelationId(
   matchId: number,
   correlationId: string,
+  tx: EventStoreTx | typeof db = db,
 ): Promise<ScoringEventEnvelope | null> {
   const key = correlationId.trim();
   if (!key) return null;
 
-  const [row] = await db
+  const [row] = await tx
     .select()
     .from(scoringEventsTable)
     .where(

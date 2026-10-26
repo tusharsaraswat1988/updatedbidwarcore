@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import type { BadmintonBranding, ScoreBoardSponsor } from "@/hooks/use-badminton-branding";
 import { VenueMusicSettingsPanel } from "@/components/badminton/venue-music-settings-panel";
 import { VenueBannerSettingsPanel } from "@/components/badminton/venue-banner-settings-panel";
+import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 
 const ImageEditorDialog = lazy(() =>
   import("@/components/image-editor-dialog").then((m) => ({ default: m.ImageEditorDialog })),
@@ -98,7 +99,22 @@ function buildBrandingPatchPayload(
     displayName: form.displayName.trim(),
     logoUrl: form.logoUrl.trim() || null,
     logoPublicId: form.logoPublicId.trim() || null,
-    sponsorLogos: JSON.stringify(sponsorLogos.filter((l) => l.url.trim())),
+    sponsorLogos: JSON.stringify(
+      sponsorLogos
+        .filter((l) => l.url && l.url.trim())
+        .map((l, idx) => ({
+          url: l.url.trim(),
+          publicId: l.publicId?.trim() || null,
+          name: l.name?.trim() || "",
+          type: l.type?.trim() || "",
+          isTitleSponsor: Boolean(l.isTitleSponsor),
+          isCoSponsor: Boolean(l.isCoSponsor),
+          isLiveStreamingPartner: Boolean(l.isLiveStreamingPartner),
+          priorityType: l.priorityType || undefined,
+          sponsorPriority: l.sponsorPriority ?? idx,
+          priority: (l as unknown as { priority?: number }).priority ?? idx,
+        })),
+    ),
     venue: form.venue.trim() || null,
     organizerName: form.organizerName.trim() || null,
     primaryColor: form.primaryColor,
@@ -146,6 +162,10 @@ export default function BadmintonBrandingPage() {
     queryKey: ["badminton-branding", tournamentId],
     queryFn: () => badmintonFetch(tournamentId, `/branding`),
     enabled: !!tournamentId,
+  });
+
+  const { data: tournament } = useGetTournament(tournamentId, {
+    query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
 
   const [form, setForm] = useState({
@@ -235,14 +255,9 @@ export default function BadmintonBrandingPage() {
         body: JSON.stringify(payload),
       });
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       qc.setQueryData(["badminton-branding", tournamentId], data);
-      const synced = brandingFromApi(data);
-      lastSavedPayloadRef.current = brandingPayloadSignature(
-        synced.form,
-        synced.sponsorLogos,
-        synced.scoreBoardSponsor,
-      );
+      lastSavedPayloadRef.current = JSON.stringify(variables);
       setSaveError("");
       setJustSaved(true);
       if (savedFlashTimerRef.current) clearTimeout(savedFlashTimerRef.current);
@@ -259,6 +274,9 @@ export default function BadmintonBrandingPage() {
     },
   });
 
+  const saveMutationRef = useRef(saveMutation);
+  saveMutationRef.current = saveMutation;
+
   const persistBranding = useCallback(
     (immediate = false) => {
       if (!tournamentId) return;
@@ -273,7 +291,7 @@ export default function BadmintonBrandingPage() {
         return;
       }
       const payload = buildBrandingPatchPayload(form, sponsorLogos, scoreBoardSponsor);
-      const signature = brandingPayloadSignature(form, sponsorLogos, scoreBoardSponsor);
+      const signature = JSON.stringify(payload);
       if (signature === lastSavedPayloadRef.current) {
         if (immediate) {
           setJustSaved(true);
@@ -290,14 +308,17 @@ export default function BadmintonBrandingPage() {
       }
 
       notifySaveToastRef.current = immediate;
-      const run = () => saveMutation.mutate(payload);
+      const run = () => {
+        lastSavedPayloadRef.current = signature;
+        saveMutationRef.current.mutate(payload);
+      };
       if (immediate) {
         run();
         return;
       }
-      autoSaveTimerRef.current = setTimeout(run, 600);
+      autoSaveTimerRef.current = setTimeout(run, 800);
     },
-    [form, sponsorLogos, scoreBoardSponsor, saveMutation, tournamentId],
+    [form, sponsorLogos, scoreBoardSponsor, tournamentId],
   );
 
   useEffect(() => {
@@ -309,7 +330,7 @@ export default function BadmintonBrandingPage() {
         autoSaveTimerRef.current = null;
       }
     };
-  }, [form, sponsorLogos, scoreBoardSponsor, tournamentId, persistBranding]);
+  }, [form, sponsorLogos, scoreBoardSponsor, tournamentId]);
 
   async function handleSponsorUpload(file: File | File[], idx: number | "new") {
     const files = Array.isArray(file) ? file : [file];
@@ -618,11 +639,21 @@ export default function BadmintonBrandingPage() {
             </section>
 
             <div className="lg:col-span-2">
-              <VenueMusicSettingsPanel tournamentId={tournamentId} branding={branding} />
+              <VenueMusicSettingsPanel
+                tournamentId={tournamentId}
+                branding={branding}
+                auctionEnabled={tournament?.auctionEnabled}
+                scoringEnabled={tournament?.scoringEnabled}
+              />
             </div>
 
             <div className="lg:col-span-2">
-              <VenueBannerSettingsPanel tournamentId={tournamentId} branding={branding} />
+              <VenueBannerSettingsPanel
+                tournamentId={tournamentId}
+                branding={branding}
+                auctionEnabled={tournament?.auctionEnabled}
+                scoringEnabled={tournament?.scoringEnabled}
+              />
             </div>
 
             {/* Import tournament branding into badminton display */}

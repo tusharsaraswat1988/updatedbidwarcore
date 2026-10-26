@@ -5,6 +5,7 @@ import {
   db,
   runtimeMatchHistoryTable,
   scoringDrawsTable,
+  scoringEventsTable,
   scoringFixturesTable,
   scoringMatchesTable,
   scoringSessionsTable,
@@ -60,6 +61,7 @@ import {
   buildWorkingConfiguration,
   loadLatestPlan,
   loadTournamentCompetitionRow,
+  lockCompetitionSetup,
 } from "./competition-service";
 import { buildCompetitionStatus, validateCompetitionConfiguration } from "@workspace/platform-core/competition";
 import {
@@ -68,10 +70,12 @@ import {
   loadMatchRow,
   loadMatchSides,
   listMatchRows,
+  lockMatchSetup,
   requestMatchLifecycleTransition,
 } from "./match-service";
 import { loadLatestFixtureHistory } from "./fixture-service";
 import { loadLatestSchedulingHistory } from "./scheduling-service";
+import { resolveMatchRulePreset } from "./cricket-rule-presets-service";
 
 
 
@@ -285,6 +289,19 @@ async function buildSnapshotRefInput(
   const officials = loadMatchOfficials(match);
   const linked = await resolveLinkedPlanRefs(match);
 
+  let ruleProfileId = competition?.ruleProfileId ?? null;
+  let ruleProfileVersion = competition?.ruleProfileVersion ?? null;
+
+  if (match.sportSlug === "cricket") {
+    try {
+      const preset = await resolveMatchRulePreset(match.tournamentId, match);
+      if (preset?.ruleProfileId) ruleProfileId = preset.ruleProfileId;
+      if (preset?.ruleProfileVersion) ruleProfileVersion = preset.ruleProfileVersion;
+    } catch {
+      // fallback to competition bindings
+    }
+  }
+
   return {
     competition,
     linked,
@@ -294,8 +311,8 @@ async function buildSnapshotRefInput(
     } satisfies MatchConfigStateForRuntime,
     refInput: {
       matchId: String(match.id),
-      ruleProfileId: competition?.ruleProfileId ?? null,
-      ruleProfileVersion: competition?.ruleProfileVersion ?? null,
+      ruleProfileId,
+      ruleProfileVersion,
       presentationProfileId: competition?.presentationProfileId ?? null,
       presentationProfileVersion: competition?.presentationProfileVersion ?? null,
       competitionId: String(match.tournamentId),
@@ -436,6 +453,78 @@ export type PrepareRuntimeResult =
       validation?: RuntimeValidationResult;
     };
 
+async function ensureCricketPreparationPrerequisites(
+  tournamentId: number,
+  match: typeof scoringMatchesTable.$inferSelect,
+  actor: string | null,
+): Promise<typeof scoringMatchesTable.$inferSelect> {
+  if (match.sportSlug !== "cricket") return match;
+
+  // 1. Ensure competition setup has a frozen plan (if none exists yet)
+  const plan = await loadLatestPlan(tournamentId);
+  if (!plan) {
+    try {
+      await lockCompetitionSetup(tournamentId, actor);
+    } catch {
+      // Best effort; buildRuntimeValidation will catch any structural competition blockers
+    }
+  }
+
+  // 2. Ensure draws and fixtures are ready/locked for cricket execution
+  if (match.fixtureId != null) {
+    const [fixture] = await db
+      .select({ drawId: scoringFixturesTable.drawId })
+      .from(scoringFixturesTable)
+      .where(
+        and(
+          eq(scoringFixturesTable.tournamentId, tournamentId),
+          eq(scoringFixturesTable.id, match.fixtureId),
+        ),
+      )
+      .limit(1);
+    if (fixture?.drawId) {
+      await db
+        .update(scoringDrawsTable)
+        .set({
+          configurationLocked: true,
+          lifecycleStatus: "ready",
+          schedulingConfigurationLocked: true,
+          schedulingLifecycleStatus: "ready",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(scoringDrawsTable.id, fixture.drawId),
+            eq(scoringDrawsTable.tournamentId, tournamentId),
+          ),
+        );
+    }
+  }
+
+  // Also ensure any tournament-level scoring draws are ready
+  await db
+    .update(scoringDrawsTable)
+    .set({
+      configurationLocked: true,
+      lifecycleStatus: "ready",
+      schedulingConfigurationLocked: true,
+      schedulingLifecycleStatus: "ready",
+      updatedAt: new Date(),
+    })
+    .where(eq(scoringDrawsTable.tournamentId, tournamentId));
+
+  // 3. Ensure match configuration is locked
+  if (!match.configurationLocked) {
+    const lockRes = await lockMatchSetup(tournamentId, match.id, actor);
+    if (lockRes.ok || lockRes.status === 409) {
+      const refreshed = await loadMatchRow(tournamentId, match.id);
+      if (refreshed) return refreshed;
+    }
+  }
+
+  return match;
+}
+
 /**
  * Runtime Prepare (EPIC-11 + EPIC-12 Phase 1):
  * validate → freeze Snapshot (refs only)
@@ -451,8 +540,35 @@ export async function prepareRuntimeMatch(
   matchId: number,
   actor: string | null,
 ): Promise<PrepareRuntimeResult> {
-  const match = await loadMatchRow(tournamentId, matchId);
+  let match = await loadMatchRow(tournamentId, matchId);
   if (!match) return { ok: false, status: 404, error: "Match not found" };
+
+  const [hasEventRow] = await db
+    .select({ id: scoringEventsTable.id })
+    .from(scoringEventsTable)
+    .where(eq(scoringEventsTable.matchId, matchId))
+    .limit(1);
+
+  const isStarted =
+    (match.status !== "scheduled" && match.status !== "draft") ||
+    (match.lifecycleStatus !== null &&
+      match.lifecycleStatus !== "draft" &&
+      match.lifecycleStatus !== "ready" &&
+      match.lifecycleStatus !== "locked" &&
+      match.lifecycleStatus !== "scheduled") ||
+    match.startedAt !== null ||
+    !!hasEventRow;
+
+  if (isStarted) {
+    return {
+      ok: false,
+      status: 409,
+      error:
+        "Runtime execution rules are locked after match start. Cannot re-prepare an active or completed match.",
+    };
+  }
+
+  match = await ensureCricketPreparationPrerequisites(tournamentId, match, actor);
 
   const validation = await buildRuntimeValidation(tournamentId, match);
   if (validation.errorCount > 0) {
@@ -497,18 +613,24 @@ export async function prepareRuntimeMatch(
   let presentationResolutionId: string | null = null;
   let presentationHash: string | null = null;
   let presentationVersion: string | null = null;
+  let resolvedPresetId: number | null = null;
+  let resolvedPresetName: string | null = null;
 
   if (match.sportSlug === "cricket") {
     const tournament = await loadTournamentCompetitionRow(tournamentId);
     if (!tournament) {
       return { ok: false, status: 404, error: "Tournament not found" };
     }
+    const preset = await resolveMatchRulePreset(tournamentId, match);
+    resolvedPresetId = preset.id;
+    resolvedPresetName = preset.name;
+
     const bindings = resolvePrepareCatalogBindings({
       sportId: tournament.sport ?? "cricket",
-      variantId: tournament.variantId,
+      variantId: preset.variantId || tournament.variantId,
       competitionTypeId: tournament.competitionTypeId,
-      ruleProfileId: tournament.ruleProfileId,
-      ruleProfileVersion: tournament.ruleProfileVersion,
+      ruleProfileId: preset.ruleProfileId || tournament.ruleProfileId,
+      ruleProfileVersion: preset.ruleProfileVersion || tournament.ruleProfileVersion,
       presentationProfileId: tournament.presentationProfileId,
       presentationProfileVersion: tournament.presentationProfileVersion,
     });
@@ -536,7 +658,7 @@ export async function prepareRuntimeMatch(
     const engineInput = buildPrepareRuleEngineInput(
       snapshot,
       bindings,
-      parseRuleOverrides(tournament.ruleOverridesJson),
+      parseRuleOverrides(preset.ruleOverridesJson || tournament.ruleOverridesJson),
     );
     const engineResult = RuleEngine.resolve(engineInput);
 
@@ -557,7 +679,16 @@ export async function prepareRuntimeMatch(
     const resolved = engineResult.resolvedRuntimeRules;
     runtimeExecutionPolicy = buildRuntimeExecutionPolicy(resolved);
     const projected = projectRuntimeExecutionPolicyToRulesJson(runtimeExecutionPolicy);
-    rulesJsonUpdate = { ...projected };
+    const existingMatchRules = match.rulesJson as { overs?: number } | null;
+    const matchOvers =
+      typeof existingMatchRules?.overs === "number" && existingMatchRules.overs > 0
+        ? existingMatchRules.overs
+        : undefined;
+
+    rulesJsonUpdate = {
+      ...projected,
+      ...(matchOvers ? { overs: matchOvers } : {}),
+    };
     resolutionId = resolved.resolutionId;
     rulesHash = resolved.rulesHash;
     runtimeRulesVersion = resolved.runtimeRulesVersion;
@@ -570,6 +701,17 @@ export async function prepareRuntimeMatch(
       },
       prepMetadata,
     );
+    if (prepMetadata && typeof prepMetadata === "object") {
+      const ruleRes = (prepMetadata.ruleResolution as Record<string, unknown>) || {};
+      prepMetadata = {
+        ...prepMetadata,
+        ruleResolution: {
+          ...ruleRes,
+          rulePresetId: resolvedPresetId,
+          rulePresetName: resolvedPresetName,
+        },
+      };
+    }
 
     // ── EPIC-12 Phase 1: sole PresentationEngine.resolve(PREPARE) site ──
     // Engines never call each other. Presentation resolve is independent of Rule resolve.
@@ -650,6 +792,8 @@ export async function prepareRuntimeMatch(
           presentationHash,
           presentationVersion,
           presentationExecutionPolicy,
+          rulePresetId: resolvedPresetId,
+          rulePresetName: resolvedPresetName,
         }
       : null,
   });
@@ -662,6 +806,9 @@ export async function prepareRuntimeMatch(
       ...(rulesJsonUpdate ? { rulesJson: rulesJsonUpdate } : {}),
       ...(brandingJsonUpdate ? { brandingJson: brandingJsonUpdate } : {}),
       ...(prepMetadata ? { runtimePrepMetadataJson: prepMetadata } : {}),
+      ...(resolvedPresetId && match.rulePresetId !== resolvedPresetId
+        ? { rulePresetId: resolvedPresetId }
+        : {}),
       updatedAt: new Date(),
     })
     .where(

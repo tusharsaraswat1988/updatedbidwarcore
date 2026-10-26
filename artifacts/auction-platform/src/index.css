@@ -8,6 +8,30 @@
   to   { transform: translateX(-50%); }
 }
 
+@keyframes floatUp {
+  0% {
+    transform: translateY(0) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(-20px) scale(1.15);
+  }
+  75% {
+    opacity: 0.9;
+    transform: translateY(-100px) scale(1);
+  }
+  100% {
+    transform: translateY(-150px) scale(0.8);
+    opacity: 0;
+  }
+}
+
+@utility animate-float-up {
+  animation: floatUp 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+
 /* GPU-safe opacity pulse for player tag badges (no blur/shadow/transform animation) */
 @keyframes softPulse {
   0%, 100% { opacity: 1; }
@@ -29,6 +53,12 @@
   will-change: transform;
 }
 
+/* BPL partner strip: 20% slower than the shared 28s marquee. */
+@utility animate-bpl-marquee {
+  animation: marquee 33.6s linear infinite;
+  will-change: transform;
+}
+
 /* Live Viewer — mobile-only teams scroll clearance for sticky CHEER LIVE */
 @media (max-width: 767px) {
   .liveviewer-mobile-teams-scroll {
@@ -40,6 +70,7 @@
 @import "tailwindcss";
 @import "./styles/lovable-homepage.css";
 @import "./styles/auction-interactive.css";
+@import "./styles/registration-experience.css";
 
 @utility animate-accordion-down {
   animation: accordion-down 0.2s ease-out;
@@ -274,9 +305,443 @@
   @apply flex items-center gap-3 py-3 border-b border-border/50 last:border-0;
 }
 
-/* Table responsive wrapper — prevents horizontal overflow */
+/* Compact list toolbar: status strip, then one row of search + actions */
+.org-data-toolbar {
+  @apply space-y-2;
+}
+.org-data-toolbar__strip {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--ops-border, var(--border));
+  scrollbar-width: thin;
+}
+.org-data-toolbar__row {
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: stretch;
+  gap: 0.5rem;
+  min-width: 0;
+}
+@media (min-width: 1024px) {
+  .org-data-toolbar__row {
+    flex-flow: row nowrap;
+    align-items: center;
+  }
+}
+.org-data-toolbar__search {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+}
+.org-data-toolbar__actions {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  gap: 0.375rem;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+@media (min-width: 1024px) {
+  .org-data-toolbar__actions {
+    flex-wrap: nowrap;
+  }
+}
+.org-data-toolbar__filter-btn,
+.org-data-toolbar__sort-trigger,
+.org-data-toolbar__export-btn,
+.org-data-toolbar__search > input {
+  height: 2.5rem;
+  min-height: 2.5rem;
+}
+.org-data-toolbar__filter-btn,
+.org-data-toolbar__export-btn {
+  width: auto;
+  flex: 0 0 auto;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+.org-data-toolbar__sort-trigger {
+  width: 9.5rem;
+  max-width: 9.5rem;
+  min-width: 0;
+  flex: 1 1 9.5rem;
+  padding-left: 0.75rem;
+  padding-right: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+@media (min-width: 1024px) {
+  .org-data-toolbar__sort-trigger {
+    width: 11.5rem;
+    max-width: 11.5rem;
+    min-width: 11.5rem;
+    flex: 0 0 11.5rem;
+  }
+}
+.org-data-toolbar__sort-trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.org-data-toolbar__hint {
+  @apply text-[11px] text-muted-foreground leading-snug;
+}
+.org-mobile-player-card {
+  position: relative;
+  border: 1px solid var(--ops-border, var(--border));
+  border-left-width: 2px;
+  border-radius: var(--ops-radius, 0.5rem);
+  background: var(--ops-surface, var(--card));
+  min-width: 0;
+}
+.org-mobile-player-card__tap {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  text-align: left;
+  padding: 0.5rem 2.75rem 0.5rem 0.625rem;
+  background: transparent;
+}
+.org-mobile-player-card__tap:active {
+  background: color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+.org-mobile-player-card__tap:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--primary) 70%, transparent);
+  outline-offset: -2px;
+}
+
+/* Clickable data table rows */
+.org-table-row-interactive {
+  cursor: pointer;
+  border-left-width: 2px;
+  border-left-style: solid;
+  transition: background-color 120ms ease;
+}
+.org-table-row-interactive:hover {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+.org-table-row-interactive:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--primary) 65%, transparent);
+  outline-offset: -2px;
+}
+.org-table-row-interactive[data-expanded="true"] {
+  background: color-mix(in oklab, var(--primary) 10%, var(--ops-surface, var(--card)));
+}
+.org-table-row-interactive[data-expanded="true"]:hover {
+  background: color-mix(in oklab, var(--primary) 14%, var(--ops-surface, var(--card)));
+}
+
+/* Table responsive wrapper — prevents horizontal page overflow */
 .org-table-wrapper {
-  @apply w-full overflow-x-auto rounded-xl border border-border;
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--ops-radius, 0.5rem);
+  border: 1px solid var(--ops-border, var(--border));
+  background: var(--ops-surface, var(--card));
+}
+.auction-ops .org-table-wrapper {
+  background: var(--ops-surface) !important;
+  border-color: var(--ops-border) !important;
+}
+
+/*
+ * Auction operations tokens. Scoped to AppLayout (`.auction-ops`) so marketing
+ * pages and print reports keep their own surfaces. Values sit on the existing
+ * BidWar navy/gold theme; status hues stay semantic.
+ */
+.auction-ops {
+  --ops-bg: var(--stage);
+  --ops-surface: var(--panel);
+  --ops-input: color-mix(in oklab, var(--stage) 78%, black);
+  --ops-border: color-mix(in oklab, var(--foreground) 16%, transparent);
+  --ops-text: var(--foreground);
+  --ops-text-secondary: var(--muted-foreground);
+  --ops-muted: color-mix(in oklab, var(--muted-foreground) 78%, transparent);
+  --ops-control-h: 2.5rem;
+  --ops-radius: 0.5rem;
+  --ops-available: #7eb6ff;
+  --ops-sold: #3dd68c;
+  --ops-unsold: #fb7185;
+  --ops-retained: #c4b5fd;
+  --ops-withdrawn: #fbbf24;
+  --ops-approved: #4ade80;
+  --ops-pending: #fbbf24;
+  --ops-rejected: #f87171;
+}
+
+.auction-ops .org-kpi-card,
+.auction-ops .org-surface-card,
+.auction-ops .panel {
+  background: var(--ops-surface) !important;
+  box-shadow: none !important;
+  border-radius: var(--ops-radius);
+}
+.auction-ops .org-kpi-card,
+.auction-ops .panel {
+  border: 1px solid var(--ops-border);
+}
+.auction-ops .panel:hover {
+  border-color: color-mix(in oklab, var(--primary) 40%, var(--ops-border));
+}
+
+.auction-ops .org-kpi-card {
+  padding: 0.875rem 1rem;
+}
+
+.auction-ops .org-kpi-value {
+  font-size: 1.5rem;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.25rem;
+}
+
+.auction-ops .org-page-content > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+.auction-ops .org-data-toolbar__search > input {
+  background: var(--ops-input) !important;
+  border: 1px solid var(--ops-border) !important;
+  color: var(--ops-text);
+  box-shadow: none;
+}
+
+.auction-ops .org-data-toolbar__filter-btn,
+.auction-ops .org-data-toolbar__sort-trigger,
+.auction-ops .org-data-toolbar__export-btn {
+  height: var(--ops-control-h) !important;
+  min-height: var(--ops-control-h) !important;
+  background: var(--ops-surface);
+  border-color: var(--ops-border);
+  box-shadow: none;
+}
+@media (max-width: 1023px) {
+  .auction-ops .org-data-toolbar__filter-btn,
+  .auction-ops .org-data-toolbar__sort-trigger,
+  .auction-ops .org-data-toolbar__export-btn,
+  .auction-ops .org-data-toolbar__search > input {
+    height: 2.75rem !important;
+    min-height: 2.75rem !important;
+  }
+}
+
+.ops-status-tab {
+  height: 2rem;
+  border-radius: 0.375rem;
+}
+.ops-status-tab:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--primary) 70%, transparent);
+  outline-offset: 1px;
+}
+.ops-status-tab--active {
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+  color: var(--foreground);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--primary);
+}
+
+.ops-player-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+.ops-player-table th,
+.ops-player-table td {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+.ops-player-table .ops-col-player {
+  max-width: 16rem;
+  overflow: hidden;
+}
+.ops-player-table .ops-col-fill {
+  width: auto;
+  padding: 0;
+}
+.ops-player-table thead th {
+  height: 2.25rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ops-text-secondary);
+  background: color-mix(in oklab, var(--stage) 70%, var(--ops-surface));
+  border-bottom: 1px solid var(--ops-border);
+}
+.auction-ops .ops-player-table tbody > tr.org-table-row-interactive {
+  background: var(--ops-surface);
+  border-color: var(--ops-border);
+}
+.auction-ops .ops-player-table tbody > tr.org-table-row-interactive:hover {
+  background: color-mix(in oklab, var(--foreground) 6%, var(--ops-surface));
+}
+.auction-ops .ops-player-table tbody > tr.org-table-row-interactive[data-expanded="true"] {
+  background: color-mix(in oklab, var(--primary) 10%, var(--ops-surface));
+}
+.auction-ops .ops-player-table tbody > tr.org-table-row-interactive[data-expanded="true"]:hover {
+  background: color-mix(in oklab, var(--primary) 14%, var(--ops-surface));
+}
+.ops-player-table tbody > tr.org-table-row-interactive > td {
+  height: 2.875rem;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--ops-border);
+  background: transparent;
+}
+.ops-player-table .tabular-nums,
+.ops-player-table .font-mono {
+  font-variant-numeric: tabular-nums;
+}
+
+.ops-player-expand {
+  margin: 0.25rem 0.375rem 0.375rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--ops-radius);
+  border: 1px solid var(--ops-border);
+  background: var(--ops-input);
+}
+
+.ops-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  font-size: 0.8125rem;
+}
+.ops-detail__sections {
+  display: grid;
+  gap: 0.625rem 1.25rem;
+}
+@media (min-width: 640px) {
+  .ops-detail__sections {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .ops-detail__payment {
+    grid-column: 1 / -1;
+  }
+}
+.ops-detail__label {
+  margin: 0 0 0.2rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ops-text-secondary);
+}
+.ops-detail dl {
+  display: grid;
+  grid-template-columns: 4.75rem minmax(0, 1fr);
+  gap: 0.15rem 0.5rem;
+  margin: 0;
+  align-items: center;
+}
+.ops-detail dt {
+  font-size: 11px;
+  color: var(--ops-text-secondary);
+}
+.ops-detail dd {
+  margin: 0;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ops-payment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--ops-border);
+}
+.ops-payment__facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.75rem;
+  min-width: 0;
+}
+.ops-payment__meta {
+  margin-right: 0.25rem;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ops-text-secondary);
+}
+.ops-payment__link {
+  font-size: 12px;
+  color: var(--primary);
+  text-underline-offset: 2px;
+}
+.ops-payment__link:hover {
+  text-decoration: underline;
+}
+.ops-payment__shot {
+  width: 4.5rem;
+  height: 3rem;
+  object-fit: cover;
+  border-radius: 0.375rem;
+  border: 1px solid var(--ops-border);
+}
+.ops-payment-select {
+  height: 2rem !important;
+  min-height: 2rem !important;
+  width: 7.5rem;
+  padding-left: 0.5rem;
+  padding-right: 0.375rem;
+  font-size: 12px;
+  background: var(--ops-input) !important;
+  border: 1px solid var(--ops-border) !important;
+  box-shadow: none !important;
+}
+
+.ops-pay-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+.ops-pay-badge::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+.ops-pay-badge--approved { color: var(--ops-approved); }
+.ops-pay-badge--pending { color: var(--ops-pending); }
+.ops-pay-badge--rejected { color: var(--ops-rejected); }
+
+.ops-player-sheet {
+  max-height: min(92dvh, 40rem);
+  overflow-y: auto;
+  border-top-left-radius: 0.75rem;
+  border-top-right-radius: 0.75rem;
+  padding: 0.75rem 1rem max(1rem, env(safe-area-inset-bottom));
+  background: var(--ops-surface);
+}
+.ops-player-sheet > button {
+  top: 0.35rem;
+  right: 0.35rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auction-ops .org-table-row-interactive,
+  .auction-ops .org-mobile-player-card__tap {
+    transition: none;
+  }
 }
 
 /* Inline info / tip banner */

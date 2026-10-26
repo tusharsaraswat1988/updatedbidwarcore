@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
 import { formatIndianRupee, formatShortIndianRupee, normalizeAuctionUnit } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
 import { exportElementToPdf, printElementAsPdf } from "@/lib/export-element-pdf";
@@ -23,9 +22,10 @@ import { useBranding } from "@/hooks/use-branding";
 import { getBrandLogoAlt, getPublicBrandLogoSrc } from "@/lib/brand-assets";
 import { resolveRetainedSpend, type TeamReportAuctionRules } from "@workspace/api-base";
 import { PLATFORM_BASE_URL } from "@workspace/api-base/branding-assets";
+import { jerseySizeLabel } from "@workspace/api-base/jersey-size";
 import { toast } from "@/hooks/use-toast";
 import {
-  FileText, Printer, Download, Lock, Users, ChevronRight,
+  FileText, Printer, Download, Lock, ChevronRight,
   User, AlertTriangle, Loader2, Award,
 } from "lucide-react";
 
@@ -44,11 +44,22 @@ const OPTIONAL_COLS = [
 ] as const;
 type ColKey = typeof OPTIONAL_COLS[number]["key"];
 
-const PRESETS: Record<"basic" | "auction" | "detailed", ColKey[]> = {
+const PRESET_KEYS = ["basic", "auction", "detailed"] as const;
+type PresetKey = (typeof PRESET_KEYS)[number];
+
+const PRESETS: Record<PresetKey, ColKey[]> = {
   basic:    [],
   auction:  ["photo", "categoryName", "remainingBalance"],
   detailed: ["photo", "mobileNumber", "email", "age", "city", "categoryName", "role", "jerseyNumber", "jerseySize", "status", "remainingBalance"],
 };
+
+function matchingPreset(cols: Set<ColKey>): PresetKey | null {
+  for (const key of PRESET_KEYS) {
+    const preset = PRESETS[key];
+    if (preset.length === cols.size && preset.every((col) => cols.has(col))) return key;
+  }
+  return null;
+}
 
 const REPORT_TH =
   "border border-gray-400 px-2 py-1 text-[10px] font-bold uppercase leading-tight whitespace-normal tracking-wide align-middle";
@@ -221,7 +232,7 @@ function PlayerTable({
             {cols.has("categoryName") && <th className={`w-28 ${REPORT_TH} text-left`}>Category</th>}
             {cols.has("role") && <th className={`w-24 ${REPORT_TH} text-left`}>Role</th>}
             {cols.has("jerseyNumber") && <th className={`w-16 ${REPORT_TH} text-center`}>Jersey No.</th>}
-            {cols.has("jerseySize") && <th className={`w-16 ${REPORT_TH} text-center`}>Jersey Size</th>}
+            {cols.has("jerseySize") && <th className={`w-36 ${REPORT_TH} text-center`}>Jersey Size</th>}
             {cols.has("status") && <th className={`w-24 ${REPORT_TH} text-left`}>Type</th>}
             <th className={`w-24 ${REPORT_TH} text-right`}>Amount</th>
             {cols.has("remainingBalance") && <th className={`w-24 ${REPORT_TH} text-right`}>Balance</th>}
@@ -254,7 +265,7 @@ function PlayerTable({
                 )}
                 {cols.has("role") && <td className={`${cell} capitalize text-gray-600`}>{p.role?.replace(/_/g, " ") || "-"}</td>}
                 {cols.has("jerseyNumber") && <td className={`${cell} text-center text-gray-600`}>{p.jerseyNumber || "-"}</td>}
-                {cols.has("jerseySize") && <td className={`${cell} text-center text-gray-600`}>{p.jerseySize || "-"}</td>}
+                {cols.has("jerseySize") && <td className={`${cell} text-center text-gray-600 whitespace-nowrap`}>{p.jerseySize ? jerseySizeLabel(p.jerseySize) : "-"}</td>}
                 {cols.has("status") && (
                   <td className={cell}>
                     <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${p.status === "retained" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
@@ -312,7 +323,7 @@ function AuctionPlanningTable({
               {cols.has("categoryName") && <th className={`w-28 ${headCell} text-left`}>Category</th>}
               {cols.has("role") && <th className={`w-24 ${headCell} text-left`}>Role</th>}
               {cols.has("jerseyNumber") && <th className={`w-16 ${headCell} text-center`}>Jersey No.</th>}
-              {cols.has("jerseySize") && <th className={`w-16 ${headCell} text-center`}>Jersey Size</th>}
+              {cols.has("jerseySize") && <th className={`w-36 ${headCell} text-center`}>Jersey Size</th>}
               {cols.has("status") && <th className={`w-24 ${headCell} text-left`}>Type</th>}
               <th className={`w-24 ${headCell} text-right`}>Amount</th>
               {cols.has("remainingBalance") && <th className={`w-24 ${headCell} text-right`}>Balance</th>}
@@ -635,9 +646,15 @@ function ReportPreview({
   );
 }
 
-export default function TeamReportsPage() {
-  const [, params] = useRoute("/tournament/:id/team-reports");
-  const tournamentId = parseInt(params?.id || "0");
+export const TEAM_PLANNING_SHEET_ID = "team_planning_sheet";
+
+export function TeamPlanningWorkspace({
+  tournamentId,
+  embedded = false,
+}: {
+  tournamentId: number;
+  embedded?: boolean;
+}) {
 
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const [cols, setCols] = useState<Set<ColKey>>(() => loadCols(tournamentId));
@@ -652,6 +669,11 @@ export default function TeamReportsPage() {
   const { data: teamList, isLoading: loadingTeams } = useGetTeamReportList(tournamentId, {
     query: { queryKey: getGetTeamReportListQueryKey(tournamentId), enabled: !!tournamentId && tournament?.licenseStatus === "active" },
   });
+
+  useEffect(() => {
+    if (selectedTeamId != null || !teamList?.length) return;
+    setSelectedTeamId(teamList[0].teamId);
+  }, [teamList, selectedTeamId]);
 
   const { data: report, isLoading: loadingReport } = useGetTeamReport(tournamentId, selectedTeamId ?? 0, {
     query: { queryKey: getGetTeamReportQueryKey(tournamentId, selectedTeamId ?? 0), enabled: !!selectedTeamId && tournament?.licenseStatus === "active" },
@@ -720,22 +742,22 @@ export default function TeamReportsPage() {
   }
 
   const isLicensed = tournament?.licenseStatus === "active";
+  const currentPreset = matchingPreset(cols);
+  const reportReady = Boolean(selectedTeamId && report);
 
   if (!isLicensed && tournament) {
     return (
-      <AppLayout tournamentId={tournamentId}>
-        <div className="flex flex-col items-center justify-center min-h-96 text-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-            <Lock className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold mb-1">Team Reports — Licensed Feature</h2>
-            <p className="text-muted-foreground text-sm max-w-md">
-              Pre-auction team reports are available only for licensed tournaments. Contact support to activate the license for this tournament.
-            </p>
-          </div>
+      <div className="flex flex-col items-center justify-center min-h-96 text-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
+          <Lock className="w-8 h-8 text-muted-foreground" />
         </div>
-      </AppLayout>
+        <div>
+          <h2 className="text-xl font-bold mb-1">Licensed feature</h2>
+          <p className="text-muted-foreground text-sm max-w-md">
+            Team planning sheets are available for licensed tournaments. Contact support to activate the license.
+          </p>
+        </div>
+      </div>
     );
   }
 
@@ -814,168 +836,166 @@ export default function TeamReportsPage() {
         }
       `}</style>
 
-      <AppLayout tournamentId={tournamentId}>
-        <div className="flex gap-0 h-full -m-8">
-          {/* Left panel: team list + column selector */}
-          <aside className="w-72 flex-shrink-0 border-r border-border bg-card flex flex-col h-full overflow-hidden print-hide">
-            <div className="p-4 border-b border-border">
-              <TournamentContextLabel tournament={tournament} className="mb-1.5" />
-              <h1 className="font-bold text-base flex items-center gap-2">
-                <FileText className="w-4 h-4 text-primary" />
-                Pre-Auction Reports
+        <div className={embedded ? "flex h-full min-h-[680px] flex-col" : "flex h-full min-h-0 flex-col -m-8"}>
+          <header className="print-hide flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
+            <div className="min-w-0">
+              <TournamentContextLabel tournament={tournament} className="mb-1" />
+              <h1 className="flex items-center gap-2 text-base font-bold">
+                <FileText className="h-4 w-4 text-primary" />
+                Planning sheets
               </h1>
-              <p className="text-xs text-muted-foreground mt-0.5">Pre-Auction Planning Sheets</p>
             </div>
+            <div className="flex gap-2">
+              <Button onClick={handlePrint} variant="outline" size="sm" disabled={!reportReady || printing || exporting}>
+                {printing ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Printer className="mr-1.5 h-3.5 w-3.5" />}
+                {printing ? "Preparing..." : "Print"}
+              </Button>
+              <Button onClick={handleExportPdf} size="sm" disabled={!reportReady || exporting || printing}>
+                {exporting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />}
+                {exporting ? "Exporting..." : "Export PDF"}
+              </Button>
+            </div>
+          </header>
 
-            {/* Team list */}
-            <div className="flex-shrink-0 border-b border-border">
-              <p className="px-4 pt-3 pb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Select Team</p>
-              <div className="overflow-y-auto max-h-60">
-                {loadingTeams ? (
-                  <div className="space-y-1 px-2 pb-2">
-                    {[1,2,3].map(i => <Skeleton key={i} className="h-14" />)}
-                  </div>
-                ) : !teamList?.length ? (
-                  <p className="px-4 pb-3 text-xs text-muted-foreground italic">No teams found.</p>
-                ) : (
-                  <div className="space-y-0.5 px-2 pb-2">
-                    {teamList.map(team => (
+          <div className="flex min-h-0 flex-1">
+            <aside className="print-hide flex w-60 shrink-0 flex-col overflow-x-hidden overflow-y-auto border-r border-border bg-card">
+              <p className="px-4 pb-1.5 pt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Teams</p>
+              {loadingTeams ? (
+                <div className="space-y-1 px-2 pb-3">
+                  {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12" />)}
+                </div>
+              ) : !teamList?.length ? (
+                <p className="px-4 pb-3 text-xs text-muted-foreground">No teams yet.</p>
+              ) : (
+                <div className="space-y-0.5 px-2 pb-3">
+                  {teamList.map((team) => {
+                    const acquired = team.retainedCount + team.preSoldCount;
+                    const detail = acquired > 0 || team.nonPlayingCount > 0
+                      ? `${acquired} acquired${team.nonPlayingCount > 0 ? ` · ${team.nonPlayingCount} non-playing` : ""}`
+                      : team.shortCode;
+                    return (
                       <button
                         key={team.teamId}
+                        type="button"
                         onClick={() => setSelectedTeamId(team.teamId)}
-                        className={`w-full flex items-center gap-2.5 px-2 py-2 rounded-md text-left transition-colors ${
+                        className={`flex w-full min-w-0 items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors ${
                           selectedTeamId === team.teamId
                             ? "bg-primary/10 text-primary"
                             : "text-muted-foreground hover:bg-accent hover:text-foreground"
                         }`}
                       >
                         {team.logoUrl ? (
-                          <img src={cldUrl(team.logoUrl, "teamLogo") || team.logoUrl} alt={team.teamName} className="w-8 h-8 object-contain rounded flex-shrink-0" />
+                          <img src={cldUrl(team.logoUrl, "teamLogo") || team.logoUrl} alt="" className="h-8 w-8 shrink-0 rounded object-contain" />
                         ) : (
-                          <div className="w-8 h-8 rounded flex-shrink-0 flex items-center justify-center text-xs font-bold" style={{ backgroundColor: (team.color || "#3B82F6") + "33", color: team.color || "#3B82F6" }}>
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-xs font-bold" style={{ backgroundColor: (team.color || "#3B82F6") + "33", color: team.color || "#3B82F6" }}>
                             {team.shortCode.slice(0, 2)}
                           </div>
                         )}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-xs truncate">{team.teamName}</p>
-                          <p className="text-xs text-muted-foreground/70">
-                            {team.retainedCount + team.preSoldCount} acquired · {team.nonPlayingCount} non-playing
-                          </p>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold">{team.teamName}</p>
+                          <p className="truncate text-xs text-muted-foreground/70">{detail}</p>
                         </div>
-                        {selectedTeamId === team.teamId && <ChevronRight className="w-3 h-3 flex-shrink-0" />}
+                        {selectedTeamId === team.teamId ? <ChevronRight className="h-3 w-3 shrink-0" /> : null}
                       </button>
-                    ))}
+                    );
+                  })}
+                </div>
+              )}
+            </aside>
+
+            <main className="flex min-w-0 flex-1 flex-col bg-muted/30">
+              <div className="print-hide border-b border-border px-4 py-3">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="mr-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Columns</span>
+                  {PRESET_KEYS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => applyPreset(preset)}
+                      className={cn(
+                        "rounded border px-2 py-1 text-xs capitalize transition-colors",
+                        currentPreset === preset
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:border-primary hover:text-primary",
+                      )}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 xl:grid-cols-4">
+                  {OPTIONAL_COLS.map((col) => (
+                    <label key={col.key} className="flex min-w-0 cursor-pointer items-center gap-2">
+                      <Checkbox
+                        checked={cols.has(col.key)}
+                        onCheckedChange={() => toggleCol(col.key)}
+                        className="shrink-0"
+                      />
+                      <span className="truncate text-xs text-muted-foreground">{col.label}</span>
+                    </label>
+                  ))}
+                  <label className="flex min-w-0 cursor-pointer items-center gap-2">
+                    <Checkbox
+                      checked={showSponsors}
+                      onCheckedChange={(checked) => toggleShowSponsors(checked === true)}
+                      className="shrink-0"
+                    />
+                    <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                      <Award className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">Sponsors in footer</span>
+                    </span>
+                  </label>
+                </div>
+                {showSponsors && report && !report.sponsors?.length ? (
+                  <p className="mt-2 text-xs text-muted-foreground">No sponsors configured for this tournament.</p>
+                ) : null}
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {loadingTeams || (selectedTeamId != null && loadingReport) ? (
+                  <div className="space-y-4 p-6">
+                    <Skeleton className="h-36" />
+                    <Skeleton className="h-48" />
+                    <Skeleton className="h-64" />
+                  </div>
+                ) : !teamList?.length ? (
+                  <div className="flex h-full items-center justify-center p-8 text-center">
+                    <p className="text-sm text-muted-foreground">Add teams before building a planning sheet.</p>
+                  </div>
+                ) : !report ? (
+                  <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+                    <AlertTriangle className="h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Could not load this sheet. Check that the tournament license is active.</p>
+                  </div>
+                ) : (
+                  <div className="p-6">
+                    <div className="mb-4 flex items-center gap-2">
+                      <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: report.team.color || "#3B82F6" }} />
+                      <span className="text-sm font-semibold">{report.team.name}</span>
+                      <Badge variant="outline" className="text-xs">Planning sheet</Badge>
+                      {!report.isLicensed ? (
+                        <Badge variant="destructive" className="text-xs">Unlicensed</Badge>
+                      ) : null}
+                    </div>
+                    <div className="mx-auto max-w-5xl overflow-hidden rounded-lg border border-border shadow-xl">
+                      <ReportPreview report={report} cols={cols} showSponsors={showSponsors} />
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Column selector */}
-            <div className="flex-1 overflow-y-auto">
-              <p className="px-4 pt-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Columns</p>
-              <div className="px-3 pb-2 flex gap-1.5 flex-wrap">
-                {(["basic", "auction", "detailed"] as const).map(preset => (
-                  <button
-                    key={preset}
-                    onClick={() => applyPreset(preset)}
-                    className="text-xs px-2 py-1 rounded border border-border hover:border-primary hover:text-primary transition-colors capitalize"
-                  >
-                    {preset}
-                  </button>
-                ))}
-              </div>
-              <div className="px-3 pb-4 space-y-2">
-                {OPTIONAL_COLS.map(col => (
-                  <label key={col.key} className="flex items-center gap-2 cursor-pointer group">
-                    <Checkbox
-                      checked={cols.has(col.key)}
-                      onCheckedChange={() => toggleCol(col.key)}
-                      className="flex-shrink-0"
-                    />
-                    <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">{col.label}</span>
-                  </label>
-                ))}
-              </div>
-
-              <Separator className="mx-3" />
-              <p className="px-4 pt-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Footer</p>
-              <div className="px-3 pb-4">
-                <label className="flex items-center gap-2 cursor-pointer group">
-                  <Checkbox
-                    checked={showSponsors}
-                    onCheckedChange={(checked) => toggleShowSponsors(checked === true)}
-                    className="flex-shrink-0"
-                  />
-                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-                    <Award className="h-3.5 w-3.5" />
-                    Show Sponsors in Footer
-                  </span>
-                </label>
-                {showSponsors && !report?.sponsors?.length ? (
-                  <p className="mt-1.5 pl-6 text-[10px] italic text-muted-foreground">No sponsors configured for this tournament.</p>
-                ) : null}
-              </div>
-            </div>
-
-            {/* Actions */}
-            {selectedTeamId && (
-              <div className="p-3 border-t border-border flex flex-col gap-2">
-                <Button onClick={handlePrint} variant="outline" size="sm" className="w-full" disabled={!report || printing || exporting}>
-                  {printing ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Printer className="w-3.5 h-3.5 mr-1.5" />}
-                  {printing ? "Preparing..." : "Print"}
-                </Button>
-                <Button onClick={handleExportPdf} size="sm" className="w-full" disabled={!report || exporting || printing}>
-                  {exporting ? <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Download className="w-3.5 h-3.5 mr-1.5" />}
-                  {exporting ? "Exporting..." : "Export PDF"}
-                </Button>
-              </div>
-            )}
-          </aside>
-
-          {/* Main content: report preview */}
-          <main className="flex-1 overflow-y-auto bg-muted/30">
-            {!selectedTeamId ? (
-              <div className="flex flex-col items-center justify-center min-h-full gap-4 text-center p-8">
-                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
-                  <Users className="w-8 h-8 text-muted-foreground" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold mb-1">Select a Team</h2>
-                  <p className="text-muted-foreground text-sm">Choose a team from the left panel to preview their pre-auction report.</p>
-                </div>
-              </div>
-            ) : loadingReport ? (
-              <div className="p-6 space-y-4">
-                <Skeleton className="h-36" />
-                <Skeleton className="h-48" />
-                <Skeleton className="h-64" />
-              </div>
-            ) : !report ? (
-              <div className="flex flex-col items-center justify-center min-h-full gap-3 text-center p-8">
-                <AlertTriangle className="w-8 h-8 text-muted-foreground" />
-                <p className="text-muted-foreground text-sm">Could not load report data. Check that this tournament has an active license.</p>
-              </div>
-            ) : (
-              <div className="p-6">
-                {/* Screen action bar */}
-                <div className="print-hide mb-4 flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: report.team.color || "#3B82F6" }} />
-                  <span className="font-semibold text-sm">{report.team.name}</span>
-                  <Badge variant="outline" className="text-xs">Pre-Auction Report</Badge>
-                  {!report.isLicensed && (
-                    <Badge variant="destructive" className="text-xs">Unlicensed</Badge>
-                  )}
-                </div>
-
-                {/* Report preview card */}
-                <div className="mx-auto max-w-5xl overflow-hidden rounded-lg border border-border shadow-xl">
-                  <ReportPreview report={report} cols={cols} showSponsors={showSponsors} />
-                </div>
-              </div>
-            )}
-          </main>
+            </main>
+          </div>
         </div>
-      </AppLayout>
     </>
+  );
+}
+
+export default function TeamReportsPage() {
+  const [, params] = useRoute("/tournament/:id/team-reports");
+  const tournamentId = parseInt(params?.id || "0");
+  return (
+    <AppLayout tournamentId={tournamentId}>
+      <TeamPlanningWorkspace tournamentId={tournamentId} />
+    </AppLayout>
   );
 }

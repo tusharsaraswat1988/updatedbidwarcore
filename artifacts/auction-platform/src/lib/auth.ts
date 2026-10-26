@@ -88,6 +88,7 @@ export async function createAdminTournament(data: {
   organizerName?: string; organizerMobile?: string; organizerEmail?: string;
   organizerPassword?: string; basePurse?: number; minBid?: number;
   timerSeconds?: number; bidTimerSeconds?: number;
+  auctionEnabled?: boolean; scoringEnabled?: boolean;
 }): Promise<{ success: boolean; id?: number; error?: string }> {
   try {
     const r = await apiFetch("/auth/admin/tournaments", { method: "POST", body: JSON.stringify(data) });
@@ -134,7 +135,7 @@ export async function updateAdminTournament(
     status: string; timerSeconds: number; bidTimerSeconds: number;
     basePurse: number; minBid: number; playerSelectionMode: string; bidTiers: string;
     localModeEnabled: boolean; scoringEnabled: boolean; reason: string;
-    features: Partial<{ buzzStudio: boolean; ownerApp: boolean; scoring: boolean; sponsorshipHub: boolean; analytics: boolean }>;
+    features: Partial<{ ownerApp: boolean; scoring: boolean; sponsorshipHub: boolean; analytics: boolean }>;
   }>
 ): Promise<{ success: boolean; error?: string; linkedOrganizerId?: number | null; linkedOrganizerName?: string | null }> {
   try {
@@ -226,7 +227,7 @@ export type AdminTournamentDetail = {
     resetCount: number; lastResetAt: string | null; lastResetBy: string | null;
     cheerMessagesEnabled: boolean; cheerMessagePresets: string | null;
     localModeEnabled: boolean; scoringEnabled: boolean;
-    features: { buzzStudio: boolean; ownerApp?: boolean; scoring?: boolean; sponsorshipHub?: boolean; analytics?: boolean };
+    features: { ownerApp?: boolean; scoring?: boolean; sponsorshipHub?: boolean; analytics?: boolean };
     createdAt: string;
   };
   teams: Array<{ id: number; name: string; shortCode: string; ownerName: string; color: string | null; logoUrl: string | null; purse: number; purseUsed: number }>;
@@ -511,7 +512,19 @@ export async function createOrganizerTournament(data: {
   presentationProfileId?: string; presentationProfileVersion?: string;
   registrationDeadline?: string; registrationLimit?: number;
   enableRegistrationPayment?: boolean; registrationFee?: number;
-}): Promise<{ success: boolean; error?: string; tournament?: { id: number; name: string; auctionCode?: string | null } }> {
+  auctionEnabled?: boolean; scoringEnabled?: boolean; playerRegistrationMode?: string;
+}): Promise<{
+  success: boolean;
+  error?: string;
+  tournament?: {
+    id: number;
+    name: string;
+    auctionCode?: string | null;
+    auctionEnabled?: boolean;
+    scoringEnabled?: boolean;
+    sport?: string;
+  };
+}> {
   try {
     const r = await apiFetch("/auth/organizer-account/tournaments", {
       method: "POST",
@@ -519,7 +532,15 @@ export async function createOrganizerTournament(data: {
     });
     const d = await r.json();
     if (!r.ok) return { success: false, error: d.error || "Create failed" };
-    return { success: true, tournament: d.tournament };
+    return {
+      success: true,
+      tournament: {
+        ...d.tournament,
+        auctionEnabled: d.tournament?.auctionEnabled ?? data.auctionEnabled ?? true,
+        scoringEnabled: d.tournament?.scoringEnabled ?? data.scoringEnabled ?? false,
+        sport: d.tournament?.sport ?? data.sport ?? "cricket",
+      },
+    };
   } catch { return { success: false, error: "Network error" }; }
 }
 
@@ -797,6 +818,7 @@ export type AcademyLessonRow = {
   contentFormat: "plain" | "markdown" | "html";
   youtubeUrl: string | null;
   youtubeVideoId: string | null;
+  thumbnailUrl?: string | null;
   categoryId: number | null;
   categoryName: string | null;
   seoTitle: string | null;
@@ -815,6 +837,7 @@ export type AcademyLessonInput = {
   content?: string | null;
   contentFormat?: "plain" | "markdown" | "html";
   youtubeUrl?: string | null;
+  thumbnailUrl?: string | null;
   categoryId?: number | null;
   seoTitle?: string | null;
   seoDescription?: string | null;

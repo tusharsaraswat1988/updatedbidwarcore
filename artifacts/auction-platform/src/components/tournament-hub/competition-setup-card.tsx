@@ -495,7 +495,6 @@ export function CompetitionSetupCard({ tournamentId, onQuickPeek }: CompetitionS
                       setSquadRules((prev) => ({ ...prev, [key]: e.target.value }))
                     }
                     className="min-h-12"
-                    placeholder="Optional"
                   />
                 </div>
               ))}

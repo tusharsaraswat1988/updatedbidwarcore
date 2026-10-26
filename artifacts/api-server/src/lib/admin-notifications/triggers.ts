@@ -24,16 +24,38 @@ export function notifyAdminTournamentCreated(tournament: Tournament): void {
   });
 }
 
-export function notifyAdminContactFormSubmission(params: {
-  inquiryId: number;
-  referenceId: string;
-  name: string;
-  email: string;
-  mobile: string | null;
-  subject: string;
-  message: string;
-  inquiryType: string;
-  submittedAt: string;
-}): void {
-  sendAdminNotificationAsync("CONTACT_FORM_SUBMISSION", params);
+export function notifyAdminContactFormSubmission(
+  params: {
+    inquiryId: number;
+    referenceId: string;
+    name: string;
+    email: string;
+    mobile: string | null;
+    subject: string;
+    message: string;
+    inquiryType: string;
+    submittedAt: string;
+  },
+  options?: { skipEmail?: boolean },
+): void {
+  sendAdminNotificationAsync("CONTACT_FORM_SUBMISSION", params, options);
 }
+
+export function notifyAdminLicenseRequested(params: {
+  requestId: number;
+  tournamentId: number;
+  tournamentName: string;
+  sport: string;
+  organizerId: number;
+  organizerName: string;
+  organizerMobile: string;
+  requestedModules: "auction" | "scoring" | "both";
+  notes?: string | null;
+  requestedAt?: string;
+}): void {
+  sendAdminNotificationAsync("LICENSE_REQUESTED", {
+    ...params,
+    requestedAt: params.requestedAt ?? new Date().toISOString(),
+  });
+}
+

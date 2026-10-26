@@ -18,7 +18,7 @@ export function cricketDashboardPath(tournamentId: number): string {
 }
 
 export function cricketFixturesPath(tournamentId: number): string {
-  return `${cricketScoreHubPath(tournamentId)}/fixtures`;
+  return cricketScoreHubPath(tournamentId);
 }
 
 export function cricketScheduleOpsPath(tournamentId: number): string {
@@ -77,9 +77,28 @@ export function cricketLiveControlPath(tournamentId: number): string {
   return `${cricketScoreHubPath(tournamentId)}/live-control`;
 }
 
-/** Scorer pad (umpire / assigned scorer). URL kept as /live for existing bookmarks. */
+/** Organizer Broadcast, Screen & Fan Output Links */
+export function cricketLinksPath(tournamentId: number): string {
+  return `${cricketScoreHubPath(tournamentId)}/links`;
+}
+
+/**
+ * @deprecated The old organizer-facing scorer pad URL. The scoring pad has been removed
+ * from this route — it now shows an Empire Scorer redirect page.
+ * Use {@link cricketScorerConsolePath} to link to the dedicated scorer console.
+ */
 export function cricketScorerPath(tournamentId: number, matchId: number): string {
   return `${cricketMatchCenterPath(tournamentId, matchId)}/live`;
+}
+
+/** Scorer Home Portal (Mobile PIN Login + Match Picker). */
+export function cricketScorerHomePath(tournamentId: number): string {
+  return `/cricket/scorer?tid=${tournamentId}`;
+}
+
+/** Standalone Mobile Scorer Pad with zero-scroll layout. */
+export function cricketScorerConsolePath(tournamentId: number, matchId: number): string {
+  return `/cricket/${matchId}/score?tid=${tournamentId}`;
 }
 
 /** Reserved score subpaths — not numeric match IDs. */
@@ -97,6 +116,8 @@ export const CRICKET_SCORE_STATIC_SEGMENTS = new Set([
   "awards",
   "reports",
   "live-control",
+  "links",
 ]);
 
 export const CRICKET_ROUTE_LOADING_CLASS = "min-h-screen bg-background";
+

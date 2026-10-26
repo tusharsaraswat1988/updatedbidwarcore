@@ -1,0 +1,405 @@
+import { describe, expect, it } from "vitest";
+import { CricketEventType } from "../events/cricket";
+import {
+  buildAuthoritativeCricketBroadcastEvent,
+  buildCricketBroadcastEventId,
+} from "../cricket/broadcast-events";
+
+describe("Authoritative Cricket Broadcast Events", () => {
+  const matchId = 123;
+
+  describe("Deterministic ID Generation", () => {
+    it("generates deterministic ID matching matchId:sequence:type format", () => {
+      expect(buildCricketBroadcastEventId(123, 47, "FOUR")).toBe("123:47:FOUR");
+      expect(buildCricketBroadcastEventId(123, 48, "WIDE")).toBe("123:48:WIDE");
+      expect(buildCricketBroadcastEventId(123, 49, "NO_BALL")).toBe("123:49:NO_BALL");
+      expect(buildCricketBroadcastEventId(123, 50, "SIX")).toBe("123:50:SIX");
+      expect(buildCricketBroadcastEventId(123, 51, "WICKET")).toBe("123:51:WICKET");
+    });
+  });
+
+  describe("Ball Recorded Events", () => {
+    it("builds FOUR event from legal 4 runs off the bat", () => {
+      const event = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 47,
+        eventType: CricketEventType.BALL_RECORDED,
+        payload: {
+          innings: 1,
+          over: 3,
+          ball: 2,
+          strikerId: 10,
+          bowlerId: 20,
+          runsOffBat: 4,
+          extras: { type: null, runs: 0 },
+          wicket: null,
+          isLegalDelivery: true,
+        },
+        batterName: "Rohit Sharma",
+        bowlerName: "Mitchell Starc",
+      });
+
+      expect(event).not.toBeNull();
+      expect(event?.id).toBe("123:47:FOUR");
+      expect(event?.type).toBe("FOUR");
+      expect(event?.sequence).toBe(47);
+      expect(event?.matchId).toBe(123);
+      expect(event?.batter).toBe("Rohit Sharma");
+      expect(event?.bowler).toBe("Mitchell Starc");
+      expect(event?.runs).toBe(4);
+      expect(event?.detail).toBe("Rohit Sharma · BOUNDARY 4");
+    });
+
+    it("builds SIX event from legal 6 runs off the bat", () => {
+      const event = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 48,
+        eventType: CricketEventType.BALL_RECORDED,
+        payload: {
+          innings: 1,
+          over: 3,
+          ball: 3,
+          strikerId: 10,
+          bowlerId: 20,
+          runsOffBat: 6,
+          extras: { type: null, runs: 0 },
+          wicket: null,
+          isLegalDelivery: true,
+        },
+        batterName: "Rohit Sharma",
+        bowlerName: "Mitchell Starc",
+      });
+
+      expect(event).not.toBeNull();
+      expect(event?.id).toBe("123:48:SIX");
+      expect(event?.type).toBe("SIX");
+      expect(event?.sequence).toBe(48);
+      expect(event?.runs).toBe(6);
+      expect(event?.detail).toBe("Rohit Sharma · MAXIMUM 6");
+    });
+
+    it("builds WIDE event with extra run details", () => {
+      const event = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 49,
+        eventType: CricketEventType.BALL_RECORDED,
+        payload: {
+          innings: 1,
+          over: 3,
+          ball: 4,
+          strikerId: 10,
+          bowlerId: 20,
+          runsOffBat: 0,
+          extras: { type: "wide", runs: 1 },
+          wicket: null,
+          isLegalDelivery: false,
+        },
+        batterName: "Rohit Sharma",
+        bowlerName: "Mitchell Starc",
+      });
+
+      expect(event).not.toBeNull();
+      expect(event?.id).toBe("123:49:WIDE");
+      expect(event?.type).toBe("WIDE");
+      expect(event?.sequence).toBe(49);
+      expect(event?.runs).toBe(0);
+      expect(event?.detail).toBe("ILLEGAL DELIVERY · EXTRA RUN CONCEDED");
+    });
+
+    it("builds NO_BALL event with free hit notification", () => {
+      const event = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 50,
+        eventType: CricketEventType.BALL_RECORDED,
+        payload: {
+          innings: 1,
+          over: 3,
+          ball: 4,
+          strikerId: 10,
+          bowlerId: 20,
+          runsOffBat: 0,
+          extras: { type: "no_ball", runs: 1 },
+          wicket: null,
+          isLegalDelivery: false,
+        },
+        batterName: "Rohit Sharma",
+        bowlerName: "Mitchell Starc",
+      });
+
+      expect(event).not.toBeNull();
+      expect(event?.id).toBe("123:50:NO_BALL");
+      expect(event?.type).toBe("NO_BALL");
+      expect(event?.sequence).toBe(50);
+      expect(event?.detail).toBe("EXTRA RUN · FREE HIT AWARDED NEXT BALL");
+    });
+
+    it("builds WICKET event taking priority over runs/extras", () => {
+      const event = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 51,
+        eventType: CricketEventType.BALL_RECORDED,
+        payload: {
+          innings: 1,
+          over: 3,
+          ball: 5,
+          strikerId: 10,
+          bowlerId: 20,
+          runsOffBat: 0,
+          extras: { type: null, runs: 0 },
+          wicket: { type: "caught", dismissedPlayerId: 10, fielderId: 15 },
+          isLegalDelivery: true,
+        },
+        batterName: "Rohit Sharma",
+        bowlerName: "Mitchell Starc",
+      });
+
+      expect(event).not.toBeNull();
+      expect(event?.id).toBe("123:51:WICKET");
+      expect(event?.type).toBe("WICKET");
+      expect(event?.sequence).toBe(51);
+      expect(event?.detail).toBe("Rohit Sharma · CAUGHT");
+    });
+
+    it("handles no-ball + boundary 4 (SIX / FOUR on illegal delivery)", () => {
+      const eventFour = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 52,
+        eventType: CricketEventType.BALL_RECORDED,
+        payload: {
+          innings: 1,
+          over: 3,
+          ball: 5,
+          strikerId: 10,
+          bowlerId: 20,
+          runsOffBat: 4,
+          extras: { type: "no_ball", runs: 1 },
+          wicket: null,
+          isLegalDelivery: false,
+        },
+        batterName: "Rohit Sharma",
+        bowlerName: "Mitchell Starc",
+      });
+
+      expect(eventFour).not.toBeNull();
+      expect(eventFour?.id).toBe("123:52:FOUR");
+      expect(eventFour?.type).toBe("FOUR");
+      expect(eventFour?.detail).toBe("Rohit Sharma · NO BALL + BOUNDARY 4");
+
+      const eventSix = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 53,
+        eventType: CricketEventType.BALL_RECORDED,
+        payload: {
+          innings: 1,
+          over: 3,
+          ball: 5,
+          strikerId: 10,
+          bowlerId: 20,
+          runsOffBat: 6,
+          extras: { type: "no_ball", runs: 1 },
+          wicket: null,
+          isLegalDelivery: false,
+        },
+        batterName: "Rohit Sharma",
+        bowlerName: "Mitchell Starc",
+      });
+
+      expect(eventSix).not.toBeNull();
+      expect(eventSix?.id).toBe("123:53:SIX");
+      expect(eventSix?.type).toBe("SIX");
+      expect(eventSix?.detail).toBe("Rohit Sharma · NO BALL + MAXIMUM 6");
+    });
+
+    it("returns null for non-transient deliveries (dots, singles)", () => {
+      const dotBall = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 54,
+        eventType: CricketEventType.BALL_RECORDED,
+        payload: {
+          innings: 1,
+          over: 3,
+          ball: 6,
+          strikerId: 10,
+          bowlerId: 20,
+          runsOffBat: 0,
+          extras: { type: null, runs: 0 },
+          wicket: null,
+          isLegalDelivery: true,
+        },
+      });
+      expect(dotBall).toBeNull();
+
+      const single = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 55,
+        eventType: CricketEventType.BALL_RECORDED,
+        payload: {
+          innings: 1,
+          over: 4,
+          ball: 1,
+          strikerId: 10,
+          bowlerId: 20,
+          runsOffBat: 1,
+          extras: { type: null, runs: 0 },
+          wicket: null,
+          isLegalDelivery: true,
+        },
+      });
+      expect(single).toBeNull();
+    });
+
+    it("builds MATCH_WON on match completed event", () => {
+      const event = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 120,
+        eventType: CricketEventType.MATCH_COMPLETED,
+        payload: {
+          winnerTeamId: 1,
+          margin: "5 wickets",
+          resultText: "Titans Won by 5 wickets",
+        },
+      });
+
+      expect(event).not.toBeNull();
+      expect(event?.id).toBe("123:120:MATCH_WON");
+      expect(event?.type).toBe("MATCH_WON");
+      expect(event?.detail).toBe("Titans Won by 5 wickets");
+    });
+
+    it("builds SUPER_BALL_ACTIVATED on SUPER_BALL_DECLARED event with unique activationId", () => {
+      const event1 = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 12,
+        eventType: CricketEventType.SUPER_BALL_DECLARED,
+        payload: {
+          innings: 1,
+          battingTeamId: 2,
+        },
+        timestamp: 1700000000000,
+      });
+
+      expect(event1).not.toBeNull();
+      expect(event1?.id).toBe("123:12:SUPER_BALL_ACTIVATED");
+      expect(event1?.type).toBe("SUPER_BALL_ACTIVATED");
+      expect(event1?.sequence).toBe(12);
+      expect(event1?.matchId).toBe(123);
+      expect(event1?.detail).toBe("SUPER BALL ACTIVATED");
+      expect(event1?.activationId).toBe("123:12:super_ball_1700000000000");
+
+      // Reactivation after cancel/undo gets a distinct sequence and distinct ID
+      const event2 = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 14,
+        eventType: CricketEventType.SUPER_BALL_DECLARED,
+        payload: {
+          innings: 1,
+          battingTeamId: 2,
+        },
+        timestamp: 1700000005000,
+      });
+
+      expect(event2).not.toBeNull();
+      expect(event2?.id).toBe("123:14:SUPER_BALL_ACTIVATED");
+      expect(event2?.sequence).toBe(14);
+      expect(event2?.activationId).toBe("123:14:super_ball_1700000005000");
+      expect(event2?.id).not.toBe(event1?.id);
+    });
+
+    it("builds NEW_BATTER on BATTER_SELECTED event", () => {
+      const event = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 60,
+        eventType: CricketEventType.BATTER_SELECTED,
+        payload: {
+          innings: 1,
+          playerId: 104,
+        },
+        batterName: "Virat Kohli",
+      });
+
+      expect(event).not.toBeNull();
+      expect(event?.id).toBe("123:60:NEW_BATTER");
+      expect(event?.type).toBe("NEW_BATTER");
+      expect(event?.sequence).toBe(60);
+      expect(event?.batter).toBe("Virat Kohli");
+      expect(event?.detail).toBe("Virat Kohli · ARRIVING AT THE CREASE");
+    });
+
+    it("builds NEW_BOWLER on BOWLER_CHANGED event", () => {
+      const event = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 61,
+        eventType: CricketEventType.BOWLER_CHANGED,
+        payload: {
+          innings: 1,
+          bowlerId: 205,
+        },
+        bowlerName: "Jasprit Bumrah",
+      });
+
+      expect(event).not.toBeNull();
+      expect(event?.id).toBe("123:61:NEW_BOWLER");
+      expect(event?.type).toBe("NEW_BOWLER");
+      expect(event?.sequence).toBe(61);
+      expect(event?.bowler).toBe("Jasprit Bumrah");
+      expect(event?.detail).toBe("Jasprit Bumrah · INTO THE ATTACK");
+    });
+
+    it("builds INNINGS_COMPLETE on INNINGS_ENDED event with rich metadata", () => {
+      const event = buildAuthoritativeCricketBroadcastEvent({
+        matchId,
+        sequence: 80,
+        eventType: CricketEventType.INNINGS_ENDED,
+        payload: {
+          innings: 1,
+          reason: "overs_complete",
+          runs: 175,
+          wickets: 6,
+          overs: "20.0",
+        },
+        battingTeamName: "Mumbai Indians",
+      });
+
+      expect(event).not.toBeNull();
+      expect(event?.id).toBe("123:80:INNINGS_COMPLETE");
+      expect(event?.type).toBe("INNINGS_COMPLETE");
+      expect(event?.sequence).toBe(80);
+      expect(event?.innings).toBe(1);
+      expect(event?.runs).toBe(175);
+      expect(event?.wickets).toBe(6);
+      expect(event?.overs).toBe("20.0");
+      expect(event?.battingTeam).toBe("Mumbai Indians");
+      expect(event?.target).toBe(176);
+      expect(event?.detail).toBe("INNINGS 1 COMPLETE · 175/6 (20.0 OV)");
+    });
+
+    it("returns null for MATCH_STARTED, LINEUP_SET, TOSS_RECORDED to prevent opening presentation flashes", () => {
+      expect(
+        buildAuthoritativeCricketBroadcastEvent({
+          matchId,
+          sequence: 1,
+          eventType: CricketEventType.TOSS_RECORDED,
+          payload: { tossWinnerTeamId: 1, electedTo: "bat" },
+        }),
+      ).toBeNull();
+
+      expect(
+        buildAuthoritativeCricketBroadcastEvent({
+          matchId,
+          sequence: 2,
+          eventType: CricketEventType.LINEUP_SET,
+          payload: { teamId: 1, playingXI: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+        }),
+      ).toBeNull();
+
+      expect(
+        buildAuthoritativeCricketBroadcastEvent({
+          matchId,
+          sequence: 3,
+          eventType: CricketEventType.MATCH_STARTED,
+          payload: { innings: 1, battingTeamId: 1, bowlingTeamId: 2, strikerId: 1, nonStrikerId: 2 },
+        }),
+      ).toBeNull();
+    });
+  });
+});

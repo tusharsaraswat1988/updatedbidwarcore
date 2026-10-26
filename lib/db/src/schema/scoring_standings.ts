@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -18,6 +19,11 @@ export const scoringStandingsTable = pgTable(
   {
     id: serial("id").primaryKey(),
     tournamentId: integer("tournament_id").notNull(),
+    /**
+     * Cricket competition boundary. One row is one team's standing inside one scoring draw.
+     * Null only for legacy rows that have not been rebuilt onto a draw yet.
+     */
+    drawId: integer("draw_id"),
     teamId: integer("team_id").notNull(),
     played: integer("played").notNull().default(0),
     won: integer("won").notNull().default(0),
@@ -33,8 +39,16 @@ export const scoringStandingsTable = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [
-    uniqueIndex("uq_scoring_standings_tournament_team").on(t.tournamentId, t.teamId),
+    uniqueIndex("uq_scoring_standings_tournament_draw_team").on(
+      t.tournamentId,
+      t.drawId,
+      t.teamId,
+    ),
+    uniqueIndex("uq_scoring_standings_tournament_team_unscoped")
+      .on(t.tournamentId, t.teamId)
+      .where(sql`${t.drawId} IS NULL`),
     index("ix_scoring_standings_tournament_id").on(t.tournamentId),
+    index("ix_scoring_standings_draw_id").on(t.drawId),
   ],
 );
 

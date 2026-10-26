@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Link } from "wouter";
 import { Calendar, Clock, Play } from "lucide-react";
 import {
@@ -13,21 +13,35 @@ interface LessonCardProps {
   priority?: boolean;
 }
 
+function resolveCardThumb(lesson: PublicAcademyLessonSummary): string | null {
+  if (lesson.thumbnailUrl?.trim()) return lesson.thumbnailUrl.trim();
+  if (lesson.youtubeVideoId?.trim()) {
+    return `https://img.youtube.com/vi/${lesson.youtubeVideoId.trim()}/maxresdefault.jpg`;
+  }
+  return null;
+}
+
 export const LessonCard = memo(function LessonCard({
   lesson,
   featured = false,
   priority = false,
 }: LessonCardProps) {
+  const [thumbSrc, setThumbSrc] = useState<string | null>(() => resolveCardThumb(lesson));
+
+  const fallbackThumb = lesson.youtubeVideoId
+    ? `https://img.youtube.com/vi/${lesson.youtubeVideoId}/hqdefault.jpg`
+    : null;
+
   const shellClass = featured
-    ? "group block rounded-2xl border border-border bg-card/30 hover:bg-card/50 hover:border-primary/40 transition-all duration-300 overflow-hidden"
-    : "group block rounded-xl border border-border bg-card/20 hover:bg-card/40 hover:border-primary/30 transition-all duration-300 overflow-hidden";
+    ? "group block rounded-2xl border border-border bg-card/30 hover:bg-card/50 hover:border-primary/40 transition-all duration-300 overflow-hidden shadow-sm hover:shadow-md"
+    : "group block rounded-xl border border-border bg-card/20 hover:bg-card/40 hover:border-primary/30 transition-all duration-300 overflow-hidden shadow-sm hover:shadow-md";
 
   return (
     <Link href={`/academy/${lesson.slug}`} className={shellClass}>
-      <div className="relative aspect-video bg-muted/30 overflow-hidden">
-        {lesson.thumbnailUrl ? (
+      <div className="relative aspect-video bg-black/40 overflow-hidden">
+        {thumbSrc ? (
           <img
-            src={lesson.thumbnailUrl}
+            src={thumbSrc}
             alt={lesson.title}
             width={640}
             height={360}
@@ -35,14 +49,24 @@ export const LessonCard = memo(function LessonCard({
             loading={priority ? "eager" : "lazy"}
             decoding="async"
             fetchPriority={priority ? "high" : "auto"}
+            onError={() => {
+              if (fallbackThumb && thumbSrc !== fallbackThumb) {
+                setThumbSrc(fallbackThumb);
+              }
+            }}
           />
         ) : (
           <div className="flex h-full items-center justify-center bg-gradient-to-br from-primary/10 to-transparent">
             <span className="text-4xl font-black text-primary/40">Ep {lesson.episodeNumber}</span>
           </div>
         )}
-        <div className="absolute left-3 top-3 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+        <div className="absolute left-3 top-3 rounded-full bg-black/75 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300 border border-amber-500/20 backdrop-blur-sm">
           Episode {lesson.episodeNumber}
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 transition-opacity group-hover:opacity-100">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-transform group-hover:scale-110">
+            <Play className="h-4 w-4 ml-0.5" fill="currentColor" />
+          </span>
         </div>
       </div>
 

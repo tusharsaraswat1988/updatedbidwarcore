@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from "react";
-import { useLocation } from "wouter";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,14 +61,15 @@ function postAuthRedirect(next: string): string {
 
 export default function CompleteProfile() {
   const [, setLocation] = useLocation();
-  const nextParam = (() => {
+  const search = useSearch();
+  const nextParam = useMemo(() => {
     try {
-      const p = new URLSearchParams(window.location.search).get("next");
+      const p = new URLSearchParams(search).get("next");
       return p && p.startsWith("/") ? postAuthRedirect(p) : "";
     } catch {
       return "";
     }
-  })();
+  }, [search]);
 
   const [session, setSession] = useState<SessionState>({ status: "loading" });
   const [step, setStep] = useState<"mobile" | "otp">("mobile");

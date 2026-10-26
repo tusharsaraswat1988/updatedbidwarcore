@@ -254,6 +254,10 @@ export type LedView = {
   timerCeiling: number;
   /** Tournament minimum bid — used for team dashboard status. */
   minimumBid: number;
+  randomPlayerReveal?: {
+    playerId: number;
+    startedAt: number;
+  } | null;
   loading: boolean;
   error: string | null;
   connectionStatus: "connected" | "connecting" | "disconnected" | "error" | "reconnecting";

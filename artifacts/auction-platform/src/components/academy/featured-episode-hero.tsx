@@ -1,6 +1,6 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Link } from "wouter";
-import { Calendar, Clock, Play, Sparkles } from "lucide-react";
+import { Calendar, Clock, Play, Sparkles, CheckCircle2 } from "lucide-react";
 import {
   formatAcademyDate,
   formatDuration,
@@ -11,10 +11,10 @@ interface FeaturedEpisodeHeroProps {
   lesson: PublicAcademyLessonSummary;
 }
 
-function heroThumbnail(lesson: PublicAcademyLessonSummary): string | null {
-  if (lesson.thumbnailUrl) return lesson.thumbnailUrl;
-  if (lesson.youtubeVideoId) {
-    return `https://img.youtube.com/vi/${lesson.youtubeVideoId}/mqdefault.jpg`;
+function resolveInitialThumbnail(lesson: PublicAcademyLessonSummary): string | null {
+  if (lesson.thumbnailUrl?.trim()) return lesson.thumbnailUrl.trim();
+  if (lesson.youtubeVideoId?.trim()) {
+    return `https://img.youtube.com/vi/${lesson.youtubeVideoId.trim()}/maxresdefault.jpg`;
   }
   return null;
 }
@@ -22,75 +22,109 @@ function heroThumbnail(lesson: PublicAcademyLessonSummary): string | null {
 export const FeaturedEpisodeHero = memo(function FeaturedEpisodeHero({
   lesson,
 }: FeaturedEpisodeHeroProps) {
-  const thumb = heroThumbnail(lesson);
+  const [thumbSrc, setThumbSrc] = useState<string | null>(() => resolveInitialThumbnail(lesson));
+
+  const fallbackThumb = lesson.youtubeVideoId
+    ? `https://img.youtube.com/vi/${lesson.youtubeVideoId}/hqdefault.jpg`
+    : null;
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card/40 to-card/20">
+    <section className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card/50 to-card/20 shadow-xl">
       <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,rgba(251,191,36,0.12),transparent_55%)]" />
-      <div className="relative grid md:grid-cols-2">
-        <Link
-          href={`/academy/${lesson.slug}`}
-          className="group relative block aspect-video md:aspect-auto md:min-h-[300px] overflow-hidden"
-        >
-          {thumb ? (
-            <img
-              src={thumb}
-              alt={lesson.title}
-              width={1280}
-              height={720}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-              loading="eager"
-              decoding="async"
-              fetchPriority="high"
-            />
-          ) : (
-            <div className="flex h-full min-h-[220px] items-center justify-center bg-muted/20">
-              <span className="text-5xl font-black text-primary/30">Ep {lesson.episodeNumber}</span>
-            </div>
-          )}
-          <div className="absolute inset-0 flex items-center justify-center bg-black/25 opacity-0 transition-opacity group-hover:opacity-100">
-            <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-xl">
-              <Play className="ml-1 h-7 w-7" fill="currentColor" />
-            </span>
-          </div>
-        </Link>
+      <div className="relative grid gap-6 p-4 sm:p-6 lg:p-8 lg:grid-cols-12 items-center">
+        {/* 16:9 Video Thumbnail Frame — Strictly Preserved Ratio */}
+        <div className="lg:col-span-7">
+          <Link
+            href={`/academy/${lesson.slug}`}
+            className="group relative block aspect-video w-full overflow-hidden rounded-xl border border-border/60 bg-black/80 shadow-2xl transition-all hover:border-primary/50"
+            aria-label={`Watch tutorial: ${lesson.title}`}
+          >
+            {thumbSrc ? (
+              <img
+                src={thumbSrc}
+                alt={lesson.title}
+                width={1280}
+                height={720}
+                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+                onError={() => {
+                  if (fallbackThumb && thumbSrc !== fallbackThumb) {
+                    setThumbSrc(fallbackThumb);
+                  }
+                }}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-background to-muted/20">
+                <span className="text-5xl font-black text-primary/30">Ep {lesson.episodeNumber}</span>
+              </div>
+            )}
 
-        <div className="flex flex-col justify-center p-8 md:p-10">
-          <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-primary">
+            {/* Ambient Dark Scrim & Hover Glow */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80" />
+
+            {/* Episode Badge on Frame */}
+            <div className="absolute top-3 left-3 rounded-full bg-black/75 backdrop-blur-md px-3 py-1 text-xs font-bold uppercase tracking-wider text-amber-300 border border-amber-500/30">
+              Episode {lesson.episodeNumber}
+            </div>
+
+            {/* Center Play Button Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors group-hover:bg-black/35">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl transition-transform duration-300 group-hover:scale-110 group-active:scale-95 animate-[pulse_3s_ease-in-out_infinite]">
+                <Play className="ml-1 h-7 w-7" fill="currentColor" />
+              </span>
+            </div>
+          </Link>
+        </div>
+
+        {/* Video Information Column */}
+        <div className="lg:col-span-5 flex flex-col justify-center space-y-4">
+          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-primary">
             <Sparkles className="h-4 w-4" />
-            Featured Tutorial
+            Spotlight Masterclass
           </div>
-          <p className="text-xs font-semibold text-muted-foreground">Episode {lesson.episodeNumber}</p>
-          <h2 className="mt-2 text-2xl md:text-3xl font-black leading-tight text-foreground">
+
+          <h2 className="text-2xl sm:text-3xl font-black leading-tight text-foreground tracking-tight">
             {lesson.title}
           </h2>
+
           {lesson.shortDescription && (
-            <p className="mt-3 text-sm md:text-base text-muted-foreground leading-relaxed line-clamp-3">
+            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
               {lesson.shortDescription}
             </p>
           )}
-          <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
+
+          {/* Key Value Pill Tags */}
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
             {lesson.categoryName && (
-              <span className="rounded-full bg-primary/10 px-2.5 py-1 font-semibold text-primary">
+              <span className="rounded-full bg-primary/15 px-3 py-1 font-semibold text-primary border border-primary/20">
                 {lesson.categoryName}
               </span>
             )}
-            <span className="inline-flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5" />
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted/50 px-3 py-1 text-muted-foreground font-medium">
+              <Clock className="h-3.5 w-3.5 text-primary" />
               {formatDuration(lesson.durationMinutes)}
             </span>
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-1 rounded-full bg-muted/50 px-3 py-1 text-muted-foreground font-medium">
               <Calendar className="h-3.5 w-3.5" />
               {formatAcademyDate(lesson.publishedAt)}
             </span>
+            <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold px-2 py-0.5">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Step-by-Step
+            </span>
           </div>
-          <Link
-            href={`/academy/${lesson.slug}`}
-            className="mt-6 inline-flex w-fit items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            <Play className="h-4 w-4" fill="currentColor" />
-            Watch Tutorial
-          </Link>
+
+          {/* Watch CTA Button */}
+          <div className="pt-2">
+            <Link
+              href={`/academy/${lesson.slug}`}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Play className="h-4 w-4" fill="currentColor" />
+              Watch Tutorial
+            </Link>
+          </div>
         </div>
       </div>
     </section>

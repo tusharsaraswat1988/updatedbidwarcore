@@ -20,6 +20,7 @@ import {
   scoringMatchesTable,
   badmintonMatchDetailsTable,
   scoringEventsTable,
+  tournamentsTable,
 } from "@workspace/db";
 import { extractSyncSnapshot } from "@workspace/badminton-core";
 import {
@@ -39,6 +40,7 @@ import {
   toPhaseBreakdown,
 } from "../lib/badminton-latency-trace";
 import { acquireMatchLock, releaseMatchLock } from "../lib/scorer-match-locks";
+import { requireSportModule } from "../middleware/require-module";
 
 const router = Router({ mergeParams: true });
 
@@ -48,6 +50,27 @@ function tid(req: { params: Record<string, string | undefined> }): number | null
   const n = Number(req.params.id);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
+
+router.use(async (req, res, next) => {
+  const tournamentId = tid(req as never);
+  if (tournamentId == null) {
+    res.status(400).json({ error: "bad tournament id" });
+    return;
+  }
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      sport: tournamentsTable.sport,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!requireSportModule(res, tournament, "badminton")) return;
+  next();
+});
 
 function denyProd(res: { status: (c: number) => { json: (b: unknown) => void } }): boolean {
   if (process.env.NODE_ENV === "production") {

@@ -2,11 +2,21 @@ import { parseBidValueOptions } from "@workspace/api-base/bid-value";
 import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
 import { parseRegistrationFieldsConfig } from "@workspace/api-base/registration-fields";
 import {
+  parsePlayerRegistrationMode,
+  parseRegistrationCategoryMode,
+} from "@workspace/api-base/player-registration-mode";
+import {
   resolveBroadcastAudioUrl,
   type PlatformAudioDefaults,
 } from "@workspace/api-base/platform-audio";
 import { resolveTournamentFeatures } from "@workspace/api-base/tournament-features";
+import { resolveBadmintonSponsorLogos } from "@workspace/sports-badminton";
 import type { tournamentsTable } from "@workspace/db";
+import {
+  isAuctionEnabled,
+  isScoringEnabled,
+  tryResolveTournamentProductMode,
+} from "@workspace/platform-core";
 import { catalogBindingSerializerFields } from "../tournament-catalog-bindings";
 
 type TournamentRow = typeof tournamentsTable.$inferSelect;
@@ -22,6 +32,10 @@ export function publicTournamentSerializer(
   options?: TournamentSerializerOptions,
 ) {
   const platform = options?.platformDefaults;
+  const scoringSettings = (t.scoringSettingsJson ?? {}) as Record<string, unknown>;
+  const brandingRaw = (scoringSettings.branding ?? {}) as Record<string, unknown>;
+  const resolvedSponsorLogos = resolveBadmintonSponsorLogos(brandingRaw, t.sponsorLogos);
+
   return {
     id: t.id,
     name: t.name,
@@ -34,7 +48,7 @@ export function publicTournamentSerializer(
     auctionTime: t.auctionTime ?? null,
     organizerName: t.organizerName,
     logoUrl: t.logoUrl,
-    sponsorLogos: t.sponsorLogos,
+    sponsorLogos: resolvedSponsorLogos,
     auctionUnit: normalizeAuctionUnit(t.auctionUnit),
     basePurse: t.basePurse,
     minBid: t.minBid,
@@ -82,7 +96,11 @@ export function publicTournamentSerializer(
     mainBannerFit: t.mainBannerFit ?? "cover",
     matchDates: t.matchDates ?? null,
     registrationFields: parseRegistrationFieldsConfig(t.registrationFieldsJson),
-    scoringEnabled: t.scoringEnabled ?? false,
+    playerRegistrationMode: parsePlayerRegistrationMode(t.playerRegistrationMode),
+    registrationCategoryMode: parseRegistrationCategoryMode(t.registrationCategoryMode),
+    auctionEnabled: isAuctionEnabled(t),
+    scoringEnabled: isScoringEnabled(t),
+    productMode: tryResolveTournamentProductMode(t) ?? "auction_only",
     scoringPhase: t.scoringPhase ?? "disabled",
     features: resolveTournamentFeatures(t.featuresJson),
     ...catalogBindingSerializerFields(t),

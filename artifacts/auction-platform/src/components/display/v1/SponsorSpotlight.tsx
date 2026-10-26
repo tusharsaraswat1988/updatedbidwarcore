@@ -58,7 +58,7 @@ export const SponsorSpotlight = memo(function SponsorSpotlight({
       {entries.length > 0 ? (
         <div className="mt-6 flex w-full max-w-2xl flex-col items-center">
           <p
-            className="font-mono uppercase tracking-[0.35em] text-xs md:text-sm"
+            className="font-['Space_Grotesk'] uppercase tracking-[0.08em] led-label text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold"
             style={{ color: "var(--accent)" }}
           >
             Please Welcome Our Sponsors
@@ -83,17 +83,17 @@ export const SponsorSpotlight = memo(function SponsorSpotlight({
                 ) : null}
               </div>
 
-              <p className="flex h-10 items-center justify-center font-['Bebas_Neue'] text-2xl md:text-4xl tracking-[0.2em] uppercase text-white/95">
+              <p className="flex h-10 items-center justify-center font-['Bebas_Neue'] text-3xl md:text-5xl tracking-[0.06em] uppercase text-white/95 led-value">
                 {current.name.trim() || "\u00a0"}
               </p>
-              <p className="flex h-5 items-center justify-center font-mono uppercase tracking-[0.35em] text-[10px] md:text-xs text-white/45">
+              <p className="flex h-5 items-center justify-center font-['Space_Grotesk'] uppercase tracking-[0.06em] led-caption text-[clamp(0.85rem,1.1cqw,1.25rem)] text-white/80 font-bold">
                 {current.type.trim() || "\u00a0"}
               </p>
             </div>
           </div>
         </div>
       ) : (
-        <p className="mt-6 font-mono uppercase tracking-[0.35em] text-xs text-white/45">
+        <p className="mt-6 font-['Space_Grotesk'] uppercase tracking-[0.06em] led-status text-[clamp(0.95rem,1.3cqw,1.45rem)] text-white/80 font-extrabold">
           Waiting For Operator to start
         </p>
       )}

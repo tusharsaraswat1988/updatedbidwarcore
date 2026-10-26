@@ -2,6 +2,9 @@ import path from "node:path";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  esbuild: {
+    jsx: "automatic",
+  },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
@@ -9,6 +12,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    env: {
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/test_db",
+    },
     include: ["src/**/*.test.ts", "src/**/__tests__/**/*.test.ts"],
     // Suites that use node:test (not vitest).
     exclude: [

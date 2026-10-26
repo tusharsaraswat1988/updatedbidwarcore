@@ -1,0 +1,25 @@
+{
+  "name": "bpl-kids-registration",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "start": "node scripts/serve.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
+    "vite": "^7.3.2",
+    "typescript": "~5.9.2",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "lucide-react": "^0.545.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

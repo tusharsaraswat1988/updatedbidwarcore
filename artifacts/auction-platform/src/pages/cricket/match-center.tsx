@@ -6,9 +6,23 @@
  * Organizer Live Control is /tournament/:id/score/live-control
  * Reuses: MatchSummaryCard, ScorecardView, ShareButtons, scoring APIs.
  */
-import { useMemo } from "react";
-import { useRoute, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useRoute, Link, useLocation } from "wouter";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   useGetTournament,
   getGetTournamentQueryKey,
@@ -24,7 +38,7 @@ import {
   btnCompactClass,
   hubCardClass,
   hubPanelClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { ScorecardView } from "@/components/scoring/scorecard-view";
 import { ShareButtons } from "@/components/scoring/share-buttons";
@@ -32,9 +46,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useScoringMatch } from "@/hooks/use-scoring-match";
 import {
+  deleteScoringMatch,
   getCricketMasterTeams,
   getPublicMatchScorecard,
   isTerminalCricketMatchStatus,
+  updateScoringMatch,
 } from "@/lib/scoring-api";
 import { getMatchSquads, listOfficials, type MatchSquadJson } from "@/lib/scoring-foundation-api";
 import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
@@ -47,14 +63,13 @@ import {
 } from "@/lib/cricket-match-center";
 import {
   cricketDashboardPath,
+  cricketFixturesPath,
   cricketLiveControlPath,
   cricketScoreHubPath,
-  cricketScorerPath,
+  cricketScorerConsolePath,
 } from "@/lib/cricket-routes";
 import {
   cricketMatchPublicPath,
-  cricketObsLivePath,
-  cricketObsMatchPath,
   cricketPublicPath,
   openScoreDisplay,
   scoreDisplayPath,
@@ -65,10 +80,12 @@ import { CricketScoringSportRedirect } from "@/components/scoring/cricket-scorin
 import {
   AlertTriangle,
   Download,
+  Edit2,
   ExternalLink,
   Monitor,
   Printer,
   Radio,
+  Trash2,
   Trophy,
   Tv,
   type LucideIcon,
@@ -113,7 +130,7 @@ export default function CricketMatchCenterPage() {
   });
 
   const teams = useMemo(
-    () => (masterTeams ?? []).map(cricketMasterTeamToScorerTeam),
+    () => (Array.isArray(masterTeams) ? masterTeams.map(cricketMasterTeamToScorerTeam) : []),
     [masterTeams],
   );
   const teamMap = useMemo(() => new Map(teams.map((t) => [t.id, t])), [teams]);
@@ -124,6 +141,82 @@ export default function CricketMatchCenterPage() {
   const home = data ? teamMap.get(data.match.homeTeamId) : undefined;
   const away = data ? teamMap.get(data.match.awayTeamId) : undefined;
   const state = data?.state;
+
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editRoundName, setEditRoundName] = useState("");
+  const [editOvers, setEditOvers] = useState(6);
+  const [editVenue, setEditVenue] = useState("");
+  const [editResultSummary, setEditResultSummary] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  function handleOpenEdit() {
+    if (!data?.match) return;
+    setEditRoundName(data.match.roundName || "");
+    setEditOvers(data.match.rules?.overs ?? 6);
+    setEditVenue(data.match.venue || "");
+    setEditResultSummary(data.match.resultSummary || "");
+    setEditOpen(true);
+  }
+
+  async function handleSaveEdit() {
+    if (!data?.match) return;
+    setSavingEdit(true);
+    try {
+      await updateScoringMatch(tournamentId, matchId, {
+        roundName: editRoundName.trim() || null,
+        oversLimit: editOvers || 6,
+        venue: editVenue.trim() || null,
+        resultSummary: editResultSummary.trim() || null,
+      });
+      toast({
+        title: "Match updated",
+        description: `Saved changes for Match #${matchId}`,
+      });
+      setEditOpen(false);
+      await refetch();
+      await qc.invalidateQueries({ queryKey: ["scoring-match", tournamentId, matchId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-scorecard", tournamentId, matchId] });
+    } catch (e) {
+      toast({
+        title: "Failed to update match",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function handleDeleteMatch() {
+    setDeleting(true);
+    try {
+      await deleteScoringMatch(tournamentId, matchId);
+      toast({
+        title: "Match deleted",
+        description: `Match #${matchId} was deleted successfully.`,
+      });
+      setDeleteOpen(false);
+      await qc.invalidateQueries({ queryKey: ["scoring-matches", tournamentId] });
+      await qc.invalidateQueries({ queryKey: ["scoring-fixtures", tournamentId] });
+      setLocation(cricketFixturesPath(tournamentId));
+    } catch (e) {
+      toast({
+        title: "Could not delete match",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  }
   const isLive = data?.match.status === "live";
   const isFinished = data ? isTerminalCricketMatchStatus(data.match.status) : false;
 
@@ -177,7 +270,7 @@ export default function CricketMatchCenterPage() {
       ? `${window.location.origin}${cricketMatchPublicPath(tournamentId, matchId)}`
       : cricketMatchPublicPath(tournamentId, matchId);
 
-  const scorerHref = cricketScorerPath(tournamentId, matchId);
+  const scorerHref = cricketScorerConsolePath(tournamentId, matchId);
   const liveControlHref = cricketLiveControlPath(tournamentId);
 
   if (tournament?.sport === "badminton") {
@@ -237,39 +330,37 @@ export default function CricketMatchCenterPage() {
         badge={isLive ? "LIVE" : undefined}
         actions={
           <div className="flex flex-wrap gap-2">
-            <BtnPrimary href={scorerHref} className={btnCompactClass}>
+            <BtnPrimary href={scorerHref} className={cn(btnCompactClass, "bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold")}>
               <Radio className="w-4 h-4" />
-              Open Scorer
+              Open Scorer Pad
             </BtnPrimary>
             <BtnSecondary href={liveControlHref} className={btnCompactClass}>
-              <Tv className="w-4 h-4" />
+              <Tv className="w-4 h-4 text-amber-400" />
               Live Control
             </BtnSecondary>
-            <BtnSecondary
-              className={btnCompactClass}
-              onClick={() => openScoreDisplay(tournamentId, tournament?.auctionCode)}
-            >
-              <Monitor className="w-4 h-4" />
-              LED
+            <BtnSecondary onClick={handleOpenEdit} className={btnCompactClass}>
+              <Edit2 className="w-4 h-4" />
+              Edit Details
             </BtnSecondary>
-            <BtnSecondary
-              className={btnCompactClass}
-              onClick={() =>
-                window.open(
-                  cricketObsLivePath(tournamentId, tournament?.auctionCode),
-                  "_blank",
-                  "noopener,noreferrer",
-                )
-              }
-            >
-              <Tv className="w-4 h-4" />
-              Cricket OBS
+            <BtnSecondary onClick={() => window.print()} className={btnCompactClass}>
+              <Printer className="w-4 h-4" />
+              Print Scorecard
             </BtnSecondary>
+            {data?.match.status !== "completed" && data?.match.status !== "abandoned" ? (
+              <Button
+                variant="outline"
+                onClick={() => setDeleteOpen(true)}
+                className={cn(btnCompactClass, "text-muted-foreground hover:text-destructive hover:border-destructive/40 gap-1.5")}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </Button>
+            ) : null}
           </div>
         }
       />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-12 space-y-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 pb-12 space-y-6 sm:space-y-8">
         {/* Header meta */}
         <section className={cn(hubPanelClass, "flex flex-wrap gap-x-4 gap-y-2 text-sm")}>
           <MetaChip label="Status" value={data.match.status} emphasize={isLive} />
@@ -286,7 +377,7 @@ export default function CricketMatchCenterPage() {
               })}
             />
           ) : null}
-          <MetaChip label="Match #" value={String(data.match.id)} />
+          <MetaChip label="Match #" value={String(data.match.tournamentMatchNumber ?? data.match.id)} />
           {(officials?.length ?? 0) > 0 ? (
             <MetaChip
               label="Officials"
@@ -332,82 +423,55 @@ export default function CricketMatchCenterPage() {
           />
         </section>
 
-        {/* Quick actions */}
-        <section>
-          <HubSectionHeader title="Quick actions" subtitle="Everything you need for this match" />
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mt-3">
-            <ActionLink href={scorerHref} label="Open Scorer" icon={Radio} primary />
-            <ActionLink href={liveControlHref} label="Live Control" icon={Tv} />
-            <ActionLink
-              href={scoreDisplayPath(tournamentId, tournament?.auctionCode)}
-              label="LED / Scoreboard"
-              icon={Monitor}
-              external
-            />
-            <ActionLink
-              href={cricketObsLivePath(tournamentId, tournament?.auctionCode)}
-              label="Cricket OBS"
-              icon={Tv}
-              external
-            />
-            <ActionLink
-              href={cricketObsMatchPath(tournamentId, matchId, tournament?.auctionCode)}
-              label="Cricket OBS (this match)"
-              icon={Tv}
-              external
-            />
-            <ActionLink
-              href={cricketMatchPublicPath(tournamentId, matchId)}
-              label="Public Match"
-              icon={ExternalLink}
-              external
-            />
-            <ActionLink
-              href={cricketPublicPath(tournamentId)}
-              label="Public Tournament"
-              icon={Trophy}
-              external
-            />
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className={cn(hubPanelClass, "text-left text-sm font-semibold hover:border-primary/30 flex items-center gap-2")}
-            >
-              <Printer className="w-4 h-4 text-primary shrink-0" />
-              Print / PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const a = document.createElement("a");
-                a.href = cricketMatchPublicPath(tournamentId, matchId);
-                a.target = "_blank";
-                a.rel = "noopener";
-                a.click();
-              }}
-              className={cn(hubPanelClass, "text-left text-sm font-semibold hover:border-primary/30 flex items-center gap-2")}
-            >
-              <Download className="w-4 h-4 text-primary shrink-0" />
-              Scorecard
-            </button>
-            <Link
-              href={sportsMissionControlPath(tournamentId)}
-              className={cn(hubPanelClass, "text-sm font-semibold hover:border-primary/30 flex items-center gap-2")}
-            >
-              Tournament Dashboard
-            </Link>
-            <Link
-              href={cricketDashboardPath(tournamentId)}
-              className={cn(hubPanelClass, "text-sm font-semibold hover:border-primary/30 flex items-center gap-2")}
-            >
-              Dashboard
-            </Link>
-          </div>
-          <div className="mt-3">
+        {/* Primary Actions & Share */}
+        <section className="space-y-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <HubSectionHeader title="Match Actions" subtitle="Scoring, public view & fan scorecard" />
             <ShareButtons
               url={publicMatchUrl}
               shareText={`${home?.name ?? "Home"} vs ${away?.name ?? "Away"}`}
             />
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
+            {/* 1. Scorer Pad */}
+            <a
+              href={scorerHref}
+              className="flex items-center gap-3 p-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold transition-all shadow-md shadow-amber-400/20"
+            >
+              <Radio className="w-5 h-5 shrink-0" />
+              <div>
+                <div className="text-sm leading-tight">Open Scorer / Umpire Pad</div>
+                <div className="text-[11px] opacity-80 font-normal">Toss, lineups & ball-by-ball scoring</div>
+              </div>
+            </a>
+
+            {/* 2. Public Match View */}
+            <a
+              href={cricketMatchPublicPath(tournamentId, matchId)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(hubPanelClass, "flex items-center gap-3 p-3.5 hover:border-primary/40 transition-all")}
+            >
+              <ExternalLink className="w-5 h-5 text-primary shrink-0" />
+              <div>
+                <div className="text-sm font-bold text-foreground leading-tight">Public Match Page</div>
+                <div className="text-[11px] text-muted-foreground font-normal">Live scorecard & ball replay</div>
+              </div>
+            </a>
+
+            {/* 3. Print / PDF */}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className={cn(hubPanelClass, "flex items-center gap-3 p-3.5 hover:border-primary/40 text-left transition-all")}
+            >
+              <Printer className="w-5 h-5 text-emerald-400 shrink-0" />
+              <div>
+                <div className="text-sm font-bold text-foreground leading-tight">Print Official Scorecard</div>
+                <div className="text-[11px] text-muted-foreground font-normal">Download printable PDF match sheet</div>
+              </div>
+            </button>
           </div>
         </section>
 
@@ -488,7 +552,7 @@ export default function CricketMatchCenterPage() {
         {stats.length > 0 ? (
           <section>
             <HubSectionHeader title="Statistics snapshot" subtitle="From this match scorecard" />
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mt-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mt-3">
               {stats.map((s) => (
                 <div key={s.label} className={cn(hubCardClass, "p-3")}>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{s.label}</p>
@@ -564,6 +628,111 @@ export default function CricketMatchCenterPage() {
           </Link>
         </div>
       </div>
+
+      {/* Modal: Edit Match Details */}
+      {editOpen && data ? (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-md p-5 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-base">Edit Match Details</h3>
+                <Badge variant="outline" className="text-[10px] capitalize font-semibold">
+                  {data.match.status}
+                </Badge>
+              </div>
+              <span className="text-xs text-muted-foreground">Match #{data.match.tournamentMatchNumber ?? data.match.id}</span>
+            </div>
+
+            {data.match.status !== "scheduled" && data.match.status !== "draft" ? (
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-500">
+                Editing a {data.match.status} match updates display information and rules across all screens without resetting scored balls or player statistics.
+              </div>
+            ) : null}
+
+            <div className="space-y-3 text-sm">
+              <div className="space-y-1.5">
+                <Label>Round / Match Stage</Label>
+                <Input
+                  value={editRoundName}
+                  onChange={(e) => setEditRoundName(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Overs per Inning</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={editOvers}
+                    onChange={(e) => setEditOvers(parseInt(e.target.value, 10) || 6)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Venue (Optional)</Label>
+                  <Input
+                    value={editVenue}
+                    onChange={(e) => setEditVenue(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Result / Display Summary</Label>
+                <Input
+                  value={editResultSummary}
+                  onChange={(e) => setEditResultSummary(e.target.value)}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Custom text displayed on cards, scorecards, and overlays.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t border-border/40">
+              <Button
+                className="flex-1 font-bold"
+                disabled={savingEdit}
+                onClick={handleSaveEdit}
+              >
+                {savingEdit ? "Saving..." : "Save Changes"}
+              </Button>
+              <Button variant="outline" onClick={() => setEditOpen(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Modal: Confirm Delete Match (Pre-toss only) */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Match #{data?.match.tournamentMatchNumber ?? matchId}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete this match between{" "}
+              <strong>{home?.name ?? "Home Team"}</strong> and{" "}
+              <strong>{away?.name ?? "Away Team"}</strong>?
+              This action cannot be undone. Matches can only be deleted if no balls have been bowled.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleDeleteMatch();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete Match"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CricketOrganizerPageShell>
   );
 }
@@ -616,7 +785,7 @@ function TeamPanel({
             className="h-10 w-10 rounded flex items-center justify-center text-xs font-bold"
             style={{ backgroundColor: color ? `${color}33` : undefined }}
           >
-            {shortCode.slice(0, 3)}
+            {(shortCode || "TM").slice(0, 3)}
           </span>
         )}
         <div className="min-w-0">

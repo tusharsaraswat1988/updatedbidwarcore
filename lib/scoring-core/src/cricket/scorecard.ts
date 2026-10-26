@@ -2,6 +2,7 @@ import { CricketEventType, type CricketBallRecordedPayload } from "../events/cri
 import type { ScoringEventEnvelope } from "../types";
 import { resolveEventsForReplay } from "../projector/resolve-undo";
 import type { DismissalType, ExtraType } from "./types";
+import type { CricketPartnership, CricketPartnershipRecord } from "./state";
 
 export type BattingCardRow = {
   playerId: number;
@@ -14,11 +15,44 @@ export type BattingCardRow = {
   dismissalType: DismissalType | "retired_hurt" | null;
   dismissedByPlayerId: number | null;
   fielderId: number | null;
+  /** Crease order, 0-based. The batting list itself stays sorted by runs. */
+  sequence?: number;
 };
+
+export function resolveBattingOrder(input: {
+  battingOrder?: readonly number[] | null;
+  lineup?: readonly number[] | null;
+  playingXi?: readonly number[] | null;
+}): number[] {
+  const clean = (ids?: readonly number[] | null) => {
+    const seen = new Set<number>();
+    const out: number[] = [];
+    for (const id of ids ?? []) {
+      if (!Number.isInteger(id) || id <= 0 || seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+    return out;
+  };
+  const order = clean(input.battingOrder);
+  if (order.length > 0) return order;
+  const lineup = clean(input.lineup);
+  if (lineup.length > 0) return lineup;
+  return clean(input.playingXi);
+}
 
 export type BowlingCardRow = {
   playerId: number;
+  /** Display notation `overs.balls`, not a decimal fraction. */
   overs: string;
+  /**
+   * Legal deliveries in this spell. Canonical bowling volume.
+   * `overs` is derived from this count and `ballsPerOver`.
+   * Absent only on historical rows projected before legal-ball storage.
+   */
+  legalBalls?: number;
+  /** Balls per over used to format `overs` and economy. */
+  ballsPerOver?: number;
   maidens: number;
   runs: number;
   wickets: number;
@@ -50,6 +84,8 @@ export type InningsScorecard = {
   batting: BattingCardRow[];
   bowling: BowlingCardRow[];
   fallOfWickets: FallOfWicket[];
+  partnerships: CricketPartnershipRecord[];
+  currentPartnership: CricketPartnership | null;
   extras: InningsExtras;
   totalRuns: number;
   totalWickets: number;
@@ -109,15 +145,17 @@ function emptyBowl(): BowlAcc {
   };
 }
 
-function oversFromBalls(balls: number): string {
-  const whole = Math.floor(balls / 6);
-  const rem = balls % 6;
+export function oversFromBalls(balls: number, ballsPerOver = 6): string {
+  const bpo = ballsPerOver > 0 ? ballsPerOver : 6;
+  const whole = Math.floor(balls / bpo);
+  const rem = balls % bpo;
   return `${whole}.${rem}`;
 }
 
-function economy(runs: number, legalBalls: number): number {
+export function economy(runs: number, legalBalls: number, ballsPerOver = 6): number {
   if (legalBalls === 0) return 0;
-  return Math.round((runs / (legalBalls / 6)) * 100) / 100;
+  const bpo = ballsPerOver > 0 ? ballsPerOver : 6;
+  return Math.round((runs / (legalBalls / bpo)) * 100) / 100;
 }
 
 function strikeRate(runs: number, balls: number): number {
@@ -127,6 +165,9 @@ function strikeRate(runs: number, balls: number): number {
 
 function batsmanFacesBall(payload: CricketBallRecordedPayload): boolean {
   if (!payload.isLegalDelivery) {
+    // A wide is not a ball faced. A no-ball is a ball faced only when the
+    // batter plays it (runs off the bat). A no-ball that is not played does
+    // not add to balls faced; that matches the live scorecard rule.
     return payload.extras.type === "no_ball" && payload.runsOffBat > 0;
   }
   return payload.extras.type !== "wide";
@@ -135,12 +176,14 @@ function batsmanFacesBall(payload: CricketBallRecordedPayload): boolean {
 export type ScorecardMatchMeta = {
   homeTeamId: number;
   awayTeamId: number;
+  ballsPerOver?: number;
 };
 
 export function buildCricketScorecardFromEvents(
   matchId: number,
   events: ScoringEventEnvelope[],
   meta?: ScorecardMatchMeta,
+  ballsPerOver = meta?.ballsPerOver ?? 6,
 ): CricketFullScorecard {
   const effective = resolveEventsForReplay(events);
   let innings1Batting: number | null = null;
@@ -154,6 +197,8 @@ export function buildCricketScorecardFromEvents(
       bats: Map<number, BatAcc>;
       bowls: Map<number, BowlAcc>;
       fow: FallOfWicket[];
+      partnerships: CricketPartnershipRecord[];
+      activePartnership: CricketPartnership | null;
       extras: InningsExtras;
       totalRuns: number;
       totalWickets: number;
@@ -174,6 +219,8 @@ export function buildCricketScorecardFromEvents(
         bats: new Map(),
         bowls: new Map(),
         fow: [],
+        partnerships: [],
+        activePartnership: null,
         extras: { byes: 0, legByes: 0, wides: 0, noBalls: 0, penalties: 0, total: 0 },
         totalRuns: 0,
         totalWickets: 0,
@@ -218,6 +265,15 @@ export function buildCricketScorecardFromEvents(
       continue;
     }
 
+    if (event.eventType === CricketEventType.INNINGS_ENDED) {
+      const p = event.payload as { innings: number };
+      if (!inningsMap.has(p.innings) && innings1Batting != null && innings1Bowling != null) {
+        if (p.innings === 1) ensureInnings(1, innings1Batting, innings1Bowling);
+        else if (p.innings === 2) ensureInnings(2, innings1Bowling, innings1Batting);
+      }
+      continue;
+    }
+
     if (event.eventType === CricketEventType.PENALTY_AWARDED) {
       const p = event.payload as { innings: number; battingTeamId: number; runs: number };
       const inn = inningsMap.get(p.innings);
@@ -245,11 +301,50 @@ export function buildCricketScorecardFromEvents(
         inn.fow.push({
           wicket: inn.totalWickets,
           runs: inn.totalRuns,
-          overs: oversFromBalls(inn.lastOver * 6 + inn.lastBall),
+          overs: oversFromBalls(inn.lastOver * ballsPerOver + inn.lastBall, ballsPerOver),
           playerId: p.playerId,
         });
       } else {
         bat.dismissalType = "retired_hurt";
+      }
+
+      if (
+        inn.activePartnership &&
+        (inn.activePartnership.batter1Id === p.playerId ||
+          inn.activePartnership.batter2Id === p.playerId)
+      ) {
+        const surviving =
+          p.playerId === inn.activePartnership.batter1Id
+            ? inn.activePartnership.batter2Id
+            : inn.activePartnership.batter1Id;
+        if (inn.activePartnership.runs > 0 || inn.activePartnership.balls > 0) {
+          inn.partnerships.push({
+            innings: p.innings,
+            wicket: p.type === "out" ? inn.totalWickets : 0,
+            batter1Id: inn.activePartnership.batter1Id ?? p.playerId,
+            batter1Runs: inn.activePartnership.batter1Runs,
+            batter1Balls: inn.activePartnership.batter1Balls,
+            batter2Id: inn.activePartnership.batter2Id ?? 0,
+            batter2Runs: inn.activePartnership.batter2Runs,
+            batter2Balls: inn.activePartnership.batter2Balls,
+            extras: inn.activePartnership.extras,
+            runs: inn.activePartnership.runs,
+            balls: inn.activePartnership.balls,
+            dismissedPlayerId: p.playerId,
+            notOutPlayerId: surviving,
+          });
+        }
+        inn.activePartnership = {
+          runs: 0,
+          balls: 0,
+          batter1Id: surviving,
+          batter1Runs: 0,
+          batter1Balls: 0,
+          batter2Id: null,
+          batter2Runs: 0,
+          batter2Balls: 0,
+          extras: 0,
+        };
       }
       continue;
     }
@@ -270,11 +365,13 @@ export function buildCricketScorecardFromEvents(
     const batStriker = getBat(inn, payload.strikerId);
     const bowl = getBowl(inn, payload.bowlerId);
 
-    const runsOffBat = payload.runsOffBat;
+    const effectiveBatRuns = payload.isSuperBall
+      ? payload.runsOffBat * 2
+      : payload.runsOffBat;
     const extraType = payload.extras.type as ExtraType | null;
     const extraRuns = payload.extras.runs;
 
-    let runsToBowler = runsOffBat;
+    let runsToBowler = effectiveBatRuns;
     if (extraType === "wide" || extraType === "no_ball") {
       bowl.wides += extraType === "wide" ? 1 : 0;
       bowl.noBalls += extraType === "no_ball" ? 1 : 0;
@@ -285,36 +382,89 @@ export function buildCricketScorecardFromEvents(
     } else if (extraType === "bye") {
       inn.extras.byes += extraRuns;
       inn.extras.total += extraRuns;
-      runsToBowler += extraRuns;
     } else if (extraType === "leg_bye") {
       inn.extras.legByes += extraRuns;
       inn.extras.total += extraRuns;
-      runsToBowler += extraRuns;
     } else if (extraType === "penalty") {
       inn.extras.penalties += extraRuns;
       inn.extras.total += extraRuns;
     }
 
-    const totalBallRuns = runsOffBat + (extraType === "bye" || extraType === "leg_bye" ? 0 : extraRuns);
+    const totalBallRuns = effectiveBatRuns + extraRuns;
     inn.totalRuns += totalBallRuns;
 
     if (batsmanFacesBall(payload)) {
       batStriker.balls += 1;
-      batStriker.runs += runsOffBat;
-      if (runsOffBat === 4) batStriker.fours += 1;
-      if (runsOffBat === 6) batStriker.sixes += 1;
+      batStriker.runs += effectiveBatRuns;
+      if (payload.runsOffBat === 4) batStriker.fours += 1;
+      if (payload.runsOffBat === 6) batStriker.sixes += 1;
     }
 
-    bowl.runs += runsToBowler + (extraType === "bye" || extraType === "leg_bye" ? extraRuns : 0);
+    // --- Partnership Tracking in Scorecard ---
+    if (!inn.activePartnership) {
+      inn.activePartnership = {
+        runs: 0,
+        balls: 0,
+        batter1Id: payload.strikerId,
+        batter1Runs: 0,
+        batter1Balls: 0,
+        batter2Id: payload.nonStrikerId ?? null,
+        batter2Runs: 0,
+        batter2Balls: 0,
+        extras: 0,
+      };
+    } else {
+      if (inn.activePartnership.batter1Id == null) {
+        inn.activePartnership.batter1Id = payload.strikerId;
+      } else if (
+        inn.activePartnership.batter2Id == null &&
+        payload.nonStrikerId != null &&
+        payload.nonStrikerId !== inn.activePartnership.batter1Id
+      ) {
+        inn.activePartnership.batter2Id = payload.nonStrikerId;
+      } else if (
+        inn.activePartnership.batter2Id == null &&
+        payload.strikerId !== inn.activePartnership.batter1Id
+      ) {
+        inn.activePartnership.batter2Id = payload.strikerId;
+      }
+    }
+
+    inn.activePartnership.runs += totalBallRuns;
+    inn.activePartnership.extras += extraRuns;
+    const isBallFaced = batsmanFacesBall(payload);
+    if (isBallFaced) {
+      inn.activePartnership.balls += 1;
+    }
+
+    if (payload.strikerId === inn.activePartnership.batter1Id) {
+      inn.activePartnership.batter1Runs += effectiveBatRuns;
+      if (isBallFaced) inn.activePartnership.batter1Balls += 1;
+    } else if (payload.strikerId === inn.activePartnership.batter2Id) {
+      inn.activePartnership.batter2Runs += effectiveBatRuns;
+      if (isBallFaced) inn.activePartnership.batter2Balls += 1;
+    } else {
+      if (inn.activePartnership.batter1Id == null) {
+        inn.activePartnership.batter1Id = payload.strikerId;
+        inn.activePartnership.batter1Runs += effectiveBatRuns;
+        if (isBallFaced) inn.activePartnership.batter1Balls += 1;
+      } else {
+        inn.activePartnership.batter2Id = payload.strikerId;
+        inn.activePartnership.batter2Runs += effectiveBatRuns;
+        if (isBallFaced) inn.activePartnership.batter2Balls += 1;
+      }
+    }
+
+    bowl.runs += runsToBowler;
+    bowl.runsThisOver += runsToBowler;
 
     if (payload.isLegalDelivery) {
       bowl.legalBalls += 1;
       bowl.legalBallsThisOver += 1;
-      bowl.runsThisOver += totalBallRuns;
       inn.lastOver = payload.over;
       inn.lastBall = payload.ball;
-      if (payload.ball === 6) {
-        if (bowl.legalBallsThisOver === 6 && bowl.runsThisOver === 0) {
+      if (payload.ball === ballsPerOver) {
+        if (bowl.legalBallsThisOver === ballsPerOver && bowl.runsThisOver === 0) {
           bowl.maidens += 1;
         }
         bowl.runsThisOver = 0;
@@ -329,58 +479,131 @@ export function buildCricketScorecardFromEvents(
       dismissed.dismissalType = payload.wicket.type as DismissalType;
       dismissed.dismissedByPlayerId = payload.bowlerId;
       dismissed.fielderId = payload.wicket.fielderId ?? null;
-      if (payload.wicket.type !== "run_out" && payload.wicket.type !== "stumped") {
-        bowl.wickets += 1;
-      } else if (payload.wicket.type === "stumped") {
+
+      // MCC Law: bowler credited only for bowled, caught, lbw, stumped, hit_wicket
+      const isBowlerWicket = [
+        "bowled",
+        "caught",
+        "lbw",
+        "stumped",
+        "hit_wicket",
+      ].includes(payload.wicket.type);
+      if (isBowlerWicket) {
         bowl.wickets += 1;
       }
+
       inn.fow.push({
         wicket: inn.totalWickets,
         runs: inn.totalRuns,
         overs: `${payload.over}.${payload.ball}`,
         playerId: payload.wicket.dismissedPlayerId,
       });
+
+      if (inn.activePartnership) {
+        const disId = payload.wicket.dismissedPlayerId;
+        const surviving =
+          disId === inn.activePartnership.batter1Id
+            ? inn.activePartnership.batter2Id
+            : inn.activePartnership.batter1Id;
+
+        inn.partnerships.push({
+          innings: payload.innings,
+          wicket: inn.totalWickets,
+          batter1Id: inn.activePartnership.batter1Id ?? payload.strikerId,
+          batter1Runs: inn.activePartnership.batter1Runs,
+          batter1Balls: inn.activePartnership.batter1Balls,
+          batter2Id: inn.activePartnership.batter2Id ?? payload.nonStrikerId ?? 0,
+          batter2Runs: inn.activePartnership.batter2Runs,
+          batter2Balls: inn.activePartnership.batter2Balls,
+          extras: inn.activePartnership.extras,
+          runs: inn.activePartnership.runs,
+          balls: inn.activePartnership.balls,
+          dismissedPlayerId: disId,
+          notOutPlayerId: surviving,
+        });
+
+        inn.activePartnership = {
+          runs: 0,
+          balls: 0,
+          batter1Id: surviving,
+          batter1Runs: 0,
+          batter1Balls: 0,
+          batter2Id: null,
+          batter2Runs: 0,
+          batter2Balls: 0,
+          extras: 0,
+        };
+      }
     }
   }
 
   const innings: InningsScorecard[] = [...inningsMap.entries()]
     .sort(([a], [b]) => a - b)
-    .map(([inningsNum, inn]) => ({
-      innings: inningsNum,
-      battingTeamId: inn.battingTeamId,
-      bowlingTeamId: inn.bowlingTeamId,
-      batting: [...inn.bats.entries()]
-        .map(([playerId, b]) => ({
-          playerId,
-          runs: b.runs,
-          balls: b.balls,
-          fours: b.fours,
-          sixes: b.sixes,
-          strikeRate: strikeRate(b.runs, b.balls),
-          notOut: b.notOut,
-          dismissalType: b.dismissalType,
-          dismissedByPlayerId: b.dismissedByPlayerId,
-          fielderId: b.fielderId,
-        }))
-        .sort((a, b) => b.runs - a.runs),
-      bowling: [...inn.bowls.entries()]
-        .map(([playerId, b]) => ({
-          playerId,
-          overs: oversFromBalls(b.legalBalls),
-          maidens: b.maidens,
-          runs: b.runs,
-          wickets: b.wickets,
-          wides: b.wides,
-          noBalls: b.noBalls,
-          economy: economy(b.runs, b.legalBalls),
-        }))
-        .sort((a, b) => b.wickets - a.wickets || a.runs - b.runs),
-      fallOfWickets: inn.fow,
-      extras: inn.extras,
-      totalRuns: inn.totalRuns,
-      totalWickets: inn.totalWickets,
-      overs: oversFromBalls(inn.lastOver * 6 + inn.lastBall),
-    }));
+    .map(([inningsNum, inn]) => {
+      const pships = [...inn.partnerships];
+      if (
+        inn.activePartnership &&
+        (inn.activePartnership.runs > 0 || inn.activePartnership.balls > 0)
+      ) {
+        pships.push({
+          innings: inningsNum,
+          wicket: 0,
+          batter1Id: inn.activePartnership.batter1Id ?? 0,
+          batter1Runs: inn.activePartnership.batter1Runs,
+          batter1Balls: inn.activePartnership.batter1Balls,
+          batter2Id: inn.activePartnership.batter2Id ?? 0,
+          batter2Runs: inn.activePartnership.batter2Runs,
+          batter2Balls: inn.activePartnership.batter2Balls,
+          extras: inn.activePartnership.extras,
+          runs: inn.activePartnership.runs,
+          balls: inn.activePartnership.balls,
+          dismissedPlayerId: null,
+          notOutPlayerId: null,
+        });
+      }
+
+      return {
+        innings: inningsNum,
+        battingTeamId: inn.battingTeamId,
+        bowlingTeamId: inn.bowlingTeamId,
+        batting: [...inn.bats.entries()]
+          .map(([playerId, b], sequence) => ({
+            playerId,
+            runs: b.runs,
+            balls: b.balls,
+            fours: b.fours,
+            sixes: b.sixes,
+            strikeRate: strikeRate(b.runs, b.balls),
+            notOut: b.notOut,
+            dismissalType: b.dismissalType,
+            dismissedByPlayerId: b.dismissedByPlayerId,
+            fielderId: b.fielderId,
+            sequence,
+          }))
+          .sort((a, b) => b.runs - a.runs || (a.sequence ?? 0) - (b.sequence ?? 0)),
+        bowling: [...inn.bowls.entries()]
+          .map(([playerId, b]) => ({
+            playerId,
+            overs: oversFromBalls(b.legalBalls, ballsPerOver),
+            legalBalls: b.legalBalls,
+            ballsPerOver,
+            maidens: b.maidens,
+            runs: b.runs,
+            wickets: b.wickets,
+            wides: b.wides,
+            noBalls: b.noBalls,
+            economy: economy(b.runs, b.legalBalls, ballsPerOver),
+          }))
+          .sort((a, b) => b.wickets - a.wickets || a.runs - b.runs),
+        fallOfWickets: inn.fow,
+        partnerships: pships,
+        currentPartnership: inn.activePartnership,
+        extras: inn.extras,
+        totalRuns: inn.totalRuns,
+        totalWickets: inn.totalWickets,
+        overs: oversFromBalls(inn.lastOver * ballsPerOver + inn.lastBall, ballsPerOver),
+      };
+    });
 
   return { matchId, innings };
 }

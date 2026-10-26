@@ -158,57 +158,33 @@ export function SideBroadcastHeader({
         ) : null}
 
         <h1
-
+          className="broadcast-tournament-name"
           style={{
-
             position: "absolute",
-
             left: "50%",
-
             top: logoSrc
-
               ? SIDE_LED_LAYOUT.profileTitleTopWithLogo
-
               : SIDE_LED_LAYOUT.profileTitleTopNoLogo,
-
             transform: "translateX(-50%)",
-
             width: SIDE_LED_LAYOUT.profileTitleMaxWidth,
-
             margin: 0,
-
             padding: "0 48px",
-
             textAlign: "center",
-
             fontFamily: '"Bebas Neue", sans-serif',
-
             fontSize: titleSize,
-
-            fontWeight: 400,
-
+            fontWeight: 700,
             lineHeight: 1.04,
-
             letterSpacing: "0.08em",
-
             textTransform: "uppercase",
-
             color: "#fff",
-
+            textShadow: "0 2px 20px rgba(0, 0, 0, 0.8), 0 0 30px rgba(212, 175, 55, 0.15)",
             overflow: "hidden",
-
             display: "-webkit-box",
-
             WebkitLineClamp: 2,
-
             WebkitBoxOrient: "vertical",
-
           }}
-
         >
-
           {tournamentName}
-
         </h1>
 
       </>
@@ -291,47 +267,32 @@ export function SideBroadcastHeader({
       ) : null}
 
       <h1
-
         className="broadcast-tournament-name"
-
         style={{
-
           position: "absolute",
-
           left: "50%",
-
           top: logoSrc
-
             ? SIDE_LED_LAYOUT.tournamentNameTop
-
             : SIDE_LED_LAYOUT.headerLogoTop,
-
           transform: "translateX(-50%)",
-
           width: SIDE_LED_LAYOUT.tournamentNameMaxWidth,
-
           margin: 0,
-
           textAlign: "center",
-
+          fontFamily: '"Bebas Neue", sans-serif',
           fontSize: titleSize,
-
-          lineHeight: 0.92,
-
+          fontWeight: 700,
+          lineHeight: 0.96,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "#fff",
+          textShadow: "0 2px 24px rgba(0, 0, 0, 0.8), 0 0 40px rgba(212, 175, 55, 0.18)",
           overflow: "hidden",
-
           display: "-webkit-box",
-
           WebkitLineClamp: 2,
-
           WebkitBoxOrient: "vertical",
-
         }}
-
       >
-
         {tournamentName}
-
       </h1>
 
     </>

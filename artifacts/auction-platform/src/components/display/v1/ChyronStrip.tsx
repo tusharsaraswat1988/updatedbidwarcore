@@ -44,21 +44,21 @@ const ChyronSponsorSegment = memo(function ChyronSponsorSegment({
           style={getSponsorChyronLogoStyle(tier)}
         />
       ) : null}
-      <div className="flex flex-col leading-none">
+      <div className="flex flex-col leading-none gap-0.5">
         <span
-          className="font-['Bebas_Neue'] text-sm tracking-[0.25em] uppercase"
+          className="led-value font-['Bebas_Neue'] uppercase font-bold tracking-[0.14em]"
           style={getSponsorChyronNameStyle(tier)}
         >
           {sponsor.name}
         </span>
         <span
-          className="font-mono uppercase tracking-[0.3em]"
+          className="led-caption font-['Space_Grotesk'] uppercase font-bold tracking-[0.10em] text-white/80"
           style={getSponsorChyronTypeStyle(tier)}
         >
           {sponsor.type}
         </span>
       </div>
-      <span className="text-white/15 ml-2">•</span>
+      <span className="text-white/25 ml-2">•</span>
     </div>
   );
 });
@@ -82,8 +82,8 @@ export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }
         }}
       >
         <div className="flex flex-col leading-none gap-1" aria-label="Our Sponsors">
-          <span className={`${LED_META_LABEL_CLASS} opacity-70`}>Our</span>
-          <span className={`${LED_META_LABEL_CLASS} tracking-[0.22em]`}>Sponsors</span>
+          <span className={`${LED_META_LABEL_CLASS} opacity-85`}>Our</span>
+          <span className={`${LED_META_LABEL_CLASS} tracking-[0.08em]`}>Sponsors</span>
         </div>
       </div>
 
@@ -99,7 +99,7 @@ export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }
             )}
           />
         ) : (
-          <div className="px-4 text-[10px] font-mono uppercase tracking-[0.4em] text-white/40">
+          <div className="px-4 led-tournament text-[clamp(0.95rem,1.3cqw,1.45rem)] font-bold uppercase tracking-[0.12em] text-white/80 font-['Bebas_Neue']">
             {view.tournament.name}
           </div>
         )}

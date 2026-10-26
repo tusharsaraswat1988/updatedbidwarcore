@@ -1,4 +1,4 @@
-export type LiveOpsSection = "monitor" | "displays" | "owner-apps" | "sessions" | "emergency";
+export type LiveOpsSection = "monitor" | "displays" | "owner-apps" | "sessions" | "emergency" | "endpoints";
 
 export function tournamentLiveOpsPath(tournamentId: number, section: LiveOpsSection): string {
   return `/admin/tournaments/${tournamentId}/live/${section}`;
@@ -11,8 +11,5 @@ export function legacyLiveOpsRedirect(section: LiveOpsSection, tournamentId: num
 
 export const LIVE_OPS_TABS: { id: LiveOpsSection; label: string }[] = [
   { id: "monitor", label: "Auction Monitor" },
-  { id: "displays", label: "Connected Displays" },
-  { id: "owner-apps", label: "Connected Owner Apps" },
-  { id: "sessions", label: "Operator Sessions" },
-  { id: "emergency", label: "Emergency Controls" },
+  { id: "endpoints", label: "Connected Endpoints & Sessions" },
 ];

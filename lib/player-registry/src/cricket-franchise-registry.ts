@@ -12,6 +12,7 @@ import {
   globalPlayersTable,
   masterTeamsTable,
   playerTeamAssignmentsTable,
+  teamsTable,
   tournamentPlayerProfilesTable,
 } from "@workspace/db";
 
@@ -103,7 +104,19 @@ export async function cricketFranchiseTeamExists(
       ),
     )
     .limit(1);
-  return Boolean(row);
+  if (row) return true;
+
+  const [team] = await db
+    .select({ id: teamsTable.id })
+    .from(teamsTable)
+    .where(
+      and(
+        eq(teamsTable.tournamentId, tournamentId),
+        eq(teamsTable.id, teamId),
+      ),
+    )
+    .limit(1);
+  return Boolean(team);
 }
 
 export async function listCricketFranchiseTeams(

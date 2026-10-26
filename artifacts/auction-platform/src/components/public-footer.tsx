@@ -12,12 +12,12 @@ type FooterItem = { label: string; href?: string };
 
 const FOOTER_COLUMNS: Array<{ h: string; items: FooterItem[] }> = [
   {
-    h: "Product",
+    h: "Auction Platform",
     items: [
-      { label: "Features", href: "/#features" },
+      { label: "Auction Screens", href: "/#auction-screens" },
+      { label: "Experience Bidding", href: "/#experience-bidding" },
+      { label: "Tournament Galleries", href: "/#tournament-galleries" },
       { label: "Pricing", href: "/pricing" },
-      { label: "LED Mode", href: "/#features" },
-      { label: "Team-Owner Panel", href: "/#features" },
     ],
   },
   {
@@ -34,8 +34,8 @@ const FOOTER_COLUMNS: Array<{ h: string; items: FooterItem[] }> = [
     items: [
       { label: "Academy", href: "/academy" },
       { label: "Blog", href: "/blog" },
+      { label: "Organizer Reviews", href: "/#reviews" },
       { label: "Upcoming Auctions", href: "/upcoming-auctions" },
-      { label: "Auction Tips", href: "/auction-tips" },
     ],
   },
   {

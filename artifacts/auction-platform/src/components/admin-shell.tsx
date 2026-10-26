@@ -120,11 +120,11 @@ function AdminGlobalSearch({
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
-        className="h-9 w-full rounded-lg border border-border bg-card/70 pl-9 pr-3 text-sm outline-none transition focus:border-primary"
+        className="h-9 w-full rounded-lg border border-border bg-card/70 pl-9 pr-3 text-xs sm:text-sm outline-none transition focus:border-primary"
         placeholder={isMobile ? "Search..." : "Search tournaments, organisers..."}
       />
       {showDropdown && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
+        <div className="absolute left-0 top-full z-50 mt-1 w-full min-w-[260px] sm:min-w-[320px] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-lg border border-border bg-popover shadow-xl">
           {!loaded ? (
             <div className="px-3 py-3 text-sm text-muted-foreground">Loading…</div>
           ) : hasResults ? (
@@ -182,7 +182,7 @@ function ShellBrand({ loading, logos, brandName }: { loading: boolean; logos: { 
   const shellLogoSrc = getBrandLogoSrc(logos, sidebarPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);
   return (
-    <div className="flex h-16 items-center gap-3 border-b border-border px-4">
+    <div className="flex h-14 sm:h-16 items-center gap-3 border-b border-border px-4 flex-shrink-0">
       {!loading && (
         <img
           src={cldUrl(logos.mini, "headerLogo") || shellLogoSrc}
@@ -191,7 +191,7 @@ function ShellBrand({ loading, logos, brandName }: { loading: boolean; logos: { 
         />
       )}
       <div className="min-w-0">
-        <div className="text-[11px] uppercase tracking-widest text-muted-foreground">Super Admin</div>
+        <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">Super Admin</div>
       </div>
     </div>
   );
@@ -257,18 +257,23 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
       </aside>
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent side="left" className="w-[min(100vw-2rem,280px)] p-0">
+        <SheetContent side="left" className="w-[min(100vw-2rem,280px)] p-0 flex flex-col bg-card">
           <SheetTitle className="sr-only">Admin navigation</SheetTitle>
           <ShellBrand loading={loading} logos={logos} brandName={brandName} />
-          <AdminSidebarNav location={location} isMaster={isMaster} onNavigate={closeDrawer} />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <AdminSidebarNav location={location} isMaster={isMaster} onNavigate={closeDrawer} />
+          </div>
+          <div className="p-3 border-t border-border flex-shrink-0">
+            <AdminPwaInstallHint variant="card" />
+          </div>
         </SheetContent>
       </Sheet>
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-14 flex-shrink-0 items-center gap-2 border-b border-border bg-background/95 px-3 sm:gap-4 sm:px-5">
+        <div className="flex h-14 flex-shrink-0 items-center gap-1.5 sm:gap-3 border-b border-border bg-background/95 px-2.5 sm:px-5">
           <button
             type="button"
-            className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground md:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground md:hidden flex-shrink-0"
             onClick={() => setDrawerOpen(true)}
             aria-label="Open navigation menu"
           >
@@ -276,27 +281,29 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
           </button>
           <AdminGlobalSearch isMobile={isMobile} isLoggedIn={isLoggedIn} />
           <div
-            className="hidden items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-sm text-muted-foreground sm:flex"
+            className="hidden items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground lg:flex flex-shrink-0"
             title={adminLevel === "master" ? "Master admin — full platform access" : "Data entry admin — read-only live ops"}
           >
-            <UserCircle className="h-5 w-5" />
+            <UserCircle className="h-4 w-4" />
             <span>{adminLevel === "master" ? "Master" : "Data Entry"}</span>
           </div>
           <AdminPwaInstallHint variant="compact" />
-          <AdminNotificationBell />
+          <div className="flex-shrink-0">
+            <AdminNotificationBell />
+          </div>
           <button
             type="button"
             onClick={() => setLogoutOpen(true)}
-            className="rounded-lg p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
             title="Sign out"
             aria-label="Sign out"
           >
-            <LogOut className="h-5 w-5" />
+            <LogOut className="h-4.5 w-4.5" />
           </button>
         </div>
 
         <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
-          <AlertDialogContent>
+          <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
             <AlertDialogHeader>
               <AlertDialogTitle>Sign out?</AlertDialogTitle>
               <AlertDialogDescription>
@@ -316,18 +323,18 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
         </AlertDialog>
 
         <div className="flex-1 overflow-auto">
-          <div className="border-b border-border bg-card/30 px-4 py-3 sm:px-6 sm:py-4">
+          <div className="border-b border-border bg-card/30 px-3 py-3 sm:px-6 sm:py-4">
             {eyebrow && (
-              <div className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 {eyebrow}
               </div>
             )}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h1 className="font-display text-xl font-black text-white sm:text-2xl">{title}</h1>
-              {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <h1 className="font-display text-lg font-black text-white sm:text-2xl truncate">{title}</h1>
+              {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
             </div>
           </div>
-          <div className="p-4 sm:p-6">{children}</div>
+          <div className="p-3 sm:p-6">{children}</div>
         </div>
       </main>
 

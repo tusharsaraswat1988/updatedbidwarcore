@@ -74,7 +74,7 @@
   --shadow-broadcast: 0 30px 80px -20px oklch(0.75 0.19 65 / 0.4), 0 8px 24px -12px oklch(0 0 0 / 0.6);
   --shadow-panel: 0 1px 0 0 oklch(1 0 0 / 0.06) inset, 0 24px 60px -30px oklch(0 0 0 / 0.7);
 
-  --font-display: "Anton", "Impact", sans-serif;
+  --font-display: "Barlow Condensed", "Space Grotesk", sans-serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
@@ -105,23 +105,87 @@
   --color-live: var(--live);
   --color-sold: var(--sold);
   --color-unsold: var(--unsold);
+}
 
+/* Serious Broadcast Control Console theme: matte dark obsidian & slate */
+:is(.theme-broadcast-console),
+.dark:is(.theme-broadcast-console),
+:is(.theme-broadcast-console).dark {
+  --background: oklch(0.12 0.015 250);
+  --foreground: oklch(0.90 0.01 240);
+
+  --stage: oklch(0.10 0.01 250);
+  --panel: oklch(0.15 0.015 250);
+  --panel-2: oklch(0.18 0.015 250);
+  --rail: oklch(0.22 0.015 250);
+
+  --card: oklch(0.15 0.015 250);
+  --card-foreground: oklch(0.90 0.01 240);
+  --popover: oklch(0.15 0.015 250);
+  --popover-foreground: oklch(0.90 0.01 240);
+
+  --primary: oklch(0.85 0.17 88);
+  --primary-foreground: oklch(0.12 0.01 250);
+
+  --secondary: oklch(0.18 0.015 250);
+  --secondary-foreground: oklch(0.88 0.01 240);
+
+  --muted: oklch(0.18 0.015 250);
+  --muted-foreground: oklch(0.65 0.02 240);
+
+  --border: oklch(0.24 0.015 250);
+  --input: oklch(0.24 0.015 250);
+  --ring: oklch(0.85 0.17 88);
+
+  --gradient-stage: radial-gradient(ellipse at 50% 0%, rgba(30, 41, 59, 0.35), transparent 70%);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-stage: var(--stage);
+  --color-panel: var(--panel);
+  --color-panel-2: var(--panel-2);
+  --color-rail: var(--rail);
+}
+
+/*
+ * Full-page surfaces only. Exclude Radix portal roots that carry
+ * `.lovable-theme` for tokens (`data-state`, dialog/menu/listbox roles).
+ */
+.lovable-home,
+.lovable-theme:not([data-state]):not([role="dialog"]):not([role="alertdialog"]):not([role="menu"]):not([role="listbox"]) {
   background: var(--gradient-stage);
   background-attachment: fixed;
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  font-feature-settings: "ss01", "cv11";
-  -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
 
 /*
- * Portaled dialogs also get `.lovable-theme` for token inheritance.
- * Do NOT inherit page min-height — that stretches empty modals to the viewport.
+ * Portaled overlays get `.lovable-theme` for token inheritance.
+ * Force content-sized boxes — min-height wins over max-height when both
+ * apply, which previously locked Select menus at ~100vh.
+ *
+ * Do not set background-color here: portal roots use Tailwind `bg-popover` /
+ * `bg-card` on the SAME node as `.lovable-theme`. Those are rebound below
+ * (including same-element selectors) so menus stay opaque.
  */
+.lovable-theme[data-state],
 .lovable-theme[role="dialog"],
-.lovable-theme[role="alertdialog"] {
+.lovable-theme[role="alertdialog"],
+.lovable-theme[role="menu"],
+.lovable-theme[role="listbox"] {
   min-height: 0;
+  background-image: none;
   background-attachment: scroll;
 }
 
@@ -146,6 +210,8 @@
 :is(.lovable-home, .lovable-theme) .text-accent-foreground { color: var(--accent-foreground) !important; }
 :is(.lovable-home, .lovable-theme) .text-destructive { color: var(--destructive) !important; }
 :is(.lovable-home, .lovable-theme) .text-card-foreground { color: var(--card-foreground) !important; }
+/* Same-element variants: portaled Select/Dialog roots put theme + bg-* together */
+:is(.lovable-home, .lovable-theme).bg-background,
 :is(.lovable-home, .lovable-theme) .bg-background { background-color: var(--background) !important; }
 :is(.lovable-home, .lovable-theme) .bg-foreground { background-color: var(--foreground) !important; }
 :is(.lovable-home, .lovable-theme) .bg-primary { background-color: var(--primary) !important; }
@@ -158,6 +224,7 @@
 :is(.lovable-home, .lovable-theme) .bg-secondary { background-color: var(--secondary) !important; }
 :is(.lovable-home, .lovable-theme) .bg-muted { background-color: var(--muted) !important; }
 :is(.lovable-home, .lovable-theme) .bg-accent { background-color: var(--accent) !important; }
+:is(.lovable-home, .lovable-theme).bg-card,
 :is(.lovable-home, .lovable-theme) .bg-card { background-color: var(--card) !important; }
 :is(.lovable-home, .lovable-theme) .bg-rail { background-color: var(--rail) !important; }
 :is(.lovable-home, .lovable-theme) .bg-panel { background-color: var(--panel) !important; }
@@ -179,6 +246,7 @@
 :is(.lovable-home, .lovable-theme) .bg-background\/80 { background-color: color-mix(in oklab, var(--background) 80%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .bg-background\/95 { background-color: color-mix(in oklab, var(--background) 95%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .bg-destructive { background-color: var(--destructive) !important; }
+:is(.lovable-home, .lovable-theme).border-border,
 :is(.lovable-home, .lovable-theme) .border-border { border-color: var(--border) !important; }
 :is(.lovable-home, .lovable-theme) .border-border\/40 { border-color: color-mix(in oklab, var(--border) 40%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .border-border\/50 { border-color: color-mix(in oklab, var(--border) 50%, transparent) !important; }
@@ -211,25 +279,49 @@
 :is(.lovable-home, .lovable-theme) .bg-stage\/80 { background-color: color-mix(in oklab, var(--stage) 80%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .bg-panel-2\/80 { background-color: color-mix(in oklab, var(--panel-2) 80%, transparent) !important; }
 
-/* Homepage-only: Anton uppercase display type.
-   .lovable-theme (badminton app) keeps readable product headings. */
+/* Homepage-only: Anton uppercase display type for primary headlines.
+   Card titles, FAQ questions, and body text use clean, readable Inter sans-serif. */
 .lovable-home h1,
 .lovable-home h2,
+.lovable-home .text-hero,
+.lovable-home .text-display-lg,
+.lovable-home .text-display-md {
+  font-family: "Anton", "Barlow Condensed", sans-serif !important;
+  letter-spacing: 0.025em !important;
+  text-transform: uppercase !important;
+  line-height: 1.22 !important;
+  font-weight: 400 !important;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+/*
+ * Homepage-only clearance for the fixed mobile trial bar.
+ * The bar measures itself into --bw-sticky-cta-offset. The fallback
+ * covers first paint. Desktop and other lovable-home pages stay flush.
+ */
+@media (max-width: 767px) {
+  .lovable-home.has-mobile-sticky-cta {
+    --bw-sticky-cta-offset: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: var(--bw-sticky-cta-offset);
+  }
+}
+
+@media (min-width: 768px) {
+  .lovable-home.has-mobile-sticky-cta {
+    padding-bottom: 5.5rem;
+  }
+}
+
 .lovable-home h3,
 .lovable-home h4,
 .lovable-home h5,
-.lovable-home h6,
-.lovable-home .font-display {
-  font-family: "Anton", "Impact", sans-serif !important;
-  letter-spacing: 0.01em !important;
-  text-transform: uppercase !important;
-  font-weight: 400 !important;
-}
-
-.lovable-home h1,
-.lovable-home h2,
-.lovable-home h3 {
-  line-height: 0.95 !important;
+.lovable-home h6 {
+  font-family: var(--font-sans) !important;
+  letter-spacing: -0.01em !important;
+  text-transform: none !important;
+  line-height: 1.35 !important;
+  font-weight: 600 !important;
 }
 
 :is(.lovable-home, .lovable-theme) .font-mono,
@@ -252,19 +344,22 @@
 /* Exact Lovable utility declarations as plain classes */
 
 :is(.lovable-home, .lovable-theme) .text-hero {
+  display: flex;
+  flex-direction: column;
+  row-gap: 0.16em;
   font-size: clamp(2.75rem, 7vw, 6.5rem) !important;
-  line-height: 0.9 !important;
+  line-height: 1.05 !important;
   letter-spacing: -0.01em !important;
 }
 
 :is(.lovable-home, .lovable-theme) .text-display-lg {
   font-size: clamp(2rem, 4vw, 3.5rem);
-  line-height: 0.95;
+  line-height: 1.22 !important;
 }
 
 :is(.lovable-home, .lovable-theme) .text-display-md {
   font-size: clamp(1.5rem, 2.5vw, 2.25rem);
-  line-height: 1;
+  line-height: 1.22 !important;
 }
 
 :is(.lovable-home, .lovable-theme) .gold-text {
@@ -412,8 +507,10 @@
   :is(.lovable-home, .lovable-theme) [class*="ticker-track"],
   :is(.lovable-home, .lovable-theme) .live-dot,
   :is(.lovable-home, .lovable-theme) [class*="live-dot"],
-  :is(.lovable-home, .lovable-theme) .ecosystem-line {
+  :is(.lovable-home, .lovable-theme) .ecosystem-line,
+  :is(.lovable-home, .lovable-theme) .bw-scroll-top {
     animation: none !important;
+    transition: none !important;
   }
 }
 
@@ -528,7 +625,14 @@
 :is(.lovable-home, .lovable-theme) .border-border\/40 { border-color: color-mix(in oklab, var(--border) 40%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .border-border\/50 { border-color: color-mix(in oklab, var(--border) 50%, transparent) !important; }
 :is(.lovable-home, .lovable-theme) .border-border\/60 { border-color: color-mix(in oklab, var(--border) 60%, transparent) !important; }
+/*
+ * Portal menus (Select/Dropdown) apply `lovable-theme bg-popover` on one node.
+ * Descendant-only `.lovable-theme .bg-popover` never matched, so after removing
+ * the stage gradient the menu looked fully transparent over the form.
+ */
+:is(.lovable-home, .lovable-theme).bg-popover,
 :is(.lovable-home, .lovable-theme) .bg-popover { background-color: var(--popover) !important; }
+:is(.lovable-home, .lovable-theme).text-popover-foreground,
 :is(.lovable-home, .lovable-theme) .text-popover-foreground { color: var(--popover-foreground) !important; }
 
 /*

@@ -24,8 +24,14 @@ import {
   ScorerLockError,
 } from "../lib/scorer-match-locks";
 import { logger } from "../lib/logger";
-import { db, scoringMatchesTable } from "@workspace/db";
+import { db, scoringMatchesTable, tournamentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import {
+  assertSportModule,
+  assertScoringModule,
+  ModuleAuthorizationError,
+} from "../middleware/require-module";
+import { InvalidTournamentModuleStateError } from "@workspace/platform-core";
 
 const router: IRouter = Router();
 
@@ -44,6 +50,17 @@ async function requireScorer(req: Request): Promise<ScorerAuthContext> {
 }
 
 function sendAuthError(res: import("express").Response, e: unknown): boolean {
+  if (e instanceof ModuleAuthorizationError) {
+    res.status(e.status).json({ error: e.message, code: e.code });
+    return true;
+  }
+  if (e instanceof InvalidTournamentModuleStateError) {
+    res.status(400).json({
+      error: "A tournament must have at least one enabled product module (auction or scoring).",
+      code: "INVALID_MODULE_STATE",
+    });
+    return true;
+  }
   if (e instanceof ScorerAuthError) {
     res.status(e.status).json({ error: e.message, code: e.code });
     return true;
@@ -68,6 +85,7 @@ router.post("/login", async (req, res) => {
     mobile: z.string().min(10).max(20),
     pin: z.string().min(4).max(32),
     deviceName: z.string().max(120).optional(),
+    tournamentId: z.number().int().positive().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
@@ -78,6 +96,7 @@ router.post("/login", async (req, res) => {
     const result = await loginScorer({
       mobile: parsed.data.mobile,
       pin: parsed.data.pin,
+      tournamentId: parsed.data.tournamentId ?? null,
       deviceName: parsed.data.deviceName ?? null,
       ipAddress: clientIp(req),
       userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : null,
@@ -87,6 +106,7 @@ router.post("/login", async (req, res) => {
       scorer: result.scorer,
       canScore: result.canScore,
       expiresAt: result.expiresAt,
+      tournaments: result.tournaments,
     });
   } catch (e) {
     if (sendAuthError(res, e)) return;
@@ -129,6 +149,7 @@ router.post("/matches/:matchId/lock", async (req, res) => {
   const metaSchema = z.object({
     tournamentId: z.number().int().positive().optional(),
     sport: z.string().max(40).optional(),
+    forceTakeover: z.boolean().optional(),
   });
   const meta = metaSchema.safeParse(req.body ?? {});
 
@@ -140,16 +161,39 @@ router.post("/matches/:matchId/lock", async (req, res) => {
 
     // Resolve tournament from match when body omits it (Sprint 1 / C3).
     let resolvedTournamentId = tournamentId;
+    let matchSportSlug: string | null = null;
     if (!resolvedTournamentId) {
       const [match] = await db
-        .select({ tournamentId: scoringMatchesTable.tournamentId })
+        .select({
+          tournamentId: scoringMatchesTable.tournamentId,
+          sportSlug: scoringMatchesTable.sportSlug,
+        })
         .from(scoringMatchesTable)
         .where(eq(scoringMatchesTable.id, matchId))
         .limit(1);
       resolvedTournamentId = match?.tournamentId ?? null;
+      matchSportSlug = match?.sportSlug ?? null;
     }
 
     if (resolvedTournamentId) {
+      const [tournament] = await db
+        .select({
+          id: tournamentsTable.id,
+          auctionEnabled: tournamentsTable.auctionEnabled,
+          scoringEnabled: tournamentsTable.scoringEnabled,
+          sport: tournamentsTable.sport,
+        })
+        .from(tournamentsTable)
+        .where(eq(tournamentsTable.id, resolvedTournamentId))
+        .limit(1);
+
+      const expectedSport = meta.success && meta.data.sport ? meta.data.sport : (matchSportSlug || tournament?.sport);
+      if (expectedSport) {
+        assertSportModule(tournament, expectedSport);
+      } else {
+        assertScoringModule(tournament);
+      }
+
       await assertScorerMayAccessTournament(auth.scorerId, resolvedTournamentId);
     }
 
@@ -159,6 +203,7 @@ router.post("/matches/:matchId/lock", async (req, res) => {
       sessionId: auth.sessionId,
       tournamentId: resolvedTournamentId,
       sport: meta.success ? meta.data.sport ?? null : null,
+      forceTakeover: meta.success ? meta.data.forceTakeover : undefined,
     });
 
     if (!result.ok) {
@@ -176,8 +221,11 @@ router.post("/matches/:matchId/lock", async (req, res) => {
         matchId: result.lock.matchId,
         scorerId: result.lock.scorerId,
         sessionId: result.lock.sessionId,
+        leaseId: result.lock.leaseId,
+        leaseVersion: result.lock.leaseVersion,
         lockedAt: result.lock.lockedAt,
         lastHeartbeatAt: result.lock.lastHeartbeatAt,
+        expiresAt: result.lock.expiresAt,
       },
     });
   } catch (e) {

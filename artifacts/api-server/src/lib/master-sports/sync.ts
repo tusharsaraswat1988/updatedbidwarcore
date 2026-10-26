@@ -21,6 +21,7 @@ import {
   assignPlayerToFranchiseRoster,
 } from "@workspace/player-registry/roster-assignments";
 import { ensureCricketStatisticsBaseline } from "./cricket-stats";
+import { masterIdentityAvailable } from "./master-identity";
 import {
   buildSportProfileFromAuctionPlayer,
   playerSportProfileService,
@@ -56,17 +57,35 @@ async function resolveTournamentSport(tournamentId?: number): Promise<string> {
   return (tournament?.sport ?? "cricket").trim().toLowerCase();
 }
 
+export type SyncAuctionPlayerOptions = {
+  /**
+   * Master ids already used by a different player in this tournament.
+   * Shared parent email, mobile, or name must not merge those kids into one roster slot.
+   */
+  claimedMasterIds?: ReadonlySet<string>;
+};
+
+export { masterIdentityAvailable } from "./master-identity";
+
 /** Find existing master player by auction id, mobile, email, or name similarity. */
 async function findExistingMasterPlayer(
   auctionPlayer: Player,
+  claimedMasterIds?: ReadonlySet<string>,
 ): Promise<typeof globalPlayersTable.$inferSelect | null> {
-  if (auctionPlayer.globalPlayerId) {
+  const reusable = (
+    row: { id: string } | undefined,
+  ): boolean => !!row && masterIdentityAvailable(row.id, claimedMasterIds);
+
+  if (
+    auctionPlayer.globalPlayerId &&
+    masterIdentityAvailable(auctionPlayer.globalPlayerId, claimedMasterIds)
+  ) {
     const [byLink] = await db
       .select()
       .from(globalPlayersTable)
       .where(eq(globalPlayersTable.id, auctionPlayer.globalPlayerId))
       .limit(1);
-    if (byLink) return byLink;
+    if (byLink && reusable(byLink)) return byLink;
   }
 
   const [byAuctionId] = await db
@@ -74,7 +93,17 @@ async function findExistingMasterPlayer(
     .from(globalPlayersTable)
     .where(eq(globalPlayersTable.auctionPlayerId, auctionPlayer.id))
     .limit(1);
-  if (byAuctionId) return byAuctionId;
+  if (byAuctionId && reusable(byAuctionId)) return byAuctionId;
+  if (
+    byAuctionId &&
+    !masterIdentityAvailable(byAuctionId.id, claimedMasterIds) &&
+    byAuctionId.auctionPlayerId === auctionPlayer.id
+  ) {
+    await db
+      .update(globalPlayersTable)
+      .set({ auctionPlayerId: null })
+      .where(eq(globalPlayersTable.id, byAuctionId.id));
+  }
 
   if (auctionPlayer.mobileNumber) {
     const mobileParsed = parseIndianMobile(auctionPlayer.mobileNumber);
@@ -84,7 +113,7 @@ async function findExistingMasterPlayer(
         .from(globalPlayersTable)
         .where(eq(globalPlayersTable.mobileNumber, mobileParsed.normalized))
         .limit(1);
-      if (byMobile) return byMobile;
+      if (byMobile && reusable(byMobile)) return byMobile;
     }
   }
 
@@ -96,7 +125,7 @@ async function findExistingMasterPlayer(
         .from(globalPlayersTable)
         .where(sql`lower(${globalPlayersTable.email}) = lower(${emailParsed.email})`)
         .limit(1);
-      if (byEmail) return byEmail;
+      if (byEmail && reusable(byEmail)) return byEmail;
     }
   }
 
@@ -115,6 +144,7 @@ async function findExistingMasterPlayer(
       .limit(5);
 
     for (const c of candidates) {
+      if (!masterIdentityAvailable(c.id, claimedMasterIds)) continue;
       if (normalizeName(c.canonicalName) === normalized) return c;
       if (c.displayName && normalizeName(c.displayName) === normalized) return c;
     }
@@ -193,6 +223,7 @@ async function linkAuctionPlayerToGlobal(
 export async function syncAuctionPlayerToMaster(
   auctionPlayerId: number,
   tournamentId?: number,
+  options?: SyncAuctionPlayerOptions,
 ): Promise<SyncResult | null> {
   const [auctionPlayer] = await db
     .select()
@@ -207,7 +238,10 @@ export async function syncAuctionPlayerToMaster(
   if (!auctionPlayer) return null;
 
   const sportSlug = await resolveTournamentSport(tournamentId ?? auctionPlayer.tournamentId);
-  const existing = await findExistingMasterPlayer(auctionPlayer);
+  const existing = await findExistingMasterPlayer(
+    auctionPlayer,
+    options?.claimedMasterIds,
+  );
   const profilesEnabled = isPlayerSportProfilesEnabled();
 
   if (profilesEnabled) {

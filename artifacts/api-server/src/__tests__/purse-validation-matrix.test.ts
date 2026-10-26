@@ -19,6 +19,7 @@ import {
   type SimPlayer,
   type TeamSimState,
   uiBiddingLimit,
+  uiReserveDisplay,
 } from "@workspace/api-base/purse-protection-expect";
 
 const MIN_BIDS = [1_000, 10_000, 50_000, 100_000] as const;
@@ -314,6 +315,17 @@ describe("purse validation matrix — UI and snapshot surfaces", () => {
         expect(row.maxAllowedBid).toBeGreaterThan(row.spendablePurse);
       }
     }
+  });
+
+  it("Owner LiveBid reserve column === reservePurse even when futureReservePurse is 0", () => {
+    const lastSlot = protectionFromTeamSim(
+      sim({ players: [{ status: "sold", price: 120_000 }, { status: "sold", price: 80_000 }, { status: "sold", price: 50_000 }] }),
+      tournament,
+    );
+    expect(lastSlot.slotsRequired).toBe(1);
+    expect(lastSlot.futureReservePurse).toBe(0);
+    expect(uiReserveDisplay(lastSlot)).toBe(lastSlot.reservePurse);
+    expect(uiReserveDisplay(lastSlot)).not.toBe(lastSlot.futureReservePurse);
   });
 
   it("SSE fingerprint changes when maxAllowedBid changes", () => {

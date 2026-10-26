@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { parseOwnerDeepLink } from "@workspace/api-base/owner-onboarding";
 import { getLastSelectedRole } from "@/lib/role-preference";
 import { getRoleModule } from "@/roles/registry";
@@ -12,10 +12,11 @@ import { RoleSelectionScreen } from "@/screens/RoleSelection";
  */
 export function BootRouter() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const deepLink = parseOwnerDeepLink(window.location.search);
+    const deepLink = parseOwnerDeepLink(search);
     if (deepLink) {
       setLocation(
         `/team-owner/login?tournamentId=${deepLink.tournamentId}&teamId=${deepLink.teamId}`,
@@ -32,7 +33,7 @@ export function BootRouter() {
       }
     }
     setReady(true);
-  }, [setLocation]);
+  }, [setLocation, search]);
 
   if (!ready) {
     return (

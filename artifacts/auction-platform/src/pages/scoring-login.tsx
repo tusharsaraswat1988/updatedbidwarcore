@@ -4,7 +4,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { FullscreenLayout } from "@/components/layout";
 import { AuthForm } from "@/pages/organizer-portal";
 import { useOrganizerAccountAuth } from "@/hooks/use-auth";
-import { setOrganizerAccountAuthData } from "@/lib/organizer-account-auth-cache";
+import {
+  clearOrganizerClientState,
+  setOrganizerAccountAuthData,
+} from "@/lib/organizer-account-auth-cache";
+import { logoutOrganizerAccount } from "@/lib/auth";
 import { navigateAfterOrganizerAuth } from "@/lib/navigate-after-organizer-auth";
 import type { OrganizerInfo } from "@/lib/auth";
 
@@ -47,11 +51,27 @@ export default function ScoringLoginPage() {
   const queryClient = useQueryClient();
   const { isLoggedIn, isLoading, tournaments } = useOrganizerAccountAuth();
 
+  const isLoggedOut = useMemo(() => {
+    try {
+      return new URLSearchParams(search).get("logged_out") === "1";
+    } catch {
+      return false;
+    }
+  }, [search]);
+
   const next = useMemo(() => readNextParam(search), [search]);
   const initialView = useMemo(() => readAuthTab(search), [search]);
 
   useEffect(() => {
-    if (isLoading || !isLoggedIn) return;
+    if (isLoggedOut && isLoggedIn) {
+      void logoutOrganizerAccount().then(() => {
+        clearOrganizerClientState(queryClient);
+      });
+    }
+  }, [isLoggedOut, isLoggedIn, queryClient]);
+
+  useEffect(() => {
+    if (isLoggedOut || isLoading || !isLoggedIn) return;
     if (next) {
       navigateAfterOrganizerAuth(next, navigate);
       return;
@@ -65,13 +85,13 @@ export default function ScoringLoginPage() {
           : `/scoring-app/tournament/${first.id}/score`;
       navigateAfterOrganizerAuth(path, navigate);
     }
-  }, [isLoading, isLoggedIn, next, navigate, tournaments]);
+  }, [isLoggedOut, isLoading, isLoggedIn, next, navigate, tournaments]);
 
   function handleAuthSuccess(org: OrganizerInfo, tours: Tournament[]) {
     setOrganizerAccountAuthData(queryClient, { organizer: org, tournaments: tours });
   }
 
-  if (isLoading || isLoggedIn) {
+  if (!isLoggedOut && (isLoading || isLoggedIn)) {
     return (
       <FullscreenLayout>
         <div className="min-h-screen flex items-center justify-center">

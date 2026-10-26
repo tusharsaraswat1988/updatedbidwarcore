@@ -1,4 +1,4 @@
-import { apiFetch } from "@workspace/api-base";
+import { apiFetch } from "@workspace/api-base/api-fetch";
 
 export type ScoringVenue = {
   id: number;
@@ -18,6 +18,13 @@ export type ScoringOfficial = {
   role: string;
   mobile: string | null;
   email: string | null;
+  pin?: string | null;
+  hasPin?: boolean;
+  isActive?: boolean;
+  lastLoginAt?: string | null;
+  loginLocked?: boolean;
+  loginLockoutRemainingSec?: number;
+  scorerAccountId?: number;
 };
 
 export type ScoringDraw = {
@@ -35,6 +42,7 @@ export type ScoringFixture = {
   tournamentId: number;
   drawId: number | null;
   groupId: number | null;
+  rulePresetId?: number | null;
   fixtureNumber: number | null;
   roundName: string | null;
   scheduledAt: string | null;
@@ -92,7 +100,14 @@ export async function listOfficials(tournamentId: number): Promise<ScoringOffici
 
 export async function createOfficial(
   tournamentId: number,
-  body: { name: string; role?: string; mobile?: string | null; email?: string | null },
+  body: {
+    name: string;
+    role?: string;
+    mobile?: string | null;
+    email?: string | null;
+    pin?: string | null;
+  hasPin?: boolean;
+  },
 ): Promise<ScoringOfficial> {
   const r = await apiFetch(`${base(tournamentId)}/officials`, {
     method: "POST",
@@ -110,11 +125,38 @@ export async function updateOfficial(
     role?: string;
     mobile?: string | null;
     email?: string | null;
+    pin?: string | null;
+  hasPin?: boolean;
+    isActive?: boolean;
   },
 ): Promise<ScoringOfficial> {
   const r = await apiFetch(`${base(tournamentId)}/officials/${officialId}`, {
     method: "PATCH",
     body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function resetOfficialLockout(
+  tournamentId: number,
+  officialId: number,
+): Promise<{ ok: boolean; cleared: number }> {
+  const r = await apiFetch(`${base(tournamentId)}/officials/${officialId}/reset-login-lockout`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  if (!r.ok) throw new Error(await parseError(r));
+  return r.json();
+}
+
+export async function unlockOfficialScorer(
+  tournamentId: number,
+  officialId: number,
+): Promise<{ ok: boolean; message: string; locksReleased?: number }> {
+  const r = await apiFetch(`${base(tournamentId)}/officials/${officialId}/unlock-scorer`, {
+    method: "POST",
+    body: JSON.stringify({}),
   });
   if (!r.ok) throw new Error(await parseError(r));
   return r.json();
@@ -151,6 +193,7 @@ export async function generateDraw(
     format: "round_robin" | "league" | "knockout" | "league_knockout";
     teamIds: number[];
     groups?: Array<{ name: string; teamIds: number[] }>;
+    rulePresetId?: number | null;
     oversLimit?: number;
     venueId?: number | null;
     startDate?: string | null;
@@ -172,6 +215,8 @@ export async function getMatchSquads(tournamentId: number, matchId: number) {
   return r.json();
 }
 
+import { scorerAuthHeaders } from "./badminton-scorer-session";
+
 export async function setMatchSquad(
   tournamentId: number,
   matchId: number,
@@ -180,6 +225,9 @@ export async function setMatchSquad(
 ) {
   const r = await apiFetch(`${base(tournamentId)}/matches/${matchId}/squads/${teamId}`, {
     method: "PUT",
+    headers: {
+      ...scorerAuthHeaders(),
+    },
     body: JSON.stringify(squad),
   });
   if (!r.ok) throw new Error(await parseError(r));

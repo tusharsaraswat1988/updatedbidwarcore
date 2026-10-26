@@ -77,57 +77,13 @@ export function FixtureSetupCard({ tournamentId, onQuickPeek }: FixtureSetupCard
     setLoading(true);
     setError("");
     try {
-      const idRes = await apiFetch(`/tournaments/${tournamentId}/fixtures`);
-      if (!idRes.ok) {
-        const body = await idRes.json().catch(() => ({}));
+      const res = await apiFetch(`/tournaments/${tournamentId}/fixtures/aggregate`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Failed to load fixtures");
       }
-      const { identities } = (await idRes.json()) as { identities: FixtureIdentity[] };
-
-      const loaded = await Promise.all(
-        identities.map(async (identity) => {
-          const base = `/tournaments/${tournamentId}/fixtures/${identity.id}`;
-          const [configRes, nodesRes, advancementRes, validationRes, lifecycleRes] =
-            await Promise.all([
-              apiFetch(`${base}/configuration`),
-              apiFetch(`${base}/nodes`),
-              apiFetch(`${base}/advancement`),
-              apiFetch(`${base}/validation`),
-              apiFetch(`${base}/lifecycle`),
-            ]);
-          if (
-            !configRes.ok ||
-            !nodesRes.ok ||
-            !advancementRes.ok ||
-            !validationRes.ok ||
-            !lifecycleRes.ok
-          ) {
-            throw new Error(`Failed to load fixture ${identity.id}`);
-          }
-          const { configuration } = (await configRes.json()) as {
-            configuration: FixtureConfiguration;
-          };
-          const { nodes } = (await nodesRes.json()) as { nodes: FixtureNode[] };
-          const { advancement } = (await advancementRes.json()) as {
-            advancement: { rules: unknown[] };
-          };
-          const { validation } = (await validationRes.json()) as {
-            validation: FixtureValidation;
-          };
-          const { lifecycle } = (await lifecycleRes.json()) as {
-            lifecycle: FixtureLifecycle;
-          };
-          return {
-            identity,
-            configuration,
-            lifecycle,
-            validation,
-            nodes,
-            advancementCount: advancement.rules.length,
-          };
-        }),
-      );
-      setRows(loaded);
+      const { rows } = (await res.json()) as { rows: FixtureRow[] };
+      setRows(rows ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load Fixture Setup");
     } finally {

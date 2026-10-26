@@ -1,5 +1,5 @@
-import { Suspense, lazy, useMemo } from "react";
-import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
+import { Suspense, lazy, useEffect, useMemo } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation, useRoute, Redirect } from "wouter";
 import { SCORING_APP_BASE, sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
 import { OrganizerGuard } from "@/components/organizer-guard";
 import { ScoringFeatureGuard } from "@/components/scoring-feature-guard";
@@ -13,6 +13,9 @@ import {
 } from "@/lib/cricket-routes";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
 import { ScoringAppDocumentChrome } from "@/components/scoring-app-document-chrome";
+import { ScorerPwaProvider } from "@/contexts/scorer-pwa-context";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorBoundary } from "@/components/error-boundary";
 import {
   useGetTournament,
   getGetTournamentQueryKey,
@@ -51,6 +54,7 @@ const CricketAwards = lazy(() => import("@/pages/cricket/awards"));
 const CricketReports = lazy(() => import("@/pages/cricket/reports"));
 const CricketMatchCenter = lazy(() => import("@/pages/cricket/match-center"));
 const CricketLiveControl = lazy(() => import("@/pages/cricket/live-control"));
+const CricketLinks = lazy(() => import("@/pages/cricket/links"));
 const ScoringMatchList = lazy(() => import("@/pages/scoring-match-list"));
 const ScoringMatch = lazy(() => import("@/pages/scoring-match"));
 const ScoringSchedule = lazy(() => import("@/pages/scoring-schedule"));
@@ -66,8 +70,9 @@ const ScoringPlayerPublic = lazy(() => import("@/pages/scoring-player-public"));
 const ScoringTeamPublic = lazy(() => import("@/pages/scoring-team-public"));
 const CricketGlobalPlayer = lazy(() => import("@/pages/cricket-global-player"));
 const CricketGlobalLeaderboards = lazy(() => import("@/pages/cricket-global-leaderboards"));
+const CricketScorerHomePage = lazy(() => import("@/pages/cricket/scorer-home"));
+const CricketScorerPage = lazy(() => import("@/pages/cricket/scorer"));
 const ScoreDisplay = lazy(() => import("@/pages/score-display"));
-const CricketObsOverlay = lazy(() => import("@/pages/cricket/obs-overlay"));
 const BadmintonScorerPage = lazy(() => import("@/pages/badminton/scorer"));
 const BadmintonScorerHomePage = lazy(() => import("@/pages/badminton/scorer-home"));
 const BadmintonPublicStandingsPage = lazy(() => import("@/pages/badminton/public-standings"));
@@ -77,8 +82,6 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 const ScoringLoginPage = lazy(() => import("@/pages/scoring-login"));
 
 const BASE = SCORING_APP_BASE.replace(/\/$/, "");
-const badmintonSportNav = getBadmintonSportNav();
-const cricketSportNav = getCricketSportNav();
 
 function isSportsMissionControlPath(path: string): boolean {
   return /^\/tournament\/\d+\/mission-control\/?$/.test(path.split("?")[0] ?? path);
@@ -89,8 +92,72 @@ function tournamentIdFromMissionControlPath(path: string): number {
   return match ? parseInt(match[1], 10) : 0;
 }
 
+function SportsTabSuspenseSkeleton() {
+  return (
+    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6" aria-busy="true" aria-label="Loading section">
+      {/* Header Skeleton */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/40 pb-6">
+        <div className="space-y-2">
+          <Skeleton className="h-3.5 w-28 rounded bg-primary/20" />
+          <Skeleton className="h-7 w-64 rounded-lg bg-muted" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-24 rounded-lg bg-muted" />
+          <Skeleton className="h-9 w-32 rounded-lg bg-primary/20" />
+        </div>
+      </div>
+
+      {/* KPI / Metric Cards Skeleton */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Skeleton className="h-24 rounded-xl bg-card border border-border/40" />
+        <Skeleton className="h-24 rounded-xl bg-card border border-border/40" />
+        <Skeleton className="h-24 rounded-xl bg-card border border-border/40" />
+        <Skeleton className="h-24 rounded-xl bg-card border border-border/40" />
+      </div>
+
+      {/* Main Content / Table Skeleton */}
+      <div className="rounded-xl border border-border/40 bg-card/40 p-6 space-y-4">
+        <div className="flex justify-between items-center pb-2">
+          <Skeleton className="h-5 w-44 rounded bg-muted" />
+          <Skeleton className="h-8 w-28 rounded-md bg-muted" />
+        </div>
+        <Skeleton className="h-10 w-full rounded-lg bg-muted/60" />
+        <Skeleton className="h-12 w-full rounded-lg bg-muted/40" />
+        <Skeleton className="h-12 w-full rounded-lg bg-muted/40" />
+        <Skeleton className="h-12 w-full rounded-lg bg-muted/40" />
+      </div>
+    </div>
+  );
+}
+
+/** Retired cricket OBS scorebug. Old browser sources open the V2 overlay. */
+function RedirectLegacyCricketObs() {
+  const [, params] = useRoute("/tournament/:id/cricket/obs/:matchId");
+  const tournamentId = params?.id ?? "";
+
+  useEffect(() => {
+    if (!tournamentId) return;
+    window.location.replace(`/tournament/${tournamentId}/cricket/obs/v2`);
+  }, [tournamentId]);
+
+  return (
+    <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+      Opening broadcast overlay…
+    </div>
+  );
+}
+
 function RouteSuspenseFallback() {
   const [location] = useLocation();
+  const isSports =
+    isBadmintonOrganizerPath(location) ||
+    isCricketOrganizerPath(location) ||
+    isSportsMissionControlPath(location);
+
+  if (isSports) {
+    return <SportsTabSuspenseSkeleton />;
+  }
+
   const className = isBadmintonOrganizerPath(location)
     ? BADMINTON_ROUTE_LOADING_CLASS
     : isCricketOrganizerPath(location) || isSportsMissionControlPath(location)
@@ -122,8 +189,8 @@ function SportsMissionControlLayout({ tournamentId }: { tournamentId: number }) 
   });
 
   const nav = useMemo(() => {
-    if (tournament?.sport === "badminton") return badmintonSportNav;
-    return cricketSportNav;
+    if (tournament?.sport === "badminton") return getBadmintonSportNav();
+    return getCricketSportNav();
   }, [tournament?.sport]);
 
   if (isLoading || !tournament) {
@@ -134,7 +201,7 @@ function SportsMissionControlLayout({ tournamentId }: { tournamentId: number }) 
 
   return (
     <ScoringFeatureGuard>
-      <OrganizerGuard tournamentId={tournamentId}>
+      <OrganizerGuard tournamentId={tournamentId} requiredModule="scoring">
         <SportsShell tournamentId={tournamentId} nav={nav} noPadding>
           <Suspense fallback={<RouteSuspenseFallback />}>
             <SportsMissionControlPage />
@@ -150,10 +217,11 @@ function SportsMissionControlLayout({ tournamentId }: { tournamentId: number }) 
  * Pages keep using HubPageShell, which becomes a no-op inside this shell.
  */
 function BadmintonOrganizerLayout({ tournamentId }: { tournamentId: number }) {
+  const nav = useMemo(() => getBadmintonSportNav(), []);
   return (
     <ScoringFeatureGuard>
-      <OrganizerGuard tournamentId={tournamentId}>
-        <SportsShell tournamentId={tournamentId} nav={badmintonSportNav} noPadding>
+      <OrganizerGuard tournamentId={tournamentId} requiredModule="scoring" requiredSport="badminton">
+        <SportsShell tournamentId={tournamentId} nav={nav} noPadding>
           <Suspense fallback={<RouteSuspenseFallback />}>
             <Switch>
               <Route path="/tournament/:id/badminton/players" component={BadmintonPlayersPage} />
@@ -185,10 +253,11 @@ function BadmintonOrganizerLayout({ tournamentId }: { tournamentId: number }) {
  * CricketOrganizerPageShell becomes a no-op inside this shell.
  */
 function CricketOrganizerLayout({ tournamentId }: { tournamentId: number }) {
+  const nav = useMemo(() => getCricketSportNav(), []);
   return (
     <ScoringFeatureGuard>
-      <OrganizerGuard tournamentId={tournamentId}>
-        <SportsShell tournamentId={tournamentId} nav={cricketSportNav} noPadding>
+      <OrganizerGuard tournamentId={tournamentId} requiredModule="scoring" requiredSport="cricket">
+        <SportsShell tournamentId={tournamentId} nav={nav} noPadding>
           <Suspense fallback={<RouteSuspenseFallback />}>
             <Switch>
               <Route path="/tournament/:id/score/dashboard" component={CricketDashboard} />
@@ -204,9 +273,10 @@ function CricketOrganizerLayout({ tournamentId }: { tournamentId: number }) {
               <Route path="/tournament/:id/score/reports" component={CricketReports} />
               <Route path="/tournament/:id/score/schedule" component={ScoringSchedule} />
               <Route path="/tournament/:id/score/live-control" component={CricketLiveControl} />
+              <Route path="/tournament/:id/score/links" component={CricketLinks} />
               <Route path="/tournament/:id/score/:matchId/live" component={ScoringMatch} />
               <Route path="/tournament/:id/score/:matchId" component={CricketMatchCenter} />
-              <Route path="/tournament/:id/score" component={ScoringMatchList} />
+              <Route path="/tournament/:id/score" component={CricketFixtures} />
             </Switch>
           </Suspense>
         </SportsShell>
@@ -217,6 +287,12 @@ function CricketOrganizerLayout({ tournamentId }: { tournamentId: number }) {
 
 function Router() {
   const [location] = useLocation();
+
+  // Normalize accidental double base prefix (e.g. /scoring-app/scoring-app/... -> /scoring-app/...)
+  if (location === "/scoring-app" || location.startsWith("/scoring-app/")) {
+    const canonical = location.slice("/scoring-app".length) || "/";
+    return <Redirect to={canonical} replace />;
+  }
 
   if (isSportsMissionControlPath(location)) {
     return (
@@ -237,9 +313,12 @@ function Router() {
   return (
     <Suspense fallback={<RouteSuspenseFallback />}>
       <Switch>
+        <Route path="/">
+          {() => <Redirect to="/cricket/scorer" replace />}
+        </Route>
         <Route path="/login" component={ScoringLoginPage} />
         <Route path="/tournament/:id/score-display" component={ScoreDisplay} />
-        <Route path="/tournament/:id/cricket/obs/:matchId" component={CricketObsOverlay} />
+        <Route path="/tournament/:id/cricket/obs/:matchId" component={RedirectLegacyCricketObs} />
 
         <Route path="/badminton/scorer">
           {() => <ScoringFeatureGuard><BadmintonScorerHomePage /></ScoringFeatureGuard>}
@@ -286,6 +365,24 @@ function Router() {
         </Route>
         <Route path="/cricket/leaderboards" component={CricketGlobalLeaderboards} />
         <Route path="/player/:globalPlayerId" component={CricketGlobalPlayer} />
+        <Route path="/cricket/scorer">
+          {() => <ScoringFeatureGuard><CricketScorerHomePage /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/cricket/:matchId/score">
+          {() => <ScoringFeatureGuard><CricketScorerPage /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/:code/fanpage">
+          {() => <ScoringFeatureGuard><ScoringPublic /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/fan/:id">
+          {() => <ScoringFeatureGuard><ScoringPublic /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/fanpage/:id">
+          {() => <ScoringFeatureGuard><ScoringPublic /></ScoringFeatureGuard>}
+        </Route>
+        <Route path="/tournament/:id/fan">
+          {() => <ScoringFeatureGuard><ScoringPublic /></ScoringFeatureGuard>}
+        </Route>
         <Route path="/tournament/:id/cricket">
           {() => <ScoringFeatureGuard><ScoringPublic /></ScoringFeatureGuard>}
         </Route>
@@ -306,9 +403,13 @@ function Router() {
 export default function App() {
   return (
     <WouterRouter base={BASE}>
-      <ScoringAppDocumentChrome />
-      <LocalOperatorPinEffects />
-      <Router />
+      <ErrorBoundary fallbackTitle="BidWar Sports Platform">
+        <ScorerPwaProvider>
+          <ScoringAppDocumentChrome />
+          <LocalOperatorPinEffects />
+          <Router />
+        </ScorerPwaProvider>
+      </ErrorBoundary>
     </WouterRouter>
   );
 }

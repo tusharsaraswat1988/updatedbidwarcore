@@ -8,8 +8,12 @@ import type {
 import { useBroadcastCanvasPreviewOptional } from "./BroadcastCanvasProvider";
 
 const SCALE_OPTIONS: { id: CanvasScaleMode; label: string }[] = [
+  { id: "stretch", label: "⚡ Stretch (Fill)" },
+  { id: "8x2", label: "🏏 8ft × 2ft LED" },
   { id: "fit", label: "Fit Screen" },
-  { id: "actual", label: "Actual Size" },
+  { id: "fill-height", label: "Fill Height" },
+  { id: "fill-width", label: "Fill Width" },
+  { id: "actual", label: "Actual (100%)" },
   { id: "75", label: "75%" },
   { id: "50", label: "50%" },
 ];
@@ -37,7 +41,7 @@ export function DisplayPreviewControls() {
 
   if (!ctx?.preview.showPreviewControls) return null;
 
-  const { preview, setScaleMode, setDisplayMode, toggleGuide } = ctx;
+  const { preview, setScaleMode, setStretchX, setDisplayMode, toggleGuide } = ctx;
 
   if (!open) {
     return (
@@ -81,7 +85,7 @@ export function DisplayPreviewControls() {
         ))}
       </div>
 
-      <SectionLabel>Scale</SectionLabel>
+      <SectionLabel>Scale / Aspect Ratio</SectionLabel>
       <div className="mb-3 grid grid-cols-2 gap-1.5">
         {SCALE_OPTIONS.map((opt) => (
           <PreviewButton
@@ -92,6 +96,33 @@ export function DisplayPreviewControls() {
             {opt.label}
           </PreviewButton>
         ))}
+      </div>
+
+      <SectionLabel>Width Stretch: {Math.round((preview.stretchX ?? 1) * 100)}%</SectionLabel>
+      <div className="mb-3 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setStretchX(Math.max(0.4, (preview.stretchX ?? 1) - 0.05))}
+          className="flex h-6 w-6 items-center justify-center rounded border border-white/20 bg-white/5 font-mono text-xs text-white hover:bg-white/15"
+        >
+          -
+        </button>
+        <input
+          type="range"
+          min="0.5"
+          max="2.5"
+          step="0.01"
+          value={preview.stretchX ?? 1}
+          onChange={(e) => setStretchX(parseFloat(e.target.value))}
+          className="h-1.5 flex-1 cursor-pointer appearance-none rounded bg-white/20 accent-amber-400"
+        />
+        <button
+          type="button"
+          onClick={() => setStretchX(Math.min(3.0, (preview.stretchX ?? 1) + 0.05))}
+          className="flex h-6 w-6 items-center justify-center rounded border border-white/20 bg-white/5 font-mono text-xs text-white hover:bg-white/15"
+        >
+          +
+        </button>
       </div>
 
       <SectionLabel>Guides</SectionLabel>

@@ -18,6 +18,7 @@ import type {
 import { logger } from "../logger.js";
 import { createCommunicationJob } from "./job-service.js";
 import { buildPlayerRegistrationMergeData } from "./player-registration-merge-data.js";
+import { buildTeamOwnerWelcomeMergeData } from "./team-owner-welcome-merge-data.js";
 import { getTemplateByEventType } from "./template-service.js";
 
 /** Maps business events to communication template internal keys. */
@@ -258,6 +259,12 @@ export async function createJobFromBusinessEvent<E extends NotificationEventType
     mergeData = {
       ...mergeData,
       ...(await buildPlayerRegistrationMergeData(jobData.entityId)),
+    };
+  }
+  if (eventType === "TEAM_OWNER_REGISTERED" && jobData.entityId) {
+    mergeData = {
+      ...mergeData,
+      ...(await buildTeamOwnerWelcomeMergeData(jobData.entityId)),
     };
   }
 

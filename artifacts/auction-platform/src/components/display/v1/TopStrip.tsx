@@ -35,10 +35,10 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
             />
           ) : null}
           <div className="flex min-w-0 flex-col justify-center leading-none">
-            <span className="text-[10px] font-mono uppercase tracking-[0.28em] text-white/45">
+            <span className="led-label text-[clamp(0.75rem,0.95cqw,1.05rem)] font-bold uppercase tracking-[0.06em] text-white/80">
               Tournament
             </span>
-            <span className="mt-0.5 truncate font-['Bebas_Neue'] text-xl tracking-[0.12em] uppercase text-white/95 md:text-2xl">
+            <span className="mt-0.5 truncate led-tournament font-['Bebas_Neue'] text-[clamp(1.2rem,1.75cqw,2.2rem)] tracking-[0.06em] uppercase text-white font-bold leading-none">
               {tournament.name}
             </span>
           </div>
@@ -55,28 +55,28 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
         <div
           className={`flex items-center gap-2 px-4 py-1.5 border ${
             live
-              ? "border-red-500/50 bg-red-500/10"
+              ? "border-red-500/60 bg-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.3)]"
               : paused
-                ? "border-amber-400/50 bg-amber-400/10"
-                : "border-white/15 bg-white/5"
+                ? "border-amber-400/60 bg-amber-400/20 shadow-[0_0_15px_rgba(251,191,36,0.3)]"
+                : "border-white/20 bg-white/10"
           }`}
         >
           {!live && !paused ? (
-            <span className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/40">
+            <span className="led-status text-[clamp(0.85rem,1.1cqw,1.25rem)] font-bold uppercase tracking-[0.06em] text-white/85">
               {awaitingNext ? "Awaiting Next Player" : "Standby"}
             </span>
           ) : (
             <>
               <span
-                className={`size-2 rounded-full ${
+                className={`size-2.5 sm:size-3 rounded-full shrink-0 ${
                   live
                     ? "bg-red-500 animate-pulse shadow-[0_0_12px_#ef4444]"
                     : "bg-amber-400 shadow-[0_0_10px_#fbbf24]"
                 }`}
               />
               <span
-                className={`text-[10px] font-mono uppercase tracking-[0.4em] ${
-                  live ? "text-red-300" : "text-amber-300"
+                className={`led-status text-[clamp(0.85rem,1.15cqw,1.3rem)] font-extrabold uppercase tracking-[0.06em] leading-tight ${
+                  live ? "text-red-200" : "text-amber-200"
                 }`}
               >
                 {live ? "Live · Bidding Open" : "Paused"}
@@ -86,12 +86,12 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
         </div>
 
         <div className="flex flex-col items-end leading-none">
-          <span className="text-[9px] font-mono uppercase tracking-[0.3em] text-white/45">
+          <span className="led-label text-[clamp(0.75rem,0.95cqw,1.05rem)] font-bold uppercase tracking-[0.06em] text-white/80">
             Players Remaining
           </span>
-          <span className="font-['Bebas_Neue'] text-2xl tabular-nums mt-1 text-white/95">
+          <span className="led-value font-['Bebas_Neue'] text-[clamp(1.4rem,2.1cqw,2.4rem)] tabular-nums mt-0.5 text-white font-black leading-none">
             <span style={{ color: "var(--accent)" }}>{remaining}</span>
-            <span className="text-white/40"> / {totalPlayers}</span>
+            <span className="text-white/60 font-bold"> / {totalPlayers}</span>
           </span>
         </div>
 

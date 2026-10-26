@@ -102,6 +102,32 @@ describe("cricket platform golden replay", () => {
     ]);
   });
 
+  it("matches direct replay for custom runs (7, 8, 20) and undoing custom runs", () => {
+    assertGoldenReplay([
+      createEventEnvelope({
+        matchId: META.matchId,
+        tournamentId: META.tournamentId,
+        sportSlug: "cricket",
+        eventType: CricketEventType.MATCH_STARTED,
+        sequence: 1,
+        payload: { tossWinnerTeamId: 1, electedTo: "bat", oversLimit: 20 },
+        actorType: "organizer",
+      }),
+      ballEvent(2, { runsOffBat: 7, over: 0, ball: 1 }),
+      ballEvent(3, { runsOffBat: 8, over: 0, ball: 2 }),
+      ballEvent(4, { runsOffBat: 20, over: 0, ball: 3 }),
+      createEventEnvelope({
+        matchId: META.matchId,
+        tournamentId: META.tournamentId,
+        sportSlug: "cricket",
+        eventType: CricketEventType.BALL_UNDONE,
+        sequence: 5,
+        payload: { undoesEventId: 99, undoesSequence: 4 },
+        actorType: "organizer",
+      }),
+    ]);
+  });
+
   it("parseScoringEvent matches parseCricketEventPayload", () => {
     const payload = {
       innings: 1,

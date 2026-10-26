@@ -61,18 +61,18 @@ export function SinglesScorerPanel({
 
       <div className="flex-1 min-h-0" />
 
-      <div className="shrink-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-border space-y-2 bg-card/90">
+      <div className="shrink-0 p-2.5 sm:p-3 pb-[max(0.6rem,env(safe-area-inset-bottom))] border-t border-border space-y-2 bg-card/90">
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => award("left")}
             disabled={cannotScore}
             className={cn(
-              "h-[5.5rem] sm:h-[6.5rem] rounded-2xl font-black text-sm sm:text-base px-2",
+              "h-20 sm:h-24 rounded-2xl font-black text-sm sm:text-base px-2 touch-manipulation select-none",
               "bg-primary text-primary-foreground active:scale-[0.98] shadow-[var(--shadow-glow)] disabled:opacity-40",
             )}
           >
-            <span className="block text-[10px] font-bold uppercase tracking-wider opacity-70 mb-1">
+            <span className="block text-[10px] font-bold uppercase tracking-wider opacity-70 mb-0.5">
               End 1
             </span>
             + {identityFromSideInfo(state.leftSide).playerName}
@@ -82,11 +82,11 @@ export function SinglesScorerPanel({
             onClick={() => award("right")}
             disabled={cannotScore}
             className={cn(
-              "h-[5.5rem] sm:h-[6.5rem] rounded-2xl font-black text-sm sm:text-base px-2",
+              "h-20 sm:h-24 rounded-2xl font-black text-sm sm:text-base px-2 touch-manipulation select-none",
               "bg-sky-500 text-white active:scale-[0.98] disabled:opacity-40",
             )}
           >
-            <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">
+            <span className="block text-[10px] font-bold uppercase tracking-wider opacity-80 mb-0.5">
               End 2
             </span>
             + {identityFromSideInfo(state.rightSide).playerName}
@@ -97,7 +97,7 @@ export function SinglesScorerPanel({
             type="button"
             onClick={undo}
             disabled={undoBusy || state.totalRallies === 0}
-            className="flex-1 min-h-12 rounded-xl bg-white/5 border border-border text-muted-foreground text-sm font-semibold disabled:opacity-30"
+            className="flex-1 h-11 sm:h-12 rounded-xl bg-white/5 border border-border text-muted-foreground text-sm font-semibold disabled:opacity-30 touch-manipulation"
           >
             Undo last point
           </button>

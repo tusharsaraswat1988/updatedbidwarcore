@@ -1,29 +1,48 @@
-import { Router, type Request } from "express";
+import { Router } from "express";
 import { z } from "zod";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
-import { isTournamentOrganizer, requireTournamentOrganizer } from "../middleware/require-organizer";
+import {
+  isTournamentOrganizer,
+  requireTournamentOrganizer,
+} from "../middleware/require-organizer";
 import {
   appendScoringEvent,
   createScoringMatch,
+  deleteCricketMatch,
+  updateScoringMatch,
   getLiveScoringDisplay,
   getScoringMatch,
   listScoringMatches,
+  resetCricketMatchSetup,
   ScoringServiceError,
   undoLastScoringEvent,
 } from "../lib/scoring-service";
+import { repairCompletedCricketMatches } from "../lib/cricket-match-repair";
 import {
   addScoringSseClient,
+  flushAndActivateScoringSseClient,
   getScoringSseClientCount,
   removeScoringSseClient,
+  getCricketObsDirectorState,
+  broadcastCricketObsDirector,
 } from "../lib/scoring-broadcast";
-import { buildCricketMatchSummary, InvalidEventPayloadError } from "@workspace/scoring-core";
-import { db, tournamentsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { buildCricketMatchSummary, InvalidEventPayloadError, type SponsorMediaCue } from "@workspace/scoring-core";
+import { InvalidTournamentModuleStateError } from "@workspace/platform-core";
+import { db, scoringMatchesTable, tournamentsTable, cricketBroadcastMessageTemplatesTable, scoringEventsTable } from "@workspace/db";
+import { eq, and, desc, asc, or, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
-import { ensureScoringEnabled, getScoringStandings, getSquadReadiness } from "../lib/scoring-standings";
+import {
+  requireSportModule,
+  assertSportModule,
+  ModuleAuthorizationError,
+} from "../middleware/require-module";
+import { ensureScoringEnabled, getScoringStandings, getSquadReadiness, rebuildTournamentStandings } from "../lib/scoring-standings";
 import {
   getPublicMatchScorecard,
   getTournamentLeaderboard,
+  projectMatchPlayerStats,
+  projectMatchAwards,
+  rebuildTournamentLeaderboards,
   type EnrichedLeaderboardRow,
 } from "../lib/scoring-stats-service";
 import {
@@ -32,49 +51,177 @@ import {
   getTournamentTeamPublicProfile,
   listTournamentAwards,
 } from "../lib/scoring-public-service";
-import { getGlobalCricketLeaderboard } from "../lib/scoring-global-stats-service";
+import { getGlobalCricketLeaderboard, rebuildCricketPlayerStatistics } from "../lib/scoring-global-stats-service";
+import { advanceTournamentProgression } from "../lib/tournament-progression-service";
 import type { LeaderboardCategory } from "@workspace/scoring-core";
 import { applyCricketRulesToMatches } from "../lib/cricket-rules-service";
+import sponsorMediaRouter, { parseSponsorMediaDirectorCue } from "./sponsor-media";
+import { getSponsorMediaSlot } from "../lib/sponsor-media-service";
+import { verifySponsorDisplaySession } from "../lib/sponsor-display-session";
+import {
+  requireScorerFromRequest,
+  assertScorerCanScore,
+  assertScorerMayAccessTournament,
+  ScorerAuthError,
+} from "../lib/scorer-auth";
+import {
+  assertSessionOwnsMatchLock,
+  ScorerLockError,
+} from "../lib/scorer-match-locks";
+import {
+  listCricketRulePresets,
+  getCricketRulePreset,
+  createCricketRulePreset,
+  updateCricketRulePreset,
+  deleteCricketRulePreset,
+} from "../lib/cricket-rule-presets-service";
 
 const router = Router();
 
 router.use(scoringFeatureMiddleware);
+router.use(sponsorMediaRouter);
 
 function parseId(value: string): number | null {
   const id = parseInt(value, 10);
   return Number.isNaN(id) ? null : id;
 }
 
-function actorFromRequest(req: Request, usedPin: boolean) {
-  if (req.jwtUser?.isAdmin) {
-    return { type: "admin" as const, id: "admin" };
+export function parseLastEventId(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  let strVal: string;
+  if (Array.isArray(raw)) {
+    strVal = String(raw[0] ?? "");
+  } else if (typeof raw === "number") {
+    return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : undefined;
+  } else {
+    strVal = String(raw);
   }
-  if (usedPin) {
-    return { type: "scorer_pin" as const, id: "pin" };
-  }
-  return { type: "organizer" as const, id: req.jwtUser?.organizerAccountId?.toString() ?? "organizer" };
+  const parsed = parseInt(strVal.trim(), 10);
+  if (!Number.isFinite(parsed) || parsed < 0) return undefined;
+  return parsed;
 }
 
-async function canWriteScoring(
-  req: Request,
+/**
+ * Resolve and validate the full dedicated-scorer authorization chain for a mutation.
+ * This is the ONLY authorized path for cricket scoring mutations.
+ *
+ * Pipeline:
+ *  1. requireScorerFromRequest  — valid scorer JWT (no organizer fallback)
+ *  2. assertScorerCanScore      — account is active (not view-only)
+ *  3. assertScorerMayAccessTournament — scorer assigned to tournament
+ *  4. verify match.tournamentId === tournamentId (tenant isolation)
+ *  5. assertSessionOwnsMatchLock — session owns the active match lock
+ *
+ * Throws ScorerAuthError or ScorerLockError on any failure.
+ * Returns the resolved ScorerAuthContext (for audit logging).
+ */
+async function requireScorerForMutation(
+  req: import("express").Request,
   tournamentId: number,
-  scorerPin?: string,
-): Promise<{ ok: true; usedPin: boolean } | { ok: false }> {
+  matchId: number,
+) {
   const [tournament] = await db
-    .select({ organizerId: tournamentsTable.organizerId, scoringPin: tournamentsTable.scoringPin })
+    .select({
+      id: tournamentsTable.id,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      sport: tournamentsTable.sport,
+    })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
 
-  if (tournament && isTournamentOrganizer(req, tournamentId, tournament.organizerId)) {
-    return { ok: true, usedPin: false };
-  }
-  if (!scorerPin) return { ok: false };
+  assertSportModule(tournament, "cricket");
 
-  if (tournament?.scoringPin && tournament.scoringPin === scorerPin) {
-    return { ok: true, usedPin: true };
+  const scorerAuth = await requireScorerFromRequest(req);
+  assertScorerCanScore(scorerAuth);
+  await assertScorerMayAccessTournament(scorerAuth.scorerId, tournamentId);
+
+  // Tenant isolation: match must belong to the tournament in the URL.
+  const [match] = await db
+    .select({ tournamentId: scoringMatchesTable.tournamentId })
+    .from(scoringMatchesTable)
+    .where(eq(scoringMatchesTable.id, matchId))
+    .limit(1);
+
+  if (!match) {
+    throw new ScorerAuthError("Match not found", "MATCH_NOT_FOUND", 404);
   }
-  return { ok: false };
+  if (match.tournamentId !== tournamentId) {
+    logger.warn(
+      {
+        scorerId: scorerAuth.scorerId,
+        sessionId: scorerAuth.sessionId,
+        matchId,
+        urlTournamentId: tournamentId,
+        actualTournamentId: match.tournamentId,
+        reason: "TENANT_MISMATCH",
+      },
+      "SCORING_AUTH_DENIED: match does not belong to the requested tournament",
+    );
+    throw new ScorerAuthError(
+      "Match does not belong to this tournament",
+      "TENANT_MISMATCH",
+      403,
+    );
+  }
+
+  await assertSessionOwnsMatchLock({ matchId, sessionId: scorerAuth.sessionId });
+
+  return scorerAuth;
+}
+
+/** Map ScorerAuthError to HTTP response. Returns true if handled. */
+function sendScorerAuthError(res: import("express").Response, e: unknown): boolean {
+  if (e instanceof ModuleAuthorizationError) {
+    res.status(e.status).json({ error: e.message, code: e.code });
+    return true;
+  }
+  if (e instanceof InvalidTournamentModuleStateError) {
+    res.status(400).json({
+      error: "A tournament must have at least one enabled product module (auction or scoring).",
+      code: "INVALID_MODULE_STATE",
+    });
+    return true;
+  }
+  if (e instanceof ScorerAuthError) {
+    logger.warn(
+      { code: e.code, status: e.status, message: e.message },
+      "SCORING_AUTH_DENIED",
+    );
+    res.status(e.status).json({ error: e.message, code: e.code });
+    return true;
+  }
+  return false;
+}
+
+/** Map ScorerLockError to HTTP response. Returns true if handled. */
+function sendScorerLockError(res: import("express").Response, e: unknown): boolean {
+  if (e instanceof ScorerLockError) {
+    // LOCK_NOT_FOUND → 409 MATCH_LOCK_REQUIRED (no lock at all)
+    // MATCH_LOCKED   → 409 MATCH_LOCKED (another session owns it)
+    // LOCK_NOT_OWNED → 409 MATCH_LOCK_REQUIRED (own lock but stale)
+    const code =
+      e.code === "MATCH_LOCKED" || e.code === "SCORER_LEASE_REVOKED"
+        ? "MATCH_LOCKED"
+        : e.code === "SCORER_LEASE_STALE"
+          ? "SCORER_LEASE_STALE"
+          : e.code === "SCORER_LEASE_EXPIRED"
+            ? "SCORER_LEASE_EXPIRED"
+            : e.code === "SCORER_LEASE_REQUIRED"
+              ? "SCORER_LEASE_REQUIRED"
+              : "MATCH_LOCK_REQUIRED";
+    const status = 409;
+    logger.warn({ code, lockCode: e.code, message: e.message }, "SCORING_LOCK_DENIED");
+    res.status(status).json({
+      error: e.message,
+      code,
+      leaseCode: e.code,
+      message: e.message,
+    });
+    return true;
+  }
+  return false;
 }
 
 function matchToJson(m: {
@@ -94,9 +241,15 @@ function matchToJson(m: {
   currentRuntimeVersion?: number | null;
   winnerTeamId: number | null;
   resultSummary: string | null;
+  summaryJson?: Record<string, unknown> | null;
+  stateJson?: Record<string, unknown> | null;
   startedAt: Date | null;
   completedAt: Date | null;
   createdAt: Date;
+  tournamentMatchNumber?: number | null;
+  /** Present on the match list, copied from the linked fixture. */
+  groupId?: number | null;
+  drawId?: number | null;
 }) {
   const prep = m.runtimePrepMetadataJson as
     | {
@@ -159,10 +312,20 @@ function matchToJson(m: {
         }
       : null,
     winnerTeamId: m.winnerTeamId,
+    /** EPIC-Rule-Presets — selected rule preset */
+    rulePresetId: (m as { rulePresetId?: number | null }).rulePresetId ?? (bind as { rulePresetId?: number } | undefined)?.rulePresetId ?? null,
+    rulePresetName: (bind as { rulePresetName?: string } | undefined)?.rulePresetName ?? null,
     resultSummary: m.resultSummary,
+    summaryJson: m.summaryJson ?? null,
+    stateJson: m.stateJson ?? null,
     startedAt: m.startedAt?.toISOString() ?? null,
     completedAt: m.completedAt?.toISOString() ?? null,
     createdAt: m.createdAt.toISOString(),
+    /** Tournament-scoped sequential match number (1 = first match created in this tournament). */
+    tournamentMatchNumber: m.tournamentMatchNumber ?? null,
+    ...("groupId" in m
+      ? { groupId: m.groupId ?? null, drawId: m.drawId ?? null }
+      : {}),
   };
 }
 
@@ -187,6 +350,27 @@ const LEADERBOARD_CATEGORIES = new Set<LeaderboardCategory>([
   "catches",
   "stumpings",
 ]);
+
+router.use("/tournaments/:tournamentId/scoring", async (req, res, next) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      sport: tournamentsTable.sport,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!requireSportModule(res, tournament, "cricket")) return;
+  next();
+});
 
 /** Public tournament leaderboards (no auth). */
 router.get("/tournaments/:tournamentId/scoring/leaderboards/:category", async (req, res) => {
@@ -253,7 +437,11 @@ router.get("/tournaments/:tournamentId/scoring/standings", async (req, res) => {
 
   try {
     const standings = await getScoringStandings(tournamentId);
-    res.json({ standings });
+    res.json({
+      standings,
+      hasGroups: (standings as unknown as { hasGroups?: boolean }).hasGroups ?? false,
+      groups: (standings as unknown as { groups?: unknown[] }).groups ?? [],
+    });
   } catch (err) {
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });
@@ -304,7 +492,7 @@ router.get("/tournaments/:tournamentId/scoring/live", async (req, res) => {
   }
 });
 
-/** Public SSE stream for live scoreboard updates. */
+/** Public SSE stream for live scoreboard updates with durable sequence replay. */
 router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
   if (tournamentId === null) {
@@ -322,23 +510,106 @@ router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
     throw err;
   }
 
+  const rawLastId = req.headers["last-event-id"] ?? req.query.lastEventId ?? req.query.sinceSeq;
+  const lastEventId = parseLastEventId(rawLastId);
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders();
 
-  const client = addScoringSseClient(tournamentId, res);
+  // 1. Register into live client registry first with buffering active so no live events are lost during catchup
+  const client = addScoringSseClient(tournamentId, res, lastEventId, { bufferUntilFlush: true });
   logger.info(
-    { tournamentId, clientCount: getScoringSseClientCount(tournamentId) },
+    { tournamentId, lastEventId, clientCount: getScoringSseClientCount(tournamentId) },
     "scoring SSE client connected",
   );
 
+  let currentDisplay: Awaited<ReturnType<typeof getLiveScoringDisplay>> | null = null;
   try {
-    const display = await getLiveScoringDisplay(tournamentId);
-    res.write(`data: ${JSON.stringify({ type: "scoring_state", ...liveDisplayJson(display) })}\n\n`);
+    currentDisplay = await getLiveScoringDisplay(tournamentId);
   } catch {
-    res.write(`data: ${JSON.stringify({ type: "scoring_state", match: null, state: null, summary: null })}\n\n`);
+    currentDisplay = { match: null, state: null, summary: null };
+  }
+
+  const activeMatch = currentDisplay?.match;
+  const currentState = currentDisplay?.state as { lastSequence?: number } | null;
+  const latestSeq = currentState?.lastSequence ?? 0;
+
+  // 2. If client reconnected with a valid lastEventId, replay bounded missed events from DB
+  const MAX_SSE_REPLAY_EVENTS = 200;
+  if (
+    activeMatch &&
+    lastEventId !== undefined &&
+    lastEventId >= 0 &&
+    lastEventId < latestSeq
+  ) {
+    try {
+      const replayFromSeq = Math.max(lastEventId, latestSeq - MAX_SSE_REPLAY_EVENTS);
+      const missedEvents = await db
+        .select()
+        .from(scoringEventsTable)
+        .where(
+          and(
+            eq(scoringEventsTable.tournamentId, tournamentId),
+            eq(scoringEventsTable.matchId, activeMatch.id),
+            sql`${scoringEventsTable.sequence} > ${replayFromSeq}`,
+            sql`${scoringEventsTable.sequence} <= ${latestSeq}`,
+          ),
+        )
+        .orderBy(asc(scoringEventsTable.sequence))
+        .limit(MAX_SSE_REPLAY_EVENTS);
+
+      for (const ev of missedEvents) {
+        res.write(
+          `id: ${ev.sequence}\nevent: scoring_replay\ndata: ${JSON.stringify({
+            type: "scoring_replay",
+            matchId: ev.matchId,
+            sequence: ev.sequence,
+            eventType: ev.eventType,
+            payload: ev.payloadJson,
+            occurredAt: ev.occurredAt.toISOString(),
+          })}\n\n`,
+        );
+      }
+    } catch (err) {
+      logger.warn({ err, tournamentId, lastEventId }, "Failed to replay missed scoring events");
+    }
+  }
+
+  // 3. Emit current authoritative state snapshot
+  const seqHeader = latestSeq > 0 ? `id: ${latestSeq}\n` : "";
+  res.write(
+    `${seqHeader}event: scoring_state\ndata: ${JSON.stringify({
+      type: "scoring_state",
+      sequence: latestSeq,
+      ...liveDisplayJson(currentDisplay ?? { match: null, state: null, summary: null }),
+    })}\n\n`,
+  );
+
+  // 4. Activate client and atomically flush any live events that arrived during catchup (> latestSeq)
+  flushAndActivateScoringSseClient(client, latestSeq);
+
+  const currentObs = getCricketObsDirectorState(tournamentId);
+  if (
+    currentObs &&
+    ((currentObs.overlay && currentObs.overlay !== "none") ||
+      (currentObs.broadcastMessage && currentObs.broadcastMessage.active) ||
+      currentObs.sponsorMedia)
+  ) {
+    res.write(
+      `event: obs_director\ndata: ${JSON.stringify({
+        type: "cricket_obs_director",
+        overlay: currentObs.overlay,
+        matchId: currentObs.matchId,
+        sponsorName: currentObs.sponsorName,
+        stageOrGroup: currentObs.stageOrGroup,
+        broadcastMessage: currentObs.broadcastMessage,
+        sponsorMedia: currentObs.sponsorMedia,
+        timestamp: Date.now(),
+      })}\n\n`,
+    );
   }
 
   const cleanup = () => {
@@ -358,10 +629,308 @@ router.get("/tournaments/:tournamentId/scoring/events", async (req, res) => {
     } catch {
       cleanup();
     }
-  }, 20000);
+  }, 15000);
 
   req.on("close", cleanup);
   res.on("close", cleanup);
+});
+
+/** POST /tournaments/:tournamentId/scoring/obs-director — trigger overlay, scoring animation, or broadcast message on OBS screens in real time */
+router.post("/tournaments/:tournamentId/scoring/obs-director", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      organizerId: tournamentsTable.organizerId,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!tournament) {
+    res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+
+  const callerIsOrganizer = isTournamentOrganizer(req, tournamentId, tournament.organizerId);
+  if (!callerIsOrganizer) {
+    try {
+      const scorerAuth = await requireScorerFromRequest(req);
+      await assertScorerMayAccessTournament(scorerAuth.scorerId, tournamentId);
+    } catch (e) {
+      if (sendScorerAuthError(res, e)) return;
+      res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
+      return;
+    }
+  }
+
+  const body = req.body ?? {};
+  const overlay = typeof body.overlay === "string" ? body.overlay : undefined;
+  const matchId = typeof body.matchId === "number" ? body.matchId : typeof body.matchId === "string" ? parseInt(body.matchId, 10) : undefined;
+  const sponsorName = typeof body.sponsorName === "string" ? body.sponsorName : undefined;
+  const stageOrGroup = typeof body.stageOrGroup === "string" ? body.stageOrGroup : undefined;
+  const flash = typeof body.flash === "string" ? body.flash : undefined;
+  const detail = typeof body.detail === "string" ? body.detail : undefined;
+  const messageType = typeof body.messageType === "string" ? body.messageType : undefined;
+
+  let sponsorMedia: SponsorMediaCue | undefined;
+  if (body.sponsorMedia !== undefined && body.sponsorMedia !== null) {
+    if (typeof body.sponsorMedia !== "object") {
+      res.status(400).json({ error: "Sponsor media cue is missing" });
+      return;
+    }
+    const rawCue = { ...(body.sponsorMedia as Record<string, unknown>) };
+    delete rawCue.issuedAt;
+    const parsedCue = parseSponsorMediaDirectorCue(rawCue, Date.now());
+    if (!parsedCue.ok) {
+      res.status(400).json({ error: parsedCue.error });
+      return;
+    }
+    sponsorMedia = parsedCue.cue;
+    if (sponsorMedia.action === "play") {
+      try {
+        const row = await getSponsorMediaSlot(tournamentId, sponsorMedia.slotNumber);
+        if (!row || row.tournamentId !== tournamentId || row.id !== sponsorMedia.slotId || row.version !== sponsorMedia.version || row.processingStatus !== "ready" || !row.active) {
+          res.status(409).json({ error: "Sponsor target not ready" });
+          return;
+        }
+      } catch (err) {
+        logger.error({ err, tournamentId }, "Sponsor play cue rejected");
+        res.status(503).json({ error: "Sponsor director unavailable" });
+        return;
+      }
+    }
+  }
+
+  let broadcastMessage: { active: boolean; name: string; details: string } | null | undefined = undefined;
+  if (body.broadcastMessage !== undefined) {
+    if (body.broadcastMessage === null) {
+      broadcastMessage = null;
+    } else if (typeof body.broadcastMessage === "object") {
+      const bm = body.broadcastMessage;
+      const active = Boolean(bm.active);
+      const name = typeof bm.name === "string" ? bm.name.trim() : "";
+      const details = typeof bm.details === "string" ? bm.details.trim() : "";
+
+      if (active) {
+        if (!name || name.length > 100) {
+          res.status(400).json({ error: "Broadcast message name must be between 1 and 100 characters" });
+          return;
+        }
+        if (!details || details.length > 180) {
+          res.status(400).json({ error: "Broadcast message details must be between 1 and 180 characters" });
+          return;
+        }
+      }
+      broadcastMessage = {
+        active,
+        name: name.slice(0, 100),
+        details: details.slice(0, 180),
+      };
+    }
+  }
+
+  const sponsorDisplayTokens: { obs?: string; led?: string } = {};
+  const rawTokens = body.sponsorDisplayTokens;
+  if (rawTokens && typeof rawTokens === "object") {
+    for (const surface of ["obs", "led"] as const) {
+      const token = rawTokens[surface];
+      if (typeof token !== "string" || !token) continue;
+      const identity = verifySponsorDisplaySession(token);
+      if (identity?.tournamentId === tournamentId && identity.surface === surface) {
+        sponsorDisplayTokens[surface] = token;
+      }
+    }
+  }
+
+  broadcastCricketObsDirector(tournamentId, {
+    overlay,
+    matchId: Number.isFinite(matchId) ? matchId : undefined,
+    sponsorName,
+    stageOrGroup,
+    flash,
+    detail,
+    messageType,
+    broadcastMessage,
+    sponsorMedia,
+    sponsorDisplayTokens: sponsorDisplayTokens.obs || sponsorDisplayTokens.led ? sponsorDisplayTokens : undefined,
+  });
+  res.json({
+    ok: true,
+    overlay,
+    matchId,
+    sponsorName,
+    stageOrGroup,
+    flash,
+    detail,
+    messageType,
+    broadcastMessage,
+    sponsorMedia,
+    sponsorDisplayTokens: sponsorDisplayTokens.obs || sponsorDisplayTokens.led ? sponsorDisplayTokens : undefined,
+  });
+});
+
+/** GET /tournaments/:tournamentId/scoring/obs-director — get current OBS overlay state */
+router.get("/tournaments/:tournamentId/scoring/obs-director", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+
+  const state = getCricketObsDirectorState(tournamentId);
+  res.json(state);
+});
+
+/** GET /tournaments/:tournamentId/scoring/broadcast-message-templates — list saved templates */
+router.get("/tournaments/:tournamentId/scoring/broadcast-message-templates", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const templates = await db
+      .select()
+      .from(cricketBroadcastMessageTemplatesTable)
+      .where(eq(cricketBroadcastMessageTemplatesTable.tournamentId, tournamentId))
+      .orderBy(asc(cricketBroadcastMessageTemplatesTable.id));
+
+    res.json(templates);
+  } catch (err) {
+    logger.error({ error: err, tournamentId }, "Failed to list broadcast message templates");
+    res.status(500).json({ error: "Failed to list broadcast message templates" });
+  }
+});
+
+/** POST /tournaments/:tournamentId/scoring/broadcast-message-templates — create template */
+router.post("/tournaments/:tournamentId/scoring/broadcast-message-templates", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const body = req.body ?? {};
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const details = typeof body.details === "string" ? body.details.trim() : "";
+
+  if (!name || name.length > 100) {
+    res.status(400).json({ error: "Name must be between 1 and 100 characters" });
+    return;
+  }
+  if (!details || details.length > 180) {
+    res.status(400).json({ error: "Details must be between 1 and 180 characters" });
+    return;
+  }
+
+  try {
+    const [template] = await db
+      .insert(cricketBroadcastMessageTemplatesTable)
+      .values({
+        tournamentId,
+        name: name.slice(0, 100),
+        details: details.slice(0, 180),
+      })
+      .returning();
+
+    res.status(201).json(template);
+  } catch (err) {
+    logger.error({ error: err, tournamentId }, "Failed to create broadcast message template");
+    res.status(500).json({ error: "Failed to create broadcast message template" });
+  }
+});
+
+/** PUT /tournaments/:tournamentId/scoring/broadcast-message-templates/:id — update template */
+router.put("/tournaments/:tournamentId/scoring/broadcast-message-templates/:id", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const templateId = parseId(req.params.id);
+  if (tournamentId === null || templateId === null) {
+    res.status(400).json({ error: "Invalid tournament or template ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const body = req.body ?? {};
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const details = typeof body.details === "string" ? body.details.trim() : "";
+
+  if (!name || name.length > 100) {
+    res.status(400).json({ error: "Name must be between 1 and 100 characters" });
+    return;
+  }
+  if (!details || details.length > 180) {
+    res.status(400).json({ error: "Details must be between 1 and 180 characters" });
+    return;
+  }
+
+  try {
+    const [updated] = await db
+      .update(cricketBroadcastMessageTemplatesTable)
+      .set({
+        name: name.slice(0, 100),
+        details: details.slice(0, 180),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(cricketBroadcastMessageTemplatesTable.id, templateId),
+          eq(cricketBroadcastMessageTemplatesTable.tournamentId, tournamentId),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+
+    res.json(updated);
+  } catch (err) {
+    logger.error({ error: err, tournamentId, templateId }, "Failed to update broadcast message template");
+    res.status(500).json({ error: "Failed to update broadcast message template" });
+  }
+});
+
+/** DELETE /tournaments/:tournamentId/scoring/broadcast-message-templates/:id — delete template */
+router.delete("/tournaments/:tournamentId/scoring/broadcast-message-templates/:id", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const templateId = parseId(req.params.id);
+  if (tournamentId === null || templateId === null) {
+    res.status(400).json({ error: "Invalid tournament or template ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const [deleted] = await db
+      .delete(cricketBroadcastMessageTemplatesTable)
+      .where(
+        and(
+          eq(cricketBroadcastMessageTemplatesTable.id, templateId),
+          eq(cricketBroadcastMessageTemplatesTable.tournamentId, tournamentId),
+        ),
+      )
+      .returning({ id: cricketBroadcastMessageTemplatesTable.id });
+
+    if (!deleted) {
+      res.status(404).json({ error: "Template not found" });
+      return;
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ error: err, tournamentId, templateId }, "Failed to delete broadcast message template");
+    res.status(500).json({ error: "Failed to delete broadcast message template" });
+  }
 });
 
 router.get("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
@@ -370,7 +939,28 @@ router.get("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
     res.status(400).json({ error: "Invalid tournament ID" });
     return;
   }
-  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  // Allow either organizer JWT or dedicated scorer JWT to read matches (read-only).
+  // We check both identities manually to avoid requireTournamentOrganizer writing a 403
+  // response before the scorer fallback is attempted.
+  const [tournament] = await db
+    .select({ organizerId: tournamentsTable.organizerId })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  const callerIsOrganizer = !!tournament && isTournamentOrganizer(req, tournamentId, tournament.organizerId);
+  if (!callerIsOrganizer) {
+    // Not an organizer — require a valid dedicated scorer session.
+    try {
+      const scorerAuth = await requireScorerFromRequest(req);
+      await assertScorerMayAccessTournament(scorerAuth.scorerId, tournamentId);
+    } catch (e) {
+      if (sendScorerAuthError(res, e)) return;
+      res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
+      return;
+    }
+  }
 
   try {
     const matches = await listScoringMatches(tournamentId);
@@ -384,6 +974,143 @@ router.get("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
   }
 });
 
+// ─── Rule Presets (EPIC-Rule-Presets) ──────────────────────────────────────────
+
+router.get("/tournaments/:tournamentId/scoring/rule-presets", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const presets = await listCricketRulePresets(tournamentId);
+    res.json(presets);
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+router.post("/tournaments/:tournamentId/scoring/rule-presets", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const schema = z.object({
+    name: z.string().min(1),
+    description: z.string().nullable().optional(),
+    variantId: z.string().optional(),
+    ruleProfileId: z.string().optional(),
+    ruleProfileVersion: z.string().optional(),
+    ruleOverridesJson: z.record(z.unknown()).nullable().optional(),
+    squadRulesJson: z.record(z.unknown()).nullable().optional(),
+    isDefault: z.boolean().optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  try {
+    const preset = await createCricketRulePreset(tournamentId, parsed.data);
+    res.status(201).json(preset);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to create rule preset";
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.get("/tournaments/:tournamentId/scoring/rule-presets/:presetId", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const presetId = parseId(req.params.presetId);
+  if (tournamentId === null || presetId === null) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const preset = await getCricketRulePreset(tournamentId, presetId);
+    if (!preset) {
+      res.status(404).json({ error: "Rule Preset not found" });
+      return;
+    }
+    res.json(preset);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to get rule preset";
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.patch("/tournaments/:tournamentId/scoring/rule-presets/:presetId", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const presetId = parseId(req.params.presetId);
+  if (tournamentId === null || presetId === null) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const schema = z.object({
+    name: z.string().min(1).optional(),
+    description: z.string().nullable().optional(),
+    variantId: z.string().optional(),
+    ruleProfileId: z.string().optional(),
+    ruleProfileVersion: z.string().optional(),
+    ruleOverridesJson: z.record(z.unknown()).nullable().optional(),
+    squadRulesJson: z.record(z.unknown()).nullable().optional(),
+    isDefault: z.boolean().optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  try {
+    const updated = await updateCricketRulePreset(tournamentId, presetId, parsed.data);
+    res.json(updated);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to update rule preset";
+    res.status(400).json({ error: msg });
+  }
+});
+
+router.delete("/tournaments/:tournamentId/scoring/rule-presets/:presetId", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const presetId = parseId(req.params.presetId);
+  if (tournamentId === null || presetId === null) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const result = await deleteCricketRulePreset(tournamentId, presetId);
+    if (!result.ok) {
+      res.status(result.status).json({ error: result.error });
+      return;
+    }
+    res.status(204).send();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Failed to delete rule preset";
+    res.status(400).json({ error: msg });
+  }
+});
+
+// ─── Scoring Matches ──────────────────────────────────────────────────────────
+
 router.post("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
   if (tournamentId === null) {
@@ -396,6 +1123,7 @@ router.post("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
     homeTeamId: z.number().int().positive(),
     awayTeamId: z.number().int().positive(),
     fixtureId: z.number().int().positive().nullable().optional(),
+    rulePresetId: z.number().int().positive().nullable().optional(),
     oversLimit: z.number().int().positive().max(50).optional(),
     roundName: z.string().nullable().optional(),
     scheduledAt: z.string().datetime().nullable().optional(),
@@ -423,6 +1151,68 @@ router.post("/tournaments/:tournamentId/scoring/matches", async (req, res) => {
   }
 });
 
+router.patch("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const matchId = parseId(req.params.matchId);
+  if (tournamentId === null || matchId === null) {
+    res.status(400).json({ error: "Invalid tournament or match ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const schema = z.object({
+    homeTeamId: z.number().int().positive().optional(),
+    awayTeamId: z.number().int().positive().optional(),
+    rulePresetId: z.number().int().positive().nullable().optional(),
+    oversLimit: z.number().int().positive().max(50).optional(),
+    roundName: z.string().nullable().optional(),
+    scheduledAt: z.string().datetime().nullable().optional(),
+    venue: z.string().nullable().optional(),
+    resultSummary: z.string().nullable().optional(),
+  });
+
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  try {
+    const result = await updateScoringMatch(tournamentId, matchId, parsed.data);
+    res.json({
+      match: matchToJson(result.match),
+      state: result.state,
+    });
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+router.delete("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const matchId = parseId(req.params.matchId);
+  if (tournamentId === null || matchId === null) {
+    res.status(400).json({ error: "Invalid tournament or match ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  try {
+    await deleteCricketMatch(tournamentId, matchId);
+    res.status(204).send();
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
 /** Lock Rules & format → ready draws + prepare all cricket matches for Start. */
 router.post("/tournaments/:tournamentId/scoring/rules/apply-to-matches", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
@@ -433,7 +1223,7 @@ router.post("/tournaments/:tournamentId/scoring/rules/apply-to-matches", async (
   if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   const actor =
-    req.jwtUser?.email ||
+    (req.jwtUser as { email?: string } | undefined)?.email ||
     (req.jwtUser?.organizerAccountId != null
       ? `organizer:${req.jwtUser.organizerAccountId}`
       : req.jwtUser?.isAdmin
@@ -455,7 +1245,28 @@ router.get("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, re
     res.status(400).json({ error: "Invalid ID" });
     return;
   }
-  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  // Allow either organizer JWT or dedicated scorer JWT to read a single match (read-only).
+  // We check both identities manually to avoid requireTournamentOrganizer writing a 403
+  // response before the scorer fallback is attempted.
+  const [tournament] = await db
+    .select({ organizerId: tournamentsTable.organizerId })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  const callerIsOrganizer = !!tournament && isTournamentOrganizer(req, tournamentId, tournament.organizerId);
+  if (!callerIsOrganizer) {
+    // Not an organizer — require a valid dedicated scorer session.
+    try {
+      const scorerAuth = await requireScorerFromRequest(req);
+      await assertScorerMayAccessTournament(scorerAuth.scorerId, tournamentId);
+    } catch (e) {
+      if (sendScorerAuthError(res, e)) return;
+      res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
+      return;
+    }
+  }
 
   try {
     const result = await getScoringMatch(tournamentId, matchId);
@@ -484,6 +1295,12 @@ router.get("/tournaments/:tournamentId/scoring/matches/:matchId", async (req, re
   }
 });
 
+/**
+ * POST /tournaments/:tournamentId/scoring/matches/:matchId/events
+ *
+ * ONLY dedicated scorers with a valid JWT + tournament assignment + active match lock
+ * may submit scoring events. Organizer JWT is NOT accepted here.
+ */
 router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
@@ -496,8 +1313,10 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async 
     eventType: z.string().min(1),
     payload: z.record(z.unknown()),
     expectedSequence: z.number().int().min(0),
-    scorerPin: z.string().optional(),
     correlationId: z.string().uuid().optional(),
+    leaseId: z.string().optional(),
+    leaseVersion: z.number().int().positive().optional(),
+    // scorerPin is intentionally NOT accepted — legacy field removed from mutation path.
   });
 
   const parsed = schema.safeParse(req.body);
@@ -506,10 +1325,13 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async 
     return;
   }
 
-  const auth = await canWriteScoring(req, tournamentId, parsed.data.scorerPin);
-  if (!auth.ok) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
+  let scorerAuth: Awaited<ReturnType<typeof requireScorerForMutation>>;
+  try {
+    scorerAuth = await requireScorerForMutation(req, tournamentId, matchId);
+  } catch (e) {
+    if (sendScorerAuthError(res, e)) return;
+    if (sendScorerLockError(res, e)) return;
+    throw e;
   }
 
   try {
@@ -518,7 +1340,13 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async 
       payload: parsed.data.payload,
       expectedSequence: parsed.data.expectedSequence,
       correlationId: parsed.data.correlationId,
-      actor: actorFromRequest(req, auth.usedPin),
+      actor: { type: "scorer", id: String(scorerAuth.scorerId) },
+      lease: {
+        scorerId: scorerAuth.scorerId,
+        sessionId: scorerAuth.sessionId,
+        leaseId: parsed.data.leaseId,
+        leaseVersion: parsed.data.leaseVersion,
+      },
     });
     res.status(201).json({
       event: {
@@ -531,14 +1359,24 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/events", async 
       match: matchToJson(result.match),
     });
   } catch (err) {
+    if (sendScorerLockError(res, err)) return;
     if (err instanceof ScoringServiceError) {
-      res.status(err.status).json({ error: err.message, code: err.code });
+      res.status(err.status).json({
+        error: err.message,
+        code: err.code,
+        ...(err.details ? { details: err.details } : {}),
+      });
       return;
     }
     throw err;
   }
 });
 
+/**
+ * POST /tournaments/:tournamentId/scoring/matches/:matchId/undo
+ *
+ * ONLY dedicated scorers with a valid JWT + tournament assignment + active match lock.
+ */
 router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
   const matchId = parseId(req.params.matchId);
@@ -549,7 +1387,9 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (r
 
   const schema = z.object({
     expectedSequence: z.number().int().min(0),
-    scorerPin: z.string().optional(),
+    leaseId: z.string().optional(),
+    leaseVersion: z.number().int().positive().optional(),
+    // scorerPin intentionally NOT accepted.
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) {
@@ -557,16 +1397,25 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (r
     return;
   }
 
-  const auth = await canWriteScoring(req, tournamentId, parsed.data.scorerPin);
-  if (!auth.ok) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
+  let scorerAuth: Awaited<ReturnType<typeof requireScorerForMutation>>;
+  try {
+    scorerAuth = await requireScorerForMutation(req, tournamentId, matchId);
+  } catch (e) {
+    if (sendScorerAuthError(res, e)) return;
+    if (sendScorerLockError(res, e)) return;
+    throw e;
   }
 
   try {
     const result = await undoLastScoringEvent(tournamentId, matchId, {
       expectedSequence: parsed.data.expectedSequence,
-      actor: actorFromRequest(req, auth.usedPin),
+      actor: { type: "scorer", id: String(scorerAuth.scorerId) },
+      lease: {
+        scorerId: scorerAuth.scorerId,
+        sessionId: scorerAuth.sessionId,
+        leaseId: parsed.data.leaseId,
+        leaseVersion: parsed.data.leaseVersion,
+      },
     });
     res.status(201).json({
       event: {
@@ -578,6 +1427,114 @@ router.post("/tournaments/:tournamentId/scoring/matches/:matchId/undo", async (r
       state: result.state,
       match: matchToJson(result.match),
     });
+  } catch (err) {
+    if (sendScorerLockError(res, err)) return;
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+/**
+ * POST /tournaments/:tournamentId/scoring/matches/:matchId/reset
+ *
+ * ONLY dedicated scorers with a valid JWT + tournament assignment + active match lock.
+ */
+router.post("/tournaments/:tournamentId/scoring/matches/:matchId/reset", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  const matchId = parseId(req.params.matchId);
+  if (tournamentId === null || matchId === null) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+
+  // Optional lease meta for reset.
+  // scorerPin is intentionally NOT accepted.
+  const schema = z
+    .object({
+      leaseId: z.string().optional(),
+      leaseVersion: z.number().int().positive().optional(),
+    })
+    .optional();
+  const parsed = schema?.safeParse(req.body ?? {});
+  const leaseMeta = parsed?.success ? parsed.data : undefined;
+
+  let scorerAuth: Awaited<ReturnType<typeof requireScorerForMutation>>;
+  try {
+    scorerAuth = await requireScorerForMutation(req, tournamentId, matchId);
+  } catch (e) {
+    if (sendScorerAuthError(res, e)) return;
+    if (sendScorerLockError(res, e)) return;
+    throw e;
+  }
+
+  try {
+    const result = await resetCricketMatchSetup(
+      tournamentId,
+      matchId,
+      {
+        type: "scorer",
+        id: String(scorerAuth.scorerId),
+      },
+      {
+        scorerId: scorerAuth.scorerId,
+        sessionId: scorerAuth.sessionId,
+        leaseId: leaseMeta?.leaseId,
+        leaseVersion: leaseMeta?.leaseVersion,
+      },
+    );
+    res.json({
+      match: matchToJson(result.match),
+      state: result.state,
+      summary: null,
+      eventCount: 0,
+      lastSequence: 0,
+    });
+  } catch (err) {
+    if (sendScorerLockError(res, err)) return;
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+/**
+ * POST /tournaments/:tournamentId/scoring/matches/repair
+ *
+ * Organizer repair for finished matches with bad scores, ball-by-ball data,
+ * or winner announcements.
+ * rebuild keeps the ball log and rewrites derived data.
+ * reset wipes the ball log and returns the match to scheduled.
+ */
+router.post("/tournaments/:tournamentId/scoring/matches/repair", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const schema = z.object({
+    mode: z.enum(["rebuild", "reset"]),
+    matchIds: z.array(z.number().int().positive()).min(1).max(40),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  try {
+    const result = await repairCompletedCricketMatches(
+      tournamentId,
+      parsed.data.matchIds,
+      parsed.data.mode,
+    );
+    res.json(result);
   } catch (err) {
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });
@@ -637,7 +1594,10 @@ router.get("/tournaments/:tournamentId/scoring/public/teams/:teamId", async (req
   }
 
   try {
-    res.json(await getTournamentTeamPublicProfile(tournamentId, teamId));
+    const drawRaw = req.query.drawId;
+    const parsedDraw = drawRaw != null && String(drawRaw) !== "" ? parseInt(String(drawRaw), 10) : undefined;
+    const drawId = parsedDraw != null && Number.isFinite(parsedDraw) ? parsedDraw : undefined;
+    res.json(await getTournamentTeamPublicProfile(tournamentId, teamId, drawId));
   } catch (err) {
     if (err instanceof ScoringServiceError) {
       res.status(err.status).json({ error: err.message, code: err.code });
@@ -685,6 +1645,65 @@ router.get("/cricket/global-leaderboards/:category", async (req, res) => {
       return;
     }
     throw err;
+  }
+});
+
+/**
+ * Manual/administrative projection and statistics reconciliation endpoint.
+ * Recalculates match player stats, awards, global aggregates, standings, progression, and leaderboards.
+ */
+router.post("/tournaments/:tournamentId/scoring/reconcile", async (req, res) => {
+  const tournamentId = parseId(req.params.tournamentId);
+  if (tournamentId === null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const targetMatchId = typeof req.body?.matchId === "number" ? req.body.matchId : undefined;
+
+  try {
+    const finishedMatches = await db
+      .select({ id: scoringMatchesTable.id })
+      .from(scoringMatchesTable)
+      .where(
+        and(
+          eq(scoringMatchesTable.tournamentId, tournamentId),
+          eq(scoringMatchesTable.sportSlug, "cricket"),
+          targetMatchId !== undefined
+            ? eq(scoringMatchesTable.id, targetMatchId)
+            : or(
+                eq(scoringMatchesTable.status, "completed"),
+                eq(scoringMatchesTable.status, "abandoned"),
+                eq(scoringMatchesTable.status, "no_result"),
+                eq(scoringMatchesTable.status, "walkover"),
+              ),
+        ),
+      );
+
+    for (const m of finishedMatches) {
+      await projectMatchPlayerStats(m.id);
+      await projectMatchAwards(m.id);
+    }
+
+    // One locked rebuild after the ledgers are current. This replaces career
+    // and tournament totals, including players who no longer have a contribution.
+    await rebuildCricketPlayerStatistics();
+    await rebuildTournamentStandings(tournamentId);
+    await advanceTournamentProgression(tournamentId);
+    await rebuildTournamentLeaderboards(tournamentId);
+
+    res.json({
+      success: true,
+      tournamentId,
+      reconciledMatchesCount: finishedMatches.length,
+      matchIds: finishedMatches.map((m) => m.id),
+    });
+  } catch (err) {
+    logger.error({ error: err, tournamentId }, "Failed to reconcile scoring projections");
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to reconcile tournament scoring",
+    });
   }
 });
 

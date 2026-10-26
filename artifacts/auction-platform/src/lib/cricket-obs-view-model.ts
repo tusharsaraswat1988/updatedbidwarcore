@@ -3,20 +3,30 @@
  * No scoring writes. No engine resolution. Paint preservation lives here.
  */
 
-import type { BallDisplayOutcome, CricketScoreboardState } from "@workspace/scoring-core";
-import type { CricketMatchSummary } from "@workspace/scoring-core";
+import {
+  deriveCricketMatchResult,
+  type BallDisplayOutcome,
+  type CricketAuthoritativeBroadcastEvent,
+  type CricketFullScorecard,
+  type CricketMatchSummary,
+  type CricketScoreboardState,
+} from "@workspace/scoring-core";
 import {
   getActiveInnings,
   oversText,
   requiredRate,
   runRate,
 } from "@/lib/scoring-ball";
-import type { ScoringLiveDisplay, ScoringMatchJson } from "@/lib/scoring-api";
+import {
+  isTerminalCricketMatchStatus,
+  type ScoringLiveDisplay,
+  type ScoringMatchJson,
+} from "@/lib/scoring-api";
 import {
   getDisplayThemeFromPresentationPaint,
   type PresentationPaintJson,
 } from "@/lib/display-theme";
-import type { CricketScorerTeam } from "@/lib/scoring-squad";
+import type { CricketScorerPlayer, CricketScorerTeam } from "@/lib/scoring-squad";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
 import {
   BIDWAR_BROADCAST_YELLOW,
@@ -34,7 +44,56 @@ export type CricketObsPhase =
   | "match_unavailable"
   | "reconnecting";
 
-export type CricketObsFlashKind = "FOUR" | "SIX" | "WICKET" | "WIDE" | "NO_BALL";
+export type CricketObsFlashKind =
+  | "FOUR"
+  | "SIX"
+  | "SUPERBALL"
+  | "SUPER_OVER"
+  | "NO_BALL"
+  | "FREE_HIT"
+  | "WIDE"
+  | "WICKET"
+  | "NEW_BATSMAN"
+  | "NEW_BOWLER"
+  | "TOSS_WIN"
+  | "MATCH_WON";
+
+export type CricketObsMidOverlayKind =
+  | "none"
+  | "neutral"
+  | "banner"
+  | "sponsors"
+  | "standings"
+  | "fixtures"
+  | "scorecard"
+  | "batting"
+  | "summary"
+  | "intro";
+
+export type CricketObsBatterView = {
+  id: number;
+  name: string;
+  photoUrl?: string | null;
+  runs: number;
+  balls: number;
+  fours: number;
+  sixes: number;
+  strikeRate: number;
+  isOnStrike: boolean;
+  hasStats?: boolean;
+};
+
+export type CricketObsBowlerView = {
+  id: number;
+  name: string;
+  photoUrl?: string | null;
+  overs: string;
+  maidens: number;
+  runsConceded: number;
+  wickets: number;
+  economy: number;
+  hasStats?: boolean;
+};
 
 export type CricketObsTeamView = {
   id: number;
@@ -51,6 +110,12 @@ export type CricketObsTheme = {
   panel: string;
   text: string;
   sponsorStripEnabled: boolean;
+};
+
+export type CricketBroadcastMessage = {
+  active: boolean;
+  name: string;
+  details: string;
 };
 
 export type CricketObsViewModel = {
@@ -70,10 +135,23 @@ export type CricketObsViewModel = {
   oversDisplay: string;
   crr: string | null;
   rrr: string | null;
+  prr: string | null;
+  projectedScore: number | null;
   target: number | null;
   needRuns: number | null;
   ballsRemaining: number | null;
   thisOverLabels: string[];
+  striker: CricketObsBatterView | null;
+  nonStriker: CricketObsBatterView | null;
+  bowler: CricketObsBowlerView | null;
+  partnershipRuns: number;
+  partnershipBalls: number;
+  partnershipText: string | null;
+  powerplayText: string | null;
+  tossText: string | null;
+  freeHitActive: boolean;
+  superBallActive: boolean;
+  venueText: string | null;
   resultText: string | null;
   resultHeadline: string | null;
   firstInningsScoreLine: string | null;
@@ -84,6 +162,15 @@ export type CricketObsViewModel = {
   connectionHint: "none" | "reconnecting";
   flash: CricketObsFlashKind | null;
   flashToken: string | null;
+  flashDetail?: string | null;
+  midOverlay: CricketObsMidOverlayKind;
+  broadcastMessage: CricketBroadcastMessage | null;
+  broadcastEvent: CricketAuthoritativeBroadcastEvent | null;
+  /** Live scoreboard sequence. Scorecard reads are keyed by this so figures move with the total. */
+  liveSequence: number;
+  isNeutralActive: boolean;
+  neutralStatusText?: string;
+  neutralStatusChip?: string;
 };
 
 const DEFAULT_THEME: CricketObsTheme = {
@@ -119,9 +206,15 @@ function teamView(
   };
 }
 
-/** Legal balls remaining in the innings (6-ball overs). */
-export function ballsRemaining(oversLimit: number, over: number, ball: number): number {
-  return Math.max(0, oversLimit * 6 - (over * 6 + ball));
+/** Legal balls remaining in the innings. */
+export function ballsRemaining(
+  oversLimit: number,
+  over: number,
+  ball: number,
+  ballsPerOver = 6,
+): number {
+  const bpo = ballsPerOver > 0 ? ballsPerOver : 6;
+  return Math.max(0, oversLimit * bpo - (over * bpo + ball));
 }
 
 /**
@@ -130,6 +223,7 @@ export function ballsRemaining(oversLimit: number, over: number, ball: number): 
  */
 export function mapBallToFlash(ball: BallDisplayOutcome | null | undefined): CricketObsFlashKind | null {
   if (!ball) return null;
+  if (ball.isSuperBall) return "SUPERBALL";
   if (ball.isWicket) return "WICKET";
   if (ball.extrasType === "wide" || ball.label === "Wd" || ball.label.startsWith("Wd+")) {
     return "WIDE";
@@ -137,11 +231,12 @@ export function mapBallToFlash(ball: BallDisplayOutcome | null | undefined): Cri
   if (ball.extrasType === "no_ball" || ball.label === "Nb" || ball.label.startsWith("Nb+")) {
     return "NO_BALL";
   }
-  // Boundaries: only when runs off the bat are exactly 4 or 6 (not extras-inflated totals).
+  // Boundaries: only runs off the bat. A 4-bye or 4-leg-bye must not flash as a four.
+  if (ball.extrasType === "bye" || ball.extrasType === "leg_bye") return null;
   if (ball.runsOffBat === 6 && !ball.extrasType) return "SIX";
   if (ball.runsOffBat === 4 && !ball.extrasType) return "FOUR";
-  if (ball.label === "6") return "SIX";
-  if (ball.label === "4") return "FOUR";
+  if (!ball.extrasType && ball.label === "6") return "SIX";
+  if (!ball.extrasType && ball.label === "4") return "FOUR";
   return null;
 }
 
@@ -151,7 +246,7 @@ export function flashTokenForBall(
   ball: BallDisplayOutcome | null | undefined,
 ): string | null {
   if (!ball || matchId == null) return null;
-  return `${matchId}:${sequence ?? 0}:${ball.over}.${ball.ball}:${ball.label}:${ball.isWicket ? "W" : ""}`;
+  return `${matchId}:${sequence ?? 0}:${ball.over}.${ball.ball}:${ball.label}:${ball.isWicket ? "W" : ""}:${ball.isSuperBall ? "SB" : ""}`;
 }
 
 /**
@@ -167,6 +262,7 @@ export function mergeLiveDisplayPreserveBranding(
       match: previous?.match ?? null,
       state: incoming.state ?? previous?.state ?? null,
       summary: incoming.summary ?? previous?.summary ?? null,
+      broadcastEvent: incoming.broadcastEvent ?? null,
     };
   }
 
@@ -192,6 +288,7 @@ export function mergeLiveDisplayPreserveBranding(
     match: mergedMatch,
     state: incoming.state ?? previous?.state ?? null,
     summary: incoming.summary ?? previous?.summary ?? null,
+    broadcastEvent: incoming.broadcastEvent ?? null,
   };
 }
 
@@ -208,23 +305,13 @@ function themeFromPaint(paint: PresentationPaintJson | null | undefined): Cricke
 }
 
 function isInningsBreak(state: CricketScoreboardState): boolean {
+  if ((state.matchStatus as string) === "innings_break" || (state as any).sessionStatus === "innings_break") return true;
   if (state.matchStatus !== "live") return false;
   const current = getActiveInnings(state);
   if (!current) return false;
-  if (current.phase === "not_started") return true;
-  // Fresh chase innings before first ball / crease set.
-  if (
-    state.target != null &&
-    current.phase === "in_progress" &&
-    current.runs === 0 &&
-    current.wickets === 0 &&
-    current.over === 0 &&
-    current.ball === 0 &&
-    state.strikerId == null
-  ) {
-    return true;
-  }
-  return false;
+  // The gap after an innings ends, before the next innings starts.
+  // A live first innings that has not started yet is pre-match, not a break.
+  return current.innings > 1 && current.phase === "not_started";
 }
 
 function firstInningsScoreLine(
@@ -248,9 +335,101 @@ function firstInningsScoreLine(
   return `${bat?.shortCode ?? "T1"}  ${first.runs}/${first.wickets} (${overs}/${limit})`;
 }
 
+export function resolveBatterView(
+  playerId: number | null | undefined,
+  isOnStrike: boolean,
+  players?: CricketScorerPlayer[],
+  scorecard?: CricketFullScorecard | null,
+  currentInningsNum?: number,
+): CricketObsBatterView | null {
+  if (playerId == null) return null;
+  const player = players?.find((p) => p.id === playerId);
+  const name = player?.name || `Player #${playerId}`;
+  const photoUrl = player?.photoUrl ?? null;
+
+  let runs = 0;
+  let balls = 0;
+  let fours = 0;
+  let sixes = 0;
+  let strikeRate = 0;
+  let hasStats = false;
+
+  if (scorecard?.innings && currentInningsNum != null) {
+    const inn = scorecard.innings.find((i) => i.innings === currentInningsNum);
+    const row = inn?.batting.find((b) => b.playerId === playerId);
+    if (row) {
+      runs = row.runs;
+      balls = row.balls;
+      fours = row.fours;
+      sixes = row.sixes;
+      strikeRate = row.strikeRate;
+      hasStats = true;
+    }
+  }
+
+  return {
+    id: playerId,
+    name,
+    photoUrl,
+    runs,
+    balls,
+    fours,
+    sixes,
+    strikeRate,
+    isOnStrike,
+    hasStats,
+  };
+}
+
+export function resolveBowlerView(
+  playerId: number | null | undefined,
+  players?: CricketScorerPlayer[],
+  scorecard?: CricketFullScorecard | null,
+  currentInningsNum?: number,
+): CricketObsBowlerView | null {
+  if (playerId == null) return null;
+  const player = players?.find((p) => p.id === playerId);
+  const name = player?.name || `Bowler #${playerId}`;
+  const photoUrl = player?.photoUrl ?? null;
+
+  let overs = "0.0";
+  let maidens = 0;
+  let runsConceded = 0;
+  let wickets = 0;
+  let economy = 0;
+  let hasStats = false;
+
+  if (scorecard?.innings && currentInningsNum != null) {
+    const inn = scorecard.innings.find((i) => i.innings === currentInningsNum);
+    const row = inn?.bowling.find((b) => b.playerId === playerId);
+    if (row) {
+      overs = row.overs;
+      maidens = row.maidens;
+      runsConceded = row.runs;
+      wickets = row.wickets;
+      economy = row.economy;
+      hasStats = true;
+    }
+  }
+
+  return {
+    id: playerId,
+    name,
+    photoUrl,
+    overs,
+    maidens,
+    runsConceded,
+    wickets,
+    economy,
+    hasStats,
+  };
+}
+
 export type BuildCricketObsViewModelInput = {
   live: ScoringLiveDisplay | null;
   teams: CricketScorerTeam[];
+  players?: CricketScorerPlayer[];
+  scorecard?: CricketFullScorecard | null;
   tournamentName: string;
   tournamentLogoUrl: string | null;
   sponsors: SponsorLogo[];
@@ -259,17 +438,83 @@ export type BuildCricketObsViewModelInput = {
   connectionStatus: "connected" | "reconnecting" | "disconnected";
   /** Previous flash token to avoid inventing flashes without a new ball */
   previousFlashToken?: string | null;
+  overrideFlash?: CricketObsFlashKind | null;
+  overrideFlashToken?: string | null;
+  overrideFlashDetail?: string | null;
+  midOverlay?: CricketObsMidOverlayKind;
+  broadcastMessage?: CricketBroadcastMessage | null;
 };
+
+/**
+ * Authoritative derivation of neutral footer broadcast status text and chip.
+ *
+ * Rules:
+ * 1. Match finished -> Shows winner/result headline (e.g. "DPS WON BY 5 WKTS"), chip "FINAL"
+ * 2. Innings break -> Shows break scoreline / target (e.g. "INNINGS BREAK · TARGET 165"), chip "INNINGS BREAK"
+ * 3. Pre-match -> Shows toss result or "MATCH STARTING SOON", chip "STANDBY"
+ * 4. Operator explicitly engaged Interval / Neutral plate in director control -> "MATCH INTERVAL", chip "INTERVAL"
+ * 5. Standby / No live match / Pre-tournament -> "MATCH STARTING SOON", chip "STANDBY"
+ */
+export function deriveCricketNeutralStatus(
+  vm?: Partial<CricketObsViewModel> | null,
+  overrideOverlay?: CricketObsMidOverlayKind | null,
+): {
+  statusText: string;
+  statusChip: string;
+} {
+  const midOverlay = overrideOverlay ?? vm?.midOverlay ?? "none";
+
+  // 1. Finished match results
+  if (vm?.phase === "completed" || vm?.resultHeadline || vm?.resultText) {
+    const headline = vm.resultHeadline || vm.resultText || "MATCH COMPLETED";
+    return { statusText: headline, statusChip: "FINAL" };
+  }
+
+  // 2. Innings Break
+  if (vm?.phase === "innings_break") {
+    const target = vm.target ?? (vm.runs != null && vm.runs > 0 ? vm.runs + 1 : null);
+    const breakText = target
+      ? `INNINGS BREAK · TARGET ${target}`
+      : vm.firstInningsScoreLine || "INNINGS BREAK";
+    return { statusText: breakText, statusChip: "INNINGS BREAK" };
+  }
+
+  // 3. Pre-Match (Scheduled fixture, toss, or build-up)
+  if (vm?.phase === "pre_match") {
+    const preText = vm.tossText || "MATCH STARTING SOON";
+    return { statusText: preText, statusChip: "STANDBY" };
+  }
+
+  // 4. Operator explicitly engaged Interval / Neutral plate in director control
+  if (midOverlay === "neutral") {
+    return { statusText: "MATCH INTERVAL", statusChip: "INTERVAL" };
+  }
+
+  // 5. No active match / match unavailable (e.g. tournament newly created, before match)
+  if (vm?.phase === "no_live" || vm?.phase === "match_unavailable") {
+    return { statusText: "MATCH STARTING SOON", statusChip: "STANDBY" };
+  }
+
+  // 6. Active live play fallback (if neutral footer rendered while live)
+  return { statusText: "MATCH STARTING SOON", statusChip: "STANDBY" };
+}
 
 export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): CricketObsViewModel {
   const {
     live,
     teams,
+    players,
+    scorecard,
     tournamentName,
     tournamentLogoUrl,
     sponsors,
     pinnedMatchId,
     connectionStatus,
+    overrideFlash,
+    overrideFlashToken,
+    overrideFlashDetail,
+    midOverlay = "none",
+    broadcastMessage = null,
   } = input;
 
   const paint = (live?.match?.branding as PresentationPaintJson | null | undefined) ?? null;
@@ -294,10 +539,23 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     oversDisplay: "0.0/0 OV",
     crr: null,
     rrr: null,
+    prr: null,
+    projectedScore: null,
     target: null,
     needRuns: null,
     ballsRemaining: null,
     thisOverLabels: [],
+    striker: null,
+    nonStriker: null,
+    bowler: null,
+    partnershipRuns: 0,
+    partnershipBalls: 0,
+    partnershipText: null,
+    powerplayText: null,
+    tossText: null,
+    freeHitActive: false,
+    superBallActive: false,
+    venueText: null,
     resultText: null,
     resultHeadline: null,
     firstInningsScoreLine: null,
@@ -306,8 +564,16 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     sponsors,
     showSponsorSlot,
     connectionHint: connectionStatus === "connected" ? "none" : "reconnecting",
-    flash: null,
-    flashToken: null,
+    flash: overrideFlash ?? null,
+    flashToken: overrideFlashToken ?? null,
+    flashDetail: overrideFlashDetail ?? null,
+    midOverlay,
+    broadcastMessage,
+    broadcastEvent: live?.broadcastEvent ?? null,
+    liveSequence: 0,
+    isNeutralActive: midOverlay === "neutral" || midOverlay === "none",
+    neutralStatusText: deriveCricketNeutralStatus({ phase: "no_live", midOverlay }).statusText,
+    neutralStatusChip: deriveCricketNeutralStatus({ phase: "no_live", midOverlay }).statusChip,
   };
 
   if (!live?.match || !live.state) {
@@ -324,6 +590,8 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
       ...base,
       phase: "match_unavailable",
       matchId: pinnedMatchId,
+      neutralStatusText: "MATCH STARTING SOON",
+      neutralStatusChip: "STANDBY",
     };
   }
 
@@ -331,6 +599,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   const away = teamView(teams, state.awayTeamId ?? match.awayTeamId);
   const innings = getActiveInnings(state);
   const oversLimit = innings?.oversLimit ?? state.oversLimit ?? 0;
+  const ballsPerOver = state.ballsPerOver && state.ballsPerOver > 0 ? state.ballsPerOver : 6;
   const runs = innings?.runs ?? 0;
   const wickets = innings?.wickets ?? 0;
   const over = innings?.over ?? 0;
@@ -338,38 +607,154 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
   const oversLabel = oversText(over, ball);
   const batting = innings ? teamView(teams, innings.battingTeamId) : null;
   const bowling = innings ? teamView(teams, innings.bowlingTeamId) : null;
-  const winner = teamView(teams, state.winnerTeamId ?? match.winnerTeamId);
   const crr = innings && (over > 0 || ball > 0 || runs > 0) ? runRate(runs, over, ball) : null;
-  const target = state.target;
+  const target = state.target ?? null;
+  const isTargetReached =
+    target != null && runs >= target && (state.currentInnings ?? 1) >= 2;
+  const isOversLimitReached =
+    !!innings &&
+    oversLimit > 0 &&
+    (over >= oversLimit || (over === oversLimit - 1 && ball >= ballsPerOver));
+  const isInnings2Finished =
+    (state.currentInnings ?? 1) >= 2 &&
+    !!innings &&
+    (innings.phase === "completed" ||
+      isTargetReached ||
+      (state.maxWickets > 0 && innings.wickets >= state.maxWickets) ||
+      isOversLimitReached);
+
+  const isMatchFinished =
+    isTerminalCricketMatchStatus(state.matchStatus) ||
+    (match.status ? isTerminalCricketMatchStatus(match.status) : false) ||
+    isTargetReached ||
+    isInnings2Finished;
+
+  let derivedResult: ReturnType<typeof deriveCricketMatchResult> | null = null;
+  if (isMatchFinished) {
+    try {
+      derivedResult = deriveCricketMatchResult(state);
+    } catch {
+      // Fallback to basic derivation
+    }
+  }
+
+  const winnerTeamId = state.winnerTeamId ?? match.winnerTeamId ?? derivedResult?.winnerTeamId;
+  const winner = teamView(teams, winnerTeamId);
+
   const needRuns =
-    target != null && state.matchStatus === "live" ? Math.max(0, target - runs) : null;
+    target != null && !isMatchFinished && state.matchStatus === "live"
+      ? Math.max(0, target - runs)
+      : null;
   const ballsLeft =
-    target != null && state.matchStatus === "live" ? ballsRemaining(oversLimit, over, ball) : null;
+    target != null && !isMatchFinished && state.matchStatus === "live"
+      ? ballsRemaining(oversLimit, over, ball, ballsPerOver)
+      : null;
   const rrr =
-    target != null && innings
+    target != null && !isMatchFinished && innings
       ? requiredRate(target, runs, oversLimit, over, ball)
       : null;
 
-  const lastBall =
-    state.thisOver.length > 0 ? state.thisOver[state.thisOver.length - 1] : null;
-  const flashToken = flashTokenForBall(match.id, state.lastSequence, lastBall);
-  const flash =
-    flashToken && flashToken !== input.previousFlashToken ? mapBallToFlash(lastBall) : null;
+  // Projected Score & PRR (1st innings)
+  let projectedScore: number | null = null;
+  let prr: string | null = null;
+  if (innings && oversLimit > 0 && (over > 0 || ball > 0) && !isMatchFinished) {
+    const ballsBowled = over * 6 + ball;
+    const currentRunRate = (runs / ballsBowled) * 6;
+    projectedScore = Math.round(currentRunRate * oversLimit);
+    prr = currentRunRate.toFixed(2);
+  }
 
-  const resultText = state.resultText ?? match.resultSummary ?? summary?.resultText ?? null;
-  const resultHeadline =
-    state.matchStatus === "completed" || state.matchStatus === "abandoned"
-      ? [winner?.shortCode, resultText].filter(Boolean).join(" · ") || resultText
+  // Batter & Bowler stats
+  const striker = resolveBatterView(
+    state.strikerId,
+    true,
+    players,
+    scorecard,
+    state.currentInnings,
+  );
+  const nonStriker = resolveBatterView(
+    state.nonStrikerId,
+    false,
+    players,
+    scorecard,
+    state.currentInnings,
+  );
+  const bowler = resolveBowlerView(
+    state.bowlerId,
+    players,
+    scorecard,
+    state.currentInnings,
+  );
+
+  // Powerplay indicator
+  let powerplayText: string | null = null;
+  const powerplayEnabled = match.rules?.powerplayEnabled !== false;
+  const configuredPowerplayOvers =
+    state.powerplayOvers && state.powerplayOvers.length > 0
+      ? state.powerplayOvers
+      : match.rules?.powerplayOvers && match.rules.powerplayOvers.length > 0
+      ? match.rules.powerplayOvers
       : null;
 
+  if (innings && oversLimit > 0 && !isMatchFinished && powerplayEnabled) {
+    if (configuredPowerplayOvers) {
+      if (configuredPowerplayOvers.includes(over + 1)) {
+        powerplayText = `P1 (${configuredPowerplayOvers.length} OV)`;
+      }
+    } else {
+      const p1Limit = Math.min(6, Math.ceil(oversLimit * 0.3));
+      if (over < p1Limit) {
+        powerplayText = `P1 (${p1Limit} OV)`;
+      }
+    }
+  }
+
+  // Toss result text
+  let tossText: string | null = null;
+  if (state.tossWinnerTeamId) {
+    const tossWinner = teamView(teams, state.tossWinnerTeamId);
+    const decision = state.electedTo === "bat" ? "BAT" : state.electedTo === "bowl" ? "BOWL" : null;
+    if (tossWinner && decision) {
+      tossText = `${tossWinner.name.toUpperCase()} WON THE TOSS AND CHOSE TO ${decision}`;
+    }
+  }
+
+  const lastBall =
+    state.thisOver.length > 0 ? state.thisOver[state.thisOver.length - 1] : null;
+  const ballFlashToken = flashTokenForBall(match.id, state.lastSequence, lastBall);
+  const autoFlash =
+    ballFlashToken && ballFlashToken !== input.previousFlashToken ? mapBallToFlash(lastBall) : null;
+
+  const flash = overrideFlash || autoFlash;
+  const flashToken = overrideFlash ? (overrideFlashToken ?? null) : (autoFlash ? ballFlashToken : null);
+
+  let resultText = state.resultText ?? match.resultSummary ?? summary?.resultText ?? derivedResult?.resultText ?? null;
+  if (!resultText && isTargetReached && batting) {
+    const wicketLimit = state.maxWickets > 0 ? state.maxWickets : 10;
+    const wicketsInHand = Math.max(0, wicketLimit - wickets);
+    resultText = `${batting.name} Won by ${wicketsInHand} wicket${wicketsInHand === 1 ? "" : "s"}`;
+  } else if (!resultText && (state.matchStatus === "walkover" || match.status === "walkover")) {
+    resultText = "Won by Walkover";
+  }
+
+  const resultHeadline =
+    isMatchFinished
+      ? [winner?.shortCode || batting?.shortCode, resultText].filter(Boolean).join(" · ") || resultText
+      : null;
+
+  const hasActivePlay =
+    (innings && (innings.runs > 0 || innings.wickets > 0 || innings.over > 0 || innings.ball > 0)) ||
+    state.thisOver.length > 0;
+  const awaitingFirstBall = !!innings && innings.phase === "not_started" && !hasActivePlay;
+
   let phase: CricketObsPhase = "no_live";
-  if (state.matchStatus === "completed" || state.matchStatus === "abandoned") {
+  if (isMatchFinished) {
     phase = "completed";
   } else if (isInningsBreak(state)) {
     phase = "innings_break";
-  } else if (state.matchStatus === "live" && target != null && innings) {
+  } else if ((state.matchStatus === "live" || hasActivePlay) && target != null && innings && !awaitingFirstBall) {
     phase = "chase";
-  } else if (state.matchStatus === "live" && innings) {
+  } else if ((state.matchStatus === "live" || hasActivePlay) && innings && !awaitingFirstBall) {
     phase = "live";
   } else if (
     state.matchStatus === "scheduled" ||
@@ -379,9 +764,35 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     phase = "pre_match";
   }
 
+  const isLiveMatch =
+    (state.matchStatus === "live" || hasActivePlay) &&
+    !isMatchFinished;
+
+  const isNeutralActive =
+    midOverlay === "neutral" ||
+    (midOverlay === "none" && !isLiveMatch && !isMatchFinished);
+
+  const firstInningsScore = firstInningsScoreLine(state, summary, teams);
+  const liveNeutralStatus = deriveCricketNeutralStatus(
+    {
+      phase,
+      midOverlay,
+      resultHeadline,
+      resultText,
+      firstInningsScoreLine: firstInningsScore,
+      target,
+      runs,
+      tossText,
+    },
+    midOverlay,
+  );
+
   return {
     ...base,
     phase,
+    isNeutralActive,
+    neutralStatusText: liveNeutralStatus.statusText,
+    neutralStatusChip: liveNeutralStatus.statusChip,
     matchId: match.id,
     home,
     away,
@@ -395,15 +806,40 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     oversDisplay: `${oversLabel}/${oversLimit} OV`,
     crr,
     rrr,
+    prr,
+    projectedScore,
     target,
     needRuns,
     ballsRemaining: ballsLeft,
     thisOverLabels: state.thisOver.map((b) => b.label),
+    striker,
+    nonStriker,
+    bowler,
+    partnershipRuns:
+      state.currentPartnership?.runs ?? ((striker?.runs ?? 0) + (nonStriker?.runs ?? 0)),
+    partnershipBalls:
+      state.currentPartnership?.balls ?? ((striker?.balls ?? 0) + (nonStriker?.balls ?? 0)),
+    partnershipText: state.currentPartnership
+      ? `${state.currentPartnership.runs} (${state.currentPartnership.balls} ${state.currentPartnership.balls === 1 ? "ball" : "balls"})`
+      : striker || nonStriker
+        ? `${(striker?.runs ?? 0) + (nonStriker?.runs ?? 0)} (${(striker?.balls ?? 0) + (nonStriker?.balls ?? 0)} ${(striker?.balls ?? 0) + (nonStriker?.balls ?? 0) === 1 ? "ball" : "balls"})`
+        : null,
+    powerplayText,
+    tossText,
+    freeHitActive: state.freeHitActive === true,
+    superBallActive:
+      (state.superBallPending != null &&
+        state.superBallPending.innings === (innings?.innings ?? state.currentInnings)) ||
+      lastBall?.isSuperBall === true,
+    venueText: match.venue || null,
     resultText,
     resultHeadline,
-    firstInningsScoreLine: firstInningsScoreLine(state, summary, teams),
+    firstInningsScoreLine: firstInningsScore,
+    liveSequence: state.lastSequence ?? 0,
     flash,
     flashToken,
+    flashDetail: overrideFlashDetail ?? null,
+    midOverlay,
   };
 }
 

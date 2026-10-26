@@ -1,10 +1,11 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { replaceEqualDeep, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getScoringLive,
   getScoringMatch,
   getScoringStandings,
   getSquadReadiness,
   listScoringMatches,
+  type ScoringLiveDisplay,
   type ScoringMatchDetail,
 } from "@/lib/scoring-api";
 import { sseAwareRefetchInterval } from "@/lib/sse-polling";
@@ -22,6 +23,41 @@ export function scoringMatchQueryKey(tournamentId: number, matchId: number) {
   return ["scoring-match", tournamentId, matchId] as const;
 }
 
+function matchDetailSequence(detail: ScoringMatchDetail | undefined): number {
+  if (!detail) return -1;
+  if (typeof detail.lastSequence === "number") return detail.lastSequence;
+  if (typeof detail.state?.lastSequence === "number") return detail.state.lastSequence;
+  return -1;
+}
+
+/** A slower poll or a late socket frame must not rewind the live scoreboard. */
+export function preferNewerLiveDisplay<T>(oldData: T, newData: T): T {
+  const previous = oldData as ScoringLiveDisplay | null | undefined;
+  const incoming = newData as ScoringLiveDisplay | null | undefined;
+  if (!incoming) return oldData;
+  if (!previous?.state || !incoming.state) {
+    if (!incoming.state && previous?.state) return oldData;
+    return replaceEqualDeep(oldData, newData);
+  }
+  if (previous.state.matchId !== incoming.state.matchId) {
+    return replaceEqualDeep(oldData, newData);
+  }
+  const previousSeq = previous.state.lastSequence ?? -1;
+  const incomingSeq = incoming.state.lastSequence ?? -1;
+  if (incomingSeq < previousSeq) return oldData;
+  return replaceEqualDeep(oldData, newData);
+}
+
+/** A slower poll must not put an older crease back over a ball that already landed. */
+export function shareNewerMatchDetail<T>(oldData: T, newData: T): T {
+  const previous = oldData as ScoringMatchDetail | undefined;
+  const incoming = newData as ScoringMatchDetail | undefined;
+  if (matchDetailSequence(incoming) < matchDetailSequence(previous)) {
+    return oldData;
+  }
+  return replaceEqualDeep(oldData, newData);
+}
+
 export function scoringStandingsQueryKey(tournamentId: number) {
   return ["scoring-standings", tournamentId] as const;
 }
@@ -35,6 +71,11 @@ export function useScoringMatches(tournamentId: number, enabled = true) {
     queryKey: scoringMatchesQueryKey(tournamentId),
     queryFn: () => listScoringMatches(tournamentId),
     enabled: tournamentId > 0 && enabled,
+    refetchInterval: (query) => {
+      const list = query.state.data ?? [];
+      const hasLive = list.some((m) => m.status === "live");
+      return hasLive ? 4000 : 30000;
+    },
   });
 }
 
@@ -53,6 +94,7 @@ export function useScoringLive(
         : enabled
           ? 15000
           : false,
+    structuralSharing: preferNewerLiveDisplay,
   });
 }
 
@@ -62,6 +104,7 @@ export function useScoringMatch(tournamentId: number, matchId: number, enabled =
     queryFn: () => getScoringMatch(tournamentId, matchId),
     enabled: tournamentId > 0 && matchId > 0 && enabled,
     refetchInterval: enabled ? 4000 : false,
+    structuralSharing: shareNewerMatchDetail,
   });
 }
 
@@ -70,7 +113,8 @@ export function useScoringStandings(tournamentId: number, enabled = true) {
     queryKey: scoringStandingsQueryKey(tournamentId),
     queryFn: () => getScoringStandings(tournamentId),
     enabled: tournamentId > 0 && enabled,
-    refetchInterval: 30000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 }
 
@@ -79,6 +123,7 @@ export function useSquadReadiness(tournamentId: number, enabled = true) {
     queryKey: scoringSquadsQueryKey(tournamentId),
     queryFn: () => getSquadReadiness(tournamentId),
     enabled: tournamentId > 0 && enabled,
+    staleTime: 60_000,
   });
 }
 
@@ -93,9 +138,14 @@ export function useInvalidateScoring(tournamentId: number, matchId?: number) {
       }
     },
     setMatchDetail: (detail: ScoringMatchDetail) => {
-      if (matchId) {
-        qc.setQueryData(scoringMatchQueryKey(tournamentId, matchId), detail);
-      }
+      if (!matchId) return;
+      qc.setQueryData<ScoringMatchDetail>(
+        scoringMatchQueryKey(tournamentId, matchId),
+        (current) => {
+          if (matchDetailSequence(detail) < matchDetailSequence(current)) return current;
+          return detail;
+        },
+      );
     },
   };
 }

@@ -7,10 +7,11 @@ import {
   categoriesTable,
   tournamentsTable,
 } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, asc, and, isNotNull } from "drizzle-orm";
 import { buildTeamPurseSnapshot } from "../lib/team-purse-snapshot";
 import { getTournamentInsights } from "../lib/tournament-insights";
 import { insightsLimiter } from "../lib/rate-limiters";
+import { requireAuctionModule } from "../middleware/require-module";
 
 const router = Router();
 
@@ -22,6 +23,12 @@ function tournamentIdParam(value: string | string[]): number {
 router.get("/tournaments/:tournamentId/analytics/summary", async (req, res) => {
   const tid = tournamentIdParam(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
 
   const players = await db
     .select()
@@ -86,6 +93,8 @@ router.get("/tournaments/:tournamentId/analytics/summary", async (req, res) => {
 router.get("/tournaments/:tournamentId/analytics/team-purses", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
   res.json(await buildTeamPurseSnapshot(tid));
 });
 
@@ -94,11 +103,20 @@ router.get("/tournaments/:tournamentId/analytics/top-bids", async (req, res) => 
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
+
   const soldPlayers = await db
     .select()
     .from(playersTable)
-    .where(eq(playersTable.tournamentId, tid))
-    .orderBy(desc(playersTable.soldPrice))
+    .where(
+      and(
+        eq(playersTable.tournamentId, tid),
+        eq(playersTable.status, "sold"),
+        isNotNull(playersTable.soldPrice)
+      )
+    )
+    .orderBy(desc(playersTable.soldPrice), asc(playersTable.serialNo), asc(playersTable.id))
     .limit(10);
 
   const categories = await db
@@ -135,6 +153,9 @@ router.get("/tournaments/:tournamentId/analytics/top-bids", async (req, res) => 
 router.get("/tournaments/:tournamentId/analytics/category-breakdown", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
 
   const categories = await db
     .select()
@@ -174,6 +195,9 @@ router.get(
   async (req, res) => {
     const tid = tournamentIdParam(req.params.tournamentId);
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+    if (!requireAuctionModule(res, tournament)) return;
 
     const payload = await getTournamentInsights(tid);
     res.json(payload);

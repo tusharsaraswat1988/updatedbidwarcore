@@ -4,23 +4,51 @@ import {
   listCricketMasterTeams,
   listCricketMasterPlayers,
   listCricketSquadPlayers,
+  syncCricketRosterFromAuction,
+  invalidateCricketRosterCache,
 } from "../lib/master-sports/cricket-roster";
 import { requireTournamentOrganizer } from "../middleware/require-organizer";
 import {
-  loadBadmintonBranding,
-  updateBadmintonBranding,
+  loadSportsBranding,
+  updateSportsBranding,
   updateBroadcastPresentation,
-  importTournamentBrandingToBadminton,
-} from "../lib/master-sports/badminton";
+  importTournamentBrandingToSports,
+} from "../lib/sports-branding";
 import { parseValidatedSponsorLogos } from "../lib/sponsor-validation";
-import { broadcastTournamentUpdate } from "../lib/badminton-broadcast";
+import { broadcastScoringState } from "../lib/scoring-broadcast";
+import { allocateNextPlayerSerialNo } from "../lib/player-serial";
+
+import { eq, and } from "drizzle-orm";
+import { db, tournamentsTable, playersTable, teamsTable } from "@workspace/db";
+import { requireSportModule } from "../middleware/require-module";
 
 const router = Router({ mergeParams: true });
 
-function tid(req: { params: Record<string, string> }): number | null {
-  const n = parseInt(req.params.id, 10);
+function tid(req: { params: Record<string, any> }): number | null {
+  const n = parseInt(String(req.params.id), 10);
   return Number.isNaN(n) ? null : n;
 }
+
+router.use(async (req, res, next) => {
+  const tournamentId = tid(req);
+  if (tournamentId == null) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      sport: tournamentsTable.sport,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!requireSportModule(res, tournament, "cricket")) return;
+  next();
+});
 
 function parseAuctionTeamFilter(req: { query: Record<string, unknown> }): number | undefined {
   const teamIdRaw = req.query.teamId;
@@ -89,6 +117,134 @@ router.post("/sync-roster", async (_req, res) => {
   });
 });
 
+/** POST bulk import/update players into cricket tournament roster from Excel/CSV */
+router.post("/bulk-roster-import", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
+
+  const playerItemSchema = z.object({
+    id: z.number().int().positive().optional().nullable(),
+    teamId: z.number().int().positive().optional().nullable(),
+    name: z.string().min(1),
+    role: z.string().optional().nullable(),
+    battingStyle: z.string().optional().nullable(),
+    bowlingStyle: z.string().optional().nullable(),
+    jerseyNumber: z.string().optional().nullable(),
+    jerseySize: z.string().optional().nullable(),
+    dob: z.string().optional().nullable(),
+    mobileNumber: z.string().optional().nullable(),
+    city: z.string().optional().nullable(),
+    gender: z.enum(["M", "F", ""]).optional().nullable(),
+    photoUrl: z.string().optional().nullable(),
+  });
+
+  const bodySchema = z.object({
+    players: z.array(playerItemSchema).min(1).max(500),
+  });
+
+  const parsed = bodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+    return;
+  }
+
+  // Validate that all teamIds belong to this tournament
+  const teams = await db
+    .select({ id: teamsTable.id })
+    .from(teamsTable)
+    .where(eq(teamsTable.tournamentId, tournamentId));
+  const validTeamIds = new Set(teams.map((t) => t.id));
+
+  for (const p of parsed.data.players) {
+    if (p.teamId != null && !validTeamIds.has(p.teamId)) {
+      res.status(400).json({ error: `Team ID ${p.teamId} does not belong to this tournament` });
+      return;
+    }
+  }
+
+  // Fetch existing tournament players to verify IDs
+  const existingPlayers = await db
+    .select({ id: playersTable.id, name: playersTable.name, teamId: playersTable.teamId })
+    .from(playersTable)
+    .where(eq(playersTable.tournamentId, tournamentId));
+  const existingPlayerIds = new Set(existingPlayers.map((p) => p.id));
+
+  let nextSerial = await allocateNextPlayerSerialNo(tournamentId);
+  let createdCount = 0;
+  let updatedCount = 0;
+
+  for (const item of parsed.data.players) {
+    const isUpdate = item.id != null && existingPlayerIds.has(item.id);
+
+    // Compute age if DOB is provided (YYYY-MM-DD)
+    let calculatedAge: number | null = null;
+    if (item.dob && item.dob.includes("-")) {
+      const birthYear = parseInt(item.dob.split("-")[0], 10);
+      if (!isNaN(birthYear) && birthYear > 1950) {
+        calculatedAge = new Date().getFullYear() - birthYear;
+      }
+    }
+
+    if (isUpdate && item.id) {
+      await db
+        .update(playersTable)
+        .set({
+          name: item.name.trim(),
+          teamId: item.teamId ?? null,
+          role: item.role || null,
+          battingStyle: item.battingStyle || "Right Hand",
+          bowlingStyle: item.bowlingStyle || "None",
+          jerseyNumber: item.jerseyNumber ? String(item.jerseyNumber).replace("#", "").trim() : null,
+          jerseySize: item.jerseySize || null,
+          age: calculatedAge,
+          city: item.city || null,
+          gender: item.gender || null,
+          mobileNumber: item.mobileNumber || "",
+          ...(item.photoUrl ? { photoUrl: item.photoUrl } : {}),
+          updatedAt: new Date(),
+        })
+        .where(and(eq(playersTable.id, item.id), eq(playersTable.tournamentId, tournamentId)));
+      updatedCount++;
+    } else {
+      await db.insert(playersTable).values({
+        tournamentId,
+        serialNo: nextSerial++,
+        teamId: item.teamId ?? null,
+        name: item.name.trim(),
+        role: item.role || "Batsman",
+        battingStyle: item.battingStyle || "Right Hand",
+        bowlingStyle: item.bowlingStyle || "None",
+        jerseyNumber: item.jerseyNumber ? String(item.jerseyNumber).replace("#", "").trim() : null,
+        jerseySize: item.jerseySize || null,
+        age: calculatedAge,
+        city: item.city || null,
+        gender: item.gender || null,
+        mobileNumber: item.mobileNumber || "",
+        photoUrl: item.photoUrl || null,
+        status: "available",
+      });
+      createdCount++;
+    }
+  }
+
+  // Sync all players to Player Registry and master roster
+  await syncCricketRosterFromAuction(tournamentId);
+  invalidateCricketRosterCache(tournamentId);
+  void broadcastScoringState(tournamentId, "roster_synced");
+
+  res.json({
+    ok: true,
+    createdCount,
+    updatedCount,
+    totalProcessed: parsed.data.players.length,
+    message: `Successfully processed ${parsed.data.players.length} players (${createdCount} added, ${updatedCount} updated).`,
+  });
+});
+
 /** GET Sports branding for cricket displays / tournament settings */
 router.get("/branding", async (req, res) => {
   const tournamentId = tid(req);
@@ -97,7 +253,7 @@ router.get("/branding", async (req, res) => {
     return;
   }
 
-  const branding = await loadBadmintonBranding(tournamentId);
+  const branding = await loadSportsBranding(tournamentId);
   if (!branding) {
     res.status(404).json({ error: "Not found" });
     return;
@@ -176,7 +332,7 @@ router.patch("/branding", async (req, res) => {
               title: parsed.data.scoreBoardSponsor.title ?? null,
             },
     };
-    const branding = await updateBadmintonBranding(tournamentId, brandingInput, req.log);
+    const branding = await updateSportsBranding(tournamentId, brandingInput, req.log);
     res.json(branding);
   } catch (e) {
     res.status(404).json({ error: e instanceof Error ? e.message : "Update failed" });
@@ -217,6 +373,15 @@ router.patch("/broadcast-presentation", async (req, res) => {
       venueBannerPublicId: z.string().trim().max(400).nullable().optional(),
       venueBannerFit: z.enum(["cover", "contain"]).optional(),
       importAuctionBanner: z.literal(true).optional(),
+      liveStreamUrl: z
+        .string()
+        .max(500)
+        .nullable()
+        .optional()
+        .refine(
+          (v) => v == null || v === "" || /^https?:\/\//i.test(v),
+          "Live stream URL must be http(s)",
+        ),
     })
     .refine(
       (v) =>
@@ -228,7 +393,8 @@ router.patch("/broadcast-presentation", async (req, res) => {
         || v.venueBannerUrl !== undefined
         || v.venueBannerPublicId !== undefined
         || v.venueBannerFit !== undefined
-        || v.importAuctionBanner === true,
+        || v.importAuctionBanner === true
+        || v.liveStreamUrl !== undefined,
       { message: "At least one presentation field required" },
     );
   const parsed = schema.safeParse(req.body);
@@ -260,8 +426,15 @@ router.patch("/broadcast-presentation", async (req, res) => {
       venueBannerPublicId: parsed.data.venueBannerPublicId,
       venueBannerFit: parsed.data.venueBannerFit,
       importAuctionBanner: parsed.data.importAuctionBanner,
+      liveStreamUrl:
+        parsed.data.liveStreamUrl === undefined
+          ? undefined
+          : parsed.data.liveStreamUrl === ""
+            ? null
+            : parsed.data.liveStreamUrl,
     });
-    broadcastTournamentUpdate(tournamentId, {
+    broadcastScoringState(tournamentId, {
+      type: "broadcast_presentation",
       kind: "broadcast_presentation",
       primaryBroadcastMatchId: branding.primaryBroadcastMatchId,
       overlayScene: branding.overlayScene,
@@ -283,6 +456,7 @@ router.patch("/broadcast-presentation", async (req, res) => {
     const status =
       message.includes("No auction break music")
       || message.includes("No auction banner")
+      || message.includes("only available when both auction and scoring are enabled")
         ? 400
         : 404;
     res.status(status).json({ error: message });
@@ -299,7 +473,7 @@ router.post("/import-tournament-branding", async (req, res) => {
   if (!(await requireTournamentOrganizer(req, res, tournamentId))) return;
 
   try {
-    const branding = await importTournamentBrandingToBadminton(tournamentId);
+    const branding = await importTournamentBrandingToSports(tournamentId);
     res.json(branding);
   } catch (e) {
     res.status(400).json({ error: e instanceof Error ? e.message : "Import failed" });

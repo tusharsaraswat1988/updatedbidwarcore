@@ -29,9 +29,18 @@ export const RULE_CATEGORY_CATALOG: readonly RuleCategoryEntry[] = [
     id: "dismissal",
     version: "1.0.0",
     displayName: "Dismissal Rules",
-    description: "Enabled dismissals and LBW policy (documentation structure only).",
+    description:
+      "Enabled dismissals and LBW policy (documentation structure only).",
     status: "active",
     sortOrder: 40,
+  },
+  {
+    id: "extras",
+    version: "1.0.0",
+    displayName: "Extras Rules",
+    description: "Bye, leg-bye, wide, no-ball, and other extra-run policy.",
+    status: "active",
+    sortOrder: 45,
   },
   {
     id: "boundary",
@@ -40,6 +49,14 @@ export const RULE_CATEGORY_CATALOG: readonly RuleCategoryEntry[] = [
     description: "Four / six values and boundary customs.",
     status: "active",
     sortOrder: 50,
+  },
+  {
+    id: "special",
+    version: "1.0.0",
+    displayName: "Special Ball Rules",
+    description: "Optional special delivery capabilities such as Super Ball.",
+    status: "active",
+    sortOrder: 55,
   },
   {
     id: "ground",

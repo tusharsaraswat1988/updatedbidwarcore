@@ -4,7 +4,13 @@ import { QueryClient, QueryClientProvider, hydrate, type DehydratedState } from 
 import { useBranding } from "@/hooks/use-branding";
 import { useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { PageTracking } from "@/components/page-tracking";
-import { applyPwaHeadBranding, ADMIN_MANIFEST_HREF, isAdminPwaRoute } from "@/lib/branding-pwa";
+import {
+  applyPwaHeadBranding,
+  ADMIN_MANIFEST_HREF,
+  SCORER_MANIFEST_HREF,
+  isAdminPwaRoute,
+  isScorerPwaRoute,
+} from "@/lib/branding-pwa";
 import {
   InitialDataProvider,
   homePageInitialData,
@@ -14,6 +20,7 @@ import type { PageInitialData } from "@/lib/initial-data/types";
 import { readWindowDehydratedState, readWindowInitialData, normalizeHomeInitialData } from "@/lib/initial-data/types";
 
 import { BootSplash } from "@/components/boot-splash";
+import { ErrorBoundary } from "@/components/error-boundary";
 import Landing from "@/pages/lovable-home";
 
 const PlatformApp = lazy(() => import("./platform-app"));
@@ -26,6 +33,8 @@ const UpcomingAuctions = lazy(() => import("@/pages/upcoming-auctions"));
 const ContactPage = lazy(() => import("@/pages/contact"));
 const PricingPage = lazy(() => import("@/pages/pricing"));
 const AuctionTipsPage = lazy(() => import("@/pages/auction-tips"));
+const BplHub = lazy(() => import("@/pages/bpl/bpl-hub"));
+const BplEdition = lazy(() => import("@/pages/bpl/bpl-edition"));
 
 // Blog
 const BlogIndex    = lazy(() => import("@/pages/blog/index"));
@@ -93,8 +102,14 @@ function resolveClientBootstrapProps(): Pick<AppProps, "pageData" | "dehydratedS
 function BrandingEffects() {
   const [location] = useLocation();
   const { logos, brandName, iconVersion } = useBranding();
-  const googleSiteVerification = import.meta.env.VITE_GOOGLE_SITE_VERIFICATION?.trim();
-  const manifestHref = isAdminPwaRoute(location) ? ADMIN_MANIFEST_HREF : "/site.webmanifest";
+  const googleSiteVerification =
+    import.meta.env.VITE_GOOGLE_SITE_VERIFICATION?.trim() ||
+    "YMq945swDMCEyo1vcxXqlp9ijR_U7T2413i33dj7TKA";
+  const manifestHref = isScorerPwaRoute(location)
+    ? SCORER_MANIFEST_HREF
+    : isAdminPwaRoute(location)
+      ? ADMIN_MANIFEST_HREF
+      : "/site.webmanifest";
 
   useEffect(() => {
     applyPwaHeadBranding(logos, manifestHref, iconVersion);
@@ -150,24 +165,14 @@ function OrganizerAccountAuthBootstrap() {
 }
 
 /**
- * Root URL gate: never mount Landing for an authenticated Organizer.
- * Redirect uses replace so Back does not return to a page that re-redirects.
+ * Root URL gate: renders the public Landing page.
  */
 function HomeRoute() {
-  const { isLoggedIn, isLoading } = useOrganizerAccountAuth();
-  const [, navigate] = useLocation();
-
-  useEffect(() => {
-    if (!isLoading && isLoggedIn) {
-      navigate("/organizer", { replace: true });
-    }
-  }, [isLoading, isLoggedIn, navigate]);
-
-  if (isLoading || isLoggedIn) {
-    return <BootSplash />;
-  }
-
-  return <Landing />;
+  return (
+    <ErrorBoundary fallbackTitle="BidWar Homepage">
+      <Landing />
+    </ErrorBoundary>
+  );
 }
 
 function Router() {
@@ -176,6 +181,10 @@ function Router() {
       <Switch>
         {/* Marketing routes */}
         <Route path="/" component={HomeRoute} />
+        <Route path="/bpl" component={BplHub} />
+        <Route path="/bpl/:edition">
+          {(params) => <BplEdition edition={params?.edition ?? ""} />}
+        </Route>
         <Route path="/upcoming-auctions" component={UpcomingAuctions} />
         <Route path="/contact" component={ContactPage} />
         <Route path="/pricing" component={PricingPage} />
@@ -253,7 +262,9 @@ function App(props: AppProps = {}) {
           <OrganizerAccountAuthBootstrap />
           <BrandingEffects />
           <PageTracking />
-          <Router />
+          <ErrorBoundary fallbackTitle="BidWar Platform">
+            <Router />
+          </ErrorBoundary>
         </WouterRouter>
       </InitialDataProvider>
     </QueryClientProvider>

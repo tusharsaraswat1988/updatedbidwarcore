@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { PublicNavbar } from "@/components/public-navbar";
 import { PublicFooter } from "@/components/public-footer";
 import { SeoHead } from "@/components/seo-head";
+import { ScrollToTopButton } from "@/components/scroll-to-top-button";
 
 interface PublicWebsiteLayoutProps {
   children: ReactNode;
@@ -48,6 +49,7 @@ export function PublicWebsiteLayout({
           {children}
         </main>
         <PublicFooter />
+        <ScrollToTopButton />
       </div>
     </>
   );

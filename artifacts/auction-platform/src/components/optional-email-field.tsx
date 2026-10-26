@@ -10,6 +10,8 @@ type OptionalEmailFieldProps = {
   value: string;
   onChange: (value: string) => void;
   error?: string;
+  /** Pass an empty string to hide the default helper line. Errors still show. */
+  hint?: string;
   className?: string;
   inputClassName?: string;
   disabled?: boolean;
@@ -21,10 +23,13 @@ export function OptionalEmailField({
   value,
   onChange,
   error,
+  hint = OPTIONAL_EMAIL_HINT,
   className,
   inputClassName,
   disabled = false,
 }: OptionalEmailFieldProps) {
+  const hintId = `${id}-hint`;
+  const hintText = error || hint;
   return (
     <div className={className ? `space-y-2 ${className}` : "space-y-2"}>
       <Label htmlFor={id}>{label}</Label>
@@ -35,16 +40,17 @@ export function OptionalEmailField({
         autoComplete="email"
         value={value}
         onChange={e => onChange(e.target.value)}
-        placeholder="you@example.com"
         className={inputClassName}
         disabled={disabled}
         readOnly={disabled}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={hintText ? hintId : undefined}
       />
-      {error ? (
-        <p className="text-xs text-destructive">{error}</p>
-      ) : (
-        <p className="text-xs text-muted-foreground">{OPTIONAL_EMAIL_HINT}</p>
-      )}
+      {hintText ? (
+        <p id={hintId} className={error ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
+          {hintText}
+        </p>
+      ) : null}
     </div>
   );
 }

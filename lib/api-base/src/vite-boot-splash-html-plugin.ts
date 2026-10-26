@@ -1,21 +1,24 @@
 import type { Plugin } from "vite";
-import { BRANDING_BOOT_SPLASH_ICON_PATH } from "./branding-assets";
+import {
+  BRANDING_BOOT_SPLASH_ICON_PATH,
+  BRANDING_BOOT_SPLASH_LOGO_PATH,
+} from "./branding-assets";
 import { injectBrandingIconsIntoHtml } from "./branding-icon-head";
 import { getDevApiProxyTarget } from "./vite-proxy";
 
 const BOOT_SPLASH_IMG_RE =
-  /<img src="\/favicon\.svg" alt="" width="64" height="64" decoding="async" \/>/g;
+  /<img[^>]*class=["']?bidwar-boot-logo["']?[^>]*\/?>|<img[^>]*src=["']\/(?:favicon\.svg|bidwar-reverse-logo\.png)[^"']*["'][^>]*\/?>/g;
 
 const BOOT_SPLASH_PRELOAD_RE =
   /<!-- BOOT_SPLASH_PRELOAD_START -->[\s\S]*?<!-- BOOT_SPLASH_PRELOAD_END -->/;
 
 function bootSplashImgTag(logoUrl: string): string {
-  return `<img src="${logoUrl}" alt="" width="64" height="64" decoding="async" />`;
+  return `<img class="bidwar-boot-logo" src="${logoUrl}" alt="BidWar" height="48" decoding="async" />`;
 }
 
 function bootSplashPreloadBlock(logoUrl: string): string {
   return `<!-- BOOT_SPLASH_PRELOAD_START -->
-    <link rel="preload" href="${logoUrl}" as="image" type="image/svg+xml" />
+    <link rel="preload" href="${logoUrl}" as="image" />
     <!-- BOOT_SPLASH_PRELOAD_END -->`;
 }
 
@@ -50,7 +53,8 @@ export function bootSplashHtmlPlugin(): Plugin {
       async handler(html, ctx) {
         const version = ctx.server ? await fetchBrandingIconVersion() : 0;
         const v = version > 0 ? `?v=${version}` : "";
-        const logoUrl = `${BRANDING_BOOT_SPLASH_ICON_PATH}${v}`;
+        const targetPath = BRANDING_BOOT_SPLASH_LOGO_PATH ?? BRANDING_BOOT_SPLASH_ICON_PATH;
+        const logoUrl = `${targetPath}${v}`;
         const withIcons = ctx.server ? injectBrandingIconsIntoHtml(html, version) : html;
         return applyBootSplashHtml(withIcons, logoUrl);
       },

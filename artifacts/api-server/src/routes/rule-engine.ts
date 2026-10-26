@@ -76,7 +76,7 @@ const resolveBodySchema = z.object({
 router.post("/rule-engine/resolve", (req, res) => {
   const parsed = resolveBodySchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.flatten() });
+    return void res.status(400).json({ error: parsed.error.flatten() });
   }
   const input = parsed.data as unknown as RuleEngineInput;
   const result = RuleEngine.resolve(input);
@@ -92,7 +92,7 @@ router.post("/rule-engine/validate", (req, res) => {
     },
   });
   if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.flatten() });
+    return void res.status(400).json({ error: parsed.error.flatten() });
   }
   const input = parsed.data as unknown as RuleEngineInput;
   const result = RuleEngine.validate(input);
@@ -100,3 +100,4 @@ router.post("/rule-engine/validate", (req, res) => {
 });
 
 export default router;
+

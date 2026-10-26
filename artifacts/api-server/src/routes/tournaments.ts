@@ -7,6 +7,12 @@ import {
 } from "@workspace/api-base/auction-readiness";
 import { parseBidValueOptions, serializeBidValueOptions } from "@workspace/api-base/bid-value";
 import {
+  PLAYER_REGISTRATION_MODES,
+  REGISTRATION_CATEGORY_MODES,
+  isScoringPlayerRegistration,
+  parsePlayerRegistrationMode,
+} from "@workspace/api-base/player-registration-mode";
+import {
   REGISTRATION_OPTIONAL_FIELD_KEYS,
   serializeRegistrationFieldsConfig,
 } from "@workspace/api-base/registration-fields";
@@ -14,23 +20,30 @@ import { randomBytes, randomInt } from "crypto";
 import { isAccountOrAdmin, requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
 import { publicTournamentSerializer, privateTournamentSerializer } from "../lib/serializers/tournament";
 import { db } from "@workspace/db";
-import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable, purseBoostersTable, brandingSettingsTable, auctionSessionsTable } from "@workspace/db";
+import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable, purseBoostersTable, brandingSettingsTable, auctionSessionsTable, tournamentLicenseRequestsTable, adminNotificationsTable } from "@workspace/db";
+import { requireAdmin } from "../middleware/require-admin.js";
 import { isKnownActiveSportSlug, resolveSportIdBySlug } from "./sports";
 import {
   isScoringSupportedSport,
   TOURNAMENT_LIFECYCLE_STATUSES,
 } from "../lib/tournament-lifecycle";
 import { isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { eq, and, sql, inArray, desc } from "drizzle-orm";
 import { z } from "zod";
 import { exportLimiter } from "../lib/rate-limiters";
 import { broadcastToTournament } from "../lib/broadcast";
+import { invalidateAuctionBuildCache } from "../lib/auction-state-build-cache";
 import { validateExportToken } from "../lib/export-token";
 import { buildPublicUrl, getPublicOrigin } from "../lib/runtime-env";
 import { notifyAsync } from "../lib/notifications";
-import { notifyAdminTournamentCreated } from "../lib/admin-notifications/triggers.js";
+import { notifyAdminTournamentCreated, notifyAdminLicenseRequested } from "../lib/admin-notifications/triggers.js";
 import { auditLog } from "../lib/audit-service";
-import { parseAuditReason, tournamentConfigFieldsChanged } from "../lib/audit-reason";
+import {
+  parseAuditReason,
+  tournamentConfigFieldsChanged,
+  defaultTournamentPatchReason,
+  resolveAuditReasonWithDefault,
+} from "../lib/audit-reason";
 import { snapshotTournament } from "../lib/audit-snapshots";
 import {
   PAYMENT_COLLECTION_MODES,
@@ -150,7 +163,51 @@ const tournamentInputSchema = z.object({
   registrationLimit: z.number().int().min(0).nullable().optional(),
   enableRegistrationPayment: z.boolean().optional(),
   registrationFee: z.number().int().min(0).nullable().optional(),
+  auctionEnabled: z.boolean().optional(),
+  scoringEnabled: z.boolean().optional(),
+  playerRegistrationMode: z.enum(["auction", "scoring"]).optional(),
 }).merge(tournamentCatalogBindingSchema);
+
+export const AUCTION_SPECIFIC_UPDATE_FIELDS = [
+  "auctionDate",
+  "auctionTime",
+  "auctionUnit",
+  "basePurse",
+  "minBid",
+  "bidIncrement",
+  "bidTier1UpTo",
+  "bidTier1Increment",
+  "bidTier2UpTo",
+  "bidTier2Increment",
+  "bidTier3Increment",
+  "bidTiers",
+  "timerSeconds",
+  "bidTimerSeconds",
+  "bidExtensionEnabled",
+  "bidExtensionThresholdSeconds",
+  "bidExtensionSeconds",
+  "ownerBiddingEnabled",
+  "playerSelectionMode",
+  "minimumSquadSize",
+  "maximumSquadSize",
+  "bidValueMode",
+  "bidValueOptions",
+  "audioEnabled",
+  "masterVolume",
+  "countdownSoundEnabled",
+  "countdownSoundUrl",
+  "countdownSoundVolume",
+  "soldSoundEnabled",
+  "soldSoundUrl",
+  "soldSoundVolume",
+  "breakEndMusicEnabled",
+  "breakEndMusicUrl",
+  "breakEndMusicVolume",
+  "mainBannerUrl",
+  "mainBannerPublicId",
+  "mainBannerEnabled",
+  "mainBannerFit",
+] as const;
 
 router.post("/tournaments", async (req, res) => {
   if (!isAccountOrAdmin(req)) { res.status(401).json({ error: "Authentication required" }); return; }
@@ -158,8 +215,21 @@ router.post("/tournaments", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
 
+  const auctionEnabled = d.auctionEnabled !== undefined ? d.auctionEnabled : true;
+  const scoringEnabled = d.scoringEnabled !== undefined ? d.scoringEnabled : false;
+
+  if (!auctionEnabled && !scoringEnabled) {
+    res.status(400).json({ error: "A tournament must have at least one enabled product module (auction or scoring)." });
+    return;
+  }
+
   if (!await isKnownActiveSportSlug(d.sport)) {
     res.status(400).json({ error: "Unknown or inactive sport" });
+    return;
+  }
+
+  if (scoringEnabled && !isScoringSupportedSport(d.sport)) {
+    res.status(400).json({ error: "Match scoring is only supported for cricket and badminton." });
     return;
   }
 
@@ -170,6 +240,7 @@ router.post("/tournaments", async (req, res) => {
   }
 
   if (
+    auctionEnabled &&
     catalogBindings.columns.competitionTypeId &&
     CatalogRegistry.requiresAuctionEconomics(catalogBindings.columns.competitionTypeId)
   ) {
@@ -246,6 +317,10 @@ router.post("/tournaments", async (req, res) => {
       registrationLimit: d.registrationLimit ?? null,
       enableRegistrationPayment: d.enableRegistrationPayment ?? false,
       registrationFee: d.registrationFee ?? null,
+      auctionEnabled,
+      scoringEnabled,
+      scoringPhase: scoringEnabled ? "active" : "disabled",
+      playerRegistrationMode: d.playerRegistrationMode ?? (scoringEnabled && !auctionEnabled ? "scoring" : "auction"),
       status: "setup",
       variantId: catalogBindings.columns.variantId,
       competitionTypeId: catalogBindings.columns.competitionTypeId,
@@ -325,6 +400,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     bidExtensionEnabled: z.boolean().optional(),
     bidExtensionThresholdSeconds: z.number().int().min(1).max(60).optional(),
     bidExtensionSeconds: z.number().int().min(1).max(120).optional(),
+    ownerBiddingEnabled: z.boolean().optional(),
     playerSelectionMode: z.enum(["sequential", "random", "manual"]).optional(),
     status: z.enum(TOURNAMENT_LIFECYCLE_STATUSES).optional(),
     registrationDeadline: z.string().nullable().optional(),
@@ -339,6 +415,8 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     registrationDeclarationText: z.string().nullable().optional(),
     bidValueMode: z.enum(["system", "player"]).optional(),
     bidValueOptions: z.array(z.number().int().positive()).optional(),
+    playerRegistrationMode: z.enum(PLAYER_REGISTRATION_MODES).optional(),
+    registrationCategoryMode: z.enum(REGISTRATION_CATEGORY_MODES).optional(),
     registrationFields: z
       .object({
         hidden: z.array(z.enum(REGISTRATION_OPTIONAL_FIELD_KEYS)).optional(),
@@ -362,6 +440,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     mainBannerEnabled: z.boolean().optional(),
     mainBannerFit: z.enum(["cover", "contain"]).optional(),
     matchDates: z.string().nullable().optional(),
+    auctionEnabled: z.boolean().optional(),
     scoringEnabled: z.boolean().optional(),
     scoringPhase: z.enum(["disabled", "active", "completed"]).optional(),
     scoringPin: z.string().min(4).max(12).nullable().optional(),
@@ -371,13 +450,49 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
   const configFields = tournamentConfigFieldsChanged(d as Record<string, unknown>);
-  if (configFields.length > 0) {
-    const reasonResult = parseAuditReason(req.body, true);
-    if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
-  }
+  const defaultReason = defaultTournamentPatchReason(configFields);
+  const reasonResult = resolveAuditReasonWithDefault(req.body, defaultReason);
+  if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
   const [beforeTournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   if (!beforeTournament) { res.status(404).json({ error: "Tournament not found" }); return; }
   const isAdminCaller = req.jwtUser?.isAdmin === true;
+
+  const nextSport = d.sport ?? beforeTournament.sport;
+  const nextAuctionEnabled =
+    isAdminCaller && d.auctionEnabled !== undefined
+      ? d.auctionEnabled
+      : beforeTournament.auctionEnabled;
+  const nextScoringEnabled =
+    isAdminCaller && d.scoringEnabled !== undefined
+      ? d.scoringEnabled
+      : beforeTournament.scoringEnabled;
+
+  if (!nextAuctionEnabled && !nextScoringEnabled) {
+    res.status(400).json({
+      error: "A tournament must have at least one enabled product module (auction or scoring).",
+      code: "INVALID_MODULE_STATE",
+    });
+    return;
+  }
+
+  if (nextScoringEnabled && !isScoringSupportedSport(nextSport)) {
+    res.status(400).json({
+      error: "Match scoring can only be enabled for cricket or badminton tournaments.",
+      code: "UNSUPPORTED_SPORT",
+    });
+    return;
+  }
+
+  const hasAuctionMutations = AUCTION_SPECIFIC_UPDATE_FIELDS.some(
+    (field) => (d as Record<string, unknown>)[field] !== undefined,
+  );
+  if (hasAuctionMutations && !nextAuctionEnabled) {
+    res.status(403).json({
+      error: "Auction module is not enabled for this tournament",
+      code: "AUCTION_DISABLED",
+    });
+    return;
+  }
 
   const nextMinimumSquadSize = d.minimumSquadSize !== undefined ? (d.minimumSquadSize ?? 0) : beforeTournament.minimumSquadSize;
   const nextMaximumSquadSize = d.maximumSquadSize !== undefined ? (d.maximumSquadSize ?? 0) : beforeTournament.maximumSquadSize;
@@ -390,7 +505,14 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   const nextBidValueOptionsRaw = d.bidValueOptions !== undefined
     ? serializeBidValueOptions(d.bidValueOptions)
     : beforeTournament.bidValueOptions;
-  if (nextBidValueMode === "player" && parseBidValueOptions(nextBidValueOptionsRaw).length === 0) {
+  const nextPlayerRegistrationMode = parsePlayerRegistrationMode(
+    d.playerRegistrationMode ?? beforeTournament.playerRegistrationMode,
+  );
+  if (
+    !isScoringPlayerRegistration(nextPlayerRegistrationMode)
+    && nextBidValueMode === "player"
+    && parseBidValueOptions(nextBidValueOptionsRaw).length === 0
+  ) {
     res.status(400).json({ error: "Add at least one allowed bid value when using Player Selected mode." });
     return;
   }
@@ -410,18 +532,6 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
         return;
       }
     }
-  }
-
-  const nextSport = d.sport ?? beforeTournament.sport;
-  const nextScoringEnabled =
-    isAdminCaller && d.scoringEnabled !== undefined
-      ? d.scoringEnabled
-      : beforeTournament.scoringEnabled;
-  if (nextScoringEnabled && !isScoringSupportedSport(nextSport)) {
-    res.status(400).json({
-      error: "Match scoring can only be enabled for cricket or badminton tournaments.",
-    });
-    return;
   }
 
   const updates: Record<string, unknown> = {};
@@ -474,6 +584,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.bidExtensionEnabled !== undefined) updates.bidExtensionEnabled = d.bidExtensionEnabled;
   if (d.bidExtensionThresholdSeconds !== undefined) updates.bidExtensionThresholdSeconds = d.bidExtensionThresholdSeconds;
   if (d.bidExtensionSeconds !== undefined) updates.bidExtensionSeconds = d.bidExtensionSeconds;
+  if (d.ownerBiddingEnabled !== undefined) updates.ownerBiddingEnabled = d.ownerBiddingEnabled;
   if (d.playerSelectionMode !== undefined) updates.playerSelectionMode = d.playerSelectionMode;
   if (d.status !== undefined) updates.status = d.status;
   if (d.registrationDeadline !== undefined)
@@ -495,6 +606,8 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.bidValueOptions !== undefined) {
     updates.bidValueOptions = serializeBidValueOptions(d.bidValueOptions);
   }
+  if (d.playerRegistrationMode !== undefined) updates.playerRegistrationMode = d.playerRegistrationMode;
+  if (d.registrationCategoryMode !== undefined) updates.registrationCategoryMode = d.registrationCategoryMode;
   if (d.registrationFields !== undefined) {
     updates.registrationFieldsJson = serializeRegistrationFieldsConfig(
       d.registrationFields.hidden ?? [],
@@ -525,6 +638,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (d.mainBannerFit !== undefined) updates.mainBannerFit = d.mainBannerFit;
   if (d.matchDates !== undefined) updates.matchDates = d.matchDates;
   if (isAdminCaller) {
+    if (d.auctionEnabled !== undefined) {
+      updates.auctionEnabled = d.auctionEnabled;
+    }
     if (d.scoringEnabled !== undefined) {
       updates.scoringEnabled = d.scoringEnabled;
       if (d.scoringEnabled && d.scoringPhase === undefined) {
@@ -548,7 +664,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
         ? d.paymentVerificationMethod
         : (beforeTournament?.paymentVerificationMethod ?? null),
   };
-  const paymentSettingsValidation = validateTournamentPaymentSettings(mergedPaymentSettings);
+  const paymentSettingsValidation = isScoringPlayerRegistration(nextPlayerRegistrationMode)
+    ? { ok: true as const }
+    : validateTournamentPaymentSettings(mergedPaymentSettings);
   if (!paymentSettingsValidation.ok) {
     res.status(400).json({ error: paymentSettingsValidation.error, field: paymentSettingsValidation.field });
     return;
@@ -607,13 +725,12 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
       tournamentId: id,
     });
   }
-  const reasonResult = parseAuditReason(req.body, configFields.length > 0);
   auditLog(req, {
     category: "tournament",
     action: configFields.length > 0 ? "tournament.config_updated" : "tournament.updated",
     summary: `Tournament "${tournament.name}" settings updated`,
     severity: configFields.length > 0 ? "critical" : "info",
-    reason: reasonResult.ok ? reasonResult.reason : null,
+    reason: reasonResult.reason,
     tournamentId: id,
     resource: { type: "tournament", id: id },
     before: beforeTournament ? snapshotTournament(beforeTournament) : null,
@@ -623,6 +740,15 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   });
   // Broadcast settings change so connected operator panels refresh immediately
   broadcastToTournament(id, { type: "settings_changed" });
+  if (
+    d.minBid !== undefined ||
+    d.minimumSquadSize !== undefined ||
+    d.maximumSquadSize !== undefined ||
+    d.basePurse !== undefined ||
+    d.ownerBiddingEnabled !== undefined
+  ) {
+    invalidateAuctionBuildCache(id, "all");
+  }
   const platformDefaults = await getPlatformDefaultAudioCached();
   res.json(tournamentToJson(tournament, { includeScoringPin: true, platformDefaults }));
 });
@@ -996,4 +1122,332 @@ router.post("/tournaments/:id/share-viewer-link", async (req, res) => {
   res.json({ success: true, viewerUrl });
 });
 
+// ─── Tournament License Requests ──────────────────────────────────────────────
+
+const licenseRequestSchema = z.object({
+  requestedModules: z.enum(["auction", "scoring", "both"]).default("auction"),
+  organizerMobile: z.string().trim().max(32).optional(),
+  notes: z.string().trim().max(1000).optional(),
+});
+
+router.get("/tournaments/:id/license-request", async (req, res) => {
+  const tid = Number(req.params.id);
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+
+  const tidStr = String(tid);
+  const isAdmin = !!req.jwtUser?.isAdmin;
+  const isOrgForTournament = !!(req.jwtUser?.organizer as Record<string, boolean> | undefined)?.[tidStr];
+  const orgAccountId = req.jwtUser?.organizerAccountId;
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid))
+    .limit(1);
+
+  if (!tournament) {
+    res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+
+  const isOwner = orgAccountId != null && tournament.organizerId === orgAccountId;
+  if (!isAdmin && !isOrgForTournament && !isOwner) {
+    res.status(401).json({ error: "Not authorised" });
+    return;
+  }
+
+  const [request] = await db
+    .select()
+    .from(tournamentLicenseRequestsTable)
+    .where(eq(tournamentLicenseRequestsTable.tournamentId, tid))
+    .orderBy(desc(tournamentLicenseRequestsTable.createdAt))
+    .limit(1);
+
+  res.json({ request: request ?? null });
+});
+
+router.post("/tournaments/:id/license-request", async (req, res) => {
+  const tid = Number(req.params.id);
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+
+  const parsed = licenseRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request body", details: parsed.error.issues });
+    return;
+  }
+
+  const tidStr = String(tid);
+  const isAdmin = !!req.jwtUser?.isAdmin;
+  const isOrgForTournament = !!(req.jwtUser?.organizer as Record<string, boolean> | undefined)?.[tidStr];
+  const orgAccountId = req.jwtUser?.organizerAccountId;
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid))
+    .limit(1);
+
+  if (!tournament) {
+    res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+
+  const isOwner = orgAccountId != null && tournament.organizerId === orgAccountId;
+  if (!isAdmin && !isOrgForTournament && !isOwner) {
+    res.status(401).json({ error: "Not authorised" });
+    return;
+  }
+
+  const organizerId = tournament.organizerId || orgAccountId || 1;
+  const [organizer] = await db
+    .select()
+    .from(organizersTable)
+    .where(eq(organizersTable.id, organizerId))
+    .limit(1);
+
+  const organizerMobile =
+    parsed.data.organizerMobile ||
+    tournament.organizerMobile ||
+    organizer?.mobile ||
+    "";
+
+  // Check if a pending request already exists
+  const [existingPending] = await db
+    .select()
+    .from(tournamentLicenseRequestsTable)
+    .where(
+      and(
+        eq(tournamentLicenseRequestsTable.tournamentId, tid),
+        eq(tournamentLicenseRequestsTable.status, "pending"),
+      ),
+    )
+    .limit(1);
+
+  let requestId: number;
+  let record: typeof tournamentLicenseRequestsTable.$inferSelect;
+
+  if (existingPending) {
+    const [updated] = await db
+      .update(tournamentLicenseRequestsTable)
+      .set({
+        requestedModules: parsed.data.requestedModules,
+        organizerMobile,
+        notes: parsed.data.notes ?? existingPending.notes,
+        updatedAt: new Date(),
+      })
+      .where(eq(tournamentLicenseRequestsTable.id, existingPending.id))
+      .returning();
+    requestId = updated.id;
+    record = updated;
+  } else {
+    const [created] = await db
+      .insert(tournamentLicenseRequestsTable)
+      .values({
+        tournamentId: tid,
+        organizerId,
+        requestedModules: parsed.data.requestedModules,
+        status: "pending",
+        organizerMobile,
+        notes: parsed.data.notes ?? null,
+      })
+      .returning();
+    requestId = created.id;
+    record = created;
+  }
+
+  // Trigger high priority admin notification
+  notifyAdminLicenseRequested({
+    requestId,
+    tournamentId: tid,
+    tournamentName: tournament.name,
+    sport: tournament.sport,
+    organizerId,
+    organizerName: tournament.organizerName || organizer?.name || "Organizer",
+    organizerMobile,
+    requestedModules: parsed.data.requestedModules,
+    notes: parsed.data.notes ?? null,
+    requestedAt: new Date().toISOString(),
+  });
+
+  res.json({ success: true, request: record });
+});
+
+// ─── Admin Verify Payment & Grant License ──────────────────────────────────────
+
+const verifyAndGrantLicenseSchema = z.object({
+  requestId: z.number().int().optional(),
+  paymentAmount: z.number().int().min(0).optional(),
+  paymentMode: z.string().trim().max(64).default("upi"),
+  paymentRef: z.string().trim().max(128).optional(),
+  notes: z.string().trim().max(500).optional(),
+});
+
+router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin, async (req, res) => {
+  const tid = Number(req.params.id);
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid tournament id" });
+    return;
+  }
+
+  const parsed = verifyAndGrantLicenseSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+    return;
+  }
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid))
+    .limit(1);
+
+  if (!tournament) {
+    res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+
+  const adminIdentifier = req.jwtUser?.email || req.jwtUser?.adminLevel || "Super Admin";
+  const { paymentAmount, paymentMode, paymentRef, notes, requestId } = parsed.data;
+
+  // Read the request first so scoring is enabled from the same modules the payment covers.
+  // The granted status is written in the license transaction so a demo-cleanup failure rolls it back.
+  let requestedModules: "auction" | "scoring" | "both" = "auction";
+  if (requestId) {
+    const [reqRow] = await db
+      .select()
+      .from(tournamentLicenseRequestsTable)
+      .where(eq(tournamentLicenseRequestsTable.id, requestId))
+      .limit(1);
+    if (reqRow) requestedModules = reqRow.requestedModules as "auction" | "scoring" | "both";
+  } else {
+    const [reqRow] = await db
+      .select()
+      .from(tournamentLicenseRequestsTable)
+      .where(
+        and(
+          eq(tournamentLicenseRequestsTable.tournamentId, tid),
+          eq(tournamentLicenseRequestsTable.status, "pending"),
+        ),
+      )
+      .limit(1);
+    if (reqRow) requestedModules = reqRow.requestedModules as "auction" | "scoring" | "both";
+  }
+
+  const shouldEnableScoring =
+    requestedModules === "scoring" || requestedModules === "both" || tournament.scoringEnabled;
+
+  const { commitAdminLicenseTransition } = await import("../lib/auction-license-activation");
+  const result = await commitAdminLicenseTransition(req, {
+    tournamentId: tid,
+    nextStatus: "active",
+    grantedBy: null,
+    recordGrant: false,
+    scoringEnabled: shouldEnableScoring,
+    touchUpdatedAt: true,
+    auditAction: "tournament.license_granted",
+    auditSummary: (name) => `Payment verified and live license granted for "${name}"`,
+    alertKey: "license_granted",
+    afterWrite: async (tx) => {
+      if (requestId) {
+        const [reqRow] = await tx
+          .select()
+          .from(tournamentLicenseRequestsTable)
+          .where(eq(tournamentLicenseRequestsTable.id, requestId))
+          .limit(1);
+        if (reqRow) {
+          await tx
+            .update(tournamentLicenseRequestsTable)
+            .set({
+              status: "granted",
+              paymentVerified: true,
+              paymentAmount: paymentAmount ?? reqRow.paymentAmount,
+              paymentMode: paymentMode ?? reqRow.paymentMode,
+              paymentRef: paymentRef ?? reqRow.paymentRef,
+              verifiedBy: adminIdentifier,
+              verifiedAt: new Date(),
+              notes: notes ? `${reqRow.notes ? reqRow.notes + "\n" : ""}Admin: ${notes}` : reqRow.notes,
+            })
+            .where(eq(tournamentLicenseRequestsTable.id, requestId));
+        }
+      } else {
+        const [reqRow] = await tx
+          .select()
+          .from(tournamentLicenseRequestsTable)
+          .where(
+            and(
+              eq(tournamentLicenseRequestsTable.tournamentId, tid),
+              eq(tournamentLicenseRequestsTable.status, "pending"),
+            ),
+          )
+          .limit(1);
+        if (reqRow) {
+          await tx
+            .update(tournamentLicenseRequestsTable)
+            .set({
+              status: "granted",
+              paymentVerified: true,
+              paymentAmount: paymentAmount ?? reqRow.paymentAmount,
+              paymentMode: paymentMode ?? reqRow.paymentMode,
+              paymentRef: paymentRef ?? reqRow.paymentRef,
+              verifiedBy: adminIdentifier,
+              verifiedAt: new Date(),
+            })
+            .where(eq(tournamentLicenseRequestsTable.id, reqRow.id));
+        }
+      }
+
+      const pendingNotifs = await tx
+        .select()
+        .from(adminNotificationsTable)
+        .where(
+          and(
+            eq(adminNotificationsTable.type, "LICENSE_REQUESTED"),
+            eq(adminNotificationsTable.entityId, tid),
+            eq(adminNotificationsTable.resolutionStatus, "pending"),
+          ),
+        );
+      for (const notif of pendingNotifs) {
+        await tx
+          .update(adminNotificationsTable)
+          .set({
+            resolutionStatus: "resolved",
+            resolvedAt: new Date(),
+            resolvedBy: adminIdentifier,
+            isRead: true,
+            actionMetadata: {
+              ...((notif.actionMetadata as Record<string, unknown>) || {}),
+              paymentVerified: true,
+              paymentAmount,
+              paymentMode,
+              paymentRef,
+              verifiedBy: adminIdentifier,
+              verifiedAt: new Date().toISOString(),
+            },
+          })
+          .where(eq(adminNotificationsTable.id, notif.id));
+      }
+    },
+  });
+  if (!result.ok) {
+    res.status(result.status).json(result.body);
+    return;
+  }
+
+  invalidateAuctionBuildCache(tid);
+
+  res.json({
+    success: true,
+    message: "Payment verified and license successfully activated",
+    demoRemoved: result.demoRemoved,
+    tournament: privateTournamentSerializer(result.tournament),
+  });
+});
+
 export default router;
+

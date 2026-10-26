@@ -45,6 +45,29 @@ export {
 } from "./purse-capacity";
 
 export {
+  computePurseProtection,
+  formatPurseProtectionBidError,
+  type PurseProtectionInput,
+  type PurseProtectionResult,
+} from "./purse-protection";
+
+export {
+  uiBiddingLimit,
+  uiReserveDisplay,
+  hasAuthoritativePurseFields,
+  shouldPreferEmbeddedTeamPurses,
+  selectAuthoritativeTeamPurse,
+  resolveOwnerLiveBidFooterPurse,
+  resolveOwnerPlayingSquadTotal,
+  resolveOwnerSquadRequirement,
+  ownerSquadMinSubline,
+  ownerSquadMaxSubline,
+  type PurseSnapshotLike,
+  type OwnerLiveBidFooterPurse,
+  type OwnerSquadRequirement,
+} from "./purse-protection-expect";
+
+export {
   PURSE_BOOSTER_LED_DURATION_MS,
   createLedPurseBoosterOverlay,
   replayLedPurseBoosterOverlay,
@@ -178,3 +201,25 @@ export {
   apiFetch,
   type ApiFetchOptions,
 } from "./api-fetch";
+
+export {
+  PLAYER_REGISTRATION_MODES,
+  DEFAULT_PLAYER_REGISTRATION_MODE,
+  REGISTRATION_CATEGORY_MODES,
+  DEFAULT_REGISTRATION_CATEGORY_MODE,
+  parsePlayerRegistrationMode,
+  isScoringPlayerRegistration,
+  isAuctionPlayerRegistration,
+  parseRegistrationCategoryMode,
+  shouldShowPublicCategorySelect,
+  shouldAcceptPublicCategoryId,
+  shouldAcceptPublicRegistrationCategoryId,
+  shouldShowOrganizerCategoryControls,
+  coerceScoringModePlayerStatus,
+  resolvePlayerRosterAssignmentType,
+  publicRegistrationCategoryIdPayload,
+  resolvePublicRegistrationBidFields,
+  type PlayerRegistrationMode,
+  type RegistrationCategoryMode,
+  type PlayerRosterAssignmentType,
+} from "./player-registration-mode";

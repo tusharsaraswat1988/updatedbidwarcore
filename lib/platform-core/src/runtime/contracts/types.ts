@@ -17,14 +17,20 @@ export type CricketPlatformDefaultsDto = {
   oversLimit: number;
   maxWickets: number;
   playingSquadSize: number;
+  playingXiEnforced: boolean;
   benchSize: number;
   ballsPerOver: number;
   ballType: string;
   lbwEnabled: boolean;
+  legByeEnabled: boolean;
   freeHitEnabled: boolean;
   retireAtRuns: number | null;
   powerplayEnabled: boolean;
   superOverEnabled: boolean;
+  superBallEnabled: boolean;
+  superOverOvers: number;
+  superOverWickets: number;
+  superOverTrigger: string;
 };
 
 export type FootballPlatformDefaultsDto = {

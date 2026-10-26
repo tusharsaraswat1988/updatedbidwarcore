@@ -8,13 +8,26 @@ export const CRICKET_KEY_RULE_OVERRIDE_IDS = [
   "cricket.match.overs_per_innings",
   "cricket.match.max_wickets",
   "cricket.match.playing_squad_size",
+  "cricket.match.playing_xi_enforced",
   "cricket.match.bench_size",
+  "cricket.match.balls_per_over",
+  "cricket.match.ball_type",
   "cricket.batting.retire_at_runs",
   "cricket.dismissal.lbw_enabled",
+  "cricket.extras.leg_bye_enabled",
   "cricket.bowling.free_hit_enabled",
+  "cricket.powerplay.enabled",
+  "cricket.powerplay.overs",
+  "cricket.special.super_ball_enabled",
+  "cricket.special.super_ball_doubles_boundaries_only",
+  "cricket.tie_break.super_over_enabled",
+  "cricket.tie_break.super_over_overs",
+  "cricket.tie_break.super_over_wickets",
+  "cricket.tie_break.super_over_trigger",
 ] as const;
 
-export type CricketKeyRuleOverrideId = (typeof CRICKET_KEY_RULE_OVERRIDE_IDS)[number];
+export type CricketKeyRuleOverrideId =
+  (typeof CRICKET_KEY_RULE_OVERRIDE_IDS)[number];
 
 export type RuleOverridesDocument = {
   values: Record<string, ConcreteRuleValue>;
@@ -22,14 +35,27 @@ export type RuleOverridesDocument = {
 
 const ALLOWED = new Set<string>(CRICKET_KEY_RULE_OVERRIDE_IDS);
 
-export function parseRuleOverrides(value: unknown): RuleOverridesDocument | null {
+export function parseRuleOverrides(
+  value: unknown,
+): RuleOverridesDocument | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as { values?: unknown };
-  if (!raw.values || typeof raw.values !== "object" || Array.isArray(raw.values)) return null;
+  if (
+    !raw.values ||
+    typeof raw.values !== "object" ||
+    Array.isArray(raw.values)
+  )
+    return null;
   const values: Record<string, ConcreteRuleValue> = {};
   for (const [k, v] of Object.entries(raw.values as Record<string, unknown>)) {
     if (!ALLOWED.has(k)) continue;
-    if (v === null || typeof v === "number" || typeof v === "boolean" || typeof v === "string") {
+    if (
+      v === null ||
+      typeof v === "number" ||
+      typeof v === "boolean" ||
+      typeof v === "string" ||
+      Array.isArray(v)
+    ) {
       values[k] = v as ConcreteRuleValue;
     }
   }
@@ -38,7 +64,9 @@ export function parseRuleOverrides(value: unknown): RuleOverridesDocument | null
 
 export function validateCricketKeyRuleOverrides(
   input: unknown,
-): { ok: true; document: RuleOverridesDocument | null } | { ok: false; error: string } {
+):
+  | { ok: true; document: RuleOverridesDocument | null }
+  | { ok: false; error: string } {
   if (input === null) return { ok: true, document: null };
   if (!input || typeof input !== "object") {
     return { ok: false, error: "ruleOverrides must be an object or null" };
@@ -47,12 +75,18 @@ export function validateCricketKeyRuleOverrides(
   if (raw.values === undefined) {
     return { ok: true, document: null };
   }
-  if (!raw.values || typeof raw.values !== "object" || Array.isArray(raw.values)) {
+  if (
+    !raw.values ||
+    typeof raw.values !== "object" ||
+    Array.isArray(raw.values)
+  ) {
     return { ok: false, error: "ruleOverrides.values must be an object" };
   }
 
   const values: Record<string, ConcreteRuleValue> = {};
-  for (const [key, value] of Object.entries(raw.values as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(
+    raw.values as Record<string, unknown>,
+  )) {
     if (!ALLOWED.has(key)) {
       return { ok: false, error: `Unsupported rule override: ${key}` };
     }
@@ -67,15 +101,68 @@ export function validateCricketKeyRuleOverrides(
       values[key] = value;
       continue;
     }
-    if (key === "cricket.dismissal.lbw_enabled" || key === "cricket.bowling.free_hit_enabled") {
+    if (key === "cricket.powerplay.overs") {
+      if (!Array.isArray(value)) {
+        return { ok: false, error: "Powerplay overs must be an array" };
+      }
+      for (const item of value) {
+        if (typeof item !== "number" || !Number.isInteger(item) || item < 1) {
+          return {
+            ok: false,
+            error: "Powerplay overs must contain positive integers ≥ 1",
+          };
+        }
+      }
+      values[key] = Array.from(new Set(value as number[])).sort((a, b) => a - b);
+      continue;
+    }
+    if (
+      key === "cricket.dismissal.lbw_enabled" ||
+      key === "cricket.bowling.free_hit_enabled" ||
+      key === "cricket.extras.leg_bye_enabled" ||
+      key === "cricket.match.playing_xi_enforced" ||
+      key === "cricket.powerplay.enabled" ||
+      key === "cricket.special.super_ball_enabled" ||
+      key === "cricket.special.super_ball_doubles_boundaries_only" ||
+      key === "cricket.tie_break.super_over_enabled"
+    ) {
       if (typeof value !== "boolean") {
         return { ok: false, error: `${key} must be boolean` };
       }
       values[key] = value;
       continue;
     }
+    if (key === "cricket.match.ball_type") {
+      if (
+        typeof value !== "string" ||
+        !["leather", "tennis", "tape", "indoor"].includes(value)
+      ) {
+        return {
+          ok: false,
+          error: "Ball type must be leather, tennis, tape, or indoor",
+        };
+      }
+      values[key] = value;
+      continue;
+    }
+    if (key === "cricket.tie_break.super_over_trigger") {
+      if (
+        typeof value !== "string" ||
+        !["manual", "knockout_tie"].includes(value)
+      ) {
+        return {
+          ok: false,
+          error: "Super over trigger must be manual or knockout_tie",
+        };
+      }
+      values[key] = value;
+      continue;
+    }
     if (typeof value !== "number" || !Number.isFinite(value)) {
       return { ok: false, error: `${key} must be a number` };
+    }
+    if (key === "cricket.match.balls_per_over" && (value < 1 || value > 10)) {
+      return { ok: false, error: "Balls per over must be between 1 and 10" };
     }
     if (key === "cricket.match.overs_per_innings" && value < 1) {
       return { ok: false, error: "Overs per innings must be ≥ 1" };
@@ -84,7 +171,15 @@ export function validateCricketKeyRuleOverrides(
       return { ok: false, error: "Max wickets must be ≥ 1" };
     }
     if (
-      (key === "cricket.match.playing_squad_size" || key === "cricket.match.bench_size") &&
+      (key === "cricket.tie_break.super_over_overs" ||
+        key === "cricket.tie_break.super_over_wickets") &&
+      value < 1
+    ) {
+      return { ok: false, error: `${key} must be ≥ 1` };
+    }
+    if (
+      (key === "cricket.match.playing_squad_size" ||
+        key === "cricket.match.bench_size") &&
       value < 0
     ) {
       return { ok: false, error: `${key} must be ≥ 0` };
@@ -109,6 +204,14 @@ export function sparseRuleOverrides(
     const next = effective[id];
     const base = baseline[id];
     if (Object.is(next, base)) continue;
+    if (
+      Array.isArray(next) &&
+      Array.isArray(base) &&
+      next.length === base.length &&
+      next.every((v, i) => v === base[i])
+    ) {
+      continue;
+    }
     values[id] = next as ConcreteRuleValue;
   }
   return Object.keys(values).length > 0 ? { values } : null;

@@ -10,6 +10,8 @@ import { badmintonFetch } from "@/lib/badminton-api";
 import type { BadmintonBranding } from "@/hooks/use-badminton-branding";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
 import { cn } from "@/lib/utils";
+import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
+import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 
 function trackLabelFromUrl(url: string | null | undefined): string | null {
   if (!url?.trim()) return null;
@@ -34,6 +36,8 @@ export function VenueMusicSettingsPanel({
   sportLabel = "badminton",
   brandingQueryKey,
   patchPresentation,
+  auctionEnabled,
+  scoringEnabled,
 }: {
   tournamentId: number;
   branding: BadmintonBranding | undefined;
@@ -41,6 +45,8 @@ export function VenueMusicSettingsPanel({
   sportLabel?: "badminton" | "cricket";
   brandingQueryKey?: readonly unknown[];
   patchPresentation?: (body: VenueMusicPatchBody) => Promise<BadmintonBranding>;
+  auctionEnabled?: boolean | null;
+  scoringEnabled?: boolean | null;
 }) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -81,6 +87,22 @@ export function VenueMusicSettingsPanel({
     onError: (e: Error) => toastError(e, "Venue music"),
   });
 
+  const { data: tournamentData } = useGetTournament(tournamentId, {
+    query: {
+      queryKey: getGetTournamentQueryKey(tournamentId),
+      enabled: !!tournamentId && (auctionEnabled === undefined || scoringEnabled === undefined),
+    },
+  });
+
+  const resolvedAuctionEnabled =
+    auctionEnabled !== undefined ? auctionEnabled : tournamentData?.auctionEnabled;
+  const resolvedScoringEnabled =
+    scoringEnabled !== undefined ? scoringEnabled : tournamentData?.scoringEnabled;
+
+  const hasBothAuctionAndScoring =
+    isAuctionEnabled({ auctionEnabled: resolvedAuctionEnabled }) &&
+    isScoringEnabled({ scoringEnabled: resolvedScoringEnabled });
+
   const overrideUrl = branding?.venueMusicUrl ?? null;
   const resolvedUrl = branding?.resolvedVenueMusicUrl ?? null;
   const activeUrl = overrideUrl || resolvedUrl;
@@ -92,7 +114,9 @@ export function VenueMusicSettingsPanel({
   const sourceLabel = overrideUrl
     ? `Custom song for ${sportLabel}`
     : resolvedUrl
-      ? "Using auction / platform music"
+      ? hasBothAuctionAndScoring
+        ? "Using auction / platform music"
+        : "Using platform music"
       : "No song set yet";
 
   function stopPreview() {
@@ -188,8 +212,9 @@ export function VenueMusicSettingsPanel({
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-sm font-semibold text-white/90">Venue LED music</p>
           <p className="text-xs text-muted-foreground">
-            Background song for the scoreboard when Control Center presses Play music.
-            If you don’t upload one, auction break music is used.
+            {hasBothAuctionAndScoring
+              ? "Background song for the scoreboard when Control Center presses Play music. If you don’t upload one, auction break music is used."
+              : "Background song for the scoreboard when Control Center presses Play music."}
           </p>
         </div>
       </div>
@@ -236,7 +261,7 @@ export function VenueMusicSettingsPanel({
             (uploading || patchMutation.isPending) && "pointer-events-none opacity-50",
           )}
         >
-          {uploading ? "Uploading…" : "Upload new song"}
+          {uploading ? "Uploading…" : overrideUrl ? "Change song" : "Upload song"}
           <input
             ref={fileRef}
             type="file"
@@ -249,25 +274,27 @@ export function VenueMusicSettingsPanel({
           />
         </label>
 
-        <BtnSecondary
-          type="button"
-          disabled={patchMutation.isPending}
-          onClick={() => {
-            stopPreview();
-            patchMutation.mutate(
-              { importAuctionMusic: true },
-              {
-                onSuccess: () =>
-                  toastSuccess(
-                    "Using auction break music",
-                    `Saved as the ${sportLabel} venue song.`,
-                  ),
-              },
-            );
-          }}
-        >
-          Use auction break music
-        </BtnSecondary>
+        {hasBothAuctionAndScoring ? (
+          <BtnSecondary
+            type="button"
+            disabled={patchMutation.isPending}
+            onClick={() => {
+              stopPreview();
+              patchMutation.mutate(
+                { importAuctionMusic: true },
+                {
+                  onSuccess: () =>
+                    toastSuccess(
+                      "Using auction break music",
+                      `Saved as the ${sportLabel} venue song.`,
+                    ),
+                },
+              );
+            }}
+          >
+            Use auction break music
+          </BtnSecondary>
+        ) : null}
 
         {overrideUrl ? (
           <BtnSecondary
@@ -279,7 +306,12 @@ export function VenueMusicSettingsPanel({
                 { venueMusicUrl: null, venueMusicFileName: null },
                 {
                   onSuccess: () =>
-                    toastSuccess("Custom song removed", "Scoreboard will use auction / platform music."),
+                    toastSuccess(
+                      "Custom song removed",
+                      hasBothAuctionAndScoring
+                        ? "Scoreboard will use auction / platform music."
+                        : "Custom venue song removed.",
+                    ),
                 },
               );
             }}

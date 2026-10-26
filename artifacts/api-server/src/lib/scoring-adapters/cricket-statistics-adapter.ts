@@ -22,6 +22,9 @@ export const cricketStatisticsAdapter: StatisticsCapableAdapter = {
   async calculateTournamentStandings(tournamentId: number) {
     const { rebuildTournamentStandings } = await import("../scoring-standings");
     await rebuildTournamentStandings(tournamentId);
+
+    const { advanceTournamentProgression } = await import("../tournament-progression-service");
+    await advanceTournamentProgression(tournamentId);
   },
   async calculateGlobalStatistics(matchId: number) {
     const { projectGlobalCricketStatsForMatch } = await import("../scoring-global-stats-service");

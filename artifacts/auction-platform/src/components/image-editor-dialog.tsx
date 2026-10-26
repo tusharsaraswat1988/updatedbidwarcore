@@ -41,8 +41,10 @@ async function getCroppedBlob(
   const rad = (rotation * Math.PI) / 180;
   const sin = Math.abs(Math.sin(rad));
   const cos = Math.abs(Math.cos(rad));
-  const bBoxWidth = img.width * cos + img.height * sin;
-  const bBoxHeight = img.width * sin + img.height * cos;
+  const naturalWidth = img.naturalWidth || img.width;
+  const naturalHeight = img.naturalHeight || img.height;
+  const bBoxWidth = naturalWidth * cos + naturalHeight * sin;
+  const bBoxHeight = naturalWidth * sin + naturalHeight * cos;
 
   // Draw rotated image into an intermediate canvas first.
   const interCanvas = document.createElement("canvas");
@@ -52,7 +54,7 @@ async function getCroppedBlob(
   if (!interCtx) throw new Error("Canvas context not available");
   interCtx.translate(bBoxWidth / 2, bBoxHeight / 2);
   interCtx.rotate(rad);
-  interCtx.drawImage(img, -img.width / 2, -img.height / 2);
+  interCtx.drawImage(img, -naturalWidth / 2, -naturalHeight / 2);
 
   // Then crop the requested area.
   const out = document.createElement("canvas");
@@ -189,6 +191,10 @@ export function ImageEditorDialog({
     setCroppedAreaPixels(areaPixels);
   }, []);
 
+  const onCropAreaChange = useCallback((_area: Area, areaPixels: Area) => {
+    setCroppedAreaPixels(areaPixels);
+  }, []);
+
   function onPickFile(file: File | undefined) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -218,19 +224,31 @@ export function ImageEditorDialog({
     setError(null);
     setProcessing("Preparing image...");
     try {
-      // 1. Crop (with rotation) using current crop area, or full image if no
-      // crop was completed yet.
+      // 1. Crop (with rotation) using current crop area, or centered aspect crop if no
+      // crop interaction occurred yet.
       let blob: Blob;
       if (croppedAreaPixels) {
         blob = await getCroppedBlob(src, croppedAreaPixels, rotation, "image/png");
       } else {
         const img = await loadImage(src);
-        blob = await getCroppedBlob(
-          src,
-          { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight },
-          rotation,
-          "image/png",
-        );
+        const naturalWidth = img.naturalWidth || img.width;
+        const naturalHeight = img.naturalHeight || img.height;
+        let cropW = naturalWidth;
+        let cropH = naturalHeight;
+        if (aspect && aspect > 0) {
+          if (naturalWidth / naturalHeight > aspect) {
+            cropW = Math.round(naturalHeight * aspect);
+          } else {
+            cropH = Math.round(naturalWidth / aspect);
+          }
+        }
+        const fallbackArea: Area = {
+          x: Math.max(0, Math.round((naturalWidth - cropW) / 2)),
+          y: Math.max(0, Math.round((naturalHeight - cropH) / 2)),
+          width: cropW,
+          height: cropH,
+        };
+        blob = await getCroppedBlob(src, fallbackArea, rotation, "image/png");
       }
       // 2. Compress + cap dimensions for broadcast use.
       const compressed = await imageCompression(
@@ -289,6 +307,7 @@ export function ImageEditorDialog({
                   onZoomChange={setZoom}
                   onRotationChange={setRotation}
                   onCropComplete={onCropComplete}
+                  onCropAreaChange={onCropAreaChange}
                   showGrid={true}
                   objectFit="contain"
                 />
@@ -382,7 +401,7 @@ export function ImageEditorDialog({
 
             <p className="text-[11px] text-muted-foreground">
               {exportHint ??
-                "Tip: drag inside the frame to reposition the crop. Output is capped at 800px and ~400 KB so the LED display stays smooth."}
+                "Tip: drag and zoom inside the frame to crop your photo. What you set inside this frame is exactly how your photo will appear across the operator panel and live LED screens."}
             </p>
           </div>
         </div>

@@ -1,7 +1,11 @@
 import { memo, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { cldUrl } from "@/lib/cloudinary";
 import type { SponsorLogo } from "@/lib/sponsor-logo";
-import { resolveSponsorPriorityType, SponsorPriorityType } from "@/lib/sponsor-logo";
+import {
+  isLiveStreamingPartnerLogo,
+  resolveSponsorPriorityType,
+  SponsorPriorityType,
+} from "@/lib/sponsor-logo";
 import {
   getSponsorCaptionNameStyle,
   getSponsorCaptionTypeStyle,
@@ -93,10 +97,10 @@ export const SponsorCarousel = memo(function SponsorCarousel({
   overlayLogoRow?: boolean;
   rotateMs?: number;
 }) {
-  const displayLogos = useMemo(
-    () => (overlay ? sortSponsorsForObsTicker(logos) : logos),
-    [logos, overlay],
-  );
+  const displayLogos = useMemo(() => {
+    const rotating = overlay ? logos.filter((logo) => !isLiveStreamingPartnerLogo(logo)) : logos;
+    return overlay ? sortSponsorsForObsTicker(rotating) : rotating;
+  }, [logos, overlay]);
   const [idx, setIdx] = useState(0);
   const [visible, setVisible] = useState(true);
 
@@ -209,7 +213,7 @@ export const SponsorCarousel = memo(function SponsorCarousel({
             key={current.url}
             src={cldUrl(current.url, "teamLogo")}
             alt={imgAlt}
-            className="h-9 max-w-[88px] object-contain"
+            className="h-9 sm:h-10 md:h-11 max-w-[100px] sm:max-w-[130px] md:max-w-[160px] object-contain"
             loading="eager"
             decoding="async"
             onError={e => (e.currentTarget.style.display = "none")}

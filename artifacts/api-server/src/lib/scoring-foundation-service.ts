@@ -10,6 +10,8 @@ import {
   scoringSessionsTable,
   scoringVenuesTable,
   tournamentsTable,
+  teamsTable,
+  scorerAccountsTable,
   type MatchSquadJson,
   type ScoringDrawConfigJson,
   type ScoringDrawFormat,
@@ -22,13 +24,21 @@ import {
   generateRoundRobinSchedule,
   type ScheduledFixture,
 } from "@workspace/scoring-core";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { resolveBadmintonSponsorLogos } from "@workspace/sports-badminton";
 import { ScoringServiceError } from "./scoring-service";
+import { parseLiveStreamUrl } from "./sports-branding";
 import {
   cricketFranchiseTeamExists,
   listCricketFranchiseTeams,
 } from "./master-sports/cricket-franchise-registry";
 import { prepareRuntimeMatch } from "./runtime-match-service";
+import { deleteScorerAccountForTournament } from "./scorer-auth";
+import { getCricketRulePreset } from "./cricket-rule-presets-service";
+import {
+  resolveCricketRulePresetSummary,
+  type CricketRulePresetSummary,
+} from "@workspace/platform-core/competition";
 
 async function ensureScoringTournament(tournamentId: number) {
   const [tournament] = await db
@@ -37,25 +47,61 @@ async function ensureScoringTournament(tournamentId: number) {
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
   if (!tournament) {
-    throw new ScoringServiceError("Tournament not found", 404, "TOURNAMENT_NOT_FOUND");
+    throw new ScoringServiceError(
+      "Tournament not found",
+      404,
+      "TOURNAMENT_NOT_FOUND",
+    );
   }
   if (!tournament.scoringEnabled) {
-    throw new ScoringServiceError("Scoring is not enabled", 403, "SCORING_DISABLED");
+    throw new ScoringServiceError(
+      "Scoring is not enabled",
+      403,
+      "SCORING_DISABLED",
+    );
   }
   if (tournament.sport !== "cricket") {
-    throw new ScoringServiceError("Cricket scoring only", 400, "UNSUPPORTED_SPORT");
+    throw new ScoringServiceError(
+      "Cricket scoring only",
+      400,
+      "UNSUPPORTED_SPORT",
+    );
   }
   return tournament;
 }
 
-async function ensureTeamsInTournament(tournamentId: number, teamIds: number[]) {
+async function ensureTeamsInTournament(
+  tournamentId: number,
+  teamIds: number[],
+) {
   if (teamIds.length === 0) return;
   const unique = [...new Set(teamIds)];
-  const results = await Promise.all(
-    unique.map((id) => cricketFranchiseTeamExists(tournamentId, id)),
-  );
-  if (results.some((ok) => !ok)) {
-    throw new ScoringServiceError("One or more teams not in tournament", 400, "INVALID_TEAM");
+
+  const [tournamentTeams, franchiseOk] = await Promise.all([
+    db
+      .select({ id: teamsTable.id })
+      .from(teamsTable)
+      .where(
+        and(
+          eq(teamsTable.tournamentId, tournamentId),
+          inArray(teamsTable.id, unique),
+        ),
+      ),
+    Promise.all(unique.map((id) => cricketFranchiseTeamExists(tournamentId, id))),
+  ]);
+
+  const validTeamIds = new Set(tournamentTeams.map((t) => t.id));
+  unique.forEach((id, idx) => {
+    if (franchiseOk[idx]) validTeamIds.add(id);
+  });
+
+  const missing = unique.filter((id) => !validTeamIds.has(id));
+  if (missing.length > 0) {
+    throw new ScoringServiceError(
+      "One or more teams not in tournament",
+      400,
+      "INVALID_TEAM",
+    );
   }
 }
 
@@ -118,11 +164,15 @@ export async function updateScoringVenue(
       ),
     )
     .returning();
-  if (!row) throw new ScoringServiceError("Venue not found", 404, "VENUE_NOT_FOUND");
+  if (!row)
+    throw new ScoringServiceError("Venue not found", 404, "VENUE_NOT_FOUND");
   return row;
 }
 
-export async function deleteScoringVenue(tournamentId: number, venueId: number) {
+export async function deleteScoringVenue(
+  tournamentId: number,
+  venueId: number,
+) {
   await ensureScoringTournament(tournamentId);
   const [row] = await db
     .delete(scoringVenuesTable)
@@ -133,7 +183,8 @@ export async function deleteScoringVenue(tournamentId: number, venueId: number) 
       ),
     )
     .returning();
-  if (!row) throw new ScoringServiceError("Venue not found", 404, "VENUE_NOT_FOUND");
+  if (!row)
+    throw new ScoringServiceError("Venue not found", 404, "VENUE_NOT_FOUND");
   return row;
 }
 
@@ -141,26 +192,112 @@ export async function deleteScoringVenue(tournamentId: number, venueId: number) 
 
 export async function listScoringOfficials(tournamentId: number) {
   await ensureScoringTournament(tournamentId);
-  return db
+  const officials = await db
     .select()
     .from(scoringOfficialsTable)
     .where(eq(scoringOfficialsTable.tournamentId, tournamentId))
     .orderBy(asc(scoringOfficialsTable.name));
+
+  let scorerAccounts: import("./scorer-auth").ScorerAccountAdminRow[] = [];
+  try {
+    const { listScorerAccountsForTournament } = await import("./scorer-auth");
+    scorerAccounts = await listScorerAccountsForTournament(tournamentId);
+  } catch {
+    scorerAccounts = [];
+  }
+
+  const accountByMobile = new Map(scorerAccounts.map((a) => [a.mobile, a]));
+
+  return officials.map((off) => {
+    const acc = off.mobile ? accountByMobile.get(off.mobile) : undefined;
+    const { pin: _pin, ...safeOff } = off;
+    return {
+      ...safeOff,
+      hasPin: Boolean((off.pin && off.pin.trim().length >= 4) || acc?.id),
+      isActive: acc ? acc.isActive : true,
+      lastLoginAt: acc ? acc.lastLoginAt : null,
+      loginLocked: acc ? acc.loginLocked : false,
+      loginLockoutRemainingSec: acc ? acc.loginLockoutRemainingSec : undefined,
+      scorerAccountId: acc ? acc.id : undefined,
+    };
+  });
 }
 
 export async function createScoringOfficial(
   tournamentId: number,
-  input: { name: string; role?: string; mobile?: string | null; email?: string | null },
+  input: {
+    name: string;
+    role?: string;
+    mobile?: string | null;
+    email?: string | null;
+    pin?: string | null;
+  },
 ) {
   await ensureScoringTournament(tournamentId);
+  const role = input.role ?? "scorer";
+
+  if (input.mobile && input.mobile.trim()) {
+    const rawDigits = input.mobile.replace(/\D/g, "").slice(-10);
+    if (rawDigits.length >= 10) {
+      const existingInTournament = await db
+        .select({ id: scoringOfficialsTable.id, mobile: scoringOfficialsTable.mobile })
+        .from(scoringOfficialsTable)
+        .where(eq(scoringOfficialsTable.tournamentId, tournamentId));
+
+      const isDuplicate = existingInTournament.some((o) => {
+        if (!o.mobile) return false;
+        return o.mobile.replace(/\D/g, "").slice(-10) === rawDigits;
+      });
+
+      if (isDuplicate) {
+        throw new ScoringServiceError(
+          "An official with this mobile number is already registered in this tournament.",
+          409,
+          "OFFICIAL_ALREADY_REGISTERED",
+        );
+      }
+    }
+  }
+  
+  if (role === "scorer") {
+    if (!input.mobile || !input.pin || input.pin.trim().length < 4) {
+      throw new ScoringServiceError(
+        "Scorer requires a mobile number and 4-digit PIN",
+        400,
+        "SCORER_CREDENTIALS_REQUIRED",
+      );
+    }
+    try {
+      const { createScorerAccountForTournament } = await import("./scorer-auth");
+      await createScorerAccountForTournament(tournamentId, {
+        name: input.name.trim(),
+        mobile: input.mobile.trim(),
+        pin: input.pin.trim(),
+      });
+    } catch (err: unknown) {
+      if (
+        (err instanceof Error && "code" in err && (err as any).code === "SCORER_CREDENTIALS_CONFLICT") ||
+        (typeof err === "object" && err !== null && "code" in err && (err as any).code === "SCORER_CREDENTIALS_CONFLICT")
+      ) {
+        throw new ScoringServiceError(
+          (err as any).message || "This scorer is already registered in another tournament with different credentials.",
+          409,
+          "SCORER_CREDENTIALS_CONFLICT",
+        );
+      }
+      throw err;
+    }
+  }
+
   const [row] = await db
     .insert(scoringOfficialsTable)
     .values({
       tournamentId,
-      name: input.name,
-      role: input.role ?? "scorer",
-      mobile: input.mobile ?? null,
-      email: input.email ?? null,
+      name: input.name.trim(),
+      role,
+      mobile: input.mobile ? input.mobile.trim() : null,
+      email: input.email ? input.email.trim() : null,
+      pin: null, // Scorer credentials securely managed in scorer_accounts (hashed)
     })
     .returning();
   return row;
@@ -169,12 +306,112 @@ export async function createScoringOfficial(
 export async function updateScoringOfficial(
   tournamentId: number,
   officialId: number,
-  patch: Partial<{ name: string; role: string; mobile: string | null; email: string | null }>,
+  patch: Partial<{
+    name: string;
+    role: string;
+    mobile: string | null;
+    email: string | null;
+    pin: string | null;
+    isActive: boolean;
+  }>,
 ) {
   await ensureScoringTournament(tournamentId);
+  const [existing] = await db
+    .select()
+    .from(scoringOfficialsTable)
+    .where(
+      and(
+        eq(scoringOfficialsTable.id, officialId),
+        eq(scoringOfficialsTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!existing) {
+    throw new ScoringServiceError(
+      "Official not found",
+      404,
+      "OFFICIAL_NOT_FOUND",
+    );
+  }
+
+  if (patch.mobile !== undefined && patch.mobile && patch.mobile.trim()) {
+    const rawDigits = patch.mobile.replace(/\D/g, "").slice(-10);
+    if (rawDigits.length >= 10) {
+      const existingInTournament = await db
+        .select({ id: scoringOfficialsTable.id, mobile: scoringOfficialsTable.mobile })
+        .from(scoringOfficialsTable)
+        .where(eq(scoringOfficialsTable.tournamentId, tournamentId));
+
+      const isDuplicate = existingInTournament.some((o) => {
+        if (o.id === officialId || !o.mobile) return false;
+        return o.mobile.replace(/\D/g, "").slice(-10) === rawDigits;
+      });
+
+      if (isDuplicate) {
+        throw new ScoringServiceError(
+          "An official with this mobile number is already registered in this tournament.",
+          409,
+          "OFFICIAL_ALREADY_REGISTERED",
+        );
+      }
+    }
+  }
+
+  const targetRole = patch.role ?? existing.role;
+  const targetMobile = patch.mobile !== undefined ? (patch.mobile ? patch.mobile.trim() : null) : existing.mobile;
+  const targetName = patch.name !== undefined ? patch.name.trim() : existing.name;
+
+  if (targetRole === "scorer" && targetMobile) {
+    try {
+      const { createScorerAccountForTournament, removeScorerFromTournament, clearAllScorerLoginLockouts } = await import("./scorer-auth");
+      
+      // If mobile changed, unassign old mobile
+      if (existing.mobile && existing.mobile !== targetMobile) {
+        await removeScorerFromTournament(tournamentId, existing.mobile);
+      }
+
+      const effectivePin =
+        patch.pin && patch.pin.trim().length >= 4
+          ? patch.pin.trim()
+          : existing.pin && existing.pin.trim().length >= 4
+            ? existing.pin.trim()
+            : null;
+
+      if (effectivePin) {
+        await createScorerAccountForTournament(tournamentId, {
+          name: targetName,
+          mobile: targetMobile,
+          pin: effectivePin,
+        });
+      } else {
+        clearAllScorerLoginLockouts(targetMobile);
+      }
+    } catch (err: unknown) {
+      if (
+        (err instanceof Error && "code" in err && (err as any).code === "SCORER_CREDENTIALS_CONFLICT") ||
+        (typeof err === "object" && err !== null && "code" in err && (err as any).code === "SCORER_CREDENTIALS_CONFLICT")
+      ) {
+        throw new ScoringServiceError(
+          (err as any).message || "This scorer is already registered in another tournament with different credentials.",
+          409,
+          "SCORER_CREDENTIALS_CONFLICT",
+        );
+      }
+      // Preserve existing handling for genuinely non-fatal background sync failures
+    }
+  }
+
+  const updateData: Record<string, unknown> = {};
+  if (patch.name !== undefined) updateData.name = patch.name.trim();
+  if (patch.role !== undefined) updateData.role = patch.role;
+  if (patch.mobile !== undefined) updateData.mobile = patch.mobile ? patch.mobile.trim() : null;
+  if (patch.email !== undefined) updateData.email = patch.email ? patch.email.trim() : null;
+  if (patch.pin !== undefined) updateData.pin = null; // Plaintext PIN never persisted
+
   const [row] = await db
     .update(scoringOfficialsTable)
-    .set(patch)
+    .set(updateData)
     .where(
       and(
         eq(scoringOfficialsTable.id, officialId),
@@ -182,12 +419,55 @@ export async function updateScoringOfficial(
       ),
     )
     .returning();
-  if (!row) throw new ScoringServiceError("Official not found", 404, "OFFICIAL_NOT_FOUND");
   return row;
 }
 
-export async function deleteScoringOfficial(tournamentId: number, officialId: number) {
+
+async function resolveScorerAccountIdByMobile(mobile: string): Promise<number> {
+  const [account] = await db
+    .select({ id: scorerAccountsTable.id })
+    .from(scorerAccountsTable)
+    .where(eq(scorerAccountsTable.mobile, mobile.trim()))
+    .limit(1);
+  if (!account) throw new ScoringServiceError("Scorer account not found", 404, "SCORER_ACCOUNT_NOT_FOUND");
+  return account.id;
+}
+
+export async function deleteScoringOfficial(
+  tournamentId: number,
+  officialId: number,
+) {
   await ensureScoringTournament(tournamentId);
+
+  const [existing] = await db
+    .select()
+    .from(scoringOfficialsTable)
+    .where(
+      and(
+        eq(scoringOfficialsTable.id, officialId),
+        eq(scoringOfficialsTable.tournamentId, tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!existing) {
+    throw new ScoringServiceError(
+      "Official not found",
+      404,
+      "OFFICIAL_NOT_FOUND",
+    );
+  }
+
+  // If this official was a scorer, revoke active sessions, release locks, and unassign from tournament
+  if (existing.role === "scorer" && existing.mobile) {
+    try {
+      const { removeScorerFromTournament } = await import("./scorer-auth");
+      await removeScorerFromTournament(tournamentId, existing.mobile);
+    } catch {
+      // non-fatal
+    }
+  }
+
   const [row] = await db
     .delete(scoringOfficialsTable)
     .where(
@@ -197,7 +477,7 @@ export async function deleteScoringOfficial(tournamentId: number, officialId: nu
       ),
     )
     .returning();
-  if (!row) throw new ScoringServiceError("Official not found", 404, "OFFICIAL_NOT_FOUND");
+
   return row;
 }
 
@@ -209,7 +489,11 @@ function buildFixturesForFormat(
 ): ScheduledFixture[] {
   const teamIds = config.teamIds ?? [];
   if (teamIds.length < 2) {
-    throw new ScoringServiceError("At least 2 teams required", 400, "INVALID_TEAMS");
+    throw new ScoringServiceError(
+      "At least 2 teams required",
+      400,
+      "INVALID_TEAMS",
+    );
   }
 
   switch (format) {
@@ -221,12 +505,20 @@ function buildFixturesForFormat(
     case "league_knockout": {
       const groups = config.groups;
       if (!groups?.length) {
-        throw new ScoringServiceError("groups required for league_knockout", 400, "INVALID_GROUPS");
+        throw new ScoringServiceError(
+          "groups required for league_knockout",
+          400,
+          "INVALID_GROUPS",
+        );
       }
       return generateGroupStageSchedules(groups);
     }
     default:
-      throw new ScoringServiceError(`Unknown format: ${format}`, 400, "INVALID_FORMAT");
+      throw new ScoringServiceError(
+        `Unknown format: ${format}`,
+        400,
+        "INVALID_FORMAT",
+      );
   }
 }
 
@@ -245,6 +537,7 @@ export async function generateScoringDraw(input: {
   format: ScoringDrawFormat;
   teamIds: number[];
   groups?: Array<{ name: string; teamIds: number[] }>;
+  rulePresetId?: number | null;
   oversLimit?: number;
   venueId?: number | null;
   startDate?: string | null;
@@ -255,9 +548,25 @@ export async function generateScoringDraw(input: {
   await ensureScoringTournament(input.tournamentId);
   await ensureTeamsInTournament(input.tournamentId, input.teamIds);
 
+  let presetSummary: CricketRulePresetSummary | null = null;
+  if (input.rulePresetId != null) {
+    const preset = await getCricketRulePreset(input.tournamentId, input.rulePresetId);
+    if (!preset) {
+      throw new ScoringServiceError(
+        "Rule Preset not found or does not belong to this tournament",
+        400,
+        "INVALID_RULE_PRESET",
+      );
+    }
+    presetSummary = resolveCricketRulePresetSummary(preset);
+  }
+
+  const effectiveOvers = input.oversLimit ?? presetSummary?.overs ?? 20;
+  const effectiveWickets = presetSummary?.wickets ?? 10;
+
   const config: ScoringDrawConfigJson = {
     // Non-authoritative draw default — Runtime Prepare overwrites match rulesJson.
-    oversLimit: input.oversLimit ?? 20,
+    oversLimit: effectiveOvers,
     teamIds: input.teamIds,
     groups: input.groups,
   };
@@ -265,8 +574,15 @@ export async function generateScoringDraw(input: {
   const rawFixtures = buildFixturesForFormat(input.format, config);
   const scheduled =
     input.startDate != null
-      ? distributeMatchDates(rawFixtures, input.startDate, input.matchesPerDay ?? 2)
-      : rawFixtures.map((f) => ({ ...f, scheduledAt: undefined as string | undefined }));
+      ? distributeMatchDates(
+          rawFixtures,
+          input.startDate,
+          input.matchesPerDay ?? 2,
+        )
+      : rawFixtures.map((f) => ({
+          ...f,
+          scheduledAt: undefined as string | undefined,
+        }));
 
   const [draw] = await db
     .insert(scoringDrawsTable)
@@ -280,6 +596,10 @@ export async function generateScoringDraw(input: {
     .returning();
 
   const groupIdByName = new Map<string, number>();
+  const groupNameCounts = new Map<string, number>();
+  for (const group of input.groups ?? []) {
+    groupNameCounts.set(group.name, (groupNameCounts.get(group.name) ?? 0) + 1);
+  }
   if (input.format === "league_knockout" && input.groups?.length) {
     for (let i = 0; i < input.groups.length; i++) {
       const g = input.groups[i]!;
@@ -292,7 +612,9 @@ export async function generateScoringDraw(input: {
           sortOrder: i,
         })
         .returning();
-      groupIdByName.set(g.name, groupRow.id);
+      if ((groupNameCounts.get(g.name) ?? 0) === 1) {
+        groupIdByName.set(g.name, groupRow.id);
+      }
       for (let s = 0; s < g.teamIds.length; s++) {
         await db.insert(scoringGroupMembersTable).values({
           groupId: groupRow.id,
@@ -321,16 +643,22 @@ export async function generateScoringDraw(input: {
   const fixtureRows = [];
   for (let i = 0; i < scheduled.length; i++) {
     const f = scheduled[i]!;
+    const effectiveRoundName =
+      input.name && f.roundName && !f.roundName.toLowerCase().startsWith(input.name.toLowerCase())
+        ? `${input.name} · ${f.roundName}`
+        : f.roundName;
+
     const [fixture] = await db
       .insert(scoringFixturesTable)
       .values({
         tournamentId: input.tournamentId,
         drawId: draw.id,
+        rulePresetId: input.rulePresetId ?? null,
         groupId: f.groupName ? (groupIdByName.get(f.groupName) ?? null) : null,
         bracketRound: f.bracketRound ?? null,
         bracketSlot: f.bracketSlot ?? null,
         fixtureNumber: i + 1,
-        roundName: f.roundName,
+        roundName: effectiveRoundName,
         scheduledAt: f.scheduledAt ? new Date(f.scheduledAt) : null,
         venueId: input.venueId ?? null,
         venue: venueName,
@@ -347,14 +675,15 @@ export async function generateScoringDraw(input: {
         .values({
           tournamentId: input.tournamentId,
           fixtureId: fixture.id,
+          rulePresetId: input.rulePresetId ?? null,
           sportSlug: "cricket",
           homeTeamId: f.homeTeamId,
           awayTeamId: f.awayTeamId,
           homeSideJson: { teamId: f.homeTeamId },
           awaySideJson: { teamId: f.awayTeamId },
           // Placeholder only — Runtime Prepare replaces via RuntimeExecutionPolicy.
-          rulesJson: { overs: config.oversLimit ?? 20, maxWickets: 10 },
-          roundName: f.roundName,
+          rulesJson: { overs: effectiveOvers, maxWickets: effectiveWickets },
+          roundName: effectiveRoundName,
           scheduledAt: f.scheduledAt ? new Date(f.scheduledAt) : null,
           venueId: input.venueId ?? null,
           venue: venueName,
@@ -368,8 +697,8 @@ export async function generateScoringDraw(input: {
         tournamentId: input.tournamentId,
         homeTeamId: f.homeTeamId,
         awayTeamId: f.awayTeamId,
-        oversLimit: config.oversLimit ?? 20,
-        maxWickets: 10,
+        oversLimit: effectiveOvers,
+        maxWickets: effectiveWickets,
       });
 
       await db.insert(scoringSessionsTable).values({
@@ -385,14 +714,70 @@ export async function generateScoringDraw(input: {
     }
   }
 
+  if (input.format === "league_knockout" && input.groups?.length) {
+    const { buildLeagueKnockoutStages } = await import("@workspace/scoring-core");
+    const { createKnockoutStageFixtures } = await import("./tournament-progression-service");
+
+    const progressionConfig = buildLeagueKnockoutStages(input.groups, {
+      qualifiersPerGroup: config.knockoutTeamsPerGroup,
+    });
+
+    const knockoutStages = progressionConfig.stages.filter((s) => s.type === "knockout");
+    const knockoutFixturesToCreate = knockoutStages.flatMap((s) => s.fixtures ?? []);
+
+    if (knockoutFixturesToCreate.length > 0) {
+      const createdKnockout = await createKnockoutStageFixtures({
+        tournamentId: input.tournamentId,
+        drawId: draw.id,
+        fixtures: knockoutFixturesToCreate,
+        rulePresetId: input.rulePresetId ?? null,
+        venueId: input.venueId ?? null,
+        venueName,
+        createMatches: input.createMatches,
+        oversLimit: config.oversLimit ?? 20,
+        startFixtureNumber: fixtureRows.length + 1,
+        groupIdByName,
+      });
+
+      fixtureRows.push(...createdKnockout);
+    }
+  }
+
   return { draw, fixtures: fixtureRows, fixtureCount: fixtureRows.length };
 }
 
 // ─── Fixtures (list) ──────────────────────────────────────────────────────────
 
-export async function listScoringFixtures(tournamentId: number, drawId?: number) {
+export async function listScoringFixtures(
+  tournamentId: number,
+  drawId?: number,
+) {
   await ensureScoringTournament(tournamentId);
-  const conditions = [eq(scoringFixturesTable.tournamentId, tournamentId)];
+
+  // Schedule cards are the fixture rows created with each match. A deleted
+  // match used to leave that row behind, so Schedule & Draws kept listing it.
+  const linked = await db
+    .select({ fixtureId: scoringMatchesTable.fixtureId })
+    .from(scoringMatchesTable)
+    .where(
+      and(
+        eq(scoringMatchesTable.tournamentId, tournamentId),
+        isNotNull(scoringMatchesTable.fixtureId),
+      ),
+    );
+  const fixtureIds = [
+    ...new Set(
+      linked
+        .map((row) => row.fixtureId)
+        .filter((id): id is number => id != null),
+    ),
+  ];
+  if (fixtureIds.length === 0) return [];
+
+  const conditions = [
+    eq(scoringFixturesTable.tournamentId, tournamentId),
+    inArray(scoringFixturesTable.id, fixtureIds),
+  ];
   if (drawId != null) {
     conditions.push(eq(scoringFixturesTable.drawId, drawId));
   }
@@ -400,7 +785,10 @@ export async function listScoringFixtures(tournamentId: number, drawId?: number)
     .select()
     .from(scoringFixturesTable)
     .where(and(...conditions))
-    .orderBy(asc(scoringFixturesTable.fixtureNumber), asc(scoringFixturesTable.id));
+    .orderBy(
+      asc(scoringFixturesTable.fixtureNumber),
+      asc(scoringFixturesTable.id),
+    );
 }
 
 export async function listScoringGroups(tournamentId: number, drawId: number) {
@@ -409,7 +797,10 @@ export async function listScoringGroups(tournamentId: number, drawId: number) {
     .select()
     .from(scoringGroupsTable)
     .where(
-      and(eq(scoringGroupsTable.tournamentId, tournamentId), eq(scoringGroupsTable.drawId, drawId)),
+      and(
+        eq(scoringGroupsTable.tournamentId, tournamentId),
+        eq(scoringGroupsTable.drawId, drawId),
+      ),
     )
     .orderBy(asc(scoringGroupsTable.sortOrder));
 
@@ -439,7 +830,8 @@ export async function getMatchSquads(tournamentId: number, matchId: number) {
       ),
     )
     .limit(1);
-  if (!match) throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
+  if (!match)
+    throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
 
   const squads = await db
     .select()
@@ -468,18 +860,27 @@ export async function setMatchSquad(
       ),
     )
     .limit(1);
-  if (!match) throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
+  if (!match)
+    throw new ScoringServiceError("Match not found", 404, "MATCH_NOT_FOUND");
   if (match.homeTeamId !== teamId && match.awayTeamId !== teamId) {
-    throw new ScoringServiceError("Team not in this match", 400, "INVALID_TEAM");
+    throw new ScoringServiceError(
+      "Team not in this match",
+      400,
+      "INVALID_TEAM",
+    );
   }
   const rules = (match.rulesJson ?? {}) as {
     playingSquadSize?: number;
     benchSize?: number;
+    playingXiEnforced?: boolean;
     source?: string;
   };
   const fromPolicy = rules.source === "runtime_execution_policy";
   if (fromPolicy) {
-    if (typeof rules.playingSquadSize !== "number" || typeof rules.benchSize !== "number") {
+    if (
+      typeof rules.playingSquadSize !== "number" ||
+      typeof rules.benchSize !== "number"
+    ) {
       throw new ScoringServiceError(
         "Match squad requires playingSquadSize/benchSize from RuntimeExecutionPolicy.",
         409,
@@ -490,11 +891,19 @@ export async function setMatchSquad(
   const maxXi =
     typeof rules.playingSquadSize === "number" ? rules.playingSquadSize : null;
   const maxBench = typeof rules.benchSize === "number" ? rules.benchSize : null;
-  if (maxXi == null || squad.playingXi.length < 1 || squad.playingXi.length > maxXi) {
+  const exactXiRequired = rules.playingXiEnforced === true;
+  if (
+    maxXi == null ||
+    (exactXiRequired
+      ? squad.playingXi.length !== maxXi
+      : squad.playingXi.length < 1 || squad.playingXi.length > maxXi)
+  ) {
     throw new ScoringServiceError(
       maxXi == null
         ? "Playing XI size requires Runtime Prepare (RuntimeExecutionPolicy playingSquadSize)."
-        : `Playing XI must have 1–${maxXi} players (RuntimeExecutionPolicy playingSquadSize)`,
+        : exactXiRequired
+          ? `Playing XI must have exactly ${maxXi} players (RuntimeExecutionPolicy playingSquadSize)`
+          : `Playing XI must have 1–${maxXi} players (RuntimeExecutionPolicy playingSquadSize)`,
       maxXi == null ? 409 : 400,
       maxXi == null ? "RUNTIME_EXECUTION_POLICY_REQUIRED" : "INVALID_XI",
     );
@@ -551,6 +960,7 @@ export async function getPublicTournamentSchedule(tournamentId: number) {
       logoUrl: tournamentsTable.logoUrl,
       matchDates: tournamentsTable.matchDates,
       sponsorLogos: tournamentsTable.sponsorLogos,
+      scoringSettingsJson: tournamentsTable.scoringSettingsJson,
       mainBannerUrl: tournamentsTable.mainBannerUrl,
       mainBannerEnabled: tournamentsTable.mainBannerEnabled,
       variantId: tournamentsTable.variantId,
@@ -561,8 +971,24 @@ export async function getPublicTournamentSchedule(tournamentId: number) {
     .limit(1);
 
   if (!tournament?.scoringEnabled || tournament.sport !== "cricket") {
-    throw new ScoringServiceError("Scoring not available", 404, "SCORING_NOT_AVAILABLE");
+    throw new ScoringServiceError(
+      "Scoring not available",
+      404,
+      "SCORING_NOT_AVAILABLE",
+    );
   }
+
+  const scoringSettings = (tournament.scoringSettingsJson ?? {}) as Record<string, unknown>;
+  const brandingRaw = (scoringSettings.branding ?? {}) as Record<string, unknown>;
+  const broadcastRaw = (scoringSettings.broadcast ?? {}) as Record<string, unknown>;
+  const liveStreamUrl = parseLiveStreamUrl(broadcastRaw.liveStreamUrl);
+  const { scoringSettingsJson: _scoringSettingsJson, ...publicTournament } = tournament;
+  const resolvedTournament = {
+    ...publicTournament,
+    sponsorLogos: resolveBadmintonSponsorLogos(brandingRaw, tournament.sponsorLogos),
+    streamUrl: liveStreamUrl,
+    liveStreamUrl,
+  };
 
   const franchiseTeams = await listCricketFranchiseTeams(tournamentId);
   const teams = franchiseTeams.map((t) => ({
@@ -586,5 +1012,5 @@ export async function getPublicTournamentSchedule(tournamentId: number) {
     .from(scoringDrawsTable)
     .where(eq(scoringDrawsTable.tournamentId, tournamentId));
 
-  return { tournament, teams, fixtures, matches, draws };
+  return { tournament: resolvedTournament, teams, fixtures, matches, draws };
 }

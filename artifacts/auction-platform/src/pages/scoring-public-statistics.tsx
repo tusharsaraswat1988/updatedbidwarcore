@@ -71,7 +71,7 @@ export default function ScoringPublicStatisticsPage() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Statistics</p>
         <h1 className="font-display text-3xl font-bold tracking-tight">{schedule.tournament.name}</h1>
         <p className="text-sm text-muted-foreground">
-          Tournament leaderboards for batting, bowling, and boundary hitting.
+          Tournament-wide batting, bowling, and boundary stats. These lists are not a competition points table.
         </p>
       </header>
 

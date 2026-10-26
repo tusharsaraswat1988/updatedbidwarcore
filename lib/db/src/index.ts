@@ -1,11 +1,20 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { finalizeSystemCTracking, observeSystemCQuery } from "./boot-metrics";
-import { resolveDatabaseUrl } from "./database-url";
+import { resolveDatabaseUrl, resolveDirectDatabaseUrl } from "./database-url";
 import { ensureCoreSchema } from "./ensure-schema";
 import * as schema from "./schema";
 
-const { Pool } = pg;
+const { Pool, Client } = pg;
+
+export { pg, Pool, Client };
+export { resolveDatabaseUrl, resolveDirectDatabaseUrl } from "./database-url";
+export function createPgClient(connectionString?: string) {
+  return new Client({
+    connectionString: connectionString ?? resolveDirectDatabaseUrl(),
+    connectionTimeoutMillis: 10_000,
+  });
+}
 
 export { ensureCoreSchema } from "./ensure-schema";
 export {
@@ -145,6 +154,10 @@ void systemCQuery(`
     ALTER TABLE players ADD COLUMN IF NOT EXISTS selected_bid_value integer;
     ALTER TABLE players ADD COLUMN IF NOT EXISTS bid_value_source text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_fields_json jsonb;
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS player_registration_mode text NOT NULL DEFAULT 'auction';
+    ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS registration_category_mode text NOT NULL DEFAULT 'hidden';
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS coach_name text;
+    ALTER TABLE teams ADD COLUMN IF NOT EXISTS coach_mobile text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS variant_id text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS competition_type_id text;
     ALTER TABLE tournaments ADD COLUMN IF NOT EXISTS rule_profile_id text;
@@ -185,6 +198,16 @@ void systemCQuery(`
 
 /** Normalized player specification values (multi-sport Sprint 1). */
 void systemCQuery(`
+    CREATE TABLE IF NOT EXISTS role_spec_groups (
+      id SERIAL PRIMARY KEY,
+      role_id INTEGER NOT NULL,
+      group_name TEXT NOT NULL,
+      display_order INTEGER NOT NULL DEFAULT 0,
+      optional BOOLEAN NOT NULL DEFAULT true,
+      active BOOLEAN NOT NULL DEFAULT true
+    );
+    CREATE INDEX IF NOT EXISTS ix_role_spec_groups_role_id ON role_spec_groups (role_id);
+
     CREATE TABLE IF NOT EXISTS player_spec_values (
       id SERIAL PRIMARY KEY,
       player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
@@ -204,6 +227,23 @@ void systemCQuery(`
 
 /** Per-sport profiles for global player identities (multi-sport Sprint 2). */
 void systemCQuery(`
+    CREATE TABLE IF NOT EXISTS sports (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL UNIQUE,
+      active BOOLEAN NOT NULL DEFAULT true,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_sports_slug ON sports (slug);
+
+    CREATE TABLE IF NOT EXISTS global_players (
+      id TEXT PRIMARY KEY,
+      canonical_name TEXT NOT NULL,
+      sport TEXT NOT NULL DEFAULT 'cricket',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
     CREATE TABLE IF NOT EXISTS player_sport_profiles (
       id SERIAL PRIMARY KEY,
       global_player_id TEXT NOT NULL REFERENCES global_players(id) ON DELETE CASCADE,
@@ -316,35 +356,6 @@ void systemCQuery(`
   `)
   .catch((err) => {
     console.error("[db] failed to ensure purse_boosters table:", err);
-  });
-
-void systemCQuery(`
-    CREATE TABLE IF NOT EXISTS creative_jobs (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      tournament_id INTEGER NOT NULL,
-      template_id TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'queued',
-      contract_json JSONB NOT NULL,
-      aspect_ratio TEXT NOT NULL,
-      requested_by_user_id INTEGER,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      started_at TIMESTAMPTZ,
-      completed_at TIMESTAMPTZ,
-      error_message TEXT,
-      result_url TEXT,
-      download_enabled BOOLEAN NOT NULL DEFAULT FALSE
-    );
-    CREATE INDEX IF NOT EXISTS ix_creative_jobs_tournament_id
-      ON creative_jobs (tournament_id);
-    CREATE INDEX IF NOT EXISTS ix_creative_jobs_status
-      ON creative_jobs (status);
-    CREATE INDEX IF NOT EXISTS ix_creative_jobs_created_at
-      ON creative_jobs (created_at);
-    CREATE INDEX IF NOT EXISTS ix_creative_jobs_tournament_created
-      ON creative_jobs (tournament_id, created_at DESC);
-  `)
-  .catch((err) => {
-    console.error("[db] failed to ensure creative_jobs table:", err);
   });
 
 /** Badminton tournament management tables */
@@ -662,6 +673,16 @@ void systemCQuery(`
 
 /** Master Sports Core — shared player/team/sponsor identity */
 void systemCQuery(`
+    CREATE TABLE IF NOT EXISTS global_players (
+      id TEXT PRIMARY KEY,
+      canonical_name TEXT NOT NULL,
+      sport TEXT NOT NULL DEFAULT 'cricket',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS ix_gp_mobile ON global_players (mobile_number);
+    CREATE INDEX IF NOT EXISTS ix_gp_canonical_name ON global_players (canonical_name);
+
     ALTER TABLE global_players ADD COLUMN IF NOT EXISTS first_name TEXT;
     ALTER TABLE global_players ADD COLUMN IF NOT EXISTS last_name TEXT;
     ALTER TABLE global_players ADD COLUMN IF NOT EXISTS display_name TEXT;
@@ -870,10 +891,12 @@ void systemCQuery(`
       role TEXT NOT NULL DEFAULT 'scorer',
       mobile TEXT,
       email TEXT,
+      pin TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS ix_scoring_officials_tournament_id ON scoring_officials (tournament_id);
+    ALTER TABLE scoring_officials ADD COLUMN IF NOT EXISTS pin TEXT;
 
     CREATE TABLE IF NOT EXISTS scoring_draws (
       id SERIAL PRIMARY KEY,
@@ -928,6 +951,15 @@ void systemCQuery(`
     ALTER TABLE scoring_fixtures ADD COLUMN IF NOT EXISTS venue_id INTEGER;
     CREATE INDEX IF NOT EXISTS ix_scoring_fixtures_draw_id ON scoring_fixtures (draw_id);
     CREATE INDEX IF NOT EXISTS ix_scoring_fixtures_group_id ON scoring_fixtures (group_id);
+
+    ALTER TABLE scoring_standings ADD COLUMN IF NOT EXISTS draw_id INTEGER;
+    DROP INDEX IF EXISTS uq_scoring_standings_tournament_team;
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_scoring_standings_tournament_draw_team
+      ON scoring_standings (tournament_id, draw_id, team_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_scoring_standings_tournament_team_unscoped
+      ON scoring_standings (tournament_id, team_id)
+      WHERE draw_id IS NULL;
+    CREATE INDEX IF NOT EXISTS ix_scoring_standings_draw_id ON scoring_standings (draw_id);
 
     ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS venue_id INTEGER;
     ALTER TABLE scoring_matches ADD COLUMN IF NOT EXISTS officials_json JSONB;
@@ -1097,3 +1129,9 @@ void systemCQuery(`
 finalizeSystemCTracking();
 
 export * from "./schema";
+export * from "./member-auth";
+export * from "./tournament-participation";
+export * from "./member-sport-profiles";
+export * from "./legacy-compatibility";
+export * from "./runtime-context";
+export * from "./migrator";

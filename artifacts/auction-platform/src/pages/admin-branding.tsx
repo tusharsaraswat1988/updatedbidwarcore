@@ -477,24 +477,24 @@ export default function AdminBranding() {
       <div className="overflow-hidden rounded-xl border border-border bg-card/70">
         <div className="overflow-hidden">
           <Tabs defaultValue="identity" className="h-full flex flex-col">
-            <div className="px-6 pt-4 border-b border-border/30 flex-shrink-0">
-              <TabsList className="h-9 gap-1">
-                <TabsTrigger value="identity" className="h-7 gap-1.5 text-xs">
+            <div className="px-3 sm:px-6 pt-3 sm:pt-4 border-b border-border/30 flex-shrink-0 overflow-x-auto">
+              <TabsList className="h-9 gap-1 inline-flex whitespace-nowrap">
+                <TabsTrigger value="identity" className="h-7 gap-1.5 text-xs whitespace-nowrap">
                   <Shield className="w-3.5 h-3.5" /> Brand Identity
                 </TabsTrigger>
-                <TabsTrigger value="assets" className="h-7 gap-1.5 text-xs">
+                <TabsTrigger value="assets" className="h-7 gap-1.5 text-xs whitespace-nowrap">
                   <Image className="w-3.5 h-3.5" /> Visual Assets
                 </TabsTrigger>
-                <TabsTrigger value="colors" className="h-7 gap-1.5 text-xs">
+                <TabsTrigger value="colors" className="h-7 gap-1.5 text-xs whitespace-nowrap">
                   <Palette className="w-3.5 h-3.5" /> Colors & Fonts
                 </TabsTrigger>
-                <TabsTrigger value="public" className="h-7 gap-1.5 text-xs">
+                <TabsTrigger value="public" className="h-7 gap-1.5 text-xs whitespace-nowrap">
                   <Globe className="w-3.5 h-3.5" /> Public Branding
                 </TabsTrigger>
-                <TabsTrigger value="animation" className="h-7 gap-1.5 text-xs">
+                <TabsTrigger value="animation" className="h-7 gap-1.5 text-xs whitespace-nowrap">
                   <Play className="w-3.5 h-3.5" /> Logo Animation
                 </TabsTrigger>
-                <TabsTrigger value="preview" className="h-7 gap-1.5 text-xs">
+                <TabsTrigger value="preview" className="h-7 gap-1.5 text-xs whitespace-nowrap">
                   <Eye className="w-3.5 h-3.5" /> Live Preview
                 </TabsTrigger>
               </TabsList>
@@ -503,7 +503,7 @@ export default function AdminBranding() {
             <div className="flex-1 overflow-y-auto">
 
               {/* ── Brand Identity ───────────────────────── */}
-              <TabsContent value="identity" className="mt-0 p-6">
+              <TabsContent value="identity" className="mt-0 p-4 sm:p-6">
                 <SectionHeader
                   icon={Shield}
                   title="Brand Identity"

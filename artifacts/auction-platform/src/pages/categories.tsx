@@ -136,7 +136,6 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
           value={form.name}
           onChange={e => setF("name", e.target.value)}
           required
-          placeholder="e.g. Platinum, Gold, Under-23, Fast Bowlers"
         />
       </div>
 
@@ -146,7 +145,6 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
           type="number"
           value={form.minBid}
           onChange={e => setF("minBid", e.target.value)}
-          placeholder="Leave blank to use tournament default"
         />
         <IndianAmountHint value={form.minBid} />
         <p className="text-xs text-muted-foreground">
@@ -192,7 +190,6 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
               type="number"
               value={form.flatIncrement}
               onChange={e => setF("flatIncrement", e.target.value)}
-              placeholder="e.g. 20000"
             />
             <IndianAmountHint value={form.flatIncrement} />
             <p className="text-xs text-muted-foreground">Fixed amount added per bid step for players in this category.</p>
@@ -246,7 +243,6 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
             type="number"
             value={form.maxPlayers}
             onChange={e => setF("maxPlayers", e.target.value)}
-            placeholder="No limit"
           />
           <p className="text-xs text-muted-foreground">Max players from this category a team can buy. Leave blank for no limit.</p>
         </div>
@@ -268,7 +264,6 @@ function CategoryForm({ tournamentId, category, onClose }: { tournamentId: numbe
         <AuditReasonField
           value={auditReason}
           onChange={setAuditReason}
-          placeholder="Explain why category bidding rules are being changed…"
         />
       )}
       <div className="flex gap-3 pt-4">
@@ -344,12 +339,12 @@ export default function Categories() {
           titleExtra={
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted/60 text-muted-foreground border border-border/50 tracking-wide">OPTIONAL</span>
           }
-          description="Group players into tiers (e.g. Platinum, Gold, Silver) and set different minimum values or bid increments per tier. Skip this section if all players have the same rules."
+          description="Group players into tournament divisions (for example U-14, Men's Singles, or Open). For auctions you can also set different minimum values or bid increments per category. Skip this section if you don't need divisions."
           actions={
           <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
             <DialogTrigger asChild>
-              <Button size="lg" className="gap-2" onClick={() => setEditing(null)}>
-                <Plus className="w-5 h-5" /> Add Category
+              <Button className="h-10 gap-2" onClick={() => setEditing(null)}>
+                <Plus className="w-4 h-4" /> Add Category
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
@@ -374,7 +369,7 @@ export default function Categories() {
             </div>
             <h3 className="font-display font-bold text-lg mb-2">No categories yet — and that is fine</h3>
             <p className="text-muted-foreground text-sm mb-1">
-              Categories let you group players into tiers (e.g. Platinum, Gold, Silver) with different minimum values and bid increments.
+              Categories are tournament divisions (U-14, Men's Singles, Open). Auction tournaments can also use them as bid tiers with different minimum values.
             </p>
             <p className="text-xs text-muted-foreground mb-6">
               This step is optional. If you skip it, all players will use the tournament-level defaults.
@@ -391,7 +386,7 @@ export default function Categories() {
               const assignedCount = playersByCategory.get(cat.id) ?? 0;
               const deleteBlocked = assignedCount > 0;
               return (
-                <Card key={cat.id} className="overflow-hidden panel border-none hover:shadow-[0_16px_48px_-20px_oklch(0.85_0.17_88_/_0.25)] transition-all">
+                <Card key={cat.id} className="overflow-hidden panel border-none transition-colors hover:border-primary/40">
                   <div className="h-1.5" style={{ backgroundColor: cat.colorCode || "#F59E0B" }} />
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-4">

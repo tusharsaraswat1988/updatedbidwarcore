@@ -465,37 +465,77 @@ export const CatalogRegistry = {
 
   /**
    * Resolve stored tournament columns for engines.
-   * Null / missing bindings become Legacy Profile — never null to Rule Engine.
+   * Null / missing / unknown bindings become Legacy Profile or valid defaults — never invalid to Rule Engine.
    */
   resolveLegacyBindings(row: TournamentBindingColumns): ResolvedTournamentBindings {
-    const hasAny =
-      !!row.variantId ||
-      !!row.competitionTypeId ||
-      !!row.ruleProfileId ||
-      !!row.presentationProfileId;
+    const sportId = (row.sport || "cricket").toLowerCase();
 
-    if (!hasAny) {
-      return {
-        sportId: row.sport || "cricket",
-        variantId: LEGACY_VARIANT_ID,
-        competitionTypeId: LEGACY_COMPETITION_TYPE_ID,
-        ruleProfileId: LEGACY_PROFILE.id,
-        ruleProfileVersion: LEGACY_PROFILE.version,
-        presentationProfileId: LEGACY_PROFILE.id,
-        presentationProfileVersion: LEGACY_PROFILE.version,
-        isLegacy: true,
-      };
+    let variantId = row.variantId;
+    if (!variantId || !this.getVariant(variantId)) {
+      variantId = sportId === "badminton" ? "badminton.singles" : "cricket.box";
+    }
+
+    let competitionTypeId = row.competitionTypeId;
+    if (!competitionTypeId || !this.getCompetitionType(competitionTypeId)) {
+      competitionTypeId = "auction";
+    }
+
+    let ruleProfileId = row.ruleProfileId;
+    let ruleProfileVersion = row.ruleProfileVersion;
+    if (!ruleProfileId) {
+      ruleProfileId = LEGACY_PROFILE.id;
+      ruleProfileVersion = LEGACY_PROFILE.version;
+    } else {
+      const ruleProfile = this.getRuleProfile(ruleProfileId, ruleProfileVersion)
+        || this.getRuleProfile(ruleProfileId);
+      if (ruleProfile) {
+        ruleProfileId = ruleProfile.id;
+        ruleProfileVersion = ruleProfile.version;
+      } else {
+        const candidates = this.listRuleProfiles({ sportId, variantId, competitionTypeId });
+        const fallback = candidates[0] || (sportId === "cricket" ? this.getRuleProfile("cricket.box.corporate_standard") : null);
+        if (fallback) {
+          ruleProfileId = fallback.id;
+          ruleProfileVersion = fallback.version;
+        } else {
+          ruleProfileId = LEGACY_PROFILE.id;
+          ruleProfileVersion = LEGACY_PROFILE.version;
+        }
+      }
+    }
+
+    let presentationProfileId = row.presentationProfileId;
+    let presentationProfileVersion = row.presentationProfileVersion;
+    if (!presentationProfileId) {
+      presentationProfileId = LEGACY_PROFILE.id;
+      presentationProfileVersion = LEGACY_PROFILE.version;
+    } else {
+      const presProfile = this.getPresentationProfile(presentationProfileId, presentationProfileVersion)
+        || this.getPresentationProfile(presentationProfileId);
+      if (presProfile) {
+        presentationProfileId = presProfile.id;
+        presentationProfileVersion = presProfile.version;
+      } else {
+        const candidates = this.listPresentationProfiles({ sportId, variantId, competitionTypeId });
+        const fallback = candidates[0] || (sportId === "cricket" ? this.getPresentationProfile("cricket.presentation.corporate_box") : null);
+        if (fallback) {
+          presentationProfileId = fallback.id;
+          presentationProfileVersion = fallback.version;
+        } else {
+          presentationProfileId = LEGACY_PROFILE.id;
+          presentationProfileVersion = LEGACY_PROFILE.version;
+        }
+      }
     }
 
     return {
-      sportId: row.sport || "cricket",
-      variantId: row.variantId || LEGACY_VARIANT_ID,
-      competitionTypeId: row.competitionTypeId || LEGACY_COMPETITION_TYPE_ID,
-      ruleProfileId: row.ruleProfileId || LEGACY_PROFILE.id,
-      ruleProfileVersion: row.ruleProfileVersion || LEGACY_PROFILE.version,
-      presentationProfileId: row.presentationProfileId || LEGACY_PROFILE.id,
-      presentationProfileVersion:
-        row.presentationProfileVersion || LEGACY_PROFILE.version,
+      sportId,
+      variantId,
+      competitionTypeId,
+      ruleProfileId,
+      ruleProfileVersion,
+      presentationProfileId,
+      presentationProfileVersion,
       isLegacy: !row.ruleProfileId || !row.presentationProfileId,
     };
   },

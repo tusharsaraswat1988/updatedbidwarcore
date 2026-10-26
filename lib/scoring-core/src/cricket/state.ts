@@ -1,4 +1,8 @@
-import type { MatchMeta, ScoringMatchStatus, ScoringSessionStatus } from "../types";
+import type {
+  MatchMeta,
+  ScoringMatchStatus,
+  ScoringSessionStatus,
+} from "../types";
 
 export type CricketInningsPhase = "not_started" | "in_progress" | "completed";
 
@@ -11,6 +15,7 @@ export type BallDisplayOutcome = {
   isWicket: boolean;
   isLegalDelivery: boolean;
   label: string;
+  isSuperBall?: boolean;
 };
 
 export type InningsKind = "normal" | "super_over";
@@ -28,6 +33,34 @@ export type CricketInningsState = {
   oversLimit: number;
 };
 
+export type CricketPartnership = {
+  runs: number;
+  balls: number;
+  batter1Id: number | null;
+  batter1Runs: number;
+  batter1Balls: number;
+  batter2Id: number | null;
+  batter2Runs: number;
+  batter2Balls: number;
+  extras: number;
+};
+
+export type CricketPartnershipRecord = {
+  innings: number;
+  wicket: number;
+  batter1Id: number;
+  batter1Runs: number;
+  batter1Balls: number;
+  batter2Id: number;
+  batter2Runs: number;
+  batter2Balls: number;
+  extras: number;
+  runs: number;
+  balls: number;
+  dismissedPlayerId?: number | null;
+  notOutPlayerId?: number | null;
+};
+
 export type CricketScoreboardState = {
   sportSlug: "cricket";
   matchId: number;
@@ -38,6 +71,9 @@ export type CricketScoreboardState = {
   sessionStatus: ScoringSessionStatus;
   oversLimit: number;
   maxWickets: number;
+  ballsPerOver?: number;
+  currentPartnership: CricketPartnership | null;
+  completedPartnerships?: CricketPartnershipRecord[];
   tossWinnerTeamId: number | null;
   electedTo: "bat" | "bowl" | null;
   currentInnings: number;
@@ -54,6 +90,8 @@ export type CricketScoreboardState = {
   lastSequence: number;
   /** Active after a no-ball until next legal delivery. */
   freeHitActive: boolean;
+  lbwEnabled: boolean;
+  freeHitEnabled: boolean;
   /** Powerplay over limits from match start (e.g. [6, 15] for T20). */
   powerplayOvers: number[];
   /** Players retired hurt (may return) per team. */
@@ -62,9 +100,22 @@ export type CricketScoreboardState = {
   interruptionReason: string | null;
   /** Active DLS revised overs limit for current innings. */
   revisedOversLimit: number | null;
+  cricketFormat: string;
+  playingXiEnforced: boolean;
+  legByeEnabled: boolean;
+  superBallEnabled: boolean;
+  superBallPending: { innings: number; battingTeamId: number } | null;
+  superBallUsed: Record<number, number[]>;
+  superOverEnabled: boolean;
+  superOverOvers: number;
+  superOverWickets: number;
+  superOverTrigger: string;
+  matchTypeId: string | null;
 };
 
-export function createInitialCricketState(meta: MatchMeta): CricketScoreboardState {
+export function createInitialCricketState(
+  meta: MatchMeta,
+): CricketScoreboardState {
   return {
     sportSlug: "cricket",
     matchId: meta.matchId,
@@ -75,6 +126,9 @@ export function createInitialCricketState(meta: MatchMeta): CricketScoreboardSta
     sessionStatus: "idle",
     oversLimit: meta.oversLimit,
     maxWickets: meta.maxWickets ?? 10,
+    ballsPerOver: meta.ballsPerOver ?? 6,
+    currentPartnership: null,
+    completedPartnerships: [],
     tossWinnerTeamId: null,
     electedTo: null,
     currentInnings: 0,
@@ -90,14 +144,29 @@ export function createInitialCricketState(meta: MatchMeta): CricketScoreboardSta
     abandonedReason: null,
     lastSequence: 0,
     freeHitActive: false,
-    powerplayOvers: [],
+    lbwEnabled: meta.lbwEnabled ?? true,
+    freeHitEnabled: meta.freeHitEnabled ?? true,
+    powerplayOvers: meta.powerplayOvers ? [...meta.powerplayOvers] : [],
     retiredHurt: {},
     interruptionReason: null,
     revisedOversLimit: null,
+    cricketFormat: meta.cricketFormat ?? "standard",
+    playingXiEnforced: meta.playingXiEnforced ?? false,
+    legByeEnabled: meta.legByeEnabled ?? true,
+    superBallEnabled: meta.superBallEnabled ?? false,
+    superBallPending: null,
+    superBallUsed: {},
+    superOverEnabled: meta.superOverEnabled ?? true,
+    superOverOvers: meta.superOverOvers ?? 1,
+    superOverWickets: meta.superOverWickets ?? 2,
+    superOverTrigger: meta.superOverTrigger ?? "manual",
+    matchTypeId: meta.matchTypeId ?? null,
   };
 }
 
-export function getCurrentInnings(state: CricketScoreboardState): CricketInningsState | null {
+export function getCurrentInnings(
+  state: CricketScoreboardState,
+): CricketInningsState | null {
   if (state.currentInnings <= 0) return null;
   return state.innings.find((i) => i.innings === state.currentInnings) ?? null;
 }

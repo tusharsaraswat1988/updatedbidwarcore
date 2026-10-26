@@ -9,14 +9,6 @@
 
 /** Per-tournament feature toggles. All keys optional in storage; resolved to booleans at read time. */
 export interface TournamentFeatures {
-  /** BidWar Media Center — tournament creative generation (Buzz Studio). */
-  buzzStudio?: boolean;
-  /** Allow organizers to download generated creatives. */
-  allowCreativeDownloads?: boolean;
-  /** Allow player-facing share links to expose a download button. */
-  allowPlayerDownloads?: boolean;
-  /** When true, rendered creatives must include a watermark. */
-  watermarkRequired?: boolean;
   /** Future: Owner App access for this tournament. */
   ownerApp?: boolean;
   /** Future: per-tournament scoring module flag (distinct from platform SCORING env). */
@@ -29,10 +21,6 @@ export interface TournamentFeatures {
 
 /** Canonical defaults when a tournament has no features_json row yet. */
 export const TOURNAMENT_FEATURE_DEFAULTS: Readonly<Required<TournamentFeatures>> = {
-  buzzStudio: false,
-  allowCreativeDownloads: false,
-  allowPlayerDownloads: false,
-  watermarkRequired: false,
   ownerApp: false,
   scoring: false,
   sponsorshipHub: false,
@@ -45,9 +33,6 @@ function readFlag(
   src: Partial<TournamentFeatures> | Record<string, unknown>,
   key: keyof TournamentFeatures,
 ): boolean {
-  if (key === "watermarkRequired") {
-    return src[key] === true;
-  }
   return src[key] === true;
 }
 
@@ -83,19 +68,15 @@ export function mergeTournamentFeatures(
   return resolveTournamentFeatures(merged);
 }
 
-/** True when Buzz Studio / Media Center is enabled for a tournament. */
+/** Deprecated: Buzz Studio is permanently removed. Always returns false. */
 export function isBuzzStudioEnabled(
-  features: Partial<TournamentFeatures> | null | undefined,
+  _features?: Partial<TournamentFeatures> | null | undefined,
 ): boolean {
-  return features?.buzzStudio === true;
+  return false;
 }
 
 /** Zod-compatible partial schema keys for API validation. */
 export const tournamentFeaturesSchemaShape = {
-  buzzStudio: "boolean",
-  allowCreativeDownloads: "boolean",
-  allowPlayerDownloads: "boolean",
-  watermarkRequired: "boolean",
   ownerApp: "boolean",
   scoring: "boolean",
   sponsorshipHub: "boolean",

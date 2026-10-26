@@ -780,6 +780,34 @@ paths:
               schema:
                 $ref: "#/components/schemas/AuctionState"
 
+  /tournaments/{tournamentId}/auction/settings:
+    patch:
+      operationId: updateAuctionSettings
+      tags: [auction]
+      summary: Update auction settings (e.g. owner bidding enable/disable)
+      parameters:
+        - name: tournamentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ownerBiddingEnabled:
+                  type: boolean
+      responses:
+        "200":
+          description: Updated auction state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuctionState"
+
   /tournaments/{tournamentId}/auction/start:
     post:
       operationId: startAuction
@@ -1078,6 +1106,10 @@ paths:
                 mode:
                   type: string
                   enum: [off, team, player, top5, banner]
+                expectedRevision:
+                  type: integer
+                  minimum: 0
+                  description: Observed presentation revision. Sent with MAIN so a stale reset cannot overwrite a newer OBS selection.
       responses:
         "200":
           description: State updated
@@ -1110,6 +1142,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AuctionState"
+        "400":
+          description: expectedRevision was not sent
+        "409":
+          description: expectedRevision does not match the stored presentation revision
 
   /tournaments/{tournamentId}/auction/display-player-filter:
     post:
@@ -2276,6 +2312,8 @@ components:
           type: integer
         bidExtensionSeconds:
           type: integer
+        ownerBiddingEnabled:
+          type: boolean
         playerSelectionMode:
           type: string
           enum: [sequential, random, manual]
@@ -2318,6 +2356,16 @@ components:
           items:
             type: integer
           description: Allowed bid values when bidValueMode is player
+        playerRegistrationMode:
+          type: string
+          enum: [auction, scoring]
+          default: auction
+          description: Public player registration purpose — auction pool or scoring/tournament participation
+        registrationCategoryMode:
+          type: string
+          enum: [hidden, player_select, organizer_assign]
+          default: hidden
+          description: How existing tournament categories (divisions) appear on public registration
         resetCount:
           type: integer
         lastResetAt:
@@ -2386,6 +2434,13 @@ components:
         matchDates:
           type: ["string", "null"]
           description: "Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19'. When set, player availability shown as date checkboxes. Empty/null hides availability everywhere."
+        auctionEnabled:
+          type: boolean
+          description: "Whether the Auction product module is enabled for this tournament"
+        productMode:
+          type: string
+          enum: [auction_only, scoring_only, both]
+          description: "Derived product mode based on auctionEnabled and scoringEnabled flags"
         scoringEnabled:
           type: boolean
           description: "Whether mobile cricket scoring is enabled for this tournament"
@@ -2559,6 +2614,8 @@ components:
           type: integer
         bidExtensionSeconds:
           type: integer
+        ownerBiddingEnabled:
+          type: boolean
         playerSelectionMode:
           type: string
           enum: [sequential, random, manual]
@@ -2591,6 +2648,12 @@ components:
           type: array
           items:
             type: integer
+        playerRegistrationMode:
+          type: string
+          enum: [auction, scoring]
+        registrationCategoryMode:
+          type: string
+          enum: [hidden, player_select, organizer_assign]
         minimumSquadSize:
           type: integer
         maximumSquadSize:
@@ -2672,6 +2735,12 @@ components:
           type: boolean
         accessCode:
           type: ["string", "null"]
+        coachName:
+          type: ["string", "null"]
+          description: Team coach or mentor name
+        coachMobile:
+          type: ["string", "null"]
+          description: Team coach or mentor mobile (organizer-only)
         createdAt:
           type: string
 
@@ -2697,6 +2766,10 @@ components:
           type: string
         purse:
           type: integer
+        coachName:
+          type: ["string", "null"]
+        coachMobile:
+          type: ["string", "null"]
 
     TeamUpdate:
       type: object
@@ -2723,6 +2796,10 @@ components:
           type: boolean
         regenerateCode:
           type: boolean
+        coachName:
+          type: ["string", "null"]
+        coachMobile:
+          type: ["string", "null"]
         reason:
           type: string
           description: Mandatory audit reason for critical team changes (min 10 characters)
@@ -2891,7 +2968,7 @@ components:
     # Player schemas
     JerseySize:
       type: string
-      enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL]
+      enum: [XXS, XS, S, M, L, XL, 2XL, 3XL, 4XL, 5XL]
 
     PlayerSpecification:
       type: object
@@ -2973,7 +3050,7 @@ components:
           type: ["string", "null"]
         jerseySize:
           type: ["string", "null"]
-          enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
+          enum: [XXS, XS, S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
         achievements:
           type: ["string", "null"]
         mobileNumber:
@@ -3371,6 +3448,8 @@ components:
           type: integer
         bidExtensionSeconds:
           type: integer
+        ownerBiddingEnabled:
+          type: boolean
         fortuneWheelActive:
           type: boolean
         wheelSpinning:
@@ -3459,15 +3538,24 @@ components:
         selectedTeamId:
           type: ["integer", "null"]
           description: Team highlighted in team presentation. Null cycles all teams.
+        revision:
+          type: integer
+          minimum: 0
+          description: Presentation revision. Clients send this back as expectedRevision.
 
     SetPresentationContextBody:
       type: object
+      required: [expectedRevision]
       properties:
         context:
           type: string
           enum: [auction, top5, team]
         selectedTeamId:
           type: ["integer", "null"]
+        expectedRevision:
+          type: integer
+          minimum: 0
+          description: Revision the caller observed. A stale value is rejected with 409.
 
     LastPurseBooster:
       type: object
@@ -3731,6 +3819,29 @@ components:
           items:
             type: integer
           description: Allowed bid values when bidValueMode is player
+        playerRegistrationMode:
+          type: string
+          enum: [auction, scoring]
+        registrationCategoryMode:
+          type: string
+          enum: [hidden, player_select, organizer_assign]
+        categories:
+          type: array
+          description: Public category/division options when registrationCategoryMode is player_select
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              colorCode:
+                type: ["string", "null"]
+              sortOrder:
+                type: integer
+        sport:
+          type: string
 
     TournamentSummary:
       type: object
@@ -4076,7 +4187,7 @@ components:
           type: ["string", "null"]
         jerseySize:
           type: ["string", "null"]
-          enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
+          enum: [XXS, XS, S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
         cricheroUrl:
           type: ["string", "null"]
         availabilityDates:
@@ -4148,7 +4259,7 @@ components:
           type: ["string", "null"]
         jerseySize:
           type: ["string", "null"]
-          enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
+          enum: [XXS, XS, S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
         isDuplicate:
           type: boolean
 
@@ -4265,7 +4376,7 @@ components:
           type: ["string", "null"]
         jerseySize:
           type: ["string", "null"]
-          enum: [S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
+          enum: [XXS, XS, S, M, L, XL, 2XL, 3XL, 4XL, 5XL, null]
         categoryId:
           type: ["integer", "null"]
         categoryName:
@@ -4467,8 +4578,15 @@ components:
           type: integer
         points:
           type: number
+        pointsPercentage:
+          type: number
+          description: Points as a percentage of maximum points from matches played. Full precision; display may round to two decimals.
         netRunRate:
           type: number
+          description: Full-precision net run rate used for ranking. Display may round to three decimals.
+        qualified:
+          type: boolean
+          description: Server qualification flag for a group standings row. Absent on the overall table.
 
     ScoringLeaderboardRow:
       type: object

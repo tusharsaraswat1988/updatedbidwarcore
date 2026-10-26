@@ -73,6 +73,29 @@ export const TournamentBidValueMode = {
 } as const;
 
 /**
+ * Public player registration purpose — auction pool or scoring/tournament participation
+ */
+export type TournamentPlayerRegistrationMode =
+  (typeof TournamentPlayerRegistrationMode)[keyof typeof TournamentPlayerRegistrationMode];
+
+export const TournamentPlayerRegistrationMode = {
+  auction: "auction",
+  scoring: "scoring",
+} as const;
+
+/**
+ * How existing tournament categories (divisions) appear on public registration
+ */
+export type TournamentRegistrationCategoryMode =
+  (typeof TournamentRegistrationCategoryMode)[keyof typeof TournamentRegistrationCategoryMode];
+
+export const TournamentRegistrationCategoryMode = {
+  hidden: "hidden",
+  player_select: "player_select",
+  organizer_assign: "organizer_assign",
+} as const;
+
+/**
  * Image fit mode for the banner on the LED screen
  */
 export type TournamentMainBannerFit =
@@ -92,6 +115,18 @@ export type TournamentLicenseStatus =
 export const TournamentLicenseStatus = {
   trial: "trial",
   active: "active",
+} as const;
+
+/**
+ * Derived product mode based on auctionEnabled and scoringEnabled flags
+ */
+export type TournamentProductMode =
+  (typeof TournamentProductMode)[keyof typeof TournamentProductMode];
+
+export const TournamentProductMode = {
+  auction_only: "auction_only",
+  scoring_only: "scoring_only",
+  both: "both",
 } as const;
 
 /**
@@ -153,6 +188,7 @@ export interface Tournament {
   bidExtensionEnabled?: boolean;
   bidExtensionThresholdSeconds?: number;
   bidExtensionSeconds?: number;
+  ownerBiddingEnabled?: boolean;
   playerSelectionMode?: TournamentPlayerSelectionMode;
   status: TournamentStatus;
   /** @nullable */
@@ -185,6 +221,10 @@ export interface Tournament {
   bidValueMode?: TournamentBidValueMode;
   /** Allowed bid values when bidValueMode is player */
   bidValueOptions?: number[];
+  /** Public player registration purpose — auction pool or scoring/tournament participation */
+  playerRegistrationMode?: TournamentPlayerRegistrationMode;
+  /** How existing tournament categories (divisions) appear on public registration */
+  registrationCategoryMode?: TournamentRegistrationCategoryMode;
   resetCount?: number;
   /** @nullable */
   lastResetAt?: string | null;
@@ -235,6 +275,10 @@ export interface Tournament {
    * @nullable
    */
   matchDates?: string | null;
+  /** Whether the Auction product module is enabled for this tournament */
+  auctionEnabled?: boolean;
+  /** Derived product mode based on auctionEnabled and scoringEnabled flags */
+  productMode?: TournamentProductMode;
   /** Whether mobile cricket scoring is enabled for this tournament */
   scoringEnabled?: boolean;
   /** Scoring lifecycle phase */
@@ -292,7 +336,6 @@ export interface TournamentInput {
   /** City where the tournament is held (required on create) */
   city: string;
   auctionDate?: string;
-  auctionTime?: string;
   organizerName?: string;
   organizerMobile?: string;
   logoUrl?: string;
@@ -328,17 +371,6 @@ export interface TournamentInput {
   mainBannerFit?: TournamentInputMainBannerFit;
   /** Comma-separated ISO dates of match days e.g. '2025-03-18,2025-03-19' */
   matchDates?: string;
-  /** Platform catalog bindings (EPIC-01) — references only */
-  variantId?: string;
-  competitionTypeId?: string;
-  ruleProfileId?: string;
-  ruleProfileVersion?: string;
-  presentationProfileId?: string;
-  presentationProfileVersion?: string;
-  registrationDeadline?: string;
-  registrationLimit?: number;
-  enableRegistrationPayment?: boolean;
-  registrationFee?: number;
 }
 
 export type TournamentUpdateAuctionUnit =
@@ -388,6 +420,23 @@ export const TournamentUpdateBidValueMode = {
   player: "player",
 } as const;
 
+export type TournamentUpdatePlayerRegistrationMode =
+  (typeof TournamentUpdatePlayerRegistrationMode)[keyof typeof TournamentUpdatePlayerRegistrationMode];
+
+export const TournamentUpdatePlayerRegistrationMode = {
+  auction: "auction",
+  scoring: "scoring",
+} as const;
+
+export type TournamentUpdateRegistrationCategoryMode =
+  (typeof TournamentUpdateRegistrationCategoryMode)[keyof typeof TournamentUpdateRegistrationCategoryMode];
+
+export const TournamentUpdateRegistrationCategoryMode = {
+  hidden: "hidden",
+  player_select: "player_select",
+  organizer_assign: "organizer_assign",
+} as const;
+
 export type TournamentUpdateMainBannerFit =
   (typeof TournamentUpdateMainBannerFit)[keyof typeof TournamentUpdateMainBannerFit];
 
@@ -432,6 +481,7 @@ export interface TournamentUpdate {
   bidExtensionEnabled?: boolean;
   bidExtensionThresholdSeconds?: number;
   bidExtensionSeconds?: number;
+  ownerBiddingEnabled?: boolean;
   playerSelectionMode?: TournamentUpdatePlayerSelectionMode;
   status?: string;
   /** @nullable */
@@ -451,6 +501,8 @@ export interface TournamentUpdate {
   registrationDeclarationText?: string | null;
   bidValueMode?: TournamentUpdateBidValueMode;
   bidValueOptions?: number[];
+  playerRegistrationMode?: TournamentUpdatePlayerRegistrationMode;
+  registrationCategoryMode?: TournamentUpdateRegistrationCategoryMode;
   minimumSquadSize?: number;
   maximumSquadSize?: number;
   audioEnabled?: boolean;
@@ -508,6 +560,16 @@ export interface Team {
   isBiddingEnabled?: boolean;
   /** @nullable */
   accessCode?: string | null;
+  /**
+   * Team coach or mentor name
+   * @nullable
+   */
+  coachName?: string | null;
+  /**
+   * Team coach or mentor mobile (organizer-only)
+   * @nullable
+   */
+  coachMobile?: string | null;
   createdAt: string;
 }
 
@@ -521,6 +583,10 @@ export interface TeamInput {
   color?: string;
   logoUrl?: string;
   purse?: number;
+  /** @nullable */
+  coachName?: string | null;
+  /** @nullable */
+  coachMobile?: string | null;
 }
 
 export interface TeamUpdate {
@@ -535,6 +601,10 @@ export interface TeamUpdate {
   purse?: number;
   isBiddingEnabled?: boolean;
   regenerateCode?: boolean;
+  /** @nullable */
+  coachName?: string | null;
+  /** @nullable */
+  coachMobile?: string | null;
   /** Mandatory audit reason for critical team changes (min 10 characters) */
   reason?: string;
 }
@@ -675,6 +745,8 @@ export interface CategoryUpdate {
 export type JerseySize = (typeof JerseySize)[keyof typeof JerseySize];
 
 export const JerseySize = {
+  XXS: "XXS",
+  XS: "XS",
   S: "S",
   M: "M",
   L: "L",
@@ -739,6 +811,8 @@ export type PlayerJerseySize =
   | null;
 
 export const PlayerJerseySize = {
+  XXS: "XXS",
+  XS: "XS",
   S: "S",
   M: "M",
   L: "L",
@@ -1357,6 +1431,8 @@ export interface PresentationContext {
    * @nullable
    */
   selectedTeamId?: number | null;
+  /** Presentation revision the operator sends back as expectedRevision. */
+  revision?: number;
 }
 
 export interface AuctionState {
@@ -1396,6 +1472,7 @@ export interface AuctionState {
   bidExtensionEnabled?: boolean;
   bidExtensionThresholdSeconds?: number;
   bidExtensionSeconds?: number;
+  ownerBiddingEnabled?: boolean;
   fortuneWheelActive?: boolean;
   wheelSpinning?: boolean;
   wheelItems?: WheelItem[];
@@ -1449,6 +1526,8 @@ export interface SetPresentationContextBody {
   context?: SetPresentationContextBodyContext;
   /** @nullable */
   selectedTeamId?: number | null;
+  /** Revision the operator observed. A stale value is rejected. */
+  expectedRevision?: number;
 }
 
 export type ApplyPurseBoosterRequestTarget =
@@ -1540,6 +1619,31 @@ export const RegistrationStatusBidValueMode = {
   player: "player",
 } as const;
 
+export type RegistrationStatusPlayerRegistrationMode =
+  (typeof RegistrationStatusPlayerRegistrationMode)[keyof typeof RegistrationStatusPlayerRegistrationMode];
+
+export const RegistrationStatusPlayerRegistrationMode = {
+  auction: "auction",
+  scoring: "scoring",
+} as const;
+
+export type RegistrationStatusRegistrationCategoryMode =
+  (typeof RegistrationStatusRegistrationCategoryMode)[keyof typeof RegistrationStatusRegistrationCategoryMode];
+
+export const RegistrationStatusRegistrationCategoryMode = {
+  hidden: "hidden",
+  player_select: "player_select",
+  organizer_assign: "organizer_assign",
+} as const;
+
+export type RegistrationStatusCategoriesItem = {
+  id: number;
+  name: string;
+  /** @nullable */
+  colorCode?: string | null;
+  sortOrder?: number;
+};
+
 export interface RegistrationStatus {
   open: boolean;
   /**
@@ -1583,6 +1687,11 @@ export interface RegistrationStatus {
   bidValueMode?: RegistrationStatusBidValueMode;
   /** Allowed bid values when bidValueMode is player */
   bidValueOptions?: number[];
+  playerRegistrationMode?: RegistrationStatusPlayerRegistrationMode;
+  registrationCategoryMode?: RegistrationStatusRegistrationCategoryMode;
+  /** Public category/division options when registrationCategoryMode is player_select */
+  categories?: RegistrationStatusCategoriesItem[];
+  sport?: string;
 }
 
 export interface TournamentSummary {
@@ -1770,6 +1879,8 @@ export type GlobalPlayerSuggestionJerseySize =
   | null;
 
 export const GlobalPlayerSuggestionJerseySize = {
+  XXS: "XXS",
+  XS: "XS",
   S: "S",
   M: "M",
   L: "L",
@@ -1853,6 +1964,8 @@ export type ImportCandidatePlayerJerseySize =
   | null;
 
 export const ImportCandidatePlayerJerseySize = {
+  XXS: "XXS",
+  XS: "XS",
   S: "S",
   M: "M",
   L: "L",
@@ -1966,6 +2079,8 @@ export type TeamReportPlayerJerseySize =
   | null;
 
 export const TeamReportPlayerJerseySize = {
+  XXS: "XXS",
+  XS: "XS",
   S: "S",
   M: "M",
   L: "L",
@@ -2123,7 +2238,12 @@ export interface ScoringStandingRow {
   tied?: number;
   noResult?: number;
   points?: number;
+  /** Points as a percentage of maximum points from matches played. */
+  pointsPercentage?: number;
+  /** Full-precision net run rate used for ranking. Display may round to three decimals. */
   netRunRate?: number;
+  /** Server qualification flag for a group standings row. Absent on the overall table. */
+  qualified?: boolean;
 }
 
 export interface ScoringLeaderboardRow {
@@ -2272,6 +2392,10 @@ export type DeleteCategory409 = {
   playerCount?: number;
 };
 
+export type UpdateAuctionSettingsBody = {
+  ownerBiddingEnabled?: boolean;
+};
+
 export type SetDisplayOverlayBodyMode =
   (typeof SetDisplayOverlayBodyMode)[keyof typeof SetDisplayOverlayBodyMode];
 
@@ -2285,6 +2409,8 @@ export const SetDisplayOverlayBodyMode = {
 
 export type SetDisplayOverlayBody = {
   mode: SetDisplayOverlayBodyMode;
+  /** Required by the current operator for MAIN, so a stale reset cannot overwrite a newer OBS selection. */
+  expectedRevision?: number;
 };
 
 export type LookupOwnerOnboardingBody = {

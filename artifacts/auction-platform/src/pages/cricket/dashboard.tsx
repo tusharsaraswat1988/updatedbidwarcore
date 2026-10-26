@@ -20,9 +20,14 @@ import {
   btnCompactClass,
   hubCardClass,
   hubPanelClass,
-} from "@/components/badminton/page-chrome";
+} from "@/components/scoring/cricket-page-chrome";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StandingsTable } from "@/components/scoring/standings-table";
+import {
+  competitionGroupTitle,
+  isMultiDrawCompetition,
+  partitionByDraw,
+} from "@workspace/scoring-core/cricket";
 import { useScoringMatches, useSquadReadiness } from "@/hooks/use-scoring-match";
 import {
   getCricketMasterTeams,
@@ -44,9 +49,14 @@ import {
 import { sportsMissionControlPath } from "@workspace/api-base/scoring-urls";
 import {
   AlertTriangle,
+  Award,
+  BarChart3,
   Calendar,
+  CalendarDays,
   CheckCircle2,
+  LayoutDashboard,
   Radio,
+  ShieldCheck,
   Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -76,6 +86,8 @@ export default function CricketDashboardPage() {
     queryKey: ["scoring-standings", tournamentId],
     queryFn: () => getScoringStandings(tournamentId),
     enabled: scoringActive && !!tournamentId,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
   const { data: masterTeams } = useQuery({
     queryKey: ["cricket-master-teams", tournamentId],
@@ -163,13 +175,13 @@ export default function CricketDashboardPage() {
       <PageHeader
         tournamentId={tournamentId}
         eyebrow="Cricket Operations"
-        title="Tournament Dashboard"
+        title="Match Dashboard"
         subtitle={tournament?.name ?? "Load tournament…"}
         badge={stats.live > 0 ? `${stats.live} Live` : undefined}
         actions={
           <div className="flex flex-wrap gap-2">
             <BtnSecondary href={sportsMissionControlPath(tournamentId)} className={btnCompactClass}>
-              Tournament Dashboard
+              Setup & Readiness
             </BtnSecondary>
             <BtnPrimary href={cricketScoreHubPath(tournamentId)} className={btnCompactClass}>
               Open Matches
@@ -318,31 +330,55 @@ export default function CricketDashboardPage() {
                   Full standings
                 </Link>
               </div>
-              <div className="mt-3">
-                <StandingsTable rows={(standings ?? []).slice(0, 8)} compact />
+              <div className="mt-3 space-y-4">
+                {isMultiDrawCompetition(standings?.groups ?? [], standings ?? []) ? (
+                  partitionByDraw(standings?.groups ?? [], standings ?? []).map((section) => (
+                    <div key={section.drawId ?? "legacy"} className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {section.drawName}
+                      </p>
+                      {section.groups.length > 0
+                        ? section.groups.map((group) => (
+                            <div key={group.id} className="space-y-1">
+                              <p className="text-xs text-muted-foreground">{competitionGroupTitle(group)}</p>
+                              <StandingsTable rows={group.rows} compact highlightTop={group.qualifiersPerGroup ?? 2} />
+                            </div>
+                          ))
+                        : <StandingsTable rows={section.rows} compact highlightTop={0} />}
+                    </div>
+                  ))
+                ) : (
+                  <StandingsTable rows={(standings ?? []).slice(0, 8)} compact />
+                )}
               </div>
             </section>
 
-            <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               {[
-                { label: "Tournament Dashboard", href: sportsMissionControlPath(tournamentId) },
-                { label: "Fixtures", href: cricketFixturesPath(tournamentId) },
-                { label: "Schedule", href: cricketScheduleOpsPath(tournamentId) },
-                { label: "Stats", href: cricketStatsOpsPath(tournamentId) },
-                { label: "Officials", href: cricketOfficialsPath(tournamentId) },
-                { label: "Awards", href: cricketAwardsPath(tournamentId) },
-              ].map((item) => (
+                { label: "Dashboard", href: sportsMissionControlPath(tournamentId), icon: LayoutDashboard },
+                { label: "Fixtures", href: cricketFixturesPath(tournamentId), icon: CalendarDays },
+                { label: "Schedule", href: cricketScheduleOpsPath(tournamentId), icon: Calendar },
+                { label: "Stats", href: cricketStatsOpsPath(tournamentId), icon: BarChart3 },
+                { label: "Officials", href: cricketOfficialsPath(tournamentId), icon: ShieldCheck },
+                { label: "Awards", href: cricketAwardsPath(tournamentId), icon: Award },
+              ].map((item) => {
+                const Icon = item.icon;
+                return (
                   <Link
                     key={item.label}
                     href={item.href}
                     className={cn(
                       hubPanelClass,
-                      "text-center text-sm font-semibold hover:border-primary/30",
+                      "flex flex-col items-center justify-center p-3.5 text-center transition-all hover:border-primary/40 hover:bg-card group",
                     )}
                   >
-                    {item.label}
+                    <Icon className="w-5 h-5 text-primary/70 mb-1.5 group-hover:text-primary transition-colors" />
+                    <span className="text-xs font-semibold text-foreground truncate w-full">
+                      {item.label}
+                    </span>
                   </Link>
-              ))}
+                );
+              })}
             </section>
           </>
         )}

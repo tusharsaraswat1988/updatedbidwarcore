@@ -33,6 +33,7 @@ import {
   type LedPurseBoosterTeamLine,
 } from "@workspace/api-base";
 import { computeScoutPurseProtection } from "../lib/scout-purse.js";
+import { buildLocalTeamPurseSnapshot } from "../lib/team-purse-snapshot.js";
 import { formatPurseProtectionBidError } from "@workspace/api-base/purse-protection";
 import { mirrorStateToCloud } from "../mirror.js";
 import { fetchCloudVenueGuard, releaseVenueAuctionOnCloud } from "../lib/venue-guard.js";
@@ -162,6 +163,28 @@ export function createAuctionRouter(db: LocalDb) {
 
   const AUCTION_PAUSED_ERROR = "Auction is paused. Resume the auction before continuing.";
 
+  /** LED and OBS return to the live player when the next player is put on the block. */
+  function liveAuctionColumns(obsContextJson: string | null | undefined) {
+    let selectedTeamId: number | null = null;
+    let revision = 0;
+    if (obsContextJson) {
+      try {
+        const parsed = JSON.parse(obsContextJson) as Record<string, unknown>;
+        if (typeof parsed.selectedTeamId === "number") selectedTeamId = parsed.selectedTeamId;
+        if (typeof parsed.revision === "number" && Number.isInteger(parsed.revision) && parsed.revision >= 0) {
+          revision = parsed.revision;
+        }
+      } catch { /* keep defaults */ }
+    }
+    return {
+      displayOverlay: null as null,
+      teamPurseViewActive: false,
+      fortuneWheelActive: false,
+      wheelSpinning: false,
+      obsContextJson: JSON.stringify({ context: "auction", selectedTeamId, revision: revision + 1 }),
+    };
+  }
+
   function rejectIfAuctionPaused(
     session: { status: string },
     res: Response,
@@ -276,6 +299,7 @@ export function createAuctionRouter(db: LocalDb) {
       bidTier2Increment: tournamentsTable.bidTier2Increment,
       bidTier3Increment: tournamentsTable.bidTier3Increment,
       bidTiers: tournamentsTable.bidTiers,
+      ownerBiddingEnabled: tournamentsTable.ownerBiddingEnabled,
     }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
 
     const timerSeconds = tournamentRow?.timerSeconds ?? 30;
@@ -396,6 +420,8 @@ export function createAuctionRouter(db: LocalDb) {
       };
     }
 
+    const teamPurses = await buildLocalTeamPurseSnapshot(db, tournamentId);
+
     return {
       tournamentId, status: session.status, currentPlayer,
       currentBid: session.currentBid, currentBidTeamId: session.currentBidTeamId,
@@ -414,6 +440,7 @@ export function createAuctionRouter(db: LocalDb) {
       breakEndsAt: session.breakEndsAt ?? null,
       displayCountdown,
       activeCategoryIds, playerSelectionMode: tournamentRow?.playerSelectionMode ?? "sequential",
+      ownerBiddingEnabled: tournamentRow?.ownerBiddingEnabled ?? true,
       licenseStatus: "active",
       trialTeamIds: null,
       deferredPlayerIds: deferredPlayerIds.length > 0 ? deferredPlayerIds : null,
@@ -421,6 +448,7 @@ export function createAuctionRouter(db: LocalDb) {
       ledPurseToast,
       ledPurseBoosterOverlay,
       lastAuctionActivityAt: session.updatedAt ?? null,
+      teamPurses,
       presentationContext: (() => {
         if (!session.obsContextJson) {
           return { context: "auction" as const, selectedTeamId: null };
@@ -650,6 +678,7 @@ export function createAuctionRouter(db: LocalDb) {
       deferredPlayerIds: newDeferredIds.length > 0 ? JSON.stringify(newDeferredIds) : null,
       randomDrawQueue: newRandomDrawQueue,
       lastAction: `Now bidding: ${selectedPlayer.name}`,
+      ...liveAuctionColumns(session.obsContextJson),
     }).where(eq(auctionSessionsTable.tournamentId, tid));
     res.json(await broadcastState(tid, ["players"]));
   });
@@ -670,6 +699,7 @@ export function createAuctionRouter(db: LocalDb) {
     }
 
     const [tournamentRow] = await db.select({
+      ownerBiddingEnabled: tournamentsTable.ownerBiddingEnabled,
       bidTier1UpTo: tournamentsTable.bidTier1UpTo,
       bidTier1Increment: tournamentsTable.bidTier1Increment,
       bidTier2UpTo: tournamentsTable.bidTier2UpTo,
@@ -677,6 +707,16 @@ export function createAuctionRouter(db: LocalDb) {
       bidTier3Increment: tournamentsTable.bidTier3Increment,
       bidTiers: tournamentsTable.bidTiers,
     }).from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+
+    if (tournamentRow?.ownerBiddingEnabled === false) {
+      res.status(403).json({
+        success: false,
+        error: "OWNER_BIDDING_DISABLED",
+        message: "Online owner bidding is currently disabled by the organizer.",
+      });
+      return;
+    }
+
     const tiers = parseBidTiers(tournamentRow?.bidTiers, {
       bidTier1UpTo: tournamentRow?.bidTier1UpTo ?? 100000,
       bidTier1Increment: tournamentRow?.bidTier1Increment ?? 25000,
@@ -884,6 +924,7 @@ export function createAuctionRouter(db: LocalDb) {
       currentBidTeamId: null, timerSeconds: timerSecs, timerEndsAt: null,
       randomDrawQueue: null,
       lastAction: `RE-AUCTION: ${player.name}`,
+      ...liveAuctionColumns(session.obsContextJson),
     }).where(eq(auctionSessionsTable.tournamentId, tid));
     res.json(await broadcastState(tid, ["bids", "purses", "players"]));
   });
@@ -1771,6 +1812,32 @@ export function createAuctionRouter(db: LocalDb) {
     });
     res.json({ ok: true });
   });
+
+  const updateSettingsHandler = async (req: Request, res: Response) => {
+    const tid = parseInt(req.params.tournamentId as string);
+    if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+    const schema = z.object({
+      ownerBiddingEnabled: z.boolean().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
+    const { ownerBiddingEnabled } = parsed.data;
+
+    const updates: Record<string, unknown> = {};
+    if (ownerBiddingEnabled !== undefined) {
+      updates.ownerBiddingEnabled = ownerBiddingEnabled;
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await db.update(tournamentsTable).set({ ...updates, updatedAt: new Date().toISOString() }).where(eq(tournamentsTable.id, tid));
+    }
+
+    const state = await broadcastState(tid, ["settings"]);
+    res.json(state);
+  };
+
+  router.patch("/tournaments/:tournamentId/auction/settings", updateSettingsHandler);
+  router.post("/tournaments/:tournamentId/auction/settings", updateSettingsHandler);
 
   return router;
 }

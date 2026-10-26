@@ -201,7 +201,7 @@ describe("cricket reducer foundation", () => {
         payload: {
           innings: 1,
           over: 0,
-          ball: 2,
+          ball: 1,
           strikerId: 1,
           nonStrikerId: 2,
           bowlerId: 9,

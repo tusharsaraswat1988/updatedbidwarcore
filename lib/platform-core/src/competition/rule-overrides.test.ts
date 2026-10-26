@@ -21,7 +21,7 @@ describe("rule overrides", () => {
 
   it("rejects unknown override keys", () => {
     const result = validateCricketKeyRuleOverrides({
-      values: { "cricket.match.ball_type": "tennis" },
+      values: { "cricket.unknown.some_flag": true },
     });
     expect(result.ok).toBe(false);
   });
@@ -42,16 +42,61 @@ describe("rule overrides", () => {
     });
   });
 
-  it("parses stored json sparsely", () => {
+  it("parses stored json sparsely including array overrides", () => {
     expect(
       parseRuleOverrides({
         values: {
           "cricket.match.overs_per_innings": 8,
-          "cricket.match.ball_type": "tennis",
+          "cricket.powerplay.overs": [1, 2],
+          "cricket.unknown.some_flag": true,
         },
       }),
     ).toEqual({
-      values: { "cricket.match.overs_per_innings": 8 },
+      values: {
+        "cricket.match.overs_per_innings": 8,
+        "cricket.powerplay.overs": [1, 2],
+      },
     });
+  });
+
+  it("sparsifies array overrides by value equality", () => {
+    const identical = sparseRuleOverrides(
+      { "cricket.powerplay.overs": [1, 2] },
+      { "cricket.powerplay.overs": [1, 2] },
+    );
+    expect(identical).toBeNull();
+
+    const changed = sparseRuleOverrides(
+      { "cricket.powerplay.overs": [1, 2] },
+      { "cricket.powerplay.overs": [1, 2, 3] },
+    );
+    expect(changed).toEqual({
+      values: { "cricket.powerplay.overs": [1, 2, 3] },
+    });
+  });
+
+  it("validates and sorts cricket.powerplay.overs", () => {
+    const valid = validateCricketKeyRuleOverrides({
+      values: {
+        "cricket.powerplay.overs": [3, 1, 2, 2],
+      },
+    });
+    expect(valid.ok).toBe(true);
+    if (!valid.ok) return;
+    expect(valid.document?.values["cricket.powerplay.overs"]).toEqual([1, 2, 3]);
+
+    const invalid = validateCricketKeyRuleOverrides({
+      values: {
+        "cricket.powerplay.overs": [0, -1],
+      },
+    });
+    expect(invalid.ok).toBe(false);
+
+    const nonArray = validateCricketKeyRuleOverrides({
+      values: {
+        "cricket.powerplay.overs": "1,2,3",
+      },
+    });
+    expect(nonArray.ok).toBe(false);
   });
 });

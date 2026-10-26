@@ -1,21 +1,28 @@
 import { useState } from "react";
 import { CatalogRegistry } from "@workspace/platform-core/catalog";
+import { isScoringSupportedSport } from "@workspace/platform-core";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { CityAutocomplete } from "@/components/city-autocomplete";
-import { DatePicker } from "@/components/ui/date-picker";
+import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+  Loader2,
+  Trophy,
+  MapPin,
+  Building2,
+  CheckCircle2,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Gavel,
+  Coins,
+  Calendar,
+  Layers,
+  Sparkles,
+  Info,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CatalogOptionList } from "./catalog-option-list";
 import { resolveAuctionCreateCatalogBindings } from "./auction-create-bindings";
 import {
   emptyTournamentCreationDraft,
@@ -35,15 +42,14 @@ export type TournamentCreationPayload = {
   ruleProfileVersion: string;
   presentationProfileId: string;
   presentationProfileVersion: string;
-  registrationDeadline?: string;
-  registrationLimit?: number;
-  enableRegistrationPayment?: boolean;
-  registrationFee?: number;
-  basePurse: number;
-  minBid: number;
-  bidIncrement: number;
+  auctionEnabled: boolean;
+  scoringEnabled: boolean;
+  basePurse?: number;
+  minBid?: number;
+  bidIncrement?: number;
   auctionDate?: string;
   auctionTime?: string;
+  playerRegistrationMode?: string;
 };
 
 type TournamentCreationWizardProps = {
@@ -53,20 +59,35 @@ type TournamentCreationWizardProps = {
     id: number;
     name: string;
     auctionCode?: string | null;
+    auctionEnabled?: boolean;
+    scoringEnabled?: boolean;
+    sport?: string;
   }) => void;
   submit: (payload: TournamentCreationPayload) => Promise<
-    | { success: true; tournament: { id: number; name: string; auctionCode?: string | null } }
+    | {
+        success: true;
+        tournament: {
+          id: number;
+          name: string;
+          auctionCode?: string | null;
+          auctionEnabled?: boolean;
+          scoringEnabled?: boolean;
+          sport?: string;
+        };
+      }
     | { success: false; error: string }
   >;
 };
 
-const TIME_HOURS = Array.from({ length: 12 }, (_, i) => i + 1);
-const TIME_MINUTES = ["00", "15", "30", "45"];
-
-function to24HourTime(hour: number, minute: number, period: "AM" | "PM"): string {
-  let h = hour % 12;
-  if (period === "PM") h += 12;
-  return `${String(h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+function getSportEmoji(id: string) {
+  const s = (id || "").toLowerCase();
+  if (s.includes("cricket")) return "🏏";
+  if (s.includes("badminton")) return "🏸";
+  if (s.includes("football")) return "⚽";
+  if (s.includes("kabaddi")) return "🤼";
+  if (s.includes("volleyball")) return "🏐";
+  if (s.includes("basketball")) return "🏀";
+  return "🏆";
 }
 
 export function TournamentCreationWizard({
@@ -84,36 +105,50 @@ export function TournamentCreationWizard({
 
   const step = WIZARD_STEPS[stepIndex]!;
   const sports = CatalogRegistry.listSportsForCreation();
-  const sportEntry = CatalogRegistry.getSport(draft.sportId);
   const isDialog = mode === "dialog";
 
+  const sportSupportsScoring = isScoringSupportedSport(draft.sportId);
+
   function patch(partial: Partial<TournamentCreationDraft>) {
-    setDraft((d) => ({ ...d, ...partial }));
+    setDraft((d) => {
+      const next = { ...d, ...partial };
+      // If sport changed to one that doesn't support scoring, reset productMode to auction_only
+      if (partial.sportId && !isScoringSupportedSport(partial.sportId) && next.productMode !== "auction_only") {
+        next.productMode = "auction_only";
+      }
+      return next;
+    });
     setError("");
   }
 
   function validateStep(id: WizardStepId): string | null {
     switch (id) {
-      case "identity":
+      case "details":
         if (draft.name.trim().length < 3) return "Tournament name must be at least 3 characters.";
+        if (!draft.sportId) return "Select a sport to continue.";
         if (!draft.city.trim()) return "City is required.";
         return null;
-      case "sport":
-        if (!draft.sportId) return "Select a sport.";
-        return null;
-      case "registration":
-        if (!draft.basePurse || parseInt(draft.basePurse, 10) < 1) {
-          return "Team budget (purse) is required.";
-        }
-        if (!draft.minBid || parseInt(draft.minBid, 10) < 1) {
-          return "Minimum player value is required.";
-        }
-        if (!draft.bidIncrement || parseInt(draft.bidIncrement, 10) < 1) {
-          return "Bid increase amount is required.";
+      case "products":
+        if (!draft.productMode) return "Select a product module combination to continue.";
+        if (
+          (draft.productMode === "scoring_only" || draft.productMode === "both") &&
+          !isScoringSupportedSport(draft.sportId)
+        ) {
+          return `Sports scoring is currently only supported for Cricket and Badminton. Choose Live Auction Only for ${draft.sportId}.`;
         }
         return null;
-      case "review": {
-        const bindings = resolveAuctionCreateCatalogBindings(draft.sportId);
+      case "configuration": {
+        const auctionEnabled = draft.productMode === "auction_only" || draft.productMode === "both";
+        if (auctionEnabled) {
+          const basePurse = parseInt(draft.basePurse || "0", 10);
+          const minBid = parseInt(draft.minBid || "0", 10);
+          const bidIncrement = parseInt(draft.bidIncrement || "0", 10);
+          if (isNaN(basePurse) || basePurse < 1) return "Team budget (base purse) must be at least 1.";
+          if (isNaN(minBid) || minBid < 1) return "Minimum player bid must be at least 1.";
+          if (isNaN(bidIncrement) || bidIncrement < 1) return "Bid increment must be at least 1.";
+          if (minBid > basePurse) return "Minimum bid cannot exceed the total team budget.";
+        }
+        const bindings = resolveAuctionCreateCatalogBindings(draft.sportId, draft.productMode);
         if ("error" in bindings) return bindings.error;
         return null;
       }
@@ -138,13 +173,13 @@ export function TournamentCreationWizard({
   }
 
   async function handleCreate() {
-    const err = validateStep("review");
+    const err = validateStep("configuration");
     if (err) {
       setError(err);
       return;
     }
 
-    const bindings = resolveAuctionCreateCatalogBindings(draft.sportId);
+    const bindings = resolveAuctionCreateCatalogBindings(draft.sportId, draft.productMode);
     if ("error" in bindings) {
       setError(bindings.error);
       return;
@@ -153,14 +188,8 @@ export function TournamentCreationWizard({
     setLoading(true);
     setError("");
 
-    const auctionTime =
-      draft.auctionDate && draft.auctionTimeHour
-        ? to24HourTime(
-            parseInt(draft.auctionTimeHour, 10),
-            parseInt(draft.auctionTimeMinute, 10) || 0,
-            draft.auctionTimePeriod,
-          )
-        : undefined;
+    const auctionEnabled = draft.productMode === "auction_only" || draft.productMode === "both";
+    const scoringEnabled = draft.productMode === "scoring_only" || draft.productMode === "both";
 
     const payload: TournamentCreationPayload = {
       name: draft.name.trim(),
@@ -173,19 +202,13 @@ export function TournamentCreationWizard({
       ruleProfileVersion: bindings.ruleProfileVersion,
       presentationProfileId: bindings.presentationProfileId,
       presentationProfileVersion: bindings.presentationProfileVersion,
-      registrationDeadline: draft.registrationDeadline || undefined,
-      registrationLimit: draft.registrationLimit
-        ? parseInt(draft.registrationLimit, 10)
-        : undefined,
-      enableRegistrationPayment: draft.enableRegistrationPayment,
-      registrationFee: draft.registrationFee
-        ? parseInt(draft.registrationFee, 10)
-        : undefined,
-      basePurse: parseInt(draft.basePurse, 10),
-      minBid: parseInt(draft.minBid, 10),
-      bidIncrement: parseInt(draft.bidIncrement, 10),
-      auctionDate: draft.auctionDate || undefined,
-      auctionTime,
+      auctionEnabled,
+      scoringEnabled,
+      basePurse: auctionEnabled ? parseInt(draft.basePurse || "10000000", 10) : undefined,
+      minBid: auctionEnabled ? parseInt(draft.minBid || "100000", 10) : undefined,
+      bidIncrement: auctionEnabled ? parseInt(draft.bidIncrement || "50000", 10) : undefined,
+      auctionDate: auctionEnabled && draft.auctionDate ? draft.auctionDate : undefined,
+      playerRegistrationMode: scoringEnabled && !auctionEnabled ? "scoring" : "auction",
     };
 
     const result = await submit(payload);
@@ -194,332 +217,448 @@ export function TournamentCreationWizard({
       setError(result.error || "Failed to create tournament.");
       return;
     }
-    onCreated(result.tournament);
+    onCreated({
+      ...result.tournament,
+      auctionEnabled: result.tournament.auctionEnabled ?? auctionEnabled,
+      scoringEnabled: result.tournament.scoringEnabled ?? scoringEnabled,
+      sport: result.tournament.sport ?? draft.sportId,
+    });
   }
 
-  const actions = (
-    <div
-      className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-between",
-        isDialog &&
-          "border-t border-border/60 bg-card/95 px-1 pt-3 pb-[max(0.25rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:px-0",
-      )}
-    >
-      <div className="flex gap-2">
-        {stepIndex > 0 ? (
-          <Button type="button" variant="outline" className="min-h-12 flex-1 sm:flex-none px-5" onClick={goBack}>
-            Back
-          </Button>
-        ) : onCancel ? (
-          <Button type="button" variant="ghost" className="min-h-12 flex-1 sm:flex-none px-5" onClick={onCancel}>
-            Cancel
-          </Button>
-        ) : null}
-      </div>
-      {step.id === "review" ? (
-        <Button
-          type="button"
-          className="min-h-12 flex-1 sm:flex-none px-6"
-          disabled={loading}
-          onClick={() => void handleCreate()}
-        >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-          Create Tournament
-        </Button>
-      ) : (
-        <Button type="button" className="min-h-12 flex-1 sm:flex-none px-6" onClick={goNext}>
-          Continue
-        </Button>
-      )}
-    </div>
-  );
-
   return (
-    <div
-      className={cn(
-        isDialog ? "flex min-h-0 flex-1 flex-col gap-0" : "space-y-6",
-      )}
-    >
-      <div className={cn(isDialog ? "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1" : "space-y-6")}>
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">
-            Step {stepIndex + 1} of {WIZARD_STEPS.length}
-          </p>
-          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{step.title}</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">{step.job}</p>
-          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full bg-primary transition-all"
-              style={{ width: `${((stepIndex + 1) / WIZARD_STEPS.length) * 100}%` }}
-            />
-          </div>
+    <div className={cn(isDialog ? "flex min-h-0 flex-1 flex-col gap-4" : "space-y-5")}>
+      {/* ── Stepper Indicator ── */}
+      <div className="space-y-1.5 pb-1">
+        <div className="flex items-center gap-2">
+          {WIZARD_STEPS.map((s, idx) => {
+            const isPast = idx < stepIndex;
+            const isCurrent = idx === stepIndex;
+            return (
+              <div key={s.id} className="flex-1 flex items-center gap-2">
+                <div
+                  className={cn(
+                    "flex items-center gap-1.5 py-1 px-2.5 rounded-full transition-all select-none text-xs font-semibold",
+                    isCurrent
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : isPast
+                        ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                        : "bg-white/5 border border-white/10 text-muted-foreground",
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                      isCurrent
+                        ? "bg-primary-foreground/20 text-primary-foreground"
+                        : isPast
+                          ? "bg-emerald-500/30 text-emerald-300"
+                          : "bg-white/10 text-muted-foreground",
+                    )}
+                  >
+                    {isPast ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : idx + 1}
+                  </div>
+                  <span className="tracking-tight truncate">{s.title}</span>
+                </div>
+                {idx < WIZARD_STEPS.length - 1 && (
+                  <div
+                    className={cn(
+                      "flex-1 h-[2px] rounded-full mx-1 transition-all",
+                      idx < stepIndex ? "bg-emerald-500/40" : "bg-white/10",
+                    )}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">{step.job}</p>
+      </div>
 
-        {error ? (
-          <p className="text-sm text-destructive rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
-            {error}
-          </p>
-        ) : null}
+      {error ? (
+        <div className="text-xs text-destructive rounded-xl border border-destructive/30 bg-destructive/10 px-3.5 py-2 font-medium flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse shrink-0" />
+          <span>{error}</span>
+        </div>
+      ) : null}
 
-        <div className="min-h-[220px] pb-2">
-          {step.id === "identity" && (
-            <div className="space-y-4 rounded-xl border border-border bg-background/80 p-3.5 sm:p-4">
-              <div className="space-y-2">
-                <Label>Tournament Name *</Label>
-                <Input
-                  value={draft.name}
-                  onChange={(e) => patch({ name: e.target.value })}
-                  placeholder="e.g. City Championship"
+      {/* ── Main Content Area ── */}
+      <div className="min-h-0 flex-1">
+        {/* ════════════════════ STEP 1: TOURNAMENT SETUP ════════════════════ */}
+        {step.id === "details" && (
+          <div className="space-y-4">
+            {/* Tournament Name */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-foreground/90">
+                <Trophy className="w-3.5 h-3.5 text-primary" />
+                <span>Tournament Name</span>
+                <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={draft.name}
+                onChange={(e) => patch({ name: e.target.value })}
+                className="h-11 rounded-xl bg-background/80 border-border focus:border-primary text-foreground text-sm font-medium"
+                autoFocus
+              />
+            </div>
+
+            {/* Sport Selector */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-foreground/90">
+                Select Sport <span className="text-destructive">*</span>
+              </Label>
+              <div className="grid grid-cols-3 gap-2">
+                {sports.map((sport) => {
+                  const selected = draft.sportId === sport.id;
+                  const emoji = getSportEmoji(sport.id);
+                  return (
+                    <button
+                      key={sport.id}
+                      type="button"
+                      onClick={() => patch({ sportId: sport.id })}
+                      className={cn(
+                        "flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1.5 sm:gap-2 p-2.5 sm:p-3 rounded-xl border text-center sm:text-left transition-all duration-150 cursor-pointer select-none",
+                        selected
+                          ? "border-primary bg-primary/15 shadow-sm ring-1 ring-primary/40 text-primary font-bold"
+                          : "border-border/60 bg-muted/10 hover:border-primary/40 hover:bg-muted/30 text-foreground",
+                      )}
+                    >
+                      <span className="text-xl shrink-0">{emoji}</span>
+                      <span className="text-xs font-semibold truncate">{sport.displayName}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* City & Venue */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-foreground/90">
+                  <MapPin className="w-3.5 h-3.5 text-sky-400" />
+                  <span>City</span>
+                  <span className="text-destructive">*</span>
+                </Label>
+                <CityAutocomplete
+                  value={draft.city}
+                  onChange={(v) => patch({ city: v })}
+                  minChars={2}
                 />
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>City *</Label>
-                  <CityAutocomplete
-                    value={draft.city}
-                    onChange={(v) => patch({ city: v })}
-                    placeholder="Start typing city name"
-                    minChars={3}
-                  />
+
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-foreground/90">
+                  <Building2 className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Venue / Ground</span>
+                  <span className="text-[10px] text-muted-foreground lowercase font-normal">(optional)</span>
+                </Label>
+                <Input
+                  value={draft.venue}
+                  onChange={(e) => patch({ venue: e.target.value })}
+                  className="h-11 rounded-xl bg-background/80 border-border focus:border-primary text-foreground text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════════ STEP 2: SELECT PRODUCT MODULES ════════════════════ */}
+        {step.id === "products" && (
+          <div className="space-y-3">
+            {/* Option 1: Live Auction Only */}
+            <div
+              onClick={() => patch({ productMode: "auction_only" })}
+              className={cn(
+                "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all cursor-pointer",
+                draft.productMode === "auction_only"
+                  ? "border-amber-500/80 bg-amber-500/10 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/50"
+                  : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border",
+              )}
+            >
+              <div className="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-2xl shrink-0">
+                🔨
+              </div>
+              <div className="flex-1 min-w-0 pr-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-bold text-sm text-foreground">
+                    Live Auction Only
+                  </p>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                    Auction Only
+                  </span>
                 </div>
-                <div className="space-y-2">
-                  <Label>Venue</Label>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Host-controlled player auction console, LED big screen projector view, team owner mobile bidding, and instant purse tracking. No match scoring required.
+                </p>
+              </div>
+              {draft.productMode === "auction_only" ? (
+                <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              ) : (
+                <div className="w-5 h-5 rounded-full border border-border/80 shrink-0 mt-0.5" />
+              )}
+            </div>
+
+            {/* Option 2: Standalone Sports Scoring */}
+            <div
+              onClick={() => {
+                if (sportSupportsScoring) patch({ productMode: "scoring_only" });
+              }}
+              className={cn(
+                "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all",
+                sportSupportsScoring ? "cursor-pointer" : "opacity-60 cursor-not-allowed bg-muted/20 border-dashed border-border/40",
+                draft.productMode === "scoring_only"
+                  ? "border-sky-500/80 bg-sky-500/10 shadow-md shadow-sky-500/10 ring-1 ring-sky-500/50"
+                  : sportSupportsScoring
+                    ? "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border"
+                    : "",
+              )}
+            >
+              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-2xl shrink-0">
+                📊
+              </div>
+              <div className="flex-1 min-w-0 pr-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-bold text-sm text-foreground">
+                    Sports Scoring Only (No Auction)
+                  </p>
+                  {sportSupportsScoring ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                      Live Ready
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border/50">
+                      Coming Soon
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  {sportSupportsScoring
+                    ? "Complete match scoring for leagues and tournaments. Ball-by-ball scoring pad, points table, NRR, player stats, and public match center."
+                    : `Live match scoring is currently available for Cricket and Badminton. Support for ${draft.sportId} is coming soon.`}
+                </p>
+              </div>
+              {draft.productMode === "scoring_only" ? (
+                <CheckCircle2 className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
+              ) : (
+                <div className="w-5 h-5 rounded-full border border-border/80 shrink-0 mt-0.5" />
+              )}
+            </div>
+
+            {/* Option 3: Both (Auction + Sports Scoring) */}
+            <div
+              onClick={() => {
+                if (sportSupportsScoring) patch({ productMode: "both" });
+              }}
+              className={cn(
+                "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all",
+                sportSupportsScoring ? "cursor-pointer" : "opacity-60 cursor-not-allowed bg-muted/20 border-dashed border-border/40",
+                draft.productMode === "both"
+                  ? "border-primary/80 bg-primary/10 shadow-md shadow-primary/10 ring-1 ring-primary/50"
+                  : sportSupportsScoring
+                    ? "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border"
+                    : "",
+              )}
+            >
+              <div className="w-11 h-11 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-2xl shrink-0">
+                ⚡
+              </div>
+              <div className="flex-1 min-w-0 pr-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-bold text-sm text-foreground">
+                    Both: Auction + Sports Scoring
+                  </p>
+                  {sportSupportsScoring ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary border border-primary/30">
+                      Complete Platform
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border/50">
+                      Coming Soon
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  {sportSupportsScoring
+                    ? "Run the player auction first, then seamlessly transition sold squads into tournament fixtures, live match scoring, and leaderboards."
+                    : `Requires match scoring support for ${draft.sportId}. Choose Live Auction Only for this sport.`}
+                </p>
+              </div>
+              {draft.productMode === "both" ? (
+                <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+              ) : (
+                <div className="w-5 h-5 rounded-full border border-border/80 shrink-0 mt-0.5" />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ════════════════════ STEP 3: CONFIGURE SELECTED PRODUCTS ════════════════════ */}
+        {step.id === "configuration" && (
+          <div className="space-y-4">
+            {/* If Auction is enabled, show Auction Economics */}
+            {(draft.productMode === "auction_only" || draft.productMode === "both") && (
+              <div className="space-y-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+                <div className="flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-amber-400" />
+                  <h3 className="font-bold text-sm text-foreground">Auction Economics</h3>
+                  <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                    Required for Auction
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground">Team Budget (₹)</Label>
+                    <Input
+                      type="number"
+                      value={draft.basePurse}
+                      onChange={(e) => patch({ basePurse: e.target.value })}
+                      className="h-10 text-sm font-medium"
+                    />
+                    <IndianAmountHint value={draft.basePurse} className="text-[10px]" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground">Min Player Bid (₹)</Label>
+                    <Input
+                      type="number"
+                      value={draft.minBid}
+                      onChange={(e) => patch({ minBid: e.target.value })}
+                      className="h-10 text-sm font-medium"
+                    />
+                    <IndianAmountHint value={draft.minBid} className="text-[10px]" />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-muted-foreground">Bid Increment (₹)</Label>
+                    <Input
+                      type="number"
+                      value={draft.bidIncrement}
+                      onChange={(e) => patch({ bidIncrement: e.target.value })}
+                      className="h-10 text-sm font-medium"
+                    />
+                    <IndianAmountHint value={draft.bidIncrement} className="text-[10px]" />
+                  </div>
+                </div>
+
+                <div className="space-y-1 pt-1">
+                  <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Auction Date</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">(optional)</span>
+                  </Label>
                   <Input
-                    value={draft.venue}
-                    onChange={(e) => patch({ venue: e.target.value })}
-                    placeholder="Stadium, arena, or ground"
+                    type="date"
+                    value={draft.auctionDate}
+                    onChange={(e) => patch({ auctionDate: e.target.value })}
+                    className="h-10 text-sm font-medium max-w-xs"
                   />
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {step.id === "sport" && (
-            <CatalogOptionList
-              entries={sports}
-              value={draft.sportId}
-              onSelect={(entry) => patch({ sportId: entry.id })}
-            />
-          )}
+            {/* If Scoring is enabled, show Sports Scoring Overview */}
+            {(draft.productMode === "scoring_only" || draft.productMode === "both") && (
+              <div className="space-y-2.5 rounded-2xl border border-sky-500/20 bg-sky-500/5 p-4">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-sky-400" />
+                  <h3 className="font-bold text-sm text-foreground">Sports Scoring Setup</h3>
+                  <span className="text-[10px] font-semibold text-sky-400 uppercase tracking-wider bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20">
+                    {draft.sportId.toUpperCase()}
+                  </span>
+                </div>
 
-          {step.id === "registration" && (
-            <div className="space-y-4">
-              <section className="space-y-4 rounded-xl border border-border bg-background/80 p-3.5 sm:p-4">
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold">Auction economics</p>
+                {draft.productMode === "scoring_only" && (
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Required for every auction tournament. Full auction settings remain in Tournament
-                    Settings.
+                    No auction economics required. Teams can register complete squads directly, and match fixtures can be scheduled immediately.
+                  </p>
+                )}
+
+                {draft.productMode === "both" && (
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Sold players from the auction will automatically populate team squads for match scoring once the auction concludes.
+                  </p>
+                )}
+
+                <div className="rounded-xl border border-border/50 bg-background/50 p-3 text-xs space-y-1 text-muted-foreground">
+                  <div className="flex items-center gap-1.5 font-medium text-foreground">
+                    <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+                    <span>Included Match Capabilities:</span>
+                  </div>
+                  {draft.sportId.toLowerCase() === "cricket" ? (
+                    <ul className="list-disc list-inside space-y-0.5 pl-1 text-[11px]">
+                      <li>Ball-by-ball digital scoring pad with overs, wickets, boundaries, and extras</li>
+                      <li>Automated Net Run Rate (NRR) calculation and tournament points table</li>
+                      <li>Match Center with live spectator updates and player statistics</li>
+                    </ul>
+                  ) : (
+                    <ul className="list-disc list-inside space-y-0.5 pl-1 text-[11px]">
+                      <li>Standard BWF scoring engine with point-by-point tracking and service rotation</li>
+                      <li>Category management (Singles, Doubles, Mixed) and court allocation</li>
+                      <li>Tournament draw progression, standings, and player profiles</li>
+                    </ul>
+                  )}
+                  <p className="text-[10px] text-muted-foreground/80 pt-1 italic">
+                    Note: Detailed match rules and squad limits can be fine-tuned inside the Match Command Center after creation.
                   </p>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Team budget (purse) *</Label>
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      value={draft.basePurse}
-                      onChange={(e) => patch({ basePurse: e.target.value })}
-                      placeholder="e.g. 10000000"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Minimum player value *</Label>
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      value={draft.minBid}
-                      onChange={(e) => patch({ minBid: e.target.value })}
-                      placeholder="e.g. 100000"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Bid increase *</Label>
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      value={draft.bidIncrement}
-                      onChange={(e) => patch({ bidIncrement: e.target.value })}
-                      placeholder="e.g. 50000"
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Auction date</Label>
-                    <DatePicker
-                      value={draft.auctionDate}
-                      onChange={(auctionDate) => patch({ auctionDate })}
-                      placeholder="Optional"
-                      disablePastDates
-                      className="min-h-11"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Auction time</Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <Select
-                        value={draft.auctionTimeHour || undefined}
-                        onValueChange={(v) => patch({ auctionTimeHour: v })}
-                      >
-                        <SelectTrigger aria-label="Hour">
-                          <SelectValue placeholder="Hour" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TIME_HOURS.map((h) => (
-                            <SelectItem key={h} value={String(h)}>
-                              {h}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select
-                        value={draft.auctionTimeMinute}
-                        onValueChange={(v) => patch({ auctionTimeMinute: v })}
-                      >
-                        <SelectTrigger aria-label="Minute">
-                          <SelectValue placeholder="Min" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {TIME_MINUTES.map((m) => (
-                            <SelectItem key={m} value={m}>
-                              {m}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select
-                        value={draft.auctionTimePeriod}
-                        onValueChange={(v) =>
-                          patch({ auctionTimePeriod: v as "AM" | "PM" })
-                        }
-                      >
-                        <SelectTrigger aria-label="AM or PM">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="AM">AM</SelectItem>
-                          <SelectItem value="PM">PM</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              </section>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
-              <section className="space-y-4 rounded-xl border border-border bg-background/80 p-3.5 sm:p-4">
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold">Registration</p>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Optional signup limits and fee collection.
-                  </p>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Registration deadline</Label>
-                    <DatePicker
-                      value={draft.registrationDeadline}
-                      onChange={(registrationDeadline) => patch({ registrationDeadline })}
-                      placeholder="Optional"
-                      className="min-h-11"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Registration limit</Label>
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      value={draft.registrationLimit}
-                      onChange={(e) => patch({ registrationLimit: e.target.value })}
-                      placeholder="Optional max registrations"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-rail px-3.5 py-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">Registration payment</p>
-                    <p className="text-xs text-muted-foreground">Collect a fee at signup</p>
-                  </div>
-                  <Switch
-                    checked={draft.enableRegistrationPayment}
-                    onCheckedChange={(enableRegistrationPayment) =>
-                      patch({ enableRegistrationPayment })
-                    }
-                  />
-                </div>
-                {draft.enableRegistrationPayment ? (
-                  <div className="space-y-2">
-                    <Label>Registration fee</Label>
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      value={draft.registrationFee}
-                      onChange={(e) => patch({ registrationFee: e.target.value })}
-                      placeholder="Amount"
-                    />
-                  </div>
-                ) : null}
-              </section>
-            </div>
-          )}
+      {/* ── Footer Actions ── */}
+      <div className="shrink-0 pt-3 border-t border-border/40 flex flex-col-reverse sm:flex-row sm:justify-between items-center gap-2">
+        <div>
+          {stepIndex > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 px-5 rounded-xl font-semibold gap-1.5 cursor-pointer border-border/60 bg-muted/20 hover:bg-muted/40 text-foreground"
+              onClick={goBack}
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back
+            </Button>
+          ) : onCancel ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-11 px-4 rounded-xl font-medium text-muted-foreground hover:text-foreground cursor-pointer"
+              onClick={onCancel}
+            >
+              Cancel
+            </Button>
+          ) : null}
+        </div>
 
-          {step.id === "review" && (
-            <div className="space-y-3 rounded-xl border border-border bg-background/80 p-3.5 sm:p-4">
-              <p className="text-sm font-semibold">Auction tournament</p>
-              <BlueprintRow label="Name" value={draft.name.trim()} />
-              <BlueprintRow label="Sport" value={sportEntry?.displayName ?? draft.sportId} />
-              <BlueprintRow label="City" value={draft.city.trim()} />
-              {draft.venue.trim() ? (
-                <BlueprintRow label="Venue" value={draft.venue.trim()} />
-              ) : null}
-              <BlueprintRow label="Team budget" value={draft.basePurse || "—"} />
-              <BlueprintRow label="Minimum bid" value={draft.minBid || "—"} />
-              <BlueprintRow label="Bid increase" value={draft.bidIncrement || "—"} />
-              <BlueprintRow
-                label="Auction schedule"
-                value={
-                  draft.auctionDate
-                    ? `${draft.auctionDate}${
-                        draft.auctionTimeHour
-                          ? ` · ${draft.auctionTimeHour}:${draft.auctionTimeMinute} ${draft.auctionTimePeriod}`
-                          : ""
-                      }`
-                    : "Not set"
-                }
-              />
-              <BlueprintRow
-                label="Registration"
-                value={[
-                  draft.registrationDeadline
-                    ? `Deadline ${draft.registrationDeadline}`
-                    : "No deadline",
-                  draft.registrationLimit ? `Limit ${draft.registrationLimit}` : "No limit",
-                  draft.enableRegistrationPayment
-                    ? `Fee ${draft.registrationFee || "—"}`
-                    : "Payment off",
-                ].join(" · ")}
-              />
-              <p className="text-xs text-muted-foreground pt-2 leading-relaxed">
-                How teams enter, squads, and scoring setup are configured later in Sports — after you
-                open the Sports module for this tournament.
-              </p>
-            </div>
+        <div className="w-full sm:w-auto">
+          {stepIndex === WIZARD_STEPS.length - 1 ? (
+            <Button
+              type="button"
+              className="w-full sm:w-auto h-12 px-8 rounded-xl font-display font-black text-base tracking-wide bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 shadow-xl shadow-amber-400/25 hover:shadow-amber-400/40 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
+              disabled={loading}
+              onClick={() => void handleCreate()}
+            >
+              {loading ? (
+                <Loader2 className="w-5 h-5 animate-spin text-slate-950" />
+              ) : (
+                <Gavel className="w-5 h-5 text-slate-950 stroke-[2.5]" />
+              )}
+              <span>Create Tournament →</span>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              className="w-full sm:w-auto h-11 px-7 rounded-xl font-display font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 gap-2 cursor-pointer transition-all active:scale-[0.98]"
+              onClick={goNext}
+            >
+              <span>Continue →</span>
+              <ArrowRight className="w-4 h-4" />
+            </Button>
           )}
         </div>
       </div>
-
-      {isDialog ? <div className="shrink-0 pt-1">{actions}</div> : actions}
-    </div>
-  );
-}
-
-function BlueprintRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start justify-between gap-4 border-b border-border/50 py-2.5 last:border-0 last:pb-0 first:pt-0">
-      <span className="text-xs uppercase tracking-wide text-muted-foreground shrink-0">{label}</span>
-      <span className="text-sm font-medium text-right break-words">{value}</span>
     </div>
   );
 }

@@ -26,6 +26,15 @@ export type ViteApiProxyOptions = {
         res: ServerResponse,
       ) => void,
     ): void;
+    on(
+      event: "error",
+      listener: (
+        err: unknown,
+        req: IncomingMessage,
+        res: ServerResponse,
+      ) => void,
+    ): void;
+    on(event: string, listener: (...args: any[]) => void): void;
   }) => void;
 };
 
@@ -165,7 +174,7 @@ export function createViteApiProxy(): Record<string, ViteApiProxyOptions> {
       secure: false,
       ws: true,
       configure: (proxy) => {
-        proxy.on("error", (err, _req, res) => {
+        (proxy as any).on("error", (_err: unknown, _req: unknown, res: any) => {
           // SSE / long-poll connections reset when the API restarts — avoid crashing Vite.
           if (res && !res.headersSent && typeof res.writeHead === "function") {
             res.writeHead(502, { "Content-Type": "text/plain" });
@@ -225,9 +234,10 @@ export function createViteOwnerAppProxy(): Record<string, ViteApiProxyOptions> {
         const pathname = (req.url ?? "/").split("?")[0] ?? "/";
         // Manifest is served by the API (dynamic branding). Do not SPA-fallback via owner-app Vite.
         if (pathname === OWNER_APP_MANIFEST_PATH) return false;
+        return undefined;
       },
       configure: (proxy) => {
-        proxy.on("error", (err, _req, res) => {
+        (proxy as any).on("error", (err: unknown, _req: unknown, res: any) => {
           if (res && !res.headersSent && typeof res.writeHead === "function") {
             const body = ownerAppProxyUnavailableHtml(target);
             res.writeHead(502, {
@@ -286,7 +296,7 @@ export function createViteScoringAppProxy(): Record<string, ViteApiProxyOptions>
       ws: true,
       selfHandleResponse: true,
       configure: (proxy) => {
-        proxy.on("error", (err, _req, res) => {
+        (proxy as any).on("error", (err: unknown, _req: unknown, res: any) => {
           if (res && !res.headersSent && typeof res.writeHead === "function") {
             const body = scoringAppProxyUnavailableHtml(target);
             res.writeHead(502, {
@@ -400,7 +410,7 @@ export function createViteMobileAppProxy(): Record<string, ViteApiProxyOptions> 
       ws: true,
       selfHandleResponse: true,
       configure: (proxy) => {
-        proxy.on("error", (err, _req, res) => {
+        (proxy as any).on("error", (err: unknown, _req: unknown, res: any) => {
           if (res && !res.headersSent && typeof res.writeHead === "function") {
             const body = mobileAppProxyUnavailableHtml(target);
             res.writeHead(502, {
@@ -625,6 +635,13 @@ function isAuctionHtmlNavigation(
   return !pathname.includes(".");
 }
 
+const devProxyKeepAliveAgent = new http.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30000,
+  maxSockets: 64,
+  maxFreeSockets: 32,
+});
+
 function forwardHttp(
   req: IncomingMessage,
   res: ServerResponse,
@@ -649,6 +666,7 @@ function forwardHttp(
       port: target.port || 80,
       path,
       method: req.method,
+      agent: devProxyKeepAliveAgent,
       headers: {
         ...req.headers,
         host: target.host,

@@ -42,6 +42,7 @@
     "./sponsor-priority": "./src/sponsor-priority.ts",
     "./registration-url": "./src/registration-url.ts",
     "./registration-fields": "./src/registration-fields.ts",
+    "./player-registration-mode": "./src/player-registration-mode.ts",
     "./branding-assets": "./src/branding-assets.ts",
     "./api-fetch": "./src/api-fetch.ts",
     "./branding-icon-head": "./src/branding-icon-head.ts",

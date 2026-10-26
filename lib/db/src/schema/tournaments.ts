@@ -40,6 +40,8 @@ export const tournamentsTable = pgTable("tournaments", {
   bidExtensionEnabled: boolean("bid_extension_enabled").notNull().default(false),
   bidExtensionThresholdSeconds: integer("bid_extension_threshold_seconds").notNull().default(3),
   bidExtensionSeconds: integer("bid_extension_seconds").notNull().default(5),
+  /** When false, online owner bidding is blocked across the tournament (e.g. for paddle/placard mode) */
+  ownerBiddingEnabled: boolean("owner_bidding_enabled").notNull().default(true),
   playerSelectionMode: text("player_selection_mode").notNull().default("random"),
   status: text("status").notNull().default("setup"),
   // Player registration link controls
@@ -112,6 +114,23 @@ export const tournamentsTable = pgTable("tournaments", {
   registrationFieldsJson: jsonb("registration_fields_json").$type<{
     hidden?: string[];
   }>(),
+  /**
+   * Public player registration purpose: `auction` (default) or `scoring`.
+   * Independent of catalog `registration_mode_id`.
+   */
+  playerRegistrationMode: text("player_registration_mode").notNull().default("auction"),
+  /**
+   * How existing `categories` (tournament divisions) appear on public registration.
+   * `hidden` | `player_select` | `organizer_assign`
+   */
+  registrationCategoryMode: text("registration_category_mode").notNull().default("hidden"),
+  // Product modules (orthogonal capabilities)
+  /**
+   * Auction module enablement flag.
+   * NOTE: default(true) is strictly a backward-compatibility database bridge for legacy rows.
+   * It is NOT a permanent business default for newly created tournaments.
+   */
+  auctionEnabled: boolean("auction_enabled").notNull().default(true),
   // Scoring module (orthogonal to auction status)
   scoringEnabled: boolean("scoring_enabled").notNull().default(false),
   scoringPhase: text("scoring_phase").notNull().default("disabled"),

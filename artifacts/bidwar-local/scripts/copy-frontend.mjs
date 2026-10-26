@@ -31,8 +31,9 @@ const apps = [
 ];
 
 function copyDist({ name, filter, srcDist, destDist }) {
-  console.log(`Building ${name}...`);
-  execSync(`pnpm --filter ${filter} run build`, {
+  if (!existsSync(srcDist) || !existsSync(resolve(srcDist, "index.html"))) {
+    console.log(`Building ${name}...`);
+    execSync(`pnpm --filter ${filter} run build`, {
     cwd: repoRoot,
     stdio: "inherit",
     env: {
@@ -41,6 +42,8 @@ function copyDist({ name, filter, srcDist, destDist }) {
       BASE_PATH: process.env.BASE_PATH || "/",
     },
   });
+
+  }
 
   if (!existsSync(srcDist)) {
     throw new Error(`${name} build output not found at ${srcDist}`);

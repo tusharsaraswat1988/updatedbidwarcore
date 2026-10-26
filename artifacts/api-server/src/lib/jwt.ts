@@ -20,6 +20,7 @@ export interface AuthClaims {
   /** Tournament Director role — per-tournament match administration. */
   tournamentDirector?: Record<string, true>;
   organizerAccountId?: number;
+  email?: string;
 }
 
 export interface OAuthState {
@@ -55,6 +56,8 @@ export interface OwnerSessionClaims {
   sessionId: string;
   tournamentId: number;
   teamId: number;
+  /** Multi-team authorization map: key `${tournamentId}:${teamId}` -> sessionId */
+  teams?: Record<string, string>;
 }
 
 /** Scorer module JWT — Bearer auth for live scoring. */

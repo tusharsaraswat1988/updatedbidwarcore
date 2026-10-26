@@ -1,16 +1,34 @@
+import { TrialDemoCard } from "@/components/trial-demo/trial-demo-card";
 import { useState } from "react";
 import { useRoute, useLocation, useSearch } from "wouter";
 import { useResetTrialAuction, useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@workspace/api-base/api-fetch";
 import { applyAuctionResetState } from "@/lib/sync-auction-sse";
 import { AppLayout } from "@/components/layout";
-import { OrganizerSectionHeader } from "@/components/organizer-page-chrome";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AlertTriangle, RefreshCw, ShieldCheck, CheckCircle2, ArrowLeft } from "lucide-react";
 import { resolveReturnPath, returnPathBackLabel } from "@/lib/tournament-navigation";
+
+const PRACTICE_ERASED_ITEMS = [
+  "Sold / unsold results — players back to Available",
+  "All bids and live feed history",
+  "AI reports (replay, behavior, demand, briefing)",
+  "Team purse usage and active boosters",
+] as const;
+
+const DEMO_ERASED_ITEMS = [
+  "Demo teams, players, and their photos",
+  "Demo sponsors and logos",
+  "Demo categories created for the sample auction",
+  "Demo owner access codes and sign-in sessions",
+  "Demo bids, sold and unsold results, and feed history",
+  "Demo retained-player assignments",
+  "Demo auction settings you have not changed since loading",
+] as const;
 
 export default function AuctionReset() {
   const [, params] = useRoute("/tournament/:id/reset");
@@ -28,8 +46,21 @@ export default function AuctionReset() {
   });
 
   const resetMut = useResetTrialAuction();
+  const demoSession = useQuery({
+    queryKey: ["auction-demo-session", tournamentId],
+    enabled: !!tournamentId,
+    queryFn: async () => {
+      const response = await apiFetch(`/tournaments/${tournamentId}/auction/demo-session`);
+      if (!response.ok) return { loaded: false as const };
+      const body = (await response.json()) as { loaded?: boolean };
+      return { loaded: body.loaded === true };
+    },
+  });
+  const demoLoaded = demoSession.data?.loaded === true;
+  const erasedItems = demoLoaded ? DEMO_ERASED_ITEMS : PRACTICE_ERASED_ITEMS;
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
 
   const confirmPhrase = "reset";
@@ -59,10 +90,17 @@ export default function AuctionReset() {
         data: { password: "", reason: "", resetContext: "organizer" },
       });
       applyAuctionResetState(qc, tournamentId, state);
+      const resetMode = (state as { resetMode?: string }).resetMode;
+      setSuccessMessage(
+        resetMode === "demo"
+          ? "Demo data removed. Your original tournament records are still here."
+          : "Reset complete. Practice auction activity is cleared.",
+      );
       setSuccess(true);
       setConfirmText("");
       qc.invalidateQueries({ queryKey: getGetTournamentQueryKey(tournamentId) });
-      await refetchTournament();
+      qc.invalidateQueries({ queryKey: ["auction-demo-session", tournamentId] });
+      void refetchTournament();
     } catch (e: unknown) {
       const err = e as { data?: { error?: string } | null; message?: string };
       const apiMessage =
@@ -76,135 +114,136 @@ export default function AuctionReset() {
 
   return (
     <AppLayout tournamentId={tournamentId}>
-      <div className="space-y-6 max-w-3xl">
-        <OrganizerSectionHeader
-          tournament={tournament}
-          title={<><RefreshCw className="w-7 h-7 text-red-400 inline-block mr-3 align-middle" />Clear Practice Data</>}
-          titleClassName="font-display font-black text-3xl md:text-4xl tracking-tight text-foreground flex items-center gap-3"
-          description="Remove practice bids and return players to the pool. Teams and player list stay safe."
-          actions={
-          <Button variant="ghost" className="gap-2" onClick={goBack}>
-            <ArrowLeft className="w-4 h-4" /> {backLabel}
-          </Button>
-          }
-        />
+      <div className="max-w-2xl space-y-3">
+        <div className="min-w-0">
+          <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <RefreshCw className="w-6 h-6 text-red-400 shrink-0" aria-hidden />
+            {demoLoaded ? "Clear Trial Demo Data" : "Clear Practice Data"}
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1 leading-snug">
+            {demoLoaded
+              ? "Removes loaded sample teams, players, sponsors, and demo auction activity. Your original tournament data is preserved."
+              : "Removes practice auction activity and resets team purses. Your original tournament data is preserved."}
+          </p>
+        </div>
 
-        <Card className="border border-red-500/30 bg-red-500/5">
-          <CardContent className="p-5 flex items-start gap-4">
-            <ShieldCheck className="w-7 h-7 text-red-400 flex-shrink-0 mt-0.5" />
-            <div className="space-y-1 flex-1">
-              <h2 className="font-bold text-lg text-red-300">
-                {isCompleted ? "Reset unavailable" : "Organizer session verified"}
-              </h2>
-              {isCompleted ? (
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  This tournament is marked as completed. Practice auction data can no longer be cleared from the organizer panel.
-                </p>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    You are signed in as the organizer for this tournament. Confirm below to clear practice auction data.
-                    {resetCount > 0 && ` This tournament has been reset ${resetCount} time${resetCount === 1 ? "" : "s"} before.`}
-                    {" "}Once the tournament is marked completed, reset will no longer be available from the organizer panel.
-                  </p>
-                  {lastResetAt && (
-                    <p className="text-xs text-muted-foreground/80 pt-1">
-                      Last reset on <span className="font-semibold text-foreground/90">{lastResetAt.toLocaleString()}</span>
+        <Card className="border border-red-500/35 bg-red-500/[0.06] overflow-hidden">
+          <CardContent className="p-3 sm:p-4 space-y-3">
+            <div className="flex items-start gap-2.5">
+              <ShieldCheck className="w-5 h-5 text-red-400 shrink-0 mt-0.5" aria-hidden />
+              <div className="min-w-0 flex-1 text-xs sm:text-sm leading-snug">
+                {isCompleted ? (
+                  <p className="font-semibold text-red-300">Reset unavailable — tournament is completed.</p>
+                ) : (
+                  <>
+                    <p className="font-semibold text-red-200/95">Organizer verified</p>
+                    <p className="text-muted-foreground mt-0.5">
+                      {resetCount > 0
+                        ? `Reset ${resetCount} time${resetCount === 1 ? "" : "s"} before. `
+                        : null}
+                      {lastResetAt ? (
+                        <>
+                          Last:{" "}
+                          <span className="text-foreground/90 font-medium">
+                            {lastResetAt.toLocaleString(undefined, {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })}
+                          </span>
+                          .{" "}
+                        </>
+                      ) : null}
+                      Each reset is logged.
                     </p>
-                  )}
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {!isCompleted && (
-        <>
-        <Card className="border border-red-500/40 bg-red-500/5">
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-400" />
-              <h3 className="font-bold text-red-300">The following will be permanently erased</h3>
-            </div>
-            <ul className="text-sm text-red-200/80 space-y-1.5 list-disc list-inside pl-1">
-              <li>Every sold / unsold result — all players reset to "Available"</li>
-              <li>All bid records and live bid feed history for this tournament</li>
-              <li>All AI intelligence data (replay, behavior, demand, and briefing reports)</li>
-              <li>All purse usage for every team (back to full purse)</li>
-              <li>All active purse boosters (teams return to original purse capacity)</li>
-            </ul>
-            <p className="text-sm text-muted-foreground pt-1">
-              Retained players and their reserved purse amounts will{" "}
-              <span className="font-semibold text-foreground">not</span> be affected.
-            </p>
-            <p className="text-xs font-bold text-red-500 uppercase tracking-wide pt-1">
-              This action cannot be undone.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-border">
-          <CardContent className="p-5 space-y-4">
-            <p className="text-[11px] text-muted-foreground">
-              Reset is blocked once the tournament is completed. Each reset is logged automatically with date and time.
-            </p>
-
-            {error && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm text-red-300">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>{error}</span>
+                  </>
+                )}
               </div>
-            )}
-            {success && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-sm text-emerald-300">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>Reset complete. The tournament is now back to setup state.</span>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="reset-confirm" className="text-sm">
-                Type <span className="font-mono font-semibold text-red-300">reset</span> to confirm
-              </Label>
-              <Input
-                id="reset-confirm"
-                value={confirmText}
-                onChange={(e) => {
-                  setConfirmText(e.target.value);
-                  if (error?.includes("Type")) setError(null);
-                }}
-                placeholder="reset"
-                autoComplete="off"
-                spellCheck={false}
-                disabled={resetMut.isPending || success}
-                className="font-mono"
-              />
             </div>
 
-            <div className="flex gap-3 pt-1">
-              <Button
-                className="flex-1 bg-red-700 hover:bg-red-600 text-white border-red-600 shadow-[0_0_20px_rgba(239,68,68,0.3)] gap-2"
-                disabled={resetMut.isPending || success || !confirmMatches}
-                onClick={handleReset}
-              >
-                <RefreshCw className={`w-4 h-4 ${resetMut.isPending ? "animate-spin" : ""}`} />
-                {resetMut.isPending ? "Resetting..." : "Yes, reset everything"}
+            {!isCompleted ? (
+              <>
+                <div className="rounded-md border border-red-500/30 bg-red-950/20 px-3 py-2">
+                  <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wide text-red-300 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                    Permanently erased
+                  </p>
+                  <ul className="mt-1.5 grid sm:grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] sm:text-xs text-red-100/75 list-disc list-inside">
+                    {erasedItems.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  <p className="text-[11px] sm:text-xs text-muted-foreground mt-1.5 leading-snug">
+                    {demoLoaded
+                      ? "Original teams, players, sponsors, photos, and settings stay. "
+                      : "No demo session is loaded, so this only clears practice auction activity. Teams, players, sponsors, and settings stay. Retained players are kept. "}
+                    <span className="font-bold text-red-400 uppercase">Cannot be undone.</span>
+                  </p>
+                </div>
+
+                {error ? (
+                  <div className="flex items-start gap-2 p-2 rounded-md bg-red-500/10 border border-red-500/30 text-xs text-red-300">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden />
+                    <span>{error}</span>
+                  </div>
+                ) : null}
+                {success ? (
+                  <div className="flex items-start gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden />
+                    <span>{successMessage}</span>
+                  </div>
+                ) : null}
+
+                <div className="flex flex-col sm:flex-row sm:items-end gap-2 sm:gap-3 pt-0.5">
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <Label htmlFor="reset-confirm" className="text-xs">
+                      Type <span className="font-mono font-semibold text-red-300">reset</span> to confirm
+                    </Label>
+                    <Input
+                      id="reset-confirm"
+                      value={confirmText}
+                      onChange={(e) => {
+                        setConfirmText(e.target.value);
+                        if (error?.includes("Type")) setError(null);
+                      }}
+                      placeholder="reset"
+                      autoComplete="off"
+                      spellCheck={false}
+                      disabled={resetMut.isPending || success}
+                      className="font-mono h-9 text-sm"
+                    />
+                  </div>
+                  <div className="flex gap-2 sm:pb-0.5 shrink-0">
+                    <Button
+                      size="sm"
+                      className="flex-1 sm:flex-none bg-red-700 hover:bg-red-600 text-white border-red-600 gap-1.5 h-9 px-4"
+                      disabled={resetMut.isPending || success || !confirmMatches}
+                      onClick={handleReset}
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${resetMut.isPending ? "animate-spin" : ""}`} aria-hidden />
+                      {resetMut.isPending ? "Clearing…" : demoLoaded ? "Clear Trial Demo Data" : "Reset Auction Bids"}
+                    </Button>
+                    <Button variant="outline" size="sm" className="h-9 gap-1.5" onClick={goBack}>
+                      <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
+                      {backLabel}
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <Button variant="outline" size="sm" onClick={goBack} className="gap-1.5 h-9">
+                <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
+                {backLabel}
               </Button>
-              <Button variant="outline" onClick={goBack}>
-                Cancel
-              </Button>
-            </div>
+            )}
           </CardContent>
         </Card>
-        </>
-        )}
 
-        {isCompleted && (
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={goBack} className="gap-2">
-              <ArrowLeft className="w-4 h-4" /> {backLabel}
-            </Button>
-          </div>
+        {tournament?.licenseStatus === "trial" && !demoLoaded && (
+          <TrialDemoCard
+            tournamentId={tournamentId}
+            tournament={tournament}
+            returnTo={returnTo}
+          />
         )}
       </div>
     </AppLayout>

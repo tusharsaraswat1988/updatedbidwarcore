@@ -4,6 +4,7 @@ import {
   getOrganizerLicenseBadgeKind,
   isOrganizerTournamentActive,
   isOrganizerTournamentCompleted,
+  resolveOrganizerAuctionCta,
   resolveOrganizerScoringCta,
 } from "../organizer-tournament-display";
 
@@ -59,11 +60,29 @@ describe("getOrganizerAuctionStatusLabel", () => {
   });
 });
 
+describe("resolveOrganizerAuctionCta", () => {
+  it("is active when auction was selected, including legacy tournaments that omit the flag", () => {
+    expect(resolveOrganizerAuctionCta({ auctionEnabled: true })).toBe("active");
+    expect(resolveOrganizerAuctionCta({ auctionEnabled: undefined })).toBe("active");
+    expect(resolveOrganizerAuctionCta({})).toBe("active");
+  });
+
+  it("is not selected when the organizer did not take auction", () => {
+    expect(resolveOrganizerAuctionCta({ auctionEnabled: false })).toBe("not-selected");
+  });
+});
+
 describe("resolveOrganizerScoringCta", () => {
-  it("asks admin only when scoringEnabled is explicitly false", () => {
+  it("follows the scoring option for cricket and badminton", () => {
     expect(
       resolveOrganizerScoringCta({
         sport: "cricket",
+        scoringEnabled: true,
+      }),
+    ).toBe("active");
+    expect(
+      resolveOrganizerScoringCta({
+        sport: "Badminton",
         scoringEnabled: true,
       }),
     ).toBe("active");
@@ -72,24 +91,32 @@ describe("resolveOrganizerScoringCta", () => {
         sport: "cricket",
         scoringEnabled: false,
       }),
-    ).toBe("needs-admin");
-    // Older /me payloads omit the field — do not show a false admin warning
+    ).toBe("not-selected");
     expect(
       resolveOrganizerScoringCta({
         sport: "cricket",
         scoringEnabled: undefined,
       }),
-    ).toBe("active");
+    ).toBe("not-selected");
     expect(
       resolveOrganizerScoringCta({
         sport: "badminton",
         scoringEnabled: null,
       }),
-    ).toBe("active");
+    ).toBe("not-selected");
+  });
+
+  it("keeps Coming Soon for sports whose scoring is not live", () => {
     expect(
       resolveOrganizerScoringCta({
         sport: "football",
         scoringEnabled: true,
+      }),
+    ).toBe("coming-soon");
+    expect(
+      resolveOrganizerScoringCta({
+        sport: "kabaddi",
+        scoringEnabled: false,
       }),
     ).toBe("coming-soon");
   });

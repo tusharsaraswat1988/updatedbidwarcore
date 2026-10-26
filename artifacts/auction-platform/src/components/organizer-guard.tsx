@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
 import { useOrganizerAuth, useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
@@ -18,6 +18,14 @@ import {
   syncOrganizerAccountAuth,
 } from "@/lib/organizer-account-auth-cache";
 import { useQueryClient } from "@tanstack/react-query";
+import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
+import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, ArrowRight } from "lucide-react";
+import {
+  auctionOverviewPath,
+  resolveScoringEntryPath,
+} from "@/lib/tournament-navigation";
 
 function OrganizerAccessLoading({ badmintonRoute }: { badmintonRoute: boolean }) {
   if (badmintonRoute) {
@@ -38,9 +46,8 @@ function OrganizerAccessLoading({ badmintonRoute }: { badmintonRoute: boolean })
           <Shield className="w-5 h-5 animate-pulse" />
           <span className="text-sm">Checking access...</span>
         </div>
-        <Skeleton className="h-10 w-48" />
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-48 w-full" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-64 w-full" />
       </div>
     </div>
   );
@@ -50,17 +57,34 @@ function scoringLoginUrl(returnTo: string): string {
   return `${SCORING_APP_BASE}/login?next=${encodeURIComponent(returnTo)}`;
 }
 
-export function OrganizerGuard({ tournamentId, children }: { tournamentId: number; children: ReactNode }) {
+export function OrganizerGuard({
+  tournamentId,
+  requiredModule,
+  requiredSport,
+  children,
+}: {
+  tournamentId: number;
+  requiredModule?: "auction" | "scoring";
+  requiredSport?: "cricket" | "badminton" | string;
+  children: ReactNode;
+}) {
   const { isLoggedIn, isLoading, refetch } = useOrganizerAuth(tournamentId);
   const { isLoading: accountLoading } = useOrganizerAccountAuth();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
+  const search = useSearch();
   const queryClient = useQueryClient();
 
-  const [location] = useLocation();
+  const { data: tournament } = useGetTournament(tournamentId, {
+    query: {
+      queryKey: getGetTournamentQueryKey(tournamentId),
+      enabled: !!tournamentId && (!!requiredModule || !!requiredSport),
+    },
+  });
+
   const badmintonRoute = isBadmintonOrganizerPath(location);
   const inScoringApp =
     typeof window !== "undefined" &&
-    window.location.pathname.startsWith(SCORING_APP_BASE);
+    location.startsWith(SCORING_APP_BASE);
 
   const [accessDenied, setAccessDenied] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -85,7 +109,7 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
 
     redirectedRef.current = true;
     setResolvingAccount(true);
-    const returnTo = `${window.location.pathname}${window.location.search}`;
+    const returnTo = `${location}${search ? `?${search}` : ""}`;
 
     void (async () => {
       try {
@@ -131,7 +155,7 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
         setResolvingAccount(false);
       }
     })();
-  }, [authSettled, isLoggedIn, tournamentId, navigate, inScoringApp, refetch, queryClient]);
+  }, [authSettled, isLoggedIn, tournamentId, navigate, inScoringApp, refetch, queryClient, location, search]);
 
   if (sessionExpired) {
     return (
@@ -139,7 +163,7 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
         code={401}
         actionLabel="Sign in again"
         onAction={() => {
-          const returnTo = `${window.location.pathname}${window.location.search}`;
+          const returnTo = `${location}${search ? `?${search}` : ""}`;
           if (inScoringApp) {
             window.location.href = scoringLoginUrl(returnTo);
             return;
@@ -156,7 +180,7 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
         code={403}
         actionLabel="Sign in with another account"
         onAction={() => {
-          const returnTo = `${window.location.pathname}${window.location.search}`;
+          const returnTo = `${location}${search ? `?${search}` : ""}`;
           void (async () => {
             await logoutOrganizerAccount();
             clearOrganizerClientState(queryClient);
@@ -193,6 +217,108 @@ export function OrganizerGuard({ tournamentId, children }: { tournamentId: numbe
         Redirecting to sign in…
       </div>
     );
+  }
+
+  if (tournament && requiredModule === "auction" && !isAuctionEnabled(tournament)) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="max-w-md w-full rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center space-y-4">
+          <AlertCircle className="w-10 h-10 text-destructive mx-auto" />
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold text-foreground">Auction Workspace Not Enabled</h2>
+            <p className="text-sm text-muted-foreground">
+              This tournament is configured for Sports Scoring only. The Auction module is disabled.
+            </p>
+          </div>
+          {isScoringEnabled(tournament) && (
+            <div className="flex justify-center pt-1">
+              <Button
+                onClick={() => {
+                  const s = (tournament?.sport || "").toLowerCase();
+                  if (s.includes("badminton")) {
+                    navigate(`/tournament/${tournamentId}/badminton`);
+                  } else if (s.includes("cricket") && location.endsWith("/teams")) {
+                    navigate(`/tournament/${tournamentId}/score/teams`);
+                  } else {
+                    navigate(resolveScoringEntryPath(tournamentId, tournament?.sport));
+                  }
+                }}
+                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                <span>
+                  {location.endsWith("/teams") && (tournament?.sport || "").toLowerCase().includes("cricket")
+                    ? "Go to Cricket Teams"
+                    : "Go to Sports Scoring"}
+                </span>
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (tournament && (requiredModule === "scoring" || requiredSport) && !isScoringEnabled(tournament)) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="max-w-md w-full rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center space-y-4">
+          <AlertCircle className="w-10 h-10 text-destructive mx-auto" />
+          <div className="space-y-1">
+            <h2 className="text-lg font-bold text-foreground">Sports Scoring Not Enabled</h2>
+            <p className="text-sm text-muted-foreground">
+              This tournament is configured for Auction only. The Sports Scoring module is disabled.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => navigate(auctionOverviewPath(tournamentId))}
+            className="gap-2"
+          >
+            Go to Auction Overview
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (tournament && requiredSport) {
+    const currentSport = (tournament.sport || "").toLowerCase().trim();
+    const targetSport = requiredSport.toLowerCase().trim();
+    if (currentSport !== targetSport) {
+      const displaySport = tournament.sport
+        ? tournament.sport.charAt(0).toUpperCase() + tournament.sport.slice(1)
+        : "Unknown";
+      const requiredDisplay = requiredSport.charAt(0).toUpperCase() + requiredSport.slice(1);
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center p-6">
+          <div className="max-w-md w-full rounded-2xl border border-destructive/30 bg-destructive/5 p-6 text-center space-y-4">
+            <AlertCircle className="w-10 h-10 text-destructive mx-auto" />
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-foreground">{requiredDisplay} Workspace Unavailable</h2>
+              <p className="text-sm text-muted-foreground">
+                This tournament is configured for {displaySport}, not {requiredDisplay}.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() =>
+                navigate(
+                  isAuctionEnabled(tournament)
+                    ? auctionOverviewPath(tournamentId)
+                    : resolveScoringEntryPath(tournamentId, tournament?.sport),
+                )
+              }
+              className="gap-2"
+            >
+              {isAuctionEnabled(tournament) ? "Go to Auction Overview" : "Go to Sports Scoring"}
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      );
+    }
   }
 
   return (

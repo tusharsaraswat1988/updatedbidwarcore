@@ -34,6 +34,10 @@ import {
   type ImageFieldChange,
 } from "../lib/cloudinary-image-fields";
 
+import { broadcastState, invalidateAuctionBuildCache, invalidateStateCache } from "./auction";
+import { isAuctionEnabled } from "@workspace/platform-core";
+import { requireAuctionModule } from "../middleware/require-module";
+
 const cloudinaryLogoUrl = z
   .string()
   .optional()
@@ -41,6 +45,32 @@ const cloudinaryLogoUrl = z
     (v) => !v || v.startsWith("https://res.cloudinary.com/"),
     "Logo URL must be a Cloudinary HTTPS URL (https://res.cloudinary.com/...)",
   );
+
+async function afterTeamDataChanged(
+  tournamentId: number,
+  log?: import("pino").Logger,
+  tournamentObj?: { auctionEnabled?: boolean | null } | null,
+) {
+  try {
+    let t = tournamentObj;
+    if (!t) {
+      const [found] = await db
+        .select({ auctionEnabled: tournamentsTable.auctionEnabled })
+        .from(tournamentsTable)
+        .where(eq(tournamentsTable.id, tournamentId));
+      t = found;
+    }
+    if (t && isAuctionEnabled(t)) {
+      invalidateAuctionBuildCache(tournamentId, "all");
+      invalidateStateCache(tournamentId);
+      void broadcastState(tournamentId, ["purses"]).catch((err) => {
+        log?.warn({ err, tournamentId }, "broadcastState failed in afterTeamDataChanged");
+      });
+    }
+  } catch (err) {
+    log?.warn({ err, tournamentId }, "afterTeamDataChanged auction invalidation failed");
+  }
+}
 
 const router = Router();
 
@@ -111,6 +141,8 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     logoUrl: cloudinaryLogoUrl,
     logoPublicId: z.string().optional().nullable(),
     purse: z.number().int().min(0).optional(),
+    coachName: z.string().optional().nullable(),
+    coachMobile: z.string().optional().nullable(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" }); return; }
@@ -124,6 +156,17 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   if (!ownerEmailParsed.ok) {
     res.status(400).json({ error: ownerEmailParsed.error, field: "ownerEmail" });
     return;
+  }
+
+  const coachName = d.coachName?.trim() || null;
+  let coachMobile: string | null = null;
+  if (d.coachMobile?.trim()) {
+    const coachMobileParsed = parseIndianMobile(d.coachMobile);
+    if (!coachMobileParsed.ok) {
+      res.status(400).json({ error: coachMobileParsed.error, field: "coachMobile" });
+      return;
+    }
+    coachMobile = coachMobileParsed.normalized;
   }
 
   const existing = await db.select().from(teamsTable).where(and(eq(teamsTable.tournamentId, tid), eq(teamsTable.shortCode, d.shortCode.toUpperCase())));
@@ -174,6 +217,8 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
         purseUsed: 0,
         isBiddingEnabled: true,
         accessCode: genAccessCode(),
+        coachName,
+        coachMobile,
       })
       .returning();
   } catch (err) {
@@ -184,9 +229,10 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     throw err;
   }
 
-  // DLT SMS: notify team owner about their access code (fire-and-forget, live tournaments only)
+  // DLT SMS: notify team owner about their access code (fire-and-forget, live auction tournaments only)
   const accessCode = team.accessCode;
-  if (tournament.licenseStatus === "active" && ownerMobile && accessCode) {
+  const isCricketTournament = (tournament.sport ?? "").trim().toLowerCase() === "cricket";
+  if (tournament.licenseStatus === "active" && ownerMobile && accessCode && tournament.auctionEnabled !== false && !isCricketTournament) {
     void (async () => {
       try {
         const { smsNotificationSettingsTable } = await import("@workspace/db");
@@ -226,6 +272,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     after: snapshotTeam(team),
   });
 
+  afterTeamDataChanged(tid, req.log, tournament);
   res.status(201).json(teamToJson(team));
 });
 
@@ -234,6 +281,12 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
 router.get("/tournaments/:tournamentId/teams/scout", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!requireAuctionModule(res, tournament)) return;
 
   const [teams, allPlayers, categories] = await Promise.all([
     db.select().from(teamsTable).where(eq(teamsTable.tournamentId, tid)).orderBy(teamsTable.name),
@@ -340,6 +393,8 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     purse: z.number().int().optional(),
     isBiddingEnabled: z.boolean().optional(),
     regenerateCode: z.boolean().optional(),
+    coachName: z.string().optional().nullable(),
+    coachMobile: z.string().optional().nullable(),
     reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -388,6 +443,20 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
       return;
     }
     updates.ownerEmail = ownerEmailParsed.email;
+  }
+  if (d.coachName !== undefined) updates.coachName = d.coachName?.trim() || null;
+  if (d.coachMobile !== undefined) {
+    const rawCoachMobile = d.coachMobile?.trim() ?? "";
+    if (!rawCoachMobile) {
+      updates.coachMobile = null;
+    } else {
+      const coachMobileParsed = parseIndianMobile(rawCoachMobile);
+      if (!coachMobileParsed.ok) {
+        res.status(400).json({ error: coachMobileParsed.error, field: "coachMobile" });
+        return;
+      }
+      updates.coachMobile = coachMobileParsed.normalized;
+    }
   }
   queueImageFieldChange(imageChanges, updates, {
     label: "ownerPhotoUrl",
@@ -513,6 +582,7 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     alertKey,
   });
 
+  afterTeamDataChanged(tid, req.log);
   res.json(teamToJson(team));
 });
 
@@ -578,8 +648,24 @@ router.post("/tournaments/:tournamentId/teams/:teamId/verify-access", async (req
     return;
   }
 
-  const session = await createVerifiedOwnerSession(res, tid, teamId);
+  const session = await createVerifiedOwnerSession(res, tid, teamId, req);
   res.json({ valid: true, sessionId: session.sessionId });
+});
+
+router.get("/tournaments/:tournamentId/teams/:teamId/owner-session", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const teamId = parseInt(req.params.teamId);
+  if (isNaN(tid) || isNaN(teamId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  const { requireVerifiedOwnerSession } = await import("../lib/owner-session");
+  const auth = await requireVerifiedOwnerSession(req, tid, teamId);
+  if (!auth.ok) {
+    res.status(auth.status).json({ verified: false, error: auth.error });
+    return;
+  }
+  res.json({ verified: true, sessionId: auth.session.sessionId });
 });
 
 router.post("/tournaments/:tournamentId/teams/:teamId/reset-access-lockout", async (req, res) => {
@@ -661,6 +747,7 @@ router.delete("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     resource: { type: "team", id: teamId },
     before: snapshotTeam(beforeTeam),
   });
+  afterTeamDataChanged(tid, req.log);
   res.status(204).send();
 });
 

@@ -13,11 +13,12 @@ import { useBroadcastCanvasPreview } from "./BroadcastCanvasProvider";
 export function DisplayViewport({ children }: { children: ReactNode }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const { preview } = useBroadcastCanvasPreview();
-  const scale = useCanvasScale(
+  const { scaleX, scaleY } = useCanvasScale(
     viewportRef,
     preview.scaleMode,
     BROADCAST_CANVAS_WIDTH,
     BROADCAST_CANVAS_HEIGHT,
+    preview.stretchX,
   );
 
   return (
@@ -27,7 +28,7 @@ export function DisplayViewport({ children }: { children: ReactNode }) {
         style={{
           width: BROADCAST_CANVAS_WIDTH,
           height: BROADCAST_CANVAS_HEIGHT,
-          transform: `translate3d(-50%, -50%, 0) scale(${scale})`,
+          transform: `translate3d(-50%, -50%, 0) scale(${scaleX}, ${scaleY})`,
         }}
       >
         {children}
@@ -35,3 +36,4 @@ export function DisplayViewport({ children }: { children: ReactNode }) {
     </div>
   );
 }
+

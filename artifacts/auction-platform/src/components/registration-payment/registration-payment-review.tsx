@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useApproveRegistrationPayment,
@@ -18,6 +18,7 @@ interface RegistrationPaymentReviewProps {
   utrNumber?: string | null;
   paymentScreenshotUrl?: string | null;
   registrationPaymentStatus?: RegistrationPaymentStatus | null;
+  statusControl?: ReactNode;
 }
 
 export function RegistrationPaymentReview({
@@ -28,12 +29,16 @@ export function RegistrationPaymentReview({
   utrNumber,
   paymentScreenshotUrl,
   registrationPaymentStatus,
+  statusControl,
 }: RegistrationPaymentReviewProps) {
   const qc = useQueryClient();
   const approve = useApproveRegistrationPayment();
   const reject = useRejectRegistrationPayment();
   const [actionError, setActionError] = useState<string | null>(null);
   const busy = approve.isPending || reject.isPending;
+  const feeLabel = registrationFee != null && registrationFee > 0
+    ? `₹${registrationFee.toLocaleString("en-IN")}`
+    : null;
 
   async function handleAction(action: "approve" | "reject") {
     setActionError(null);
@@ -51,72 +56,65 @@ export function RegistrationPaymentReview({
   }
 
   return (
-    <div className="rounded-xl border border-border/60 bg-card/30 p-4 space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Registration Payment
-        </p>
-        <PaymentStatusBadge status={registrationPaymentStatus} />
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-        {registrationFee != null && registrationFee > 0 && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Registration Fee</p>
-            <p className="font-semibold">₹{registrationFee.toLocaleString("en-IN")}</p>
-          </div>
-        )}
-        {utrNumber && (
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">UTR Number</p>
-            <p className="font-mono text-xs">{utrNumber}</p>
-          </div>
-        )}
-      </div>
-
-      {paymentScreenshotUrl && (
-        <div className="space-y-1.5">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Payment Screenshot</p>
+    <div className="ops-payment">
+      <p className="ops-detail__label">Registration payment</p>
+      <div className="ops-payment__facts">
+        {feeLabel ? (
+          <span>
+            <span className="ops-payment__meta">Fee</span>
+            <span className="tabular-nums font-medium">{feeLabel}</span>
+          </span>
+        ) : null}
+        {utrNumber ? (
+          <span className="min-w-0">
+            <span className="ops-payment__meta">UTR</span>
+            <span className="font-mono text-xs">{utrNumber}</span>
+          </span>
+        ) : null}
+        <PaymentStatusBadge status={registrationPaymentStatus} compact />
+        {statusControl}
+        {paymentScreenshotUrl ? (
           <a
             href={paymentScreenshotUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-xs text-primary hover:underline"
+            className="ops-payment__link inline-flex items-center gap-1"
           >
-            <ExternalLink className="w-3.5 h-3.5" />
-            View screenshot
+            <ExternalLink className="w-3 h-3" />
+            Screenshot
           </a>
-          <div className="mt-2 max-w-[200px] rounded-lg border border-border overflow-hidden">
-            <img src={paymentScreenshotUrl} alt={`Payment proof for ${playerName}`} className="w-full h-auto" />
-          </div>
-        </div>
-      )}
-
-      {registrationPaymentStatus === "pending" && (
-        <div className="flex flex-wrap gap-2 pt-1">
-          <Button
-            size="sm"
-            className="gap-1.5 bg-green-600 hover:bg-green-700"
-            disabled={busy}
-            onClick={() => void handleAction("approve")}
-          >
-            {approve.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-            Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1.5 border-red-500/40 text-red-400 hover:bg-red-500/10"
-            disabled={busy}
-            onClick={() => void handleAction("reject")}
-          >
-            {reject.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
-            Reject
-          </Button>
-        </div>
-      )}
-
-      {actionError && <p className="text-xs text-destructive">{actionError}</p>}
+        ) : null}
+        {registrationPaymentStatus === "pending" ? (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1 px-2 text-xs text-emerald-300"
+              disabled={busy}
+              onClick={() => void handleAction("approve")}
+            >
+              {approve.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+              Approve
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1 px-2 text-xs text-rose-300"
+              disabled={busy}
+              onClick={() => void handleAction("reject")}
+            >
+              {reject.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
+              Reject
+            </Button>
+          </>
+        ) : null}
+      </div>
+      {paymentScreenshotUrl ? (
+        <a href={paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" className="inline-flex w-fit">
+          <img src={paymentScreenshotUrl} alt={`Payment proof for ${playerName}`} className="ops-payment__shot" />
+        </a>
+      ) : null}
+      {actionError ? <p className="text-xs text-destructive">{actionError}</p> : null}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   useGetTournament,
   getGetTournamentQueryKey,
@@ -11,39 +11,191 @@ import { getActiveInnings, oversText, requiredRate, runRate } from "@/lib/scorin
 import { useCricketScoringActive } from "@/hooks/use-platform-features";
 import { MatchSummaryCard } from "@/components/scoring/match-summary-card";
 import { CricketPublicBrandMark, useCricketBidWarTheme } from "@/components/scoring/cricket-branding";
-import { getCricketMasterTeams } from "@/lib/scoring-api";
-import { cricketMasterTeamToScorerTeam } from "@/lib/scoring-squad";
+import { buildCricketMatchSummary } from "@workspace/scoring-core";
+import { retainStageSelection } from "@workspace/scoring-core/cricket";
+import {
+  getCricketMasterTeams,
+  getCricketTournamentRoster,
+  getPublicMatchScorecard,
+  isTerminalCricketMatchStatus,
+  publicMatchScorecardQueryKey,
+  type ScoringMatchJson,
+} from "@/lib/scoring-api";
+import {
+  cricketMasterTeamToScorerTeam,
+  cricketRosterToScorerPlayer,
+  type CricketScorerTeam,
+} from "@/lib/scoring-squad";
 import {
   getDisplayThemeFromPresentationPaint,
   type PresentationPaintJson,
 } from "@/lib/display-theme";
-import { Wifi, WifiOff, RefreshCw } from "lucide-react";
+import {
+  resolveCricketBroadcastSponsors,
+  scoreboardSponsorLogo,
+  sponsorsExceptLocked,
+} from "@/lib/cricket-broadcast-plates";
+import type { SponsorLogo } from "@/lib/sponsor-logo";
+import {
+  cricketBrandingQueryKey,
+  getCricketBranding,
+} from "@/lib/scoring-api";
+import type { BadmintonBranding, ScoreBoardSponsor } from "@/hooks/use-badminton-branding";
+import {
+  LedEventAnimationOverlay,
+  type LedMatchEvent,
+} from "@/components/scoring/led-event-animation-overlay";
+import { SuperBallActivationOverlay } from "@/components/scoring/super-ball-activation-overlay";
+import { SponsorMediaLayer } from "@/components/scoring/sponsor-media-layer";
+import { CricketLedMidOverlays } from "@/components/scoring/cricket-led-mid-overlays";
+import { CricketLedNeutralScreen } from "@/components/scoring/cricket-led-neutral-screen";
+import { CricketTossResultPanel } from "@/components/scoring/cricket-toss-result-panel";
+import { buildTossResultCopy, isTossResultHold } from "@/lib/cricket-toss-result";
+import {
+  resolveBatterView,
+  resolveBowlerView,
+  type CricketObsMidOverlayKind,
+} from "@/lib/cricket-obs-view-model";
+import {
+  Trophy,
+  Flame,
+  Shield,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
-function ConnectionBadge({ status }: { status: "connected" | "reconnecting" | "disconnected" }) {
-  if (status === "connected") {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-green-400 text-xs font-semibold uppercase">
-        <Wifi className="w-4 h-4" /> Live
-      </span>
-    );
-  }
-  if (status === "disconnected") {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-red-400 text-xs font-semibold uppercase">
-        <WifiOff className="w-4 h-4" /> Offline
-      </span>
-    );
-  }
+function TeamLogoBadge({
+  logoUrl,
+  name,
+  className,
+  borderColor = "border-border/80",
+  fallbackIconColor = "text-primary",
+}: {
+  logoUrl?: string | null;
+  name?: string;
+  className?: string;
+  borderColor?: string;
+  fallbackIconColor?: string;
+}) {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [logoUrl]);
+
   return (
-    <span className="inline-flex items-center gap-1.5 text-primary text-xs font-semibold uppercase">
-      <RefreshCw className="w-4 h-4 animate-spin" /> Syncing
-    </span>
+    <div
+      className={cn(
+        "w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-xl sm:rounded-2xl bg-card/95 border-2 p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-lg shadow-black/40",
+        borderColor,
+        className,
+      )}
+    >
+      {logoUrl && !hasError ? (
+        <img
+          src={logoUrl}
+          alt={name || "Team"}
+          className="w-full h-full object-contain"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        <Shield className={cn("w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7", fallbackIconColor)} />
+      )}
+    </div>
+  );
+}
+
+export function getSponsorCategoryLabel(s?: {
+  priorityType?: string | null;
+  type?: string | null;
+  isTitleSponsor?: boolean;
+  isCoSponsor?: boolean;
+} | null): string {
+  if (!s) return "Official Partner";
+  // 1. Prioritize user-defined Category / Designation (e.g. "Boundary Sponsor", "Gifting Sponsor")
+  const custom = s.type?.trim();
+  if (custom && !["normal", "standard"].includes(custom.toLowerCase())) {
+    return custom;
+  }
+  // 2. Title & Co-Sponsor checks
+  if (s.isTitleSponsor || s.priorityType === "TITLE" || (custom && /title\s*sponsor|gold/i.test(custom))) {
+    return "Title Sponsor";
+  }
+  if (s.isCoSponsor || s.priorityType === "CO_SPONSOR" || (custom && /co[\s-]*sponsor|silver/i.test(custom))) {
+    return "Co-Sponsor";
+  }
+  // 3. Named priority tiers (e.g. PLATINUM, GOLD, SILVER, BRONZE)
+  if (s.priorityType && typeof s.priorityType === "string") {
+    const clean = s.priorityType.replace(/_/g, " ").trim().toLowerCase();
+    if (!["normal", "standard"].includes(clean)) {
+      return clean
+        .split(" ")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(" ");
+    }
+  }
+  return "Official Partner";
+}
+
+/** Top-Right Showcase: Displays sponsors prominently without box frames with smooth pure opacity transition */
+function SponsorMark({ sponsor }: { sponsor: SponsorLogo }) {
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      {sponsor.url ? (
+        <img
+          src={sponsor.url}
+          alt={sponsor.name || "Sponsor"}
+          className="h-12 w-12 sm:h-14 sm:w-14 object-contain shrink-0"
+        />
+      ) : (
+        <span className="text-xs font-black uppercase tracking-wide text-white line-clamp-2">
+          {sponsor.name || "Sponsor"}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function HeaderSponsorShowcase({
+  sponsors,
+  scoreBoardSponsor,
+}: {
+  sponsors: SponsorLogo[];
+  scoreBoardSponsor?: ScoreBoardSponsor | null;
+}) {
+  const locked = useMemo(() => scoreboardSponsorLogo(scoreBoardSponsor), [scoreBoardSponsor]);
+  const rotating = useMemo(() => sponsorsExceptLocked(sponsors, locked), [sponsors, locked]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isFading, setIsFading] = useState(false);
+
+  useEffect(() => {
+    if (rotating.length <= 1) return;
+    const interval = setInterval(() => {
+      setIsFading(true);
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % rotating.length);
+        setIsFading(false);
+      }, 300);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [rotating.length]);
+
+  const current = rotating.length > 0 ? rotating[currentIndex % rotating.length] : null;
+  if (!locked && !current) return null;
+
+  return (
+    <div className="flex items-center justify-end gap-3 min-w-0">
+      {locked ? <SponsorMark sponsor={locked} /> : null}
+      {current ? (
+        <div className={cn("transition-opacity duration-300", isFading ? "opacity-0" : "opacity-100")}>
+          <SponsorMark sponsor={current} />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
 export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
-  const { shellStyle } = useCricketBidWarTheme();
+  const { shellStyle, logoSrc, logoAlt } = useCricketBidWarTheme();
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
@@ -51,23 +203,210 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
 
   const { connectionStatus } = useScoringSocket(tournamentId, scoringActive);
   const { data: live } = useScoringLive(tournamentId, scoringActive, connectionStatus);
+
+  const { data: branding } = useQuery<BadmintonBranding>({
+    queryKey: cricketBrandingQueryKey(tournamentId),
+    queryFn: () => getCricketBranding<BadmintonBranding>(tournamentId),
+    enabled: !!tournamentId,
+    staleTime: 5000,
+  });
+
   const { data: masterTeams } = useQuery({
     queryKey: ["cricket-master-teams", tournamentId],
     queryFn: () => getCricketMasterTeams(tournamentId),
     enabled: !!tournamentId,
   });
-  const teams = useMemo(
+  const teams: CricketScorerTeam[] = useMemo(
     () => (masterTeams ?? []).map(cricketMasterTeamToScorerTeam),
     [masterTeams],
   );
 
+  const { data: roster } = useQuery({
+    queryKey: ["cricket-roster", tournamentId],
+    queryFn: () => getCricketTournamentRoster(tournamentId),
+    enabled: !!tournamentId && scoringActive,
+  });
+  const players = useMemo(
+    () => (roster ?? []).map(cricketRosterToScorerPlayer),
+    [roster],
+  );
+
+  const sponsors = useMemo(
+    () => resolveCricketBroadcastSponsors(branding?.sponsorLogos),
+    [branding?.sponsorLogos],
+  );
+
   const match = live?.match;
   const state = live?.state;
-  const summary = live?.summary;
+  const isComplete =
+    (state?.matchStatus ? isTerminalCricketMatchStatus(state.matchStatus) : false) ||
+    (match?.status ? isTerminalCricketMatchStatus(match.status) : false);
+  const summary =
+    live?.summary ?? (state && isComplete ? buildCricketMatchSummary(state) : null);
   const innings = state ? getActiveInnings(state) : null;
 
-  // EPIC-12 Phase 1 — consume Compatibility Adapter paint when Prepare-bound.
-  // Maps to current stadium-gold defaults; no LED redesign.
+  const matchId = match?.id;
+  const { data: scorecardData } = useQuery({
+    queryKey: publicMatchScorecardQueryKey(tournamentId, matchId ?? 0, state?.lastSequence ?? 0),
+    queryFn: () => getPublicMatchScorecard(tournamentId, matchId!),
+    enabled: !!tournamentId && !!matchId,
+    staleTime: Infinity,
+    placeholderData: (previous, previousQuery) => {
+      if (!previous) return undefined;
+      if (previousQuery?.queryKey?.[2] !== matchId) return undefined;
+      return previous;
+    },
+  });
+
+  const strikerStats = useMemo(() => {
+    if (!state?.strikerId) return null;
+    return resolveBatterView(
+      state.strikerId,
+      true,
+      players,
+      scorecardData?.scorecard,
+      innings?.innings ?? 1,
+    );
+  }, [state?.strikerId, players, scorecardData?.scorecard, innings?.innings]);
+
+  const nonStrikerStats = useMemo(() => {
+    if (!state?.nonStrikerId) return null;
+    return resolveBatterView(
+      state.nonStrikerId,
+      false,
+      players,
+      scorecardData?.scorecard,
+      innings?.innings ?? 1,
+    );
+  }, [state?.nonStrikerId, players, scorecardData?.scorecard, innings?.innings]);
+
+  const bowlerStats = useMemo(() => {
+    if (!state?.bowlerId) return null;
+    return resolveBowlerView(
+      state.bowlerId,
+      players,
+      scorecardData?.scorecard,
+      innings?.innings ?? 1,
+    );
+  }, [state?.bowlerId, players, scorecardData?.scorecard, innings?.innings]);
+
+  // Broadcast Screen Mode State (Canonical cricket_obs_director)
+  const [currentOverlay, setCurrentOverlay] = useState<CricketObsMidOverlayKind>("none");
+  const [overlayMatchId, setOverlayMatchId] = useState<number | undefined>(undefined);
+  const [overlaySponsorName, setOverlaySponsorName] = useState<string | undefined>(undefined);
+  const [overlayStageOrGroup, setOverlayStageOrGroup] = useState<string | undefined>(undefined);
+
+  // Initial server state hydration & periodic sync
+  const { data: serverDirectorState } = useQuery<{
+    overlay?: string;
+    matchId?: number;
+    sponsorName?: string;
+    stageOrGroup?: string;
+  }>({
+    queryKey: ["cricket-obs-director", tournamentId],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/tournaments/${tournamentId}/scoring/obs-director`);
+        if (!res.ok) return { overlay: "none" };
+        return await res.json();
+      } catch {
+        return { overlay: "none" };
+      }
+    },
+    enabled: tournamentId > 0,
+    staleTime: 5000,
+  });
+
+  useEffect(() => {
+    if (serverDirectorState?.overlay) {
+      setCurrentOverlay(serverDirectorState.overlay as CricketObsMidOverlayKind);
+    }
+    if (serverDirectorState?.matchId !== undefined) {
+      setOverlayMatchId(serverDirectorState.matchId);
+    }
+    if (serverDirectorState?.sponsorName !== undefined) {
+      setOverlaySponsorName(serverDirectorState.sponsorName);
+    }
+    if (serverDirectorState?.stageOrGroup !== undefined) {
+      setOverlayStageOrGroup(serverDirectorState.stageOrGroup);
+    }
+  }, [
+    serverDirectorState?.overlay,
+    serverDirectorState?.matchId,
+    serverDirectorState?.sponsorName,
+    serverDirectorState?.stageOrGroup,
+  ]);
+
+  // Timestamp tracker to prevent stale/out-of-order SSE director events from overwriting newer state
+  const lastDirectorTimestampRef = useRef<number>(0);
+
+  // SSE event listener (dispatched from useScoringSocket)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleSseDirector = (ev: Event) => {
+      const detail = (ev as CustomEvent).detail;
+      if (!detail) return;
+
+      // Reject stale out-of-order events
+      if (
+        detail.timestamp &&
+        detail.timestamp < lastDirectorTimestampRef.current
+      ) {
+        return;
+      }
+      if (detail.timestamp) {
+        lastDirectorTimestampRef.current = detail.timestamp;
+      }
+
+      if (detail.overlay !== undefined) {
+        setCurrentOverlay(detail.overlay as CricketObsMidOverlayKind);
+      }
+      if (detail.matchId !== undefined) {
+        setOverlayMatchId(detail.matchId);
+      }
+      if (detail.sponsorName !== undefined) {
+        setOverlaySponsorName(detail.sponsorName);
+      }
+      setOverlayStageOrGroup((current) => retainStageSelection(current, detail));
+    };
+    window.addEventListener("cricket_obs_director", handleSseDirector);
+    return () => window.removeEventListener("cricket_obs_director", handleSseDirector);
+  }, []);
+
+  // BroadcastChannel listener for 0ms cross-tab updates on same browser/machine
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof BroadcastChannel === "undefined" || !tournamentId) {
+      return;
+    }
+    const channel = new BroadcastChannel(`bidwar_cricket_obs_${tournamentId}`);
+    channel.onmessage = (ev) => {
+      const data = ev.data;
+      if (!data) return;
+      if (data.type === "SET_OVERLAY") {
+        setCurrentOverlay(data.overlay ?? "none");
+        if (data.matchId !== undefined) {
+          setOverlayMatchId(data.matchId);
+        }
+        if (data.sponsorName !== undefined) {
+          setOverlaySponsorName(data.sponsorName);
+        }
+        setOverlayStageOrGroup((current) => retainStageSelection(current, data));
+      }
+    };
+    return () => {
+      channel.close();
+    };
+  }, [tournamentId]);
+
+  // Active event animation state
+  const [activeEvent, setActiveEvent] = useState<LedMatchEvent | null>(null);
+
+  // Set of already-seen event tokens to prevent replaying on reconnect / re-render
+  const seenEventTokensRef = useRef<Set<string>>(new Set());
+  const bootstrappedRef = useRef<boolean>(false);
+  const mountTimeRef = useRef<number>(Date.now());
+
+  // Presentation theme paint
   const presentationPaint = match?.branding as PresentationPaintJson | null | undefined;
   const paintTheme = getDisplayThemeFromPresentationPaint(presentationPaint);
   const displayShellStyle = useMemo(() => {
@@ -87,125 +426,604 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
   const battingTeam = teams.find((t) => t.id === innings?.battingTeamId);
   const bowlingTeam = teams.find((t) => t.id === innings?.bowlingTeamId);
 
+  const strikerPlayer = players.find((p) => p.id === state?.strikerId);
+  const nonStrikerPlayer = players.find((p) => p.id === state?.nonStrikerId);
+  const bowlerPlayer = players.find((p) => p.id === state?.bowlerId);
+
   const rr = innings ? runRate(innings.runs, innings.over, innings.ball) : null;
   const rrr =
     state && innings && state.target
       ? requiredRate(state.target, innings.runs, state.oversLimit, innings.over, innings.ball)
       : null;
 
-  const isComplete = state?.matchStatus === "completed" || state?.matchStatus === "abandoned";
   const isIdle = !match || !state || state.matchStatus === "scheduled";
+  const tossCopy =
+    state && match && isTossResultHold(state)
+      ? buildTossResultCopy(state, teams, match.homeTeamId, match.awayTeamId)
+      : null;
+  const showTossResult = Boolean(tossCopy) && !isComplete;
 
-  const scoreLines = useMemo(() => {
-    if (!state || !summary) return [];
-    return summary.innings.map((inn) => {
-      const bat = teams.find((t) => t.id === inn.battingTeamId);
-      return {
-        key: inn.innings,
-        label: bat?.shortCode ?? `T${inn.battingTeamId}`,
-        score: `${inn.runs}/${inn.wickets}`,
-        overs: inn.overs,
-        isCurrent: inn.innings === state.currentInnings && !isComplete,
-      };
-    });
-  }, [state, summary, teams, isComplete]);
+  const targetRuns = state?.target ?? null;
+  const needRuns = targetRuns != null && innings ? Math.max(0, targetRuns - innings.runs) : null;
+  const ballsRemaining =
+    targetRuns != null && innings && state?.oversLimit
+      ? Math.max(0, state.oversLimit * 6 - (innings.over * 6 + innings.ball))
+      : null;
+
+  const partnershipRuns =
+    state?.currentPartnership?.runs ?? ((strikerStats?.runs ?? 0) + (nonStrikerStats?.runs ?? 0));
+  const partnershipBalls =
+    state?.currentPartnership?.balls ?? ((strikerStats?.balls ?? 0) + (nonStrikerStats?.balls ?? 0));
+
+  // Score glow pulse trigger on score increment (tight around numbers: white normally, gold on 25/50/75/100 milestones)
+  const [scoreGlowType, setScoreGlowType] = useState<"white" | "gold" | null>(null);
+  const prevScoreRef = useRef<{ runs: number; wickets: number } | null>(null);
+
+  useEffect(() => {
+    const currentRuns = innings?.runs ?? 0;
+    const currentWickets = innings?.wickets ?? 0;
+
+    if (prevScoreRef.current !== null) {
+      if (
+        prevScoreRef.current.runs !== currentRuns ||
+        prevScoreRef.current.wickets !== currentWickets
+      ) {
+        const isMilestone = currentRuns > 0 && currentRuns % 25 === 0;
+        setScoreGlowType(isMilestone ? "gold" : "white");
+        const timer = setTimeout(() => {
+          setScoreGlowType(null);
+        }, 1600);
+        prevScoreRef.current = { runs: currentRuns, wickets: currentWickets };
+        return () => {
+          clearTimeout(timer);
+        };
+      }
+    } else {
+      prevScoreRef.current = { runs: currentRuns, wickets: currentWickets };
+    }
+    return undefined;
+  }, [innings?.runs, innings?.wickets]);
+
+  // 1. Bootstrap: Record current event as seen on initial mount to suppress historical replay
+  useEffect(() => {
+    if (!bootstrappedRef.current) {
+      if (live?.broadcastEvent?.id) {
+        seenEventTokensRef.current.add(live.broadcastEvent.id);
+      }
+      bootstrappedRef.current = true;
+    }
+  }, [live?.broadcastEvent?.id]);
+
+  const dispatchAuthoritativeEvent = useCallback(
+    (ev: import("@workspace/scoring-core").CricketAuthoritativeBroadcastEvent) => {
+      if (!ev || !ev.id) return;
+      if (ev.matchId != null && matchId != null && ev.matchId !== matchId) return;
+      if (seenEventTokensRef.current.has(ev.id)) return;
+
+      // Suppress stale historical events that occurred prior to hook mount
+      if (ev.timestamp && ev.timestamp < mountTimeRef.current - 4000) {
+        seenEventTokensRef.current.add(ev.id);
+        return;
+      }
+
+      seenEventTokensRef.current.add(ev.id);
+      if (seenEventTokensRef.current.size > 100) {
+        const [first] = seenEventTokensRef.current;
+        seenEventTokensRef.current.delete(first);
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[SCOREBOARD] Authoritative presentation event=${ev.type} id=${ev.id}`);
+      }
+
+      switch (ev.type) {
+        case "NEW_BATTER":
+          setActiveEvent({
+            type: "NEW_BATTER",
+            batsmanName: ev.batter || strikerPlayer?.name || "Batter",
+            role: ev.detail || "New Batter at Crease",
+          });
+          break;
+        case "NEW_BOWLER":
+          setActiveEvent({
+            type: "BOWLER_CHANGE",
+            bowlerName: ev.bowler || bowlerPlayer?.name || "Bowler",
+            figures: ev.detail || "Into the Attack",
+          });
+          break;
+        case "INNINGS_COMPLETE":
+          setActiveEvent({
+            type: "INNINGS_COMPLETE",
+            innings: ev.innings ?? (innings?.innings ?? 1),
+            runs: ev.runs ?? (innings?.runs ?? 0),
+            wickets: ev.wickets ?? (innings?.wickets ?? 0),
+            overs: ev.overs ?? (innings ? oversText(innings.over, innings.ball) : "0.0"),
+            target: ev.target,
+            battingTeam: ev.battingTeam || battingTeam?.name,
+          });
+          break;
+        case "MATCH_WON":
+          setActiveEvent({
+            type: "MATCH_RESULT",
+            winnerName:
+              ev.winnerName ||
+              (teams.find((t) => t.id === ev.winnerTeamId)?.name) ||
+              "Champions",
+            marginText: ev.marginText || ev.detail || "Match Completed",
+          });
+          break;
+        case "WICKET":
+          setActiveEvent({
+            type: "WICKET",
+            dismissal: ev.dismissal || ev.detail || "OUT",
+            batsmanName: ev.batter || strikerPlayer?.name || "Batter",
+            bowlerName: ev.bowler || bowlerPlayer?.name || "Bowler",
+          });
+          break;
+        case "SIX":
+          setActiveEvent({
+            type: "SIX",
+            runs: 6,
+            batsmanName: ev.batter || strikerPlayer?.name,
+          });
+          break;
+        case "FOUR":
+          setActiveEvent({
+            type: "FOUR",
+            runs: 4,
+            batsmanName: ev.batter || strikerPlayer?.name,
+          });
+          break;
+        case "SUPERBALL":
+          setActiveEvent({
+            type: "SUPER_BALL",
+            runsOffBat: ev.runs ?? 0,
+            totalRuns: ev.totalRuns ?? ((ev.runs ?? 0) * 2),
+            batsmanName: ev.batter || strikerPlayer?.name || "Batter",
+            battingTeam: ev.battingTeam || battingTeam?.name,
+          });
+          break;
+        case "NO_BALL":
+          setActiveEvent({ type: "NO_BALL" });
+          break;
+        case "WIDE":
+          setActiveEvent({ type: "WIDE", runs: ev.runs });
+          break;
+        default:
+          break;
+      }
+    },
+    [matchId, strikerPlayer?.name, bowlerPlayer?.name, innings, battingTeam?.name, teams],
+  );
+
+  // 2. Consume live.broadcastEvent from REST/SSE query snapshot
+  useEffect(() => {
+    if (live?.broadcastEvent) {
+      dispatchAuthoritativeEvent(live.broadcastEvent);
+    }
+  }, [live?.broadcastEvent, dispatchAuthoritativeEvent]);
+
+  // 3. Consume real-time SSE broadcast event via window custom event
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleBroadcastEvent = (ev: Event) => {
+      const detail = (ev as CustomEvent).detail as import("@workspace/scoring-core").CricketAuthoritativeBroadcastEvent;
+      if (detail) {
+        dispatchAuthoritativeEvent(detail);
+      }
+    };
+
+    window.addEventListener("cricket_scoring_broadcast_event", handleBroadcastEvent);
+    return () => {
+      window.removeEventListener("cricket_scoring_broadcast_event", handleBroadcastEvent);
+    };
+  }, [dispatchAuthoritativeEvent]);
+
+  // Sponsor Trail list for footer marquee
+  const sponsorTrailItems = useMemo(() => {
+    const locked = scoreboardSponsorLogo(branding?.scoreBoardSponsor);
+    const names: string[] = [];
+    if (locked?.name) names.push(locked.name);
+    for (const sponsor of sponsorsExceptLocked(sponsors, locked)) {
+      if (sponsor.name && !names.some((name) => name.toLowerCase() === sponsor.name!.toLowerCase())) {
+        names.push(sponsor.name);
+      }
+    }
+    return names;
+  }, [branding?.scoreBoardSponsor, sponsors]);
+
+  const tournamentTitle = tournament?.name || "LIVE CRICKET TOURNAMENT";
+  const titleFontSizeClass = useMemo(() => {
+    const len = tournamentTitle.length;
+    if (len > 50) return "text-xs sm:text-sm md:text-base lg:text-lg xl:text-xl";
+    if (len > 32) return "text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl";
+    if (len > 18) return "text-base sm:text-lg md:text-xl lg:text-2xl xl:text-3xl";
+    return "text-lg sm:text-xl md:text-2xl lg:text-3xl xl:text-4xl";
+  }, [tournamentTitle]);
+
+  const isLiveMatch =
+    Boolean(match && state && state.matchStatus === "live" && !isComplete);
+
+  const isNeutralActive =
+    currentOverlay === "neutral" ||
+    (currentOverlay === "none" && !isLiveMatch);
+
+  if (isNeutralActive) {
+    return (
+      <FullscreenLayout>
+        <CricketLedNeutralScreen
+          tournamentId={tournamentId}
+          tournamentName={tournament?.name || "Cricket Championship"}
+          tournamentLogoUrl={tournament?.logoUrl}
+          sponsors={sponsors}
+          scoreBoardSponsor={branding?.scoreBoardSponsor}
+          connectionStatus={connectionStatus}
+          logoSrc={logoSrc}
+          logoAlt={logoAlt}
+          displayShellStyle={displayShellStyle}
+        />
+
+        {/* 4. GROUND LED MID-SCREEN OVERLAYS (Sponsors, Points Table, Fixtures, Scorecard, Summary, Intro) */}
+        <CricketLedMidOverlays
+          overlay={currentOverlay}
+          overlayMatchId={overlayMatchId}
+          overlaySponsorName={overlaySponsorName}
+          overlayStageOrGroup={overlayStageOrGroup}
+          tournamentId={tournamentId}
+          tournamentName={tournament?.name}
+          tournamentLogoUrl={tournament?.logoUrl}
+          match={match}
+          state={state}
+          summary={summary}
+          teams={teams}
+          players={players}
+          sponsors={sponsors}
+          onClose={() => setCurrentOverlay("none")}
+        />
+
+        {/* 5. MODULAR LED EVENT ANIMATION OVERLAY */}
+        <LedEventAnimationOverlay
+          currentEvent={activeEvent}
+          onDismiss={() => setActiveEvent(null)}
+        />
+
+        {/* 6. SUPER BALL FULL-SCREEN BROADCAST ACTIVATION */}
+        {tournamentId > 0 ? (
+          <SuperBallActivationOverlay tournamentId={tournamentId} />
+        ) : null}
+        {tournamentId > 0 ? (
+          <SponsorMediaLayer tournamentId={tournamentId} surface="led" cover="fixed" />
+        ) : null}
+      </FullscreenLayout>
+    );
+  }
 
   return (
-    <FullscreenLayout>
+    <FullscreenLayout className="h-screen max-h-screen overflow-hidden">
       <div
-        className="min-h-screen bg-background text-foreground flex flex-col relative dark"
+        className="h-screen max-h-screen w-full bg-[#07090e] text-foreground flex flex-col justify-between relative dark overflow-hidden select-none"
         style={displayShellStyle}
       >
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-accent/25 via-background to-background pointer-events-none" />
-        <header className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-border bg-card/80 backdrop-blur-sm">
-          <div className="min-w-0 flex items-center gap-4">
-            <CricketPublicBrandMark variant="scorer-header" />
-            <div className="min-w-0">
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground font-bold">Live Score</p>
-              <h1 className="text-xl font-display font-bold truncate">{tournament?.name}</h1>
+        {/* Ambient Stadium Lighting Gradient */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/15 via-[#07090e] to-[#040507] pointer-events-none" />
+
+        {/* 1. TOP HEADER: Tournament Logo + Name (Left) | BidWar Logo (Center) | Sponsor Showcase (Right) */}
+        <header className="relative z-20 h-16 sm:h-20 flex items-center justify-between px-3 sm:px-6 md:px-8 border-b border-border/60 bg-card/90 backdrop-blur-md shrink-0 gap-3 sm:gap-6">
+          {/* Top Left: Tournament Logo + Tournament Name in CAPITAL with generous space reaching towards center */}
+          <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 max-w-[42%] shrink-0">
+            {tournament?.logoUrl ? (
+              <img
+                src={tournament.logoUrl}
+                alt={tournament.name || "Tournament Logo"}
+                className="h-11 sm:h-13 md:h-15 w-auto max-w-[70px] sm:max-w-[85px] md:max-w-[100px] object-contain drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)] shrink-0"
+              />
+            ) : (
+              <Trophy className="w-8 h-8 sm:w-10 sm:h-10 text-primary drop-shadow-md shrink-0" />
+            )}
+            <div className="min-w-0 flex-1">
+              <h2
+                title={tournamentTitle}
+                className={cn(
+                  "font-display font-black uppercase tracking-wide text-white leading-tight line-clamp-2 drop-shadow-md break-words",
+                  titleFontSizeClass,
+                )}
+              >
+                {tournamentTitle}
+              </h2>
             </div>
           </div>
-          <ConnectionBadge status={connectionStatus} />
+
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 justify-end">
+            <HeaderSponsorShowcase
+              sponsors={sponsors}
+              scoreBoardSponsor={branding?.scoreBoardSponsor}
+            />
+          </div>
         </header>
 
-        <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 py-8 gap-8">
+        {/* 2. MAIN SCORING ARENA */}
+        <main className="relative z-10 flex-1 min-h-0 flex flex-col items-center justify-between px-3 sm:px-6 md:px-8 py-2 sm:py-3 gap-2 sm:gap-3 overflow-hidden">
           {isIdle ? (
-            <div className="text-center space-y-3">
-              <p className="text-4xl font-display font-black text-muted-foreground/40">—</p>
-              <p className="text-lg text-muted-foreground">Waiting for match to start</p>
-              <p className="text-sm text-muted-foreground/80">Open the scorer on your phone to begin</p>
-            </div>
-          ) : isComplete && summary ? (
-            <div className="w-full max-w-2xl space-y-6">
-              <p className="text-center text-sm uppercase tracking-widest text-primary font-bold">
-                Match Complete
+            <div className="text-center space-y-4 max-w-xl p-8 rounded-3xl bg-card/60 border border-border/80 backdrop-blur-md my-auto">
+              <Trophy className="w-14 h-14 text-primary/60 mx-auto animate-pulse" />
+              <h2 className="text-2xl sm:text-3xl font-display font-black uppercase tracking-wide text-foreground">
+                Match Waiting To Begin
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground">
+                Waiting for the official toss and scorer to start ball delivery.
               </p>
+            </div>
+          ) : showTossResult && tossCopy ? (
+            <CricketTossResultPanel variant="led" copy={tossCopy} />
+          ) : isComplete && summary ? (
+            <div className="w-full max-w-4xl space-y-4 my-auto">
+              <div className="flex items-center justify-center gap-3">
+                <Trophy className="w-7 h-7 text-primary" />
+                <h2 className="text-center text-2xl sm:text-3xl font-display font-black uppercase tracking-widest text-primary">
+                  {state?.matchStatus === "walkover" || match?.status === "walkover"
+                    ? "Walkover Awarded"
+                    : state?.matchStatus === "abandoned" || match?.status === "abandoned"
+                    ? "Match Abandoned"
+                    : "Match Completed"}
+                </h2>
+              </div>
               <MatchSummaryCard summary={summary} teams={teams} />
             </div>
           ) : (
-            <div className="w-full max-w-4xl space-y-8">
-              <div className="text-center space-y-2">
-                <p className="text-sm uppercase tracking-widest text-muted-foreground">
-                  {home?.shortCode} vs {away?.shortCode}
-                  {state?.target ? ` · Target ${state.target}` : ""}
-                </p>
-                <p className="text-7xl sm:text-8xl font-display font-black tabular-nums tracking-tight text-primary">
-                  {innings?.runs ?? 0}
-                  <span className="text-muted-foreground">/</span>
-                  {innings?.wickets ?? 0}
-                </p>
-                <p className="text-2xl font-mono text-muted-foreground">
-                  ({innings ? oversText(innings.over, innings.ball) : "0.0"})
-                  {rr ? ` · RR ${rr}` : ""}
-                  {rrr ? ` · RRR ${rrr}` : ""}
-                </p>
-                <p className="text-base text-muted-foreground">
-                  {battingTeam?.name} bat · {bowlingTeam?.name} bowl
-                </p>
+            <div className="w-full max-w-7xl flex-1 min-h-0 flex flex-col items-center justify-between gap-2 sm:gap-2.5">
+              {/* Unified Match Context & Teams Strip */}
+              <div className="w-full min-h-[50px] sm:min-h-[56px] flex items-center justify-between px-3 sm:px-5 py-1 rounded-xl sm:rounded-2xl bg-card/95 border border-border/80 backdrop-blur-md shadow-xl gap-2 sm:gap-4 shrink-0">
+                {/* Batting Team Badge */}
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <TeamLogoBadge
+                    logoUrl={battingTeam?.logoUrl || home?.logoUrl}
+                    name={battingTeam?.name || home?.name || "Batting Team"}
+                    borderColor="border-emerald-500/40"
+                    fallbackIconColor="text-emerald-400"
+                    className="w-9 h-9 sm:w-10 sm:h-10 shrink-0"
+                  />
+                  <h3 className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl font-black uppercase tracking-wide text-white leading-tight truncate">
+                    {battingTeam?.name || home?.name || "Batting Team"}
+                  </h3>
+                </div>
+
+                {/* Center Match Equation / Free Hit Alert */}
+                <div className="flex items-center justify-center text-center px-2 shrink-0">
+                  {state?.freeHitActive ? (
+                    <div className="px-3 py-1 rounded-lg bg-amber-500 text-black border border-yellow-200 font-black text-xs sm:text-sm uppercase tracking-widest flex items-center gap-1.5 shadow-md animate-pulse">
+                      <Flame className="w-3.5 h-3.5 text-black fill-current animate-bounce" />
+                      FREE HIT ACTIVE
+                    </div>
+                  ) : targetRuns != null ? (
+                    <div className="flex items-center gap-2 sm:gap-3 px-3 py-1 rounded-lg bg-card border border-border/80">
+                      <div className="text-xs sm:text-sm font-black uppercase text-amber-400">
+                        TARGET: <span className="text-white font-mono text-sm sm:text-base font-black ml-0.5">{targetRuns}</span>
+                      </div>
+                      <div className="text-xs sm:text-sm font-black uppercase text-white">
+                        NEED <span className="text-amber-400 font-mono text-sm sm:text-base font-black">{needRuns}</span> IN <span className="text-amber-400 font-mono text-sm sm:text-base font-black">{ballsRemaining}B</span>
+                      </div>
+                      {rrr && (
+                        <div className="text-xs sm:text-sm font-black uppercase text-amber-300 hidden sm:block">
+                          RRR: <span className="font-mono text-sm sm:text-base font-black ml-0.5">{rrr}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="px-3 py-1 rounded-lg bg-card/80 border border-border/80">
+                      <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-white/90">
+                        {rr ? `CRR ${rr}` : "First innings"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Bowling Team Badge */}
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 text-right justify-end">
+                  <h3 className="text-sm sm:text-base md:text-lg lg:text-xl xl:text-2xl font-black uppercase tracking-wide text-white leading-tight truncate">
+                    {bowlingTeam?.name || away?.name || "Bowling Team"}
+                  </h3>
+                  <TeamLogoBadge
+                    logoUrl={bowlingTeam?.logoUrl || away?.logoUrl}
+                    name={bowlingTeam?.name || away?.name || "Bowling Team"}
+                    borderColor="border-amber-500/40"
+                    fallbackIconColor="text-amber-400"
+                    className="w-9 h-9 sm:w-10 sm:h-10 shrink-0"
+                  />
+                </div>
               </div>
 
-              {scoreLines.length > 1 ? (
-                <div className="flex justify-center gap-4 flex-wrap">
-                  {scoreLines.map((line) => (
-                    <div
-                      key={line.key}
+              {/* HERO SCORING ARENA */}
+              <div className="w-full flex-1 min-h-0 p-3 sm:p-4 rounded-2xl sm:rounded-3xl bg-gradient-to-b from-card/95 via-card/85 to-background/90 border-2 border-border/80 backdrop-blur-md shadow-2xl flex flex-col items-center justify-between gap-2 overflow-hidden">
+                {/* Hero Numerals + Overs Bar */}
+                <div className="flex flex-col items-center justify-center my-auto relative">
+                  {/* Total Score Numerals with Optical Slash and tight number-focused glow (50% Larger) */}
+                  <div
+                    className={cn(
+                      "text-9xl sm:text-[12rem] md:text-[16rem] lg:text-[19.5rem] xl:text-[23rem] font-black font-mono tabular-nums tracking-tight leading-none flex items-center justify-center transition-all duration-300 ease-out select-none relative drop-shadow-[0_10px_35px_rgba(0,0,0,0.95)]",
+                      scoreGlowType === "gold"
+                        ? "text-amber-300 drop-shadow-[0_0_32px_rgba(251,191,36,0.95)] scale-[1.03]"
+                        : scoreGlowType === "white"
+                        ? "text-white drop-shadow-[0_0_28px_rgba(255,255,255,0.95)] scale-[1.02]"
+                        : "text-white",
+                    )}
+                  >
+                    <span>{innings?.runs ?? 0}</span>
+                    <span
                       className={cn(
-                        "rounded-xl px-5 py-3 text-center border",
-                        line.isCurrent
-                          ? "border-primary/50 bg-primary/10"
-                          : "border-border bg-card",
+                        "font-light text-[0.7em] mx-3 sm:mx-6 select-none transition-colors duration-300",
+                        scoreGlowType === "gold"
+                          ? "text-amber-300/80 drop-shadow-[0_0_18px_rgba(251,191,36,0.7)]"
+                          : scoreGlowType === "white"
+                          ? "text-white/80 drop-shadow-[0_0_15px_rgba(255,255,255,0.7)]"
+                          : "text-amber-400/50",
                       )}
                     >
-                      <p className="text-xs uppercase text-muted-foreground">{line.label}</p>
-                      <p className="text-2xl font-bold tabular-nums">
-                        {line.score}
-                        <span className="text-sm text-muted-foreground ml-1">({line.overs})</span>
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              {state && state.thisOver.length > 0 ? (
-                <div className="flex justify-center flex-wrap gap-2">
-                  {state.thisOver.map((b, i) => (
-                    <span
-                      key={`${b.over}-${b.ball}-${i}`}
-                      className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-card text-lg font-bold border border-border"
-                    >
-                      {b.label}
+                      /
                     </span>
-                  ))}
+                    <span>{innings?.wickets ?? 0}</span>
+                  </div>
+
+                  {/* Overs, Rates & Partnership Bar (~50% Larger) */}
+                  <div className="flex items-center gap-3 sm:gap-5 mt-2 sm:mt-3 flex-wrap justify-center">
+                    <div className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-2xl bg-card/95 border-2 border-border flex items-center gap-2.5 sm:gap-3.5">
+                      <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-widest text-white/70">
+                        OVERS
+                      </span>
+                      <span className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-mono font-black text-amber-400">
+                        {innings ? oversText(innings.over, innings.ball) : "0.0"}
+                        <span className="text-base sm:text-lg md:text-xl text-white/50 font-bold ml-1.5">
+                          / {state?.oversLimit ?? 0}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              ) : null}
+
+                {/* Crease (Both Batters in 1 Line) & Bowler Area */}
+                <div className="w-full flex flex-col gap-2 my-auto shrink-0">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex items-center justify-between gap-3 min-w-0">
+                      <span className="text-xl sm:text-2xl md:text-3xl font-black uppercase text-amber-300 truncate">
+                        {strikerStats?.name || strikerPlayer?.name || "Striker"} *
+                      </span>
+                      <span className="text-4xl sm:text-5xl md:text-6xl font-mono font-black text-amber-400 shrink-0">
+                        {strikerStats?.hasStats ? strikerStats.runs : "—"}
+                        <span className="text-xl sm:text-2xl text-white/70">
+                          {strikerStats?.hasStats ? ` (${strikerStats.balls})` : ""}
+                        </span>
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 min-w-0">
+                      <span className="text-xl sm:text-2xl md:text-3xl font-bold uppercase text-white/90 truncate">
+                        {nonStrikerStats?.name || nonStrikerPlayer?.name || "Non-striker"}
+                      </span>
+                      <span className="text-4xl sm:text-5xl md:text-6xl font-mono font-black text-white shrink-0">
+                        {nonStrikerStats?.hasStats ? nonStrikerStats.runs : "—"}
+                        <span className="text-xl sm:text-2xl text-white/60">
+                          {nonStrikerStats?.hasStats ? ` (${nonStrikerStats.balls})` : ""}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-sm font-bold uppercase tracking-wider text-white/60">
+                    Partnership {partnershipRuns} ({partnershipBalls})
+                  </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xl sm:text-2xl md:text-3xl font-black uppercase text-white truncate">
+                      {bowlerStats?.name || bowlerPlayer?.name || "Bowler"}
+                    </span>
+                    <span className="text-3xl sm:text-4xl md:text-5xl font-mono font-black text-amber-400 shrink-0">
+                      {bowlerStats?.hasStats
+                        ? `${bowlerStats.wickets}-${bowlerStats.runsConceded} (${bowlerStats.overs})`
+                        : `Ball ${innings?.ball ?? 0} of 6`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* This Over Deliveries Strip (Centered in Middle & Double Text Size) */}
+                <div className="w-full flex flex-col items-center justify-center gap-1.5 pt-2 border-t border-border/40 shrink-0">
+                  <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-[0.25em] text-muted-foreground">
+                    THIS OVER DELIVERIES
+                  </span>
+                  <div className="flex items-center justify-center flex-wrap gap-2.5 sm:gap-3.5">
+                    {state && state.thisOver.length > 0 ? (
+                      state.thisOver.map((b, i) => {
+                        const isSix = b.runsOffBat === 6 || b.label === "6";
+                        const isFour = b.runsOffBat === 4 || b.label === "4";
+                        const isWkt = b.isWicket || b.label.includes("W");
+                        const isExtra =
+                          b.extrasType != null ||
+                          b.label.includes("wd") ||
+                          b.label.includes("nb");
+
+                        return (
+                          <span
+                            key={`${b.over}-${b.ball}-${i}`}
+                            className={cn(
+                              "inline-flex h-12 min-w-12 sm:h-16 sm:min-w-16 md:h-20 md:min-w-20 px-2 items-center justify-center rounded-2xl text-2xl sm:text-4xl md:text-5xl font-mono font-black border-2 transition-all shadow-lg leading-none",
+                              isSix
+                                ? "bg-amber-500 text-black border-yellow-200 shadow-[0_0_24px_rgba(245,158,11,0.7)]"
+                                : isFour
+                                ? "bg-emerald-600 text-white border-emerald-300 shadow-[0_0_24px_rgba(16,185,129,0.6)]"
+                                : isWkt
+                                ? "bg-red-600 text-white border-red-300 shadow-[0_0_24px_rgba(239,68,68,0.8)] animate-pulse"
+                                : isExtra
+                                ? "bg-purple-700 text-white border-purple-300"
+                                : "bg-card text-foreground border-border/90",
+                            )}
+                          >
+                            {b.label}
+                          </span>
+                        );
+                      })
+                    ) : (
+                      <span className="text-sm sm:text-base uppercase tracking-widest text-muted-foreground/60 italic font-semibold">
+                        Over commencing...
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </main>
 
-        <footer className="relative z-10 px-6 py-3 border-t border-border flex justify-center">
-          <CricketPublicBrandMark variant="footer" />
+        {/* 3. FOOTER: Full-Width Broadcast Sponsor Marquee */}
+        {sponsorTrailItems.length > 0 ? (
+        <footer className="relative z-20 h-12 sm:h-14 bg-[#05070a]/95 border-t border-border/70 overflow-hidden flex items-center select-none shrink-0 w-full">
+          {/* Continuous Infinite Marquee Sponsor Trail (Full Width) */}
+          <div className="w-full overflow-hidden relative">
+            <div className="flex animate-marquee whitespace-nowrap will-change-transform py-2">
+              {[0, 1].map((copyIdx) => (
+                <div key={copyIdx} className="flex items-center shrink-0 gap-14 pr-14">
+                  {sponsorTrailItems.map((name, idx) => (
+                    <div key={`${copyIdx}-${idx}`} className="inline-flex items-center gap-3.5">
+                      <span className="text-xl sm:text-2xl font-black uppercase tracking-wider text-white">
+                        {name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
         </footer>
+        ) : null}
+
+        {/* 4. GROUND LED MID-SCREEN OVERLAYS (Sponsors, Points Table, Fixtures, Scorecard, Summary, Intro) */}
+        <CricketLedMidOverlays
+          overlay={currentOverlay}
+          overlayMatchId={overlayMatchId}
+          overlaySponsorName={overlaySponsorName}
+          overlayStageOrGroup={overlayStageOrGroup}
+          tournamentId={tournamentId}
+          tournamentName={tournament?.name}
+          tournamentLogoUrl={tournament?.logoUrl}
+          match={match}
+          state={state}
+          summary={summary}
+          teams={teams}
+          players={players}
+          sponsors={sponsors}
+          onClose={() => setCurrentOverlay("none")}
+        />
+
+        {/* 5. MODULAR LED EVENT ANIMATION OVERLAY */}
+        <LedEventAnimationOverlay
+          currentEvent={activeEvent}
+          onDismiss={() => setActiveEvent(null)}
+        />
+
+        {/* 6. SUPER BALL FULL-SCREEN BROADCAST ACTIVATION */}
+        {tournamentId > 0 ? (
+          <SuperBallActivationOverlay tournamentId={tournamentId} />
+        ) : null}
+        {tournamentId > 0 && currentOverlay !== "sponsors" ? (
+          <SponsorMediaLayer tournamentId={tournamentId} surface="led" cover="fixed" />
+        ) : null}
       </div>
     </FullscreenLayout>
   );
 }
+

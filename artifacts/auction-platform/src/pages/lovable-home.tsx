@@ -1,21 +1,33 @@
-import { Suspense, lazy, useEffect, useState, type FormEvent, type MouseEvent } from "react";
+import { Suspense, lazy, useEffect, useState, useRef, type FormEvent, type MouseEvent } from "react";
 import { useLocation } from "wouter";
+import {
+  Play,
+  Maximize2,
+  Tv,
+  Smartphone,
+  Laptop,
+  BarChart3,
+  CheckCircle2,
+  GraduationCap,
+  Radio,
+  MessageSquare,
+  FileSpreadsheet,
+  Globe,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ArrowUp,
+} from "lucide-react";
 import { HomeSchemaMarkup } from "@/components/schema-markup";
 import type { PaymentPlan } from "@/components/payment-modal";
 import { BrandLogoImage } from "@/components/brand-logo-image";
 import { PublicAuthCta } from "@/components/public-auth-cta";
+import { ScrollToTopButton, scrollPageToTop, useScrolledPast } from "@/components/scroll-to-top-button";
+import { centeredScrollLeft, stickyContentOffsetPx } from "@/lib/home-mobile-chrome";
 import { getBrandLogoAlt, getBrandWordmarkSrc, getPublicBrandLogoSrc } from "@/lib/brand-assets";
 import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
 import {
-  deriveCategoriesFromLessons,
-  fetchAcademyIndex,
-  fetchAcademyLessons,
-  formatDuration,
-  type PublicAcademyLessonSummary,
-} from "@/lib/academy-public";
-import {
-  HOME_SPORT_SOLUTION_HREFS,
   MORE_NAV_LINKS,
   SITE_CONTACT,
   SITE_SOCIAL,
@@ -24,12 +36,20 @@ import {
   SOLUTION_SPORT_LINKS,
   waMeUrl,
 } from "@/lib/public-site-links";
+import { VideoModal, type VideoModalProps } from "@/components/home/video-modal";
+import { PhotoLightbox, type LightboxItem } from "@/components/home/photo-lightbox";
+import { TournamentCalculator } from "@/components/home/tournament-calculator";
+import {
+  OrganizerVideoReviews,
+  type OrganizerReview,
+} from "@/components/home/organizer-video-reviews";
+import { HeroTournamentShowcase } from "@/components/home/hero-tournament-showcase";
+import { OurClientsSection } from "@/components/home/our-clients-section";
+
+import { PricingSection } from "@/components/home/pricing-section";
 
 const PaymentModal = lazy(() =>
   import("@/components/payment-modal").then((m) => ({ default: m.PaymentModal })),
-);
-const PricingSection = lazy(() =>
-  import("@/components/home/pricing-section").then((m) => ({ default: m.PricingSection })),
 );
 
 const landingHeaderPreset = getBrandSurfacePreset("landing-header");
@@ -38,9 +58,27 @@ const BRAND_NAME = "BidWar";
 const DEMO_WA_MESSAGE =
   "Hi, I want to book a live BidWar demo for my sports auction. Can you help me set up?";
 
-function scrollToSection(sectionId: string, event?: MouseEvent<HTMLAnchorElement>) {
+function scrollToSection(sectionId: string, event?: MouseEvent<HTMLAnchorElement>, surfaceIndex?: number) {
   event?.preventDefault();
-  document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth" });
+  const targetId =
+    sectionId === "surfaces" || sectionId === "features"
+      ? "auction-screens"
+      : sectionId === "tournaments" || sectionId === "cases"
+        ? "tournament-galleries"
+        : sectionId === "clients"
+          ? "our-clients"
+          : sectionId;
+  const el = document.getElementById(targetId) || document.getElementById(sectionId);
+  if (el) {
+    const yOffset = -95; // Account for sticky header + breathing room
+    const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+    window.scrollTo({ top: y, behavior: "smooth" });
+  }
+  if (surfaceIndex !== undefined) {
+    window.dispatchEvent(
+      new CustomEvent("bidwar:select-surface", { detail: { index: surfaceIndex } })
+    );
+  }
 }
 
 const brandTextFallback = (className: string) => (
@@ -63,13 +101,13 @@ function BrandMark({ className }: { className?: string }) {
       width={168}
       height={40}
       loading="eager"
-      fallback={brandTextFallback("font-display text-xl tracking-wider")}
+      fallback={brandTextFallback("font-display text-xl tracking-wider font-bold")}
     />
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Small building blocks                                              */
+/* Reusable Micro-Components                                          */
 /* ------------------------------------------------------------------ */
 
 function LiveBadge({ label = "LIVE" }: { label?: string }) {
@@ -82,20 +120,37 @@ function LiveBadge({ label = "LIVE" }: { label?: string }) {
 }
 
 function StatTile({ value, label, sub }: { value: string; label: string; sub?: string }) {
+  const isCompact = value.length > 5;
+  const isMini = value.length > 8;
+
   return (
-    <div className="scoreboard-tile flex flex-col gap-1 px-5 py-4">
-      <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{label}</span>
-      <span className="font-display text-4xl leading-none text-primary count-flicker">{value}</span>
-      {sub && <span className="text-[11px] text-muted-foreground">{sub}</span>}
+    <div className="scoreboard-tile flex flex-col justify-between gap-1 px-3.5 py-3 sm:px-4 sm:py-3.5 rounded-xl bg-card/60 border border-white/10 transition-colors hover:border-primary/40 min-h-[84px]">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground break-words leading-tight" title={label}>
+        {label}
+      </span>
+      <span
+        className={`font-display font-bold leading-tight text-primary count-flicker break-words ${
+          isMini ? "text-lg sm:text-xl" : isCompact ? "text-2xl sm:text-2xl" : "text-2xl sm:text-3xl"
+        }`}
+        title={value}
+      >
+        {value}
+      </span>
+      {sub ? (
+        <span className="text-[11px] text-muted-foreground/80 break-words leading-tight" title={sub}>
+          {sub}
+        </span>
+      ) : (
+        <span className="h-1.5" />
+      )}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Signature: Live Auction Card (reused across the page)              */
+/* Interactive Live Bidding Simulation Card                           */
 /* ------------------------------------------------------------------ */
 
-/** Demo bid amounts are virtual auction points — never rupees. */
 function formatPtsShort(n: number): string {
   return `${n.toLocaleString("en-IN")}k Pts`;
 }
@@ -108,7 +163,6 @@ function AuctionCard({
   team = "MUMBAI TITANS",
   sold = false,
   animate = true,
-  compact = false,
   purseLeft = "1.62 Cr Pts",
 }: {
   player?: string;
@@ -118,7 +172,6 @@ function AuctionCard({
   team?: string;
   sold?: boolean;
   animate?: boolean;
-  compact?: boolean;
   purseLeft?: string;
 }) {
   const [bid, setBid] = useState(animate ? base : target);
@@ -126,9 +179,14 @@ function AuctionCard({
 
   useEffect(() => {
     if (!animate) return;
-    const prefersReduced = typeof window !== "undefined" &&
+    const prefersReduced =
+      typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (prefersReduced) { setBid(target); if (sold) setShowStamp(true); return; }
+    if (prefersReduced) {
+      setBid(target);
+      if (sold) setShowStamp(true);
+      return;
+    }
 
     let current = base;
     const step = Math.max(5, Math.round((target - base) / 34));
@@ -147,61 +205,63 @@ function AuctionCard({
   }, [animate, base, target, sold]);
 
   return (
-    <div className={`panel-rail relative overflow-hidden ${compact ? "p-4" : "p-5"}`}>
+    <div className="panel-rail relative overflow-hidden rounded-2xl border border-primary/30 bg-card/70 p-5 shadow-2xl backdrop-blur-md">
       {/* Broadcast lower-third top strip */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-3">
+      <div className="flex items-center justify-between border-b border-white/10 pb-3">
         <div className="flex items-center gap-2">
-          <LiveBadge label={sold ? "SOLD" : "ON BLOCK"} />
+          <LiveBadge label={sold || showStamp ? "SOLD" : "ON BLOCK"} />
           <span className="font-mono text-[10px] tracking-widest text-muted-foreground">LOT · 047</span>
         </div>
-        <span className="font-mono text-[10px] tracking-widest text-muted-foreground">POINTS · NOT MONEY</span>
+        <span className="font-mono text-[10px] tracking-widest text-primary font-bold">POINTS PURSE · NOT MONEY</span>
       </div>
 
       {/* Player + role */}
       <div className="mt-4 flex items-start justify-between gap-4">
         <div>
-          <div className="font-display text-2xl leading-none text-foreground">{player}</div>
-          <div className="mt-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">{role}</div>
+          <div className="font-display text-2xl font-bold leading-none text-foreground tracking-wide">{player}</div>
+          <div className="mt-2 text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{role}</div>
         </div>
-        <div className="scoreboard-tile flex h-14 w-14 items-center justify-center">
-          <span className="font-display text-2xl text-primary">#47</span>
+        <div className="scoreboard-tile flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 border border-primary/25">
+          <span className="font-display text-xl font-bold text-primary">#47</span>
         </div>
       </div>
 
       {/* Bid ticker */}
       <div className="mt-5 grid grid-cols-2 gap-2">
-        <div className="scoreboard-tile px-3 py-2">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Base Points</div>
-          <div className="font-mono text-lg text-foreground">{formatPtsShort(base)}</div>
+        <div className="scoreboard-tile px-3 py-2 rounded-lg bg-black/50 border border-white/5">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Base Points</div>
+          <div className="font-mono text-base text-foreground font-bold">{formatPtsShort(base)}</div>
         </div>
-        <div className="scoreboard-tile px-3 py-2">
+        <div className="scoreboard-tile px-3 py-2 rounded-lg bg-black/50 border border-primary/30">
           <div className="flex items-center justify-between">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[color:var(--ember)]">Current Bid</div>
-            <span className="text-[10px] font-mono text-[color:var(--ember)]">▲</span>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">Current Bid</div>
+            <span className="text-[10px] font-mono text-primary animate-pulse">▲ LIVE</span>
           </div>
-          <div className="font-mono text-lg text-[color:var(--ember)] count-flicker">{formatPtsShort(bid)}</div>
+          <div className="font-mono text-base text-primary font-bold count-flicker">{formatPtsShort(bid)}</div>
         </div>
       </div>
 
       {/* Team + purse */}
-      <div className="mt-4 flex items-center justify-between rounded-md bg-black/25 px-3 py-2">
+      <div className="mt-4 flex items-center justify-between rounded-lg bg-black/50 border border-white/10 px-3.5 py-2.5">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Leading Bidder</div>
-          <div className="font-display text-sm text-primary">{team}</div>
+          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Leading Bidder</div>
+          <div className="font-display text-sm font-bold text-primary tracking-wide">{team}</div>
         </div>
         <div className="text-right">
-          <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Purse Left</div>
-          <div className="font-mono text-sm text-foreground">{purseLeft}</div>
+          <div className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Purse Remaining</div>
+          <div className="font-mono text-sm text-foreground font-bold">{purseLeft}</div>
         </div>
       </div>
 
       {/* Scan-line texture */}
-      <div className="pointer-events-none absolute inset-0 scan-lines opacity-40" />
+      <div className="pointer-events-none absolute inset-0 scan-lines opacity-20" />
 
       {/* SOLD stamp overlay */}
       {showStamp && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="sold-stamp stamp-in font-display text-5xl">SOLD</span>
+          <span className="sold-stamp stamp-in font-display text-5xl font-black text-emerald-400 border-4 border-emerald-400 rounded-xl px-6 py-2 rotate-[-12deg] bg-black/80 shadow-2xl">
+            SOLD
+          </span>
         </div>
       )}
     </div>
@@ -209,10 +269,10 @@ function AuctionCard({
 }
 
 /* ------------------------------------------------------------------ */
-/* Page                                                                */
+/* Page Main Component                                                */
 /* ------------------------------------------------------------------ */
 
-function Home() {
+export default function LovableHome() {
   const [, navigate] = useLocation();
   const goSignup = () => navigate("/organizer?tab=signup");
   const goBlog = () => navigate("/blog");
@@ -221,77 +281,206 @@ function Home() {
   const openDemoWhatsApp = () => {
     window.open(waMeUrl(DEMO_WA_MESSAGE), "_blank", "noopener,noreferrer");
   };
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const showScrollTop = useScrolledPast();
+  const stickyCtaRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const bar = stickyCtaRef.current;
+    const root = bar?.closest(".lovable-home");
+    if (!bar || !(root instanceof HTMLElement)) return;
+
+    const apply = () => {
+      const desktop = window.matchMedia("(min-width: 768px)").matches;
+      const height = desktop ? 0 : bar.getBoundingClientRect().height;
+      root.style.setProperty("--bw-sticky-cta-offset", `${stickyContentOffsetPx(height, desktop)}px`);
+    };
+
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(bar);
+    const query = window.matchMedia("(min-width: 768px)");
+    query.addEventListener("change", apply);
+    return () => {
+      observer.disconnect();
+      query.removeEventListener("change", apply);
+      root.style.removeProperty("--bw-sticky-cta-offset");
+    };
+  }, []);
+
+  // Video Modal State
+  const [videoModalProps, setVideoModalProps] = useState<VideoModalProps | null>(null);
+
+  // Photo Lightbox State
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxItems, setLightboxItems] = useState<LightboxItem[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  const openLightbox = (items: LightboxItem[], index: number = 0) => {
+    setLightboxItems(items);
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
+
+  const handlePlayWalkthrough = () => {
+    setVideoModalProps({
+      isOpen: true,
+      onClose: () => setVideoModalProps(null),
+      title: "BidWar Live Sports Auction: 2-Minute Full Overview",
+      subtitle: "See how operator console, team-owner mobile PWA and 1080p60 LED wall sync in real-time.",
+      tournamentTag: "LIVE DEMO",
+      organizerName: "BidWar Broadcast Team",
+      videoUrl: "https://www.youtube.com/@bidwarofficial",
+    });
+  };
+
+  const handlePlayReviewVideo = (review: OrganizerReview) => {
+    setVideoModalProps({
+      isOpen: true,
+      onClose: () => setVideoModalProps(null),
+      title: `${review.tournament}: Organizer Experience Story`,
+      subtitle: `Feedback and auction walkthrough by ${review.name} (${review.role})`,
+      organizerName: review.name,
+      tournamentTag: review.sport,
+      youtubeId: review.youtubeId,
+      videoUrl: review.youtubeId
+        ? `https://www.youtube.com/watch?v=${review.youtubeId}`
+        : `https://www.youtube.com/@bidwarofficial`,
+      comingSoon: !review.youtubeId,
+    });
+  };
+
+  const handlePlayTutorialVideo = (title: string, duration: string, tag: string) => {
+    setVideoModalProps({
+      isOpen: true,
+      onClose: () => setVideoModalProps(null),
+      title: `BidWar Academy: ${title}`,
+      subtitle: `Official step-by-step masterclass tutorial (${duration}) · ${tag}`,
+      tournamentTag: tag,
+      organizerName: "BidWar Academy",
+      videoUrl: "https://www.youtube.com/@bidwarofficial",
+    });
+  };
 
   return (
     <>
       <HomeSchemaMarkup />
-      <div className="lovable-home min-h-screen text-foreground">
-      <Header
-        onOpenDrawer={() => setDrawerOpen(true)}
-        goBlog={goBlog}
-        goAcademy={goAcademy}
-      />
-      {drawerOpen && (
-        <MobileDrawer
-          onClose={() => setDrawerOpen(false)}
+      <div className="lovable-home has-mobile-sticky-cta min-h-screen min-w-0 max-w-full text-foreground bg-stage">
+        <Header
+          onOpenDrawer={() => setDrawerOpen(true)}
           goBlog={goBlog}
           goAcademy={goAcademy}
-          goContact={goContact}
         />
-      )}
+        {drawerOpen && (
+          <MobileDrawer
+            onClose={() => setDrawerOpen(false)}
+            goBlog={goBlog}
+            goAcademy={goAcademy}
+            goContact={goContact}
+          />
+        )}
 
-      <main>
-        <Hero onContact={openDemoWhatsApp} goSignup={goSignup} />
-        <TrustBadges />
-        <Ticker />
-        <TrustStrip />
-        <WhyChoose />
-        <UseCases />
-        <Features />
-        <ProductShowcase />
-        <HowItWorks />
-        <BroadcastEcosystem />
-        <RealTournaments />
-        <LiveShowcase goSignup={goSignup} />
-        <Testimonials />
-        <SuccessMetrics />
-        <AcademyPromo />
-        <Pricing goSignup={goSignup} />
-        <FAQ />
-        <FinalCTA onContact={openDemoWhatsApp} goSignup={goSignup} />
-        <ContactSection onOpen={() => setContactOpen(true)} />
-        <Footer />
-      </main>
+        <main className="min-w-0 max-w-full">
+          {/* 1. Hero Section with Live Tournament Showcase */}
+          <Hero goSignup={goSignup} onDemo={openDemoWhatsApp} />
 
-      {/* Sticky CTA (desktop + mobile) */}
-      <button
-        type="button"
-        onClick={openDemoWhatsApp}
-        className="gold-button gold-button-hover fixed bottom-5 right-5 z-40 hidden rounded-full px-6 py-3 text-sm shadow-2xl md:inline-flex"
-        aria-label="Get a demo"
-      >
-        Book Live Demo →
-      </button>
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-stage/95 p-3 backdrop-blur md:hidden">
+          {/* 2. Trust Strip & Live Tournament Ticker */}
+          <TrustBadges />
+          <Ticker />
+
+          <ProductOfferings />
+
+          {/* 3. The 7 Connected Surfaces (Auction Control, Bidding Web App, LED Screen, OBS, Live View, Communications, Reports) */}
+          <ProductShowcase onOpenLightbox={openLightbox} />
+
+          {/* 4. Real Tournaments & Photographic Evidence */}
+          <RealTournaments onOpenLightbox={openLightbox} onPlayReel={handlePlayWalkthrough} />
+
+          {/* 5. Verified Organizer Video Reviews */}
+          <OrganizerVideoReviews onPlayVideo={handlePlayReviewVideo} />
+
+          {/* 6. BidWar Academy Video Masterclass */}
+          <AcademyPromo onPlayLesson={handlePlayTutorialVideo} />
+
+          {/* 7. Interactive Tournament Setup & Duration Calculator */}
+          <TournamentCalculator onStartTrial={goSignup} />
+
+          {/* 8. Transparent Tournament Pricing */}
+          <Pricing goSignup={goSignup} />
+
+          {/* 9. FAQ Section */}
+          <FAQ />
+
+          {/* 10. Contact Desk */}
+          <ContactSection onOpen={() => setContactOpen(true)} />
+
+          {/* 11. Our Clients (Brands, Firms, and Auction Organisations) */}
+          <OurClientsSection />
+
+          <Footer />
+        </main>
+
+        {/* Video Player Modal */}
+        {videoModalProps && (
+          <VideoModal {...videoModalProps} onClose={() => setVideoModalProps(null)} />
+        )}
+
+        {/* Photo Lightbox Viewer */}
+        <PhotoLightbox
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          items={lightboxItems}
+          currentIndex={lightboxIndex}
+          onIndexChange={setLightboxIndex}
+        />
+
+        {/* Sticky Desktop & Mobile CTAs */}
         <button
           type="button"
-          onClick={goSignup}
-          className="gold-button w-full rounded-md py-3 text-sm"
+          onClick={openDemoWhatsApp}
+          className="gold-button gold-button-hover fixed bottom-6 right-6 z-40 hidden rounded-full px-6 py-3.5 text-xs font-bold uppercase tracking-wider shadow-2xl md:inline-flex items-center gap-2"
+          aria-label="Book live demo"
         >
-          Start Free Trial
+          <span>Book Live Demo</span>
+          <span>→</span>
         </button>
-      </div>
+        <ScrollToTopButton placement="desktop-left" />
+        <div
+          ref={stickyCtaRef}
+          data-home-sticky-cta=""
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-stage/95 px-3 pt-3 backdrop-blur-md md:hidden pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        >
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={goSignup}
+              className="gold-button min-h-11 flex-1 rounded-md px-3 py-3 text-xs font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Start Free Trial (2 Teams)
+            </button>
+            {showScrollTop ? (
+              <button
+                type="button"
+                onClick={scrollPageToTop}
+                aria-label="Scroll back to top"
+                className="bw-scroll-top flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-primary/50 bg-black/85 text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <ArrowUp className="h-5 w-5" aria-hidden="true" />
+              </button>
+            ) : null}
+          </div>
+        </div>
 
-      {contactOpen && <ContactDrawer onClose={() => setContactOpen(false)} />}
+        {contactOpen && <ContactDrawer onClose={() => setContactOpen(false)} />}
       </div>
     </>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Header                                                              */
+/* Header Navigation                                                  */
 /* ------------------------------------------------------------------ */
 
 function Header({ onOpenDrawer, goBlog, goAcademy }: {
@@ -300,89 +489,156 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
   goAcademy: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-white/10 bg-stage/85 backdrop-blur-md">
-      {/* BidWar signal motif — concentric bid pulse */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-full overflow-hidden">
-        <BidPulseMotif className="absolute -right-16 -top-10 h-40 w-40 opacity-60" />
-        <BidPulseMotif className="absolute -left-16 -top-10 h-40 w-40 -scale-x-100 opacity-40" />
-      </div>
-
-      <div className="relative mx-auto flex max-w-7xl items-center justify-between px-5 py-3">
-        <a href="/" className="flex items-center gap-2" aria-label={`${BRAND_NAME} Home`}>
-          <BrandMark />
+    <header className="sticky top-0 z-30 min-w-0 border-b border-white/10 bg-stage/90 backdrop-blur-md">
+      <div className="mx-auto flex h-16 w-full min-w-0 max-w-[1440px] items-center justify-between gap-2 px-3 sm:px-6 lg:px-8">
+        <a href="/" className="flex min-w-0 items-center mr-2 xl:mr-6 2xl:mr-8" aria-label={`${BRAND_NAME} Home`}>
+          <BrandMark className="h-9 w-auto max-w-[7.25rem] object-contain object-left sm:h-10 sm:max-w-[168px]" />
         </a>
 
-        <nav className="hidden items-center gap-7 text-sm text-muted-foreground lg:flex">
-          <a href="#features" onClick={(e) => scrollToSection("features", e)} className="hover:text-foreground">Features</a>
+        <nav className="hidden xl:flex items-center gap-1 xl:gap-2 2xl:gap-3.5 text-[13px] font-medium text-muted-foreground">
+          <a
+            href="#auction-screens"
+            onClick={(e) => scrollToSection("auction-screens", e)}
+            className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
+          >
+            Auction Screens
+          </a>
+          <a
+            href="#experience-bidding"
+            onClick={(e) => scrollToSection("experience-bidding", e)}
+            className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
+          >
+            Experience Bidding
+          </a>
+          <a
+            href="#tournament-galleries"
+            onClick={(e) => scrollToSection("tournament-galleries", e)}
+            className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
+          >
+            Tournament Galleries
+          </a>
+
+          <a
+            href="/academy"
+            onClick={(e) => {
+              e.preventDefault();
+              goAcademy();
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
+          >
+            <span>Academy</span>
+            <span className="rounded bg-primary/20 px-1.5 py-0.5 font-mono text-[9px] text-primary font-bold">
+              VIDEOS
+            </span>
+          </a>
+
+          <a
+            href="#pricing"
+            onClick={(e) => scrollToSection("pricing", e)}
+            className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
+          >
+            Pricing
+          </a>
+          <a
+            href="/bpl"
+            className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
+          >
+            BPL
+          </a>
+
+          {/* More / Solutions Mega Dropdown */}
           <div className="relative group">
-            <a
-              href="#solutions"
-              onClick={(e) => scrollToSection("solutions", e)}
-              className="inline-flex items-center gap-1 hover:text-foreground"
-              aria-haspopup="true"
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
+              aria-label="Open more navigation links"
             >
-              Solutions ▾
-            </a>
-            <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-[520px] -translate-x-1/2 translate-y-2 rounded-md border border-white/10 bg-stage p-3 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
-              <div className="grid grid-cols-2 gap-3">
+              More <ChevronDown className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity" />
+            </button>
+            <div className="invisible absolute right-0 top-full z-40 mt-2 w-[620px] rounded-xl border border-white/10 bg-stage/95 backdrop-blur-xl p-4 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+              <div className="grid grid-cols-3 gap-4">
+                {/* Column 1: By Sport */}
                 <div>
-                  <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">By Sport</div>
-                  <div className="space-y-0.5">
+                  <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground font-mono">By Sport</div>
+                  <div className="space-y-0.5 mt-1">
                     {SOLUTION_SPORT_LINKS.map((link) => (
-                      <a key={link.href} href={link.href} className="block rounded-md px-2 py-1.5 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground">
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        className="block rounded-md px-2 py-1.5 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+                      >
                         {link.label}
                       </a>
                     ))}
                   </div>
                 </div>
+
+                {/* Column 2: Platform */}
                 <div>
-                  <div className="px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground">Platform</div>
-                  <div className="space-y-0.5">
+                  <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground font-mono">Platform</div>
+                  <div className="space-y-0.5 mt-1">
                     {SOLUTION_PLATFORM_LINKS.map((link) => (
-                      <a key={link.href} href={link.href} className="block rounded-md px-2 py-1.5 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground">
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        className="block rounded-md px-2 py-1.5 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+                      >
+                        {link.label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Column 3: Resources */}
+                <div>
+                  <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground font-mono">Resources</div>
+                  <div className="space-y-0.5 mt-1">
+                    {MORE_NAV_LINKS.map((link) => (
+                      <a
+                        key={link.label}
+                        href={link.href}
+                        onClick={(e) => {
+                          if ("sectionId" in link && link.sectionId) {
+                            scrollToSection(link.sectionId, e);
+                          }
+                        }}
+                        className="block rounded-md px-2 py-1.5 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors"
+                      >
                         {link.label}
                       </a>
                     ))}
                   </div>
                 </div>
               </div>
-              <div className="mt-2 border-t border-white/10 pt-2">
-                <a href="#solutions" onClick={(e) => scrollToSection("solutions", e)} className="block rounded-md px-2 py-1.5 text-[13px] font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground">
+              <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between text-xs text-muted-foreground px-1">
+                <a
+                  href="#solutions"
+                  onClick={(e) => scrollToSection("solutions", e)}
+                  className="hover:text-primary transition font-medium"
+                >
                   View all solutions →
                 </a>
-              </div>
-            </div>
-          </div>
-          <a href="#pricing" onClick={(e) => scrollToSection("pricing", e)} className="hover:text-foreground">Pricing</a>
-          <a href="/academy" onClick={(e) => { e.preventDefault(); goAcademy(); }} className="hover:text-foreground">Academy</a>
-          <a href="/blog" onClick={(e) => { e.preventDefault(); goBlog(); }} className="hover:text-foreground">Blog</a>
-          <div className="relative group">
-            <button type="button" className="inline-flex items-center gap-1 hover:text-foreground" aria-haspopup="true" aria-label="Open more navigation links">
-              More ▾
-            </button>
-            <div className="invisible absolute left-1/2 top-full z-40 mt-2 w-56 -translate-x-1/2 translate-y-2 rounded-md border border-white/10 bg-stage p-2 opacity-0 shadow-2xl transition group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
-              {MORE_NAV_LINKS.map((link) => (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  onClick={(e) => {
-                    if ("sectionId" in link && link.sectionId) {
-                      scrollToSection(link.sectionId, e);
-                    }
-                  }}
-                  className="block rounded-md px-2 py-2 text-[13px] text-muted-foreground hover:bg-white/5 hover:text-foreground"
-                >
-                  {link.label}
+                <a href="/contact" className="hover:text-primary transition">
+                  Custom tournament setup? Contact us →
                 </a>
-              ))}
+              </div>
             </div>
           </div>
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex min-w-0 shrink items-center gap-1.5 sm:gap-2.5 xl:ml-4">
           <PublicAuthCta variant="homepage" />
-          <button type="button" onClick={onOpenDrawer} className="ghost-button rounded-md p-2 lg:hidden" aria-label="Open menu">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="7" x2="21" y2="7"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="17" x2="21" y2="17"/></svg>
+          <button
+            type="button"
+            onClick={onOpenDrawer}
+            className="ghost-button rounded-md p-2 xl:hidden"
+            aria-label="Open navigation menu"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="3" y1="7" x2="21" y2="7" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="17" x2="21" y2="17" />
+            </svg>
           </button>
         </div>
       </div>
@@ -390,6 +646,9 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* Mobile Drawer Navigation                                           */
+/* ------------------------------------------------------------------ */
 
 function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
   onClose: () => void;
@@ -399,20 +658,37 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
 }) {
   const [solutionsOpen, setSolutionsOpen] = useState(false);
   return (
-    <div className="fixed inset-0 z-50 bg-stage/98 backdrop-blur-lg lg:hidden">
-      <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-        <span className="font-display text-xl">MENU</span>
-        <button type="button" onClick={onClose} className="ghost-button rounded-md px-3 py-2 text-xs" aria-label="Close menu">Close ✕</button>
+    <div className="fixed inset-0 z-50 bg-stage/98 backdrop-blur-lg xl:hidden flex flex-col">
+      <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 shrink-0">
+        <span className="font-display text-lg font-bold tracking-wider">MENU</span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="ghost-button rounded-md px-3 py-1.5 text-xs font-bold"
+          aria-label="Close menu"
+        >
+          Close ✕
+        </button>
       </div>
-      <nav className="flex flex-col overflow-y-auto p-5 text-xl font-display">
+      <nav className="flex-1 flex flex-col overflow-y-auto p-5 text-base font-display">
+        {/* Prominent Auth CTAs at top of mobile menu */}
+        <div className="mb-4">
+          <PublicAuthCta variant="drawer" onBeforeNavigate={onClose} />
+        </div>
+
         {([
-          { label: "Features", href: "#features", sectionId: "features" },
+          { label: "BidWar Premier League", href: "/bpl" },
+          { label: "Auction Screens", href: "#auction-screens", sectionId: "auction-screens" },
+          { label: "Experience Bidding", href: "#experience-bidding", sectionId: "experience-bidding" },
+          { label: "Tournament Galleries", href: "#tournament-galleries", sectionId: "tournament-galleries" },
+          { label: "Our Clients", href: "#our-clients", sectionId: "our-clients" },
+          { label: "Academy (Video Hub)", href: "/academy", action: goAcademy },
           { label: "Pricing", href: "#pricing", sectionId: "pricing" },
-          { label: "Academy", href: "/academy", action: goAcademy },
           { label: "Blog", href: "/blog", action: goBlog },
+          { label: "Organizer Reviews", href: "#reviews", sectionId: "reviews" },
+          { label: "Tournament Calculator", href: "#calculator", sectionId: "calculator" },
           { label: "Upcoming Auctions", href: "/upcoming-auctions" },
           { label: "Contact Us", href: "/contact", action: goContact },
-          { label: "Auction Tips", href: "/auction-tips" },
           { label: "FAQ", href: "#faq", sectionId: "faq" },
         ] as const).map((item) => (
           <a
@@ -427,7 +703,7 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
               }
               onClose();
             }}
-            className="border-b border-white/5 py-4 tracking-wider hover:text-primary"
+            className="border-b border-white/5 py-3.5 tracking-wider hover:text-primary transition"
           >
             {item.label}
           </a>
@@ -435,20 +711,20 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
         <button
           type="button"
           onClick={() => setSolutionsOpen((v) => !v)}
-          className="flex w-full items-center justify-between border-b border-white/5 py-4 text-left tracking-wider hover:text-primary"
+          className="flex w-full items-center justify-between border-b border-white/5 py-3.5 text-left tracking-wider hover:text-primary transition"
           aria-expanded={solutionsOpen}
         >
-          Solutions
-          <span className="text-sm text-muted-foreground">{solutionsOpen ? "▴" : "▾"}</span>
+          Solutions by Sport
+          <span className="text-xs text-muted-foreground">{solutionsOpen ? "▲" : "▼"}</span>
         </button>
         {solutionsOpen ? (
-          <div className="border-b border-white/5 pb-4 text-base">
+          <div className="border-b border-white/5 pb-3 text-sm font-sans">
             {[...SOLUTION_SPORT_LINKS, ...SOLUTION_PLATFORM_LINKS].map((link) => (
               <a
                 key={link.href}
                 href={link.href}
                 onClick={onClose}
-                className="block py-2 text-muted-foreground hover:text-primary"
+                className="block py-2 text-muted-foreground hover:text-primary transition"
               >
                 {link.label}
               </a>
@@ -464,84 +740,78 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
 }
 
 /* ------------------------------------------------------------------ */
-/* Hero                                                                */
+/* Hero Section                                                       */
 /* ------------------------------------------------------------------ */
 
-function Hero({ onContact, goSignup }: { onContact: () => void; goSignup: () => void }) {
+function Hero({
+  goSignup,
+  onDemo,
+}: {
+  goSignup: () => void;
+  onDemo: () => void;
+}) {
   return (
     <section id="top" className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 grid-bg opacity-40" />
-      <BidPulseMotif className="pointer-events-none absolute -right-20 -top-16 h-[560px] w-[560px] opacity-30" />
-      <BidPulseMotif className="pointer-events-none absolute -left-40 top-40 h-[380px] w-[380px] opacity-15" />
+      <div className="pointer-events-none absolute inset-0 grid-bg opacity-30" />
+      <BidPulseMotif className="pointer-events-none absolute -right-20 -top-16 h-[520px] w-[520px] opacity-25" />
 
-      <div className="mx-auto grid max-w-7xl gap-12 px-5 py-16 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
-        <div className="flex flex-col justify-center">
-          <div className="mb-6 flex flex-wrap items-center gap-3">
-            <LiveBadge label="LIVE · SEASON 3 OPEN" />
-            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-              Made in India · Broadcast Grade
+      <div className="mx-auto grid min-w-0 max-w-7xl gap-10 px-5 py-10 sm:py-14 lg:grid-cols-[1.1fr_0.9fr] lg:py-20">
+        <div className="flex min-w-0 flex-col justify-center">
+          <div className="mb-5 flex flex-wrap items-center gap-2.5">
+            <LiveBadge label="⚡ 2026 SEASON READY" />
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-mono">
+              Auctions, scoring, and sponsor screens
             </span>
           </div>
 
-          <h1 className="text-hero font-display">
+          <h1 className="text-hero font-display tracking-tight">
             <span className="block">From Auction</span>
-            <span className="block gold-text">to Champion.</span>
+            <span className="block gold-text">to Champions.</span>
           </h1>
-
-          <p className="mt-6 max-w-xl text-base leading-relaxed text-muted-foreground md:text-lg">
-            BidWar is India's <strong className="text-foreground">auction-first</strong> platform for
-            live sports player auctions — IPL-style bidding rooms for cricket, football, kabaddi,
-            badminton, basketball, volleyball, esports and corporate leagues. Team owners bid in{" "}
-            <strong className="text-foreground">points</strong> from their phones. Your LED goes
-            broadcast-grade. Your operator stays in control.
-          </p>
-          <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground/90">
-            Players are allotted against a virtual points purse — not sold for money on BidWar.
-            How organizers run fees or settlements outside the platform is entirely their responsibility.
+          <p className="text-display-md mt-4 max-w-xl font-display text-foreground">
+            One Platform. Every Stage of the Game.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <button type="button" onClick={goSignup} className="gold-button gold-button-hover rounded-md px-6 py-3 text-sm">Start Free Trial →</button>
-            <button type="button" onClick={onContact} className="ghost-button ghost-button-hover rounded-md px-6 py-3 text-sm">▶ Ping for Live Demo</button>
+          <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            From player auctions to live cricket, box cricket and badminton scoring, BidWar helps tournaments
+            run the game and bring sponsors into the experience.
+          </p>
+
+          <div className="mt-7 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={goSignup}
+              className="gold-button gold-button-hover min-h-11 rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
+            >
+              Start Free Trial →
+            </button>
+            <button
+              type="button"
+              onClick={onDemo}
+              className="ghost-button ghost-button-hover min-h-11 rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
+            >
+              Book Live Demo
+            </button>
           </div>
 
-          <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-            <span>✓ Free trial</span>
-            <span>✓ Points-based bidding</span>
-            <span>✓ Any device</span>
-            <span>✓ Zero installs</span>
+          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-mono">
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Free 2-Team Trial</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Points-Based Purses</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Any Phone Browser</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Zero Software Install</span>
           </div>
 
-          <div className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatTile value="1,240+" label="Auctions" sub="run on BidWar" />
-            <StatTile value="86K" label="Players" sub="allotted live" />
-            <StatTile value="47" label="Cities" sub="across India" />
-            <StatTile value="Pts" label="Bidding Unit" sub="not money" />
+          <div className="mt-8 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            <StatTile value="Auctions" label="Player draft" sub="Virtual points purse" />
+            <StatTile value="Cricket" label="Live scoring" sub="Including box cricket" />
+            <StatTile value="Badminton" label="Live scoring" sub="Courts and standings" />
+            <StatTile value="Sponsors" label="On screen" sub="LED and overlays" />
           </div>
         </div>
 
-        {/* Signature: Auction card stack */}
-        <div className="relative">
-          <div className="relative mx-auto max-w-md">
-            <div className="absolute -inset-6 -z-10 rounded-2xl bg-[image:var(--gradient-gold)] opacity-15 blur-3xl" />
-            <div className="mb-4 flex items-center justify-between text-[10px] uppercase tracking-[0.24em] text-muted-foreground">
-              <span>Control Room · Feed 01</span>
-              <span className="font-mono">14:22:07 IST</span>
-            </div>
-            <AuctionCard />
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="panel p-3">
-                <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Next Lot</div>
-                <div className="font-display text-lg">A. Sequeira</div>
-                <div className="text-[11px] text-muted-foreground">Fast Bowler · Base 40k Pts</div>
-              </div>
-              <div className="panel p-3">
-                <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Queue</div>
-                <div className="font-display text-lg text-primary">12 <span className="text-muted-foreground text-xs">players</span></div>
-                <div className="text-[11px] text-muted-foreground">Pool: All-Rounder A</div>
-              </div>
-            </div>
-          </div>
+        {/* Seamless Borderless Tournament Slideshow */}
+        <div className="relative flex items-center justify-center">
+          <HeroTournamentShowcase />
         </div>
       </div>
     </section>
@@ -549,25 +819,56 @@ function Hero({ onContact, goSignup }: { onContact: () => void; goSignup: () => 
 }
 
 /* ------------------------------------------------------------------ */
-/* Ticker                                                              */
+/* Trust Badges Strip                                                 */
+/* ------------------------------------------------------------------ */
+
+function TrustBadges() {
+  const badges = [
+    "Multi-Sport Engine",
+    "1080p60 LED Ready",
+    "OBS Livestream Overlay",
+    "Mobile Phone Bidding",
+    "Cloud-Hosted Rooms",
+    "Zero App Install",
+    "Virtual Points Purse",
+  ];
+  return (
+    <section aria-label="Trust badges" className="border-y border-white/5 bg-black/40">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-2 px-5 py-3.5">
+        {badges.map((b) => (
+          <span
+            key={b}
+            className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground font-mono"
+          >
+            <span className="text-primary font-bold">✓</span> {b}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Live Tournament Ticker                                             */
 /* ------------------------------------------------------------------ */
 
 function Ticker() {
   const items = [
-    "MUMBAI TITANS bid 3.40L Pts for R. Kamble",
-    "SOLD · A. Sequeira → PUNE PANTHERS · 1.15L Pts",
-    "Delhi Corporate League · Season 4 opens Nov 22",
-    "UNSOLD · Round 2 recycles at base 25k Pts",
-    "Kabaddi Kings XI activates purse 8.00L Pts",
-    "LED FEED live · Rink Side · 1080p60",
+    "VNCL Premier League 2026 · Mumbai & Varanasi Live Bidding Complete",
+    "VNBL 3.0 · Mumbai Titans bid 4.80L Pts for Rohit Kamble",
+    "BPL 2026 · Badminton Premier League Player Draft Open",
+    "Bangalore Corporate Cup · 12 Teams Allotted on BidWar",
+    "UNSOLD · Round 2 Accelerated Recycle activated at base 25k Pts",
+    "Pune Sports Guild · 4th Consecutive Season powered by BidWar",
+    "LED FEED Live · 1080p60 OBS Overlay Stream Active",
   ];
   const track = [...items, ...items];
   return (
-    <div className="border-y border-white/5 bg-black/30 py-3">
-      <div className="flex overflow-hidden">
-        <div className="ticker-track flex shrink-0 gap-10 whitespace-nowrap pr-10 font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+    <div className="max-w-full border-b border-white/5 bg-black/60 py-2.5 overflow-hidden">
+      <div className="flex max-w-full overflow-hidden">
+        <div className="ticker-track flex shrink-0 gap-8 whitespace-nowrap pr-8 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
           {track.map((t, i) => (
-            <span key={i} className="flex items-center gap-3">
+            <span key={i} className="flex items-center gap-2.5">
               <span className="live-dot" />
               {t}
             </span>
@@ -579,416 +880,759 @@ function Ticker() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Trust strip                                                         */
+/* Product discovery — auctions, scoring, sponsor screens             */
 /* ------------------------------------------------------------------ */
 
-function TrustStrip() {
+const PRODUCT_OFFERINGS = [
+  {
+    title: "Player auctions",
+    body: "Team owners bid a virtual points purse from any phone. The operator runs the room and the LED.",
+    href: "#auction-screens",
+    sectionId: "auction-screens",
+  },
+  {
+    title: "Cricket scoring",
+    body: "Ball-by-ball cricket scoring, including box-cricket rule profiles, live LED overlays, and a points table.",
+    href: "#tournament-galleries",
+    sectionId: "tournament-galleries",
+  },
+  {
+    title: "Badminton scoring",
+    body: "Live court scoring, standings, and match overlays for badminton tournaments.",
+    href: "/badminton-scoring-software",
+  },
+  {
+    title: "Sponsor screens",
+    body: "Sponsor logos on the auction LED, the stream overlay, and the cricket and badminton scoreboard rails.",
+    href: "#auction-screens",
+    sectionId: "auction-screens",
+    surfaceIndex: 2,
+  },
+] as const;
+
+function ProductOfferings() {
   return (
-    <section className="mx-auto max-w-7xl px-5 py-16">
-      <div className="mb-8 flex items-end justify-between gap-4">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.24em] text-primary">The Scoreboard</div>
-          <h2 className="text-display-md mt-2">Numbers from the field.</h2>
+    <section id="offerings" className="mx-auto min-w-0 max-w-7xl px-5 py-14">
+      <div className="mb-6 max-w-2xl">
+        <div className="text-[10px] uppercase tracking-[0.24em] text-primary font-semibold font-mono">
+          What BidWar runs
         </div>
-        <div className="hidden max-w-md text-sm text-muted-foreground md:block">
-          Verified across cricket, football and corporate leagues since 2022. Auctions run on points purses — not player cash sales.
-        </div>
+        <h2 className="text-display-lg mt-2 font-display">Auctions, scoring, and the screens sponsors sit on.</h2>
       </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatTile value="1,240+" label="Auctions Completed" />
-        <StatTile value="86,400" label="Players Allotted" />
-        <StatTile value="47" label="Cities Served" />
-        <StatTile value="Points" label="Bidding Unit" />
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Why choose                                                          */
-/* ------------------------------------------------------------------ */
-
-function WhyChoose() {
-  const items = [
-    { t: "Save 40+ hours per auction", d: "Registrations, categories, points purses and bidding all in one control room. No spreadsheets, no chaos." },
-    { t: "Run the night live — smoothly", d: "Real-time sync between operator, team-owner phones and the LED. No refresh, no lag, no awkward pauses." },
-    { t: "Look broadcast-professional", d: "Lower-thirds, SOLD stamps, points purse counters, sponsor slots. Your auction night looks like it belongs on TV." },
-    { t: "Team owners bid from their seats", d: "Mobile bidding panel with categories, points-purse guard and instant confirmation. No shouting across the room." },
-    { t: "Sponsor visibility built in", d: "Rotating sponsor bands on LED, overlay lower-thirds, digital hoardings — turn eyeballs into deals." },
-    { t: "One license, one tournament", d: "Buy the software license per event, not per month. No auto-renewals. Predictable cost for organizers." },
-  ];
-  return (
-    <section id="why" className="mx-auto max-w-7xl px-5 py-16">
-      <div className="mb-10">
-        <div className="text-[11px] uppercase tracking-[0.24em] text-primary">Why Organizers Choose BidWar</div>
-        <h2 className="text-display-lg mt-2 max-w-3xl">Built by auction operators. For auction nights that can't afford a hiccup.</h2>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {items.map((i, idx) => (
-          <div key={i.t} className="panel group relative p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Benefit · 0{idx + 1}</span>
-              <span className="h-1.5 w-8 rounded-full bg-[image:var(--gradient-gold)] opacity-70 transition group-hover:opacity-100" />
-            </div>
-            <h3 className="font-display text-xl leading-none text-foreground">{i.t}</h3>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{i.d}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Use cases                                                           */
-/* ------------------------------------------------------------------ */
-
-function UseCases() {
-  const sports = [
-    { k: "Cricket", d: "IPL-style franchise auctions · retention · RTM · categories A/B/C" },
-    { k: "Football", d: "Player draft & bid rooms · positional points purses · academy scouts" },
-    { k: "Kabaddi", d: "Raider/defender pools · league-format auctions" },
-    { k: "Badminton", d: "Singles / doubles franchise draft with seed pools" },
-    { k: "Basketball", d: "5v5 franchise leagues · position-based points purse" },
-    { k: "Volleyball", d: "Beach & indoor leagues · rotating captaincy draft" },
-    { k: "Esports", d: "Team draft · sub roster · roles bidding" },
-    { k: "Corporate Leagues", d: "Departmental teams · office IPL · CSR events" },
-  ];
-  const modes = [
-    { k: "Broadcast / LED", d: "Full-screen lower-thirds, SOLD/UNSOLD stamps, sponsor bands, live points purse — engineered for 1080p60 LED walls." },
-    { k: "Team-Owner Panel", d: "Owners bid points from any phone. Purse guard, category tracker, instant confirmation." },
-    { k: "Operator Control Room", d: "Queue, pool, retention, RTM, sold list, undo — one auctioneer, zero panic." },
-  ];
-
-  return (
-    <section id="solutions" className="mx-auto max-w-7xl px-5 py-16">
-      <div className="mb-10">
-        <div className="text-[11px] uppercase tracking-[0.24em] text-primary">Solutions</div>
-        <h2 className="text-display-lg mt-2 max-w-3xl">Every league. Every format. One auction stage.</h2>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-        {sports.map((s) => (
-          <a key={s.k} href={HOME_SPORT_SOLUTION_HREFS[s.k] ?? "#pricing"} className="panel group relative overflow-hidden p-5 transition hover:-translate-y-0.5">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="font-display text-lg tracking-wider">{s.k}</span>
-              <span className="rounded-sm bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] tracking-widest text-muted-foreground">SPORT</span>
-            </div>
-            <p className="text-xs leading-relaxed text-muted-foreground">{s.d}</p>
-            <span className="mt-4 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-primary opacity-0 transition group-hover:opacity-100">
-              Configure →
-            </span>
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {PRODUCT_OFFERINGS.map((item) => (
+          <a
+            key={item.title}
+            href={item.href}
+            onClick={(event) => {
+              if ("sectionId" in item && item.sectionId) {
+                scrollToSection(item.sectionId, event, "surfaceIndex" in item ? item.surfaceIndex : undefined);
+              }
+            }}
+            className="flex min-h-11 min-w-0 flex-col rounded-xl border border-white/10 bg-card/60 p-4 transition hover:border-primary/40"
+          >
+            <span className="font-display text-lg tracking-wide text-foreground">{item.title}</span>
+            <span className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.body}</span>
           </a>
         ))}
       </div>
-
-      <div className="mt-10 grid gap-3 lg:grid-cols-3">
-        {modes.map((m) => (
-          <div key={m.k} className="panel-rail relative overflow-hidden p-6">
-            <div className="pointer-events-none absolute inset-0 scan-lines opacity-30" />
-            <div className="relative">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[color:var(--ember)]">Mode</div>
-              <h3 className="font-display text-2xl mt-1">{m.k}</h3>
-              <p className="mt-3 text-sm text-muted-foreground">{m.d}</p>
-            </div>
-          </div>
-        ))}
-      </div>
     </section>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Features                                                            */
+/* Interactive 4-Surface Product Showcase                             */
 /* ------------------------------------------------------------------ */
 
-function Features() {
-  const feats = [
-    ["Real-Time Bidding Engine", "Sub-second sync across operator, owners and LED. No refresh."],
-    ["Mobile Team-Owner Panel", "Bid points from any phone. Purse guard, category tracker, instant confirm."],
-    ["LED / Big-Screen Mode", "1080p60 broadcast overlay with lower-thirds, SOLD stamps, points purse tickers."],
-    ["Broadcast Overlay", "OBS-ready graphics for streaming, sponsor slots and lower-thirds."],
-    ["Category & Points Purse", "Pools A/B/C, min/max bid points, retentions, RTM — all built in."],
-    ["QR Player Registration", "Players scan, register and upload — organizers approve. Done."],
-    ["Auction Analytics", "Per-team points spend, per-category spend, sold/unsold splits, export CSV."],
-    ["License Management", "One tournament = one software license. Transparent. No monthly surprises."],
-    ["Sponsor Branding", "Rotating hoardings, LED bands, overlay logos — monetize the room."],
-    ["Multi-Device Sync", "Operator laptop + owner phones + LED wall — one live feed."],
-    ["Zero Install", "Runs in a browser. Any OS. Any device. Ready in five minutes."],
-    ["Cloud-Native & Secure", "Hosted in India · encrypted · role-based access · full audit log."],
+function ProductShowcase({
+  onOpenLightbox,
+}: {
+  onOpenLightbox: (items: LightboxItem[], index: number) => void;
+}) {
+  const [activeTab, setActiveTab] = useState<number>(0);
+
+  const surfaces = [
+    {
+      id: "operator",
+      title: "Auction Control",
+      tag: "CONTROL ROOM",
+      icon: Laptop,
+      desc: "Total auctioneer command: 1-click bid increments, timer countdown buzzer, category pool selector, RTM, retentions, and instant emergency undo.",
+      img: "/assets/evidence/auction-control-live-operator.png",
+      alt: "BidWar Auction Control console interface showing player queue, timer, quick bid increments and team purses",
+      features: [
+        "1-Click Quick Bid Increments (₹10k, ₹25k, ₹50k, ₹1L pts)",
+        "30s/45s/60s Countdown Timer with Buzzer Audio",
+        "Category Pool Filtering (Marquee, Batsmen, Bowlers, All-Rounders)",
+        "Instant 1-Click Undo Button for misclicks or disputed bids",
+      ],
+    },
+    {
+      id: "owner",
+      title: "Team Bidding Screen (Web App)",
+      tag: "WEB APP",
+      icon: Smartphone,
+      desc: "Team owners place real-time bids directly from their mobile phones without app installation. Built-in purse guard prevents overspending and enforces squad quotas.",
+      img: "/assets/evidence/team-bidding-screen.png",
+      alt: "BidWar Team Bidding Screen Web App on smartphone",
+      features: [
+        "Zero App Store Install — Opens instantly via secure tournament link & PIN",
+        "Intelligent Purse Guard prevents bidding higher than available budget",
+        "Live Squad Quota tracker with category slots remaining",
+        "Tactile Bid Confirmation with real-time leading bidder feedback",
+      ],
+    },
+    {
+      id: "led",
+      title: "Live LED Screen",
+      tag: "STAGE DISPLAY",
+      icon: Tv,
+      desc: "Broadcast-grade graphics designed for giant venue LED walls and stage projectors. High-visibility player cards, dynamic purse bars, and sponsor branding.",
+      img: "/assets/evidence/live-led-screen.png",
+      alt: "BidWar Live LED Stage Screen interface showing tournament status, real-time player card, live bid amount, team purse limits, and sponsor branding",
+      features: [
+        "Crisp 1080p60 full-screen graphics optimized for giant stage screens",
+        "Dramatic animated SOLD / UNSOLD reveal stamps",
+        "Simultaneous Live Team Purse & squad balance display",
+        "Rotating Sponsor Banners & tournament logo hoardings",
+      ],
+    },
+    {
+      id: "obs",
+      title: "OBS Overlay (For Live Streaming)",
+      tag: "LIVESTREAM",
+      icon: Radio,
+      desc: "Direct browser-source link for OBS Studio, vMix, and Streamlabs. Stream your live auction to YouTube, Facebook Live, or TV broadcast with professional lower-thirds.",
+      img: "/assets/evidence/obs-live-overlay.png",
+      alt: "BidWar OBS Livestream broadcast overlay graphics running for live streaming",
+      features: [
+        "1-Click OBS Browser Source link with transparent alpha channel",
+        "Real-time Lower-Third Chyron with current lot, bid ticker & leading team",
+        "Animated Bid Alerts & Hammer Drops rendered seamlessly on stream",
+        "Direct streaming support for YouTube Live, Facebook, Twitch & Local TV",
+      ],
+    },
+    {
+      id: "live-view",
+      title: "Live Auction View",
+      tag: "DISTANCE CONNECT",
+      isPortrait: true,
+      icon: Globe,
+      desc: "Real-time spectator portal for team members, players, fans, and remote stakeholders who want to stay connected and follow the auction live from distance.",
+      img: "/assets/evidence/live-auction-view.png",
+      alt: "BidWar Live Auction Remote Spectator View showing live player card, real-time bid, team purse balances, and cheer button",
+      features: [
+        "Zero-delay live spectator room accessible from anywhere on any phone or PC",
+        "Live Lot Tracking showing current player on hammer and live bids",
+        "Real-time squad allotment updates & remaining team purse display",
+        "Easily shareable link for WhatsApp groups, remote sponsors & players at home",
+      ],
+    },
+    {
+      id: "alerts",
+      title: "Communications",
+      tag: "EFFECTIVE REACH",
+      isPortrait: true,
+      icon: MessageSquare,
+      desc: "Instant automated WhatsApp, SMS, and email notifications dispatched to players, franchise owners, and captains for maximum effective reach.",
+      img: "/assets/evidence/automated-communications-sms.png",
+      alt: "BidWar instant player allotment SMS alert with congratulations message and winning team details",
+      features: [
+        "Instant WhatsApp & SMS sent to sold players with winning team & points",
+        "Official Team Owner Confirmation Emails with signed allotment slips",
+        "Unsold Player Alerts with instant invite to accelerated Round 2",
+        "Automated Squad WhatsApp group invites & roster announcements",
+      ],
+    },
+    {
+      id: "reports",
+      title: "Reports",
+      tag: "REPORTS & SQUAD",
+      icon: FileSpreadsheet,
+      desc: "Comprehensive post-auction reporting and data export. Generate clean rosters, category expenditure breakdowns, and captain sheets in seconds.",
+      img: "/assets/evidence/reports-catalogue-dashboard.png",
+      alt: "BidWar Report Catalogue dashboard showing Top 5 Sold Players poster showcase, PDF, Excel, and CSV export options",
+      features: [
+        "1-Click Excel / CSV Full Squad Export ready before the crowd leaves",
+        "Purse Spend Analysis & category allocation breakdowns per franchise",
+        "Printable High-Res PDF Player Allotment Cards for team managers",
+        "Complete Immutable Audit Log of every bid transaction and timestamp",
+      ],
+    },
   ];
-  return (
-    <section id="features" className="mx-auto max-w-7xl px-5 py-16">
-      <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.24em] text-primary">Feature Deck</div>
-          <h2 className="text-display-lg mt-2 max-w-2xl">Everything the auction night needs. Nothing it doesn't.</h2>
-        </div>
-        <div className="max-w-md text-sm text-muted-foreground">
-          A feature list that reads like a broadcast rundown, not a spec sheet.
-        </div>
-      </div>
 
-      <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
-        {feats.map(([t, d], i) => (
-          <div key={t} className="panel flex items-start gap-4 p-5">
-            <div className="scoreboard-tile flex h-10 w-10 shrink-0 items-center justify-center">
-              <span className="font-mono text-xs text-primary">{String(i + 1).padStart(2, "0")}</span>
-            </div>
-            <div>
-              <h3 className="font-display text-base leading-none">{t}</h3>
-              <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{d}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* How it works                                                        */
-/* ------------------------------------------------------------------ */
-
-function HowItWorks() {
-  const steps = [
-    { n: "01", t: "Set up your tournament", d: "Add teams, points purse limits, categories and player pools. Import a CSV or use QR registration." },
-    { n: "02", t: "Invite team owners", d: "Owners join with a link on their phone. Points-purse guard and category tracker load automatically." },
-    { n: "03", t: "Go live on auction night", d: "Operator runs the room. LED goes broadcast. Owners bid points from their seats. You just call the room." },
-    { n: "04", t: "Export teams & analytics", d: "Final squads, per-category points spend, sponsor reports — one click, ready for print or share." },
-  ];
-  return (
-    <section className="mx-auto max-w-7xl px-5 py-16">
-      <div className="mb-10">
-        <div className="text-[11px] uppercase tracking-[0.24em] text-primary">Rundown</div>
-        <h2 className="text-display-lg mt-2 max-w-2xl">From setup to squad — four steps, one night.</h2>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-        {steps.map((s) => (
-          <div key={s.n} className="panel-rail relative overflow-hidden p-6">
-            <span className="pointer-events-none absolute -right-4 -top-6 font-display text-[6.5rem] leading-none text-white/[0.04]">{s.n}</span>
-            <div className="relative">
-              <div className="font-mono text-[10px] uppercase tracking-[0.22em] text-primary">Step {s.n}</div>
-              <h3 className="mt-2 font-display text-xl">{s.t}</h3>
-              <p className="mt-3 text-sm text-muted-foreground">{s.d}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Live showcase                                                       */
-/* ------------------------------------------------------------------ */
-
-function LiveShowcase({ goSignup }: { goSignup: () => void }) {
-  const cards: Array<React.ComponentProps<typeof AuctionCard> & { city: string; sport: string; date: string; teams: number; purse: string; status: "LIVE" | "UPCOMING" | "COMPLETED" }> = [
-    { city: "Mumbai", sport: "Cricket · T10", date: "Nov 22", teams: 8, purse: "40L Pts", status: "LIVE", player: "R. KAMBLE", role: "All-Rounder", base: 50, target: 340, team: "MUMBAI TITANS", sold: false },
-    { city: "Pune", sport: "Football · 5-a-side", date: "Nov 25", teams: 6, purse: "22L Pts", status: "UPCOMING", player: "A. SEQUEIRA", role: "Striker · Left Foot", base: 30, target: 210, team: "PUNE PHOENIX", sold: false, animate: false },
-    { city: "Bengaluru", sport: "Kabaddi", date: "Nov 18", teams: 10, purse: "55L Pts", status: "COMPLETED", player: "V. TAMBE", role: "Raider · Captain", base: 40, target: 480, team: "KING COBRAS", sold: true, animate: false },
-    { city: "Delhi", sport: "Corporate T20", date: "Nov 30", teams: 12, purse: "28L Pts", status: "UPCOMING", player: "S. MEHTA", role: "Wicket-Keeper Batsman", base: 25, target: 175, team: "CAPITAL ACES", sold: false, animate: false },
-  ];
-  const statusColor = (s: string) =>
-    s === "LIVE" ? "border-[color:var(--live)]/50 bg-[color:var(--live)]/10 text-[color:var(--live)]" :
-    s === "COMPLETED" ? "border-[color:var(--sold)]/50 bg-[color:var(--sold)]/10 text-[color:var(--sold)]" :
-    "border-primary/40 bg-primary/10 text-primary";
-
-  return (
-    <section className="mx-auto max-w-7xl px-5 py-16">
-      <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.24em] text-primary">Live Showcase</div>
-          <h2 className="text-display-lg mt-2 max-w-2xl">Tonight's auctions. And this week's.</h2>
-        </div>
-        <button type="button" onClick={goSignup} className="ghost-button ghost-button-hover rounded-md px-4 py-2 text-xs">Host Yours →</button>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2">
-        {cards.map((c, i) => (
-          <div key={i} className="grid gap-4 md:grid-cols-[1fr_1fr]">
-            <div className="panel p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">{c.city} · {c.date}</div>
-                  <div className="mt-1 font-display text-xl">{c.sport}</div>
-                </div>
-                <span className={`rounded-full border px-3 py-1 text-[10px] font-bold tracking-[0.2em] ${statusColor(c.status)}`}>
-                  {c.status === "LIVE" && <span className="live-dot mr-2 align-middle" />}{c.status}
-                </span>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                <div className="scoreboard-tile px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Teams</div>
-                  <div className="font-mono text-lg text-foreground">{c.teams}</div>
-                </div>
-                <div className="scoreboard-tile px-3 py-2">
-                  <div className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Points Purse</div>
-                  <div className="font-mono text-lg text-primary">{c.purse}</div>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                <span className="h-px flex-1 bg-white/10" /> Feed 01 <span className="h-px flex-1 bg-white/10" />
-              </div>
-            </div>
-            <AuctionCard {...c} compact />
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Academy promo — real lessons from /api/academy                      */
-/* ------------------------------------------------------------------ */
-
-function academyLessonThumb(lesson: PublicAcademyLessonSummary): string | null {
-  if (lesson.thumbnailUrl) return lesson.thumbnailUrl;
-  if (lesson.youtubeVideoId) {
-    return `https://img.youtube.com/vi/${lesson.youtubeVideoId}/mqdefault.jpg`;
-  }
-  return null;
-}
-
-function AcademyPromo() {
-  const [, navigate] = useLocation();
-  const [lessons, setLessons] = useState<PublicAcademyLessonSummary[]>([]);
-  const [previewLessons, setPreviewLessons] = useState<PublicAcademyLessonSummary[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const current = surfaces[activeTab] || surfaces[0];
+  const tabsScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const index = await fetchAcademyIndex();
-      if (cancelled) return;
-      let all = index?.lessons ?? [];
-      if (all.length === 0) {
-        all = await fetchAcademyLessons();
+    const handleSelect = (e: Event) => {
+      const custom = e as CustomEvent<{ index?: number }>;
+      if (typeof custom.detail?.index === "number" && custom.detail.index >= 0 && custom.detail.index < surfaces.length) {
+        setActiveTab(custom.detail.index);
       }
-      if (cancelled) return;
-      const previewSource =
-        index?.latestLessons?.length
-          ? index.latestLessons
-          : index?.featuredLessons?.length
-            ? index.featuredLessons
-            : all;
-      setLessons(all);
-      setPreviewLessons(previewSource.slice(0, 4));
-      const cats = (index?.categories ?? deriveCategoriesFromLessons(all))
-        .map((c) => c.name)
-        .filter(Boolean);
-      setCategories(cats);
-      setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
     };
-  }, []);
+    window.addEventListener("bidwar:select-surface", handleSelect);
+    return () => window.removeEventListener("bidwar:select-surface", handleSelect);
+  }, [surfaces.length]);
 
-  const videoLabel =
-    lessons.length === 0
-      ? "Tutorials coming soon"
-      : lessons.length === 1
-        ? "Tutorial Library · 1 video"
-        : `Tutorial Library · ${lessons.length} videos`;
+  useEffect(() => {
+    const container = tabsScrollRef.current;
+    const tab = container?.querySelector<HTMLElement>(`[data-surface-index="${activeTab}"]`);
+    if (!container || !tab) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const tabLeft =
+      tab.getBoundingClientRect().left - container.getBoundingClientRect().left + container.scrollLeft;
+    container.scrollTo({
+      left: centeredScrollLeft(container.clientWidth, tabLeft, tab.offsetWidth),
+      behavior: reduce ? "auto" : "smooth",
+    });
+  }, [activeTab]);
+
+  const scrollTabs = (direction: "left" | "right") => {
+    if (tabsScrollRef.current) {
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const scrollAmount = Math.max(180, tabsScrollRef.current.clientWidth * 0.7);
+      tabsScrollRef.current.scrollBy({
+        left: direction === "left" ? -scrollAmount : scrollAmount,
+        behavior: reduce ? "auto" : "smooth",
+      });
+    }
+  };
+
+  const handleInspect = () => {
+    onOpenLightbox(
+      surfaces.map((s) => ({
+        src: s.img,
+        title: s.title,
+        description: s.desc,
+        tag: s.tag,
+        alt: s.alt,
+        isPortrait: s.isPortrait,
+      })),
+      activeTab
+    );
+  };
+
+  return (
+    <section id="auction-screens" data-alias="surfaces" className="mx-auto max-w-7xl px-5 py-16 scroll-mt-24">
+      <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.24em] text-primary font-semibold font-mono">The 7 Connected Auction Screens</div>
+          <h2 className="text-display-lg mt-2 max-w-2xl font-display">One Live Auction. Every Screen & Channel in Real Time.</h2>
+        </div>
+        <p className="max-w-md text-xs sm:text-sm text-muted-foreground leading-relaxed">
+          Auctioneer control, team bidding web app, venue LED, OBS stream overlays, remote live auction viewer, automated communications, and post-auction reports stay perfectly synchronized in sub-50ms.
+        </p>
+      </div>
+
+      <div className="relative mb-6 flex min-w-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={() => scrollTabs("left")}
+          aria-label="Scroll surfaces left"
+          className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-card/70 text-foreground hover:border-primary/50 hover:bg-primary/10 transition shadow-md sm:flex"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+
+        <div
+          ref={tabsScrollRef}
+          role="tablist"
+          aria-label="Connected auction screens"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+            event.preventDefault();
+            const next = event.key === "ArrowRight"
+              ? Math.min(surfaces.length - 1, activeTab + 1)
+              : Math.max(0, activeTab - 1);
+            setActiveTab(next);
+          }}
+          className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain pb-2 snap-x snap-mandatory focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <div className="flex w-max gap-2.5">
+          {surfaces.map((s, idx) => {
+            const Icon = s.icon;
+            const selected = activeTab === idx;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                role="tab"
+                data-surface-tab=""
+                data-surface-index={idx}
+                aria-selected={selected}
+                onClick={() => setActiveTab(idx)}
+                className={`panel flex min-h-11 max-w-[15rem] items-center gap-2.5 px-4 py-2.5 rounded-xl border text-left transition shrink-0 snap-start ${
+                  selected
+                    ? "border-primary bg-primary/20 text-foreground shadow-lg shadow-primary/10 ring-1 ring-primary/40"
+                    : "border-white/10 bg-card/50 text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                }`}
+              >
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${selected ? "bg-primary text-primary-foreground" : "bg-white/5 text-primary"}`}>
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                </div>
+                <div className="min-w-0 whitespace-normal">
+                  <div className="font-display text-xs font-bold tracking-wide">{s.title}</div>
+                  <div className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{s.tag}</div>
+                </div>
+              </button>
+            );
+          })}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => scrollTabs("right")}
+          aria-label="Scroll surfaces right"
+          className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-card/70 text-foreground hover:border-primary/50 hover:bg-primary/10 transition shadow-md sm:flex"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Surface Interactive Display Panel */}
+      <div className="panel-rail relative min-w-0 overflow-hidden rounded-2xl border border-primary/30 bg-card/60 p-4 sm:p-6 lg:p-8">
+        <div className="pointer-events-none absolute inset-0 scan-lines opacity-20" />
+        <div className="relative mb-5 flex flex-wrap items-center gap-2">
+          <span className="rounded bg-primary/20 px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-primary font-bold">
+            {current.tag}
+          </span>
+          <span className="font-mono text-[11px] text-muted-foreground">Surface 0{activeTab + 1} of 0{surfaces.length}</span>
+          <h3 className="w-full font-display text-2xl font-bold tracking-wide text-foreground lg:text-3xl">
+            {current.title}
+          </h3>
+        </div>
+        <div className="grid min-w-0 gap-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+          {/* Media Preview: Conditional Portrait Smartphone Mockup or Landscape Monitor */}
+          {current.isPortrait ? (
+            <div className="relative group flex items-center justify-center p-4 sm:p-6 rounded-2xl border-2 border-primary/30 bg-black/70 shadow-[0_20px_50px_rgba(0,0,0,0.9),0_0_35px_rgba(245,158,11,0.18)] ring-1 ring-white/10 min-h-[380px] sm:min-h-[440px] overflow-hidden">
+              <div className="pointer-events-none absolute -left-10 -top-10 h-40 w-40 rounded-full bg-primary/15 blur-3xl" />
+
+              {/* Smartphone Chassis */}
+              <div className="relative w-[210px] sm:w-[235px] aspect-[9/18.5] rounded-[36px] border-[3px] border-neutral-700 bg-black shadow-[0_25px_60px_rgba(0,0,0,0.95),0_0_35px_rgba(245,158,11,0.25)] ring-1 ring-primary/40 overflow-hidden flex flex-col z-10">
+                {/* Dynamic Island / Notch */}
+                <div className="absolute top-2.5 inset-x-0 z-20 flex justify-center pointer-events-none">
+                  <div className="h-3.5 w-20 bg-black rounded-full border border-white/10 flex items-center justify-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-neutral-900 border border-neutral-700" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-900/60" />
+                  </div>
+                </div>
+
+                {/* Portrait Image */}
+                <div className="relative flex-1 overflow-hidden bg-neutral-950">
+                  <img
+                    src={current.img}
+                    alt={current.alt}
+                    className="h-full w-full object-contain object-top"
+                  />
+                  <div className="absolute inset-0 ring-1 ring-inset ring-white/10 pointer-events-none" />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent" />
+                </div>
+
+                {/* Home Indicator Bar */}
+                <div className="absolute bottom-1.5 inset-x-0 z-20 flex justify-center pointer-events-none">
+                  <div className="h-1 w-20 bg-white/40 rounded-full" />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleInspect}
+                aria-label={`Open fullscreen view of ${current.title}`}
+                className="absolute right-3 bottom-3 flex min-h-11 items-center gap-1.5 rounded-lg bg-black/85 px-3 py-2 font-mono text-xs text-primary border border-primary/30 backdrop-blur-md hover:bg-black hover:border-primary transition shadow-lg z-20"
+              >
+                <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" /> Fullscreen View
+              </button>
+            </div>
+          ) : (
+            <div className="relative group overflow-hidden rounded-xl border-2 border-primary/40 bg-black/95 shadow-[0_20px_50px_rgba(0,0,0,0.9),0_0_30px_rgba(245,158,11,0.2)] ring-1 ring-white/20 aspect-video flex flex-col">
+              {/* Monitor Header Bezel */}
+              <div className="flex items-center justify-between border-b border-white/10 bg-black/80 px-3.5 py-1.5 backdrop-blur-sm z-10 shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-rose-500/80" />
+                  <span className="h-2 w-2 rounded-full bg-amber-500/80" />
+                  <span className="h-2 w-2 rounded-full bg-emerald-500/80" />
+                </div>
+                <span className="font-mono text-[10px] tracking-wider text-white/70 uppercase truncate px-2 font-medium">
+                  {current.title} — Live Interface
+                </span>
+                <div className="w-8" />
+              </div>
+
+              {/* Image Preview */}
+              <div className="relative flex-1 overflow-hidden bg-black">
+                <img
+                  src={current.img}
+                  alt={current.alt}
+                  className="h-full w-full object-contain object-center"
+                />
+                <div className="absolute inset-0 ring-1 ring-inset ring-white/10 pointer-events-none" />
+
+                <button
+                  type="button"
+                  onClick={handleInspect}
+                  aria-label={`Open fullscreen view of ${current.title}`}
+                  className="absolute right-3 bottom-3 flex min-h-11 items-center gap-1.5 rounded-lg bg-black/85 px-3 py-2 font-mono text-xs text-primary border border-primary/30 backdrop-blur-md hover:bg-black hover:border-primary transition shadow-lg"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" /> Fullscreen View
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Details & Features List */}
+          <div className="min-w-0">
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {current.desc}
+            </p>
+
+            <div className="mt-5 space-y-2.5">
+              {current.features.map((f, i) => (
+                <div key={i} className="flex items-start gap-2.5 text-xs text-foreground/90">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+                  <span>{f}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-7 flex flex-wrap gap-3">
+              <a
+                href="/organizer?tab=signup"
+                className="gold-button gold-button-hover rounded-md px-6 py-2.5 text-xs font-bold uppercase tracking-wider shadow-lg"
+              >
+                Test in Free Trial →
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Real Tournaments & Featured Case Studies                           */
+/* ------------------------------------------------------------------ */
+
+type Tournament = {
+  id: string;
+  tabLabel: string;
+  name: string;
+  seasonTag: string;
+  sportTag: string;
+  location: string;
+  blurb: string;
+  stats: Array<{ v: string; l: string; sub?: string }>;
+  image: string;
+  reelLabel: string;
+};
+
+function RealTournaments({
+  onOpenLightbox,
+  onPlayReel,
+}: {
+  onOpenLightbox: (items: LightboxItem[], index: number) => void;
+  onPlayReel: () => void;
+}) {
+  const tournaments: Tournament[] = [
+    {
+      id: "vnbl3-2026",
+      tabLabel: "VNBL 3.0",
+      name: "VNBL 3.0 (Vyapari Network Badminton League 2026)",
+      seasonTag: "VERIFIED · 2026 LIVE LEAGUE",
+      sportTag: "Badminton Auction",
+      location: "Hotel Bliss, Banaras",
+      blurb:
+        "Vyapari Network Badminton League 3.0 conducted live at Hotel Bliss, Banaras. Over 78 players auctioned across 6 franchise teams with real-time stage LED projection, mobile purse guard, and instant squad exports.",
+      stats: [
+        { v: "6", l: "Teams", sub: "Franchises" },
+        { v: "78", l: "Players", sub: "Auctioned" },
+        { v: "100%", l: "Purse Accuracy", sub: "Zero Overspend" },
+        { v: "0", l: "Disputed Bids", sub: "Stage LED Sync" },
+      ],
+      image: "/assets/evidence/vnbl-chhavi-gera-bidding.jpg",
+      reelLabel: "VNBL 3.0 · Stage Highlight Reel",
+    },
+    {
+      id: "apl2026",
+      tabLabel: "Alumni Premier League",
+      name: "Alumni Premier League 2026",
+      seasonTag: "VERIFIED · ALUMNI TOURNAMENT",
+      sportTag: "Cricket Auction",
+      location: "Benaras Club, Varanasi",
+      blurb:
+        "St. John's Marhauli Alumni Association (SJMAA) Alumni Premier League 2026 hosted live at the prestigious Benaras Club. 5 franchise teams auctioning 65 alumni players with zero lag, instant squad exports, and big-screen auctioneer console.",
+      stats: [
+        { v: "5", l: "Teams", sub: "Franchises" },
+        { v: "65", l: "Players", sub: "Auctioned" },
+        { v: "100%", l: "Purse Accuracy", sub: "Zero Errors" },
+        { v: "0", l: "Disputed Bids", sub: "Console Sync" },
+      ],
+      image: "/assets/evidence/real-auction-laptop-vncl.jpg",
+      reelLabel: "APL 2026 · Benaras Club Auction Tape",
+    },
+    {
+      id: "bpl2026",
+      tabLabel: "BidWar Premier League",
+      name: "BidWar Premier League 2026",
+      seasonTag: "ACTIVE · 2026 LIVE TOURNAMENT",
+      sportTag: "Box Cricket Scoring",
+      location: "Pitch and Paddle, Sigra",
+      blurb:
+        "Official BidWar Premier League conducted at Pitch and Paddle, Sigra. Ball-by-ball box cricket live scoring, real-time LED screen match overlays, automated points table with NRR, and player performance analytics.",
+      stats: [
+        { v: "8", l: "Teams", sub: "Franchises" },
+        { v: "96", l: "Players", sub: "Squad Pool" },
+        { v: "100%", l: "Live Overlay", sub: "Stage LED Sync" },
+        { v: "0s", l: "Scoring Delay", sub: "Ball-by-Ball" },
+      ],
+      image: "/assets/evidence/bpl-2026-poster.jpg?v=2",
+      reelLabel: "BPL 2026 · Box Cricket Reel",
+    },
+  ];
+
+  const [idx, setIdx] = useState(0);
+  const tournamentTabsRef = useRef<HTMLDivElement>(null);
+  const t = tournaments[idx];
+
+  useEffect(() => {
+    const container = tournamentTabsRef.current;
+    const tab = container?.querySelector<HTMLElement>(`[data-tournament-index="${idx}"]`);
+    if (!container || !tab) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const tabLeft =
+      tab.getBoundingClientRect().left - container.getBoundingClientRect().left + container.scrollLeft;
+    container.scrollTo({
+      left: centeredScrollLeft(container.clientWidth, tabLeft, tab.offsetWidth),
+      behavior: reduce ? "auto" : "smooth",
+    });
+  }, [idx]);
+
+  const handleInspectPhoto = () => {
+    onOpenLightbox(
+      tournaments.map((tour) => ({
+        src: tour.image,
+        title: tour.name,
+        description: tour.blurb,
+        tag: tour.sportTag,
+        location: tour.location,
+      })),
+      idx
+    );
+  };
+
+  return (
+    <section id="tournament-galleries" data-alias="tournaments" className="mx-auto max-w-7xl px-5 py-16 scroll-mt-28">
+      <div className="mb-10">
+        <div className="text-[10px] uppercase tracking-[0.24em] text-primary font-semibold font-mono">Proven Evidence · Tournament Galleries</div>
+        <h2 className="text-display-lg mt-2 max-w-2xl font-display">Real Tournaments. Real Evidence. Zero Bidding Chaos.</h2>
+        <p className="mt-3 max-w-2xl text-xs sm:text-sm text-muted-foreground leading-relaxed">
+          Live leagues run end-to-end on BidWar — venue LED reveal, team-owner mobile bidding, livestream overlays, and exported squad lists before the crowd leaves.
+        </p>
+      </div>
+
+      <div className="panel-rail relative min-w-0 overflow-hidden rounded-2xl border border-primary/30 bg-card/60 p-4 sm:p-6 md:p-8">
+        <div className="pointer-events-none absolute inset-0 scan-lines opacity-20" />
+
+        <div className="relative mb-6 min-w-0">
+          <div
+            ref={tournamentTabsRef}
+            role="tablist"
+            aria-label="Tournament evidence"
+            className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1"
+          >
+            {tournaments.map((tour, i) => (
+              <button
+                key={tour.id}
+                type="button"
+                role="tab"
+                data-tournament-index={i}
+                aria-selected={i === idx}
+                onClick={() => setIdx(i)}
+                className={`min-h-11 shrink-0 cursor-pointer snap-start whitespace-nowrap rounded-md px-4 py-2 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                  i === idx
+                    ? "gold-button"
+                    : "ghost-button ghost-button-hover"
+                }`}
+              >
+                {tour.tabLabel || tour.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="relative grid min-w-0 gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-center">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="max-w-full break-words rounded-full border border-[color:var(--live)]/40 bg-[color:var(--live)]/10 px-3 py-1 text-[10px] font-bold tracking-[0.12em] text-[color:var(--live)] sm:tracking-[0.2em]">
+                <span className="live-dot mr-1.5 align-middle" />{t.seasonTag}
+              </span>
+              <span className="max-w-full break-words rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-mono sm:tracking-[0.2em]">
+                {t.sportTag}
+              </span>
+              <span className="max-w-full break-words rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-mono sm:tracking-[0.2em]">
+                {t.location}
+              </span>
+            </div>
+            <h3 className="text-display-md mt-4 max-w-full break-words font-display font-bold tracking-wide text-foreground">{t.name}</h3>
+            <p className="mt-3 max-w-lg text-sm text-muted-foreground leading-relaxed">{t.blurb}</p>
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {t.stats.map((s) => (
+                <StatTile key={s.l} value={s.v} label={s.l} sub={s.sub} />
+              ))}
+            </div>
+          </div>
+
+          {/* Photo & Video Reel Frame */}
+          <div className="panel relative overflow-hidden p-3 rounded-xl border border-white/15 bg-black/60 shadow-xl">
+            <div className="group relative aspect-video overflow-hidden rounded-lg bg-black">
+              <img
+                src={t.image}
+                alt={t.name}
+                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+              <div className="absolute inset-0 flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={onPlayReel}
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-[image:var(--gradient-gold)] text-lg text-[color:var(--primary-foreground)] shadow-[var(--shadow-broadcast)]"
+                  aria-label="Play highlight video"
+                >
+                  ▶
+                </button>
+              </div>
+
+              <div className="absolute bottom-2.5 left-3 right-3 flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-[0.16em] text-white/90 font-mono">
+                <span className="min-w-0 break-words">{t.reelLabel}</span>
+                <button
+                  type="button"
+                  onClick={handleInspectPhoto}
+                  className="inline-flex min-h-11 items-center gap-1 text-primary hover:underline"
+                >
+                  <Maximize2 className="h-3 w-3" /> Zoom Photo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Academy Video Masterclass Promo                                    */
+/* ------------------------------------------------------------------ */
+
+function AcademyPromo({
+  onPlayLesson,
+}: {
+  onPlayLesson: (title: string, duration: string, tag: string) => void;
+}) {
+  const [, navigate] = useLocation();
+
+  const coreLessons = [
+    {
+      id: "ep1-setup",
+      title: "Set Up Teams, Purses & Player Pools in 5 Minutes",
+      duration: "12:04",
+      tag: "Beginner",
+      ep: "EPISODE 01",
+      desc: "Configure team slots, virtual points purse limits, category pools (A/B/C) and QR player registration.",
+    },
+    {
+      id: "ep2-operator",
+      title: "Operator Masterclass: Running Bids, Timers & Undos",
+      duration: "24:31",
+      tag: "Operator",
+      ep: "EPISODE 02",
+      desc: "Auctioneer control techniques: quick increments, countdown buzzer management, unsold recycling, and emergency undo.",
+    },
+    {
+      id: "ep3-owners",
+      title: "Team-Owner Mobile Guide: Bidding & Purse Guard",
+      duration: "06:18",
+      tag: "Team Owners",
+      ep: "EPISODE 03",
+      desc: "How team owners log in on any phone browser, track remaining budget, and place real-time bids with purse protection.",
+    },
+    {
+      id: "ep4-broadcast",
+      title: "LED Wall & OBS Livestream Setup for YouTube/Facebook",
+      duration: "18:47",
+      tag: "Broadcast",
+      ep: "EPISODE 04",
+      desc: "Wiring your laptop to 1080p60 LED stage walls, lower-thirds overlays in OBS Studio, and rotating sponsor banners.",
+    },
+  ];
 
   return (
     <section id="academy" className="mx-auto max-w-7xl px-5 py-16">
-      <div className="panel-rail relative overflow-hidden p-8 md:p-12">
-        <div className="pointer-events-none absolute inset-0 scan-lines opacity-30" />
-        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[image:var(--gradient-gold)] opacity-15 blur-3xl" />
-        <div className="relative grid gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+      <div className="panel-rail relative overflow-hidden rounded-2xl border border-primary/30 bg-card/50 p-6 md:p-10">
+        <div className="pointer-events-none absolute inset-0 scan-lines opacity-20" />
+        <div className="relative grid gap-8 lg:grid-cols-[1.1fr_1.9fr] lg:items-center">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.24em] text-primary">BidWar Academy</div>
-            <h2 className="text-display-lg mt-2">Never run an auction before? We've got the tape.</h2>
-            <p className="mt-4 max-w-xl text-sm text-muted-foreground md:text-base">
-              Step-by-step video tutorials for organizers, operators and team owners — how to set
-              purses, run RTM, handle unsold rounds, wire your LED, and go live on stream without
-              breaking a sweat.
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.24em] text-primary font-semibold font-mono">
+              <GraduationCap className="h-4 w-4" /> BidWar Academy
+            </div>
+            <h2 className="text-display-lg mt-2 font-display">Video Tutorials for Organizers & Operators.</h2>
+            <p className="mt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              Step-by-step masterclass videos for organizers, auctioneers, operators and team owners — set purses, run RTM, handle unsold rounds, wire your LED, and go live.
             </p>
-            {categories.length > 0 ? (
-              <div className="mt-6 flex flex-wrap gap-2">
-                {categories.slice(0, 5).map((t) => (
-                  <span
-                    key={t}
-                    className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            ) : null}
+
             <button
               type="button"
               onClick={() => navigate("/academy")}
-              className="gold-button gold-button-hover mt-8 inline-block rounded-md px-5 py-3 text-xs"
+              className="gold-button gold-button-hover mt-6 inline-flex items-center gap-2 rounded-md px-5 py-3 text-xs font-bold uppercase tracking-wider"
             >
-              Enter the Academy →
+              <span>Explore All Academy Lessons</span>
+              <span>→</span>
             </button>
           </div>
-          <div className="panel relative overflow-hidden p-4">
-            {loading ? (
-              <div className="grid grid-cols-2 gap-2">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="scoreboard-tile aspect-video animate-pulse bg-white/[0.04]" />
-                ))}
+
+          {/* 4 Video Cards Grid */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {coreLessons.map((lesson) => (
+              <div
+                key={lesson.id}
+                className="panel group relative flex flex-col justify-between overflow-hidden rounded-xl border border-white/10 bg-black/40 p-4 transition hover:border-primary/40 hover:-translate-y-0.5"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-[9px] uppercase tracking-widest text-primary font-bold">
+                      {lesson.ep}
+                    </span>
+                    <span className="rounded bg-white/10 px-2 py-0.5 font-mono text-[9px] text-foreground">
+                      {lesson.duration}
+                    </span>
+                  </div>
+
+                  <h3 className="font-display text-sm font-bold text-foreground leading-snug line-clamp-2 tracking-wide">
+                    {lesson.title}
+                  </h3>
+                  <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                    {lesson.desc}
+                  </p>
+                </div>
+
+                <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3">
+                  <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                    {lesson.tag}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onPlayLesson(lesson.title, lesson.duration, lesson.tag)}
+                    className="inline-flex min-h-11 items-center gap-1 px-1 text-primary text-xs font-bold uppercase tracking-wider hover:underline"
+                  >
+                    <Play className="h-3 w-3 fill-current" /> Watch Video
+                  </button>
+                </div>
               </div>
-            ) : previewLessons.length === 0 ? (
-              <div className="flex aspect-video flex-col items-center justify-center gap-2 rounded-md border border-dashed border-white/10 bg-white/[0.02] px-4 text-center">
-                <p className="font-display text-sm text-foreground">New tutorials are on the way</p>
-                <p className="text-xs text-muted-foreground">Check BidWar Academy for the latest published episodes.</p>
-              </div>
-            ) : (
-              <div className={`grid gap-2 ${previewLessons.length === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-                {previewLessons.map((lesson) => {
-                  const thumb = academyLessonThumb(lesson);
-                  return (
-                    <button
-                      key={lesson.id}
-                      type="button"
-                      onClick={() => navigate(`/academy/${lesson.slug}`)}
-                      className="scoreboard-tile group relative aspect-video overflow-hidden text-left"
-                    >
-                      {thumb ? (
-                        <img
-                          src={thumb}
-                          alt={lesson.title}
-                          className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 bg-[radial-gradient(120%_120%_at_20%_0%,oklch(0.42_0.15_265/0.7),transparent_60%)]" />
-                      )}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                      <div className="absolute left-2 top-2 rounded-sm bg-black/50 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-primary">
-                        {lesson.categoryName ?? `Ep ${lesson.episodeNumber}`}
-                      </div>
-                      <div className="absolute right-2 top-2 rounded-sm bg-black/60 px-1.5 py-0.5 font-mono text-[9px] text-foreground">
-                        {formatDuration(lesson.durationMinutes)}
-                      </div>
-                      <div className="absolute inset-0 flex items-center justify-center opacity-90 transition group-hover:opacity-100">
-                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[image:var(--gradient-gold)] text-[color:var(--primary-foreground)] shadow-lg transition group-hover:scale-110">
-                          ▶
-                        </span>
-                      </div>
-                      <div className="absolute inset-x-0 bottom-0 p-2">
-                        <div className="font-display text-[11px] leading-tight text-foreground line-clamp-2">
-                          {lesson.title}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              <span>{loading ? "Loading tutorials…" : videoLabel}</span>
-              <span className="font-mono text-primary">HD ●</span>
-            </div>
+            ))}
           </div>
         </div>
       </div>
@@ -997,7 +1641,7 @@ function AcademyPromo() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Pricing — real Auction Module tiers from pricing-section.tsx         */
+/* Transparent Pricing Section                                        */
 /* ------------------------------------------------------------------ */
 
 function Pricing({ goSignup }: { goSignup: () => void }) {
@@ -1005,24 +1649,15 @@ function Pricing({ goSignup }: { goSignup: () => void }) {
 
   return (
     <>
-      <Suspense
-        fallback={
-          <section id="pricing" className="mx-auto max-w-7xl px-5 py-16">
-            <div className="text-[11px] uppercase tracking-[0.24em] text-primary">Auction License</div>
-            <h2 className="text-display-lg mt-2">One tournament. One license. No monthly fees.</h2>
-          </section>
-        }
-      >
-        <PricingSection
-          onSelectPlan={(plan) => {
-            if (!plan.discountedPrice) {
-              goSignup();
-              return;
-            }
-            setPayingPlan(plan);
-          }}
-        />
-      </Suspense>
+      <PricingSection
+        onSelectPlan={(plan) => {
+          if (!plan.discountedPrice) {
+            goSignup();
+            return;
+          }
+          setPayingPlan(plan);
+        }}
+      />
 
       {payingPlan ? (
         <Suspense fallback={null}>
@@ -1034,36 +1669,51 @@ function Pricing({ goSignup }: { goSignup: () => void }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* FAQ                                                                 */
+/* Crisp FAQ Section                                                  */
 /* ------------------------------------------------------------------ */
 
 function FAQ() {
   const qas = [
-    { q: "What is sports auction software?", a: "It's the technology that runs an IPL-style live player auction — team owners bid points in real time for players from a pool, with categories, points purses, retentions and RTM. BidWar packages the operator console, team-owner mobile panel and LED display into one live-synced platform." },
-    { q: "Does BidWar run IPL-style auctions?", a: "Yes. Categories A/B/C, base points, purses, retentions, RTM, accelerated rounds and unsold recycling are all built in — the same mechanics used in franchise league auctions. Bidding is in points, not money." },
-    { q: "Are players sold for money on BidWar?", a: "No. On BidWar, players are allotted against a virtual points purse. The software does not process player purchase payments or cash transfers between teams, owners, or organizers. Any registration fees, deposits, or settlements outside BidWar are arranged by the organizer — BidWar is not responsible for those." },
-    { q: "Is BidWar responsible for how organizers run their tournament?", a: "No. BidWar provides auction and scoring software. Organizers decide their own tournament rules, fees, and internal processes. BidWar is not liable for how an organizer conducts payments, settlements, or other arrangements outside the platform." },
-    { q: "Is BidWar cloud-based?", a: "Yes. BidWar runs in any modern browser. No installs, no downloads. Hosted in India with encrypted connections and role-based access." },
-    { q: "Do you support LED / big-screen display?", a: "Yes — a dedicated LED mode outputs 1080p60 broadcast graphics with lower-thirds, SOLD/UNSOLD stamps, live points purse counters and rotating sponsor bands." },
-    { q: "How much does BidWar cost?", a: "BidWar is a one-time per-tournament Auction License for the software. Trial is free (2 teams). Paid plans (10% off limited-time): Starter ₹4,500 (4 teams), Pro ₹5,400 (8), Advanced ₹7,200 (12), Elite ₹8,100 (16), Premium ₹9,900 (22), Champion ₹10,800 (30). All taxes included. License fees are for software access — not for buying players." },
-    { q: "What's included in the license?", a: "An Auction License covers the BidWar Auction Module for one tournament — bidding engine, team-owner panel, categories & points purses, QR registration, analytics and CSV export up to your plan's team limit. Sports Scoring is licensed separately." },
-    { q: "Which sports does BidWar support?", a: "Cricket, football, kabaddi, badminton, basketball, volleyball, esports and corporate leagues — plus any custom draft/auction format. Categories, positions and points-purse rules are fully configurable." },
-    { q: "Do team owners need to install an app?", a: "No. Team owners open a link on their phone browser and log in. Any Android or iOS device works." },
+    {
+      q: "What is sports auction software?",
+      a: "It is the technology that runs an IPL-style live player auction — team owners bid virtual points in real time for players from a pool, with categories, points purses, retentions and RTM. BidWar packages the operator console, team-owner mobile panel, and 1080p60 LED display into one live-synced platform.",
+    },
+    {
+      q: "Are players sold for money on BidWar?",
+      a: "No. On BidWar, players are allotted against a virtual points purse only. The software does not process player purchase payments or cash transfers between teams, owners, or organizers. Any registration fees or internal settlements outside BidWar are arranged independently by the organizer.",
+    },
+    {
+      q: "Do team owners need to install an app from App Store or Play Store?",
+      a: "No. Team owners simply open a direct web link on any phone browser (Safari, Chrome) and log in. It works seamlessly across Android, iOS, tablets, and laptops with zero downloads.",
+    },
+    {
+      q: "How does the big-screen LED display work at the venue?",
+      a: "The operator opens the LED Display URL on any laptop connected to the venue LED wall or HDMI projector. It outputs crisp 1080p60 broadcast graphics with lower-thirds, SOLD/UNSOLD stamps, live purse counters, and rotating sponsor banners.",
+    },
+    {
+      q: "How much does a BidWar tournament license cost?",
+      a: "BidWar uses transparent one-time per-tournament software licensing with zero recurring charges. Free Trial is available (2 teams). Paid tiers: Starter ₹4,500 (4 teams), Pro ₹5,400 (8 teams), Advanced ₹7,200 (12 teams), Elite ₹8,100 (16 teams), Premium ₹9,900 (22 teams), Champion ₹10,800 (30 teams).",
+    },
+    {
+      q: "What if the operator makes a mistake during live bidding?",
+      a: "The operator console has an instant 'Undo Last Action' button and 'Re-Auction' control that immediately resets the player lot and restores the previous team purses on all screens simultaneously.",
+    },
   ];
+
   return (
     <section id="faq" className="mx-auto max-w-7xl px-5 py-16">
       <div className="mb-10">
-        <div className="text-[11px] uppercase tracking-[0.24em] text-primary">FAQ</div>
-        <h2 className="text-display-lg mt-2">Questions from the commentary box.</h2>
+        <div className="text-[10px] uppercase tracking-[0.24em] text-primary font-semibold font-mono">FAQ</div>
+        <h2 className="text-display-lg mt-2 font-display">Frequently Asked Questions.</h2>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         {qas.map((f) => (
-          <details key={f.q} className="panel group p-5 [&_summary::-webkit-details-marker]:hidden">
+          <details key={f.q} className="panel group p-5 rounded-xl border border-white/10 bg-card/40 [&_summary::-webkit-details-marker]:hidden">
             <summary className="flex cursor-pointer items-start justify-between gap-4">
-              <h3 className="font-display text-base leading-tight">{f.q}</h3>
-              <span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 font-mono text-xs text-primary transition group-open:rotate-45">+</span>
+              <h3 className="font-display text-base font-bold leading-tight text-foreground tracking-wide">{f.q}</h3>
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white/10 font-mono text-xs text-primary transition group-open:rotate-45">+</span>
             </summary>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{f.a}</p>
+            <p className="mt-3 text-xs sm:text-sm leading-relaxed text-muted-foreground">{f.a}</p>
           </details>
         ))}
       </div>
@@ -1072,34 +1722,39 @@ function FAQ() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Contact                                                             */
+/* Contact Section & Consultation Form                                */
 /* ------------------------------------------------------------------ */
 
 function ContactSection({ onOpen }: { onOpen: () => void }) {
   return (
     <section id="contact" className="mx-auto max-w-7xl px-5 py-16">
-      <div className="panel-rail relative overflow-hidden p-8 md:p-12">
-        <div className="pointer-events-none absolute inset-0 scan-lines opacity-30" />
+      <div className="panel-rail relative overflow-hidden p-8 md:p-12 rounded-2xl border border-white/10 bg-card/50">
+        <div className="pointer-events-none absolute inset-0 scan-lines opacity-20" />
         <div className="grid gap-10 lg:grid-cols-[1fr_1fr]">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.24em] text-primary">Book Your Auction</div>
-            <h2 className="text-display-lg mt-2">Talk to a BidWar producer.</h2>
-            <p className="mt-4 max-w-md text-sm text-muted-foreground md:text-base">
-              Share your tournament — we'll walk you through the platform, set up a free trial and
-              get you live within a week. No pressure, no monthly commitment.
+            <div className="text-[10px] uppercase tracking-[0.24em] text-primary font-semibold font-mono">Book Your Auction</div>
+            <h2 className="text-display-lg mt-2 font-display">Talk to an Auction Specialist.</h2>
+            <p className="mt-4 max-w-md text-sm text-muted-foreground leading-relaxed">
+              Share your tournament details — we will walk you through the platform, set up your free trial, and get your auction room ready within minutes.
             </p>
             <div className="mt-8 space-y-3 text-sm">
-              <a href={waMeUrl()} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-muted-foreground hover:text-foreground"><span className="font-mono text-primary">CALL</span> {SITE_CONTACT.phoneDisplay}</a>
-              <a href={`mailto:${SITE_CONTACT.email}`} className="flex items-center gap-3 text-muted-foreground hover:text-foreground"><span className="font-mono text-primary">MAIL</span> {SITE_CONTACT.email}</a>
-              <div className="flex items-center gap-3 text-muted-foreground"><span className="font-mono text-primary">HQ&nbsp;&nbsp;</span> {SITE_CONTACT.addressLine}</div>
+              <a href={waMeUrl()} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition">
+                <span className="font-mono text-primary font-bold">CALL / WA</span> {SITE_CONTACT.phoneDisplay}
+              </a>
+              <a href={`mailto:${SITE_CONTACT.email}`} className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition">
+                <span className="font-mono text-primary font-bold">EMAIL&nbsp;&nbsp;&nbsp;</span> {SITE_CONTACT.email}
+              </a>
+              <div className="flex items-center gap-3 text-muted-foreground">
+                <span className="font-mono text-primary font-bold">HQ&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> {SITE_CONTACT.addressLine}
+              </div>
             </div>
           </div>
           <ContactForm />
         </div>
       </div>
       <div className="mt-6 text-center">
-        <button onClick={onOpen} className="text-xs uppercase tracking-[0.22em] text-muted-foreground hover:text-primary">
-          Prefer a quick message? Open the contact drawer →
+        <button onClick={onOpen} className="text-xs uppercase tracking-[0.2em] text-muted-foreground hover:text-primary transition font-mono">
+          Prefer a quick popup? Open contact drawer →
         </button>
       </div>
     </section>
@@ -1107,9 +1762,13 @@ function ContactSection({ onOpen }: { onOpen: () => void }) {
 }
 
 function ContactForm({ compact = false }: { compact?: boolean }) {
-  const onSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const [sending, setSending] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const fd = new FormData(form);
     const name = String(fd.get("name") || "").trim();
     const mobile = String(fd.get("mobile") || "").trim();
     const email = String(fd.get("email") || "").trim();
@@ -1118,6 +1777,10 @@ function ContactForm({ compact = false }: { compact?: boolean }) {
     const teams = String(fd.get("teams") || "").trim();
     const contact = String(fd.get("contact") || "").trim();
     const message = String(fd.get("message") || "").trim();
+    if (name.length < 2) {
+      setFormError("Enter your name before requesting a consultation.");
+      return;
+    }
     const text = [
       "Hi, I want a live BidWar demo for my sports auction.",
       name && `Name: ${name}`,
@@ -1129,12 +1792,49 @@ function ContactForm({ compact = false }: { compact?: boolean }) {
       contact && `Preferred contact: ${contact}`,
       message && `Details: ${message}`,
     ].filter(Boolean).join("\n");
-    window.open(waMeUrl(text), "_blank", "noopener,noreferrer");
+    const whatsapp = window.open("", "_blank");
+    setSending(true);
+    setFormError(null);
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fullName: name,
+          email,
+          phone: mobile,
+          inquiryType: "demo",
+          subject: "Live consultation request",
+          message: message || "No extra tournament details provided.",
+          consent: true,
+          source: "homepage_consultation",
+          city,
+          sport,
+          teamCount: teams,
+          preferredContact: contact,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { emailDelivered?: boolean } | null;
+      if (!response.ok || data?.emailDelivered === false) {
+        setFormError("The request email could not be sent. WhatsApp is opening with the same details.");
+      } else {
+        form.reset();
+      }
+    } catch {
+      setFormError("The request email could not be sent. WhatsApp is opening with the same details.");
+    } finally {
+      setSending(false);
+      const url = waMeUrl(text);
+      if (whatsapp) {
+        whatsapp.location.href = url;
+      } else {
+        window.location.href = url;
+      }
+    }
   };
 
   return (
-    <form onSubmit={onSubmit}
-      className={`panel space-y-3 p-6 ${compact ? "text-sm" : ""}`}>
+    <form onSubmit={onSubmit} className={`panel space-y-3 p-6 rounded-xl border border-white/10 bg-black/40 ${compact ? "text-sm" : ""}`}>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Your Name" name="name" required />
         <Field label="Mobile" name="mobile" type="tel" required />
@@ -1148,12 +1848,17 @@ function ContactForm({ compact = false }: { compact?: boolean }) {
         <Field label="Number of Teams" name="teams" type="number" placeholder="e.g. 8" />
         <Select label="Preferred Contact" name="contact" options={["WhatsApp", "Phone Call", "Email"]} />
       </div>
-      <Field label="Tell us about your tournament" name="message" as="textarea" />
-      <button type="submit" className="gold-button gold-button-hover w-full rounded-md py-3 text-xs">
-        Request Live Demo →
+      <Field label="Tournament Details" name="message" as="textarea" />
+      <button
+        type="submit"
+        disabled={sending}
+        className="gold-button gold-button-hover w-full rounded-md py-3 text-xs font-bold uppercase tracking-wider disabled:cursor-wait disabled:opacity-70"
+      >
+        {sending ? "Sending…" : "Request Live Consultation →"}
       </button>
-      <p className="text-center text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-        We respond within 24 hours · No spam
+      {formError ? <p className="text-center text-xs text-amber-200">{formError}</p> : null}
+      <p className="text-center text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-mono">
+        We respond within 24 hours · Verified sports auction support
       </p>
     </form>
   );
@@ -1162,10 +1867,10 @@ function ContactForm({ compact = false }: { compact?: boolean }) {
 function Field({ label, name, type = "text", as, required, placeholder }: {
   label: string; name: string; type?: string; as?: "textarea"; required?: boolean; placeholder?: string;
 }) {
-  const cls = "w-full rounded-md border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none";
+  const cls = "w-full rounded-md border border-white/10 bg-black/50 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none";
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">{label}{required && " *"}</span>
+      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground font-mono">{label}{required && " *"}</span>
       {as === "textarea"
         ? <textarea name={name} rows={3} className={cls} placeholder={placeholder} />
         : <input name={name} type={type} required={required} placeholder={placeholder} className={cls} />}
@@ -1176,8 +1881,8 @@ function Field({ label, name, type = "text", as, required, placeholder }: {
 function Select({ label, name, options }: { label: string; name: string; options: string[] }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">{label}</span>
-      <select name={name} className="w-full rounded-md border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none">
+      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground font-mono">{label}</span>
+      <select name={name} className="w-full rounded-md border border-white/10 bg-black/50 px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none">
         <option value="">Select…</option>
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
@@ -1192,10 +1897,10 @@ function ContactDrawer({ onClose }: { onClose: () => void }) {
       <div className="relative flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-white/10 bg-stage p-6">
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <div className="text-[10px] uppercase tracking-[0.24em] text-primary">Live Line</div>
-            <h3 className="font-display text-2xl">Book a Demo</h3>
+            <div className="text-[10px] uppercase tracking-[0.24em] text-primary font-semibold font-mono">Live Line</div>
+            <h3 className="font-display text-2xl font-bold tracking-wide">Book a Demo</h3>
           </div>
-          <button onClick={onClose} className="ghost-button rounded-md px-3 py-2 text-xs" aria-label="Close">Close ✕</button>
+          <button onClick={onClose} className="ghost-button rounded-md px-3 py-2 text-xs font-bold" aria-label="Close">Close ✕</button>
         </div>
         <ContactForm compact />
       </div>
@@ -1204,8 +1909,40 @@ function ContactDrawer({ onClose }: { onClose: () => void }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Footer                                                              */
+/* Footer                                                             */
 /* ------------------------------------------------------------------ */
+
+function SocialMark({ label }: { label: "IN" | "FB" | "YT" | "TW" }) {
+  const className = "h-[18px] w-[18px]";
+  if (label === "IN") {
+    return (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" strokeWidth="2" />
+        <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" strokeWidth="2" />
+        <circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (label === "FB") {
+    return (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+        <path fill="currentColor" d="M14.2 8.4V6.9c0-.7.4-1 1.1-1H17V3.2h-2.2C12.1 3.2 11 4.5 11 6.7v1.7H9v2.6h2V21h3.2v-9.9h2.2l.4-2.7h-2.6z" />
+      </svg>
+    );
+  }
+  if (label === "YT") {
+    return (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+        <path fill="currentColor" d="M22.5 7.2a2.8 2.8 0 0 0-2-2C18.8 4.8 12 4.8 12 4.8s-6.8 0-8.5.4a2.8 2.8 0 0 0-2 2A29 29 0 0 0 1.1 12a29 29 0 0 0 .4 4.8 2.8 2.8 0 0 0 2 2c1.7.4 8.5.4 8.5.4s6.8 0 8.5-.4a2.8 2.8 0 0 0 2-2 29 29 0 0 0 .4-4.8 29 29 0 0 0-.4-4.8zM9.8 15.5v-7l6.2 3.5-6.2 3.5z" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="currentColor" d="M14.7 10.3 22.2 2h-1.8l-6.5 7L8.5 2H2.2l8 10.8L2.2 22h1.8l7-7.6L15.4 22h6.3l-8.3-11.2.1-.5zm-2.5 2.7-.8-1.1L4.7 3.3h2.7l5.1 6.8.8 1.1 6.7 8.9h-2.7l-5.1-6.8-.1-.3z" />
+    </svg>
+  );
+}
 
 function FooterBrandMark() {
   const { logos, iconVersion, brandName } = usePublicBranding();
@@ -1221,70 +1958,73 @@ function FooterBrandMark() {
       width={168}
       height={40}
       loading="lazy"
-      fallback={brandTextFallback("font-display text-2xl tracking-wider")}
+      fallback={brandTextFallback("font-display text-2xl tracking-wider font-bold")}
     />
   );
 }
 
 function Footer() {
-  type FooterItem = { label: string; href?: string };
+  type FooterItem = { label: string; href?: string; surfaceIndex?: number };
   const cols: Array<{ h: string; items: FooterItem[] }> = [
     {
-      h: "Product",
+      h: "Auction Screens & Platform",
       items: [
-        { label: "Features", href: "#features" },
-        { label: "Pricing", href: "#pricing" },
-        { label: "LED Mode", href: "#product" },
-        { label: "Team-Owner Panel", href: "#product" },
-        { label: "Broadcast Overlay", href: "#ecosystem" },
+        { label: "Auction Control", href: "#auction-screens", surfaceIndex: 0 },
+        { label: "Team Bidding Screen (Web App)", href: "#auction-screens", surfaceIndex: 1 },
+        { label: "Live LED Screen", href: "#auction-screens", surfaceIndex: 2 },
+        { label: "OBS Overlay (For Live Streaming)", href: "#auction-screens", surfaceIndex: 3 },
+        { label: "Live Auction View", href: "#auction-screens", surfaceIndex: 4 },
+        { label: "Communications", href: "#auction-screens", surfaceIndex: 5 },
+        { label: "Reports", href: "#auction-screens", surfaceIndex: 6 },
       ],
     },
     {
-      h: "Solutions",
+      h: "Sports Solutions",
       items: [
         { label: "Cricket Auctions", href: "/cricket-auction-software" },
         { label: "Football Draft", href: "/football-player-auction" },
-        { label: "Kabaddi Leagues", href: "/kabaddi-auction-platform" },
+        { label: "Badminton Draft", href: "/badminton-auction-platform" },
+        { label: "Kabaddi Platform", href: "/kabaddi-auction-platform" },
         { label: "Corporate T20", href: "/business-league-auction" },
-        { label: "Esports", href: "/esports-auction-system" },
       ],
     },
     {
-      h: "Resources",
+      h: "Resources & Media",
       items: [
-        { label: "Academy", href: "/academy" },
-        { label: "Blog", href: "/blog" },
-        { label: "Case Studies" },
-        { label: "Help Center" },
-        { label: "System Status" },
+        { label: "BidWar Academy", href: "/academy" },
+        { label: "Blog & Guides", href: "/blog" },
+        { label: "Our Clients", href: "#our-clients" },
+        { label: "Tournament Galleries", href: "#tournament-galleries" },
+        { label: "Organizer Reviews", href: "#reviews" },
+        { label: "Upcoming Auctions", href: "/upcoming-auctions" },
       ],
     },
     {
-      h: "Company",
+      h: "Company & Trust",
       items: [
-        { label: "About" },
-        { label: "Careers" },
-        { label: "Contact", href: "/contact" },
+        { label: "Pricing & Plans", href: "#pricing" },
+        { label: "Contact & HQ", href: "/contact" },
+        { label: "Auction Tips", href: "/auction-tips" },
         { label: "auth-cta" },
       ],
     },
   ];
-  // Visual slots: Instagram, Facebook (replaces unused LinkedIn), YouTube, X placeholder
+
   const socialLabels = ["IN", "FB", "YT", "TW"] as const;
   const socialByLabel = Object.fromEntries(SITE_SOCIAL.map((s) => [s.label, s]));
   const placeholderSocial = new Set<string>(SITE_SOCIAL_PLACEHOLDERS);
 
   return (
-    <footer className="border-t border-white/10 bg-black/40 pt-16">
+    <footer className="border-t border-white/10 bg-black/60 pt-16">
       <div className="mx-auto max-w-7xl px-5 pb-10">
         <div className="grid gap-10 lg:grid-cols-[1.4fr_2fr]">
           <div>
             <a href="/" className="flex items-center gap-2" aria-label={`${BRAND_NAME} Home`}>
               <FooterBrandMark />
             </a>
-            <p className="mt-4 max-w-sm text-sm text-muted-foreground">
-              India's auction-first platform for live sports player auctions. Team owners bid in
-              points — not money. From street leagues to state finals — from auction to champion.
+            <p className="mt-4 max-w-sm text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              India&rsquo;s platform for player auctions, live scoring, and sponsor screens. Team owners bid in
+              virtual points — not money. From local leagues to state championship finals — from auction to champions.
             </p>
             <div className="mt-6 flex gap-2">
               {socialLabels.map((label) => {
@@ -1297,9 +2037,9 @@ function Footer() {
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={`BidWar on ${social.name}`}
-                      className="ghost-button ghost-button-hover flex h-9 w-9 items-center justify-center rounded-md text-[10px] font-bold tracking-widest"
+                      className="ghost-button ghost-button-hover flex h-9 w-9 items-center justify-center rounded-md"
                     >
-                      {label}
+                      <SocialMark label={label} />
                     </a>
                   );
                 }
@@ -1307,25 +2047,27 @@ function Footer() {
                   <span
                     key={label}
                     title={placeholderSocial.has(label) ? "Coming soon" : undefined}
-                    className="ghost-button flex h-9 w-9 cursor-default items-center justify-center rounded-md text-[10px] font-bold tracking-widest opacity-40"
+                    className="ghost-button flex h-9 w-9 cursor-default items-center justify-center rounded-md opacity-40"
                     aria-disabled="true"
+                    aria-label={label === "TW" ? "X, coming soon" : undefined}
                   >
-                    {label}
+                    <SocialMark label={label} />
                   </span>
                 );
               })}
             </div>
             <div className="mt-6 space-y-1 text-xs text-muted-foreground">
-              <a href={`mailto:${SITE_CONTACT.email}`} className="block hover:text-foreground">{SITE_CONTACT.email}</a>
-              <a href={waMeUrl()} target="_blank" rel="noopener noreferrer" className="block hover:text-foreground">{SITE_CONTACT.phoneDisplay}</a>
+              <a href={`mailto:${SITE_CONTACT.email}`} className="block hover:text-foreground transition">{SITE_CONTACT.email}</a>
+              <a href={waMeUrl()} target="_blank" rel="noopener noreferrer" className="block hover:text-foreground transition">{SITE_CONTACT.phoneDisplay}</a>
               <p>{SITE_CONTACT.addressLine}</p>
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
             {cols.map((c) => (
               <div key={c.h}>
-                <div className="mb-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">{c.h}</div>
-                <ul className="space-y-2 text-sm text-muted-foreground">
+                <div className="mb-3 break-words text-[10px] font-semibold uppercase leading-snug tracking-[0.14em] text-primary font-mono sm:tracking-[0.24em]">{c.h}</div>
+                <ul className="space-y-2 text-xs sm:text-sm text-muted-foreground break-words">
                   {c.items.map((i) => (
                     <li key={i.label}>
                       {i.label === "auth-cta" ? (
@@ -1335,10 +2077,10 @@ function Footer() {
                           href={i.href}
                           onClick={(e) => {
                             if (i.href?.startsWith("#")) {
-                              scrollToSection(i.href.slice(1), e);
+                              scrollToSection(i.href.slice(1), e, i.surfaceIndex);
                             }
                           }}
-                          className="hover:text-foreground"
+                          className="hover:text-foreground transition"
                         >
                           {i.label}
                         </a>
@@ -1353,20 +2095,20 @@ function Footer() {
           </div>
         </div>
       </div>
+
       <div className="border-t border-white/5">
         <div className="mx-auto max-w-7xl px-5 py-4 text-xs leading-relaxed text-muted-foreground">
           Bidding on BidWar uses a virtual <strong className="text-foreground/80">points purse</strong> only.
-          Players are not bought or sold for money through the platform. BidWar provides auction software
-          and is not responsible for how organizers run tournament fees, settlements, or other internal
-          arrangements outside BidWar.
+          Players are not bought or sold for money through the platform. BidWar provides sports auction software
+          and is not responsible for how organizers run tournament fees or internal arrangements outside BidWar.
         </div>
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 border-t border-white/5 px-5 py-5 text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 border-t border-white/5 px-5 py-4 text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-mono">
           <div>© {new Date().getFullYear()} BidWar Technologies · Made in India · Operated by {SITE_CONTACT.billingEntity}</div>
-          <div className="flex gap-5">
-            <a href="/legal/privacy" className="hover:text-foreground">Privacy</a>
-            <a href="/legal/terms" className="hover:text-foreground">Terms</a>
-            <a href="/legal/refund" className="hover:text-foreground">Refund</a>
-            <a href="/legal" className="hover:text-foreground" title={`GSTIN ${SITE_CONTACT.gstin}`}>GST</a>
+          <div className="flex gap-4">
+            <a href="/legal/privacy" className="hover:text-foreground transition">Privacy Policy</a>
+            <a href="/legal/terms" className="hover:text-foreground transition">Terms & Conditions</a>
+            <a href="/legal/refund" className="hover:text-foreground transition">Refund Policy</a>
+            <a href="/legal" className="hover:text-foreground transition" title={`GSTIN ${SITE_CONTACT.gstin}`}>GST Info</a>
           </div>
         </div>
       </div>
@@ -1375,11 +2117,10 @@ function Footer() {
 }
 
 /* ------------------------------------------------------------------ */
-/* BidWar signal motif — original geometric bid-pulse network         */
+/* Geometric Bid-Pulse Network Motif                                  */
 /* ------------------------------------------------------------------ */
 
 function BidPulseMotif({ className }: { className?: string }) {
-  // Rotating hex grid + network nodes + soft bid-wave rings — no sunburst rays.
   const nodes = [
     { x: 200, y: 60 }, { x: 320, y: 130 }, { x: 320, y: 270 },
     { x: 200, y: 340 }, { x: 80, y: 270 }, { x: 80, y: 130 },
@@ -1389,21 +2130,19 @@ function BidPulseMotif({ className }: { className?: string }) {
     <svg viewBox="0 0 400 400" className={className} aria-hidden="true">
       <defs>
         <radialGradient id="bp-core2" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="oklch(0.90 0.17 88)" stopOpacity="0.55" />
-          <stop offset="70%" stopColor="oklch(0.75 0.19 65)" stopOpacity="0.06" />
+          <stop offset="0%" stopColor="oklch(0.90 0.17 88)" stopOpacity="0.45" />
+          <stop offset="70%" stopColor="oklch(0.75 0.19 65)" stopOpacity="0.05" />
           <stop offset="100%" stopColor="transparent" />
         </radialGradient>
         <linearGradient id="bp-line" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="oklch(0.90 0.17 88)" stopOpacity="0.55" />
+          <stop offset="0%" stopColor="oklch(0.90 0.17 88)" stopOpacity="0.45" />
           <stop offset="100%" stopColor="oklch(0.60 0.15 265)" stopOpacity="0" />
         </linearGradient>
       </defs>
 
-      {/* Soft core glow (no rays) */}
       <circle cx="200" cy="200" r="150" fill="url(#bp-core2)" />
 
-      {/* Concentric hexagons — bid pulse layers */}
-      <g fill="none" stroke="oklch(0.85 0.17 88)" strokeOpacity="0.22">
+      <g fill="none" stroke="oklch(0.85 0.17 88)" strokeOpacity="0.2">
         {[70, 110, 150, 190].map((r, i) => (
           <polygon
             key={r}
@@ -1418,588 +2157,32 @@ function BidPulseMotif({ className }: { className?: string }) {
         ))}
       </g>
 
-      {/* Network mesh — subtle connecting lines between nodes */}
       <g stroke="url(#bp-line)" strokeWidth="0.7">
         {nodes.map((n, i) =>
           nodes.slice(i + 1).map((m, j) => {
             const d = Math.hypot(n.x - m.x, n.y - m.y);
             if (d > 200) return null;
-            return <line key={`${i}-${j}`} x1={n.x} y1={n.y} x2={m.x} y2={m.y} opacity="0.45" />;
+            return <line key={`${i}-${j}`} x1={n.x} y1={n.y} x2={m.x} y2={m.y} opacity="0.4" />;
           })
         )}
       </g>
 
-      {/* Bid-pulse rings (thin, network-style) */}
-      <g fill="none" stroke="oklch(0.85 0.17 88)" strokeWidth="0.6" opacity="0.35">
+      <g fill="none" stroke="oklch(0.85 0.17 88)" strokeWidth="0.6" opacity="0.3">
         <circle cx="200" cy="200" r="50" />
         <circle cx="200" cy="200" r="90" strokeDasharray="1 4" />
       </g>
 
-      {/* Network nodes */}
       <g>
         {nodes.map((n, i) => (
           <g key={i}>
-            <circle cx={n.x} cy={n.y} r={i < 6 ? 3.2 : 2} fill="oklch(0.90 0.17 88)" opacity="0.9" />
-            <circle cx={n.x} cy={n.y} r="8" fill="none" stroke="oklch(0.85 0.17 88)" strokeOpacity="0.35" />
+            <circle cx={n.x} cy={n.y} r={i < 6 ? 3 : 2} fill="oklch(0.90 0.17 88)" opacity="0.8" />
+            <circle cx={n.x} cy={n.y} r="8" fill="none" stroke="oklch(0.85 0.17 88)" strokeOpacity="0.3" />
           </g>
         ))}
       </g>
 
-      {/* Center pulse */}
-      <circle cx="200" cy="200" r="5" fill="oklch(0.90 0.17 88)" />
-      <circle cx="200" cy="200" r="14" fill="none" stroke="oklch(0.85 0.17 88)" strokeWidth="1" opacity="0.55" />
+      <circle cx="200" cy="200" r="4" fill="oklch(0.90 0.17 88)" />
+      <circle cx="200" cy="200" r="12" fill="none" stroke="oklch(0.85 0.17 88)" strokeWidth="1" opacity="0.5" />
     </svg>
   );
-}
-
-/* ------------------------------------------------------------------ */
-/* Trust badges — small horizontal strip below hero                   */
-/* ------------------------------------------------------------------ */
-
-function TrustBadges() {
-  const badges = [
-    "Multi Sport", "LED Ready", "OBS Ready", "Mobile Owners",
-    "Cloud Native", "No Installation", "Made in India",
-  ];
-  return (
-    <section aria-label="Trust badges" className="border-y border-white/5 bg-black/20">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-2 px-5 py-4">
-        {badges.map((b) => (
-          <span
-            key={b}
-            className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground"
-          >
-            <span className="text-primary">✓</span> {b}
-          </span>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Reusable Case Study — supports multiple tournaments via carousel   */
-/* ------------------------------------------------------------------ */
-
-type Tournament = {
-  id: string;
-  name: string;
-  seasonTag: string;
-  sportTag: string;
-  location: string;
-  blurb: string;
-  stats: Array<{ v: string; l: string }>;
-  reelLabel: string;
-  reelDuration: string;
-};
-
-function CaseStudy({ tournaments }: { tournaments: Tournament[] }) {
-  const [idx, setIdx] = useState(0);
-  const t = tournaments[idx];
-  return (
-    <div className="panel-rail relative overflow-hidden p-6 md:p-8">
-      <div className="pointer-events-none absolute inset-0 scan-lines opacity-20" />
-      <BidPulseMotif className="pointer-events-none absolute -right-24 -top-24 h-96 w-96 opacity-25" />
-
-      {/* Carousel tab bar — scales as tournaments are added */}
-      <div className="relative mb-6 flex flex-wrap items-center gap-2">
-        {tournaments.map((tour, i) => (
-          <button
-            key={tour.id}
-            onClick={() => setIdx(i)}
-            className={`rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] transition ${
-              i === idx
-                ? "border-primary/50 bg-primary/10 text-primary"
-                : "border-white/10 bg-white/[0.03] text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tour.name}
-          </button>
-        ))}
-        <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-          {idx + 1}/{tournaments.length}
-        </span>
-      </div>
-
-      <div className="relative grid gap-6 lg:grid-cols-[1.3fr_1fr] lg:items-center">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-[color:var(--live)]/40 bg-[color:var(--live)]/10 px-3 py-1 text-[10px] font-bold tracking-[0.22em] text-[color:var(--live)]">
-              <span className="live-dot mr-1.5 align-middle" />{t.seasonTag}
-            </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              {t.sportTag}
-            </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-              {t.location}
-            </span>
-          </div>
-          <h3 className="text-display-md mt-3 font-display">{t.name}</h3>
-          <p className="mt-3 max-w-lg text-sm text-muted-foreground">{t.blurb}</p>
-          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {t.stats.map((s) => <StatTile key={s.l} value={s.v} label={s.l} />)}
-          </div>
-        </div>
-
-        {/* Reel placeholder — 16:9, ready for real footage */}
-        <div className="panel relative overflow-hidden p-4">
-          <div className="aspect-video overflow-hidden rounded-md bg-black/60">
-            <div className="relative h-full w-full bg-[radial-gradient(80%_80%_at_50%_20%,oklch(0.42_0.15_265/0.7),oklch(0.14_0.09_265))]">
-              <div className="absolute inset-0 grid-bg opacity-30" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <button className="flex h-16 w-16 items-center justify-center rounded-full bg-[image:var(--gradient-gold)] text-2xl text-[color:var(--primary-foreground)] shadow-[var(--shadow-broadcast)]" aria-label="Play highlight">▶</button>
-              </div>
-              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-[10px] uppercase tracking-[0.22em] text-white/70">
-                <span>{t.reelLabel}</span>
-                <span className="font-mono">{t.reelDuration}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Real Tournaments — Featured (carousel) + Masonry Gallery + Journey */
-/* ------------------------------------------------------------------ */
-
-function RealTournaments() {
-  const tournaments: Tournament[] = [
-    {
-      id: "vnbl3",
-      name: "VNBL 3.0",
-      seasonTag: "BROADCAST · SEASON 3",
-      sportTag: "Cricket · T10",
-      location: "Mumbai",
-      blurb:
-        "Vasai Nalasopara Box League Season 3 — ranked among Maharashtra's most-watched tape-ball leagues. Ran on BidWar with a live LED wall, six-camera stream and category-based bidding for 84 players.",
-      stats: [
-        { v: "8", l: "Teams" }, { v: "84", l: "Players" },
-        { v: "40L Pts", l: "Purse" }, { v: "112", l: "Bids/Min" },
-      ],
-      reelLabel: "Season 3 · Highlight Reel",
-      reelDuration: "02:47",
-    },
-    {
-      id: "ricl",
-      name: "RICL",
-      seasonTag: "SEASON 2 · UPCOMING",
-      sportTag: "Cricket · T20",
-      location: "Bengaluru",
-      blurb:
-        "Regional Inter-City League — 10 franchise teams across Karnataka, retention + RTM enabled. Season 2 auction scheduled with BidWar operator console and OBS-driven livestream.",
-      stats: [
-        { v: "10", l: "Teams" }, { v: "120", l: "Players" },
-        { v: "55L Pts", l: "Purse" }, { v: "3", l: "Categories" },
-      ],
-      reelLabel: "Season 1 · Recap",
-      reelDuration: "03:12",
-    },
-    {
-      id: "corp",
-      name: "Corporate Cricket",
-      seasonTag: "SEASON 4 · REPEAT CLIENT",
-      sportTag: "Cricket · T20",
-      location: "Delhi NCR",
-      blurb:
-        "Departmental office IPL running for its fourth year on BidWar. 12 teams, custom sponsor overlays and analytics dashboards exported for HR.",
-      stats: [
-        { v: "12", l: "Teams" }, { v: "96", l: "Players" },
-        { v: "28L Pts", l: "Purse" }, { v: "4", l: "Seasons" },
-      ],
-      reelLabel: "Boardroom Cut",
-      reelDuration: "01:58",
-    },
-  ];
-
-  // Masonry gallery: 1 hero + 2 medium + 3 small, each with a distinct aspect for real assets.
-  const galleryHero = { t: "Auction Stage", d: "VNBL 3.0 · Mumbai", tag: "HERO PHOTO", aspect: "aspect-[16/10]", tone: "from-amber-500/40 to-rose-500/20" };
-  const galleryMed = [
-    { t: "LED Reveal", d: "SOLD · 4.8L Pts", tag: "LED SCREEN", aspect: "aspect-[4/3]", tone: "from-emerald-500/40 to-cyan-500/10" },
-    { t: "Team Owners", d: "Bidding Floor", tag: "PHOTO", aspect: "aspect-[4/3]", tone: "from-indigo-500/40 to-violet-500/10" },
-  ];
-  const gallerySm = [
-    { t: "Trophy Handover", d: "Season Finale", tag: "CEREMONY", aspect: "aspect-square", tone: "from-amber-400/40 to-orange-500/10" },
-    { t: "Broadcast Overlay", d: "Live on YouTube", tag: "OBS", aspect: "aspect-square", tone: "from-rose-500/40 to-amber-500/10" },
-    { t: "Control Room", d: "Operator POV", tag: "SCREEN", aspect: "aspect-square", tone: "from-blue-500/40 to-teal-500/10" },
-  ];
-
-  const journey = [
-    { t: "Registration", d: "QR + web signup" },
-    { t: "Verification", d: "Docs + categories" },
-    { t: "Auction Night", d: "Live bidding room" },
-    { t: "LED Broadcast", d: "Lower-thirds · SOLD" },
-    { t: "Final Squads", d: "CSV + player cards" },
-    { t: "Fixtures", d: "Draw + schedule" },
-    { t: "Champion", d: "Trophy handover" },
-  ];
-
-  return (
-    <section id="tournaments" className="mx-auto max-w-7xl px-5 py-16">
-      <div className="mb-10">
-        <div className="text-[11px] uppercase tracking-[0.24em] text-primary">Case Study · Featured Tournament</div>
-        <h2 className="text-display-lg mt-2 max-w-3xl">Real tournaments. Real results.</h2>
-        <p className="mt-4 max-w-2xl text-sm text-muted-foreground md:text-base">
-          Live leagues run end-to-end on BidWar — LED reveal, team-owner phones, broadcast overlay,
-          exported squads before the crowd leaves.
-        </p>
-      </div>
-
-      {/* Featured tournament — reusable carousel */}
-      <div className="mb-10">
-        <CaseStudy tournaments={tournaments} />
-      </div>
-
-      {/* Masonry gallery — 1 hero + 2 medium + 3 small */}
-      <div className="mb-10">
-        <div className="mb-4 flex items-end justify-between">
-          <h3 className="font-display text-xl tracking-wider">Production Gallery</h3>
-          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">On the floor · Season 3</span>
-        </div>
-        <div className="grid gap-3 md:grid-cols-3">
-          {/* Hero — spans 2 cols and 2 rows on desktop */}
-          <GalleryTile item={galleryHero} className="md:col-span-2 md:row-span-2" />
-          {/* Medium */}
-          {galleryMed.map((g) => <GalleryTile key={g.t} item={g} />)}
-          {/* Small trio — spans full width, 3 columns */}
-          <div className="grid grid-cols-3 gap-3 md:col-span-3">
-            {gallerySm.map((g) => <GalleryTile key={g.t} item={g} />)}
-          </div>
-        </div>
-      </div>
-
-      {/* Tournament Timeline — visual journey */}
-      <div className="panel p-6 md:p-8">
-        <div className="mb-6 flex items-end justify-between">
-          <h3 className="font-display text-xl tracking-wider">Tournament Timeline</h3>
-          <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">The flow of a live tournament</span>
-        </div>
-        <ol className="grid gap-3 md:grid-cols-4 lg:grid-cols-7">
-          {journey.map((s, i) => (
-            <li key={s.t} className="relative">
-              <div className="scoreboard-tile relative flex h-full flex-col items-start gap-2 px-4 py-4">
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[image:var(--gradient-gold)] font-mono text-[10px] text-[color:var(--primary-foreground)]">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <div className="font-display text-sm leading-tight">{s.t}</div>
-                <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{s.d}</div>
-              </div>
-              {i < journey.length - 1 && (
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute right-[-10px] top-1/2 hidden -translate-y-1/2 font-mono text-primary/70 lg:block"
-                >
-                  ▸
-                </span>
-              )}
-            </li>
-          ))}
-        </ol>
-      </div>
-    </section>
-  );
-}
-
-function GalleryTile({
-  item,
-  className = "",
-}: {
-  item: { t: string; d: string; tag: string; aspect: string; tone: string };
-  className?: string;
-}) {
-  return (
-    <div className={`panel group relative overflow-hidden ${item.aspect} ${className}`}>
-      <div className={`absolute inset-0 bg-gradient-to-br ${item.tone}`} />
-      <div className="absolute inset-0 grid-bg opacity-20" />
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-3">
-        <div className="font-display text-sm">{item.t}</div>
-        <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">{item.d}</div>
-      </div>
-      <div className="absolute right-2 top-2 rounded-sm bg-black/50 px-1.5 py-0.5 font-mono text-[9px] text-primary">{item.tag}</div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Product Showcase — 4 premium-labeled surfaces                       */
-/* ------------------------------------------------------------------ */
-
-function ProductShowcase() {
-  const surfaces = [
-    { k: "Operator Console", tag: "CONTROL ROOM", d: "Queue, pools, RTM, retentions, undo — one auctioneer runs the room.", kind: "console" },
-    { k: "Team-Owner App", tag: "MOBILE EXPERIENCE", d: "Bid from any phone. Budget guard, category tracker, instant confirm.", kind: "mobile" },
-    { k: "Live Auction Room", tag: "LIVE INTERFACE", d: "Real-time bid ticker, leading-bidder card, SOLD stamps — for the room to feel the moment.", kind: "live" },
-    { k: "LED / Stream Feed", tag: "BROADCAST OUTPUT", d: "1080p60 lower-thirds, SOLD stamps, points purse counters, sponsor bands, OBS-ready.", kind: "broadcast" },
-  ];
-  return (
-    <section id="product" className="mx-auto max-w-7xl px-5 py-16">
-      <div className="mb-10">
-        <div className="text-[11px] uppercase tracking-[0.24em] text-primary">Three Surfaces</div>
-        <h2 className="text-display-lg mt-2 max-w-3xl">One live auction. Every screen it needs to be on.</h2>
-      </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {surfaces.map((s, i) => (
-          <div key={s.k} className="panel relative overflow-hidden p-5">
-            <div className="mb-3 flex items-center justify-between">
-              <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">Surface · 0{i + 1}</span>
-              <span className="rounded-sm bg-[image:var(--gradient-gold)] px-2 py-0.5 font-mono text-[10px] font-bold tracking-widest text-[color:var(--primary-foreground)]">
-                {s.tag}
-              </span>
-            </div>
-            {/* Screenshot placeholder — sized for real 16:9 asset (mobile uses 9:16). */}
-            <div className={`scoreboard-tile relative mb-4 overflow-hidden ${s.kind === "mobile" ? "aspect-[9/16] max-h-72" : "aspect-video"}`}>
-              <div className="absolute inset-0 bg-[radial-gradient(80%_80%_at_50%_10%,oklch(0.42_0.15_265/0.6),oklch(0.14_0.09_265))]" />
-              <div className="absolute inset-0 grid-bg opacity-25" />
-              {s.kind === "console" && (
-                <div className="absolute inset-3 grid grid-cols-4 gap-1">
-                  <div className="col-span-3 rounded bg-white/5" />
-                  <div className="rounded bg-primary/20" />
-                  <div className="col-span-2 rounded bg-white/5" />
-                  <div className="col-span-2 rounded bg-white/5" />
-                  <div className="col-span-4 rounded bg-white/5" />
-                </div>
-              )}
-              {s.kind === "mobile" && (
-                <div className="absolute inset-x-6 inset-y-3 rounded-lg border border-white/10 bg-black/40 p-2">
-                  <div className="h-3 w-1/2 rounded bg-primary/40" />
-                  <div className="mt-2 h-24 rounded bg-white/5" />
-                  <div className="mt-2 flex gap-1">
-                    <div className="h-8 flex-1 rounded bg-primary/30" />
-                    <div className="h-8 flex-1 rounded bg-white/10" />
-                  </div>
-                </div>
-              )}
-              {s.kind === "live" && (
-                <div className="absolute inset-3 flex flex-col justify-between">
-                  <div className="flex justify-between">
-                    <div className="h-2 w-16 rounded bg-[color:var(--live)]/60" />
-                    <div className="h-2 w-10 rounded bg-white/20" />
-                  </div>
-                  <div className="rounded bg-white/5 p-2">
-                    <div className="h-3 w-24 rounded bg-primary/30" />
-                    <div className="mt-1 h-2 w-16 rounded bg-white/20" />
-                  </div>
-                </div>
-              )}
-              {s.kind === "broadcast" && (
-                <div className="absolute inset-x-3 bottom-3">
-                  <div className="rounded bg-[image:var(--gradient-gold)]/40 p-2">
-                    <div className="h-2 w-1/3 rounded bg-black/40" />
-                    <div className="mt-1 h-3 w-1/2 rounded bg-black/60" />
-                  </div>
-                </div>
-              )}
-              <div className="absolute left-2 top-2 rounded-sm bg-black/60 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-primary">
-                {s.tag}
-              </div>
-            </div>
-            <h3 className="font-display text-lg">{s.k}</h3>
-            <p className="mt-2 text-sm text-muted-foreground">{s.d}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Broadcast Ecosystem — center hub + animated SVG connector lines    */
-/* ------------------------------------------------------------------ */
-
-function BroadcastEcosystem() {
-  const spokes = [
-    { t: "Operator Console", d: "Control room laptop", side: "left", i: 0 },
-    { t: "Team Owner Phones", d: "Bidding from tables", side: "left", i: 1 },
-    { t: "LED Screen", d: "1080p60 broadcast wall", side: "left", i: 2 },
-    { t: "OBS Stream", d: "YouTube · Facebook Live", side: "right", i: 0 },
-    { t: "Sponsor Branding", d: "Rotating LED bands", side: "right", i: 1 },
-    { t: "Analytics", d: "CSV · dashboards", side: "right", i: 2 },
-  ] as const;
-
-  return (
-    <section id="ecosystem" className="mx-auto max-w-7xl px-5 py-16">
-      <div className="mb-10">
-        <div className="text-[11px] uppercase tracking-[0.24em] text-primary">Broadcast Ecosystem</div>
-        <h2 className="text-display-lg mt-2 max-w-3xl">One live feed. Six connected surfaces.</h2>
-      </div>
-      <div className="panel-rail relative overflow-hidden p-6 md:p-10">
-        <div className="pointer-events-none absolute inset-0 scan-lines opacity-20" />
-
-        <div className="relative grid items-center gap-6 lg:grid-cols-[1fr_1.3fr_1fr]">
-          {/* LEFT column nodes */}
-          <div className="relative z-10 space-y-3">
-            {spokes.filter((s) => s.side === "left").map((s) => (
-              <div key={s.t} className="panel flex items-center justify-between p-4">
-                <div>
-                  <div className="font-display text-base">{s.t}</div>
-                  <div className="text-xs text-muted-foreground">{s.d}</div>
-                </div>
-                <span className="font-mono text-[10px] text-primary">→ HUB</span>
-              </div>
-            ))}
-          </div>
-
-          {/* CENTER hub with animated connector SVG behind it */}
-          <div className="relative mx-auto aspect-square w-full max-w-sm">
-            {/* SVG connector lines — from hub center to each side (drawn behind hub) */}
-            <svg
-              viewBox="0 0 400 400"
-              className="pointer-events-none absolute inset-0 hidden h-full w-full lg:block"
-              aria-hidden="true"
-            >
-              <defs>
-                <linearGradient id="ec-line" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="oklch(0.90 0.17 88)" stopOpacity="0" />
-                  <stop offset="50%" stopColor="oklch(0.90 0.17 88)" stopOpacity="0.9" />
-                  <stop offset="100%" stopColor="oklch(0.90 0.17 88)" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              {[
-                { x2: -40, y2: 60 }, { x2: -40, y2: 200 }, { x2: -40, y2: 340 },
-                { x2: 440, y2: 60 }, { x2: 440, y2: 200 }, { x2: 440, y2: 340 },
-              ].map((p, i) => (
-                <line
-                  key={i}
-                  x1="200" y1="200" x2={p.x2} y2={p.y2}
-                  stroke="url(#ec-line)"
-                  strokeWidth="1.2"
-                  strokeDasharray="4 6"
-                  className="ecosystem-line"
-                  style={{ animationDelay: `${i * 0.25}s` }}
-                />
-              ))}
-            </svg>
-
-            <BidPulseMotif className="absolute inset-0 opacity-90" />
-
-            {/* Hub badge with pulse */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative">
-                <span className="absolute inset-0 -m-2 animate-ping rounded-full bg-primary/25" />
-                <div className="relative rounded-full bg-[image:var(--gradient-gold)] px-5 py-2 font-display text-sm text-[color:var(--primary-foreground)] shadow-[var(--shadow-broadcast)]">
-                  BidWar Live Hub
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT column nodes */}
-          <div className="relative z-10 space-y-3">
-            {spokes.filter((s) => s.side === "right").map((s) => (
-              <div key={s.t} className="panel flex items-center justify-between p-4">
-                <span className="font-mono text-[10px] text-primary">HUB ←</span>
-                <div className="text-right">
-                  <div className="font-display text-base">{s.t}</div>
-                  <div className="text-xs text-muted-foreground">{s.d}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Testimonials                                                        */
-/* ------------------------------------------------------------------ */
-
-function Testimonials() {
-  const quotes = [
-    { q: "BidWar turned our auction night into a broadcast event. Owners bid from their seats, the LED looked like TV — and we exported final squads before the crowd left.", n: "Rohit Kadam", r: "Organizer · Vasai Nalasopara Box League", tag: "VNBL 3.0" },
-    { q: "We tried running IPL-style auctions on spreadsheets for two seasons. BidWar took the chaos out. RTM, retentions, category caps — all handled without a hitch.", n: "Priya Sequeira", r: "Director · Pune Sports Guild", tag: "PSG Cricket" },
-    { q: "The team-owner mobile panel is the killer feature. Budget guard alone saved three of my franchises from over-bidding on marquees.", n: "Karthik Menon", r: "Auctioneer · South India Kabaddi League", tag: "SIKL" },
-  ];
-  return (
-    <section id="testimonials" className="mx-auto max-w-7xl px-5 py-16">
-      <div className="mb-10">
-        <div className="text-[11px] uppercase tracking-[0.24em] text-primary">From the Commentary Box</div>
-        <h2 className="text-display-lg mt-2 max-w-3xl">Organizers who've walked out of an auction night, on time.</h2>
-      </div>
-      <div className="grid gap-4 md:grid-cols-3">
-        {quotes.map((t) => (
-          <figure key={t.n} className="panel relative flex flex-col p-6">
-            <span className="font-display text-6xl leading-none text-primary/40">“</span>
-            <blockquote className="-mt-4 text-sm leading-relaxed text-foreground/90">{t.q}</blockquote>
-            <figcaption className="mt-6 border-t border-white/10 pt-4">
-              <div className="font-display text-base">{t.n}</div>
-              <div className="text-xs text-muted-foreground">{t.r}</div>
-              <div className="mt-2 inline-block rounded-sm bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] tracking-widest text-primary">{t.tag}</div>
-            </figcaption>
-          </figure>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Success Metrics                                                     */
-/* ------------------------------------------------------------------ */
-
-function SuccessMetrics() {
-  const metrics = [
-    { v: "40+", l: "Hours saved", s: "per auction night" },
-    { v: "112", l: "Bids per minute", s: "peak throughput" },
-    { v: "0", l: "Refresh needed", s: "true real-time sync" },
-    { v: "99.98%", l: "Uptime", s: "on auction nights" },
-    { v: "5 min", l: "Setup to live", s: "browser-first" },
-    { v: "24/7", l: "War-room support", s: "India timezone" },
-  ];
-  return (
-    <section id="metrics" className="mx-auto max-w-7xl px-5 py-16">
-      <div className="mb-10">
-        <div className="text-[11px] uppercase tracking-[0.24em] text-primary">Success Metrics</div>
-        <h2 className="text-display-lg mt-2 max-w-3xl">The numbers our operators quote in the green room.</h2>
-      </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        {metrics.map((m) => (
-          <div key={m.l} className="scoreboard-tile p-4">
-            <div className="font-display text-3xl text-primary">{m.v}</div>
-            <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-foreground">{m.l}</div>
-            <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{m.s}</div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Final CTA                                                           */
-/* ------------------------------------------------------------------ */
-
-function FinalCTA({ onContact, goSignup }: { onContact: () => void; goSignup: () => void }) {
-  return (
-    <section className="mx-auto max-w-7xl px-5 py-16">
-      <div className="panel-rail relative overflow-hidden p-10 md:p-16">
-        <BidPulseMotif className="pointer-events-none absolute -right-20 -top-20 h-96 w-96 opacity-40" />
-        <BidPulseMotif className="pointer-events-none absolute -bottom-32 -left-20 h-80 w-80 opacity-25" />
-        <div className="pointer-events-none absolute inset-0 scan-lines opacity-20" />
-        <div className="relative mx-auto max-w-3xl text-center">
-          <div className="text-[11px] uppercase tracking-[0.24em] text-primary">Auction Night · Locked In</div>
-          <h2 className="text-hero mt-3 font-display">
-            <span className="block">Your league.</span>
-            <span className="block gold-text">Broadcast-grade.</span>
-          </h2>
-          <p className="mx-auto mt-5 max-w-xl text-sm text-muted-foreground md:text-base">
-            Free trial · No setup fee · Any device · Ready in five minutes. Book a live producer walkthrough and go live within a week.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <button type="button" onClick={goSignup} className="gold-button gold-button-hover rounded-md px-7 py-3.5 text-sm">Start Free Trial →</button>
-            <button type="button" onClick={onContact} className="ghost-button ghost-button-hover rounded-md px-7 py-3.5 text-sm">▶ Book a Producer Call</button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-
-
-export default function LovableHome() {
-  return <Home />;
 }

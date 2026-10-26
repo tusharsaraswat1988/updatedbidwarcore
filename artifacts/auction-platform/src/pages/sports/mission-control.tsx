@@ -25,7 +25,7 @@ import { useTournamentScoringActive } from "@/hooks/use-platform-features";
 import { SportsUnavailableView } from "@/components/sports-unavailable-view";
 import { getSportCapabilities } from "@/lib/sport-capabilities";
 import { sportsMissionControlPath } from "@/lib/tournament-navigation";
-import { BtnPrimary, BtnSecondary, btnCompactClass } from "@/components/badminton/page-chrome";
+import { BtnPrimary, BtnSecondary, btnCompactClass } from "@/components/sports-ui/sports-page-chrome";
 import { ArrowRight, Radio } from "lucide-react";
 
 export default function SportsMissionControlPage() {
@@ -160,7 +160,7 @@ function TournamentDashboardBody({
     <div className="org-page-content p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
       <header>
         <p className="text-[11px] font-bold tracking-[0.14em] uppercase text-muted-foreground">
-          Tournament Dashboard
+          Setup & Readiness
         </p>
         <div className="mt-2 flex items-center gap-2.5 flex-wrap">
           {logoUrl ? (

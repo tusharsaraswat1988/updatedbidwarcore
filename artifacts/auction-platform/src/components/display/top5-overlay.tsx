@@ -61,7 +61,7 @@ function Top5BuyRow({ player }: { player: EnrichedBuy }) {
           <img
             src={cldUrl(player.photoUrl, "thumbnail")}
             alt={player.name}
-            className="w-full h-full object-cover object-top"
+            className="w-full h-full object-cover object-center"
             loading="eager"
             decoding="async"
           />

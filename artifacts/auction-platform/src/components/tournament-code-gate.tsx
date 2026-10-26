@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
+import { useSearch } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Eye, EyeOff, AlertTriangle, RefreshCw } from "lucide-react";
 import { useBranding } from "@/hooks/use-branding";
@@ -11,9 +12,9 @@ function sessionKey(tid: number) {
   return `tournament_verified_${tid}`;
 }
 
-function getCodeParam(): string {
+function getCodeParam(search: string): string {
   try {
-    return new URLSearchParams(window.location.search).get("code") ?? "";
+    return new URLSearchParams(search).get("code") ?? "";
   } catch {
     return "";
   }
@@ -22,13 +23,19 @@ function getCodeParam(): string {
 export function TournamentCodeGate({
   tournamentId,
   children,
+  requiredModule = "auction",
+  broadcastSafe = false,
 }: {
   tournamentId: number;
   children: ReactNode;
+  requiredModule?: "auction" | "scoring" | "any";
+  /** OBS browser source: keep the page transparent so the camera is not covered. */
+  broadcastSafe?: boolean;
 }) {
+  const search = useSearch();
   const { logos, brandName, poweredByText } = useBranding();
   const logoAlt = getBrandLogoAlt(brandName);
-  const [status, setStatus] = useState<"loading" | "locked" | "unlocked" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "locked" | "unlocked" | "auction_disabled" | "scoring_disabled" | "invalid_module_state" | "error">("loading");
   const [auctionCode, setAuctionCode] = useState<string | null>(null);
   const [tournamentName, setTournamentName] = useState("");
   const [tournamentLogo, setTournamentLogo] = useState("");
@@ -36,7 +43,7 @@ export function TournamentCodeGate({
   const [showCode, setShowCode] = useState(false);
   const [inputError, setInputError] = useState("");
 
-  function loadTournament() {
+  const loadTournament = useCallback(() => {
     if (!tournamentId) return;
 
     if (isBidWarLocalHost()) {
@@ -45,12 +52,6 @@ export function TournamentCodeGate({
     }
 
     setStatus("loading");
-
-    // Already verified in this browser tab session?
-    if (sessionStorage.getItem(sessionKey(tournamentId)) === "1") {
-      setStatus("unlocked");
-      return;
-    }
 
     fetch(`/api/tournaments/${tournamentId}`)
       .then(r => {
@@ -64,10 +65,33 @@ export function TournamentCodeGate({
           }
           return null;
         }
-        return r.json() as Promise<{ auctionCode?: string | null; name?: string; logoUrl?: string }>;
+        return r.json() as Promise<{
+          auctionCode?: string | null;
+          name?: string;
+          logoUrl?: string;
+          auctionEnabled?: boolean | null;
+          scoringEnabled?: boolean | null;
+          productMode?: string | null;
+        }>;
       })
       .then((data) => {
         if (!data) return; // non-ok already handled
+
+        // Product module boundary checks
+        if (data.auctionEnabled === false && data.scoringEnabled === false) {
+          setStatus("invalid_module_state");
+          return;
+        }
+
+        if (requiredModule === "auction" && data.auctionEnabled === false) {
+          setStatus("auction_disabled");
+          return;
+        }
+
+        if (requiredModule === "scoring" && data.scoringEnabled === false) {
+          setStatus("scoring_disabled");
+          return;
+        }
 
         const ac = (data.auctionCode ?? null);
         setAuctionCode(ac);
@@ -76,6 +100,12 @@ export function TournamentCodeGate({
           data.logoUrl && !data.logoUrl.startsWith("data:") ? data.logoUrl : "",
         );
 
+        // Already verified in this browser tab session?
+        if (sessionStorage.getItem(sessionKey(tournamentId)) === "1") {
+          setStatus("unlocked");
+          return;
+        }
+
         if (!ac) {
           // Tournament has no auctionCode — allow through (backward compatible)
           setStatus("unlocked");
@@ -83,7 +113,7 @@ export function TournamentCodeGate({
         }
 
         // Auto-unlock from ?code= query param
-        const paramCode = getCodeParam().toUpperCase();
+        const paramCode = getCodeParam(search).toUpperCase();
         if (paramCode && paramCode === ac.toUpperCase()) {
           sessionStorage.setItem(sessionKey(tournamentId), "1");
           setStatus("unlocked");
@@ -96,12 +126,11 @@ export function TournamentCodeGate({
         // Fail-closed: network / parse errors keep the gate locked
         setStatus("error");
       });
-  }
+  }, [tournamentId, search, requiredModule]);
 
   useEffect(() => {
     loadTournament();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tournamentId]);
+  }, [loadTournament]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -115,7 +144,12 @@ export function TournamentCodeGate({
     }
   }
 
+  const gateFrameClass = broadcastSafe
+    ? "relative flex h-[1080px] w-[1920px] items-end justify-center bg-transparent p-8 text-white"
+    : "lovable-theme dark min-h-screen flex flex-col items-center justify-center px-6 bg-background selection:bg-primary selection:text-primary-foreground";
+
   if (status === "loading") {
+    if (broadcastSafe) return null;
     return <BootSplash />;
   }
 
@@ -123,9 +157,103 @@ export function TournamentCodeGate({
     return <>{children}</>;
   }
 
+  if (status === "auction_disabled") {
+    return (
+      <div className={gateFrameClass}>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent pointer-events-none" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.4, type: "spring" }}
+          className="relative w-full max-w-md space-y-6 text-center"
+        >
+          <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-amber-500/15 border-2 border-amber-500/40">
+            <Lock className="w-8 h-8 text-amber-400" />
+          </div>
+          <div>
+            <h1 className="font-display font-black text-2xl text-white">Auction Not Enabled</h1>
+            <p className="text-[#a1a1aa] text-sm mt-2">
+              The Auction module is not enabled for this tournament.
+            </p>
+          </div>
+          <div className="pt-2">
+            <a
+              href={`/tournament/${tournamentId}/settings`}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#27272a] text-white hover:bg-[#3f3f46] transition-colors text-sm font-semibold"
+            >
+              Tournament Settings
+            </a>
+          </div>
+          <div className="flex flex-col items-center gap-2 pt-4">
+            {logos.mini && <img src={logos.mini} alt={logoAlt} className="h-6 w-auto opacity-40" />}
+            <p className="text-[11px] text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (status === "scoring_disabled") {
+    return (
+      <div className={gateFrameClass}>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/10 via-transparent to-transparent pointer-events-none" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.4, type: "spring" }}
+          className="relative w-full max-w-md space-y-6 text-center"
+        >
+          <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-amber-500/15 border-2 border-amber-500/40">
+            <Lock className="w-8 h-8 text-amber-400" />
+          </div>
+          <div>
+            <h1 className="font-display font-black text-2xl text-white">Scoring Not Enabled</h1>
+            <p className="text-[#a1a1aa] text-sm mt-2">
+              The Sports Scoring module is not enabled for this tournament.
+            </p>
+          </div>
+          <div className="pt-2">
+            <a
+              href={`/tournament/${tournamentId}/auction-overview`}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#27272a] text-white hover:bg-[#3f3f46] transition-colors text-sm font-semibold"
+            >
+              Go to Auction Overview
+            </a>
+          </div>
+          <div className="flex flex-col items-center gap-2 pt-4">
+            {logos.mini && <img src={logos.mini} alt={logoAlt} className="h-6 w-auto opacity-40" />}
+            <p className="text-[11px] text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (status === "invalid_module_state") {
+    return (
+      <div className={gateFrameClass}>
+        <div className="w-full max-w-md space-y-6 text-center">
+          <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-red-500/15 border-2 border-red-500/40">
+            <AlertTriangle className="w-8 h-8 text-red-400" />
+          </div>
+          <div>
+            <h1 className="font-display font-black text-2xl text-white">Invalid Tournament State</h1>
+            <p className="text-[#a1a1aa] text-sm mt-2">
+              A tournament must have at least one enabled product module (auction or scoring).
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-2 pt-4">
+            {logos.mini && <img src={logos.mini} alt={logoAlt} className="h-6 w-auto opacity-40" />}
+            <p className="text-[11px] text-[#3f3f46] uppercase tracking-widest">{poweredByText}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (status === "error") {
     return (
-      <div className="lovable-theme dark min-h-screen flex flex-col items-center justify-center px-6 bg-background">
+      <div className={gateFrameClass}>
         <div className="w-full max-w-sm space-y-6 text-center">
           <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center bg-red-500/15 border-2 border-red-500/40">
             <AlertTriangle className="w-8 h-8 text-red-400" />
@@ -146,8 +274,13 @@ export function TournamentCodeGate({
   }
 
   // status === "locked"
+  const promptLabel = requiredModule === "scoring"
+    ? "Enter the access code to view this scoreboard"
+    : "Enter the auction code to view this page";
+  const inputPlaceholder = requiredModule === "scoring" ? "ACCESS CODE" : "AUCTION CODE";
+
   return (
-    <div className="lovable-theme dark min-h-screen flex flex-col items-center justify-center px-6 bg-background selection:bg-primary selection:text-primary-foreground">
+    <div className={gateFrameClass}>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-yellow-500/10 via-transparent to-transparent pointer-events-none" />
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -170,7 +303,7 @@ export function TournamentCodeGate({
           {tournamentName && (
             <h1 className="font-display font-black text-3xl text-white">{tournamentName}</h1>
           )}
-          <p className="text-[#a1a1aa] text-sm">Enter the auction code to view this page</p>
+          <p className="text-[#a1a1aa] text-sm">{promptLabel}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -179,7 +312,7 @@ export function TournamentCodeGate({
               type={showCode ? "text" : "password"}
               value={code}
               onChange={e => { setCode(e.target.value.toUpperCase()); setInputError(""); }}
-              placeholder="AUCTION CODE"
+              placeholder={inputPlaceholder}
               autoComplete="off"
               autoFocus
               className="w-full px-5 py-4 rounded-2xl border border-[#27272a] text-center font-display font-black text-2xl tracking-[0.3em] bg-[#18181b]/80 text-white placeholder:text-[#52525b] outline-none focus:border-yellow-500/60 transition-all"

@@ -25,6 +25,7 @@ import { logger } from "./logger.js";
 type HomeInitialDataWire = {
   auctions: HomepagePageData["auctions"];
   showcaseEvents: HomepagePageData["showcaseEvents"];
+  clients: HomepagePageData["clients"];
   branding: Record<string, unknown>;
   generatedAt: string;
 };
@@ -64,6 +65,7 @@ function toHomeInitialData(page: HomepagePageData): HomeInitialDataWire {
   return {
     auctions: page.auctions,
     showcaseEvents: page.showcaseEvents,
+    clients: page.clients,
     branding: page.branding,
     generatedAt: page.generatedAt,
   };

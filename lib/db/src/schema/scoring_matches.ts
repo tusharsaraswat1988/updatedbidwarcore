@@ -35,7 +35,15 @@ export type ScoringMatchRulesJson = {
   freeHitEnabled?: boolean;
   retireAtRuns?: number | null;
   powerplayEnabled?: boolean;
+  powerplayOvers?: number[];
   superOverEnabled?: boolean;
+  superBallEnabled?: boolean;
+  playingXiEnforced?: boolean;
+  legByeEnabled?: boolean;
+  cricketFormat?: string;
+  superOverOvers?: number;
+  superOverWickets?: number;
+  superOverTrigger?: string;
   tiesAllowed?: boolean;
   /** Marker when derived from RuntimeExecutionPolicy — never gameplay authority. */
   source?: "runtime_execution_policy" | string;
@@ -67,13 +75,17 @@ export const scoringMatchesTable = pgTable(
     brandingJson: jsonb("branding_json").$type<Record<string, unknown>>(),
     /** Lifecycle module storage — not part of Match Configuration product view. */
     lifecycleStatus: text("lifecycle_status").default("draft"),
-    configurationLocked: boolean("configuration_locked").notNull().default(false),
+    configurationLocked: boolean("configuration_locked")
+      .notNull()
+      .default(false),
     /** EPIC-08 — subordinate Execution Phase (not a second lifecycle). */
     executionPhase: text("execution_phase").default("preparing"),
     /** EPIC-08 — pointer to active Runtime Snapshot version in history. */
     currentRuntimeVersion: integer("current_runtime_version"),
     /** EPIC-08 — minimal prep metadata only when not derivable. */
-    runtimePrepMetadataJson: jsonb("runtime_prep_metadata_json").$type<Record<string, unknown>>(),
+    runtimePrepMetadataJson: jsonb("runtime_prep_metadata_json").$type<
+      Record<string, unknown>
+    >(),
 
     officialsJson: jsonb("officials_json").$type<{
       scorers?: number[];
@@ -85,14 +97,20 @@ export const scoringMatchesTable = pgTable(
     homeSideJson: jsonb("home_side_json").$type<ScoringSideJson>(),
     awaySideJson: jsonb("away_side_json").$type<ScoringSideJson>(),
     rulesJson: jsonb("rules_json").$type<ScoringMatchRulesJson>(),
+    /** EPIC-Rule-Presets — Explicit reference to selected Cricket Rule Preset. */
+    rulePresetId: integer("rule_preset_id"),
     winnerTeamId: integer("winner_team_id"),
     resultSummary: text("result_summary"),
     /** Match Summary projection — derived from events (PR-5). */
     summaryJson: jsonb("summary_json").$type<Record<string, unknown>>(),
-    currentProjectionVersion: bigint("current_projection_version", { mode: "number" }),
+    currentProjectionVersion: bigint("current_projection_version", {
+      mode: "number",
+    }),
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
@@ -105,7 +123,9 @@ export const scoringMatchesTable = pgTable(
   ],
 );
 
-export const insertScoringMatchSchema = createInsertSchema(scoringMatchesTable).omit({
+export const insertScoringMatchSchema = createInsertSchema(
+  scoringMatchesTable,
+).omit({
   id: true,
   createdAt: true,
   updatedAt: true,

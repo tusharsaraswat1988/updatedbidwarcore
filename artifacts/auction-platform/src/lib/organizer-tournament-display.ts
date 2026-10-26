@@ -1,3 +1,5 @@
+import { isAuctionEnabled, isScoringEnabled, isScoringSupportedSport } from "@workspace/platform-core";
+
 /**
  * Organizer dashboard display helpers.
  *
@@ -55,26 +57,36 @@ export function getOrganizerAuctionStatusLabel(status: string): string {
   }
 }
 
-/** Scoring CTA state for organizer dashboard module chooser. */
-export type OrganizerScoringCtaState = "active" | "needs-admin" | "coming-soon";
+/** Module button state on organizer tournament cards. */
+export type OrganizerModuleCtaState = "active" | "not-selected" | "coming-soon";
 
-const SCORING_SPORTS = new Set(["cricket", "badminton"]);
+/** @deprecated Use OrganizerModuleCtaState. */
+export type OrganizerScoringCtaState = OrganizerModuleCtaState;
 
 /**
- * Organizer-card scoring affordance.
- * "Ask admin…" only when match scoring is explicitly disabled on the tournament.
- * Missing/unknown `scoringEnabled` (older API payloads) must not scare organizers.
+ * Left card button. Auction is available for every sport, so the only off state
+ * is when the organizer did not take the auction option.
+ */
+export function resolveOrganizerAuctionCta(input: {
+  auctionEnabled?: boolean | null;
+}): Exclude<OrganizerModuleCtaState, "coming-soon"> {
+  return isAuctionEnabled(input) ? "active" : "not-selected";
+}
+
+/**
+ * Right card button.
+ * Cricket and badminton scoring are live: the button follows scoringEnabled.
+ * Every other sport stays Coming Soon, because that scoring product is not ready.
  */
 export function resolveOrganizerScoringCta(input: {
-  sport: string;
+  sport?: string | null;
   scoringEnabled: boolean | null | undefined;
   /** @deprecated Ignored — kept for call-site compatibility. */
   platformCricket?: boolean;
   /** @deprecated Ignored — kept for call-site compatibility. */
   platformBadminton?: boolean;
-}): OrganizerScoringCtaState {
-  const sport = input.sport.toLowerCase();
-  if (!SCORING_SPORTS.has(sport)) return "coming-soon";
-  if (input.scoringEnabled === false) return "needs-admin";
-  return "active";
+}): OrganizerModuleCtaState {
+  if (!isScoringSupportedSport(input.sport)) return "coming-soon";
+  if (isScoringEnabled(input)) return "active";
+  return "not-selected";
 }

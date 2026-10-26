@@ -8,6 +8,7 @@ import {
   TournamentCreationWizard,
   type TournamentCreationPayload,
 } from "@/components/tournament-creation/tournament-creation-wizard";
+import { resolveScoringEntryPath } from "@/lib/tournament-navigation";
 
 export default function NewTournament() {
   const [, setLocation] = useLocation();
@@ -25,6 +26,9 @@ export default function NewTournament() {
           id: data.id,
           name: data.name,
           auctionCode: (data as { auctionCode?: string | null }).auctionCode ?? null,
+          auctionEnabled: payload.auctionEnabled,
+          scoringEnabled: payload.scoringEnabled,
+          sport: payload.sport,
         },
       };
     } catch {
@@ -51,9 +55,13 @@ export default function NewTournament() {
             onCreated={(tournament) => {
               toast({
                 title: "Tournament created",
-                description: `Code: ${tournament.auctionCode ?? "—"}`,
+                description: tournament.auctionEnabled ? `Code: ${tournament.auctionCode ?? "—"}` : "Sports Scoring Ready",
               });
-              setLocation(`/tournament/${tournament.id}`);
+              setLocation(
+                tournament.auctionEnabled
+                  ? `/tournament/${tournament.id}/auction-overview`
+                  : resolveScoringEntryPath(tournament.id, tournament.sport),
+              );
             }}
           />
         </div>

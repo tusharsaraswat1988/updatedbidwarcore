@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldTooltip } from "@/components/ui/field-tooltip";
@@ -8,37 +8,107 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Loader2, Trash2, Upload } from "lucide-react";
+import {
+  Eye,
+  Loader2,
+  Trash2,
+  Upload,
+  ArrowUp,
+  ArrowDown,
+  Crown,
+  Star,
+  Radio,
+  Search,
+  Sparkles,
+  Info,
+  Building2,
+} from "lucide-react";
 import {
   type SponsorLogo,
   validateSponsorList,
   SPONSOR_VALIDATION_ERRORS,
+  SponsorPriorityType,
+  LIVE_STREAMING_PARTNER_LABEL,
+  isLiveStreamingPartnerLogo,
 } from "@/lib/sponsor-logo";
 
 const TITLE_SPONSOR_INFO =
-  "Highest priority branding category. Typically used on auction screens, scoreboards, OBS overlays, live streams, tournament websites, LED displays, reports, and team cards. Future versions may allow organisers to control visibility placement.";
+  "Highest priority branding category (Max 1). Displayed prominently across auction screens, scoreboards, OBS overlays, live streams, and LED displays.";
 
 const CO_SPONSOR_INFO =
-  "Second highest branding category. Shown after Title Sponsor and before all other sponsors. Maximum 3 Co Sponsors allowed.";
+  "Second highest branding category (Max 3). Shown alongside Title Sponsor on overlays, banners, and big screen displays.";
 
-function setSponsorPriorityFlags(
+const LIVE_STREAMING_PARTNER_INFO =
+  "Fixed category (Max 1). The linked sponsor stays on the OBS broadcast with logo, name, and this sponsor type.";
+
+const SPONSOR_ROW_GRID =
+  "grid-cols-1 xl:grid-cols-[3.5rem_minmax(0,1.2fr)_minmax(0,1.1fr)_16rem_5.5rem]";
+
+type SponsorTier = "title" | "co" | "live" | "standard";
+
+function getSponsorTier(logo: SponsorLogo): SponsorTier {
+  if (logo.isTitleSponsor) return "title";
+  if (logo.isCoSponsor) return "co";
+  if (isLiveStreamingPartnerLogo(logo)) return "live";
+  return "standard";
+}
+
+function setSponsorTier(
   logos: SponsorLogo[],
   index: number,
-  flags: { isTitleSponsor?: boolean; isCoSponsor?: boolean },
+  tier: SponsorTier,
 ): SponsorLogo[] {
   return logos.map((logo, i) => {
     if (i !== index) return logo;
-    const next = { ...logo, ...flags };
-    if (flags.isTitleSponsor) {
+    const next = { ...logo };
+    if (tier === "title") {
+      next.isTitleSponsor = true;
       next.isCoSponsor = false;
-      next.type = next.type?.trim() ? next.type : "Title Sponsor";
-    } else if (flags.isCoSponsor) {
+      next.isLiveStreamingPartner = false;
+      if (next.priorityType === SponsorPriorityType.LIVE_STREAMING_PARTNER) {
+        next.priorityType = undefined;
+      }
+      if (!next.type?.trim() || next.type === LIVE_STREAMING_PARTNER_LABEL) {
+        next.type = "Title Sponsor";
+      }
+    } else if (tier === "co") {
       next.isTitleSponsor = false;
-      next.type = next.type?.trim() ? next.type : "Co Sponsor";
+      next.isCoSponsor = true;
+      next.isLiveStreamingPartner = false;
+      if (next.priorityType === SponsorPriorityType.LIVE_STREAMING_PARTNER) {
+        next.priorityType = undefined;
+      }
+      if (!next.type?.trim() || next.type === LIVE_STREAMING_PARTNER_LABEL) {
+        next.type = "Co Sponsor";
+      }
+    } else if (tier === "live") {
+      next.isTitleSponsor = false;
+      next.isCoSponsor = false;
+      next.isLiveStreamingPartner = true;
+      next.priorityType = SponsorPriorityType.LIVE_STREAMING_PARTNER;
+      next.type = LIVE_STREAMING_PARTNER_LABEL;
     } else {
       next.isTitleSponsor = false;
       next.isCoSponsor = false;
+      next.isLiveStreamingPartner = false;
+      if (next.priorityType === SponsorPriorityType.LIVE_STREAMING_PARTNER) {
+        next.priorityType = undefined;
+      }
+      if (
+        next.type === "Title Sponsor" ||
+        next.type === "Co Sponsor" ||
+        next.type === LIVE_STREAMING_PARTNER_LABEL
+      ) {
+        next.type = "";
+      }
     }
     return next;
   });
@@ -47,16 +117,18 @@ function setSponsorPriorityFlags(
 function countPriorityFlags(logos: SponsorLogo[]) {
   let titleCount = 0;
   let coCount = 0;
+  let liveCount = 0;
   for (const logo of logos) {
     if (logo.isTitleSponsor) titleCount += 1;
-    if (logo.isCoSponsor) coCount += 1;
+    else if (logo.isCoSponsor) coCount += 1;
+    else if (isLiveStreamingPartnerLogo(logo)) liveCount += 1;
   }
-  return { titleCount, coCount };
+  return { titleCount, coCount, liveCount };
 }
 
 function SponsorCountSummary({ logos, compact = false }: { logos: SponsorLogo[]; compact?: boolean }) {
   const total = logos.length;
-  const { titleCount, coCount } = countPriorityFlags(logos);
+  const { titleCount, coCount, liveCount } = countPriorityFlags(logos);
 
   if (total === 0) {
     if (compact) return null;
@@ -69,21 +141,26 @@ function SponsorCountSummary({ logos, compact = false }: { logos: SponsorLogo[];
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
-      <span className="font-semibold text-foreground tabular-nums whitespace-nowrap">
-        {total} sponsor{total === 1 ? "" : "s"} total
-      </span>
+      <Badge variant="secondary" className="text-xs font-semibold px-2.5 py-0.5 bg-muted/60 text-foreground tabular-nums">
+        {total} {total === 1 ? "Sponsor" : "Sponsors"}
+      </Badge>
       {titleCount > 0 ? (
-        <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-amber-500/40 text-amber-300/90">
-          {titleCount} title
+        <Badge variant="outline" className="text-xs px-2 py-0.5 border-amber-500/50 bg-amber-500/10 text-amber-300 font-medium flex items-center gap-1">
+          <Crown className="w-3 h-3 text-amber-400" />
+          {titleCount}/1 Title Sponsor
         </Badge>
       ) : null}
       {coCount > 0 ? (
-        <Badge variant="outline" className="text-[10px] h-5 px-1.5 border-violet-500/40 text-violet-300/90">
-          {coCount} co
+        <Badge variant="outline" className="text-xs px-2 py-0.5 border-violet-500/50 bg-violet-500/10 text-violet-300 font-medium flex items-center gap-1">
+          <Star className="w-3 h-3 text-violet-400" />
+          {coCount}/3 Co-Sponsors
         </Badge>
       ) : null}
-      {titleCount === 0 && coCount === 0 && !compact ? (
-        <span className="text-muted-foreground">No title or co sponsor assigned</span>
+      {liveCount > 0 ? (
+        <Badge variant="outline" className="text-xs px-2 py-0.5 border-cyan-500/50 bg-cyan-500/10 text-cyan-300 font-medium flex items-center gap-1">
+          <Radio className="w-3 h-3 text-cyan-400" />
+          {liveCount}/1 Live Streaming Partner
+        </Badge>
       ) : null}
     </div>
   );
@@ -101,30 +178,49 @@ function SponsorLogoPreviewDialog({
   if (!logo?.url) return null;
 
   const label = logo.name?.trim() || logo.type?.trim() || "Sponsor logo";
+  const tier = getSponsorTier(logo);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl dark">
         <DialogHeader>
-          <DialogTitle className="truncate">{label}</DialogTitle>
+          <DialogTitle className="flex items-center gap-2 truncate text-base font-semibold">
+            {tier === "title" && <Crown className="w-4 h-4 text-amber-400" />}
+            {tier === "co" && <Star className="w-4 h-4 text-violet-400" />}
+            {tier === "live" && <Radio className="w-4 h-4 text-cyan-400" />}
+            {label}
+          </DialogTitle>
         </DialogHeader>
-        <div className="rounded-xl border border-border/60 bg-muted/10 p-4 sm:p-6 flex items-center justify-center min-h-[200px] max-h-[min(70vh,520px)]">
+        <div className="rounded-xl border border-border/70 bg-black/40 p-6 flex items-center justify-center min-h-[220px] max-h-[min(70vh,520px)] shadow-inner">
           <img
             src={logo.url}
             alt={label}
             className="max-w-full max-h-[min(65vh,480px)] object-contain"
           />
         </div>
-        {(logo.type || logo.isTitleSponsor || logo.isCoSponsor) && (
-          <p className="text-xs text-muted-foreground text-center">
-            {[
-              logo.type?.trim(),
-              logo.isTitleSponsor ? "Title Sponsor" : null,
-              logo.isCoSponsor ? "Co Sponsor" : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
+        {(logo.type || logo.isTitleSponsor || logo.isCoSponsor || isLiveStreamingPartnerLogo(logo)) && (
+          <div className="flex items-center justify-center gap-2 pt-1">
+            {logo.isTitleSponsor && (
+              <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-xs">
+                👑 Title Sponsor
+              </Badge>
+            )}
+            {logo.isCoSponsor && (
+              <Badge className="bg-violet-500/20 text-violet-300 border-violet-500/40 text-xs">
+                ⭐ Co-Sponsor
+              </Badge>
+            )}
+            {isLiveStreamingPartnerLogo(logo) && (
+              <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/40 text-xs">
+                LIVE STREAMING PARTNER
+              </Badge>
+            )}
+            {logo.type?.trim() && !logo.isTitleSponsor && !logo.isCoSponsor && !isLiveStreamingPartnerLogo(logo) && (
+              <Badge variant="outline" className="text-xs text-muted-foreground">
+                {logo.type.trim()}
+              </Badge>
+            )}
+          </div>
         )}
       </DialogContent>
     </Dialog>
@@ -143,12 +239,12 @@ function SponsorAddLogoButton({
   className?: string;
 }) {
   return (
-    <label className={className ?? "cursor-pointer shrink-0"} title={`Select up to ${SPONSOR_LOGO_BULK_UPLOAD_MAX} images at once`}>
+    <label className={className ?? "cursor-pointer shrink-0"} title={`Upload up to ${SPONSOR_LOGO_BULK_UPLOAD_MAX} images at once`}>
       <div
-        className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-dashed text-xs transition-colors whitespace-nowrap ${
+        className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border text-xs font-medium transition-all whitespace-nowrap shadow-xs ${
           uploadingIdx === "new"
-            ? "border-border/50 text-muted-foreground cursor-wait"
-            : "border-yellow-500/50 bg-yellow-500/5 text-yellow-400 hover:bg-yellow-500/10 hover:border-yellow-500/70 hover:text-yellow-300 cursor-pointer"
+            ? "border-border/50 bg-muted/20 text-muted-foreground cursor-wait"
+            : "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 hover:border-primary/60 cursor-pointer"
         }`}
       >
         {uploadingIdx === "new" ? (
@@ -157,7 +253,7 @@ function SponsorAddLogoButton({
           </>
         ) : (
           <>
-            <Upload className="w-3.5 h-3.5" /> Add Sponsor Logo
+            <Upload className="w-3.5 h-3.5" /> + Add Sponsor Logo
           </>
         )}
       </div>
@@ -194,9 +290,9 @@ export function SponsorLogosToolbar({
   uploadingIdx: number | "new" | null;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-      <SponsorAddLogoButton onUploadFile={onUploadFile} uploadingIdx={uploadingIdx} />
+    <div className="flex flex-wrap items-center justify-end gap-2.5">
       <SponsorCountSummary logos={logos} compact />
+      <SponsorAddLogoButton onUploadFile={onUploadFile} uploadingIdx={uploadingIdx} />
     </div>
   );
 }
@@ -215,148 +311,412 @@ export function SponsorLogosEditor({
   showToolbar?: boolean;
 }) {
   const validation = validateSponsorList(logos);
-  const { titleCount, coCount } = countPriorityFlags(logos);
+  const { titleCount, coCount, liveCount } = countPriorityFlags(logos);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterTier, setFilterTier] = useState<"all" | "title" | "co" | "live" | "standard">("all");
+
   const previewLogo = previewIndex !== null ? logos[previewIndex] ?? null : null;
 
+  // Filtered sponsor list with original indices maintained
+  const indexedLogos = useMemo(() => {
+    return logos.map((logo, originalIndex) => ({ logo, originalIndex }));
+  }, [logos]);
+
+  const filteredLogos = useMemo(() => {
+    return indexedLogos.filter(({ logo }) => {
+      // Tier filter
+      const tier = getSponsorTier(logo);
+      if (filterTier === "title" && tier !== "title") return false;
+      if (filterTier === "co" && tier !== "co") return false;
+      if (filterTier === "live" && tier !== "live") return false;
+      if (filterTier === "standard" && tier !== "standard") return false;
+
+      // Text search
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const nameMatch = (logo.name || "").toLowerCase().includes(q);
+        const typeMatch = (logo.type || "").toLowerCase().includes(q);
+        return nameMatch || typeMatch;
+      }
+      return true;
+    });
+  }, [indexedLogos, filterTier, searchQuery]);
+
   return (
-    <div className="space-y-3">
-      {showToolbar ? (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <SponsorLogosToolbar logos={logos} onUploadFile={onUploadFile} uploadingIdx={uploadingIdx} />
+    <div className="space-y-4">
+      {/* Top Controls: Search, Filter Tabs & Add Button */}
+      {logos.length > 0 ? (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-border/50">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search sponsor brand or category..."
+              className="h-8 pl-8 text-xs bg-muted/15 border-border/60"
+            />
+          </div>
+          <div className="flex flex-wrap items-center justify-between md:justify-end gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setFilterTier("all")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  filterTier === "all"
+                    ? "bg-primary/20 text-primary border border-primary/30"
+                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                All ({logos.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTier("title")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                  filterTier === "title"
+                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                <Crown className="w-3 h-3 text-amber-400" /> Title ({titleCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTier("co")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                  filterTier === "co"
+                    ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
+                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                <Star className="w-3 h-3 text-violet-400" /> Co ({coCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTier("live")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                  filterTier === "live"
+                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                <Radio className="w-3 h-3 text-cyan-400" /> Live ({liveCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTier("standard")}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                  filterTier === "standard"
+                    ? "bg-muted/40 text-foreground border border-border"
+                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                }`}
+              >
+                Standard ({logos.length - titleCount - coCount - liveCount})
+              </button>
+            </div>
+            <SponsorAddLogoButton onUploadFile={onUploadFile} uploadingIdx={uploadingIdx} />
+          </div>
         </div>
       ) : null}
 
-      {logos.length === 0 && !showToolbar ? (
-        <p className="text-xs text-muted-foreground">
-          No sponsors yet — add logos to rotate on the LED display.
-        </p>
+      {/* Empty State */}
+      {logos.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border/70 bg-muted/5 p-8 text-center space-y-3">
+          <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary">
+            <Building2 className="w-6 h-6" />
+          </div>
+          <div className="space-y-1 max-w-md mx-auto">
+            <h4 className="text-sm font-semibold text-foreground">No Sponsor Logos Added</h4>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Add brand logos to display on the live LED screen, stream overlays, auction player cards, and reports.
+            </p>
+          </div>
+          <div className="pt-2">
+            <SponsorAddLogoButton onUploadFile={onUploadFile} uploadingIdx={uploadingIdx} />
+          </div>
+        </div>
       ) : null}
 
-      {logos.length > 0 ? (
-        <div className="space-y-2 max-h-[calc(100dvh-16rem)] overflow-y-auto pr-1">
-          {logos.map((logo, i) => (
-            <div
-              key={i}
-              className="rounded-lg border border-border/50 bg-muted/5 p-2.5 sm:p-3"
-            >
-              <div className="grid grid-cols-1 xl:grid-cols-[5rem_minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,1.35fr)_auto] gap-2 xl:gap-3 xl:items-center">
-                <label className="cursor-pointer justify-self-start" title="Click to replace logo image">
-                  <div className="w-[4.5rem] h-11 rounded border border-border/50 bg-muted/20 overflow-hidden flex items-center justify-center">
+      {/* Sponsor Table / Grid */}
+      {filteredLogos.length > 0 ? (
+        <div className="space-y-2.5 max-h-[calc(100dvh-18rem)] overflow-y-auto pr-1">
+          {/* Header Row (Desktop) */}
+          <div className={`hidden xl:grid ${SPONSOR_ROW_GRID} gap-3 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-wider`}>
+            <span>Logo</span>
+            <span>Brand / Sponsor Name</span>
+            <span>Category / Designation</span>
+            <span className="flex items-center gap-1">
+              Sponsorship Tier
+              <FieldTooltip text={`${TITLE_SPONSOR_INFO} ${CO_SPONSOR_INFO} ${LIVE_STREAMING_PARTNER_INFO}`} />
+            </span>
+            <span className="text-right pr-2">Actions</span>
+          </div>
+
+          {filteredLogos.map(({ logo, originalIndex: i }) => {
+            const tier = getSponsorTier(logo);
+            const isTitle = tier === "title";
+            const isCo = tier === "co";
+            const isLive = tier === "live";
+
+            return (
+              <div
+                key={i}
+                className={`rounded-xl border transition-all p-3 sm:p-3.5 ${
+                  isTitle
+                    ? "border-amber-500/50 bg-amber-500/[0.04] ring-1 ring-amber-500/20 shadow-xs"
+                    : isCo
+                    ? "border-violet-500/50 bg-violet-500/[0.04] ring-1 ring-violet-500/20 shadow-xs"
+                    : isLive
+                    ? "border-cyan-500/50 bg-cyan-500/[0.04] ring-1 ring-cyan-500/20 shadow-xs"
+                    : "border-border/60 bg-card/60 hover:bg-card/90"
+                }`}
+              >
+                <div className={`grid ${SPONSOR_ROW_GRID} gap-3 items-center`}>
+                  {/* 1. Logo Thumbnail */}
+                  <label
+                    className="cursor-pointer group relative block w-14 h-10 rounded-lg border border-border/70 bg-black/30 overflow-hidden shrink-0 shadow-inner"
+                    title="Click to change logo image"
+                  >
                     {uploadingIdx === i ? (
-                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      <div className="w-full h-full flex items-center justify-center bg-muted/40">
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      </div>
                     ) : logo.url ? (
-                      <img
-                        src={logo.url}
-                        alt={logo.name || logo.type || "logo"}
-                        className="w-full h-full object-contain"
-                      />
+                      <div className="w-full h-full p-1 flex items-center justify-center">
+                        <img
+                          src={logo.url}
+                          alt={logo.name || logo.type || "logo"}
+                          className="w-full h-full object-contain"
+                        />
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Upload className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      </div>
                     ) : (
-                      <Upload className="w-3.5 h-3.5 text-muted-foreground" />
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                        <Upload className="w-3.5 h-3.5" />
+                      </div>
                     )}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={e => {
+                        const f = e.target.files?.[0];
+                        if (f) onUploadFile(f, i);
+                        e.target.value = "";
+                      }}
+                      disabled={uploadingIdx !== null}
+                    />
+                  </label>
+
+                  {/* 2. Brand / Sponsor Name */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground xl:hidden font-medium">Brand Name</span>
+                    <Input
+                      className="h-9 text-xs font-medium"
+                      value={logo.name ?? ""}
+                      onChange={e => {
+                        const next = [...logos];
+                        next[i] = { ...next[i], name: e.target.value };
+                        onChange(next);
+                      }}
+                    />
                   </div>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={e => {
-                      const f = e.target.files?.[0];
-                      if (f) onUploadFile(f, i);
-                      e.target.value = "";
-                    }}
-                    disabled={uploadingIdx !== null}
-                  />
-                </label>
 
-                <Input
-                  className="h-9 text-sm"
-                  value={logo.name ?? ""}
-                  onChange={e => {
-                    const next = [...logos];
-                    next[i] = { ...next[i], name: e.target.value };
-                    onChange(next);
-                  }}
-                  placeholder="Sponsor name"
-                />
-                <Input
-                  className="h-9 text-sm"
-                  value={logo.type ?? ""}
-                  onChange={e => {
-                    const next = [...logos];
-                    next[i] = { ...next[i], type: e.target.value };
-                    onChange(next);
-                  }}
-                  placeholder="Sponsor type (optional)"
-                />
-
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 xl:justify-start">
-                  <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer select-none whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      className="rounded border-border"
-                      checked={logo.isTitleSponsor === true}
-                      disabled={!logo.isTitleSponsor && titleCount >= 1}
-                      onChange={e =>
-                        onChange(setSponsorPriorityFlags(logos, i, { isTitleSponsor: e.target.checked }))
-                      }
+                  {/* 3. Category / Designation */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground xl:hidden font-medium">Designation / Category</span>
+                    <Input
+                      className={`h-9 text-xs ${isLive ? "bg-cyan-500/10 text-cyan-200 border-cyan-500/40" : ""}`}
+                      value={isLive ? LIVE_STREAMING_PARTNER_LABEL : (logo.type ?? "")}
+                      onChange={e => {
+                        if (isLive) return;
+                        const next = [...logos];
+                        next[i] = { ...next[i], type: e.target.value };
+                        onChange(next);
+                      }}
+                      readOnly={isLive}
+                      title={isLive ? LIVE_STREAMING_PARTNER_INFO : undefined}
                     />
-                    <span>Title Sponsor</span>
-                    <FieldTooltip text={TITLE_SPONSOR_INFO} />
-                  </label>
-                  <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer select-none whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      className="rounded border-border"
-                      checked={logo.isCoSponsor === true}
-                      disabled={!logo.isCoSponsor && coCount >= 3}
-                      onChange={e =>
-                        onChange(setSponsorPriorityFlags(logos, i, { isCoSponsor: e.target.checked }))
-                      }
-                    />
-                    <span>Co Sponsor</span>
-                    <FieldTooltip text={CO_SPONSOR_INFO} />
-                  </label>
-                </div>
+                  </div>
 
-                <div className="flex items-center gap-1 justify-end xl:justify-start">
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                    disabled={!logo.url}
-                    title={logo.url ? "View logo" : "Upload a logo to preview"}
-                    onClick={() => setPreviewIndex(i)}
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                    onClick={() => onChange(logos.filter((_, j) => j !== i))}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  {/* 4. Sponsorship Tier Selector */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-muted-foreground xl:hidden font-medium">Tier / Priority</span>
+                    <Select
+                      value={tier}
+                      onValueChange={(val: SponsorTier) => {
+                        onChange(setSponsorTier(logos, i, val));
+                      }}
+                    >
+                      <SelectTrigger
+                        className={`h-9 text-xs font-medium ${
+                          isTitle
+                            ? "border-amber-500/50 text-amber-300 bg-amber-500/10"
+                            : isCo
+                            ? "border-violet-500/50 text-violet-300 bg-violet-500/10"
+                            : isLive
+                            ? "border-cyan-500/50 text-cyan-300 bg-cyan-500/10"
+                            : "border-border/70 text-muted-foreground"
+                        }`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="dark">
+                        <SelectItem value="standard" className="text-xs">
+                          Standard Sponsor
+                        </SelectItem>
+                        <SelectItem
+                          value="title"
+                          disabled={!isTitle && titleCount >= 1}
+                          className="text-xs text-amber-300 font-medium"
+                        >
+                          👑 Title Sponsor {!isTitle && titleCount >= 1 ? "(1/1 Full)" : "(Max 1)"}
+                        </SelectItem>
+                        <SelectItem
+                          value="co"
+                          disabled={!isCo && coCount >= 3}
+                          className="text-xs text-violet-300 font-medium"
+                        >
+                          ⭐ Co-Sponsor {!isCo && coCount >= 3 ? "(3/3 Full)" : `(${coCount}/3)`}
+                        </SelectItem>
+                        <SelectItem
+                          value="live"
+                          disabled={!isLive && liveCount >= 1}
+                          className="text-xs text-cyan-300 font-medium"
+                        >
+                          LIVE STREAMING PARTNER {!isLive && liveCount >= 1 ? "(1/1 Full)" : "(Max 1)"}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* 5. Row Actions */}
+                  <div className="flex items-center gap-1 justify-end">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      disabled={i === 0}
+                      title="Move up in rotation order"
+                      onClick={() => {
+                        if (i === 0) return;
+                        const next = [...logos];
+                        [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                        onChange(next);
+                      }}
+                    >
+                      <ArrowUp className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      disabled={i === logos.length - 1}
+                      title="Move down in rotation order"
+                      onClick={() => {
+                        if (i >= logos.length - 1) return;
+                        const next = [...logos];
+                        [next[i], next[i + 1]] = [next[i + 1], next[i]];
+                        onChange(next);
+                      }}
+                    >
+                      <ArrowDown className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      disabled={!logo.url}
+                      title="Preview high-res logo"
+                      onClick={() => setPreviewIndex(i)}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                      title="Remove sponsor"
+                      onClick={() => onChange(logos.filter((_, j) => j !== i))}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+
+          {/* Prominent "+ Add Another Sponsor Logo" bar below the list */}
+          <div className="pt-1">
+            <label
+              className="w-full flex items-center justify-center p-3 rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary hover:border-primary transition-all cursor-pointer text-xs font-semibold gap-2 shadow-xs group"
+              title={`Upload up to ${SPONSOR_LOGO_BULK_UPLOAD_MAX} sponsor logos at once`}
+            >
+              {uploadingIdx === "new" ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Uploading sponsors...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 group-hover:scale-110 transition-transform" /> + Add Another Sponsor Logo (Upload JPG, PNG, WEBP)
+                </>
+              )}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                className="hidden"
+                onChange={e => {
+                  const picked = Array.from(e.target.files ?? []);
+                  e.target.value = "";
+                  if (picked.length === 0) return;
+                  if (picked.length > SPONSOR_LOGO_BULK_UPLOAD_MAX) {
+                    window.alert(
+                      `You can upload up to ${SPONSOR_LOGO_BULK_UPLOAD_MAX} sponsor logos at once. Only the first ${SPONSOR_LOGO_BULK_UPLOAD_MAX} will be added.`,
+                    );
+                  }
+                  const files = picked.slice(0, SPONSOR_LOGO_BULK_UPLOAD_MAX);
+                  onUploadFile(files.length === 1 ? files[0] : files, "new");
+                }}
+                disabled={uploadingIdx !== null}
+              />
+            </label>
+          </div>
         </div>
       ) : null}
 
+      {/* No Search Results */}
+      {logos.length > 0 && filteredLogos.length === 0 ? (
+        <div className="text-center py-6 text-xs text-muted-foreground">
+          No sponsors match your filter. <button type="button" onClick={() => { setSearchQuery(""); setFilterTier("all"); }} className="text-primary underline ml-1">Clear filters</button>
+        </div>
+      ) : null}
+
+      {/* Validation Error */}
       {!validation.ok && (
-        <p className="text-xs text-destructive">{validation.error}</p>
+        <p className="text-xs text-destructive font-medium">{validation.error}</p>
       )}
 
-      <p className="text-[11px] text-muted-foreground leading-relaxed">
-        Title Sponsor and Co Sponsor are optional. At most one Title Sponsor and three Co Sponsors per tournament.
-        {!validation.ok && validation.error === SPONSOR_VALIDATION_ERRORS.mutualExclusivity
-          ? " A sponsor cannot hold both roles."
-          : null}
-      </p>
+      {/* Helpful Footer Note */}
+      <div className="flex items-start gap-2 p-3 rounded-lg border border-border/40 bg-muted/10 text-xs text-muted-foreground">
+        <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <p className="text-foreground/90 font-medium">Sponsor Rotation &amp; Overlay Logic:</p>
+          <p className="text-[11px] leading-relaxed">
+            Logos cycle on the live LED screen every 4 seconds. <span className="text-amber-300 font-medium">Title Sponsor</span> (max 1) and <span className="text-violet-300 font-medium">Co-Sponsors</span> (max 3) receive primary placement on broadcast overlays, live stream headers, and auction reports. <span className="text-cyan-300 font-medium">LIVE STREAMING PARTNER</span> (max 1) stays on the OBS broadcast with logo, name, and sponsor type.
+          </p>
+        </div>
+      </div>
 
+      {/* High-res Image Modal */}
       <SponsorLogoPreviewDialog
         logo={previewLogo}
         open={previewIndex !== null && !!previewLogo?.url}
@@ -367,3 +727,4 @@ export function SponsorLogosEditor({
     </div>
   );
 }
+

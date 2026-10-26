@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { scoringLiveQueryKey } from "@/hooks/use-scoring-match";
+import { mergeObsDirectorSnapshot } from "@workspace/scoring-core/cricket";
+import { preferNewerLiveDisplay, scoringLiveQueryKey } from "@/hooks/use-scoring-match";
 import type { ScoringLiveDisplay } from "@/lib/scoring-api";
 
 export type ScoringConnectionStatus = "connected" | "reconnecting" | "disconnected";
@@ -12,6 +13,9 @@ export function useScoringSocket(
   const qc = useQueryClient();
   const [connectionStatus, setConnectionStatus] = useState<ScoringConnectionStatus>("reconnecting");
   const setStatusRef = useRef(setConnectionStatus);
+  const lastProcessedSequenceRef = useRef<number>(0);
+  const lastDispatchedBroadcastSeqRef = useRef<number>(0);
+
   useEffect(() => {
     setStatusRef.current = setConnectionStatus;
   });
@@ -37,12 +41,102 @@ export function useScoringSocket(
       }, 5000);
     }
 
+    function handleMessagePayload(rawString: string, frameEventId?: string) {
+      try {
+        const msg = JSON.parse(rawString);
+        const parsedFrameId = frameEventId ? parseInt(frameEventId, 10) : undefined;
+        const msgSeq =
+          typeof msg.sequence === "number"
+            ? msg.sequence
+            : typeof msg.state?.lastSequence === "number"
+              ? msg.state.lastSequence
+              : Number.isFinite(parsedFrameId)
+                ? parsedFrameId
+                : undefined;
+
+        if (msgSeq !== undefined && Number.isFinite(msgSeq)) {
+          lastProcessedSequenceRef.current = Math.max(lastProcessedSequenceRef.current, msgSeq);
+        }
+
+        if (msg.type === "scoring_state") {
+          const payload: ScoringLiveDisplay = {
+            match: msg.match ?? null,
+            state: msg.state ?? null,
+            summary: msg.summary ?? null,
+            broadcastEvent: msg.broadcastEvent ?? null,
+          };
+          const cached = qc.getQueryData<ScoringLiveDisplay>(scoringLiveQueryKey(tournamentId));
+          const next = preferNewerLiveDisplay(cached, payload);
+          const accepted = next !== cached;
+          if (msg.isOversized) {
+            const incomingSeq =
+              typeof msg.state?.lastSequence === "number" ? msg.state.lastSequence : msgSeq;
+            const cachedSeq = cached?.state?.lastSequence;
+            const sameMatch =
+              !cached?.state?.matchId ||
+              !msg.state?.matchId ||
+              cached.state.matchId === msg.state.matchId;
+            const stale =
+              sameMatch &&
+              typeof incomingSeq === "number" &&
+              typeof cachedSeq === "number" &&
+              incomingSeq < cachedSeq;
+            if (!stale) {
+              qc.invalidateQueries({ queryKey: scoringLiveQueryKey(tournamentId) });
+            }
+          } else if (accepted) {
+            qc.setQueryData(scoringLiveQueryKey(tournamentId), next);
+          }
+
+          // Deduplicate broadcast animation events: only trigger once per sequence.
+          // A frame older than the scoreboard must not replay its animation.
+          if (accepted && msg.broadcastEvent && typeof window !== "undefined") {
+            const bSeq = msg.broadcastEvent.sequence;
+            if (bSeq == null || bSeq > lastDispatchedBroadcastSeqRef.current) {
+              if (bSeq != null) lastDispatchedBroadcastSeqRef.current = bSeq;
+              window.dispatchEvent(
+                new CustomEvent("cricket_scoring_broadcast_event", {
+                  detail: msg.broadcastEvent,
+                }),
+              );
+            }
+          }
+        } else if (msg.type === "scoring_replay") {
+          // Replay frames update sequence tracking, never overwrite live display with null
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("cricket_scoring_replay_event", { detail: msg }),
+            );
+          }
+        } else if (msg.type === "cricket_obs_director") {
+          qc.setQueryData(
+            ["cricket-obs-director", tournamentId],
+            (current: { stageOrGroup?: string | null; type?: string } | undefined) =>
+              mergeObsDirectorSnapshot(current, msg),
+          );
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("cricket_obs_director", { detail: msg }),
+            );
+          }
+        }
+      } catch {
+        // ignore malformed messages
+      }
+    }
+
     function connect() {
       if (destroyed) return;
       clearTimeout(retryTimer);
       current?.close();
 
-      const es = new EventSource(`/api/tournaments/${tournamentId}/scoring/events`);
+      const lastSeq = lastProcessedSequenceRef.current;
+      const url =
+        lastSeq > 0
+          ? `/api/tournaments/${tournamentId}/scoring/events?lastEventId=${lastSeq}`
+          : `/api/tournaments/${tournamentId}/scoring/events`;
+
+      const es = new EventSource(url);
       current = es;
 
       es.onopen = () => {
@@ -53,20 +147,26 @@ export function useScoringSocket(
       es.onmessage = (event) => {
         if (es !== current) return;
         markConnected();
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.type === "scoring_state") {
-            const payload: ScoringLiveDisplay = {
-              match: msg.match ?? null,
-              state: msg.state ?? null,
-              summary: msg.summary ?? null,
-            };
-            qc.setQueryData(scoringLiveQueryKey(tournamentId), payload);
-          }
-        } catch {
-          // ignore malformed messages
-        }
+        handleMessagePayload(event.data, event.lastEventId);
       };
+
+      es.addEventListener("scoring_state", (event: MessageEvent) => {
+        if (es !== current) return;
+        markConnected();
+        handleMessagePayload(event.data, event.lastEventId);
+      });
+
+      es.addEventListener("scoring_replay", (event: MessageEvent) => {
+        if (es !== current) return;
+        markConnected();
+        handleMessagePayload(event.data, event.lastEventId);
+      });
+
+      es.addEventListener("obs_director", (event: MessageEvent) => {
+        if (es !== current) return;
+        markConnected();
+        handleMessagePayload(event.data, event.lastEventId);
+      });
 
       es.onerror = () => {
         if (es !== current) return;

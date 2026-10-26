@@ -49,6 +49,7 @@ const lessonCreateSchema = z.object({
   content: z.string().max(500_000).optional().nullable(),
   contentFormat: z.enum(ACADEMY_CONTENT_FORMATS).optional(),
   youtubeUrl: z.string().url().optional().nullable(),
+  thumbnailUrl: z.string().url().optional().nullable(),
   categoryId: z.number().int().positive().optional().nullable(),
   seoTitle: z.string().max(70).optional().nullable(),
   seoDescription: z.string().max(160).optional().nullable(),
@@ -100,6 +101,7 @@ async function buildLessonInsertValues(parsed: z.infer<typeof lessonCreateSchema
     contentFormat: parsed.contentFormat ?? "plain",
     youtubeUrl: parsed.youtubeUrl ?? null,
     youtubeVideoId,
+    thumbnailUrl: parsed.thumbnailUrl ?? null,
     categoryId,
     seoTitle: parsed.seoTitle ?? null,
     seoDescription: parsed.seoDescription ?? null,
@@ -254,6 +256,7 @@ router.get("/auth/admin/knowledge-center/academy/lessons", requireAdmin, async (
       contentFormat: academyLessonsTable.contentFormat,
       youtubeUrl: academyLessonsTable.youtubeUrl,
       youtubeVideoId: academyLessonsTable.youtubeVideoId,
+      thumbnailUrl: academyLessonsTable.thumbnailUrl,
       categoryId: academyLessonsTable.categoryId,
       categoryName: academyCategoriesTable.name,
       seoTitle: academyLessonsTable.seoTitle,
@@ -289,6 +292,7 @@ router.get("/auth/admin/knowledge-center/academy/lessons/:id", requireAdmin, asy
       contentFormat: academyLessonsTable.contentFormat,
       youtubeUrl: academyLessonsTable.youtubeUrl,
       youtubeVideoId: academyLessonsTable.youtubeVideoId,
+      thumbnailUrl: academyLessonsTable.thumbnailUrl,
       categoryId: academyLessonsTable.categoryId,
       categoryName: academyCategoriesTable.name,
       seoTitle: academyLessonsTable.seoTitle,
@@ -376,6 +380,10 @@ router.patch("/auth/admin/knowledge-center/academy/lessons/:id", requireAdmin, a
   if (parsed.data.youtubeUrl !== undefined) {
     updates.youtubeUrl = parsed.data.youtubeUrl;
     updates.youtubeVideoId = extractYoutubeVideoId(parsed.data.youtubeUrl);
+  }
+
+  if (parsed.data.thumbnailUrl !== undefined) {
+    updates.thumbnailUrl = parsed.data.thumbnailUrl;
   }
 
   if (parsed.data.categoryId !== undefined) {
@@ -477,6 +485,7 @@ router.post("/auth/admin/knowledge-center/academy/lessons/:id/duplicate", requir
       contentFormat: source.contentFormat,
       youtubeUrl: source.youtubeUrl,
       youtubeVideoId: source.youtubeVideoId,
+      thumbnailUrl: source.thumbnailUrl,
       categoryId: source.categoryId,
       seoTitle: source.seoTitle,
       seoDescription: source.seoDescription,

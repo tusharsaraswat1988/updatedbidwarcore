@@ -16,21 +16,41 @@ export function isOwnerSessionVerified(teamId: number): boolean {
   return sessionStorage.getItem(ownerVerifiedSessionKey(teamId)) === "1";
 }
 
-export function getStoredOwnerAccessCode(teamId: number): string | undefined {
-  if (typeof sessionStorage === "undefined") return undefined;
-  const code = sessionStorage.getItem(ownerAccessCodeSessionKey(teamId));
-  return code ?? undefined;
+export function getStoredOwnerAccessCode(_teamId: number): string | undefined {
+  // Plaintext access codes are never stored persistently client-side
+  return undefined;
 }
 
-export function persistOwnerSession(teamId: number, accessCode: string): void {
-  const normalized = accessCode.trim().toUpperCase();
+export function persistOwnerSession(teamId: number, _accessCode?: string): void {
+  // Set the session verification marker in sessionStorage for UI state
   sessionStorage.setItem(ownerVerifiedSessionKey(teamId), "1");
-  sessionStorage.setItem(ownerAccessCodeSessionKey(teamId), normalized);
+  // Ensure any legacy plaintext access code is removed
+  sessionStorage.removeItem(ownerAccessCodeSessionKey(teamId));
 }
 
 export function clearOwnerSession(teamId: number): void {
   sessionStorage.removeItem(ownerVerifiedSessionKey(teamId));
   sessionStorage.removeItem(ownerAccessCodeSessionKey(teamId));
+}
+
+/**
+ * Checks server-side owner session cookie for validity.
+ */
+export async function checkOwnerServerSession(
+  tournamentId: number,
+  teamId: number,
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `/api/tournaments/${tournamentId}/teams/${teamId}/owner-session`,
+      ownerFetchInit,
+    );
+    if (!res.ok) return false;
+    const body = (await res.json()) as { verified?: boolean };
+    return body.verified === true;
+  } catch {
+    return false;
+  }
 }
 
 export function teamNeedsAccessCode(team: {

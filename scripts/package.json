@@ -10,13 +10,18 @@
     "seed:sports": "tsx src/seed-sports.ts",
     "purge:badminton-matches": "tsx --env-file=../.env src/purge-badminton-matches.ts",
     "seed:vnbl3-league": "tsx --env-file=../.env src/seed-vnbl3-league-fixtures.ts",
+    "seed:varanasi": "tsx --env-file=../.env src/seed-varanasi-tournament.ts",
+    "inspect:t10": "tsx --env-file=../.env src/inspect-t10.ts",
+    "audit:modules": "tsx --env-file=../.env src/audit-tournament-modules.ts",
     "migrate": "tsx src/migrate.ts",
     "dev": "node ./dev.mjs",
     "dev:stop": "node ./dev-stop.mjs",
     "verify:local": "tsx src/verify-local.ts",
     "verify:production": "tsx src/verify-production.ts",
-    "setup:playwright-browsers": "node ./setup-playwright-browsers.mjs",
     "verify:root-cause-rcv": "tsx --env-file=../.env src/verify-root-cause-rcv.ts",
+    "identity:dry-run": "tsx --env-file=../.env src/identity-linking-cli.ts",
+    "identity:apply": "tsx --env-file=../.env src/identity-linking-cli.ts --apply",
+    "identity:rollback": "tsx --env-file=../.env src/identity-linking-cli.ts --rollback",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -26,7 +31,8 @@
     "@workspace/db": "workspace:*",
     "@workspace/scoring-core": "workspace:*",
     "dotenv": "^17.4.2",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "sharp": "^0.34.3"
   },
   "devDependencies": {
     "@types/node": "catalog:",

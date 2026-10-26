@@ -2,6 +2,7 @@ import { KNOWN_MERGE_VARIABLES } from "./types.js";
 
 const MERGE_VAR_PATTERN = /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g;
 const CONDITIONAL_BLOCK_PATTERN = /\{\{#([a-zA-Z0-9_]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g;
+const INVERTED_BLOCK_PATTERN = /\{\{\^([a-zA-Z0-9_]+)\}\}([\s\S]*?)\{\{\/\1\}\}/g;
 
 function isTruthyMergeValue(value: unknown): boolean {
   if (value === null || value === undefined) return false;
@@ -20,6 +21,11 @@ function renderConditionalBlocks(
       CONDITIONAL_BLOCK_PATTERN,
       (_match, key: string, content: string) =>
         isTruthyMergeValue(data[key]) ? content : "",
+    );
+    result = result.replace(
+      INVERTED_BLOCK_PATTERN,
+      (_match, key: string, content: string) =>
+        !isTruthyMergeValue(data[key]) ? content : "",
     );
   }
   return result;
@@ -74,7 +80,7 @@ export function buildSampleMergeData(): Record<string, string> {
     player_name: "Virat Kohli",
     tournament_name: "Premier Cricket League 2026",
     auction_name: "Season 3 Player Auction",
-    auction_date: "15 March 2026",
+    auction_date: "06-09-2026 at 3:00 PM",
     match_date: "20 March 2026",
     login_link: "https://bidwar.in/owner/join",
     password: "••••••••",
@@ -96,13 +102,9 @@ export function buildSampleMergeData(): Record<string, string> {
     tournament_logo: tournamentLogo,
     sport_name: "Cricket",
     registration_id: "#42",
-    registration_date: new Date().toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }),
+    registration_date: "02-09-2026",
     venue: "Wankhede Stadium, Mumbai",
-    tournament_dates: "15 March 2026 at 14:00",
+    tournament_dates: "26-09-2026, 27-09-2026",
     title_sponsor: "DreamSports",
     co_sponsors_line: "PayFast, StarPlay and FanZone",
     player_avatar: `<img src="${appUrl}/logo.png" width="88" height="88" alt="Player" style="display:block;border-radius:44px;" />`,

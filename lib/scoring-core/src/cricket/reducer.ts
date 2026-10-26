@@ -12,21 +12,35 @@ import {
   type CricketMatchStartedPayload,
   type CricketPenaltyAwardedPayload,
   type CricketPlayerRetiredPayload,
+  type CricketSuperBallDeclaredPayload,
+  type CricketSuperBallCancelledPayload,
   type CricketSuperOverStartedPayload,
+  type CricketWalkoverAwardedPayload,
+  type CricketBatterSelectedPayload,
+  type CricketBowlerChangedPayload,
 } from "../events/cricket";
 import { InvalidEventPayloadError } from "../projector/errors";
 import { replayEvents } from "../projector/replay";
 import { resolveEventsForReplay } from "../projector/resolve-undo";
 import type { ScoringEventEnvelope } from "../types";
-import { formatBallLabel, shouldSwapStrike, toBallDisplay, totalRunsOnBall } from "./ball";
+import {
+  expectedNextBall,
+  formatBallLabel,
+  shouldSwapStrike,
+  toBallDisplay,
+  totalRunsOnBall,
+} from "./ball";
 import {
   createInitialCricketState,
   getCurrentInnings,
   type BallDisplayOutcome,
   type CricketInningsState,
   type CricketScoreboardState,
+  type CricketPartnership,
+  type CricketPartnershipRecord,
 } from "./state";
-import { FREE_HIT_DISMISSALS } from "./types";
+import { FREE_HIT_DISMISSALS, SUPER_BALL_BLOCKED_DISMISSALS } from "./types";
+import { isCricketMatchTerminalState } from "./result";
 
 function battingBowlingTeamIds(
   state: CricketScoreboardState,
@@ -78,11 +92,33 @@ function applyMatchStarted(
   state: CricketScoreboardState,
   payload: CricketMatchStartedPayload,
 ): CricketScoreboardState {
+  if (
+    state.matchStatus !== "scheduled" ||
+    state.currentInnings > 0 ||
+    state.innings.length > 0
+  ) {
+    throw new InvalidEventPayloadError(
+      CricketEventType.MATCH_STARTED,
+      "cannot start match: match has already started",
+    );
+  }
   const { battingTeamId, bowlingTeamId } = battingBowlingTeamIds(
     state,
     payload.electedTo,
     payload.tossWinnerTeamId,
   );
+  const existingBattingLineup = state.lineups[battingTeamId];
+  let strikerId = state.strikerId;
+  let nonStrikerId = state.nonStrikerId;
+  if (
+    existingBattingLineup &&
+    existingBattingLineup.length >= 2 &&
+    strikerId == null &&
+    nonStrikerId == null
+  ) {
+    strikerId = existingBattingLineup[0] ?? null;
+    nonStrikerId = existingBattingLineup[1] ?? null;
+  }
   return {
     ...state,
     matchStatus: "live",
@@ -91,10 +127,14 @@ function applyMatchStarted(
     tossWinnerTeamId: payload.tossWinnerTeamId,
     electedTo: payload.electedTo,
     currentInnings: 1,
-    innings: [createInningsState(1, battingTeamId, bowlingTeamId, payload.oversLimit)],
+    innings: [
+      createInningsState(1, battingTeamId, bowlingTeamId, payload.oversLimit),
+    ],
     thisOver: [],
     powerplayOvers: payload.powerplayOvers ?? [],
     freeHitActive: false,
+    strikerId,
+    nonStrikerId,
   };
 }
 
@@ -110,7 +150,11 @@ function applyLineupSet(
     },
   };
   const batting = getCurrentInnings(next);
-  if (batting && batting.battingTeamId === payload.teamId && payload.playerIds.length >= 2) {
+  if (
+    batting &&
+    batting.battingTeamId === payload.teamId &&
+    payload.playerIds.length >= 2
+  ) {
     const order = payload.battingOrder ?? payload.playerIds;
     return {
       ...next,
@@ -121,11 +165,37 @@ function applyLineupSet(
   return next;
 }
 
+function isKnockoutMatchType(state: CricketScoreboardState): boolean {
+  const id = state.matchTypeId ?? "";
+  return /knockout|semi|final|playoff/i.test(id);
+}
+
+function superBallAdjustedPayload(
+  payload: CricketBallRecordedPayload,
+  onlyOneBatsmanAvailable: boolean,
+  isSuperBall: boolean,
+): CricketBallRecordedPayload {
+  return {
+    ...payload,
+    isSuperBall,
+    runsOffBat:
+      onlyOneBatsmanAvailable && [1, 2, 3].includes(payload.runsOffBat)
+        ? 0
+        : payload.runsOffBat,
+  };
+}
+
 function applyBallRecorded(
   state: CricketScoreboardState,
   payload: CricketBallRecordedPayload,
   enforceLiveRules = false,
 ): CricketScoreboardState {
+  if (enforceLiveRules && state.matchStatus !== "live") {
+    throw new InvalidEventPayloadError(
+      CricketEventType.BALL_RECORDED,
+      `cannot record ball: match is not live (status: ${state.matchStatus})`,
+    );
+  }
   if (state.sessionStatus === "paused") {
     throw new InvalidEventPayloadError(
       CricketEventType.BALL_RECORDED,
@@ -139,14 +209,39 @@ function applyBallRecorded(
     );
   }
 
-  if (payload.strikerId === payload.nonStrikerId) {
+  const currentInn = getCurrentInnings(state);
+  const battingLineup = currentInn
+    ? (state.lineups[currentInn.battingTeamId] ?? [])
+    : [];
+  const onlyOneBatsmanAvailable =
+    !!currentInn &&
+    battingLineup.length > 0 &&
+    battingLineup.length - currentInn.wickets <= 1;
+
+  if (!onlyOneBatsmanAvailable && payload.strikerId === payload.nonStrikerId) {
     throw new InvalidEventPayloadError(
       CricketEventType.BALL_RECORDED,
       "striker and non-striker must be different players",
     );
   }
+  if (!onlyOneBatsmanAvailable && payload.nonStrikerId == null) {
+    throw new InvalidEventPayloadError(
+      CricketEventType.BALL_RECORDED,
+      "non-striker is required unless only one batsman is available",
+    );
+  }
 
-  const currentInn = getCurrentInnings(state);
+  const isSuperBall =
+    !!payload.isSuperBall ||
+    (!!state.superBallPending &&
+      state.superBallPending.innings === payload.innings &&
+      state.superBallPending.battingTeamId === currentInn?.battingTeamId);
+  const effectivePayload = superBallAdjustedPayload(
+    payload,
+    onlyOneBatsmanAvailable,
+    isSuperBall,
+  );
+
   if (enforceLiveRules && currentInn) {
     if (currentInn.phase !== "in_progress") {
       throw new InvalidEventPayloadError(
@@ -154,7 +249,7 @@ function applyBallRecorded(
         "innings is not in progress",
       );
     }
-    if (currentInn.wickets >= state.maxWickets) {
+    if (currentInn.wickets >= state.maxWickets && !onlyOneBatsmanAvailable) {
       throw new InvalidEventPayloadError(
         CricketEventType.BALL_RECORDED,
         "innings is all out — end innings before recording more balls",
@@ -166,14 +261,19 @@ function applyBallRecorded(
         "target already reached — end innings or complete the match",
       );
     }
-    if (payload.isLegalDelivery && payload.over >= currentInn.oversLimit) {
+    const expected = expectedNextBall(currentInn, state.ballsPerOver ?? 6);
+    if (expected.over >= currentInn.oversLimit) {
       throw new InvalidEventPayloadError(
         CricketEventType.BALL_RECORDED,
         `overs limit (${currentInn.oversLimit}) already complete`,
       );
     }
-    // Crease must be fully filled after a wicket/retire until a replacement is chosen.
-    // Replacement is accepted when the empty slot is filled by a different player id in the payload.
+    if (payload.over !== expected.over || payload.ball !== expected.ball) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BALL_RECORDED,
+        `invalid delivery sequence: expected over ${expected.over} ball ${expected.ball}, received over ${payload.over} ball ${payload.ball}`,
+      );
+    }
     if (state.strikerId == null && state.nonStrikerId == null) {
       throw new InvalidEventPayloadError(
         CricketEventType.BALL_RECORDED,
@@ -186,10 +286,52 @@ function applyBallRecorded(
         "select a new batter before recording balls",
       );
     }
-    if (state.nonStrikerId == null && payload.nonStrikerId === state.strikerId) {
+    if (
+      !onlyOneBatsmanAvailable &&
+      state.nonStrikerId == null &&
+      payload.nonStrikerId === state.strikerId
+    ) {
       throw new InvalidEventPayloadError(
         CricketEventType.BALL_RECORDED,
         "select a new batter before recording balls",
+      );
+    }
+    if (state.playingXiEnforced) {
+      const bowlingLineup = state.lineups[currentInn.bowlingTeamId] ?? [];
+      const batterOk = battingLineup.includes(payload.strikerId);
+      const nonStrikerOk =
+        payload.nonStrikerId == null ||
+        battingLineup.includes(payload.nonStrikerId);
+      const bowlerOk = bowlingLineup.includes(payload.bowlerId);
+      if (!batterOk || !nonStrikerOk || !bowlerOk) {
+        throw new InvalidEventPayloadError(
+          CricketEventType.BALL_RECORDED,
+          "ball participants must belong to the configured Playing XI",
+        );
+      }
+    }
+    if (!state.legByeEnabled && payload.extras.type === "leg_bye") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BALL_RECORDED,
+        "leg bye is disabled by match rules",
+      );
+    }
+    if (!state.lbwEnabled && payload.wicket?.type === "lbw") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BALL_RECORDED,
+        "LBW is disabled by match rules",
+      );
+    }
+    if (payload.isSuperBall && !state.superBallEnabled) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BALL_RECORDED,
+        "Super Ball is disabled by match rules",
+      );
+    }
+    if (isSuperBall && payload.wicket && SUPER_BALL_BLOCKED_DISMISSALS.includes(payload.wicket.type)) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BALL_RECORDED,
+        `${payload.wicket.type} is not a valid wicket on Super Ball`,
       );
     }
   }
@@ -204,16 +346,18 @@ function applyBallRecorded(
     }
   }
 
-  const runs = totalRunsOnBall(payload);
+  const runs = totalRunsOnBall(effectivePayload);
   let strikerId: number | null = payload.strikerId;
-  let nonStrikerId: number | null = payload.nonStrikerId;
+  let nonStrikerId: number | null = payload.nonStrikerId ?? null;
   let freeHitActive = state.freeHitActive;
 
-  if (payload.extras.type === "no_ball") {
+  if (state.freeHitEnabled && payload.extras.type === "no_ball") {
     freeHitActive = true;
   } else if (payload.isLegalDelivery) {
     freeHitActive = false;
   }
+
+  const ballsPerOver = state.ballsPerOver ?? 6;
 
   let next = updateInnings(state, payload.innings, (inn) => {
     const updated: CricketInningsState = {
@@ -222,29 +366,125 @@ function applyBallRecorded(
       wickets: payload.wicket ? inn.wickets + 1 : inn.wickets,
     };
     if (payload.isLegalDelivery) {
-      updated.over = payload.over;
-      updated.ball = payload.ball;
+      const nextPos = expectedNextBall(inn, ballsPerOver);
+      updated.over = nextPos.over;
+      updated.ball = nextPos.ball;
     }
     return updated;
   });
 
-  if (shouldSwapStrike(payload)) {
+  if (
+    effectivePayload.nonStrikerId != null &&
+    shouldSwapStrike(effectivePayload)
+  ) {
     [strikerId, nonStrikerId] = [nonStrikerId, strikerId];
   }
-  if (payload.isLegalDelivery && payload.ball === 6) {
+  if (
+    effectivePayload.nonStrikerId != null &&
+    payload.isLegalDelivery &&
+    payload.ball === ballsPerOver
+  ) {
     [strikerId, nonStrikerId] = [nonStrikerId, strikerId];
   }
 
-  // Vacate the crease for the dismissed batter so a replacement is required
-  // (survives refresh; next ball must supply the new batter id).
+  // --- Authoritative Current Partnership Stand Tracking ---
+  let pship: CricketPartnership = state.currentPartnership
+    ? { ...state.currentPartnership }
+    : {
+        runs: 0,
+        balls: 0,
+        batter1Id: payload.strikerId,
+        batter1Runs: 0,
+        batter1Balls: 0,
+        batter2Id: payload.nonStrikerId ?? null,
+        batter2Runs: 0,
+        batter2Balls: 0,
+        extras: 0,
+      };
+
+  if (pship.batter1Id == null) {
+    pship.batter1Id = payload.strikerId;
+  } else if (
+    pship.batter2Id == null &&
+    payload.nonStrikerId != null &&
+    payload.nonStrikerId !== pship.batter1Id
+  ) {
+    pship.batter2Id = payload.nonStrikerId;
+  } else if (pship.batter2Id == null && payload.strikerId !== pship.batter1Id) {
+    pship.batter2Id = payload.strikerId;
+  }
+
+  const effectiveBatRuns = effectivePayload.isSuperBall
+    ? effectivePayload.runsOffBat * 2
+    : effectivePayload.runsOffBat;
+  const extraRuns = effectivePayload.extras.runs;
+  const isBallFaced = effectivePayload.extras.type !== "wide";
+
+  pship.runs += effectiveBatRuns + extraRuns;
+  pship.extras += extraRuns;
+  if (isBallFaced) {
+    pship.balls += 1;
+  }
+
+  if (payload.strikerId === pship.batter1Id) {
+    pship.batter1Runs += effectiveBatRuns;
+    if (isBallFaced) pship.batter1Balls += 1;
+  } else if (payload.strikerId === pship.batter2Id) {
+    pship.batter2Runs += effectiveBatRuns;
+    if (isBallFaced) pship.batter2Balls += 1;
+  } else {
+    if (pship.batter1Id == null) {
+      pship.batter1Id = payload.strikerId;
+      pship.batter1Runs += effectiveBatRuns;
+      if (isBallFaced) pship.batter1Balls += 1;
+    } else {
+      pship.batter2Id = payload.strikerId;
+      pship.batter2Runs += effectiveBatRuns;
+      if (isBallFaced) pship.batter2Balls += 1;
+    }
+  }
+
+  const completedPartnerships = [...(state.completedPartnerships ?? [])];
+
   if (payload.wicket) {
     const dismissed = payload.wicket.dismissedPlayerId;
+    const surviving = dismissed === pship.batter1Id ? pship.batter2Id : pship.batter1Id;
+
+    const currentWickets = next.innings.find((i) => i.innings === payload.innings)?.wickets ?? 1;
+    completedPartnerships.push({
+      innings: payload.innings,
+      wicket: currentWickets,
+      batter1Id: pship.batter1Id ?? payload.strikerId,
+      batter1Runs: pship.batter1Runs,
+      batter1Balls: pship.batter1Balls,
+      batter2Id: pship.batter2Id ?? payload.nonStrikerId ?? 0,
+      batter2Runs: pship.batter2Runs,
+      batter2Balls: pship.batter2Balls,
+      extras: pship.extras,
+      runs: pship.runs,
+      balls: pship.balls,
+      dismissedPlayerId: dismissed,
+      notOutPlayerId: surviving,
+    });
+
+    pship = {
+      runs: 0,
+      balls: 0,
+      batter1Id: surviving,
+      batter1Runs: 0,
+      batter1Balls: 0,
+      batter2Id: null,
+      batter2Runs: 0,
+      batter2Balls: 0,
+      extras: 0,
+    };
+
     if (strikerId === dismissed) strikerId = null;
     if (nonStrikerId === dismissed) nonStrikerId = null;
   }
 
-  const ballDisplay = toBallDisplay(payload);
-  const thisOver = appendThisOver(next.thisOver, payload, ballDisplay);
+  const ballDisplay = toBallDisplay(effectivePayload);
+  const thisOver = appendThisOver(next.thisOver, effectivePayload, ballDisplay);
 
   return {
     ...next,
@@ -253,7 +493,101 @@ function applyBallRecorded(
     bowlerId: payload.bowlerId,
     thisOver,
     freeHitActive,
+    currentPartnership: pship,
+    completedPartnerships,
+    superBallPending:
+      isSuperBall &&
+      payload.extras.type !== "wide" &&
+      payload.extras.type !== "no_ball"
+        ? null
+        : state.superBallPending,
   };
+}
+
+function applySuperBallDeclared(
+  state: CricketScoreboardState,
+  payload: CricketSuperBallDeclaredPayload,
+  enforceLiveRules = false,
+): CricketScoreboardState {
+  const currentInn = getCurrentInnings(state);
+  if (enforceLiveRules) {
+    if (!state.superBallEnabled) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_BALL_DECLARED,
+        "Super Ball is disabled by match rules",
+      );
+    }
+    if (
+      !currentInn ||
+      currentInn.innings !== payload.innings ||
+      currentInn.battingTeamId !== payload.battingTeamId
+    ) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_BALL_DECLARED,
+        "Super Ball must be declared for the active batting innings",
+      );
+    }
+    if (
+      state.superBallPending &&
+      state.superBallPending.innings === payload.innings
+    ) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_BALL_DECLARED,
+        "Super Ball is already pending",
+      );
+    }
+    if (
+      (state.superBallUsed[payload.innings] ?? []).includes(
+        payload.battingTeamId,
+      )
+    ) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_BALL_DECLARED,
+        "Super Ball already used in this innings",
+      );
+    }
+    if (state.powerplayOvers.includes(currentInn.over + 1)) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_BALL_DECLARED,
+        "Super Ball cannot be declared during Powerplay",
+      );
+    }
+    const lineup = state.lineups[payload.battingTeamId] ?? [];
+    if (lineup.length > 0 && lineup.length - currentInn.wickets <= 1) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_BALL_DECLARED,
+        "Super Ball cannot be declared when only one batsman is available",
+      );
+    }
+  }
+  const used = { ...state.superBallUsed };
+  used[payload.innings] = [
+    ...(used[payload.innings] ?? []),
+    payload.battingTeamId,
+  ];
+  return { ...state, superBallPending: payload, superBallUsed: used };
+}
+
+function applySuperBallCancelled(
+  state: CricketScoreboardState,
+  payload: CricketSuperBallCancelledPayload,
+  enforceLiveRules = false,
+): CricketScoreboardState {
+  if (enforceLiveRules) {
+    if (!state.superBallPending) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_BALL_CANCELLED,
+        "No Super Ball is currently pending to cancel",
+      );
+    }
+  }
+  const used = { ...state.superBallUsed };
+  if (used[payload.innings]) {
+    used[payload.innings] = used[payload.innings].filter(
+      (id) => id !== payload.battingTeamId,
+    );
+  }
+  return { ...state, superBallPending: null, superBallUsed: used };
 }
 
 function applyPenaltyAwarded(
@@ -285,33 +619,326 @@ function applyPlayerRetired(
     next = { ...next, retiredHurt: hurt };
   }
 
-  if (next.strikerId === payload.playerId || next.nonStrikerId === payload.playerId) {
-    return {
-      ...next,
-      strikerId: next.strikerId === payload.playerId ? null : next.strikerId,
-      nonStrikerId: next.nonStrikerId === payload.playerId ? null : next.nonStrikerId,
+  let pship = next.currentPartnership ? { ...next.currentPartnership } : null;
+  const completedPartnerships = [...(next.completedPartnerships ?? [])];
+
+  if (
+    pship &&
+    (pship.batter1Id === payload.playerId || pship.batter2Id === payload.playerId)
+  ) {
+    const surviving =
+      payload.playerId === pship.batter1Id ? pship.batter2Id : pship.batter1Id;
+    if (pship.runs > 0 || pship.balls > 0) {
+      completedPartnerships.push({
+        innings: payload.innings,
+        wicket:
+          payload.type === "out"
+            ? (next.innings.find((i) => i.innings === payload.innings)?.wickets ?? 1)
+            : 0,
+        batter1Id: pship.batter1Id ?? payload.playerId,
+        batter1Runs: pship.batter1Runs,
+        batter1Balls: pship.batter1Balls,
+        batter2Id: pship.batter2Id ?? 0,
+        batter2Runs: pship.batter2Runs,
+        batter2Balls: pship.batter2Balls,
+        extras: pship.extras,
+        runs: pship.runs,
+        balls: pship.balls,
+        dismissedPlayerId: payload.playerId,
+        notOutPlayerId: surviving,
+      });
+    }
+    pship = {
+      runs: 0,
+      balls: 0,
+      batter1Id: surviving,
+      batter1Runs: 0,
+      batter1Balls: 0,
+      batter2Id: null,
+      batter2Runs: 0,
+      batter2Balls: 0,
+      extras: 0,
     };
   }
-  return next;
+
+  let strikerId = next.strikerId;
+  let nonStrikerId = next.nonStrikerId;
+  if (strikerId === payload.playerId) strikerId = null;
+  if (nonStrikerId === payload.playerId) nonStrikerId = null;
+
+  return {
+    ...next,
+    strikerId,
+    nonStrikerId,
+    currentPartnership: pship,
+    completedPartnerships,
+  };
+}
+
+function applyBatterSelected(
+  state: CricketScoreboardState,
+  payload: CricketBatterSelectedPayload,
+  enforceLiveRules = false,
+): CricketScoreboardState {
+  if (enforceLiveRules) {
+    if (state.matchStatus !== "live") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BATTER_SELECTED,
+        `cannot select batter: match is not live (status: ${state.matchStatus})`,
+      );
+    }
+    const currentInn = getCurrentInnings(state);
+    if (!currentInn || currentInn.phase !== "in_progress") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BATTER_SELECTED,
+        "innings is not in progress",
+      );
+    }
+    if (
+      state.strikerId === payload.playerId ||
+      state.nonStrikerId === payload.playerId
+    ) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BATTER_SELECTED,
+        "player is already at the crease",
+      );
+    }
+    if (state.playingXiEnforced) {
+      const battingLineup = state.lineups[currentInn.battingTeamId] ?? [];
+      if (!battingLineup.includes(payload.playerId)) {
+        throw new InvalidEventPayloadError(
+          CricketEventType.BATTER_SELECTED,
+          "batter must belong to the configured Playing XI",
+        );
+      }
+    }
+  }
+
+  let strikerId = state.strikerId;
+  let nonStrikerId = state.nonStrikerId;
+
+  // A requested end that is already occupied, with the other end vacant, means
+  // the scorer rotated the survivor onto that end. Move the survivor, then
+  // place the new batter in the end they left open.
+  if (payload.position === "non_striker") {
+    if (nonStrikerId != null && strikerId == null) {
+      strikerId = nonStrikerId;
+      nonStrikerId = payload.playerId;
+    } else if (nonStrikerId == null) {
+      nonStrikerId = payload.playerId;
+    } else {
+      nonStrikerId = payload.playerId;
+    }
+  } else if (payload.position === "striker") {
+    if (strikerId != null && nonStrikerId == null) {
+      nonStrikerId = strikerId;
+      strikerId = payload.playerId;
+    } else if (strikerId == null) {
+      strikerId = payload.playerId;
+    } else {
+      strikerId = payload.playerId;
+    }
+  } else if (strikerId == null) {
+    strikerId = payload.playerId;
+  } else if (nonStrikerId == null) {
+    nonStrikerId = payload.playerId;
+  } else {
+    strikerId = payload.playerId;
+  }
+
+  let pship = state.currentPartnership ? { ...state.currentPartnership } : null;
+  if (!pship) {
+    pship = {
+      runs: 0,
+      balls: 0,
+      batter1Id: strikerId,
+      batter1Runs: 0,
+      batter1Balls: 0,
+      batter2Id: nonStrikerId,
+      batter2Runs: 0,
+      batter2Balls: 0,
+      extras: 0,
+    };
+  } else {
+    if (pship.batter1Id == null) {
+      pship.batter1Id = payload.playerId;
+    } else if (pship.batter2Id == null) {
+      pship.batter2Id = payload.playerId;
+    } else if (pship.batter1Id !== payload.playerId && pship.batter2Id !== payload.playerId) {
+      if (payload.position === "non_striker") {
+        pship.batter2Id = payload.playerId;
+      } else {
+        pship.batter1Id = payload.playerId;
+      }
+    }
+  }
+
+  return {
+    ...state,
+    strikerId,
+    nonStrikerId,
+    currentPartnership: pship,
+  };
+}
+
+function applyBowlerChanged(
+  state: CricketScoreboardState,
+  payload: CricketBowlerChangedPayload,
+  enforceLiveRules = false,
+): CricketScoreboardState {
+  if (enforceLiveRules) {
+    if (state.matchStatus !== "live") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BOWLER_CHANGED,
+        `cannot change bowler: match is not live (status: ${state.matchStatus})`,
+      );
+    }
+    const currentInn = getCurrentInnings(state);
+    if (!currentInn || currentInn.phase !== "in_progress") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.BOWLER_CHANGED,
+        "innings is not in progress",
+      );
+    }
+    if (state.playingXiEnforced) {
+      const bowlingLineup = state.lineups[currentInn.bowlingTeamId] ?? [];
+      if (!bowlingLineup.includes(payload.bowlerId)) {
+        throw new InvalidEventPayloadError(
+          CricketEventType.BOWLER_CHANGED,
+          "bowler must belong to the configured Playing XI",
+        );
+      }
+    }
+  }
+
+  // A completed over still holds its ball trail until the next delivery.
+  // Selecting the bowler for the next over starts a fresh trail, so the
+  // umpire is not scoring the new bowler against the previous over's balls.
+  // A mid-over change keeps the balls already bowled in this over.
+  const currentInn = getCurrentInnings(state);
+  const ballsPerOver = state.ballsPerOver ?? 6;
+  const overJustCompleted =
+    !!currentInn &&
+    currentInn.phase === "in_progress" &&
+    currentInn.ball >= ballsPerOver;
+
+  return {
+    ...state,
+    bowlerId: payload.bowlerId,
+    thisOver: overJustCompleted ? [] : state.thisOver,
+  };
 }
 
 function applySuperOverStarted(
   state: CricketScoreboardState,
   payload: CricketSuperOverStartedPayload,
+  enforceLiveRules = false,
 ): CricketScoreboardState {
+  if (enforceLiveRules) {
+    if (!state.superOverEnabled) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_OVER_STARTED,
+        "Super Over is disabled by match rules",
+      );
+    }
+
+    // Match must be live
+    if (state.matchStatus !== "live") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_OVER_STARTED,
+        `Super Over cannot start: match is not live (status: ${state.matchStatus})`,
+      );
+    }
+
+    // Both regulation innings must be complete before any Super Over can start
+    const first = state.innings.find((i) => i.innings === 1);
+    const second = state.innings.find((i) => i.innings === 2);
+
+    if (!first || first.phase !== "completed") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_OVER_STARTED,
+        "Super Over cannot start: first innings is not yet completed",
+      );
+    }
+    if (!second || second.phase !== "completed") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_OVER_STARTED,
+        "Super Over cannot start: second innings is not yet completed",
+      );
+    }
+
+    // Regulation match must have been tied (target not reached, no clear winner)
+    // A Super Over can only begin if the regulation match ended in a tie.
+    // Tie means: second innings runs === (first innings runs) when target was set to first.runs + 1,
+    // i.e., second.runs === state.target - 1  OR  second.runs === first.runs (no target path).
+    const regulationIsTie = state.target != null
+      ? second.runs === state.target - 1
+      : second.runs === first.runs;
+
+    if (!regulationIsTie) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_OVER_STARTED,
+        "Super Over cannot start: regulation match was not a tie",
+      );
+    }
+
+    // For knockout_tie trigger, also enforce the match type constraint
+    if (state.superOverTrigger === "knockout_tie" && !isKnockoutMatchType(state)) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_OVER_STARTED,
+        "Super Over is only available for configured knockout ties",
+      );
+    }
+
+    // The innings number in the payload must be sequentially correct
+    // (next after the last existing innings in the list)
+    const expectedInnings = state.innings.length + 1;
+    if (payload.innings !== expectedInnings) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.SUPER_OVER_STARTED,
+        `Super Over innings number must be ${expectedInnings}, got ${payload.innings}`,
+      );
+    }
+
+    // The last Super Over innings (if any) must be completed before starting another
+    const existingSuperOvers = state.innings.filter((i) => i.kind === "super_over");
+    if (existingSuperOvers.length > 0) {
+      const lastSuperOver = existingSuperOvers[existingSuperOvers.length - 1]!;
+      if (lastSuperOver.phase !== "completed") {
+        throw new InvalidEventPayloadError(
+          CricketEventType.SUPER_OVER_STARTED,
+          "Super Over cannot start: the previous Super Over innings is not yet completed",
+        );
+      }
+      // When starting the 1st innings of a new Super Over pair (length is even: 2, 4, 6...),
+      // the immediately preceding Super Over pair must have been tied.
+      // If the preceding pair produced a decisive result, no more Super Overs are allowed.
+      if (existingSuperOvers.length % 2 === 0) {
+        const prevFirst = existingSuperOvers[existingSuperOvers.length - 2]!;
+        const prevSecond = existingSuperOvers[existingSuperOvers.length - 1]!;
+        if (prevFirst.runs !== prevSecond.runs) {
+          throw new InvalidEventPayloadError(
+            CricketEventType.SUPER_OVER_STARTED,
+            "Super Over cannot start: the previous Super Over already produced a decisive result",
+          );
+        }
+      }
+    }
+  }
+
   const inn = createInningsState(
     payload.innings,
     payload.battingTeamId,
     payload.bowlingTeamId,
-    payload.oversLimit,
+    payload.oversLimit ?? state.superOverOvers,
     "super_over",
   );
   return {
     ...state,
     matchStatus: "live",
     currentInnings: payload.innings,
-    oversLimit: payload.oversLimit,
-    maxWickets: 2,
+    oversLimit: payload.oversLimit ?? state.superOverOvers,
+    maxWickets: state.superOverWickets,
     innings: [...state.innings, inn],
     thisOver: [],
     strikerId: null,
@@ -319,13 +946,46 @@ function applySuperOverStarted(
     bowlerId: null,
     target: null,
     freeHitActive: false,
+    currentPartnership: null,
+    superBallPending: null,
   };
 }
 
 function applyInningsEnded(
   state: CricketScoreboardState,
   payload: CricketInningsEndedPayload,
+  enforceLiveRules = false,
 ): CricketScoreboardState {
+  if (enforceLiveRules) {
+    // The innings being ended must be the current active innings
+    if (payload.innings !== state.currentInnings) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.INNINGS_ENDED,
+        `Cannot end innings ${payload.innings}: current active innings is ${state.currentInnings}`,
+      );
+    }
+    const currentInn = state.innings.find((i) => i.innings === payload.innings);
+    if (!currentInn) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.INNINGS_ENDED,
+        `Cannot end innings ${payload.innings}: innings not found`,
+      );
+    }
+    if (currentInn.phase !== "in_progress") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.INNINGS_ENDED,
+        `Cannot end innings ${payload.innings}: innings is already ${currentInn.phase}`,
+      );
+    }
+    // Match must be live
+    if (state.matchStatus !== "live") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.INNINGS_ENDED,
+        `Cannot end innings: match is not live (status: ${state.matchStatus})`,
+      );
+    }
+  }
+
   let next = updateInnings(state, payload.innings, (inn) => ({
     ...inn,
     runs: payload.runs,
@@ -333,8 +993,37 @@ function applyInningsEnded(
     phase: "completed" as const,
   }));
 
+  const completedPartnerships = [...(next.completedPartnerships ?? [])];
+  if (
+    next.currentPartnership &&
+    (next.currentPartnership.runs > 0 || next.currentPartnership.balls > 0)
+  ) {
+    completedPartnerships.push({
+      innings: payload.innings,
+      wicket: 0,
+      batter1Id: next.currentPartnership.batter1Id ?? 0,
+      batter1Runs: next.currentPartnership.batter1Runs,
+      batter1Balls: next.currentPartnership.batter1Balls,
+      batter2Id: next.currentPartnership.batter2Id ?? 0,
+      batter2Runs: next.currentPartnership.batter2Runs,
+      batter2Balls: next.currentPartnership.batter2Balls,
+      extras: next.currentPartnership.extras,
+      runs: next.currentPartnership.runs,
+      balls: next.currentPartnership.balls,
+      dismissedPlayerId: null,
+      notOutPlayerId: null,
+    });
+  }
+
   if (payload.reason === "super_over_required") {
-    return { ...next, thisOver: [], freeHitActive: false };
+    return {
+      ...next,
+      thisOver: [],
+      freeHitActive: false,
+      currentPartnership: null,
+      completedPartnerships,
+      superBallPending: null,
+    };
   }
 
   if (payload.innings === 1) {
@@ -346,26 +1035,47 @@ function applyInningsEnded(
       first.battingTeamId,
       state.oversLimit,
     );
+    const target =
+      state.revisedOversLimit != null && state.target != null
+        ? state.target
+        : payload.runs + 1;
     return {
       ...next,
       currentInnings: 2,
-      target: payload.runs + 1,
+      target,
       innings: [...next.innings, second],
       thisOver: [],
       strikerId: null,
       nonStrikerId: null,
       bowlerId: null,
       freeHitActive: false,
+      currentPartnership: null,
+      completedPartnerships,
+      superBallPending: null,
     };
   }
 
-  return { ...next, thisOver: [], freeHitActive: false };
+  return {
+    ...next,
+    thisOver: [],
+    freeHitActive: false,
+    currentPartnership: null,
+    completedPartnerships,
+    superBallPending: null,
+  };
 }
 
 function applyMatchCompleted(
   state: CricketScoreboardState,
   payload: CricketMatchCompletedPayload,
 ): CricketScoreboardState {
+  const terminalCheck = isCricketMatchTerminalState(state);
+  if (!terminalCheck.valid) {
+    throw new InvalidEventPayloadError(
+      CricketEventType.MATCH_COMPLETED,
+      terminalCheck.reason,
+    );
+  }
   return {
     ...state,
     matchStatus: "completed",
@@ -373,6 +1083,11 @@ function applyMatchCompleted(
     winnerTeamId: payload.winnerTeamId,
     resultText: payload.resultText,
     freeHitActive: false,
+    innings: state.innings.map((inn) =>
+      inn.phase === "in_progress"
+        ? { ...inn, phase: "completed" as const }
+        : inn,
+    ),
   };
 }
 
@@ -380,6 +1095,17 @@ function applyMatchAbandoned(
   state: CricketScoreboardState,
   payload: CricketMatchAbandonedPayload,
 ): CricketScoreboardState {
+  if (
+    state.matchStatus === "completed" ||
+    state.matchStatus === "abandoned" ||
+    state.matchStatus === "walkover" ||
+    state.matchStatus === "cancelled"
+  ) {
+    throw new InvalidEventPayloadError(
+      CricketEventType.MATCH_ABANDONED,
+      `cannot abandon match: match is already terminal (${state.matchStatus})`,
+    );
+  }
   return {
     ...state,
     matchStatus: "abandoned",
@@ -387,6 +1113,49 @@ function applyMatchAbandoned(
     abandonedReason: payload.reason,
     interruptionReason: null,
     freeHitActive: false,
+  };
+}
+
+function applyWalkoverAwarded(
+  state: CricketScoreboardState,
+  payload: CricketWalkoverAwardedPayload,
+): CricketScoreboardState {
+  if (
+    state.matchStatus === "completed" ||
+    state.matchStatus === "abandoned" ||
+    state.matchStatus === "walkover" ||
+    state.matchStatus === "cancelled"
+  ) {
+    throw new InvalidEventPayloadError(
+      CricketEventType.WALKOVER_AWARDED,
+      `cannot award walkover: match is already terminal (${state.matchStatus})`,
+    );
+  }
+  if (
+    payload.winnerTeamId !== state.homeTeamId &&
+    payload.winnerTeamId !== state.awayTeamId
+  ) {
+    throw new InvalidEventPayloadError(
+      CricketEventType.WALKOVER_AWARDED,
+      `winnerTeamId ${payload.winnerTeamId} is not a valid team for this match (home: ${state.homeTeamId}, away: ${state.awayTeamId})`,
+    );
+  }
+  const resultText = payload.reason
+    ? `Won by Walkover (${payload.reason})`
+    : "Won by Walkover";
+  return {
+    ...state,
+    matchStatus: "walkover",
+    sessionStatus: "idle",
+    winnerTeamId: payload.winnerTeamId,
+    resultText,
+    freeHitActive: false,
+    interruptionReason: null,
+    innings: state.innings.map((inn) =>
+      inn.phase === "in_progress"
+        ? { ...inn, phase: "completed" as const }
+        : inn,
+    ),
   };
 }
 
@@ -402,7 +1171,9 @@ function applyMatchInterrupted(
   };
 }
 
-function applyMatchResumed(state: CricketScoreboardState): CricketScoreboardState {
+function applyMatchResumed(
+  state: CricketScoreboardState,
+): CricketScoreboardState {
   if (state.matchStatus !== "live") return state;
   return {
     ...state,
@@ -414,13 +1185,84 @@ function applyMatchResumed(state: CricketScoreboardState): CricketScoreboardStat
 function applyDlsApplied(
   state: CricketScoreboardState,
   payload: CricketDlsAppliedPayload,
+  enforceLiveRules = false,
 ): CricketScoreboardState {
-  const innings = state.innings.find((i) => i.innings === payload.innings);
-  if (!innings) {
-    throw new InvalidEventPayloadError(
-      CricketEventType.DLS_APPLIED,
-      `innings ${payload.innings} not found`,
-    );
+  if (enforceLiveRules) {
+    // DLS can only be applied to a live match
+    if (state.matchStatus !== "live") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.DLS_APPLIED,
+        `DLS cannot be applied: match is not live (status: ${state.matchStatus})`,
+      );
+    }
+
+    // DLS cannot be applied after match is in terminal state
+    const terminalCheck = isCricketMatchTerminalState(state);
+    if (terminalCheck.valid) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.DLS_APPLIED,
+        "DLS cannot be applied: match is already in a terminal state",
+      );
+    }
+
+    // DLS can only target a regulation innings (1 or 2), not a Super Over innings
+    if (payload.innings > 2) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.DLS_APPLIED,
+        "DLS cannot be applied to a Super Over innings",
+      );
+    }
+
+    // DLS cannot be applied during a Super Over phase
+    const superOvers = state.innings.filter((i) => i.kind === "super_over");
+    if (superOvers.length > 0) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.DLS_APPLIED,
+        "DLS cannot be applied during a Super Over",
+      );
+    }
+
+    // DLS cannot be applied to a innings that has already completed
+    const targetInnings = state.innings.find((i) => i.innings === payload.innings);
+    if (targetInnings && targetInnings.phase === "completed") {
+      throw new InvalidEventPayloadError(
+        CricketEventType.DLS_APPLIED,
+        `DLS cannot be applied: innings ${payload.innings} is already completed`,
+      );
+    }
+
+    // DLS cannot be applied if the target has already been reached in the current innings
+    if (
+      payload.innings === 2 &&
+      state.target != null
+    ) {
+      const secondInn = state.innings.find((i) => i.innings === 2);
+      if (secondInn && secondInn.runs >= state.target) {
+        throw new InvalidEventPayloadError(
+          CricketEventType.DLS_APPLIED,
+          "DLS cannot be applied: the chase target has already been reached",
+        );
+      }
+    }
+
+    // DLS target innings must be the current or the upcoming second innings
+    // (innings 1 DLS is allowed during 1st innings; innings 2 DLS is allowed
+    //  when innings 1 is complete or when 2nd innings is in progress)
+    if (payload.innings === 1 && state.currentInnings > 1) {
+      throw new InvalidEventPayloadError(
+        CricketEventType.DLS_APPLIED,
+        "DLS cannot be applied to a completed first innings",
+      );
+    }
+    if (payload.innings === 2) {
+      const firstInn = state.innings.find((i) => i.innings === 1);
+      if (!firstInn) {
+        throw new InvalidEventPayloadError(
+          CricketEventType.DLS_APPLIED,
+          "DLS for innings 2 requires first innings to have started",
+        );
+      }
+    }
   }
 
   let next: CricketScoreboardState = {
@@ -432,10 +1274,13 @@ function applyDlsApplied(
     interruptionReason: null,
   };
 
-  next = updateInnings(next, payload.innings, (inn) => ({
-    ...inn,
-    oversLimit: payload.revisedOvers,
-  }));
+  const innings = state.innings.find((i) => i.innings === payload.innings);
+  if (innings) {
+    next = updateInnings(next, payload.innings, (inn) => ({
+      ...inn,
+      oversLimit: payload.revisedOvers,
+    }));
+  }
 
   return next;
 }
@@ -445,14 +1290,11 @@ function appendThisOver(
   payload: CricketBallRecordedPayload,
   display: ReturnType<typeof toBallDisplay>,
 ): BallDisplayOutcome[] {
-  if (payload.isLegalDelivery && payload.ball === 1) {
+  const activeOver = current[0]?.over;
+  if (activeOver !== undefined && payload.over !== activeOver) {
     return [display];
   }
-  const activeOver = current[0]?.over;
-  if (activeOver !== undefined && payload.over === activeOver) {
-    return [...current, display];
-  }
-  return current.length > 0 ? [...current, display] : [display];
+  return [...current, display];
 }
 
 export type ReduceCricketOptions = {
@@ -476,40 +1318,104 @@ export function reduceCricket(
 
   switch (parsed.eventType) {
     case CricketEventType.MATCH_STARTED:
-      next = applyMatchStarted(state, parsed.payload as CricketMatchStartedPayload);
+      next = applyMatchStarted(
+        state,
+        parsed.payload as CricketMatchStartedPayload,
+      );
       break;
     case CricketEventType.LINEUP_SET:
       next = applyLineupSet(state, parsed.payload as CricketLineupSetPayload);
       break;
     case CricketEventType.BALL_RECORDED:
-      next = applyBallRecorded(state, parsed.payload as CricketBallRecordedPayload, enforceLiveRules);
+      next = applyBallRecorded(
+        state,
+        parsed.payload as CricketBallRecordedPayload,
+        enforceLiveRules,
+      );
       break;
     case CricketEventType.PENALTY_AWARDED:
-      next = applyPenaltyAwarded(state, parsed.payload as CricketPenaltyAwardedPayload);
+      next = applyPenaltyAwarded(
+        state,
+        parsed.payload as CricketPenaltyAwardedPayload,
+      );
       break;
     case CricketEventType.PLAYER_RETIRED:
-      next = applyPlayerRetired(state, parsed.payload as CricketPlayerRetiredPayload);
+      next = applyPlayerRetired(
+        state,
+        parsed.payload as CricketPlayerRetiredPayload,
+      );
+      break;
+    case CricketEventType.SUPER_BALL_DECLARED:
+      next = applySuperBallDeclared(
+        state,
+        parsed.payload as CricketSuperBallDeclaredPayload,
+        enforceLiveRules,
+      );
+      break;
+    case CricketEventType.SUPER_BALL_CANCELLED:
+      next = applySuperBallCancelled(
+        state,
+        parsed.payload as CricketSuperBallCancelledPayload,
+        enforceLiveRules,
+      );
       break;
     case CricketEventType.SUPER_OVER_STARTED:
-      next = applySuperOverStarted(state, parsed.payload as CricketSuperOverStartedPayload);
+      next = applySuperOverStarted(
+        state,
+        parsed.payload as CricketSuperOverStartedPayload,
+        enforceLiveRules,
+      );
       break;
     case CricketEventType.INNINGS_ENDED:
-      next = applyInningsEnded(state, parsed.payload as CricketInningsEndedPayload);
+      next = applyInningsEnded(
+        state,
+        parsed.payload as CricketInningsEndedPayload,
+        enforceLiveRules,
+      );
       break;
     case CricketEventType.MATCH_COMPLETED:
-      next = applyMatchCompleted(state, parsed.payload as CricketMatchCompletedPayload);
+      next = applyMatchCompleted(
+        state,
+        parsed.payload as CricketMatchCompletedPayload,
+      );
       break;
     case CricketEventType.MATCH_ABANDONED:
-      next = applyMatchAbandoned(state, parsed.payload as CricketMatchAbandonedPayload);
+      next = applyMatchAbandoned(
+        state,
+        parsed.payload as CricketMatchAbandonedPayload,
+      );
+      break;
+    case CricketEventType.WALKOVER_AWARDED:
+      next = applyWalkoverAwarded(
+        state,
+        parsed.payload as CricketWalkoverAwardedPayload,
+      );
       break;
     case CricketEventType.MATCH_INTERRUPTED:
-      next = applyMatchInterrupted(state, parsed.payload as CricketMatchInterruptedPayload);
+      next = applyMatchInterrupted(
+        state,
+        parsed.payload as CricketMatchInterruptedPayload,
+      );
       break;
     case CricketEventType.MATCH_RESUMED:
       next = applyMatchResumed(state);
       break;
     case CricketEventType.DLS_APPLIED:
-      next = applyDlsApplied(state, parsed.payload as CricketDlsAppliedPayload);
+      next = applyDlsApplied(state, parsed.payload as CricketDlsAppliedPayload, enforceLiveRules);
+      break;
+    case CricketEventType.BATTER_SELECTED:
+      next = applyBatterSelected(
+        state,
+        parsed.payload as CricketBatterSelectedPayload,
+        enforceLiveRules,
+      );
+      break;
+    case CricketEventType.BOWLER_CHANGED:
+      next = applyBowlerChanged(
+        state,
+        parsed.payload as CricketBowlerChangedPayload,
+        enforceLiveRules,
+      );
       break;
     case CricketEventType.BALL_UNDONE:
       throw new InvalidEventPayloadError(
@@ -517,7 +1423,10 @@ export function reduceCricket(
         "undo markers are resolved before replay",
       );
     default:
-      throw new InvalidEventPayloadError(event.eventType, "unsupported event type");
+      throw new InvalidEventPayloadError(
+        event.eventType,
+        "unsupported event type",
+      );
   }
 
   return { ...next, lastSequence: event.sequence };
@@ -528,9 +1437,14 @@ export function replayCricketEvents(
   events: ScoringEventEnvelope[],
 ): CricketScoreboardState {
   const effective = resolveEventsForReplay(events);
-  return replayEvents(createInitialCricketState(meta), effective, reduceCricket, {
-    requireContiguousSequence: false,
-  });
+  return replayEvents(
+    createInitialCricketState(meta),
+    effective,
+    reduceCricket,
+    {
+      requireContiguousSequence: false,
+    },
+  );
 }
 
 export { formatBallLabel };

@@ -25,12 +25,14 @@ export const SOLUTION_PLATFORM_LINKS = [
 ] as const;
 
 export const MORE_NAV_LINKS = [
-  { label: "Use Cases", href: "/#solutions", sectionId: "solutions" },
-  { label: "FAQs", href: "/#faq", sectionId: "faq" },
+  { label: "Our Clients", href: "/#our-clients", sectionId: "our-clients" },
+  { label: "Blog & Articles", href: "/blog" },
+  { label: "Organizer Reviews", href: "/#reviews", sectionId: "reviews" },
+  { label: "Tournament Calculator", href: "/#calculator", sectionId: "calculator" },
   { label: "Upcoming Auctions", href: "/upcoming-auctions" },
-  { label: "Contact Us", href: "/contact" },
-  { label: "Auction Tips", href: "/auction-tips" },
-  { label: "Academy", href: "/academy" },
+  { label: "Auction Tips & Guides", href: "/auction-tips" },
+  { label: "Frequently Asked Questions", href: "/#faq", sectionId: "faq" },
+  { label: "Contact Desk", href: "/contact" },
 ] as const;
 
 export const LEGAL_LINKS = [

@@ -8,7 +8,13 @@ import {
   parseOriginList,
 } from "@workspace/api-base/dev-cors";
 import {
+  CANONICAL_STAGING_HOST,
+  CANONICAL_STAGING_ORIGIN,
+  STAGING_SITE_HOSTS,
   correctStagingPublicOriginMismatch,
+  isProductionBidwarHost,
+  isStagingLikeHost,
+  resolveRailwayExternalOrigin,
   resolveRenderExternalOrigin,
   resolveTrustedRequestOrigin,
   stagingProductionUrlConflictError,
@@ -100,6 +106,13 @@ const PRODUCTION_SITE_ORIGINS = [
   "https://bidwar.in",
   "https://www.bidwar.in",
   "https://bidwarlive.up.railway.app",
+  "https://stagingbidwar.up.railway.app",
+] as const;
+
+const STAGING_SITE_ORIGINS = [
+  "https://stagingbidwar.up.railway.app",
+  "https://bidwar-staging.up.railway.app",
+  "https://bidwar-staging.onrender.com",
 ] as const;
 
 const RAILWAY_PUBLIC_ORIGIN_KEYS = [
@@ -156,6 +169,11 @@ function resolvePlatformPublicOrigins(
     if (origin) origins.push(origin);
   }
 
+  if (env.RAILWAY_SERVICE_NAME) {
+    const origin = originFromHostOrUrl(`https://${env.RAILWAY_SERVICE_NAME}.up.railway.app`);
+    if (origin) origins.push(origin);
+  }
+
   const renderOrigin = resolveRenderExternalOrigin(env);
   if (renderOrigin) origins.push(normalizeOrigin(renderOrigin));
 
@@ -176,8 +194,12 @@ function buildCorsOrigins(
     ? []
     : mergeDevCorsOrigins(process.env.EXTRA_CORS_ORIGINS);
   const platformOrigins = resolvePlatformPublicOrigins();
-  const productionSiteOrigins =
-    bidwarEnv === "production" ? [...PRODUCTION_SITE_ORIGINS] : [];
+  const siteOrigins =
+    bidwarEnv === "staging"
+      ? [...STAGING_SITE_ORIGINS]
+      : bidwarEnv === "production"
+        ? [...PRODUCTION_SITE_ORIGINS]
+        : [];
   return [
     ...new Set(
       [
@@ -185,7 +207,7 @@ function buildCorsOrigins(
         ...fromHosts,
         ...devExtras,
         ...platformOrigins,
-        ...productionSiteOrigins,
+        ...siteOrigins,
       ]
         .map((origin) => normalizeOrigin(origin))
         .filter(Boolean),
@@ -212,7 +234,9 @@ function buildCachedConfig(): RuntimeConfig {
     appUrlOrigin,
     appHosts,
     renderExternalOrigin: resolveRenderExternalOrigin(),
+    railwayExternalOrigin: resolveRailwayExternalOrigin(),
     bidwarEnv: process.env.BIDWAR_ENV,
+    railwayEnvName: process.env.RAILWAY_ENVIRONMENT_NAME,
   });
   for (const warning of stagingCorrection.warnings) {
     console.error(`[bidwar] ${warning}`);
@@ -280,6 +304,19 @@ export function assertRuntimeEnv(): RuntimeConfig {
   }
 
   const isProduction = nodeEnv === "production";
+
+  // Auto-detect Railway staging environment to prevent staging from inheriting production vars
+  const railwayEnvName = process.env.RAILWAY_ENVIRONMENT_NAME?.trim().toLowerCase();
+  if (
+    railwayEnvName === "staging" &&
+    process.env.BIDWAR_ENV?.trim().toLowerCase() !== "staging"
+  ) {
+    console.warn(
+      `[bidwar] WARNING: RAILWAY_ENVIRONMENT_NAME is 'staging' but BIDWAR_ENV is '${process.env.BIDWAR_ENV}'. ` +
+        `Setting BIDWAR_ENV=staging to prevent OAuth redirects crossing into production.`,
+    );
+    process.env.BIDWAR_ENV = "staging";
+  }
 
   const bidwarEnv = process.env.BIDWAR_ENV?.trim().toLowerCase();
   if (!bidwarEnv) {
@@ -448,7 +485,7 @@ export function buildPublicUrl(pathname: string): string {
   return `${getPublicOrigin()}${path}`;
 }
 
-function requestHostFromHeaders(headers: IncomingHttpHeaders): string | undefined {
+export function requestHostFromHeaders(headers: IncomingHttpHeaders): string | undefined {
   const xfh = headers["x-forwarded-host"];
   const rawXfh = Array.isArray(xfh) ? xfh[0] : (xfh ?? "");
   const fromXfh = rawXfh.split(",")[0]?.trim();
@@ -469,6 +506,7 @@ export function getRequestPublicOrigin(headers: IncomingHttpHeaders): string {
     appHosts,
     publicScheme,
     publicOrigin,
+    bidwarEnv: process.env.BIDWAR_ENV,
   });
 }
 

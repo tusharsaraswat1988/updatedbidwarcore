@@ -118,6 +118,7 @@ export const EffectsLayer = memo(function EffectsLayer({
       const timer = window.setTimeout(() => setNewPlayerName(null), 8000);
       return () => window.clearTimeout(timer);
     }
+    return undefined;
   }, [derivedState, currentPlayer?.name]);
 
 
@@ -132,6 +133,17 @@ export const EffectsLayer = memo(function EffectsLayer({
     const amount = lastOutcome?.amount
       ? formatAuctionAmount(lastOutcome.amount, auctionUnit)
       : currentBidLabel;
+
+    const winningTeam =
+      teams.find((t) => lastOutcome?.teamId != null && String(t.id) === String(lastOutcome.teamId)) ??
+      (leadingTeam?.id ? teams.find((t) => String(t.id) === String(leadingTeam.id)) : null) ??
+      teams.find((t) => t.name.toLowerCase() === teamName.toLowerCase()) ??
+      leadingTeam;
+
+    const remainingPurseLabel =
+      winningTeam?.purse != null
+        ? formatAuctionAmount(winningTeam.purse, auctionUnit)
+        : null;
 
     return (
       <div className="absolute inset-0 z-30 grid place-items-center pointer-events-none overflow-hidden">
@@ -175,9 +187,25 @@ export const EffectsLayer = memo(function EffectsLayer({
             <p className="font-['Bebas_Neue'] text-[clamp(1.25rem,3.5cqw,3rem)] tracking-widest text-center text-white mt-1 tabular-nums">
               {amount} → {teamShort}
             </p>
-            <p className="text-[clamp(0.55rem,1.1cqw,0.875rem)] font-mono uppercase tracking-[0.35em] text-white/70 text-center mt-2 truncate max-w-full">
+            <p className="led-player text-[clamp(1rem,1.75cqw,1.9rem)] font-extrabold uppercase tracking-[0.06em] text-white text-center mt-2 truncate max-w-full font-['Space_Grotesk']">
               {playerName} · {teamName}
             </p>
+            {remainingPurseLabel ? (
+              <div
+                className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-black/80 backdrop-blur-sm"
+                style={{ borderColor: `color-mix(in srgb, ${teamColor} 70%, transparent)` }}
+              >
+                <span className="led-label font-['Space_Grotesk'] text-[clamp(0.75rem,0.95cqw,1.05rem)] font-bold uppercase tracking-[0.06em] text-white/80">
+                  REMAINING PURSE:
+                </span>
+                <span
+                  className="led-value font-['Bebas_Neue'] text-[clamp(1.1rem,1.8cqw,1.85rem)] tracking-wide tabular-nums leading-none font-bold"
+                  style={{ color: teamColor }}
+                >
+                  {remainingPurseLabel}
+                </span>
+              </div>
+            ) : null}
           </div>
           {teamLogo ? (
             <img src={teamLogo} alt={teamName} className="h-[14.8cqh] w-[14.8cqh] object-contain" />
@@ -223,7 +251,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             <p className="font-['Bebas_Neue'] text-[clamp(4rem,12cqw,12rem)] leading-[0.85] tracking-tighter text-red-500">
               UNSOLD
             </p>
-            <p className="text-xs font-mono uppercase tracking-[0.35em] text-white/60 mt-2">
+            <p className="led-label font-['Space_Grotesk'] text-[clamp(0.95rem,1.35cqw,1.5rem)] font-bold uppercase tracking-[0.06em] text-white/90 mt-2">
               {playerName} · Base {basePriceLabel} unmet
             </p>
           </div>
@@ -244,18 +272,18 @@ export const EffectsLayer = memo(function EffectsLayer({
             className="max-w-3xl border-4 border-amber-400/85 bg-black/88 px-10 py-5 text-center shadow-[0_0_40px_rgba(245,158,11,0.25)]"
             style={{ animation: "auction-sold-slam 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both" }}
           >
-            <p className="font-mono text-[10px] uppercase tracking-[0.55em] text-amber-300/90">
+            <p className="led-status font-['Space_Grotesk'] text-[clamp(0.95rem,1.35cqw,1.5rem)] font-extrabold uppercase tracking-[0.06em] text-amber-300">
               Player Deferred
             </p>
-            <p className="font-['Bebas_Neue'] text-[clamp(2rem,5cqw,4rem)] leading-none tracking-wide text-white mt-2">
+            <p className="led-player font-['Bebas_Neue'] text-[clamp(2.25rem,5.5cqw,4.5rem)] leading-none tracking-wide text-white mt-2 font-bold">
               {playerName}
             </p>
-            <p className="font-mono text-[11px] uppercase tracking-[0.35em] text-amber-200/85 mt-3">
+            <p className="led-label font-['Space_Grotesk'] text-[clamp(0.85rem,1.1cqw,1.25rem)] font-bold uppercase tracking-[0.06em] text-amber-200/95 mt-3">
               Returned to available pool
             </p>
           </div>
           <div className="border border-white/20 bg-black/65 px-8 py-3 backdrop-blur-sm">
-            <p className="font-mono text-[10px] uppercase tracking-[0.45em] text-white/75">
+            <p className="led-status font-['Space_Grotesk'] text-[clamp(0.9rem,1.2cqw,1.35rem)] font-extrabold uppercase tracking-[0.06em] text-white/90">
               Awaiting next player
             </p>
           </div>
@@ -281,7 +309,7 @@ export const EffectsLayer = memo(function EffectsLayer({
               PAUSED
             </p>
             {pausedSeconds != null ? (
-              <p className="text-xs font-mono uppercase tracking-[0.35em] text-white/60 mt-2">
+              <p className="led-status text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold uppercase tracking-[0.06em] text-white/90 mt-2 font-['Space_Grotesk']">
                 Resume at {pausedSeconds}s remaining
               </p>
             ) : null}
@@ -320,7 +348,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             className="relative text-center px-16 py-10 border-8 border-amber-400 bg-black/70"
             style={{ animation: "auction-sold-slam 0.6s ease-out both" }}
           >
-            <p className="text-[10px] font-mono uppercase tracking-[0.6em] text-amber-300/80">
+            <p className="led-label text-[clamp(0.85rem,1.1cqw,1.25rem)] font-extrabold uppercase tracking-[0.06em] text-amber-300 font-['Space_Grotesk']">
               Auction Paused
             </p>
             <p
@@ -334,12 +362,12 @@ export const EffectsLayer = memo(function EffectsLayer({
                 {mm}:{ss}
               </p>
             ) : (
-              <p className="text-xs font-mono uppercase tracking-[0.4em] text-white/60 mt-4">
+              <p className="led-status text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold uppercase tracking-[0.06em] text-white/85 mt-4 font-['Space_Grotesk']">
                 Resuming shortly
               </p>
             )}
             {breakInfo.message ? (
-              <p className="text-sm md:text-base font-mono uppercase tracking-[0.35em] text-amber-200/90 mt-6">
+              <p className="led-label text-[clamp(1rem,1.4cqw,1.6rem)] font-bold uppercase tracking-[0.06em] text-amber-200 mt-6 font-['Space_Grotesk']">
                 {breakInfo.message}
               </p>
             ) : null}
@@ -372,7 +400,7 @@ export const EffectsLayer = memo(function EffectsLayer({
           style={{ animation: "auction-sold-slam 0.6s ease-out both" }}
         >
           <p
-            className="text-xs font-mono uppercase tracking-[0.6em] mb-3"
+            className="led-status text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold uppercase tracking-[0.06em] mb-3 font-['Space_Grotesk']"
             style={{ color: "var(--accent)" }}
           >
             Get Ready
@@ -394,7 +422,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             {showMinutes ? `${mm}:${ss}` : ss}
           </p>
           {breakInfo.message ? (
-            <p className="text-sm md:text-lg font-mono uppercase tracking-[0.4em] text-white/80 mt-4">
+            <p className="led-label text-[clamp(1rem,1.4cqw,1.6rem)] font-bold uppercase tracking-[0.06em] text-white/90 mt-4 font-['Space_Grotesk']">
               {breakInfo.message}
             </p>
           ) : null}
@@ -410,7 +438,7 @@ export const EffectsLayer = memo(function EffectsLayer({
       <div className="absolute inset-0 z-30 grid place-items-center pointer-events-none">
         <div className="absolute inset-0 bg-black/85 backdrop-blur-sm" />
         <div className="relative flex flex-col items-center gap-8" style={{ animation: "auction-sold-slam 0.6s ease-out both" }}>
-          <p className="text-[10px] font-mono uppercase tracking-[0.5em] text-white/60">
+          <p className="led-label text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold uppercase tracking-[0.06em] text-white/80 font-['Space_Grotesk']">
             Fortune Wheel
           </p>
           <FortuneWheel items={wheel.items} spinning={wheel.spinning} winner={wheel.winner} />
@@ -421,7 +449,7 @@ export const EffectsLayer = memo(function EffectsLayer({
               </p>
             </div>
           ) : (
-            <p className="text-xs font-mono uppercase tracking-[0.4em] text-white/50">
+            <p className="led-status text-[clamp(0.95rem,1.3cqw,1.45rem)] font-extrabold uppercase tracking-[0.06em] text-white/85 font-['Space_Grotesk']">
               {wheel.spinning ? "Spinning…" : "Get Ready"}
             </p>
           )}
@@ -621,10 +649,12 @@ export const EffectsLayer = memo(function EffectsLayer({
           isTrial={tournament.isTrial}
           right={
             <div className="text-right">
-              <p className={LED_SECTION_KICKER_CLASS}>Squad Status</p>
+              <p className="led-label text-[clamp(0.85rem,1.15cqw,1.3rem)] font-extrabold font-['Space_Grotesk'] uppercase tracking-[0.06em] text-white/85">
+                Squad Status
+              </p>
               <p
-                className={`${LED_HEADLINE_CLASS} text-2xl md:text-4xl mt-0.5`}
-                style={{ color: "var(--accent)" }}
+                className={`${LED_HEADLINE_CLASS} text-2xl md:text-4xl mt-0.5 font-black drop-shadow-md`}
+                style={{ color: "var(--accent, #f59e0b)" }}
               >
                 TEAM WISE
               </p>
@@ -643,7 +673,7 @@ export const EffectsLayer = memo(function EffectsLayer({
         >
           {teams.length === 0 ? (
             <div className="col-span-full grid place-items-center">
-              <p className="text-white/40 font-mono uppercase tracking-[0.4em] text-sm">No teams yet</p>
+              <p className="text-white/70 font-['Space_Grotesk'] uppercase tracking-[0.06em] text-[clamp(0.95rem,1.25cqw,1.4rem)] font-bold">No teams yet</p>
             </div>
           ) : (
             teams.map((team) => (
@@ -731,7 +761,7 @@ export const EffectsLayer = memo(function EffectsLayer({
           {/* List */}
           <div className="px-[3%] py-[1.5%] flex flex-col justify-center gap-[1.2cqh] min-h-0">
             {topSoldPlayers.length === 0 ? (
-              <p className="text-center text-white/40 font-mono uppercase tracking-[0.4em] text-xs">
+              <p className="text-center text-white/70 font-['Space_Grotesk'] uppercase tracking-[0.06em] text-[clamp(0.95rem,1.25cqw,1.4rem)] font-bold">
                 No sales yet
               </p>
             ) : (
@@ -773,7 +803,7 @@ export const EffectsLayer = memo(function EffectsLayer({
             className="border-4 border-emerald-400/80 bg-black/88 px-10 py-4 text-center shadow-[0_0_32px_rgba(52,211,153,0.22)]"
             style={{ animation: "auction-sold-slam 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both" }}
           >
-            <p className="font-mono text-[10px] uppercase tracking-[0.5em] text-emerald-300/90">
+            <p className="font-['Space_Grotesk'] led-status text-[clamp(0.85rem,1.1cqw,1.25rem)] font-extrabold uppercase tracking-[0.06em] text-emerald-300">
               Now Bidding
             </p>
             <p className="font-['Bebas_Neue'] text-[clamp(1.75rem,4cqw,3rem)] leading-none tracking-wide text-white mt-1">
@@ -810,10 +840,10 @@ function TeamWiseSummaryBar({
   soldAtAuction: number;
 }) {
   const stats = [
-    { label: "Total Players Available", value: poolCounts.available, valueClass: "text-sky-300", iconClass: "bg-sky-400/80" },
-    { label: "Total Players Retained", value: poolCounts.retained, valueClass: "text-purple-300", iconClass: "bg-purple-400/80" },
-    { label: "Total Players Sold", value: poolCounts.sold, valueClass: "text-emerald-300", iconClass: "bg-emerald-400/80" },
-    { label: "Total Players Unsold", value: poolCounts.unsold, valueClass: "text-amber-300", iconClass: "bg-amber-400/80" },
+    { label: "Total Players Available", value: poolCounts.available, valueClass: "text-sky-300", iconClass: "bg-sky-400" },
+    { label: "Total Players Retained", value: poolCounts.retained, valueClass: "text-purple-300", iconClass: "bg-purple-400" },
+    { label: "Total Players Sold", value: poolCounts.sold, valueClass: "text-emerald-300", iconClass: "bg-emerald-400" },
+    { label: "Total Players Unsold", value: poolCounts.unsold, valueClass: "text-amber-300", iconClass: "bg-amber-400" },
   ] as const;
 
   const highestPurseTeam =
@@ -824,16 +854,16 @@ function TeamWiseSummaryBar({
     lastOutcome?.type === "sold" && lastOutcome.playerName ? lastOutcome : null;
 
   return (
-    <div className="relative team-wise-ticker flex items-stretch px-[2.4%] py-[1%] gap-[0.5%]">
+    <div className="relative team-wise-ticker flex items-stretch px-[2.4%] py-[0.8%] gap-[0.5%]">
       {(lastSold || highestPurseTeam) ? (
         <div className="team-wise-ticker-extra shrink-0">
           {lastSold ? (
             <div className="team-wise-ticker-extra-block">
-              <span className="team-wise-label" style={{ fontSize: metaSize }}>
+              <span className="team-wise-label text-white/80 font-bold" style={{ fontSize: metaSize }}>
                 Last Sold
               </span>
               <p
-                className="team-wise-ticker-extra-value mt-[0.2em]"
+                className="team-wise-ticker-extra-value mt-[0.2em] font-bold"
                 style={{ fontSize: valueSize, color: lastSold.teamColor ?? "var(--accent)" }}
               >
                 {lastSold.playerName}
@@ -842,11 +872,11 @@ function TeamWiseSummaryBar({
           ) : null}
           {highestPurseTeam ? (
             <div className="team-wise-ticker-extra-block">
-              <span className="team-wise-label" style={{ fontSize: metaSize }}>
+              <span className="team-wise-label text-white/80 font-bold" style={{ fontSize: metaSize }}>
                 Highest Purse
               </span>
               <p
-                className="team-wise-ticker-extra-value mt-[0.2em]"
+                className="team-wise-ticker-extra-value mt-[0.2em] font-bold"
                 style={{ fontSize: valueSize, color: highestPurseTeam.color }}
               >
                 {highestPurseTeam.short} · {formatTeamWiseMoneyShort(highestPurseTeam.purse, unit)}
@@ -854,10 +884,10 @@ function TeamWiseSummaryBar({
             </div>
           ) : null}
           <div className="team-wise-ticker-extra-block">
-            <span className="team-wise-label" style={{ fontSize: metaSize }}>
+            <span className="team-wise-label text-white/80 font-bold" style={{ fontSize: metaSize }}>
               Auction Round
             </span>
-            <p className="team-wise-ticker-extra-value mt-[0.2em] text-amber-200/90" style={{ fontSize: valueSize }}>
+            <p className="team-wise-ticker-extra-value mt-[0.2em] text-amber-300 font-bold" style={{ fontSize: valueSize }}>
               {Math.max(1, soldAtAuction + 1)}
             </p>
           </div>
@@ -870,7 +900,7 @@ function TeamWiseSummaryBar({
           <div className="flex flex-1 items-center justify-center min-w-0">
             <div className="flex flex-col items-center min-w-0 gap-[0.28em]">
               <span
-                className="team-wise-label text-center leading-tight"
+                className="team-wise-label text-white/85 font-bold text-center leading-tight whitespace-nowrap"
                 style={{ fontSize: metaSize }}
               >
                 {stat.label}
@@ -878,7 +908,7 @@ function TeamWiseSummaryBar({
               <div className="flex items-center gap-[0.45em]">
                 <span className={`team-wise-ticker-stat-icon ${stat.iconClass}`} aria-hidden />
                 <span
-                  className={`team-wise-ticker-value ${stat.valueClass}`}
+                  className={`team-wise-ticker-value font-bold ${stat.valueClass}`}
                   style={{ fontSize: valueSize }}
                 >
                   {stat.value}
@@ -930,11 +960,11 @@ function TeamWiseBroadcastPanel({
 
       {isActive && countdown != null && countdown > 0 ? (
         <div className="team-wise-last-pick">
-          <p className="team-wise-label" style={{ fontSize: type.meta }}>
+          <p className="team-wise-label font-bold" style={{ fontSize: type.meta }}>
             Last Pick
           </p>
           <p
-            className="team-wise-stat-primary text-amber-200 tabular-nums leading-none mt-[0.15em]"
+            className="team-wise-stat-primary text-amber-200 tabular-nums leading-none mt-[0.15em] whitespace-nowrap"
             style={{ fontSize: type.money }}
           >
             {formatTeamWiseCountdown(countdown)}
@@ -976,8 +1006,9 @@ function TeamWiseBroadcastPanel({
           )}
         </div>
         <h2
-          className={`team-wise-franchise-name ${LED_HEADLINE_CLASS} flex-1 min-w-0 truncate text-white leading-tight`}
-          style={{ fontSize: type.name }}
+          className={`team-wise-franchise-name ${LED_HEADLINE_CLASS} flex-1 min-w-0 text-white line-clamp-2`}
+          style={type.nameStyle ? type.nameStyle(team.name) : { fontSize: type.name }}
+          title={team.name}
         >
           {team.name}
         </h2>
@@ -987,14 +1018,14 @@ function TeamWiseBroadcastPanel({
       <div className="relative z-[1] flex flex-col justify-between px-[4.5%] py-[3.5%] flex-1 min-h-0 gap-[0.45em]">
 
         {/* Financial stats: Purse Left | Max Bid | Reserve */}
-        <div className="grid grid-cols-3 gap-[0.5em]">
+        <div className="grid grid-cols-[1.35fr_1.2fr_0.95fr] gap-[0.4em] items-start">
           {/* Purse Left */}
           <div className="min-w-0">
             <p className="team-wise-label" style={{ fontSize: type.label }}>
               Purse Left
             </p>
             <p
-              className="team-wise-stat-hero tabular-nums mt-[0.2em] transition-[color,text-shadow] duration-500"
+              className="team-wise-stat-hero whitespace-nowrap tabular-nums mt-[0.2em] transition-[color,text-shadow] duration-500 font-extrabold"
               style={{ fontSize: type.heroPurse, ...getTeamWisePurseValueStyle(true) }}
             >
               {formatTeamWiseMoneyShort(team.purse, unit)}
@@ -1006,12 +1037,12 @@ function TeamWiseBroadcastPanel({
               Max Bid
             </p>
             <p
-              className="team-wise-stat-spendable tabular-nums mt-[0.2em]"
+              className="team-wise-stat-spendable whitespace-nowrap tabular-nums mt-[0.2em] font-extrabold"
               style={{ fontSize: type.spendable }}
             >
               {formatTeamWiseMoneyShort(team.maxBidAllowed, unit)}
             </p>
-            <p className="team-wise-label mt-[0.12em]" style={{ fontSize: type.meta }}>
+            <p className="team-wise-label mt-[0.15em] text-white/75 font-semibold whitespace-nowrap" style={{ fontSize: type.meta }}>
               On 1 Player
             </p>
           </div>
@@ -1021,7 +1052,7 @@ function TeamWiseBroadcastPanel({
               Reserve
             </p>
             <p
-              className="team-wise-stat-tertiary tabular-nums mt-[0.2em]"
+              className="team-wise-stat-tertiary whitespace-nowrap tabular-nums mt-[0.2em] font-bold"
               style={{ fontSize: type.money }}
             >
               {formatTeamWiseMoneyShort(team.reservedAmount, unit)}
@@ -1031,37 +1062,31 @@ function TeamWiseBroadcastPanel({
 
         <div className="team-wise-divider" role="separator" />
 
-        {/* Squad counts + status */}
-        <div className="grid grid-cols-3 gap-[0.5em] items-center">
-          <div className="min-w-0">
-            <p className="team-wise-label" style={{ fontSize: type.label }}>
-              Bought
-            </p>
-            <p className="team-wise-stat-tertiary leading-none mt-[0.16em]" style={{ fontSize: type.money }}>
-              {team.playersBought}
-            </p>
-          </div>
-          <div className="min-w-0">
-            <p className="team-wise-label" style={{ fontSize: type.label }}>
-              Slots Left
-            </p>
-            <p
-              className="team-wise-stat-slots leading-none mt-[0.16em]"
-              style={{ fontSize: type.squad }}
-            >
-              {team.slotsRemaining}
-            </p>
-          </div>
-          <div className={status.badgeClass}>
-            <span className={status.dotClass} aria-hidden />
-            <span style={{ fontSize: type.badge }}>{status.label}</span>
-          </div>
-        </div>
-
-        {/* Progress bar */}
+        {/* One squad readout. The bar is the same ratio, not a second count. */}
         <div className="min-w-0">
+          <div className="flex items-end justify-between gap-[0.55em]">
+            <div className="min-w-0">
+              <p className="team-wise-label" style={{ fontSize: type.label }}>
+                Squad
+              </p>
+              <p
+                className="team-wise-stat-slots whitespace-nowrap leading-none mt-[0.12em] font-extrabold"
+                style={{ fontSize: type.squad }}
+                aria-label={`${team.playersBought} of ${squadCap} players`}
+              >
+                {team.playersBought}
+                <span className="text-white/45"> / {squadCap}</span>
+              </p>
+            </div>
+            {status ? (
+              <div className={`${status.badgeClass} whitespace-nowrap shrink-0 mb-[0.15em]`}>
+                <span className={status.dotClass} aria-hidden />
+                <span style={{ fontSize: type.badge }}>{status.label}</span>
+              </div>
+            ) : null}
+          </div>
           <div
-            className="team-wise-progress-track h-[0.6em] min-h-[6px]"
+            className="team-wise-progress-track h-[0.7em] min-h-[7px] mt-[0.45em]"
             style={getTeamWiseProgressTrackStyle(team.color)}
           >
             <div
@@ -1072,35 +1097,35 @@ function TeamWiseBroadcastPanel({
               }}
             />
           </div>
-          <p className="team-wise-label mt-[0.55em]" style={{ fontSize: type.meta }}>
-            {team.playersBought} / {squadCap} Players
-          </p>
         </div>
 
         <div className="team-wise-divider" role="separator" />
 
         {/* Last purchase */}
         <div className="min-w-0">
-          <p className="team-wise-label" style={{ fontSize: type.meta }}>
+          <p className="team-wise-label" style={{ fontSize: type.purchase }}>
             Last Purchase
           </p>
           {team.lastPurchase ? (
             <div className="team-wise-purchase-strip flex items-baseline justify-between gap-[0.55em]">
               <p
-                className={`team-wise-purchase-name ${LED_HEADLINE_CLASS} truncate text-white leading-tight flex-1 min-w-0`}
-                style={{ fontSize: type.purse }}
+                className={`team-wise-purchase-name ${LED_HEADLINE_CLASS} truncate text-white leading-tight flex-1 min-w-0 font-bold`}
+                style={{ fontSize: type.purchaseName }}
               >
                 {team.lastPurchase.playerName}
               </p>
               <p
-                className="team-wise-stat-hero tabular-nums shrink-0 leading-none text-right"
-                style={{ fontSize: type.spendable, ...getTeamWisePurseValueStyle(true) }}
+                className="team-wise-stat-hero whitespace-nowrap tabular-nums shrink-0 leading-none text-right font-extrabold"
+                style={{ fontSize: type.purchaseAmount, ...getTeamWisePurseValueStyle(true) }}
               >
                 {formatTeamWiseMoneyShort(team.lastPurchase.amount, unit)}
               </p>
             </div>
           ) : (
-            <p className="team-wise-label mt-[0.24em]" style={{ fontSize: type.meta }}>
+            <p
+              className={`team-wise-purchase-name ${LED_HEADLINE_CLASS} mt-[0.2em] truncate text-white/85 leading-tight font-bold`}
+              style={{ fontSize: type.purchaseName }}
+            >
               No Purchase Yet —
             </p>
           )}
@@ -1108,7 +1133,7 @@ function TeamWiseBroadcastPanel({
       </div>
 
       {isActive ? (
-        <div className="team-wise-active-pill" aria-label="Active bidding team">
+        <div className="team-wise-active-pill whitespace-nowrap font-bold" aria-label="Active bidding team">
           Active
         </div>
       ) : null}

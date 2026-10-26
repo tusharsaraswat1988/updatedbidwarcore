@@ -76,7 +76,7 @@ export default function ScoringPublicPlayersPage() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">Players</p>
         <h1 className="font-display text-3xl font-bold tracking-tight">{schedule.tournament.name}</h1>
         <p className="text-sm text-muted-foreground">
-          Batting and bowling leaders, with awards across the tournament.
+          Tournament-wide batting and bowling stats, with awards. These lists are not a competition points table.
         </p>
       </header>
 

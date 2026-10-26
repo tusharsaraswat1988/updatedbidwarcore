@@ -52,7 +52,7 @@ export type BadmintonHubNavItem = {
   id: string;
   label: string;
   href: (tournamentId: number) => string;
-  isActive: (pathname: string, tournamentId: number) => boolean;
+  isActive: (pathname: string, tournamentId: number, search?: string) => boolean;
 };
 
 function pathEndsWithSection(path: string, section: string): boolean {
@@ -131,14 +131,13 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
     id: "control",
     label: "Operator Panel",
     href: (tid) => `${badmintonHubPath(tid)}/control`,
-    isActive: (path) => {
+    isActive: (path, _tid, search) => {
       const onControl =
         /\/badminton\/control\/?$/.test(path) || path.endsWith("/badminton/control");
       if (!onControl) return false;
-      if (typeof window !== "undefined") {
-        const focus = new URLSearchParams(window.location.search).get("focus");
-        if (focus === "broadcast") return false;
-      }
+      const s = search ?? (typeof window !== "undefined" ? window.location.search : "");
+      const focus = new URLSearchParams(s).get("focus");
+      if (focus === "broadcast") return false;
       return true;
     },
   },
@@ -158,12 +157,13 @@ export const BADMINTON_HUB_NAV: BadmintonHubNavItem[] = [
     id: "broadcast",
     label: "Display & Broadcast",
     href: (tid) => `${badmintonHubPath(tid)}/control?focus=broadcast`,
-    isActive: (path) => {
+    isActive: (path, _tid, search) => {
       if (pathEndsWithSection(path, "broadcast")) return true;
       const onControl =
         /\/badminton\/control\/?$/.test(path) || path.endsWith("/badminton/control");
-      if (!onControl || typeof window === "undefined") return false;
-      return new URLSearchParams(window.location.search).get("focus") === "broadcast";
+      if (!onControl) return false;
+      const s = search ?? (typeof window !== "undefined" ? window.location.search : "");
+      return new URLSearchParams(s).get("focus") === "broadcast";
     },
   },
   {

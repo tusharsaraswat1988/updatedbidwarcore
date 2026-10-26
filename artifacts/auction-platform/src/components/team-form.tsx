@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import {
   useCreateTeam,
   useUpdateTeam,
@@ -14,7 +14,10 @@ import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
-import { ImageEditorDialog } from "@/components/image-editor-dialog";
+
+const ImageEditorDialog = lazy(() =>
+  import("@/components/image-editor-dialog").then((m) => ({ default: m.ImageEditorDialog }))
+);
 
 export function generateShortCode(name: string): string {
   const words = name.trim().toUpperCase().split(/\s+/).filter(Boolean);
@@ -105,6 +108,8 @@ export function TeamForm({
     purse: team?.purse || basePurse,
     logoUrl: team?.logoUrl && !team.logoUrl.startsWith("data:") ? team.logoUrl : "",
     logoPublicId: team?.logoPublicId ?? "",
+    coachName: team?.coachName || "",
+    coachMobile: team?.coachMobile ? sanitizeMobileInput(team.coachMobile) : "",
   });
   const [shortCodeManuallyEdited, setShortCodeManuallyEdited] = useState(!isNew);
   const [logoEditorOpen, setLogoEditorOpen] = useState(false);
@@ -137,11 +142,13 @@ export function TeamForm({
       purse: team?.purse || basePurse,
       logoUrl: team?.logoUrl && !team.logoUrl.startsWith("data:") ? team.logoUrl : "",
       logoPublicId: team?.logoPublicId ?? "",
+      coachName: team?.coachName || "",
+      coachMobile: team?.coachMobile ? sanitizeMobileInput(team.coachMobile) : "",
     });
     setShortCodeManuallyEdited(!isNew);
     setError("");
     setOwnerEmailError("");
-  }, [team?.id, team?.ownerPhotoUrl, team?.logoUrl, team?.name, team?.ownerName, team?.ownerMobile, team?.ownerEmail, team?.shortCode, team?.color, team?.purse, basePurse, isNew, existingTeamColors]);
+  }, [team?.id, team?.ownerPhotoUrl, team?.logoUrl, team?.name, team?.ownerName, team?.ownerMobile, team?.ownerEmail, team?.shortCode, team?.color, team?.purse, team?.coachName, team?.coachMobile, basePurse, isNew, existingTeamColors]);
 
   const shortCodeDuplicate = takenCodes.has(form.shortCode.toUpperCase());
 
@@ -159,6 +166,13 @@ export function TeamForm({
       setOwnerEmailError(ownerEmailResult.error);
       return;
     }
+    if (form.coachMobile.trim()) {
+      const coachMobileResult = parseIndianMobile(form.coachMobile);
+      if (!coachMobileResult.ok) {
+        setError(coachMobileResult.error);
+        return;
+      }
+    }
     if (shortCodeDuplicate) {
       setError(`Short code "${form.shortCode.toUpperCase()}" is already taken by another team`);
       return;
@@ -174,6 +188,8 @@ export function TeamForm({
       color: form.color,
       logoUrl: form.logoUrl.trim() || "",
       logoPublicId: form.logoPublicId.trim() || undefined,
+      coachName: form.coachName.trim() || null,
+      coachMobile: form.coachMobile.trim() || null,
       // Sports: omit purse — create defaults from tournament; update leaves purse untouched.
       ...(showPurse ? { purse: form.purse } : {}),
     };
@@ -211,7 +227,6 @@ export function TeamForm({
           value={form.name}
           onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
           required
-          placeholder="Mumbai Hawks"
         />
       </div>
 
@@ -233,7 +248,6 @@ export function TeamForm({
               setForm(f => ({ ...f, shortCode: e.target.value.toUpperCase() }));
             }}
             required
-            placeholder="CSK"
             maxLength={5}
             className={shortCodeDuplicate ? "border-destructive focus-visible:ring-destructive" : ""}
           />
@@ -263,7 +277,7 @@ export function TeamForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Owner Name <span className="text-destructive">*</span></Label>
-          <Input value={form.ownerName} onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))} required placeholder="Ravi Mehta" />
+          <Input value={form.ownerName} onChange={e => setForm(f => ({ ...f, ownerName: e.target.value }))} required />
         </div>
         <div className="space-y-2">
           <Label>Owner Mobile <span className="text-destructive">*</span></Label>
@@ -274,7 +288,6 @@ export function TeamForm({
             value={form.ownerMobile}
             onChange={e => setForm(f => ({ ...f, ownerMobile: sanitizeMobileInput(e.target.value) }))}
             required
-            placeholder="10-digit mobile (e.g. 9876543210)"
             maxLength={10}
           />
           <p className="text-xs text-muted-foreground">Digits only — must start with 6, 7, 8, or 9.</p>
@@ -288,6 +301,27 @@ export function TeamForm({
         onChange={v => { setForm(f => ({ ...f, ownerEmail: v })); if (ownerEmailError) setOwnerEmailError(""); }}
         error={ownerEmailError || undefined}
       />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Coach / Mentor Name <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+          <Input
+            value={form.coachName}
+            onChange={e => setForm(f => ({ ...f, coachName: e.target.value }))}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Coach / Mentor Mobile <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+          <Input
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
+            value={form.coachMobile}
+            onChange={e => setForm(f => ({ ...f, coachMobile: sanitizeMobileInput(e.target.value) }))}
+            maxLength={10}
+          />
+        </div>
+      </div>
 
       <div className="space-y-2">
         <Label>Owner Photo <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
@@ -345,7 +379,7 @@ export function TeamForm({
           <Label>Team Color</Label>
           <div className="flex items-center gap-3">
             <input type="color" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} className="w-12 h-10 rounded cursor-pointer border border-border bg-transparent" />
-            <Input value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} placeholder="#3B82F6" className="font-mono" />
+            <Input value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} className="font-mono" />
           </div>
         </div>
         {/* Purse — Auction only, and only when editing an existing team */}
@@ -407,14 +441,18 @@ export function TeamForm({
             </div>
           </div>
         </div>
-        <ImageEditorDialog
-          open={logoEditorOpen}
-          onClose={() => setLogoEditorOpen(false)}
-          initialUrl={form.logoUrl || undefined}
-          aspect={1}
-          title="Team Logo"
-          onSave={upload => setForm(f => ({ ...f, logoUrl: upload.url, logoPublicId: upload.publicId }))}
-        />
+        {logoEditorOpen && (
+          <Suspense fallback={null}>
+            <ImageEditorDialog
+              open={logoEditorOpen}
+              onClose={() => setLogoEditorOpen(false)}
+              initialUrl={form.logoUrl || undefined}
+              aspect={1}
+              title="Team Logo"
+              onSave={upload => setForm(f => ({ ...f, logoUrl: upload.url, logoPublicId: upload.publicId }))}
+            />
+          </Suspense>
+        )}
       </div>
 
       <div className="flex gap-3 pt-4">

@@ -52,6 +52,7 @@ export const academyLessonsTable = pgTable(
     contentFormat: text("content_format").notNull().default("plain"),
     youtubeUrl: text("youtube_url"),
     youtubeVideoId: text("youtube_video_id"),
+    thumbnailUrl: text("thumbnail_url"),
     categoryId: integer("category_id"),
     seoTitle: text("seo_title"),
     seoDescription: text("seo_description"),

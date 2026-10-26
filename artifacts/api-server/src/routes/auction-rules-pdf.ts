@@ -6,6 +6,7 @@ import {
   evaluateAuctionRulesPdfReady,
 } from "@workspace/auction/auction-rules-pdf";
 import { canAccessPrivateTournamentData } from "../middleware/require-organizer";
+import { requireAuctionModule } from "../middleware/require-module";
 import { brandingService } from "../lib/branding-service.js";
 import { fetchImageBuffer } from "../lib/pdf-branding.js";
 import { pipeAuctionRulesPdf } from "../lib/auction-rules-pdf-document.js";
@@ -25,10 +26,7 @@ router.get("/tournaments/:tournamentId/auction-rules.pdf", async (req: Request, 
   }
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-  if (!tournament) {
-    res.status(404).json({ error: "Tournament not found" });
-    return;
-  }
+  if (!requireAuctionModule(res, tournament)) return;
 
   const gate = evaluateAuctionRulesPdfReady(tournament);
   if (!gate.ready) {

@@ -90,9 +90,15 @@ export const PLAYER_REGISTRATION_HTML = `<!DOCTYPE html>
 <td style="padding:12px 18px;border-bottom:1px solid #E8E8E8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;color:#111111;">{{team_name}}</td>
 </tr>
 {{/team_name}}
+{{#auction_date}}
+<tr>
+<td style="padding:12px 18px;border-bottom:1px solid #E8E8E8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#777777;">Auction Date</td>
+<td style="padding:12px 18px;border-bottom:1px solid #E8E8E8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;color:#111111;">{{auction_date}}</td>
+</tr>
+{{/auction_date}}
 {{#tournament_dates}}
 <tr>
-<td style="padding:12px 18px;border-bottom:1px solid #E8E8E8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#777777;">Tournament Dates</td>
+<td style="padding:12px 18px;border-bottom:1px solid #E8E8E8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#777777;">Tournament / Match Dates</td>
 <td style="padding:12px 18px;border-bottom:1px solid #E8E8E8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14px;font-weight:600;color:#111111;">{{tournament_dates}}</td>
 </tr>
 {{/tournament_dates}}

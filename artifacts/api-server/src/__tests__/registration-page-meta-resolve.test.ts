@@ -43,7 +43,7 @@ describe("resolveRegistrationPageMeta", () => {
     expect(meta?.description).toContain("Vyapari Network Badminton League");
     expect(meta?.description).toContain("Badminton");
     expect(meta?.description).toContain("BLW");
-    expect(meta?.ogDescription).toContain("Player registrations are now open.");
+    expect(meta?.ogDescription).toContain("Registration is now open.");
   });
 
   it("never falls back to homepage marketing copy for unknown tournaments", async () => {

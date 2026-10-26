@@ -1,8 +1,10 @@
-import { lazy, Suspense } from "react";
-import { Switch, Route, Redirect } from "wouter";
+import { lazy, Suspense, useMemo } from "react";
+import { Switch, Route, Redirect, useLocation, useSearch } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { OrganizerGuard } from "@/components/organizer-guard";
+import { AppLayout } from "@/components/layout";
+import { parseAuctionOrganizerShell } from "@/lib/auction-organizer-shell";
 import { AdminPwaProvider } from "@/contexts/admin-pwa-context";
 import { LocalVenueGate } from "@/components/local-venue-gate";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
@@ -15,7 +17,8 @@ import { BootSplash } from "@/components/boot-splash";
 const TournamentSettings = lazy(() => import("@/pages/tournament-settings"));
 const AuctionOperator = lazy(() => import("@/pages/auction-operator"));
 const NewTournament = lazy(() => import("@/pages/tournament-new"));
-const TournamentHub = lazy(() => import("@/pages/tournament-hub"));
+const TournamentHome = lazy(() => import("@/pages/tournament-home"));
+const AuctionOverview = lazy(() => import("@/pages/auction-overview"));
 const Teams = lazy(() => import("@/pages/teams"));
 const Categories = lazy(() => import("@/pages/categories"));
 const Players = lazy(() => import("@/pages/players"));
@@ -30,8 +33,10 @@ const PlayerRegisterLegacy = lazy(() => import("@/pages/player-register-legacy")
 const OrganizerLogin = lazy(() => import("@/pages/organizer-login"));
 const AdminLogin = lazy(() => import("@/pages/admin-login"));
 const AdminDashboardOverview = lazy(() => import("@/pages/admin-dashboard-overview"));
+const AdminEventsActivities = lazy(() => import("@/pages/admin-events-activities"));
 const AdminLiveOperations = lazy(() => import("@/pages/admin-live-operations"));
 const AdminTournamentsList = lazy(() => import("@/pages/admin-tournaments-list"));
+const AdminBplEditions = lazy(() => import("@/pages/admin-bpl-editions"));
 const AdminOrganisersList = lazy(() => import("@/pages/admin-organisers-list"));
 const AdminSportsPage = lazy(() => import("@/pages/admin-sports-page"));
 const AdminSystemPage = lazy(() => import("@/pages/admin-system-page"));
@@ -40,33 +45,26 @@ const TournamentMasterWorkbook = lazy(() => import("@/pages/tournament-master-wo
 const AdminOrganiserDetail = lazy(() => import("@/pages/admin-organiser-detail"));
 const AdminReports = lazy(() => import("@/pages/admin-reports"));
 const AdminIntelligence = lazy(() => import("@/pages/admin-intelligence"));
-const ObsOverlayPreview = lazy(() => import("@/pages/obs-overlay-preview"));
-const ObsOverlay = lazy(() => import("@/pages/obs-overlay"));
 const ObsV2OverlayPreview = lazy(() => import("@/pages/obs-v2-overlay-preview"));
 const ObsV2Overlay = lazy(() => import("@/pages/obs-v2-overlay"));
 /** @deprecated Prefer /obs/v2 — kept for bookmarks during rollout */
 const ObsLabOverlayPreview = lazy(() => import("@/pages/obs-v2-overlay-preview"));
 const ObsLabOverlay = lazy(() => import("@/pages/obs-v2-overlay"));
+const CricketObsV2Preview = lazy(() => import("@/pages/cricket-obs-v2-preview"));
 const OrganizerPortal = lazy(() => import("@/pages/organizer-portal"));
 const OrganizerProfile = lazy(() => import("@/pages/organizer-profile"));
 const LiveViewer = lazy(() => import("@/pages/liveviewer"));
 const AdminCommunicationCenter = lazy(() => import("@/pages/admin-communication-center"));
 const AdminCommunicate = lazy(() => import("@/pages/admin-communicate"));
-const AdminNotificationCenter = lazy(() => import("@/pages/admin-notification-center"));
 const AdminAdminNotifications = lazy(() => import("@/pages/admin-admin-notifications"));
 const AdminAdminNotificationSettings = lazy(() => import("@/pages/admin-admin-notification-settings"));
 const AdminBranding = lazy(() => import("@/pages/admin-branding"));
-const AdminCreativeAssets = lazy(() => import("@/pages/admin-creative-assets"));
 const AdminAcademyLessonsList = lazy(() => import("@/pages/admin-academy-lessons-list"));
 const AdminAcademyLessonForm = lazy(() => import("@/pages/admin-academy-lesson-form"));
-const BuzzStudioDevPage = lazy(() => import("@/pages/buzz-studio-dev/BuzzStudioDevPage"));
 const WaConsent = lazy(() => import("@/pages/wa-consent"));
 const CompleteProfile = lazy(() => import("@/pages/complete-profile"));
 const BreakTimerPage = lazy(() => import("@/pages/break-timer"));
 const LocalModePage = lazy(() => import("@/pages/local-mode"));
-const TeamReports = lazy(() => import("@/pages/team-reports"));
-const MediaCenterPage = lazy(() => import("@/pages/media-center/MediaCenterPage"));
-const TemplateStudioPage = lazy(() => import("@/pages/media-center/template-studio-page"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 function RouteSuspenseFallback() {
@@ -129,37 +127,140 @@ function RouteSuspenseFallback() {
   return <BootSplash />;
 }
 
+/** Old classic overlay URLs. Graphics are v2; bookmarks and OBS sources keep working. */
+function LegacyObsRedirect({
+  tournamentId,
+  preview = false,
+}: {
+  tournamentId: string;
+  preview?: boolean;
+}) {
+  const search = useSearch();
+  const base = `/tournament/${tournamentId}/obs/v2${preview ? "/preview" : ""}`;
+  const qs = search ? (search.startsWith("?") ? search : `?${search}`) : "";
+  return <Redirect to={`${base}${qs}`} />;
+}
+
+function LegacyLiveRedirect() {
+  const search = useSearch();
+  const auction = useMemo(() => {
+    try {
+      return new URLSearchParams(search).get("auction");
+    } catch {
+      return null;
+    }
+  }, [search]);
+
+  if (auction && /^\d+$/.test(auction)) {
+    return <Redirect to={`/live/${auction}`} />;
+  }
+  return <Redirect to="/upcoming-auctions" />;
+}
+
+function OrganizerPageFallback() {
+  return (
+    <div
+      className="flex items-center justify-center py-24 text-sm text-muted-foreground"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Loading tournament page"
+    >
+      Loading…
+    </div>
+  );
+}
+
+/**
+ * One organiser shell for auction setup pages. Lazy pages suspend inside the
+ * main pane, so the sidebar stays mounted across those route changes.
+ * Auction Control, scoring, and OBS stay on their own routes.
+ */
+function AuctionOrganizerShell({
+  tournamentId,
+  requiredModule,
+}: {
+  tournamentId: number;
+  requiredModule?: "auction";
+}) {
+  return (
+    <OrganizerGuard tournamentId={tournamentId} requiredModule={requiredModule}>
+      <AppLayout tournamentId={tournamentId}>
+        <Suspense fallback={<OrganizerPageFallback />}>
+          <Switch>
+            <Route path="/tournament/:id/auction-overview">
+              {() => <AuctionOverview />}
+            </Route>
+            <Route path="/tournament/:id/overview">
+              {() => <AuctionOverview />}
+            </Route>
+            <Route path="/tournament/:id/teams" component={Teams} />
+            <Route path="/tournament/:id/categories" component={Categories} />
+            <Route path="/tournament/:id/players" component={Players} />
+            <Route path="/tournament/:id/reset" component={AuctionReset} />
+            <Route path="/tournament/:id/reports" component={Reports} />
+            <Route path="/tournament/:id/links" component={LinksPage} />
+            <Route path="/tournament/:id/fortune-wheel" component={FortuneWheel} />
+            <Route path="/tournament/:id/break-timer" component={BreakTimerPage} />
+            <Route path="/tournament/:id/local-mode" component={LocalModePage} />
+            <Route path="/tournament/:id/settings" component={TournamentSettings} />
+            <Route path="/tournament/:id">{() => <TournamentHome />}</Route>
+          </Switch>
+        </Suspense>
+      </AppLayout>
+    </OrganizerGuard>
+  );
+}
+
 function PlatformRouter() {
+  const [location] = useLocation();
+  const organizerShell = parseAuctionOrganizerShell(location);
+  if (organizerShell) {
+    return (
+      <AuctionOrganizerShell
+        tournamentId={organizerShell.tournamentId}
+        requiredModule={organizerShell.requiredModule}
+      />
+    );
+  }
+
   return (
     <Suspense fallback={<RouteSuspenseFallback />}>
       <Switch>
         <Route path="/dashboard">{() => <Redirect to="/organizer" />}</Route>
         <Route path="/tournament/new" component={NewTournament} />
         <Route path="/tournament/:id/login" component={OrganizerLogin} />
+        <Route path="/live/:id" component={LiveViewer} />
+        <Route path="/live" component={LegacyLiveRedirect} />
+        <Route path="/tournament/:id/liveviewer" component={LiveViewer} />
+        <Route path="/register/:code" component={PlayerRegister} />
+        <Route path="/register">{() => <Redirect to="/upcoming-auctions" />}</Route>
+        <Route path="/tournament/:id/register" component={PlayerRegisterLegacy} />
         <Route path="/tournament/:id/display" component={DisplayView} />
         <Route path="/tournament/:id/side-display" component={SideDisplayView} />
         <Route path="/tournament/:id/score-display" component={RedirectToScoringApp} />
-        <Route path="/tournament/:id/cricket/obs/:matchId" component={RedirectToScoringApp} />
-        {/* Public live viewer — no auction code gate; share /live/:id with fans */}
-        <Route path="/live/:id" component={LiveViewer} />
-        <Route path="/live">
-          {() => {
-            const auction = new URLSearchParams(window.location.search).get("auction");
-            if (auction && /^\d+$/.test(auction)) {
-              return <Redirect to={`/live/${auction}`} />;
-            }
-            return <Redirect to="/upcoming-auctions" />;
-          }}
-        </Route>
-        <Route path="/tournament/:id/liveviewer" component={LiveViewer} />
-        <Route path="/register/:code" component={PlayerRegister} />
-        <Route path="/tournament/:id/register" component={PlayerRegisterLegacy} />
+        {/* V2 Broadcast Overlays (Must precede legacy :matchId wildcard) */}
+        <Route path="/tournament/:id/cricket/obs/v2/preview" component={CricketObsV2Preview} />
+        <Route path="/tournament/:id/cricket/obs/v2" component={CricketObsV2Preview} />
+        <Route path="/cricket/obs/v2/preview" component={CricketObsV2Preview} />
+        <Route path="/cricket/obs/v2" component={CricketObsV2Preview} />
         <Route path="/tournament/:id/obs/v2/preview" component={ObsV2OverlayPreview} />
         <Route path="/tournament/:id/obs/v2" component={ObsV2Overlay} />
         <Route path="/tournament/:id/obs/lab/preview" component={ObsLabOverlayPreview} />
         <Route path="/tournament/:id/obs/lab" component={ObsLabOverlay} />
-        <Route path="/tournament/:id/obs/preview" component={ObsOverlayPreview} />
-        <Route path="/tournament/:id/obs" component={ObsOverlay} />
+
+        {/* Retired cricket OBS scorebug. Bookmarks open the V2 broadcast overlay. */}
+        <Route path="/tournament/:id/cricket/obs/:matchId">
+          {(params) => <Redirect to={`/tournament/${params?.id ?? "0"}/cricket/obs/v2`} />}
+        </Route>
+        <Route path="/tournament/:id/obs/preview">
+          {(params) => (
+            <LegacyObsRedirect tournamentId={params?.id ?? "0"} preview />
+          )}
+        </Route>
+        <Route path="/tournament/:id/obs">
+          {(params) => <LegacyObsRedirect tournamentId={params?.id ?? "0"} />}
+        </Route>
 
         {/* Scoring — redirect legacy URLs to external scoring app */}
         <Route path="/badminton/scorer" component={RedirectToScoringApp} />
@@ -176,6 +277,7 @@ function PlatformRouter() {
           )}
         </Route>
         <Route path="/admin/login" component={AdminLogin} />
+        <Route path="/admin/events-activities" component={AdminEventsActivities} />
         <Route path="/admin/live" component={AdminLiveOperations} />
         <Route path="/admin/live/auctions" component={AdminLiveOperations} />
         <Route path="/admin/live/monitor" component={AdminLiveOperations} />
@@ -191,6 +293,8 @@ function PlatformRouter() {
         <Route path="/admin/tournaments" component={AdminTournamentsList} />
         <Route path="/admin/tournaments/new" component={AdminTournamentsList} />
         <Route path="/admin/tournaments/sports" component={AdminSportsPage} />
+        <Route path="/admin/bpl" component={AdminBplEditions} />
+        <Route path="/admin/bpl/editions" component={AdminBplEditions} />
         <Route path="/admin/tournaments/:id" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/overview" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/players" component={AdminTournamentDetail} />
@@ -201,6 +305,7 @@ function PlatformRouter() {
         <Route path="/admin/tournaments/:id/teams" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/bids" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/live/monitor" component={AdminTournamentDetail} />
+        <Route path="/admin/tournaments/:id/live/endpoints" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/live/displays" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/live/owner-apps" component={AdminTournamentDetail} />
         <Route path="/admin/tournaments/:id/live/sessions" component={AdminTournamentDetail} />
@@ -212,20 +317,20 @@ function PlatformRouter() {
         <Route path="/admin/settings/intelligence/:tab" component={AdminIntelligence} />
         <Route path="/admin/communication/:tab" component={AdminCommunicationCenter} />
         <Route path="/admin/communication" component={AdminCommunicationCenter} />
-        <Route path="/admin/settings/communication/logs" component={AdminCommunicate} />
-        <Route path="/admin/settings/communication/:tab" component={AdminCommunicate} />
-        <Route path="/admin/settings/communication" component={AdminCommunicate} />
+        <Route path="/admin/settings/communication/logs">{() => <Redirect to="/admin/communication/logs" />}</Route>
+        <Route path="/admin/settings/communication/:tab">{(params) => <Redirect to={`/admin/communication/${params?.tab || "sms"}`} />}</Route>
+        <Route path="/admin/settings/communication">{() => <Redirect to="/admin/communication/sms" />}</Route>
         <Route path="/admin/notifications" component={AdminAdminNotifications} />
         <Route path="/admin/settings/admin-notifications" component={AdminAdminNotificationSettings} />
-        <Route path="/admin/settings/notifications" component={AdminNotificationCenter} />
+        <Route path="/admin/settings/notifications">{() => <Redirect to="/admin/communication" />}</Route>
         <Route path="/admin/settings/branding" component={AdminBranding} />
         <Route path="/admin/settings/branding/:tab" component={AdminBranding} />
-        <Route path="/admin/creative-assets" component={AdminCreativeAssets} />
         <Route path="/admin/knowledge-center/academy/new" component={AdminAcademyLessonForm} />
         <Route path="/admin/knowledge-center/academy/:id" component={AdminAcademyLessonForm} />
         <Route path="/admin/knowledge-center/academy" component={AdminAcademyLessonsList} />
         <Route path="/admin/settings/system/diagnostics" component={AdminSystemPage} />
         <Route path="/admin/settings/system/audit-logs" component={AdminSystemPage} />
+        <Route path="/admin/settings/system/clients" component={AdminSystemPage} />
         <Route path="/admin/settings/system/sms" component={AdminSystemPage} />
         <Route path="/admin/settings/system/session-lock" component={AdminSystemPage} />
         <Route path="/admin/settings/system/installer" component={AdminSystemPage} />
@@ -234,7 +339,7 @@ function PlatformRouter() {
         <Route path="/admin/settings/system/upcoming-display" component={AdminSystemPage} />
         <Route path="/admin/settings/system/showcase" component={AdminSystemPage} />
         <Route path="/admin/settings/system/search-console" component={AdminSystemPage} />
-        <Route path="/admin/buzz-studio-dev" component={BuzzStudioDevPage} />
+        <Route path="/admin/clients">{() => <Redirect to="/admin/settings/system/clients" />}</Route>
         <Route path="/admin/reports">{() => <Redirect to="/admin/settings/reports" />}</Route>
         <Route path="/admin/intelligence">{() => <Redirect to="/admin/settings/intelligence" />}</Route>
         <Route path="/admin/communicate/logs">{() => <Redirect to="/admin/settings/communication/logs" />}</Route>
@@ -246,111 +351,34 @@ function PlatformRouter() {
         <Route path="/organizer" component={OrganizerPortal} />
         <Route path="/organizer/profile" component={OrganizerProfile} />
 
-        {/* Organizer-protected routes */}
-        <Route path="/tournament/:id">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><TournamentHub /></OrganizerGuard>;
-          }}
+        {/* Canonical public tournament redirects (prevents 404 on plural /tournaments/ links) */}
+        <Route path="/tournaments/:id/schedule">
+          {(params) => <Redirect to={`/tournament/${params?.id}/cricket/matches`} />}
         </Route>
-        <Route path="/tournament/:id/teams">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><Teams /></OrganizerGuard>;
-          }}
+        <Route path="/tournaments/:id/standings">
+          {(params) => <Redirect to={`/tournament/${params?.id}/cricket/standings`} />}
         </Route>
-        <Route path="/tournament/:id/categories">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><Categories /></OrganizerGuard>;
-          }}
+        <Route path="/tournaments/:id">
+          {(params) => <Redirect to={`/tournament/${params?.id}/fan`} />}
         </Route>
-        <Route path="/tournament/:id/players">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><Players /></OrganizerGuard>;
-          }}
-        </Route>
+
+        {/* Auction Control stays outside the persistent organiser shell. */}
         <Route path="/tournament/:id/auction">
           {(params) => {
             const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><AuctionOperator /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/reset">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><AuctionReset /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/reports">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><Reports /></OrganizerGuard>;
+            return <OrganizerGuard tournamentId={tid} requiredModule="auction"><AuctionOperator /></OrganizerGuard>;
           }}
         </Route>
         <Route path="/tournament/:id/team-reports">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><TeamReports /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/links">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><LinksPage /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/fortune-wheel">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><FortuneWheel /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/break-timer">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><BreakTimerPage /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/local-mode">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><LocalModePage /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/settings">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><TournamentSettings /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/media-center/:templateId">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><TemplateStudioPage /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/tournament/:id/media-center">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><MediaCenterPage /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/organizer/media-center/:id/:templateId">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><TemplateStudioPage /></OrganizerGuard>;
-          }}
-        </Route>
-        <Route path="/organizer/media-center/:id">
-          {(params) => {
-            const tid = parseInt(params?.id || "0");
-            return <OrganizerGuard tournamentId={tid}><MediaCenterPage /></OrganizerGuard>;
-          }}
+          {(params) => <Redirect to={`/tournament/${params?.id ?? "0"}/reports?doc=planning`} />}
         </Route>
         {/* Sports Mission Control — temporary host under scoring-app */}
-        <Route path="/tournament/:id/mission-control" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/mission-control">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid} requiredModule="scoring"><RedirectToScoringApp /></OrganizerGuard>;
+          }}
+        </Route>
         <Route path="/tournament/:id/cricket/match/:matchId" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/cricket/player/:playerId" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/cricket/team/:teamId" component={RedirectToScoringApp} />
@@ -362,12 +390,35 @@ function PlatformRouter() {
         <Route path="/tournament/:id/cricket/sponsors" component={RedirectToScoringApp} />
         <Route path="/cricket/leaderboards" component={RedirectToScoringApp} />
         <Route path="/player/:globalPlayerId" component={RedirectToScoringApp} />
+        <Route path="/cricket/scorer" component={RedirectToScoringApp} />
+        <Route path="/cricket/:matchId/score" component={RedirectToScoringApp} />
+        <Route path="/:code/fanpage" component={RedirectToScoringApp} />
+        <Route path="/fan/:id" component={RedirectToScoringApp} />
+        <Route path="/fanpage/:id" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/fan" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/cricket" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/dashboard" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/settings" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/rules" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/teams" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/players" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/fixtures" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/standings" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/stats" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/officials" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/awards" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/reports" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/score/schedule" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/score/live-control" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score/links" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/score/:matchId/live" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/score/:matchId" component={RedirectToScoringApp} />
-        <Route path="/tournament/:id/score" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/score">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid} requiredModule="scoring"><RedirectToScoringApp /></OrganizerGuard>;
+          }}
+        </Route>
         <Route path="/tournament/:id/badminton/players" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/matches/:matchId/control" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/matches" component={RedirectToScoringApp} />
@@ -378,11 +429,17 @@ function PlatformRouter() {
         <Route path="/tournament/:id/badminton/schedule" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/control" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/results" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton/summary" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/scoring-format" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/analytics" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/branding" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/badminton/broadcast" component={RedirectToScoringApp} />
-        <Route path="/tournament/:id/badminton" component={RedirectToScoringApp} />
+        <Route path="/tournament/:id/badminton">
+          {(params) => {
+            const tid = parseInt(params?.id || "0");
+            return <OrganizerGuard tournamentId={tid} requiredModule="scoring"><RedirectToScoringApp /></OrganizerGuard>;
+          }}
+        </Route>
 
         <Route component={NotFound} />
       </Switch>

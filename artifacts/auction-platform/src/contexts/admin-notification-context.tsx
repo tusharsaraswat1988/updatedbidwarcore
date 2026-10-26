@@ -31,13 +31,16 @@ type PageListener = (payload: LiveNotificationPayload) => void;
 
 type AdminNotificationContextValue = {
   recentItems: AdminNotificationItem[];
+  actionRequiredItems: AdminNotificationItem[];
   unreadCount: number;
+  actionRequiredCount: number;
   settings: AdminNotificationSettings | null;
   connectionStatus: "connected" | "reconnecting" | "disconnected";
   loadingRecent: boolean;
   refreshRecent: () => Promise<void>;
   markRead: (id: number) => Promise<void>;
   markAllRead: () => Promise<void>;
+  resolveNotification: (id: number) => Promise<void>;
   subscribeToLiveNotifications: (listener: PageListener) => () => void;
   openNotification: (item: AdminNotificationItem) => void;
 };
@@ -52,10 +55,14 @@ function ssePayloadToItem(
 ): AdminNotificationItem {
   return {
     ...notification,
+    resolutionStatus: notification.resolutionStatus ?? "pending",
     entityType: notification.entityType ?? null,
     entityId: notification.entityId ?? null,
     readAt: notification.readAt ?? null,
+    resolvedAt: notification.resolvedAt ?? null,
+    resolvedBy: notification.resolvedBy ?? null,
     metadata: notification.metadata ?? null,
+    actionMetadata: notification.actionMetadata ?? null,
     isRead: notification.isRead ?? false,
   };
 }
@@ -69,7 +76,9 @@ export function AdminNotificationProvider({
 }) {
   const [, navigate] = useLocation();
   const [recentItems, setRecentItems] = useState<AdminNotificationItem[]>([]);
+  const [actionRequiredItems, setActionRequiredItems] = useState<AdminNotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [actionRequiredCount, setActionRequiredCount] = useState(0);
   const [settings, setSettings] = useState<AdminNotificationSettings | null>(null);
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [connectionStatus, setConnectionStatus] =
@@ -127,6 +136,13 @@ export function AdminNotificationProvider({
     [navigate],
   );
 
+  const isActionRequiredItem = useCallback((item: AdminNotificationItem): boolean => {
+    if (item.resolutionStatus === "resolved" || item.resolutionStatus === "dismissed") return false;
+    if (item.type === "LICENSE_REQUESTED" || item.type === "CONTACT_FORM_SUBMISSION") return true;
+    if (item.priority === "warning" || item.priority === "critical") return true;
+    return false;
+  }, []);
+
   const handleLiveNotification = useCallback(
     (item: AdminNotificationItem, count: number) => {
       if (seenIdsRef.current.has(item.id)) {
@@ -141,6 +157,16 @@ export function AdminNotificationProvider({
         return next.slice(0, ADMIN_NOTIFICATION_DROPDOWN_LIMIT);
       });
 
+      // Also push into actionRequired list so the bell immediately reflects new
+      // license requests / contact inquiries without waiting for next refresh
+      if (isActionRequiredItem(item)) {
+        setActionRequiredItems((prev) => {
+          if (prev.some((n) => n.id === item.id)) return prev;
+          return [item, ...prev];
+        });
+        setActionRequiredCount((c) => c + 1);
+      }
+
       notifyListeners({ notification: item, unreadCount: count });
 
       if (settingsRef.current?.notificationSoundEnabled) {
@@ -149,7 +175,7 @@ export function AdminNotificationProvider({
 
       showLiveToast(item);
     },
-    [notifyListeners, showLiveToast],
+    [notifyListeners, showLiveToast, isActionRequiredItem],
   );
 
   const refreshRecent = useCallback(async () => {
@@ -166,10 +192,14 @@ export function AdminNotificationProvider({
       if (recentRes.ok) {
         const data = (await recentRes.json()) as {
           items: AdminNotificationItem[];
+          actionRequired?: AdminNotificationItem[];
           unreadCount: number;
+          actionRequiredCount?: number;
         };
         setRecentItems(data.items);
+        setActionRequiredItems(data.actionRequired ?? []);
         setUnreadCount(data.unreadCount);
+        setActionRequiredCount(data.actionRequiredCount ?? 0);
         for (const item of data.items) {
           seenIdsRef.current.add(item.id);
         }
@@ -278,8 +308,26 @@ export function AdminNotificationProvider({
     await fetch(`/api/auth/admin/admin-notifications/${id}/read`, {
       method: "PATCH",
       credentials: "include",
+      headers: { "Content-Type": "application/json" },
     });
     setRecentItems((prev) => prev.map((item) => (item.id === id ? { ...item, isRead: true } : item)));
+    setActionRequiredItems((prev) => prev.map((item) => (item.id === id ? { ...item, isRead: true } : item)));
+    setUnreadCount((c) => Math.max(0, c - 1));
+  }, []);
+
+  const resolveNotification = useCallback(async (id: number) => {
+    await fetch(`/api/auth/admin/admin-notifications/${id}/resolve`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+    });
+    setRecentItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, isRead: true, resolutionStatus: "resolved", resolvedAt: new Date().toISOString() } : item,
+      ),
+    );
+    setActionRequiredItems((prev) => prev.filter((item) => item.id !== id));
+    setActionRequiredCount((c) => Math.max(0, c - 1));
     setUnreadCount((c) => Math.max(0, c - 1));
   }, []);
 
@@ -289,6 +337,7 @@ export function AdminNotificationProvider({
       credentials: "include",
     });
     setRecentItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    setActionRequiredItems((prev) => prev.map((item) => ({ ...item, isRead: true })));
     setUnreadCount(0);
   }, []);
 
@@ -310,25 +359,31 @@ export function AdminNotificationProvider({
   const value = useMemo<AdminNotificationContextValue>(
     () => ({
       recentItems,
+      actionRequiredItems,
       unreadCount,
+      actionRequiredCount,
       settings,
       connectionStatus,
       loadingRecent,
       refreshRecent,
       markRead,
       markAllRead,
+      resolveNotification,
       subscribeToLiveNotifications,
       openNotification,
     }),
     [
       recentItems,
+      actionRequiredItems,
       unreadCount,
+      actionRequiredCount,
       settings,
       connectionStatus,
       loadingRecent,
       refreshRecent,
       markRead,
       markAllRead,
+      resolveNotification,
       subscribeToLiveNotifications,
       openNotification,
     ],

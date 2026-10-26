@@ -10,6 +10,7 @@ describe("public scoreboards terminal match status", () => {
       "completed",
       "abandoned",
       "walkover",
+      "cancelled",
       "retired",
       "disqualified",
     ]);

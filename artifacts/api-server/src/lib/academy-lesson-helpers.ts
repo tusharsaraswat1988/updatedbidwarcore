@@ -4,7 +4,7 @@ export type AcademyContentFormat = "plain" | "markdown" | "html";
 
 export function youtubeThumbnailUrl(videoId: string | null | undefined): string | null {
   if (!videoId) return null;
-  return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+  return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 }
 
 export function estimateLessonDurationMinutes(content: string | null, hasVideo: boolean): number {

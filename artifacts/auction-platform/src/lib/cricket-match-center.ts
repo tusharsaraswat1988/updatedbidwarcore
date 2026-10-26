@@ -102,11 +102,17 @@ export function buildMatchTimeline(input: {
   if (scorecard) {
     for (const inn of scorecard.scorecard.innings) {
       for (const b of inn.batting) {
-        if (b.dismissalType && b.dismissalType !== "not_out") {
+        if (b.dismissalType && b.dismissalType !== "retired_hurt") {
           items.push({
             id: `wkt-${inn.innings}-${b.playerId}`,
             label: "Wicket",
             detail: `${playerName(b.playerId)} — ${b.dismissalType.replace(/_/g, " ")} (${b.runs})`,
+          });
+        } else if (b.dismissalType === "retired_hurt") {
+          items.push({
+            id: `ret-hurt-${inn.innings}-${b.playerId}`,
+            label: "Retired Hurt",
+            detail: `${playerName(b.playerId)} — retired hurt (${b.runs})`,
           });
         }
         if (b.runs >= 100) {

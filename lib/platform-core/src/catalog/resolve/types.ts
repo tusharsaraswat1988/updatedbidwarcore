@@ -1,4 +1,5 @@
 import type { ConcreteRuleValue, DeclarativeRuntimeBinding } from "../types.ts";
+export type { ConcreteRuleValue };
 
 export type ResolutionMode =
   | "PREVIEW"

@@ -1,6 +1,12 @@
 import { Router } from "express";
 import { z } from "zod";
-import { requireTournamentOrganizer } from "../middleware/require-organizer";
+import { requireTournamentOrganizer, isTournamentOrganizer } from "../middleware/require-organizer";
+import {
+  requireScorerFromRequest,
+  assertScorerCanScore,
+  assertScorerMayAccessTournament,
+  ScorerAuthError,
+} from "../lib/scorer-auth";
 import {
   createScoringOfficial,
   createScoringVenue,
@@ -20,15 +26,39 @@ import {
 } from "../lib/scoring-foundation-service";
 import { ScoringServiceError } from "../lib/scoring-service";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
+import { eq } from "drizzle-orm";
+import { db, tournamentsTable } from "@workspace/db";
+import { requireSportModule } from "../middleware/require-module";
 
 const router = Router({ mergeParams: true });
 
 router.use(scoringFeatureMiddleware);
 
-function tid(req: { params: Record<string, string> }): number | null {
-  const n = parseInt(req.params.tournamentId ?? req.params.id, 10);
+function tid(req: { params: Record<string, any> }): number | null {
+  const n = parseInt(String(req.params.tournamentId ?? req.params.id), 10);
   return Number.isNaN(n) ? null : n;
 }
+
+router.use(async (req, res, next) => {
+  const tournamentId = tid(req);
+  if (tournamentId == null) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+  const [tournament] = await db
+    .select({
+      id: tournamentsTable.id,
+      auctionEnabled: tournamentsTable.auctionEnabled,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      sport: tournamentsTable.sport,
+    })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  if (!requireSportModule(res, tournament, "cricket")) return;
+  next();
+});
 
 function handleError(res: import("express").Response, err: unknown) {
   if (err instanceof ScoringServiceError) {
@@ -157,6 +187,7 @@ router.post("/officials", async (req, res) => {
     role: z.enum(["umpire", "scorer", "referee", "match_referee"]).optional(),
     mobile: z.string().nullable().optional(),
     email: z.string().nullable().optional(),
+    pin: z.string().min(4).max(32).nullable().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
@@ -181,12 +212,58 @@ router.patch("/officials/:officialId", async (req, res) => {
     role: z.string().optional(),
     mobile: z.string().nullable().optional(),
     email: z.string().nullable().optional(),
+    pin: z.string().min(4).max(32).nullable().optional(),
+    isActive: z.boolean().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
   try {
     res.json(await updateScoringOfficial(tournamentId, officialId, parsed.data));
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+router.post("/officials/:officialId/reset-login-lockout", async (req, res) => {
+  const tournamentId = tid(req);
+  const officialId = parseInt(req.params.officialId, 10);
+  if (!tournamentId || Number.isNaN(officialId)) {
+    return void res.status(400).json({ error: "Invalid ID" });
+  }
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const officials = await listScoringOfficials(tournamentId);
+    const target = officials.find((o) => o.id === officialId);
+    if (!target || !target.scorerAccountId) {
+      return void res.status(404).json({ error: "Scorer not found" });
+    }
+    const { clearScorerLoginLockoutForTournament } = await import("../lib/scorer-auth");
+    const result = await clearScorerLoginLockoutForTournament(tournamentId, target.scorerAccountId);
+    res.json({ ok: true, cleared: result.cleared });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+router.post("/officials/:officialId/unlock-scorer", async (req, res) => {
+  const tournamentId = tid(req);
+  const officialId = parseInt(req.params.officialId, 10);
+  if (!tournamentId || Number.isNaN(officialId)) {
+    return void res.status(400).json({ error: "Invalid ID" });
+  }
+  if (!(await requireOrganizer(req, res, tournamentId))) return;
+
+  try {
+    const { unlockScorerForTournament } = await import("../lib/scorer-auth");
+    const actorId = String((req as any).user?.id || (req as any).session?.organizerId || "organizer");
+    const result = await unlockScorerForTournament({
+      tournamentId,
+      officialId,
+      actorId,
+    });
+    res.json(result);
   } catch (err) {
     handleError(res, err);
   }
@@ -263,6 +340,7 @@ router.post("/draws/generate", async (req, res) => {
     format: z.enum(["round_robin", "league", "knockout", "league_knockout"]),
     teamIds: z.array(z.number().int().positive()).min(2),
     groups: z.array(groupSchema).optional(),
+    rulePresetId: z.number().int().positive().nullable().optional(),
     oversLimit: z.number().int().positive().max(50).optional(),
     venueId: z.number().int().positive().nullable().optional(),
     startDate: z.string().datetime().nullable().optional(),
@@ -314,7 +392,26 @@ router.put("/matches/:matchId/squads/:teamId", async (req, res) => {
   if (!tournamentId || Number.isNaN(matchId) || Number.isNaN(teamId)) {
     return void res.status(400).json({ error: "Invalid ID" });
   }
-  if (!(await requireOrganizer(req, res, tournamentId))) return;
+
+  const [tournament] = await db
+    .select({ organizerId: tournamentsTable.organizerId })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId))
+    .limit(1);
+
+  const isOrganizer = !!tournament && isTournamentOrganizer(req, tournamentId, tournament.organizerId);
+  if (!isOrganizer) {
+    try {
+      const scorerAuth = await requireScorerFromRequest(req);
+      assertScorerCanScore(scorerAuth);
+      await assertScorerMayAccessTournament(scorerAuth.scorerId, tournamentId);
+    } catch (e) {
+      if (e instanceof ScorerAuthError) {
+        return void res.status(e.status).json({ error: e.message, code: e.code });
+      }
+      return void res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
+    }
+  }
 
   const schema = z.object({
     playingXi: z.array(z.number().int().positive()).min(1).max(20),

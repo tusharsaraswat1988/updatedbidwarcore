@@ -52,6 +52,8 @@ export type BrandSurfaceId =
   | "auth-login"
   | "sidebar-compact"
   | "organizer-dashboard-header"
+  | "organizer-main-toolbar"
+  | "organizer-sidebar-wordmark"
   | "operator-header"
   | "auction-viewer-header"
   | "led-watermark"
@@ -116,6 +118,24 @@ export const BRAND_SURFACE_PRESETS: Record<BrandSurfaceId, BrandSurfacePreset> =
     logoAsset: "SYMBOL_LOGO",
     logoOrder: ["mini", "appIcon", "mainReverse"],
     sizeClass: "h-9 w-9 object-contain flex-shrink-0",
+    showBrandName: false,
+    showPoweredBy: false,
+    darkBackground: true,
+  },
+  /** Icon + “BIDWAR” in organiser main toolbar (always readable, no wordmark squeeze) */
+  "organizer-main-toolbar": {
+    logoAsset: "SYMBOL_LOGO",
+    logoOrder: ["appIcon", "mini"],
+    sizeClass: "h-6 w-6 sm:h-7 sm:w-7 object-contain flex-shrink-0",
+    showBrandName: true,
+    showPoweredBy: false,
+    darkBackground: true,
+  },
+  /** Expanded sidebar — horizontal wordmark */
+  "organizer-sidebar-wordmark": {
+    logoAsset: "REVERSE_LOGO",
+    logoOrder: ["mainReverse", "main", "mini", "appIcon"],
+    sizeClass: "h-8 w-auto max-w-[9.5rem] object-contain object-left flex-shrink-0",
     showBrandName: false,
     showPoweredBy: false,
     darkBackground: true,

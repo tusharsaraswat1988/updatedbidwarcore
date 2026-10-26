@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useState, useEffect, useMemo } from "react";
+import { useRoute, useLocation, useSearch } from "wouter";
 import { useGetTournament, getGetTournamentQueryKey } from "@workspace/api-client-react";
 import { SCORING_APP_BASE } from "@workspace/api-base/scoring-urls";
+import { resolveTournamentOrganizerLandingPath } from "@/lib/tournament-navigation";
 import { useOrganizerAuth } from "@/hooks/use-auth";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -10,9 +11,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-function safeNextPath(): string | null {
+function safeNextPath(search: string): string | null {
   try {
-    const next = new URLSearchParams(window.location.search).get("next");
+    const next = new URLSearchParams(search).get("next");
     if (next && next.startsWith("/") && !next.startsWith("//")) {
       return next;
     }
@@ -26,6 +27,7 @@ export default function OrganizerLogin() {
   const [, params] = useRoute("/tournament/:id/login");
   const tournamentId = parseInt(params?.id || "0");
   const [, navigate] = useLocation();
+  const search = useSearch();
 
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
@@ -37,8 +39,14 @@ export default function OrganizerLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const defaultPath = `/tournament/${tournamentId}`;
-  const postLoginPath = safeNextPath() ?? defaultPath;
+  const defaultPath = useMemo(
+    () =>
+      tournament
+        ? resolveTournamentOrganizerLandingPath(tournamentId, tournament)
+        : `/tournament/${tournamentId}`,
+    [tournament, tournamentId],
+  );
+  const postLoginPath = useMemo(() => safeNextPath(search) ?? defaultPath, [search, defaultPath]);
 
   function goAfterLogin(path: string) {
     if (path.startsWith(SCORING_APP_BASE)) {
