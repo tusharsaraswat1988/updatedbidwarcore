@@ -481,27 +481,8 @@ export default function CricketOfficialsPage() {
                               <div className="inline-flex items-center gap-1 font-mono bg-muted/60 px-2 py-0.5 rounded border border-border/60 text-[11px] text-foreground">
                                 <span className="text-muted-foreground text-[10px] uppercase font-sans font-semibold">PIN:</span>
                                 <span className="font-bold tracking-wider">
-                                  {isPinVisible ? (o.pin || "Not set") : (o.pin ? "••••" : "Not set")}
+                                  {o.hasPin || o.pin ? "••••" : "Not set"}
                                 </span>
-                                {o.pin ? (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setShowPinMap((prev) => ({
-                                        ...prev,
-                                        [o.id]: !prev[o.id],
-                                      }))
-                                    }
-                                    className="ml-0.5 text-muted-foreground hover:text-foreground p-0.5 rounded focus:outline-none"
-                                    title={isPinVisible ? "Hide PIN" : "Show PIN"}
-                                  >
-                                    {isPinVisible ? (
-                                      <EyeOff className="w-3 h-3 text-primary" />
-                                    ) : (
-                                      <Eye className="w-3 h-3" />
-                                    )}
-                                  </button>
-                                ) : null}
                               </div>
                             )}
                             {o.lastLoginAt ? (

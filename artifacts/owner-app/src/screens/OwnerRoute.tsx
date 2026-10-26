@@ -155,8 +155,7 @@ export function OwnerRoute() {
 
     let cancelled = false;
     void (async () => {
-      const code = getStoredOwnerAccessCode(teamId) ?? "";
-      const result = await establishOwnerServerSession(tournamentId, teamId, code);
+      const result = await establishOwnerServerSession(tournamentId, teamId);
       if (!cancelled && result.ok) {
         setServerVerified(true);
       }
@@ -251,10 +250,9 @@ export function OwnerRoute() {
 
   async function handleBid(amount: number): Promise<"success" | "leading" | "error"> {
     try {
-      const storedCode = getStoredOwnerAccessCode(teamId);
       const result = await placeBid.mutateAsync({
         tournamentId,
-        data: { teamId, amount, ...(storedCode ? { accessCode: storedCode } : {}) },
+        data: { teamId, amount },
       });
       applyMutationResult(result);
       setLastBidError("");

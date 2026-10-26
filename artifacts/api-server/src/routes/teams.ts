@@ -648,8 +648,24 @@ router.post("/tournaments/:tournamentId/teams/:teamId/verify-access", async (req
     return;
   }
 
-  const session = await createVerifiedOwnerSession(res, tid, teamId);
+  const session = await createVerifiedOwnerSession(res, tid, teamId, req);
   res.json({ valid: true, sessionId: session.sessionId });
+});
+
+router.get("/tournaments/:tournamentId/teams/:teamId/owner-session", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const teamId = parseInt(req.params.teamId);
+  if (isNaN(tid) || isNaN(teamId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  const { requireVerifiedOwnerSession } = await import("../lib/owner-session");
+  const auth = await requireVerifiedOwnerSession(req, tid, teamId);
+  if (!auth.ok) {
+    res.status(auth.status).json({ verified: false, error: auth.error });
+    return;
+  }
+  res.json({ verified: true, sessionId: auth.session.sessionId });
 });
 
 router.post("/tournaments/:tournamentId/teams/:teamId/reset-access-lockout", async (req, res) => {

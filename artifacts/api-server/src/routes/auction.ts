@@ -1721,40 +1721,80 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
   if (!team) return;
   if (!team.isBiddingEnabled) { res.status(400).json({ error: "Bidding disabled for this team" }); return; }
 
-  // Access-code gate (Phase 5 hardening):
-  //
-  // A blank/null accessCode is NOT a bypass — unauthenticated callers must
-  // supply the code. Only authenticated organizers/admins are exempt.
-  //
-  // Security improvements vs previous code:
-  //   1. Teams with no accessCode still require organizer auth for unauthenticated
-  //      callers — anonymous bids on codeless teams are now rejected.
-  //   2. String comparison is timing-safe to prevent brute-force inference.
-  const isOrganizer = isTournamentOrganizer(req, tid, tournament?.organizerId);
-  if (!isOrganizer) {
-    // Non-organizer callers must supply the correct access code.
-    const teamCode = (team.accessCode ?? "").trim();
-    const suppliedCode = (accessCode ?? "").trim();
+  // Owner Session & Access-Code Authorization (P0-B & P0-C hardening)
+  const { requireVerifiedOwnerSession, createVerifiedOwnerSession } = await import("../lib/owner-session");
+  const ownerAuth = await requireVerifiedOwnerSession(req, tid, teamId);
+  let isVerifiedOwner = ownerAuth.ok;
+  let isOrganizerOverride = false;
 
-    if (!teamCode) {
-      // Team has no access code configured — anonymous bids not permitted.
-      // The owner should set an access code via the team management panel.
-      res.status(403).json({ error: "This team has no access code set. Contact the auction organizer." });
-      return;
-    }
+  if (!isVerifiedOwner) {
+    const isOrganizer = isTournamentOrganizer(req, tid, tournament?.organizerId);
+    if (isOrganizer) {
+      isOrganizerOverride = true;
+    } else {
+      // Non-organizer callers without session cookie must supply the access code to establish session
+      const teamCode = (team.accessCode ?? "").trim();
+      const suppliedCode = (accessCode ?? "").trim();
 
-    // Timing-safe comparison — prevents timing-based brute-force attacks.
-    // Reuse the same safeCompare helper used in reset-trial.
-    const a = teamCode.toUpperCase();
-    const b = suppliedCode.toUpperCase();
-    let timingSafeResult = a.length === b.length;
-    if (timingSafeResult) {
-      let diff = 0;
-      for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-      timingSafeResult = diff === 0;
+      if (!teamCode) {
+        res.status(403).json({ error: "Owner session required for this team" });
+        return;
+      }
+
+      // Timing-safe comparison — prevents timing-based brute-force attacks.
+      const a = teamCode.toUpperCase();
+      const b = suppliedCode.toUpperCase();
+      let timingSafeResult = a.length === b.length;
+      if (timingSafeResult) {
+        let diff = 0;
+        for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+        timingSafeResult = diff === 0;
+      }
+      if (!timingSafeResult) {
+        res.status(403).json({ error: "Invalid access code" });
+        return;
+      }
+
+      // Automatically issue verified owner session cookie so future bids are authenticated
+      await createVerifiedOwnerSession(res, tid, teamId, req);
+      isVerifiedOwner = true;
     }
-    if (!timingSafeResult) {
-      res.status(403).json({ error: "Invalid access code" });
+  }
+
+  // ── Conflict of Interest: Self-Bidding Prevention (P0-C) ─────────────────────
+  if (session.currentPlayerId) {
+    const [currentPlayer] = await db
+      .select()
+      .from(playersTable)
+      .where(eq(playersTable.id, session.currentPlayerId));
+
+    const rawPlayerDigits = currentPlayer?.mobileNumber ? currentPlayer.mobileNumber.replace(/\D/g, "").slice(-10) : "";
+    const rawOwnerDigits = team.ownerMobile ? team.ownerMobile.replace(/\D/g, "").slice(-10) : "";
+    const rawOrganizerDigits = tournament?.organizerMobile ? tournament.organizerMobile.replace(/\D/g, "").slice(-10) : "";
+
+    const isSelfBidding = Boolean(
+      currentPlayer && (
+        ((currentPlayer.playerTag === "owner" || currentPlayer.playerTag === "co_owner") && currentPlayer.playerTagTeamId === teamId) ||
+        (rawPlayerDigits && rawOwnerDigits && rawPlayerDigits === rawOwnerDigits)
+      )
+    );
+
+    const isOrganizerSelfBidding = Boolean(
+      isOrganizerOverride &&
+      currentPlayer &&
+      rawOrganizerDigits &&
+      rawPlayerDigits &&
+      rawPlayerDigits === rawOrganizerDigits
+    );
+
+    const tournamentFeatures = (tournament as any)?.featuresJson || {};
+    const allowOwnerSelfBidding = Boolean(tournamentFeatures.allowOwnerSelfBidding);
+
+    if ((isSelfBidding || isOrganizerSelfBidding) && !allowOwnerSelfBidding) {
+      res.status(403).json({
+        error: "SELF_BIDDING_DISALLOWED",
+        message: "Team owners and organizers cannot bid on their own player profile.",
+      });
       return;
     }
   }
@@ -1869,7 +1909,35 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
     bidAmount: amount,
     previousBidAmount: session.currentBid,
     timerEndsAt: session.timerEndsAt,
-    isManualBid: false,
+    isManualBid: isOrganizerOverride,
+  });
+
+  auditLog(req, {
+    category: "auction",
+    action: isOrganizerOverride ? "auction.organizer_proxy_bid" : "auction.bid_placed",
+    summary: isOrganizerOverride
+      ? `Organizer placed proxy bid of ₹${amount.toLocaleString("en-IN")} on behalf of "${team.name}"`
+      : `${team.name} placed bid of ₹${amount.toLocaleString("en-IN")}`,
+    severity: isOrganizerOverride ? "warning" : "info",
+    tournamentId: tid,
+    playerId: session.currentPlayerId!,
+    teamId,
+    actor: isOrganizerOverride
+      ? {
+          type: "organizer",
+          id: String(req.jwtUser?.organizerAccountId || tournament?.organizerId || "organizer"),
+          label: req.jwtUser?.name || tournament?.organizerName || "Organizer",
+        }
+      : {
+          type: "team_owner",
+          id: String(teamId),
+          label: team.ownerName || team.name,
+        },
+    metadata: {
+      amount,
+      isProxyBid: isOrganizerOverride,
+      bidIncrement,
+    },
   });
 
   res.json(await broadcastBidDelta(tid, {
@@ -2192,6 +2260,43 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
   const teamBefore = await requireTeamInTournament(res, tid, teamId);
   if (!teamBefore) return;
 
+  // ── Conflict of Interest Controls (P0-C) ───────────────────────────────────
+  const rawOrgDigits = tournament?.organizerMobile ? tournament.organizerMobile.replace(/\D/g, "").slice(-10) : "";
+  const rawOwnerDigits = teamBefore.ownerMobile ? teamBefore.ownerMobile.replace(/\D/g, "").slice(-10) : "";
+  const rawPlayerDigits = playerBefore?.mobileNumber ? playerBefore.mobileNumber.replace(/\D/g, "").slice(-10) : "";
+
+  const isOrganizerTeam = Boolean(
+    (rawOrgDigits && rawOwnerDigits && rawOrgDigits === rawOwnerDigits) ||
+    (tournament?.organizerEmail && teamBefore.ownerEmail && tournament.organizerEmail.trim().toLowerCase() === teamBefore.ownerEmail.trim().toLowerCase())
+  );
+
+  const isSelfPurchase = Boolean(
+    playerBefore && (
+      ((playerBefore.playerTag === "owner" || playerBefore.playerTag === "co_owner") && playerBefore.playerTagTeamId === teamId) ||
+      (rawOrgDigits && rawPlayerDigits && rawOrgDigits === rawPlayerDigits) ||
+      (rawOwnerDigits && rawPlayerDigits && rawOwnerDigits === rawPlayerDigits)
+    )
+  );
+
+  const tournamentFeatures = (tournament as any)?.featuresJson || {};
+  if (tournamentFeatures.strictConflictPolicy && (isOrganizerTeam || isSelfPurchase)) {
+    res.status(403).json({
+      error: "CONFLICT_OF_INTEREST_PROHIBITED",
+      message: "Manual sale to organizer's own team or player profile is prohibited under strict tournament policy.",
+    });
+    return;
+  }
+
+  if ((isOrganizerTeam || isSelfPurchase) && req.body.confirmSelfDeal !== true) {
+    res.status(400).json({
+      error: "CONFLICT_OF_INTEREST_CONFIRMATION_REQUIRED",
+      message: "Manual sale to organizer's own team or player profile requires explicit confirmation (confirmSelfDeal: true).",
+      requiresConfirmation: true,
+      conflictType: isOrganizerTeam ? "organizer_team" : "self_purchase",
+    });
+    return;
+  }
+
   const manualSellTournament = tournament;
   if (!(await assertTeamAllowedInTrialAuction(res, manualSellTournament, tid, teamId))) return;
 
@@ -2309,7 +2414,15 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
       player: soldPlayer ? snapshotPlayer(soldPlayer) : null,
       team: teamAfter ? snapshotTeam(teamAfter) : null,
     },
-    metadata: { amount, teamId, isManual: true },
+    metadata: {
+      amount,
+      teamId,
+      isManual: true,
+      conflict_of_interest: isOrganizerTeam || isSelfPurchase,
+      isSelfDeal: isOrganizerTeam || isSelfPurchase,
+      isOrganizerTeam,
+      isSelfPurchase,
+    },
     alertKey: "auction_manual_sell",
   });
 

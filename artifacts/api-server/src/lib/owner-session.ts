@@ -33,6 +33,7 @@ export async function createVerifiedOwnerSession(
   res: Response,
   tournamentId: number,
   teamId: number,
+  req?: Request,
 ): Promise<VerifiedOwnerSession> {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + OWNER_SESSION_TTL_MS);
@@ -47,7 +48,29 @@ export async function createVerifiedOwnerSession(
     lastSeenAt: now,
   });
 
-  setOwnerSessionCookie(res, { sessionId, tournamentId, teamId });
+  const existingTeams: Record<string, string> = {};
+  if (req) {
+    const existingCookie = readOwnerCookie(req);
+    if (existingCookie) {
+      const existingClaims = verifyOwnerSessionJwt(existingCookie);
+      if (existingClaims) {
+        if (existingClaims.teams) {
+          Object.assign(existingTeams, existingClaims.teams);
+        }
+        if (existingClaims.tournamentId && existingClaims.teamId && existingClaims.sessionId) {
+          existingTeams[`${existingClaims.tournamentId}:${existingClaims.teamId}`] = existingClaims.sessionId;
+        }
+      }
+    }
+  }
+  existingTeams[`${tournamentId}:${teamId}`] = sessionId;
+
+  setOwnerSessionCookie(res, {
+    sessionId,
+    tournamentId,
+    teamId,
+    teams: existingTeams,
+  });
 
   return { sessionId, tournamentId, teamId, verifiedAt: now, expiresAt };
 }
@@ -95,11 +118,16 @@ export async function requireVerifiedOwnerSession(
     return { ok: false, status: 401, error: "Invalid or expired owner session" };
   }
 
-  if (claims.tournamentId !== tournamentId || claims.teamId !== teamId) {
+  const isDirect = claims.tournamentId === tournamentId && claims.teamId === teamId;
+  const targetKey = `${tournamentId}:${teamId}`;
+  const isMulti = claims.teams && typeof claims.teams[targetKey] === "string";
+
+  if (!isDirect && !isMulti) {
     return { ok: false, status: 403, error: "Owner session not authorized for this team" };
   }
 
-  const session = await loadOwnerSession(claims.sessionId);
+  const sessionId = isDirect ? claims.sessionId : claims.teams![targetKey];
+  const session = await loadOwnerSession(sessionId);
   if (!session) {
     return { ok: false, status: 401, error: "Owner session expired" };
   }
@@ -122,6 +150,28 @@ export async function revokeOwnerSession(
   if (!auth.ok) return false;
 
   await deleteOwnerSessionById(auth.session.sessionId);
+
+  const cookie = readOwnerCookie(req);
+  if (cookie) {
+    const claims = verifyOwnerSessionJwt(cookie);
+    if (claims?.teams) {
+      const targetKey = `${tournamentId}:${teamId}`;
+      delete claims.teams[targetKey];
+      const remainingKeys = Object.keys(claims.teams);
+      if (remainingKeys.length > 0) {
+        const nextKey = remainingKeys[0];
+        const [nextTid, nextTeamId] = nextKey.split(":").map(Number);
+        setOwnerSessionCookie(res, {
+          sessionId: claims.teams[nextKey],
+          tournamentId: nextTid,
+          teamId: nextTeamId,
+          teams: claims.teams,
+        });
+        return true;
+      }
+    }
+  }
+
   clearOwnerSessionCookie(res);
   return true;
 }

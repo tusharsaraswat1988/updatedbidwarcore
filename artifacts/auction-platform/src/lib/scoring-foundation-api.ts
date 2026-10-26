@@ -19,6 +19,7 @@ export type ScoringOfficial = {
   mobile: string | null;
   email: string | null;
   pin?: string | null;
+  hasPin?: boolean;
   isActive?: boolean;
   lastLoginAt?: string | null;
   loginLocked?: boolean;
@@ -105,6 +106,7 @@ export async function createOfficial(
     mobile?: string | null;
     email?: string | null;
     pin?: string | null;
+  hasPin?: boolean;
   },
 ): Promise<ScoringOfficial> {
   const r = await apiFetch(`${base(tournamentId)}/officials`, {
@@ -124,6 +126,7 @@ export async function updateOfficial(
     mobile?: string | null;
     email?: string | null;
     pin?: string | null;
+  hasPin?: boolean;
     isActive?: boolean;
   },
 ): Promise<ScoringOfficial> {

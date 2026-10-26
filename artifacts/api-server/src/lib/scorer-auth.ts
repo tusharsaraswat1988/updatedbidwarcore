@@ -4,7 +4,7 @@
  */
 
 import { randomUUID } from "crypto";
-import { and, asc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import {
   db,
   scorerAccountsTable,
@@ -205,10 +205,11 @@ export async function loginScorer(input: {
     pinOk = await verifyScorerPin(pin, account.pinHash);
   }
 
-  // Cross-tournament PIN tolerance:
-  // If the entered PIN did not match the global account pinHash, check if it matches
-  // ANY tournament's PIN in scoring_officials where this mobile is registered as a scorer.
-  if (!pinOk) {
+  // Cross-tournament PIN legacy migration:
+  // If no global scorer_accounts record exists yet, check for an unmigrated official record
+  // for this mobile in scoring_officials.
+  // When matched, migrate ONCE to scorer_accounts (hashed) and clear plaintext pin.
+  if (!account) {
     const rawDigits = mobile.replace(/\D/g, "").slice(-10);
     const officials = await db
       .select({
@@ -219,7 +220,12 @@ export async function loginScorer(input: {
         mobile: scoringOfficialsTable.mobile,
       })
       .from(scoringOfficialsTable)
-      .where(eq(scoringOfficialsTable.role, "scorer"));
+      .where(
+        and(
+          eq(scoringOfficialsTable.role, "scorer"),
+          isNotNull(scoringOfficialsTable.pin),
+        ),
+      );
 
     const matchedOfficial = officials.find((o) => {
       if (!o.mobile || !o.pin) return false;
@@ -228,10 +234,11 @@ export async function loginScorer(input: {
     });
 
     if (matchedOfficial) {
-      pinOk = true;
       const newPinHash = await hashScorerPin(pin);
-      if (!account) {
-        const [created] = await db
+
+      const migrationResult = await db.transaction(async (tx) => {
+        // Attempt atomic insert with conflict handling on unique mobile
+        const [created] = await tx
           .insert(scorerAccountsTable)
           .values({
             name: matchedOfficial.name,
@@ -239,13 +246,56 @@ export async function loginScorer(input: {
             pinHash: newPinHash,
             isActive: true,
           })
+          .onConflictDoNothing({ target: scorerAccountsTable.mobile })
           .returning();
-        account = created!;
-      } else {
-        await db
-          .update(scorerAccountsTable)
-          .set({ pinHash: newPinHash })
-          .where(eq(scorerAccountsTable.id, account.id));
+
+        let activeAccount = created;
+        let isPinValid = false;
+
+        if (activeAccount) {
+          isPinValid = true;
+        } else {
+          // A concurrent first-time login already created the account row.
+          // Reload canonical account and verify the supplied PIN against stored hash.
+          const [reloaded] = await tx
+            .select()
+            .from(scorerAccountsTable)
+            .where(eq(scorerAccountsTable.mobile, mobile))
+            .limit(1);
+
+          if (reloaded) {
+            activeAccount = reloaded;
+            isPinValid = await verifyScorerPin(pin, reloaded.pinHash);
+          }
+        }
+
+        if (activeAccount && isPinValid) {
+          // Assign to tournament atomically (avoiding deadlocks and duplicate assignments)
+          await tx
+            .insert(scorerTournamentAssignmentsTable)
+            .values({ scorerId: activeAccount.id, tournamentId: matchedOfficial.tournamentId })
+            .onConflictDoNothing({
+              target: [
+                scorerTournamentAssignmentsTable.scorerId,
+                scorerTournamentAssignmentsTable.tournamentId,
+              ],
+            });
+
+          // Clear legacy plaintext PIN from official record so it is not stored or queried again
+          await tx
+            .update(scoringOfficialsTable)
+            .set({ pin: null })
+            .where(eq(scoringOfficialsTable.id, matchedOfficial.id));
+
+          return { account: activeAccount, pinOk: true };
+        }
+
+        return { account: activeAccount ?? null, pinOk: isPinValid };
+      });
+
+      if (migrationResult.pinOk && migrationResult.account) {
+        account = migrationResult.account;
+        pinOk = true;
       }
     }
   }
@@ -832,31 +882,48 @@ export async function unlockScorerForTournament(input: {
   let locksReleased = 0;
 
   if (scorerAccountId) {
-    // 1. Release match locks held by this scorer or for this tournament
-    const deletedLocks = await db
-      .delete(scorerMatchLocksTable)
-      .where(
-        or(
-          eq(scorerMatchLocksTable.scorerId, scorerAccountId),
+    // 1. Release match locks held by this scorer for this tournament only
+    const tournamentMatches = await db
+      .select({ id: scoringMatchesTable.id })
+      .from(scoringMatchesTable)
+      .where(eq(scoringMatchesTable.tournamentId, input.tournamentId));
+
+    if (tournamentMatches.length > 0) {
+      const matchIds = tournamentMatches.map((m) => m.id);
+      const deletedLocks = await db
+        .delete(scorerMatchLocksTable)
+        .where(
           and(
-            eq(scorerMatchLocksTable.tournamentId, input.tournamentId),
             eq(scorerMatchLocksTable.scorerId, scorerAccountId),
+            inArray(scorerMatchLocksTable.matchId, matchIds),
           ),
-        ),
-      )
-      .returning({ matchId: scorerMatchLocksTable.matchId });
-    locksReleased = deletedLocks.length;
+        )
+        .returning({ matchId: scorerMatchLocksTable.matchId });
+      locksReleased = deletedLocks.length;
+    }
 
     // 2. Clear any rate-limit login lockout
     if (mobileNormalized) {
       clearAllScorerLoginLockouts(mobileNormalized);
     }
 
-    // 3. Revoke active sessions for this scorer so that stale lease versions won't conflict
-    await db
-      .update(scorerSessionsTable)
-      .set({ revokedAt: new Date() })
-      .where(eq(scorerSessionsTable.scorerId, scorerAccountId));
+    // 3. Only revoke active sessions if this scorer is not assigned to other tournaments
+    const otherAssignments = await db
+      .select()
+      .from(scorerTournamentAssignmentsTable)
+      .where(
+        and(
+          eq(scorerTournamentAssignmentsTable.scorerId, scorerAccountId),
+          ne(scorerTournamentAssignmentsTable.tournamentId, input.tournamentId),
+        ),
+      );
+
+    if (otherAssignments.length === 0) {
+      await db
+        .update(scorerSessionsTable)
+        .set({ revokedAt: new Date() })
+        .where(eq(scorerSessionsTable.scorerId, scorerAccountId));
+    }
 
     // 4. Ensure tournament assignment exists
     await assignScorerToTournament(scorerAccountId, input.tournamentId);
@@ -937,16 +1004,37 @@ export async function removeScorerFromTournament(
       ),
     );
 
-  // 2. Revoke all active sessions for this scorer so scoring stops immediately
-  await db
-    .update(scorerSessionsTable)
-    .set({ revokedAt: new Date() })
-    .where(eq(scorerSessionsTable.scorerId, scorerId));
+  // 2. Remove match locks held by this scorer for matches in THIS tournament only
+  const tournamentMatches = await db
+    .select({ id: scoringMatchesTable.id })
+    .from(scoringMatchesTable)
+    .where(eq(scoringMatchesTable.tournamentId, tournamentId));
 
-  // 3. Remove any active match locks held by this scorer
-  await db
-    .delete(scorerMatchLocksTable)
-    .where(eq(scorerMatchLocksTable.scorerId, scorerId));
+  if (tournamentMatches.length > 0) {
+    const matchIds = tournamentMatches.map((m) => m.id);
+    await db
+      .delete(scorerMatchLocksTable)
+      .where(
+        and(
+          eq(scorerMatchLocksTable.scorerId, scorerId),
+          inArray(scorerMatchLocksTable.matchId, matchIds),
+        ),
+      );
+  }
+
+  // 3. Check if scorer is assigned to other tournaments
+  const otherAssignments = await db
+    .select()
+    .from(scorerTournamentAssignmentsTable)
+    .where(eq(scorerTournamentAssignmentsTable.scorerId, scorerId));
+
+  // Only revoke sessions if scorer is completely removed from all tournaments
+  if (otherAssignments.length === 0) {
+    await db
+      .update(scorerSessionsTable)
+      .set({ revokedAt: new Date() })
+      .where(eq(scorerSessionsTable.scorerId, scorerId));
+  }
 
   // 4. Clear any login lockout records for this mobile
   if (mobile) {
@@ -990,20 +1078,43 @@ export async function createScorerAccountForTournament(
   const pinHash = await hashScorerPin(pin);
 
   if (existing) {
-    // Update PIN/name and ensure active when organizer sets/resets official credentials.
-    const [updated] = await db
-      .update(scorerAccountsTable)
-      .set({ name, pinHash, isActive: true })
-      .where(eq(scorerAccountsTable.id, existing.id))
-      .returning();
-    account = updated!;
+    // Check if scorer is assigned to other tournaments
+    const otherAssignments = await db
+      .select()
+      .from(scorerTournamentAssignmentsTable)
+      .where(
+        and(
+          eq(scorerTournamentAssignmentsTable.scorerId, existing.id),
+          ne(scorerTournamentAssignmentsTable.tournamentId, tournamentId),
+        ),
+      );
 
-    // Re-provisioning credentials invalidates old sessions so the new PIN is
-    // the only credential accepted by active scoring tabs.
-    await db
-      .update(scorerSessionsTable)
-      .set({ revokedAt: new Date() })
-      .where(eq(scorerSessionsTable.scorerId, existing.id));
+    if (otherAssignments.length > 0) {
+      // Scorer belongs to another tournament: verify that the provided PIN matches
+      const pinMatches = await verifyScorerPin(pin, existing.pinHash);
+      if (!pinMatches) {
+        throw new ScorerAuthError(
+          "This scorer is already registered in another tournament with different credentials. Cross-tournament credentials cannot be overwritten.",
+          "SCORER_CREDENTIALS_CONFLICT",
+          409,
+        );
+      }
+      account = existing;
+    } else {
+      // Scorer belongs only to this tournament (or unassigned): update name and pinHash
+      const [updated] = await db
+        .update(scorerAccountsTable)
+        .set({ name, pinHash, isActive: true })
+        .where(eq(scorerAccountsTable.id, existing.id))
+        .returning();
+      account = updated!;
+
+      // Invalidate old sessions for this single-tournament scorer
+      await db
+        .update(scorerSessionsTable)
+        .set({ revokedAt: new Date() })
+        .where(eq(scorerSessionsTable.scorerId, existing.id));
+    }
   } else {
     const [created] = await db
       .insert(scorerAccountsTable)

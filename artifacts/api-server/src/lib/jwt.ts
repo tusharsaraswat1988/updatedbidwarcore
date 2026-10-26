@@ -56,6 +56,8 @@ export interface OwnerSessionClaims {
   sessionId: string;
   tournamentId: number;
   teamId: number;
+  /** Multi-team authorization map: key `${tournamentId}:${teamId}` -> sessionId */
+  teams?: Record<string, string>;
 }
 
 /** Scorer module JWT — Bearer auth for live scoring. */

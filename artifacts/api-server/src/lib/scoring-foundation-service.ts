@@ -210,8 +210,10 @@ export async function listScoringOfficials(tournamentId: number) {
 
   return officials.map((off) => {
     const acc = off.mobile ? accountByMobile.get(off.mobile) : undefined;
+    const { pin: _pin, ...safeOff } = off;
     return {
-      ...off,
+      ...safeOff,
+      hasPin: Boolean((off.pin && off.pin.trim().length >= 4) || acc?.id),
       isActive: acc ? acc.isActive : true,
       lastLoginAt: acc ? acc.lastLoginAt : null,
       loginLocked: acc ? acc.loginLocked : false,
@@ -265,12 +267,26 @@ export async function createScoringOfficial(
         "SCORER_CREDENTIALS_REQUIRED",
       );
     }
-    const { createScorerAccountForTournament } = await import("./scorer-auth");
-    await createScorerAccountForTournament(tournamentId, {
-      name: input.name.trim(),
-      mobile: input.mobile.trim(),
-      pin: input.pin.trim(),
-    });
+    try {
+      const { createScorerAccountForTournament } = await import("./scorer-auth");
+      await createScorerAccountForTournament(tournamentId, {
+        name: input.name.trim(),
+        mobile: input.mobile.trim(),
+        pin: input.pin.trim(),
+      });
+    } catch (err: unknown) {
+      if (
+        (err instanceof Error && "code" in err && (err as any).code === "SCORER_CREDENTIALS_CONFLICT") ||
+        (typeof err === "object" && err !== null && "code" in err && (err as any).code === "SCORER_CREDENTIALS_CONFLICT")
+      ) {
+        throw new ScoringServiceError(
+          (err as any).message || "This scorer is already registered in another tournament with different credentials.",
+          409,
+          "SCORER_CREDENTIALS_CONFLICT",
+        );
+      }
+      throw err;
+    }
   }
 
   const [row] = await db
@@ -281,7 +297,7 @@ export async function createScoringOfficial(
       role,
       mobile: input.mobile ? input.mobile.trim() : null,
       email: input.email ? input.email.trim() : null,
-      pin: input.pin ? input.pin.trim() : null,
+      pin: null, // Scorer credentials securely managed in scorer_accounts (hashed)
     })
     .returning();
   return row;
@@ -371,8 +387,18 @@ export async function updateScoringOfficial(
       } else {
         clearAllScorerLoginLockouts(targetMobile);
       }
-    } catch {
-      // non-fatal
+    } catch (err: unknown) {
+      if (
+        (err instanceof Error && "code" in err && (err as any).code === "SCORER_CREDENTIALS_CONFLICT") ||
+        (typeof err === "object" && err !== null && "code" in err && (err as any).code === "SCORER_CREDENTIALS_CONFLICT")
+      ) {
+        throw new ScoringServiceError(
+          (err as any).message || "This scorer is already registered in another tournament with different credentials.",
+          409,
+          "SCORER_CREDENTIALS_CONFLICT",
+        );
+      }
+      // Preserve existing handling for genuinely non-fatal background sync failures
     }
   }
 
@@ -381,7 +407,7 @@ export async function updateScoringOfficial(
   if (patch.role !== undefined) updateData.role = patch.role;
   if (patch.mobile !== undefined) updateData.mobile = patch.mobile ? patch.mobile.trim() : null;
   if (patch.email !== undefined) updateData.email = patch.email ? patch.email.trim() : null;
-  if (patch.pin !== undefined) updateData.pin = patch.pin ? patch.pin.trim() : null;
+  if (patch.pin !== undefined) updateData.pin = null; // Plaintext PIN never persisted
 
   const [row] = await db
     .update(scoringOfficialsTable)
