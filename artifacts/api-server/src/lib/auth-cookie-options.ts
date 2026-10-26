@@ -24,6 +24,13 @@ export function configuredSharedCookieDomain(
 
   const apex =
     appHosts.find((h) => !h.toLowerCase().startsWith("www.")) ?? appHosts[0]!;
+  if (
+    apex.endsWith("railway.app") ||
+    apex.endsWith("onrender.com") ||
+    apex.includes("staging")
+  ) {
+    return undefined;
+  }
   return apex.startsWith(".") ? apex : `.${apex}`;
 }
 
@@ -67,6 +74,15 @@ export function cookieDomainForResponse(res: Response): string | undefined {
   if (!host) return configured;
 
   if (isLoopbackHostname(host)) return undefined;
+
+  if (
+    host.endsWith(".railway.app") ||
+    host.endsWith(".up.railway.app") ||
+    host.endsWith(".onrender.com") ||
+    host.includes("staging")
+  ) {
+    return undefined;
+  }
 
   if (!configured) return undefined;
 
@@ -143,4 +159,3 @@ export function clearAuthCookieVariants(res: Response, name: string): void {
     res.clearCookie(name, { ...base, domain, maxAge: 0 });
   }
 }
-

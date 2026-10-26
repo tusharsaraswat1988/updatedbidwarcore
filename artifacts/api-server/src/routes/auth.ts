@@ -20,7 +20,12 @@ import {
   buildPublicUrlForRequest,
   getAdminDataPassword,
   getAdminPassword,
+  requestHostFromHeaders,
 } from "../lib/runtime-env";
+import {
+  isProductionBidwarHost,
+  isStagingLikeHost,
+} from "../lib/public-origin-guard.js";
 import { tryCompleteGoogleSheetsOAuth } from "../lib/google-sheets-oauth-callback.js";
 import {
   DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON,
@@ -1982,13 +1987,48 @@ router.patch("/auth/admin/sms-settings", async (req, res) => {
 // ─── Google OAuth ─────────────────────────────────────────────────────────────
 
 /** Safe post-login redirect — blocks auth/setup pages that would loop back to sign-in. */
-function sanitizeOAuthNext(raw: string | undefined): string | undefined {
-  if (!raw?.startsWith("/")) return undefined;
-  const blocked = new Set(["/complete-profile", "/organizer", "/api"]);
-  if (blocked.has(raw) || raw.startsWith("/complete-profile?") || raw.startsWith("/api/")) {
+/** Safe post-login redirect — blocks auth/setup pages and open redirects. */
+export function sanitizeOAuthNext(raw: string | undefined): string | undefined {
+  if (!raw || typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//") || trimmed.startsWith("/\\")) {
     return undefined;
   }
-  return raw;
+  if (/[\r\n\t]/.test(trimmed)) {
+    return undefined;
+  }
+  try {
+    const dummy = new URL(trimmed, "https://bidwar.internal");
+    if (dummy.origin !== "https://bidwar.internal") return undefined;
+    if (dummy.pathname.startsWith("//")) return undefined;
+  } catch {
+    return undefined;
+  }
+  const blocked = new Set(["/complete-profile", "/organizer", "/api"]);
+  if (blocked.has(trimmed) || trimmed.startsWith("/complete-profile?") || trimmed.startsWith("/api/")) {
+    return undefined;
+  }
+  return trimmed;
+}
+
+/**
+ * Build canonical Google OAuth redirect_uri for this request.
+ * Guaranteed never to redirect staging requests to production.
+ */
+export function resolveGoogleOAuthRedirectUri(headers: import("node:http").IncomingHttpHeaders): string {
+  let redirectUri = buildPublicUrlForRequest(headers, "/api/auth/google/callback");
+  const host = requestHostFromHeaders(headers);
+  if (host && isStagingLikeHost(host)) {
+    try {
+      const parsed = new URL(redirectUri);
+      if (isProductionBidwarHost(parsed.hostname)) {
+        redirectUri = `https://${host}/api/auth/google/callback`;
+      }
+    } catch {
+      redirectUri = `https://${host}/api/auth/google/callback`;
+    }
+  }
+  return redirectUri;
 }
 
 /** Return Google OAuth errors to the originating app (e.g. /mobile login) when possible. */
@@ -2054,7 +2094,7 @@ router.get("/auth/google", (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) { res.status(503).send("Google login not configured"); return; }
   // Prefer the trusted request host so staging never sends Google back to production.
-  const redirectUri = buildPublicUrlForRequest(req.headers, "/api/auth/google/callback");
+  const redirectUri = resolveGoogleOAuthRedirectUri(req.headers);
 
   // Preserve the ?next= redirect destination through the OAuth round-trip
   const next = sanitizeOAuthNext(req.query.next as string | undefined);
@@ -2106,7 +2146,7 @@ router.get("/auth/google/callback", async (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   // Must match the redirect_uri used in /auth/google (request host when trusted).
-  const redirectUri = buildPublicUrlForRequest(req.headers, "/api/auth/google/callback");
+  const redirectUri = resolveGoogleOAuthRedirectUri(req.headers);
   if (!clientId || !clientSecret) {
     res.redirect(googleOAuthErrorRedirect(pendingNext, "not_configured", "", nativeApp));
     return;
