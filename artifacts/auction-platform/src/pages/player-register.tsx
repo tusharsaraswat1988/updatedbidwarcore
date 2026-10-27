@@ -51,7 +51,6 @@ import {
   type RegistrationOptionalFieldKey,
   type RegistrationCustomQuestion,
 } from "@workspace/api-base/registration-fields";
-import { formatIndianRupee } from "@/lib/format";
 import {
   applySpecificationsToSelections,
   buildSpecificationsPayload,
@@ -966,9 +965,6 @@ export default function PlayerRegister() {
       value: formatDeadline(status.deadline),
     });
   }
-  if (paymentConfigured) {
-    headerFacts.push({ label: "Fee", value: formatIndianRupee(registrationFee) });
-  }
   if (auctionDateLine) headerFacts.push({ label: "Auction", value: auctionDateLine });
   if (matchDatesLine) headerFacts.push({ label: "Match dates", value: matchDatesLine });
 
@@ -1009,8 +1005,6 @@ export default function PlayerRegister() {
             tournamentLogoUrl={(tournament as { logoUrl?: string | null }).logoUrl}
             sponsorLogosJson={(tournament as { sponsorLogos?: string | null }).sponsorLogos}
             brandNameFallback={brandName}
-            registeredCount={status.currentCount}
-            registrationLimit={status.limit}
             subtitle="Player Registration"
             tagline={scoringMode ? "Register for this tournament" : undefined}
             facts={headerFacts}
