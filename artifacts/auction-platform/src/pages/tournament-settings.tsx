@@ -39,7 +39,7 @@ import {
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
   Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop, IndianRupee, ClipboardList, Handshake,
-  Play, Coffee, Plus, Sparkles,
+  Play, Coffee, Plus, Sparkles, HelpCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -70,6 +70,7 @@ import {
   REGISTRATION_OPTIONAL_FIELD_LABELS,
   parseRegistrationFieldsConfig,
   serializeRegistrationFieldsConfig,
+  validateCustomQuestionsDefinition,
   type RegistrationConfigurableFieldKey,
   type RegistrationOptionalFieldKey,
   type RegistrationCustomQuestion,
@@ -607,8 +608,14 @@ export default function TournamentSettings() {
     if (!sponsorValidation.ok) {
       return sponsorValidation.error;
     }
+    if (customQuestions.length > 0) {
+      const customVal = validateCustomQuestionsDefinition(customQuestions);
+      if (!customVal.ok) {
+        return customVal.error;
+      }
+    }
     return null;
-  }, [editForm, bidTiers, bidValueOptions, squadSizeError, sportLocked, tournament, sponsorLogos, audioUploadingField, openingTimerError, bidTimerError, isAuction]);
+  }, [editForm, bidTiers, bidValueOptions, squadSizeError, sportLocked, tournament, sponsorLogos, audioUploadingField, openingTimerError, bidTimerError, isAuction, customQuestions]);
 
   const performSave = useCallback(async (options?: { notify?: boolean }): Promise<boolean> => {
     const blockReason = getSaveBlockReason();
@@ -1398,13 +1405,7 @@ export default function TournamentSettings() {
                       );
                     })}
                   </div>
-                  <div className="pt-4 border-t border-border/40">
-                    <CustomQuestionsEditor
-                      questions={customQuestions}
-                      onChange={setCustomQuestions}
-                      disabled={updateTournament.isPending}
-                    />
-                  </div>
+
                 </div>
               </SettingsCard>
 
@@ -1535,7 +1536,26 @@ export default function TournamentSettings() {
                 </SettingsCard>
               )}
 
-              {/* Card 5: Declaration & Consent (Full Width) */}
+              {/* Card 5: Custom Registration Questions (Full Width) */}
+              <SettingsCard
+                title="Custom Registration Questions"
+                description="Ask participants tournament-specific questions (e.g. kit size, batting preference, food choices, transport)."
+                icon={<HelpCircle className="w-4 h-4 text-primary" />}
+                className="lg:col-span-2"
+                headerAction={
+                  <Badge variant="outline" className="text-xs font-normal border-primary/30 text-primary bg-primary/10">
+                    {customQuestions.length} {customQuestions.length === 1 ? "Question" : "Questions"}
+                  </Badge>
+                }
+              >
+                <CustomQuestionsEditor
+                  questions={customQuestions}
+                  onChange={setCustomQuestions}
+                  disabled={updateTournament.isPending}
+                />
+              </SettingsCard>
+
+              {/* Card 6: Declaration & Consent (Full Width) */}
               <SettingsCard
                 title="Declaration & Player Consent"
                 description="Point-wise rules and consent terms required before registration submission."

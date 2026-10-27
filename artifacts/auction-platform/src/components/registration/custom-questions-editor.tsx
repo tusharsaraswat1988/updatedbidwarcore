@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   type RegistrationCustomQuestion,
   type RegistrationQuestionType,
@@ -22,9 +22,10 @@ import {
   ArrowUp,
   ArrowDown,
   HelpCircle,
-  Eye,
-  CheckCircle2,
-  X,
+  Copy,
+  CircleDot,
+  SquareCheck,
+  Sparkles,
 } from "lucide-react";
 
 const QUESTION_TYPE_LABELS: Record<RegistrationQuestionType, string> = {
@@ -33,6 +34,14 @@ const QUESTION_TYPE_LABELS: Record<RegistrationQuestionType, string> = {
   single_choice: "Single choice",
   multiple_choice: "Multiple choice",
   dropdown: "Dropdown",
+};
+
+const QUESTION_TYPE_DESCRIPTIONS: Record<RegistrationQuestionType, string> = {
+  short_text: "Free-form single line answer (e.g. Jersey print name, nickname)",
+  number: "Numeric entry only (e.g. Previous season runs, wickets)",
+  single_choice: "Radio buttons where player can select only one option",
+  multiple_choice: "Checkboxes allowing player to pick one or more options",
+  dropdown: "Select dropdown with pre-defined list of options",
 };
 
 function generateQuestionId(): string {
@@ -50,9 +59,21 @@ export function CustomQuestionsEditor({
   onChange,
   disabled = false,
 }: CustomQuestionsEditorProps) {
-  const [newOptionInputs, setNewOptionInputs] = useState<Record<string, string>>({});
-  const [previewAnswers, setPreviewAnswers] = useState<Record<string, any>>({});
-  const [showPreview, setShowPreview] = useState(true);
+  const [focusTarget, setFocusTarget] = useState<{ qIdx: number; optIdx: number } | null>(null);
+  const optionInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+
+  // Focus newly added option input when requested
+  useEffect(() => {
+    if (focusTarget) {
+      const key = `${focusTarget.qIdx}-${focusTarget.optIdx}`;
+      const el = optionInputRefs.current.get(key);
+      if (el) {
+        el.focus();
+        el.select();
+      }
+      setFocusTarget(null);
+    }
+  }, [focusTarget]);
 
   function handleAddQuestion() {
     const newQ: RegistrationCustomQuestion = {
@@ -62,6 +83,22 @@ export function CustomQuestionsEditor({
       required: false,
     };
     onChange([...questions, newQ]);
+  }
+
+  function handleDuplicateQuestion(index: number) {
+    const current = questions[index];
+    if (!current) return;
+
+    const duplicated: RegistrationCustomQuestion = {
+      ...current,
+      id: generateQuestionId(),
+      label: current.label ? `${current.label} (Copy)` : "",
+      options: current.options ? [...current.options] : undefined,
+    };
+
+    const next = [...questions];
+    next.splice(index + 1, 0, duplicated);
+    onChange(next);
   }
 
   function handleUpdateQuestion(index: number, patch: Partial<RegistrationCustomQuestion>) {
@@ -74,7 +111,7 @@ export function CustomQuestionsEditor({
       ...patch,
     };
 
-    // If switching to choice-based type, ensure options array exists
+    // If switching to choice-based type, ensure initial options exist
     if (
       (updated.type === "single_choice" ||
         updated.type === "multiple_choice" ||
@@ -111,21 +148,33 @@ export function CustomQuestionsEditor({
     onChange(next);
   }
 
-  function handleAddOption(questionIndex: number, qId: string) {
-    const text = (newOptionInputs[qId] || "").trim();
-    if (!text) return;
+  // --- Options Management (Inline Editable) ---
+  function handleUpdateOption(questionIndex: number, optionIndex: number, newText: string) {
+    const q = questions[questionIndex];
+    if (!q || !q.options) return;
+    const nextOptions = [...q.options];
+    nextOptions[optionIndex] = newText;
+    handleUpdateQuestion(questionIndex, { options: nextOptions });
+  }
 
+  function handleAddOption(questionIndex: number, insertAfterIndex?: number) {
     const q = questions[questionIndex];
     if (!q) return;
 
-    const existingOptions = q.options ?? [];
-    if (!existingOptions.includes(text)) {
-      handleUpdateQuestion(questionIndex, {
-        options: [...existingOptions, text],
-      });
+    const currentOptions = q.options ?? [];
+    const nextOptions = [...currentOptions];
+    const newOptionText = `Option ${nextOptions.length + 1}`;
+
+    let targetIdx = nextOptions.length;
+    if (typeof insertAfterIndex === "number" && insertAfterIndex >= 0) {
+      targetIdx = insertAfterIndex + 1;
+      nextOptions.splice(targetIdx, 0, newOptionText);
+    } else {
+      nextOptions.push(newOptionText);
     }
 
-    setNewOptionInputs((prev) => ({ ...prev, [qId]: "" }));
+    handleUpdateQuestion(questionIndex, { options: nextOptions });
+    setFocusTarget({ qIdx: questionIndex, optIdx: targetIdx });
   }
 
   function handleRemoveOption(questionIndex: number, optionIndex: number) {
@@ -135,39 +184,41 @@ export function CustomQuestionsEditor({
     handleUpdateQuestion(questionIndex, { options: nextOptions });
   }
 
+  function handleMoveOption(questionIndex: number, optionIndex: number, direction: "up" | "down") {
+    const q = questions[questionIndex];
+    if (!q || !q.options) return;
+
+    const targetIdx = direction === "up" ? optionIndex - 1 : optionIndex + 1;
+    if (targetIdx < 0 || targetIdx >= q.options.length) return;
+
+    const nextOptions = [...q.options];
+    const temp = nextOptions[targetIdx];
+    nextOptions[targetIdx] = nextOptions[optionIndex];
+    nextOptions[optionIndex] = temp;
+    handleUpdateQuestion(questionIndex, { options: nextOptions });
+  }
+
   return (
     <div className="space-y-4">
       {/* Action header */}
-      <div className="flex items-center justify-between pb-1">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-1 border-b border-border/40">
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
             <HelpCircle className="w-3.5 h-3.5 text-primary" />
             Organizer Custom Questions ({questions.length})
           </h4>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            Collect tournament-specific information (e.g. jersey name, dietary preferences, or kit sizes).
+            Collect tournament-specific details from players during registration (e.g. jersey name, dietary preferences, or kit sizes).
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {questions.length > 0 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowPreview((prev) => !prev)}
-              className="h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              {showPreview ? "Hide Preview" : "Show Preview"}
-            </Button>
-          )}
           <Button
             type="button"
-            variant="outline"
+            variant="default"
             size="sm"
             onClick={handleAddQuestion}
             disabled={disabled}
-            className="h-7 text-xs gap-1 border-primary/40 text-primary hover:bg-primary/10"
+            className="h-8 text-xs gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Question
@@ -175,47 +226,63 @@ export function CustomQuestionsEditor({
         </div>
       </div>
 
-      {/* Questions list */}
+      {/* Empty State */}
       {questions.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border/70 p-6 text-center bg-muted/5">
-          <p className="text-xs text-muted-foreground">
-            No custom questions configured. Click <strong className="text-foreground">Add Question</strong> to ask participants for details like preferred batting order, previous club, or transport mode.
-          </p>
+        <div className="rounded-xl border border-dashed border-border/70 p-8 text-center bg-muted/10 space-y-3">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mx-auto text-primary">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div className="max-w-md mx-auto space-y-1">
+            <p className="text-xs font-semibold text-foreground">No custom questions added</p>
+            <p className="text-[11px] text-muted-foreground">
+              Add custom questions to collect specific information from participants like kit sizes, batting preference, food choices, or previous club history.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleAddQuestion}
+            disabled={disabled}
+            className="h-8 text-xs gap-1.5 border-primary/40 text-primary hover:bg-primary/10"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add First Question
+          </Button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {questions.map((q, idx) => {
             const isChoiceType =
               q.type === "single_choice" ||
               q.type === "multiple_choice" ||
               q.type === "dropdown";
 
+            const isChoiceWithoutOptions = isChoiceType && (!q.options || q.options.length === 0);
+
             return (
               <div
                 key={q.id}
-                className="rounded-lg border border-border/80 bg-card p-3 shadow-xs space-y-3 transition-colors hover:border-border"
+                className="rounded-xl border border-border/80 bg-card p-4 shadow-xs space-y-3.5 transition-all hover:border-border"
               >
                 {/* Question item header */}
-                <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/40 pb-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] text-muted-foreground font-semibold">
+                    <Badge variant="outline" className="font-mono text-xs px-2 py-0.5 bg-muted/50 font-semibold text-foreground">
                       #{idx + 1}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] h-5 py-0 px-2 font-medium bg-muted/40">
+                    </Badge>
+                    <Badge variant="secondary" className="text-[11px] h-5 py-0 px-2 font-medium">
                       {QUESTION_TYPE_LABELS[q.type]}
                     </Badge>
                     {q.required ? (
-                      <Badge variant="destructive" className="text-[9px] h-4.5 px-1.5 py-0">
+                      <Badge variant="destructive" className="text-[10px] h-4.5 px-2 py-0 font-semibold uppercase tracking-wider">
                         Required
                       </Badge>
                     ) : (
-                      <Badge variant="secondary" className="text-[9px] h-4.5 px-1.5 py-0 font-normal text-muted-foreground">
+                      <Badge variant="outline" className="text-[10px] h-4.5 px-2 py-0 font-normal text-muted-foreground">
                         Optional
                       </Badge>
                     )}
-                    <span className="font-mono text-[10px] text-muted-foreground/60 hidden sm:inline">
-                      ID: {q.id}
-                    </span>
                   </div>
 
                   <div className="flex items-center gap-1">
@@ -223,55 +290,71 @@ export function CustomQuestionsEditor({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
                       disabled={disabled || idx === 0}
                       onClick={() => handleMoveUp(idx)}
-                      title="Move up"
+                      title="Move question up"
                     >
-                      <ArrowUp className="w-3 h-3" />
+                      <ArrowUp className="w-3.5 h-3.5" />
                     </Button>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
                       disabled={disabled || idx === questions.length - 1}
                       onClick={() => handleMoveDown(idx)}
-                      title="Move down"
+                      title="Move question down"
                     >
-                      <ArrowDown className="w-3 h-3" />
+                      <ArrowDown className="w-3.5 h-3.5" />
                     </Button>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                      disabled={disabled}
+                      onClick={() => handleDuplicateQuestion(idx)}
+                      title="Duplicate question"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                       disabled={disabled}
                       onClick={() => handleDeleteQuestion(idx)}
                       title="Delete question"
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 </div>
 
                 {/* Question details grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                  <div className="sm:col-span-6 space-y-1">
-                    <Label className="text-[11px] font-medium text-muted-foreground">
-                      Question Label
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5 items-start">
+                  <div className="sm:col-span-6 space-y-1.5">
+                    <Label className="text-xs font-medium text-foreground/90">
+                      Question Label <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       value={q.label}
                       onChange={(e) => handleUpdateQuestion(idx, { label: e.target.value })}
-                      placeholder="e.g. Jersey Print Name"
+                      placeholder="e.g. Jersey Print Name, Preferred Batting Order"
                       disabled={disabled}
-                      className="h-8 text-xs"
+                      className="h-9 text-xs bg-background"
                     />
+                    {!q.label.trim() && (
+                      <p className="text-[10px] text-amber-500">
+                        Question label cannot be empty.
+                      </p>
+                    )}
                   </div>
 
-                  <div className="sm:col-span-4 space-y-1">
-                    <Label className="text-[11px] font-medium text-muted-foreground">
+                  <div className="sm:col-span-4 space-y-1.5">
+                    <Label className="text-xs font-medium text-foreground/90">
                       Answer Type
                     </Label>
                     <Select
@@ -281,10 +364,10 @@ export function CustomQuestionsEditor({
                       }
                       disabled={disabled}
                     >
-                      <SelectTrigger className="h-8 text-xs">
+                      <SelectTrigger className="h-9 text-xs bg-background">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="dark">
                         {REGISTRATION_QUESTION_TYPES.map((typeKey) => (
                           <SelectItem key={typeKey} value={typeKey} className="text-xs">
                             {QUESTION_TYPE_LABELS[typeKey]}
@@ -292,223 +375,156 @@ export function CustomQuestionsEditor({
                         ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-[10px] text-muted-foreground line-clamp-1">
+                      {QUESTION_TYPE_DESCRIPTIONS[q.type]}
+                    </p>
                   </div>
 
-                  <div className="sm:col-span-2 flex items-center justify-between sm:justify-center gap-2 h-8 pb-1">
-                    <Label htmlFor={`req-toggle-${q.id}`} className="text-xs font-medium cursor-pointer">
-                      Required
+                  <div className="sm:col-span-2 space-y-1.5 flex flex-col justify-end">
+                    <Label htmlFor={`req-toggle-${q.id}`} className="text-xs font-medium text-foreground/90">
+                      Mandatory
                     </Label>
-                    <Switch
-                      id={`req-toggle-${q.id}`}
-                      checked={q.required}
-                      onCheckedChange={(checked) =>
-                        handleUpdateQuestion(idx, { required: checked })
-                      }
-                      disabled={disabled}
-                    />
+                    <div className="flex items-center gap-2 h-9">
+                      <Switch
+                        id={`req-toggle-${q.id}`}
+                        checked={q.required}
+                        onCheckedChange={(checked) =>
+                          handleUpdateQuestion(idx, { required: checked })
+                        }
+                        disabled={disabled}
+                      />
+                      <span className="text-[11px] text-muted-foreground">
+                        {q.required ? "Required" : "Optional"}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Option editor for choice types */}
+                {/* Option editor for choice types (Direct Inline Editable List) */}
                 {isChoiceType && (
-                  <div className="space-y-2 pt-1 border-t border-border/30">
-                    <Label className="text-[11px] font-medium text-muted-foreground">
-                      Selectable Options
-                    </Label>
-                    <div className="flex flex-wrap gap-1.5 items-center">
-                      {(q.options ?? []).map((opt, optIdx) => (
-                        <span
-                          key={optIdx}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] bg-muted border border-border/60 text-foreground"
-                        >
-                          <span>{opt}</span>
-                          {!disabled && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveOption(idx, optIdx)}
-                              className="text-muted-foreground hover:text-destructive focus:outline-none"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          )}
-                        </span>
-                      ))}
+                  <div className="space-y-2.5 pt-3 border-t border-border/40">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                        <span>Selectable Options</span>
+                        <Badge variant="secondary" className="text-[10px] h-4.5 px-1.5 py-0 font-mono">
+                          {q.options?.length ?? 0}
+                        </Badge>
+                      </Label>
+                      <span className="text-[10px] text-muted-foreground hidden sm:inline">
+                        Click option text to edit. Press <kbd className="px-1 py-0.5 rounded bg-muted border text-[9px] font-mono">Enter</kbd> to add next option.
+                      </span>
+                    </div>
 
-                      {!disabled && (
-                        <div className="inline-flex items-center gap-1">
+                    <div className="space-y-2">
+                      {(q.options ?? []).map((opt, optIdx) => (
+                        <div key={optIdx} className="flex items-center gap-2">
+                          <span className="text-muted-foreground shrink-0 w-5 flex items-center justify-center">
+                            {q.type === "single_choice" && (
+                              <CircleDot className="w-3.5 h-3.5 text-muted-foreground/70" />
+                            )}
+                            {q.type === "multiple_choice" && (
+                              <SquareCheck className="w-3.5 h-3.5 text-muted-foreground/70" />
+                            )}
+                            {q.type === "dropdown" && (
+                              <span className="font-mono text-[10px] text-muted-foreground font-semibold">
+                                {optIdx + 1}.
+                              </span>
+                            )}
+                          </span>
+
                           <Input
-                            value={newOptionInputs[q.id] || ""}
-                            onChange={(e) =>
-                              setNewOptionInputs((prev) => ({
-                                ...prev,
-                                [q.id]: e.target.value,
-                              }))
-                            }
+                            ref={(el) => {
+                              const key = `${idx}-${optIdx}`;
+                              if (el) optionInputRefs.current.set(key, el);
+                              else optionInputRefs.current.delete(key);
+                            }}
+                            value={opt}
+                            onChange={(e) => handleUpdateOption(idx, optIdx, e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.preventDefault();
-                                handleAddOption(idx, q.id);
+                                handleAddOption(idx, optIdx);
                               }
                             }}
-                            placeholder="Add option..."
-                            className="h-6 w-28 text-[11px] px-2 py-0"
+                            placeholder={`Option ${optIdx + 1}`}
+                            disabled={disabled}
+                            className="h-8 text-xs flex-1 bg-background"
                           />
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => handleAddOption(idx, q.id)}
-                            className="h-6 px-2 text-[10px]"
-                          >
-                            Add
-                          </Button>
+
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              disabled={disabled || optIdx === 0}
+                              onClick={() => handleMoveOption(idx, optIdx, "up")}
+                              title="Move option up"
+                            >
+                              <ArrowUp className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              disabled={disabled || optIdx === (q.options?.length ?? 0) - 1}
+                              onClick={() => handleMoveOption(idx, optIdx, "down")}
+                              title="Move option down"
+                            >
+                              <ArrowDown className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              disabled={disabled || (q.options?.length ?? 0) <= 1}
+                              onClick={() => handleRemoveOption(idx, optIdx)}
+                              title={(q.options?.length ?? 0) <= 1 ? "At least one option is required" : "Remove option"}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </div>
-                      )}
+                      ))}
+
+                      <div className="pt-1 flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAddOption(idx)}
+                          disabled={disabled}
+                          className="h-7 text-xs gap-1 border-dashed text-primary hover:bg-primary/10"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Add Option
+                        </Button>
+                        {isChoiceWithoutOptions && (
+                          <p className="text-[11px] text-destructive">
+                            At least one option is required for this question.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
             );
           })}
-        </div>
-      )}
 
-      {/* Basic interactive live preview */}
-      {showPreview && questions.length > 0 && (
-        <div className="mt-4 rounded-lg border border-primary/20 bg-primary/[0.02] p-4 space-y-3">
-          <div className="flex items-center gap-1.5 border-b border-primary/20 pb-2">
-            <Eye className="w-3.5 h-3.5 text-primary" />
-            <h5 className="text-xs font-semibold text-foreground">
-              Form Preview (How Participants See These Questions)
-            </h5>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-            {questions.map((q) => {
-              const val = previewAnswers[q.id];
-
-              return (
-                <div key={q.id} className="space-y-1.5">
-                  <label className="text-xs font-medium text-foreground flex items-center justify-between">
-                    <span>
-                      {q.label || <span className="italic text-muted-foreground">Untitled Question</span>}
-                      {q.required && <span className="text-destructive ml-1">*</span>}
-                    </span>
-                    {!q.required && (
-                      <span className="text-[10px] text-muted-foreground">Optional</span>
-                    )}
-                  </label>
-
-                  {q.type === "short_text" && (
-                    <Input
-                      value={val || ""}
-                      onChange={(e) =>
-                        setPreviewAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
-                      }
-                      placeholder="Type your answer..."
-                      className="h-8 text-xs bg-background"
-                    />
-                  )}
-
-                  {q.type === "number" && (
-                    <Input
-                      type="number"
-                      value={val ?? ""}
-                      onChange={(e) =>
-                        setPreviewAnswers((prev) => ({
-                          ...prev,
-                          [q.id]: e.target.value === "" ? "" : Number(e.target.value),
-                        }))
-                      }
-                      placeholder="0"
-                      className="h-8 text-xs bg-background"
-                    />
-                  )}
-
-                  {q.type === "dropdown" && (
-                    <Select
-                      value={val || ""}
-                      onValueChange={(chosen) =>
-                        setPreviewAnswers((prev) => ({ ...prev, [q.id]: chosen }))
-                      }
-                    >
-                      <SelectTrigger className="h-8 text-xs bg-background">
-                        <SelectValue placeholder="Select an option" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(q.options ?? []).map((opt) => (
-                          <SelectItem key={opt} value={opt} className="text-xs">
-                            {opt}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-
-                  {q.type === "single_choice" && (
-                    <div className="flex flex-wrap gap-2 pt-0.5">
-                      {(q.options ?? []).map((opt) => {
-                        const isSelected = val === opt;
-                        return (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() =>
-                              setPreviewAnswers((prev) => ({ ...prev, [q.id]: opt }))
-                            }
-                            className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
-                              isSelected
-                                ? "bg-primary text-primary-foreground border-primary font-medium"
-                                : "bg-background text-foreground border-border hover:bg-muted/50"
-                            }`}
-                          >
-                            {opt}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {q.type === "multiple_choice" && (
-                    <div className="flex flex-wrap gap-2 pt-0.5">
-                      {(q.options ?? []).map((opt) => {
-                        const selectedList = Array.isArray(val) ? val : [];
-                        const isSelected = selectedList.includes(opt);
-                        return (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => {
-                              const next = isSelected
-                                ? selectedList.filter((x: string) => x !== opt)
-                                : [...selectedList, opt];
-                              setPreviewAnswers((prev) => ({ ...prev, [q.id]: next }));
-                            }}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs border transition-colors ${
-                              isSelected
-                                ? "bg-primary/10 text-primary border-primary/40 font-medium"
-                                : "bg-background text-foreground border-border hover:bg-muted/50"
-                            }`}
-                          >
-                            <span
-                              className={`w-3.5 h-3.5 rounded-sm border flex items-center justify-center text-[10px] ${
-                                isSelected
-                                  ? "bg-primary text-primary-foreground border-primary"
-                                  : "border-muted-foreground/60"
-                              }`}
-                            >
-                              {isSelected && <CheckCircle2 className="w-3 h-3" />}
-                            </span>
-                            {opt}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          {/* Bottom Add Question Button */}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleAddQuestion}
+            disabled={disabled}
+            className="w-full h-10 text-xs gap-1.5 border-dashed border-border/80 hover:border-primary/50 text-muted-foreground hover:text-primary hover:bg-primary/5 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Another Question
+          </Button>
         </div>
       )}
     </div>
