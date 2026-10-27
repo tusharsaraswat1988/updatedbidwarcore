@@ -1200,8 +1200,12 @@ export default function TournamentSettings() {
         {/* ── PLAYER REGISTRATION ── */}
         {activeSection === "playerRegistration" && (
           <SettingsTabPanel>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              {/* Card 1: Form Deadlines & Capacity */}
+            <div className="space-y-5">
+              {/* 2-Column Balanced Upper Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+                {/* Left Column: Deadlines & Core Profile Fields */}
+                <div className="space-y-5">
+                  {/* Card 1: Form Deadlines & Capacity */}
               <SettingsCard
                 title="Form Deadlines & Capacity"
                 description="Set optional registration end date and maximum participant limit."
@@ -1233,82 +1237,7 @@ export default function TournamentSettings() {
                 </div>
               </SettingsCard>
 
-              {/* Card 2: Registration Fee & Payments */}
-              <SettingsCard
-                title="Registration Fee & UPI"
-                description="Collect entry fees from players with manual UPI payment verification."
-                icon={<IndianRupee className="w-4 h-4 text-emerald-400" />}
-                className={fieldWrapClass("registration")}
-                headerAction={
-                  <Badge variant="outline" className="text-xs font-normal border-emerald-500/30 text-emerald-400 bg-emerald-500/10">
-                    Optional
-                  </Badge>
-                }
-              >
-                <div id="settings-field-registration-payments" className="space-y-3.5">
-                  <label className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/15 p-3 cursor-pointer hover:bg-muted/25 transition-colors">
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-foreground">Collect Registration Fee</p>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">Players submit UPI screenshot / UTR during registration.</p>
-                    </div>
-                    <Switch
-                      checked={editForm.enableRegistrationPayment === true}
-                      onCheckedChange={v => setEditForm(f => ({ ...f, enableRegistrationPayment: v }))}
-                    />
-                  </label>
-
-                  <Collapsible open={editForm.enableRegistrationPayment === true}>
-                    <CollapsibleContent className="space-y-3 pt-1">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-foreground/90">
-                            Fee Amount (₹) <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={editForm.registrationFee as string || ""}
-                            onChange={e => setEditForm(f => ({ ...f, registrationFee: e.target.value }))}
-                            className="h-9 text-xs"
-                          />
-                          <IndianAmountHint value={editForm.registrationFee as string} className="text-[10px]" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-foreground/90">
-                            UPI ID <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            value={editForm.upiId as string || ""}
-                            onChange={e => setEditForm(f => ({ ...f, upiId: e.target.value }))}
-                            className="h-9 text-xs"
-                          />
-                        </div>
-                        <div className="space-y-1.5 sm:col-span-2">
-                          <Label className="text-xs font-medium text-foreground/90">
-                            Verification Method <span className="text-destructive">*</span>
-                          </Label>
-                          <Select
-                            value={(editForm.paymentVerificationMethod as string) || "utr"}
-                            onValueChange={v => setEditForm(f => ({ ...f, paymentVerificationMethod: v }))}
-                          >
-                            <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent className="dark">
-                              <SelectItem value="utr">UTR Number only</SelectItem>
-                              <SelectItem value="screenshot">Payment screenshot only</SelectItem>
-                              <SelectItem value="utr_and_screenshot">UTR + Screenshot</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        Payment gateway integration coming soon. Manual verification is currently active.
-                      </p>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </div>
-              </SettingsCard>
-
-              {/* Card 3: Form Fields Configuration */}
+                  {/* Card 3: Form Fields Configuration */}
               <SettingsCard
                 title="Registration Form Fields"
                 description="Toggle optional fields on the public player registration form."
@@ -1408,8 +1337,86 @@ export default function TournamentSettings() {
 
                 </div>
               </SettingsCard>
+                </div>
 
-              {/* Card 4: Bid Value Mode (Auction only) */}
+                {/* Right Column: Fee, Base Price, and Declaration */}
+                <div className="space-y-5">
+                  {/* Card 2: Registration Fee & Payments */}
+              <SettingsCard
+                title="Registration Fee & UPI"
+                description="Collect entry fees from players with manual UPI payment verification."
+                icon={<IndianRupee className="w-4 h-4 text-emerald-400" />}
+                className={fieldWrapClass("registration")}
+                headerAction={
+                  <Badge variant="outline" className="text-xs font-normal border-emerald-500/30 text-emerald-400 bg-emerald-500/10">
+                    Optional
+                  </Badge>
+                }
+              >
+                <div id="settings-field-registration-payments" className="space-y-3.5">
+                  <label className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/15 p-3 cursor-pointer hover:bg-muted/25 transition-colors">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-foreground">Collect Registration Fee</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Players submit UPI screenshot / UTR during registration.</p>
+                    </div>
+                    <Switch
+                      checked={editForm.enableRegistrationPayment === true}
+                      onCheckedChange={v => setEditForm(f => ({ ...f, enableRegistrationPayment: v }))}
+                    />
+                  </label>
+
+                  <Collapsible open={editForm.enableRegistrationPayment === true}>
+                    <CollapsibleContent className="space-y-3 pt-1">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-foreground/90">
+                            Fee Amount (₹) <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            value={editForm.registrationFee as string || ""}
+                            onChange={e => setEditForm(f => ({ ...f, registrationFee: e.target.value }))}
+                            className="h-9 text-xs"
+                          />
+                          <IndianAmountHint value={editForm.registrationFee as string} className="text-[10px]" />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium text-foreground/90">
+                            UPI ID <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            value={editForm.upiId as string || ""}
+                            onChange={e => setEditForm(f => ({ ...f, upiId: e.target.value }))}
+                            className="h-9 text-xs"
+                          />
+                        </div>
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs font-medium text-foreground/90">
+                            Verification Method <span className="text-destructive">*</span>
+                          </Label>
+                          <Select
+                            value={(editForm.paymentVerificationMethod as string) || "utr"}
+                            onValueChange={v => setEditForm(f => ({ ...f, paymentVerificationMethod: v }))}
+                          >
+                            <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent className="dark">
+                              <SelectItem value="utr">UTR Number only</SelectItem>
+                              <SelectItem value="screenshot">Payment screenshot only</SelectItem>
+                              <SelectItem value="utr_and_screenshot">UTR + Screenshot</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground leading-relaxed">
+                        Payment gateway integration coming soon. Manual verification is currently active.
+                      </p>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              </SettingsCard>
+
+                  {/* Card 4: Bid Value Mode (Auction only) */}
               {isAuction && (
                 <SettingsCard
                   title="Player Base Price Mode"
@@ -1536,31 +1543,12 @@ export default function TournamentSettings() {
                 </SettingsCard>
               )}
 
-              {/* Card 5: Custom Registration Questions (Full Width) */}
-              <SettingsCard
-                title="Custom Registration Questions"
-                description="Ask participants tournament-specific questions (e.g. kit size, batting preference, food choices, transport)."
-                icon={<HelpCircle className="w-4 h-4 text-primary" />}
-                className="lg:col-span-2"
-                headerAction={
-                  <Badge variant="outline" className="text-xs font-normal border-primary/30 text-primary bg-primary/10">
-                    {customQuestions.length} {customQuestions.length === 1 ? "Question" : "Questions"}
-                  </Badge>
-                }
-              >
-                <CustomQuestionsEditor
-                  questions={customQuestions}
-                  onChange={setCustomQuestions}
-                  disabled={updateTournament.isPending}
-                />
-              </SettingsCard>
-
-              {/* Card 6: Declaration & Consent (Full Width) */}
+                  {/* Card: Declaration & Player Consent */}
               <SettingsCard
                 title="Declaration & Player Consent"
                 description="Point-wise rules and consent terms required before registration submission."
                 icon={<ClipboardList className="w-4 h-4 text-primary" />}
-                className="lg:col-span-2"
+                className={fieldWrapClass("registration")}
                 headerAction={
                   <Badge variant="outline" className="text-xs font-normal border-blue-500/30 text-blue-400 bg-blue-500/10">
                     Optional
@@ -1581,43 +1569,62 @@ export default function TournamentSettings() {
 
                   <Collapsible open={editForm.enableRegistrationDeclaration === true}>
                     <CollapsibleContent className="pt-1">
-                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                        {/* Editor column */}
-                        <div className="lg:col-span-6 space-y-2">
-                          <Label className="text-xs font-medium text-foreground/90">Declaration Points (1 per line)</Label>
+                      <div className="space-y-3 pt-1">
+                        {/* Editor */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-medium text-foreground/90">Declaration Points (1 per line)</Label>
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              {parseRegistrationDeclarationPoints(editForm.registrationDeclarationText as string).length} Points
+                            </span>
+                          </div>
                           <Textarea
                             value={editForm.registrationDeclarationText as string || ""}
                             onChange={e => setEditForm(f => ({ ...f, registrationDeclarationText: e.target.value }))}
-                            rows={6}
-                            className="text-xs font-normal leading-relaxed resize-y min-h-[140px]"
+                            rows={4}
+                            className="text-xs font-normal leading-relaxed resize-y min-h-[95px]"
+                            placeholder="1. Players must report 30 minutes before match time.&#10;2. Proper sports kit is mandatory."
                           />
                           <p className="text-[10px] text-muted-foreground">Each new line is formatted as a numbered point on the public form.</p>
                         </div>
 
-                        {/* Live Preview column */}
-                        <div className="lg:col-span-6">
-                          <div className="rounded-lg border border-border/60 bg-muted/15 p-3.5 space-y-2 min-h-[140px]">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold text-foreground">Public Form Preview</span>
-                              <Badge variant="secondary" className="text-[10px] h-4 px-1.5 font-normal">
-                                {parseRegistrationDeclarationPoints(editForm.registrationDeclarationText as string).length} Points
-                              </Badge>
-                            </div>
-                            {parseRegistrationDeclarationPoints(editForm.registrationDeclarationText as string).length > 0 ? (
-                              <ol className="list-decimal list-inside space-y-1.5 text-xs text-muted-foreground max-h-48 overflow-y-auto pr-1">
-                                {parseRegistrationDeclarationPoints(editForm.registrationDeclarationText as string).map((point, i) => (
-                                  <li key={i} className="leading-relaxed">{point}</li>
-                                ))}
-                              </ol>
-                            ) : (
-                              <p className="text-xs text-muted-foreground/60 italic py-4">No points entered yet. Type points on the left to see live preview.</p>
-                            )}
+                        {/* Live Preview */}
+                        {parseRegistrationDeclarationPoints(editForm.registrationDeclarationText as string).length > 0 && (
+                          <div className="rounded-lg border border-border/60 bg-muted/15 p-3 space-y-1.5">
+                            <span className="text-xs font-semibold text-foreground">Public Form Preview</span>
+                            <ol className="list-decimal list-inside space-y-1 text-xs text-muted-foreground max-h-36 overflow-y-auto pr-1">
+                              {parseRegistrationDeclarationPoints(editForm.registrationDeclarationText as string).map((point, i) => (
+                                <li key={i} className="leading-relaxed">{point}</li>
+                              ))}
+                            </ol>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </CollapsibleContent>
                   </Collapsible>
                 </div>
+              </SettingsCard>
+                </div>
+              </div>
+
+              {/* Full Width Bottom: Custom Registration Questions */}
+              {/* Card 5: Custom Registration Questions (Full Width) */}
+              <SettingsCard
+                title="Custom Registration Questions"
+                description="Ask participants tournament-specific questions (e.g. kit size, batting preference, food choices, transport)."
+                icon={<HelpCircle className="w-4 h-4 text-primary" />}
+                className="lg:col-span-2"
+                headerAction={
+                  <Badge variant="outline" className="text-xs font-normal border-primary/30 text-primary bg-primary/10">
+                    {customQuestions.length} {customQuestions.length === 1 ? "Question" : "Questions"}
+                  </Badge>
+                }
+              >
+                <CustomQuestionsEditor
+                  questions={customQuestions}
+                  onChange={setCustomQuestions}
+                  disabled={updateTournament.isPending}
+                />
               </SettingsCard>
             </div>
           </SettingsTabPanel>
