@@ -15,6 +15,7 @@ type Props = {
   onChange: (v: JerseySize | "") => void;
   id?: string;
   label?: string;
+  hideLabel?: boolean;
   triggerClassName?: string;
   contentClassName?: string;
   marker?: "required" | "optional";
@@ -29,6 +30,7 @@ export function JerseySizeSelect({
   onChange,
   id = "jersey-size",
   label = "Jersey Size",
+  hideLabel = false,
   triggerClassName,
   contentClassName,
   marker,
@@ -37,6 +39,28 @@ export function JerseySizeSelect({
   style,
   autofilled = false,
 }: Props) {
+  const select = (
+    <Select
+      value={value || "none"}
+      onValueChange={(v) => onChange(v === "none" ? "" : (v as JerseySize))}
+      disabled={disabled}
+    >
+      <SelectTrigger id={id} className={triggerClassName}>
+        <SelectValue placeholder="Select size" />
+      </SelectTrigger>
+      <SelectContent position="popper" className={contentClassName ?? "max-h-60"}>
+        <SelectItem value="none">Not specified</SelectItem>
+        {JERSEY_SIZE_VALUES.map(size => (
+          <SelectItem key={size} value={size}>{jerseySizeLabel(size)}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  if (hideLabel) {
+    return className || style ? <div className={className} style={style}>{select}</div> : select;
+  }
+
   return (
     <div className={className ? `space-y-2 ${className}` : "space-y-2"} style={style}>
       <div className="reg-label-row">
@@ -50,21 +74,7 @@ export function JerseySizeSelect({
           ) : null}
         </span>
       </div>
-      <Select
-        value={value || "none"}
-        onValueChange={(v) => onChange(v === "none" ? "" : (v as JerseySize))}
-        disabled={disabled}
-      >
-        <SelectTrigger id={id} className={triggerClassName}>
-          <SelectValue placeholder="Select size" />
-        </SelectTrigger>
-        <SelectContent position="popper" className={contentClassName ?? "max-h-60"}>
-          <SelectItem value="none">Not specified</SelectItem>
-          {JERSEY_SIZE_VALUES.map(size => (
-            <SelectItem key={size} value={size}>{jerseySizeLabel(size)}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {select}
     </div>
   );
 }

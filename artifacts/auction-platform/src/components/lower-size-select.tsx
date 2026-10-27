@@ -15,6 +15,7 @@ type Props = {
   onChange: (v: LowerSize | "") => void;
   id?: string;
   label?: string;
+  hideLabel?: boolean;
   triggerClassName?: string;
   contentClassName?: string;
   marker?: "required" | "optional";
@@ -29,6 +30,7 @@ export function LowerSizeSelect({
   onChange,
   id = "lower-size",
   label = "Lower Size",
+  hideLabel = false,
   triggerClassName,
   contentClassName,
   marker,
@@ -37,6 +39,28 @@ export function LowerSizeSelect({
   style,
   autofilled = false,
 }: Props) {
+  const select = (
+    <Select
+      value={value || "none"}
+      onValueChange={(v) => onChange(v === "none" ? "" : (v as LowerSize))}
+      disabled={disabled}
+    >
+      <SelectTrigger id={id} className={triggerClassName}>
+        <SelectValue placeholder="Select size" />
+      </SelectTrigger>
+      <SelectContent position="popper" className={contentClassName ?? "max-h-60"}>
+        <SelectItem value="none">Not specified</SelectItem>
+        {LOWER_SIZE_VALUES.map(size => (
+          <SelectItem key={size} value={size}>{lowerSizeLabel(size)}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  if (hideLabel) {
+    return className || style ? <div className={className} style={style}>{select}</div> : select;
+  }
+
   return (
     <div className={className ? `space-y-2 ${className}` : "space-y-2"} style={style}>
       <div className="reg-label-row">
@@ -50,21 +74,7 @@ export function LowerSizeSelect({
           ) : null}
         </span>
       </div>
-      <Select
-        value={value || "none"}
-        onValueChange={(v) => onChange(v === "none" ? "" : (v as LowerSize))}
-        disabled={disabled}
-      >
-        <SelectTrigger id={id} className={triggerClassName}>
-          <SelectValue placeholder="Select size" />
-        </SelectTrigger>
-        <SelectContent position="popper" className={contentClassName ?? "max-h-60"}>
-          <SelectItem value="none">Not specified</SelectItem>
-          {LOWER_SIZE_VALUES.map(size => (
-            <SelectItem key={size} value={size}>{lowerSizeLabel(size)}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {select}
     </div>
   );
 }

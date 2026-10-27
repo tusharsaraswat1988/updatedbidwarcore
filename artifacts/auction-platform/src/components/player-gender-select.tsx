@@ -14,6 +14,7 @@ type Props = {
   onChange: (v: "M" | "F" | "") => void;
   id?: string;
   label?: string;
+  hideLabel?: boolean;
   triggerClassName?: string;
   contentClassName?: string;
   required?: boolean;
@@ -29,6 +30,7 @@ export function PlayerGenderSelect({
   onChange,
   id = "player-gender",
   label = "Gender",
+  hideLabel = false,
   triggerClassName,
   contentClassName,
   required,
@@ -38,6 +40,27 @@ export function PlayerGenderSelect({
   style,
   autofilled = false,
 }: Props) {
+  const select = (
+    <Select
+      value={value || "none"}
+      onValueChange={(v) => onChange(v === "none" ? "" : (v as "M" | "F"))}
+      disabled={disabled}
+    >
+      <SelectTrigger id={id} className={triggerClassName}>
+        <SelectValue placeholder="Select gender" />
+      </SelectTrigger>
+      <SelectContent position="popper" className={contentClassName ?? "max-h-60 w-[var(--radix-select-trigger-width)]"}>
+        <SelectItem value="none">Not specified</SelectItem>
+        <SelectItem value="M">Male</SelectItem>
+        <SelectItem value="F">Female</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+
+  if (hideLabel) {
+    return className || style ? <div className={className} style={style}>{select}</div> : select;
+  }
+
   return (
     <div className={className ? `space-y-2 ${className}` : "space-y-2"} style={style}>
       <div className="reg-label-row">
@@ -54,20 +77,7 @@ export function PlayerGenderSelect({
           ) : null}
         </span>
       </div>
-      <Select
-        value={value || "none"}
-        onValueChange={(v) => onChange(v === "none" ? "" : (v as "M" | "F"))}
-        disabled={disabled}
-      >
-        <SelectTrigger id={id} className={triggerClassName}>
-          <SelectValue placeholder="Select gender" />
-        </SelectTrigger>
-        <SelectContent position="popper" className={contentClassName ?? "max-h-60 w-[var(--radix-select-trigger-width)]"}>
-          <SelectItem value="none">Not specified</SelectItem>
-          <SelectItem value="M">Male</SelectItem>
-          <SelectItem value="F">Female</SelectItem>
-        </SelectContent>
-      </Select>
+      {select}
     </div>
   );
 }
