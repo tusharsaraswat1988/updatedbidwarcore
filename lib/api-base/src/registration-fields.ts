@@ -36,6 +36,7 @@ export const REGISTRATION_CONFIGURABLE_FIELD_KEYS = [
   "gender",
   "jerseyNumber",
   "jerseySize",
+  "lowerSize",
   "achievements",
   "cricheroUrl",
   "matchAvailability",
@@ -360,6 +361,7 @@ export const REGISTRATION_CONFIGURABLE_FIELD_LABELS: Record<
   gender: "Gender",
   jerseyNumber: "Jersey Number",
   jerseySize: "Jersey Size",
+  lowerSize: "Lower Size",
   achievements: "Achievements / Bio",
   cricheroUrl: "CricHero Profile URL",
   matchAvailability: "Match Availability",
@@ -472,6 +474,27 @@ export function isRegistrationFieldRequired(
   return buildRegistrationFieldRequirements(config, sportId)[
     key as RegistrationConfigurableFieldKey
   ];
+}
+
+
+export function resolveRegistrationFieldVisibilityFromTournament(
+  raw: unknown,
+  sportId?: string | null,
+): Record<RegistrationConfigurableFieldKey, boolean> {
+  return buildRegistrationFieldVisibility(
+    parseRegistrationFieldsConfig(raw),
+    sportId,
+  );
+}
+
+export function resolveRegistrationFieldRequirementsFromTournament(
+  raw: unknown,
+  sportId?: string | null,
+): Record<RegistrationConfigurableFieldKey, boolean> {
+  return buildRegistrationFieldRequirements(
+    parseRegistrationFieldsConfig(raw),
+    sportId,
+  );
 }
 
 export function serializeRegistrationFieldsConfig(
@@ -606,6 +629,7 @@ export function validatePlayerRegistrationRequirements(
     gender?: string | null;
     jerseyNumber?: number | string | null;
     jerseySize?: string | null;
+    lowerSize?: string | null;
     achievements?: string | null;
     cricheroUrl?: string | null;
     availabilityDates?: string | null;
@@ -691,6 +715,11 @@ export function validatePlayerRegistrationRequirements(
   // Jersey Size
   if (reqs.jerseySize && !input.jerseySize?.trim()) {
     return { ok: false, error: "Jersey size is required.", field: "jerseySize" };
+  }
+
+  // Lower Size
+  if (reqs.lowerSize && !input.lowerSize?.trim()) {
+    return { ok: false, error: "Lower size is required.", field: "lowerSize" };
   }
 
   // Achievements

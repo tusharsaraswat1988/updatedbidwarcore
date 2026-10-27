@@ -1,5 +1,6 @@
 import type { Player, Team } from "@workspace/api-client-react";
 import { JERSEY_SIZE_VALUES, jerseySizeLabel, normalizeJerseySize } from "@workspace/api-base/jersey-size";
+import { LOWER_SIZE_VALUES, lowerSizeLabel, normalizeLowerSize } from "@workspace/api-base/lower-size";
 
 export interface ParsedRosterPlayer {
   id?: number; // Present if updating an existing player
@@ -12,6 +13,7 @@ export interface ParsedRosterPlayer {
   bowlingStyle: string;
   jerseyNumber?: string;
   jerseySize?: string;
+  lowerSize?: string;
   dob?: string;
   mobileNumber?: string;
   city?: string;
@@ -116,6 +118,7 @@ export async function exportRosterTemplateToExcel({
         "Bowling Style": p.bowlingStyle || "None",
         "Jersey #": p.jerseyNumber ? String(p.jerseyNumber).replace("#", "") : "",
         "Jersey Size": p.jerseySize ? jerseySizeLabel(p.jerseySize) : "",
+        "Lower Size": (p as any).lowerSize ? lowerSizeLabel((p as any).lowerSize) : "",
         "DOB (YYYY-MM-DD)": "",
         Mobile: p.mobileNumber || "",
         City: p.city || "",
@@ -139,6 +142,7 @@ export async function exportRosterTemplateToExcel({
         "Bowling Style": "None",
         "Jersey #": "7",
         "Jersey Size": jerseySizeLabel("L"),
+        "Lower Size": "32",
         "DOB (YYYY-MM-DD)": "2014-05-12",
         Mobile: "9876543210",
         City: "Varanasi",
@@ -154,6 +158,7 @@ export async function exportRosterTemplateToExcel({
         "Bowling Style": "Right Arm Medium",
         "Jersey #": "18",
         "Jersey Size": jerseySizeLabel("XL"),
+        "Lower Size": "34",
         "DOB (YYYY-MM-DD)": "2013-09-22",
         Mobile: "9876543211",
         City: "Varanasi",
@@ -184,6 +189,7 @@ export async function exportRosterTemplateToExcel({
     { "HOW TO USE THIS TEMPLATE": "• Batting Style: Right Hand, Left Hand" },
     { "HOW TO USE THIS TEMPLATE": "• Bowling Style: Right Arm Fast, Right Arm Medium, Right Arm Spin, Left Arm Fast, None" },
     { "HOW TO USE THIS TEMPLATE": `• Jersey Size: ${JERSEY_SIZE_VALUES.map((size) => jerseySizeLabel(size)).join(", ")}` },
+    { "HOW TO USE THIS TEMPLATE": `• Lower Size: ${LOWER_SIZE_VALUES.join(", ")}` },
   ];
 
   const refWs = XLSX.utils.json_to_sheet(instructionsRows);
@@ -348,6 +354,8 @@ export async function parseRosterExcelFile(
     const jerseyNumber = findVal(row, ["Jersey #", "Jersey Number", "jersey_number", "Jersey", "JerseyNo"]).replace(/#/g, "");
     const rawJerseySize = findVal(row, ["Jersey Size", "jersey_size", "Size"]);
     const jerseySize = normalizeJerseySize(rawJerseySize) ?? (rawJerseySize || undefined);
+    const rawLowerSize = findVal(row, ["Lower Size", "lower_size", "Lower", "Track Size", "Trouser Size"]);
+    const lowerSize = normalizeLowerSize(rawLowerSize) ?? (rawLowerSize || undefined);
     const dob = findVal(row, ["DOB (YYYY-MM-DD)", "DOB", "dob", "Date of Birth"]);
     const mobileNumber = findVal(row, ["Mobile", "Mobile Number", "mobile", "Parent Mobile", "Phone"]);
     const city = findVal(row, ["City", "city"]);
@@ -370,6 +378,7 @@ export async function parseRosterExcelFile(
       bowlingStyle,
       jerseyNumber: jerseyNumber || undefined,
       jerseySize: jerseySize || undefined,
+      lowerSize: lowerSize || undefined,
       dob: dob || undefined,
       mobileNumber: mobileNumber || undefined,
       city: city || undefined,

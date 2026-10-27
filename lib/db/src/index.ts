@@ -131,6 +131,11 @@ void systemCQuery(`ALTER TABLE players ADD COLUMN IF NOT EXISTS jersey_size text
     console.error("[db] failed to ensure players.jersey_size column:", err);
   });
 
+void systemCQuery(`ALTER TABLE players ADD COLUMN IF NOT EXISTS lower_size text`)
+  .catch((err) => {
+    console.error("[db] failed to ensure players.lower_size column:", err);
+  });
+
 void systemCQuery(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS owner_email text`)
   .catch((err) => {
     console.error("[db] failed to ensure teams.owner_email column:", err);

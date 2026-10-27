@@ -15,6 +15,7 @@ import { z } from "zod";
 import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
 import { JERSEY_SIZE_VALUES } from "@workspace/api-base/jersey-size";
+import { LOWER_SIZE_VALUES } from "@workspace/api-base/lower-size";
 import { parseRegistrationDeclarationPoints } from "@workspace/api-base/registration-declaration";
 import {
   validateMandatoryRegistrationFields,
@@ -339,6 +340,7 @@ function buildPublicRegistrationProfileUpdates(
     photoPublicId?: string | null;
     jerseyNumber?: string | null;
     jerseySize?: string | null;
+    lowerSize?: string | null;
     achievements?: string | null;
     cricheroUrl?: string | null;
     availabilityDates?: string | null;
@@ -363,6 +365,7 @@ function buildPublicRegistrationProfileUpdates(
     photoPublicId: d.photoPublicId ?? null,
     jerseyNumber: d.jerseyNumber ?? null,
     jerseySize: d.jerseySize ?? null,
+    lowerSize: d.lowerSize ?? null,
     achievements: d.achievements ?? null,
     email,
     cricheroUrl: d.cricheroUrl ?? null,
@@ -447,6 +450,7 @@ const cloudinaryImageUrl = z
 
 const PLAYER_TAG_VALUES = ["captain", "vice_captain", "owner", "co_owner", "booster", "icon", "star_player"] as const;
 const jerseySizeSchema = z.enum(JERSEY_SIZE_VALUES);
+const lowerSizeSchema = z.enum(LOWER_SIZE_VALUES);
 
 const playerSpecificationInputSchema = z.object({
   specGroupId: z.number().int().positive(),
@@ -471,6 +475,7 @@ const playerInputSchema = z.object({
   selectedBidValue: z.number().int().optional(),
   jerseyNumber: z.string().optional(),
   jerseySize: jerseySizeSchema.optional(),
+  lowerSize: lowerSizeSchema.optional(),
   achievements: z.string().optional(),
   mobileNumber: z.string().min(1, "Mobile number is required for communication features"),
   email: z.string().optional(),
@@ -648,6 +653,7 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       bidValueSource: bidResolved.fields.bidValueSource,
       jerseyNumber: d.jerseyNumber ?? null,
       jerseySize: d.jerseySize ?? null,
+      lowerSize: d.lowerSize ?? null,
       achievements: d.achievements ?? null,
       mobileNumber,
       email: emailParsed.email,
@@ -1139,6 +1145,7 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
       bidValueSource: bidResolved.fields.bidValueSource,
       jerseyNumber: d.jerseyNumber ?? null,
       jerseySize: d.jerseySize ?? null,
+      lowerSize: d.lowerSize ?? null,
       achievements: d.achievements ?? null,
       mobileNumber,
       email: emailParsed.email,
@@ -1293,6 +1300,7 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         bidValueSource: bidResolved.fields.bidValueSource,
         jerseyNumber: pd.jerseyNumber ?? null,
         jerseySize: pd.jerseySize ?? null,
+        lowerSize: pd.lowerSize ?? null,
         achievements: pd.achievements ?? null,
         mobileNumber: bulkMobile,
         email: bulkEmailParsed.email,
@@ -1352,6 +1360,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     selectedBidValue: z.number().int().nullable().optional(),
     jerseyNumber: z.string().optional(),
     jerseySize: jerseySizeSchema.nullable().optional(),
+    lowerSize: lowerSizeSchema.nullable().optional(),
     achievements: z.string().optional(),
     mobileNumber: z.string().min(1).optional(),
     email: z.string().optional(),
@@ -1528,6 +1537,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
 
   if (d.jerseyNumber !== undefined) updates.jerseyNumber = d.jerseyNumber;
   if (d.jerseySize !== undefined) updates.jerseySize = d.jerseySize;
+  if (d.lowerSize !== undefined) updates.lowerSize = d.lowerSize;
   if (d.achievements !== undefined) updates.achievements = d.achievements;
   if (normalizedMobile !== undefined) updates.mobileNumber = normalizedMobile;
   if (normalizedEmail !== undefined) updates.email = normalizedEmail;
@@ -2020,6 +2030,7 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
       bidValueSource: "system",
       jerseyNumber: p.jerseyNumber,
       jerseySize: p.jerseySize,
+      lowerSize: p.lowerSize,
       achievements: p.achievements,
       mobileNumber: normalizedMobile,
       email: p.email,

@@ -437,6 +437,9 @@ WHERE NOT EXISTS (SELECT 1 FROM sports LIMIT 1);
   "0034_player_custom_answers.sql": `
     ALTER TABLE "players" ADD COLUMN IF NOT EXISTS "custom_answers_json" jsonb;
   `,
+  "0035_player_lower_size.sql": `
+    ALTER TABLE "players" ADD COLUMN IF NOT EXISTS "lower_size" text;
+  `,
 };
 
 function resolveMigrationsDirectory(explicit?: string): string | null {

@@ -752,6 +752,7 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
 
     ALTER TABLE players ADD COLUMN IF NOT EXISTS photo_original_url TEXT;
     ALTER TABLE players ADD COLUMN IF NOT EXISTS photo_original_public_id TEXT;
+    ALTER TABLE players ADD COLUMN IF NOT EXISTS lower_size TEXT;
 
     CREATE TABLE IF NOT EXISTS photo_source_assets (
       id BIGSERIAL PRIMARY KEY,

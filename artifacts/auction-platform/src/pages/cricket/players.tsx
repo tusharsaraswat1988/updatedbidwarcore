@@ -53,6 +53,12 @@ import {
   normalizeJerseySize,
   type JerseySize,
 } from "@workspace/api-base/jersey-size";
+import {
+  LOWER_SIZE_VALUES,
+  lowerSizeLabel,
+  normalizeLowerSize,
+  type LowerSize,
+} from "@workspace/api-base/lower-size";
 import { playerRegistrationShareUrl } from "@workspace/api-base/registration-url";
 import {
   isScoringPlayerRegistration,
@@ -159,6 +165,7 @@ type SportsPlayerForm = {
   teamId: string;
   jerseyNumber: string;
   jerseySize: JerseySize | "";
+  lowerSize: LowerSize | "";
   city: string;
   gender: string;
   battingStyle: string;
@@ -176,6 +183,7 @@ const EMPTY_FORM: SportsPlayerForm = {
   teamId: "",
   jerseyNumber: "",
   jerseySize: "",
+  lowerSize: "",
   city: "",
   gender: "",
   battingStyle: "",
@@ -194,6 +202,7 @@ function formFromPlayer(player: Player): SportsPlayerForm {
     teamId: player.teamId != null ? String(player.teamId) : "",
     jerseyNumber: player.jerseyNumber || "",
     jerseySize: normalizeJerseySize(player.jerseySize) ?? "",
+    lowerSize: normalizeLowerSize(player.lowerSize) ?? "",
     city: player.city || "",
     gender: player.gender || "",
     battingStyle: player.battingStyle || "",
@@ -843,6 +852,7 @@ export default function CricketPlayersPage() {
     const photoChanged = (form.photoUrl || "") !== initialPhotoUrl || !!form.photoPublicId;
 
     const jerseySize = normalizeJerseySize(form.jerseySize);
+    const lowerSize = normalizeLowerSize(form.lowerSize);
     const sportsPayload = {
       ...(parsedSerialNo !== undefined ? { serialNo: parsedSerialNo } : {}),
       name: form.name.trim(),
@@ -850,10 +860,14 @@ export default function CricketPlayersPage() {
       role: form.role || undefined,
       jerseyNumber: form.jerseyNumber.trim() || undefined,
       ...(editing
-        ? { jerseySize: (jerseySize ?? null) as PlayerUpdate["jerseySize"] }
-        : jerseySize
-          ? { jerseySize }
-          : {}),
+        ? {
+            jerseySize: (jerseySize ?? null) as PlayerUpdate["jerseySize"],
+            lowerSize: (lowerSize ?? null) as any,
+          }
+        : {
+            ...(jerseySize ? { jerseySize } : {}),
+            ...(lowerSize ? { lowerSize } : {}),
+          }),
       city: form.city.trim() || undefined,
       gender: (form.gender || undefined) as "M" | "F" | undefined,
       battingStyle: form.battingStyle || undefined,
@@ -1714,6 +1728,21 @@ export default function CricketPlayersPage() {
                   options={[
                     { value: "none", label: "Not set" },
                     ...JERSEY_SIZE_VALUES.map((size) => ({ value: size, label: jerseySizeLabel(size) })),
+                  ]}
+                />
+              </FormField>
+              <FormField label="Lower size">
+                <DarkSelect
+                  value={form.lowerSize || "none"}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      lowerSize: v === "none" ? "" : (v as LowerSize),
+                    }))
+                  }
+                  options={[
+                    { value: "none", label: "Not set" },
+                    ...LOWER_SIZE_VALUES.map((size) => ({ value: size, label: lowerSizeLabel(size) })),
                   ]}
                 />
               </FormField>

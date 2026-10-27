@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { LOWER_SIZE_VALUES, isLowerSize, normalizeLowerSize } from "@workspace/api-base/lower-size";
+import { sanitizeRegistrationInputByVisibility } from "../lib/registration-field-validation.js";
 import {
   REGISTRATION_CONFIGURABLE_FIELD_KEYS,
   REGISTRATION_PERMANENT_MANDATORY_FIELD_KEYS,
@@ -166,6 +168,12 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
       expect(validatePlayerRegistrationRequirements({ ...baseValid, jerseySize: "L" }, config).ok).toBe(true);
     });
 
+    it("enforces required lowerSize", () => {
+      const config: RegistrationFieldsConfig = { required: ["lowerSize"] };
+      expect(validatePlayerRegistrationRequirements(baseValid, config).ok).toBe(false);
+      expect(validatePlayerRegistrationRequirements({ ...baseValid, lowerSize: "32" }, config).ok).toBe(true);
+    });
+
     it("enforces required achievements", () => {
       const config: RegistrationFieldsConfig = { required: ["achievements"] };
       expect(validatePlayerRegistrationRequirements(baseValid, config).ok).toBe(false);
@@ -207,6 +215,7 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
           gender: "",
           jerseyNumber: "",
           jerseySize: "",
+          lowerSize: "",
           achievements: "",
           cricheroUrl: "",
           availabilityDates: "",
@@ -326,6 +335,43 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
         config,
       );
       expect(res.ok).toBe(true);
+    });
+  });
+
+  // 13: Pre-fixed Lower Size options and visibility behavior
+  describe("13: Pre-fixed Lower Size options and visibility behavior", () => {
+    it("provides the exact pre-fixed lower size values (24 to 44)", () => {
+      expect(LOWER_SIZE_VALUES).toEqual([
+        "24", "26", "28", "30", "32", "34", "36", "38", "40", "42", "44",
+      ]);
+      expect(REGISTRATION_CONFIGURABLE_FIELD_KEYS).toContain("lowerSize");
+    });
+
+    it("normalizes and validates lower size values correctly", () => {
+      expect(isLowerSize("32")).toBe(true);
+      expect(isLowerSize("24")).toBe(true);
+      expect(isLowerSize("44")).toBe(true);
+      expect(isLowerSize("50")).toBe(false);
+      expect(isLowerSize("invalid")).toBe(false);
+
+      expect(normalizeLowerSize(" 32 ")).toBe("32");
+      expect(normalizeLowerSize("28")).toBe("28");
+      expect(normalizeLowerSize("99")).toBeNull();
+      expect(normalizeLowerSize(null)).toBeNull();
+    });
+
+    it("sanitizes lowerSize when hidden by tournament organizer", () => {
+      const visibleResult = sanitizeRegistrationInputByVisibility(
+        { lowerSize: "32", name: "Player" } as any,
+        { lowerSize: true } as any,
+      );
+      expect(visibleResult.lowerSize).toBe("32");
+
+      const hiddenResult = sanitizeRegistrationInputByVisibility(
+        { lowerSize: "32", name: "Player" } as any,
+        { lowerSize: false } as any,
+      );
+      expect(hiddenResult.lowerSize).toBeUndefined();
     });
   });
 

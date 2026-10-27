@@ -301,7 +301,7 @@ export default function TournamentSettings() {
       (t as any)?.registrationFields ?? (t as any)?.registrationFieldsJson,
     );
     const initialHidden = initialRegConfig.hidden ?? [];
-    const initialRequired = initialRegConfig.required !== undefined ? initialRegConfig.required : ["photo", "role"];
+    const initialRequired: RegistrationConfigurableFieldKey[] = initialRegConfig.required !== undefined ? initialRegConfig.required : ["photo", "role"];
     const initialQuestions = initialRegConfig.customQuestions ?? [];
     setRegistrationFieldsHidden(initialHidden);
     setRegistrationFieldsRequired(initialRequired);

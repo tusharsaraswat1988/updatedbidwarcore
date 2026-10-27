@@ -16,6 +16,7 @@ export type AutofillProfile = {
   specialization?: string | null;
   jerseyNumber?: string | null;
   jerseySize?: string | null;
+  lowerSize?: string | null;
   achievements?: string | null;
   cricheroUrl?: string | null;
   availabilityDates?: string | null;
@@ -35,6 +36,7 @@ export type AutofillFormFields = {
   specialization: string;
   jerseyNumber: string;
   jerseySize: string;
+  lowerSize: string;
   achievements: string;
   cricheroUrl: string;
   availabilityDates: string;
@@ -54,6 +56,7 @@ const FIELD_IDS: Record<keyof AutofillFormFields, string> = {
   specialization: "specialization",
   jerseyNumber: "jerseyNumber",
   jerseySize: "jerseySize",
+  lowerSize: "lowerSize",
   achievements: "achievements",
   cricheroUrl: "crichero",
   availabilityDates: "availability",
@@ -76,6 +79,7 @@ export function mergeTournamentProfile<T extends AutofillFormFields>(prev: T, tp
     specialization: tp.specialization ?? prev.specialization,
     jerseyNumber: tp.jerseyNumber ?? prev.jerseyNumber,
     jerseySize: (tp.jerseySize ?? prev.jerseySize) as T["jerseySize"],
+    lowerSize: (tp.lowerSize ?? prev.lowerSize) as T["lowerSize"],
     achievements: tp.achievements ?? prev.achievements,
     cricheroUrl: tp.cricheroUrl ?? prev.cricheroUrl,
     availabilityDates: tp.availabilityDates ?? prev.availabilityDates,
@@ -99,6 +103,7 @@ export function mergeGlobalProfile<T extends AutofillFormFields>(prev: T, match:
     specialization: prev.specialization || (match.specialization ?? ""),
     jerseyNumber: prev.jerseyNumber || (match.jerseyNumber ?? ""),
     jerseySize: (prev.jerseySize || (match.jerseySize ?? "")) as T["jerseySize"],
+    lowerSize: (prev.lowerSize || (match.lowerSize ?? "")) as T["lowerSize"],
     achievements: prev.achievements || (match.achievements ?? ""),
     cricheroUrl: prev.cricheroUrl || (match.cricheroUrl ?? ""),
     teamId: prev.teamId || (match.teamId != null ? String(match.teamId) : ""),

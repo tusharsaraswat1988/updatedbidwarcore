@@ -20,8 +20,10 @@ import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
 import { CityAutocomplete } from "@/components/city-autocomplete";
 import { JerseySizeSelect } from "@/components/jersey-size-select";
+import { LowerSizeSelect } from "@/components/lower-size-select";
 import { PlayerGenderSelect } from "@/components/player-gender-select";
 import type { JerseySize } from "@workspace/api-base/jersey-size";
+import type { LowerSize } from "@workspace/api-base/lower-size";
 import { RegistrationPaymentFormSection } from "@/components/registration-payment/registration-payment-form-section";
 import { RegistrationPageHeader, type RegistrationHeaderFact } from "@/components/registration-page-header";
 import { RegLabel, RegNotice, RegSection, registrationSelectContentClass } from "@/components/registration/registration-chrome";
@@ -104,6 +106,7 @@ interface GlobalPlayerLookup {
   specifications?: { specGroupId: number; groupName?: string; value: string }[];
   jerseyNumber?: string | null;
   jerseySize?: string | null;
+  lowerSize?: string | null;
   achievements?: string | null;
   cricheroUrl?: string | null;
   availabilityDates?: string | null;
@@ -208,6 +211,7 @@ export default function PlayerRegister() {
     gender: "",
     jerseyNumber: "",
     jerseySize: "" as JerseySize | "",
+    lowerSize: "" as LowerSize | "",
     achievements: "",
     availabilityDates: "",
     cricheroUrl: "",
@@ -490,7 +494,8 @@ export default function PlayerRegister() {
   const showGender = fieldVisibility.gender;
   const showJerseyNumber = fieldVisibility.jerseyNumber;
   const showJerseySize = fieldVisibility.jerseySize;
-  const showJersey = showJerseyNumber || showJerseySize;
+  const showLowerSize = fieldVisibility.lowerSize;
+  const showJersey = showJerseyNumber || showJerseySize || showLowerSize;
   const showAchievements = fieldVisibility.achievements;
   const showCrichero = sportCaps.hasLegacyCricketSpecs && fieldVisibility.cricheroUrl;
   const showMatchAvailability = fieldVisibility.matchAvailability;
@@ -505,6 +510,7 @@ export default function PlayerRegister() {
   const requireGender = fieldRequirements.gender;
   const requireJerseyNumber = fieldRequirements.jerseyNumber;
   const requireJerseySize = fieldRequirements.jerseySize;
+  const requireLowerSize = fieldRequirements.lowerSize;
   const requireAchievements = fieldRequirements.achievements;
   const requireCrichero = fieldRequirements.cricheroUrl;
   const requireMatchAvailability = fieldRequirements.matchAvailability;
@@ -710,6 +716,10 @@ export default function PlayerRegister() {
         setErrorMsg("Jersey size is required.");
         return;
       }
+      if (showLowerSize && requireLowerSize && !form.lowerSize.trim()) {
+        setErrorMsg("Lower size is required.");
+        return;
+      }
       if (showAchievements && requireAchievements && !form.achievements.trim()) {
         setErrorMsg("Achievements / bio is required.");
         return;
@@ -792,6 +802,7 @@ export default function PlayerRegister() {
             gender: showGender && (form.gender === "M" || form.gender === "F") ? form.gender : undefined,
             jerseyNumber: fieldVisibility.jerseyNumber ? (form.jerseyNumber || undefined) : undefined,
             jerseySize: fieldVisibility.jerseySize ? (form.jerseySize || undefined) : undefined,
+            lowerSize: fieldVisibility.lowerSize ? (form.lowerSize || undefined) : undefined,
             achievements: showAchievements ? (form.achievements || undefined) : undefined,
             availabilityDates: showMatchAvailability ? (form.availabilityDates || undefined) : undefined,
             cricheroUrl: showCrichero ? (form.cricheroUrl || undefined) : undefined,
@@ -982,6 +993,7 @@ export default function PlayerRegister() {
   const specializationAuto = autofillAttrs("specialization");
   const jerseyNumberAuto = autofillAttrs("jerseyNumber");
   const jerseySizeAuto = autofillAttrs("jerseySize");
+  const lowerSizeAuto = autofillAttrs("lowerSize");
   const achievementsAuto = autofillAttrs("achievements");
   const cricheroAuto = autofillAttrs("crichero");
   const photoAuto = autofillAttrs("photo");
@@ -1125,7 +1137,7 @@ export default function PlayerRegister() {
                   setFoundProfile(null); setExistingRegistration(null); setMobileLookedUp(false); setRegistrationUpdated(false);
                   resetAutofillReveal();
                   setForm({
-                    name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", gender: "", jerseyNumber: "", jerseySize: "",
+                    name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", gender: "", jerseyNumber: "", jerseySize: "", lowerSize: "",
                     achievements: "", availabilityDates: (tournament as { matchDates?: string | null }).matchDates ?? "",
                     cricheroUrl: "", photoUrl: "", photoPublicId: "", battingStyle: "", bowlingStyle: "", specialization: "", categoryId: "", teamId: "",
                   });
@@ -1229,6 +1241,7 @@ export default function PlayerRegister() {
                           specialization: "",
                           jerseyNumber: "",
                           jerseySize: "",
+                          lowerSize: "",
                           achievements: "",
                           cricheroUrl: "",
                           availabilityDates: (tournament as { matchDates?: string | null }).matchDates ?? "",
@@ -1462,7 +1475,13 @@ export default function PlayerRegister() {
 
                 {showJersey ? (
                   <div className="reg-field">
-                    <div className="reg-grid-2">
+                    <div className={
+                      ((fieldVisibility.jerseyNumber ? 1 : 0) + (fieldVisibility.jerseySize ? 1 : 0) + (fieldVisibility.lowerSize ? 1 : 0)) >= 3
+                        ? "reg-grid-3"
+                        : ((fieldVisibility.jerseyNumber ? 1 : 0) + (fieldVisibility.jerseySize ? 1 : 0) + (fieldVisibility.lowerSize ? 1 : 0)) === 2
+                          ? "reg-grid-2"
+                          : ""
+                    }>
                       {fieldVisibility.jerseyNumber ? (
                         <div className={jerseyNumberAuto.className ? `reg-field ${jerseyNumberAuto.className}` : "reg-field"} style={jerseyNumberAuto.style}>
                           <RegLabel htmlFor="register-jersey-number" marker={requireJerseyNumber ? "required" : "optional"} locked={identityFieldsLocked} autofilled={jerseyNumberAuto.autofilled}>Jersey number</RegLabel>
@@ -1489,8 +1508,21 @@ export default function PlayerRegister() {
                           autofilled={jerseySizeAuto.autofilled}
                         />
                       ) : null}
+                      {fieldVisibility.lowerSize ? (
+                        <LowerSizeSelect
+                          id="register-lower-size"
+                          value={form.lowerSize}
+                          onChange={v => { if (!identityFieldsLocked) f("lowerSize", v); }}
+                          marker={requireLowerSize ? "required" : "optional"}
+                          contentClassName={registrationSelectContentClass}
+                          disabled={identityFieldsLocked}
+                          className={lowerSizeAuto.className || undefined}
+                          style={lowerSizeAuto.style}
+                          autofilled={lowerSizeAuto.autofilled}
+                        />
+                      ) : null}
                     </div>
-                    {identityFieldsLocked ? <p className="reg-hint">To change jersey details, contact your organiser.</p> : null}
+                    {identityFieldsLocked ? <p className="reg-hint">To change kit details, contact your organiser.</p> : null}
                   </div>
                 ) : null}
 

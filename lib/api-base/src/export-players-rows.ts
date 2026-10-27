@@ -75,6 +75,7 @@ function buildRow(
     "Retained Price": (player.retainedPrice ?? "") as string | number,
     "Jersey Number": (player.jerseyNumber ?? "") as string,
     "Jersey Size": player.jerseySize ? jerseySizeLabel(String(player.jerseySize)) : "",
+    "Lower Size": (player.lowerSize ?? "") as string,
     Achievements: (player.achievements ?? "") as string,
     "Availability Dates": (player.availabilityDates ?? "") as string,
   };

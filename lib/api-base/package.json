@@ -27,6 +27,7 @@
     "./player-gender": "./src/player-gender.ts",
     "./player-tag-label": "./src/player-tag-label.ts",
     "./jersey-size": "./src/jersey-size.ts",
+    "./lower-size": "./src/lower-size.ts",
     "./organizer-account": "./src/organizer-account.ts",
     "./auction-date": "./src/auction-date.ts",
     "./registration-payment": "./src/registration-payment.ts",

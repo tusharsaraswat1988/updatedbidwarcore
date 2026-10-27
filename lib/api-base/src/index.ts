@@ -224,6 +224,8 @@ export {
   type PlayerRosterAssignmentType,
 } from "./player-registration-mode";
 
+export * from "./jersey-size";
+export * from "./lower-size";
 
 export {
   REGISTRATION_MANDATORY_FIELD_KEYS,

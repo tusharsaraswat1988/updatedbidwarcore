@@ -101,8 +101,10 @@ import { parseOptionalEmail } from "@workspace/api-base/email";
 import { OptionalEmailField } from "@/components/optional-email-field";
 import { CityAutocomplete } from "@/components/city-autocomplete";
 import { JerseySizeSelect } from "@/components/jersey-size-select";
+import { LowerSizeSelect } from "@/components/lower-size-select";
 import type { JerseySize } from "@workspace/api-base/jersey-size";
 import { jerseySizeLabel, normalizeJerseySize } from "@workspace/api-base/jersey-size";
+import { lowerSizeLabel, normalizeLowerSize, type LowerSize } from "@workspace/api-base/lower-size";
 import { useToast } from "@/hooks/use-toast";
 import {
   applySpecificationsToSelections,
@@ -152,6 +154,7 @@ type SuggestionProfile = {
   achievements?: string | null;
   jerseyNumber?: string | null;
   jerseySize?: string | null;
+  lowerSize?: string | null;
   cricheroUrl?: string | null;
   availabilityDates?: string | null;
   basePrice?: number;
@@ -576,6 +579,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
     selectedBidValue: player?.selectedBidValue ? String(player.selectedBidValue) : "",
     jerseyNumber: player?.jerseyNumber || "",
     jerseySize: (player?.jerseySize as JerseySize | null) || "",
+    lowerSize: (player?.lowerSize as LowerSize | null) || "",
     achievements: player?.achievements || "",
     mobileNumber: player?.mobileNumber ? sanitizeMobileInput(player.mobileNumber) : "",
     email: player?.email || "",
@@ -751,6 +755,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           specialization: tournamentMatch.specialization ?? prev.specialization,
           jerseyNumber: tournamentMatch.jerseyNumber ?? prev.jerseyNumber,
           jerseySize: (tournamentMatch.jerseySize as JerseySize | null) ?? prev.jerseySize,
+          lowerSize: (tournamentMatch.lowerSize as LowerSize | null) ?? prev.lowerSize,
           achievements: tournamentMatch.achievements ?? prev.achievements,
           cricheroUrl: tournamentMatch.cricheroUrl ?? prev.cricheroUrl,
           availabilityDates: tournamentMatch.availabilityDates ?? prev.availabilityDates,
@@ -847,6 +852,10 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       setSubmitError("Jersey size is required for this tournament.");
       return;
     }
+    if (fieldRequirements.lowerSize && !form.lowerSize) {
+      setSubmitError("Lower size is required for this tournament.");
+      return;
+    }
     if (fieldRequirements.email && !form.email.trim()) {
       setEmailError("Email is required for this tournament.");
       return;
@@ -900,6 +909,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         : {}),
       jerseyNumber: form.jerseyNumber || undefined,
       jerseySize: normalizeJerseySize(form.jerseySize) ?? undefined,
+      lowerSize: normalizeLowerSize(form.lowerSize) ?? undefined,
       achievements: form.achievements || undefined,
       mobileNumber: mobileResult.normalized,
       email: emailResult.email || undefined,
@@ -994,6 +1004,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       achievements: "",
       jerseyNumber: "",
       jerseySize: "",
+      lowerSize: "",
       cricheroUrl: "",
       basePrice: basePriceTouched ? prev.basePrice : (tournament?.minBid || 100000),
     }));
@@ -1016,6 +1027,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       achievements: p.achievements || prev.achievements,
       jerseyNumber: p.jerseyNumber || prev.jerseyNumber,
       jerseySize: (p.jerseySize as JerseySize | null) || prev.jerseySize,
+      lowerSize: (p.lowerSize as LowerSize | null) || prev.lowerSize,
       cricheroUrl: p.cricheroUrl || prev.cricheroUrl,
       mobileNumber: p.mobileNumber || prev.mobileNumber,
       basePrice: p.basePrice || prev.basePrice,
@@ -1263,6 +1275,12 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
               <JerseySizeSelect value={form.jerseySize} onChange={v => f("jerseySize", v)} />
             </div>
           </div>
+        </div>
+
+        {/* Lower Size */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-semibold">Lower {fieldRequirements.lowerSize && <span className="text-destructive">*</span>}</Label>
+          <LowerSizeSelect value={form.lowerSize} onChange={v => f("lowerSize", v)} />
         </div>
       </div>
 
@@ -2613,6 +2631,7 @@ function PlayerDetailPanel({
   const jersey = [
     player.jerseyNumber ? `#${player.jerseyNumber}` : null,
     player.jerseySize ? jerseySizeLabel(player.jerseySize) : null,
+    player.lowerSize ? `Lower: ${lowerSizeLabel(player.lowerSize)}` : null,
   ].filter(Boolean).join(" · ");
   const soldLabel = player.status === "retained" ? "Retained" : "Sold";
   const soldAmount = player.status === "retained" ? player.retainedPrice : player.soldPrice;

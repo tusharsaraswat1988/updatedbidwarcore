@@ -13,6 +13,7 @@ type PlayerRegistrationInput = {
   gender?: string | null;
   jerseyNumber?: string | null;
   jerseySize?: string | null;
+  lowerSize?: string | null;
   achievements?: string | null;
   cricheroUrl?: string | null;
   availabilityDates?: string | null;
@@ -34,6 +35,7 @@ export function sanitizeRegistrationInputByVisibility(
   if (!visibility.gender) next.gender = undefined;
   if (!visibility.jerseyNumber) next.jerseyNumber = undefined;
   if (!visibility.jerseySize) next.jerseySize = undefined;
+  if (!visibility.lowerSize) next.lowerSize = undefined;
   if (!visibility.achievements) next.achievements = undefined;
   if (!visibility.cricheroUrl) next.cricheroUrl = undefined;
   if (!visibility.matchAvailability) next.availabilityDates = undefined;
