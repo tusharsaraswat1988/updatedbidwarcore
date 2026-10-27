@@ -100,8 +100,9 @@ export function RegistrationPageHeader({
     [sponsorLogosJson],
   );
   const title = tournamentName?.trim() || brandNameFallback;
-  const capacity = capacityFact(registeredCount, registrationLimit);
-  const visibleFacts = [capacity, ...facts].filter((fact): fact is RegistrationHeaderFact => !!fact?.value);
+  // Registered-player counts and capacity are intentionally hidden from the public
+  // registration page. Keep only organizer-provided facts such as schedule dates.
+  const visibleFacts = facts.filter((fact): fact is RegistrationHeaderFact => !!fact?.value);
 
   return (
     <header className="reg-header">
