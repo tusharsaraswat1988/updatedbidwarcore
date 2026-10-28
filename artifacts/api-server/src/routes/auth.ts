@@ -998,6 +998,19 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
   const d = parsed.data;
+  const isLifecyclePatch =
+    d.scoringPhase !== undefined ||
+    d.status !== undefined ||
+    d.auctionEnabled !== undefined ||
+    d.scoringEnabled !== undefined;
+
+  if (isLifecyclePatch && !isMasterAdmin(req)) {
+    res.status(403).json({
+      error: "Only master admin can change tournament lifecycle status, scoring phase, or module availability",
+    });
+    return;
+  }
+
   const configFields = tournamentConfigFieldsChanged(d as Record<string, unknown>);
   if (configFields.length > 0) {
     const reasonResult = parseAuditReason(req.body, true);
@@ -2717,7 +2730,7 @@ router.post("/auth/admin/tournaments/:id/scoring/set-phase", async (req, res) =>
   const shouldCompleteTournament =
     body.data.phase === "completed" && (!tournament.auctionEnabled || tournament.licenseStatus === "completed");
   const shouldReactivateTournament =
-    body.data.phase === "active" && tournament.status === "completed";
+    body.data.phase === "active" && tournament.status === "completed" && !tournament.adminLocked;
 
   const nextTournamentStatus = shouldCompleteTournament
     ? "completed"

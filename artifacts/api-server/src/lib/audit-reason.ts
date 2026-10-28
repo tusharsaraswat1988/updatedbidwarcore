@@ -53,6 +53,9 @@ export const TOURNAMENT_CONFIG_FIELDS = new Set([
   "bidValueMode",
   "bidValueOptions",
   "status",
+  "scoringPhase",
+  "auctionEnabled",
+  "scoringEnabled",
 ]);
 
 export function tournamentConfigFieldsChanged(updates: Record<string, unknown>): string[] {

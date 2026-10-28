@@ -1335,9 +1335,15 @@ const verifyAndGrantLicenseSchema = z.object({
   paymentMode: z.string().trim().max(64).default("upi"),
   paymentRef: z.string().trim().max(128).optional(),
   notes: z.string().trim().max(500).optional(),
+  reason: z.string().optional(),
 });
 
 router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin, async (req, res) => {
+  if (req.jwtUser?.adminLevel !== "master") {
+    res.status(403).json({ error: "Only the master admin can verify payments and grant licenses" });
+    return;
+  }
+
   const tid = Number(req.params.id);
   if (isNaN(tid)) {
     res.status(400).json({ error: "Invalid tournament id" });
@@ -1347,6 +1353,12 @@ router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin
   const parsed = verifyAndGrantLicenseSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+    return;
+  }
+
+  const reasonResult = parseAuditReason(req.body, true);
+  if (!reasonResult.ok) {
+    res.status(400).json({ error: reasonResult.error });
     return;
   }
 
@@ -1364,18 +1376,26 @@ router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin
   const adminIdentifier = req.jwtUser?.email || req.jwtUser?.adminLevel || "Super Admin";
   const { paymentAmount, paymentMode, paymentRef, notes, requestId } = parsed.data;
 
-  // Read the request first so scoring is enabled from the same modules the payment covers.
-  // The granted status is written in the license transaction so a demo-cleanup failure rolls it back.
-  let requestedModules: "auction" | "scoring" | "both" = "auction";
+  // Retrieve license request: must belong to tournament and be pending
+  let reqRow: typeof tournamentLicenseRequestsTable.$inferSelect | undefined;
   if (requestId) {
-    const [reqRow] = await db
+    const [row] = await db
       .select()
       .from(tournamentLicenseRequestsTable)
-      .where(eq(tournamentLicenseRequestsTable.id, requestId))
+      .where(
+        and(
+          eq(tournamentLicenseRequestsTable.id, requestId),
+          eq(tournamentLicenseRequestsTable.tournamentId, tid),
+        ),
+      )
       .limit(1);
-    if (reqRow) requestedModules = reqRow.requestedModules as "auction" | "scoring" | "both";
+    if (!row) {
+      res.status(404).json({ error: "License request not found for this tournament" });
+      return;
+    }
+    reqRow = row;
   } else {
-    const [reqRow] = await db
+    const [row] = await db
       .select()
       .from(tournamentLicenseRequestsTable)
       .where(
@@ -1385,71 +1405,62 @@ router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin
         ),
       )
       .limit(1);
-    if (reqRow) requestedModules = reqRow.requestedModules as "auction" | "scoring" | "both";
+    if (!row) {
+      res.status(400).json({ error: "No pending license request found for this tournament" });
+      return;
+    }
+    reqRow = row;
   }
 
+  if (reqRow.status !== "pending") {
+    res.status(400).json({ error: `License request has already been ${reqRow.status}` });
+    return;
+  }
+
+  // Validate payment evidence
+  const finalAmount = paymentAmount !== undefined ? paymentAmount : reqRow.paymentAmount;
+  if (finalAmount === null || finalAmount === undefined || finalAmount < 0) {
+    res.status(400).json({ error: "Valid payment amount is required" });
+    return;
+  }
+  const finalMode = (paymentMode ?? reqRow.paymentMode ?? "upi").trim();
+  const finalRef = (paymentRef !== undefined ? paymentRef : reqRow.paymentRef ?? "").trim();
+  if (finalMode !== "waiver" && !finalRef) {
+    res.status(400).json({ error: "Payment reference / UTR is required for verification" });
+    return;
+  }
+
+  const requestedModules = (reqRow.requestedModules || "auction") as "auction" | "scoring" | "both";
   const shouldEnableScoring =
     requestedModules === "scoring" || requestedModules === "both" || tournament.scoringEnabled;
 
+  const targetRequestId = reqRow.id;
   const { commitAdminLicenseTransition } = await import("../lib/auction-license-activation");
   const result = await commitAdminLicenseTransition(req, {
     tournamentId: tid,
     nextStatus: "active",
-    grantedBy: null,
-    recordGrant: false,
+    grantedBy: adminIdentifier,
+    recordGrant: true,
     scoringEnabled: shouldEnableScoring,
     touchUpdatedAt: true,
+    reason: reasonResult.reason,
     auditAction: "tournament.license_granted",
     auditSummary: (name) => `Payment verified and live license granted for "${name}"`,
     alertKey: "license_granted",
     afterWrite: async (tx) => {
-      if (requestId) {
-        const [reqRow] = await tx
-          .select()
-          .from(tournamentLicenseRequestsTable)
-          .where(eq(tournamentLicenseRequestsTable.id, requestId))
-          .limit(1);
-        if (reqRow) {
-          await tx
-            .update(tournamentLicenseRequestsTable)
-            .set({
-              status: "granted",
-              paymentVerified: true,
-              paymentAmount: paymentAmount ?? reqRow.paymentAmount,
-              paymentMode: paymentMode ?? reqRow.paymentMode,
-              paymentRef: paymentRef ?? reqRow.paymentRef,
-              verifiedBy: adminIdentifier,
-              verifiedAt: new Date(),
-              notes: notes ? `${reqRow.notes ? reqRow.notes + "\n" : ""}Admin: ${notes}` : reqRow.notes,
-            })
-            .where(eq(tournamentLicenseRequestsTable.id, requestId));
-        }
-      } else {
-        const [reqRow] = await tx
-          .select()
-          .from(tournamentLicenseRequestsTable)
-          .where(
-            and(
-              eq(tournamentLicenseRequestsTable.tournamentId, tid),
-              eq(tournamentLicenseRequestsTable.status, "pending"),
-            ),
-          )
-          .limit(1);
-        if (reqRow) {
-          await tx
-            .update(tournamentLicenseRequestsTable)
-            .set({
-              status: "granted",
-              paymentVerified: true,
-              paymentAmount: paymentAmount ?? reqRow.paymentAmount,
-              paymentMode: paymentMode ?? reqRow.paymentMode,
-              paymentRef: paymentRef ?? reqRow.paymentRef,
-              verifiedBy: adminIdentifier,
-              verifiedAt: new Date(),
-            })
-            .where(eq(tournamentLicenseRequestsTable.id, reqRow.id));
-        }
-      }
+      await tx
+        .update(tournamentLicenseRequestsTable)
+        .set({
+          status: "granted",
+          paymentVerified: true,
+          paymentAmount: finalAmount,
+          paymentMode: finalMode,
+          paymentRef: finalRef,
+          verifiedBy: adminIdentifier,
+          verifiedAt: new Date(),
+          notes: notes ? `${reqRow.notes ? reqRow.notes + "\n" : ""}Admin: ${notes}` : reqRow.notes,
+        })
+        .where(eq(tournamentLicenseRequestsTable.id, targetRequestId));
 
       const pendingNotifs = await tx
         .select()
@@ -1472,9 +1483,9 @@ router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin
             actionMetadata: {
               ...((notif.actionMetadata as Record<string, unknown>) || {}),
               paymentVerified: true,
-              paymentAmount,
-              paymentMode,
-              paymentRef,
+              paymentAmount: finalAmount,
+              paymentMode: finalMode,
+              paymentRef: finalRef,
               verifiedBy: adminIdentifier,
               verifiedAt: new Date().toISOString(),
             },
