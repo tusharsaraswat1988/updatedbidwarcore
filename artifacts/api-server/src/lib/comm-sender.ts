@@ -170,6 +170,36 @@ export async function sendWhatsApp(
  * Falls back silently to SMS when the tournament is not licensed or no tournament context exists.
  * This is the single centralized entry point for ALL outbound WhatsApp in bot/scheduler flows.
  */
+/**
+ * Module-aware communication license check.
+ * - Emergency lock (adminLocked) strictly blocks communications.
+ * - Active license entitlement (licenseStatus === 'active') is allowed.
+ * - If an auction has concluded (licenseStatus === 'completed'), but the tournament holds a granted
+ *   live license and sports scoring is actively in progress, match communications remain authorized.
+ */
+export function isTournamentLicensedForComm(tournament: {
+  licenseStatus?: string | null;
+  adminLocked?: boolean | null;
+  scoringEnabled?: boolean | null;
+  scoringPhase?: string | null;
+  licenseGrantedAt?: Date | string | null;
+} | null | undefined): boolean {
+  if (!tournament) return false;
+  if (tournament.adminLocked) return false;
+  if (tournament.licenseStatus === "active") return true;
+
+  if (
+    tournament.licenseStatus === "completed" &&
+    tournament.scoringEnabled &&
+    tournament.scoringPhase === "active" &&
+    tournament.licenseGrantedAt != null
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 export async function sendLicensedWhatsApp(
   tournamentId: number | null | undefined,
   to: string,
@@ -178,10 +208,16 @@ export async function sendLicensedWhatsApp(
 ): Promise<SendResult & { blocked?: boolean }> {
   if (tournamentId) {
     const [t] = await db
-      .select({ licenseStatus: tournamentsTable.licenseStatus, adminLocked: tournamentsTable.adminLocked })
+      .select({
+        licenseStatus: tournamentsTable.licenseStatus,
+        adminLocked: tournamentsTable.adminLocked,
+        scoringEnabled: tournamentsTable.scoringEnabled,
+        scoringPhase: tournamentsTable.scoringPhase,
+        licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+      })
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tournamentId));
-    if (t && t.licenseStatus === "active" && !t.adminLocked) {
+    if (isTournamentLicensedForComm(t)) {
       return sendWhatsApp(to, body, templateSid);
     }
   }

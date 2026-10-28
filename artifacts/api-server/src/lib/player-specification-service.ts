@@ -219,7 +219,13 @@ export async function resolveRoleSpecGroups(
     .where(and(eq(sportRolesTable.sportId, sport.id), eq(sportRolesTable.active, true)));
 
   const normalizedRole = role.trim().toLowerCase();
-  const matched = roles.find((r) => r.roleName.toLowerCase().trim() === normalizedRole);
+  const matched = roles.find((r) => {
+    const dbRole = r.roleName.toLowerCase().trim();
+    if (dbRole === normalizedRole) return true;
+    const dbClean = dbRole.replace(/\s*\([^)]*\)/g, "").trim();
+    const inputClean = normalizedRole.replace(/\s*\([^)]*\)/g, "").trim();
+    return dbClean === inputClean || dbRole === inputClean || dbClean === normalizedRole;
+  });
   if (!matched) return [];
 
   return loadGroupsForRole(matched.id, executor);

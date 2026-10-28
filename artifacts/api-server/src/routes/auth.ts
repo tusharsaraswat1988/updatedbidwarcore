@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { tournamentsTable, organizersTable, auctionSessionsTable } from "@workspace/db";
-import { eq, or } from "drizzle-orm";
+import { eq, or, desc } from "drizzle-orm";
 import { z } from "zod";
 import { timingSafeEqual, scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
@@ -736,8 +736,11 @@ router.post("/auth/admin/tournaments/:tournamentId/lock", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!before) { res.status(404).json({ error: "Not found" }); return; }
+  const isScoringPending = (before.scoringEnabled ?? false) && before.scoringPhase !== "completed";
+  const nextStatus = isScoringPending ? before.status : "completed";
   const [t] = await db.update(tournamentsTable)
-    .set({ adminLocked: true, adminLockedAt: new Date(), status: "completed" })
+    .set({ adminLocked: true, adminLockedAt: new Date(), status: nextStatus })
     .where(eq(tournamentsTable.id, tid))
     .returning();
   if (!t) { res.status(404).json({ error: "Not found" }); return; }
@@ -784,7 +787,8 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
-  const { teamsTable, playersTable, bidsTable, categoriesTable } = await import("@workspace/db");
+  const { teamsTable, playersTable, bidsTable, categoriesTable, scoringMatchesTable, tournamentLicenseRequestsTable } = await import("@workspace/db");
+  const { tryResolveTournamentProductMode } = await import("@workspace/platform-core");
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
@@ -811,6 +815,30 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
       teamColor: team?.color ?? null,
     };
   }));
+
+  const matchRows = tournament.scoringEnabled
+    ? await db
+        .select({
+          id: scoringMatchesTable.id,
+          status: scoringMatchesTable.status,
+        })
+        .from(scoringMatchesTable)
+        .where(eq(scoringMatchesTable.tournamentId, tid))
+    : [];
+
+  const matchCounts = {
+    total: matchRows.length,
+    live: matchRows.filter((m) => m.status === "live" || m.status === "in_progress").length,
+    completed: matchRows.filter((m) => m.status === "completed").length,
+    upcoming: matchRows.filter((m) => m.status === "scheduled" || m.status === "draft" || m.status === "ready").length,
+  };
+
+  const [latestLicenseRequest] = await db
+    .select()
+    .from(tournamentLicenseRequestsTable)
+    .where(eq(tournamentLicenseRequestsTable.tournamentId, tid))
+    .orderBy(desc(tournamentLicenseRequestsTable.createdAt))
+    .limit(1);
 
   res.json({
     tournament: {
@@ -844,10 +872,32 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
       cheerMessagesEnabled: tournament.cheerMessagesEnabled ?? true,
       cheerMessagePresets: tournament.cheerMessagePresets ?? null,
       localModeEnabled: tournament.localModeEnabled ?? false,
+      auctionEnabled: tournament.auctionEnabled ?? true,
       scoringEnabled: tournament.scoringEnabled ?? false,
+      scoringPhase: tournament.scoringPhase ?? (tournament.scoringEnabled ? "active" : "disabled"),
+      productMode: tryResolveTournamentProductMode({
+        auctionEnabled: tournament.auctionEnabled,
+        scoringEnabled: tournament.scoringEnabled,
+      }) ?? "auction_only",
       features: resolveTournamentFeatures(tournament.featuresJson),
       createdAt: tournament.createdAt.toISOString(),
     },
+    matchCounts,
+    licenseRequest: latestLicenseRequest
+      ? {
+          id: latestLicenseRequest.id,
+          requestedModules: latestLicenseRequest.requestedModules,
+          status: latestLicenseRequest.status,
+          paymentVerified: latestLicenseRequest.paymentVerified,
+          paymentAmount: latestLicenseRequest.paymentAmount,
+          paymentMode: latestLicenseRequest.paymentMode,
+          paymentRef: latestLicenseRequest.paymentRef,
+          verifiedBy: latestLicenseRequest.verifiedBy,
+          verifiedAt: latestLicenseRequest.verifiedAt?.toISOString() ?? null,
+          notes: latestLicenseRequest.notes,
+          createdAt: latestLicenseRequest.createdAt.toISOString(),
+        }
+      : null,
     teams: teams.map(t => ({
       id: t.id,
       name: t.name,
@@ -911,6 +961,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     localModeEnabled: z.boolean().optional(),
     auctionEnabled: z.boolean().optional(),
     scoringEnabled: z.boolean().optional(),
+    scoringPhase: z.enum(["disabled", "setup", "active", "completed"]).optional(),
     features: z.object({
       buzzStudio: z.boolean().optional(),
       allowCreativeDownloads: z.boolean().optional(),
@@ -994,7 +1045,15 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   }
   if (d.scoringEnabled !== undefined) {
     updates.scoringEnabled = d.scoringEnabled;
-    updates.scoringPhase = d.scoringEnabled ? "active" : "disabled";
+  }
+  if (d.scoringPhase !== undefined) {
+    updates.scoringPhase = d.scoringPhase;
+  } else if (d.scoringEnabled !== undefined) {
+    if (!d.scoringEnabled) {
+      updates.scoringPhase = "disabled";
+    } else if (beforeTournament?.scoringPhase === "disabled" || !beforeTournament?.scoringPhase) {
+      updates.scoringPhase = "active";
+    }
   }
   if (d.features !== undefined) {
     updates.featuresJson = mergeTournamentFeatures(beforeTournament?.featuresJson, d.features);
@@ -1546,7 +1605,11 @@ router.post("/auth/organizer-account/login", async (req, res) => {
   });
 
   const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
-  const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
+  const myTournaments = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.organizerId, organizer.id))
+    .orderBy(desc(tournamentsTable.createdAt), desc(tournamentsTable.id));
   for (const t of myTournaments) orgMap[String(t.id)] = true;
 
   setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
@@ -1583,7 +1646,11 @@ router.get("/auth/organizer-account/me", async (req, res) => {
     email: organizer.email,
   });
 
-  const tournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizer.id));
+  const tournaments = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.organizerId, organizer.id))
+    .orderBy(desc(tournamentsTable.createdAt), desc(tournamentsTable.id));
 
   // Bootstrap JWT organizer map for newly claimed tournaments so subsequent
   // per-tournament checks succeed without another round-trip.
@@ -2566,6 +2633,16 @@ router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) =
   if (!result.ok) {
     res.status(result.status).json(result.body);
     return;
+  }
+  if (body.data.status === "completed") {
+    const { auctionSessionsTable } = await import("@workspace/db");
+    await db
+      .update(auctionSessionsTable)
+      .set({
+        status: "completed",
+        lastAction: "Auction concluded by admin license change to completed",
+      })
+      .where(eq(auctionSessionsTable.tournamentId, tournamentId));
   }
   res.json({ success: true, demoRemoved: result.demoRemoved });
 });

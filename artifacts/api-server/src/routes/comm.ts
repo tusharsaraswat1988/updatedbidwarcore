@@ -27,7 +27,7 @@ import {
 import { eq, and, desc, gte, lte, sql, or, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { randomBytes } from "crypto";
-import { sendSms, sendWhatsApp, buildWaMeLink, buildConsentSms } from "../lib/comm-sender";
+import { sendSms, sendWhatsApp, buildWaMeLink, buildConsentSms, isTournamentLicensedForComm } from "../lib/comm-sender";
 import { sendDltSms, playerSoldTemplateId } from "../lib/fast2sms";
 import { getPublicOrigin } from "../lib/runtime-env";
 import { logger } from "../lib/logger";
@@ -320,13 +320,16 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         name: tournamentsTable.name,
         licenseStatus: tournamentsTable.licenseStatus,
         adminLocked: tournamentsTable.adminLocked,
+        scoringEnabled: tournamentsTable.scoringEnabled,
+        scoringPhase: tournamentsTable.scoringPhase,
+        licenseGrantedAt: tournamentsTable.licenseGrantedAt,
       })
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tid));
     if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
 
     if (d.channel === "whatsapp" || d.channel === "both") {
-      if (tournament.licenseStatus !== "active" || tournament.adminLocked) {
+      if (!isTournamentLicensedForComm(tournament)) {
         res.status(403).json({ error: "WhatsApp messaging requires a live license and unlocked tournament" });
         return;
       }
@@ -517,10 +520,20 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
       res.status(400).json({ error: "tournamentId is required for WhatsApp sends to enforce license gating" });
       return;
     }
-    const [t] = await db.select({ licenseStatus: tournamentsTable.licenseStatus, adminLocked: tournamentsTable.adminLocked }).from(tournamentsTable).where(eq(tournamentsTable.id, d.tournamentId));
+    const [t] = await db
+      .select({
+        licenseStatus: tournamentsTable.licenseStatus,
+        adminLocked: tournamentsTable.adminLocked,
+        scoringEnabled: tournamentsTable.scoringEnabled,
+        scoringPhase: tournamentsTable.scoringPhase,
+        licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, d.tournamentId));
     if (!t) { res.status(404).json({ error: "Tournament not found" }); return; }
-    if (t.licenseStatus !== "active" || t.adminLocked) {
-      res.status(403).json({ error: "WhatsApp messaging requires a live license and unlocked tournament" }); return;
+    if (!isTournamentLicensedForComm(t)) {
+      res.status(403).json({ error: "WhatsApp messaging requires a live license and unlocked tournament" });
+      return;
     }
   }
 

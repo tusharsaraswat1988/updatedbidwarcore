@@ -299,6 +299,8 @@ export function SportsPanel() {
   const [addingSport, setAddingSport] = useState(false);
   const [editingSportName, setEditingSportName] = useState("");
   const [savingSport, setSavingSport] = useState(false);
+  const [editingRoleName, setEditingRoleName] = useState("");
+  const [savingRole, setSavingRole] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -330,6 +332,10 @@ export function SportsPanel() {
   useEffect(() => {
     setEditingSportName(selectedSport?.name ?? "");
   }, [selectedSport?.id, selectedSport?.name]);
+
+  useEffect(() => {
+    setEditingRoleName(selectedRole?.roleName ?? "");
+  }, [selectedRole?.id, selectedRole?.roleName]);
 
   const activeSports = useMemo(() => sports.filter((s) => s.active), [sports]);
 
@@ -622,6 +628,25 @@ export function SportsPanel() {
     }
   }
 
+  async function saveRoleName() {
+    if (!selectedRoleId || !editingRoleName.trim()) return;
+    setSavingRole(true);
+    try {
+      const r = await fetch(`/api/auth/admin/sport-roles/${selectedRoleId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roleName: editingRoleName.trim() }),
+      });
+      if (r.ok) {
+        flash("Role updated");
+        await load();
+      } else flash("Failed to update role", false);
+    } finally {
+      setSavingRole(false);
+    }
+  }
+
   async function saveSportName() {
     if (!selectedSportId || !editingSportName.trim()) return;
     setSavingSport(true);
@@ -836,6 +861,32 @@ export function SportsPanel() {
                   ))}
                 </SortableContext>
               </DndContext>
+              {selectedRole && (
+                <div className="rounded-lg border border-border/40 bg-muted/10 p-2 space-y-1.5 mt-2">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                    <Pencil className="w-3 h-3" /> Edit role
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={editingRoleName}
+                      onChange={(e) => setEditingRoleName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && saveRoleName()}
+                      className="h-7 text-xs flex-1"
+                      placeholder="Role name..."
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-2"
+                      onClick={saveRoleName}
+                      disabled={savingRole || !editingRoleName.trim() || editingRoleName.trim() === selectedRole.roleName}
+                      title="Save role name"
+                    >
+                      {savingRole ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                    </Button>
+                  </div>
+                </div>
+              )}
               <div className="flex items-center gap-1.5 pt-2 px-1">
                 <Input
                   value={newRoleName}

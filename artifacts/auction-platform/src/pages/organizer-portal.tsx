@@ -75,7 +75,7 @@ import {
 } from "@/lib/organizer-tournament-display";
 import { scoringAppHomePath } from "@workspace/api-base/scoring-urls";
 import { auctionOverviewPath, resolveScoringEntryPath } from "@/lib/tournament-navigation";
-import { sortOrganizerTournamentsOldestFirst } from "@/lib/organizer-tournament-list";
+import { sortOrganizerTournaments } from "@/lib/organizer-tournament-list";
 import "@/styles/organizer-dashboard-premium.css";
 
 const authLoginPreset = getBrandSurfacePreset("auth-login");
@@ -1880,7 +1880,7 @@ function OrganizerDashboard({
         (t.venue || "").toLowerCase().includes(q)
       );
     });
-    return sortOrganizerTournamentsOldestFirst(filtered);
+    return sortOrganizerTournaments(filtered);
   }, [safeTournaments, statusFilter, sportFilter, search]);
 
   const reduceMotion = useReducedMotion();

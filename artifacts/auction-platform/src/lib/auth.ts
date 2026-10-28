@@ -134,7 +134,7 @@ export async function updateAdminTournament(
     organizerEmail: string; organizerPassword: string; city: string; venue: string; auctionDate: string;
     status: string; timerSeconds: number; bidTimerSeconds: number;
     basePurse: number; minBid: number; playerSelectionMode: string; bidTiers: string;
-    localModeEnabled: boolean; scoringEnabled: boolean; reason: string;
+    localModeEnabled: boolean; auctionEnabled: boolean; scoringEnabled: boolean; scoringPhase: "disabled" | "setup" | "active" | "completed"; reason: string;
     features: Partial<{ ownerApp: boolean; scoring: boolean; sponsorshipHub: boolean; analytics: boolean }>;
   }>
 ): Promise<{ success: boolean; error?: string; linkedOrganizerId?: number | null; linkedOrganizerName?: string | null }> {
@@ -226,10 +226,28 @@ export type AdminTournamentDetail = {
     bidTiers: string | null; hasPassword: boolean; organizerPassword: string | null;
     resetCount: number; lastResetAt: string | null; lastResetBy: string | null;
     cheerMessagesEnabled: boolean; cheerMessagePresets: string | null;
-    localModeEnabled: boolean; scoringEnabled: boolean;
+    localModeEnabled: boolean;
+    auctionEnabled: boolean;
+    scoringEnabled: boolean;
+    scoringPhase: string;
+    productMode: "auction_only" | "scoring_only" | "both";
     features: { ownerApp?: boolean; scoring?: boolean; sponsorshipHub?: boolean; analytics?: boolean };
     createdAt: string;
   };
+  matchCounts?: { total: number; live: number; completed: number; upcoming: number };
+  licenseRequest?: {
+    id: number;
+    requestedModules: string;
+    status: string;
+    paymentVerified: boolean;
+    paymentAmount: number | null;
+    paymentMode: string | null;
+    paymentRef: string | null;
+    verifiedBy: string | null;
+    verifiedAt: string | null;
+    notes: string | null;
+    createdAt: string;
+  } | null;
   teams: Array<{ id: number; name: string; shortCode: string; ownerName: string; color: string | null; logoUrl: string | null; purse: number; purseUsed: number }>;
   players: Array<{ id: number; name: string; role: string | null; status: string; basePrice: number; soldPrice: number | null; teamId: number | null; categoryId: number | null }>;
   categories: Array<{ id: number; name: string; minBid: number }>;

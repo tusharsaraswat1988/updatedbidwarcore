@@ -312,7 +312,19 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
           lastOutcome: null,
         })
         .where(eq(auctionSessionsTable.tournamentId, tid));
+      // Concluding the auction must not prematurely complete a tournament whose sports scoring is active
+    const [tRow] = await tx
+      .select({
+        scoringEnabled: tournamentsTable.scoringEnabled,
+        scoringPhase: tournamentsTable.scoringPhase,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid));
+
+    const isScoringPending = (tRow?.scoringEnabled ?? false) && tRow?.scoringPhase !== "completed";
+    if (!isScoringPending) {
       await tx.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+    }
     });
     handoffAuctionParticipantsToSportsAsync(tid);
     return;
@@ -356,7 +368,19 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
         lastOutcome: null,
       })
       .where(eq(auctionSessionsTable.tournamentId, tid));
-    await tx.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+    // Concluding the auction must not prematurely complete a tournament whose sports scoring is active
+    const [tRow] = await tx
+      .select({
+        scoringEnabled: tournamentsTable.scoringEnabled,
+        scoringPhase: tournamentsTable.scoringPhase,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid));
+
+    const isScoringPending = (tRow?.scoringEnabled ?? false) && tRow?.scoringPhase !== "completed";
+    if (!isScoringPending) {
+      await tx.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+    }
   });
   handoffAuctionParticipantsToSportsAsync(tid);
 }
@@ -3699,7 +3723,19 @@ router.post("/tournaments/:tournamentId/auction/conclude", async (req, res) => {
         lastOutcome: null,
       })
       .where(eq(auctionSessionsTable.tournamentId, tid));
-    await tx.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+    // Concluding the auction must not prematurely complete a tournament whose sports scoring is active
+    const [tRow] = await tx
+      .select({
+        scoringEnabled: tournamentsTable.scoringEnabled,
+        scoringPhase: tournamentsTable.scoringPhase,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid));
+
+    const isScoringPending = (tRow?.scoringEnabled ?? false) && tRow?.scoringPhase !== "completed";
+    if (!isScoringPending) {
+      await tx.update(tournamentsTable).set({ status: "completed" }).where(eq(tournamentsTable.id, tid));
+    }
   });
 
   auditLog(req, {

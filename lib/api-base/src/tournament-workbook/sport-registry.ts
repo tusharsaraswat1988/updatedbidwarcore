@@ -31,10 +31,10 @@ const BADMINTON_ROLES: SportRoleDefinition[] = [
 ];
 
 const FOOTBALL_ROLES: SportRoleDefinition[] = [
-  { code: "goalkeeper", label: "Goalkeeper", aliases: ["GK", "Keeper"] },
-  { code: "defender", label: "Defender", aliases: ["DEF"] },
-  { code: "midfielder", label: "Midfielder", aliases: ["MID"] },
-  { code: "forward", label: "Forward", aliases: ["FWD", "Striker"] },
+  { code: "goalkeeper", label: "Goalkeeper (GK)", aliases: ["Goalkeeper", "GK", "Keeper", "Shot stopper", "Sweeper Keeper", "Backup Goalkeeper"] },
+  { code: "defender", label: "Defender", aliases: ["DEF", "Centre-Back", "CB", "Left-Back", "LB", "Right-Back", "RB", "Wing-Back", "LWB", "RWB"] },
+  { code: "midfielder", label: "Midfielder", aliases: ["MID", "Defensive Midfielder", "CDM", "Central Midfielder", "CM", "Attacking Midfielder", "CAM", "Left Midfielder", "LM", "Right Midfielder", "RM", "Left/Right Midfielder"] },
+  { code: "forward", label: "Forward", aliases: ["FWD", "Striker", "ST", "Centre-Forward", "CF", "Left Winger", "LW", "Right Winger", "RW", "Second Striker", "SS"] },
 ];
 
 const VOLLEYBALL_ROLES: SportRoleDefinition[] = [

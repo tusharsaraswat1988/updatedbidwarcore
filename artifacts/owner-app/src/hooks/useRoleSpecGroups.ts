@@ -1,3 +1,11 @@
+function matchRole(dbName: string, queryName: string): boolean {
+  const db = dbName.toLowerCase().trim();
+  const q = queryName.toLowerCase().trim();
+  if (db === q) return true;
+  const dbClean = db.replace(/\s*\([^)]*\)/g, "").trim();
+  const qClean = q.replace(/\s*\([^)]*\)/g, "").trim();
+  return dbClean === qClean || db === qClean || dbClean === q;
+}
 import { useState, useEffect } from "react";
 
 export type SportRole = { id: number; roleName: string };
@@ -32,7 +40,7 @@ export function useRoleSpecGroups(
 
     fetchRolesForSport(sport)
       .then(async (roles) => {
-        const matched = roles.find((r) => r.roleName.toLowerCase().trim() === normalizedRole);
+        const matched = roles.find((r) => matchRole(r.roleName, normalizedRole));
         if (!matched || cancelled) return;
         const groups = await fetchSpecGroupsForRole(matched.id);
         if (!cancelled) {

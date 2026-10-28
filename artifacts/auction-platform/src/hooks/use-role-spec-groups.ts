@@ -1,3 +1,11 @@
+function matchRole(dbName: string, queryName: string): boolean {
+  const db = dbName.toLowerCase().trim();
+  const q = queryName.toLowerCase().trim();
+  if (db === q) return true;
+  const dbClean = db.replace(/\s*\([^)]*\)/g, "").trim();
+  const qClean = q.replace(/\s*\([^)]*\)/g, "").trim();
+  return dbClean === qClean || db === qClean || dbClean === q;
+}
 import { useState, useEffect, useMemo } from "react";
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
@@ -40,7 +48,7 @@ export function useRoleSpecGroups(
 
     fetchRolesForSport(sport)
       .then(async roles => {
-        const matched = roles.find(r => r.roleName.toLowerCase().trim() === normalizedRole);
+        const matched = roles.find(r => matchRole(r.roleName, normalizedRole));
         if (!matched || cancelled) return;
         const groups = await fetchSpecGroupsForRole(matched.id);
         if (!cancelled) {
@@ -90,7 +98,7 @@ export function useRoleSpecMap(
     fetchRolesForSport(sport)
       .then(async roles => {
         const wantedRoles = uniqueRolesKey.split("|").map(r => r.toLowerCase().trim());
-        const relevant = roles.filter(r => wantedRoles.includes(r.roleName.toLowerCase().trim()));
+        const relevant = roles.filter(r => wantedRoles.some(w => matchRole(r.roleName, w)));
         const entries = await Promise.all(
           relevant.map(async role => {
             const groups = await fetchSpecGroupsForRole(role.id);

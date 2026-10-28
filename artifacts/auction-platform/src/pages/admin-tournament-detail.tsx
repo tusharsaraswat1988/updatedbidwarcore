@@ -400,7 +400,7 @@ export default function AdminTournamentDetailPage() {
                     </div>
                     <div>
                       <h2 className="font-display text-base font-black text-white tracking-wide">
-                        Tournament Operations & Emergency Mission Control
+                        Tournament Operations & Controls
                       </h2>
                       <p className="text-xs text-muted-foreground">
                         Live lifecycle licensing, runtime modes, feature engines, and safety resets.
@@ -439,7 +439,9 @@ export default function AdminTournamentDetailPage() {
                           onSwitchToLive={() => requestLicenseChange("Switch to Live", "active")}
                           onEndAuction={() => {
                             if (!window.confirm("This will end the auction and prevent further bidding. Continue?")) return;
-                            requestLicenseChange("End auction", "completed", true);
+                            // Decouple: If scoring is enabled, ending the auction must not globally lock the tournament
+                            const alsoLock = !t.scoringEnabled;
+                            requestLicenseChange("End auction", "completed", alsoLock);
                           }}
                         />
                       </div>

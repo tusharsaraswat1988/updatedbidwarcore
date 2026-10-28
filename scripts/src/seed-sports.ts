@@ -32,7 +32,7 @@ async function main() {
     { sportId: bySlug.cricket,    roleName: "All-Rounder",      displayOrder: 2 },
     { sportId: bySlug.cricket,    roleName: "Wicketkeeper",     displayOrder: 3 },
     // Football
-    { sportId: bySlug.football,   roleName: "Goalkeeper",       displayOrder: 0 },
+    { sportId: bySlug.football,   roleName: "Goalkeeper (GK)",  displayOrder: 0 },
     { sportId: bySlug.football,   roleName: "Defender",         displayOrder: 1 },
     { sportId: bySlug.football,   roleName: "Midfielder",       displayOrder: 2 },
     { sportId: bySlug.football,   roleName: "Forward",          displayOrder: 3 },
@@ -65,21 +65,27 @@ async function main() {
   // ─── Spec Groups ───────────────────────────────────────────────────────────
   const groups = await db.insert(roleSpecGroupsTable).values([
     // Cricket - Batsman
-    { roleId: byRoleName("cricket", "Batsman"),      groupName: "Batting Hand",   displayOrder: 0, optional: false },
+    { roleId: byRoleName("cricket", "Batsman"),          groupName: "Batting Hand",     displayOrder: 0, optional: false },
     // Cricket - Bowler
-    { roleId: byRoleName("cricket", "Bowler"),       groupName: "Bowling Style",  displayOrder: 0, optional: false },
-    { roleId: byRoleName("cricket", "Bowler"),       groupName: "Bowling Arm",    displayOrder: 1, optional: false },
+    { roleId: byRoleName("cricket", "Bowler"),           groupName: "Bowling Style",    displayOrder: 0, optional: false },
+    { roleId: byRoleName("cricket", "Bowler"),           groupName: "Bowling Arm",      displayOrder: 1, optional: false },
     // Cricket - All-Rounder
-    { roleId: byRoleName("cricket", "All-Rounder"),  groupName: "Batting Hand",   displayOrder: 0, optional: false },
-    { roleId: byRoleName("cricket", "All-Rounder"),  groupName: "Bowling Style",  displayOrder: 1, optional: true  },
+    { roleId: byRoleName("cricket", "All-Rounder"),      groupName: "Batting Hand",     displayOrder: 0, optional: false },
+    { roleId: byRoleName("cricket", "All-Rounder"),      groupName: "Bowling Style",    displayOrder: 1, optional: true  },
     // Cricket - Wicketkeeper
-    { roleId: byRoleName("cricket", "Wicketkeeper"), groupName: "Batting Hand",   displayOrder: 0, optional: false },
+    { roleId: byRoleName("cricket", "Wicketkeeper"),     groupName: "Batting Hand",     displayOrder: 0, optional: false },
+    // Football - Goalkeeper (GK)
+    { roleId: byRoleName("football", "Goalkeeper (GK)"), groupName: "Playing Style",    displayOrder: 0, optional: true  },
+    { roleId: byRoleName("football", "Goalkeeper (GK)"), groupName: "Preferred Foot",   displayOrder: 1, optional: true  },
     // Football - Defender
-    { roleId: byRoleName("football", "Defender"),    groupName: "Preferred Foot", displayOrder: 0, optional: true  },
+    { roleId: byRoleName("football", "Defender"),        groupName: "Playing Position", displayOrder: 0, optional: true  },
+    { roleId: byRoleName("football", "Defender"),        groupName: "Preferred Foot",   displayOrder: 1, optional: true  },
     // Football - Midfielder
-    { roleId: byRoleName("football", "Midfielder"),  groupName: "Preferred Foot", displayOrder: 0, optional: true  },
+    { roleId: byRoleName("football", "Midfielder"),      groupName: "Playing Position", displayOrder: 0, optional: true  },
+    { roleId: byRoleName("football", "Midfielder"),      groupName: "Preferred Foot",   displayOrder: 1, optional: true  },
     // Football - Forward
-    { roleId: byRoleName("football", "Forward"),     groupName: "Preferred Foot", displayOrder: 0, optional: true  },
+    { roleId: byRoleName("football", "Forward"),         groupName: "Playing Position", displayOrder: 0, optional: true  },
+    { roleId: byRoleName("football", "Forward"),         groupName: "Preferred Foot",   displayOrder: 1, optional: true  },
   ]).returning();
 
   const byGroupName = (roleId: number, name: string) =>
@@ -90,6 +96,7 @@ async function main() {
   const bowler     = byRoleName("cricket", "Bowler");
   const allRounder = byRoleName("cricket", "All-Rounder");
   const keeper     = byRoleName("cricket", "Wicketkeeper");
+  const gk         = byRoleName("football", "Goalkeeper (GK)");
   const defender   = byRoleName("football", "Defender");
   const midfielder = byRoleName("football", "Midfielder");
   const forward    = byRoleName("football", "Forward");
@@ -113,7 +120,30 @@ async function main() {
     // Bowling Arm
     { groupId: byGroupName(bowler,     "Bowling Arm"),    optionName: "Right-arm",   displayOrder: 0 },
     { groupId: byGroupName(bowler,     "Bowling Arm"),    optionName: "Left-arm",    displayOrder: 1 },
-    // Preferred Foot
+    // Football - Goalkeeper Playing Style
+    { groupId: byGroupName(gk,         "Playing Style"),    optionName: "Shot stopper",          displayOrder: 0 },
+    { groupId: byGroupName(gk,         "Playing Style"),    optionName: "Sweeper Keeper",        displayOrder: 1 },
+    { groupId: byGroupName(gk,         "Playing Style"),    optionName: "Backup Goalkeeper",     displayOrder: 2 },
+    // Football - Defender Playing Position
+    { groupId: byGroupName(defender,   "Playing Position"), optionName: "Centre-Back (CB)",      displayOrder: 0 },
+    { groupId: byGroupName(defender,   "Playing Position"), optionName: "Left-Back (LB)",        displayOrder: 1 },
+    { groupId: byGroupName(defender,   "Playing Position"), optionName: "Right-Back (RB)",       displayOrder: 2 },
+    { groupId: byGroupName(defender,   "Playing Position"), optionName: "Wing-Back (LWB/RWB)",   displayOrder: 3 },
+    // Football - Midfielder Playing Position
+    { groupId: byGroupName(midfielder, "Playing Position"), optionName: "Defensive Midfielder (CDM)",     displayOrder: 0 },
+    { groupId: byGroupName(midfielder, "Playing Position"), optionName: "Central Midfielder (CM)",        displayOrder: 1 },
+    { groupId: byGroupName(midfielder, "Playing Position"), optionName: "Attacking Midfielder (CAM)",     displayOrder: 2 },
+    { groupId: byGroupName(midfielder, "Playing Position"), optionName: "Left/Right Midfielder (LM/RM)",  displayOrder: 3 },
+    // Football - Forward Playing Position
+    { groupId: byGroupName(forward,    "Playing Position"), optionName: "Centre-Forward (CF)",   displayOrder: 0 },
+    { groupId: byGroupName(forward,    "Playing Position"), optionName: "Striker (ST)",          displayOrder: 1 },
+    { groupId: byGroupName(forward,    "Playing Position"), optionName: "Left Winger (LW)",      displayOrder: 2 },
+    { groupId: byGroupName(forward,    "Playing Position"), optionName: "Right Winger (RW)",     displayOrder: 3 },
+    { groupId: byGroupName(forward,    "Playing Position"), optionName: "Second Striker (SS)",   displayOrder: 4 },
+    // Football - Preferred Foot
+    { groupId: byGroupName(gk,         "Preferred Foot"), optionName: "Right",       displayOrder: 0 },
+    { groupId: byGroupName(gk,         "Preferred Foot"), optionName: "Left",        displayOrder: 1 },
+    { groupId: byGroupName(gk,         "Preferred Foot"), optionName: "Both",        displayOrder: 2 },
     { groupId: byGroupName(defender,   "Preferred Foot"), optionName: "Right",       displayOrder: 0 },
     { groupId: byGroupName(defender,   "Preferred Foot"), optionName: "Left",        displayOrder: 1 },
     { groupId: byGroupName(defender,   "Preferred Foot"), optionName: "Both",        displayOrder: 2 },
