@@ -2668,6 +2668,92 @@ router.post("/auth/admin/tournaments/:id/set-license-status", async (req, res) =
   res.json({ success: true, demoRemoved: result.demoRemoved });
 });
 
+// ─── Admin: Set sports scoring lifecycle phase ──────────────────────────────
+
+router.post("/auth/admin/tournaments/:id/scoring/set-phase", async (req, res) => {
+  if (req.jwtUser.adminLevel !== "master") {
+    res.status(403).json({ error: "Super admin access required" });
+    return;
+  }
+  const tournamentId = Number(req.params.id);
+  if (isNaN(tournamentId)) {
+    res.status(400).json({ error: "Invalid tournament ID" });
+    return;
+  }
+
+  const body = z.object({
+    phase: z.enum(["setup", "active", "completed"]),
+    reason: z.string().optional(),
+  }).safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "Phase must be setup, active, or completed" });
+    return;
+  }
+
+  const reasonResult = parseAuditReason(req.body, true);
+  if (!reasonResult.ok) {
+    res.status(400).json({ error: reasonResult.error });
+    return;
+  }
+
+  const [tournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tournamentId));
+
+  if (!tournament) {
+    res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+
+  if (!tournament.scoringEnabled) {
+    res.status(400).json({ error: "Sports scoring is not enabled for this tournament" });
+    return;
+  }
+
+  const previousPhase = tournament.scoringPhase;
+  const previousStatus = tournament.status;
+
+  const shouldCompleteTournament =
+    body.data.phase === "completed" && (!tournament.auctionEnabled || tournament.licenseStatus === "completed");
+  const shouldReactivateTournament =
+    body.data.phase === "active" && tournament.status === "completed";
+
+  const nextTournamentStatus = shouldCompleteTournament
+    ? "completed"
+    : shouldReactivateTournament
+      ? "active"
+      : tournament.status;
+
+  const [updated] = await db
+    .update(tournamentsTable)
+    .set({
+      scoringPhase: body.data.phase,
+      status: nextTournamentStatus,
+    })
+    .where(eq(tournamentsTable.id, tournamentId))
+    .returning();
+
+  auditLog(req, {
+    category: "tournament",
+    action: "tournament.scoring_phase_changed",
+    summary: `Scoring phase set to "${body.data.phase}" for tournament "${tournament.name}"`,
+    severity: "critical",
+    tournamentId,
+    resource: { type: "tournament", id: tournamentId },
+    before: { scoringPhase: previousPhase, status: previousStatus },
+    after: { scoringPhase: updated.scoringPhase, status: updated.status },
+    reason: reasonResult.reason,
+    alertKey: "scoring_phase_changed",
+  });
+
+  res.json({
+    success: true,
+    scoringPhase: updated.scoringPhase,
+    status: updated.status,
+  });
+});
+
 // ─── Google OAuth: complete profile (collect + OTP-verify mobile) ─────────────
 
 router.get("/auth/google/complete-profile/status", (req, res) => {

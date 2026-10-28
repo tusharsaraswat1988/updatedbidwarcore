@@ -248,8 +248,8 @@ export type AdminTournamentDetail = {
     notes: string | null;
     createdAt: string;
   } | null;
-  teams: Array<{ id: number; name: string; shortCode: string; ownerName: string; color: string | null; logoUrl: string | null; purse: number; purseUsed: number }>;
-  players: Array<{ id: number; name: string; role: string | null; status: string; basePrice: number; soldPrice: number | null; teamId: number | null; categoryId: number | null }>;
+  teams: Array<{ id: number; name: string; shortCode: string; ownerName: string; ownerEmail?: string | null; color: string | null; logoUrl: string | null; purse: number; purseUsed: number }>;
+  players: Array<{ id: number; name: string; email?: string | null; role: string | null; status: string; basePrice: number; soldPrice: number | null; teamId: number | null; categoryId: number | null }>;
   categories: Array<{ id: number; name: string; minBid: number }>;
   playerCounts: { total: number; available: number; sold: number; unsold: number; retained: number };
   recentBids: Array<{ id: number; amount: number; timestamp: string; playerName: string | null; teamName: string | null; teamColor: string | null }>;
@@ -625,6 +625,49 @@ export async function setTournamentLicenseStatus(
     if (!r.ok) return { success: false, error: d.error };
     return { success: true };
   } catch { return { success: false, error: "Network error" }; }
+}
+
+export async function setTournamentScoringPhase(
+  tournamentId: number,
+  phase: "setup" | "active" | "completed",
+  reason: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/scoring/set-phase`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phase, reason }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Failed to set scoring phase" };
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Network error" };
+  }
+}
+
+export async function verifyAndGrantTournamentLicense(
+  tournamentId: number,
+  data: {
+    requestId?: number;
+    paymentAmount?: number;
+    paymentMode?: string;
+    paymentRef?: string;
+    notes?: string;
+  },
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/verify-and-grant-license`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Failed to verify and grant license" };
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Network error" };
+  }
 }
 
 // ─── OTP password reset ───────────────────────────────────────────────────────
