@@ -199,6 +199,20 @@ export default function CricketScorerPage() {
       .map((b) => b.playerId);
   }, [scorecardData, data?.state.currentInnings]);
 
+  const authoritativeBatterRuns = useMemo<Record<number, number>>(() => {
+    if (!scorecardData?.scorecard?.innings) return {};
+    const currentInn = (scorecardData.scorecard.innings as Array<{
+      innings: number;
+      batting?: Array<{ playerId: number; runs: number }>;
+    }>).find((inn) => inn.innings === data?.state.currentInnings);
+    if (!currentInn?.batting) return {};
+    const map: Record<number, number> = {};
+    for (const b of currentInn.batting) {
+      map[b.playerId] = b.runs;
+    }
+    return map;
+  }, [scorecardData, data?.state.currentInnings]);
+
   const { data: allMatches } = useScoringMatches(tournamentId);
   const matchRow = useMemo(() => {
     return allMatches?.find((m) => m.id === matchId);
@@ -564,6 +578,23 @@ export default function CricketScorerPage() {
             }
           }
 
+          if (eventType === CricketEventType.SUPER_BALL_CANCELLED) {
+            try {
+              if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined" && tournamentId) {
+                const channel = new BroadcastChannel(`bidwar_cricket_obs_${tournamentId}`);
+                channel.postMessage({
+                  type: "SUPER_BALL_CANCELLED",
+                  matchId,
+                  sequence: result.state.lastSequence,
+                  timestamp: Date.now(),
+                });
+                channel.close();
+              }
+            } catch (err) {
+              console.warn("[SCORER] BroadcastChannel cancel sync failed", err);
+            }
+          }
+
           await drainQueue();
         }
       } catch (e) {
@@ -580,7 +611,7 @@ export default function CricketScorerPage() {
           toast({ title: "Session ended", description, variant: "destructive" });
           clearScorerAuthSession();
           navigate(cricketScorerHomePath(tournamentId));
-          return;
+          throw err;
         }
         if (err.status === 403 && err.code === "TOURNAMENT_NOT_ASSIGNED") {
           toast({
@@ -588,7 +619,7 @@ export default function CricketScorerPage() {
             description: "You are not assigned to this tournament.",
             variant: "destructive",
           });
-          return;
+          throw err;
         }
         if (
           err.status === 409 &&
@@ -614,7 +645,7 @@ export default function CricketScorerPage() {
                 : "Your match lock expired. Reacquire the lock to continue scoring.",
             variant: "destructive",
           });
-          return;
+          throw err;
         }
         if (err.status === 409) {
           const refreshed = await refetch();
@@ -629,6 +660,7 @@ export default function CricketScorerPage() {
             description: "Match refreshed to the latest score.",
             variant: "destructive",
           });
+          throw err;
         } else if (isNetworkScoringError(e)) {
           // Only enqueue if we still hold the lock — otherwise events would never drain.
           if (lockHeldRef.current) {
@@ -652,6 +684,7 @@ export default function CricketScorerPage() {
               description: "Reacquire the match lock before scoring.",
               variant: "destructive",
             });
+            throw err;
           }
         } else {
           toast({
@@ -659,6 +692,7 @@ export default function CricketScorerPage() {
             description: err.message,
             variant: "destructive",
           });
+          throw err;
         }
       } finally {
         if (isBall && !creaseSettled) setCreaseOverride(null);
@@ -767,6 +801,22 @@ export default function CricketScorerPage() {
         title: "Undone",
         description: describeCricketUndo(before, result.state),
       });
+
+      // Broadcast undo over BroadcastChannel to OBS and overlay displays
+      try {
+        if (typeof window !== "undefined" && typeof BroadcastChannel !== "undefined" && tournamentId) {
+          const channel = new BroadcastChannel(`bidwar_cricket_obs_${tournamentId}`);
+          channel.postMessage({
+            type: "SCORE_UNDONE",
+            matchId,
+            sequence: result.state.lastSequence,
+            timestamp: Date.now(),
+          });
+          channel.close();
+        }
+      } catch (err) {
+        console.warn("[SCORER] BroadcastChannel undo sync failed", err);
+      }
     } catch (e) {
       toast({
         title: "Undo failed",
@@ -1146,7 +1196,8 @@ export default function CricketScorerPage() {
               onReviewBowler={
                 beforeFirstDelivery ? () => setEditingStep("bowler") : undefined
               }
-              onBall={lockLost ? async (_p: Record<string, unknown>) => {} : (payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
+              initialBatterRuns={authoritativeBatterRuns}
+              onBall={lockLost ? async (_p: Record<string, unknown>) => { throw new Error("Match lock lost. Cannot record delivery."); } : (payload) => sendEvent(CricketEventType.BALL_RECORDED, payload)}
               onEvent={lockLost ? () => Promise.resolve() : sendEvent}
               onResetMatch={lockLost ? () => Promise.resolve() : handleResetMatch}
               onSwapStrike={() => {

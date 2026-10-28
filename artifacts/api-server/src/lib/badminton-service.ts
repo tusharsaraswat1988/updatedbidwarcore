@@ -676,7 +676,14 @@ async function updateSnapshot(
             message,
           });
           if (err instanceof KnockoutProgressionError) {
-            state.matchNotes = [...(state.matchNotes ?? []), `[Bracket] ${message}`];
+            state.matchNotes = [
+              ...(state.matchNotes ?? []),
+              {
+                text: `[Bracket] ${message}`,
+                addedAt: new Date().toISOString(),
+                sequence: (state.lastSequence ?? 0) + 1,
+              },
+            ];
             await db
               .update(badmintonMatchDetailsTable)
               .set({
@@ -1537,6 +1544,68 @@ export async function handleReopenMatch(
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
+
+  const fixtureId = await getMatchFixtureId(matchId, tournamentId);
+  if (fixtureId) {
+    const { resetKnockoutDownstreamSlot, KnockoutProgressionError } = await import(
+      "./badminton-knockout-progression"
+    );
+    try {
+      await resetKnockoutDownstreamSlot({
+        tournamentId,
+        fixtureId,
+      });
+    } catch (err) {
+      if (err instanceof KnockoutProgressionError) {
+        throw new BadmintonServiceError(
+          "CANNOT_REOPEN_DOWNSTREAM_STARTED",
+          err.message,
+          400,
+        );
+      }
+      throw err;
+    }
+
+    // P0-07: Invalidate recorded winner on the fixture
+    await db
+      .update(badmintonFixturesTable)
+      .set({
+        status: "live",
+        winnerRegistrationId: null,
+        completedAt: null,
+        resultSummary: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(badmintonFixturesTable.id, fixtureId),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      );
+
+    // Recalculate standings if category has league groups
+    const [fix] = await db
+      .select({ categoryId: badmintonFixturesTable.categoryId })
+      .from(badmintonFixturesTable)
+      .where(
+        and(
+          eq(badmintonFixturesTable.id, fixtureId),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      )
+      .limit(1);
+
+    if (fix?.categoryId) {
+      void import("./badminton-league-service")
+        .then(({ rebuildCategoryPairStandings }) =>
+          rebuildCategoryPairStandings(tournamentId, fix.categoryId),
+        )
+        .catch(console.error);
+    }
+
+    // Refresh tournament lifecycle so it doesn't show completed
+    scheduleBadmintonLifecycleRefresh(tournamentId);
+  }
 
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonViaPlatform(meta, events);

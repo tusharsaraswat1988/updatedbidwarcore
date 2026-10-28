@@ -137,15 +137,33 @@ export async function advanceKnockoutWinner(input: {
     updatedAt: new Date(),
   };
 
+  const downstreamStarted =
+    next.status === "live" ||
+    next.status === "completed" ||
+    next.scoringMatchId != null;
+
   if (advancesAs === "A") {
     if (
       next.registrationAId != null &&
       next.registrationAId !== winnerRegistrationId
     ) {
-      throw new KnockoutProgressionError(
-        `Next-round slot A (fixture #${next.id}) is already assigned to registration #${next.registrationAId}. ` +
-          `Cannot advance winner registration #${winnerRegistrationId}. Check bracket links in Fixtures.`,
-      );
+      const isScoreRevision =
+        fixture.winnerRegistrationId != null &&
+        next.registrationAId === fixture.winnerRegistrationId;
+
+      if (downstreamStarted) {
+        throw new KnockoutProgressionError(
+          `Cannot advance winner registration #${winnerRegistrationId}: downstream fixture #${next.id} has already started or completed.`,
+        );
+      }
+
+      if (!isScoreRevision) {
+        throw new KnockoutProgressionError(
+          `Next-round slot A (fixture #${next.id}) is already assigned to registration #${next.registrationAId}. ` +
+            `Cannot advance winner registration #${winnerRegistrationId}. Check bracket links in Fixtures.`,
+        );
+      }
+      // P0-06: Downstream fixture is unplayed; safely replace previous winner with revised winner
     }
     patch.registrationAId = winnerRegistrationId;
   } else {
@@ -153,10 +171,23 @@ export async function advanceKnockoutWinner(input: {
       next.registrationBId != null &&
       next.registrationBId !== winnerRegistrationId
     ) {
-      throw new KnockoutProgressionError(
-        `Next-round slot B (fixture #${next.id}) is already assigned to registration #${next.registrationBId}. ` +
-          `Cannot advance winner registration #${winnerRegistrationId}. Check bracket links in Fixtures.`,
-      );
+      const isScoreRevision =
+        fixture.winnerRegistrationId != null &&
+        next.registrationBId === fixture.winnerRegistrationId;
+
+      if (downstreamStarted) {
+        throw new KnockoutProgressionError(
+          `Cannot advance winner registration #${winnerRegistrationId}: downstream fixture #${next.id} has already started or completed.`,
+        );
+      }
+
+      if (!isScoreRevision) {
+        throw new KnockoutProgressionError(
+          `Next-round slot B (fixture #${next.id}) is already assigned to registration #${next.registrationBId}. ` +
+            `Cannot advance winner registration #${winnerRegistrationId}. Check bracket links in Fixtures.`,
+        );
+      }
+      // P0-06: Downstream fixture is unplayed; safely replace previous winner with revised winner
     }
     patch.registrationBId = winnerRegistrationId;
   }
@@ -178,4 +209,82 @@ export async function advanceKnockoutWinner(input: {
     );
 
   return { advancedToFixtureId: next.id };
+}
+
+/**
+ * P0-07: When a match is reopened, reconcile downstream progression.
+ * Resets downstream slot back to null if unplayed; fails safely if downstream match has started.
+ */
+export async function resetKnockoutDownstreamSlot(input: {
+  tournamentId: number;
+  fixtureId: number;
+  executor?: DbExecutor;
+}): Promise<{ resetFixtureId: number | null }> {
+  const executor = input.executor ?? db;
+
+  const [fixture] = await executor
+    .select()
+    .from(badmintonFixturesTable)
+    .where(
+      and(
+        eq(badmintonFixturesTable.id, input.fixtureId),
+        eq(badmintonFixturesTable.tournamentId, input.tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!fixture || !fixture.winnerAdvancesTo) {
+    return { resetFixtureId: null };
+  }
+
+  const [next] = await executor
+    .select()
+    .from(badmintonFixturesTable)
+    .where(
+      and(
+        eq(badmintonFixturesTable.id, fixture.winnerAdvancesTo),
+        eq(badmintonFixturesTable.tournamentId, input.tournamentId),
+      ),
+    )
+    .limit(1);
+
+  if (!next) return { resetFixtureId: null };
+
+  const downstreamStarted =
+    next.status === "live" ||
+    next.status === "completed" ||
+    next.scoringMatchId != null;
+
+  if (downstreamStarted) {
+    throw new KnockoutProgressionError(
+      `Cannot reopen match: downstream fixture #${next.id} has already started or completed.`,
+    );
+  }
+
+  const advancesAs =
+    (fixture.metaJson as { advancesAs?: "A" | "B" } | null)?.advancesAs ??
+    (fixture.slotNumber != null && fixture.slotNumber % 2 === 1 ? "A" : "B");
+
+  const patch: Partial<typeof badmintonFixturesTable.$inferInsert> = {
+    updatedAt: new Date(),
+    status: "unscheduled",
+  };
+
+  if (advancesAs === "A") {
+    patch.registrationAId = null;
+  } else {
+    patch.registrationBId = null;
+  }
+
+  await executor
+    .update(badmintonFixturesTable)
+    .set(patch)
+    .where(
+      and(
+        eq(badmintonFixturesTable.id, next.id),
+        eq(badmintonFixturesTable.tournamentId, input.tournamentId),
+      ),
+    );
+
+  return { resetFixtureId: next.id };
 }

@@ -123,6 +123,25 @@ export function useSuperBallActivation(
           timestamp: be.timestamp,
           battingTeamName: be.battingTeamName,
         });
+      } else if (data.type === "SUPER_BALL_CANCELLED") {
+        setActiveActivation((current) => {
+          if (!current) return null;
+          if (data.matchId === undefined || data.matchId === current.matchId) {
+            return null;
+          }
+          return current;
+        });
+      } else if (data.type === "SCORE_UNDONE") {
+        setActiveActivation((current) => {
+          if (!current) return null;
+          if (
+            (data.matchId === undefined || data.matchId === current.matchId) &&
+            (data.sequence === undefined || data.sequence <= current.sequence)
+          ) {
+            return null;
+          }
+          return current;
+        });
       }
     };
 

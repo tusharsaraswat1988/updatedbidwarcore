@@ -440,7 +440,7 @@ describe("1. MULTI-SCREEN LIVE CONVERGENCE TEST", () => {
     expect(obsVm.needRuns).toBe(8);
     expect(obsVm.ballsRemaining).toBe(6);
     expect(obsVm.rrr).toBe("8.00");
-    expect(obsVm.phase).toBe("innings_break"); // Crease not yet set
+    expect(obsVm.phase).toBe("chase"); // 2nd innings in progress
   });
 });
 

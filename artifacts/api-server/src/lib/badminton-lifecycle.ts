@@ -183,13 +183,14 @@ export async function refreshBadmintonLifecycle(
     }
   }
 
-  const startedCategories = categories.filter((c) =>
-    categoryHasStarted(c, fixtures, matchRows),
-  );
-
-  const allStartedComplete =
-    startedCategories.length > 0 &&
-    startedCategories.every((c) => phaseById.get(c.id) === "completed");
+  // P0-08: Distinguish between configured categories and completed categories.
+  // Tournament completion must NOT occur when unstarted / active configured categories exist.
+  const allCategoriesComplete =
+    categories.length > 0 &&
+    categories.every((c) => {
+      const p = phaseById.get(c.id) ?? c.phase;
+      return p === "completed" || p === "cancelled";
+    });
 
   const anyLive = matchRows.some(
     (m) => m.status === "live" || m.status === "paused",
@@ -197,7 +198,7 @@ export async function refreshBadmintonLifecycle(
 
   let newScoringPhase = tournament.scoringPhase;
 
-  if (tournament.scoringPhase === "active" && allStartedComplete && !anyLive) {
+  if (tournament.scoringPhase === "active" && allCategoriesComplete && !anyLive) {
     await db
       .update(tournamentsTable)
       .set({ scoringPhase: "completed", updatedAt: new Date() })
@@ -205,7 +206,7 @@ export async function refreshBadmintonLifecycle(
     newScoringPhase = "completed";
   } else if (
     tournament.scoringPhase === "completed" &&
-    (!allStartedComplete || anyLive)
+    (!allCategoriesComplete || anyLive)
   ) {
     await db
       .update(tournamentsTable)

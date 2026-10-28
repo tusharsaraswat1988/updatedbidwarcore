@@ -27,14 +27,15 @@ export function normalizeBadmintonPairSeparator(text: string): string {
 export function normalizeSideInfoPairSeparators(
   side: BadmintonSideInfo,
 ): BadmintonSideInfo {
+  if (!side) return side;
   return {
     ...side,
-    label: normalizeBadmintonPairSeparator(side.label),
-    shortLabel: normalizeBadmintonPairSeparator(side.shortLabel),
-    franchiseName: side.franchiseName
+    label: typeof side.label === "string" ? normalizeBadmintonPairSeparator(side.label) : side.label,
+    shortLabel: typeof side.shortLabel === "string" ? normalizeBadmintonPairSeparator(side.shortLabel) : side.shortLabel,
+    franchiseName: typeof side.franchiseName === "string"
       ? normalizeBadmintonPairSeparator(side.franchiseName)
       : side.franchiseName,
-    teamName: side.teamName
+    teamName: typeof side.teamName === "string"
       ? normalizeBadmintonPairSeparator(side.teamName)
       : side.teamName,
   };
@@ -42,12 +43,13 @@ export function normalizeSideInfoPairSeparators(
 
 /** Normalize both sides of a match snapshot for display / cache. */
 export function normalizeMatchStatePairSeparators<
-  T extends { leftSide: BadmintonSideInfo; rightSide: BadmintonSideInfo },
+  T extends { leftSide?: BadmintonSideInfo; rightSide?: BadmintonSideInfo },
 >(state: T): T {
+  if (!state || (!state.leftSide && !state.rightSide)) return state;
   return {
     ...state,
-    leftSide: normalizeSideInfoPairSeparators(state.leftSide),
-    rightSide: normalizeSideInfoPairSeparators(state.rightSide),
+    ...(state.leftSide ? { leftSide: normalizeSideInfoPairSeparators(state.leftSide) } : {}),
+    ...(state.rightSide ? { rightSide: normalizeSideInfoPairSeparators(state.rightSide) } : {}),
   };
 }
 

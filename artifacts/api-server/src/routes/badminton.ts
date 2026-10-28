@@ -1968,6 +1968,47 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
     });
   }
 
+  const existingFixtures = await db
+    .select()
+    .from(badmintonFixturesTable)
+    .where(
+      and(
+        eq(badmintonFixturesTable.categoryId, catId),
+        eq(badmintonFixturesTable.tournamentId, tournamentId),
+      ),
+    );
+
+  const hasStarted = existingFixtures.some(
+    (f) => f.status === "live" || f.status === "completed" || f.scoringMatchId != null,
+  );
+  if (hasStarted) {
+    return void res.status(400).json({
+      error: "Cannot regenerate draw: matches in this category have already started or completed.",
+    });
+  }
+
+  if (existingFixtures.length > 0) {
+    const drawIds = [...new Set(existingFixtures.map((f) => f.drawId))];
+    await db
+      .delete(badmintonFixturesTable)
+      .where(
+        and(
+          eq(badmintonFixturesTable.categoryId, catId),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      );
+    if (drawIds.length > 0) {
+      await db
+        .delete(badmintonDrawsTable)
+        .where(
+          and(
+            inArray(badmintonDrawsTable.id, drawIds),
+            eq(badmintonDrawsTable.tournamentId, tournamentId),
+          ),
+        );
+    }
+  }
+
   const registrations = await db
     .select()
     .from(badmintonRegistrationsTable)
@@ -2023,45 +2064,47 @@ router.post("/categories/:catId/generate-draw", async (req, res) => {
 
   await wireKnockoutProgressionLinks(tournamentId, insertedByRound, plannedRounds);
 
-  // Auto-advance R1 byes (one side empty → walkover) into the next round.
-  const r1Inserted = insertedByRound.get(1) ?? [];
-  for (const f of r1Inserted) {
-    const [row] = await db
-      .select()
-      .from(badmintonFixturesTable)
-      .where(
-        and(
-          eq(badmintonFixturesTable.id, f.id),
-          eq(badmintonFixturesTable.tournamentId, tournamentId),
-        ),
-      )
-      .limit(1);
-    if (!row || row.status !== "walkover") continue;
-    const winnerSide =
-      row.registrationAId && !row.registrationBId
-        ? "left"
-        : row.registrationBId && !row.registrationAId
-          ? "right"
-          : null;
-    if (!winnerSide) continue;
-    await advanceKnockoutWinner({
-      tournamentId,
-      fixtureId: row.id,
-      winnerSide,
-    });
-    await db
-      .update(badmintonFixturesTable)
-      .set({
-        completedAt: new Date(),
-        resultSummary: "bye",
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(badmintonFixturesTable.id, row.id),
-          eq(badmintonFixturesTable.tournamentId, tournamentId),
-        ),
-      );
+  // Auto-advance byes (one side empty → walkover) into the next round across all rounds.
+  for (let r = 1; r <= totalRounds; r++) {
+    const rInserted = insertedByRound.get(r) ?? [];
+    for (const f of rInserted) {
+      const [row] = await db
+        .select()
+        .from(badmintonFixturesTable)
+        .where(
+          and(
+            eq(badmintonFixturesTable.id, f.id),
+            eq(badmintonFixturesTable.tournamentId, tournamentId),
+          ),
+        )
+        .limit(1);
+      if (!row || row.status !== "walkover" || !row.winnerAdvancesTo) continue;
+      const winnerSide =
+        row.registrationAId && !row.registrationBId
+          ? "left"
+          : row.registrationBId && !row.registrationAId
+            ? "right"
+            : null;
+      if (!winnerSide) continue;
+      await advanceKnockoutWinner({
+        tournamentId,
+        fixtureId: row.id,
+        winnerSide,
+      });
+      await db
+        .update(badmintonFixturesTable)
+        .set({
+          completedAt: new Date(),
+          resultSummary: "bye",
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(badmintonFixturesTable.id, row.id),
+            eq(badmintonFixturesTable.tournamentId, tournamentId),
+          ),
+        );
+    }
   }
 
   // P0.4 — dynamic initial KO stage + settle (byes may clear early rounds).
@@ -2112,8 +2155,12 @@ router.put("/categories/:catId/groups", async (req, res) => {
         z.object({
           name: z.string().min(1).max(100),
           sortOrder: z.number().int().min(0).optional(),
-          teamIds: z.array(z.number().int().positive()).min(1),
-        }),
+          teamIds: z.array(z.number().int().positive()).optional().default([]),
+          registrationIds: z.array(z.number().int().positive()).optional().default([]),
+        }).refine(
+          (g) => (g.teamIds && g.teamIds.length > 0) || (g.registrationIds && g.registrationIds.length > 0),
+          { message: "Each group must have either teamIds or registrationIds" },
+        ),
       )
       .min(1),
   });
@@ -3529,6 +3576,13 @@ router.post("/matches/:matchId/reopen", async (req, res) => {
       actorFrom(req, { kind: "organizer_or_admin", usedScorer: false }),
       parsed.data.note,
     );
+    auditLog(req, {
+      category: "tournament",
+      action: "badminton.match_reopened",
+      summary: `Match #${matchId} reopened for score correction`,
+      tournamentId,
+      resource: { type: "badminton_match", id: matchId },
+    });
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {

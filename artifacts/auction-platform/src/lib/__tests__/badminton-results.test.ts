@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  detectCategoryChampion,
   displayMatchSideScores,
   formatPointDifference,
   gamesWonDisplayLine,
@@ -9,6 +10,8 @@ import {
   loserLabel,
   winnerLabel,
   winnerPointDifference,
+  type ResultsCategory,
+  type ResultsFixture,
   type ResultsMatch,
 } from "../badminton-results";
 import type { BadmintonMatchState } from "@workspace/badminton-core";
@@ -209,5 +212,134 @@ describe("winner point difference helpers", () => {
     expect(isBroadcastableResult(wo)).toBe(true);
     expect(gamesWonDisplayLine(wo)).toBeNull();
     expect(listRecentCompleted([wo], 5)).toHaveLength(1);
+  });
+
+  describe("detectCategoryChampion — Round-Robin Standings Leader (P0-05)", () => {
+    it("crowns standings leader as champion even when last played match was won by another entrant", () => {
+      const category: ResultsCategory = {
+        id: 10,
+        name: "Men's Singles",
+        drawType: "round_robin",
+        phase: "completed",
+      };
+
+      // 4 Entrants:
+      // Reg 1: 3 wins (Leader)
+      // Reg 2: 1 win
+      // Reg 3: 1 win
+      // Reg 4: 1 win (won the LAST match of the tournament against Reg 3)
+
+      const fixtures: ResultsFixture[] = [
+        { id: 1, categoryId: 10, drawId: 1, scoringMatchId: 101, registrationAId: 1, registrationBId: 2, status: "completed", winnerRegistrationId: 1 },
+        { id: 2, categoryId: 10, drawId: 1, scoringMatchId: 102, registrationAId: 3, registrationBId: 4, status: "completed", winnerRegistrationId: 3 },
+        { id: 3, categoryId: 10, drawId: 1, scoringMatchId: 103, registrationAId: 1, registrationBId: 3, status: "completed", winnerRegistrationId: 1 },
+        { id: 4, categoryId: 10, drawId: 1, scoringMatchId: 104, registrationAId: 2, registrationBId: 4, status: "completed", winnerRegistrationId: 2 },
+        { id: 5, categoryId: 10, drawId: 1, scoringMatchId: 105, registrationAId: 1, registrationBId: 4, status: "completed", winnerRegistrationId: 1 },
+        // Match 106 played LAST at timestamp T+10 hours, won by Reg 4 against Reg 3
+        { id: 6, categoryId: 10, drawId: 1, scoringMatchId: 106, registrationAId: 3, registrationBId: 4, status: "completed", winnerRegistrationId: 4 },
+      ];
+
+      const matches: ResultsMatch[] = [
+        {
+          ...completedMatch({
+            id: 101,
+            winnerSide: "left",
+            leftSide: { label: "Leader Alice", shortLabel: "Alice", playerIds: [] },
+            rightSide: { label: "Bob", shortLabel: "Bob", playerIds: [] },
+            endedAt: "2026-10-28T10:00:00Z",
+          }),
+          detail: { categoryId: 10 },
+        },
+        {
+          ...completedMatch({
+            id: 102,
+            winnerSide: "left",
+            leftSide: { label: "Charlie", shortLabel: "Charlie", playerIds: [] },
+            rightSide: { label: "David", shortLabel: "David", playerIds: [] },
+            endedAt: "2026-10-28T11:00:00Z",
+          }),
+          detail: { categoryId: 10 },
+        },
+        {
+          ...completedMatch({
+            id: 103,
+            winnerSide: "left",
+            leftSide: { label: "Leader Alice", shortLabel: "Alice", playerIds: [] },
+            rightSide: { label: "Charlie", shortLabel: "Charlie", playerIds: [] },
+            endedAt: "2026-10-28T12:00:00Z",
+          }),
+          detail: { categoryId: 10 },
+        },
+        {
+          ...completedMatch({
+            id: 104,
+            winnerSide: "left",
+            leftSide: { label: "Bob", shortLabel: "Bob", playerIds: [] },
+            rightSide: { label: "David", shortLabel: "David", playerIds: [] },
+            endedAt: "2026-10-28T13:00:00Z",
+          }),
+          detail: { categoryId: 10 },
+        },
+        {
+          ...completedMatch({
+            id: 105,
+            winnerSide: "left",
+            leftSide: { label: "Leader Alice", shortLabel: "Alice", playerIds: [] },
+            rightSide: { label: "David", shortLabel: "David", playerIds: [] },
+            endedAt: "2026-10-28T14:00:00Z",
+          }),
+          detail: { categoryId: 10 },
+        },
+        // Match 106 finishes LAST at 18:00, won by David (right side)
+        {
+          ...completedMatch({
+            id: 106,
+            winnerSide: "right",
+            leftSide: { label: "Charlie", shortLabel: "Charlie", playerIds: [] },
+            rightSide: { label: "David", shortLabel: "David", playerIds: [] },
+            endedAt: "2026-10-28T18:00:00Z",
+          }),
+          detail: { categoryId: 10 },
+        },
+      ];
+
+      // With precomputed standings:
+      const standings = [
+        { registrationId: 1, rank: 1, won: 3, lost: 0, marginPoints: 30 },
+        { registrationId: 2, rank: 2, won: 1, lost: 2, marginPoints: -5 },
+        { registrationId: 3, rank: 3, won: 1, lost: 2, marginPoints: -10 },
+        { registrationId: 4, rank: 4, won: 1, lost: 2, marginPoints: -15 },
+      ];
+
+      const champWithStandings = detectCategoryChampion(category, matches, fixtures, standings);
+      expect(champWithStandings).not.toBeNull();
+      // Must crown Leader Alice, NOT David (who won the last match)!
+      expect(champWithStandings?.winnerLabel).toBe("Leader Alice");
+      expect(champWithStandings?.roundLabel).toBe("League Winner");
+
+      // Without precomputed standings (on-the-fly calculation):
+      const champComputed = detectCategoryChampion(category, matches, fixtures);
+      expect(champComputed).not.toBeNull();
+      expect(champComputed?.winnerLabel).toBe("Leader Alice");
+    });
+
+    it("returns null when standings top entrants are tied and unresolved", () => {
+      const category: ResultsCategory = {
+        id: 11,
+        name: "Tied League",
+        drawType: "round_robin",
+        phase: "completed",
+      };
+
+      const fixtures: ResultsFixture[] = [];
+      const matches: ResultsMatch[] = [];
+      const tiedStandings = [
+        { registrationId: 1, rank: 1, won: 2, lost: 1, marginPoints: 10 },
+        { registrationId: 2, rank: 1, won: 2, lost: 1, marginPoints: 10 },
+      ];
+
+      const champ = detectCategoryChampion(category, matches, fixtures, tiedStandings);
+      expect(champ).toBeNull();
+    });
   });
 });

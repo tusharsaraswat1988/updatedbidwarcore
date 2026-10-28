@@ -360,8 +360,9 @@ async function advanceRound1Byes(
   r1Fixtures: Array<{ id: number; slotNumber: number | null }>,
   executor: Parameters<typeof wireKnockoutProgressionLinks>[3],
 ): Promise<void> {
+  const exec = executor ?? db;
   for (const f of r1Fixtures) {
-    const [row] = await executor
+    const [row] = await exec
       .select()
       .from(badmintonFixturesTable)
       .where(
@@ -383,9 +384,9 @@ async function advanceRound1Byes(
       tournamentId,
       fixtureId: row.id,
       winnerSide,
-      executor,
+      executor: exec,
     });
-    await executor
+    await exec
       .update(badmintonFixturesTable)
       .set({
         completedAt: new Date(),
@@ -399,6 +400,86 @@ async function advanceRound1Byes(
         ),
       );
   }
+}
+
+/**
+ * Arrange qualifiers from league groups into seeded positions preventing same-group rematches (P0-04).
+ * Same-group qualifiers are placed into opposite halves of the bracket and cannot meet before the Final.
+ */
+export function arrangeGroupQualifiersForKnockout(
+  qualifiers: Array<{ registrationId: number; groupId?: number | null; rank: number }>,
+): Array<{ id: number; seedNumber: number }> {
+  const groupMap = new Map<number | null, Array<{ registrationId: number; rank: number }>>();
+  for (const q of qualifiers) {
+    const gId = q.groupId ?? null;
+    const list = groupMap.get(gId) ?? [];
+    list.push({ registrationId: q.registrationId, rank: q.rank });
+    groupMap.set(gId, list);
+  }
+
+  for (const list of groupMap.values()) {
+    list.sort((a, b) => a.rank - b.rank);
+  }
+
+  const groupKeys = [...groupMap.keys()];
+
+  // Case 1: 2 groups, top 2 advance (A1, A2, B1, B2)
+  if (groupKeys.length === 2) {
+    const gA = groupMap.get(groupKeys[0])!;
+    const gB = groupMap.get(groupKeys[1])!;
+    if (gA.length >= 2 && gB.length >= 2) {
+      // Semi 1: A1 (Seed 1) vs B2 (Seed 4)
+      // Semi 2: B1 (Seed 2) vs A2 (Seed 3)
+      return [
+        { id: gA[0]!.registrationId, seedNumber: 1 },
+        { id: gB[0]!.registrationId, seedNumber: 2 },
+        { id: gA[1]!.registrationId, seedNumber: 3 },
+        { id: gB[1]!.registrationId, seedNumber: 4 },
+      ];
+    }
+  }
+
+  // Case 2: 4 groups, top 2 advance (A1, A2, B1, B2, C1, C2, D1, D2)
+  if (groupKeys.length === 4) {
+    const gA = groupMap.get(groupKeys[0])!;
+    const gB = groupMap.get(groupKeys[1])!;
+    const gC = groupMap.get(groupKeys[2])!;
+    const gD = groupMap.get(groupKeys[3])!;
+    if (gA.length >= 2 && gB.length >= 2 && gC.length >= 2 && gD.length >= 2) {
+      // Q1: A1 vs B2 (Seed 1 vs Seed 8)
+      // Q2: C1 vs D2 (Seed 5 vs Seed 4)
+      // Q3: D1 vs C2 (Seed 3 vs Seed 6)
+      // Q4: B1 vs A2 (Seed 7 vs Seed 2)
+      return [
+        { id: gA[0]!.registrationId, seedNumber: 1 },
+        { id: gB[0]!.registrationId, seedNumber: 2 },
+        { id: gD[0]!.registrationId, seedNumber: 3 },
+        { id: gD[1]!.registrationId, seedNumber: 4 },
+        { id: gC[0]!.registrationId, seedNumber: 5 },
+        { id: gC[1]!.registrationId, seedNumber: 6 },
+        { id: gA[1]!.registrationId, seedNumber: 7 },
+        { id: gB[1]!.registrationId, seedNumber: 8 },
+      ];
+    }
+  }
+
+  // General fallback: winners first, then runners-up in reverse group order
+  const winners: number[] = [];
+  const runnersUp: number[] = [];
+  const others: number[] = [];
+
+  for (const gKey of groupKeys) {
+    const list = groupMap.get(gKey)!;
+    if (list[0]) winners.push(list[0].registrationId);
+    if (list[1]) runnersUp.push(list[1].registrationId);
+    for (let i = 2; i < list.length; i++) {
+      others.push(list[i]!.registrationId);
+    }
+  }
+
+  runnersUp.reverse();
+  const ordered = [...winners, ...runnersUp, ...others];
+  return ordered.map((id, index) => ({ id, seedNumber: index + 1 }));
 }
 
 /**
@@ -648,10 +729,7 @@ export async function promoteCategoryToKnockout(
       "TOURNAMENT_PROMOTION_VALIDATED",
     );
 
-    const seeded = qualifiers.map((q, index) => ({
-      id: q.registrationId,
-      seedNumber: index + 1,
-    }));
+    const seeded = arrangeGroupQualifiersForKnockout(qualifiers);
     const plannedRounds = planKnockoutBracket(seeded);
     const totalRounds = plannedRounds.length;
 

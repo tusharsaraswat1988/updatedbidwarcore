@@ -7,6 +7,7 @@ import {
   buildPairStandingsFromMatches,
   comparePairStandings,
   computeWinPercentage,
+  planPairRoundRobinFixtures,
   planTeamTieGroupFixtures,
   type PairStandingsMatchInput,
 } from "@workspace/badminton-core";
@@ -39,7 +40,8 @@ import {
 export type LeagueGroupInput = {
   name: string;
   sortOrder?: number;
-  teamIds: number[];
+  teamIds?: number[];
+  registrationIds?: number[];
 };
 
 export type LeagueGroupView = {
@@ -47,6 +49,7 @@ export type LeagueGroupView = {
   name: string;
   sortOrder: number;
   teams: Array<{ teamId: number; teamName: string; seed: number | null }>;
+  registrations: Array<{ registrationId: number; seed: number | null }>;
 };
 
 async function registryTournamentId(tournamentId: number): Promise<number> {
@@ -153,7 +156,11 @@ export async function listLeagueGroups(
     .from(badmintonGroupMembersTable)
     .where(inArray(badmintonGroupMembersTable.groupId, groupIds));
 
-  const teamIds = [...new Set(members.map((m) => m.teamId))];
+  const teamIds = [
+    ...new Set(
+      members.map((m) => m.teamId).filter((id): id is number => id != null),
+    ),
+  ];
   const teamRows =
     teamIds.length > 0
       ? await db
@@ -168,10 +175,16 @@ export async function listLeagueGroups(
     name: g.name,
     sortOrder: g.sortOrder,
     teams: members
-      .filter((m) => m.groupId === g.id)
+      .filter((m) => m.groupId === g.id && m.teamId != null)
       .map((m) => ({
-        teamId: m.teamId,
-        teamName: teamNameById.get(m.teamId) ?? `Team #${m.teamId}`,
+        teamId: m.teamId!,
+        teamName: teamNameById.get(m.teamId!) ?? `Team #${m.teamId}`,
+        seed: m.seed,
+      })),
+    registrations: members
+      .filter((m) => m.groupId === g.id && m.registrationId != null)
+      .map((m) => ({
+        registrationId: m.registrationId!,
         seed: m.seed,
       })),
   }));
@@ -211,11 +224,23 @@ export async function replaceLeagueGroups(
       })
       .returning();
 
-    if (group.teamIds.length > 0) {
+    const teamIds = group.teamIds ?? [];
+    if (teamIds.length > 0) {
       await db.insert(badmintonGroupMembersTable).values(
-        group.teamIds.map((teamId, seedIdx) => ({
+        teamIds.map((teamId, seedIdx) => ({
           groupId: inserted!.id,
           teamId,
+          seed: seedIdx + 1,
+        })),
+      );
+    }
+
+    const registrationIds = group.registrationIds ?? [];
+    if (registrationIds.length > 0) {
+      await db.insert(badmintonGroupMembersTable).values(
+        registrationIds.map((registrationId, seedIdx) => ({
+          groupId: inserted!.id,
+          registrationId,
           seed: seedIdx + 1,
         })),
       );
@@ -248,9 +273,52 @@ export async function generateLeagueFixtures(
     );
   }
 
+  // Idempotency guard: reject if matches have started
+  const existingFixtures = await db
+    .select()
+    .from(badmintonFixturesTable)
+    .where(
+      and(
+        eq(badmintonFixturesTable.categoryId, categoryId),
+        eq(badmintonFixturesTable.tournamentId, tournamentId),
+      ),
+    );
+
+  const hasStarted = existingFixtures.some(
+    (f) => f.status === "live" || f.status === "completed" || f.scoringMatchId != null,
+  );
+  if (hasStarted) {
+    throw Object.assign(
+      new Error("Cannot regenerate league fixtures: matches in this category have already started or completed."),
+      { status: 400 },
+    );
+  }
+
+  if (existingFixtures.length > 0) {
+    const drawIds = [...new Set(existingFixtures.map((f) => f.drawId))];
+    await db
+      .delete(badmintonFixturesTable)
+      .where(
+        and(
+          eq(badmintonFixturesTable.categoryId, categoryId),
+          eq(badmintonFixturesTable.tournamentId, tournamentId),
+        ),
+      );
+    if (drawIds.length > 0) {
+      await db
+        .delete(badmintonDrawsTable)
+        .where(
+          and(
+            inArray(badmintonDrawsTable.id, drawIds),
+            eq(badmintonDrawsTable.tournamentId, tournamentId),
+          ),
+        );
+    }
+  }
+
   const groups = await listLeagueGroups(tournamentId, categoryId);
   if (groups.length === 0) {
-    throw Object.assign(new Error("Define at least one group with teams before generating"), {
+    throw Object.assign(new Error("Define at least one group before generating"), {
       status: 400,
     });
   }
@@ -276,6 +344,40 @@ export async function generateLeagueFixtures(
   let totalCollections = 0;
 
   for (const group of groups) {
+    // 1. Direct sports-only pair / individual round robin
+    if (group.registrations.length > 0) {
+      const regIds = group.registrations.map((r) => r.registrationId);
+      const planned = planPairRoundRobinFixtures(group.name, regIds);
+      if (planned.length === 0) continue;
+
+      const { fixtures } = await createFixtureCollection({
+        tournamentId,
+        categoryId,
+        roundName: `${group.name} — League`,
+        drawKind: "generated",
+        groupId: String(group.id),
+        metaJson: {
+          adapter: "league_generate",
+          algorithm: "pair_round_robin",
+          groupId: group.id,
+          groupName: group.name,
+        },
+        fixtures: planned.map((f) => ({
+          slotNumber: f.slotNumber,
+          registrationAId: f.registrationAId,
+          registrationBId: f.registrationBId,
+          status: "unscheduled",
+          metaJson: f.metaJson,
+        })),
+        markCategoryLive: totalCollections === 0,
+      });
+
+      totalFixtures += fixtures.length;
+      totalCollections += 1;
+      continue;
+    }
+
+    // 2. Franchise team tie group
     const teamIdsInGroup = group.teams.map((t) => t.teamId);
     const teamNameById = new Map(group.teams.map((t) => [t.teamId, t.teamName]));
 
@@ -327,7 +429,7 @@ export async function generateLeagueFixtures(
   if (totalFixtures === 0) {
     throw Object.assign(
       new Error(
-        "No fixtures generated. Ensure pairs are registered and assigned to franchise teams in each group.",
+        "No fixtures generated. Ensure participants are assigned to each group.",
       ),
       { status: 400 },
     );
@@ -393,11 +495,18 @@ export async function rebuildCategoryPairStandings(
 
   const registrationGroupId = new Map<number, number | null>();
   for (const reg of registrations) {
-    const teamId = await resolveRegistrationTeamId(tournamentId, reg);
-    registrationGroupId.set(
-      reg.id,
-      teamId != null ? (teamToGroupId.get(teamId) ?? null) : null,
+    const directGroup = groups.find((g) =>
+      g.registrations.some((r) => r.registrationId === reg.id),
     );
+    if (directGroup) {
+      registrationGroupId.set(reg.id, directGroup.id);
+    } else {
+      const teamId = await resolveRegistrationTeamId(tournamentId, reg);
+      registrationGroupId.set(
+        reg.id,
+        teamId != null ? (teamToGroupId.get(teamId) ?? null) : null,
+      );
+    }
   }
 
   const fixtures = await db

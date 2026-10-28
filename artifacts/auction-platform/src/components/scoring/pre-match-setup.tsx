@@ -247,10 +247,12 @@ export function PreMatchSetup({
 
   function stepIsReachable(step: CricketSetupStep): boolean {
     if (needsToss) return step === "toss";
-    if (step === "toss" || step === "batting") return battingId != null || step === "toss";
-    if (step === "bowling") return !needsBattingLineup && bowlingId != null;
-    if (step === "openers") return !needsBattingLineup && !needsBowlingLineup && battingId != null;
-    return !needsBattingLineup && !needsBowlingLineup && openersConfirmed && bowlingId != null;
+    if (step === "toss") return true;
+    if (step === "batting") return battingId != null;
+    if (step === "bowling") return bowlingId != null;
+    if (step === "openers") return !needsBattingLineup && battingId != null;
+    if (step === "bowler") return !needsBowlingLineup && bowlingId != null;
+    return false;
   }
 
   const requestedStep = editingStep ?? naturalStep;
@@ -294,8 +296,6 @@ export function PreMatchSetup({
 
   function openStep(step: CricketSetupStep) {
     if (!stepIsReachable(step)) return;
-    const index = SETUP_STEPS.findIndex((item) => item.id === step);
-    if (index > furthestIndex) return;
     onEditingStep?.(step === naturalStep ? null : step);
   }
 
@@ -668,7 +668,7 @@ export function PreMatchSetup({
 
       <div className="flex flex-wrap gap-1.5" aria-label="Setup steps">
         {SETUP_STEPS.map((step, index) => {
-          const reachable = stepIsReachable(step.id) && index <= furthestIndex;
+          const reachable = stepIsReachable(step.id);
           const current = step.id === shownStep;
           return (
             <button

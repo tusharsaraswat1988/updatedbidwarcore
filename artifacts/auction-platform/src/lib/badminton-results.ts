@@ -3,8 +3,12 @@
  * Consumes completed matches / fixtures. Never edits scoring.
  */
 
-import type { BadmintonMatchState } from "@workspace/badminton-core";
-import { isTerminalScoringMatchStatus } from "@workspace/badminton-core";
+import type { BadmintonMatchState, PairStandingsMatchInput } from "@workspace/badminton-core";
+import {
+  buildPairStandingsFromMatches,
+  comparePairStandings,
+  isTerminalScoringMatchStatus,
+} from "@workspace/badminton-core";
 import { matchDisplayLabel } from "@/lib/badminton-control-center";
 
 export type ResultsMatch = {
@@ -399,6 +403,13 @@ export function detectCategoryChampion(
   category: ResultsCategory,
   matches: ResultsMatch[],
   fixtures: ResultsFixture[],
+  standings?: Array<{
+    registrationId: number;
+    rank?: number | null;
+    won?: number | null;
+    lost?: number | null;
+    marginPoints?: number | null;
+  }> | null,
 ): ChampionInfo | null {
   const catMatches = matches.filter((m) => categoryIdOf(m) === category.id);
   const catFixtures = fixtures.filter((f) => f.categoryId === category.id);
@@ -419,6 +430,128 @@ export function detectCategoryChampion(
 
   if (completed.length === 0) return null;
 
+  // P0-05: Handle Round-Robin Category Champion
+  if (category.drawType === "round_robin") {
+    let topRegId: number | null = null;
+    let leaderStanding: { won: number; lost: number; marginPoints: number } | null = null;
+
+    if (standings && standings.length > 0) {
+      const sorted = [...standings].sort((a, b) => {
+        if (a.rank != null && b.rank != null && a.rank !== b.rank) return a.rank - b.rank;
+        if ((b.won ?? 0) !== (a.won ?? 0)) return (b.won ?? 0) - (a.won ?? 0);
+        return (b.marginPoints ?? 0) - (a.marginPoints ?? 0);
+      });
+
+      if (sorted.length > 1) {
+        const s1 = sorted[0]!;
+        const s2 = sorted[1]!;
+        const tiedRank = s1.rank != null && s2.rank != null && s1.rank === s2.rank;
+        const tiedStats = (s1.won ?? 0) === (s2.won ?? 0) && (s1.marginPoints ?? 0) === (s2.marginPoints ?? 0);
+        if (tiedRank || tiedStats) {
+          // Unresolved tie — do not guess or pick arbitrarily
+          return null;
+        }
+      }
+
+      topRegId = sorted[0]!.registrationId;
+      leaderStanding = {
+        won: sorted[0]!.won ?? 0,
+        lost: sorted[0]!.lost ?? 0,
+        marginPoints: sorted[0]!.marginPoints ?? 0,
+      };
+    } else {
+      // Build standings directly from matches & fixtures
+      const regIds = [
+        ...new Set(
+          catFixtures
+            .flatMap((f) => [f.registrationAId, f.registrationBId])
+            .filter((id): id is number => id != null),
+        ),
+      ];
+
+      if (regIds.length === 0) return null;
+
+      const matchInputs: PairStandingsMatchInput[] = [];
+      for (const fix of catFixtures) {
+        if (!fix.registrationAId || !fix.registrationBId) continue;
+        const match = catMatches.find((m) => m.id === fix.scoringMatchId);
+        matchInputs.push({
+          registrationAId: fix.registrationAId,
+          registrationBId: fix.registrationBId,
+          status: fix.status,
+          winnerRegistrationId: fix.winnerRegistrationId ?? undefined,
+          winnerSide: match?.state?.winnerSide ?? undefined,
+          games: match?.state?.games ?? [],
+          assignedMarginPoints: match?.state?.assignedMarginPoints ?? undefined,
+        });
+      }
+
+      const computed = buildPairStandingsFromMatches(regIds, matchInputs);
+      computed.sort(comparePairStandings);
+
+      if (computed.length > 1) {
+        const c1 = computed[0]!;
+        const c2 = computed[1]!;
+        if (c1.won === c2.won && c1.marginPoints === c2.marginPoints) {
+          // Unresolved tie at the top — do not guess
+          return null;
+        }
+      }
+
+      topRegId = computed[0]!.registrationId;
+      leaderStanding = {
+        won: computed[0]!.won,
+        lost: computed[0]!.lost,
+        marginPoints: computed[0]!.marginPoints,
+      };
+    }
+
+    if (!topRegId) return null;
+
+    // Find a match featuring the standings leader to extract label & franchise/team
+    const leaderMatch = catMatches.find((m) => {
+      const fix = catFixtures.find((f) => f.scoringMatchId === m.id);
+      return (
+        fix != null &&
+        (fix.registrationAId === topRegId || fix.registrationBId === topRegId)
+      );
+    });
+
+    if (!leaderMatch || !leaderMatch.state) return null;
+
+    const leaderFix = catFixtures.find((f) => f.scoringMatchId === leaderMatch.id);
+    const leaderSide: "left" | "right" =
+      leaderFix?.registrationAId === topRegId ? "left" : "right";
+    const info =
+      leaderSide === "left"
+        ? leaderMatch.state.leftSide
+        : leaderMatch.state.rightSide;
+
+    const winner =
+      info.label?.trim() || info.shortLabel?.trim() || `Pair #${topRegId}`;
+
+    const team = {
+      teamName: info.franchiseName?.trim() || info.teamName?.trim() || null,
+      teamLogoUrl: info.franchiseLogoUrl?.trim() || info.teamLogoUrl?.trim() || null,
+      teamColor: info.teamColor?.trim() || null,
+    };
+
+    return {
+      categoryId: category.id,
+      categoryName: category.code?.trim() || category.name,
+      winnerLabel: winner,
+      winnerTeamName: team.teamName,
+      winnerTeamLogoUrl: team.teamLogoUrl,
+      winnerTeamColor: team.teamColor,
+      roundLabel: "League Winner",
+      gamesWonLine: leaderStanding ? `${leaderStanding.won}W – ${leaderStanding.lost}L` : gamesWonLine(leaderMatch),
+      gameScoreLines: leaderStanding ? [`Diff: ${leaderStanding.marginPoints >= 0 ? `+${leaderStanding.marginPoints}` : leaderStanding.marginPoints}`] : gameScoreLines(leaderMatch),
+      matchId: leaderMatch.id,
+      outcomeLabel: "League Winner",
+    };
+  }
+
+  // Knockout format: Final match or progression terminal match
   const finalMatch =
     completed.find((m) => isFinalRoundName(roundLabelOf(m))) ??
     completed.find((m) => {

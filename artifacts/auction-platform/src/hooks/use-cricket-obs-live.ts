@@ -421,6 +421,8 @@ export function useCricketObsLive(
         setBroadcastMessage(data.broadcastMessage ?? null);
       } else if (data.type === "CLEAR_BROADCAST_MESSAGE") {
         setBroadcastMessage(null);
+      } else if (data.type === "SCORE_UNDONE" || data.type === "CLEAR_FLASH") {
+        setOverrideFlash({ kind: null, token: null });
       }
     };
     return () => {

@@ -23,6 +23,7 @@ vi.mock("@workspace/db", () => ({
   playersTable: { id: {} },
   bidsTable: {},
   categoriesTable: {},
+  auctionSessionsTable: { tournamentId: {} },
 }));
 
 vi.mock("../lib/broadcast", () => ({ broadcastToTournament: vi.fn() }));

@@ -109,6 +109,8 @@ export function ScorecardView({ data, tournamentId }: ScorecardViewProps) {
 
           <p className="text-xs text-muted-foreground">
             Extras {inn.extras.total}
+            {inn.extras.byes ? ` (b ${inn.extras.byes})` : ""}
+            {inn.extras.legByes ? ` (lb ${inn.extras.legByes})` : ""}
             {inn.extras.wides ? ` (w ${inn.extras.wides})` : ""}
             {inn.extras.noBalls ? ` (nb ${inn.extras.noBalls})` : ""}
             {inn.extras.penalties ? ` (pen ${inn.extras.penalties})` : ""}

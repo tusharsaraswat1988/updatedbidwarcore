@@ -179,6 +179,26 @@ export function LiveScoringPad({
   const [batterRuns, setBatterRuns] = useState<Record<number, number>>({});
   const [retirePromptPlayerId, setRetirePromptPlayerId] = useState<number | null>(null);
 
+  useEffect(() => {
+    if (!initialBatterRuns) return;
+    setBatterRuns((prev) => {
+      const next: Record<number, number> = { ...initialBatterRuns };
+      for (const [pIdStr, runs] of Object.entries(prev)) {
+        const pId = Number(pIdStr);
+        if (runs > (next[pId] ?? 0)) {
+          next[pId] = runs;
+        }
+      }
+      return next;
+    });
+  }, [initialBatterRuns]);
+
+  useEffect(() => {
+    if (initialBatterRuns) {
+      setBatterRuns(initialBatterRuns);
+    }
+  }, [state.lastSequence]);
+
   // Local dismissed batters tracker (to immediately exclude dismissed batters without waiting for refetch)
   const [localDismissedBatters, setLocalDismissedBatters] = useState<number[]>([]);
 
@@ -192,6 +212,12 @@ export function LiveScoringPad({
     setLocalSuperBallArmed(false);
     setLocalDismissedBatters([]);
   }, [state.currentInnings]);
+
+  useEffect(() => {
+    // Reconcile optimistic local dismissals with authoritative scoreboard updates.
+    // When a ball or wicket is undone, state.lastSequence rolls back and the dismissed batter is restored.
+    setLocalDismissedBatters([]);
+  }, [state.lastSequence, dismissedBatters]);
 
   const canTap = useDebounceTap();
   const innings = getActiveInnings(state);
@@ -411,6 +437,17 @@ export function LiveScoringPad({
       });
       return;
     }
+    const bpo = state.ballsPerOver ?? 6;
+    const isOverJustCompleted = !!innings && innings.phase === "in_progress" && innings.ball >= bpo;
+    if (isOverJustCompleted && bowlerId == null && bowlingSquad.length > 1) {
+      setOverEndPrompt(true);
+      toast({
+        title: "Bowler required",
+        description: "Select the bowler for the upcoming over before recording deliveries.",
+      });
+      return;
+    }
+
     if (
       !canTap() ||
       busy ||
@@ -431,19 +468,25 @@ export function LiveScoringPad({
 
     const isSuperBall = input.isSuperBall ?? isSuperBallActive;
 
-    await onBall({
-      innings: state.currentInnings,
-      over: pos.over,
-      ball: pos.ball,
-      strikerId,
-      nonStrikerId: onlyOneBatsmanAvailable ? null : nonStrikerId,
-      bowlerId: activeBowlerId,
-      runsOffBat: input.runsOffBat,
-      extras: input.extras,
-      wicket: input.wicket,
-      isLegalDelivery: input.isLegalDelivery,
-      isSuperBall,
-    });
+    try {
+      await onBall({
+        innings: state.currentInnings,
+        over: pos.over,
+        ball: pos.ball,
+        strikerId,
+        nonStrikerId: onlyOneBatsmanAvailable ? null : nonStrikerId,
+        bowlerId: activeBowlerId,
+        runsOffBat: input.runsOffBat,
+        extras: input.extras,
+        wicket: input.wicket,
+        isLegalDelivery: input.isLegalDelivery,
+        isSuperBall,
+      });
+    } catch {
+      // Failed or rejected on server / lock lost.
+      // Do not apply optimistic local state mutations.
+      return;
+    }
 
     if (localSuperBallArmed) {
       setLocalSuperBallArmed(false);
@@ -454,13 +497,14 @@ export function LiveScoringPad({
       onNewBatsman(-1);
       setBatterRuns((prev) => {
         const next = { ...prev };
-        delete next[strikerId];
+        delete next[input.wicket!.dismissedPlayerId];
         return next;
       });
     } else if (input.runsOffBat > 0 && strikerId) {
       const addedRuns = isSuperBall ? input.runsOffBat * 2 : input.runsOffBat;
       setBatterRuns((prev) => {
-        const nextRuns = (prev[strikerId] ?? 0) + addedRuns;
+        const currentRuns = prev[strikerId] ?? initialBatterRuns?.[strikerId] ?? 0;
+        const nextRuns = currentRuns + addedRuns;
         const updated = { ...prev, [strikerId]: nextRuns };
         if (retireAtRuns != null && nextRuns >= retireAtRuns) {
           setRetirePromptPlayerId(strikerId);
@@ -477,7 +521,8 @@ export function LiveScoringPad({
     const willTargetReach = state.currentInnings >= 2 && state.target != null && innings.runs + addedTotalRuns >= state.target;
     const willInningsFinish = willOversComplete || willAllOut || willTargetReach;
 
-    if (input.isLegalDelivery && pos.ball === 6 && !willInningsFinish) {
+    const ballsPerOver = state.ballsPerOver ?? 6;
+    if (input.isLegalDelivery && pos.ball === ballsPerOver && !willInningsFinish) {
       setOverEndPrompt(true);
     }
   }
@@ -503,8 +548,6 @@ export function LiveScoringPad({
     setSelectedWicketType(null);
     setSelectedFielderId(null);
     setRunOutRunsCompleted(0);
-
-    setLocalDismissedBatters((prev) => [...prev, outId!]);
 
     await recordBall({
       runsOffBat,
@@ -893,9 +936,9 @@ export function LiveScoringPad({
                   </p>
                 )}
               </div>
-              {strikerId && batterRuns[strikerId] != null ? (
+              {strikerId && (batterRuns[strikerId] != null || initialBatterRuns?.[strikerId] != null) ? (
                 <span className="text-xs font-black text-amber-300 tabular-nums shrink-0 ml-1 px-1.5 py-0.5 rounded-lg bg-amber-400/20 border border-amber-400/30">
-                  {batterRuns[strikerId]}r
+                  {batterRuns[strikerId] ?? initialBatterRuns?.[strikerId]}r
                 </span>
               ) : null}
             </div>
@@ -1900,9 +1943,6 @@ export function LiveScoringPad({
                         setSelectedWicketType(type);
                         // Instant dismiss for bowled/lbw/hit_wicket
                         setWicketSheet(false);
-                        if (strikerId) {
-                          setLocalDismissedBatters((prev) => [...prev, strikerId]);
-                        }
                         void recordBall({
                           runsOffBat: 0,
                           extras: { type: null, runs: 0 },
@@ -2127,7 +2167,23 @@ export function LiveScoringPad({
               Strike has rotated. Choose bowler for the next over:
             </SheetDescription>
           </SheetHeader>
-          <div className="grid gap-2 mt-4 pb-6">
+          <div className="pt-2 pb-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full h-10 text-xs font-bold border-white/20 bg-white/[0.06] text-white hover:bg-white/[0.12] rounded-xl flex items-center justify-center gap-2 active:scale-[0.98]"
+              disabled={busy}
+              onClick={async () => {
+                setOverEndPrompt(false);
+                if (canTap()) void onUndo();
+              }}
+            >
+              <RotateCcw className="w-4 h-4 text-amber-400" />
+              <span>Undo Last Delivery</span>
+            </Button>
+          </div>
+          <div className="grid gap-2 mt-2 pb-6">
             {bowlingSquad.map((p) => {
               const justBowled = activeBowlerId === p.id && bowlingSquad.length > 1;
               return (

@@ -483,12 +483,16 @@ export const badmintonGroupMembersTable = pgTable(
   {
     id: serial("id").primaryKey(),
     groupId: integer("group_id").notNull(),
-    teamId: integer("team_id").notNull(),
+    /** Nullable for sports-only pair tournaments without auction teams. */
+    teamId: integer("team_id"),
+    /** Direct tournament registration for sports-only pair tournaments. */
+    registrationId: integer("registration_id"),
     seed: smallint("seed"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("ix_bgm_group_id").on(t.groupId),
+    index("ix_bgm_registration_id").on(t.registrationId),
     uniqueIndex("uq_bgm_group_team").on(t.groupId, t.teamId),
   ],
 );
