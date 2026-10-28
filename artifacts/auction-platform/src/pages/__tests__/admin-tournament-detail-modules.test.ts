@@ -89,10 +89,16 @@ describe("BIDWAR — Licensing P1: Admin Tournament Detail Module Awareness", ()
       expect(authLibSrc).toContain("/auth/admin/tournaments/${tournamentId}/verify-and-grant-license");
     });
 
-    it("renders license request & payment verification dialog with audit fields", () => {
+    it("renders license request & payment verification dialog with audit fields and passes reason", () => {
       expect(pageSrc).toContain("Verify Payment & Grant Live License");
       expect(pageSrc).toContain("verifyPaymentOpen");
       expect(pageSrc).toContain("verifyAndGrantTournamentLicense(tournamentId");
+      expect(pageSrc).toContain("reason: paymentAuditReason.trim()");
+    });
+
+    it("communicates shared tournament license semantics transparently without claiming dual license columns", () => {
+      expect(pageSrc).toContain("Tournament License Status");
+      expect(pageSrc).toContain("Ending auction marks auction completed and preserves active sports scoring");
     });
   });
 

@@ -50,6 +50,37 @@ let auctionSessions: Map<number, AuctionSessionRecord>;
 let licenseRequests: Map<number, LicenseRequestRecord>;
 let auditLogsList: any[];
 
+function extractAllFromCondition(cond: any): { numbers: number[]; strings: string[] } {
+  const numbers: number[] = [];
+  const strings: string[] = [];
+  function walk(node: any) {
+    if (node === null || node === undefined) return;
+    if (typeof node === "number") {
+      numbers.push(node);
+      return;
+    }
+    if (typeof node === "string") {
+      strings.push(node);
+      return;
+    }
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item);
+      return;
+    }
+    if (typeof node === "object") {
+      if (typeof node.value === "number") numbers.push(node.value);
+      if (typeof node.value === "string") strings.push(node.value);
+      if (typeof node.right === "number") numbers.push(node.right);
+      if (typeof node.right === "string") strings.push(node.right);
+      if (Array.isArray(node.queryChunks)) {
+        for (const chunk of node.queryChunks) walk(chunk);
+      }
+    }
+  }
+  walk(cond);
+  return { numbers, strings };
+}
+
 function extractIdFromCondition(cond: any): number | undefined {
   if (typeof cond === "number") return cond;
   if (!cond) return undefined;
@@ -145,9 +176,18 @@ vi.mock("@workspace/db", () => {
             return resolve(res);
           }
           if (targetTable === tournamentLicenseRequestsTable) {
-            const list = Array.from(licenseRequests.values());
-            const res = tid !== undefined ? list.filter((r) => r.tournamentId === tid || r.id === tid) : list;
-            return resolve(res);
+            const { numbers, strings } = extractAllFromCondition(whereFilter);
+            let list = Array.from(licenseRequests.values());
+            if (strings.includes("pending")) {
+              list = list.filter((r) => r.status === "pending");
+            }
+            if (numbers.length === 1) {
+              const num = numbers[0];
+              list = list.filter((r) => r.id === num || r.tournamentId === num);
+            } else if (numbers.length >= 2) {
+              list = list.filter((r) => numbers.includes(r.id) && numbers.includes(r.tournamentId));
+            }
+            return resolve(list);
           }
           return resolve([]);
         },
@@ -171,9 +211,13 @@ vi.mock("@workspace/db", () => {
           } else if (tbl === auctionSessionsTable && tid !== undefined && auctionSessions.has(tid)) {
             const existing = auctionSessions.get(tid)!;
             Object.assign(existing, updateValues);
-          } else if (tbl === tournamentLicenseRequestsTable && tid !== undefined && licenseRequests.has(tid)) {
-            const existing = licenseRequests.get(tid)!;
-            Object.assign(existing, updateValues);
+          } else if (tbl === tournamentLicenseRequestsTable) {
+            const { numbers } = extractAllFromCondition(cond);
+            const targetId = numbers.find((n) => licenseRequests.has(n));
+            if (targetId !== undefined) {
+              const existing = licenseRequests.get(targetId)!;
+              Object.assign(existing, updateValues);
+            }
           }
           return chain;
         },
@@ -701,6 +745,38 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       const t = tournaments.get(1)!;
       expect(t.scoringPhase).toBe("disabled");
     });
+
+    it("rejects non-master admin updating scoringPhase with 403", async () => {
+      const res = await request(app)
+        .patch("/auth/admin/tournaments/1")
+        .set("x-is-admin", "true")
+        .set("x-is-standard", "true")
+        .send({ scoringPhase: "completed", reason: "Attempted unauthorized scoring phase change" });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toContain("Only master admin can change tournament lifecycle status");
+    });
+
+    it("rejects non-master admin updating tournament status with 403", async () => {
+      const res = await request(app)
+        .patch("/auth/admin/tournaments/1")
+        .set("x-is-admin", "true")
+        .set("x-is-standard", "true")
+        .send({ status: "completed", reason: "Attempted unauthorized status change" });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toContain("Only master admin can change tournament lifecycle status");
+    });
+
+    it("rejects master admin updating scoringPhase without valid audit reason with 400", async () => {
+      const res = await request(app)
+        .patch("/auth/admin/tournaments/1")
+        .set("x-is-master", "true")
+        .send({ scoringPhase: "completed" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("Reason is required");
+    });
   });
 
   describe("6. POST /auth/admin/tournaments/:id/scoring/set-phase (Authoritative Scoring Lifecycle Phase)", () => {
@@ -837,6 +913,27 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       expect(log.after.scoringPhase).toBe("completed");
       expect(log.reason).toBe("Audit logging verification for scoring phase");
     });
+
+    it("emergency lock preservation: reactivating scoring does NOT restore status to active if adminLocked is true", async () => {
+      const t = tournaments.get(4)!;
+      t.scoringPhase = "completed";
+      t.status = "completed";
+      t.adminLocked = true;
+
+      const res = await request(app)
+        .post("/auth/admin/tournaments/4/scoring/set-phase")
+        .set("x-is-master", "true")
+        .send({ phase: "active", reason: "Re-opening cricket matches under emergency supervision" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.scoringPhase).toBe("active");
+      expect(res.body.status).toBe("completed");
+
+      expect(t.scoringPhase).toBe("active");
+      expect(t.status).toBe("completed");
+      expect(t.adminLocked).toBe(true);
+    });
   });
 
   describe("7. POST /auth/admin/tournaments/:id/verify-and-grant-license (Payment Verification & License Grant)", () => {
@@ -859,6 +956,114 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       expect(res.body.error).toBe("Not authorised");
     });
 
+    it("rejects non-master admin access with 403", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/5/verify-and-grant-license")
+        .set("x-is-admin", "true")
+        .set("x-is-standard", "true")
+        .send({
+          requestId: 501,
+          paymentAmount: 4999,
+          paymentRef: "UPI/VERIFIED/9999",
+          reason: "Testing unauthorized grant",
+        });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toContain("Only the master admin can verify payments and grant licenses");
+    });
+
+    it("rejects request missing a valid audit reason with 400", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/5/verify-and-grant-license")
+        .set("x-is-master", "true")
+        .send({
+          requestId: 501,
+          paymentAmount: 4999,
+          paymentRef: "UPI/VERIFIED/9999",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("Reason is required");
+    });
+
+    it("returns 404 if tournament does not exist", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/999/verify-and-grant-license")
+        .set("x-is-master", "true")
+        .send({
+          requestId: 501,
+          paymentAmount: 4999,
+          paymentRef: "UPI/VERIFIED/9999",
+          reason: "Payment verified in HDFC account statement",
+        });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toBe("Tournament not found");
+    });
+
+    it("returns 404 if license request does not exist or belongs to another tournament", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/5/verify-and-grant-license")
+        .set("x-is-master", "true")
+        .send({
+          requestId: 999,
+          paymentAmount: 4999,
+          paymentRef: "UPI/VERIFIED/9999",
+          reason: "Payment verified in HDFC account statement",
+        });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toBe("License request not found for this tournament");
+    });
+
+    it("returns 400 if tournament has no pending license request", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/1/verify-and-grant-license")
+        .set("x-is-master", "true")
+        .send({
+          paymentAmount: 4999,
+          paymentRef: "UPI/VERIFIED/9999",
+          reason: "Payment verified in HDFC account statement",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("No pending license request found for this tournament");
+    });
+
+    it("rejects license grant when payment reference is missing for non-waiver with 400", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/5/verify-and-grant-license")
+        .set("x-is-master", "true")
+        .send({
+          requestId: 501,
+          paymentAmount: 4999,
+          paymentMode: "upi",
+          paymentRef: "",
+          reason: "Payment verified in HDFC account statement",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("Payment reference / UTR is required for verification");
+    });
+
+    it("rejects request if license request is already granted", async () => {
+      const reqRow = licenseRequests.get(501)!;
+      reqRow.status = "granted";
+
+      const res = await request(app)
+        .post("/auth/admin/tournaments/5/verify-and-grant-license")
+        .set("x-is-master", "true")
+        .send({
+          requestId: 501,
+          paymentAmount: 4999,
+          paymentRef: "UPI/VERIFIED/9999",
+          reason: "Attempting duplicate payment verification",
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("License request has already been granted");
+    });
+
     it("verifies payment and grants live license for scoring-only tournament", async () => {
       const res = await request(app)
         .post("/auth/admin/tournaments/5/verify-and-grant-license")
@@ -869,6 +1074,7 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
           paymentMode: "upi",
           paymentRef: "UPI/VERIFIED/9999",
           notes: "Payment verified via bank statement",
+          reason: "Payment verified in HDFC bank account statement",
         });
 
       expect(res.status).toBe(200);
@@ -881,6 +1087,8 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       expect(reqRow.status).toBe("granted");
       expect(reqRow.paymentVerified).toBe(true);
       expect(reqRow.paymentRef).toBe("UPI/VERIFIED/9999");
+      expect(reqRow.verifiedBy).toBe("superadmin@bidwar.com");
+      expect(reqRow.verifiedAt).toBeInstanceOf(Date);
     });
   });
 });

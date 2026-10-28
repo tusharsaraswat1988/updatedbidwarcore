@@ -288,7 +288,7 @@ export default function AdminTournamentDetailPage() {
   const licenseRequest = detail?.licenseRequest;
 
   return (
-    <AdminShell>
+    <AdminShell title="Tournament Operations & Controls">
       {loading || !t || tournamentId == null ? (
         <div className="space-y-4">
           <Skeleton className="h-8 w-48" />
@@ -1430,6 +1430,7 @@ export default function AdminTournamentDetailPage() {
                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
                 disabled={paymentSubmitting || !isAuditReasonValid(paymentAuditReason)}
                 onClick={async () => {
+                  if (tournamentId == null) return;
                   setPaymentSubmitting(true);
                   setPaymentError(null);
                   const parsedAmount = Number(paymentAmount) || 0;
@@ -1441,6 +1442,7 @@ export default function AdminTournamentDetailPage() {
                     notes: paymentNotes.trim()
                       ? `${paymentNotes.trim()} [Audit: ${paymentAuditReason.trim()}]`
                       : `Audit: ${paymentAuditReason.trim()}`,
+                    reason: paymentAuditReason.trim(),
                   });
                   setPaymentSubmitting(false);
                   if (r.success) {
@@ -1505,6 +1507,7 @@ export default function AdminTournamentDetailPage() {
                 className="bg-red-700 hover:bg-red-600 text-white"
                 disabled={resetting || !resetPassword.trim() || !isAuditReasonValid(resetReason)}
                 onClick={async () => {
+                  if (tournamentId == null) return;
                   setResetting(true);
                   setResetError(null);
                   const r = await resetTournamentAsAdmin(tournamentId, resetPassword, resetReason.trim());
@@ -1547,6 +1550,7 @@ export default function AdminTournamentDetailPage() {
                 variant="destructive"
                 disabled={!!actionLoading}
                 onClick={async () => {
+                  if (tournamentId == null) return;
                   setConfirmDelete(false);
                   setActionLoading("Delete");
                   const r = await deleteAdminTournament(tournamentId);

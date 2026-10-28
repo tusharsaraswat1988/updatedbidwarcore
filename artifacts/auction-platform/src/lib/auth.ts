@@ -654,6 +654,7 @@ export async function verifyAndGrantTournamentLicense(
     paymentMode?: string;
     paymentRef?: string;
     notes?: string;
+    reason?: string;
   },
 ): Promise<{ success: boolean; error?: string }> {
   try {
