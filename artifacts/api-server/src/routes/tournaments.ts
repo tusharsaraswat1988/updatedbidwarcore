@@ -448,7 +448,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     matchDates: z.string().nullable().optional(),
     auctionEnabled: z.boolean().optional(),
     scoringEnabled: z.boolean().optional(),
-    scoringPhase: z.enum(["disabled", "active", "completed"]).optional(),
+    scoringPhase: z.enum(["disabled", "setup", "active", "completed"]).optional(),
     scoringPin: z.string().min(4).max(12).nullable().optional(),
     reason: z.string().optional(),
   });
@@ -678,14 +678,16 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     }
     if (d.scoringEnabled !== undefined) {
       updates.scoringEnabled = d.scoringEnabled;
-      if (d.scoringEnabled && d.scoringPhase === undefined) {
+    }
+    if (d.scoringPhase !== undefined) {
+      updates.scoringPhase = d.scoringPhase;
+    } else if (d.scoringEnabled !== undefined) {
+      if (!d.scoringEnabled) {
+        updates.scoringPhase = "disabled";
+      } else if (beforeTournament?.scoringPhase === "disabled" || !beforeTournament?.scoringPhase) {
         updates.scoringPhase = "active";
       }
-      if (!d.scoringEnabled && d.scoringPhase === undefined) {
-        updates.scoringPhase = "disabled";
-      }
     }
-    if (d.scoringPhase !== undefined) updates.scoringPhase = d.scoringPhase;
     if (d.scoringPin !== undefined) updates.scoringPin = d.scoringPin === "" ? null : d.scoringPin;
   }
   const mergedPaymentSettings = {
@@ -1105,10 +1107,22 @@ router.post("/tournaments/:tournamentId/sync", async (req, res) => {
   }
 
   // Mark tournament complete and stamp the token as used — prevents replay sync
+  const isScoringPending = (tournament.scoringEnabled ?? false) && tournament.scoringPhase !== "completed";
   await db.update(tournamentsTable).set({
-    status: "completed",
+    ...(isScoringPending ? {} : { status: "completed" }),
     exportTokenSyncedAt: new Date(),
   }).where(eq(tournamentsTable.id, id));
+
+  const { auctionSessionsTable } = await import("@workspace/db");
+  await db
+    .update(auctionSessionsTable)
+    .set({
+      status: "completed",
+      phase: "completed",
+      activePlayerId: null,
+      lastAction: "Auction concluded via local offline sync",
+    })
+    .where(eq(auctionSessionsTable.tournamentId, id));
 
   res.json({ ok: true, playersUpdated, teamsUpdated, bidsInserted, boostersSynced });
 });

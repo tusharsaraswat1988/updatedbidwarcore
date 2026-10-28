@@ -735,14 +735,35 @@ router.post("/auth/admin/tournaments/:tournamentId/lock", async (req, res) => {
   if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-  if (!before) { res.status(404).json({ error: "Not found" }); return; }
-  const isScoringPending = (before.scoringEnabled ?? false) && before.scoringPhase !== "completed";
-  const nextStatus = isScoringPending ? before.status : "completed";
-  const [t] = await db.update(tournamentsTable)
-    .set({ adminLocked: true, adminLockedAt: new Date(), status: nextStatus })
-    .where(eq(tournamentsTable.id, tid))
-    .returning();
+
+  let beforeSnapshot: typeof tournamentsTable.$inferSelect | null = null;
+  const t = await db.transaction(async (tx) => {
+    const [before] = await tx
+      .select()
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid))
+      .for("update");
+    if (!before) return null;
+    beforeSnapshot = before;
+
+    const isScoringPending = (before.scoringEnabled ?? false) && before.scoringPhase !== "completed";
+    const updatePayload: { adminLocked: boolean; adminLockedAt: Date; status?: string } = {
+      adminLocked: true,
+      adminLockedAt: new Date(),
+    };
+    if (!isScoringPending) {
+      updatePayload.status = "completed";
+    }
+
+    const [updated] = await tx
+      .update(tournamentsTable)
+      .set(updatePayload)
+      .where(eq(tournamentsTable.id, tid))
+      .returning();
+
+    return updated;
+  });
+
   if (!t) { res.status(404).json({ error: "Not found" }); return; }
   auditLog(req, {
     category: "admin",
@@ -751,7 +772,7 @@ router.post("/auth/admin/tournaments/:tournamentId/lock", async (req, res) => {
     severity: "warning",
     tournamentId: tid,
     resource: { type: "tournament", id: tid },
-    before: before ? snapshotTournament(before) : null,
+    before: beforeSnapshot ? snapshotTournament(beforeSnapshot) : null,
     after: snapshotTournament(t),
     alertKey: "tournament_locked",
   });

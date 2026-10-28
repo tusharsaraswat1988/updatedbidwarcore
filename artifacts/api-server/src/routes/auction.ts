@@ -319,7 +319,8 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
         scoringPhase: tournamentsTable.scoringPhase,
       })
       .from(tournamentsTable)
-      .where(eq(tournamentsTable.id, tid));
+      .where(eq(tournamentsTable.id, tid))
+      .for("update");
 
     const isScoringPending = (tRow?.scoringEnabled ?? false) && tRow?.scoringPhase !== "completed";
     if (!isScoringPending) {
@@ -375,7 +376,8 @@ async function handleAvailablePoolExhausted(tid: number): Promise<void> {
         scoringPhase: tournamentsTable.scoringPhase,
       })
       .from(tournamentsTable)
-      .where(eq(tournamentsTable.id, tid));
+      .where(eq(tournamentsTable.id, tid))
+      .for("update");
 
     const isScoringPending = (tRow?.scoringEnabled ?? false) && tRow?.scoringPhase !== "completed";
     if (!isScoringPending) {
@@ -3730,7 +3732,8 @@ router.post("/tournaments/:tournamentId/auction/conclude", async (req, res) => {
         scoringPhase: tournamentsTable.scoringPhase,
       })
       .from(tournamentsTable)
-      .where(eq(tournamentsTable.id, tid));
+      .where(eq(tournamentsTable.id, tid))
+      .for("update");
 
     const isScoringPending = (tRow?.scoringEnabled ?? false) && tRow?.scoringPhase !== "completed";
     if (!isScoringPending) {
