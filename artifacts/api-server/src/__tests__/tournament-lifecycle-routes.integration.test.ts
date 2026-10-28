@@ -18,6 +18,7 @@ type TournamentRecord = {
   adminLockedAt: Date | null;
   organizerId: number;
   featuresJson: string | null;
+  createdAt: Date;
 };
 
 type AuctionSessionRecord = {
@@ -30,8 +31,24 @@ type AuctionSessionRecord = {
   lastOutcome: string | null;
 };
 
+type LicenseRequestRecord = {
+  id: number;
+  tournamentId: number;
+  requestedModules: string;
+  status: string;
+  paymentVerified: boolean;
+  paymentAmount: number | null;
+  paymentMode: string | null;
+  paymentRef: string | null;
+  verifiedBy: string | null;
+  verifiedAt: Date | null;
+  notes: string | null;
+};
+
 let tournaments: Map<number, TournamentRecord>;
 let auctionSessions: Map<number, AuctionSessionRecord>;
+let licenseRequests: Map<number, LicenseRequestRecord>;
+let auditLogsList: any[];
 
 function extractIdFromCondition(cond: any): number | undefined {
   if (typeof cond === "number") return cond;
@@ -75,6 +92,28 @@ vi.mock("@workspace/db", () => {
     lastOutcome: "auctionSessions.lastOutcome",
   };
 
+  const tournamentLicenseRequestsTable = {
+    id: "tournamentLicenseRequests.id",
+    tournamentId: "tournamentLicenseRequests.tournamentId",
+    requestedModules: "tournamentLicenseRequests.requestedModules",
+    status: "tournamentLicenseRequests.status",
+    paymentVerified: "tournamentLicenseRequests.paymentVerified",
+    paymentAmount: "tournamentLicenseRequests.paymentAmount",
+    paymentMode: "tournamentLicenseRequests.paymentMode",
+    paymentRef: "tournamentLicenseRequests.paymentRef",
+    verifiedBy: "tournamentLicenseRequests.verifiedBy",
+    verifiedAt: "tournamentLicenseRequests.verifiedAt",
+    notes: "tournamentLicenseRequests.notes",
+    createdAt: "tournamentLicenseRequests.createdAt",
+  };
+
+  const adminNotificationsTable = {
+    id: "adminNotifications.id",
+    type: "adminNotifications.type",
+    entityId: "adminNotifications.entityId",
+    resolutionStatus: "adminNotifications.resolutionStatus",
+  };
+
   const dbMock = {
     select: (fields?: any) => {
       let targetTable: any = null;
@@ -105,6 +144,11 @@ vi.mock("@workspace/db", () => {
             const res = tid !== undefined ? list.filter((s) => s.tournamentId === tid) : list;
             return resolve(res);
           }
+          if (targetTable === tournamentLicenseRequestsTable) {
+            const list = Array.from(licenseRequests.values());
+            const res = tid !== undefined ? list.filter((r) => r.tournamentId === tid || r.id === tid) : list;
+            return resolve(res);
+          }
           return resolve([]);
         },
       };
@@ -127,17 +171,32 @@ vi.mock("@workspace/db", () => {
           } else if (tbl === auctionSessionsTable && tid !== undefined && auctionSessions.has(tid)) {
             const existing = auctionSessions.get(tid)!;
             Object.assign(existing, updateValues);
+          } else if (tbl === tournamentLicenseRequestsTable && tid !== undefined && licenseRequests.has(tid)) {
+            const existing = licenseRequests.get(tid)!;
+            Object.assign(existing, updateValues);
           }
           return chain;
         },
         returning: () => {
           const tid = extractIdFromCondition(whereFilter);
-          const res = tbl === tournamentsTable && tid !== undefined && tournaments.has(tid) ? [tournaments.get(tid)] : [];
+          const res = tbl === tournamentsTable && tid !== undefined && tournaments.has(tid)
+            ? [tournaments.get(tid)]
+            : tbl === auctionSessionsTable && tid !== undefined && auctionSessions.has(tid)
+              ? [auctionSessions.get(tid)]
+              : tbl === tournamentLicenseRequestsTable && tid !== undefined && licenseRequests.has(tid)
+                ? [licenseRequests.get(tid)]
+                : [];
           return Promise.resolve(res);
         },
         then: (resolve: any) => {
           const tid = extractIdFromCondition(whereFilter);
-          const res = tbl === tournamentsTable && tid !== undefined && tournaments.has(tid) ? [tournaments.get(tid)] : [];
+          const res = tbl === tournamentsTable && tid !== undefined && tournaments.has(tid)
+            ? [tournaments.get(tid)]
+            : tbl === auctionSessionsTable && tid !== undefined && auctionSessions.has(tid)
+              ? [auctionSessions.get(tid)]
+              : tbl === tournamentLicenseRequestsTable && tid !== undefined && licenseRequests.has(tid)
+                ? [licenseRequests.get(tid)]
+                : [];
           return resolve(res);
         },
       };
@@ -152,6 +211,8 @@ vi.mock("@workspace/db", () => {
     db: dbMock,
     tournamentsTable,
     auctionSessionsTable,
+    tournamentLicenseRequestsTable,
+    adminNotificationsTable,
     teamsTable: { id: "teams.id", tournamentId: "teams.tournamentId" },
     playersTable: { id: "players.id", tournamentId: "players.tournamentId" },
     bidsTable: { id: "bids.id", tournamentId: "bids.tournamentId" },
@@ -162,7 +223,6 @@ vi.mock("@workspace/db", () => {
     auctionPlayerEventsTable: { tournamentId: "auctionPlayerEvents.tournamentId" },
     auctionTimerEventsTable: { tournamentId: "auctionTimerEvents.tournamentId" },
     scoringMatchesTable: { tournamentId: "scoringMatches.tournamentId" },
-    tournamentLicenseRequestsTable: { tournamentId: "tournamentLicenseRequests.tournamentId" },
   };
 });
 
@@ -176,7 +236,9 @@ vi.mock("../lib/runtime-env", () => ({
 }));
 
 vi.mock("../lib/audit-service", () => ({
-  auditLog: vi.fn(),
+  auditLog: vi.fn((_req: any, entry: any) => {
+    auditLogsList.push(entry);
+  }),
 }));
 
 vi.mock("../lib/broadcast", () => ({
@@ -227,6 +289,10 @@ vi.mock("../lib/auction-license-activation", () => ({
         t.licenseGrantedAt = new Date();
         t.licenseGrantedBy = input.grantedBy;
       }
+      if (input.afterWrite) {
+        const { db } = await import("@workspace/db");
+        await input.afterWrite(db as any);
+      }
       return { ok: true, tournament: t, demoRemoved: false };
     }
     return { ok: false, status: 404, body: { error: "Tournament not found" } };
@@ -236,25 +302,35 @@ vi.mock("../lib/auction-license-activation", () => ({
 import auctionRouter from "../routes/auction";
 import authRouter from "../routes/auth";
 import commRouter from "../routes/comm";
+import tournamentsRouter from "../routes/tournaments";
 
 function createIntegrationApp() {
   const app = express();
   app.use(express.json());
   app.use((req, _res, next) => {
-    const isAdmin = req.headers["x-is-admin"] === "true";
+    (req as any).log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    (req as any).cookies = {};
+    const isStandard = req.headers["x-is-standard"] === "true";
+    const isAdmin = req.headers["x-is-admin"] === "true" || req.headers["x-is-master"] === "true";
+    const isMaster = !isStandard && (req.headers["x-is-master"] === "true" || isAdmin);
+    if (isAdmin || isMaster) {
+      (req as any).cookies["bidwar_auth"] = "mock_auth_token";
+    }
     (req as any).jwtUser = {
       isAdmin,
-      adminLevel: isAdmin ? "master" : null,
+      role: isAdmin ? "admin" : "user",
+      adminLevel: isMaster ? "master" : isStandard ? "standard" : null,
+      email: isMaster ? "superadmin@bidwar.com" : isAdmin ? "admin@bidwar.com" : "user@bidwar.com",
       organizerAccountId: 10,
-      organizer: { "1": true, "2": true, "3": true, "4": true },
+      organizer: { "1": true, "2": true, "3": true, "4": true, "5": true },
     };
-    (req as any).log = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
     next();
   });
 
   app.use(auctionRouter);
   app.use(authRouter);
   app.use(commRouter);
+  app.use(tournamentsRouter);
 
   app.use((err: any, _req: any, res: any, _next: any) => {
     res.status(500).json({ error: err.message });
@@ -269,6 +345,8 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
     vi.clearAllMocks();
     tournaments = new Map();
     auctionSessions = new Map();
+    licenseRequests = new Map();
+    auditLogsList = [];
     app = createIntegrationApp();
 
     // 1: Dual-module, scoring active
@@ -287,6 +365,7 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       adminLockedAt: null,
       organizerId: 10,
       featuresJson: null,
+      createdAt: new Date("2026-01-01"),
     });
     auctionSessions.set(1, {
       id: 101,
@@ -314,6 +393,7 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       adminLockedAt: null,
       organizerId: 10,
       featuresJson: null,
+      createdAt: new Date("2026-01-01"),
     });
     auctionSessions.set(2, {
       id: 102,
@@ -341,6 +421,7 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       adminLockedAt: null,
       organizerId: 10,
       featuresJson: null,
+      createdAt: new Date("2026-01-01"),
     });
     auctionSessions.set(3, {
       id: 103,
@@ -368,6 +449,40 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       adminLockedAt: null,
       organizerId: 10,
       featuresJson: null,
+      createdAt: new Date("2026-01-01"),
+    });
+
+    // 5: Unlicensed trial scoring-only tournament with pending license request
+    tournaments.set(5, {
+      id: 5,
+      name: "Trial Badminton Championship",
+      sport: "badminton",
+      auctionEnabled: false,
+      scoringEnabled: true,
+      scoringPhase: "setup",
+      status: "active",
+      licenseStatus: "trial",
+      licenseGrantedAt: null,
+      licenseGrantedBy: null,
+      adminLocked: false,
+      adminLockedAt: null,
+      organizerId: 10,
+      featuresJson: null,
+      createdAt: new Date("2026-01-01"),
+    });
+
+    licenseRequests.set(501, {
+      id: 501,
+      tournamentId: 5,
+      requestedModules: "scoring",
+      status: "pending",
+      paymentVerified: false,
+      paymentAmount: 4999,
+      paymentMode: "upi",
+      paymentRef: "UPI/ORDER501",
+      verifiedBy: null,
+      verifiedAt: null,
+      notes: "Organiser submitted payment receipt",
     });
   });
 
@@ -457,6 +572,7 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       const res = await request(app)
         .post("/auth/admin/tournaments/1/set-license-status")
         .set("x-is-admin", "true")
+        .set("x-is-master", "true")
         .send({ status: "completed", reason: "Auction wrapped up for tournament 1" });
 
       expect(res.status).toBe(200);
@@ -534,6 +650,237 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
 
       expect(res.status).toBe(403);
       expect(res.body.error).toContain("WhatsApp messaging requires a live license and unlocked tournament");
+    });
+  });
+
+  describe("5. PATCH /auth/admin/tournaments/:tournamentId (Safe scoringPhase Updates & Preservation)", () => {
+    it("updates scoringPhase explicitly through real route handler", async () => {
+      const res = await request(app)
+        .patch("/auth/admin/tournaments/1")
+        .set("x-is-admin", "true")
+        .send({ scoringPhase: "completed", reason: "Scoring season wrapped up" });
+
+      expect(res.status).toBe(200);
+      const t = tournaments.get(1)!;
+      expect(t.scoringPhase).toBe("completed");
+    });
+
+    it("enabling scoring preserves an existing setup phase without blind overwrite", async () => {
+      const t = tournaments.get(2)!;
+      expect(t.scoringPhase).toBe("setup");
+
+      const res = await request(app)
+        .patch("/auth/admin/tournaments/2")
+        .set("x-is-admin", "true")
+        .send({ scoringEnabled: true, reason: "Re-confirming scoring enabled" });
+
+      expect(res.status).toBe(200);
+      expect(t.scoringPhase).toBe("setup"); // Preserved!
+    });
+
+    it("enabling scoring on a tournament with disabled phase initializes scoringPhase to active", async () => {
+      const t = tournaments.get(3)!;
+      expect(t.scoringPhase).toBe("disabled");
+
+      const res = await request(app)
+        .patch("/auth/admin/tournaments/3")
+        .set("x-is-admin", "true")
+        .send({ scoringEnabled: true, reason: "Enabling cricket scoring for first time" });
+
+      expect(res.status).toBe(200);
+      expect(t.scoringPhase).toBe("active");
+    });
+
+    it("disabling scoring sets scoringPhase to disabled", async () => {
+      const res = await request(app)
+        .patch("/auth/admin/tournaments/1")
+        .set("x-is-admin", "true")
+        .send({ scoringEnabled: false, reason: "Disabling match scoring engine" });
+
+      expect(res.status).toBe(200);
+      const t = tournaments.get(1)!;
+      expect(t.scoringPhase).toBe("disabled");
+    });
+  });
+
+  describe("6. POST /auth/admin/tournaments/:id/scoring/set-phase (Authoritative Scoring Lifecycle Phase)", () => {
+    it("rejects non-master admin access with 403", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/1/scoring/set-phase")
+        .set("x-is-admin", "true")
+        .set("x-is-standard", "true") // standard admin, not master
+        .send({ phase: "completed", reason: "Tournament wrap-up" });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toContain("Super admin access required");
+    });
+
+    it("rejects invalid scoring phase with 400", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/1/scoring/set-phase")
+        .set("x-is-master", "true")
+        .send({ phase: "invalid_phase", reason: "Audit testing" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("Phase must be setup, active, or completed");
+    });
+
+    it("rejects missing audit reason with 400", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/1/scoring/set-phase")
+        .set("x-is-master", "true")
+        .send({ phase: "completed" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBeDefined();
+    });
+
+    it("returns 404 for non-existent tournament", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/999/scoring/set-phase")
+        .set("x-is-master", "true")
+        .send({ phase: "completed", reason: "Audit reason testing non-existent" });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toBe("Tournament not found");
+    });
+
+    it("returns 400 if tournament does not have scoring enabled", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/3/scoring/set-phase")
+        .set("x-is-master", "true")
+        .send({ phase: "completed", reason: "Audit reason testing disabled scoring" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("Sports scoring is not enabled for this tournament");
+    });
+
+    it("dual-module: completing scoring while auction is active preserves tournament status as active", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/1/scoring/set-phase")
+        .set("x-is-master", "true")
+        .send({ phase: "completed", reason: "Scoring matches finished, auction still open" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.scoringPhase).toBe("completed");
+      expect(res.body.status).toBe("active");
+
+      const t = tournaments.get(1)!;
+      expect(t.scoringPhase).toBe("completed");
+      expect(t.status).toBe("active"); // Decoupled!
+    });
+
+    it("dual-module: completing scoring when auction is already completed marks tournament status as completed", async () => {
+      const t = tournaments.get(1)!;
+      t.licenseStatus = "completed"; // Auction finished
+
+      const res = await request(app)
+        .post("/auth/admin/tournaments/1/scoring/set-phase")
+        .set("x-is-master", "true")
+        .send({ phase: "completed", reason: "Both auction and scoring are now concluded" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.scoringPhase).toBe("completed");
+      expect(res.body.status).toBe("completed");
+
+      expect(t.status).toBe("completed");
+    });
+
+    it("scoring-only: completing scoring marks tournament status as completed", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/4/scoring/set-phase")
+        .set("x-is-master", "true")
+        .send({ phase: "completed", reason: "All cricket matches concluded" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.scoringPhase).toBe("completed");
+      expect(res.body.status).toBe("completed");
+
+      const t = tournaments.get(4)!;
+      expect(t.scoringPhase).toBe("completed");
+      expect(t.status).toBe("completed");
+    });
+
+    it("reactivating scoring on a completed tournament restores status to active", async () => {
+      const t = tournaments.get(4)!;
+      t.scoringPhase = "completed";
+      t.status = "completed";
+
+      const res = await request(app)
+        .post("/auth/admin/tournaments/4/scoring/set-phase")
+        .set("x-is-master", "true")
+        .send({ phase: "active", reason: "Re-opening cricket matches for playoff finals" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.scoringPhase).toBe("active");
+      expect(res.body.status).toBe("active");
+
+      expect(t.status).toBe("active");
+    });
+
+    it("records a critical audit log entry on phase change", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/1/scoring/set-phase")
+        .set("x-is-master", "true")
+        .send({ phase: "completed", reason: "Audit logging verification for scoring phase" });
+
+      expect(res.status).toBe(200);
+      const log = auditLogsList.find((l) => l.action === "tournament.scoring_phase_changed");
+      expect(log).toBeDefined();
+      expect(log.category).toBe("tournament");
+      expect(log.severity).toBe("critical");
+      expect(log.before.scoringPhase).toBe("active");
+      expect(log.after.scoringPhase).toBe("completed");
+      expect(log.reason).toBe("Audit logging verification for scoring phase");
+    });
+  });
+
+  describe("7. POST /auth/admin/tournaments/:id/verify-and-grant-license (Payment Verification & License Grant)", () => {
+    it("rejects unauthenticated requests with 401", async () => {
+      const unauthApp = express();
+      unauthApp.use(express.json());
+      unauthApp.use((req, _res, next) => {
+        (req as any).log = { warn: vi.fn(), info: vi.fn(), error: vi.fn() };
+        (req as any).cookies = {};
+        (req as any).jwtUser = {};
+        next();
+      });
+      unauthApp.use(tournamentsRouter);
+
+      const res = await request(unauthApp)
+        .post("/auth/admin/tournaments/5/verify-and-grant-license")
+        .send({ requestId: 501, paymentAmount: 4999 });
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe("Not authorised");
+    });
+
+    it("verifies payment and grants live license for scoring-only tournament", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/5/verify-and-grant-license")
+        .set("x-is-master", "true")
+        .send({
+          requestId: 501,
+          paymentAmount: 4999,
+          paymentMode: "upi",
+          paymentRef: "UPI/VERIFIED/9999",
+          notes: "Payment verified via bank statement",
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+
+      const t = tournaments.get(5)!;
+      expect(t.licenseStatus).toBe("active");
+
+      const reqRow = licenseRequests.get(501)!;
+      expect(reqRow.status).toBe("granted");
+      expect(reqRow.paymentVerified).toBe(true);
+      expect(reqRow.paymentRef).toBe("UPI/VERIFIED/9999");
     });
   });
 });
