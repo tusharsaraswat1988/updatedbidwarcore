@@ -287,4 +287,39 @@ describe("Tournament Lifecycle Decoupling & Invariants (P0)", () => {
       expect(mode).toBeNull();
     });
   });
+  describe("6. Downstream Report Licensing & Inbound Webhooks", () => {
+    function computeReportIsLicensed(t: {
+      licenseStatus: string;
+      licenseGrantedAt?: Date | null;
+    }): boolean {
+      return (
+        t.licenseStatus === "active" ||
+        (t.licenseStatus === "completed" && t.licenseGrantedAt != null)
+      );
+    }
+
+    it("licensed tournament retains watermark-free report after auction completion", () => {
+      const licensedCompleted = {
+        licenseStatus: "completed",
+        licenseGrantedAt: new Date("2026-01-01"),
+      };
+      expect(computeReportIsLicensed(licensedCompleted)).toBe(true);
+    });
+
+    it("trial tournament shows trial demo report watermark even after completion", () => {
+      const trialCompleted = {
+        licenseStatus: "completed",
+        licenseGrantedAt: null,
+      };
+      expect(computeReportIsLicensed(trialCompleted)).toBe(false);
+    });
+
+    it("active trial tournament is not treated as licensed for watermark-free reports", () => {
+      const trialActive = {
+        licenseStatus: "trial",
+        licenseGrantedAt: null,
+      };
+      expect(computeReportIsLicensed(trialActive)).toBe(false);
+    });
+  });
 });

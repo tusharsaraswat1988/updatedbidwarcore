@@ -155,7 +155,7 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
     .filter((sponsor) => sponsor.name.length > 0);
 
   res.json({
-    isLicensed: tournament.licenseStatus === "active",
+    isLicensed: tournament.licenseStatus === "active" || (tournament.licenseStatus === "completed" && tournament.licenseGrantedAt != null),
     tournament: {
       id: tournament.id,
       name: tournament.name,
@@ -217,7 +217,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   const [team] = await db.select().from(teamsTable).where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   if (!team) { res.status(404).json({ error: "Team not found" }); return; }
 
-  const isLicensed = tournament.licenseStatus === "active";
+  const isLicensed = tournament.licenseStatus === "active" || (tournament.licenseStatus === "completed" && tournament.licenseGrantedAt != null);
 
   const categories = await db.select().from(categoriesTable).where(eq(categoriesTable.tournamentId, tid)).orderBy(categoriesTable.sortOrder);
   const catMap = new Map(categories.map(c => [c.id, c]));

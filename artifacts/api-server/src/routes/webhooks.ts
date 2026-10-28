@@ -24,7 +24,7 @@ import {
   waTemplatesTable,
 } from "@workspace/db";
 import { eq, and, desc, or, sql, gt } from "drizzle-orm";
-import { sendSms, sendWhatsApp, sendLicensedWhatsApp } from "../lib/comm-sender";
+import { sendSms, sendWhatsApp, sendLicensedWhatsApp, isTournamentLicensedForComm } from "../lib/comm-sender";
 import { logger } from "../lib/logger";
 import { randomBytes, scrypt, timingSafeEqual, createHmac } from "crypto";
 import { promisify } from "util";
@@ -135,11 +135,17 @@ type ConsentTarget = { type: "player" | "team_owner" | "organizer"; id: number; 
 async function isTournamentWaLicensed(tournamentId: number | null | undefined): Promise<boolean> {
   if (!tournamentId) return false;
   const [t] = await db
-    .select({ licenseStatus: tournamentsTable.licenseStatus, adminLocked: tournamentsTable.adminLocked })
+    .select({
+      licenseStatus: tournamentsTable.licenseStatus,
+      adminLocked: tournamentsTable.adminLocked,
+      scoringEnabled: tournamentsTable.scoringEnabled,
+      scoringPhase: tournamentsTable.scoringPhase,
+      licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+    })
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId));
   if (!t) return false;
-  return t.licenseStatus === "active" && t.adminLocked !== true;
+  return isTournamentLicensedForComm(t);
 }
 
 async function findAllConsentTargets(mobile: string): Promise<ConsentTarget[]> {
