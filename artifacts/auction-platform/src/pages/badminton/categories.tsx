@@ -19,6 +19,7 @@ import {
 } from "@/components/badminton/registration-player-select";
 import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { BadmintonFixtureTabs } from "@/components/badminton/badminton-subnav-tabs";
 import {
   MatchFormatPicker,
   matchFormatJsonFromPicker,
@@ -52,6 +53,8 @@ interface BadmintonCategory {
   entryFee?: number | null;
   colorCode?: string | null;
   matchFormatJson?: Record<string, unknown> | null;
+  rulesProfileId?: number | null;
+  rulesSnapshotJson?: Record<string, unknown> | null;
 }
 
 interface BadmintonPlayer {
@@ -181,6 +184,7 @@ export default function BadmintonCategoriesPage() {
       <BadmintonSetupWizardChrome
         tournamentId={tournamentId}
         stepId="categories"
+        tabs={<BadmintonFixtureTabs tournamentId={tournamentId} activeSection="events" />}
         continueHref={`/tournament/${tournamentId}/badminton/fixtures?section=draw`}
         continueLabel="Continue to Draw"
       >
@@ -277,9 +281,15 @@ function CategoryPanel({
                   </span>
                 )}
                 <PhaseBadge phase={category.phase} />
-                {category.stage?.displayLabel ? (
+                {category.stage?.displayLabel &&
+                category.stage.displayLabel.trim().toLowerCase() !== formatCategoryPhaseLabel(category.phase).trim().toLowerCase() ? (
                   <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300/90 px-2 py-0.5 rounded-full">
                     {category.stage.displayLabel}
+                  </span>
+                ) : null}
+                {category.rulesSnapshotJson && (category.rulesSnapshotJson as Record<string, unknown>).name ? (
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/15 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                    {String((category.rulesSnapshotJson as Record<string, unknown>).name)}
                   </span>
                 ) : null}
               </div>
@@ -491,6 +501,7 @@ function CategoryFormModal({
     numSeeds: category?.numSeeds ?? 0,
     maxPlayers: category?.maxPlayers ?? "",
     colorCode: category?.colorCode ?? "#F59E0B",
+    rulesProfileKey: (category?.rulesSnapshotJson as Record<string, unknown>)?.id as string ?? "bwf_official_individual_2024",
   });
   const [formatPicker, setFormatPicker] = useState<MatchFormatPickerValue>(() =>
     matchFormatPickerFromStored(category?.matchFormatJson),
@@ -523,6 +534,7 @@ function CategoryFormModal({
         numSeeds: parseInt(String(form.numSeeds), 10) || 0,
         maxPlayers: form.maxPlayers ? parseInt(String(form.maxPlayers), 10) : undefined,
         colorCode: form.colorCode || undefined,
+        rulesProfileKey: form.rulesProfileKey,
         // null clears category override (inherit tournament)
         matchFormatJson: matchFormatJson ?? null,
       };
@@ -581,6 +593,66 @@ function CategoryFormModal({
             ]}
           />
         </FormField>
+      <FormField label="Rules & Competition Framework">
+        <DarkSelect
+          value={form.rulesProfileKey}
+          onValueChange={(rulesProfileKey) => {
+            setForm((prev) => {
+              let drawType = prev.drawType;
+              if (
+                rulesProfileKey === "corporate_group_knockout_standard" ||
+                rulesProfileKey === "bwf_official_team_2024"
+              ) {
+                drawType = "group_knockout";
+              } else if (
+                rulesProfileKey === "corporate_round_robin_standard" ||
+                rulesProfileKey === "corporate_team_league_vnbl"
+              ) {
+                drawType = "round_robin";
+              } else if (
+                rulesProfileKey === "bwf_official_individual_2024" ||
+                rulesProfileKey === "corporate_knockout_standard"
+              ) {
+                drawType = "knockout";
+              }
+              return { ...prev, rulesProfileKey, drawType };
+            });
+          }}
+          options={[
+            {
+              value: "bwf_official_individual_2024",
+              label: "BWF Official Individual (Standard 3x21, GCR 16 Tie-Breakers)",
+            },
+            {
+              value: "bwf_official_team_2024",
+              label: "BWF Official Team Tie (5-Rubber Standard)",
+            },
+            {
+              value: "corporate_group_knockout_standard",
+              label: "Corporate Groups → Knockout (Points Diff First)",
+            },
+            {
+              value: "corporate_knockout_standard",
+              label: "Corporate Knockout (Single Elimination)",
+            },
+            {
+              value: "corporate_round_robin_standard",
+              label: "Corporate Round Robin (League Groups)",
+            },
+            {
+              value: "corporate_team_league_vnbl",
+              label: "Corporate Team League (VNBL Margin Points)",
+            },
+            {
+              value: "recreational_fast_match",
+              label: "Recreational Fast Match (15 Points)",
+            },
+          ]}
+        />
+        <p className="text-xs text-muted-foreground mt-1.5">
+          Configures scoring laws, draw seed placement, tie-breakers, walkovers, and progression rules.
+        </p>
+      </FormField>
         <FormField label="Draw Type" required>
           <DarkSelect
             value={form.drawType}

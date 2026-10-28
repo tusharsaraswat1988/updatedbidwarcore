@@ -341,5 +341,101 @@ describe("winner point difference helpers", () => {
       const champ = detectCategoryChampion(category, matches, fixtures, tiedStandings);
       expect(champ).toBeNull();
     });
+
+    it("returns null when rank 1 entrant has tiedWithNext flag set to true", () => {
+      const category: ResultsCategory = {
+        id: 12,
+        name: "Tied League with tiedWithNext",
+        drawType: "round_robin",
+        phase: "completed",
+      };
+
+      const fixtures: ResultsFixture[] = [];
+      const matches: ResultsMatch[] = [];
+      const standingsWithTieFlag = [
+        { registrationId: 1, rank: 1, won: 2, lost: 1, marginPoints: 10, tiedWithNext: true },
+        { registrationId: 2, rank: 1, won: 2, lost: 1, marginPoints: 10, tiedWithNext: false },
+      ];
+
+      const champ = detectCategoryChampion(category, matches, fixtures, standingsWithTieFlag);
+      expect(champ).toBeNull();
+    });
+
+    it("evaluates champion using universal standings rulesSnapshotJson when present", () => {
+      const category: ResultsCategory = {
+        id: 13,
+        name: "Rules Driven League",
+        drawType: "round_robin",
+        phase: "completed",
+        rulesSnapshotJson: {
+          id: "corporate_round_robin_standard",
+          name: "Corporate Round Robin",
+          description: "Testing",
+          profileType: "corporate",
+          schemaVersion: "1.0.0",
+          profileVersion: "1.0.0",
+          rulesSource: "BIDWAR",
+          rulesSourceEffectiveDate: "2026-01-01",
+          isOfficialBwf: false,
+          allowedEventTypes: ["singles", "doubles"],
+          participantType: "individual",
+          scoring: {
+            totalGames: 3,
+            pointsPerGame: 21,
+            deuceAt: 20,
+            maxPoints: 30,
+            winBy: 2,
+            midGameSideChange: true,
+            scoringSystemName: "3x21",
+          },
+          draw: {
+            drawType: "round_robin",
+            seedingAlgorithm: "random",
+            maxSeeds: 0,
+            byeAllocation: "random",
+            thirdPlaceMatch: false,
+            rematchAvoidance: false,
+            drawLockPolicy: "lock_on_match_start",
+          },
+          standings: {
+            rankingSystem: "points_diff_first",
+            orderedTieBreakers: ["matches_won", "points_difference", "head_to_head"],
+            twoWayHeadToHeadOverride: true,
+            unresolvedTieAction: "organizer_decision",
+          },
+          discipline: {
+            walkoverAwardType: "assigned_margin",
+            assignedMarginPoints: 21,
+            retiredMatchHandling: "record_current_score_as_final",
+            disqualificationPolicy: "treat_as_walkovers",
+            scoreCorrectionAllowedUntil: "always",
+          },
+          eligibility: {},
+        },
+      };
+
+      const fixtures: ResultsFixture[] = [
+        { id: 201, categoryId: 13, drawId: 1, registrationAId: 10, registrationBId: 20, scoringMatchId: 201, status: "completed", winnerRegistrationId: 10 },
+      ];
+      const matches: ResultsMatch[] = [
+        {
+          ...completedMatch({
+            id: 201,
+            winnerSide: "left",
+            leftSide: { label: "Player 10", shortLabel: "P10", playerIds: [] },
+            rightSide: { label: "Player 20", shortLabel: "P20", playerIds: [] },
+            games: [
+              { gameNumber: 1, leftScore: 21, rightScore: 10, phase: "completed", winner: "left" },
+              { gameNumber: 2, leftScore: 21, rightScore: 12, phase: "completed", winner: "left" },
+            ],
+          }),
+          detail: { categoryId: 13 },
+        },
+      ];
+
+      const champ = detectCategoryChampion(category, matches, fixtures);
+      expect(champ).not.toBeNull();
+      expect(champ?.winnerLabel).toBe("Player 10");
+    });
   });
 });

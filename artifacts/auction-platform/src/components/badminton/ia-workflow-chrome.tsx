@@ -42,7 +42,7 @@ export function BadmintonMovedBanner({
 }
 
 /**
- * Host-page chrome — title / purpose / task only.
+ * Host-page chrome — title / purpose / task + subnavigation tabs.
  * Module + section navigation lives in the left sidebar.
  */
 export function BadmintonIaPageChrome({
@@ -53,6 +53,7 @@ export function BadmintonIaPageChrome({
   titleOverride,
   purposeOverride,
   taskOverride,
+  tabs,
 }: {
   tournamentId: number;
   stepId: BadmintonIaStepId;
@@ -62,8 +63,10 @@ export function BadmintonIaPageChrome({
   titleOverride?: string;
   purposeOverride?: string;
   taskOverride?: string;
+  tabs?: React.ReactNode;
 }) {
   const step = getBadmintonIaStep(stepId);
+  const taskText = taskOverride ?? step.task;
 
   return (
     <>
@@ -74,12 +77,20 @@ export function BadmintonIaPageChrome({
         actions={headerActions}
       />
 
-      <div className="max-w-7xl mx-auto px-6 pt-3 pb-2">
-        <p className="text-sm text-muted-foreground">
-          <span className="font-medium text-foreground/80">Do now: </span>
-          {taskOverride ?? step.task}
-        </p>
-      </div>
+      {tabs ? (
+        <div className="max-w-7xl mx-auto px-6 pt-4 pb-1">
+          {tabs}
+        </div>
+      ) : null}
+
+      {taskText ? (
+        <div className="max-w-7xl mx-auto px-6 pt-2 pb-1">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-muted/40 border border-border/60 text-xs text-muted-foreground">
+            <span className="font-semibold text-primary uppercase tracking-wide text-[10px]">Action</span>
+            <span className="text-foreground/80">{taskText}</span>
+          </div>
+        </div>
+      ) : null}
 
       {children}
     </>

@@ -49,6 +49,7 @@ import {
 import {
   BadmintonIaPageChrome,
 } from "@/components/badminton/ia-workflow-chrome";
+import { BadmintonResultTabs } from "@/components/badminton/badminton-subnav-tabs";
 import { cn } from "@/lib/utils";
 
 type RegistrationRow = {
@@ -84,10 +85,10 @@ function SectionHeading({
   subtitle?: string;
 }) {
   return (
-    <div id={id} className="scroll-mt-24 space-y-1">
-      <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">{eyebrow}</p>
-      <h2 className="text-white font-bold text-xl">{title}</h2>
-      {subtitle ? <p className="text-white/35 text-sm">{subtitle}</p> : null}
+    <div id={id} className="scroll-mt-24 pb-2 border-b border-border/40">
+      <p className="text-primary text-[11px] font-bold uppercase tracking-widest">{eyebrow}</p>
+      <h2 className="text-foreground font-display font-bold text-xl mt-0.5">{title}</h2>
+      {subtitle ? <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p> : null}
     </div>
   );
 }
@@ -268,6 +269,12 @@ export default function BadmintonResultsPage() {
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="results"
+        tabs={
+          <BadmintonResultTabs
+            tournamentId={tournamentId}
+            activeSection="standings"
+          />
+        }
         titleOverride="Standings"
         purposeOverride="Review completed match results and category standings."
         taskOverride="Check champions, league tables, brackets, and recent results."

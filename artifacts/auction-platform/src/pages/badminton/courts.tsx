@@ -31,6 +31,7 @@ import {
 } from "@/components/badminton/page-chrome";
 import { BadmintonMovedBanner } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonSetupWizardChrome } from "@/components/badminton/setup-wizard-chrome";
+import { BadmintonSetupTabs } from "@/components/badminton/badminton-subnav-tabs";
 import {
   Collapsible,
   CollapsibleContent,
@@ -125,12 +126,19 @@ export function BadmintonCourtsPanel({ tournamentId }: { tournamentId: number })
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <div>
-          <h2 className="text-foreground font-display font-bold text-lg">Courts</h2>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Playing areas at your venue. Schedule assigns matches to these courts.
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-border/40">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Allocated Courts</span>
+            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-mono font-bold">
+              {courts.length}
+            </span>
+          </div>
+          {tournamentVenue ? (
+            <span className="text-xs text-muted-foreground hidden sm:inline flex items-center gap-1">
+              • at <span className="text-foreground font-medium">{tournamentVenue}</span>
+            </span>
+          ) : null}
         </div>
         <BtnPrimary onClick={openAdd}>+ Add Court</BtnPrimary>
       </div>
@@ -223,11 +231,18 @@ export default function BadmintonCourtsPage() {
   const [, params] = useRoute("/tournament/:id/badminton/courts");
   const tournamentId = parseInt(params?.id ?? "0");
 
+  const { data: courts = [] } = useQuery<BadmintonCourt[]>({
+    queryKey: ["badminton-courts", tournamentId],
+    queryFn: () => badmintonFetch(tournamentId, `/courts`),
+    enabled: !!tournamentId,
+  });
+
   return (
     <HubPageShell tournamentId={tournamentId}>
       <BadmintonSetupWizardChrome
         tournamentId={tournamentId}
         stepId="courts"
+        tabs={<BadmintonSetupTabs tournamentId={tournamentId} activeSection="courts" courtsCount={courts.length} />}
         continueHref={`/tournament/${tournamentId}/badminton/branding?section=rules`}
         continueLabel="Continue to Rules"
       >
@@ -244,6 +259,21 @@ export default function BadmintonCourtsPage() {
   );
 }
 
+function BadmintonCourtIcon({ className }: { className?: string }) {
+  return (
+    <svg className={cn("w-5 h-5", className)} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="3" y="2" width="18" height="20" rx="1.5" />
+      <line x1="3" y1="12" x2="21" y2="12" strokeWidth="2" />
+      <line x1="5" y1="2" x2="5" y2="22" strokeDasharray="1 1" />
+      <line x1="19" y1="2" x2="19" y2="22" strokeDasharray="1 1" />
+      <line x1="3" y1="5" x2="21" y2="5" />
+      <line x1="3" y1="19" x2="21" y2="19" />
+      <line x1="12" y1="2" x2="12" y2="5" />
+      <line x1="12" y1="19" x2="12" y2="22" />
+    </svg>
+  );
+}
+
 function CourtCard({
   court,
   tournamentVenue,
@@ -256,37 +286,59 @@ function CourtCard({
   onDelete: () => void;
 }) {
   return (
-    <div className={cn(hubCardClass, "p-5 flex flex-col gap-3")}>
-      <div className="min-w-0 space-y-1">
-        {tournamentVenue ? (
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5 truncate">
-            <MapPin className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
-            <span className="truncate">{tournamentVenue}</span>
-          </p>
-        ) : null}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-2xl font-display font-bold text-foreground">
-            {court.name}
-          </span>
+    <div className={cn(hubCardClass, "p-5 flex flex-col justify-between group hover:border-primary/40 transition-all duration-200")}>
+      <div>
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+              <BadmintonCourtIcon />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-display font-bold text-foreground">
+                  {court.name}
+                </span>
+                {court.shortName && court.shortName !== court.name ? (
+                  <span className="text-xs font-mono font-bold bg-muted px-1.5 py-0.5 rounded text-muted-foreground border border-border">
+                    {court.shortName}
+                  </span>
+                ) : null}
+              </div>
+              {tournamentVenue ? (
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                  <MapPin className="w-3 h-3 text-primary/70 shrink-0" aria-hidden />
+                  <span className="truncate">{tournamentVenue}</span>
+                </p>
+              ) : null}
+            </div>
+          </div>
           <StatusBadge status={court.status} />
         </div>
-        {court.shortName && court.shortName !== court.name ? (
-          <p className="text-muted-foreground text-sm">Label: {court.shortName}</p>
-        ) : null}
+
+        <div className="grid grid-cols-2 gap-2 text-xs py-2 px-3 rounded-lg bg-card/40 border border-border/50 my-2">
+          <div>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Sequence</span>
+            <span className="font-semibold text-foreground">Court #{court.sortOrder}</span>
+          </div>
+          <div>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider block">Court Code</span>
+            <span className="font-mono font-semibold text-foreground">{court.shortName || suggestCourtShortLabel(court.name) || "—"}</span>
+          </div>
+        </div>
       </div>
 
-      <div className="flex gap-2 pt-1 mt-auto">
+      <div className="flex gap-2 pt-2 mt-auto">
         <button
           type="button"
           onClick={onEdit}
-          className="flex-1 min-h-11 rounded-lg bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground text-xs font-semibold transition-colors border border-border"
+          className="flex-1 min-h-9 px-3 rounded-lg bg-secondary hover:bg-accent text-foreground text-xs font-semibold transition-colors border border-border"
         >
-          Edit
+          Edit Court
         </button>
         <button
           type="button"
           onClick={onDelete}
-          className="min-h-11 px-4 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs font-semibold transition-colors border border-destructive/25"
+          className="min-h-9 px-3 rounded-lg bg-destructive/10 hover:bg-destructive/20 text-destructive text-xs font-semibold transition-colors border border-destructive/25"
         >
           Delete
         </button>
@@ -296,18 +348,35 @@ function CourtCard({
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    available: "bg-emerald-500/15 text-emerald-400",
-    in_use: "bg-red-500/15 text-red-400",
-    maintenance: "bg-amber-500/15 text-amber-300",
-  };
+  const isAvailable = status === "available";
+  const isInUse = status === "in_use";
+  const isMaintenance = status === "maintenance";
+
   return (
     <span
       className={cn(
-        "text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full min-h-7 inline-flex items-center",
-        styles[status] ?? "bg-muted text-muted-foreground",
+        "text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 border",
+        isAvailable
+          ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
+          : isInUse
+            ? "bg-rose-500/10 text-rose-400 border-rose-500/25"
+            : isMaintenance
+              ? "bg-amber-500/10 text-amber-300 border-amber-500/25"
+              : "bg-muted text-muted-foreground border-border",
       )}
     >
+      <span
+        className={cn(
+          "w-1.5 h-1.5 rounded-full",
+          isAvailable
+            ? "bg-emerald-400 animate-pulse"
+            : isInUse
+              ? "bg-rose-400 animate-pulse"
+              : isMaintenance
+                ? "bg-amber-400"
+                : "bg-muted-foreground",
+        )}
+      />
       {formatCourtEntityStatusLabel(status)}
     </span>
   );

@@ -5,7 +5,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRoute, useSearch } from "wouter";
-import { Users, Pencil, Trash2, Upload, User, X } from "lucide-react";
+import { Users, Pencil, Trash2, Upload, User, X, ShieldCheck } from "lucide-react";
+import { BadmintonParticipantTabs } from "@/components/badminton/badminton-subnav-tabs";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
@@ -228,6 +229,13 @@ export default function BadmintonPlayersPage() {
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="participants"
+        tabs={
+          <BadmintonParticipantTabs
+            tournamentId={tournamentId}
+            activeSection={section}
+            playersCount={players.length}
+          />
+        }
         titleOverride={section === "officials" ? "Officials" : "Players"}
         purposeOverride={
           section === "officials"
@@ -242,8 +250,10 @@ export default function BadmintonPlayersPage() {
         headerActions={
           section === "players" ? (
             <div className="flex items-center gap-2 flex-wrap">
-              <BtnSecondary onClick={() => setShowImport(true)}>Import from Player Registry</BtnSecondary>
-              <BtnPrimary onClick={() => { setEditPlayer(null); setShowForm(true); }}>
+              <BtnSecondary onClick={() => { setShowForm(false); setShowImport(true); }}>
+                Import from Player Registry
+              </BtnSecondary>
+              <BtnPrimary onClick={() => { setEditPlayer(null); setShowImport(false); setShowForm(true); }}>
                 + Add Player
               </BtnPrimary>
             </div>
@@ -256,27 +266,40 @@ export default function BadmintonPlayersPage() {
         ) : null}
 
         {section === "players" && !isLoading && players.length > 0 ? (
-          <div className={cn(hubPanelClass, "mb-6")}>
-            <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-              <p>
-                <span className="text-muted-foreground">Players Imported</span>{" "}
-                <span className="font-semibold text-foreground tabular-nums">{importedPlayers}</span>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Teams Imported</span>{" "}
-                <span className="font-semibold text-foreground tabular-nums">{importedTeams}</span>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Players without Team</span>{" "}
-                <span
-                  className={cn(
-                    "font-semibold tabular-nums",
-                    playersWithoutTeam > 0 ? "text-amber-300" : "text-foreground",
-                  )}
-                >
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className={cn(hubCardClass, "p-4 flex items-center justify-between")}>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Players</p>
+                <p className="text-2xl font-bold font-display text-foreground mt-0.5">{importedPlayers}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Enrolled competitors</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                <Users className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className={cn(hubCardClass, "p-4 flex items-center justify-between")}>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Franchise Teams</p>
+                <p className="text-2xl font-bold font-display text-foreground mt-0.5">{importedTeams}</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Assigned squads</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className={cn(hubCardClass, "p-4 flex items-center justify-between")}>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unassigned Players</p>
+                <p className={cn("text-2xl font-bold font-display mt-0.5", playersWithoutTeam > 0 ? "text-amber-400" : "text-foreground")}>
                   {playersWithoutTeam}
-                </span>
-              </p>
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Free agents / independent</p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <User className="w-5 h-5" />
+              </div>
             </div>
           </div>
         ) : null}
@@ -822,35 +845,12 @@ function PlayerCard({
     <div
       className={cn(
         hubCardClass,
-        "overflow-hidden hover:border-primary/30 transition-all group",
+        "overflow-hidden hover:border-primary/40 transition-all group flex flex-col justify-between",
       )}
-      style={{ boxShadow: `0 0 0 1px transparent, 0 0 24px ${glowColor}11` }}
     >
-      {teamName ? (
-        <div className="px-4 py-2 border-b border-border/70 bg-primary/5 flex items-center gap-2 min-w-0">
-          {player.franchiseLogoUrl ? (
-            <img
-              src={player.franchiseLogoUrl}
-              alt=""
-              className="w-5 h-5 rounded-sm object-contain flex-none bg-white/90"
-            />
-          ) : (
-            <Users className="w-3.5 h-3.5 text-primary shrink-0" aria-hidden />
-          )}
-          <p className="text-xs font-bold text-primary truncate">{teamName}</p>
-        </div>
-      ) : (
-        <div className="px-4 py-2 border-b border-border/70 bg-amber-500/5">
-          <p className="text-xs font-semibold text-amber-300/90">No team assigned</p>
-        </div>
-      )}
-
       <div className="flex items-center gap-4 p-4">
         {player.photoUrl ? (
-          <div
-            className="w-14 h-14 rounded-xl overflow-hidden flex-none border-[3px]"
-            style={{ borderColor: glowColor, boxShadow: `0 0 16px ${glowColor}33` }}
-          >
+          <div className="w-14 h-14 rounded-xl overflow-hidden flex-none border border-border/70 bg-card/40 shadow-sm">
             <img
               src={player.photoUrl}
               alt={fullName}
@@ -858,10 +858,7 @@ function PlayerCard({
             />
           </div>
         ) : (
-          <div
-            className="w-14 h-14 rounded-xl bg-primary/10 border-[3px] flex items-center justify-center flex-none"
-            style={{ borderColor: glowColor, boxShadow: `0 0 16px ${glowColor}33` }}
-          >
+          <div className="w-14 h-14 rounded-xl bg-primary/10 border border-primary/25 flex items-center justify-center flex-none shadow-sm">
             <span className="text-lg font-display font-bold text-primary">{initials}</span>
           </div>
         )}
@@ -871,9 +868,9 @@ function PlayerCard({
             identity={identityFromOrganizerPlayer(player)}
             size="sm"
             layout="stack"
-            showBadge={Boolean(player.franchiseName)}
+            showBadge={false}
             playerClassName="text-foreground font-display font-semibold text-base"
-            teamClassName="text-primary"
+            teamClassName="text-primary text-xs"
           />
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
             {formatPlayerGender(player.gender) ? (
@@ -882,7 +879,7 @@ function PlayerCard({
               </span>
             ) : null}
             {meta.role ? (
-              <span className="inline-flex items-center rounded-md border border-primary/45 bg-primary/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
+              <span className="inline-flex items-center rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
                 {meta.role}
               </span>
             ) : null}
@@ -899,11 +896,11 @@ function PlayerCard({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 shrink-0">
           <button
             type="button"
             onClick={onEdit}
-            className="min-h-11 min-w-11 rounded-md bg-secondary hover:bg-accent border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            className="w-8 h-8 rounded-lg bg-secondary hover:bg-accent border border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Edit player"
           >
             <Pencil className="w-3.5 h-3.5" />
@@ -911,7 +908,7 @@ function PlayerCard({
           <button
             type="button"
             onClick={onDelete}
-            className="min-h-11 min-w-11 rounded-md bg-destructive/10 hover:bg-destructive/20 border border-destructive/25 flex items-center justify-center text-destructive transition-colors"
+            className="w-8 h-8 rounded-lg bg-destructive/10 hover:bg-destructive/20 border border-destructive/25 flex items-center justify-center text-destructive transition-colors"
             aria-label="Delete player"
           >
             <Trash2 className="w-3.5 h-3.5" />

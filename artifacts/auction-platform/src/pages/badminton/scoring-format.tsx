@@ -8,7 +8,8 @@
 
 import { useEffect, useState } from "react";
 import { useLocation, useRoute } from "wouter";
-import { Check } from "lucide-react";
+import { Check, ShieldCheck, Zap, SlidersHorizontal, Award, Sparkles } from "lucide-react";
+import { BadmintonSetupTabs } from "@/components/badminton/badminton-subnav-tabs";
 import {
   HubPageShell,
   BtnSecondary,
@@ -167,11 +168,18 @@ export function BadmintonScoringFormatPanel({ tournamentId }: { tournamentId: nu
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div>
-        <h2 className="text-foreground font-display font-bold text-lg">Rules</h2>
-        <p className="text-muted-foreground text-sm mt-0.5">
-          Default scoring for the whole tournament. New matches inherit these rules.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/40">
+        <div>
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Scoring Standard</span>
+          <p className="text-sm font-medium text-foreground">
+            Matches inherit these rules upon creation. In-progress matches remain frozen.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-semibold">
+            {chipLabel}
+          </span>
+        </div>
       </div>
 
       {isLoading ? (
@@ -380,11 +388,15 @@ export default function BadmintonScoringFormatPage() {
   const tournamentId = parseInt(params?.id ?? "0");
   const [, setLocation] = useLocation();
 
+  const { data } = useBadmintonScoringFormat(tournamentId);
+  const chipLabel = data ? matchFormatChipLabel(data.format, data.presetId) : undefined;
+
   return (
     <HubPageShell tournamentId={tournamentId}>
       <BadmintonSetupWizardChrome
         tournamentId={tournamentId}
         stepId="scoring_format"
+        tabs={<BadmintonSetupTabs tournamentId={tournamentId} activeSection="rules" formatLabel={chipLabel} />}
         continueHref={`/tournament/${tournamentId}/badminton/players`}
         continueLabel="Continue to Participants"
         onContinue={() => setLocation(`/tournament/${tournamentId}/badminton/players`)}

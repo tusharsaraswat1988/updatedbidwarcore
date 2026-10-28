@@ -96,6 +96,15 @@ import {
   type ScorerAuthContext,
 } from "../lib/scorer-auth";
 import {
+  listAvailableProfiles,
+  getRulesProfileByIdOrKey,
+  resolveCategoryRules,
+  createTournamentProfile,
+  cloneProfileForTournament,
+  attachRulesProfileToCategory,
+  snapshotCategoryRules,
+} from "../lib/badminton-rules-service";
+import {
   assertSessionOwnsMatchLock,
   forceUnlockMatch,
   getFreshMatchLock,
@@ -1280,6 +1289,8 @@ router.post("/categories", async (req, res) => {
     maxPlayers: z.number().int().optional(),
     entryFee: z.number().int().optional(),
     colorCode: z.string().max(10).optional(),
+    rulesProfileKey: z.string().optional(),
+    rulesProfileId: z.number().int().optional(),
     matchFormatJson: z
       .object({
         totalGames: z.number(),
@@ -1298,6 +1309,19 @@ router.post("/categories", async (req, res) => {
   // Stage value must originate from Tournament Stage Helper only.
   const initialStage = stageColumnForNewCategory(parsed.data.drawType);
 
+  let rulesProfileId = parsed.data.rulesProfileId ?? null;
+  let rulesSnapshotJson: Record<string, unknown> | null = null;
+  const profileKeyOrId = parsed.data.rulesProfileKey ?? parsed.data.rulesProfileId;
+  if (profileKeyOrId != null) {
+    const prof = await getRulesProfileByIdOrKey(profileKeyOrId, tournamentId);
+    if (prof) {
+      rulesSnapshotJson = prof as unknown as Record<string, unknown>;
+      if (prof.metadata?.dbId) {
+        rulesProfileId = Number(prof.metadata.dbId);
+      }
+    }
+  }
+
   const [cat] = await db
     .insert(badmintonCategoriesTable)
     .values({
@@ -1307,6 +1331,8 @@ router.post("/categories", async (req, res) => {
       currentStage: initialStage,
       qualifiersPerGroup: engineDefaults.qualifiersPerGroup,
       qualifierMode: engineDefaults.qualifierMode,
+      rulesProfileId,
+      rulesSnapshotJson,
     })
     .returning();
 
@@ -1338,6 +1364,8 @@ router.patch("/categories/:catId", async (req, res) => {
     maxPlayers: z.number().int().nullable().optional(),
     entryFee: z.number().int().nullable().optional(),
     colorCode: z.string().max(10).nullable().optional(),
+    rulesProfileKey: z.string().optional(),
+    rulesProfileId: z.number().int().nullable().optional(),
     matchFormatJson: z
       .object({
         totalGames: z.number(),
@@ -1352,9 +1380,35 @@ router.patch("/categories/:catId", async (req, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return void res.status(400).json({ error: parsed.error.message });
 
+  let patchRulesProfileId = parsed.data.rulesProfileId;
+  let patchRulesSnapshotJson: Record<string, unknown> | null | undefined = undefined;
+  if (parsed.data.rulesProfileKey != null || parsed.data.rulesProfileId != null) {
+    const keyOrId = parsed.data.rulesProfileKey ?? parsed.data.rulesProfileId;
+    if (keyOrId != null) {
+      const prof = await getRulesProfileByIdOrKey(keyOrId, tournamentId);
+      if (prof) {
+        patchRulesSnapshotJson = prof as unknown as Record<string, unknown>;
+        if (prof.metadata?.dbId) {
+          patchRulesProfileId = Number(prof.metadata.dbId);
+        }
+      }
+    }
+  }
+
+  const updateValues: Record<string, unknown> = {
+    ...parsed.data,
+    updatedAt: new Date(),
+  };
+  if (patchRulesProfileId !== undefined) {
+    updateValues.rulesProfileId = patchRulesProfileId;
+  }
+  if (patchRulesSnapshotJson !== undefined) {
+    updateValues.rulesSnapshotJson = patchRulesSnapshotJson;
+  }
+
   const [cat] = await db
     .update(badmintonCategoriesTable)
-    .set({ ...parsed.data, updatedAt: new Date() })
+    .set(updateValues)
     .where(
       and(
         eq(badmintonCategoriesTable.id, catId),
@@ -1365,6 +1419,111 @@ router.patch("/categories/:catId", async (req, res) => {
 
   if (!cat) return void res.status(404).json({ error: "category not found" });
   res.json(cat);
+});
+
+// ─── Rules Profiles Endpoints ───────────────────────────────────────────────
+
+router.get("/rules-profiles", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+  try {
+    const profiles = await listAvailableProfiles(tournamentId);
+    res.json(profiles);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to list rules profiles" });
+  }
+});
+
+router.get("/rules-profiles/:profileIdOrKey", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+  const key = req.params.profileIdOrKey;
+  if (!key) return void res.status(400).json({ error: "missing profile key or id" });
+  try {
+    const profile = await getRulesProfileByIdOrKey(key, tournamentId);
+    if (!profile) return void res.status(404).json({ error: "Rules profile not found" });
+    res.json(profile);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to get rules profile" });
+  }
+});
+
+router.post("/rules-profiles", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  try {
+    const profile = await createTournamentProfile(tournamentId, req.body);
+    res.status(201).json(profile);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || "Invalid rules profile" });
+  }
+});
+
+router.post("/rules-profiles/clone", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const { sourceKeyOrId, name, description, profileKey } = req.body || {};
+  if (!sourceKeyOrId) {
+    return void res.status(400).json({ error: "sourceKeyOrId is required" });
+  }
+  try {
+    const cloned = await cloneProfileForTournament(tournamentId, sourceKeyOrId, {
+      name,
+      description,
+      profileKey,
+    });
+    res.status(201).json(cloned);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || "Failed to clone rules profile" });
+  }
+});
+
+router.get("/categories/:catId/rules-profile", async (req, res) => {
+  const tournamentId = tid(req);
+  if (!tournamentId) return void res.status(400).json({ error: "bad id" });
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+  try {
+    const profile = await resolveCategoryRules(tournamentId, catId);
+    res.json(profile);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to resolve category rules" });
+  }
+});
+
+router.post("/categories/:catId/rules-profile", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+  const { profileKeyOrId, snapshotNow } = req.body || {};
+  if (!profileKeyOrId) {
+    return void res.status(400).json({ error: "profileKeyOrId is required" });
+  }
+  try {
+    const result = await attachRulesProfileToCategory(
+      tournamentId,
+      catId,
+      profileKeyOrId,
+      Boolean(snapshotNow),
+    );
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || "Failed to attach rules profile" });
+  }
+});
+
+router.post("/categories/:catId/snapshot-rules", async (req, res) => {
+  const tournamentId = await guardBadmintonWrite(req, res);
+  if (!tournamentId) return;
+  const catId = parseId((req.params as MergedParams).catId);
+  if (!catId) return void res.status(400).json({ error: "bad id" });
+  try {
+    const profile = await snapshotCategoryRules(tournamentId, catId);
+    res.json({ success: true, profile });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to snapshot rules" });
+  }
 });
 
 /** Tournament Engine config — ranking / qualification / stage (UI-agnostic). */

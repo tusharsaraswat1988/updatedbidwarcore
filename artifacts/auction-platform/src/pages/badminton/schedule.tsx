@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRoute, Link, useSearch } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CalendarClock } from "lucide-react";
+import { AlertCircle, CalendarClock, CheckCircle2, Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { badmintonFetch } from "@/lib/badminton-api";
 import {
@@ -464,6 +464,10 @@ export default function BadmintonSchedulePage() {
   const loadError = courtsError || fixturesError;
   const loadErrorObj = courtsErr ?? fixturesErr;
 
+  const totalFixturesCount = fixtures.length;
+  const unscheduledCount = fixtures.filter((f) => planningStatus(f) === "unscheduled").length;
+  const scheduledCount = fixtures.filter((f) => planningStatus(f) === "scheduled" || planningStatus(f) === "ready").length;
+
   return (
     <HubPageShell tournamentId={tournamentId}>
       <BadmintonIaPageChrome
@@ -529,6 +533,55 @@ export default function BadmintonSchedulePage() {
           />
         ) : (
           <>
+            {/* Schedule KPI Overview */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className={cn(hubCardClass, "p-4 flex items-center justify-between")}>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Fixtures</p>
+                  <p className="text-2xl font-bold font-display text-foreground mt-0.5">{totalFixturesCount}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Across all categories</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                  <CalendarClock className="w-5 h-5" />
+                </div>
+              </div>
+
+              <div className={cn(hubCardClass, "p-4 flex items-center justify-between")}>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Scheduled & Ready</p>
+                  <p className="text-2xl font-bold font-display text-foreground mt-0.5">{scheduledCount}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Court & time assigned</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+              </div>
+
+              <div className={cn(hubCardClass, "p-4 flex items-center justify-between")}>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unscheduled</p>
+                  <p className={cn("text-2xl font-bold font-display mt-0.5", unscheduledCount > 0 ? "text-amber-400" : "text-foreground")}>
+                    {unscheduledCount}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Awaiting assignment</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                  <Clock className="w-5 h-5" />
+                </div>
+              </div>
+
+              <div className={cn(hubCardClass, "p-4 flex items-center justify-between")}>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Active Courts</p>
+                  <p className="text-2xl font-bold font-display text-foreground mt-0.5">{courts.length}</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Playing venues</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400">
+                  <MapPin className="w-5 h-5" />
+                </div>
+              </div>
+            </div>
+
             <div className={cn(hubCardClass, "p-4 space-y-3")}>
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <h2 className="text-white/50 text-xs font-bold uppercase tracking-widest">

@@ -18,6 +18,7 @@ export function BadmintonSetupWizardChrome({
   hideFooter,
   headerActions,
   headerBadge,
+  tabs,
   /** @deprecated Story guide removed — kept for call-site compatibility. */
   guideExtras: _guideExtras,
   /** @deprecated Story guide removed — kept for call-site compatibility. */
@@ -35,6 +36,7 @@ export function BadmintonSetupWizardChrome({
   hideGuide?: boolean;
   headerActions?: React.ReactNode;
   headerBadge?: string;
+  tabs?: React.ReactNode;
 }) {
   const { getStep, isLoading, progress } = useBadmintonSetup(tournamentId);
   const step = getStep(stepId);
@@ -56,6 +58,8 @@ export function BadmintonSetupWizardChrome({
           actions={headerActions}
         />
       ) : null}
+
+      {tabs}
 
       {children}
 

@@ -3,11 +3,12 @@
  * Consumes completed matches / fixtures. Never edits scoring.
  */
 
-import type { BadmintonMatchState, PairStandingsMatchInput } from "@workspace/badminton-core";
+import type { BadmintonMatchState, PairStandingsMatchInput, BadmintonRulesProfile, StandingsMatchRecord } from "@workspace/badminton-core";
 import {
   buildPairStandingsFromMatches,
   comparePairStandings,
   isTerminalScoringMatchStatus,
+  calculateUniversalStandings,
 } from "@workspace/badminton-core";
 import { matchDisplayLabel } from "@/lib/badminton-control-center";
 
@@ -31,6 +32,8 @@ export type ResultsCategory = {
   drawType?: string;
   phase?: string;
   sortOrder?: number;
+  rulesProfileId?: number | null;
+  rulesSnapshotJson?: unknown;
 };
 
 export type ResultsFixture = {
@@ -272,11 +275,27 @@ export function gamesWonLine(m: ResultsMatch): string {
   return `${m.state.gamesLeft}–${m.state.gamesRight}`;
 }
 
+export function winnerGamesWonLine(m: ResultsMatch): string {
+  if (!m.state) return "—";
+  if (m.state.winnerSide === "right") {
+    return `${m.state.gamesRight}–${m.state.gamesLeft}`;
+  }
+  return `${m.state.gamesLeft}–${m.state.gamesRight}`;
+}
+
 export function gameScoreLines(m: ResultsMatch): string[] {
   if (!m.state?.games?.length) return [];
   return m.state.games
     .filter((g) => g.phase === "completed" || g.winner)
     .map((g) => `${g.leftScore}–${g.rightScore}`);
+}
+
+export function winnerGameScores(m: ResultsMatch): string[] {
+  if (!m.state?.games?.length) return [];
+  const w = m.state.winnerSide;
+  return m.state.games
+    .filter((g) => g.phase === "completed" || g.winner)
+    .map((g) => (w === "right" ? `${g.rightScore}–${g.leftScore}` : `${g.leftScore}–${g.rightScore}`));
 }
 
 /** True when at least one game was actually scored (not walkover 0–0). */
@@ -409,6 +428,7 @@ export function detectCategoryChampion(
     won?: number | null;
     lost?: number | null;
     marginPoints?: number | null;
+    tiedWithNext?: boolean | null;
   }> | null,
 ): ChampionInfo | null {
   const catMatches = matches.filter((m) => categoryIdOf(m) === category.id);
@@ -447,7 +467,7 @@ export function detectCategoryChampion(
         const s2 = sorted[1]!;
         const tiedRank = s1.rank != null && s2.rank != null && s1.rank === s2.rank;
         const tiedStats = (s1.won ?? 0) === (s2.won ?? 0) && (s1.marginPoints ?? 0) === (s2.marginPoints ?? 0);
-        if (tiedRank || tiedStats) {
+        if (tiedRank || tiedStats || Boolean(s1.tiedWithNext)) {
           // Unresolved tie — do not guess or pick arbitrarily
           return null;
         }
@@ -479,31 +499,68 @@ export function detectCategoryChampion(
           registrationAId: fix.registrationAId,
           registrationBId: fix.registrationBId,
           status: fix.status,
-          winnerRegistrationId: fix.winnerRegistrationId ?? undefined,
+          winnerRegistrationId: fix.winnerRegistrationId ?? null,
           winnerSide: match?.state?.winnerSide ?? undefined,
           games: match?.state?.games ?? [],
           assignedMarginPoints: match?.state?.assignedMarginPoints ?? undefined,
         });
       }
 
-      const computed = buildPairStandingsFromMatches(regIds, matchInputs);
-      computed.sort(comparePairStandings);
-
-      if (computed.length > 1) {
-        const c1 = computed[0]!;
-        const c2 = computed[1]!;
-        if (c1.won === c2.won && c1.marginPoints === c2.marginPoints) {
-          // Unresolved tie at the top — do not guess
+      if (category.rulesSnapshotJson) {
+        const profile = category.rulesSnapshotJson as BadmintonRulesProfile;
+        const records: StandingsMatchRecord[] = [];
+        for (const fix of catFixtures) {
+          if (!fix.registrationAId || !fix.registrationBId) continue;
+          const match = catMatches.find((m) => m.id === fix.scoringMatchId);
+          if (!match || !isCompletedMatch(match)) continue;
+          records.push({
+            matchId: match.id,
+            registrationAId: fix.registrationAId,
+            registrationBId: fix.registrationBId,
+            status: match.status || "completed",
+            winnerRegistrationId: (fix.winnerRegistrationId ?? (match.state?.winnerSide === "left" ? fix.registrationAId : match.state?.winnerSide === "right" ? fix.registrationBId : null)) ?? null,
+            winnerSide: match.state?.winnerSide ?? undefined,
+            assignedMarginPoints: match.state?.assignedMarginPoints ?? undefined,
+            games: (match.state?.games ?? []).map((g) => ({
+              leftScore: g.leftScore ?? 0,
+              rightScore: g.rightScore ?? 0,
+              phase: g.phase,
+              winner: g.winner,
+            })),
+          });
+        }
+        const universalResult = calculateUniversalStandings(regIds, records, profile);
+        if (universalResult.hasUnresolvedTies && universalResult.rows[0]?.tiedWithNext) {
           return null;
         }
-      }
+        if (universalResult.rows.length > 0) {
+          topRegId = universalResult.rows[0]!.registrationId;
+          leaderStanding = {
+            won: universalResult.rows[0]!.won,
+            lost: universalResult.rows[0]!.lost,
+            marginPoints: universalResult.rows[0]!.marginPoints,
+          };
+        }
+      } else {
+        const computed = buildPairStandingsFromMatches(regIds, matchInputs);
+        computed.sort(comparePairStandings);
 
-      topRegId = computed[0]!.registrationId;
-      leaderStanding = {
-        won: computed[0]!.won,
-        lost: computed[0]!.lost,
-        marginPoints: computed[0]!.marginPoints,
-      };
+        if (computed.length > 1) {
+          const c1 = computed[0]!;
+          const c2 = computed[1]!;
+          if (c1.won === c2.won && c1.marginPoints === c2.marginPoints) {
+            // Unresolved tie at the top — do not guess
+            return null;
+          }
+        }
+
+        topRegId = computed[0]!.registrationId;
+        leaderStanding = {
+          won: computed[0]!.won,
+          lost: computed[0]!.lost,
+          marginPoints: computed[0]!.marginPoints,
+        };
+      }
     }
 
     if (!topRegId) return null;
@@ -574,8 +631,8 @@ export function detectCategoryChampion(
     winnerTeamLogoUrl: team.teamLogoUrl,
     winnerTeamColor: team.teamColor,
     roundLabel: round,
-    gamesWonLine: gamesWonLine(finalMatch),
-    gameScoreLines: gameScoreLines(finalMatch),
+    gamesWonLine: winnerGamesWonLine(finalMatch),
+    gameScoreLines: winnerGameScores(finalMatch),
     matchId: finalMatch.id,
     outcomeLabel: outcomeLabel(finalMatch),
   };

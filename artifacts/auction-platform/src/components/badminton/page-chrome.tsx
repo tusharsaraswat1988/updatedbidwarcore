@@ -5,6 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { BtnPrimary, hubCardClass, hubPanelClass } from "@/components/badminton/form-ui";
 import { useBadmintonBidWarTheme } from "@/components/badminton/bidwar-badminton-branding";
 import { useBadmintonBranding } from "@/hooks/use-badminton-branding";
+import { TeamPlayerCard } from "@/components/badminton/team-player-card";
+import {
+  badmintonMatchControlPath,
+  badmintonScorerMatchPath,
+} from "@/lib/badminton-routes";
 
 
 
@@ -96,7 +101,9 @@ export function PageHeader({
   const { brandName, logoSrc, logoAlt } = useBadmintonBidWarTheme();
   const { data: branding } = useBadmintonBranding(tournamentId ?? 0);
   const tournamentName = branding?.displayName?.trim();
-  const eyebrowLabel = tournamentName || eyebrow;
+  // In sports shell, the top header bar already shows the tournament title prominently.
+  // Only show eyebrow if explicitly provided as a custom kicker or outside of shell.
+  const eyebrowLabel = inShell ? eyebrow : (eyebrow || tournamentName);
   const shouldShowBrand = showBrandMark && !inShell;
 
   return (
@@ -653,7 +660,7 @@ export function HubMatchCard({
               </span>
             )}
             <Link
-              href={badmintonBroadcastPath(tournamentId, matchId)}
+              href={`/tournament/${tournamentId}/badminton/control?focus=broadcast`}
               className="min-h-11 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/25 text-primary text-[11px] font-semibold flex items-center justify-center transition-colors text-center px-1"
             >
               Broadcast

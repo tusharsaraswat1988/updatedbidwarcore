@@ -18,6 +18,7 @@ import { badmintonFetch } from "@/lib/badminton-api";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
 import { getSponsorsByPriority, parseSponsorLogos, validateSponsorList, type SponsorLogo } from "@/lib/sponsor-logo";
 import { SponsorLogosEditor } from "@/components/settings/sponsor-logos-editor";
+import { BadmintonSetupTabs } from "@/components/badminton/badminton-subnav-tabs";
 import { cn } from "@/lib/utils";
 import type { BadmintonBranding, ScoreBoardSponsor } from "@/hooks/use-badminton-branding";
 import { VenueMusicSettingsPanel } from "@/components/badminton/venue-music-settings-panel";
@@ -33,6 +34,17 @@ const BadmintonCourtsPanel = lazy(() =>
 const BadmintonScoringFormatPanel = lazy(() =>
   import("@/pages/badminton/scoring-format").then((m) => ({ default: m.BadmintonScoringFormatPanel })),
 );
+
+import { Palette, MonitorPlay, Sparkles, Building2, Trophy, Image as ImageIcon } from "lucide-react";
+
+const COLOR_PRESETS = [
+  { name: "Championship Gold", primary: "#FFD700", accent: "#2A3566" },
+  { name: "BWF Emerald", primary: "#10B981", accent: "#0F291E" },
+  { name: "Electric Cyan", primary: "#06B6D4", accent: "#0B2238" },
+  { name: "Crimson Pro", primary: "#EF4444", accent: "#2A0E14" },
+  { name: "Royal Sapphire", primary: "#3B82F6", accent: "#0D2149" },
+  { name: "Sunset Amber", primary: "#F59E0B", accent: "#2D1D0B" },
+];
 
 const SETUP_SECTIONS = ["identity", "courts", "rules"] as const;
 type SetupSection = (typeof SETUP_SECTIONS)[number];
@@ -395,6 +407,12 @@ export default function BadmintonBrandingPage() {
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="setup"
+        tabs={
+          <BadmintonSetupTabs
+            tournamentId={tournamentId}
+            activeSection={section}
+          />
+        }
         titleOverride={
           section === "courts"
             ? "Courts"
@@ -470,9 +488,12 @@ export default function BadmintonBrandingPage() {
             {/* Branding form */}
             <section className={cn(hubPanelClass, "space-y-5")}>
               <div>
-                <h2 className="text-foreground font-display font-bold text-lg">Tournament identity</h2>
+                <h2 className="text-foreground font-display font-bold text-lg flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-primary" />
+                  Tournament Identity
+                </h2>
                 <p className="text-muted-foreground text-sm mt-0.5">
-                  Name, venue, and organizer used on scoreboards and broadcasts.
+                  Name, venue, and organizer used on scoreboards, TV overlays, and printed draws.
                 </p>
               </div>
 
@@ -519,7 +540,11 @@ export default function BadmintonBrandingPage() {
               <FormField label="Tournament Logo">
                 <div className="flex items-center gap-4">
                   {form.logoUrl ? (
-                    <img src={form.logoUrl} alt={form.displayName?.trim() ? `${form.displayName} logo` : "Tournament logo"} className="w-16 h-16 rounded-xl object-contain bg-white/5 border border-white/10" />
+                    <img
+                      src={form.logoUrl}
+                      alt={form.displayName?.trim() ? `${form.displayName} logo` : "Tournament logo"}
+                      className="w-16 h-16 rounded-xl object-contain bg-white/5 border border-white/10"
+                    />
                   ) : (
                     <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30 text-xs">
                       No logo
@@ -538,70 +563,181 @@ export default function BadmintonBrandingPage() {
                 </div>
               </FormField>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Primary Color">
-                  <input
-                    type="color"
-                    value={form.primaryColor}
-                    onChange={(e) => setForm((f) => ({ ...f, primaryColor: e.target.value }))}
-                    className="w-full h-10 rounded-xl cursor-pointer bg-transparent"
-                  />
-                </FormField>
-                <FormField label="Accent Color">
-                  <input
-                    type="color"
-                    value={form.accentColor}
-                    onChange={(e) => setForm((f) => ({ ...f, accentColor: e.target.value }))}
-                    className="w-full h-10 rounded-xl cursor-pointer bg-transparent"
-                  />
-                </FormField>
-              </div>
-
-              <FormField label="Sponsor Logos">
-                <SponsorLogosEditor
-                  logos={sponsorLogos}
-                  onChange={setSponsorLogos}
-                  onUploadFile={handleSponsorUpload}
-                  uploadingIdx={sponsorUploadIdx}
-                />
-                <p className="text-muted-foreground text-xs mt-2">
-                  Used on badminton LED and OBS only — changes here do not affect auction panel sponsors.
-                </p>
-              </FormField>
-
               {saveError && <p className="text-red-400 text-sm">{saveError}</p>}
             </section>
 
-            {/* Scoreboard sponsor — optional, separate from rotating sponsors */}
-            <section className={cn(hubPanelClass, "space-y-5 border-primary/20")}>
+            {/* Broadcast & Theme Colors + Live Scoreboard Preview */}
+            <section className={cn(hubPanelClass, "space-y-5")}>
               <div>
-                <h2 className="text-foreground font-display font-bold text-lg">Scoreboard Sponsor</h2>
-                <p className="text-muted-foreground text-sm mt-1">
-                  Optional — shown at the top-right on the live scoreboard and OBS overlays, separate from bottom sponsor logos.
+                <h2 className="text-foreground font-display font-bold text-lg flex items-center gap-2">
+                  <Palette className="w-5 h-5 text-primary" />
+                  Scoreboard & Broadcast Theme
+                </h2>
+                <p className="text-muted-foreground text-sm mt-0.5">
+                  Colors applied to court LED scoreboards, spectator screens, and stream overlays.
                 </p>
               </div>
 
-              <FormField label="Title (e.g. Official Scoreboard Partner)">
-                <input
-                  value={scoreBoardSponsor.title ?? ""}
-                  onChange={(e) =>
-                    setScoreBoardSponsor((s) => ({ ...s, title: e.target.value || null }))
-                  }
-                  placeholder="Official Scoreboard Partner"
-                  className={inputClass}
-                />
-              </FormField>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Primary / Brand Color">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={form.primaryColor}
+                      onChange={(e) => setForm((f) => ({ ...f, primaryColor: e.target.value }))}
+                      className="w-11 h-10 rounded-lg cursor-pointer bg-transparent border border-border p-1"
+                    />
+                    <span className="font-mono text-xs uppercase text-muted-foreground tracking-wider">{form.primaryColor}</span>
+                  </div>
+                </FormField>
+                <FormField label="Accent / Court Color">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={form.accentColor}
+                      onChange={(e) => setForm((f) => ({ ...f, accentColor: e.target.value }))}
+                      className="w-11 h-10 rounded-lg cursor-pointer bg-transparent border border-border p-1"
+                    />
+                    <span className="font-mono text-xs uppercase text-muted-foreground tracking-wider">{form.accentColor}</span>
+                  </div>
+                </FormField>
+              </div>
 
-              <FormField label="Sponsor Name">
-                <input
-                  value={scoreBoardSponsor.name ?? ""}
-                  onChange={(e) =>
-                    setScoreBoardSponsor((s) => ({ ...s, name: e.target.value || null }))
-                  }
-                  placeholder="Acme Sports Ltd."
-                  className={inputClass}
-                />
-              </FormField>
+              {/* Color Preset Palette Quick-Pick */}
+              <div>
+                <span className="text-xs font-medium text-muted-foreground block mb-2">Preset Palettes</span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {COLOR_PRESETS.map((preset) => {
+                    const isSelected = form.primaryColor.toLowerCase() === preset.primary.toLowerCase() && form.accentColor.toLowerCase() === preset.accent.toLowerCase();
+                    return (
+                      <button
+                        key={preset.name}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, primaryColor: preset.primary, accentColor: preset.accent }))}
+                        className={cn(
+                          "flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs text-left transition-all",
+                          isSelected
+                            ? "border-primary bg-primary/10 text-foreground font-semibold"
+                            : "border-border/60 hover:border-border bg-card/40 text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        <div className="flex items-center -space-x-1">
+                          <span className="w-3.5 h-3.5 rounded-full border border-black/30 shadow-sm" style={{ backgroundColor: preset.primary }} />
+                          <span className="w-3.5 h-3.5 rounded-full border border-black/30 shadow-sm" style={{ backgroundColor: preset.accent }} />
+                        </div>
+                        <span className="truncate">{preset.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Interactive Live Scoreboard Preview */}
+              <div className="pt-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <MonitorPlay className="w-3.5 h-3.5 text-primary" />
+                    Live Scoreboard Simulation
+                  </span>
+                  <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                    Court 1 Live
+                  </span>
+                </div>
+                <div
+                  className="rounded-xl border border-border/80 p-3.5 shadow-xl relative overflow-hidden"
+                  style={{
+                    backgroundColor: form.accentColor || "#0B1528",
+                  }}
+                >
+                  <div className="flex items-center justify-between pb-2 border-b border-white/10 text-xs">
+                    <div className="flex items-center gap-2">
+                      {form.logoUrl ? (
+                        <img src={form.logoUrl} alt="" className="w-5 h-5 rounded object-contain bg-white/10" />
+                      ) : (
+                        <div className="w-5 h-5 rounded bg-white/10 flex items-center justify-center text-[10px] font-bold text-white/60">
+                          {form.displayName?.charAt(0) || "T"}
+                        </div>
+                      )}
+                      <span className="font-bold text-white truncate max-w-[140px] text-[11px]">
+                        {form.displayName || "Tournament Name"}
+                      </span>
+                    </div>
+                    {scoreBoardSponsor.logoUrl ? (
+                      <div className="flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded-md border border-white/10">
+                        <span className="text-[9px] text-white/60 uppercase tracking-wider">{scoreBoardSponsor.title || "Partner"}</span>
+                        <img src={scoreBoardSponsor.logoUrl} alt="" className="h-3.5 object-contain" />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="pt-3 space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between bg-black/30 rounded-lg px-2.5 py-1.5 border border-white/5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: form.primaryColor }} />
+                        <span className="text-white font-medium">Viktor Axelsen</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-white/60 font-mono text-[11px]">1</span>
+                        <span
+                          className="font-mono font-black text-sm px-2 py-0.5 rounded"
+                          style={{ backgroundColor: form.primaryColor, color: "#000" }}
+                        >
+                          21
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between bg-black/20 rounded-lg px-2.5 py-1.5 border border-white/5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-transparent" />
+                        <span className="text-white/80 font-medium">Lee Zii Jia</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-white/60 font-mono text-[11px]">0</span>
+                        <span className="font-mono font-bold text-sm px-2 py-0.5 rounded text-white/90">
+                          19
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Scoreboard partner — full width */}
+            <section className={cn(hubPanelClass, "space-y-5 lg:col-span-2 border-primary/20")}>
+              <div>
+                <h2 className="text-foreground font-display font-bold text-lg flex items-center gap-2">
+                  <Trophy className="w-5 h-5 text-amber-400" />
+                  Scoreboard Partner & Broadcast Title
+                </h2>
+                <p className="text-muted-foreground text-sm mt-1">
+                  Optional partner branding shown prominently on live LED scoreboards and streaming overlays.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField label="Title (e.g. Official Scoreboard Partner)">
+                  <input
+                    value={scoreBoardSponsor.title ?? ""}
+                    onChange={(e) =>
+                      setScoreBoardSponsor((s) => ({ ...s, title: e.target.value || null }))
+                    }
+                    placeholder="Official Scoreboard Partner"
+                    className={inputClass}
+                  />
+                </FormField>
+
+                <FormField label="Sponsor Name">
+                  <input
+                    value={scoreBoardSponsor.name ?? ""}
+                    onChange={(e) =>
+                      setScoreBoardSponsor((s) => ({ ...s, name: e.target.value || null }))
+                    }
+                    placeholder="Acme Sports Ltd."
+                    className={inputClass}
+                  />
+                </FormField>
+              </div>
 
               <FormField label="Sponsor Logo">
                 <div className="flex items-center gap-4">
@@ -609,7 +745,7 @@ export default function BadmintonBrandingPage() {
                     <img
                       src={scoreBoardSponsor.logoUrl}
                       alt={scoreBoardSponsor.name?.trim() || "Scoreboard sponsor logo"}
-                      className="w-20 h-20 rounded-xl object-contain bg-white p-2 border border-[#ffd700]/30"
+                      className="w-20 h-20 rounded-xl object-contain bg-white p-2 border border-[#ffd700]/30 shadow-md"
                     />
                   ) : (
                     <div className="w-20 h-20 rounded-xl bg-white/5 border border-dashed border-[#ffd700]/25 flex items-center justify-center text-white/30 text-xs">
@@ -629,13 +765,38 @@ export default function BadmintonBrandingPage() {
                 </div>
               </FormField>
 
-              <button
-                type="button"
-                onClick={() => setScoreBoardSponsor(EMPTY_SCOREBOARD_SPONSOR)}
-                className="text-white/40 hover:text-white/60 text-xs underline"
-              >
-                Clear scoreboard sponsor
-              </button>
+              {scoreBoardSponsor.logoUrl || scoreBoardSponsor.name || scoreBoardSponsor.title ? (
+                <button
+                  type="button"
+                  onClick={() => setScoreBoardSponsor(EMPTY_SCOREBOARD_SPONSOR)}
+                  className="text-white/40 hover:text-white/60 text-xs underline"
+                >
+                  Clear scoreboard partner
+                </button>
+              ) : null}
+            </section>
+
+            {/* Full-width Tournament & LED Sponsors Section */}
+            <section className={cn(hubPanelClass, "space-y-5 lg:col-span-2")}>
+              <div>
+                <h2 className="text-foreground font-display font-bold text-lg flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-primary" />
+                  Tournament & LED Court Sponsors
+                </h2>
+                <p className="text-muted-foreground text-sm mt-0.5">
+                  Logos configured here rotate across court perimeter boards, stream ticker reels, and official PDFs.
+                </p>
+              </div>
+
+              <SponsorLogosEditor
+                logos={sponsorLogos}
+                onChange={setSponsorLogos}
+                onUploadFile={handleSponsorUpload}
+                uploadingIdx={sponsorUploadIdx}
+              />
+              <p className="text-muted-foreground text-xs mt-2">
+                Used on badminton LED and OBS only — changes here do not alter auction panel sponsors.
+              </p>
             </section>
 
             <div className="lg:col-span-2">

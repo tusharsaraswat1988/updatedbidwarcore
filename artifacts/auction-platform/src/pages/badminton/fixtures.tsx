@@ -37,6 +37,7 @@ import {
   BadmintonIaPageChrome,
 } from "@/components/badminton/ia-workflow-chrome";
 import { BadmintonEventsPanel } from "@/pages/badminton/categories";
+import { BadmintonFixtureTabs } from "@/components/badminton/badminton-subnav-tabs";
 import { ConfirmActionDialog } from "@/components/badminton/confirm-action-dialog";
 import { toastError, toastSuccess } from "@/lib/badminton-ux";
 
@@ -169,6 +170,12 @@ export default function BadmintonFixturesPage() {
       <BadmintonIaPageChrome
         tournamentId={tournamentId}
         stepId="structure"
+        tabs={
+          <BadmintonFixtureTabs
+            tournamentId={tournamentId}
+            activeSection={activeSection}
+          />
+        }
         titleOverride={activeSection === "events" ? "Events" : "Draw"}
         purposeOverride={
           activeSection === "events"
@@ -188,35 +195,17 @@ export default function BadmintonFixturesPage() {
 
         {activeSection === "draw" ? (
           <>
-            <div>
-              <h2 className="text-foreground font-display font-bold text-lg">Draw</h2>
-              <p className="text-muted-foreground text-sm mt-0.5">
-                Who plays whom in each event. Schedule assigns courts and times next.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/40">
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Draw Collections</span>
+                <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 text-xs font-mono font-bold">
+                  {collections.length}
+                </span>
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  • {fixtures.length} total fixture{fixtures.length === 1 ? "" : "s"} generated
+                </span>
+              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {[
-                {
-                  title: "Generate Automatically",
-                  desc: "Software builds the knockout draw from event entries.",
-                },
-                {
-                  title: "Create Manually",
-                  desc: "Enter each pairing yourself.",
-                },
-              ].map((option) => (
-                <div
-                  key={option.title}
-                  className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5"
-                >
-                  <p className="text-xs font-semibold text-foreground">{option.title}</p>
-                  <p className="text-[11px] text-muted-foreground mt-1">{option.desc}</p>
-                </div>
-              ))}
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Import Existing Draw is not available in this release.
-            </p>
             {isLoading ? (
               <div className="space-y-3" aria-busy="true" aria-label="Loading draw">
                 {Array.from({ length: 3 }).map((_, i) => (

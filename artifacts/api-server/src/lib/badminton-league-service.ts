@@ -9,8 +9,12 @@ import {
   computeWinPercentage,
   planPairRoundRobinFixtures,
   planTeamTieGroupFixtures,
+  calculateUniversalStandings,
+  type StandingsParticipantRow,
+  type StandingsMatchRecord,
   type PairStandingsMatchInput,
 } from "@workspace/badminton-core";
+import { resolveCategoryRules } from "./badminton-rules-service";
 import {
   db,
   badmintonCategoriesTable,
@@ -467,10 +471,17 @@ export type PairStandingsQueryOptions = {
   groupId?: number;
 };
 
-export async function rebuildCategoryPairStandings(
+export type CategoryMatchContext = {
+  registrationIds: number[];
+  registrationGroupId: Map<number, number | null>;
+  groups: LeagueGroupView[];
+  matchInputs: PairStandingsMatchInput[];
+};
+
+export async function collectCategoryMatchContext(
   tournamentId: number,
   categoryId: number,
-): Promise<void> {
+): Promise<CategoryMatchContext> {
   const registrations = await db
     .select()
     .from(badmintonRegistrationsTable)
@@ -483,7 +494,14 @@ export async function rebuildCategoryPairStandings(
     );
 
   const registrationIds = registrations.map((r) => r.id);
-  if (registrationIds.length === 0) return;
+  if (registrationIds.length === 0) {
+    return {
+      registrationIds: [],
+      registrationGroupId: new Map(),
+      groups: [],
+      matchInputs: [],
+    };
+  }
 
   const groups = await listLeagueGroups(tournamentId, categoryId);
   const teamToGroupId = new Map<number, number>();
@@ -590,7 +608,27 @@ export async function rebuildCategoryPairStandings(
     });
   }
 
-  const computed = buildPairStandingsFromMatches(registrationIds, matchInputs);
+  return {
+    registrationIds,
+    registrationGroupId,
+    groups,
+    matchInputs,
+  };
+}
+
+export async function rebuildCategoryPairStandings(
+  tournamentId: number,
+  categoryId: number,
+): Promise<void> {
+  const ctx = await collectCategoryMatchContext(tournamentId, categoryId);
+  if (ctx.registrationIds.length === 0) return;
+
+  const rules = await resolveCategoryRules(tournamentId, categoryId);
+  const universal = calculateUniversalStandings(
+    ctx.registrationIds,
+    ctx.matchInputs as StandingsMatchRecord[],
+    rules,
+  );
 
   await db
     .delete(badmintonPairStandingsTable)
@@ -601,20 +639,20 @@ export async function rebuildCategoryPairStandings(
       ),
     );
 
-  if (computed.length > 0) {
+  if (universal.rows.length > 0) {
     await db.insert(badmintonPairStandingsTable).values(
-      computed.map((row) => ({
+      universal.rows.map((row) => ({
         tournamentId,
         categoryId,
         registrationId: row.registrationId,
-        groupId: registrationGroupId.get(row.registrationId) ?? null,
+        groupId: ctx.registrationGroupId.get(row.registrationId) ?? null,
         played: row.played,
         won: row.won,
         lost: row.lost,
         marginPoints: row.marginPoints,
         pointsFor: row.pointsFor,
         pointsAgainst: row.pointsAgainst,
-        matchesRemaining: row.matchesRemaining,
+        matchesRemaining: 0,
       })),
     );
   }
@@ -632,57 +670,62 @@ export async function getCategoryPairStandings(
 
   await rebuildCategoryPairStandings(tournamentId, categoryId);
 
-  const groups = await listLeagueGroups(tournamentId, categoryId);
-  const groupNameById = new Map(groups.map((g) => [g.id, g.name]));
+  const ctx = await collectCategoryMatchContext(tournamentId, categoryId);
+  const rules = await resolveCategoryRules(tournamentId, categoryId);
+  const groupNameById = new Map(ctx.groups.map((g) => [g.id, g.name]));
 
-  let rows = await db
-    .select()
-    .from(badmintonPairStandingsTable)
-    .where(
-      and(
-        eq(badmintonPairStandingsTable.tournamentId, tournamentId),
-        eq(badmintonPairStandingsTable.categoryId, categoryId),
-      ),
-    );
+  type UniversalStandingRow = StandingsParticipantRow & {
+    groupId: number | null;
+  };
 
-  if (opts.groupId != null) {
-    rows = rows.filter((r) => r.groupId === opts.groupId);
-  }
-
-  rows.sort(comparePairStandings);
-
-  type StandingRow = (typeof rows)[number] & { rank: number };
-  let ranked: StandingRow[];
+  let ranked: UniversalStandingRow[] = [];
 
   if (mode === "per_group") {
-    const byGroup = new Map<number | null, typeof rows>();
-    for (const row of rows) {
-      const key = row.groupId;
-      const list = byGroup.get(key) ?? [];
-      list.push(row);
-      byGroup.set(key, list);
-    }
-
-    ranked = [];
-    const groupKeys = [...byGroup.keys()].sort((a, b) => {
-      if (a == null) return 1;
-      if (b == null) return -1;
-      const orderA = groups.find((g) => g.id === a)?.sortOrder ?? a;
-      const orderB = groups.find((g) => g.id === b)?.sortOrder ?? b;
-      return orderA - orderB || a - b;
-    });
-
-    for (const key of groupKeys) {
-      const groupRows = (byGroup.get(key) ?? []).sort(comparePairStandings);
-      const sliced =
-        limit != null && limit > 0 ? groupRows.slice(0, limit) : groupRows;
-      for (let i = 0; i < sliced.length; i++) {
-        ranked.push({ ...sliced[i]!, rank: i + 1 });
+    const groupKeys = ctx.groups.map((g) => g.id);
+    for (const gId of groupKeys) {
+      if (opts.groupId != null && opts.groupId !== gId) continue;
+      const groupRegIds = ctx.registrationIds.filter(
+        (rId) => ctx.registrationGroupId.get(rId) === gId,
+      );
+      if (groupRegIds.length === 0) continue;
+      const groupMatchInputs = ctx.matchInputs.filter(
+        (m) =>
+          groupRegIds.includes(m.registrationAId) &&
+          groupRegIds.includes(m.registrationBId),
+      );
+      const res = calculateUniversalStandings(
+        groupRegIds,
+        groupMatchInputs as StandingsMatchRecord[],
+        rules,
+      );
+      const sliced = limit != null && limit > 0 ? res.rows.slice(0, limit) : res.rows;
+      for (const row of sliced) {
+        ranked.push({ ...row, groupId: gId });
       }
     }
   } else {
-    const sliced = limit != null && limit > 0 ? rows.slice(0, limit) : rows;
-    ranked = sliced.map((row, index) => ({ ...row, rank: index + 1 }));
+    let targetRegIds = ctx.registrationIds;
+    let targetMatches = ctx.matchInputs;
+    if (opts.groupId != null) {
+      targetRegIds = targetRegIds.filter(
+        (rId) => ctx.registrationGroupId.get(rId) === opts.groupId,
+      );
+      targetMatches = targetMatches.filter(
+        (m) =>
+          targetRegIds.includes(m.registrationAId) &&
+          targetRegIds.includes(m.registrationBId),
+      );
+    }
+    const res = calculateUniversalStandings(
+      targetRegIds,
+      targetMatches as StandingsMatchRecord[],
+      rules,
+    );
+    const sliced = limit != null && limit > 0 ? res.rows.slice(0, limit) : res.rows;
+    ranked = sliced.map((r) => ({
+      ...r,
+      groupId: ctx.registrationGroupId.get(r.registrationId) ?? null,
+    }));
   }
 
   const regIds = ranked.map((r) => r.registrationId);
@@ -735,8 +778,13 @@ export async function getCategoryPairStandings(
       marginPoints: row.marginPoints,
       pointsFor: row.pointsFor ?? 0,
       pointsAgainst: row.pointsAgainst ?? 0,
-      matchesRemaining: Math.max(0, row.matchesRemaining ?? 0),
+      matchesRemaining: 0,
       winPercentage: computeWinPercentage(row.won, row.played),
+      gamesWon: row.gamesWon,
+      gamesLost: row.gamesLost,
+      gamesDifference: row.gamesDifference,
+      pointsDifference: row.pointsDifference,
+      isTiedWithNext: row.tiedWithNext,
     };
   });
 }

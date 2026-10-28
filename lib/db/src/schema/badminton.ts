@@ -212,6 +212,10 @@ export const badmintonCategoriesTable = pgTable(
     sortOrder: smallint("sort_order").notNull().default(0),
     /** Color code for UI. */
     colorCode: text("color_code"),
+    /** Associated rules profile ID (badminton_rules_profiles.id). Null = built-in default based on category type. */
+    rulesProfileId: integer("rules_profile_id"),
+    /** Frozen snapshot of rules configuration at category publish/start time. */
+    rulesSnapshotJson: jsonb("rules_snapshot_json").$type<Record<string, unknown>>(),
     metaJson: jsonb("meta_json").$type<Record<string, unknown>>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -219,7 +223,10 @@ export const badmintonCategoriesTable = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (t) => [index("ix_bcat_tournament_id").on(t.tournamentId)],
+  (t) => [
+    index("ix_bcat_tournament_id").on(t.tournamentId),
+    index("ix_bcat_rules_profile_id").on(t.rulesProfileId),
+  ],
 );
 
 export const insertBadmintonCategorySchema = createInsertSchema(badmintonCategoriesTable).omit({
@@ -229,6 +236,48 @@ export const insertBadmintonCategorySchema = createInsertSchema(badmintonCategor
 });
 export type BadmintonCategory = typeof badmintonCategoriesTable.$inferSelect;
 export type InsertBadmintonCategory = z.infer<typeof insertBadmintonCategorySchema>;
+
+// ─── Badminton Rules Profiles ──────────────────────────────────────────────────
+
+export const badmintonRulesProfilesTable = pgTable(
+  "badminton_rules_profiles",
+  {
+    id: serial("id").primaryKey(),
+    /** Tournament ID. Null for system/global templates. */
+    tournamentId: integer("tournament_id"),
+    /** Unique lookup key (e.g. 'bwf_official_individual_2024', 'corporate_group_knockout_standard') */
+    profileKey: text("profile_key").notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    /** official_bwf | corporate | recreational | custom */
+    profileType: text("profile_type").notNull().default("custom"),
+    schemaVersion: text("schema_version").notNull().default("1.0.0"),
+    profileVersion: text("profile_version").notNull().default("1.0.0"),
+    rulesSource: text("rules_source"),
+    rulesSourceEffectiveDate: text("rules_source_effective_date"),
+    isOfficialBwf: boolean("is_official_bwf").notNull().default(false),
+    isTemplate: boolean("is_template").notNull().default(false),
+    isLocked: boolean("is_locked").notNull().default(false),
+    configJson: jsonb("config_json").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("ix_brp_tournament_id").on(t.tournamentId),
+    index("ix_brp_profile_key").on(t.profileKey),
+  ],
+);
+
+export const insertBadmintonRulesProfileSchema = createInsertSchema(badmintonRulesProfilesTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type BadmintonRulesProfileRow = typeof badmintonRulesProfilesTable.$inferSelect;
+export type InsertBadmintonRulesProfile = z.infer<typeof insertBadmintonRulesProfileSchema>;
 
 // ─── Registrations ──────────────────────────────────────────────────────────
 

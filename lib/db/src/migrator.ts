@@ -440,6 +440,39 @@ WHERE NOT EXISTS (SELECT 1 FROM sports LIMIT 1);
   "0035_player_lower_size.sql": `
     ALTER TABLE "players" ADD COLUMN IF NOT EXISTS "lower_size" text;
   `,
+  "0036_badminton_group_registration_members.sql": `
+    ALTER TABLE badminton_group_members ADD COLUMN IF NOT EXISTS registration_id INTEGER;
+    ALTER TABLE badminton_group_members ALTER COLUMN team_id DROP NOT NULL;
+    CREATE INDEX IF NOT EXISTS ix_bgm_registration_id ON badminton_group_members (registration_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_bgm_group_registration ON badminton_group_members (group_id, registration_id) WHERE registration_id IS NOT NULL;
+  `,
+  "0037_badminton_rules_profiles.sql": `
+    CREATE TABLE IF NOT EXISTS badminton_rules_profiles (
+      id serial PRIMARY KEY,
+      tournament_id integer REFERENCES tournaments(id) ON DELETE CASCADE,
+      profile_key text NOT NULL,
+      name text NOT NULL,
+      description text,
+      profile_type text NOT NULL DEFAULT 'custom',
+      schema_version text NOT NULL DEFAULT '1.0.0',
+      profile_version text NOT NULL DEFAULT '1.0.0',
+      rules_source text,
+      rules_source_effective_date text,
+      is_official_bwf boolean NOT NULL DEFAULT false,
+      is_template boolean NOT NULL DEFAULT false,
+      is_locked boolean NOT NULL DEFAULT false,
+      config_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+
+    CREATE INDEX IF NOT EXISTS ix_brp_tournament_id ON badminton_rules_profiles (tournament_id);
+    CREATE INDEX IF NOT EXISTS ix_brp_profile_key ON badminton_rules_profiles (profile_key);
+
+    ALTER TABLE badminton_categories ADD COLUMN IF NOT EXISTS rules_profile_id integer;
+    ALTER TABLE badminton_categories ADD COLUMN IF NOT EXISTS rules_snapshot_json jsonb;
+    CREATE INDEX IF NOT EXISTS ix_bcat_rules_profile_id ON badminton_categories (rules_profile_id);
+  `,
 };
 
 function resolveMigrationsDirectory(explicit?: string): string | null {

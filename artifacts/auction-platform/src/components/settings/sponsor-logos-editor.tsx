@@ -50,7 +50,7 @@ const LIVE_STREAMING_PARTNER_INFO =
   "Fixed category (Max 1). The linked sponsor stays on the OBS broadcast with logo, name, and this sponsor type.";
 
 const SPONSOR_ROW_GRID =
-  "grid-cols-1 xl:grid-cols-[3.5rem_minmax(0,1.2fr)_minmax(0,1.1fr)_16rem_5.5rem]";
+  "grid-cols-1 md:grid-cols-[3.5rem_minmax(130px,1.2fr)_minmax(120px,1fr)_175px_70px]";
 
 type SponsorTier = "title" | "co" | "live" | "standard";
 
@@ -345,6 +345,13 @@ export function SponsorLogosEditor({
 
   return (
     <div className="space-y-4">
+      {!validation.ok ? (
+        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs font-medium animate-in fade-in duration-200">
+          <Info className="w-4 h-4 shrink-0 text-destructive" />
+          <span>{validation.error}</span>
+        </div>
+      ) : null}
+
       {/* Top Controls: Search, Filter Tabs & Add Button */}
       {logos.length > 0 ? (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-border/50">
@@ -440,18 +447,19 @@ export function SponsorLogosEditor({
 
       {/* Sponsor Table / Grid */}
       {filteredLogos.length > 0 ? (
-        <div className="space-y-2.5 max-h-[calc(100dvh-18rem)] overflow-y-auto pr-1">
-          {/* Header Row (Desktop) */}
-          <div className={`hidden xl:grid ${SPONSOR_ROW_GRID} gap-3 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-wider`}>
-            <span>Logo</span>
-            <span>Brand / Sponsor Name</span>
-            <span>Category / Designation</span>
-            <span className="flex items-center gap-1">
-              Sponsorship Tier
-              <FieldTooltip text={`${TITLE_SPONSOR_INFO} ${CO_SPONSOR_INFO} ${LIVE_STREAMING_PARTNER_INFO}`} />
-            </span>
-            <span className="text-right pr-2">Actions</span>
-          </div>
+        <div className="overflow-x-auto pb-1 max-h-[calc(100dvh-18rem)] overflow-y-auto pr-1">
+          <div className="min-w-[620px] space-y-2.5">
+            {/* Header Row (Desktop) */}
+            <div className={`hidden md:grid ${SPONSOR_ROW_GRID} gap-3 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground/80 uppercase tracking-wider`}>
+              <span>Logo</span>
+              <span>Brand / Sponsor Name</span>
+              <span>Category / Designation</span>
+              <span className="flex items-center gap-1">
+                Sponsorship Tier
+                <FieldTooltip text={`${TITLE_SPONSOR_INFO} ${CO_SPONSOR_INFO} ${LIVE_STREAMING_PARTNER_INFO}`} />
+              </span>
+              <span className="text-right pr-2">Actions</span>
+            </div>
 
           {filteredLogos.map(({ logo, originalIndex: i }) => {
             const tier = getSponsorTier(logo);
@@ -689,6 +697,7 @@ export function SponsorLogosEditor({
                 disabled={uploadingIdx !== null}
               />
             </label>
+          </div>
           </div>
         </div>
       ) : null}

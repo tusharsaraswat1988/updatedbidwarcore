@@ -16,3 +16,4 @@ export * from "./match-director";
 export * from "./league/standings";
 export * from "./league/group-fixtures";
 export * from "./tournament-engine";
+export * from "./rules";

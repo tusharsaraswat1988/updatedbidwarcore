@@ -610,19 +610,16 @@ export function SportsShell({
             <div className="min-w-0 flex-1">
               <BidwarOrganizerBrandMark surface="organizer-main-toolbar" className="max-w-[9rem]" />
               <p
-                className="text-xs font-medium text-muted-foreground truncate leading-tight mt-0.5"
+                className="text-xs font-semibold text-foreground truncate leading-tight mt-0.5"
                 title={tournamentTitle}
               >
                 {tournamentTitle}
               </p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold leading-tight truncate">
-                {nav.sportLabel}
-              </p>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-primary/30 text-primary font-bold uppercase">
-              {nav.sportId}
+            <Badge variant="outline" className="text-[10px] px-2 py-0.5 h-5 border-primary/30 bg-primary/5 text-primary font-bold uppercase">
+              {nav.sportLabel}
             </Badge>
             {tournamentId && !localVenue ? (
               <LogoutButton tournamentId={tournamentId} iconOnly />
@@ -722,17 +719,14 @@ export function SportsShell({
                   )}
                 </div>
               )}
-              <div className="min-w-0">
+              <div className="min-w-0 flex items-center gap-2.5">
                 <p className="text-sm font-bold text-foreground truncate leading-tight" title={tournamentTitle}>
                   {tournamentTitle}
                 </p>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold leading-tight">
+                <Badge variant="outline" className="text-[10px] px-2 py-0.5 h-5 border-primary/30 bg-primary/5 text-primary font-bold uppercase shrink-0">
                   {nav.sportLabel}
-                </p>
+                </Badge>
               </div>
-              <Badge variant="outline" className="text-[10px] px-2 py-0.5 h-5 border-primary/30 text-primary font-bold uppercase shrink-0">
-                {nav.sportId}
-              </Badge>
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
