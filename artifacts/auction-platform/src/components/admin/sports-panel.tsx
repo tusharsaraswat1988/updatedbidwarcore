@@ -30,6 +30,9 @@ import {
   Eye,
   Pencil,
   Check,
+  RotateCcw,
+  Archive,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +47,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,13 +83,27 @@ function byDisplayOrder<T extends { displayOrder: number }>(a: T, b: T) {
   return a.displayOrder - b.displayOrder;
 }
 
+function getSportMeta(slug: string) {
+  const s = slug.toLowerCase();
+  if (s.includes("cricket")) return { emoji: "🏏", engine: "Match Center V2", isLiveEngine: true };
+  if (s.includes("badminton")) return { emoji: "🏸", engine: "Scoring Hub", isLiveEngine: true };
+  if (s.includes("football") || s.includes("soccer")) return { emoji: "⚽", engine: "Auction Only", isLiveEngine: false };
+  if (s.includes("kabaddi")) return { emoji: "🤼", engine: "Auction Only", isLiveEngine: false };
+  if (s.includes("volleyball")) return { emoji: "🏐", engine: "Auction Only", isLiveEngine: false };
+  if (s.includes("esport") || s.includes("gaming")) return { emoji: "🎮", engine: "Auction Only", isLiveEngine: false };
+  return { emoji: "🏆", engine: "Auction Only", isLiveEngine: false };
+}
+
 // ─── Drag handle ──────────────────────────────────────────────────────────────
 
 function DragHandle({ className }: { className?: string }) {
   return (
     <button
       type="button"
-      className={`cursor-grab touch-none text-muted-foreground/50 hover:text-muted-foreground active:cursor-grabbing ${className ?? ""}`}
+      className={cn(
+        "cursor-grab touch-none text-muted-foreground/40 hover:text-muted-foreground active:cursor-grabbing p-1 rounded hover:bg-muted/30 transition-colors",
+        className
+      )}
       aria-label="Drag to reorder"
     >
       <GripVertical className="w-3.5 h-3.5" />
@@ -89,11 +117,13 @@ function SortableRoleRow({
   role,
   selected,
   onSelect,
+  onStartRename,
   onRemove,
 }: {
   role: AdminSportRole;
   selected: boolean;
   onSelect: () => void;
+  onStartRename: () => void;
   onRemove: () => void;
 }) {
   const specCount = role.specGroups.filter((g) => g.active).length;
@@ -111,33 +141,53 @@ function SortableRoleRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center gap-1 rounded-lg border transition-colors ${
+      className={cn(
+        "group flex items-center gap-1.5 rounded-lg border transition-all text-sm px-2 py-1.5",
         selected
-          ? "border-primary/40 bg-primary/10"
-          : "border-transparent hover:border-border/40 hover:bg-muted/30"
-      }`}
+          ? "border-primary/40 bg-primary/10 text-primary shadow-xs"
+          : "border-border/40 hover:border-border hover:bg-muted/30 text-foreground"
+      )}
     >
-      <div {...attributes} {...listeners} className="pl-2 py-2">
+      <div {...attributes} {...listeners}>
         <DragHandle />
       </div>
       <button
         type="button"
         onClick={onSelect}
-        className="flex-1 flex items-center justify-between py-2 pr-1 text-sm text-left min-w-0"
+        className="flex-1 flex items-center justify-between py-1 text-left min-w-0"
       >
-        <span className={`truncate ${selected ? "text-primary font-medium" : ""}`}>{role.roleName}</span>
-        <span className="text-[10px] text-muted-foreground ml-2 shrink-0">
+        <span className={cn("truncate font-medium text-xs", selected ? "text-primary" : "text-foreground")}>
+          {role.roleName}
+        </span>
+        <span className="text-[10px] text-muted-foreground ml-2 shrink-0 bg-muted/40 px-1.5 py-0.5 rounded border border-border/40">
           {specCount} {specCount === 1 ? "spec" : "specs"}
         </span>
       </button>
-      <button
-        type="button"
-        onClick={onRemove}
-        className="pr-2 text-muted-foreground/30 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-        title="Remove role"
-      >
-        <X className="w-3 h-3" />
-      </button>
+
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onStartRename();
+          }}
+          className="p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
+          title="Rename role"
+        >
+          <Pencil className="w-3 h-3" />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="p-1 text-muted-foreground hover:text-destructive rounded transition-colors"
+          title="Remove role"
+        >
+          <Trash2 className="w-3 h-3" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -158,20 +208,20 @@ function SortableOptionRow({ option, onRemove }: { option: AdminSpecOption; onRe
     <div
       ref={setNodeRef}
       style={style}
-      className="group flex items-center gap-1.5 pl-6 pr-2 py-1 rounded-md hover:bg-muted/20 transition-colors"
+      className="group flex items-center gap-2 pl-4 pr-2 py-1 rounded-md hover:bg-muted/30 transition-colors text-xs"
     >
       <div {...attributes} {...listeners}>
-        <DragHandle className="!text-muted-foreground/30" />
+        <DragHandle className="!text-muted-foreground/30 hover:!text-muted-foreground" />
       </div>
-      <span className="text-xs text-muted-foreground">•</span>
-      <span className="text-sm flex-1">{option.optionName}</span>
+      <span className="text-muted-foreground">•</span>
+      <span className="flex-1 font-medium text-foreground">{option.optionName}</span>
       <button
         type="button"
         onClick={onRemove}
-        className="text-muted-foreground/0 group-hover:text-muted-foreground/60 hover:!text-destructive transition-colors"
+        className="text-muted-foreground/0 group-hover:text-muted-foreground/60 hover:!text-destructive transition-colors p-1"
         title="Remove option"
       >
-        <X className="w-2.5 h-2.5" />
+        <X className="w-3 h-3" />
       </button>
     </div>
   );
@@ -181,14 +231,18 @@ function SortableOptionRow({ option, onRemove }: { option: AdminSpecOption; onRe
 
 function RegistrationPreview({
   roleName,
+  sportName,
   specGroups,
   previewSelections,
   onSelectionChange,
+  onReset,
 }: {
   roleName: string;
+  sportName: string;
   specGroups: AdminSpecGroup[];
   previewSelections: Record<number, string>;
   onSelectionChange: (groupId: number, value: string) => void;
+  onReset: () => void;
 }) {
   const sortedGroups = useMemo(
     () => [...specGroups.filter((g) => g.active)].sort(byDisplayOrder),
@@ -196,20 +250,29 @@ function RegistrationPreview({
   );
 
   return (
-    <div className="border-t border-border/50 bg-muted/10 p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <Eye className="w-3.5 h-3.5 text-primary" />
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          Player Registration Preview
-        </p>
+    <div className="p-6 space-y-5 max-w-xl mx-auto">
+      <div className="flex items-center justify-between border-b border-border/60 pb-3">
+        <div className="flex items-center gap-2">
+          <Eye className="w-4 h-4 text-primary" />
+          <div>
+            <h4 className="text-sm font-semibold text-foreground">Live Registration Preview</h4>
+            <p className="text-xs text-muted-foreground">
+              What players and organizers see during onboarding for {sportName}.
+            </p>
+          </div>
+        </div>
+        <Button variant="outline" size="sm" onClick={onReset} className="h-7 text-xs gap-1">
+          <RotateCcw className="w-3 h-3" /> Reset
+        </Button>
       </div>
-      <div className="rounded-lg border border-border/40 bg-card/80 p-4 space-y-3 shadow-inner">
+
+      <div className="rounded-xl border border-border/80 bg-card/90 p-5 space-y-4 shadow-sm">
         <div className="space-y-1.5">
-          <Label className="text-sm">
-            Role <span className="text-destructive">*</span>
+          <Label htmlFor="preview-role" className="text-xs font-semibold text-foreground">
+            Player Primary Role <span className="text-destructive">*</span>
           </Label>
           <Select value={roleName} disabled>
-            <SelectTrigger className="h-9 bg-muted/30">
+            <SelectTrigger id="preview-role" className="h-9 bg-muted/30 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="dark">
@@ -217,32 +280,38 @@ function RegistrationPreview({
             </SelectContent>
           </Select>
         </div>
+
         {sortedGroups.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic py-2">
-            Add specifications above to see them in the registration form.
-          </p>
+          <div className="rounded-lg border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground italic">
+            No specifications added yet for &quot;{roleName}&quot;. Switch to the Specifications tab to configure attributes like Batting Style, Bowling Arm, or Position.
+          </div>
         ) : (
           sortedGroups.map((group) => {
             const options = [...group.options.filter((o) => o.active)].sort(byDisplayOrder);
             return (
               <div key={group.id} className="space-y-1.5">
-                <Label className="text-sm">
-                  {group.groupName}
-                  {!group.optional && <span className="text-destructive ml-0.5">*</span>}
+                <Label htmlFor={`preview-group-${group.id}`} className="text-xs font-semibold text-foreground flex items-center justify-between">
+                  <span>
+                    {group.groupName}
+                    {!group.optional && <span className="text-destructive ml-0.5">*</span>}
+                  </span>
+                  {group.optional && (
+                    <span className="text-[10px] text-muted-foreground font-normal">Optional</span>
+                  )}
                 </Label>
                 {options.length === 0 ? (
-                  <p className="text-xs text-muted-foreground/60 italic">No options configured</p>
+                  <p className="text-xs text-muted-foreground/60 italic pl-1">No options configured in catalog</p>
                 ) : (
                   <Select
                     value={previewSelections[group.id] ?? ""}
                     onValueChange={(v) => onSelectionChange(group.id, v)}
                   >
-                    <SelectTrigger className="h-9">
+                    <SelectTrigger id={`preview-group-${group.id}`} className="h-9 text-xs">
                       <SelectValue placeholder={`Select ${group.groupName}`} />
                     </SelectTrigger>
                     <SelectContent className="dark">
                       {options.map((opt) => (
-                        <SelectItem key={opt.id} value={opt.optionName}>
+                        <SelectItem key={opt.id} value={opt.optionName} className="text-xs">
                           {opt.optionName}
                         </SelectItem>
                       ))}
@@ -271,11 +340,11 @@ function EmptyState({
 }) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-      <div className="rounded-full bg-muted/30 p-3 mb-3">
-        <Icon className="w-5 h-5 text-muted-foreground/60" />
+      <div className="rounded-xl bg-muted/40 p-3.5 mb-3 border border-border/40">
+        <Icon className="w-5 h-5 text-muted-foreground/70" />
       </div>
-      <p className="text-sm font-medium text-muted-foreground">{title}</p>
-      <p className="text-xs text-muted-foreground/60 mt-1 max-w-[200px]">{description}</p>
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="text-xs text-muted-foreground mt-1 max-w-[240px] leading-relaxed">{description}</p>
     </div>
   );
 }
@@ -285,22 +354,39 @@ function EmptyState({
 export function SportsPanel() {
   const [sports, setSports] = useState<AdminSport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sportFilterTab, setSportFilterTab] = useState<"active" | "archived">("active");
   const [selectedSportId, setSelectedSportId] = useState<number | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
+
+  // Col 3 view mode tab: "specs" | "preview"
+  const [col3ViewTab, setCol3ViewTab] = useState<"specs" | "preview">("specs");
+
+  // Input states
+  const [newSportName, setNewSportName] = useState("");
+  const [addingSport, setAddingSport] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
   const [addingRole, setAddingRole] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
+  const [isGroupOptional, setIsGroupOptional] = useState(true);
   const [addingGroup, setAddingGroup] = useState(false);
   const [newOptions, setNewOptions] = useState<Record<number, string>>({});
   const [savingOption, setSavingOption] = useState<number | null>(null);
   const [previewSelections, setPreviewSelections] = useState<Record<number, string>>({});
   const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
-  const [newSportName, setNewSportName] = useState("");
-  const [addingSport, setAddingSport] = useState(false);
+
+  // In-place rename state
+  const [isEditingSportName, setIsEditingSportName] = useState(false);
   const [editingSportName, setEditingSportName] = useState("");
   const [savingSport, setSavingSport] = useState(false);
+
+  const [editingRoleId, setEditingRoleId] = useState<number | null>(null);
   const [editingRoleName, setEditingRoleName] = useState("");
   const [savingRole, setSavingRole] = useState(false);
+
+  // Alert Dialog states
+  const [confirmDeactivateSport, setConfirmDeactivateSport] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<AdminSportRole | null>(null);
+  const [groupToDelete, setGroupToDelete] = useState<AdminSpecGroup | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -316,11 +402,23 @@ export function SportsPanel() {
     setLoading(true);
     try {
       const r = await fetch("/api/auth/admin/sports-full", { credentials: "include" });
-      if (r.ok) setSports(await r.json());
+      if (r.ok) {
+        const data = (await r.json()) as AdminSport[];
+        setSports(data);
+        // Default select first active sport if none selected
+        if (selectedSportId === null) {
+          const first = data.find((s) => s.active);
+          if (first) {
+            setSelectedSportId(first.id);
+            const firstRole = first.roles.find((r) => r.active);
+            if (firstRole) setSelectedRoleId(firstRole.id);
+          }
+        }
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedSportId]);
 
   useEffect(() => {
     void load();
@@ -331,13 +429,17 @@ export function SportsPanel() {
 
   useEffect(() => {
     setEditingSportName(selectedSport?.name ?? "");
+    setIsEditingSportName(false);
   }, [selectedSport?.id, selectedSport?.name]);
 
   useEffect(() => {
     setEditingRoleName(selectedRole?.roleName ?? "");
+    setEditingRoleId(null);
   }, [selectedRole?.id, selectedRole?.roleName]);
 
   const activeSports = useMemo(() => sports.filter((s) => s.active), [sports]);
+  const inactiveSports = useMemo(() => sports.filter((s) => !s.active), [sports]);
+  const displayedSports = sportFilterTab === "active" ? activeSports : inactiveSports;
 
   const activeRoles = useMemo(
     () => (selectedSport ? [...selectedSport.roles.filter((r) => r.active)].sort(byDisplayOrder) : []),
@@ -349,7 +451,7 @@ export function SportsPanel() {
     [selectedRole],
   );
 
-  // Sync preview selections when role/specs change
+  // Sync preview selections
   useEffect(() => {
     if (!selectedRole) {
       setPreviewSelections({});
@@ -535,8 +637,9 @@ export function SportsPanel() {
     if (r.ok) {
       if (selectedRoleId === roleId) setSelectedRoleId(null);
       flash("Role removed");
+      setRoleToDelete(null);
       await load();
-    } else flash("Failed", false);
+    } else flash("Failed to remove role", false);
   }
 
   async function addGroup() {
@@ -549,11 +652,11 @@ export function SportsPanel() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ groupName: newGroupName.trim(), displayOrder: nextOrder }),
+        body: JSON.stringify({ groupName: newGroupName.trim(), displayOrder: nextOrder, optional: isGroupOptional }),
       });
       if (r.ok) {
         setNewGroupName("");
-        flash("Specification added");
+        flash("Specification group added");
         await load();
       } else flash("Failed to add specification", false);
     } finally {
@@ -598,6 +701,7 @@ export function SportsPanel() {
     const r = await fetch(`/api/auth/admin/spec-groups/${groupId}`, { method: "DELETE", credentials: "include" });
     if (r.ok) {
       flash("Specification removed");
+      setGroupToDelete(null);
       await load();
     } else flash("Failed", false);
   }
@@ -629,10 +733,10 @@ export function SportsPanel() {
   }
 
   async function saveRoleName() {
-    if (!selectedRoleId || !editingRoleName.trim()) return;
+    if (!editingRoleId || !editingRoleName.trim()) return;
     setSavingRole(true);
     try {
-      const r = await fetch(`/api/auth/admin/sport-roles/${selectedRoleId}`, {
+      const r = await fetch(`/api/auth/admin/sport-roles/${editingRoleId}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -640,6 +744,7 @@ export function SportsPanel() {
       });
       if (r.ok) {
         flash("Role updated");
+        setEditingRoleId(null);
         await load();
       } else flash("Failed to update role", false);
     } finally {
@@ -659,6 +764,7 @@ export function SportsPanel() {
       });
       if (r.ok) {
         flash("Sport updated");
+        setIsEditingSportName(false);
         await load();
       } else flash("Failed to update sport", false);
     } finally {
@@ -667,343 +773,597 @@ export function SportsPanel() {
   }
 
   async function deactivateSport() {
-    if (!selectedSportId || !selectedSport) return;
-    if (!window.confirm(`Deactivate "${selectedSport.name}"? Existing tournaments keep their sport; it won't appear in new dropdowns.`)) {
-      return;
-    }
+    if (!selectedSportId) return;
     const r = await fetch(`/api/auth/admin/sports/${selectedSportId}`, {
       method: "DELETE",
       credentials: "include",
     });
     if (r.ok) {
-      flash("Sport deactivated");
+      flash("Sport archived");
+      setConfirmDeactivateSport(false);
       setSelectedSportId(null);
       setSelectedRoleId(null);
       await load();
-    } else flash("Failed to deactivate sport", false);
+    } else flash("Failed to archive sport", false);
   }
 
+  async function reactivateSport(sportId: number) {
+    const r = await fetch(`/api/auth/admin/sports/${sportId}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: true }),
+    });
+    if (r.ok) {
+      flash("Sport restored");
+      await load();
+    } else flash("Failed to restore sport", false);
+  }
+
+  const selectedSportMeta = selectedSport ? getSportMeta(selectedSport.slug) : null;
+
   return (
-    <div className="flex-1 flex min-h-0 flex-col lg:flex-row">
-      {/* Flash toast */}
+    <div className="h-full flex-1 flex min-h-0 flex-col lg:flex-row overflow-hidden bg-card/40">
+      {/* Toast Notification */}
       <AnimatePresence>
         {msg && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 rounded-lg px-4 py-2 text-sm font-medium shadow-lg ${
+            className={cn(
+              "fixed top-4 left-1/2 -translate-x-1/2 z-50 rounded-lg px-4 py-2 text-xs font-semibold shadow-lg border",
               msg.ok
-                ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                : "bg-destructive/20 text-destructive border border-destructive/30"
-            }`}
+                ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                : "bg-destructive/20 text-destructive border-destructive/30"
+            )}
           >
             {msg.text}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Col 1: Sports */}
-      <div className="w-full lg:w-52 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border/40 flex flex-col min-h-0 max-h-[180px] lg:max-h-none">
-        <div className="px-3 py-2.5 border-b border-border/40 flex-shrink-0 flex items-center gap-2">
-          <Layers className="w-3.5 h-3.5 text-muted-foreground" />
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex-1">Sports</p>
+      {/* ─── Column 1: Sports Directory ────────────────────────────────────── */}
+      <div className="w-full lg:w-72 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border/60 flex flex-col min-h-0 bg-card/60">
+        {/* Col 1 Header */}
+        <div className="p-3 border-b border-border/60 flex-shrink-0 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-primary" />
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">Sports Catalog</h3>
+            </div>
+            <Badge variant="outline" className="text-[10px] font-mono">
+              {activeSports.length} active
+            </Badge>
+          </div>
+
+          {/* Segmented Filter: Active vs Archived */}
+          <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted/40 p-0.5 border border-border/40 text-xs">
+            <button
+              type="button"
+              onClick={() => setSportFilterTab("active")}
+              className={cn(
+                "py-1 font-medium rounded-md transition-colors text-[11px]",
+                sportFilterTab === "active"
+                  ? "bg-background text-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Active ({activeSports.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSportFilterTab("archived")}
+              className={cn(
+                "py-1 font-medium rounded-md transition-colors text-[11px]",
+                sportFilterTab === "archived"
+                  ? "bg-background text-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Archived ({inactiveSports.length})
+            </button>
+          </div>
         </div>
+
+        {/* Col 1 Scrollable List */}
         <div className={ADMIN_FLEX_SCROLL_CLASS}>
           {loading ? (
             <div className="p-3 space-y-2">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-9 w-full rounded-lg" />
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-11 w-full rounded-lg" />
               ))}
             </div>
           ) : (
             <div className="p-2 space-y-1">
-              {activeSports.map((sport) => {
+              {displayedSports.map((sport) => {
+                const meta = getSportMeta(sport.slug);
                 const roleCount = sport.roles.filter((r) => r.active).length;
+                const isSelected = selectedSportId === sport.id;
+
                 return (
-                  <button
+                  <div
                     key={sport.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedSportId(sport.id);
-                      setSelectedRoleId(null);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm text-left transition-all ${
-                      selectedSportId === sport.id
-                        ? "bg-primary/15 text-primary border border-primary/30 shadow-sm"
-                        : "hover:bg-muted/40 border border-transparent"
-                    }`}
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs text-left transition-all border",
+                      isSelected
+                        ? "bg-primary/10 text-primary border-primary/30 shadow-xs font-medium"
+                        : "hover:bg-muted/40 border-transparent text-foreground"
+                    )}
                   >
-                    <span className="font-medium">{sport.name}</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-muted-foreground">
-                        {roleCount} {roleCount === 1 ? "role" : "roles"}
-                      </span>
-                      <ChevronRight className="w-3 h-3 text-muted-foreground/40" />
-                    </div>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSportId(sport.id);
+                        const firstRole = sport.roles.find((r) => r.active);
+                        setSelectedRoleId(firstRole ? firstRole.id : null);
+                      }}
+                      className="flex-1 flex items-center gap-2.5 min-w-0 pr-1 text-left"
+                    >
+                      <span className="text-base select-none">{meta.emoji}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className={cn("truncate font-medium", isSelected ? "text-primary" : "text-foreground")}>
+                          {sport.name}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-muted-foreground">
+                            {roleCount} {roleCount === 1 ? "role" : "roles"}
+                          </span>
+                          <span className="text-[9px] text-muted-foreground/60">•</span>
+                          <span className={cn("text-[10px]", meta.isLiveEngine ? "text-emerald-400 font-medium" : "text-muted-foreground")}>
+                            {meta.engine}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+
+                    {sportFilterTab === "archived" ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-[11px] gap-1 text-primary hover:text-primary"
+                        onClick={() => void reactivateSport(sport.id)}
+                        title="Restore sport"
+                      >
+                        <RotateCcw className="w-3 h-3" /> Restore
+                      </Button>
+                    ) : (
+                      <ChevronRight className={cn("w-3.5 h-3.5 transition-transform", isSelected ? "text-primary" : "text-muted-foreground/40")} />
+                    )}
+                  </div>
                 );
               })}
-              {activeSports.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-4 px-2">No sports yet — add one below</p>
+
+              {displayedSports.length === 0 && (
+                <div className="text-center py-8 px-4 text-xs text-muted-foreground">
+                  {sportFilterTab === "active" ? "No active sports catalog entries." : "No archived sports."}
+                </div>
               )}
             </div>
           )}
         </div>
-        <div className="p-2 border-t border-border/30 space-y-2 flex-shrink-0">
-          {selectedSport && (
-            <div className="rounded-lg border border-border/40 bg-muted/10 p-2 space-y-2">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                <Pencil className="w-3 h-3" /> Edit sport
-              </p>
-              <div className="flex items-center gap-1">
-                <Input
-                  value={editingSportName}
-                  onChange={(e) => setEditingSportName(e.target.value)}
-                  className="h-7 text-xs flex-1"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 px-2"
-                  onClick={saveSportName}
-                  disabled={savingSport || !editingSportName.trim() || editingSportName.trim() === selectedSport.name}
-                  title="Save name"
-                >
-                  {savingSport ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-7 px-2 text-destructive hover:text-destructive"
-                  onClick={deactivateSport}
-                  title="Deactivate sport"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              </div>
-            </div>
-          )}
-          <div className="flex items-center gap-1">
+
+        {/* Col 1 Pinned Footer: Add Sport */}
+        <div className="p-3 border-t border-border/60 bg-card/80 flex-shrink-0">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void addSport();
+            }}
+            className="flex items-center gap-1.5"
+          >
             <Input
+              id="new-sport-name"
+              name="newSportName"
               value={newSportName}
               onChange={(e) => setNewSportName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addSport()}
-              placeholder="New sport name..."
-              className="h-8 text-xs flex-1"
+              placeholder="Add sport (e.g. Tennis)..."
+              className="h-8 text-xs flex-1 bg-background"
+              aria-label="New sport name"
             />
             <Button
+              type="submit"
               size="sm"
               className="h-8 text-xs gap-1 shrink-0"
-              onClick={addSport}
               disabled={addingSport || !newSportName.trim()}
             >
-              {addingSport ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+              {addingSport ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
               Add
             </Button>
-          </div>
+          </form>
         </div>
       </div>
 
-      {/* Col 2: Roles */}
-      <div className="w-full lg:w-60 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border/40 flex flex-col min-h-0 max-h-[240px] lg:max-h-none">
-        <div className="px-3 py-2.5 border-b border-border/40 flex-shrink-0 flex items-center gap-2">
-          <Users className="w-3.5 h-3.5 text-muted-foreground" />
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Roles</p>
+      {/* ─── Column 2: Sport Roles ────────────────────────────────────────── */}
+      <div className="w-full lg:w-80 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border/60 flex flex-col min-h-0 bg-card/50">
+        {/* Col 2 Header */}
+        <div className="p-3 border-b border-border/60 flex-shrink-0 flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <Users className="w-4 h-4 text-muted-foreground shrink-0" />
+            <div className="min-w-0">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground truncate">
+                {selectedSport ? `${selectedSport.name} Roles` : "Sport Roles"}
+              </h3>
+              {selectedSport && (
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {activeRoles.length} {activeRoles.length === 1 ? "role defined" : "roles defined"}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {selectedSport && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => setIsEditingSportName(true)}
+                title="Rename sport"
+              >
+                <Pencil className="w-3 h-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive"
+                onClick={() => setConfirmDeactivateSport(true)}
+                title="Archive sport"
+              >
+                <Archive className="w-3 h-3" />
+              </Button>
+            </div>
+          )}
         </div>
+
+        {/* In-place Sport Rename Bar */}
+        {isEditingSportName && selectedSport && (
+          <div className="px-3 py-2 bg-muted/30 border-b border-border/60 flex items-center gap-1.5 animate-in fade-in">
+            <Input
+              id="rename-sport-input" name="renameSportName" aria-label="Rename sport"
+              value={editingSportName}
+              onChange={(e) => setEditingSportName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && void saveSportName()}
+              className="h-7 text-xs flex-1 bg-background"
+              placeholder="Sport name..."
+              autoFocus
+            />
+            <Button
+              size="sm"
+              className="h-7 px-2 text-xs gap-1"
+              onClick={() => void saveSportName()}
+              disabled={savingSport || !editingSportName.trim() || editingSportName.trim() === selectedSport.name}
+            >
+              {savingSport ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 px-1.5 text-xs text-muted-foreground"
+              onClick={() => setIsEditingSportName(false)}
+            >
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        )}
+
+        {/* Col 2 Scrollable Roles List */}
         {!selectedSport ? (
           <EmptyState
             icon={Layers}
-            title="Select a sport"
-            description="Choose a sport from the left to manage its roles"
+            title="Select a Sport"
+            description="Choose a sport from the left column to view and configure its roles."
           />
         ) : activeRoles.length === 0 && !newRoleName ? (
-          <div className="flex-1 flex flex-col">
-            <EmptyState
-              icon={Users}
-              title="No roles yet"
-              description={`Add the first role for ${selectedSport.name}`}
-            />
-            <div className="p-3 border-t border-border/30">
-              <div className="flex items-center gap-1.5">
-                <Input
-                  value={newRoleName}
-                  onChange={(e) => setNewRoleName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addRole()}
-                  placeholder="New role name..."
-                  className="h-8 text-xs flex-1"
-                />
-                <Button
-                  size="sm"
-                  className="h-8 text-xs gap-1"
-                  onClick={addRole}
-                  disabled={addingRole || !newRoleName.trim()}
-                >
-                  {addingRole ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                  Add Role
-                </Button>
-              </div>
-            </div>
-          </div>
+          <EmptyState
+            icon={Users}
+            title="No Roles Configured"
+            description={`Add the first roster role for ${selectedSport.name} using the form below.`}
+          />
         ) : (
           <div className={ADMIN_FLEX_SCROLL_CLASS}>
-            <div className="p-2 space-y-1">
+            <div className="p-2 space-y-1.5">
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleRoleDragEnd}>
                 <SortableContext items={activeRoles.map((r) => r.id)} strategy={verticalListSortingStrategy}>
                   {activeRoles.map((role) => (
-                    <SortableRoleRow
-                      key={role.id}
-                      role={role}
-                      selected={selectedRoleId === role.id}
-                      onSelect={() => setSelectedRoleId(role.id)}
-                      onRemove={() => removeRole(role.id)}
-                    />
+                    <div key={role.id}>
+                      {editingRoleId === role.id ? (
+                        <div className="flex items-center gap-1.5 p-1.5 rounded-lg border border-primary/30 bg-primary/5">
+                          <Input
+                            id={`edit-role-${role.id}`} name={`editRole-${role.id}`} aria-label="Edit role name"
+                            value={editingRoleName}
+                            onChange={(e) => setEditingRoleName(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && void saveRoleName()}
+                            className="h-7 text-xs flex-1 bg-background"
+                            placeholder="Role name..."
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => void saveRoleName()}
+                            disabled={savingRole || !editingRoleName.trim() || editingRoleName.trim() === role.roleName}
+                          >
+                            {savingRole ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-1.5 text-xs text-muted-foreground"
+                            onClick={() => setEditingRoleId(null)}
+                          >
+                            <X className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <SortableRoleRow
+                          role={role}
+                          selected={selectedRoleId === role.id}
+                          onSelect={() => setSelectedRoleId(role.id)}
+                          onStartRename={() => {
+                            setEditingRoleId(role.id);
+                            setEditingRoleName(role.roleName);
+                          }}
+                          onRemove={() => setRoleToDelete(role)}
+                        />
+                      )}
+                    </div>
                   ))}
                 </SortableContext>
               </DndContext>
-              {selectedRole && (
-                <div className="rounded-lg border border-border/40 bg-muted/10 p-2 space-y-1.5 mt-2">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                    <Pencil className="w-3 h-3" /> Edit role
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <Input
-                      value={editingRoleName}
-                      onChange={(e) => setEditingRoleName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && saveRoleName()}
-                      className="h-7 text-xs flex-1"
-                      placeholder="Role name..."
-                    />
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-2"
-                      onClick={saveRoleName}
-                      disabled={savingRole || !editingRoleName.trim() || editingRoleName.trim() === selectedRole.roleName}
-                      title="Save role name"
-                    >
-                      {savingRole ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                    </Button>
-                  </div>
-                </div>
-              )}
-              <div className="flex items-center gap-1.5 pt-2 px-1">
-                <Input
-                  value={newRoleName}
-                  onChange={(e) => setNewRoleName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addRole()}
-                  placeholder="New role name..."
-                  className="h-8 text-xs flex-1"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs gap-1 shrink-0"
-                  onClick={addRole}
-                  disabled={addingRole || !newRoleName.trim()}
-                >
-                  {addingRole ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                  Add Role
-                </Button>
-              </div>
             </div>
+          </div>
+        )}
+
+        {/* Col 2 Pinned Footer: Add Role */}
+        {selectedSport && (
+          <div className="p-3 border-t border-border/60 bg-card/80 flex-shrink-0">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void addRole();
+              }}
+              className="flex items-center gap-1.5"
+            >
+              <Input
+                id="new-role-name"
+                name="newRoleName"
+                value={newRoleName}
+                onChange={(e) => setNewRoleName(e.target.value)}
+                placeholder="Add role (e.g. All-Rounder)..."
+                className="h-8 text-xs flex-1 bg-background"
+                aria-label="New role name"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                className="h-8 text-xs gap-1 shrink-0"
+                disabled={addingRole || !newRoleName.trim()}
+              >
+                {addingRole ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                Add
+              </Button>
+            </form>
           </div>
         )}
       </div>
 
-      {/* Col 3: Specifications + Preview */}
-      <div className="flex-1 flex flex-col min-h-[320px]">
-        <div className="px-4 py-2.5 border-b border-border/40 flex items-center gap-2 flex-shrink-0">
-          <ClipboardList className="w-3.5 h-3.5 text-muted-foreground" />
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Specifications</p>
+      {/* ─── Column 3: Specifications & Live Preview ───────────────────────── */}
+      <div className="flex-1 flex flex-col min-h-0 bg-background/50">
+        {/* Col 3 Header & View Mode Switcher */}
+        <div className="p-3 border-b border-border/60 flex items-center justify-between flex-shrink-0 bg-card/40">
+          <div className="flex items-center gap-2">
+            <ClipboardList className="w-4 h-4 text-primary" />
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">Specifications & Rules</h3>
+              {selectedRole && (
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Attributes for <span className="text-foreground font-medium">{selectedRole.roleName}</span>
+                </p>
+              )}
+            </div>
+          </div>
+
           {selectedRole && (
-            <Badge variant="secondary" className="text-[10px] ml-auto">
-              {selectedRole.roleName}
-            </Badge>
+            <div className="inline-flex rounded-lg border border-border/60 bg-muted/40 p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setCol3ViewTab("specs")}
+                className={cn(
+                  "px-3 py-1 font-medium rounded-md transition-colors text-xs flex items-center gap-1.5",
+                  col3ViewTab === "specs"
+                    ? "bg-background text-foreground shadow-xs font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <SlidersHorizontal className="w-3 h-3" />
+                Specifications ({activeSpecGroups.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setCol3ViewTab("preview")}
+                className={cn(
+                  "px-3 py-1 font-medium rounded-md transition-colors text-xs flex items-center gap-1.5",
+                  col3ViewTab === "preview"
+                    ? "bg-background text-foreground shadow-xs font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Eye className="w-3 h-3" />
+                Live Preview
+              </button>
+            </div>
           )}
         </div>
 
         {!selectedRole ? (
           <EmptyState
             icon={ClipboardList}
-            title="Select a role"
-            description="Choose a role to edit its specifications and preview the registration form"
+            title="Select a Role"
+            description="Choose a role from the middle column to manage its player specification attributes and test the registration flow."
           />
+        ) : col3ViewTab === "preview" ? (
+          <div className={ADMIN_FLEX_SCROLL_CLASS}>
+            <RegistrationPreview
+              roleName={selectedRole.roleName}
+              sportName={selectedSport?.name || "Sport"}
+              specGroups={selectedRole.specGroups}
+              previewSelections={previewSelections}
+              onSelectionChange={(groupId, value) =>
+                setPreviewSelections((prev) => ({ ...prev, [groupId]: value }))
+              }
+              onReset={() => setPreviewSelections({})}
+            />
+          </div>
         ) : (
-          <>
-            <div className={ADMIN_FLEX_SCROLL_CLASS}>
-              <div className="p-4 space-y-3">
-                {activeSpecGroups.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border/50 p-6 text-center">
-                    <ClipboardList className="w-8 h-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">No specifications yet</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">
-                      Add specification groups like &quot;Bowling Arm&quot; or &quot;Bowling Style&quot;
-                    </p>
-                  </div>
-                ) : (
-                  <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSpecGroupDragEnd}>
-                    <SortableContext items={activeSpecGroups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
-                      {activeSpecGroups.map((group) => {
-                        const activeOptions = [...group.options.filter((o) => o.active)].sort(byDisplayOrder);
-                        return (
-                          <SpecGroupCard
-                            key={group.id}
-                            group={group}
-                            activeOptions={activeOptions}
-                            newOptionValue={newOptions[group.id] || ""}
-                            onNewOptionChange={(v) => setNewOptions((p) => ({ ...p, [group.id]: v }))}
-                            onAddOption={() => addOption(group.id)}
-                            onRemoveOption={removeOption}
-                            onRemoveGroup={() => removeGroup(group.id)}
-                            savingOption={savingOption === group.id}
-                            onOptionDragEnd={handleOptionDragEnd(group.id, activeOptions)}
-                          />
-                        );
-                      })}
-                    </SortableContext>
-                  </DndContext>
-                )}
-
-                {/* Add spec group */}
-                <div className="rounded-lg border border-dashed border-border/40 p-3 bg-muted/5">
-                  <p className="text-xs text-muted-foreground mb-2 font-medium">Add Specification</p>
-                  <div className="flex items-center gap-1.5">
-                    <Input
-                      value={newGroupName}
-                      onChange={(e) => setNewGroupName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addGroup()}
-                      placeholder="e.g. Bowling Arm, Bowling Style..."
-                      className="h-8 text-xs flex-1"
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8 text-xs gap-1 shrink-0"
-                      onClick={addGroup}
-                      disabled={addingGroup || !newGroupName.trim()}
-                    >
-                      {addingGroup ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                      Add
-                    </Button>
-                  </div>
+          <div className={ADMIN_FLEX_SCROLL_CLASS}>
+            <div className="p-4 space-y-4 max-w-2xl">
+              {activeSpecGroups.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border/70 p-8 text-center bg-card/30">
+                  <ClipboardList className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2.5" />
+                  <p className="text-sm font-semibold text-foreground">No Specification Groups</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                    Add specification groups like &quot;Batting Style&quot;, &quot;Bowling Arm&quot;, or &quot;Position&quot; to prompt players during registration.
+                  </p>
                 </div>
+              ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleSpecGroupDragEnd}>
+                  <SortableContext items={activeSpecGroups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+                    {activeSpecGroups.map((group) => {
+                      const activeOptions = [...group.options.filter((o) => o.active)].sort(byDisplayOrder);
+                      return (
+                        <SpecGroupCard
+                          key={group.id}
+                          group={group}
+                          activeOptions={activeOptions}
+                          newOptionValue={newOptions[group.id] || ""}
+                          onNewOptionChange={(v) => setNewOptions((p) => ({ ...p, [group.id]: v }))}
+                          onAddOption={() => void addOption(group.id)}
+                          onRemoveOption={(optId) => void removeOption(optId)}
+                          onRemoveGroup={() => setGroupToDelete(group)}
+                          savingOption={savingOption === group.id}
+                          onOptionDragEnd={handleOptionDragEnd(group.id, activeOptions)}
+                        />
+                      );
+                    })}
+                  </SortableContext>
+                </DndContext>
+              )}
+
+              {/* Add Specification Group Card */}
+              <div className="rounded-xl border border-dashed border-border/70 p-4 bg-muted/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground">Add New Specification Attribute</span>
+                  <label htmlFor="spec-optional-toggle" className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                    <input
+                      id="spec-optional-toggle" name="specOptionalToggle"
+                      type="checkbox"
+                      checked={isGroupOptional}
+                      onChange={(e) => setIsGroupOptional(e.target.checked)}
+                      className="rounded border-border text-primary focus:ring-primary h-3.5 w-3.5"
+                    />
+                    Optional for players
+                  </label>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void addGroup();
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <Input
+                    id="new-group-name"
+                    name="newGroupName"
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="e.g. Bowling Arm, Batting Hand, Jersey Size..."
+                    className="h-8 text-xs flex-1 bg-background"
+                    aria-label="New specification group name"
+                  />
+                  <Button
+                    type="submit"
+                    size="sm"
+                    className="h-8 text-xs gap-1 shrink-0"
+                    disabled={addingGroup || !newGroupName.trim()}
+                  >
+                    {addingGroup ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                    Add Attribute
+                  </Button>
+                </form>
               </div>
             </div>
-
-            {/* Sticky registration preview */}
-            <div className="flex-shrink-0 sticky bottom-0">
-              <RegistrationPreview
-                roleName={selectedRole.roleName}
-                specGroups={selectedRole.specGroups}
-                previewSelections={previewSelections}
-                onSelectionChange={(groupId, value) =>
-                  setPreviewSelections((prev) => ({ ...prev, [groupId]: value }))
-                }
-              />
-            </div>
-          </>
+          </div>
         )}
       </div>
+
+      {/* ─── Confirm Deactivate Sport Dialog ───────────────────────────────── */}
+      <AlertDialog open={confirmDeactivateSport} onOpenChange={setConfirmDeactivateSport}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive &quot;{selectedSport?.name}&quot;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Archiving this sport removes it from new tournament creation dropdowns. Existing tournaments using this sport will remain completely operational. You can reactivate it at any time from the Archived tab.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void deactivateSport()}
+            >
+              Archive Sport
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ─── Confirm Remove Role Dialog ─────────────────────────────────────── */}
+      <AlertDialog open={roleToDelete !== null} onOpenChange={(open) => !open && setRoleToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Role &quot;{roleToDelete?.roleName}&quot;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This role will no longer appear in future player registrations for {selectedSport?.name}. Existing registered players will retain their historical roster records.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (roleToDelete) void removeRole(roleToDelete.id);
+              }}
+            >
+              Remove Role
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ─── Confirm Remove Spec Group Dialog ──────────────────────────────── */}
+      <AlertDialog open={groupToDelete !== null} onOpenChange={(open) => !open && setGroupToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Specification &quot;{groupToDelete?.groupName}&quot;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This specification and all its configured options will be removed from future onboarding forms for this role.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (groupToDelete) void removeGroup(groupToDelete.id);
+              }}
+            >
+              Remove Specification
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1048,58 +1408,74 @@ function SpecGroupCard({
     <div
       ref={setNodeRef}
       style={style}
-      className="rounded-lg border border-border/50 bg-card/50 overflow-hidden shadow-sm"
+      className="rounded-xl border border-border/60 bg-card/80 overflow-hidden shadow-xs space-y-1"
     >
-      <div className="flex items-center gap-1 px-2 py-2 border-b border-border/30 bg-muted/10">
-        <div {...attributes} {...listeners} className="px-1">
+      <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/40 bg-muted/20">
+        <div {...attributes} {...listeners}>
           <DragHandle />
         </div>
-        <span className="text-sm font-medium flex-1">{group.groupName}</span>
-        {group.optional && (
-          <Badge variant="outline" className="text-[9px] h-3.5 px-1 text-muted-foreground border-muted-foreground/30">
+        <span className="text-xs font-semibold text-foreground flex-1">{group.groupName}</span>
+        {group.optional ? (
+          <Badge variant="outline" className="text-[10px] h-4 px-1.5 text-muted-foreground border-border/60">
             optional
+          </Badge>
+        ) : (
+          <Badge className="text-[10px] h-4 px-1.5 bg-primary/10 text-primary border-primary/20">
+            required
           </Badge>
         )}
         <button
           type="button"
           onClick={onRemoveGroup}
-          className="text-muted-foreground/30 hover:text-destructive transition-colors p-1"
-          title="Remove group"
+          className="text-muted-foreground/40 hover:text-destructive transition-colors p-1 rounded"
+          title="Remove specification group"
         >
-          <Trash2 className="w-3 h-3" />
+          <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
-      <div className="py-1">
+
+      <div className="p-2 space-y-2">
         {activeOptions.length === 0 ? (
-          <p className="text-xs text-muted-foreground/60 px-4 py-2 italic">No options yet — add one below</p>
+          <p className="text-xs text-muted-foreground/60 px-3 py-1.5 italic">No options configured yet. Add values below.</p>
         ) : (
           <DndContext sensors={optionSensors} collisionDetection={closestCenter} onDragEnd={onOptionDragEnd}>
             <SortableContext items={activeOptions.map((o) => o.id)} strategy={verticalListSortingStrategy}>
-              {activeOptions.map((opt) => (
-                <SortableOptionRow key={opt.id} option={opt} onRemove={() => onRemoveOption(opt.id)} />
-              ))}
+              <div className="space-y-0.5">
+                {activeOptions.map((opt) => (
+                  <SortableOptionRow key={opt.id} option={opt} onRemove={() => onRemoveOption(opt.id)} />
+                ))}
+              </div>
             </SortableContext>
           </DndContext>
         )}
-        <div className="flex items-center gap-1.5 px-3 py-2 mt-1">
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onAddOption();
+          }}
+          className="flex items-center gap-1.5 px-2 pt-1 border-t border-border/30"
+        >
           <Input
+            id={`spec-opt-${group.id}`}
+            name={`newOption-${group.id}`}
             value={newOptionValue}
             onChange={(e) => onNewOptionChange(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onAddOption()}
-            placeholder="Add option..."
-            className="h-7 text-xs flex-1"
+            placeholder="Add option (e.g. Right-hand)..."
+            className="h-7 text-xs flex-1 bg-background"
+            aria-label={`Add option for ${group.groupName}`}
           />
           <Button
+            type="submit"
             size="sm"
             variant="outline"
-            className="h-7 text-xs gap-1"
-            onClick={onAddOption}
+            className="h-7 text-xs gap-1 shrink-0"
             disabled={savingOption || !newOptionValue.trim()}
           >
             {savingOption ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
             Add
           </Button>
-        </div>
+        </form>
       </div>
     </div>
   );

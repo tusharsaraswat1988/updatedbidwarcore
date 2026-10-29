@@ -39,6 +39,7 @@ export interface NormalizedInboundMessage {
   messageId?: string;
   raw?: unknown;
   ip?: string | null;
+  tournamentId?: number;
 }
 
 export interface ConsentTarget {
@@ -55,18 +56,32 @@ export type ResolvedIdentity =
       member: typeof membersTable.$inferSelect;
       roles: (typeof memberRolesTable.$inferSelect)[];
       links: (typeof memberIdentityLinksTable.$inferSelect)[];
+      tournamentIds: number[];
+      isAmbiguous: boolean;
       primaryTournamentId?: number;
       displayName: string;
     }
   | {
       kind: "legacy";
       targets: ConsentTarget[];
+      tournamentIds: number[];
+      isAmbiguous: boolean;
       primaryTournamentId?: number;
       displayName: string;
     }
   | {
       kind: "guest";
       mobile: string;
+      displayName: string;
+    }
+  | {
+      kind: "inactive_member";
+      member: typeof membersTable.$inferSelect;
+      displayName: string;
+      status: string;
+    }
+  | {
+      kind: "unverified_mobile";
       displayName: string;
     };
 
@@ -103,6 +118,8 @@ export class ConversationRouter {
 
   // In-memory fallback guard for process-level serialization when pool/advisory lock is unavailable
   private inFlightLocalLocks = new Map<string, number>();
+  // Process-level active execution tracker to await in-flight requests rather than premature acknowledgment
+  private inFlightExecutions = new Map<string, Promise<{ handled: boolean; replySent?: boolean; deduplicated?: boolean }>>();
 
   /**
    * Acquire a PostgreSQL session-level advisory lock for the given message ID.
@@ -239,20 +256,16 @@ export class ConversationRouter {
     tournamentId?: number,
   ): Promise<void> {
     if (!messageId) return;
-    try {
-      await db.insert(commLogsTable).values({
-        tournamentId: tournamentId ?? null,
-        recipientType: "manual",
-        recipientMobile: mobile,
-        channel,
-        messageContent: content,
-        deliveryStatus: "delivered",
-        metaMessageId: messageId,
-        blastId: `inbound_${messageId}`,
-      });
-    } catch (err) {
-      logger.warn({ err, messageId }, "Could not record inbound message dedup log");
-    }
+    await db.insert(commLogsTable).values({
+      tournamentId: tournamentId ?? null,
+      recipientType: "manual",
+      recipientMobile: mobile,
+      channel,
+      messageContent: content,
+      deliveryStatus: "delivered",
+      metaMessageId: messageId,
+      blastId: `inbound_${messageId}`,
+    });
   }
 
   /**
@@ -261,6 +274,24 @@ export class ConversationRouter {
    * 2. Legacy Tables (playersTable, teamsTable, organizersTable)
    * 3. Guest (unauthenticated public user)
    */
+  /**
+   * Helper to verify if an identity has a required role scoped to a tournament or globally.
+   */
+  public isAuthorizedForRole(
+    identity: ResolvedIdentity,
+    tournamentId: number | null | undefined,
+    requiredRole: string,
+  ): boolean {
+    if (identity.kind !== "member") return false;
+    return identity.roles.some((r) => {
+      const roleMatches = r.role.toLowerCase() === requiredRole.toLowerCase();
+      if (!roleMatches) return false;
+      if (r.scope === "global") return true;
+      if (tournamentId != null && r.tournamentId === tournamentId) return true;
+      return false;
+    });
+  }
+
   public async resolveIdentity(rawMobile: string): Promise<ResolvedIdentity> {
     const mobile = this.normalizePhone(rawMobile);
     const e164 = `+${mobile}`;
@@ -272,18 +303,41 @@ export class ConversationRouter {
         .select()
         .from(membersTable)
         .where(
-          and(
-            or(
-              eq(membersTable.primaryMobile, mobile),
-              eq(membersTable.primaryMobile, e164),
-              eq(membersTable.primaryMobile, tenDigit),
-            ),
-            eq(membersTable.accountStatus, "active"),
+          or(
+            eq(membersTable.primaryMobile, mobile),
+            eq(membersTable.primaryMobile, e164),
+            eq(membersTable.primaryMobile, tenDigit),
           ),
         )
         .limit(1);
 
       if (member) {
+        // Inactive / Revoked / Suspended membership check - fail closed without legacy fallback
+        if (member.accountStatus !== "active") {
+          logger.warn(
+            { mobile: maskPhoneNumber(mobile), accountStatus: member.accountStatus },
+            "Member account is not active; blocking access without legacy fallback",
+          );
+          return {
+            kind: "inactive_member",
+            member,
+            displayName: member.displayName || member.firstName || "Member",
+            status: member.accountStatus,
+          };
+        }
+
+        // Unverified phone check
+        if (!member.isMobileVerified) {
+          logger.warn(
+            { mobile: maskPhoneNumber(mobile) },
+            "Member primary mobile is unverified; refusing authenticated member access",
+          );
+          return {
+            kind: "unverified_mobile",
+            displayName: member.displayName || member.firstName || "Member",
+          };
+        }
+
         const rawRoles = await db
           .select()
           .from(memberRolesTable)
@@ -300,14 +354,26 @@ export class ConversationRouter {
           );
 
         const roles = Array.isArray(rawRoles) ? rawRoles : [];
-        const links = Array.isArray(rawLinks) ? rawLinks : [];
-        const primaryTournamentId = roles.find((r) => r?.tournamentId != null)?.tournamentId ?? undefined;
+        // Only active links with verified confidence (100) are recognized
+        const links = (Array.isArray(rawLinks) ? rawLinks : []).filter(
+          (l) => l.status === "active" && (l.confidenceScore ?? 0) >= 100,
+        );
+
+        // Collect distinct tournament IDs from roles (eliminate arbitrary roles.find selection)
+        const roleTournamentIds = roles
+          .map((r) => r?.tournamentId)
+          .filter((tid): tid is number => tid != null);
+        const tournamentIds = Array.from(new Set(roleTournamentIds));
+        const isAmbiguous = tournamentIds.length > 1;
+        const primaryTournamentId = tournamentIds.length === 1 ? tournamentIds[0] : undefined;
 
         return {
           kind: "member",
           member,
           roles,
           links,
+          tournamentIds,
+          isAmbiguous,
           primaryTournamentId,
           displayName: member.displayName || member.firstName || "Member",
         };
@@ -319,10 +385,18 @@ export class ConversationRouter {
     // 2. Check Legacy Tables
     const targets = await this.findAllConsentTargets(mobile);
     if (targets.length > 0) {
+      const legacyTournamentIds = Array.from(
+        new Set(targets.map((t) => t.tournamentId).filter((tid): tid is number => tid != null)),
+      );
+      const isAmbiguous = legacyTournamentIds.length > 1 || targets.length > 1;
+      const primaryTournamentId = legacyTournamentIds.length === 1 && targets.length === 1 ? targets[0].tournamentId : undefined;
+
       return {
         kind: "legacy",
         targets,
-        primaryTournamentId: targets[0].tournamentId,
+        tournamentIds: legacyTournamentIds,
+        isAmbiguous,
+        primaryTournamentId,
         displayName: targets[0].name,
       };
     }
@@ -668,28 +742,74 @@ export class ConversationRouter {
     const text = input.text.trim();
     const upper = text.toUpperCase();
     const ip = input.ip ?? null;
+    const trimmedId = input.messageId?.trim();
 
     logger.info(
-      { from: maskPhoneNumber(mobile), text, channel: input.channel, messageId: input.messageId },
+      { from: maskPhoneNumber(mobile), text, channel: input.channel, messageId: trimmedId },
       "ConversationRouter: Processing inbound message",
     );
 
-    // Concurrency Guard: PostgreSQL session advisory lock with in-memory fallback
-    if (input.messageId) {
-      const lock = await this.acquireMessageLock(input.messageId);
-      if (!lock.acquired) {
+    if (trimmedId) {
+      // 1. Check if already durably processed in comm_logs
+      if (await this.isMessageAlreadyProcessed(trimmedId)) {
         logger.info(
-          { messageId: input.messageId, mobile: maskPhoneNumber(mobile) },
-          "ConversationRouter: Message is currently locked by another concurrent process (deduplicated)",
+          { messageId: trimmedId, mobile: maskPhoneNumber(mobile) },
+          "ConversationRouter: Inbound message already processed in comm_logs (idempotent skip)",
         );
         return { handled: true, deduplicated: true, replySent: false };
       }
 
-      try {
-        return await this.executeInboundMessage(input, mobile, text, upper, from, ip);
-      } finally {
-        await lock.release();
+      // 2. Check if currently executing in this process
+      const inFlight = this.inFlightExecutions.get(trimmedId);
+      if (inFlight) {
+        logger.info(
+          { messageId: trimmedId, mobile: maskPhoneNumber(mobile) },
+          "ConversationRouter: Message is currently in-flight; awaiting initial execution result",
+        );
+        try {
+          await inFlight;
+          if (await this.isMessageAlreadyProcessed(trimmedId)) {
+            return { handled: true, deduplicated: true, replySent: false };
+          }
+        } catch (err) {
+          logger.warn({ err, messageId: trimmedId }, "ConversationRouter: Initial in-flight execution failed; proceeding to retry");
+        }
       }
+
+      // 3. Acquire lock with retry/backoff for cross-process concurrency
+      let lock = await this.acquireMessageLock(trimmedId);
+      if (!lock.acquired) {
+        const maxWaitMs = 2000;
+        const start = Date.now();
+        while (!lock.acquired && Date.now() - start < maxWaitMs) {
+          await new Promise((r) => setTimeout(r, 150));
+          if (await this.isMessageAlreadyProcessed(trimmedId)) {
+            return { handled: true, deduplicated: true, replySent: false };
+          }
+          lock = await this.acquireMessageLock(trimmedId);
+        }
+
+        if (!lock.acquired) {
+          logger.warn(
+            { messageId: trimmedId, mobile: maskPhoneNumber(mobile) },
+            "ConversationRouter: Message lock contention timeout; returning unhandled for provider retry",
+          );
+          return { handled: false, deduplicated: false, replySent: false };
+        }
+      }
+
+      // 4. Wrap execution in inFlightExecutions
+      const executionPromise = (async () => {
+        try {
+          return await this.executeInboundMessage(input, mobile, text, upper, from, ip);
+        } finally {
+          this.inFlightExecutions.delete(trimmedId);
+          await lock.release();
+        }
+      })();
+
+      this.inFlightExecutions.set(trimmedId, executionPromise);
+      return await executionPromise;
     }
 
     return await this.executeInboundMessage(input, mobile, text, upper, from, ip);
@@ -725,6 +845,59 @@ export class ConversationRouter {
     // 3. Resolve Identity
     const identity = await this.resolveIdentity(mobile);
 
+    // Inactive / Revoked / Unverified checks - fail closed for private actions
+    if (identity.kind === "inactive_member") {
+      if (upper === "BPL" || upper.includes("PREMIER LEAGUE")) {
+        const bpl = await this.getPublicBplInfo();
+        await this.sendReply(null, from, bpl, input.channel);
+      } else if (upper === "SCORES" || upper === "SCORE" || upper === "LIVE") {
+        const scores = await this.getPublicLiveScores();
+        await this.sendReply(null, from, scores, input.channel);
+      } else if (upper === "HELP") {
+        await this.sendReply(
+          null,
+          from,
+          "BidWar Bot Commands:\n• 'BPL' — Premier League updates & stream\n• 'SCORES' — Live match updates\n• 'STOP' — Unsubscribe\n\nSahayata ke liye support@bidwar.in pe sampark karein.",
+          input.channel,
+        );
+      } else {
+        await this.sendReply(
+          null,
+          from,
+          `🔒 Account Inactive: Aapka account active nahi hai (${identity.status}). Kripya support@bidwar.in se sampark karein.`,
+          input.channel,
+        );
+      }
+      await this.recordProcessedInboundMessage(input.messageId ?? `inactive_${Date.now()}`, mobile, input.channel, text);
+      return { handled: true, replySent: true };
+    }
+
+    if (identity.kind === "unverified_mobile") {
+      if (upper === "BPL" || upper.includes("PREMIER LEAGUE")) {
+        const bpl = await this.getPublicBplInfo();
+        await this.sendReply(null, from, bpl, input.channel);
+      } else if (upper === "SCORES" || upper === "SCORE" || upper === "LIVE") {
+        const scores = await this.getPublicLiveScores();
+        await this.sendReply(null, from, scores, input.channel);
+      } else if (upper === "HELP") {
+        await this.sendReply(
+          null,
+          from,
+          "BidWar Bot Commands:\n• 'BPL' — Premier League updates & stream\n• 'SCORES' — Live match updates\n• 'STOP' — Unsubscribe\n\nSahayata ke liye support@bidwar.in pe sampark karein.",
+          input.channel,
+        );
+      } else {
+        await this.sendReply(
+          null,
+          from,
+          "🔒 Unverified Mobile: Aapka phone number verify nahi hai. Private tournament details dekhne ke liye bidwar.in pe login karke number verify karein.",
+          input.channel,
+        );
+      }
+      await this.recordProcessedInboundMessage(input.messageId ?? `unverified_${Date.now()}`, mobile, input.channel, text);
+      return { handled: true, replySent: true };
+    }
+
     // 4. Check Pending Multi-Turn Bot Session (Tournament Disambiguation or Flow Continuation)
     if (/^\d{1,2}$/.test(upper.trim())) {
       const [sess] = await db
@@ -735,22 +908,56 @@ export class ConversationRouter {
 
       if (sess?.pendingAction === "disambiguate_tournament") {
         const choice = parseInt(upper.trim(), 10);
-        let options: ConsentTarget[] = [];
+        type DisambigOption = {
+          kind: "member" | "legacy";
+          tournamentId: number;
+          tournamentName: string;
+          roleOrType: string;
+          target?: ConsentTarget;
+        };
+        let options: DisambigOption[] = [];
         try {
-          options = JSON.parse(sess.pendingData ?? "[]") as ConsentTarget[];
+          options = JSON.parse(sess.pendingData ?? "[]") as DisambigOption[];
         } catch {}
 
         const selected = options[choice - 1];
         if (selected) {
           await db.delete(botSessionsTable).where(eq(botSessionsTable.mobile, mobile));
-          const summary = await this.buildPersonalizedSummary(selected);
-          await this.sendReply(selected.tournamentId,
-            from,
-            `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye apne tournament portal pe jaayein.`, input.channel);
+          // Revalidate authorization at point of access
+          if (identity.kind === "member") {
+            const hasRole = identity.roles.some((r) => r.tournamentId === selected.tournamentId);
+            if (!hasRole) {
+              await this.sendReply(
+                null,
+                from,
+                "🔒 Unauthorized: Aap is tournament ke authorized member nahi hain.",
+                input.channel,
+              );
+              await this.recordProcessedInboundMessage(input.messageId ?? `num_${Date.now()}`, mobile, input.channel, text);
+              return { handled: true, replySent: true };
+            }
+            await this.sendReply(
+              selected.tournamentId,
+              from,
+              `BidWar aapki jankari:\n\nTournament: ${selected.tournamentName}\nRole: ${selected.roleOrType}\n\nComplete stats & roster details dekhne ke liye bidwar.in portal pe login karein.`,
+              input.channel,
+            );
+          } else if (identity.kind === "legacy" && selected.target) {
+            const summary = await this.buildPersonalizedSummary(selected.target);
+            await this.sendReply(
+              selected.tournamentId,
+              from,
+              `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye apne tournament portal pe jaayein.`,
+              input.channel,
+            );
+          }
         } else {
-          await this.sendReply(options[0]?.tournamentId,
+          await this.sendReply(
+            options[0]?.tournamentId,
             from,
-            `Invalid choice. 1 se ${options.length} ke beech mein reply karein. Ya 'data' dobara bhejein.`, input.channel);
+            `Invalid choice. 1 se ${options.length} ke beech mein reply karein. Ya 'DATA' dobara bhejein.`,
+            input.channel,
+          );
         }
         await this.recordProcessedInboundMessage(input.messageId ?? `num_${Date.now()}`, mobile, input.channel, text);
         return { handled: true, replySent: true };
@@ -1037,43 +1244,52 @@ export class ConversationRouter {
           "Namaste! Main BidWar Assistant hun.\n\nPublic Commands:\n• 'BPL' — BPL schedules & live stream\n• 'SCORES' — Live match updates\n• 'HELP' — Jankari\n\nApna account ya auction details dekhne ke liye bidwar.in pe login karein.", input.channel);
       } else {
         // Registered Member or Legacy Target
-        const targetTournamentId = identity.primaryTournamentId;
-        const isLicensed = await this.isTournamentWaLicensed(targetTournamentId);
-
-        if (!isLicensed) {
-          await this.sendReply(null,
+        if (identity.isAmbiguous) {
+          await this.sendReply(
+            null,
             from,
-            `Namaste ${identity.displayName}! Aapka tournament abhi WhatsApp notifications ke liye licensed nahi hai. SMS pe updates milte rahenge.\n\nCommands: 'BPL', 'SCORES', 'HELP'.`, input.channel);
+            `Namaste ${identity.displayName}! Aapke ek se zyada tournaments registered hain. Apni details dekhne ke liye 'DATA' bhejein.\n\nCommands: 'DATA', 'BPL', 'SCORES', 'HELP'`,
+            input.channel,
+          );
         } else {
-          // Stage pending_yes session
-          const helloSessionData = JSON.stringify({
-            token: null,
-            recipientType: identity.kind === "member" ? "player" : identity.targets[0]?.type ?? "player",
-            recipientId: identity.kind === "member" ? 0 : identity.targets[0]?.id ?? 0,
-            tournamentId: targetTournamentId ?? null,
-            name: identity.displayName,
-          });
+          const targetTournamentId = identity.primaryTournamentId;
+          const isLicensed = await this.isTournamentWaLicensed(targetTournamentId);
 
-          await db
-            .insert(botSessionsTable)
-            .values({
-              mobile,
-              pendingAction: "pending_yes",
-              pendingData: helloSessionData,
-              expiresAt: new Date(Date.now() + 30 * 60 * 1000),
-            })
-            .onConflictDoUpdate({
-              target: botSessionsTable.mobile,
-              set: {
+          if (!isLicensed) {
+            await this.sendReply(null,
+              from,
+              `Namaste ${identity.displayName}! Aapka tournament abhi WhatsApp notifications ke liye licensed nahi hai. SMS pe updates milte rahenge.\n\nCommands: 'BPL', 'SCORES', 'HELP'.`, input.channel);
+          } else {
+            // Stage pending_yes session
+            const helloSessionData = JSON.stringify({
+              token: null,
+              recipientType: identity.kind === "member" ? "player" : identity.targets[0]?.type ?? "player",
+              recipientId: identity.kind === "member" ? 0 : identity.targets[0]?.id ?? 0,
+              tournamentId: targetTournamentId ?? null,
+              name: identity.displayName,
+            });
+
+            await db
+              .insert(botSessionsTable)
+              .values({
+                mobile,
                 pendingAction: "pending_yes",
                 pendingData: helloSessionData,
                 expiresAt: new Date(Date.now() + 30 * 60 * 1000),
-              },
-            });
+              })
+              .onConflictDoUpdate({
+                target: botSessionsTable.mobile,
+                set: {
+                  pendingAction: "pending_yes",
+                  pendingData: helloSessionData,
+                  expiresAt: new Date(Date.now() + 30 * 60 * 1000),
+                },
+              });
 
-          await this.sendReply(targetTournamentId,
-            from,
-            `Namaste ${identity.displayName}!\n\n${CONSENT_QUESTION_V1}\n\nOther commands: 'DATA', 'BPL', 'SCORES', 'HELP'`, input.channel);
+            await this.sendReply(targetTournamentId,
+              from,
+              `Namaste ${identity.displayName}!\n\n${CONSENT_QUESTION_V1}\n\nOther commands: 'DATA', 'BPL', 'SCORES', 'HELP'`, input.channel);
+          }
         }
       }
 
@@ -1081,8 +1297,8 @@ export class ConversationRouter {
       return { handled: true, replySent: true };
     }
 
-    // 9. DATA / REPORT — Strict Guest Privacy Protection
-    if (upper === "DATA" || upper === "REPORT" || upper === "STATUS") {
+    // 9. DATA / REPORT — Strict Guest Privacy Protection & Multi-Tournament Disambiguation
+    if (upper === "DATA" || upper === "REPORT" || upper === "STATUS" || /^(DATA|REPORT|STATUS)\s+\d+$/i.test(upper)) {
       if (identity.kind === "guest") {
         // Zero disclosure to Guests
         await this.sendReply(null,
@@ -1091,43 +1307,173 @@ export class ConversationRouter {
         return { handled: true, replySent: true };
       }
 
-      if (identity.kind === "legacy") {
-        const targets = identity.targets;
-        if (targets.length === 1) {
-          const summary = await this.buildPersonalizedSummary(targets[0]);
-          await this.sendReply(targets[0].tournamentId,
+      // Check for explicit tournament context in command text or input
+      const explicitMatch = upper.match(/^(?:DATA|REPORT|STATUS)\s+(\d+)$/i);
+      const explicitTid = explicitMatch ? parseInt(explicitMatch[1], 10) : input.tournamentId;
+
+      if (explicitTid != null) {
+        // Explicit tournament context requested: revalidate authorization
+        if (identity.kind === "member") {
+          const matchingRole = identity.roles.find((r) => r.tournamentId === explicitTid);
+          if (!matchingRole) {
+            await this.sendReply(
+              null,
+              from,
+              "🔒 Unauthorized: Aap is tournament ke authorized member nahi hain.",
+              input.channel,
+            );
+            await this.recordProcessedInboundMessage(input.messageId ?? `data_${Date.now()}`, mobile, input.channel, text);
+            return { handled: true, replySent: true };
+          }
+          let tName = `Tournament ${explicitTid}`;
+          try {
+            const [t] = await db
+              .select({ name: tournamentsTable.name })
+              .from(tournamentsTable)
+              .where(eq(tournamentsTable.id, explicitTid))
+              .limit(1);
+            if (t?.name) tName = t.name;
+          } catch {}
+          await this.sendReply(
+            explicitTid,
             from,
-            `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye bidwar.in pe jaayein.`, input.channel);
-        } else if (targets.length > 1) {
-          // Tournament disambiguation session
-          const sessionData = JSON.stringify(targets);
-          await db
-            .insert(botSessionsTable)
-            .values({
-              mobile,
+            `BidWar aapki jankari:\n\nTournament: ${tName}\nRole: ${matchingRole.role}\n\nComplete stats & roster details dekhne ke liye bidwar.in portal pe login karein.`,
+            input.channel,
+          );
+          await this.recordProcessedInboundMessage(input.messageId ?? `data_${Date.now()}`, mobile, input.channel, text);
+          return { handled: true, replySent: true };
+        } else if (identity.kind === "legacy") {
+          const matchingTarget = identity.targets.find((t) => t.tournamentId === explicitTid);
+          if (!matchingTarget) {
+            await this.sendReply(
+              null,
+              from,
+              "🔒 Unauthorized: Aap is tournament ke authorized member nahi hain.",
+              input.channel,
+            );
+            await this.recordProcessedInboundMessage(input.messageId ?? `data_${Date.now()}`, mobile, input.channel, text);
+            return { handled: true, replySent: true };
+          }
+          const summary = await this.buildPersonalizedSummary(matchingTarget);
+          await this.sendReply(
+            explicitTid,
+            from,
+            `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye bidwar.in pe jaayein.`,
+            input.channel,
+          );
+          await this.recordProcessedInboundMessage(input.messageId ?? `data_${Date.now()}`, mobile, input.channel, text);
+          return { handled: true, replySent: true };
+        }
+      }
+
+      // No explicit tournament context: check ambiguity
+      if (identity.isAmbiguous) {
+        // Multi-tournament ambiguity: NEVER pick arbitrarily! Request disambiguation
+        type DisambigOption = {
+          kind: "member" | "legacy";
+          tournamentId: number;
+          tournamentName: string;
+          roleOrType: string;
+          target?: ConsentTarget;
+        };
+        const options: DisambigOption[] = [];
+
+        if (identity.kind === "member") {
+          for (const tid of identity.tournamentIds) {
+            let tName = `Tournament ${tid}`;
+            try {
+              const [t] = await db
+                .select({ name: tournamentsTable.name })
+                .from(tournamentsTable)
+                .where(eq(tournamentsTable.id, tid))
+                .limit(1);
+              if (t?.name) tName = t.name;
+            } catch {}
+            const rolesInT = identity.roles.filter((r) => r.tournamentId === tid).map((r) => r.role);
+            options.push({
+              kind: "member",
+              tournamentId: tid,
+              tournamentName: tName,
+              roleOrType: rolesInT.join(", ") || "Member",
+            });
+          }
+        } else if (identity.kind === "legacy") {
+          for (const target of identity.targets) {
+            options.push({
+              kind: "legacy",
+              tournamentId: target.tournamentId!,
+              tournamentName: target.tournamentName ?? `Tournament ${target.tournamentId}`,
+              roleOrType: target.type,
+              target,
+            });
+          }
+        }
+
+        const sessionData = JSON.stringify(options);
+        await db
+          .insert(botSessionsTable)
+          .values({
+            mobile,
+            pendingAction: "disambiguate_tournament",
+            pendingData: sessionData,
+            expiresAt: new Date(Date.now() + 15 * 60 * 1000),
+          })
+          .onConflictDoUpdate({
+            target: botSessionsTable.mobile,
+            set: {
               pendingAction: "disambiguate_tournament",
               pendingData: sessionData,
               expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-            })
-            .onConflictDoUpdate({
-              target: botSessionsTable.mobile,
-              set: {
-                pendingAction: "disambiguate_tournament",
-                pendingData: sessionData,
-                expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-              },
-            });
+            },
+          });
 
-          const menu = targets.map((t, idx) => `${idx + 1}. ${t.tournamentName ?? "Tournament"} (${t.type})`).join("\n");
-          await this.sendReply(targets[0].tournamentId,
-            from,
-            `Aapke ek se zyada tournaments hain. Number chun kar reply karein:\n\n${menu}`, input.channel);
-        }
-      } else {
-        // Member
-        await this.sendReply(identity.primaryTournamentId,
+        const menu = options.map((opt, idx) => `${idx + 1}. ${opt.tournamentName} (${opt.roleOrType})`).join("\n");
+        await this.sendReply(
+          options[0]?.tournamentId,
           from,
-          `Namaste ${identity.displayName}!\nRole: ${identity.roles.map((r) => r.role).join(", ") || "Member"}\n\nComplete stats & roster details dekhne ke liye bidwar.in portal pe login karein.`, input.channel);
+          `Aapke ek se zyada tournaments hain. Number chun kar reply karein:\n\n${menu}`,
+          input.channel,
+        );
+        await this.recordProcessedInboundMessage(input.messageId ?? `data_${Date.now()}`, mobile, input.channel, text);
+        return { handled: true, replySent: true };
+      }
+
+      // Unambiguous (single tournament or 0)
+      if (identity.kind === "legacy") {
+        if (identity.targets.length === 1) {
+          const summary = await this.buildPersonalizedSummary(identity.targets[0]);
+          await this.sendReply(
+            identity.targets[0].tournamentId,
+            from,
+            `BidWar aapki jankari:\n\n${summary}\n\nDetails ke liye bidwar.in pe jaayein.`,
+            input.channel,
+          );
+        }
+      } else if (identity.kind === "member") {
+        if (identity.primaryTournamentId != null) {
+          let tName = "Tournament";
+          try {
+            const [t] = await db
+              .select({ name: tournamentsTable.name })
+              .from(tournamentsTable)
+              .where(eq(tournamentsTable.id, identity.primaryTournamentId))
+              .limit(1);
+            if (t?.name) tName = t.name;
+          } catch {}
+          await this.sendReply(
+            identity.primaryTournamentId,
+            from,
+            `Namaste ${identity.displayName}!\nTournament: ${tName}\nRole: ${identity.roles.map((r) => r.role).join(", ") || "Member"}\n\nComplete stats & roster details dekhne ke liye bidwar.in portal pe login karein.`,
+            input.channel,
+          );
+        } else {
+          await this.sendReply(
+            null,
+            from,
+            `Namaste ${identity.displayName}!\nAap kisi active tournament se linked nahi hain. Details ke liye bidwar.in portal pe login karein.`,
+            input.channel,
+          );
+        }
       }
 
       await this.recordProcessedInboundMessage(input.messageId ?? `data_${Date.now()}`, mobile, input.channel, text);

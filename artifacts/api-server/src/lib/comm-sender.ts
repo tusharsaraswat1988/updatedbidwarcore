@@ -23,18 +23,23 @@ import { logger, maskPhoneNumber } from "./logger";
 import { db } from "@workspace/db";
 import { tournamentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { kvTechMediaProvider } from "./communication/providers/kv-techmedia-provider";
+import { getActiveWhatsAppProvider, resolveWhatsAppProviderId } from "./communication/providers";
 
 export type SendResult = {
   success: boolean;
   messageSid?: string;
   error?: string;
   stub?: boolean;
+  blocked?: boolean;
 };
 
 // ─── Provider Resolution ──────────────────────────────────────────────────────
 
-export function resolveWhatsAppProvider(): "kv_techmedia" | "twilio" | "none" {
+export function resolveWhatsAppProvider(): "kv_techmedia" | "twilio" | "meta_direct" | "mock" | "none" {
+  return resolveWhatsAppProviderId();
+}
+
+function _unusedLegacyResolve(): "kv_techmedia" | "twilio" | "none" {
   const configured = (process.env.WHATSAPP_PROVIDER ?? "").toLowerCase().trim();
   if (configured === "kv_techmedia" || configured === "kvtmedia" || configured === "kv") {
     return "kv_techmedia";
@@ -139,115 +144,42 @@ export async function sendSms(to: string, body: string): Promise<SendResult> {
   return sendBulkSms(to, body);
 }
 
-// ─── Twilio helpers (WhatsApp only) ───────────────────────────────────────────
+// ─── WhatsApp Dispatch via Provider Abstraction ──────────────────────────────
 
-function toE164(mobile: string): string {
-  const digits = mobile.replace(/\D/g, "");
-  if (digits.startsWith("91") && digits.length === 12) return `+${digits}`;
-  if (digits.startsWith("0") && digits.length === 11) return `+91${digits.slice(1)}`;
-  if (digits.length === 10) return `+91${digits}`;
-  return `+${digits}`;
-}
-
-function twilioBasicAuth(): string | null {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  if (!sid || !token) return null;
-  return `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`;
-}
-
-/** Send a WhatsApp message via explicit provider (KV TechMedia or Twilio). */
+/** Send a WhatsApp message via the active configured provider. */
 export async function sendWhatsApp(
   to: string,
   body: string,
   templateSid?: string,
 ): Promise<SendResult> {
-  const provider = resolveWhatsAppProvider();
+  const activeProvider = getActiveWhatsAppProvider();
   const maskedTo = maskPhoneNumber(to);
 
-  logger.info({ provider, to: maskedTo }, "sendWhatsApp: initiating dispatch");
+  logger.info({ provider: activeProvider.providerId, to: maskedTo }, "sendWhatsApp: initiating dispatch");
 
-  if (provider === "kv_techmedia") {
-    const res = await kvTechMediaProvider.send({
-      to,
-      type: "text",
-      textBody: body,
-    });
-    if (!res.success) {
-      logger.error(
-        { provider: "kv_techmedia", to: maskedTo, error: res.error },
-        "KV TechMedia WhatsApp send failed",
-      );
-      return { success: false, error: res.error ?? "KV TechMedia WhatsApp failed" };
-    }
+  const res = await activeProvider.send({
+    to,
+    type: "text",
+    textBody: body,
+    templateSid,
+  });
+
+  if (!res.success) {
+    logger.error(
+      { provider: activeProvider.providerId, to: maskedTo, error: res.error },
+      "WhatsApp send failed",
+    );
     return {
-      success: true,
-      messageSid: res.messageId,
-      stub: res.stub,
+      success: false,
+      error: res.error ?? "WhatsApp send failed",
     };
   }
 
-  if (provider === "twilio") {
-    // Append STOP footer if not already present (WhatsApp Business compliance)
-    const STOP_FOOTER = "\n\nReply STOP to unsubscribe.";
-    const finalBody = body.toUpperCase().includes("STOP") ? body : body + STOP_FOOTER;
-
-    const auth = twilioBasicAuth();
-    const from = process.env.TWILIO_WHATSAPP_FROM; // e.g. "whatsapp:+14155238886"
-    if (!auth || !from) {
-      if (process.env.NODE_ENV === "production") {
-        logger.error({ to: maskedTo }, "Twilio WhatsApp credentials missing in production");
-        return { success: false, error: "Twilio credentials missing in production" };
-      }
-      logger.warn({ to: maskedTo }, "WhatsApp not configured — stub mode");
-      return { success: true, stub: true, messageSid: `stub_wa_${Date.now()}` };
-    }
-    const sid = process.env.TWILIO_ACCOUNT_SID!;
-    const e164 = toE164(to);
-    try {
-      const params: Record<string, string> = {
-        To: `whatsapp:${e164}`,
-        From: from,
-        Body: finalBody,
-      };
-      if (templateSid) params["ContentSid"] = templateSid;
-      const res = await fetch(
-        `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: auth,
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams(params).toString(),
-        },
-      );
-      const data = (await res.json()) as { sid?: string; error_message?: string };
-      if (!res.ok) {
-        logger.error(
-          { to: maskedTo, status: res.status, err: data.error_message },
-          "Twilio WhatsApp send failed",
-        );
-        return { success: false, error: data.error_message ?? "WhatsApp failed" };
-      }
-      return { success: true, messageSid: data.sid };
-    } catch (err) {
-      logger.error({ to: maskedTo, err }, "Twilio WhatsApp send exception");
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : "Unknown error",
-      };
-    }
-  }
-
-  // Neither provider configured
-  if (process.env.NODE_ENV === "production") {
-    logger.error({ to: maskedTo }, "No WhatsApp provider configured in production");
-    return { success: false, error: "WhatsApp provider not configured" };
-  }
-
-  logger.warn({ to: maskedTo }, "WhatsApp not configured — stub mode");
-  return { success: true, stub: true, messageSid: `stub_wa_${Date.now()}` };
+  return {
+    success: true,
+    messageSid: res.messageId,
+    stub: res.stub,
+  };
 }
 
 /**
@@ -288,6 +220,10 @@ export async function sendLicensedWhatsApp(
   body: string,
   templateSid?: string,
 ): Promise<SendResult & { blocked?: boolean }> {
+  if (!to || to.trim() === "") {
+    return { success: false, blocked: true, error: "Missing recipient mobile number" };
+  }
+
   if (tournamentId) {
     const [t] = await db
       .select({
@@ -303,15 +239,23 @@ export async function sendLicensedWhatsApp(
       return sendWhatsApp(to, body, templateSid);
     }
   }
-  // Not licensed or no tournament context — explicit SMS fallback.
-  // Logged at info level so operators can see the channel switch in production.
-  logger.info(
-    { tournamentId: tournamentId ?? null, to: maskPhoneNumber(to) },
-    "sendLicensedWhatsApp: WA not licensed, falling back to SMS",
+
+  // Not licensed, admin-locked, or missing tournament context.
+  // CRITICAL REQUIREMENT (Stage 2): Automatic WhatsApp-to-SMS fallback is strictly ELIMINATED.
+  const reason = !tournamentId
+    ? "Missing tournament context"
+    : "Tournament not licensed or admin-locked for WhatsApp communications";
+
+  logger.warn(
+    { tournamentId: tournamentId ?? null, to: maskPhoneNumber(to), reason },
+    "sendLicensedWhatsApp: WhatsApp dispatch suppressed (unlicensed/blocked); SMS fallback eliminated",
   );
-  const smsMobile = to.replace(/^whatsapp:/i, "").replace(/^\+/, "");
-  const smsResult = await sendSms(smsMobile, body);
-  return { ...smsResult, blocked: true };
+
+  return {
+    success: false,
+    blocked: true,
+    error: reason,
+  };
 }
 
 /** Build the wa.me consent opt-in link for a given consent token. */

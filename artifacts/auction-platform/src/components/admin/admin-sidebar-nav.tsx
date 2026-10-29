@@ -51,6 +51,10 @@ const settingItems: NavItem[] = [
 function isActive(location: string, href: string) {
   if (href === "/admin") return location === "/admin";
   if (href === "/admin/live/auctions") return location.startsWith("/admin/live");
+  if (href === "/admin/tournaments") {
+    // Exact tournaments list or /admin/tournaments/:id, NEVER match /admin/tournaments/sports
+    return location === "/admin/tournaments" || /^\/admin\/tournaments\/\d+/.test(location);
+  }
   return location === href || location.startsWith(`${href}/`);
 }
 

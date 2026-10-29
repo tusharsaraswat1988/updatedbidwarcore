@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type { Request } from "express";
 import { logger, maskPhoneNumber } from "../../logger";
+import type { IWhatsAppProvider } from "./types";
 
 export interface KVTechMediaConfig {
   baseUrl: string;
@@ -59,8 +60,37 @@ export interface NormalizedInboundMessage {
   raw: unknown;
 }
 
-export class KVTechMediaProvider {
+export class KVTechMediaProvider implements IWhatsAppProvider {
   private config: KVTechMediaConfig;
+
+  public readonly providerId = "kv_techmedia" as const;
+
+  /**
+   * Validate required environment configuration for KV TechMedia.
+   */
+  public validateConfig(): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+    const isProduction = process.env.NODE_ENV === "production";
+    const phoneId = this.config.phoneNumberId ?? process.env.KV_META_PHONE_NUMBER_ID;
+    const token = this.config.accessToken ?? process.env.KV_META_ACCESS_TOKEN;
+    const appSecret = this.config.appSecret ?? process.env.KV_META_APP_SECRET;
+    const verifyToken = this.config.verifyToken ?? process.env.KV_WEBHOOK_VERIFY_TOKEN;
+
+    if (!phoneId || phoneId.trim() === "") {
+      errors.push("KV_META_PHONE_NUMBER_ID is missing");
+    }
+    if (!token || token.trim() === "") {
+      errors.push("KV_META_ACCESS_TOKEN is missing");
+    }
+    if (isProduction && (!appSecret || appSecret.trim() === "")) {
+      errors.push("KV_META_APP_SECRET is required in production for secure webhook verification");
+    }
+    if (isProduction && (!verifyToken || verifyToken.trim() === "")) {
+      errors.push("KV_WEBHOOK_VERIFY_TOKEN is required in production for webhook verification challenge");
+    }
+
+    return { valid: errors.length === 0, errors };
+  }
 
   constructor(customConfig?: Partial<KVTechMediaConfig>) {
     this.config = {

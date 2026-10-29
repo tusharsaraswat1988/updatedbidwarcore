@@ -26,7 +26,7 @@ import {
 import { eq, and, desc, or, sql, gt } from "drizzle-orm";
 import { sendSms, sendWhatsApp, sendLicensedWhatsApp, isTournamentLicensedForComm } from "../lib/comm-sender";
 import { logger, maskPhoneNumber } from "../lib/logger";
-import { kvTechMediaProvider } from "../lib/communication/providers/kv-techmedia-provider";
+import { kvTechMediaProvider, metaDirectProvider, resolveWhatsAppProviderId } from "../lib/communication/providers/index.js";
 import { conversationRouter } from "../lib/communication/conversation-router";
 import { randomBytes, scrypt, timingSafeEqual, createHmac, randomInt } from "crypto";
 import { promisify } from "util";
@@ -56,13 +56,19 @@ export function verifyTwilioSignature(req: import("express").Request): boolean {
   const signature = req.headers["x-twilio-signature"] as string | undefined;
   if (!signature) return false;
 
-  const rawProto = (req.headers["x-forwarded-proto"] as string | undefined) ?? "https";
-  const proto = rawProto.split(",")[0].trim().toLowerCase() || "https";
+  const rawProtoHeader = req.headers["x-forwarded-proto"];
+  const rawProto = (Array.isArray(rawProtoHeader) ? rawProtoHeader[0] : (rawProtoHeader as string | undefined)) ?? "https";
+  const proto = (rawProto.split(",")[0] ?? "").trim().toLowerCase() || "https";
+  if (proto !== "https" && proto !== "http") {
+    logger.warn({ proto }, "Twilio webhook rejected: invalid or malformed protocol header");
+    return false;
+  }
 
-  const rawHost = (req.headers["x-forwarded-host"] as string | undefined) ?? req.headers.host ?? "";
-  const host = rawHost.split(",")[0].trim();
-  if (!host) {
-    logger.warn("Twilio webhook rejected: unable to determine host for signature verification");
+  const rawHostHeader = req.headers["x-forwarded-host"];
+  const rawHost = (Array.isArray(rawHostHeader) ? rawHostHeader[0] : (rawHostHeader as string | undefined)) ?? req.headers.host ?? "";
+  const host = (rawHost.split(",")[0] ?? "").trim();
+  if (!host || !/^[a-zA-Z0-9.-]+(:[0-9]+)?$/.test(host)) {
+    logger.warn({ host }, "Twilio webhook rejected: unable to determine valid host for signature verification");
     return false;
   }
 
@@ -275,7 +281,9 @@ async function logConsentEvent(
  * Supports GET hub.challenge verification and POST signed payloads.
  */
 router.get(["/webhooks/kv-meta", "/webhooks/comm-inbound"], (req, res) => {
-  const { isValid, challenge } = kvTechMediaProvider.verifyWebhookChallenge(req);
+  const isMetaDirect = resolveWhatsAppProviderId() === "meta_direct";
+  const verifier = isMetaDirect ? metaDirectProvider : kvTechMediaProvider;
+  const { isValid, challenge } = verifier.verifyWebhookChallenge(req);
   if (isValid && challenge !== undefined) {
     logger.info("Meta/KV TechMedia webhook challenge verified successfully");
     res.status(200).send(challenge);
@@ -296,13 +304,15 @@ const STATUS_RANK: Record<string, number> = {
 };
 
 async function handleMetaWebhook(req: import("express").Request, res: import("express").Response): Promise<void> {
-  if (!kvTechMediaProvider.verifyWebhookSignature(req)) {
+  const isMetaDirect = resolveWhatsAppProviderId() === "meta_direct";
+  const verifier = isMetaDirect ? metaDirectProvider : kvTechMediaProvider;
+  if (!verifier.verifyWebhookSignature(req)) {
     logger.warn("Inbound KV/Meta webhook rejected: invalid signature or missing secret");
     res.status(403).json({ error: "Invalid signature" });
     return;
   }
 
-  const { statuses, messages } = kvTechMediaProvider.normalizeWebhookPayload(req.body);
+  const { statuses, messages } = verifier.normalizeWebhookPayload(req.body);
 
   // 1. Process delivery receipts with monotonic guard
   for (const status of statuses) {
@@ -338,8 +348,9 @@ async function handleMetaWebhook(req: import("express").Request, res: import("ex
   }
 
   // 2. Process inbound messages via unified ConversationRouter
+  let allHandled = true;
   for (const msg of messages) {
-    await conversationRouter.processInboundMessage({
+    const result = await conversationRouter.processInboundMessage({
       from: msg.from,
       channel: "whatsapp",
       text: msg.text ?? "",
@@ -347,6 +358,15 @@ async function handleMetaWebhook(req: import("express").Request, res: import("ex
       raw: msg.raw,
       ip: req.ip ?? null,
     });
+    if (!result.handled) {
+      allHandled = false;
+    }
+  }
+
+  if (!allHandled) {
+    logger.warn("Meta webhook partially or wholly unhandled/locked; requesting retry with 503");
+    res.status(503).json({ error: "Inbound message currently locked or unhandled; retry requested" });
+    return;
   }
 
   res.status(200).json({ success: true });
@@ -374,7 +394,7 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
   const sid = body.MessageSid ?? body.SmsSid ?? `twilio_${Date.now()}`;
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null;
 
-  await conversationRouter.processInboundMessage({
+  const result = await conversationRouter.processInboundMessage({
     from,
     channel,
     text,
@@ -382,6 +402,12 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
     raw: body,
     ip,
   });
+
+  if (!result.handled) {
+    logger.warn({ sid, channel }, "Twilio inbound webhook unhandled or locked; requesting retry with 503");
+    res.status(503).send("<Response/>");
+    return;
+  }
 
   res.status(200).send("<Response/>");
 });
@@ -441,7 +467,9 @@ router.post("/webhooks/wa-quality", async (req, res) => {
 
   let authorized = false;
   if (isMeta) {
-    authorized = kvTechMediaProvider.verifyWebhookSignature(req);
+    const isMetaDirect = resolveWhatsAppProviderId() === "meta_direct";
+    const verifier = isMetaDirect ? metaDirectProvider : kvTechMediaProvider;
+    authorized = verifier.verifyWebhookSignature(req);
   } else if (isTwilio) {
     authorized = verifyTwilioSignature(req);
   } else {

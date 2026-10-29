@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { BadgeCheck, Building2, Phone, RefreshCw, Search, ShieldCheck, Trophy, UserCheck, X } from "lucide-react";
+import { Building2, Check, RefreshCw, Search, Trophy, X } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
 import { Badge } from "@/components/ui/badge";
@@ -10,33 +10,21 @@ import { AdminScrollPanel } from "@/components/admin/admin-scroll-panel";
 import { AdminListHeader } from "@/components/admin/admin-list-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { organizerAccessLabel } from "@workspace/api-base/organizer-account";
+import { displayOrganizerMobile } from "@workspace/api-base/mobile";
 import { AdminOrganizerRow, listAdminOrganizers } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 function phoneStatusOf(o: AdminOrganizerRow): "verified" | "missing_phone" | "incomplete_profile" {
   if (o.phoneStatus) return o.phoneStatus;
-  if (!o.mobile) return "missing_phone";
+  const clean = displayOrganizerMobile(o.mobile);
+  if (!clean) return "missing_phone";
   if (o.phoneVerified) return "verified";
   return "incomplete_profile";
 }
 
-function phoneDisplay(o: AdminOrganizerRow): string {
-  if (!o.mobile) return "Phone Missing";
-  return o.mobile;
-}
-
-function PhoneStatusBadge({ status }: { status: ReturnType<typeof phoneStatusOf> }) {
-  if (status === "verified") {
-    return <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-semibold">Verified</Badge>;
-  }
-  if (status === "missing_phone") {
-    return <Badge className="bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[10px] font-semibold">Phone Missing</Badge>;
-  }
-  return <Badge className="bg-orange-500/15 text-orange-400 border border-orange-500/30 text-[10px] font-semibold">Incomplete Profile</Badge>;
-}
-
 type ExtendedFilter = "all" | "verified" | "missing_phone" | "incomplete_profile" | "locked";
 
-const GRID_COLS = "lg:grid lg:grid-cols-[minmax(200px,1.8fr)_minmax(130px,1.2fr)_minmax(160px,1.6fr)_110px_90px_90px_80px] lg:items-center lg:gap-4";
+const GRID_COLS = "lg:grid lg:grid-cols-[minmax(220px,2fr)_minmax(150px,1.4fr)_minmax(180px,1.6fr)_100px_90px_80px] lg:items-center lg:gap-4";
 
 export default function AdminOrganisersListPage() {
   const [, navigate] = useLocation();
@@ -90,11 +78,12 @@ export default function AdminOrganisersListPage() {
       if (filter === "incomplete_profile" && status !== "incomplete_profile") return false;
 
       const q = search.trim().toLowerCase();
+      const cleanPhone = displayOrganizerMobile(o.mobile) || "";
       return (
         !q ||
         o.name.toLowerCase().includes(q) ||
         String(o.id).includes(q) ||
-        (o.mobile ?? "").includes(q) ||
+        cleanPhone.includes(q) ||
         (o.email || "").toLowerCase().includes(q)
       );
     });
@@ -107,7 +96,6 @@ export default function AdminOrganisersListPage() {
       <div className="rounded-xl border border-border bg-card/70 shadow-sm overflow-hidden">
         {/* Top Search & Refresh Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border p-3 gap-3 bg-card/50">
-          {/* Left: Compact Search */}
           <div className="relative w-full sm:w-72 flex-shrink-0">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -118,6 +106,7 @@ export default function AdminOrganisersListPage() {
             />
             {search && (
               <button
+                type="button"
                 onClick={() => setSearch("")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
@@ -126,7 +115,6 @@ export default function AdminOrganisersListPage() {
             )}
           </div>
 
-          {/* Right: Quick Stats & Refresh */}
           <div className="flex items-center gap-2 self-end sm:self-auto">
             <Button
               size="sm"
@@ -147,33 +135,36 @@ export default function AdminOrganisersListPage() {
             <button
               type="button"
               onClick={() => setFilter("all")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
                 filter === "all"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "bg-muted/40 text-muted-foreground hover:text-foreground"
-              }`}
+              )}
             >
               All ({organisers.length})
             </button>
             <button
               type="button"
               onClick={() => setFilter("verified")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
                 filter === "verified"
-                  ? "bg-emerald-500 text-white shadow-xs"
-                  : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-              }`}
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-muted/40 text-muted-foreground hover:text-foreground"
+              )}
             >
               Verified ({counts.verified})
             </button>
             <button
               type="button"
               onClick={() => setFilter("missing_phone")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
+              className={cn(
+                "rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
                 filter === "missing_phone"
-                  ? "bg-amber-500 text-white shadow-xs"
-                  : "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-              }`}
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-muted/40 text-muted-foreground hover:text-foreground"
+              )}
             >
               Missing Phone ({counts.missing})
             </button>
@@ -181,11 +172,12 @@ export default function AdminOrganisersListPage() {
               <button
                 type="button"
                 onClick={() => setFilter("incomplete_profile")}
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
                   filter === "incomplete_profile"
-                    ? "bg-orange-500 text-white shadow-xs"
-                    : "bg-orange-500/10 text-orange-400 hover:bg-orange-500/20"
-                }`}
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "bg-muted/40 text-muted-foreground hover:text-foreground"
+                )}
               >
                 Incomplete Profile ({counts.incomplete})
               </button>
@@ -194,11 +186,12 @@ export default function AdminOrganisersListPage() {
               <button
                 type="button"
                 onClick={() => setFilter("locked")}
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
                   filter === "locked"
-                    ? "bg-red-500 text-white shadow-xs"
-                    : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                }`}
+                    ? "bg-destructive text-destructive-foreground shadow-xs"
+                    : "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                )}
               >
                 Locked ({counts.locked})
               </button>
@@ -206,18 +199,17 @@ export default function AdminOrganisersListPage() {
           </div>
 
           <div className="text-[11px] font-medium text-muted-foreground">
-            Showing <span className="text-foreground font-bold">{filtered.length}</span> of {organisers.length} organisers · Sorted latest first
+            {filtered.length} {filtered.length === 1 ? "organiser" : "organisers"} · Latest first
           </div>
         </div>
 
-        {/* Table Header with strictly matched grid columns */}
+        {/* Table Header */}
         <AdminListHeader
           gridClassName={GRID_COLS}
           columns={[
             { label: "Organiser" },
             { label: "Phone" },
             { label: "Email" },
-            { label: "Phone status" },
             { label: "Status" },
             { label: "Tournaments" },
             { label: "Action", align: "right" },
@@ -254,11 +246,13 @@ export default function AdminOrganisersListPage() {
           ) : (
             <div className="divide-y divide-border">
               {filtered.map((o) => {
-                const phoneStatus = phoneStatusOf(o);
                 const isLocked = organizerAccessLabel(o.licenseStatus) === "locked";
+                const cleanPhone = displayOrganizerMobile(o.mobile);
+
                 return (
                   <button
                     key={o.id}
+                    type="button"
                     onClick={() => navigate(`/admin/organisers/${o.id}`)}
                     className={`block w-full border-b border-border p-3.5 text-left text-sm hover:bg-accent/40 transition-colors ${GRID_COLS} lg:border-b-0`}
                   >
@@ -268,7 +262,7 @@ export default function AdminOrganisersListPage() {
                         {o.name.slice(0, 2).toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-bold text-foreground text-sm truncate hover:text-primary transition-colors">
+                        <div className="font-semibold text-foreground text-sm truncate hover:text-primary transition-colors">
                           {o.name}
                         </div>
                         <div className="text-[11px] text-muted-foreground">
@@ -278,10 +272,21 @@ export default function AdminOrganisersListPage() {
                     </div>
 
                     {/* Col 2: Phone */}
-                    <div className="min-w-0 mt-1.5 lg:mt-0">
-                      <span className={`block truncate text-xs ${!o.mobile ? "text-amber-400 font-medium" : "text-foreground font-mono"}`}>
-                        {phoneDisplay(o)}
-                      </span>
+                    <div className="min-w-0 mt-1.5 lg:mt-0 flex items-center gap-1.5">
+                      {cleanPhone ? (
+                        <>
+                          <span className="font-mono text-xs text-foreground">{cleanPhone}</span>
+                          {o.phoneVerified ? (
+                            <span title="Verified mobile" className="inline-flex items-center text-emerald-400">
+                              <Check className="w-3.5 h-3.5" />
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground">(unverified)</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">No phone on file</span>
+                      )}
                     </div>
 
                     {/* Col 3: Email */}
@@ -291,36 +296,32 @@ export default function AdminOrganisersListPage() {
                       </span>
                     </div>
 
-                    {/* Col 4: Phone Status */}
-                    <div className="mt-1.5 lg:mt-0">
-                      <PhoneStatusBadge status={phoneStatus} />
-                    </div>
-
-                    {/* Col 5: Account Status */}
+                    {/* Col 4: Account Status */}
                     <div className="mt-1.5 lg:mt-0">
                       <Badge
-                        className={`text-[10px] font-semibold ${
+                        className={cn(
+                          "text-[10px] font-semibold",
                           !isLocked
                             ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                            : "bg-red-500/15 text-red-400 border border-red-500/30"
-                        }`}
+                            : "bg-destructive/15 text-destructive border border-destructive/30"
+                        )}
                       >
                         {!isLocked ? "Active" : "Locked"}
                       </Badge>
                     </div>
 
-                    {/* Col 6: Tournaments Count */}
+                    {/* Col 5: Tournaments Count */}
                     <div className="mt-1.5 text-xs lg:mt-0">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-muted/30 px-2 py-0.5 font-bold text-foreground">
-                        <Trophy className="h-3 w-3 text-amber-400" />
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-muted/40 px-2.5 py-1 text-xs font-medium text-foreground">
+                        <Trophy className="h-3 w-3 text-primary/70" />
                         {o.tournamentCount}
                       </span>
                     </div>
 
-                    {/* Col 7: Action */}
-                    <div className="mt-2.5 text-xs font-bold text-primary lg:mt-0 lg:text-right">
-                      <span className="inline-block rounded-md bg-primary/10 px-2.5 py-1 hover:bg-primary/20 transition-colors">
-                        Open →
+                    {/* Col 6: Action */}
+                    <div className="mt-2.5 text-xs font-semibold text-primary lg:mt-0 lg:text-right">
+                      <span className="inline-block rounded-md px-2.5 py-1 hover:bg-primary/10 transition-colors">
+                        Manage →
                       </span>
                     </div>
                   </button>

@@ -43,12 +43,13 @@ describe("Phase 3 — Identity Conversation Router & Inbound Messaging Ingestion
         displayName: "Suresh Raina",
         primaryMobile: "919876543210",
         accountStatus: "active",
+        isMobileVerified: true,
       };
       const mockRoles = [
         { id: 1, memberId: "mem_test123", role: "player", tournamentId: 42 },
       ];
       const mockLinks = [
-        { id: 1, memberId: "mem_test123", sourceTable: "players", sourceRecordId: "101", status: "active" },
+        { id: 1, memberId: "mem_test123", sourceTable: "players", sourceRecordId: "101", status: "active", confidenceScore: 100 },
       ];
 
       vi.spyOn(db, "select").mockImplementation(((fields: any) => {

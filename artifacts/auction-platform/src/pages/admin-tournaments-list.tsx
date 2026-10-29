@@ -7,13 +7,13 @@ import {
   Calendar,
   Lock,
   Plus,
-  Radio,
   RefreshCw,
   Search,
   Trophy,
   UserCheck,
   X,
 } from "lucide-react";
+import { displayOrganizerMobile } from "@workspace/api-base/mobile";
 import { AdminShell } from "@/components/admin-shell";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
 import { Badge } from "@/components/ui/badge";
@@ -28,9 +28,6 @@ import {
 } from "@/lib/auth";
 import {
   CreateTournamentModal,
-  LicenseBadge,
-  LockBadge,
-  StatusBadge,
 } from "@/pages/admin";
 
 function getSportTag(sportName?: string) {
@@ -44,9 +41,82 @@ function getSportTag(sportName?: string) {
   return { label: sportName || "Sports", emoji: "🏆", color: "bg-primary/15 text-primary border-primary/30" };
 }
 
+function formatSchedule(dateStr?: string | null, timeStr?: string | null) {
+  if (!dateStr) return "Not scheduled";
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const formatted = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      return timeStr ? `${formatted} · ${timeStr}` : formatted;
+    }
+  } catch {}
+  return `${dateStr}${timeStr ? ` · ${timeStr}` : ""}`;
+}
+
+function UnifiedTournamentStatus({
+  status,
+  adminLocked,
+}: {
+  status: string;
+  adminLocked: boolean;
+}) {
+  if (adminLocked) {
+    return (
+      <Badge className="bg-red-500/15 text-red-400 border border-red-500/30 gap-1 text-[11px] font-semibold">
+        <Lock className="w-2.5 h-2.5" /> Locked
+      </Badge>
+    );
+  }
+  if (status === "active") {
+    return (
+      <Badge className="bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 gap-1.5 text-[11px] font-semibold">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+        Live
+      </Badge>
+    );
+  }
+  if (status === "completed") {
+    return (
+      <Badge className="bg-blue-500/15 text-blue-400 border border-blue-500/30 text-[11px] font-semibold">
+        Completed
+      </Badge>
+    );
+  }
+  return (
+    <Badge className="bg-muted/40 text-muted-foreground border border-border text-[11px] font-semibold capitalize">
+      {status || "Setup"}
+    </Badge>
+  );
+}
+
+function LicenseTierBadge({ status }: { status: string }) {
+  if (status === "active") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+        <BadgeCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+        Production
+      </span>
+    );
+  }
+  if (status === "completed") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-400">
+        <BadgeCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+        Archived
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400">
+      <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+      Trial
+    </span>
+  );
+}
+
 type FilterStatus = "all" | "active" | "trial" | "completed" | "locked";
 
-const GRID_COLS = "lg:grid lg:grid-cols-[minmax(200px,1.8fr)_minmax(130px,1fr)_100px_135px_160px_80px] lg:items-center lg:gap-3";
+const GRID_COLS = "lg:grid lg:grid-cols-[minmax(220px,1.8fr)_minmax(140px,1.2fr)_105px_115px_150px_75px] lg:items-center lg:gap-3";
 
 export default function AdminTournamentsListPage() {
   const [, navigate] = useLocation();
@@ -116,11 +186,12 @@ export default function AdminTournamentsListPage() {
       // Search query
       if (!search.trim()) return true;
       const q = search.trim().toLowerCase();
+      const cleanMobile = displayOrganizerMobile(t.organizerMobile) || "";
       return (
         t.name.toLowerCase().includes(q) ||
         String(t.id).includes(q) ||
         (t.sport && t.sport.toLowerCase().includes(q)) ||
-        (t.organizerMobile && t.organizerMobile.toLowerCase().includes(q)) ||
+        cleanMobile.includes(q) ||
         (t.organizerEmail && t.organizerEmail.toLowerCase().includes(q)) ||
         (t.organizerName && t.organizerName.toLowerCase().includes(q))
       );
@@ -132,9 +203,9 @@ export default function AdminTournamentsListPage() {
   return (
     <AdminShell
       title="Tournaments"
-      eyebrow="Tournament & Organisers"
+      eyebrow="Tournament Management"
       actions={
-        <Button size="sm" className="gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 font-semibold text-white shadow-sm" onClick={() => setCreateOpen(true)}>
+        <Button size="sm" className="gap-1.5 font-semibold text-white shadow-sm" onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" /> New Tournament
         </Button>
       }
@@ -148,7 +219,7 @@ export default function AdminTournamentsListPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search tournament, ID, sport..."
+              placeholder="Search tournament, ID, sport, host..."
               className="h-8.5 pl-8 pr-7 text-xs bg-background/70 border-border"
             />
             {search && (
@@ -213,7 +284,7 @@ export default function AdminTournamentsListPage() {
                   : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
               }`}
             >
-              Active / Live ({counts.active})
+              Live ({counts.active})
             </button>
             <button
               onClick={() => setStatusFilter("trial")}
@@ -229,8 +300,8 @@ export default function AdminTournamentsListPage() {
               onClick={() => setStatusFilter("completed")}
               className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
                 statusFilter === "completed"
-                  ? "bg-sky-500 text-white shadow-xs"
-                  : "bg-sky-500/10 text-sky-400 hover:bg-sky-500/20"
+                  ? "bg-blue-500 text-white shadow-xs"
+                  : "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20"
               }`}
             >
               Completed ({counts.completed})
@@ -250,7 +321,9 @@ export default function AdminTournamentsListPage() {
           </div>
 
           <div className="text-[11px] font-medium text-muted-foreground">
-            Showing <span className="text-foreground font-bold">{filtered.length}</span> of {tournaments.length} tournaments · Sorted latest first
+            {filtered.length === tournaments.length
+              ? `${tournaments.length} tournaments · Latest first`
+              : `Showing ${filtered.length} of ${tournaments.length} tournaments`}
           </div>
         </div>
 
@@ -262,7 +335,7 @@ export default function AdminTournamentsListPage() {
             { label: "Organiser" },
             { label: "Status" },
             { label: "License" },
-            { label: "Auction Date" },
+            { label: "Schedule" },
             { label: "Action", align: "right" },
           ]}
         />
@@ -305,6 +378,7 @@ export default function AdminTournamentsListPage() {
             <div className="divide-y divide-border">
               {filtered.map((t) => {
                 const sport = getSportTag(t.sport);
+                const safeMobile = displayOrganizerMobile(t.organizerMobile);
                 return (
                   <button
                     key={t.id}
@@ -335,30 +409,37 @@ export default function AdminTournamentsListPage() {
                     {/* Col 2: Organiser */}
                     <div className="min-w-0 mt-1.5 lg:mt-0">
                       <span className="block truncate text-xs font-medium text-foreground/90">
-                        {t.organizerName || <span className="text-muted-foreground italic">Unlinked Organiser</span>}
+                        {t.organizerName || <span className="text-muted-foreground italic">Unlinked Host</span>}
                       </span>
-                      {t.organizerMobile && (
+                      {safeMobile ? (
+                        <span className="block truncate text-[11px] text-muted-foreground font-mono">
+                          {safeMobile}
+                        </span>
+                      ) : t.organizerEmail ? (
                         <span className="block truncate text-[11px] text-muted-foreground">
-                          {t.organizerMobile}
+                          {t.organizerEmail}
+                        </span>
+                      ) : (
+                        <span className="block truncate text-[11px] text-muted-foreground/60">
+                          No contact on file
                         </span>
                       )}
                     </div>
 
                     {/* Col 3: Status */}
                     <div className="mt-1.5 flex items-center gap-2 lg:mt-0">
-                      <StatusBadge status={t.status} />
+                      <UnifiedTournamentStatus status={t.status} adminLocked={t.adminLocked} />
                     </div>
 
-                    {/* Col 4: License */}
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 min-w-0 lg:mt-0">
-                      <LicenseBadge status={t.licenseStatus} />
-                      {t.adminLocked && <LockBadge locked />}
+                    {/* Col 4: License Tier */}
+                    <div className="mt-1.5 flex items-center gap-1.5 min-w-0 lg:mt-0">
+                      <LicenseTierBadge status={t.licenseStatus} />
                     </div>
 
-                    {/* Col 5: Auction Date */}
+                    {/* Col 5: Schedule */}
                     <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground min-w-0 lg:mt-0">
-                      <Calendar className="h-3 w-3 text-muted-foreground/60 flex-shrink-0 hidden lg:inline" />
-                      <span className="truncate">{t.auctionDate ? `${t.auctionDate}${t.auctionTime ? ` (${t.auctionTime})` : ''}` : "Not scheduled"}</span>
+                      <Calendar className="h-3.5 w-3.5 text-muted-foreground/60 flex-shrink-0 hidden lg:inline" />
+                      <span className="truncate">{formatSchedule(t.auctionDate, t.auctionTime)}</span>
                     </div>
 
                     {/* Col 6: Action */}

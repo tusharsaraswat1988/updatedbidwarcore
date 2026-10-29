@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** Scrollable list panels inside AdminShell (tournaments, players, organisers). */
+/** Scrollable list panels inside AdminShell (tournaments, players, organisers). Horizontal scroll for tables; vertical flow. */
 export const ADMIN_LIST_SCROLL_CLASS =
-  "max-h-[72vh] md:max-h-[calc(100dvh-18rem)] overflow-y-auto overscroll-y-contain";
+  "w-full overflow-x-auto";
 
 /** Scroll region that fills a flex column parent (detail panels, sidebars). */
 export const ADMIN_FLEX_SCROLL_CLASS =

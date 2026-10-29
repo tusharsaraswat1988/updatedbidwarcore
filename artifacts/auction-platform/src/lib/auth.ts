@@ -85,7 +85,7 @@ export async function listAdminTournaments(): Promise<AdminTournamentRow[]> {
 
 export async function createAdminTournament(data: {
   name: string; sport: string; city: string; venue?: string; auctionDate?: string; auctionTime?: string;
-  organizerName?: string; organizerMobile?: string; organizerEmail?: string;
+  organizerId?: number; organizerName?: string; organizerMobile?: string; organizerEmail?: string;
   organizerPassword?: string; basePurse?: number; minBid?: number;
   timerSeconds?: number; bidTimerSeconds?: number;
   auctionEnabled?: boolean; scoringEnabled?: boolean;

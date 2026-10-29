@@ -30,11 +30,14 @@ import {
   Zap,
 } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
+import { displayOrganizerMobile } from "@workspace/api-base/mobile";
+import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LiveAuctionMonitor } from "@/components/admin/live-auction-monitor";
 import { LiveConnectedEndpointsPanel } from "@/components/admin/live-connected-endpoints-panel";
 import { LiveEmergencyPanel } from "@/components/admin/live-emergency-panel";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -288,7 +291,7 @@ export default function AdminTournamentDetailPage() {
   const licenseRequest = detail?.licenseRequest;
 
   return (
-    <AdminShell title="Tournament Operations & Controls">
+    <AdminShell title="Tournament Operations & Controls" eyebrow="Tournament & Organisers › Operations">
       {loading || !t || tournamentId == null ? (
         <div className="space-y-4">
           <Skeleton className="h-8 w-48" />
@@ -312,85 +315,114 @@ export default function AdminTournamentDetailPage() {
           )}
 
           {/* Module-Aware Tournament Identity & Header */}
-          <div className="rounded-xl border border-border bg-card/70 p-4">
+          <div className="rounded-xl border border-border bg-card/70 p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
+              <div className="space-y-1.5 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-md bg-primary/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-primary border border-primary/30">
+                  <h2 className="text-xl font-bold text-foreground truncate">{t.name}</h2>
+                  <span className="rounded-md bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 text-xs font-semibold capitalize">
                     {t.sport}
                   </span>
 
                   {/* Product Mode Pill */}
                   {isAuctionOnly && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-amber-300 border border-amber-500/30">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300 border border-amber-500/20">
                       <Gavel className="h-3 w-3" /> Auction Only
                     </span>
                   )}
                   {isScoringOnly && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-emerald-300 border border-emerald-500/30">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-300 border border-emerald-500/20">
                       <Trophy className="h-3 w-3" /> Scoring Only
                     </span>
                   )}
                   {isDualModule && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/15 px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-blue-300 border border-blue-500/30">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-300 border border-blue-500/20">
                       <Sparkles className="h-3 w-3" /> Dual Module (Auction + Scoring)
                     </span>
                   )}
 
-                  {/* Tournament Status */}
-                  <StatusPill tone={t.status === "active" ? "green" : t.status === "completed" ? "blue" : "muted"}>
-                    {t.status.toUpperCase()}
-                  </StatusPill>
-
-                  {/* Module-Aware License & Phase Status */}
-                  {isAuctionOnly && (
-                    <StatusPill tone={t.licenseStatus === "active" ? "green" : t.licenseStatus === "completed" ? "blue" : "amber"}>
-                      {t.licenseStatus === "active" ? "Live License" : t.licenseStatus === "completed" ? "Auction Completed" : "Trial License"}
-                    </StatusPill>
-                  )}
-
-                  {isScoringOnly && (
-                    <>
-                      <StatusPill tone={t.licenseStatus === "active" ? "green" : "amber"}>
-                        {t.licenseStatus === "active" ? "Live License" : "Trial License"}
-                      </StatusPill>
-                      <StatusPill tone={t.scoringPhase === "active" ? "green" : t.scoringPhase === "completed" ? "blue" : "amber"}>
-                        {`Scoring Phase: ${(t.scoringPhase ?? "setup").toUpperCase()}`}
-                      </StatusPill>
-                    </>
-                  )}
-
-                  {isDualModule && (
-                    <>
-                      <StatusPill tone={t.licenseStatus === "active" ? "green" : t.licenseStatus === "completed" ? "blue" : "amber"}>
-                        {`Auction: ${t.licenseStatus === "active" ? "Live" : t.licenseStatus === "completed" ? "Completed" : "Trial"}`}
-                      </StatusPill>
-                      <StatusPill tone={t.scoringPhase === "active" ? "green" : t.scoringPhase === "completed" ? "blue" : "amber"}>
-                        {`Scoring: ${(t.scoringPhase ?? "setup").toUpperCase()}`}
-                      </StatusPill>
-                    </>
-                  )}
-
-                  {t.adminLocked && <StatusPill tone="red">Emergency Locked</StatusPill>}
-
-                  {t.localModeEnabled ? (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-300 border border-amber-500/30">
-                      <MonitorDown className="h-3 w-3" /> Local Mode
+                  {/* Unified Tournament Status */}
+                  {t.adminLocked ? (
+                    <span className="rounded-md bg-destructive/15 text-destructive border border-destructive/30 px-2 py-0.5 text-xs font-semibold">
+                      Emergency Locked
                     </span>
-                  ) : null}
+                  ) : (
+                    <span
+                      className={cn(
+                        "rounded-md px-2 py-0.5 text-xs font-semibold border flex items-center gap-1.5",
+                        t.status === "active"
+                          ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                          : t.status === "completed"
+                          ? "bg-blue-500/15 text-blue-400 border-blue-500/30"
+                          : "bg-muted/40 text-muted-foreground border-border"
+                      )}
+                    >
+                      {t.status === "active" && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                      )}
+                      {t.status === "active" ? "Live" : t.status === "completed" ? "Completed" : "Setup"}
+                    </span>
+                  )}
+
+                  {/* License Tier */}
+                  <span
+                    className={cn(
+                      "rounded-md px-2 py-0.5 text-xs font-semibold border",
+                      t.licenseStatus === "active"
+                        ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                        : "bg-amber-500/15 text-amber-400 border-amber-500/30"
+                    )}
+                  >
+                    {t.licenseStatus === "active" ? "Production License" : "Trial License"}
+                  </span>
+
+                  {t.localModeEnabled && (
+                    <span className="rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 text-xs font-medium flex items-center gap-1">
+                      <MonitorDown className="w-3 h-3" /> Local Mode
+                    </span>
+                  )}
                 </div>
 
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  Tournament ID <span className="font-mono text-white/90">#{t.id}</span> · Venue: <span className="text-white/90">{t.venue || "No venue"}</span> · Date: <span className="text-white/90">{t.auctionDate || "No date"}{t.auctionTime ? ` · ${t.auctionTime}` : ""}</span> {t.organizerName ? `· Linked Organiser: ${t.organizerName}` : ""}
-                </p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span>ID <strong className="font-mono text-foreground">#{t.id}</strong></span>
+                  <span>·</span>
+                  <span>{t.venue ? `${t.venue}, ` : ""}{t.city || "Venue TBD"}</span>
+                  <span>·</span>
+                  <span>
+                    {t.auctionDate
+                      ? new Date(t.auctionDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                      : "Unscheduled"}
+                    {t.auctionTime ? ` · ${t.auctionTime}` : ""}
+                  </span>
+                  {t.organizerName && (
+                    <>
+                      <span>·</span>
+                      <span>
+                        Host: <strong className="text-foreground">{t.organizerName}</strong>
+                        {t.organizerMobile && displayOrganizerMobile(t.organizerMobile) ? (
+                          <span className="font-mono text-muted-foreground ml-1">
+                            ({displayOrganizerMobile(t.organizerMobile)})
+                          </span>
+                        ) : null}
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
 
-              {/* Module-Aware Compact KPI Stats Strip */}
+              {/* High-Level Overview Metrics */}
               <div className="flex flex-wrap items-center gap-2 sm:gap-3 border-t border-border/60 pt-3 lg:border-t-0 lg:pt-0">
-                {/* Players */}
-                <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-1.5 text-center min-w-[70px]">
+                <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-2 text-center min-w-[70px]">
+                  <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Teams</div>
+                  <div className="text-sm font-bold text-foreground">{detail.teams.length}</div>
+                </div>
+
+                <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-2 text-center min-w-[70px]">
                   <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Players</div>
-                  <div className="text-sm font-black text-white">
+                  <div className="text-sm font-bold text-foreground">
                     {detail.players.length}
                     {!isScoringOnly && soldCount > 0 && (
                       <span className="text-xs font-normal text-muted-foreground ml-1">({soldCount} sold)</span>
@@ -398,47 +430,39 @@ export default function AdminTournamentDetailPage() {
                   </div>
                 </div>
 
-                {/* Teams */}
-                <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-1.5 text-center min-w-[60px]">
-                  <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Teams</div>
-                  <div className="text-sm font-black text-white">{detail.teams.length}</div>
-                </div>
-
-                {/* Auction-Specific Stats (Hidden for Scoring-Only) */}
                 {!isScoringOnly && (
                   <>
-                    <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-1.5 text-center min-w-[85px]">
+                    <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-2 text-center min-w-[85px]">
                       <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Base Purse</div>
-                      <div className="text-sm font-black text-primary">₹{t.basePurse.toLocaleString("en-IN")}</div>
+                      <div className="text-sm font-bold text-primary">₹{(t.basePurse / 10000000).toFixed(2)} Cr</div>
                     </div>
-                    <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-1.5 text-center min-w-[70px]">
+                    <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-2 text-center min-w-[70px]">
                       <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Bid Events</div>
-                      <div className="text-sm font-black text-white">{detail.recentBids.length}</div>
+                      <div className="text-sm font-bold text-foreground">{detail.recentBids.length}</div>
                     </div>
                   </>
                 )}
 
-                {/* Scoring-Specific Stats (Hidden for Auction-Only) */}
                 {!isAuctionOnly && (
                   <>
-                    <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-1.5 text-center min-w-[70px]">
+                    <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-2 text-center min-w-[70px]">
                       <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Matches</div>
-                      <div className="text-sm font-black text-emerald-400">
+                      <div className="text-sm font-bold text-emerald-400">
                         {matchCounts.total}
                         {matchCounts.live > 0 && (
-                          <span className="text-xs font-bold text-red-400 ml-1">({matchCounts.live} live)</span>
+                          <span className="text-xs text-red-400 ml-1">({matchCounts.live} live)</span>
                         )}
                       </div>
                     </div>
                     {isScoringOnly && (
                       <>
-                        <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-1.5 text-center min-w-[65px]">
+                        <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-2 text-center min-w-[65px]">
                           <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Completed</div>
-                          <div className="text-sm font-black text-blue-400">{matchCounts.completed}</div>
+                          <div className="text-sm font-bold text-blue-400">{matchCounts.completed}</div>
                         </div>
-                        <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-1.5 text-center min-w-[65px]">
+                        <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-2 text-center min-w-[65px]">
                           <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Upcoming</div>
-                          <div className="text-sm font-black text-muted-foreground">{matchCounts.upcoming}</div>
+                          <div className="text-sm font-bold text-muted-foreground">{matchCounts.upcoming}</div>
                         </div>
                       </>
                     )}
@@ -531,7 +555,6 @@ export default function AdminTournamentDetailPage() {
               <DataTabLink id="overview" label="Overview & Controls" tournamentId={tournamentId} active={tab} />
               <DataTabLink id="players" label={`Players (${detail.players.length})`} tournamentId={tournamentId} active={tab} />
               <DataTabLink id="teams" label={`Teams (${detail.teams.length})`} tournamentId={tournamentId} active={tab} />
-              {/* Bid Log tab hidden for Scoring-Only */}
               {!isScoringOnly && (
                 <DataTabLink id="bids" label={`Bid Log (${detail.recentBids.length})`} tournamentId={tournamentId} active={tab} />
               )}
@@ -542,14 +565,14 @@ export default function AdminTournamentDetailPage() {
               {!isScoringOnly && (
                 <LiveOpsTabLink
                   section="monitor"
-                  label="Live Auction Monitor"
+                  label="Live Monitor"
                   tournamentId={tournamentId}
                   active={tab}
                 />
               )}
               <LiveOpsTabLink
                 section="endpoints"
-                label="Connected Endpoints & Sessions"
+                label="Endpoints & Sessions"
                 tournamentId={tournamentId}
                 active={tab}
               />
@@ -558,489 +581,260 @@ export default function AdminTournamentDetailPage() {
 
           {/* TAB: OVERVIEW & PROMINENT CONTROLS */}
           {tab === "overview" ? (
-            <div className="space-y-4">
-              {/* PROMINENT CONTROL CENTER SECTION */}
-              <div className="rounded-xl border border-primary/30 bg-gradient-to-br from-card/90 via-card/70 to-card/50 p-5 shadow-lg">
-                <div className="flex items-center justify-between border-b border-border/80 pb-3 mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-primary">
-                      <Zap className="h-4 w-4" />
+            <div className="space-y-6">
+              {/* Dual-Lifecycle Architecture Context Note */}
+              <div className="rounded-lg border border-border/60 bg-muted/20 px-3.5 py-2.5 text-xs text-muted-foreground flex items-center justify-between">
+                <span>
+                  <strong className="text-foreground">Dual-Lifecycle Decoupling: </strong>
+                  Concluding an auction does not conclude or lock match scoring. Modules operate independently.
+                </span>
+                <span className="text-[11px] text-muted-foreground/80 font-mono">
+                  Module: {productMode.replace("_", " ").toUpperCase()}
+                </span>
+              </div>
+
+              {/* SECTION 1: OPERATIONS & LIFECYCLE CONTROLS */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Panel 1: Engine Lifecycle & License Management */}
+                <div className="rounded-xl border border-border bg-card/70 p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-border pb-3">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-primary" />
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">
+                          {isDualModule ? "Dual-Module Lifecycles" : "Tournament Lifecycle & Licensing"}
+                        </h3>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">Authoritative module state transitions.</p>
+                      </div>
                     </div>
-                    <div>
-                      <h2 className="font-display text-base font-black text-white tracking-wide">
-                        Tournament Operations & Controls
-                      </h2>
-                      <p className="text-xs text-muted-foreground">
-                        Live lifecycle licensing, runtime modes, feature engines, and safety resets.
-                      </p>
-                    </div>
-                  </div>
-                  {!isMaster && (
-                    <span className="rounded-md bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-300 border border-amber-500/20">
-                      Read-Only Mode
-                    </span>
-                  )}
-                </div>
-
-                {/* Architectural Invariants Notice */}
-                <div className="mb-4 rounded-lg border border-border/60 bg-muted/15 p-2.5 text-xs text-muted-foreground leading-relaxed">
-                  <strong className="text-white">Dual-Lifecycle Decoupling: </strong>
-                  Auction and Sports Scoring lifecycles operate independently. Concluding an auction does not conclude or lock match scoring. Scorer live write operations require an active tournament license.
-                </div>
-
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                  {/* CARD 1: MODULE-AWARE LICENSING & LIFECYCLE */}
-                  <div className="rounded-xl border border-border/80 bg-muted/10 p-4 flex flex-col justify-between space-y-4">
-                    {/* SCENARIO A: SCORING-ONLY */}
-                    {isScoringOnly ? (
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Trophy className="h-4 w-4 text-emerald-400" />
-                            <span className="text-xs font-bold uppercase tracking-wider text-white">
-                              Sports Scoring Lifecycle
-                            </span>
-                          </div>
-                          <StatusPill tone={t.scoringPhase === "active" ? "green" : t.scoringPhase === "completed" ? "blue" : "amber"}>
-                            {(t.scoringPhase ?? "setup").toUpperCase()}
-                          </StatusPill>
-                        </div>
-
-                        {/* Authoritative Phase Controller */}
-                        <div className="rounded-lg border border-border/60 bg-card/60 p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-white">Scoring Phase Controls</span>
-                            <span className="text-[11px] text-muted-foreground">Super admin audit required</span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-1.5 pt-1">
-                            <Button
-                              size="sm"
-                              variant={t.scoringPhase === "setup" ? "secondary" : "outline"}
-                              className={`h-8 text-xs ${t.scoringPhase === "setup" ? "border-amber-500/40 text-amber-300" : ""}`}
-                              disabled={!isMaster || t.scoringPhase === "setup" || !!actionLoading}
-                              onClick={() => setPendingScoringPhase("setup")}
-                            >
-                              Setup
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={t.scoringPhase === "active" ? "secondary" : "outline"}
-                              className={`h-8 text-xs ${t.scoringPhase === "active" ? "border-green-500/40 text-green-300" : ""}`}
-                              disabled={!isMaster || t.scoringPhase === "active" || !!actionLoading}
-                              onClick={() => setPendingScoringPhase("active")}
-                            >
-                              Active / Live
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={t.scoringPhase === "completed" ? "secondary" : "outline"}
-                              className={`h-8 text-xs ${t.scoringPhase === "completed" ? "border-blue-500/40 text-blue-300" : ""}`}
-                              disabled={!isMaster || t.scoringPhase === "completed" || !!actionLoading}
-                              onClick={() => setPendingScoringPhase("completed")}
-                            >
-                              Completed
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Tournament License Status & Upgrade */}
-                        <div className="rounded-lg border border-border/60 bg-card/60 p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="text-xs font-semibold text-white">Tournament License Status</div>
-                              <div className="text-[11px] text-muted-foreground">
-                                {t.licenseStatus === "active" ? "Live production license active" : "Trial mode — limited live access"}
-                              </div>
-                            </div>
-                            <StatusPill tone={t.licenseStatus === "active" ? "green" : "amber"}>
-                              {t.licenseStatus === "active" ? "LIVE" : "TRIAL"}
-                            </StatusPill>
-                          </div>
-
-                          {isMaster && (
-                            <div className="pt-1">
-                              {t.licenseStatus !== "active" ? (
-                                <Button
-                                  size="sm"
-                                  className="w-full h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5"
-                                  onClick={() => requestLicenseChange("Switch to Live License", "active")}
-                                >
-                                  <BadgeCheck className="h-3.5 w-3.5" />
-                                  Upgrade / Grant Live License
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="w-full h-8 text-xs text-amber-300 border-amber-500/40 hover:bg-amber-500/10 gap-1.5"
-                                  onClick={() => requestLicenseChange("Switch to Trial", "trial")}
-                                >
-                                  Switch to Trial License
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : isDualModule ? (
-                      /* SCENARIO B: DUAL-MODULE (AUCTION + SCORING) */
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Sparkles className="h-4 w-4 text-blue-400" />
-                            <span className="text-xs font-bold uppercase tracking-wider text-white">
-                              Dual-Module Lifecycles
-                            </span>
-                          </div>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Co-Equal
-                          </span>
-                        </div>
-
-                        {/* Sub-Section 1: Auction Lifecycle */}
-                        <div className="rounded-lg border border-border/60 bg-card/60 p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
-                              <Gavel className="h-3.5 w-3.5 text-primary" />
-                              Auction Engine
-                            </div>
-                            <StatusPill tone={t.licenseStatus === "active" ? "green" : t.licenseStatus === "completed" ? "blue" : "amber"}>
-                              {t.licenseStatus.toUpperCase()}
-                            </StatusPill>
-                          </div>
-                          <div className="text-[11px] text-muted-foreground">
-                            Ending auction marks auction completed and preserves active sports scoring.
-                          </div>
-                          <div className="pt-1">
-                            <LicenseModeControl
-                              licenseStatus={t.licenseStatus}
-                              isMaster={isMaster}
-                              actionLoading={actionLoading}
-                              onSwitchToTrial={() => requestLicenseChange("Switch to Trial", "trial")}
-                              onSwitchToLive={() => requestLicenseChange("Switch to Live", "active")}
-                              onEndAuction={() => {
-                                if (!window.confirm("This will end the auction and prevent further bidding. Match scoring will remain active. Continue?")) return;
-                                requestLicenseChange("End auction", "completed", false);
-                              }}
-                            />
-                          </div>
-                          {isMaster && t.adminLocked && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="mt-2 w-full border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 gap-1.5"
-                              disabled={!!actionLoading}
-                              onClick={() => doAction("Re-open Auction", () => unlockTournament(tournamentId))}
-                            >
-                              <Unlock className="h-3.5 w-3.5" />
-                              Re-open / Unlock Auction
-                            </Button>
-                          )}
-                        </div>
-
-                        {/* Sub-Section 2: Sports Scoring Lifecycle */}
-                        <div className="rounded-lg border border-border/60 bg-card/60 p-3 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
-                              <Trophy className="h-3.5 w-3.5 text-emerald-400" />
-                              Sports Scoring Phase
-                            </div>
-                            <StatusPill tone={t.scoringPhase === "active" ? "green" : t.scoringPhase === "completed" ? "blue" : "amber"}>
-                              {(t.scoringPhase ?? "setup").toUpperCase()}
-                            </StatusPill>
-                          </div>
-                          <div className="grid grid-cols-3 gap-1.5 pt-1">
-                            <Button
-                              size="sm"
-                              variant={t.scoringPhase === "setup" ? "secondary" : "outline"}
-                              className={`h-8 text-xs ${t.scoringPhase === "setup" ? "border-amber-500/40 text-amber-300" : ""}`}
-                              disabled={!isMaster || t.scoringPhase === "setup" || !!actionLoading}
-                              onClick={() => setPendingScoringPhase("setup")}
-                            >
-                              Setup
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={t.scoringPhase === "active" ? "secondary" : "outline"}
-                              className={`h-8 text-xs ${t.scoringPhase === "active" ? "border-green-500/40 text-green-300" : ""}`}
-                              disabled={!isMaster || t.scoringPhase === "active" || !!actionLoading}
-                              onClick={() => setPendingScoringPhase("active")}
-                            >
-                              Active / Live
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={t.scoringPhase === "completed" ? "secondary" : "outline"}
-                              className={`h-8 text-xs ${t.scoringPhase === "completed" ? "border-blue-500/40 text-blue-300" : ""}`}
-                              disabled={!isMaster || t.scoringPhase === "completed" || !!actionLoading}
-                              onClick={() => setPendingScoringPhase("completed")}
-                            >
-                              Completed
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      /* SCENARIO C: AUCTION-ONLY */
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <BadgeCheck className="h-4 w-4 text-primary" />
-                            <span className="text-xs font-bold uppercase tracking-wider text-white">
-                              Auction Licence & Lifecycle
-                            </span>
-                          </div>
-                          <StatusPill tone={t.licenseStatus === "active" ? "green" : t.licenseStatus === "completed" ? "blue" : "amber"}>
-                            {t.licenseStatus.toUpperCase()}
-                          </StatusPill>
-                        </div>
-
-                        <div className="mt-3">
-                          <LicenseModeControl
-                            licenseStatus={t.licenseStatus}
-                            isMaster={isMaster}
-                            actionLoading={actionLoading}
-                            onSwitchToTrial={() => requestLicenseChange("Switch to Trial", "trial")}
-                            onSwitchToLive={() => requestLicenseChange("Switch to Live", "active")}
-                            onEndAuction={() => {
-                              if (!window.confirm("This will end the auction and prevent further bidding. Continue?")) return;
-                              requestLicenseChange("End auction", "completed", true);
-                            }}
-                          />
-                        </div>
-
-                        {isMaster && t.adminLocked && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 gap-1.5"
-                            disabled={!!actionLoading}
-                            onClick={() => doAction("Re-open Auction", () => unlockTournament(tournamentId))}
-                          >
-                            <Unlock className="h-3.5 w-3.5" />
-                            Re-open / Unlock Auction
-                          </Button>
-                        )}
-                      </div>
+                    {!isMaster && (
+                      <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300 border border-amber-500/20">
+                        Read-Only
+                      </span>
                     )}
                   </div>
 
-                  {/* CARD 2: RUNTIME MODES & FEATURE ENGINES */}
-                  <div className="rounded-xl border border-border/80 bg-muted/10 p-4 flex flex-col justify-between space-y-4">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Radio className="h-4 w-4 text-primary" />
-                        <span className="text-xs font-bold uppercase tracking-wider text-white">
-                          Runtime Modes & Engines
-                        </span>
-                      </div>
-
-                      {/* Cloud vs Local Mode */}
-                      <div className="rounded-lg border border-border/60 bg-card/60 p-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-xs font-semibold text-white">Operator Connection</div>
-                            <div className="text-[11px] text-muted-foreground mt-0.5">
-                              {t.localModeEnabled ? "Local Wi-Fi mode for venue" : "Cloud synchronized database"}
-                            </div>
-                          </div>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${t.localModeEnabled ? "bg-amber-500/20 text-amber-300" : "bg-blue-500/20 text-blue-300"}`}>
-                            {t.localModeEnabled ? "Local Mode" : "Cloud"}
-                          </span>
+                  {/* Auction Lifecycle (if auction enabled) */}
+                  {t.auctionEnabled && (
+                    <div className="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                          <Gavel className="h-3.5 w-3.5 text-primary" />
+                          Auction Engine
                         </div>
-                        {isMaster && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className={`mt-2.5 w-full h-8 text-xs gap-1.5 ${t.localModeEnabled ? "border-amber-500/40 text-amber-300 hover:bg-amber-500/10" : ""}`}
-                            disabled={!!actionLoading}
-                            onClick={() =>
-                              doAction(t.localModeEnabled ? "Switch to Cloud" : "Enable Local Mode", () =>
-                                updateAdminTournament(tournamentId, { localModeEnabled: !t.localModeEnabled })
-                              )
-                            }
-                          >
-                            <MonitorDown className="h-3.5 w-3.5" />
-                            {t.localModeEnabled ? "Switch to Cloud Mode" : "Enable Local Venue Mode"}
-                          </Button>
-                        )}
-                      </div>
-
-                      {/* Sports Scoring Module Toggle */}
-                      {(t.sport === "cricket" || t.sport === "badminton") && (
-                        <div className="rounded-lg border border-border/60 bg-card/60 p-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="text-xs font-semibold text-white">Match Scoring Engine</div>
-                              <div className="text-[11px] text-muted-foreground mt-0.5">
-                                Live scoring module for {t.sport}
-                              </div>
-                            </div>
-                            <span className={`text-xs font-bold px-2 py-0.5 rounded ${t.scoringEnabled ? "bg-green-500/20 text-green-300" : "bg-muted text-muted-foreground"}`}>
-                              {t.scoringEnabled ? "Enabled" : "Disabled"}
-                            </span>
-                          </div>
-                          {isMaster && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className={`mt-2.5 w-full h-8 text-xs gap-1.5 ${t.scoringEnabled ? "border-green-500/40 text-green-300 hover:bg-green-500/10" : ""}`}
-                              disabled={!!actionLoading}
-                              onClick={() =>
-                                doAction(t.scoringEnabled ? "Disable Match Scoring" : "Enable Match Scoring", () =>
-                                  updateAdminTournament(tournamentId, { scoringEnabled: !t.scoringEnabled })
-                                )
-                              }
-                            >
-                              <CircleDot className="h-3.5 w-3.5" />
-                              {t.scoringEnabled ? "Disable Match Scoring" : "Enable Match Scoring"}
-                            </Button>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] font-semibold uppercase",
+                            t.licenseStatus === "active"
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                              : t.licenseStatus === "completed"
+                              ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                              : "bg-amber-500/10 text-amber-400 border-amber-500/20"
                           )}
-                        </div>
-                      )}
+                        >
+                          {t.licenseStatus}
+                        </Badge>
+                      </div>
 
-                      {/* Auction Engine Toggle */}
-                      <div className="rounded-lg border border-border/60 bg-card/60 p-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-xs font-semibold text-white">Auction Engine</div>
-                            <div className="text-[11px] text-muted-foreground mt-0.5">
-                              Real-time bidding and player draft engine
-                            </div>
-                          </div>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${t.auctionEnabled ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
-                            {t.auctionEnabled ? "Enabled" : "Disabled"}
-                          </span>
+                      <div className="text-[11px] text-muted-foreground">
+                        Ending auction marks auction completed and preserves active sports scoring.
+                      </div>
+
+                      <div className="pt-1">
+                        <LicenseModeControl
+                          licenseStatus={t.licenseStatus}
+                          isMaster={isMaster}
+                          actionLoading={actionLoading}
+                          onSwitchToTrial={() => requestLicenseChange("Switch to Trial", "trial")}
+                          onSwitchToLive={() => requestLicenseChange("Switch to Live", "active")}
+                          onEndAuction={() => {
+                            if (!window.confirm("This will end the auction and prevent further bidding. Continue?")) return;
+                            requestLicenseChange("End auction", "completed", false);
+                          }}
+                        />
+                      </div>
+
+                      {isMaster && t.adminLocked && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-8 text-xs border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 gap-1.5"
+                          disabled={!!actionLoading}
+                          onClick={() => doAction("Re-open Auction", () => unlockTournament(tournamentId))}
+                        >
+                          <Unlock className="h-3.5 w-3.5" />
+                          Re-open / Unlock Auction
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Scoring Phase Lifecycle (if scoring enabled) */}
+                  {t.scoringEnabled && (
+                    <div className="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                          <Trophy className="h-3.5 w-3.5 text-emerald-400" />
+                          Sports Scoring Phase
                         </div>
-                        {isMaster && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className={`mt-2.5 w-full h-8 text-xs gap-1.5 ${t.auctionEnabled ? "border-primary/40 text-primary hover:bg-primary/10" : ""}`}
-                            disabled={!!actionLoading}
-                            onClick={() =>
-                              doAction(t.auctionEnabled ? "Disable Auction Engine" : "Enable Auction Engine", () =>
-                                updateAdminTournament(tournamentId, { auctionEnabled: !t.auctionEnabled })
-                              )
-                            }
-                          >
-                            <Gavel className="h-3.5 w-3.5" />
-                            {t.auctionEnabled ? "Disable Auction Engine" : "Enable Auction Engine"}
-                          </Button>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] font-semibold uppercase",
+                            t.scoringPhase === "active"
+                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                              : t.scoringPhase === "completed"
+                              ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                              : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                          )}
+                        >
+                          {t.scoringPhase ?? "setup"}
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 pt-1">
+                        <Button
+                          size="sm"
+                          variant={t.scoringPhase === "setup" ? "secondary" : "outline"}
+                          className={cn("h-8 text-xs font-medium", t.scoringPhase === "setup" && "border-amber-500/40 text-amber-300")}
+                          disabled={!isMaster || t.scoringPhase === "setup" || !!actionLoading}
+                          onClick={() => setPendingScoringPhase("setup")}
+                        >
+                          Setup
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={t.scoringPhase === "active" ? "secondary" : "outline"}
+                          className={cn("h-8 text-xs font-medium", t.scoringPhase === "active" && "border-emerald-500/40 text-emerald-300")}
+                          disabled={!isMaster || t.scoringPhase === "active" || !!actionLoading}
+                          onClick={() => setPendingScoringPhase("active")}
+                        >
+                          Active / Live
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={t.scoringPhase === "completed" ? "secondary" : "outline"}
+                          className={cn("h-8 text-xs font-medium", t.scoringPhase === "completed" && "border-blue-500/40 text-blue-300")}
+                          disabled={!isMaster || t.scoringPhase === "completed" || !!actionLoading}
+                          onClick={() => setPendingScoringPhase("completed")}
+                        >
+                          Completed
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Tournament License Status box */}
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3.5 flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-foreground">Tournament License Status</div>
+                      <div className="text-[11px] text-muted-foreground mt-0.5">
+                        {t.licenseStatus === "active" ? "Production license unlocked" : "Trial limits applied"}
+                      </div>
+                    </div>
+                    {isMaster && (
+                      <Button
+                        size="sm"
+                        variant={t.licenseStatus === "active" ? "outline" : "default"}
+                        className="h-8 text-xs"
+                        onClick={() => requestLicenseChange(
+                          t.licenseStatus === "active" ? "Switch to Trial" : "Switch to Live License",
+                          t.licenseStatus === "active" ? "trial" : "active"
                         )}
+                      >
+                        {t.licenseStatus === "active" ? "Switch to Trial" : "Upgrade to Live"}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Panel 2: Infrastructure & Runtime Modes */}
+                <div className="rounded-xl border border-border bg-card/70 p-5 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-border pb-3">
+                    <div className="flex items-center gap-2">
+                      <Radio className="h-4 w-4 text-primary" />
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">Runtime Modes & Connectivity</h3>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">Infrastructure and operator link controls.</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* CARD 3: EMERGENCY & SAFETY ZONE */}
-                  <div className="rounded-xl border border-red-500/40 bg-red-500/[0.04] p-4 flex flex-col justify-between space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <ShieldAlert className="h-4 w-4 text-red-400" />
-                          <span className="text-xs font-bold uppercase tracking-wider text-red-300">
-                            Emergency & Safety Zone
-                          </span>
-                        </div>
-                        {!isScoringOnly && (
-                          <span className="rounded bg-red-500/20 px-2 py-0.5 text-xs font-bold text-red-300 border border-red-500/30">
-                            {t.resetCount ?? 0}× Resets
-                          </span>
+                  {/* Operator Connection: Cloud vs Local */}
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-semibold text-foreground">Operator Connection Mode</div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {t.localModeEnabled ? "Running on local venue Wi-Fi network" : "Connected directly to cloud database"}
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px] font-semibold",
+                          t.localModeEnabled
+                            ? "bg-amber-500/10 text-amber-300 border-amber-500/20"
+                            : "bg-blue-500/10 text-blue-300 border-blue-500/20"
                         )}
+                      >
+                        {t.localModeEnabled ? "Local Wi-Fi" : "Cloud Sync"}
+                      </Badge>
+                    </div>
+
+                    {isMaster && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full h-8 text-xs gap-1.5 mt-2"
+                        disabled={!!actionLoading}
+                        onClick={() =>
+                          doAction(t.localModeEnabled ? "Switch to Cloud" : "Enable Local Mode", () =>
+                            updateAdminTournament(tournamentId, { localModeEnabled: !t.localModeEnabled })
+                          )
+                        }
+                      >
+                        <MonitorDown className="h-3.5 w-3.5" />
+                        {t.localModeEnabled ? "Switch to Cloud Synchronized Mode" : "Enable Local Venue Wi-Fi Mode"}
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Active Feature Engines */}
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-3">
+                    <div className="text-xs font-semibold text-foreground">Active Feature Modules</div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                          <Gavel className="w-3.5 h-3.5 text-primary" /> Auction & Purse Engine
+                        </span>
+                        <Badge variant="outline" className={cn("text-[10px]", t.auctionEnabled ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" : "text-muted-foreground")}>
+                          {t.auctionEnabled ? "Active" : "Disabled"}
+                        </Badge>
                       </div>
 
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Emergency data operations require super admin master privileges and explicit audit explanation.
-                      </p>
-
-                      {/* Box 1: Reset Protocol (Only for tournaments with Auction) */}
-                      {!isScoringOnly ? (
-                        <div className="rounded-lg border border-red-500/25 bg-red-500/10 p-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5 text-xs font-semibold text-red-300">
-                              <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
-                              Reset Auction Protocol
-                            </div>
-                            {(t.resetCount ?? 0) > 0 && (
-                              <span className="rounded bg-red-500/30 px-1.5 py-0.5 text-[10px] font-bold text-red-200">
-                                {t.resetCount}× used
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-red-200/80 mt-1 leading-normal">
-                            Clears all bids, team purses, lot progression, and resets players to available.
-                            {isDualModule && " Match scorecards and scoring records remain untouched."}
-                          </p>
-                          {isMaster && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="mt-2.5 w-full h-8 text-xs border-red-500/50 bg-red-500/15 text-red-200 hover:bg-red-500/25 hover:text-white gap-1.5"
-                              onClick={() => {
-                                setResetPassword("");
-                                setResetError(null);
-                                setResetReason("");
-                                setConfirmReset(true);
-                              }}
-                            >
-                              <RefreshCw className="h-3.5 w-3.5" />
-                              Reset Auction Data
-                              {(t.resetCount ?? 0) > 0 && (
-                                <span className="ml-1 rounded bg-red-500/30 px-1.5 py-0.2 text-[10px] font-bold">
-                                  {t.resetCount}×
-                                </span>
-                              )}
-                            </Button>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="rounded-lg border border-border/60 bg-muted/15 p-3">
-                          <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                            <CircleDot className="h-3.5 w-3.5" /> Auction Resets Inapplicable
-                          </div>
-                          <p className="text-[11px] text-muted-foreground mt-1 leading-normal">
-                            Auction module is disabled for this tournament. Match data and scorecards are managed authoritative in the Scoring Hub.
-                          </p>
+                      {(t.sport === "cricket" || t.sport === "badminton") && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="flex items-center gap-1.5 text-muted-foreground">
+                            <Trophy className="w-3.5 h-3.5 text-emerald-400" /> Match Scoring Engine ({t.sport})
+                          </span>
+                          <Badge variant="outline" className={cn("text-[10px]", t.scoringEnabled ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" : "text-muted-foreground")}>
+                            {t.scoringEnabled ? "Active" : "Disabled"}
+                          </Badge>
                         </div>
                       )}
-
-                      {/* Box 2: Permanent Deletion */}
-                      <div className="rounded-lg border border-red-500/25 bg-red-950/20 p-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-xs font-semibold text-red-400">
-                            <Trash2 className="h-3.5 w-3.5 text-red-400" />
-                            Permanent Deletion
-                          </div>
-                          <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30">
-                            Destructive
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground mt-1 leading-normal">
-                          Permanently drops tournament, rosters, lots, matches, and linked runtime sessions.
-                        </p>
-                        {isMaster && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="mt-2.5 w-full h-8 text-xs border border-red-500/30 bg-destructive/10 text-red-300 hover:bg-destructive/25 hover:text-red-100 gap-1.5"
-                            onClick={() => setConfirmDelete(true)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Delete Tournament Permanently
-                          </Button>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* QUICK ACCESS TO LIVE ROOMS & ENDPOINTS */}
-              <div className="rounded-xl border border-border bg-card/70 p-4">
-                <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
+              {/* SECTION 2: QUICK ROOM & DISPLAY LAUNCHERS */}
+              <div className="rounded-xl border border-border bg-card/70 p-5 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-border pb-3">
                   <div>
-                    <h3 className="font-display font-black text-white text-sm">Quick Room & Display Launchers</h3>
-                    <p className="text-xs text-muted-foreground">Instant 1-click links for active tournament endpoints.</p>
+                    <h3 className="text-sm font-semibold text-foreground">Quick Launchers & Displays</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Direct links to operational rooms, overlays, and public views.</p>
                   </div>
                   <Button
                     size="sm"
@@ -1048,113 +842,201 @@ export default function AdminTournamentDetailPage() {
                     className="text-xs text-primary hover:text-primary/80 gap-1"
                     onClick={() => navigate(tournamentLiveOpsPath(t.id, "endpoints"))}
                   >
-                    Open Full Endpoints Hub →
+                    Open Endpoints Hub →
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                  {/* Sports Scoring Launchers (When Scoring Enabled) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Category 1: Match Center & Scoring */}
                   {t.scoringEnabled && (
-                    <>
-                      {t.sport === "cricket" ? (
-                        <>
-                          <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10" asChild>
-                            <a href={`/cricket/scorer?tid=${t.id}`} target="_blank" rel="noreferrer">
-                              <Trophy className="h-3.5 w-3.5 text-emerald-400" />
-                              Scorer Portal
-                            </a>
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10" asChild>
-                            <a href={`/tournament/${t.id}/score`} target="_blank" rel="noreferrer">
-                              <Activity className="h-3.5 w-3.5 text-emerald-400" />
-                              Cricket Hub
-                            </a>
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate" asChild>
-                            <a href={`/cricket/live-control?tid=${t.id}`} target="_blank" rel="noreferrer">
-                              <Radio className="h-3.5 w-3.5 text-blue-400" />
-                              Live Control
-                            </a>
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate" asChild>
-                            <a href={`/tournament/${t.id}/cricket/links`} target="_blank" rel="noreferrer">
-                              <ExternalLink className="h-3.5 w-3.5 text-amber-400" />
-                              Match Links
-                            </a>
-                          </Button>
-                        </>
-                      ) : t.sport === "badminton" ? (
-                        <>
-                          <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10" asChild>
-                            <a href={`/badminton/scorer?tid=${t.id}`} target="_blank" rel="noreferrer">
-                              <Trophy className="h-3.5 w-3.5 text-emerald-400" />
-                              Scorer Portal
-                            </a>
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10" asChild>
-                            <a href={`/tournament/${t.id}/badminton`} target="_blank" rel="noreferrer">
-                              <Activity className="h-3.5 w-3.5 text-emerald-400" />
-                              Badminton Hub
-                            </a>
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate" asChild>
-                            <a href={`/badminton/standings?tid=${t.id}`} target="_blank" rel="noreferrer">
-                              <ExternalLink className="h-3.5 w-3.5 text-amber-400" />
-                              Standings
-                            </a>
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate" asChild>
-                            <a href={`/tournament/${t.id}/badminton/matches`} target="_blank" rel="noreferrer">
-                              <ExternalLink className="h-3.5 w-3.5 text-blue-400" />
-                              Matches
-                            </a>
-                          </Button>
-                        </>
-                      ) : null}
-                    </>
+                    <div className="rounded-lg border border-border/60 bg-muted/15 p-3.5 space-y-2.5">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Trophy className="w-3.5 h-3.5 text-emerald-400" /> Match Center & Scoring
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {t.sport === "cricket" ? (
+                          <>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                              <a href={`/cricket/scorer?tid=${t.id}`} target="_blank" rel="noreferrer">
+                                <ExternalLink className="h-3.5 w-3.5 text-emerald-400" /> Scorer Portal
+                              </a>
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                              <a href={`/tournament/${t.id}/score`} target="_blank" rel="noreferrer">
+                                <Activity className="h-3.5 w-3.5 text-emerald-400" /> Cricket Match Center
+                              </a>
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                              <a href={`/cricket/live-control?tid=${t.id}`} target="_blank" rel="noreferrer">
+                                <Radio className="h-3.5 w-3.5 text-blue-400" /> Live Match Control
+                              </a>
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                              <a href={`/tournament/${t.id}/cricket/links`} target="_blank" rel="noreferrer">
+                                <ExternalLink className="h-3.5 w-3.5 text-amber-400" /> Match Links
+                              </a>
+                            </Button>
+                          </>
+                        ) : t.sport === "badminton" ? (
+                          <>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                              <a href={`/badminton/scorer?tid=${t.id}`} target="_blank" rel="noreferrer">
+                                <ExternalLink className="h-3.5 w-3.5 text-emerald-400" /> Badminton Scorer
+                              </a>
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                              <a href={`/tournament/${t.id}/badminton`} target="_blank" rel="noreferrer">
+                                <Activity className="h-3.5 w-3.5 text-emerald-400" /> Badminton Hub
+                              </a>
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                              <a href={`/badminton/standings?tid=${t.id}`} target="_blank" rel="noreferrer">
+                                <ExternalLink className="h-3.5 w-3.5 text-amber-400" /> Standings
+                              </a>
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                              <a href={`/tournament/${t.id}/badminton/matches`} target="_blank" rel="noreferrer">
+                                <ExternalLink className="h-3.5 w-3.5 text-blue-400" /> Matches
+                              </a>
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
                   )}
 
-                  {/* Auction Launchers (When Auction Enabled) */}
+                  {/* Category 2: Auction Operations */}
                   {t.auctionEnabled && (
-                    <>
-                      <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate" asChild>
-                        <a href={liveViewerPath(t.id)} target="_blank" rel="noreferrer">
-                          <Tv className="h-3.5 w-3.5 text-primary" />
-                          Live Viewer
-                        </a>
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate" asChild>
-                        <a href={obsOverlayPath(t.id)} target="_blank" rel="noreferrer">
-                          <ExternalLink className="h-3.5 w-3.5 text-amber-400" />
-                          OBS Overlay
-                        </a>
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate" asChild>
-                        <a href={`/tournament/${t.id}/break-timer`} target="_blank" rel="noreferrer">
-                          <Activity className="h-3.5 w-3.5 text-blue-400" />
-                          Break Timer
-                        </a>
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate" asChild>
-                        <a href={sideDisplayPath(t.id, "sponsors")} target="_blank" rel="noreferrer">
-                          <Tv className="h-3.5 w-3.5 text-green-400" />
-                          Sponsor LED
-                        </a>
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate" asChild>
-                        <a href={sideDisplayPath(t.id, "player")} target="_blank" rel="noreferrer">
-                          <Users className="h-3.5 w-3.5 text-indigo-400" />
-                          Player Profile
-                        </a>
-                      </Button>
-                      <Button variant="outline" size="sm" className="h-9 text-xs gap-1.5 truncate" asChild>
-                        <a href={`/tournament/${t.id}/auction`} target="_blank" rel="noreferrer">
-                          <Radio className="h-3.5 w-3.5 text-red-400" />
-                          Auction Room
-                        </a>
-                      </Button>
-                    </>
+                    <div className="rounded-lg border border-border/60 bg-muted/15 p-3.5 space-y-2.5">
+                      <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Gavel className="w-3.5 h-3.5 text-primary" /> Auction Operations
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                          <a href={`/tournament/${t.id}/auction`} target="_blank" rel="noreferrer">
+                            <Radio className="h-3.5 w-3.5 text-red-400" /> Live Auction Room
+                          </a>
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                          <a href={`/admin/tournaments/${t.id}/workbook`} target="_blank" rel="noreferrer">
+                            <Database className="h-3.5 w-3.5 text-primary" /> Master Workbook
+                          </a>
+                        </Button>
+                        <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                          <a href={liveViewerPath(t.id)} target="_blank" rel="noreferrer">
+                            <Tv className="h-3.5 w-3.5 text-primary" /> Live Public Viewer
+                          </a>
+                        </Button>
+                      </div>
+                    </div>
                   )}
+
+                  {/* Category 3: Broadcast & Displays */}
+                  <div className="rounded-lg border border-border/60 bg-muted/15 p-3.5 space-y-2.5">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Tv className="w-3.5 h-3.5 text-blue-400" /> Broadcast & Stage Displays
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      {t.auctionEnabled && (
+                        <>
+                          <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                            <a href={obsOverlayPath(t.id)} target="_blank" rel="noreferrer">
+                              <ExternalLink className="h-3.5 w-3.5 text-amber-400" /> OBS Stream Overlay
+                            </a>
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                            <a href={sideDisplayPath(t.id, "sponsors")} target="_blank" rel="noreferrer">
+                              <Tv className="h-3.5 w-3.5 text-emerald-400" /> Stage / Sponsor LED
+                            </a>
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                            <a href={sideDisplayPath(t.id, "player")} target="_blank" rel="noreferrer">
+                              <Users className="h-3.5 w-3.5 text-indigo-400" /> Player Profile Screen
+                            </a>
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2" asChild>
+                            <a href={`/tournament/${t.id}/break-timer`} target="_blank" rel="noreferrer">
+                              <Activity className="h-3.5 w-3.5 text-blue-400" /> Break Timer Screen
+                            </a>
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: DANGER ZONE (BOTTOM QUARANTINED) */}
+              <div className="rounded-xl border border-destructive/30 bg-destructive/[0.03] p-5 shadow-sm space-y-3">
+                <div className="flex items-center gap-2 border-b border-destructive/20 pb-2.5">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-destructive">Danger Zone</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                  {/* Reset Auction Protocol */}
+                  {!isScoringOnly ? (
+                    <div className="rounded-lg border border-destructive/20 bg-background/50 p-3.5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-foreground">Reset Auction Data</span>
+                        {(t.resetCount ?? 0) > 0 && (
+                          <span className="text-[10px] font-semibold text-destructive px-1.5 py-0.5 rounded bg-destructive/10">
+                            {t.resetCount}× previously reset
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-normal">
+                        Clears all bids, team purses, and lots. Resets auction progress while preserving roster and match scorecards.
+                      </p>
+                      {isMaster && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-8 text-xs border-destructive/40 text-destructive hover:bg-destructive/10 gap-1.5 mt-2"
+                          onClick={() => {
+                            setResetPassword("");
+                            setResetError(null);
+                            setResetReason("");
+                            setConfirmReset(true);
+                          }}
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" /> Reset Auction Data
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-border/60 bg-muted/15 p-3.5">
+                      <div className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                        <CircleDot className="h-3.5 w-3.5" /> Auction Resets Inapplicable
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-1 leading-normal">
+                        Auction module is disabled for this tournament. Match data and scorecards are managed authoritative in the Scoring Hub.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Permanent Deletion */}
+                  <div className="rounded-lg border border-destructive/20 bg-background/50 p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-destructive">Permanent Tournament Deletion</span>
+                      <span className="text-[10px] uppercase font-bold text-destructive px-1.5 py-0.5 rounded bg-destructive/10">
+                        Irreversible
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-normal">
+                      Permanently drops tournament, rosters, teams, lots, matches, and linked runtime sessions.
+                    </p>
+                    {isMaster && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="w-full h-8 text-xs border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 gap-1.5 mt-2"
+                        onClick={() => setConfirmDelete(true)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete Tournament Permanently
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

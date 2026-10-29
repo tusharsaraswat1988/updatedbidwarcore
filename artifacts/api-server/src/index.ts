@@ -15,6 +15,7 @@ import { refreshBrandingIconCache } from "./lib/branding-asset-resolver.js";
 import { startMemoryDiagnostics } from "./lib/memory-diagnostics.js";
 import { cleanupOrphanScorerAccounts, ensureBootstrapScorerAccount } from "./lib/scorer-auth.js";
 import { startScorerLockCleanupJob } from "./lib/scorer-match-locks.js";
+import { validateWhatsAppProviderAtStartup } from "./lib/communication/providers/index.js";
 
 const { port } = getRuntimeConfig();
 
@@ -30,6 +31,27 @@ async function start() {
   await initRedisClients();
   await startAuctionEventSubscriber();
   await startBadmintonEventSubscriber();
+
+  // Validate active WhatsApp provider configuration at startup
+  const waValidation = validateWhatsAppProviderAtStartup();
+  if (!waValidation.valid) {
+    logger.error(
+      { provider: waValidation.provider, errors: waValidation.errors },
+      "WhatsApp provider startup validation failed",
+    );
+    if (process.env.NODE_ENV === "production") {
+      console.error(
+        `[bidwar] WhatsApp provider startup validation failed for provider '${waValidation.provider}':\n  - ` +
+          waValidation.errors.join("\n  - "),
+      );
+      process.exit(1);
+    }
+  } else {
+    logger.info(
+      { provider: waValidation.provider },
+      "WhatsApp provider startup validation passed",
+    );
+  }
 
   app.listen(port, "0.0.0.0", (err) => {
     if (err) {

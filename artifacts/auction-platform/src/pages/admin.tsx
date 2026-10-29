@@ -36,7 +36,7 @@ import { LicenseModeControl } from "@/components/admin/license-mode-control";
 import { AuditReasonDialog } from "@/components/audit-reason-dialog";
 import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
 import { payloadHasTournamentConfigFields } from "@/lib/audit-reason";
-import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
+import { parseIndianMobile, sanitizeMobileInput, displayOrganizerMobile } from "@workspace/api-base/mobile";
 import { isScoringSupportedSport, type TournamentProductMode } from "@workspace/platform-core";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -181,6 +181,11 @@ export function CreateTournamentModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const [organizerMode, setOrganizerMode] = useState<"existing" | "new">("existing");
+  const [organizers, setOrganizers] = useState<AdminOrganizerRow[]>([]);
+  const [loadingOrganizers, setLoadingOrganizers] = useState(false);
+  const [selectedOrganizerId, setSelectedOrganizerId] = useState<string>("");
+
   const [form, setForm] = useState({
     name: "",
     sport: "cricket",
@@ -200,6 +205,19 @@ export function CreateTournamentModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    setLoadingOrganizers(true);
+    listAdminOrganizers()
+      .then((data) => {
+        setOrganizers(data);
+        if (data.length === 0) {
+          setOrganizerMode("new");
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingOrganizers(false));
+  }, []);
+
   const scoringSupported = isScoringSupportedSport(form.sport);
   const isAuction = form.productMode === "auction_only" || form.productMode === "both";
   const isScoring = form.productMode === "scoring_only" || form.productMode === "both";
@@ -207,6 +225,23 @@ export function CreateTournamentModal({
   function f(k: string) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm((p) => ({ ...p, [k]: e.target.value }));
+  }
+
+  function handleSelectOrganizer(orgIdStr: string) {
+    setSelectedOrganizerId(orgIdStr);
+    if (!orgIdStr) {
+      setForm((p) => ({ ...p, organizerName: "", organizerMobile: "", organizerEmail: "" }));
+      return;
+    }
+    const found = organizers.find((o) => String(o.id) === orgIdStr);
+    if (found) {
+      setForm((p) => ({
+        ...p,
+        organizerName: found.name,
+        organizerMobile: (found.mobile ? displayOrganizerMobile(found.mobile) : "") || "",
+        organizerEmail: found.email || "",
+      }));
+    }
   }
 
   async function handleCreate() {
@@ -218,8 +253,16 @@ export function CreateTournamentModal({
       setError("City is required");
       return;
     }
+
     let organizerMobile: string | undefined;
-    if (form.organizerMobile.trim()) {
+    let selectedOrg: AdminOrganizerRow | undefined;
+
+    if (organizerMode === "existing") {
+      if (selectedOrganizerId) {
+        selectedOrg = organizers.find((o) => String(o.id) === selectedOrganizerId);
+        organizerMobile = selectedOrg?.mobile || undefined;
+      }
+    } else if (form.organizerMobile.trim()) {
       const mobileResult = parseIndianMobile(form.organizerMobile);
       if (!mobileResult.ok) {
         setError(mobileResult.error);
@@ -227,6 +270,7 @@ export function CreateTournamentModal({
       }
       organizerMobile = mobileResult.normalized;
     }
+
     setLoading(true);
     setError("");
     const r = await createAdminTournament({
@@ -235,12 +279,13 @@ export function CreateTournamentModal({
       auctionEnabled: isAuction,
       scoringEnabled: isScoring,
       city: form.city.trim(),
-      venue: form.venue || undefined,
+      venue: form.venue.trim() || undefined,
       auctionDate: isAuction ? (form.auctionDate || undefined) : undefined,
       auctionTime: isAuction ? (form.auctionTime || undefined) : undefined,
-      organizerName: form.organizerName || undefined,
+      organizerId: organizerMode === "existing" && selectedOrganizerId ? Number(selectedOrganizerId) : undefined,
+      organizerName: (organizerMode === "existing" && selectedOrg ? selectedOrg.name : form.organizerName.trim()) || undefined,
       organizerMobile,
-      organizerEmail: form.organizerEmail || undefined,
+      organizerEmail: (organizerMode === "existing" && selectedOrg ? selectedOrg.email : form.organizerEmail.trim()) || undefined,
       basePurse: isAuction ? (Number(form.basePurse) || 10000000) : 10000000,
       minBid: isAuction ? (Number(form.minBid) || 100000) : 100000,
       timerSeconds: isAuction ? (Number(form.timerSeconds) || 30) : 30,
@@ -250,37 +295,44 @@ export function CreateTournamentModal({
     if (r.success) {
       onCreated();
       onClose();
-    } else setError(r.error || "Failed to create");
+    } else setError(r.error || "Failed to create tournament");
   }
+
+  const selectedOrg = organizers.find((o) => String(o.id) === selectedOrganizerId);
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Plus className="w-5 h-5 text-primary" /> Create Tournament
-          </DialogTitle>
+      <DialogContent className="max-w-2xl max-h-[88vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-4 border-b border-border/60">
+          <DialogTitle className="text-lg font-semibold tracking-tight">Create Tournament</DialogTitle>
+          <p className="text-xs text-muted-foreground mt-1">
+            Configure tournament details, assign an organiser, and choose enabled product modules.
+          </p>
         </DialogHeader>
-        <div className={cn(ADMIN_FLEX_SCROLL_CLASS, "pr-1")}>
-          <div className="space-y-4 p-1">
-            {error && (
-              <p className="text-sm text-destructive bg-destructive/10 rounded px-3 py-2">
-                {error}
-              </p>
-            )}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 space-y-1.5">
-                <Label className="text-xs text-muted-foreground">
-                  Tournament Name *
-                </Label>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {error && (
+            <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3.5 py-2.5">
+              {error}
+            </div>
+          )}
+
+          {/* General Information */}
+          <section className="space-y-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">General Details</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label htmlFor="t-name" className="text-xs font-medium">Tournament Name *</Label>
                 <Input
+                  id="t-name"
                   value={form.name}
                   onChange={f("name")}
-                  placeholder="e.g. IPL 2026"
+                  placeholder="e.g. Premier Cricket Championship 2026"
                 />
               </div>
+
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Sport</Label>
+                <Label className="text-xs font-medium">Sport *</Label>
                 <SportSelect
                   value={form.sport}
                   onValueChange={(v) => {
@@ -293,205 +345,285 @@ export function CreateTournamentModal({
                   }}
                 />
               </div>
+
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">City *</Label>
+                <Label className="text-xs font-medium">City *</Label>
                 <CityAutocomplete
                   value={form.city}
                   onChange={(v) => setForm((p) => ({ ...p, city: v }))}
-                  placeholder="Start typing city"
+                  placeholder="Select or enter city"
                   minChars={3}
                   showHint={false}
                 />
               </div>
 
-              <div className="col-span-2 space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Product Modules *</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setForm((p) => ({ ...p, productMode: "auction_only" }))}
-                    className={cn(
-                      "flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all text-xs",
-                      form.productMode === "auction_only"
-                        ? "border-primary bg-primary/10 text-primary font-medium shadow-sm"
-                        : "border-border/60 hover:border-border text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <Gavel className="w-4 h-4 mb-1" />
-                    <span>Auction Only</span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!scoringSupported}
-                    onClick={() => setForm((p) => ({ ...p, productMode: "scoring_only" }))}
-                    className={cn(
-                      "flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all text-xs",
-                      !scoringSupported && "opacity-40 cursor-not-allowed",
-                      form.productMode === "scoring_only"
-                        ? "border-primary bg-primary/10 text-primary font-medium shadow-sm"
-                        : "border-border/60 hover:border-border text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <Trophy className="w-4 h-4 mb-1" />
-                    <span>Scoring Only</span>
-                    {!scoringSupported && <span className="text-[9px] text-muted-foreground">Coming Soon</span>}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!scoringSupported}
-                    onClick={() => setForm((p) => ({ ...p, productMode: "both" }))}
-                    className={cn(
-                      "flex flex-col items-center justify-center p-2.5 rounded-lg border text-center transition-all text-xs",
-                      !scoringSupported && "opacity-40 cursor-not-allowed",
-                      form.productMode === "both"
-                        ? "border-primary bg-primary/10 text-primary font-medium shadow-sm"
-                        : "border-border/60 hover:border-border text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <CircleDot className="w-4 h-4 mb-1" />
-                    <span>Both</span>
-                    {!scoringSupported && <span className="text-[9px] text-muted-foreground">Coming Soon</span>}
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Venue</Label>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label htmlFor="t-venue" className="text-xs font-medium">Venue (Optional)</Label>
                 <Input
+                  id="t-venue"
                   value={form.venue}
                   onChange={f("venue")}
-                  placeholder="Stadium / ground name"
-                />
-              </div>
-
-              {isAuction ? (
-                <>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">
-                      Auction Date
-                    </Label>
-                    <DatePicker
-                      value={form.auctionDate}
-                      onChange={auctionDate => setForm(p => ({ ...p, auctionDate }))}
-                      placeholder="Select auction date"
-                      disablePastDates
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">
-                      Auction Time
-                    </Label>
-                    <Input
-                      type="time"
-                      value={form.auctionTime}
-                      onChange={f("auctionTime")}
-                      placeholder="14:00"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">
-                      Base Purse (₹)
-                    </Label>
-                    <Input
-                      type="number"
-                      value={form.basePurse}
-                      onChange={f("basePurse")}
-                    />
-                    <IndianAmountHint value={form.basePurse} />
-                  </div>
-                </>
-              ) : (
-                <div className="col-span-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
-                  <span className="font-semibold text-foreground">Sports Scoring Tournament:</span> Direct team and player registration will be configured in the match center. Auction economics are omitted.
-                </div>
-              )}
-            </div>
-
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">
-              Organizer Details
-            </p>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Building2 className="w-3 h-3" />
-                  Name
-                </Label>
-                <Input
-                  value={form.organizerName}
-                  onChange={f("organizerName")}
-                  placeholder="Full name"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Phone className="w-3 h-3" />
-                  Mobile
-                </Label>
-                <Input
-                  type="tel"
-                  inputMode="numeric"
-                  maxLength={10}
-                  value={form.organizerMobile}
-                  onChange={e => setForm(p => ({ ...p, organizerMobile: sanitizeMobileInput(e.target.value) }))}
-                  placeholder="10-digit mobile"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Mail className="w-3 h-3" />
-                  Email
-                </Label>
-                <Input
-                  value={form.organizerEmail}
-                  onChange={f("organizerEmail")}
-                  placeholder="Links to portal account"
+                  placeholder="e.g. Wankhede Stadium / Central Ground"
                 />
               </div>
             </div>
+          </section>
 
-            {isAuction && (
-              <>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">
-                  Auction Settings
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Timer className="w-3 h-3" />
-                      First Bid Timer (s)
-                    </Label>
-                    <Input
-                      type="number"
-                      value={form.timerSeconds}
-                      onChange={f("timerSeconds")}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Timer className="w-3 h-3" />
-                      Subsequent Bid Timer (s)
-                    </Label>
-                    <Input
-                      type="number"
-                      value={form.bidTimerSeconds}
-                      onChange={f("bidTimerSeconds")}
-                    />
-                  </div>
+          {/* Product Modules */}
+          <section className="space-y-3 pt-2 border-t border-border/40">
+            <div>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Product Modules</h3>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Select modules required for this tournament.</p>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setForm((p) => ({ ...p, productMode: "auction_only" }))}
+                className={cn(
+                  "flex flex-col items-center justify-center p-3 rounded-lg border text-center transition-all text-xs gap-1.5",
+                  form.productMode === "auction_only"
+                    ? "border-primary bg-primary/10 text-primary font-medium ring-1 ring-primary/30"
+                    : "border-border/60 hover:border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Gavel className="w-4 h-4" />
+                <span className="font-medium">Auction Only</span>
+                <span className="text-[10px] opacity-75">Bidding & purse management</span>
+              </button>
+              <button
+                type="button"
+                disabled={!scoringSupported}
+                onClick={() => setForm((p) => ({ ...p, productMode: "scoring_only" }))}
+                className={cn(
+                  "flex flex-col items-center justify-center p-3 rounded-lg border text-center transition-all text-xs gap-1.5",
+                  !scoringSupported && "opacity-40 cursor-not-allowed",
+                  form.productMode === "scoring_only"
+                    ? "border-primary bg-primary/10 text-primary font-medium ring-1 ring-primary/30"
+                    : "border-border/60 hover:border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Trophy className="w-4 h-4" />
+                <span className="font-medium">Scoring Only</span>
+                <span className="text-[10px] opacity-75">{scoringSupported ? "Matches & leaderboards" : "Coming soon"}</span>
+              </button>
+              <button
+                type="button"
+                disabled={!scoringSupported}
+                onClick={() => setForm((p) => ({ ...p, productMode: "both" }))}
+                className={cn(
+                  "flex flex-col items-center justify-center p-3 rounded-lg border text-center transition-all text-xs gap-1.5",
+                  !scoringSupported && "opacity-40 cursor-not-allowed",
+                  form.productMode === "both"
+                    ? "border-primary bg-primary/10 text-primary font-medium ring-1 ring-primary/30"
+                    : "border-border/60 hover:border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <CircleDot className="w-4 h-4" />
+                <span className="font-medium">Both</span>
+                <span className="text-[10px] opacity-75">Full lifecycle integration</span>
+              </button>
+            </div>
+          </section>
+
+          {/* Organiser Assignment */}
+          <section className="space-y-3 pt-2 border-t border-border/40">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Host & Organiser Assignment</h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Assign an existing verified account or add new organiser credentials.</p>
+              </div>
+              <div className="inline-flex rounded-lg border border-border p-0.5 bg-muted/40">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOrganizerMode("existing");
+                    if (selectedOrganizerId) handleSelectOrganizer(selectedOrganizerId);
+                  }}
+                  className={cn(
+                    "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
+                    organizerMode === "existing"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Existing Account
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOrganizerMode("new");
+                    setSelectedOrganizerId("");
+                    setForm((p) => ({ ...p, organizerName: "", organizerMobile: "", organizerEmail: "" }));
+                  }}
+                  className={cn(
+                    "px-2.5 py-1 text-xs font-medium rounded-md transition-colors",
+                    organizerMode === "new"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Register New
+                </button>
+              </div>
+            </div>
+
+            {organizerMode === "existing" ? (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="existing-org" className="text-xs font-medium">Select Verified Organiser</Label>
+                  <select
+                    id="existing-org"
+                    value={selectedOrganizerId}
+                    onChange={(e) => handleSelectOrganizer(e.target.value)}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">-- Choose an organiser (Optional) --</option>
+                    {organizers.map((o) => {
+                      const displayPhone = displayOrganizerMobile(o.mobile);
+                      const contact = displayPhone || o.email || "No contact info";
+                      return (
+                        <option key={o.id} value={o.id}>
+                          {o.name} ({contact}) — {o.tournamentCount} tournament{o.tournamentCount !== 1 ? "s" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
-              </>
+
+                {selectedOrg && (
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-foreground">{selectedOrg.name}</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                        Quota: {selectedOrg.tournamentCount} / {selectedOrg.maxTournaments}
+                      </span>
+                    </div>
+                    <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
+                      {selectedOrg.mobile && <span>Phone: {displayOrganizerMobile(selectedOrg.mobile)}</span>}
+                      {selectedOrg.email && <span>Email: {selectedOrg.email}</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="new-org-name" className="text-xs font-medium">Organiser Name</Label>
+                  <Input
+                    id="new-org-name"
+                    value={form.organizerName}
+                    onChange={f("organizerName")}
+                    placeholder="Full name or company"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="new-org-mobile" className="text-xs font-medium">10-Digit Mobile</Label>
+                  <Input
+                    id="new-org-mobile"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    value={form.organizerMobile}
+                    onChange={(e) => setForm((p) => ({ ...p, organizerMobile: sanitizeMobileInput(e.target.value) }))}
+                    placeholder="9876543210"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="new-org-email" className="text-xs font-medium">Email Address</Label>
+                  <Input
+                    id="new-org-email"
+                    type="email"
+                    value={form.organizerEmail}
+                    onChange={f("organizerEmail")}
+                    placeholder="organiser@domain.com"
+                  />
+                </div>
+              </div>
             )}
-          </div>
+          </section>
+
+          {/* Auction Schedule & Economics */}
+          {isAuction ? (
+            <section className="space-y-4 pt-2 border-t border-border/40">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Auction Timing & Economics</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium">Auction Date</Label>
+                  <DatePicker
+                    value={form.auctionDate}
+                    onChange={(auctionDate) => setForm((p) => ({ ...p, auctionDate }))}
+                    placeholder="Select auction date"
+                    disablePastDates
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="t-auction-time" className="text-xs font-medium">Auction Time</Label>
+                  <Input
+                    id="t-auction-time"
+                    type="time"
+                    value={form.auctionTime}
+                    onChange={f("auctionTime")}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="t-purse" className="text-xs font-medium">Base Purse (₹)</Label>
+                  <Input
+                    id="t-purse"
+                    type="number"
+                    value={form.basePurse}
+                    onChange={f("basePurse")}
+                  />
+                  <IndianAmountHint value={form.basePurse} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="t-min-bid" className="text-xs font-medium">Minimum Bid (₹)</Label>
+                  <Input
+                    id="t-min-bid"
+                    type="number"
+                    value={form.minBid}
+                    onChange={f("minBid")}
+                  />
+                  <IndianAmountHint value={form.minBid} />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="t-timer" className="text-xs font-medium">First Bid Timer (Seconds)</Label>
+                  <Input
+                    id="t-timer"
+                    type="number"
+                    value={form.timerSeconds}
+                    onChange={f("timerSeconds")}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="t-bid-timer" className="text-xs font-medium">Subsequent Bid Timer (Seconds)</Label>
+                  <Input
+                    id="t-bid-timer"
+                    type="number"
+                    value={form.bidTimerSeconds}
+                    onChange={f("bidTimerSeconds")}
+                  />
+                </div>
+              </div>
+            </section>
+          ) : (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3.5 text-xs text-muted-foreground space-y-1">
+              <span className="font-semibold text-foreground">Scoring Tournament Configuration:</span>
+              <p>Team rosters and match fixtures will be managed directly in the Scoring Match Center. Auction timer and purse settings are disabled.</p>
+            </div>
+          )}
         </div>
-        <DialogFooter className="pt-2">
-          <Button variant="ghost" onClick={onClose}>
+
+        <DialogFooter className="p-4 sm:p-6 border-t border-border/60 bg-card/40 flex items-center justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleCreate} disabled={loading} className="gap-2">
-            {loading ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <Plus className="w-4 h-4" />
-            )}
+          <Button size="sm" onClick={handleCreate} disabled={loading} className="gap-2">
+            {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
             Create Tournament
           </Button>
         </DialogFooter>
