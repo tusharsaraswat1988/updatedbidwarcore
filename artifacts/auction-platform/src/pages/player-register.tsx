@@ -8,7 +8,7 @@ import { FullscreenLayout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckCircle2, User, MessageSquare, Loader2, Upload, Pencil, X } from "lucide-react";
+import { CheckCircle2, User, MessageSquare, Loader2, Upload, Pencil, X, ShieldCheck } from "lucide-react";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import {
   PLAYER_PHOTO_ASPECT,
@@ -461,8 +461,6 @@ export default function PlayerRegister() {
   }, [status, tournament]);
 
   const hasCustomQuestionsSection = !closedSelfUpdateMode && customQuestions.length > 0;
-  const customQuestionsStep = "3";
-  const confirmSectionStep = hasCustomQuestionsSection ? "4" : "3";
 
   function handleCustomAnswerChange(questionId: string, val: any) {
     setCustomAnswers(prev => ({ ...prev, [questionId]: val }));
@@ -970,16 +968,14 @@ export default function PlayerRegister() {
   if (auctionDateLine) headerFacts.push({ label: "Auction", value: auctionDateLine });
   if (matchDatesLine) headerFacts.push({ label: "Match dates", value: matchDatesLine });
 
-  const showConfirmSection = !closedSelfUpdateMode && (
-    declarationRequired || showWhatsappConsent || (paymentEnabled && paymentConfigured)
-  );
-  const confirmTitle = paymentConfigured && declarationRequired
-    ? "Declaration and payment"
-    : paymentConfigured
-      ? "Payment"
-      : declarationRequired
-        ? "Declaration"
-        : "Updates";
+  const showPaymentSection = !closedSelfUpdateMode && paymentEnabled && paymentConfigured;
+  const showDeclarationSection = !closedSelfUpdateMode && (declarationRequired || showWhatsappConsent);
+
+  // Dynamic step numbering for sections after Profile
+  let nextSectionStep = 3;
+  const customQuestionsStep = hasCustomQuestionsSection ? String(nextSectionStep++) : "";
+  const paymentSectionStep = showPaymentSection ? String(nextSectionStep++) : "";
+  const declarationSectionStep = showDeclarationSection ? String(nextSectionStep++) : "";
 
   const nameAuto = autofillAttrs("name");
   const cityAuto = autofillAttrs("city");
@@ -1774,80 +1770,125 @@ export default function PlayerRegister() {
                 </RegSection>
               ) : null}
 
-              {showConfirmSection ? (
+              {showPaymentSection ? (
                 <RegSection
-                  step={confirmSectionStep}
-                  title={confirmTitle}
+                  step={paymentSectionStep}
+                  title="Payment"
+                  description="Complete tournament registration payment and upload proof"
+                >
+                  <RegistrationPaymentFormSection
+                    registrationFee={registrationFee}
+                    upiId={upiId}
+                    verificationMethod={verificationMethod}
+                    utrNumber={utrNumber}
+                    paymentScreenshotUrl={paymentScreenshotUrl}
+                    onUtrChange={setUtrNumber}
+                    onScreenshotChange={(url, publicId) => {
+                      setPaymentScreenshotUrl(url);
+                      setPaymentScreenshotPublicId(publicId ?? "");
+                    }}
+                    tournamentName={tournament.name}
+                    disabled={registerPending}
+                  />
+                </RegSection>
+              ) : null}
+
+              {showDeclarationSection ? (
+                <RegSection
+                  step={declarationSectionStep}
+                  title={
+                    declarationRequired && showWhatsappConsent
+                      ? "Declaration & consent"
+                      : declarationRequired
+                        ? "Tournament declaration"
+                        : "Communication preferences"
+                  }
+                  description={
+                    declarationRequired
+                      ? "Review and accept tournament rules to complete your registration"
+                      : "Choose how you receive tournament match notifications"
+                  }
                 >
                   {declarationRequired ? (
-                    <div className="reg-field">
-                      <ol className="reg-declaration">
+                    <div className="rounded-xl border border-border/80 bg-card/60 p-4 sm:p-5 space-y-4">
+                      <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+                          <h3 className="text-sm font-bold text-foreground">Tournament Rules & Declaration</h3>
+                        </div>
+                        <span className="reg-badge reg-badge--req">Required</span>
+                      </div>
+
+                      <ol className="reg-declaration space-y-2 pl-4 list-decimal text-sm leading-relaxed text-foreground/90">
                         {declarationPoints.map((point: string, i: number) => (
                           <li key={i}>{point}</li>
                         ))}
                       </ol>
-                      <label className="reg-check" htmlFor="register-declaration">
+
+                      <label
+                        htmlFor="register-declaration"
+                        className={`flex items-start gap-3 p-3.5 rounded-xl border transition-all cursor-pointer select-none ${
+                          declarationAccepted
+                            ? "border-primary/60 bg-primary/5 shadow-xs"
+                            : "border-border/80 bg-background hover:bg-muted/30"
+                        }`}
+                      >
                         <input
                           id="register-declaration"
                           type="checkbox"
                           checked={declarationAccepted}
-                          onChange={e => setDeclarationAccepted(e.target.checked)}
+                          onChange={(e) => setDeclarationAccepted(e.target.checked)}
+                          className="w-5 h-5 rounded text-primary focus:ring-primary shrink-0 mt-0.5 cursor-pointer"
                         />
-                        <span className="text-sm font-medium text-foreground">
-                          I have read and accept all of the above declarations
+                        <span className="text-sm font-semibold text-foreground leading-snug">
+                          I have read, understood, and accept all tournament declarations
                         </span>
                       </label>
                     </div>
                   ) : null}
 
                   {showWhatsappConsent ? (
-                    <div className="rounded-xl border border-border/80 bg-card/40 p-3.5 space-y-1.5 text-left">
-                      <label className="reg-check cursor-pointer" htmlFor="register-whatsapp">
+                    <div className="rounded-xl border border-border/80 bg-card/40 p-4 space-y-2.5 text-left">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          <h3 className="text-sm font-bold text-foreground">WhatsApp Match & Auction Alerts</h3>
+                        </div>
+                        <span className="reg-badge reg-badge--opt">Optional</span>
+                      </div>
+
+                      <label className="flex items-start gap-3 cursor-pointer select-none pt-1" htmlFor="register-whatsapp">
                         <input
                           id="register-whatsapp"
                           type="checkbox"
                           checked={waConsent}
-                          onChange={e => setWaConsent(e.target.checked)}
+                          onChange={(e) => setWaConsent(e.target.checked)}
+                          className="w-5 h-5 rounded text-primary focus:ring-primary shrink-0 mt-0.5 cursor-pointer"
                         />
-                        <span className="text-sm font-medium text-foreground">
-                          Receive tournament alerts and updates on WhatsApp (Optional)
+                        <span className="text-sm font-medium text-foreground leading-snug">
+                          Receive tournament alerts, schedule updates, and auction notifications on WhatsApp
                         </span>
                       </label>
-                      <p className="text-xs text-muted-foreground pl-6 leading-relaxed">
+                      <p className="text-xs text-muted-foreground pl-8 leading-relaxed">
                         I authorize BIDWAR to send tournament schedule changes, match notifications, and auction alerts to my registered mobile number. Consent is optional, does not affect tournament registration, and can be withdrawn at any time by replying STOP on WhatsApp.
                       </p>
                     </div>
-                  ) : null}
-
-                  {paymentEnabled && paymentConfigured ? (
-                    <RegistrationPaymentFormSection
-                      registrationFee={registrationFee}
-                      upiId={upiId}
-                      verificationMethod={verificationMethod}
-                      utrNumber={utrNumber}
-                      paymentScreenshotUrl={paymentScreenshotUrl}
-                      onUtrChange={setUtrNumber}
-                      onScreenshotChange={(url, publicId) => {
-                        setPaymentScreenshotUrl(url);
-                        setPaymentScreenshotPublicId(publicId ?? "");
-                      }}
-                      tournamentName={tournament.name}
-                      disabled={registerPending}
-                    />
                   ) : null}
                 </RegSection>
               ) : null}
 
               <div className="reg-actions">
                 {declarationRequired && !declarationAccepted && !closedSelfUpdateMode ? (
-                  <p id="register-submit-hint" className="reg-hint">Accept the declaration above to submit your registration.</p>
+                  <p id="register-submit-hint" className="reg-hint font-medium text-amber-700 dark:text-amber-400">
+                    Accept the tournament declaration above to submit your registration.
+                  </p>
                 ) : null}
                 {closedUpdateReadOnly ? (
                   <RegNotice tone="info">Updates are locked — contact your organiser to change your photo or details.</RegNotice>
                 ) : (
                   <Button
                     type="submit"
-                    className="w-full min-h-12 text-base font-bold"
+                    className="w-full min-h-12 text-base font-bold cursor-pointer"
                     disabled={registerPending || (!closedSelfUpdateMode && declarationRequired && !declarationAccepted)}
                     aria-describedby={declarationRequired && !declarationAccepted ? "register-submit-hint" : undefined}
                   >
