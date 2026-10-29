@@ -34,6 +34,187 @@ import { logger } from "../lib/logger";
 
 const router = Router();
 
+// ─── Authoritative WhatsApp Template Definitions & Helpers ───────────────────
+
+export interface CanonicalWaTemplate {
+  templateName: string;
+  title: string;
+  category: "utility" | "marketing" | "authentication";
+  description: string;
+  body: string;
+  variables: Array<{ key: string; label: string; placeholder: string }>;
+  sampleArgs: string[];
+}
+
+export const CANONICAL_WA_TEMPLATES: Record<string, CanonicalWaTemplate> = {
+  player_sold: {
+    templateName: "player_sold",
+    title: "🏆 Player Sold Celebration",
+    category: "utility",
+    description: "Celebratory announcement sent when a player is sold to a team",
+    body: "*BidWar Auction Update*\n\nCongratulations {{1}}!\n\nYou have been *SOLD* to *{{2}}* for *₹{{3}}* in *{{4}}*.\n\nGood luck for the tournament!",
+    variables: [
+      { key: "1", label: "Player Name", placeholder: "e.g. Virat Kohli" },
+      { key: "2", label: "Team Name", placeholder: "e.g. Royal Challengers" },
+      { key: "3", label: "Sold Amount (₹)", placeholder: "e.g. 25,00,000" },
+      { key: "4", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
+    ],
+    sampleArgs: ["Virat Kohli", "Royal Challengers", "25,00,000", "Premier League 2026"],
+  },
+  welcome_invite: {
+    templateName: "welcome_invite",
+    title: "🎉 Welcome & Tournament Invite",
+    category: "utility",
+    description: "Official invitation to participate in a tournament",
+    body: "*Welcome to BidWar Auction!*\n\nYou are invited to participate in *{{1}}*.\n\n📅 Date: {{2}}\n📍 Venue/Mode: {{3}}\n\nClick below to view details and live rosters.",
+    variables: [
+      { key: "1", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
+      { key: "2", label: "Date & Time", placeholder: "e.g. 24 Sep 2026, 6:00 PM" },
+      { key: "3", label: "Venue / Mode", placeholder: "e.g. Live Arena" },
+    ],
+    sampleArgs: ["Premier League 2026", "24 Sep 2026, 6:00 PM", "Live Arena"],
+  },
+  auction_reminder: {
+    templateName: "auction_reminder",
+    title: "🚨 Live Auction Countdown Alert",
+    category: "utility",
+    description: "Urgent countdown notification before auction commences",
+    body: "*🚨 Live Auction Starting Soon!*\n\nThe player auction for *{{1}}* begins in *{{2}} minutes*.\n\nTap the link below to enter the live bidding arena right now:\n{{3}}",
+    variables: [
+      { key: "1", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
+      { key: "2", label: "Minutes Remaining", placeholder: "e.g. 15" },
+      { key: "3", label: "Live Auction Link", placeholder: "e.g. https://bidwar.in/live/742" },
+    ],
+    sampleArgs: ["Premier League 2026", "15", "https://bidwar.in/live/742"],
+  },
+  consent_optin: {
+    templateName: "consent_optin",
+    title: "📲 WhatsApp Consent Opt-In Request",
+    category: "utility",
+    description: "Request recipient to opt in for WhatsApp notifications",
+    body: "*BidWar Instant Alerts*\n\nTo receive real-time bid updates, sale notifications, and squad announcements directly on WhatsApp, please confirm your opt-in:\n\n{{1}}",
+    variables: [
+      { key: "1", label: "Consent Verification Link", placeholder: "e.g. https://bidwar.in/wa-consent/token981" },
+    ],
+    sampleArgs: ["https://bidwar.in/wa-consent/token981"],
+  },
+  credentials_share: {
+    templateName: "credentials_share",
+    title: "🔑 Team Owner Credentials",
+    category: "authentication",
+    description: "Private PIN and dashboard link sent to team owners",
+    body: "*BidWar Team Pass*\n\nYour owner access for *{{1}}* (Team *{{2}}*) is ready.\n\n🔑 PIN: *{{3}}*\n🌐 App: {{4}}\n\nDo not share this PIN with anyone.",
+    variables: [
+      { key: "1", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
+      { key: "2", label: "Team Name", placeholder: "e.g. Super Kings" },
+      { key: "3", label: "Access PIN", placeholder: "e.g. 4921" },
+      { key: "4", label: "Platform URL", placeholder: "e.g. https://bidwar.in/owner" },
+    ],
+    sampleArgs: ["Premier League 2026", "Super Kings", "4921", "https://bidwar.in/owner"],
+  },
+};
+
+/** Ensure default canonical templates are seeded into wa_templates table */
+export async function ensureCanonicalTemplatesSeeded(): Promise<void> {
+  try {
+    const existing = await db
+      .select({ templateName: waTemplatesTable.templateName })
+      .from(waTemplatesTable);
+    const existingList = Array.isArray(existing) ? existing : [];
+    const existingNames = new Set(existingList.map((t) => t.templateName));
+
+    for (const [name, tpl] of Object.entries(CANONICAL_WA_TEMPLATES)) {
+      if (!existingNames.has(name)) {
+        await db
+          .insert(waTemplatesTable)
+          .values({
+            templateName: name,
+            category: tpl.category,
+            description: tpl.description,
+            status: "approved",
+          })
+          .onConflictDoNothing();
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "ensureCanonicalTemplatesSeeded: database seed warning");
+  }
+}
+
+/** Interpolate placeholders {{1}}, {{2}} or {{key}} with values */
+export function interpolateTemplateVariables(
+  templateBody: string,
+  variables: Record<string, string>,
+): string {
+  let result = templateBody;
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.split(`{{${key}}}`).join(value ?? "");
+  }
+  return result;
+}
+
+/** Server-side recipient mobile validation & normalization */
+export function validateAndNormalizeMobile(raw: unknown): { valid: boolean; normalized?: string; error?: string } {
+  if (typeof raw !== "string") {
+    return { valid: false, error: "Recipient mobile must be a valid string" };
+  }
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return { valid: false, error: "Recipient mobile cannot be empty" };
+  }
+  // Check for invalid characters (only digits, plus, hyphen, space, parens allowed)
+  if (/[^\d\s\-+()]/.test(trimmed)) {
+    return { valid: false, error: `Recipient mobile "${trimmed}" contains invalid characters` };
+  }
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length < 10) {
+    return { valid: false, error: `Recipient mobile "${trimmed}" has too few digits (minimum 10 required)` };
+  }
+  if (digits.length > 15) {
+    return { valid: false, error: `Recipient mobile "${trimmed}" exceeds maximum allowed length (15 digits)` };
+  }
+
+  // Domestic Indian format normalization:
+  // 10 digits -> keep 10 digits
+  if (digits.length === 10) {
+    return { valid: true, normalized: digits };
+  }
+  // 11 digits with leading 0 -> strip 0
+  if (digits.length === 11 && digits.startsWith("0")) {
+    return { valid: true, normalized: digits.slice(1) };
+  }
+  // 12 digits with 91 -> strip 91 for Indian 10-digit standard
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return { valid: true, normalized: digits.slice(2) };
+  }
+
+  return { valid: true, normalized: digits };
+}
+
+/** Check if recipient has opted out of WhatsApp (STOP) */
+async function isMobileRevoked(mobileDigits: string): Promise<boolean> {
+  const tenDigit = mobileDigits.length === 12 && mobileDigits.startsWith("91") ? mobileDigits.slice(2) : mobileDigits;
+  const twelveDigit = tenDigit.length === 10 ? `91${tenDigit}` : tenDigit;
+
+  const events = await db
+    .select({ eventType: waConsentEventsTable.eventType })
+    .from(waConsentEventsTable)
+    .where(
+      or(
+        eq(waConsentEventsTable.mobile, tenDigit),
+        eq(waConsentEventsTable.mobile, twelveDigit),
+        eq(waConsentEventsTable.mobile, `+${twelveDigit}`)
+      )
+    )
+    .orderBy(desc(waConsentEventsTable.eventAt))
+    .limit(1);
+
+  if (events.length > 0) {
+    return events[0].eventType === "STOP_REVOKED" || events[0].eventType === "declined";
+  }
+  return false;
+}
+
 /** Normalize free-text / dropdown template names to a canonical key. */
 function normalizeCommTemplateName(name: string | undefined | null): string | null {
   if (!name?.trim()) return null;
@@ -80,7 +261,12 @@ function generateBlastId(): string {
 // ─── Bot Link (public — must be BEFORE /:token param route) ─────────────────
 
 router.get("/consent/wa-link", (_req, res) => {
-  const waNumber = (process.env.TWILIO_WHATSAPP_FROM ?? "").replace("whatsapp:", "").replace("+", "");
+  const waNumber = (
+    process.env.KV_TECHMEDIA_WHATSAPP_NUMBER ??
+    process.env.META_WHATSAPP_PHONE_NUMBER ??
+    process.env.TWILIO_WHATSAPP_FROM ??
+    ""
+  ).replace("whatsapp:", "").replace("+", "").trim();
   const link = waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent("hello")}` : null;
   res.json({ link, configured: !!waNumber });
 });
@@ -281,27 +467,114 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
 
   const schema = z.object({
     tournamentId: z.number().int().optional(),
-    recipientGroup: z.enum(["all_players", "sold_players", "unsold_players", "all_owners", "organizer", "manual"]),
+    recipientGroup: z.enum([
+      "all_players",
+      "sold_players",
+      "unsold_players",
+      "all_owners",
+      "organizer",
+      "manual",
+      "custom",
+    ]),
     specificTeamId: z.number().int().optional(),
     channel: z.enum(["whatsapp", "sms", "both"]),
     templateName: z.string().optional(),
-    // Free-form message is optional when using a known DLT template (e.g. player_sold)
     messageContent: z.string().max(4096).optional().default(""),
-    manualMobiles: z.array(z.string()).optional(),
+    manualMobiles: z.union([z.array(z.string()), z.string()]).optional(),
+    customMobile: z.string().optional(),
+    templateVariables: z.record(z.string()).optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
   const canonicalTemplate = normalizeCommTemplateName(d.templateName);
   const isPlayerSoldTemplate = canonicalTemplate === "player_sold";
+  const isCustomOrFreeform = !canonicalTemplate || canonicalTemplate === "custom";
 
-  if (!isPlayerSoldTemplate && !d.messageContent.trim()) {
-    res.status(400).json({ error: "Message content is required" });
-    return;
+  // Ensure canonical templates are registered in wa_templates
+  await ensureCanonicalTemplatesSeeded();
+
+  let resolvedTemplateSid: string | undefined;
+
+  // Validate approved template against authoritative database registry
+  if (!isCustomOrFreeform) {
+    const [dbTmpl] = await db
+      .select({
+        templateName: waTemplatesTable.templateName,
+        templateSid: waTemplatesTable.templateSid,
+        status: waTemplatesTable.status,
+      })
+      .from(waTemplatesTable)
+      .where(eq(waTemplatesTable.templateName, canonicalTemplate!));
+
+    if (!dbTmpl || dbTmpl.status !== "approved") {
+      res.status(400).json({ error: `Template "${d.templateName}" is not approved.` });
+      return;
+    }
+    resolvedTemplateSid = dbTmpl.templateSid ?? undefined;
+
+    // Validate variables if template definition specifies them
+    const canonicalDef = CANONICAL_WA_TEMPLATES[canonicalTemplate!];
+    if (canonicalDef && canonicalDef.variables.length > 0) {
+      const isAutoDbPlayerSold = isPlayerSoldTemplate && d.tournamentId && (d.recipientGroup === "sold_players" || d.recipientGroup === "all_players");
+      if (!isAutoDbPlayerSold) {
+        const suppliedVars = d.templateVariables ?? {};
+        const missingVars: string[] = [];
+        for (const v of canonicalDef.variables) {
+          const val = suppliedVars[v.key] ?? suppliedVars[v.label];
+          if (!val || !val.trim()) {
+            missingVars.push(`${v.label} ({{${v.key}}})`);
+          }
+        }
+        if (missingVars.length > 0) {
+          res.status(400).json({ error: `Missing required template variable(s): ${missingVars.join(", ")}` });
+          return;
+        }
+        d.messageContent = interpolateTemplateVariables(canonicalDef.body, suppliedVars);
+      }
+    } else if (canonicalDef) {
+      if (!d.messageContent.trim()) {
+        d.messageContent = canonicalDef.body;
+      }
+    }
+  } else {
+    // Custom message requires non-empty message content
+    if (!d.messageContent.trim()) {
+      res.status(400).json({ error: "Message content is required" });
+      return;
+    }
+  }
+
+  // Early recipient validation for manual/custom before DB queries
+  if (d.recipientGroup === "manual" || d.recipientGroup === "custom") {
+    const rawMobiles: string[] = [];
+    if (typeof d.customMobile === "string" && d.customMobile.trim()) {
+      rawMobiles.push(d.customMobile.trim());
+    }
+    if (Array.isArray(d.manualMobiles)) {
+      for (const m of d.manualMobiles) {
+        if (typeof m === "string" && m.trim()) rawMobiles.push(m.trim());
+      }
+    } else if (typeof d.manualMobiles === "string" && d.manualMobiles.trim()) {
+      rawMobiles.push(...d.manualMobiles.split(",").map((s) => s.trim()).filter(Boolean));
+    }
+
+    if (rawMobiles.length === 0) {
+      res.status(400).json({ error: "At least one recipient mobile number is required" });
+      return;
+    }
+
+    for (const raw of rawMobiles) {
+      const normResult = validateAndNormalizeMobile(raw);
+      if (!normResult.valid || !normResult.normalized) {
+        res.status(400).json({ error: normResult.error || `Invalid mobile number: "${raw}"` });
+        return;
+      }
+    }
   }
 
   // Player Sold template: personalized DLT SMS (+ optional WA) to sold players
-  if (isPlayerSoldTemplate) {
+  if (isPlayerSoldTemplate && (d.recipientGroup === "sold_players" || d.recipientGroup === "all_players")) {
     if (!d.tournamentId) {
       res.status(400).json({ error: "tournamentId is required for the player_sold template" });
       return;
@@ -393,37 +666,55 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
       const playerName = player.name ?? "Player";
       const teamName = (player.teamId != null ? teamNameById.get(player.teamId) : null) ?? "Team";
       const amount = player.soldPrice ?? 0;
-      const effectiveChannel =
-        (d.channel === "whatsapp" || d.channel === "both") && !player.whatsappConsent
-          ? "sms"
-          : d.channel;
+      const shouldSendWa = (d.channel === "whatsapp" || d.channel === "both");
+      const shouldSendSms = (d.channel === "sms" || d.channel === "both");
 
-      if (effectiveChannel === "whatsapp" || effectiveChannel === "both") {
+      if (shouldSendWa) {
         const waBody = buildPlayerSoldWaMessage({
           playerName,
           teamName,
           amount,
           tournamentName: tournament.name,
         });
-        const waResult = await sendWhatsApp(mobile, waBody);
-        await db.insert(commLogsTable).values({
-          tournamentId: tid,
-          recipientType: "player",
-          recipientId: player.id,
-          recipientMobile: mobile,
-          channel: "whatsapp",
-          templateName: logTemplateName,
-          messageContent: waBody,
-          sentByAdminId: "master_admin",
-          blastId,
-          deliveryStatus: waResult.success ? "sent" : "failed",
-          metaMessageId: waResult.messageSid ?? null,
-          errorMessage: waResult.error ?? null,
-        });
-        results.push({ mobile, channel: "whatsapp", success: waResult.success, stub: waResult.stub, error: waResult.error });
+
+        if (!player.whatsappConsent) {
+          const err = "Recipient has no WhatsApp consent";
+          await db.insert(commLogsTable).values({
+            tournamentId: tid,
+            recipientType: "player",
+            recipientId: player.id,
+            recipientMobile: mobile,
+            channel: "whatsapp",
+            templateName: logTemplateName,
+            messageContent: waBody,
+            sentByAdminId: "master_admin",
+            blastId,
+            deliveryStatus: "failed",
+            metaMessageId: null,
+            errorMessage: err,
+          });
+          results.push({ mobile, channel: "whatsapp", success: false, error: err });
+        } else {
+          const waResult = await sendWhatsApp(mobile, waBody, resolvedTemplateSid);
+          await db.insert(commLogsTable).values({
+            tournamentId: tid,
+            recipientType: "player",
+            recipientId: player.id,
+            recipientMobile: mobile,
+            channel: "whatsapp",
+            templateName: logTemplateName,
+            messageContent: waBody,
+            sentByAdminId: "master_admin",
+            blastId,
+            deliveryStatus: waResult.success ? "sent" : "failed",
+            metaMessageId: waResult.messageSid ?? null,
+            errorMessage: waResult.error ?? null,
+          });
+          results.push({ mobile, channel: "whatsapp", success: waResult.success, stub: waResult.stub, error: waResult.error });
+        }
       }
 
-      if (effectiveChannel === "sms" || effectiveChannel === "both") {
+      if (shouldSendSms) {
         if (!dltTemplateId) {
           const err = "Player Sold DLT template ID is not configured";
           await db.insert(commLogsTable).values({
@@ -480,41 +771,9 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
     return;
   }
 
-  // WhatsApp template enforcement.
-  // Stub mode (no Twilio creds): template not enforced — allows dev/demo use.
-  // Production (Twilio creds present): templateName is REQUIRED for all business-initiated WA sends.
-  // Every approved template must be registered in wa_templates or TWILIO_WA_TEMPLATES env var.
-  const isLiveMode = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN);
-  let resolvedTemplateSid: string | undefined;
-  if (d.channel === "whatsapp" || d.channel === "both") {
-    if (isLiveMode && !d.templateName) {
-      res.status(400).json({ error: "templateName is required for WhatsApp sends in production mode" });
-      return;
-    }
-    if (d.templateName) {
-      const dbTemplates = await db.select({ templateName: waTemplatesTable.templateName, templateSid: waTemplatesTable.templateSid, status: waTemplatesTable.status })
-        .from(waTemplatesTable);
-      if (isLiveMode && dbTemplates.length > 0) {
-        const tmpl = dbTemplates.find(t => t.templateName === d.templateName && t.status === "approved");
-        if (!tmpl) {
-          const approved = dbTemplates.filter(t => t.status === "approved").map(t => t.templateName);
-          res.status(400).json({ error: `Template "${d.templateName}" is not approved. Approved: ${approved.join(", ")}` });
-          return;
-        }
-        resolvedTemplateSid = tmpl.templateSid ?? undefined;
-      } else if (isLiveMode) {
-        const envTemplates = (process.env.TWILIO_WA_TEMPLATES ?? "").split(",").map(s => s.trim()).filter(Boolean);
-        if (envTemplates.length > 0 && !envTemplates.includes(d.templateName)) {
-          res.status(400).json({ error: `Template "${d.templateName}" is not in the approved list.` });
-          return;
-        }
-      }
-    }
-  }
-
   // License gate for WhatsApp — "active" is the licensed status in this system.
-  // All WhatsApp sends (including manual) require a tournamentId so the
-  // license can be verified; no anonymous/licence-free WA blasts allowed.
+  // All WhatsApp sends (including manual/custom) require a tournamentId so the
+  // license can be verified; no anonymous/license-free WA blasts allowed.
   if (d.channel === "whatsapp" || d.channel === "both") {
     if (!d.tournamentId) {
       res.status(400).json({ error: "tournamentId is required for WhatsApp sends to enforce license gating" });
@@ -541,9 +800,51 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   type Recipient = { mobile: string; recipientType: string; recipientId: number | null; whatsappConsent: boolean };
   const recipients: Recipient[] = [];
 
-  if (d.recipientGroup === "manual" && d.manualMobiles) {
-    for (const m of d.manualMobiles) {
-      recipients.push({ mobile: m, recipientType: "manual", recipientId: null, whatsappConsent: false });
+  if (d.recipientGroup === "manual" || d.recipientGroup === "custom") {
+    const rawMobiles: string[] = [];
+    if (typeof d.customMobile === "string" && d.customMobile.trim()) {
+      rawMobiles.push(d.customMobile.trim());
+    }
+    if (Array.isArray(d.manualMobiles)) {
+      for (const m of d.manualMobiles) {
+        if (typeof m === "string" && m.trim()) rawMobiles.push(m.trim());
+      }
+    } else if (typeof d.manualMobiles === "string" && d.manualMobiles.trim()) {
+      rawMobiles.push(...d.manualMobiles.split(",").map((s) => s.trim()).filter(Boolean));
+    }
+
+    if (rawMobiles.length === 0) {
+      res.status(400).json({ error: "At least one recipient mobile number is required" });
+      return;
+    }
+
+    for (const raw of rawMobiles) {
+      const normResult = validateAndNormalizeMobile(raw);
+      if (!normResult.valid || !normResult.normalized) {
+        res.status(400).json({ error: normResult.error || `Invalid mobile number: "${raw}"` });
+        return;
+      }
+      const mobile = normResult.normalized;
+      const revoked = await isMobileRevoked(mobile);
+      let consent = !revoked;
+      if (d.tournamentId && consent) {
+        const [p] = await db
+          .select({ whatsappConsent: playersTable.whatsappConsent })
+          .from(playersTable)
+          .where(
+            and(
+              eq(playersTable.tournamentId, d.tournamentId),
+              or(eq(playersTable.mobileNumber, mobile), eq(playersTable.mobileNumber, `91${mobile}`)),
+            ),
+          );
+        if (p && !p.whatsappConsent) consent = false;
+      }
+      recipients.push({
+        mobile,
+        recipientType: "manual",
+        recipientId: null,
+        whatsappConsent: consent,
+      });
     }
   } else if (d.tournamentId) {
     const tid = d.tournamentId;
@@ -583,28 +884,48 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   const results: Array<{ mobile: string; channel: string; success: boolean; stub?: boolean; error?: string }> = [];
 
   for (const r of recipients) {
-    // Consent-based channel routing: no WA consent → route to SMS automatically
-    const effectiveChannel = (d.channel === "whatsapp" || d.channel === "both") && !r.whatsappConsent ? "sms" : d.channel;
+    const shouldSendWa = (d.channel === "whatsapp" || d.channel === "both");
+    const shouldSendSms = (d.channel === "sms" || d.channel === "both");
 
-    if (effectiveChannel === "whatsapp" || effectiveChannel === "both") {
-      const waResult = await sendWhatsApp(r.mobile, d.messageContent, resolvedTemplateSid);
-      await db.insert(commLogsTable).values({
-        tournamentId: d.tournamentId ?? null,
-        recipientType: r.recipientType,
-        recipientId: r.recipientId,
-        recipientMobile: r.mobile,
-        channel: "whatsapp",
-        templateName: d.templateName ?? null,
-        messageContent: d.messageContent,
-        sentByAdminId: "master_admin",
-        blastId,
-        deliveryStatus: waResult.success ? "sent" : "failed",
-        metaMessageId: waResult.messageSid ?? null,
-        errorMessage: waResult.error ?? null,
-      });
-      results.push({ mobile: r.mobile, channel: "whatsapp", success: waResult.success, stub: waResult.stub, error: waResult.error });
+    if (shouldSendWa) {
+      if (!r.whatsappConsent) {
+        const err = "Recipient has no WhatsApp consent or opted out (STOP)";
+        await db.insert(commLogsTable).values({
+          tournamentId: d.tournamentId ?? null,
+          recipientType: r.recipientType,
+          recipientId: r.recipientId,
+          recipientMobile: r.mobile,
+          channel: "whatsapp",
+          templateName: d.templateName ?? null,
+          messageContent: d.messageContent,
+          sentByAdminId: "master_admin",
+          blastId,
+          deliveryStatus: "failed",
+          metaMessageId: null,
+          errorMessage: err,
+        });
+        results.push({ mobile: r.mobile, channel: "whatsapp", success: false, error: err });
+      } else {
+        const waResult = await sendWhatsApp(r.mobile, d.messageContent, resolvedTemplateSid);
+        await db.insert(commLogsTable).values({
+          tournamentId: d.tournamentId ?? null,
+          recipientType: r.recipientType,
+          recipientId: r.recipientId,
+          recipientMobile: r.mobile,
+          channel: "whatsapp",
+          templateName: d.templateName ?? null,
+          messageContent: d.messageContent,
+          sentByAdminId: "master_admin",
+          blastId,
+          deliveryStatus: waResult.success ? "sent" : "failed",
+          metaMessageId: waResult.messageSid ?? null,
+          errorMessage: waResult.error ?? null,
+        });
+        results.push({ mobile: r.mobile, channel: "whatsapp", success: waResult.success, stub: waResult.stub, error: waResult.error });
+      }
     }
-    if (effectiveChannel === "sms" || effectiveChannel === "both") {
+
+    if (shouldSendSms) {
       const smsResult = await sendSms(r.mobile, d.messageContent);
       await db.insert(commLogsTable).values({
         tournamentId: d.tournamentId ?? null,
@@ -631,8 +952,24 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
 
 router.get("/auth/admin/communicate/templates", async (req, res) => {
   if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
+  await ensureCanonicalTemplatesSeeded();
   const templates = await db.select().from(waTemplatesTable).orderBy(waTemplatesTable.templateName);
-  res.json(templates);
+  const enriched = templates.map((t) => {
+    const canonical = CANONICAL_WA_TEMPLATES[t.templateName];
+    return {
+      id: t.id,
+      templateName: t.templateName,
+      templateSid: t.templateSid,
+      category: t.category || canonical?.category || "utility",
+      description: t.description || canonical?.description || "",
+      status: t.status,
+      title: canonical?.title || t.templateName,
+      body: canonical?.body || "",
+      variables: canonical?.variables || [],
+      sampleArgs: canonical?.sampleArgs || [],
+    };
+  });
+  res.json(enriched);
 });
 
 router.post("/auth/admin/communicate/templates", async (req, res) => {

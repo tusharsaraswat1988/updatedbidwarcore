@@ -44,7 +44,13 @@ async function start() {
         `[bidwar] WhatsApp provider startup validation failed for provider '${waValidation.provider}':\n  - ` +
           waValidation.errors.join("\n  - "),
       );
-      process.exit(1);
+      if (process.env.STRICT_WHATSAPP_STARTUP === "true") {
+        process.exit(1);
+      } else {
+        console.warn(
+          "[bidwar] Continuing server startup in degraded communication mode (WhatsApp dispatches fail-closed). Set STRICT_WHATSAPP_STARTUP=true to force startup termination.",
+        );
+      }
     }
   } else {
     logger.info(

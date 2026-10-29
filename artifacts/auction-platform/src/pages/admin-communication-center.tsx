@@ -192,6 +192,18 @@ interface ConsentStats {
   owners: { total: number; consented: number; hasMobile: number };
 }
 
+interface WaTemplateOption {
+  id: string;
+  templateName: string;
+  title: string;
+  body: string;
+  status?: string;
+  category?: string;
+  description?: string;
+  variables: Array<{ key: string; label: string; placeholder: string }>;
+  sampleArgs?: string[];
+}
+
 interface TournamentItem {
   id: number;
   name: string;
@@ -329,6 +341,8 @@ export default function AdminCommunicationCenter() {
   // WhatsApp State
   const [waRecipientGroup, setWaRecipientGroup] = useState("all_players");
   const [waTemplateKey, setWaTemplateKey] = useState("player_sold");
+  const [availableWaTemplates, setAvailableWaTemplates] = useState<WaTemplateOption[]>([]);
+  const [waTemplateVariables, setWaTemplateVariables] = useState<Record<string, string>>({});
   const [waCustomText, setWaCustomText] = useState("");
   const [waCustomMobile, setWaCustomMobile] = useState("");
   const [waSending, setSendingWa] = useState(false);
@@ -484,6 +498,12 @@ export default function AdminCommunicationCenter() {
 
       const linkRes = await fetch("/api/consent/wa-link", { credentials: "include" });
       if (linkRes.ok) setBotLink(await linkRes.json());
+
+      const tRes = await fetch("/api/auth/admin/communicate/templates", { credentials: "include" });
+      if (tRes.ok) {
+        const templates = await tRes.json();
+        setAvailableWaTemplates(templates);
+      }
     } catch {
       // ignore
     } finally {
@@ -747,18 +767,49 @@ export default function AdminCommunicationCenter() {
   const handleSendWa = async () => {
     setSendingWa(true);
     setWaSendResult(null);
+
+    // Client-side validations for immediate user feedback
+    if (waRecipientGroup === "custom") {
+      const cleanMobile = waCustomMobile.replace(/\D/g, "");
+      if (cleanMobile.length < 10) {
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: "Please enter a valid mobile number (minimum 10 digits)" });
+        setSendingWa(false);
+        return;
+      }
+    }
+
+    if (waTemplateKey === "custom") {
+      if (!waCustomText.trim()) {
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: "Please enter custom message text before sending" });
+        setSendingWa(false);
+        return;
+      }
+    } else if (selectedWaTpl?.variables && selectedWaTpl.variables.length > 0) {
+      const isAutoDbPlayerSold = waTemplateKey === "player_sold" && selectedTournamentId && selectedTournamentId !== "__all__" && (waRecipientGroup === "sold_players" || waRecipientGroup === "all_players");
+      if (!isAutoDbPlayerSold) {
+        const missing = selectedWaTpl.variables.find((v) => !waTemplateVariables[v.key]?.trim());
+        if (missing) {
+          setWaSendResult({ success: false, sent: 0, failed: 1, error: `Please provide value for variable: ${missing.label}` });
+          setSendingWa(false);
+          return;
+        }
+      }
+    }
+
     try {
       const body: Record<string, unknown> = {
         channel: "whatsapp",
         recipientGroup: waRecipientGroup,
-        messageContent: waCustomText,
+        messageContent: waTemplateKey === "custom" ? waCustomText : "",
         templateName: waTemplateKey,
+        templateVariables: waTemplateVariables,
       };
       if (selectedTournamentId && selectedTournamentId !== "__all__") {
         body.tournamentId = parseInt(selectedTournamentId);
       }
       if (waRecipientGroup === "custom") {
         body.customMobile = waCustomMobile;
+        body.manualMobiles = [waCustomMobile];
       }
 
       const r = await fetch("/api/auth/admin/communicate/send", {
@@ -863,47 +914,113 @@ export default function AdminCommunicationCenter() {
   ];
 
   // WhatsApp Pre-Approved Templates Metadata
-  const waTemplates = [
+  const defaultWaTemplates: WaTemplateOption[] = useMemo(() => [
     {
       id: "player_sold",
+      templateName: "player_sold",
       title: "🏆 Player Sold Celebration",
-      body: "*BidWar Auction Update*\n\nCongratulations *{{1}}*!\n\nYou have been *SOLD* to *{{2}}* for *₹{{3}}* in *{{4}}*.\n\nGood luck for the tournament!",
+      body: "*BidWar Auction Update*\n\nCongratulations {{1}}!\n\nYou have been *SOLD* to *{{2}}* for *₹{{3}}* in *{{4}}*.\n\nGood luck for the tournament!",
+      variables: [
+        { key: "1", label: "Player Name", placeholder: "e.g. Virat Kohli" },
+        { key: "2", label: "Team Name", placeholder: "e.g. Royal Challengers" },
+        { key: "3", label: "Sold Amount (₹)", placeholder: "e.g. 25,00,000" },
+        { key: "4", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
+      ],
       sampleArgs: ["Virat Kohli", "Royal Challengers", "25,00,000", "Premier League 2026"],
     },
     {
       id: "welcome_invite",
+      templateName: "welcome_invite",
       title: "🎉 Welcome & Tournament Invite",
       body: "*Welcome to BidWar Auction!*\n\nYou are invited to participate in *{{1}}*.\n\n📅 Date: {{2}}\n📍 Venue/Mode: {{3}}\n\nClick below to view details and live rosters.",
+      variables: [
+        { key: "1", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
+        { key: "2", label: "Date & Time", placeholder: "e.g. 24 Sep 2026, 6:00 PM" },
+        { key: "3", label: "Venue / Mode", placeholder: "e.g. Live Arena" },
+      ],
       sampleArgs: ["Premier League 2026", "24 Sep 2026, 6:00 PM", "Live Arena"],
     },
     {
       id: "auction_reminder",
+      templateName: "auction_reminder",
       title: "🚨 Live Auction Countdown Alert",
       body: "*🚨 Live Auction Starting Soon!*\n\nThe player auction for *{{1}}* begins in *{{2}} minutes*.\n\nTap the link below to enter the live bidding arena right now:\n{{3}}",
+      variables: [
+        { key: "1", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
+        { key: "2", label: "Minutes Remaining", placeholder: "e.g. 15" },
+        { key: "3", label: "Live Auction Link", placeholder: "e.g. https://bidwar.in/live/742" },
+      ],
       sampleArgs: ["Premier League 2026", "15", "https://bidwar.in/live/742"],
     },
     {
       id: "consent_optin",
+      templateName: "consent_optin",
       title: "📲 WhatsApp Consent Opt-In Request",
       body: "*BidWar Instant Alerts*\n\nTo receive real-time bid updates, sale notifications, and squad announcements directly on WhatsApp, please confirm your opt-in:\n\n{{1}}",
+      variables: [
+        { key: "1", label: "Consent Verification Link", placeholder: "e.g. https://bidwar.in/wa-consent/token981" },
+      ],
       sampleArgs: ["https://bidwar.in/wa-consent/token981"],
     },
     {
       id: "credentials_share",
+      templateName: "credentials_share",
       title: "🔑 Team Owner Credentials",
       body: "*BidWar Team Pass*\n\nYour owner access for *{{1}}* (Team *{{2}}*) is ready.\n\n🔑 PIN: *{{3}}*\n🌐 App: {{4}}\n\nDo not share this PIN with anyone.",
+      variables: [
+        { key: "1", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
+        { key: "2", label: "Team Name", placeholder: "e.g. Super Kings" },
+        { key: "3", label: "Access PIN", placeholder: "e.g. 4921" },
+        { key: "4", label: "Platform URL", placeholder: "e.g. https://bidwar.in/owner" },
+      ],
       sampleArgs: ["Premier League 2026", "Super Kings", "4921", "https://bidwar.in/owner"],
     },
     {
       id: "custom",
+      templateName: "custom",
       title: "✍️ Custom Direct Message",
-      body: "{{1}}",
+      body: "",
+      variables: [],
       sampleArgs: ["Hello! This is a direct broadcast from BidWar Auction platform admin."],
     },
-  ];
+  ], []);
+
+  const waTemplates: WaTemplateOption[] = useMemo(() => {
+    if (availableWaTemplates.length > 0) {
+      const customTmpl: WaTemplateOption = {
+        id: "custom",
+        templateName: "custom",
+        title: "✍️ Custom Direct Message",
+        body: "",
+        variables: [],
+      };
+      const dbOptions = availableWaTemplates
+        .filter((t) => t.status === "approved")
+        .map((t) => ({
+          ...t,
+          id: t.templateName || String(t.id),
+        }));
+      return [...dbOptions, customTmpl];
+    }
+    return defaultWaTemplates;
+  }, [availableWaTemplates, defaultWaTemplates]);
 
   const selectedSmsTpl = dltTemplates.find((t) => t.id === smsTemplateKey) ?? dltTemplates[0];
   const selectedWaTpl = waTemplates.find((t) => t.id === waTemplateKey) ?? waTemplates[0];
+
+  const previewWaBody = useMemo(() => {
+    if (waTemplateKey === "custom") {
+      return waCustomText || "Type custom message to preview...";
+    }
+    let body = selectedWaTpl?.body || "";
+    if (selectedWaTpl?.variables) {
+      for (const v of selectedWaTpl.variables) {
+        const val = waTemplateVariables[v.key]?.trim() || `[${v.label}]`;
+        body = body.split(`{{${v.key}}}`).join(val);
+      }
+    }
+    return body;
+  }, [waTemplateKey, waCustomText, selectedWaTpl, waTemplateVariables]);
 
   if (isLoading || !isLoggedIn) {
     return (
@@ -1899,9 +2016,9 @@ export default function AdminCommunicationCenter() {
               <div className="flex items-start gap-3 p-3.5 rounded-xl border border-amber-500/25 bg-amber-500/10">
                 <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-xs font-bold text-amber-400">Trial / Locked Tournament Warning</p>
+                  <p className="text-xs font-bold text-amber-400">License Policy Block Warning</p>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    WhatsApp dispatches require an active licensed tournament. Unlicensed tournaments automatically fallback safely to SMS.
+                    WhatsApp dispatch is blocked when licensing or policy requirements are not met. No automatic fallback to SMS occurs.
                   </p>
                 </div>
               </div>
@@ -2045,6 +2162,31 @@ export default function AdminCommunicationCenter() {
                       </Select>
                     </div>
 
+                    {/* Template Dynamic Variables (if required) */}
+                    {waTemplateKey !== "custom" && selectedWaTpl?.variables && selectedWaTpl.variables.length > 0 && (
+                      <div className="space-y-2 p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold text-emerald-400">Template Dynamic Variables</Label>
+                          {waTemplateKey === "player_sold" && (waRecipientGroup === "sold_players" || waRecipientGroup === "all_players") && selectedTournamentId && selectedTournamentId !== "__all__" && (
+                            <span className="text-[10px] text-muted-foreground italic">Auto-resolved from tournament auction data</span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {selectedWaTpl.variables.map((v) => (
+                            <div key={v.key} className="space-y-1">
+                              <Label className="text-[11px] text-muted-foreground">{v.label} ({`{{${v.key}}}`})</Label>
+                              <Input
+                                placeholder={v.placeholder}
+                                value={waTemplateVariables[v.key] ?? ""}
+                                onChange={(e) => setWaTemplateVariables((prev) => ({ ...prev, [v.key]: e.target.value }))}
+                                className="h-8 text-xs bg-background/50"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {waTemplateKey === "custom" && (
                       <div>
                         <Label className="text-xs text-muted-foreground">Custom WhatsApp Message</Label>
@@ -2106,7 +2248,7 @@ export default function AdminCommunicationCenter() {
 
                       {/* WhatsApp Emerald Bubble */}
                       <div className="rounded-xl rounded-tl-xs bg-[#005c4b] p-3 text-xs text-zinc-100 shadow space-y-2 leading-relaxed whitespace-pre-line">
-                        {waTemplateKey === "custom" ? (waCustomText || "Type custom message to preview...") : selectedWaTpl.body}
+                        {previewWaBody}
                         <div className="pt-2 border-t border-emerald-600/40 text-[10px] text-emerald-200/70 italic">
                           Reply STOP to unsubscribe.
                         </div>
