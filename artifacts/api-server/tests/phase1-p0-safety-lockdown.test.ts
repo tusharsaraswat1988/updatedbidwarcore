@@ -328,16 +328,16 @@ describe("BIDWAR — WhatsApp Consent Phase 1: P0 Safety Lockdown Verification",
   });
 
   // ───────────────────────────────────────────────────────────────────────────
-  // P0-D: Prohibit WhatsApp Consent from Being Mandatory
+  // P0-D: Permanently Mandatory WhatsApp Consent Enforcement
   // ───────────────────────────────────────────────────────────────────────────
-  describe("P0-D: Mandatory WhatsApp Consent Prohibited", () => {
-    it("validateRegistrationFieldsUpdate rejects whatsappConsent as mandatory", () => {
+  describe("P0-D: Permanently Mandatory WhatsApp Consent Enforcement", () => {
+    it("validateRegistrationFieldsUpdate rejects whatsappConsent in required (not configurable)", () => {
       const result = validateRegistrationFieldsUpdate({
         required: ["whatsappConsent"],
       });
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error).toContain("cannot be configured as a mandatory field");
+        expect(result.error).toContain("is permanently mandatory");
       }
     });
 
@@ -350,33 +350,39 @@ describe("BIDWAR — WhatsApp Consent Phase 1: P0 Safety Lockdown Verification",
       expect(parsed.required).not.toContain("whatsappConsent");
     });
 
-    it("buildRegistrationFieldRequirements guarantees whatsappConsent is always false", () => {
+    it("buildRegistrationFieldRequirements guarantees whatsappConsent is permanently true", () => {
       const reqs = buildRegistrationFieldRequirements({
-        required: ["whatsappConsent" as any],
+        required: ["photo"],
       });
-      expect(reqs.whatsappConsent).toBe(false);
+      expect(reqs.whatsappConsent).toBe(true);
     });
 
-    it("validatePlayerRegistrationRequirements allows registration with whatsappConsent = false", () => {
+    it("validatePlayerRegistrationRequirements requires whatsappConsent = true for registration", () => {
+      // Missing/false whatsappConsent fails
       const res = validatePlayerRegistrationRequirements(
-        { name: "Virat Kohli", mobileNumber: "9876543210", whatsappConsent: false },
-        { required: ["photo", "role"] },
-      );
-      // Photo and role are required in config; name & mobile are valid
-      expect(res.ok).toBe(false);
-      // Fails on photo, NOT on whatsappConsent
-      if (!res.ok) {
-        expect(res.field).toBe("photoUrl");
-      }
-
-      // With photo and role provided, whatsappConsent=false succeeds
-      const validRes = validatePlayerRegistrationRequirements(
         {
           name: "Virat Kohli",
           mobileNumber: "9876543210",
           photoUrl: "https://example.com/photo.jpg",
           role: "Batsman",
           whatsappConsent: false,
+        },
+        { required: ["photo", "role"] },
+      );
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.field).toBe("whatsappConsent");
+        expect(res.error).toBe("WhatsApp consent is required to complete registration.");
+      }
+
+      // With photo, role, and whatsappConsent=true, registration succeeds
+      const validRes = validatePlayerRegistrationRequirements(
+        {
+          name: "Virat Kohli",
+          mobileNumber: "9876543210",
+          photoUrl: "https://example.com/photo.jpg",
+          role: "Batsman",
+          whatsappConsent: true,
         },
         { required: ["photo", "role"] },
       );

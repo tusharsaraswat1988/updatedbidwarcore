@@ -80,7 +80,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, MoreHorizontal, Copy, Check, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle, ListOrdered, Shirt, Coins, Trophy, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, User, UserRound, Upload, Download, ExternalLink, X, ArrowLeft, Sparkles, Loader2, AlertTriangle, Users, CalendarDays, ChevronDown, MoreHorizontal, Copy, Check, ArrowUp, ArrowDown, ArrowUpDown, Filter, SlidersHorizontal, Search, CalendarX, Lock, CheckCircle2, MessageCircle, MessageSquare, ListOrdered, Shirt, Coins, Trophy, FileText } from "lucide-react";
 import { formatIndianRupee, normalizeAuctionUnit, type AuctionUnit } from "@/lib/format";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { cldUrl } from "@/lib/cloudinary";
@@ -2857,6 +2857,15 @@ function PlayerDetailPanel({
                 {tagTheme.label}
               </span>
             ) : null}
+            {player.whatsappConsent ? (
+              <Badge variant="secondary" className="text-[10px] h-5 bg-emerald-500/15 text-emerald-400 border-emerald-500/30 gap-1 font-medium">
+                <MessageSquare className="w-3 h-3" /> WhatsApp Opted-In
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[10px] h-5 text-muted-foreground gap-1">
+                <MessageSquare className="w-3 h-3 opacity-60" /> No WhatsApp Consent
+              </Badge>
+            )}
             {player.isNonPlayingMember ? (
               <Badge variant="outline" className="text-[10px] h-5">Non-playing</Badge>
             ) : null}
@@ -3880,6 +3889,11 @@ export default function Players() {
                               <span className="font-semibold text-foreground text-sm leading-snug truncate" title={player.name}>
                                 {player.name}
                               </span>
+                              {player.whatsappConsent ? (
+                                <span title="WhatsApp notifications enabled" className="inline-flex items-center text-emerald-400 shrink-0">
+                                  <MessageSquare className="w-3 h-3" />
+                                </span>
+                              ) : null}
                               {tagTheme ? (
                                 <Badge
                                   variant="outline"

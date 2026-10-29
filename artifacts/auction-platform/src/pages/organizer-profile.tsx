@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useOrganizerAccountAuth } from "@/hooks/use-auth";
@@ -9,6 +9,10 @@ import {
   changeOrganizerPassword,
   setOrganizerPassword,
   logoutOrganizerAccount,
+  getOrganizerWaConsentStatus,
+  optInOrganizerWaConsent,
+  withdrawOrganizerWaConsent,
+  type OrganizerWaConsentStatus,
   type OrganizerInfo,
 } from "@/lib/auth";
 import {
@@ -23,7 +27,7 @@ import { ImageEditorDialog } from "@/components/image-editor-dialog";
 import { cldUrl } from "@/lib/cloudinary";
 import {
   ArrowLeft, User, Mail, Lock, CheckCircle2, AlertTriangle,
-  Camera, LogOut, RefreshCw, Eye, EyeOff, KeyRound,
+  Camera, LogOut, RefreshCw, Eye, EyeOff, KeyRound, MessageSquare, Phone,
 } from "lucide-react";
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
@@ -336,6 +340,156 @@ function ChangePasswordSection({ organizer, onSaved }: { organizer: OrganizerInf
   );
 }
 
+// ─── Section: WhatsApp Consent ───────────────────────────────────────────────
+
+function OrganizerWhatsAppConsentSection({ organizer }: { organizer: OrganizerInfo }) {
+  const [status, setStatus] = useState<OrganizerWaConsentStatus | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+
+  const loadStatus = useCallback(async () => {
+    setLoading(true);
+    const res = await getOrganizerWaConsentStatus();
+    setLoading(false);
+    if (res.success && res.data) {
+      setStatus(res.data);
+    } else {
+      setError(res.error || "Failed to load WhatsApp consent status.");
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadStatus();
+  }, [loadStatus]);
+
+  async function handleToggleConsent() {
+    if (!status) return;
+    setActionLoading(true);
+    setError("");
+    setSuccessMsg("");
+
+    if (status.whatsappConsent) {
+      const res = await withdrawOrganizerWaConsent();
+      setActionLoading(false);
+      if (res.success) {
+        setStatus(prev => prev ? { ...prev, whatsappConsent: false, whatsappConsentAt: null } : null);
+        setSuccessMsg("WhatsApp updates turned off.");
+        setTimeout(() => setSuccessMsg(""), 3000);
+      } else {
+        setError(res.error || "Failed to withdraw consent.");
+      }
+    } else {
+      const res = await optInOrganizerWaConsent();
+      setActionLoading(false);
+      if (res.success) {
+        setStatus(prev => prev ? { ...prev, whatsappConsent: true, whatsappConsentAt: new Date().toISOString() } : null);
+        setSuccessMsg("WhatsApp updates activated successfully!");
+        setTimeout(() => setSuccessMsg(""), 3000);
+      } else {
+        setError(res.error || "Failed to opt in. Make sure your phone number is verified.");
+      }
+    }
+  }
+
+  const isOptedIn = status?.whatsappConsent === true;
+
+  return (
+    <Card className="border-border/50 bg-card/40">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 text-emerald-500" />
+            WhatsApp Notification Consent
+          </div>
+          {status && (
+            <span
+              className={`text-[11px] px-2 py-0.5 rounded-full font-semibold border ${
+                isOptedIn
+                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                  : "bg-muted text-muted-foreground border-border/50"
+              }`}
+            >
+              {isOptedIn ? "Active" : "Not Enabled"}
+            </span>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4 pt-1">
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Receive real-time tournament alerts, auction status reminders, player registration notifications, and match schedules directly on your registered WhatsApp number.
+        </p>
+
+        <div className="rounded-lg border border-border/40 bg-muted/10 p-3 space-y-2 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5" /> Registered Mobile:
+            </span>
+            <span className="font-medium text-foreground">
+              {organizer.mobile || "No mobile number configured"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground">Mobile Verification:</span>
+            <span className={organizer.phoneVerified ? "text-emerald-400 font-medium" : "text-amber-400 font-medium"}>
+              {organizer.phoneVerified ? "Verified" : "Pending Verification"}
+            </span>
+          </div>
+          {status?.whatsappConsentAt && (
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-muted-foreground">Consent Granted:</span>
+              <span className="text-muted-foreground">
+                {new Date(status.whatsappConsentAt).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {error && (
+          <p className="text-destructive text-sm flex items-center gap-1.5">
+            <AlertTriangle className="w-3.5 h-3.5" /> {error}
+          </p>
+        )}
+
+        {successMsg && (
+          <p className="text-emerald-400 text-sm flex items-center gap-1.5">
+            <CheckCircle2 className="w-3.5 h-3.5" /> {successMsg}
+          </p>
+        )}
+
+        <div className="flex items-center gap-3 pt-1">
+          <Button
+            type="button"
+            size="sm"
+            variant={isOptedIn ? "outline" : "default"}
+            disabled={loading || actionLoading || !organizer.mobile}
+            onClick={handleToggleConsent}
+            className={!isOptedIn ? "bg-emerald-600 hover:bg-emerald-500 text-white" : ""}
+          >
+            {actionLoading ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" />
+            ) : (
+              <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
+            )}
+            {isOptedIn ? "Withdraw WhatsApp Consent" : "Opt In to WhatsApp Updates"}
+          </Button>
+
+          {!organizer.mobile && (
+            <span className="text-xs text-amber-400">
+              Configure your mobile number first.
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OrganizerProfilePage() {
@@ -403,6 +557,7 @@ export default function OrganizerProfilePage() {
         </div>
 
         <ProfileInfoSection organizer={organizer} onSaved={handleOrganizerSaved} />
+        <OrganizerWhatsAppConsentSection organizer={organizer} />
         <ChangePasswordSection organizer={organizer} onSaved={handleOrganizerSaved} />
 
         {/* Sign out */}

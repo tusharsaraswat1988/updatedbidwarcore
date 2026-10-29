@@ -497,11 +497,11 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
       return;
     }
 
-    if (existing.ownerMobile && normalizedOwnerMobile !== existing.ownerMobile) {
+    if (beforeTeam.ownerMobile && normalizedOwnerMobile !== beforeTeam.ownerMobile) {
       await handlePhoneNumberChange({
         entityType: "team_owner",
         entityId: teamId,
-        oldMobile: existing.ownerMobile,
+        oldMobile: beforeTeam.ownerMobile,
         newMobile: normalizedOwnerMobile,
         tournamentId: tid,
       });

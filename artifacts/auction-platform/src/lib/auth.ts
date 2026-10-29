@@ -522,6 +522,56 @@ export async function changeOrganizerPassword(data: {
   } catch { return { success: false, error: "Network error" }; }
 }
 
+export type OrganizerWaConsentStatus = {
+  whatsappConsent: boolean;
+  whatsappConsentAt: string | null;
+  whatsappConsentMethod: string | null;
+  mobileConfigured: boolean;
+  phoneVerified: boolean;
+  noticeVersion?: string;
+};
+
+export async function getOrganizerWaConsentStatus(): Promise<{
+  success: boolean;
+  data?: OrganizerWaConsentStatus;
+  error?: string;
+}> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/wa-consent/status");
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Failed to load WhatsApp consent status" };
+    return { success: true, data: d as OrganizerWaConsentStatus };
+  } catch {
+    return { success: false, error: "Network error" };
+  }
+}
+
+export async function optInOrganizerWaConsent(): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/wa-consent/opt-in", {
+      method: "POST",
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Failed to opt in" };
+    return { success: true };
+  } catch {
+    return { success: false, error: "Network error" };
+  }
+}
+
+export async function withdrawOrganizerWaConsent(): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch("/auth/organizer-account/wa-consent/withdraw", {
+      method: "POST",
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Failed to withdraw consent" };
+    return { success: true };
+  } catch {
+    return { success: false, error: "Network error" };
+  }
+}
+
 export async function createOrganizerTournament(data: {
   name: string; sport?: string; city: string; venue?: string; auctionDate?: string; auctionTime?: string;
   basePurse?: number; minimumSquadSize?: number; minBid?: number; bidIncrement?: number;

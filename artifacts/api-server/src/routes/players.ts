@@ -686,7 +686,7 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       tournamentId: tid,
       noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
       consentScope: "tournament_operational",
-      source: "organizer_declaration",
+      source: "organizer_portal",
     });
   }
 
@@ -1358,7 +1358,7 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
             tournamentId: tid,
             noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
             consentScope: "tournament_operational",
-            source: "organizer_declaration",
+            source: "organizer_portal",
           });
         }
       }

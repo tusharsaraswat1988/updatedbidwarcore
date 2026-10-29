@@ -976,12 +976,16 @@ export default function CricketSettingsPage() {
                   <Badge variant="secondary" className="text-[10px] h-5 px-2 font-medium bg-muted/60 text-foreground">
                     Mobile Number
                   </Badge>
+                  <Badge variant="secondary" className="text-[10px] h-5 px-2 font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    WhatsApp Updates
+                  </Badge>
                   <span className="text-[10px] text-muted-foreground ml-auto hidden sm:inline">Permanently mandatory on all registration forms</span>
                 </div>
 
                 {/* Configurable Field List with Show/Hide & Mandatory/Optional */}
                 <div className="space-y-2">
                   {REGISTRATION_CONFIGURABLE_FIELD_KEYS.map((key) => {
+                    if (key === "whatsappConsent") return null;
                     const visible = !registrationFieldsHidden.includes(key);
                     const isRequired = visible && key !== "whatsappConsent" && registrationFieldsRequired.includes(key);
                     if (key === "matchAvailability" && !tournament?.matchDates) {

@@ -1889,6 +1889,10 @@ export default function PlayerRegister() {
                   <p id="register-submit-hint" className="reg-hint font-medium text-amber-700 dark:text-amber-400">
                     Accept the tournament declaration above to submit your registration.
                   </p>
+                ) : !waConsent && !closedSelfUpdateMode ? (
+                  <p id="register-submit-hint" className="reg-hint font-medium text-amber-700 dark:text-amber-400">
+                    Confirm WhatsApp consent above to receive tournament notifications.
+                  </p>
                 ) : null}
                 {closedUpdateReadOnly ? (
                   <RegNotice tone="info">Updates are locked — contact your organiser to change your photo or details.</RegNotice>
@@ -1896,7 +1900,7 @@ export default function PlayerRegister() {
                   <Button
                     type="submit"
                     className="w-full min-h-12 text-base font-bold cursor-pointer"
-                    disabled={registerPending || (!closedSelfUpdateMode && declarationRequired && !declarationAccepted)}
+                    disabled={registerPending || (!closedSelfUpdateMode && declarationRequired && !declarationAccepted) || (!closedSelfUpdateMode && !waConsent)}
                     aria-describedby={declarationRequired && !declarationAccepted ? "register-submit-hint" : undefined}
                   >
                     {registerPending ? (

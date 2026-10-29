@@ -386,7 +386,8 @@ export function parseRegistrationFieldsConfig(
           typeof key === "string" &&
           CONFIGURABLE_KEY_SET.has(key) &&
           key !== ("name" as string) &&
-          key !== ("mobile" as string),
+          key !== ("mobile" as string) &&
+          key !== ("whatsappConsent" as string),
       )
     : [];
 
@@ -418,12 +419,14 @@ export function buildRegistrationFieldVisibility(
 ): Record<RegistrationConfigurableFieldKey, boolean> {
   const hidden = new Set(config?.hidden ?? []);
   const allowed = new Set(registrationConfigurableFieldKeysForSport(sportId));
-  return Object.fromEntries(
+  const result = Object.fromEntries(
     REGISTRATION_CONFIGURABLE_FIELD_KEYS.map((key) => [
       key,
       allowed.has(key) && !hidden.has(key),
     ]),
   ) as Record<RegistrationConfigurableFieldKey, boolean>;
+  result.whatsappConsent = true;
+  return result;
 }
 
 export function isRegistrationFieldVisible(
@@ -442,6 +445,7 @@ export function isRegistrationFieldVisible(
  * - Hidden fields CANNOT be required (always return false).
  * - If `config.required` is explicitly provided, uses the organizer's configured fields.
  * - If `config.required` is undefined (legacy tournament), defaults to photo and role being required.
+ * - WhatsApp Consent is permanently mandatory and unconditionally returns true.
  */
 export function buildRegistrationFieldRequirements(
   config: RegistrationFieldsConfig | null | undefined,
@@ -453,26 +457,26 @@ export function buildRegistrationFieldRequirements(
     ? new Set(config!.required)
     : DEFAULT_REQUIRED_SET;
 
-  return Object.fromEntries(
+  const result = Object.fromEntries(
     REGISTRATION_CONFIGURABLE_FIELD_KEYS.map((key) => [
       key,
-      key === "whatsappConsent"
-        ? false
-        : Boolean(visibility[key] && requiredSet.has(key)),
+      Boolean(visibility[key] && requiredSet.has(key)),
     ]),
   ) as Record<RegistrationConfigurableFieldKey, boolean>;
+  result.whatsappConsent = true;
+  return result;
 }
 
 /**
  * Returns whether a registration field is required.
- * Name and Mobile are permanently mandatory and unconditionally return true.
+ * Name, Mobile, and WhatsApp Consent are permanently mandatory and unconditionally return true.
  */
 export function isRegistrationFieldRequired(
   key: string,
   config: RegistrationFieldsConfig | null | undefined,
   sportId?: string | null,
 ): boolean {
-  if (key === "name" || key === "mobile") return true;
+  if (key === "name" || key === "mobile" || key === "whatsappConsent") return true;
   if (!CONFIGURABLE_KEY_SET.has(key)) return false;
   return buildRegistrationFieldRequirements(config, sportId)[
     key as RegistrationConfigurableFieldKey
@@ -569,10 +573,10 @@ export function validateRegistrationFieldsUpdate(data: unknown):
       return { ok: false, error: "Hidden fields must be an array." };
     }
     for (const k of obj.hidden) {
-      if (k === ("name" as string) || k === ("mobile" as string)) {
+      if (k === ("name" as string) || k === ("mobile" as string) || k === ("whatsappConsent" as string)) {
         return {
           ok: false,
-          error: "Player name and mobile number cannot be hidden.",
+          error: "Player name, mobile number, and WhatsApp consent cannot be hidden.",
         };
       }
       if (!CONFIGURABLE_KEY_SET.has(k)) {
@@ -589,7 +593,7 @@ export function validateRegistrationFieldsUpdate(data: unknown):
       if (k === "whatsappConsent") {
         return {
           ok: false,
-          error: "WhatsApp consent cannot be configured as a mandatory field.",
+          error: "WhatsApp consent is permanently mandatory and cannot be configured.",
         };
       }
       if (
@@ -762,8 +766,14 @@ export function validatePlayerRegistrationRequirements(
     };
   }
 
-  // WhatsApp Consent is strictly optional per DPDP Act 2023 Sec 6(4) & Meta WhatsApp policy.
-  // It must never be enforced as mandatory.
+  // WhatsApp consent is permanently mandatory for registration
+  if (input.whatsappConsent !== true) {
+    return {
+      ok: false,
+      error: "WhatsApp consent is required to complete registration.",
+      field: "whatsappConsent",
+    };
+  }
   return { ok: true };
 }
 

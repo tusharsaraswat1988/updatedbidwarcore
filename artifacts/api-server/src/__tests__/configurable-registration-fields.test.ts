@@ -18,8 +18,8 @@ import {
 } from "@workspace/api-base/registration-fields";
 
 describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hidden)", () => {
-  // 1 & 2: Name and Mobile Number cannot be optional
-  describe("1 & 2: Permanently mandatory fields (Name and Mobile)", () => {
+  // 1 & 2: Name, Mobile Number, and WhatsApp Consent cannot be optional
+  describe("1 & 2: Permanently mandatory fields (Name, Mobile, and WhatsApp Consent)", () => {
     it("never allows Name to be optional or hidden", () => {
       expect(isRegistrationFieldRequired("name", null)).toBe(true);
       expect(isRegistrationFieldRequired("name", { required: [] })).toBe(true);
@@ -35,7 +35,7 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
       }
 
       const res = validatePlayerRegistrationRequirements(
-        { mobileNumber: "9876543210" },
+        { mobileNumber: "9876543210", whatsappConsent: true },
         { required: [] },
       );
       expect(res.ok).toBe(false);
@@ -60,13 +60,38 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
       }
 
       const res = validatePlayerRegistrationRequirements(
-        { name: "Sachin" },
+        { name: "Sachin", whatsappConsent: true },
         { required: [] },
       );
       expect(res.ok).toBe(false);
       if (!res.ok) {
         expect(res.field).toBe("mobileNumber");
         expect(res.error).toBe("Mobile number is required.");
+      }
+    });
+
+    it("never allows WhatsApp Consent to be optional or hidden", () => {
+      expect(isRegistrationFieldRequired("whatsappConsent", null)).toBe(true);
+      expect(isRegistrationFieldRequired("whatsappConsent", { required: [] })).toBe(true);
+      expect(isRegistrationFieldRequired("whatsappConsent", { hidden: ["whatsappConsent" as any], required: [] })).toBe(true);
+
+      const parsed = parseRegistrationFieldsConfig({ hidden: ["whatsappConsent" as any], required: [] });
+      expect(parsed.hidden).not.toContain("whatsappConsent");
+
+      const updateVal = validateRegistrationFieldsUpdate({ hidden: ["whatsappConsent" as any] });
+      expect(updateVal.ok).toBe(false);
+      if (!updateVal.ok) {
+        expect(updateVal.error).toContain("cannot be hidden");
+      }
+
+      const res = validatePlayerRegistrationRequirements(
+        { name: "Sachin", mobileNumber: "9876543210", whatsappConsent: false },
+        { required: [] },
+      );
+      expect(res.ok).toBe(false);
+      if (!res.ok) {
+        expect(res.field).toBe("whatsappConsent");
+        expect(res.error).toBe("WhatsApp consent is required to complete registration.");
       }
     });
   });
@@ -76,7 +101,7 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
     it("rejects missing photo when photo is required", () => {
       const config: RegistrationFieldsConfig = { required: ["photo"] };
       const res = validatePlayerRegistrationRequirements(
-        { name: "Player", mobileNumber: "9876543210", role: "Batsman" },
+        { name: "Player", mobileNumber: "9876543210", role: "Batsman", whatsappConsent: true },
         config,
       );
       expect(res.ok).toBe(false);
@@ -89,7 +114,7 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
     it("accepts missing photo when photo is configured as optional", () => {
       const config: RegistrationFieldsConfig = { required: ["role"] }; // photo is optional
       const res = validatePlayerRegistrationRequirements(
-        { name: "Player", mobileNumber: "9876543210", role: "Batsman" },
+        { name: "Player", mobileNumber: "9876543210", role: "Batsman", whatsappConsent: true },
         config,
       );
       expect(res.ok).toBe(true);
@@ -101,7 +126,7 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
     it("rejects missing role when role is required", () => {
       const config: RegistrationFieldsConfig = { required: ["role"] };
       const res = validatePlayerRegistrationRequirements(
-        { name: "Player", mobileNumber: "9876543210", photoUrl: "https://cdn.example.com/p.jpg" },
+        { name: "Player", mobileNumber: "9876543210", photoUrl: "https://cdn.example.com/p.jpg", whatsappConsent: true },
         config,
       );
       expect(res.ok).toBe(false);
@@ -114,7 +139,7 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
     it("accepts missing role when role is configured as optional", () => {
       const config: RegistrationFieldsConfig = { required: ["photo"] }; // role is optional
       const res = validatePlayerRegistrationRequirements(
-        { name: "Player", mobileNumber: "9876543210", photoUrl: "https://cdn.example.com/p.jpg" },
+        { name: "Player", mobileNumber: "9876543210", photoUrl: "https://cdn.example.com/p.jpg", whatsappConsent: true },
         config,
       );
       expect(res.ok).toBe(true);
@@ -128,6 +153,7 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
       mobileNumber: "9876543210",
       photoUrl: "https://cdn.example.com/v.jpg",
       role: "Batsman",
+      whatsappConsent: true,
     };
 
     it("enforces required email", () => {
@@ -192,21 +218,25 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
       expect(validatePlayerRegistrationRequirements({ ...baseValid, availabilityDates: "2026-11-01,2026-11-02" }, config, { hasMatchDates: true }).ok).toBe(true);
     });
 
-    it("never allows whatsappConsent to be mandatory (P0-D compliance)", () => {
-      // Configuration cannot mark whatsappConsent as required
+    it("ensures whatsappConsent is permanently mandatory and cannot be configured", () => {
+      // Configuration cannot mark whatsappConsent as a configurable required field
       const updateVal = validateRegistrationFieldsUpdate({ required: ["whatsappConsent"] });
       expect(updateVal.ok).toBe(false);
       if (!updateVal.ok) {
-        expect(updateVal.error).toContain("cannot be configured as a mandatory field");
+        expect(updateVal.error).toContain("is permanently mandatory");
       }
 
       // Even if legacy config had it, parser strips it out
       const parsed = parseRegistrationFieldsConfig({ required: ["whatsappConsent"] });
       expect(parsed.required).not.toContain("whatsappConsent");
 
-      // Player registration without whatsappConsent is always accepted
+      // buildRegistrationFieldRequirements always returns true for whatsappConsent
+      const reqs = buildRegistrationFieldRequirements({ required: [] });
+      expect(reqs.whatsappConsent).toBe(true);
+
+      // Player registration without whatsappConsent is rejected
+      expect(validatePlayerRegistrationRequirements({ ...baseValid, whatsappConsent: false }, { required: [] }).ok).toBe(false);
       expect(validatePlayerRegistrationRequirements(baseValid, { required: [] }).ok).toBe(true);
-      expect(validatePlayerRegistrationRequirements({ ...baseValid, whatsappConsent: false }, { required: [] }).ok).toBe(true);
     });
   });
 
@@ -230,7 +260,7 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
           achievements: "",
           cricheroUrl: "",
           availabilityDates: "",
-          whatsappConsent: false,
+          whatsappConsent: true,
         },
         config,
       );
@@ -278,6 +308,7 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
           mobileNumber: "9876543210",
           photoUrl: "https://cdn.example.com/s.jpg",
           role: "Singles",
+          whatsappConsent: true,
         },
         config,
         { sportId: "badminton" },
@@ -293,6 +324,7 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
           mobileNumber: "9876543210",
           photoUrl: "https://cdn.example.com/s.jpg",
           role: "Singles",
+          whatsappConsent: true,
         },
         config,
         { hasMatchDates: false },

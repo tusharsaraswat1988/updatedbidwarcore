@@ -51,7 +51,7 @@ import {
   Phone, Lock, User, Gavel, Plus, AlertTriangle, CheckCircle2,
   Eye, EyeOff, ArrowLeft, KeyRound, CheckCheck, RotateCcw, Settings, Clock, Mail, Info,
   Download, Loader2, Radio, MoreVertical, Calendar, MapPin, SlidersHorizontal, Share2, Tv, Zap, X,
-  MessageCircle, Copy, Check, Headphones,
+  MessageCircle, MessageSquare, Copy, Check, Headphones,
 } from "lucide-react";
 import { SITE_CONTACT } from "@/lib/public-site-links";
 import { useToast } from "@/hooks/use-toast";
@@ -1615,6 +1615,15 @@ function OrganizerAvatarMenu({ organizer, onLogout }: { organizer: OrganizerInfo
             <p className="text-xs text-muted-foreground truncate">{organizer.email ?? organizer.mobile ?? ""}</p>
           </div>
           <div className="py-1.5">
+            <button
+              onClick={() => { setOpen(false); navigate("/organizer/profile"); }}
+              className="w-full flex items-center justify-between px-4 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors text-left"
+            >
+              <span className="flex items-center gap-2.5">
+                <MessageSquare className="w-4 h-4 text-emerald-500" /> WhatsApp Alerts
+              </span>
+              <span className="text-[10px] text-muted-foreground">Manage</span>
+            </button>
             <button
               onClick={() => { setOpen(false); navigate("/organizer/profile"); }}
               className="w-full flex items-center gap-2.5 px-4 py-2 text-xs font-medium text-foreground hover:bg-accent transition-colors text-left"

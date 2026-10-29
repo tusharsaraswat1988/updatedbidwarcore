@@ -173,6 +173,7 @@ type SportsPlayerForm = {
   categoryId: string;
   photoUrl: string;
   photoPublicId: string;
+  whatsappConsent: boolean;
 };
 
 const EMPTY_FORM: SportsPlayerForm = {
@@ -191,6 +192,7 @@ const EMPTY_FORM: SportsPlayerForm = {
   categoryId: "",
   photoUrl: "",
   photoPublicId: "",
+  whatsappConsent: true,
 };
 
 function formFromPlayer(player: Player): SportsPlayerForm {
@@ -202,7 +204,7 @@ function formFromPlayer(player: Player): SportsPlayerForm {
     teamId: player.teamId != null ? String(player.teamId) : "",
     jerseyNumber: player.jerseyNumber || "",
     jerseySize: normalizeJerseySize(player.jerseySize) ?? "",
-    lowerSize: normalizeLowerSize(player.lowerSize) ?? "",
+    lowerSize: normalizeLowerSize((player as any).lowerSize) ?? "",
     city: player.city || "",
     gender: player.gender || "",
     battingStyle: player.battingStyle || "",
@@ -210,6 +212,7 @@ function formFromPlayer(player: Player): SportsPlayerForm {
     categoryId: player.categoryId != null ? String(player.categoryId) : "",
     photoUrl: player.photoUrl && !player.photoUrl.startsWith("data:") ? player.photoUrl : "",
     photoPublicId: (player as { photoPublicId?: string | null }).photoPublicId || "",
+    whatsappConsent: (player as any).whatsappConsent !== false,
   };
 }
 
@@ -880,6 +883,7 @@ export default function CricketPlayersPage() {
           }
         : {}),
       ...(editing ? {} : { status: "available" as const }),
+      whatsappConsent: form.whatsappConsent,
       ...(showCategoryControls
         ? { categoryId: form.categoryId ? Number(form.categoryId) : undefined }
         : {}),
@@ -1326,6 +1330,11 @@ export default function CricketPlayersPage() {
                                             >
                                               {p.name}
                                             </button>
+                                            {(p as any).whatsappConsent ? (
+                                              <span title="WhatsApp updates enabled" className="inline-flex items-center text-emerald-400 shrink-0">
+                                                <MessageCircle className="w-3 h-3" />
+                                              </span>
+                                            ) : null}
                                             {p.jerseyNumber ? (
                                               <span
                                                 className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-primary/10 text-primary border border-primary/20 shrink-0"
@@ -1472,6 +1481,11 @@ export default function CricketPlayersPage() {
                                           #{p.serialNo ?? p.id}
                                         </span>
                                         <p className="font-medium text-foreground truncate">{p.name}</p>
+                                        {(p as any).whatsappConsent ? (
+                                          <span title="WhatsApp updates enabled" className="inline-flex items-center text-emerald-400 shrink-0">
+                                            <MessageCircle className="w-3 h-3" />
+                                          </span>
+                                        ) : null}
                                       </div>
                                       {cardTeam ? (
                                         <span
@@ -1827,6 +1841,27 @@ export default function CricketPlayersPage() {
                 />
               </FormField>
             </div>
+
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+              <label className="flex items-start gap-2.5 cursor-pointer text-xs">
+                <input
+                  type="checkbox"
+                  checked={form.whatsappConsent}
+                  onChange={(e) => setForm((f) => ({ ...f, whatsappConsent: e.target.checked }))}
+                  className="w-4 h-4 rounded border-border bg-input accent-emerald-500 cursor-pointer mt-0.5"
+                />
+                <div>
+                  <span className="text-foreground font-semibold flex items-center gap-1.5">
+                    <MessageCircle className="w-3.5 h-3.5 text-emerald-500" />
+                    WhatsApp Match & Auction Alerts Consent
+                  </span>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                    Player has given consent to receive tournament updates, match notifications, and auction alerts on WhatsApp.
+                  </p>
+                </div>
+              </label>
+            </div>
+
             {formError ? <FormError message={formError} /> : null}
           </div>
         </FormModal>
