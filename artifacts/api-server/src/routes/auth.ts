@@ -53,6 +53,7 @@ import {
 import { CatalogRegistry } from "@workspace/platform-core/catalog";
 import type { Organizer } from "@workspace/db";
 import { auditLog, auditDenied } from "../lib/audit-service";
+import { logger } from "../lib/logger";
 import { isKnownActiveSportSlug, resolveSportIdBySlug } from "./sports";
 import {
   isScoringSupportedSport,
