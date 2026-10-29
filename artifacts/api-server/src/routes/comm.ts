@@ -23,11 +23,16 @@ import {
   waConsentEventsTable,
   waTemplatesTable,
   smsNotificationSettingsTable,
+  scorerAccountsTable,
+  scorerTournamentAssignmentsTable,
 } from "@workspace/db";
 import { eq, and, desc, gte, lte, sql, or, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { randomBytes } from "crypto";
+import { CURRENT_CONSENT_NOTICE_VERSION, CONSENT_NOTICE_V1 } from "@workspace/api-base";
+import { recordConsentGranted } from "../lib/communication/consent-service";
 import { sendSms, sendWhatsApp, buildWaMeLink, buildConsentSms, isTournamentLicensedForComm } from "../lib/comm-sender";
+import { isMobileRevoked } from "../lib/communication/policy-engine";
 import { sendDltSms, playerSoldTemplateId } from "../lib/fast2sms";
 import { getPublicOrigin } from "../lib/runtime-env";
 import { logger } from "../lib/logger";
@@ -192,30 +197,6 @@ export function validateAndNormalizeMobile(raw: unknown): { valid: boolean; norm
   return { valid: true, normalized: digits };
 }
 
-/** Check if recipient has opted out of WhatsApp (STOP) */
-async function isMobileRevoked(mobileDigits: string): Promise<boolean> {
-  const tenDigit = mobileDigits.length === 12 && mobileDigits.startsWith("91") ? mobileDigits.slice(2) : mobileDigits;
-  const twelveDigit = tenDigit.length === 10 ? `91${tenDigit}` : tenDigit;
-
-  const events = await db
-    .select({ eventType: waConsentEventsTable.eventType })
-    .from(waConsentEventsTable)
-    .where(
-      or(
-        eq(waConsentEventsTable.mobile, tenDigit),
-        eq(waConsentEventsTable.mobile, twelveDigit),
-        eq(waConsentEventsTable.mobile, `+${twelveDigit}`)
-      )
-    )
-    .orderBy(desc(waConsentEventsTable.eventAt))
-    .limit(1);
-
-  if (events.length > 0) {
-    return events[0].eventType === "STOP_REVOKED" || events[0].eventType === "declined";
-  }
-  return false;
-}
-
 /** Normalize free-text / dropdown template names to a canonical key. */
 function normalizeCommTemplateName(name: string | undefined | null): string | null {
   if (!name?.trim()) return null;
@@ -281,7 +262,7 @@ router.post("/consent/generate", async (req, res) => {
   }
 
   const schema = z.object({
-    recipientType: z.enum(["player", "team_owner", "organizer"]),
+    recipientType: z.enum(["player", "team_owner", "organizer", "scorer"]),
     recipientId: z.number().int(),
     mobile: z.string().min(7),
     tournamentId: z.number().int(),
@@ -333,6 +314,28 @@ router.post("/consent/generate", async (req, res) => {
       .from(organizersTable).where(eq(organizersTable.id, recipientId));
     if (!o) { res.status(404).json({ error: "Organizer not found" }); return; }
     dbMobile = o.mobile || null;
+  } else if (recipientType === "scorer") {
+    const [s] = await db
+      .select({ id: scorerAccountsTable.id, mobile: scorerAccountsTable.mobile })
+      .from(scorerAccountsTable)
+      .where(eq(scorerAccountsTable.id, recipientId));
+    if (!s) { res.status(404).json({ error: "Scorer not found" }); return; }
+    if (!req.jwtUser.isAdmin && req.jwtUser.organizerAccountId) {
+      const [assignment] = await db
+        .select({ id: scorerTournamentAssignmentsTable.id })
+        .from(scorerTournamentAssignmentsTable)
+        .where(
+          and(
+            eq(scorerTournamentAssignmentsTable.scorerId, recipientId),
+            eq(scorerTournamentAssignmentsTable.tournamentId, tournamentId),
+          ),
+        );
+      if (!assignment) {
+        res.status(403).json({ error: "Scorer is not assigned to this tournament" });
+        return;
+      }
+    }
+    dbMobile = s.mobile || null;
   }
   // Ensure the supplied mobile matches the stored record (strip leading +/spaces for comparison)
   const normalize = (m: string) => m.replace(/\D/g, "");
@@ -359,7 +362,18 @@ router.get("/consent/:token", async (req, res) => {
   if (!ct) { res.status(404).json({ error: "Token not found or expired" }); return; }
   const [tournament] = await db.select({ id: tournamentsTable.id, name: tournamentsTable.name, logoUrl: tournamentsTable.logoUrl }).from(tournamentsTable).where(eq(tournamentsTable.id, ct.tournamentId));
   const waLink = buildWaMeLink(ct.token);
-  res.json({ token: ct.token, mobile: ct.mobile.replace(/\d(?=\d{4})/g, "*"), recipientType: ct.recipientType, tournamentName: tournament?.name ?? "", tournamentLogoUrl: tournament?.logoUrl ?? null, waLink, used: ct.used, expired: new Date() > ct.expiresAt });
+  res.json({
+    token: ct.token,
+    mobile: ct.mobile.replace(/\d(?=\d{4})/g, "*"),
+    recipientType: ct.recipientType,
+    tournamentName: tournament?.name ?? "",
+    tournamentLogoUrl: tournament?.logoUrl ?? null,
+    waLink,
+    used: ct.used,
+    expired: new Date() > ct.expiresAt,
+    noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+    notice: CONSENT_NOTICE_V1.content.en,
+  });
 });
 
 // ─── Consent Token: Web Fallback Confirm ─────────────────────────────────────
@@ -371,20 +385,18 @@ router.post("/consent/:token/confirm", async (req, res) => {
   if (new Date() > ct.expiresAt) { res.status(410).json({ error: "Token expired" }); return; }
 
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null;
-  const consentData = {
-    whatsappConsent: true,
-    whatsappConsentAt: new Date(),
-    whatsappConsentMethod: "web_fallback" as const,
-    whatsappConsentIp: ip,
-  };
 
-  if (ct.recipientType === "player") {
-    await db.update(playersTable).set(consentData).where(eq(playersTable.id, ct.recipientId));
-  } else if (ct.recipientType === "team_owner") {
-    await db.update(teamsTable).set(consentData).where(eq(teamsTable.id, ct.recipientId));
-  } else if (ct.recipientType === "organizer") {
-    await db.update(organizersTable).set(consentData).where(eq(organizersTable.id, ct.recipientId));
-  }
+  await recordConsentGranted({
+    recipientType: ct.recipientType as any,
+    recipientId: ct.recipientId,
+    mobile: ct.mobile,
+    tournamentId: ct.tournamentId,
+    noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+    consentScope: "tournament_operational",
+    source: "consent_link",
+    tokenUsed: ct.token,
+    ip,
+  });
 
   await db.update(consentTokensTable).set({ used: true }).where(eq(consentTokensTable.token, ct.token));
 
@@ -394,71 +406,25 @@ router.post("/consent/:token/confirm", async (req, res) => {
     recipientId: ct.recipientId,
     recipientMobile: ct.mobile,
     channel: "web",
-    messageContent: "Web fallback consent confirmed",
+    messageContent: `Web consent link confirmed (${CURRENT_CONSENT_NOTICE_VERSION})`,
     deliveryStatus: "delivered",
   });
 
   res.json({ success: true });
 });
 
-// ─── Organizer Declaration (scoped to caller's own tournaments) ───────────────
+// ─── Organizer Declaration (Decommissioned P0-A) ──────────────────────────────
 
 router.post("/auth/admin/communicate/consent-declare", async (req, res) => {
   if (!req.jwtUser.isAdmin && !req.jwtUser.organizerAccountId) {
-    res.status(403).json({ error: "Not authorized" }); return;
+    res.status(403).json({ error: "Not authorized" });
+    return;
   }
-  const schema = z.object({
-    recipientType: z.enum(["player", "team_owner"]),
-    recipientId: z.number().int(),
-    tournamentId: z.number().int(),
-    orgId: z.number().int().optional(),
+  // P0-A: Decommissioned third-party consent declaration
+  res.status(403).json({
+    error: "Third-party WhatsApp consent declaration is prohibited. Each recipient must opt in individually via verifiable affirmative action.",
+    code: "THIRD_PARTY_CONSENT_PROHIBITED",
   });
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
-  const { recipientType, recipientId, tournamentId } = parsed.data;
-  // Force orgId from session for organizer callers — never trust caller-supplied orgId
-  const orgId = req.jwtUser.isAdmin
-    ? (parsed.data.orgId ?? req.jwtUser.organizerAccountId ?? null)
-    : (req.jwtUser.organizerAccountId ?? null);
-
-  // Scoping: non-admin organizers may only declare consent for recipients in their own tournaments
-  if (!req.jwtUser.isAdmin && req.jwtUser.organizerAccountId) {
-    const [t] = await db.select({ organizerId: tournamentsTable.organizerId })
-      .from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
-    if (!t || t.organizerId !== req.jwtUser.organizerAccountId) {
-      res.status(403).json({ error: "Not authorized for this tournament" }); return;
-    }
-
-    // Also verify the recipient belongs to this tournament
-    if (recipientType === "player") {
-      const [p] = await db.select({ tournamentId: playersTable.tournamentId })
-        .from(playersTable).where(eq(playersTable.id, recipientId));
-      if (!p || p.tournamentId !== tournamentId) {
-        res.status(403).json({ error: "Recipient does not belong to this tournament" }); return;
-      }
-    } else {
-      const [tm] = await db.select({ tournamentId: teamsTable.tournamentId })
-        .from(teamsTable).where(eq(teamsTable.id, recipientId));
-      if (!tm || tm.tournamentId !== tournamentId) {
-        res.status(403).json({ error: "Recipient does not belong to this tournament" }); return;
-      }
-    }
-  }
-
-  const consentData = {
-    whatsappConsent: true,
-    whatsappConsentAt: new Date(),
-    whatsappConsentMethod: "organizer_declaration" as const,
-    whatsappConsentOrgId: orgId,
-  };
-
-  if (recipientType === "player") {
-    await db.update(playersTable).set(consentData).where(eq(playersTable.id, recipientId));
-  } else {
-    await db.update(teamsTable).set(consentData).where(eq(teamsTable.id, recipientId));
-  }
-
-  res.json({ success: true });
 });
 
 // ─── Send Message ─────────────────────────────────────────────────────────────
@@ -651,7 +617,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
 
     const appUrl = process.env.APP_URL?.trim() || getPublicOrigin();
     const blastId = generateBlastId();
-    const results: Array<{ mobile: string; channel: string; success: boolean; stub?: boolean; error?: string }> = [];
+    const results: Array<{ mobile: string; channel: string; success: boolean; stub?: boolean; error?: string; blocked?: boolean }> = [];
     const logTemplateName = "player_sold";
 
     logger.info({
@@ -678,8 +644,11 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           tournamentName: tournament.name,
         });
 
-        if (!player.whatsappConsent) {
-          const err = "Recipient has no WhatsApp consent";
+        const isRevoked = await isMobileRevoked(mobile);
+        if (!player.whatsappConsent || isRevoked) {
+          const err = isRevoked
+            ? "Recipient has revoked WhatsApp updates (opted-out via STOP/declined)"
+            : "Recipient has no WhatsApp consent (missing_or_unverified_consent)";
           await db.insert(commLogsTable).values({
             tournamentId: tid,
             recipientType: "player",
@@ -833,23 +802,90 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
       }
       const mobile = normResult.normalized;
       const revoked = await isMobileRevoked(mobile);
-      let consent = !revoked;
-      if (d.tournamentId && consent) {
-        const [p] = await db
-          .select({ whatsappConsent: playersTable.whatsappConsent })
+      let consent = false;
+      let recipientType = "manual";
+      let recipientId: number | null = null;
+
+      if (!revoked) {
+        // P0-C: Must resolve to an attributable verified recipient with explicit affirmative opt-in
+        const norm = mobile.replace(/\D/g, "").replace(/^0/, "91");
+        const tenDigit = norm.length === 12 && norm.startsWith("91") ? norm.slice(2) : norm;
+
+        // Try players
+        const playerConds = [
+          or(
+            eq(playersTable.mobileNumber, mobile),
+            eq(playersTable.mobileNumber, norm),
+            eq(playersTable.mobileNumber, tenDigit),
+            sql`regexp_replace(${playersTable.mobileNumber}, '\\D', '', 'g') = ${norm}`,
+          ),
+        ];
+        if (d.tournamentId) {
+          playerConds.push(eq(playersTable.tournamentId, d.tournamentId));
+        }
+        const pQ = db
+          .select({ id: playersTable.id, whatsappConsent: playersTable.whatsappConsent })
           .from(playersTable)
-          .where(
-            and(
-              eq(playersTable.tournamentId, d.tournamentId),
-              or(eq(playersTable.mobileNumber, mobile), eq(playersTable.mobileNumber, `91${mobile}`)),
+          .where(and(...playerConds));
+        const pRows = typeof (pQ as any)?.limit === "function" ? await (pQ as any).limit(1) : await pQ;
+        const p = Array.isArray(pRows) ? pRows[0] : null;
+
+        if (p && p.whatsappConsent) {
+          consent = true;
+          recipientType = "player";
+          recipientId = p.id;
+        } else if (!p) {
+          // Try team owners
+          const teamConds = [
+            or(
+              eq(teamsTable.ownerMobile, mobile),
+              eq(teamsTable.ownerMobile, norm),
+              eq(teamsTable.ownerMobile, tenDigit),
+              sql`regexp_replace(${teamsTable.ownerMobile}, '\\D', '', 'g') = ${norm}`,
             ),
-          );
-        if (p && !p.whatsappConsent) consent = false;
+          ];
+          if (d.tournamentId) {
+            teamConds.push(eq(teamsTable.tournamentId, d.tournamentId));
+          }
+          const tQ = db
+            .select({ id: teamsTable.id, whatsappConsent: teamsTable.whatsappConsent })
+            .from(teamsTable)
+            .where(and(...teamConds));
+          const tRows = typeof (tQ as any)?.limit === "function" ? await (tQ as any).limit(1) : await tQ;
+          const tm = Array.isArray(tRows) ? tRows[0] : null;
+
+          if (tm && tm.whatsappConsent) {
+            consent = true;
+            recipientType = "team_owner";
+            recipientId = tm.id;
+          } else if (!tm) {
+            // Try organizers
+            const oQ = db
+              .select({ id: organizersTable.id, whatsappConsent: organizersTable.whatsappConsent })
+              .from(organizersTable)
+              .where(
+                or(
+                  eq(organizersTable.mobile, mobile),
+                  eq(organizersTable.mobile, norm),
+                  eq(organizersTable.mobile, tenDigit),
+                ),
+              );
+            const oRows = typeof (oQ as any)?.limit === "function" ? await (oQ as any).limit(1) : await oQ;
+            const org = Array.isArray(oRows) ? oRows[0] : null;
+
+            if (org && org.whatsappConsent) {
+              consent = true;
+              recipientType = "organizer";
+              recipientId = org.id;
+            }
+          }
+        }
       }
+
       recipients.push({
         mobile,
-        recipientType: "manual",
-        recipientId: null,
+        recipientType,
+        recipientId,
         whatsappConsent: consent,
       });
     }
@@ -861,14 +897,20 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
       if (d.recipientGroup === "unsold_players") conds.push(eq(playersTable.status, "unsold"));
       const players = await db.select({ id: playersTable.id, mobileNumber: playersTable.mobileNumber, whatsappConsent: playersTable.whatsappConsent }).from(playersTable).where(and(...conds));
       for (const p of players) {
-        if (p.mobileNumber) recipients.push({ mobile: p.mobileNumber, recipientType: "player", recipientId: p.id, whatsappConsent: p.whatsappConsent });
+        if (p.mobileNumber) {
+          const isRevoked = await isMobileRevoked(p.mobileNumber);
+          recipients.push({ mobile: p.mobileNumber, recipientType: "player", recipientId: p.id, whatsappConsent: Boolean(p.whatsappConsent && !isRevoked) });
+        }
       }
     } else if (d.recipientGroup === "all_owners") {
       const teamConds = [eq(teamsTable.tournamentId, tid), sql`${teamsTable.ownerMobile} IS NOT NULL AND ${teamsTable.ownerMobile} != ''`];
       if (d.specificTeamId) teamConds.push(eq(teamsTable.id, d.specificTeamId));
       const teams = await db.select({ id: teamsTable.id, ownerMobile: teamsTable.ownerMobile, whatsappConsent: teamsTable.whatsappConsent }).from(teamsTable).where(and(...teamConds));
       for (const t of teams) {
-        if (t.ownerMobile) recipients.push({ mobile: t.ownerMobile, recipientType: "team_owner", recipientId: t.id, whatsappConsent: t.whatsappConsent });
+        if (t.ownerMobile) {
+          const isRevoked = await isMobileRevoked(t.ownerMobile);
+          recipients.push({ mobile: t.ownerMobile, recipientType: "team_owner", recipientId: t.id, whatsappConsent: Boolean(t.whatsappConsent && !isRevoked) });
+        }
       }
     } else if (d.recipientGroup === "organizer") {
       const [t] = await db.select({ organizerMobile: tournamentsTable.organizerMobile, organizerId: tournamentsTable.organizerId }).from(tournamentsTable).where(eq(tournamentsTable.id, tid));
@@ -880,7 +922,8 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
             .from(organizersTable).where(eq(organizersTable.id, t.organizerId));
           orgConsent = org?.whatsappConsent ?? false;
         }
-        recipients.push({ mobile: t.organizerMobile, recipientType: "organizer", recipientId: t.organizerId, whatsappConsent: orgConsent });
+        const isRevoked = await isMobileRevoked(t.organizerMobile);
+        recipients.push({ mobile: t.organizerMobile, recipientType: "organizer", recipientId: t.organizerId, whatsappConsent: Boolean(orgConsent && !isRevoked) });
       }
     }
   }
@@ -888,7 +931,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   if (recipients.length === 0) { res.status(400).json({ error: "No recipients found" }); return; }
 
   const blastId = generateBlastId();
-  const results: Array<{ mobile: string; channel: string; success: boolean; stub?: boolean; error?: string }> = [];
+  const results: Array<{ mobile: string; channel: string; success: boolean; stub?: boolean; error?: string; blocked?: boolean }> = [];
 
   for (const r of recipients) {
     const shouldSendWa = (d.channel === "whatsapp" || d.channel === "both");
@@ -896,7 +939,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
 
     if (shouldSendWa) {
       if (!r.whatsappConsent) {
-        const err = "Recipient has no WhatsApp consent or opted out (STOP)";
+        const err = "Recipient has no WhatsApp consent or opted out (STOP / missing_or_unverified_consent)";
         await db.insert(commLogsTable).values({
           tournamentId: d.tournamentId ?? null,
           recipientType: r.recipientType,
@@ -1198,50 +1241,18 @@ router.get("/auth/admin/communicate/missing-contacts/:tournamentId", async (req,
   res.json({ missingPlayers, missingOwners });
 });
 
-// ─── Bulk In-Person Consent Declaration ──────────────────────────────────────
+// ─── Bulk In-Person Consent Declaration (Decommissioned P0-A) ────────────────
 
 router.post("/auth/admin/communicate/consent-declare-bulk", async (req, res) => {
-  if (!req.jwtUser.isAdmin && !req.jwtUser.organizerAccountId) { res.status(403).json({ error: "Not authorized" }); return; }
-  const schema = z.object({
-    tournamentId: z.number().int(),
-    recipientType: z.enum(["player", "team_owner", "all"]),
+  if (!req.jwtUser.isAdmin && !req.jwtUser.organizerAccountId) {
+    res.status(403).json({ error: "Not authorized" });
+    return;
+  }
+  // P0-A: Decommissioned bulk third-party consent declaration
+  res.status(403).json({
+    error: "Third-party WhatsApp consent declaration is prohibited. Each recipient must opt in individually via verifiable affirmative action.",
+    code: "THIRD_PARTY_CONSENT_PROHIBITED",
   });
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) { res.status(400).json({ error: "Invalid input" }); return; }
-  const { tournamentId, recipientType } = parsed.data;
-
-  if (!req.jwtUser.isAdmin && req.jwtUser.organizerAccountId) {
-    const [t] = await db.select({ organizerId: tournamentsTable.organizerId }).from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
-    if (!t || t.organizerId !== req.jwtUser.organizerAccountId) { res.status(403).json({ error: "Not authorized for this tournament" }); return; }
-  }
-
-  const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null;
-  const consentOrgId = req.jwtUser.organizerAccountId ?? null;
-  const consentData = { whatsappConsent: true, whatsappConsentAt: new Date(), whatsappConsentMethod: "organizer_declaration" as const, whatsappConsentIp: ip, whatsappConsentOrgId: consentOrgId };
-  let playerCount = 0;
-  let ownerCount = 0;
-
-  if (recipientType === "player" || recipientType === "all") {
-    const affected = await db.update(playersTable).set(consentData)
-      .where(and(
-        eq(playersTable.tournamentId, tournamentId),
-        eq(playersTable.whatsappConsent, false),
-        sql`${playersTable.mobileNumber} IS NOT NULL AND ${playersTable.mobileNumber} != ''`,
-      )).returning({ id: playersTable.id });
-    playerCount = affected.length;
-  }
-  if (recipientType === "team_owner" || recipientType === "all") {
-    const affected = await db.update(teamsTable).set(consentData)
-      .where(and(
-        eq(teamsTable.tournamentId, tournamentId),
-        eq(teamsTable.whatsappConsent, false),
-        sql`${teamsTable.ownerMobile} IS NOT NULL AND ${teamsTable.ownerMobile} != ''`,
-      )).returning({ id: teamsTable.id });
-    ownerCount = affected.length;
-  }
-
-  req.log.info({ tournamentId, recipientType, playerCount, ownerCount, by: req.jwtUser.organizerAccountId ?? (req.jwtUser.isAdmin ? "admin" : null) }, "Bulk organizer-declaration consent recorded");
-  res.json({ success: true, playerCount, ownerCount });
 });
 
 // ─── Consent Status for a Tournament ─────────────────────────────────────────

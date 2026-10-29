@@ -165,6 +165,8 @@ export const waConsentEventsTable = pgTable(
     // Exact verbatim text of the consent question that was presented to the user.
     // Versioned so future question changes are tracked separately.
     questionVersion: text("question_version"),
+    consentScope: text("consent_scope"), // "tournament_operational" | "all_tournament_updates"
+    source: text("source"), // "registration_web" | "profile_web" | "whatsapp_bot" | "consent_link" | "scorer_portal" | "organizer_portal"
     tokenUsed: text("token_used"),
     ip: text("ip"),
     eventAt: timestamp("event_at", { withTimezone: true }).notNull().defaultNow(),

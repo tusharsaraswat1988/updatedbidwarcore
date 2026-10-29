@@ -398,6 +398,7 @@ export function parseRegistrationFieldsConfig(
       (key): key is RegistrationConfigurableFieldKey =>
         typeof key === "string" &&
         CONFIGURABLE_KEY_SET.has(key) &&
+        key !== "whatsappConsent" &&
         !hiddenSet.has(key as RegistrationConfigurableFieldKey),
     );
   }
@@ -455,7 +456,9 @@ export function buildRegistrationFieldRequirements(
   return Object.fromEntries(
     REGISTRATION_CONFIGURABLE_FIELD_KEYS.map((key) => [
       key,
-      Boolean(visibility[key] && requiredSet.has(key)),
+      key === "whatsappConsent"
+        ? false
+        : Boolean(visibility[key] && requiredSet.has(key)),
     ]),
   ) as Record<RegistrationConfigurableFieldKey, boolean>;
 }
@@ -583,6 +586,12 @@ export function validateRegistrationFieldsUpdate(data: unknown):
       return { ok: false, error: "Required fields must be an array." };
     }
     for (const k of obj.required) {
+      if (k === "whatsappConsent") {
+        return {
+          ok: false,
+          error: "WhatsApp consent cannot be configured as a mandatory field.",
+        };
+      }
       if (
         !CONFIGURABLE_KEY_SET.has(k) &&
         k !== ("name" as string) &&
@@ -753,15 +762,8 @@ export function validatePlayerRegistrationRequirements(
     };
   }
 
-  // WhatsApp Consent
-  if (reqs.whatsappConsent && !input.whatsappConsent) {
-    return {
-      ok: false,
-      error: "WhatsApp updates consent is required.",
-      field: "whatsappConsent",
-    };
-  }
-
+  // WhatsApp Consent is strictly optional per DPDP Act 2023 Sec 6(4) & Meta WhatsApp policy.
+  // It must never be enforced as mandatory.
   return { ok: true };
 }
 

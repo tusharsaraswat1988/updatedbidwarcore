@@ -192,10 +192,21 @@ describe("BIDWAR — Configurable Registration Fields (Mandatory / Optional / Hi
       expect(validatePlayerRegistrationRequirements({ ...baseValid, availabilityDates: "2026-11-01,2026-11-02" }, config, { hasMatchDates: true }).ok).toBe(true);
     });
 
-    it("enforces required whatsappConsent", () => {
-      const config: RegistrationFieldsConfig = { required: ["whatsappConsent"] };
-      expect(validatePlayerRegistrationRequirements(baseValid, config).ok).toBe(false);
-      expect(validatePlayerRegistrationRequirements({ ...baseValid, whatsappConsent: true }, config).ok).toBe(true);
+    it("never allows whatsappConsent to be mandatory (P0-D compliance)", () => {
+      // Configuration cannot mark whatsappConsent as required
+      const updateVal = validateRegistrationFieldsUpdate({ required: ["whatsappConsent"] });
+      expect(updateVal.ok).toBe(false);
+      if (!updateVal.ok) {
+        expect(updateVal.error).toContain("cannot be configured as a mandatory field");
+      }
+
+      // Even if legacy config had it, parser strips it out
+      const parsed = parseRegistrationFieldsConfig({ required: ["whatsappConsent"] });
+      expect(parsed.required).not.toContain("whatsappConsent");
+
+      // Player registration without whatsappConsent is always accepted
+      expect(validatePlayerRegistrationRequirements(baseValid, { required: [] }).ok).toBe(true);
+      expect(validatePlayerRegistrationRequirements({ ...baseValid, whatsappConsent: false }, { required: [] }).ok).toBe(true);
     });
   });
 

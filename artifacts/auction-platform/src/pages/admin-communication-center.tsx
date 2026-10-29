@@ -383,8 +383,6 @@ export default function AdminCommunicationCenter() {
   const [waLogs, setWaLogs] = useState<CommLog[]>([]);
   const [loadingWaLogs, setLoadingWaLogs] = useState(false);
   const [consentStats, setConsentStats] = useState<ConsentStats | null>(null);
-  const [bulkDeclaring, setBulkDeclaring] = useState(false);
-  const [bulkDeclareResult, setBulkDeclareResult] = useState<{ playerCount: number; ownerCount: number } | null>(null);
   const [botLink, setBotLink] = useState<{ link: string | null; configured: boolean } | null>(null);
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -942,28 +940,6 @@ export default function AdminCommunicationCenter() {
       return matchesSearch && matchesStatus;
     });
   }, [waLogs, receiptSearch, receiptStatusFilter]);
-
-  // Bulk Consent Declare
-  const handleBulkDeclare = async () => {
-    if (!selectedTournamentId || selectedTournamentId === "__all__") return;
-    setBulkDeclaring(true);
-    try {
-      const r = await fetch("/api/auth/admin/communicate/consent-declare-bulk", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tournamentId: parseInt(selectedTournamentId), recipientType: "all" }),
-      });
-      if (r.ok) {
-        const d = await r.json();
-        setBulkDeclareResult(d);
-        void loadWaData();
-        void loadContacts();
-      }
-    } finally {
-      setBulkDeclaring(false);
-    }
-  };
 
   // Save Settings Handler
   const handleSaveSettings = async () => {
@@ -2173,15 +2149,6 @@ export default function AdminCommunicationCenter() {
                   onClick={() => setShowQrDialog(true)}
                 >
                   <QrCode className="h-3.5 w-3.5" /> 1-Click Opt-in Link
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-                  disabled={bulkDeclaring || !selectedTournamentId || selectedTournamentId === "__all__"}
-                  onClick={handleBulkDeclare}
-                >
-                  {bulkDeclaring ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <BadgeCheck className="h-3.5 w-3.5" />}
-                  Bulk Consent Declare
                 </Button>
               </div>
             </div>

@@ -10,6 +10,8 @@ import {
 import { recalcTeamPurseUsed } from "../lib/player-purse";
 import { db } from "@workspace/db";
 import { playersTable, teamsTable, tournamentsTable, categoriesTable, playerImportLogsTable, waConsentEventsTable, organizersTable } from "@workspace/db";
+import { CURRENT_CONSENT_NOTICE_VERSION } from "@workspace/api-base";
+import { recordConsentGranted, recordConsentWithdrawal, handlePhoneNumberChange } from "../lib/communication/consent-service";
 import { eq, and, or, ne, inArray, desc, asc, sql } from "drizzle-orm";
 import { z } from "zod";
 import { parseIndianMobile, mobilesMatch } from "@workspace/api-base/mobile";
@@ -373,7 +375,9 @@ function buildPublicRegistrationProfileUpdates(
     ...(d.teamId !== undefined ? { teamId: d.teamId } : {}),
   };
 
-  if (d.whatsappConsent && !existing.whatsappConsent) {
+  if (d.whatsappConsent === false && existing.whatsappConsent) {
+    updates.whatsappConsent = false;
+  } else if (d.whatsappConsent && !existing.whatsappConsent) {
     updates.whatsappConsent = true;
     updates.whatsappConsentAt = new Date();
     updates.whatsappConsentMethod = "web_checkbox";
@@ -1064,12 +1068,23 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
     }
 
     if (d.whatsappConsent && mobileNumber && !existing.whatsappConsent) {
-      await db.insert(waConsentEventsTable).values({
+      await recordConsentGranted({
+        recipientType: "player",
+        recipientId: finalPlayer.id,
+        mobile: mobileNumber,
+        tournamentId: tid,
+        noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+        consentScope: "tournament_operational",
+        source: "profile_web",
+      });
+    } else if (d.whatsappConsent === false && mobileNumber && existing.whatsappConsent) {
+      await recordConsentWithdrawal({
         mobile: mobileNumber,
         recipientType: "player",
         recipientId: finalPlayer.id,
         tournamentId: tid,
-        eventType: "web_checkbox",
+        reason: "PROFILE_UNCHECKED",
+        source: "profile_web",
       });
     }
 
@@ -1162,12 +1177,14 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
     .returning();
 
   if (d.whatsappConsent && mobileNumber) {
-    await db.insert(waConsentEventsTable).values({
-      mobile: mobileNumber,
+    await recordConsentGranted({
       recipientType: "player",
       recipientId: player.id,
+      mobile: mobileNumber,
       tournamentId: tid,
-      eventType: "web_checkbox",
+      noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+      consentScope: "tournament_operational",
+      source: "registration_web",
     });
   }
 
@@ -1539,7 +1556,21 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
   if (d.jerseySize !== undefined) updates.jerseySize = d.jerseySize;
   if (d.lowerSize !== undefined) updates.lowerSize = d.lowerSize;
   if (d.achievements !== undefined) updates.achievements = d.achievements;
-  if (normalizedMobile !== undefined) updates.mobileNumber = normalizedMobile;
+  if (normalizedMobile !== undefined) {
+    if (existing.mobileNumber && normalizedMobile !== existing.mobileNumber) {
+      await handlePhoneNumberChange({
+        entityType: "player",
+        entityId: playerId,
+        oldMobile: existing.mobileNumber,
+        newMobile: normalizedMobile,
+        tournamentId: tid,
+      });
+      updates.whatsappConsent = false;
+      updates.whatsappConsentAt = null;
+      updates.whatsappConsentMethod = null;
+    }
+    updates.mobileNumber = normalizedMobile;
+  }
   if (normalizedEmail !== undefined) updates.email = normalizedEmail;
   if (d.cricheroUrl !== undefined) updates.cricheroUrl = d.cricheroUrl;
   if (d.availabilityDates !== undefined) updates.availabilityDates = d.availabilityDates;

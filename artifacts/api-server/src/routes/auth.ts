@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { tournamentsTable, organizersTable, auctionSessionsTable } from "@workspace/db";
+import { CURRENT_CONSENT_NOTICE_VERSION } from "@workspace/api-base";
+import { recordConsentGranted, recordConsentWithdrawal, handlePhoneNumberChange } from "../lib/communication/consent-service";
 import { eq, or, desc } from "drizzle-orm";
 import { z } from "zod";
 import { timingSafeEqual, scrypt, randomBytes } from "crypto";
@@ -2965,6 +2967,105 @@ router.post("/auth/google/complete-profile/skip", async (req, res) => {
     metadata: { method: "complete_profile_skip", phoneVerified: false },
   });
   res.json({ success: true, organizer: organizerToJson(organizer) });
+});
+
+
+// ─── Organizer Self-Service WhatsApp Consent ───────────────────────────────────
+
+router.get("/auth/organizer-account/wa-consent/status", async (req, res) => {
+  if (!req.jwtUser.organizerAccountId) {
+    res.status(401).json({ error: "Not logged in" });
+    return;
+  }
+  const [organizer] = await db
+    .select({
+      id: organizersTable.id,
+      mobile: organizersTable.mobile,
+      phoneVerified: organizersTable.phoneVerified,
+      whatsappConsent: organizersTable.whatsappConsent,
+      whatsappConsentAt: organizersTable.whatsappConsentAt,
+      whatsappConsentMethod: organizersTable.whatsappConsentMethod,
+    })
+    .from(organizersTable)
+    .where(eq(organizersTable.id, req.jwtUser.organizerAccountId));
+
+  if (!organizer) {
+    res.status(404).json({ error: "Organizer account not found" });
+    return;
+  }
+
+  res.json({
+    whatsappConsent: organizer.whatsappConsent === true,
+    whatsappConsentAt: organizer.whatsappConsentAt?.toISOString() ?? null,
+    whatsappConsentMethod: organizer.whatsappConsentMethod ?? null,
+    mobileConfigured: !!organizer.mobile,
+    phoneVerified: organizer.phoneVerified === true,
+    noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+  });
+});
+
+router.post("/auth/organizer-account/wa-consent/opt-in", async (req, res) => {
+  if (!req.jwtUser.organizerAccountId) {
+    res.status(401).json({ error: "Not logged in" });
+    return;
+  }
+  const [organizer] = await db
+    .select()
+    .from(organizersTable)
+    .where(eq(organizersTable.id, req.jwtUser.organizerAccountId));
+
+  if (!organizer) {
+    res.status(404).json({ error: "Organizer account not found" });
+    return;
+  }
+  if (!organizer.mobile || !organizer.mobile.trim()) {
+    res.status(400).json({
+      error: "You must configure and verify a mobile phone number before opting in to WhatsApp notifications.",
+      code: "MOBILE_REQUIRED",
+    });
+    return;
+  }
+
+  await recordConsentGranted({
+    recipientType: "organizer",
+    recipientId: organizer.id,
+    mobile: organizer.mobile,
+    noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+    consentScope: "tournament_operational",
+    source: "organizer_portal",
+  });
+
+  res.json({ success: true, whatsappConsent: true });
+});
+
+router.post("/auth/organizer-account/wa-consent/withdraw", async (req, res) => {
+  if (!req.jwtUser.organizerAccountId) {
+    res.status(401).json({ error: "Not logged in" });
+    return;
+  }
+  const [organizer] = await db
+    .select()
+    .from(organizersTable)
+    .where(eq(organizersTable.id, req.jwtUser.organizerAccountId));
+
+  if (!organizer) {
+    res.status(404).json({ error: "Organizer account not found" });
+    return;
+  }
+  if (!organizer.mobile) {
+    res.status(400).json({ error: "No mobile number on file" });
+    return;
+  }
+
+  await recordConsentWithdrawal({
+    mobile: organizer.mobile,
+    recipientType: "organizer",
+    recipientId: organizer.id,
+    reason: "ORGANIZER_SELF_WITHDRAWAL",
+    source: "organizer_portal",
+  });
+
+  res.json({ success: true, whatsappConsent: false });
 });
 
 export default router;

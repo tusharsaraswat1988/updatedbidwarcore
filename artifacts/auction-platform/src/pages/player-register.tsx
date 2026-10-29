@@ -57,6 +57,7 @@ import {
 } from "@/lib/player-specifications";
 import { getSportCapabilities } from "@/lib/sport-capabilities";
 import { formatTimeLabel } from "@/components/ui/time-picker";
+import { formatIndianRupee, normalizeAuctionUnit } from "@/lib/format";
 
 /** Format YYYY-MM-DD as DD-MM-YYYY without timezone shifting. */
 function formatIsoDateDdMmYyyy(value: string | null | undefined): string {
@@ -431,6 +432,10 @@ export default function PlayerRegister() {
     ?? (tournament as { bidValueOptions?: number[] } | undefined)?.bidValueOptions
     ?? []
   ).filter((n) => Number.isFinite(n) && n > 0);
+  const auctionUnit = normalizeAuctionUnit(
+    (status as { auctionUnit?: string } | undefined)?.auctionUnit
+    ?? (tournament as { auctionUnit?: string } | undefined)?.auctionUnit
+  );
 
   const declarationPoints = useMemo(() => {
     const fromStatus = status?.registrationDeclarationPoints;
@@ -513,7 +518,8 @@ export default function PlayerRegister() {
   const requireAchievements = fieldRequirements.achievements;
   const requireCrichero = fieldRequirements.cricheroUrl;
   const requireMatchAvailability = fieldRequirements.matchAvailability;
-  const requireWhatsappConsent = fieldRequirements.whatsappConsent;
+  // WhatsApp consent must never be required (DPDP Act Sec 6(4) / Meta Policy)
+  const requireWhatsappConsent = false;
 
   function formatDeadline(d: string | null | undefined) {
     if (!d) return "";
@@ -729,10 +735,6 @@ export default function PlayerRegister() {
       }
       if (showMatchAvailability && requireMatchAvailability && !form.availabilityDates.trim()) {
         setErrorMsg("Match availability is required.");
-        return;
-      }
-      if (showWhatsappConsent && requireWhatsappConsent && !waConsent) {
-        setErrorMsg("WhatsApp updates consent is required.");
         return;
       }
     } else {
@@ -1459,7 +1461,7 @@ export default function PlayerRegister() {
                       <SelectContent className={registrationSelectContentClass}>
                         {bidValueOptions.map((amount) => (
                           <SelectItem key={amount} value={String(amount)}>
-                            {formatIndianRupee(amount)}
+                            {formatIndianRupee(amount, auctionUnit)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1799,20 +1801,22 @@ export default function PlayerRegister() {
                   ) : null}
 
                   {showWhatsappConsent ? (
-                    <label className="reg-check" htmlFor="register-whatsapp">
-                      <input
-                        id="register-whatsapp"
-                        type="checkbox"
-                        checked={waConsent}
-                        onChange={e => setWaConsent(e.target.checked)}
-                      />
-                      <span className="text-sm text-muted-foreground">
-                        {scoringMode
-                          ? "Main tournament ke WhatsApp updates chahiye? (schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain."
-                          : "Main tournament ke WhatsApp updates chahiye? (auction alerts, schedule, results). STOP reply karke kabhi bhi unsubscribe kar sakte hain."}
-                        {requireWhatsappConsent ? <span className="reg-badge reg-badge--req ml-2">Required</span> : null}
-                      </span>
-                    </label>
+                    <div className="rounded-xl border border-border/80 bg-card/40 p-3.5 space-y-1.5 text-left">
+                      <label className="reg-check cursor-pointer" htmlFor="register-whatsapp">
+                        <input
+                          id="register-whatsapp"
+                          type="checkbox"
+                          checked={waConsent}
+                          onChange={e => setWaConsent(e.target.checked)}
+                        />
+                        <span className="text-sm font-medium text-foreground">
+                          Receive tournament alerts and updates on WhatsApp (Optional)
+                        </span>
+                      </label>
+                      <p className="text-xs text-muted-foreground pl-6 leading-relaxed">
+                        I authorize BIDWAR to send tournament schedule changes, match notifications, and auction alerts to my registered mobile number. Consent is optional, does not affect tournament registration, and can be withdrawn at any time by replying STOP on WhatsApp.
+                      </p>
+                    </div>
                   ) : null}
 
                   {paymentEnabled && paymentConfigured ? (

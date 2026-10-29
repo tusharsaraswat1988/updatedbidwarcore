@@ -14,8 +14,10 @@ import {
   botSessionsTable,
   bplEditionsTable,
   scoringMatchesTable,
+  scorerAccountsTable,
 } from "@workspace/db";
 import { eq, and, desc, or, sql, gt } from "drizzle-orm";
+import { CURRENT_CONSENT_NOTICE_VERSION, CONSENT_NOTICE_V1 } from "@workspace/api-base";
 import {
   sendSms,
   sendWhatsApp,
@@ -43,7 +45,7 @@ export interface NormalizedInboundMessage {
 }
 
 export interface ConsentTarget {
-  type: "player" | "team_owner" | "organizer";
+  type: "player" | "team_owner" | "organizer" | "scorer";
   id: number;
   name: string;
   tournamentId?: number;
@@ -88,6 +90,7 @@ export type ResolvedIdentity =
 export class ConversationRouter {
   /** Normalise a phone number (10 or 12 digits, digits only, starting with 91 for India) */
   public normalizePhone(phone: string): string {
+    if (!phone) return "";
     const digits = phone.replace(/\D/g, "");
     if (digits.startsWith("91") && digits.length === 12) return digits;
     if (digits.startsWith("0") && digits.length === 11) return `91${digits.slice(1)}`;
@@ -500,6 +503,23 @@ export class ConversationRouter {
             results.push({ type: "organizer", id: o.id, name: o.name });
           }
         }
+        if (results.length === 0) {
+          const scorers = await db
+            .select({ id: scorerAccountsTable.id, name: scorerAccountsTable.name })
+            .from(scorerAccountsTable)
+            .where(
+              or(
+                eq(scorerAccountsTable.mobile, mobile),
+                eq(scorerAccountsTable.mobile, norm),
+                eq(scorerAccountsTable.mobile, tenDigit),
+              ),
+            );
+          if (Array.isArray(scorers)) {
+            for (const s of scorers) {
+              results.push({ type: "scorer", id: s.id, name: s.name });
+            }
+          }
+        }
       }
     } catch (err) {
       logger.warn({ err, mobile: maskPhoneNumber(norm) }, "Error finding consent targets");
@@ -526,10 +546,10 @@ export class ConversationRouter {
   }
 
   /**
-   * Universal Revocation for STOP / UNSUBSCRIBE.
+   * Universal Revocation for STOP / UNSUBSCRIBE / NO / DECLINE.
    * Immediately revokes WhatsApp consent without altering SMS consent.
    */
-  public async revokeConsentAcrossRecords(mobile: string): Promise<void> {
+  public async revokeConsentAcrossRecords(mobile: string, reason: string = "STOP_REVOKED"): Promise<void> {
     const norm = this.normalizePhone(mobile);
     const tenDigit = norm.startsWith("91") && norm.length === 12 ? norm.slice(2) : norm;
 
@@ -571,6 +591,18 @@ export class ConversationRouter {
         ),
       );
 
+    // Revoke scorers
+    await db
+      .update(scorerAccountsTable)
+      .set({ whatsappConsent: false })
+      .where(
+        or(
+          eq(scorerAccountsTable.mobile, mobile),
+          eq(scorerAccountsTable.mobile, norm),
+          eq(scorerAccountsTable.mobile, tenDigit),
+        ),
+      );
+
     // Clear active bot sessions
     await db.delete(botSessionsTable).where(eq(botSessionsTable.mobile, norm));
 
@@ -578,10 +610,10 @@ export class ConversationRouter {
     await db.insert(waConsentEventsTable).values({
       mobile: norm,
       eventType: "declined",
-      questionVersion: "STOP_REVOKED",
+      questionVersion: reason,
     });
 
-    logger.info({ mobile: maskPhoneNumber(norm) }, "WhatsApp consent universally revoked via STOP");
+    logger.info({ mobile: maskPhoneNumber(norm), reason }, "WhatsApp consent universally revoked");
   }
 
   /**
@@ -597,6 +629,7 @@ export class ConversationRouter {
     if (type === "player") await db.update(playersTable).set(data).where(eq(playersTable.id, id));
     else if (type === "team_owner") await db.update(teamsTable).set(data).where(eq(teamsTable.id, id));
     else if (type === "organizer") await db.update(organizersTable).set(data).where(eq(organizersTable.id, id));
+    else if (type === "scorer") await db.update(scorerAccountsTable).set(data).where(eq(scorerAccountsTable.id, id));
   }
 
   /**
@@ -842,6 +875,19 @@ export class ConversationRouter {
       return { handled: true, replySent: true };
     }
 
+    // 2b. NO / NA / NAHI / DECLINE — Explicit consent refusal / decline
+    if (upper === "NO" || upper === "NA" || upper === "NAHI" || upper === "DECLINE") {
+      await this.revokeConsentAcrossRecords(mobile, CONSENT_QUESTION_V1);
+      await this.sendReply(
+        null,
+        from,
+        "Aapka decision note kar liya gaya hai. Aapko WhatsApp updates nahi bheje jayenge. Wapas subscribe karne ke liye 'hello' bhejein.",
+        input.channel,
+      );
+      await this.recordProcessedInboundMessage(input.messageId ?? `no_${Date.now()}`, mobile, input.channel, text);
+      return { handled: true, replySent: true };
+    }
+
     // 3. Resolve Identity
     const identity = await this.resolveIdentity(mobile);
 
@@ -1029,6 +1075,9 @@ export class ConversationRouter {
               recipientId: storedTarget.recipientId,
               tournamentId: storedTarget.tournamentId ?? null,
               eventType: "otp_verified",
+              questionVersion: CURRENT_CONSENT_NOTICE_VERSION,
+              consentScope: "tournament_operational",
+              source: "whatsapp_otp_verified",
               ip,
             });
 
@@ -1186,7 +1235,9 @@ export class ConversationRouter {
         recipientId: yesTarget.recipientId,
         tournamentId: yesTarget.tournamentId ?? null,
         eventType: "yes_received",
-        questionVersion: CONSENT_QUESTION_V1,
+        questionVersion: CURRENT_CONSENT_NOTICE_VERSION,
+        consentScope: "tournament_operational",
+        source: "whatsapp_bot",
         tokenUsed: yesTarget.token ?? null,
       });
 

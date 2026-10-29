@@ -19,6 +19,10 @@ export const scorerAccountsTable = pgTable(
     mobile: text("mobile").notNull(),
     pinHash: text("pin_hash").notNull(),
     isActive: boolean("is_active").notNull().default(true),
+    whatsappConsent: boolean("whatsapp_consent").notNull().default(false),
+    whatsappConsentAt: timestamp("whatsapp_consent_at", { withTimezone: true }),
+    whatsappConsentMethod: text("whatsapp_consent_method"),
+    whatsappConsentIp: text("whatsapp_consent_ip"),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })

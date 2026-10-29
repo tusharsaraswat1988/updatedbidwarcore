@@ -258,3 +258,14 @@ export {
   validateCustomQuestionsDefinition,
   validateCustomAnswers,
 } from "./registration-fields";
+
+
+export {
+  CURRENT_CONSENT_NOTICE_VERSION,
+  CONSENT_NOTICE_V1,
+  type ConsentScope,
+  type NoticeLanguageContent,
+  type ConsentNoticeSpecification,
+  getActiveConsentNotice,
+  formatConsentNoticeSummary,
+} from "./consent-notice";

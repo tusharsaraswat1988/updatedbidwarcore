@@ -298,7 +298,31 @@ describe("WhatsApp Push Communication — Production Readiness Verification", ()
       expect(mockProvider.getSentMessages()).toHaveLength(1);
     });
 
-    it("dispatches to 'custom' scope with multiple comma-separated mobiles", async () => {
+    it("dispatches to 'custom' scope with multiple comma-separated mobiles when recipients have verified consent", async () => {
+      vi.spyOn(db, "select").mockImplementation((() => ({
+        from: vi.fn().mockImplementation((table: any) => {
+          if (table === tournamentsTable) return { where: vi.fn().mockResolvedValue([licensedTournament]) };
+          if (table === playersTable) {
+            return {
+              where: vi.fn().mockImplementation(() => {
+                const res = [{ id: 1, mobileNumber: "9876543210", whatsappConsent: true }];
+                return {
+                  limit: vi.fn().mockResolvedValue(res),
+                  then: (r: any) => Promise.resolve(res).then(r),
+                };
+              }),
+            };
+          }
+          if (table === waTemplatesTable) {
+            return {
+              where: vi.fn().mockResolvedValue([{ templateName: "welcome_invite", status: "approved" }]),
+              orderBy: vi.fn().mockResolvedValue([{ templateName: "welcome_invite", status: "approved" }]),
+            };
+          }
+          return { where: vi.fn().mockResolvedValue([]) };
+        }),
+      })) as any);
+
       const res = await request(app)
         .post("/auth/admin/communicate/send")
         .send({
@@ -314,6 +338,24 @@ describe("WhatsApp Push Communication — Production Readiness Verification", ()
       expect(res.body.total).toBe(2);
       expect(res.body.sent).toBe(2);
       expect(mockProvider.getSentMessages()).toHaveLength(2);
+    });
+
+    it("blocks custom numbers without attributable consent (P0-C enforcement)", async () => {
+      const res = await request(app)
+        .post("/auth/admin/communicate/send")
+        .send({
+          channel: "whatsapp",
+          tournamentId: 101,
+          recipientGroup: "manual",
+          manualMobiles: "9876543299",
+          templateName: "welcome_invite",
+          templateVariables: { "1": "Premier League", "2": "Tonight", "3": "Online" },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.total).toBe(1);
+      expect(res.body.sent).toBe(0);
+      expect(res.body.blocked).toBe(1);
     });
   });
 

@@ -33,6 +33,9 @@ import {
 } from "../middleware/require-module";
 import { InvalidTournamentModuleStateError } from "@workspace/platform-core";
 
+import { CURRENT_CONSENT_NOTICE_VERSION } from "@workspace/api-base";
+import { recordConsentGranted, recordConsentWithdrawal } from "../lib/communication/consent-service";
+
 const router: IRouter = Router();
 
 function clientIp(req: Request): string | null {
@@ -283,5 +286,59 @@ router.delete("/matches/:matchId/lock", async (req, res) => {
 
 /** Internal helper export for badminton route force-unlock re-export pattern. */
 export { forceUnlockMatch, assertSessionOwnsMatchLock };
+
+
+// ─── Scorer Self-Service WhatsApp Consent ─────────────────────────────────────
+
+router.get("/wa-consent/status", async (req, res) => {
+  try {
+    const auth = await requireScorer(req);
+    res.json({
+      whatsappConsent: auth.profile.whatsappConsent === true,
+      whatsappConsentAt: auth.profile.whatsappConsentAt ?? null,
+      noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+    });
+  } catch (e) {
+    if (sendAuthError(res, e)) return;
+    res.status(500).json({ error: "Failed to get consent status" });
+  }
+});
+
+router.post("/wa-consent/opt-in", async (req, res) => {
+  try {
+    const auth = await requireScorer(req);
+    await recordConsentGranted({
+      recipientType: "scorer",
+      recipientId: auth.scorerId,
+      mobile: auth.profile.mobile,
+      noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+      consentScope: "tournament_operational",
+      source: "scorer_portal",
+      ip: clientIp(req),
+    });
+    res.json({ success: true, whatsappConsent: true });
+  } catch (e) {
+    if (sendAuthError(res, e)) return;
+    res.status(500).json({ error: "Failed to opt in" });
+  }
+});
+
+router.post("/wa-consent/withdraw", async (req, res) => {
+  try {
+    const auth = await requireScorer(req);
+    await recordConsentWithdrawal({
+      mobile: auth.profile.mobile,
+      recipientType: "scorer",
+      recipientId: auth.scorerId,
+      reason: "SCORER_SELF_WITHDRAWAL",
+      source: "scorer_portal",
+      ip: clientIp(req),
+    });
+    res.json({ success: true, whatsappConsent: false });
+  } catch (e) {
+    if (sendAuthError(res, e)) return;
+    res.status(500).json({ error: "Failed to withdraw consent" });
+  }
+});
 
 export default router;

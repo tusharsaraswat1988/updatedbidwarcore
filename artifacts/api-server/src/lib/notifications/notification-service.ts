@@ -7,6 +7,7 @@ import { logger } from "../logger";
 import { buildPublicUrl, getPublicOrigin } from "../runtime-env";
 import { sendNotificationSms } from "./providers/sms-provider";
 import { sendNotificationWhatsApp } from "./providers/whatsapp-provider";
+import { communicationPolicyEngine } from "../communication/policy-engine";
 import { createJobFromBusinessEvent } from "../communication/event-bridge.js";
 import type {
   NotificationChannel,
@@ -194,6 +195,21 @@ async function deliverOnChannel(
   if (channel === "whatsapp") {
     if (!isValidMobile(recipient.mobile) || !recipient.whatsappBody) {
       return { result: { success: false, error: "No valid recipient mobile or WhatsApp body" } };
+    }
+    const policy = await communicationPolicyEngine.evaluatePushPolicy({
+      event: eventType.toLowerCase(),
+      channel: "whatsapp",
+      tournamentId: recipient.tournamentId,
+      recipientMobile: recipient.mobile,
+      recipientConsent: (recipient as any).whatsappConsent,
+    });
+    if (!policy.allowed) {
+      return {
+        result: {
+          success: false,
+          error: policy.reason ?? "Blocked by push communication policy (missing_or_unverified_consent)",
+        },
+      };
     }
     return { result: await sendNotificationWhatsApp(recipient.mobile, recipient.whatsappBody) };
   }
@@ -451,6 +467,7 @@ export async function dispatchNotification<E extends NotificationEventType>(
             const recipient = resolveRecipients(eventType, resolvedPayload);
             if (!recipient) return;
 
+            const entityKey = buildEntityKey(eventType, resolvedPayload);
             let mergeData: Record<string, unknown> = recipient.templateParams;
             const entityId = extractEntityId(entityKey);
             if (eventType === "PLAYER_REGISTERED" && entityId) {

@@ -113,6 +113,18 @@ describe("Phase 1: WhatsApp Admin P0 Fixes & Verification", () => {
             then: (resolve: any) => Promise.resolve(res).then(resolve),
           };
         }
+        if (table === playersTable) {
+          const res = [
+            { id: 1, tournamentId: 101, mobileNumber: "9876543210", whatsappConsent: true },
+          ];
+          return {
+            where: vi.fn().mockImplementation(() => ({
+              limit: vi.fn().mockResolvedValue(res),
+              then: (resolve: any) => Promise.resolve(res).then(resolve),
+            })),
+            then: (resolve: any) => Promise.resolve(res).then(resolve),
+          };
+        }
         return {
           where: vi.fn().mockResolvedValue([]),
           then: (resolve: any) => Promise.resolve([]).then(resolve),
@@ -236,6 +248,15 @@ describe("Phase 1: WhatsApp Admin P0 Fixes & Verification", () => {
               }),
             };
           }
+          if (table === playersTable) {
+            const res = [{ id: 1, tournamentId: 101, mobileNumber: "9876543210", whatsappConsent: true }];
+            return {
+              where: vi.fn().mockImplementation(() => ({
+                limit: vi.fn().mockResolvedValue(res),
+                then: (r: any) => Promise.resolve(res).then(r),
+              })),
+            };
+          }
           if (table === waTemplatesTable) {
             return {
               where: vi.fn().mockResolvedValue([
@@ -244,6 +265,15 @@ describe("Phase 1: WhatsApp Admin P0 Fixes & Verification", () => {
               orderBy: vi.fn().mockResolvedValue([
                 { templateName: "welcome_invite", status: "approved" },
               ]),
+            };
+          }
+          if (table === playersTable) {
+            const res = [{ id: 1, tournamentId: 101, mobileNumber: "9876543210", whatsappConsent: true }];
+            return {
+              where: vi.fn().mockImplementation(() => ({
+                limit: vi.fn().mockResolvedValue(res),
+                then: (r: any) => Promise.resolve(res).then(r),
+              })),
             };
           }
           return { where: vi.fn().mockResolvedValue([]) };
@@ -300,9 +330,27 @@ describe("Phase 1: WhatsApp Admin P0 Fixes & Verification", () => {
               }),
             };
           }
+          if (table === playersTable) {
+            const res = [{ id: 1, tournamentId: 101, mobileNumber: "9876543210", whatsappConsent: true }];
+            return {
+              where: vi.fn().mockImplementation(() => ({
+                limit: vi.fn().mockResolvedValue(res),
+                then: (r: any) => Promise.resolve(res).then(r),
+              })),
+            };
+          }
           if (table === waTemplatesTable) {
             return {
               where: vi.fn().mockResolvedValue([]),
+            };
+          }
+          if (table === playersTable) {
+            const res = [{ id: 1, tournamentId: 101, mobileNumber: "9876543210", whatsappConsent: true }];
+            return {
+              where: vi.fn().mockImplementation(() => ({
+                limit: vi.fn().mockResolvedValue(res),
+                then: (r: any) => Promise.resolve(res).then(r),
+              })),
             };
           }
           return { where: vi.fn().mockResolvedValue([]) };
@@ -436,11 +484,29 @@ describe("Phase 1: WhatsApp Admin P0 Fixes & Verification", () => {
               }),
             };
           }
+          if (table === playersTable) {
+            const res = [{ id: 1, tournamentId: 101, mobileNumber: "9876543210", whatsappConsent: true }];
+            return {
+              where: vi.fn().mockImplementation(() => ({
+                limit: vi.fn().mockResolvedValue(res),
+                then: (r: any) => Promise.resolve(res).then(r),
+              })),
+            };
+          }
           if (table === waTemplatesTable) {
             return {
               where: vi.fn().mockResolvedValue([
                 { templateName: "auction_reminder", status: "approved" },
               ]),
+            };
+          }
+          if (table === playersTable) {
+            const res = [{ id: 1, tournamentId: 101, mobileNumber: "9876543210", whatsappConsent: true }];
+            return {
+              where: vi.fn().mockImplementation(() => ({
+                limit: vi.fn().mockResolvedValue(res),
+                then: (r: any) => Promise.resolve(res).then(r),
+              })),
             };
           }
           return { where: vi.fn().mockResolvedValue([]) };
@@ -753,6 +819,15 @@ describe("Phase 1: WhatsApp Admin P0 Fixes & Verification", () => {
                   limit: vi.fn().mockResolvedValue([]),
                 }),
               }),
+            };
+          }
+          if (table === playersTable) {
+            const res = [{ id: 1, tournamentId: 101, mobileNumber: "9876543210", whatsappConsent: true }];
+            return {
+              where: vi.fn().mockImplementation(() => ({
+                limit: vi.fn().mockResolvedValue(res),
+                then: (r: any) => Promise.resolve(res).then(r),
+              })),
             };
           }
           return { where: vi.fn().mockResolvedValue([]) };

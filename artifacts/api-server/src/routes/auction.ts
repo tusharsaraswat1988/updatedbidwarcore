@@ -2168,6 +2168,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     teamName: team?.name ?? "Team",
     amount: soldAmount,
     tournamentName: tournament?.name ?? "the tournament",
+    whatsappConsent: soldPlayer?.whatsappConsent,
   });
 
   enqueuePlayerSoldEmailAsync({
@@ -2394,6 +2395,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
     teamName: team?.name ?? "Team",
     amount,
     tournamentName: manualTournament?.name ?? "the tournament",
+    whatsappConsent: soldPlayer?.whatsappConsent,
   });
 
   enqueuePlayerSoldEmailAsync({
@@ -2517,6 +2519,7 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
     tournamentId: tid,
     playerName: player?.name ?? "Player",
     tournamentName: unsoldTournament?.name ?? "the tournament",
+    whatsappConsent: player?.whatsappConsent,
   });
 
   // Log player auction end as unsold (fire-and-forget)
@@ -2631,6 +2634,7 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
     tournamentId: tid,
     playerName: player.name,
     tournamentName: reTournament?.name ?? "the tournament",
+    whatsappConsent: player.whatsappConsent,
   });
 
   const [playerAfter] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));

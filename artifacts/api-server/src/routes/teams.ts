@@ -14,6 +14,8 @@ import {
 import { publicTeamSerializer, privateTeamSerializer } from "../lib/serializers/team";
 import { db } from "@workspace/db";
 import { teamsTable, tournamentsTable, organizersTable, playersTable, categoriesTable, auctionSessionsTable } from "@workspace/db";
+import { CURRENT_CONSENT_NOTICE_VERSION } from "@workspace/api-base";
+import { recordConsentGranted, recordConsentWithdrawal, handlePhoneNumberChange } from "../lib/communication/consent-service";
 import { eq, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "../lib/logger";
@@ -749,6 +751,68 @@ router.delete("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   });
   afterTeamDataChanged(tid, req.log);
   res.status(204).send();
+});
+
+
+// ─── Team Owner WhatsApp Consent (Self-Service) ──────────────────────────────
+
+router.post("/tournaments/:tid/teams/:teamId/wa-consent/opt-in", async (req, res) => {
+  const tid = Number(req.params.tid);
+  const teamId = Number(req.params.teamId);
+  const [team] = await db
+    .select()
+    .from(teamsTable)
+    .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+
+  if (!team) {
+    res.status(404).json({ error: "Team not found" });
+    return;
+  }
+  if (!team.ownerMobile || !team.ownerMobile.trim()) {
+    res.status(400).json({ error: "Team has no owner mobile number registered" });
+    return;
+  }
+
+  await recordConsentGranted({
+    recipientType: "team_owner",
+    recipientId: team.id,
+    mobile: team.ownerMobile,
+    tournamentId: tid,
+    noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+    consentScope: "tournament_operational",
+    source: "owner_portal",
+  });
+
+  res.json({ success: true, whatsappConsent: true });
+});
+
+router.post("/tournaments/:tid/teams/:teamId/wa-consent/withdraw", async (req, res) => {
+  const tid = Number(req.params.tid);
+  const teamId = Number(req.params.teamId);
+  const [team] = await db
+    .select()
+    .from(teamsTable)
+    .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+
+  if (!team) {
+    res.status(404).json({ error: "Team not found" });
+    return;
+  }
+  if (!team.ownerMobile || !team.ownerMobile.trim()) {
+    res.status(400).json({ error: "Team has no owner mobile number registered" });
+    return;
+  }
+
+  await recordConsentWithdrawal({
+    mobile: team.ownerMobile,
+    recipientType: "team_owner",
+    recipientId: team.id,
+    tournamentId: tid,
+    reason: "OWNER_SELF_WITHDRAWAL",
+    source: "owner_portal",
+  });
+
+  res.json({ success: true, whatsappConsent: false });
 });
 
 export default router;

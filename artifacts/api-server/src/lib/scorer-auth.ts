@@ -57,6 +57,8 @@ export type ScorerProfile = {
   mobile: string;
   /** False when organizer deactivated the account — view-only, cannot score. */
   isActive: boolean;
+  whatsappConsent?: boolean | null;
+  whatsappConsentAt?: Date | null;
 };
 
 export type ScorerAuthContext = {
@@ -503,6 +505,8 @@ export async function resolveScorerAuthFromClaims(
       name: account.name,
       mobile: account.mobile,
       isActive: account.isActive,
+      whatsappConsent: (account as any).whatsappConsent === true,
+      whatsappConsentAt: (account as any).whatsappConsentAt ?? null,
     },
   };
 }
@@ -547,7 +551,7 @@ export async function listScorerAccountsForAdmin(): Promise<ScorerAccountAdminRo
     .select()
     .from(scorerAccountsTable)
     .orderBy(asc(scorerAccountsTable.name), asc(scorerAccountsTable.id));
-  return rows.map(serializeScorerAccountAdmin);
+  return rows.map((r) => serializeScorerAccountAdmin(r));
 }
 
 /** Organizer admin: create a scorer account. */

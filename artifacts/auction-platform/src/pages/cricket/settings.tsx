@@ -983,7 +983,7 @@ export default function CricketSettingsPage() {
                 <div className="space-y-2">
                   {REGISTRATION_CONFIGURABLE_FIELD_KEYS.map((key) => {
                     const visible = !registrationFieldsHidden.includes(key);
-                    const isRequired = visible && registrationFieldsRequired.includes(key);
+                    const isRequired = visible && key !== "whatsappConsent" && registrationFieldsRequired.includes(key);
                     if (key === "matchAvailability" && !tournament?.matchDates) {
                       return null;
                     }
@@ -1038,10 +1038,10 @@ export default function CricketSettingsPage() {
                           <div className="flex items-center gap-1.5">
                             <span className="text-[11px] text-muted-foreground">Mandatory</span>
                             <Switch
-                              disabled={!visible}
+                              disabled={!visible || key === "whatsappConsent"}
                               checked={visible && isRequired}
                               onCheckedChange={(checked) => {
-                                if (checked) {
+                                if (checked && key !== "whatsappConsent") {
                                   setRegistrationFieldsRequired((prev) => (prev.includes(key) ? prev : [...prev, key]));
                                   setRegistrationFieldsHidden((prev) => prev.filter((k) => k !== key));
                                 } else {

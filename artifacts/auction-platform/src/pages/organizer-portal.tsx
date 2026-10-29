@@ -1780,33 +1780,6 @@ function OrganizerDashboard({
     setSpDone(true);
     if (r.organizer) onPasswordSet(r.organizer);
   }
-  const [declareOpen, setDeclareOpen] = useState(false);
-  const [declareTid, setDeclareTid] = useState<number | null>(null);
-  const [declaring, setDeclaring] = useState(false);
-  const [declareResult, setDeclareResult] = useState<string | null>(null);
-
-  async function handleDeclareConsent() {
-    if (!declareTid) return;
-    setDeclaring(true);
-    setDeclareResult(null);
-    try {
-      const r = await fetch("/api/auth/admin/communicate/consent-declare-bulk", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tournamentId: declareTid, recipientType: "all" }),
-      });
-      if (r.ok) {
-        const d = await r.json() as { playerCount: number; ownerCount: number };
-        setDeclareResult(`Consent recorded for ${d.playerCount} player(s) and ${d.ownerCount} team owner(s).`);
-      } else {
-        const d = await r.json().catch(() => null) as { error?: string } | null;
-        setDeclareResult(d?.error || "Failed to record consent. Please try again.");
-      }
-    } finally {
-      setDeclaring(false);
-    }
-  }
 
   async function handleDownloadAuctionRules(tournament: Tournament) {
     if (!tournament.auctionRulesPdfReady) {
@@ -2370,13 +2343,6 @@ function OrganizerDashboard({
                                   )}
                                   Download Rules PDF
                                 </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  disabled={isLocked}
-                                  onClick={() => { setDeclareTid(t.id); setDeclareResult(null); setDeclareOpen(true); }}
-                                  className="gap-2 cursor-pointer"
-                                >
-                                  <CheckCheck className="w-3.5 h-3.5 text-emerald-400" /> In-Person Consent
-                                </DropdownMenuItem>
                               </>
                             )}
                           </DropdownMenuContent>
@@ -2469,40 +2435,6 @@ function OrganizerDashboard({
           onRefresh();
         }}
       />
-
-      {/* In-Person Consent Declaration Dialog */}
-      <Dialog open={declareOpen} onOpenChange={v => { if (!v) { setDeclareOpen(false); setDeclareResult(null); } }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCheck className="w-4 h-4 text-primary" /> Record In-Person Consent
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 text-sm text-muted-foreground">
-            {!declareResult ? (
-              <>
-                <p>I confirm that I have obtained verbal or written consent from all players and team owners in this tournament to receive WhatsApp auction updates from BidWar.</p>
-                <p className="text-[11px] text-primary bg-primary/10 border border-primary/20 rounded-lg px-3 py-2">
-                  This declaration is logged with your account and timestamp. Only declare if you have actually obtained consent in person.
-                </p>
-              </>
-            ) : (
-              <p className={declareResult.startsWith("Failed") ? "text-red-400" : "text-green-400"}>{declareResult}</p>
-            )}
-          </div>
-          <div className="flex justify-end gap-2 mt-2">
-            <Button size="sm" variant="outline" onClick={() => { setDeclareOpen(false); setDeclareResult(null); }}>
-              {declareResult ? "Close" : "Cancel"}
-            </Button>
-            {!declareResult && (
-              <Button size="sm" onClick={() => void handleDeclareConsent()} disabled={declaring}>
-                {declaring ? <RefreshCw className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
-                Confirm Declaration
-              </Button>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
       </div>
     </div>
   );

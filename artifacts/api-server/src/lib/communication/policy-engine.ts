@@ -14,8 +14,8 @@
  */
 
 import { db } from "@workspace/db";
-import { tournamentsTable, playersTable } from "@workspace/db";
-import { eq, and, or, sql } from "drizzle-orm";
+import { tournamentsTable, playersTable, waConsentEventsTable, teamsTable, organizersTable, scorerAccountsTable } from "@workspace/db";
+import { eq, and, or, sql, desc } from "drizzle-orm";
 import { logger, maskPhoneNumber } from "../logger";
 import {
   isTournamentLicensedForComm,
@@ -23,6 +23,52 @@ import {
   type SendResult,
 } from "../comm-sender";
 import { resolveWhatsAppProviderId } from "./providers";
+
+/**
+ * Checks whether a mobile number has explicitly revoked WhatsApp consent via STOP or decline.
+ * Fails closed (returns true) if an unexpected database error occurs.
+ */
+export async function isMobileRevoked(mobileDigits: string): Promise<boolean> {
+  if (!mobileDigits) return false;
+  const digits = mobileDigits.replace(/\D/g, "");
+  const tenDigit = digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits;
+  const twelveDigit = tenDigit.length === 10 ? `91${tenDigit}` : tenDigit;
+
+  try {
+    const q = db
+      .select({ eventType: waConsentEventsTable.eventType })
+      .from(waConsentEventsTable)
+      .where(
+        or(
+          eq(waConsentEventsTable.mobile, tenDigit),
+          eq(waConsentEventsTable.mobile, twelveDigit),
+          eq(waConsentEventsTable.mobile, `+${twelveDigit}`),
+          eq(waConsentEventsTable.mobile, mobileDigits),
+        )
+      );
+
+    let events: any[];
+    if (typeof (q as any)?.orderBy === "function") {
+      const ordered = (q as any).orderBy(desc(waConsentEventsTable.eventAt), desc(waConsentEventsTable.id));
+      events = typeof ordered?.limit === "function" ? await ordered.limit(1) : await ordered;
+    } else if (typeof (q as any)?.limit === "function") {
+      events = await (q as any).limit(1);
+    } else {
+      events = await (q as any);
+    }
+
+    if (Array.isArray(events) && events.length > 0) {
+      return events[0].eventType === "STOP_REVOKED" || events[0].eventType === "declined" || events[0].eventType === "withdrawn";
+    }
+    return false;
+  } catch (err) {
+    logger.error(
+      { err, mobileDigits },
+      "isMobileRevoked database check error, failing closed (treating as revoked)",
+    );
+    return true;
+  }
+}
 
 export type CommunicationPushEvent =
   | "player_sold"
@@ -142,12 +188,35 @@ export class CommunicationPolicyEngine {
         };
       }
 
-      // C. Recipient Consent Guard (Explicit Opt-In / Opt-Out)
+      // C. Recipient Revocation Check (STOP / Decline)
+      let revoked = false;
+      try {
+        revoked = await isMobileRevoked(recipientMobile);
+      } catch (err) {
+        revoked = true;
+      }
+      if (revoked) {
+        logger.info(
+          { event, tournamentId, to: maskedMobile },
+          "Push policy suppressed: Recipient has revoked WhatsApp updates (opted-out via STOP/declined)",
+        );
+        return {
+          allowed: false,
+          reason: "Recipient has not consented to WhatsApp updates (opted-out via STOP/declined)",
+          channel,
+          event,
+          tournamentId,
+          recipientMobile,
+        };
+      }
+
+      // D. Recipient Consent Guard (Strict Fail-Closed Opt-In)
       let hasConsent = recipientConsent;
-      if (hasConsent === undefined && tournamentId && recipientMobile) {
+      if ((hasConsent === undefined || hasConsent === null) && tournamentId && recipientMobile) {
         try {
           const norm = recipientMobile.replace(/\D/g, "").replace(/^0/, "91");
-          const [player] = await db
+          const tenDigit = norm.length === 12 && norm.startsWith("91") ? norm.slice(2) : norm;
+          const pQ = db
             .select({ whatsappConsent: playersTable.whatsappConsent })
             .from(playersTable)
             .where(
@@ -156,31 +225,90 @@ export class CommunicationPolicyEngine {
                 or(
                   eq(playersTable.mobileNumber, recipientMobile),
                   eq(playersTable.mobileNumber, norm),
+                  eq(playersTable.mobileNumber, tenDigit),
                   sql`regexp_replace(${playersTable.mobileNumber}, '\\D', '', 'g') = ${norm}`,
                 ),
               ),
-            )
-            .limit(1);
+            );
+          const pRows = typeof (pQ as any)?.limit === "function" ? await (pQ as any).limit(1) : await pQ;
+          const player = Array.isArray(pRows) ? pRows[0] : null;
 
           if (player) {
             hasConsent = player.whatsappConsent;
+          } else {
+            // Check teamsTable for team owner
+            const tQ = db
+              .select({ whatsappConsent: teamsTable.whatsappConsent })
+              .from(teamsTable)
+              .where(
+                and(
+                  eq(teamsTable.tournamentId, tournamentId),
+                  or(
+                    eq(teamsTable.ownerMobile, recipientMobile),
+                    eq(teamsTable.ownerMobile, norm),
+                    eq(teamsTable.ownerMobile, tenDigit),
+                    sql`regexp_replace(${teamsTable.ownerMobile}, '\\D', '', 'g') = ${norm}`,
+                  ),
+                ),
+              );
+            const tRows = typeof (tQ as any)?.limit === "function" ? await (tQ as any).limit(1) : await tQ;
+            const team = Array.isArray(tRows) ? tRows[0] : null;
+
+            if (team) {
+              hasConsent = team.whatsappConsent;
+            } else {
+              // Check organizersTable
+              const oQ = db
+                .select({ whatsappConsent: organizersTable.whatsappConsent })
+                .from(organizersTable)
+                .where(
+                  or(
+                    eq(organizersTable.mobile, recipientMobile),
+                    eq(organizersTable.mobile, norm),
+                    eq(organizersTable.mobile, tenDigit),
+                  ),
+                );
+              const oRows = typeof (oQ as any)?.limit === "function" ? await (oQ as any).limit(1) : await oQ;
+              const org = Array.isArray(oRows) ? oRows[0] : null;
+              if (org) {
+                hasConsent = org.whatsappConsent;
+              } else {
+                // Check scorerAccountsTable
+                const sQ = db
+                  .select({ whatsappConsent: scorerAccountsTable.whatsappConsent })
+                  .from(scorerAccountsTable)
+                  .where(
+                    or(
+                      eq(scorerAccountsTable.mobile, recipientMobile),
+                      eq(scorerAccountsTable.mobile, norm),
+                      eq(scorerAccountsTable.mobile, tenDigit),
+                    ),
+                  );
+                const sRows = typeof (sQ as any)?.limit === "function" ? await (sQ as any).limit(1) : await sQ;
+                const scorer = Array.isArray(sRows) ? sRows[0] : null;
+                if (scorer) {
+                  hasConsent = scorer.whatsappConsent;
+                }
+              }
+            }
           }
         } catch (err) {
-          logger.warn(
+          logger.error(
             { err, tournamentId, to: maskedMobile },
-            "Push policy consent check database lookup error (non-fatal, proceeding)",
+            "Push policy consent check database lookup error (failing closed)",
           );
+          hasConsent = false;
         }
       }
 
-      if (hasConsent === false) {
+      if (hasConsent !== true) {
         logger.info(
-          { event, tournamentId, to: maskedMobile },
-          "Push policy suppressed: Recipient has not consented to WhatsApp updates (opted-out)",
+          { event, tournamentId, to: maskedMobile, hasConsent },
+          "Push policy suppressed: Recipient has not consented to WhatsApp updates (missing_or_unverified_consent)",
         );
         return {
           allowed: false,
-          reason: "Recipient has not consented to WhatsApp updates (opted-out)",
+          reason: "Recipient has not consented to WhatsApp updates (missing_or_unverified_consent)",
           channel,
           event,
           tournamentId,

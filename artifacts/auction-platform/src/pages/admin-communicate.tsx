@@ -114,8 +114,6 @@ export default function AdminCommunicate() {
   const [missingPlayers, setMissingPlayers] = useState<MissingContact[]>([]);
   const [missingOwners, setMissingOwners] = useState<MissingContact[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(false);
-  const [bulkDeclaring, setBulkDeclaring] = useState(false);
-  const [bulkDeclareResult, setBulkDeclareResult] = useState<{ playerCount: number; ownerCount: number } | null>(null);
 
   // Send form
   const [recipientGroup, setRecipientGroup] = useState("all_players");
@@ -214,29 +212,6 @@ export default function AdminCommunicate() {
     if (tab === "blasts") void loadBlasts();
     if (tab === "contacts") void loadContacts();
   }, [tab, loadLogs, loadBlasts, loadContacts]);
-
-  async function handleBulkDeclare(type: "all") {
-    if (!selectedTid) return;
-    setBulkDeclaring(true);
-    setBulkDeclareResult(null);
-    try {
-      const r = await fetch("/api/auth/admin/communicate/consent-declare-bulk", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tournamentId: parseInt(selectedTid), recipientType: type }),
-      });
-      if (r.ok) {
-        const d = await r.json() as { playerCount: number; ownerCount: number };
-        setBulkDeclareResult(d);
-        void loadContacts();
-        if (consentStats) {
-          const r2 = await fetch(`/api/auth/admin/communicate/consent-status/${selectedTid}`, { credentials: "include" });
-          if (r2.ok) setConsentStats(await r2.json() as ConsentStats);
-        }
-      }
-    } finally { setBulkDeclaring(false); }
-  }
 
   async function handleSend() {
     if (isPlayerSoldTemplate) {
@@ -637,25 +612,8 @@ export default function AdminCommunicate() {
                         <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => void loadContacts()}>
                           <RefreshCw className="w-3.5 h-3.5" /> Refresh
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="default"
-                          className="h-8 gap-1.5"
-                          disabled={bulkDeclaring || (!missingPlayers.length && !missingOwners.length && !consentStats?.players.hasMobile && !consentStats?.owners.hasMobile)}
-                          onClick={() => void handleBulkDeclare("all")}
-                        >
-                          {bulkDeclaring ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                          Declare In-Person Consent (All)
-                        </Button>
                       </div>
                     </div>
-
-                    {bulkDeclareResult && (
-                      <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-green-500/25 bg-green-500/8 text-xs text-green-400">
-                        <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                        In-person consent recorded: {bulkDeclareResult.playerCount} player(s), {bulkDeclareResult.ownerCount} owner(s) updated.
-                      </div>
-                    )}
 
                     {loadingContacts ? (
                       <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
