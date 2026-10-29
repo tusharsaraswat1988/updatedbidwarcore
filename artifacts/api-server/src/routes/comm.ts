@@ -701,12 +701,13 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
       rawMobiles.push(...d.manualMobiles.split(",").map((s) => s.trim()).filter(Boolean));
     }
 
-    if (rawMobiles.length === 0) {
+    const uniqueRawMobiles = Array.from(new Set(rawMobiles.map((s) => s.trim()).filter(Boolean)));
+    if (uniqueRawMobiles.length === 0) {
       res.status(400).json({ error: "At least one recipient mobile number is required" });
       return;
     }
 
-    for (const raw of rawMobiles) {
+    for (const raw of uniqueRawMobiles) {
       const normResult = validateAndNormalizeMobile(raw);
       if (!normResult.valid || !normResult.normalized) {
         res.status(400).json({ error: normResult.error || `Invalid mobile number: "${raw}"` });
@@ -989,6 +990,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   // Build recipient list
   type Recipient = { mobile: string; recipientType: string; recipientId: number | null; whatsappConsent: boolean };
   const recipients: Recipient[] = [];
+  const seenRecipients = new Set<string>();
 
   if (d.recipientGroup === "manual" || d.recipientGroup === "custom") {
     const rawMobiles: string[] = [];
@@ -1003,12 +1005,22 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
       rawMobiles.push(...d.manualMobiles.split(",").map((s) => s.trim()).filter(Boolean));
     }
 
-    if (rawMobiles.length === 0) {
+    const seenRaw = new Set<string>();
+    const uniqueRawMobiles: string[] = [];
+    for (const raw of rawMobiles) {
+      const trimmed = raw.trim();
+      if (trimmed && !seenRaw.has(trimmed)) {
+        seenRaw.add(trimmed);
+        uniqueRawMobiles.push(trimmed);
+      }
+    }
+
+    if (uniqueRawMobiles.length === 0) {
       res.status(400).json({ error: "At least one recipient mobile number is required" });
       return;
     }
 
-    for (const raw of rawMobiles) {
+    for (const raw of uniqueRawMobiles) {
       const normResult = validateAndNormalizeMobile(raw);
       if (!normResult.valid || !normResult.normalized) {
         res.status(400).json({ error: normResult.error || `Invalid mobile number: "${raw}"` });
@@ -1096,12 +1108,16 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         }
       }
 
-      recipients.push({
-        mobile,
-        recipientType,
-        recipientId,
-        whatsappConsent: consent,
-      });
+      const normKey = mobile.replace(/\D/g, "").replace(/^0/, "91");
+      if (!seenRecipients.has(normKey)) {
+        seenRecipients.add(normKey);
+        recipients.push({
+          mobile,
+          recipientType,
+          recipientId,
+          whatsappConsent: consent,
+        });
+      }
     }
   } else if (d.tournamentId) {
     const tid = d.tournamentId;
@@ -1112,8 +1128,12 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
       const players = await db.select({ id: playersTable.id, mobileNumber: playersTable.mobileNumber, whatsappConsent: playersTable.whatsappConsent }).from(playersTable).where(and(...conds));
       for (const p of players) {
         if (p.mobileNumber) {
-          const isRevoked = await isMobileRevoked(p.mobileNumber);
-          recipients.push({ mobile: p.mobileNumber, recipientType: "player", recipientId: p.id, whatsappConsent: Boolean(p.whatsappConsent && !isRevoked) });
+          const normKey = p.mobileNumber.replace(/\D/g, "").replace(/^0/, "91");
+          if (!seenRecipients.has(normKey)) {
+            seenRecipients.add(normKey);
+            const isRevoked = await isMobileRevoked(p.mobileNumber);
+            recipients.push({ mobile: p.mobileNumber, recipientType: "player", recipientId: p.id, whatsappConsent: Boolean(p.whatsappConsent && !isRevoked) });
+          }
         }
       }
     } else if (d.recipientGroup === "all_owners") {
@@ -1122,8 +1142,12 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
       const teams = await db.select({ id: teamsTable.id, ownerMobile: teamsTable.ownerMobile, whatsappConsent: teamsTable.whatsappConsent }).from(teamsTable).where(and(...teamConds));
       for (const t of teams) {
         if (t.ownerMobile) {
-          const isRevoked = await isMobileRevoked(t.ownerMobile);
-          recipients.push({ mobile: t.ownerMobile, recipientType: "team_owner", recipientId: t.id, whatsappConsent: Boolean(t.whatsappConsent && !isRevoked) });
+          const normKey = t.ownerMobile.replace(/\D/g, "").replace(/^0/, "91");
+          if (!seenRecipients.has(normKey)) {
+            seenRecipients.add(normKey);
+            const isRevoked = await isMobileRevoked(t.ownerMobile);
+            recipients.push({ mobile: t.ownerMobile, recipientType: "team_owner", recipientId: t.id, whatsappConsent: Boolean(t.whatsappConsent && !isRevoked) });
+          }
         }
       }
     } else if (d.recipientGroup === "organizer") {
@@ -1137,7 +1161,11 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           orgConsent = org?.whatsappConsent ?? false;
         }
         const isRevoked = await isMobileRevoked(t.organizerMobile);
-        recipients.push({ mobile: t.organizerMobile, recipientType: "organizer", recipientId: t.organizerId, whatsappConsent: Boolean(orgConsent && !isRevoked) });
+        const normKey = t.organizerMobile.replace(/\D/g, "").replace(/^0/, "91");
+        if (!seenRecipients.has(normKey)) {
+          seenRecipients.add(normKey);
+          recipients.push({ mobile: t.organizerMobile, recipientType: "organizer", recipientId: t.organizerId, whatsappConsent: Boolean(orgConsent && !isRevoked) });
+        }
       }
     }
   }
@@ -1146,8 +1174,16 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
 
   const blastId = generateBlastId();
   const results: Array<{ mobile: string; channel: string; success: boolean; stub?: boolean; error?: string; blocked?: boolean }> = [];
+  const dispatchedMobiles = new Set<string>();
 
   for (const r of recipients) {
+    const normRecipientKey = r.mobile.replace(/\D/g, "").replace(/^0/, "91");
+    if (dispatchedMobiles.has(normRecipientKey)) {
+      logger.info({ mobile: r.mobile }, "comm/send: skipping duplicate recipient in same broadcast batch");
+      continue;
+    }
+    dispatchedMobiles.add(normRecipientKey);
+
     const shouldSendWa = (d.channel === "whatsapp" || d.channel === "both");
     const shouldSendSms = (d.channel === "sms" || d.channel === "both");
 

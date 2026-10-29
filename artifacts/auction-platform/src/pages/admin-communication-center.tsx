@@ -1348,7 +1348,6 @@ export default function AdminCommunicationCenter() {
       }
       if (effectiveGroup === "custom" || effectiveGroup === "organizer") {
         body.customMobile = effectiveMobile;
-        body.manualMobiles = [effectiveMobile];
       }
 
       const r = await fetch("/api/auth/admin/communicate/send", {

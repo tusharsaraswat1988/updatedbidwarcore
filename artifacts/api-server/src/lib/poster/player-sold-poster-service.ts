@@ -147,6 +147,8 @@ export async function resolveAuthoritativeSaleData(
   let resolvedTournamentName = input.tournamentName ?? "Tournament";
   let resolvedSport = input.tournamentSport ?? "Cricket";
   let resolvedUnit: AuctionUnit = input.auctionUnit ?? "rupee";
+  let resolvedTeamId = input.teamId ?? null;
+  let resolvedAmount = input.amount;
 
   // Attempt DB lookups if IDs provided
   if (typeof db?.select === "function") {
@@ -157,6 +159,8 @@ export async function resolveAuthoritativeSaleData(
             name: playersTable.name,
             photoUrl: playersTable.photoUrl,
             role: playersTable.role,
+            teamId: playersTable.teamId,
+            soldPrice: playersTable.soldPrice,
           })
           .from(playersTable)
           .where(eq(playersTable.id, input.playerId));
@@ -168,10 +172,13 @@ export async function resolveAuthoritativeSaleData(
           if (p.name) resolvedPlayerName = p.name;
           if (p.photoUrl) resolvedPhotoUrl = p.photoUrl;
           if (p.role) resolvedRole = p.role;
+          if (!resolvedTeamId && p.teamId) resolvedTeamId = p.teamId;
+          if (!resolvedAmount && typeof p.soldPrice === "number") resolvedAmount = p.soldPrice;
         }
       }
 
-      if (input.teamId) {
+      const effectiveTeamId = input.teamId ?? resolvedTeamId;
+      if (effectiveTeamId) {
         const query = db
           .select({
             name: teamsTable.name,
@@ -180,7 +187,7 @@ export async function resolveAuthoritativeSaleData(
             color: teamsTable.color,
           })
           .from(teamsTable)
-          .where(eq(teamsTable.id, input.teamId));
+          .where(eq(teamsTable.id, effectiveTeamId));
 
         const res = typeof (query as any)?.limit === "function" ? await (query as any).limit(1) : await query;
         const t = Array.isArray(res) && res.length > 0 ? res[0] : null;
@@ -223,7 +230,7 @@ export async function resolveAuthoritativeSaleData(
   return {
     tournamentId: input.tournamentId,
     playerId: input.playerId,
-    teamId: input.teamId,
+    teamId: input.teamId ?? resolvedTeamId,
     playerName: resolvedPlayerName,
     playerPhotoUrl: resolvedPhotoUrl,
     playerRole: resolvedRole,
@@ -231,7 +238,7 @@ export async function resolveAuthoritativeSaleData(
     teamLogoUrl: resolvedTeamLogo,
     teamShortCode: resolvedTeamShortCode,
     teamColor: resolvedTeamColor,
-    amount: input.amount,
+    amount: resolvedAmount,
     auctionUnit: resolvedUnit,
     tournamentName: resolvedTournamentName,
     tournamentSport: resolvedSport,

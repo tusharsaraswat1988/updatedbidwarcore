@@ -38,6 +38,15 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV SERVE_STATIC=true
 
+# Install font packages and fontconfig so librsvg/sharp can render text in SVGs cleanly
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    fontconfig \
+    fonts-dejavu-core \
+    fonts-freefont-ttf \
+    fonts-liberation \
+    && fc-cache -f \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Production node_modules — flat layout from pnpm deploy, no devDeps
