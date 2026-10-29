@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { AdminShell } from "@/components/admin-shell";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
@@ -306,10 +306,36 @@ function formatDate(iso: string | null) {
 
 type RecipientCategory = "organiser" | "team_owner" | "player" | "group" | "custom";
 
+const COMM_STORAGE_KEY = "bidwar_admin_comm_selected_tournament";
+const COMM_NAME_STORAGE_KEY = "bidwar_admin_comm_selected_tournament_name";
+const GLOBAL_STORAGE_KEY = "bidwar_admin_selected_tournament_id";
+
+function resolveInitialTournamentId(searchStr: string): { id: string; hasExplicitPref: boolean } {
+  try {
+    const sp = new URLSearchParams(searchStr || (typeof window !== "undefined" ? window.location.search : ""));
+    const urlTid = sp.get("tournamentId");
+    if (urlTid !== null && urlTid !== undefined) {
+      if (urlTid === "__all__") return { id: "", hasExplicitPref: true };
+      return { id: urlTid, hasExplicitPref: true };
+    }
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(COMM_STORAGE_KEY) ?? localStorage.getItem(GLOBAL_STORAGE_KEY);
+      if (saved !== null && saved !== undefined) {
+        if (saved === "__all__") return { id: "", hasExplicitPref: true };
+        return { id: saved, hasExplicitPref: true };
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return { id: "", hasExplicitPref: false };
+}
+
 export default function AdminCommunicationCenter() {
   const { isLoggedIn, isLoading } = useAdminPageGuard();
   const { toast } = useToast();
   const [location, navigate] = useLocation();
+  const searchParams = useSearch();
   
   const parsed = tabFromPath(location);
   const [activeTab, setActiveTab] = useState<MainTabKey>(parsed.main);
@@ -317,7 +343,17 @@ export default function AdminCommunicationCenter() {
 
   // Multi-channel general states
   const [tournaments, setTournaments] = useState<TournamentItem[]>([]);
-  const [selectedTournamentId, setSelectedTournamentId] = useState<string>("");
+  const [selectedTournamentId, setSelectedTournamentId] = useState<string>(() => {
+    return resolveInitialTournamentId(typeof window !== "undefined" ? window.location.search : "").id;
+  });
+  const [cachedTournamentName, setCachedTournamentName] = useState<string>(() => {
+    try {
+      return (typeof window !== "undefined" && localStorage.getItem(COMM_NAME_STORAGE_KEY)) || "";
+    } catch {
+      return "";
+    }
+  });
+  const [loadingTournaments, setLoadingTournaments] = useState(true);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -489,6 +525,57 @@ export default function AdminCommunicationCenter() {
 
   const apiBase = "/api/auth/admin/communication-center";
 
+  const persistTournamentSelection = useCallback((val: string, name?: string) => {
+    try {
+      if (typeof window !== "undefined") {
+        const storageVal = !val || val === "__all__" ? "__all__" : val;
+        localStorage.setItem(COMM_STORAGE_KEY, storageVal);
+        localStorage.setItem(GLOBAL_STORAGE_KEY, val && val !== "__all__" ? val : "");
+        if (name) {
+          localStorage.setItem(COMM_NAME_STORAGE_KEY, name);
+          setCachedTournamentName(name);
+        } else if (!val || val === "__all__") {
+          localStorage.removeItem(COMM_NAME_STORAGE_KEY);
+          setCachedTournamentName("");
+        }
+
+        const url = new URL(window.location.href);
+        if (val && val !== "__all__") {
+          url.searchParams.set("tournamentId", val);
+        } else {
+          url.searchParams.delete("tournamentId");
+        }
+        window.history.replaceState({}, "", url.pathname + url.search);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const handleTournamentSelect = useCallback((val: string) => {
+    const tid = val === "__all__" ? "" : val;
+    setSelectedTournamentId(tid);
+    const targetTournament = tournaments.find((t) => String(t.id) === tid);
+    persistTournamentSelection(val, targetTournament?.name);
+  }, [tournaments, persistTournamentSelection]);
+
+  // Sync route query changes (e.g. forward/back buttons)
+  useEffect(() => {
+    const sp = new URLSearchParams(searchParams);
+    const urlTid = sp.get("tournamentId");
+    if (urlTid !== null && urlTid !== undefined) {
+      const nextId = urlTid === "__all__" ? "" : urlTid;
+      setSelectedTournamentId((prev) => {
+        if (prev !== nextId) {
+          const match = tournaments.find((t) => String(t.id) === nextId);
+          persistTournamentSelection(urlTid, match?.name);
+          return nextId;
+        }
+        return prev;
+      });
+    }
+  }, [searchParams, tournaments, persistTournamentSelection]);
+
   // Sync route
   useEffect(() => {
     const p = tabFromPath(location);
@@ -499,35 +586,70 @@ export default function AdminCommunicationCenter() {
   const handleTabChange = (val: string) => {
     const k = val as MainTabKey;
     setActiveTab(k);
+    const qs = selectedTournamentId ? `?tournamentId=${encodeURIComponent(selectedTournamentId)}` : "";
     if (k === "email") {
-      navigate(`/admin/communication/${emailSubTab}`);
+      navigate(`/admin/communication/${emailSubTab}${qs}`);
     } else {
-      navigate(`/admin/communication/${k}`);
+      navigate(`/admin/communication/${k}${qs}`);
     }
   };
 
   const handleEmailSubTabChange = (val: string) => {
     const k = val as EmailSubTab;
     setEmailSubTab(k);
-    navigate(`/admin/communication/${k}`);
+    const qs = selectedTournamentId ? `?tournamentId=${encodeURIComponent(selectedTournamentId)}` : "";
+    navigate(`/admin/communication/${k}${qs}`);
   };
 
   // Load Tournaments
   const loadTournaments = useCallback(async () => {
+    setLoadingTournaments(true);
     try {
       const res = await fetch("/api/auth/admin/tournaments?limit=200", { credentials: "include" });
       if (res.ok) {
         const d = await res.json();
-        const list = Array.isArray(d) ? d : (d.tournaments ?? []);
+        const rawList: TournamentItem[] = Array.isArray(d) ? d : (d.tournaments ?? []);
+        // Sort latest first with stable tie-breaker
+        const list = [...rawList].sort((a, b) => {
+          const ta = new Date(a.createdAt || 0).getTime();
+          const tb = new Date(b.createdAt || 0).getTime();
+          if (tb !== ta) return tb - ta;
+          return b.id - a.id;
+        });
         setTournaments(list);
-        if (list.length > 0 && !selectedTournamentId) {
-          setSelectedTournamentId(String(list[0].id));
-        }
+
+        setSelectedTournamentId((currentId) => {
+          const pref = resolveInitialTournamentId(typeof window !== "undefined" ? window.location.search : "");
+          const candidate = currentId || pref.id;
+
+          if (candidate) {
+            const match = list.find((t) => String(t.id) === candidate);
+            if (match) {
+              persistTournamentSelection(candidate, match.name);
+              return candidate;
+            }
+          }
+
+          if (pref.hasExplicitPref && (pref.id === "" || pref.id === "__all__")) {
+            persistTournamentSelection("__all__");
+            return "";
+          }
+
+          if (list.length > 0) {
+            const first = list[0];
+            persistTournamentSelection(String(first.id), first.name);
+            return String(first.id);
+          }
+
+          return "";
+        });
       }
     } catch {
       // ignore
+    } finally {
+      setLoadingTournaments(false);
     }
-  }, [selectedTournamentId]);
+  }, [persistTournamentSelection]);
 
   // Load Overview Data
   const loadDashboard = useCallback(async () => {
@@ -1324,11 +1446,12 @@ export default function AdminCommunicationCenter() {
   };
 
   const selectedTournament = tournaments.find((t) => String(t.id) === selectedTournamentId);
-  const isLicensedForWa = selectedTournamentId === "__all__" || (selectedTournament?.licenseStatus === "active" && !selectedTournament?.adminLocked);
+  const isLicensedForWa = !selectedTournamentId || selectedTournamentId === "__all__" || (selectedTournament?.licenseStatus === "active" && !selectedTournament?.adminLocked);
 
   const waBlockDetails = useMemo(() => {
     if (!selectedTournamentId || selectedTournamentId === "__all__") return null;
     if (!selectedTournament) {
+      if (loadingTournaments) return null;
       return {
         badge: "Not Found",
         reason: "Selected tournament record not found.",
@@ -1366,7 +1489,7 @@ export default function AdminCommunicationCenter() {
       canAction: true,
       actionLabel: "Manage License",
     };
-  }, [selectedTournamentId, selectedTournament]);
+  }, [selectedTournamentId, selectedTournament, loadingTournaments]);
 
   // DLT SMS Templates Metadata
   const dltTemplates = [
@@ -1581,13 +1704,24 @@ export default function AdminCommunicationCenter() {
             {/* Global Tournament Context Filter */}
             <Select
               value={selectedTournamentId || "__all__"}
-              onValueChange={(v) => setSelectedTournamentId(v === "__all__" ? "" : v)}
+              onValueChange={handleTournamentSelect}
             >
               <SelectTrigger className="w-56 bg-background/50 border-border">
-                <SelectValue placeholder="All Tournaments" />
+                <SelectValue placeholder="All Tournaments">
+                  {selectedTournament
+                    ? selectedTournament.name
+                    : selectedTournamentId
+                    ? cachedTournamentName || `Tournament #${selectedTournamentId}`
+                    : "🌐 All Tournaments"}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__all__">🌐 All Tournaments</SelectItem>
+                {selectedTournamentId && !tournaments.some((t) => String(t.id) === selectedTournamentId) && (
+                  <SelectItem value={selectedTournamentId}>
+                    {cachedTournamentName || `Tournament #${selectedTournamentId}`}
+                  </SelectItem>
+                )}
                 {tournaments.map((t) => (
                   <SelectItem key={t.id} value={String(t.id)}>
                     {t.name}
@@ -1600,6 +1734,7 @@ export default function AdminCommunicationCenter() {
               variant="outline"
               size="icon"
               onClick={() => {
+                void loadTournaments();
                 void loadDashboard();
                 void loadTemplates();
                 void loadJobs();
