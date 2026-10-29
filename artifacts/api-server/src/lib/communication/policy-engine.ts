@@ -22,7 +22,9 @@ import {
   sendWhatsApp,
   type SendResult,
 } from "../comm-sender";
+import { resolveTournamentFeatures } from "@workspace/platform-core/tournament-features";
 import { resolveWhatsAppProviderId } from "./providers";
+import { validateTemplateDispatchEligibility } from "./template-registry";
 
 /**
  * Checks whether a mobile number has explicitly revoked WhatsApp consent via STOP or decline.
@@ -84,12 +86,15 @@ export interface PolicyEvaluationInput {
   tournamentId?: number | null;
   recipientMobile?: string | null;
   recipientConsent?: boolean | null;
+  templateName?: string | null;
   tournament?: {
     licenseStatus?: string | null;
     adminLocked?: boolean | null;
     scoringEnabled?: boolean | null;
     scoringPhase?: string | null;
     licenseGrantedAt?: Date | string | null;
+    featuresJson?: Record<string, unknown> | null;
+    features?: { whatsappNotifications?: boolean } | null;
   } | null;
 }
 
@@ -128,7 +133,32 @@ export class CommunicationPolicyEngine {
 
     // 2. Channel-specific checks
     if (channel === "whatsapp") {
-      // A. Active Provider check in production
+      // A. Verified Meta Template Allowlist Guard
+      if (input.templateName !== undefined && input.templateName !== null) {
+        const eligibility = validateTemplateDispatchEligibility(input.templateName);
+        if (!eligibility.eligible) {
+          logger.warn(
+            {
+              event,
+              tournamentId,
+              to: maskedMobile,
+              templateName: input.templateName,
+              reason: eligibility.error,
+            },
+            "Push policy suppressed: WhatsApp template is not approved on the Meta allowlist",
+          );
+          return {
+            allowed: false,
+            reason: eligibility.error ?? "Template not approved by Meta",
+            channel,
+            event,
+            tournamentId,
+            recipientMobile,
+          };
+        }
+      }
+
+      // B. Active Provider check in production
       const providerId = resolveWhatsAppProviderId();
       if (providerId === "none" && process.env.NODE_ENV === "production") {
         logger.error(
@@ -156,6 +186,7 @@ export class CommunicationPolicyEngine {
               scoringEnabled: tournamentsTable.scoringEnabled,
               scoringPhase: tournamentsTable.scoringPhase,
               licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+              featuresJson: tournamentsTable.featuresJson,
             })
             .from(tournamentsTable)
             .where(eq(tournamentsTable.id, tournamentId));
@@ -168,10 +199,14 @@ export class CommunicationPolicyEngine {
         }
       }
 
-      if (tournamentId && !isTournamentLicensedForComm(tournament)) {
+      if ((tournamentId || tournament) && !isTournamentLicensedForComm(tournament)) {
+        const rawFeatures = (tournament as any)?.featuresJson ?? (tournament as any)?.features;
+        const features = rawFeatures ? resolveTournamentFeatures(rawFeatures) : null;
         const reason = tournament?.adminLocked
           ? "Tournament is admin-locked"
-          : `Tournament licensing status '${tournament?.licenseStatus ?? "unknown"}' not eligible for communications`;
+          : features?.whatsappNotifications === false
+            ? "WhatsApp communications explicitly disabled by admin for this tournament"
+            : `Tournament licensing status '${tournament?.licenseStatus ?? "unknown"}' not eligible for communications`;
 
         logger.info(
           { event, tournamentId, to: maskedMobile, reason },
@@ -371,6 +406,7 @@ export async function dispatchPushWhatsApp(opts: {
     tournamentId: opts.tournamentId,
     recipientMobile: opts.mobile,
     recipientConsent: opts.recipientConsent,
+    templateName: opts.templateName,
   });
 
   if (!policy.allowed) {

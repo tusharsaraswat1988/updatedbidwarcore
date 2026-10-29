@@ -15,6 +15,7 @@ import {
   Gavel,
   Lock,
   Mail,
+  MessageSquare,
   MonitorDown,
   Radio,
   RefreshCw,
@@ -206,6 +207,7 @@ export default function AdminTournamentDetailPage() {
   const [paymentAuditReason, setPaymentAuditReason] = useState<string>("");
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [grantWhatsappEnabled, setGrantWhatsappEnabled] = useState(true);
 
   // Reset auction state
   const [confirmReset, setConfirmReset] = useState(false);
@@ -745,6 +747,92 @@ export default function AdminTournamentDetailPage() {
                       >
                         {t.licenseStatus === "active" ? "Switch to Trial" : "Upgrade to Live"}
                       </Button>
+                    )}
+                  </div>
+
+                  {/* WhatsApp Communication Module Control */}
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="h-4 w-4 text-emerald-400" />
+                          <span className="text-xs font-semibold text-foreground">WhatsApp Messaging Service</span>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[10px] font-semibold",
+                              t.features?.whatsappNotifications === false
+                                ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                                : t.licenseStatus === "active"
+                                ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                : "bg-muted/40 text-muted-foreground border-border"
+                            )}
+                          >
+                            {t.features?.whatsappNotifications === false
+                              ? "Disabled by Admin"
+                              : t.licenseStatus === "active"
+                              ? "Active & Enabled"
+                              : "Trial (Blocked)"}
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {t.features?.whatsappNotifications === false
+                            ? "Automated player-sold alerts and Communication Center blasts are disabled for this tournament (e.g. discounted in-person license fee)."
+                            : t.licenseStatus === "active"
+                            ? "Approved Meta utility templates (player-sold with celebration image) and Communication Center blasts are active."
+                            : "WhatsApp messaging requires an active live tournament license."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {isMaster && (
+                      <div className="pt-1">
+                        {t.features?.whatsappNotifications === false ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-8 text-xs gap-1.5 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                            disabled={!!actionLoading}
+                            onClick={() =>
+                              doAction("Enable WhatsApp", async () => {
+                                const res = await updateAdminTournament(t.id, {
+                                  features: { ...t.features, whatsappNotifications: true },
+                                });
+                                if (res.success) {
+                                  showFlash("WhatsApp messaging service enabled for this tournament");
+                                  await reloadDetail();
+                                }
+                                return res;
+                              })
+                            }
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Enable WhatsApp Messaging
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-8 text-xs gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                            disabled={!!actionLoading}
+                            onClick={() =>
+                              doAction("Disable WhatsApp", async () => {
+                                const res = await updateAdminTournament(t.id, {
+                                  features: { ...t.features, whatsappNotifications: false },
+                                });
+                                if (res.success) {
+                                  showFlash("WhatsApp messaging service disabled for this tournament (discounted plan)");
+                                  await reloadDetail();
+                                }
+                                return res;
+                              })
+                            }
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5" />
+                            Disable WhatsApp Messaging (Discounted / No-WhatsApp Plan)
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1296,6 +1384,19 @@ export default function AdminTournamentDetailPage() {
                   className="mt-1 h-8 text-xs"
                 />
               </div>
+              <div className="flex items-center space-x-2 pt-1 border-t border-border/60">
+                <input
+                  type="checkbox"
+                  id="grantWhatsappEnabled"
+                  checked={grantWhatsappEnabled}
+                  onChange={(e) => setGrantWhatsappEnabled(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-emerald-500"
+                />
+                <label htmlFor="grantWhatsappEnabled" className="text-xs text-muted-foreground select-none cursor-pointer">
+                  Enable WhatsApp Messaging Service{" "}
+                  <span className="text-[11px] opacity-75">(Uncheck if paid discounted amount without WhatsApp)</span>
+                </label>
+              </div>
               <AuditReasonField
                 value={paymentAuditReason}
                 onChange={setPaymentAuditReason}
@@ -1328,8 +1429,17 @@ export default function AdminTournamentDetailPage() {
                   });
                   setPaymentSubmitting(false);
                   if (r.success) {
+                    if (!grantWhatsappEnabled && t) {
+                      await updateAdminTournament(tournamentId, {
+                        features: { ...t.features, whatsappNotifications: false },
+                      });
+                    }
                     setVerifyPaymentOpen(false);
-                    showFlash("Payment verified & live license granted successfully");
+                    showFlash(
+                      grantWhatsappEnabled
+                        ? "Payment verified & live license granted successfully"
+                        : "Payment verified & live license granted (WhatsApp disabled for discounted plan)"
+                    );
                     await Promise.all([reloadDetail(), reloadTournaments()]);
                   } else {
                     setPaymentError(r.error || "Payment verification failed");

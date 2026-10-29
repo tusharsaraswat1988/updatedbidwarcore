@@ -17,6 +17,12 @@ export interface TournamentFeatures {
   sponsorshipHub?: boolean;
   /** Future: analytics module. */
   analytics?: boolean;
+  /**
+   * WhatsApp push messaging & notification service for this tournament.
+   * If explicitly false, all outbound automated player-sold alerts,
+   * blast dispatches, and WhatsApp push templates are suppressed.
+   */
+  whatsappNotifications?: boolean;
 }
 
 /** Canonical defaults when a tournament has no features_json row yet. */
@@ -25,6 +31,7 @@ export const TOURNAMENT_FEATURE_DEFAULTS: Readonly<Required<TournamentFeatures>>
   scoring: false,
   sponsorshipHub: false,
   analytics: false,
+  whatsappNotifications: true,
 };
 
 const FEATURE_KEYS = Object.keys(TOURNAMENT_FEATURE_DEFAULTS) as (keyof TournamentFeatures)[];
@@ -33,12 +40,15 @@ function readFlag(
   src: Partial<TournamentFeatures> | Record<string, unknown>,
   key: keyof TournamentFeatures,
 ): boolean {
+  if (key === "whatsappNotifications") {
+    return src[key] !== false;
+  }
   return src[key] === true;
 }
 
 /**
  * Normalize raw DB/API JSON into a stable TournamentFeatures object.
- * Unknown keys are ignored; missing keys default to false.
+ * Unknown keys are ignored; missing keys default to false (or true for whatsappNotifications).
  */
 export function resolveTournamentFeatures(
   raw: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
@@ -75,10 +85,22 @@ export function isBuzzStudioEnabled(
   return false;
 }
 
+/**
+ * Helper to check if WhatsApp notifications are enabled for tournament features.
+ * Defaults to true unless explicitly false.
+ */
+export function isWhatsAppNotificationsEnabled(
+  features?: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
+): boolean {
+  if (!features) return true;
+  return resolveTournamentFeatures(features).whatsappNotifications !== false;
+}
+
 /** Zod-compatible partial schema keys for API validation. */
 export const tournamentFeaturesSchemaShape = {
   ownerApp: "boolean",
   scoring: "boolean",
   sponsorshipHub: "boolean",
   analytics: "boolean",
+  whatsappNotifications: "boolean",
 } as const;

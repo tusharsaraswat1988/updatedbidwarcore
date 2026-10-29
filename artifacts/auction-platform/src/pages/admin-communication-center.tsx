@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { AdminShell } from "@/components/admin-shell";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
 import { EmailRichEditor } from "@/components/communication/email-rich-editor";
+import { PlayerSoldPoster } from "@/components/posters/player-sold-poster";
 import {
   Activity,
   Archive,
@@ -195,7 +196,9 @@ interface ConsentStats {
 interface WaTemplateOption {
   id: string;
   templateName: string;
+  metaTemplateName?: string | null;
   title: string;
+  displayName?: string;
   body: string;
   status?: string;
   category?: string;
@@ -204,8 +207,14 @@ interface WaTemplateOption {
   headerType?: "image" | "text" | "video" | "document" | "none";
   headerImageUrl?: string | null;
   metaApproved?: boolean;
+  isUsableInBidwar?: boolean;
   variables: Array<{ key: string; label: string; placeholder: string; description?: string }>;
   sampleArgs?: string[];
+  evidenceSource?: string;
+  evidenceTimestamp?: string | null;
+  liveSyncStatus?: string;
+  liveSyncNote?: string;
+  exclusionReason?: string | null;
 }
 
 interface WaProviderStatus {
@@ -367,6 +376,31 @@ export default function AdminCommunicationCenter() {
   const [waTemplateKey, setWaTemplateKey] = useState("auction_player_sold");
   const [availableWaTemplates, setAvailableWaTemplates] = useState<WaTemplateOption[]>([]);
   const [waTemplateVariables, setWaTemplateVariables] = useState<Record<string, string>>({});
+
+  // Dynamic Player Sold Poster state for WhatsApp
+  const [recentSales, setRecentSales] = useState<Array<{
+    id: number;
+    playerName: string;
+    playerPhotoUrl: string | null;
+    playerRole: string | null;
+    teamId: number | null;
+    teamName: string;
+    teamLogoUrl: string | null;
+    teamShortCode: string | null;
+    teamColor: string | null;
+    amount: number;
+    formattedAmount: string;
+    tournamentName: string;
+    tournamentSport: string;
+    auctionUnit: "rupee" | "points";
+  }>>([]);
+  const [selectedSaleId, setSelectedSaleId] = useState<string>("sample");
+  const [loadingSales, setLoadingSales] = useState(false);
+
+  const activeSale = useMemo(() => {
+    if (selectedSaleId === "sample") return null;
+    return recentSales.find((s) => String(s.id) === selectedSaleId) || null;
+  }, [recentSales, selectedSaleId]);
   const [waCustomText, setWaCustomText] = useState("");
   const [waCustomMobile, setWaCustomMobile] = useState("");
   const [waSending, setSendingWa] = useState(false);
@@ -397,6 +431,7 @@ export default function AdminCommunicationCenter() {
   const [loadingWaTemplates, setLoadingWaTemplates] = useState(false);
   const [waTemplatesError, setWaTemplatesError] = useState<string | null>(null);
   const [waMobileTab, setWaMobileTab] = useState<"compose" | "preview">("compose");
+  const [showDebugTemplates, setShowDebugTemplates] = useState(false);
 
   // Contacts State
   const [missingPlayers, setMissingPlayers] = useState<MissingContact[]>([]);
@@ -591,8 +626,20 @@ export default function AdminCommunicationCenter() {
       if (selectedTournamentId && selectedTournamentId !== "__all__") {
         const cRes = await fetch(`/api/auth/admin/communicate/consent-status/${selectedTournamentId}`, { credentials: "include" });
         if (cRes.ok) setConsentStats(await cRes.json());
+
+        // 3b. Fetch Recent Sales for dynamic poster preview
+        try {
+          const sRes = await fetch(`/api/auth/admin/communicate/recent-sales/${selectedTournamentId}`, { credentials: "include" });
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            setRecentSales(sData.sales ?? []);
+          }
+        } catch {
+          // non-fatal
+        }
       } else {
         setConsentStats(null);
+        setRecentSales([]);
       }
 
       // 4. Fetch Bot Link
@@ -1009,7 +1056,49 @@ export default function AdminCommunicationCenter() {
   };
 
   const selectedTournament = tournaments.find((t) => String(t.id) === selectedTournamentId);
-  const isLicensedForWa = selectedTournament?.licenseStatus === "active" && !selectedTournament?.adminLocked;
+  const isLicensedForWa = selectedTournamentId === "__all__" || (selectedTournament?.licenseStatus === "active" && !selectedTournament?.adminLocked);
+
+  const waBlockDetails = useMemo(() => {
+    if (!selectedTournamentId || selectedTournamentId === "__all__") return null;
+    if (!selectedTournament) {
+      return {
+        badge: "Not Found",
+        reason: "Selected tournament record not found.",
+        canAction: false,
+        actionLabel: "",
+      };
+    }
+    if (selectedTournament.adminLocked) {
+      return {
+        badge: "Admin Locked",
+        reason: `Tournament "${selectedTournament.name}" is locked by Administrator.`,
+        canAction: true,
+        actionLabel: "Unlock Tournament",
+      };
+    }
+    if (selectedTournament.licenseStatus === "trial") {
+      return {
+        badge: "Trial Mode",
+        reason: `"${selectedTournament.name}" is in Trial mode (requires Active Live License for WhatsApp).`,
+        canAction: true,
+        actionLabel: "Grant / Upgrade License",
+      };
+    }
+    if (selectedTournament.licenseStatus === "completed") {
+      return {
+        badge: "Completed",
+        reason: `"${selectedTournament.name}" auction is marked completed.`,
+        canAction: true,
+        actionLabel: "View Tournament",
+      };
+    }
+    return {
+      badge: selectedTournament.licenseStatus || "Unlicensed",
+      reason: `"${selectedTournament.name}" license is '${selectedTournament.licenseStatus || "inactive"}' (Active license required).`,
+      canAction: true,
+      actionLabel: "Manage License",
+    };
+  }, [selectedTournamentId, selectedTournament]);
 
   // DLT SMS Templates Metadata
   const dltTemplates = [
@@ -1047,19 +1136,26 @@ export default function AdminCommunicationCenter() {
     },
   ];
 
-  // WhatsApp Pre-Approved Templates Metadata
+  // WhatsApp Pre-Approved Templates Metadata (Meta-Approved Only)
   const defaultWaTemplates: WaTemplateOption[] = useMemo(() => [
     {
       id: "auction_player_sold",
       templateName: "auction_player_sold",
+      metaTemplateName: "auction_player_sold",
       title: "🏏 Player Sold Celebration",
+      displayName: "🏏 Player Sold Celebration",
       category: "utility",
       description: "Meta-approved celebratory announcement with image header sent when a player is sold to a team",
       language: "en",
       headerType: "image",
       headerImageUrl: "/assets/branding/player-sold-banner.jpg",
       metaApproved: true,
+      isUsableInBidwar: true,
       status: "approved",
+      evidenceSource: "Meta WhatsApp Business Manager (WABA) Confirmed Template Registry",
+      evidenceTimestamp: "2026-10-29T00:00:00Z",
+      liveSyncStatus: "sync_unavailable",
+      liveSyncNote: "Live Meta Graph API sync unavailable without direct Meta credentials; serving previously verified approval evidence.",
       body: "🏏 PLAYER SOLD!\n\nCongratulations, {{1}}! 🎉\n\nYou have been sold to *{{2}}* for *{{3}}* in the *{{4}}* auction.\n\nWishing you and your team great success in the tournament!\n\nBIDWAR | From Auction to Champions",
       variables: [
         { key: "1", label: "Player Name", placeholder: "e.g. Virat Kohli" },
@@ -1068,102 +1164,107 @@ export default function AdminCommunicationCenter() {
         { key: "4", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
       ],
       sampleArgs: ["Virat Kohli", "Royal Challengers", "₹25,00,000", "Premier League 2026"],
-    },
-    {
-      id: "player_sold",
-      templateName: "auction_player_sold",
-      title: "🏏 Player Sold Celebration (Alias)",
-      category: "utility",
-      description: "Meta-approved template alias for auction_player_sold",
-      language: "en",
-      headerType: "image",
-      headerImageUrl: "/assets/branding/player-sold-banner.jpg",
-      metaApproved: true,
-      status: "approved",
-      body: "🏏 PLAYER SOLD!\n\nCongratulations, {{1}}! 🎉\n\nYou have been sold to *{{2}}* for *{{3}}* in the *{{4}}* auction.\n\nWishing you and your team great success in the tournament!\n\nBIDWAR | From Auction to Champions",
-      variables: [
-        { key: "1", label: "Player Name", placeholder: "e.g. Virat Kohli" },
-        { key: "2", label: "Winning Team", placeholder: "e.g. Royal Challengers" },
-        { key: "3", label: "Sold Amount", placeholder: "e.g. ₹25,00,000" },
-        { key: "4", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
-      ],
-      sampleArgs: ["Virat Kohli", "Royal Challengers", "₹25,00,000", "Premier League 2026"],
-    },
-    {
-      id: "welcome_invite",
-      templateName: "welcome_invite",
-      title: "🎉 Welcome & Tournament Invite",
-      body: "*Welcome to BidWar Auction!*\n\nYou are invited to participate in *{{1}}*.\n\n📅 Date: {{2}}\n📍 Venue/Mode: {{3}}\n\nClick below to view details and live rosters.",
-      variables: [
-        { key: "1", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
-        { key: "2", label: "Date & Time", placeholder: "e.g. 24 Sep 2026, 6:00 PM" },
-        { key: "3", label: "Venue / Mode", placeholder: "e.g. Live Arena" },
-      ],
-      sampleArgs: ["Premier League 2026", "24 Sep 2026, 6:00 PM", "Live Arena"],
-    },
-    {
-      id: "auction_reminder",
-      templateName: "auction_reminder",
-      title: "🚨 Live Auction Countdown Alert",
-      body: "*🚨 Live Auction Starting Soon!*\n\nThe player auction for *{{1}}* begins in *{{2}} minutes*.\n\nTap the link below to enter the live bidding arena right now:\n{{3}}",
-      variables: [
-        { key: "1", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
-        { key: "2", label: "Minutes Remaining", placeholder: "e.g. 15" },
-        { key: "3", label: "Live Auction Link", placeholder: "e.g. https://bidwar.in/live/742" },
-      ],
-      sampleArgs: ["Premier League 2026", "15", "https://bidwar.in/live/742"],
-    },
-    {
-      id: "consent_optin",
-      templateName: "consent_optin",
-      title: "📲 WhatsApp Consent Opt-In Request",
-      body: "*BidWar Instant Alerts*\n\nTo receive real-time bid updates, sale notifications, and squad announcements directly on WhatsApp, please confirm your opt-in:\n\n{{1}}",
-      variables: [
-        { key: "1", label: "Consent Verification Link", placeholder: "e.g. https://bidwar.in/wa-consent/token981" },
-      ],
-      sampleArgs: ["https://bidwar.in/wa-consent/token981"],
-    },
-    {
-      id: "credentials_share",
-      templateName: "credentials_share",
-      title: "🔑 Team Owner Credentials",
-      body: "*BidWar Team Pass*\n\nYour owner access for *{{1}}* (Team *{{2}}*) is ready.\n\n🔑 PIN: *{{3}}*\n🌐 App: {{4}}\n\nDo not share this PIN with anyone.",
-      variables: [
-        { key: "1", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
-        { key: "2", label: "Team Name", placeholder: "e.g. Super Kings" },
-        { key: "3", label: "Access PIN", placeholder: "e.g. 4921" },
-        { key: "4", label: "Platform URL", placeholder: "e.g. https://bidwar.in/owner" },
-      ],
-      sampleArgs: ["Premier League 2026", "Super Kings", "4921", "https://bidwar.in/owner"],
-    },
-    {
-      id: "custom",
-      templateName: "custom",
-      title: "✍️ Custom Direct Message",
-      body: "",
-      variables: [],
-      sampleArgs: ["Hello! This is a direct broadcast from BidWar Auction platform admin."],
     },
   ], []);
 
+  // Operational active templates: ONLY Meta-approved and verified for BIDWAR use
   const waTemplates: WaTemplateOption[] = useMemo(() => {
     if (availableWaTemplates.length > 0) {
-      const customTmpl: WaTemplateOption = {
-        id: "custom",
-        templateName: "custom",
-        title: "✍️ Custom Direct Message",
-        body: "",
-        variables: [],
-      };
-      const dbOptions = availableWaTemplates
-        .filter((t) => t.status === "approved")
+      const approved = availableWaTemplates
+        .filter(
+          (t) =>
+            t.metaApproved === true &&
+            t.status === "approved" &&
+            (t.templateName === "auction_player_sold" || t.id === "auction_player_sold")
+        )
         .map((t) => ({
           ...t,
           id: t.templateName || String(t.id),
         }));
-      return [...dbOptions, customTmpl];
+      if (approved.length > 0) return approved;
     }
     return defaultWaTemplates;
+  }, [availableWaTemplates, defaultWaTemplates]);
+
+  // Non-approved development templates (for restricted debug view only)
+  const devUnapprovedTemplates: WaTemplateOption[] = useMemo(() => {
+    if (availableWaTemplates.length > 0) {
+      return availableWaTemplates.filter(
+        (t) => !t.metaApproved || t.status !== "approved" || t.templateName !== "auction_player_sold"
+      );
+    }
+    return [
+      {
+        id: "player_sold",
+        templateName: "player_sold",
+        title: "🏏 Player Sold Celebration (Legacy Alias)",
+        category: "utility",
+        description: "Legacy development alias for auction_player_sold",
+        language: "en",
+        body: "🏏 PLAYER SOLD!\n\nCongratulations, {{1}}! 🎉\n\nYou have been sold to *{{2}}* for *{{3}}* in the *{{4}}* auction.\n\nWishing you and your team great success in the tournament!\n\nBIDWAR | From Auction to Champions",
+        status: "duplicate",
+        metaApproved: false,
+        isUsableInBidwar: false,
+        exclusionReason: "Duplicate alias of canonical Meta template 'auction_player_sold'. Hidden from operational dropdown.",
+        variables: [],
+      },
+      {
+        id: "welcome_invite",
+        templateName: "welcome_invite",
+        title: "🎉 Welcome & Tournament Invite (Dev Placeholder)",
+        category: "utility",
+        description: "Tournament invitation created during development",
+        language: "en",
+        body: "*Welcome to BidWar Auction!*\n\nYou are invited to participate in *{{1}}*.\n\n📅 Date: {{2}}\n📍 Venue/Mode: {{3}}\n\nClick below to view details and live rosters.",
+        status: "unapproved",
+        metaApproved: false,
+        isUsableInBidwar: false,
+        exclusionReason: "Locally invented placeholder created in development. Not registered or approved in Meta WhatsApp Manager. Excluded from operations.",
+        variables: [],
+      },
+      {
+        id: "auction_reminder",
+        templateName: "auction_reminder",
+        title: "🚨 Live Auction Countdown Alert (Dev Placeholder)",
+        category: "utility",
+        description: "Countdown alert created during development",
+        language: "en",
+        body: "*🚨 Live Auction Starting Soon!*\n\nThe player auction for *{{1}}* begins in *{{2}} minutes*.\n\nTap the link below to enter the live bidding arena right now:\n{{3}}",
+        status: "unapproved",
+        metaApproved: false,
+        isUsableInBidwar: false,
+        exclusionReason: "Locally invented placeholder created in development. Not registered or approved in Meta WhatsApp Manager. Excluded from operations.",
+        variables: [],
+      },
+      {
+        id: "consent_optin",
+        templateName: "consent_optin",
+        title: "📲 WhatsApp Consent Opt-In Request (Dev Placeholder)",
+        category: "utility",
+        description: "Consent opt-in created during development",
+        language: "en",
+        body: "*BidWar Instant Alerts*\n\nTo receive real-time bid updates, sale notifications, and squad announcements directly on WhatsApp, please confirm your opt-in:\n\n{{1}}",
+        status: "unapproved",
+        metaApproved: false,
+        isUsableInBidwar: false,
+        exclusionReason: "Locally invented placeholder created in development. Not registered or approved in Meta WhatsApp Manager. Excluded from operations.",
+        variables: [],
+      },
+      {
+        id: "credentials_share",
+        templateName: "credentials_share",
+        title: "🔑 Team Owner Credentials (Dev Placeholder)",
+        category: "authentication",
+        description: "Credentials share created during development",
+        language: "en",
+        body: "*BidWar Team Pass*\n\nYour owner access for *{{1}}* (Team *{{2}}*) is ready.\n\n🔑 PIN: *{{3}}*\n🌐 App: {{4}}\n\nDo not share this PIN with anyone.",
+        status: "unapproved",
+        metaApproved: false,
+        isUsableInBidwar: false,
+        exclusionReason: "Locally invented placeholder created in development. Not registered or approved in Meta WhatsApp Manager. Excluded from operations.",
+        variables: [],
+      },
+    ];
   }, [availableWaTemplates, defaultWaTemplates]);
 
   const selectedSmsTpl = dltTemplates.find((t) => t.id === smsTemplateKey) ?? dltTemplates[0];
@@ -2245,16 +2346,33 @@ export default function AdminCommunicationCenter() {
               </div>
             )}
 
-            {/* License Warning if not licensed */}
-            {!isLicensedForWa && selectedTournamentId && (
-              <div className="flex items-start gap-3 p-3.5 rounded-xl border border-amber-500/25 bg-amber-500/10">
-                <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 shrink-0" />
-                <div>
-                  <p className="text-xs font-bold text-amber-400">License Policy Block Warning</p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    WhatsApp dispatch is blocked when licensing or policy requirements are not met. No automatic fallback to SMS occurs.
-                  </p>
+            {/* Compact WhatsApp License Warning with Exact Reason & Action */}
+            {!isLicensedForWa && waBlockDetails && (
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2 rounded-lg border border-amber-500/25 bg-amber-500/10 text-xs">
+                <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                  <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                  <span className="font-semibold text-amber-300 shrink-0">WhatsApp Blocked:</span>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-500/40 bg-amber-500/15 text-amber-300 font-medium shrink-0">
+                    {waBlockDetails.badge}
+                  </Badge>
+                  <span className="text-[11px] text-zinc-300 truncate max-w-xl">
+                    {waBlockDetails.reason}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground hidden lg:inline">
+                    (No SMS fallback)
+                  </span>
                 </div>
+                {waBlockDetails.canAction && selectedTournament && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate(`/admin/tournaments/${selectedTournament.id}`)}
+                    className="h-6 text-[11px] px-2.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/20 shrink-0 gap-1 self-start sm:self-center"
+                  >
+                    {waBlockDetails.actionLabel}
+                    <ArrowRight className="h-3 w-3" />
+                  </Button>
+                )}
               </div>
             )}
 
@@ -2527,6 +2645,77 @@ export default function AdminCommunicationCenter() {
                         {selectedWaTpl.description && (
                           <p className="text-[11px] text-muted-foreground">{selectedWaTpl.description}</p>
                         )}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-1.5 border-t border-border/40 text-[10px] text-muted-foreground">
+                          <span>
+                            <strong>Evidence:</strong> {selectedWaTpl.evidenceSource || "Meta WhatsApp Business Manager (WABA) Confirmed Template"}
+                          </span>
+                          <span className="italic text-zinc-400">
+                            Live sync offline (Serving verified evidence)
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Dynamic Sale Selector for auction_player_sold */}
+                    {(waTemplateKey === "auction_player_sold" || waTemplateKey === "player_sold") && (
+                      <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                            Poster Sale Source
+                          </Label>
+                          {selectedSaleId === "sample" ? (
+                            <Badge variant="outline" className="text-[9px] bg-amber-500/20 text-amber-300 border-amber-500/40">
+                              Illustrative Preview
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[9px] bg-emerald-500/20 text-emerald-300 border-emerald-500/40">
+                              ⭐ Real Sale #{selectedSaleId}
+                            </Badge>
+                          )}
+                        </div>
+                        <Select
+                          value={selectedSaleId}
+                          onValueChange={(val) => {
+                            setSelectedSaleId(val);
+                            if (val === "sample") {
+                              const tObj = tournaments.find((t) => String(t.id) === selectedTournamentId);
+                              setWaTemplateVariables({
+                                "1": "Virat Kohli",
+                                "2": "Royal Challengers",
+                                "3": "₹25,00,000",
+                                "4": tObj?.name || "Premier League 2026",
+                              });
+                            } else {
+                              const sale = recentSales.find((s) => String(s.id) === val);
+                              if (sale) {
+                                setWaTemplateVariables({
+                                  "1": sale.playerName,
+                                  "2": sale.teamName,
+                                  "3": sale.formattedAmount,
+                                  "4": sale.tournamentName,
+                                });
+                              }
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-background/70 border-border">
+                            <SelectValue placeholder="Select sale or test data..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="sample">🎨 Illustrative Test Data (Sample Player)</SelectItem>
+                            {recentSales.map((sale) => (
+                              <SelectItem key={sale.id} value={String(sale.id)}>
+                                ⭐ {sale.playerName} → {sale.teamName} ({sale.formattedAmount})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-[10px] text-amber-300/80">
+                          {selectedSaleId === "sample"
+                            ? "Displaying representative preview using standard test data. Switch to a real sale above to preview actual auction event data."
+                            : `Displaying authentic sold poster data for ${activeSale?.playerName ?? "player"} acquired by ${activeSale?.teamName ?? "team"}.`}
+                        </p>
                       </div>
                     )}
 
@@ -2622,16 +2811,39 @@ export default function AdminCommunicationCenter() {
                       {/* WhatsApp Emerald Bubble with Optional Image Header */}
                       <div className="overflow-hidden rounded-xl rounded-tl-xs bg-[#005c4b] text-xs text-zinc-100 shadow">
                         {selectedWaTpl?.headerType === "image" && (
-                          <div className="relative w-full aspect-[16/9] bg-black/40 overflow-hidden border-b border-emerald-600/40">
-                            <img
-                              src={selectedWaTpl.headerImageUrl || "/assets/branding/player-sold-banner.jpg"}
-                              alt="Header Artwork Banner"
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-mono text-emerald-300 backdrop-blur-xs flex items-center gap-1">
-                              <span>🖼️ Meta Image Header</span>
+                          (waTemplateKey === "auction_player_sold" || waTemplateKey === "player_sold") ? (
+                            <div className="relative w-full aspect-[16/9] overflow-hidden border-b border-emerald-600/40">
+                              <PlayerSoldPoster
+                                playerName={waTemplateVariables["1"] || activeSale?.playerName || "Virat Kohli"}
+                                playerPhotoUrl={activeSale?.playerPhotoUrl}
+                                playerRole={activeSale?.playerRole}
+                                teamName={waTemplateVariables["2"] || activeSale?.teamName || "Royal Challengers"}
+                                teamLogoUrl={activeSale?.teamLogoUrl}
+                                teamShortCode={activeSale?.teamShortCode}
+                                teamColor={activeSale?.teamColor}
+                                amount={waTemplateVariables["3"] || activeSale?.formattedAmount || "₹25,00,000"}
+                                tournamentName={waTemplateVariables["4"] || activeSale?.tournamentName || (tournaments.find((t) => String(t.id) === selectedTournamentId)?.name || "Premier League 2026")}
+                                tournamentSport={activeSale?.tournamentSport || "Cricket"}
+                                auctionUnit={activeSale?.auctionUnit || "rupee"}
+                                isIllustrative={!activeSale}
+                                showDownloadButton={false}
+                              />
+                              <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-mono text-emerald-300 backdrop-blur-xs flex items-center gap-1 z-20">
+                                <span>🖼️ Dynamic Sold Poster</span>
+                              </div>
                             </div>
-                          </div>
+                          ) : (
+                            <div className="relative w-full aspect-[16/9] bg-black/40 overflow-hidden border-b border-emerald-600/40">
+                              <img
+                                src={selectedWaTpl.headerImageUrl || "/assets/branding/player-sold-banner.jpg"}
+                                alt="Header Artwork Banner"
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-mono text-emerald-300 backdrop-blur-xs flex items-center gap-1">
+                                <span>🖼️ Meta Image Header</span>
+                              </div>
+                            </div>
+                          )
                         )}
                         <div className="p-3 space-y-2 leading-relaxed whitespace-pre-line">
                           {previewWaBody}
@@ -2651,6 +2863,99 @@ export default function AdminCommunicationCenter() {
                   </CardContent>
                 </Card>
               </div>
+            </div>
+
+            {/* Restricted Development / Non-Approved Templates Registry (Debug View) */}
+            <div className="border border-border/80 rounded-xl bg-card/40 p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-semibold tracking-tight text-foreground flex items-center gap-1.5">
+                      <Lock className="h-3.5 w-3.5 text-amber-400" />
+                      Restricted Development Templates Registry
+                    </h4>
+                    <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/30 bg-amber-500/10">
+                      Non-Operational / Dev Only
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Audit view of locally invented placeholders, duplicates, and unapproved templates excluded from active operational dispatch.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowDebugTemplates(!showDebugTemplates)}
+                  className="h-7 text-xs border-border shrink-0 gap-1.5"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  {showDebugTemplates ? "Hide Debug Templates" : `View Excluded Templates (${devUnapprovedTemplates.length})`}
+                </Button>
+              </div>
+
+              {showDebugTemplates && (
+                <div className="space-y-3 pt-2 border-t border-border/60">
+                  <div className="p-2.5 rounded-lg border border-amber-500/25 bg-amber-500/10 text-[11px] text-amber-300 space-y-1">
+                    <p className="font-semibold flex items-center gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5" /> Operational Safety Isolation Active
+                    </p>
+                    <p className="text-amber-300/80 leading-relaxed">
+                      Per Meta WhatsApp Business API rules, unapproved templates cannot be dispatched to live recipients. These items are strictly omitted from the broadcast dropdown above and will be rejected server-side if attempted.
+                    </p>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-lg border border-border bg-card/80">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="text-[11px]">
+                          <TableHead>Template / ID</TableHead>
+                          <TableHead>Category / Lang</TableHead>
+                          <TableHead>Registry Status</TableHead>
+                          <TableHead>Exclusion Reason</TableHead>
+                          <TableHead className="text-right">Dispatch Safety</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {devUnapprovedTemplates.map((t) => (
+                          <TableRow key={t.id} className="text-xs">
+                            <TableCell className="font-mono text-xs">
+                              <div className="font-semibold text-foreground">{t.templateName || t.id}</div>
+                              <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">{t.title}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Badge variant="outline" className="text-[9px] uppercase px-1 py-0">
+                                  {t.category || "utility"}
+                                </Badge>
+                                <span className="text-[10px] text-muted-foreground">({t.language || "en"})</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {t.status === "duplicate" ? (
+                                <Badge className="bg-sky-500/15 text-sky-400 border-sky-500/30 text-[10px] font-medium">
+                                  Duplicate Alias
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-zinc-500/20 text-zinc-400 border-zinc-500/30 text-[10px] font-medium">
+                                  Unapproved Dev
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-[11px] text-muted-foreground max-w-sm">
+                              {t.exclusionReason || "Not registered or approved in Meta WhatsApp Business Manager."}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="outline" className="text-[10px] text-rose-400 border-rose-500/30 bg-rose-500/10 font-mono">
+                                BLOCKED
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* WhatsApp Logs Table (Searchable & Filterable) */}
@@ -2803,13 +3108,33 @@ export default function AdminCommunicationCenter() {
                     <span className="text-[11px] font-semibold text-muted-foreground">Message Live Preview:</span>
                     <div className="overflow-hidden rounded-lg border border-zinc-700 bg-[#005c4b] text-xs text-zinc-100 max-h-56 overflow-y-auto">
                       {selectedWaTpl?.headerType === "image" && (
-                        <div className="relative w-full aspect-[16/9] bg-black/40 overflow-hidden border-b border-emerald-600/40">
-                          <img
-                            src={selectedWaTpl.headerImageUrl || "/assets/branding/player-sold-banner.jpg"}
-                            alt="Header Artwork Banner"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
+                        (waTemplateKey === "auction_player_sold" || waTemplateKey === "player_sold") ? (
+                          <div className="relative w-full aspect-[16/9] overflow-hidden border-b border-emerald-600/40">
+                            <PlayerSoldPoster
+                              playerName={waTemplateVariables["1"] || activeSale?.playerName || "Virat Kohli"}
+                              playerPhotoUrl={activeSale?.playerPhotoUrl}
+                              playerRole={activeSale?.playerRole}
+                              teamName={waTemplateVariables["2"] || activeSale?.teamName || "Royal Challengers"}
+                              teamLogoUrl={activeSale?.teamLogoUrl}
+                              teamShortCode={activeSale?.teamShortCode}
+                              teamColor={activeSale?.teamColor}
+                              amount={waTemplateVariables["3"] || activeSale?.formattedAmount || "₹25,00,000"}
+                              tournamentName={waTemplateVariables["4"] || activeSale?.tournamentName || (tournaments.find((t) => String(t.id) === selectedTournamentId)?.name || "Premier League 2026")}
+                              tournamentSport={activeSale?.tournamentSport || "Cricket"}
+                              auctionUnit={activeSale?.auctionUnit || "rupee"}
+                              isIllustrative={!activeSale}
+                              showDownloadButton={false}
+                            />
+                          </div>
+                        ) : (
+                          <div className="relative w-full aspect-[16/9] bg-black/40 overflow-hidden border-b border-emerald-600/40">
+                            <img
+                              src={selectedWaTpl.headerImageUrl || "/assets/branding/player-sold-banner.jpg"}
+                              alt="Header Artwork Banner"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )
                       )}
                       <div className="p-3 whitespace-pre-line font-sans leading-relaxed">
                         {previewWaBody}

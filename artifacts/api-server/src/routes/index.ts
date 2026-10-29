@@ -55,9 +55,11 @@ import runtimeMatchFoundationRouter from "./runtime-match-foundation";
 import ruleEngineRouter from "./rule-engine";
 import presentationEngineRouter from "./presentation-engine";
 import bplRouter from "./bpl";
+import mediaPostersRouter from "./media-posters";
 
 const router: IRouter = Router();
 
+router.use(mediaPostersRouter);
 router.use(bplRouter);
 router.use(authRouter);
 router.use(catalogRouter);

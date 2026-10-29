@@ -28,6 +28,7 @@ import {
   commLogsTable,
 } from "@workspace/db";
 import { logger } from "../src/lib/logger";
+import { isTournamentLicensedForComm } from "../src/lib/comm-sender";
 
 describe("BIDWAR — Meta-Approved WhatsApp auction_player_sold Template Integration", () => {
   const originalEnv = { ...process.env };
@@ -254,8 +255,8 @@ describe("BIDWAR — Meta-Approved WhatsApp auction_player_sold Template Integra
       expect(headerComponent).toBeDefined();
       expect(headerComponent?.parameters).toHaveLength(1);
       expect(headerComponent?.parameters[0].type).toBe("image");
-      expect(headerComponent?.parameters[0].image?.link).toBe(
-        "https://bidwar.in/assets/branding/player-sold-banner.jpg",
+      expect(headerComponent?.parameters[0].image?.link).toMatch(
+        /^https:\/\/bidwar\.in\/(api\/media\/player-sold-poster\/[a-f0-9]+\.png|assets\/branding\/player-sold-banner\.jpg)$/,
       );
     });
 
@@ -494,8 +495,8 @@ describe("BIDWAR — Meta-Approved WhatsApp auction_player_sold Template Integra
       expect(sent[0].templateLanguage).toBe("en");
 
       const header = sent[0].templateComponents?.find((c) => c.type === "header");
-      expect(header?.parameters[0].image?.link).toBe(
-        "https://bidwar.in/assets/branding/player-sold-banner.jpg",
+      expect(header?.parameters[0].image?.link).toMatch(
+        /^https:\/\/bidwar\.in\/(api\/media\/player-sold-poster\/[a-f0-9]+\.png|assets\/branding\/player-sold-banner\.jpg)$/,
       );
     });
 
@@ -516,6 +517,74 @@ describe("BIDWAR — Meta-Approved WhatsApp auction_player_sold Template Integra
       expect(res.status).toBe(400);
       expect(res.body.error).toContain("Missing required template variable(s)");
       expect(mockProvider.getSentMessages()).toHaveLength(0);
+    });
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // 7. Tournament-Level WhatsApp Disablement (Discounted / In-Person License)
+  // ───────────────────────────────────────────────────────────────────────────
+  describe("7. Tournament-Level WhatsApp Disablement (Discounted / In-Person License)", () => {
+    it("isTournamentLicensedForComm returns false when whatsappNotifications is false even with active license", () => {
+      // 1. Active license + no feature override -> allowed
+      expect(
+        isTournamentLicensedForComm({
+          licenseStatus: "active",
+          adminLocked: false,
+        }),
+      ).toBe(true);
+
+      // 2. Active license + whatsappNotifications: true -> allowed
+      expect(
+        isTournamentLicensedForComm({
+          licenseStatus: "active",
+          adminLocked: false,
+          featuresJson: { whatsappNotifications: true },
+        }),
+      ).toBe(true);
+
+      // 3. Active license BUT admin disabled WhatsApp (e.g. paid lesser amount in person) -> strictly BLOCKED
+      expect(
+        isTournamentLicensedForComm({
+          licenseStatus: "active",
+          adminLocked: false,
+          featuresJson: { whatsappNotifications: false },
+        }),
+      ).toBe(false);
+
+      // 4. Also works if passed as resolved features object
+      expect(
+        isTournamentLicensedForComm({
+          licenseStatus: "active",
+          adminLocked: false,
+          features: { whatsappNotifications: false },
+        }),
+      ).toBe(false);
+    });
+
+    it("evaluatePushPolicy suppresses WhatsApp push when tournament has whatsappNotifications disabled", async () => {
+      const { CommunicationPolicyEngine } = await import(
+        "../src/lib/communication/policy-engine"
+      );
+      const engine = new CommunicationPolicyEngine();
+
+      const policy = await engine.evaluatePushPolicy({
+        event: "player_sold",
+        channel: "whatsapp",
+        tournamentId: 101,
+        recipientMobile: "+919876543210",
+        recipientConsent: true,
+        templateName: "auction_player_sold",
+        tournament: {
+          licenseStatus: "active",
+          adminLocked: false,
+          featuresJson: { whatsappNotifications: false },
+        },
+      });
+
+      expect(policy.allowed).toBe(false);
+      expect(policy.reason).toBe(
+        "WhatsApp communications explicitly disabled by admin for this tournament",
+      );
     });
   });
 });

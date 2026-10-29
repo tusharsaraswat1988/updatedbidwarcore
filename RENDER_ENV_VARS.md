@@ -181,13 +181,39 @@ Verify with [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md) after every dep
 | `BULKSMS_PLAYER_SOLD_TEMPLATE_ID` | No | Template ID | Dashboard | Player-sold SMS uses empty template |
 | `BULKSMS_TEAM_OWNER_TEMPLATE_ID` | No | Template ID | Dashboard | Team-owner SMS uses empty template |
 | `BULKSMS_VIEWER_LINK_TEMPLATE_ID` | No | Template ID | Dashboard | Viewer-link SMS uses empty template |
-| `TWILIO_ACCOUNT_SID` | No | `ACxxxxxxxx...` | Secret | WhatsApp sends in stub mode |
-| `TWILIO_AUTH_TOKEN` | No | Auth token string | Secret | WhatsApp stub mode; webhook signature check skipped |
-| `TWILIO_WHATSAPP_FROM` | No | `whatsapp:+14155238886` | Dashboard | WhatsApp sends fail |
+| `WHATSAPP_PROVIDER` | No | `kv_techmedia` | Dashboard | Active provider: `kv_techmedia`, `meta_direct`, `twilio`, `mock`, or `none` (default: `none` / stub) |
+| `KV_META_PHONE_NUMBER_ID` | If KV TechMedia | Phone number ID string | Secret | KV TechMedia dispatches fail |
+| `KV_META_ACCESS_TOKEN` | If KV TechMedia | Token string | Secret | KV TechMedia dispatches fail |
+| `KV_META_APP_SECRET` | If KV TechMedia | Secret string | Secret | Webhook signature verification fails (fails-closed in prod) |
+| `KV_WEBHOOK_VERIFY_TOKEN` | If KV TechMedia | Verification token string | Secret | Webhook GET challenge fails (fails-closed in prod) |
+| `KV_META_BASE_URL` | No | `https://crmapi.kvtmedia.com/api/meta` | Dashboard | Base URL for KV TechMedia Meta API |
+| `KV_META_API_VERSION` | No | `v19.0` | Dashboard | Graph API version |
+| `META_DIRECT_PHONE_NUMBER_ID` | If Meta Direct | Phone number ID string | Secret | Meta Direct dispatches fail |
+| `META_DIRECT_ACCESS_TOKEN` | If Meta Direct | System user token | Secret | Meta Direct dispatches fail |
+| `META_DIRECT_APP_SECRET` | If Meta Direct | App secret string | Secret | Meta Direct webhook verification fails |
+| `META_DIRECT_VERIFY_TOKEN` | If Meta Direct | Verification token string | Secret | Meta Direct webhook GET challenge fails |
+| `WHATSAPP_PLAYER_SOLD_IMAGE_URL` | No | `https://bidwar.in/assets/branding/player-sold-banner.jpg` | Dashboard | Header image URL for player-sold WhatsApp template |
+| `STRICT_WHATSAPP_STARTUP` | No | `false` | Dashboard | If `true`, aborts server startup on WhatsApp config error; if `false`, boots in degraded mode |
+| `COMMUNICATION_WORKER_ENABLED` | No | `true` | Dashboard | Background retry worker for queued communications (default: `true`) |
+| `TWILIO_ACCOUNT_SID` | If Twilio | `ACxxxxxxxx...` | Secret | WhatsApp sends in stub mode |
+| `TWILIO_AUTH_TOKEN` | If Twilio | Auth token string | Secret | WhatsApp stub mode; webhook signature check skipped |
+| `TWILIO_WHATSAPP_FROM` | If Twilio | `+18382214175` | Dashboard | WhatsApp sender |
 | `TWILIO_WA_TEMPLATES` | No | `tpl_a,tpl_b` | Dashboard | WhatsApp template list empty in comm UI |
 | `EMAIL_ENABLED` | No | `true` | Dashboard | Email notifications run in stub mode (logged, not sent) |
 | `RESEND_API_KEY` | No | `re_...` | Secret | Resend API calls fail; emails stubbed when `EMAIL_ENABLED=true` |
-| `MAIL_FROM` | No | `BidWar <notifications@bidwar.in>` | Dashboard | Resend rejects sends without verified sender |
+| `MAIL_FROM` | No | `BidWar <noreply@mail.bidwar.in>` | Dashboard | Resend rejects sends without verified sender |
+| `OPENAI_API_KEY` | No | `sk-proj-...` | Secret | AI briefings and tournament insights return null |
+| `INTELLIGENCE_LLM_MODEL` | No | `gpt-4o-mini` | Dashboard | Model used for LLM briefings & insights |
+| `REDIS_URL` | No | `rediss://...` | Secret | Distributed locks & multi-instance SSE (falls back to in-memory) |
+| `SCORER_BOOTSTRAP_MOBILE` | No | Indian mobile string | Secret | Auto-seeds bootstrap scorer on empty database |
+| `SCORER_BOOTSTRAP_PIN` | No | 4+ digit PIN | Secret | PIN for bootstrap scorer |
+| `SCORER_BOOTSTRAP_NAME` | No | `Tournament Scorer` | Dashboard | Name for bootstrap scorer |
+| `TURNSTILE_SITE_KEY` | No | Cloudflare site key | Dashboard | Organizer login CAPTCHA disabled |
+| `TURNSTILE_SECRET_KEY` | No | Cloudflare secret key | Secret | Turnstile validation fails |
+| `DIRECT_DATABASE_URL` | No | Same as `DATABASE_URL` | Secret | Direct compute URL for LISTEN/NOTIFY & migrations |
+| `PG_POOL_MAX` | No | `20` | Dashboard | Max DB pool size (5-50, default: 20) |
+| `SHARP_CONCURRENCY` | No | `2` | Dashboard | Threads for image resizing (default: 2) |
+| `PHOTO_IMPORT_CONCURRENCY` | No | `1` | Dashboard | Max concurrent downloads during bulk photo import |
 | `SMS_OTP_ENABLED` | No | `true` | Dashboard | OTP uses default Twilio/BulkSMS path (not SMS-only mode) |
 | `GITHUB_PAT` | No | `ghp_...` | Secret | GitHub workflow trigger in settings returns 500 |
 | `RATE_LIMIT_DISABLED` | No | `false` | Dashboard | Rate limiting enabled (default) |
@@ -196,9 +222,12 @@ Verify with [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md) after every dep
 | `RATE_LIMIT_OTP_SEND_MAX` | No | `3` | Dashboard | Defaults to 3 |
 | `RATE_LIMIT_OTP_VERIFY_MAX` | No | `10` | Dashboard | Defaults to 10 |
 | `RATE_LIMIT_EXPORT_MAX` | No | `5` | Dashboard | Defaults to 5 |
+| `RATE_LIMIT_HEAVY_MAX` | No | `300` | Dashboard | Defaults to 300 req/window |
 | `RATE_LIMIT_CHEER_MAX` | No | `30` | Dashboard | Defaults to 30 |
 | `RATE_LIMIT_PUSH_SUBSCRIBE_MAX` | No | `5` | Dashboard | Defaults to 5 |
 | `RATE_LIMIT_OWNER_LOOKUP_MAX` | No | `15` | Dashboard | Defaults to 15 |
+| `RATE_LIMIT_INSIGHTS_MAX` | No | `30` | Dashboard | Defaults to 30 |
+| `RATE_LIMIT_CONTACT_MAX` | No | `8` | Dashboard | Defaults to 8 |
 | `SCORING` | No | `true` | Dashboard | Sport scoring modules; when unset/false, scoring routes return 404. Legacy alias: `ENABLE_BADMINTON` when `SCORING` unset. |
 
 ---

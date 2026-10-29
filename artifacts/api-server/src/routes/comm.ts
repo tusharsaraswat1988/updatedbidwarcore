@@ -32,6 +32,7 @@ import { randomBytes } from "crypto";
 import { CURRENT_CONSENT_NOTICE_VERSION, CONSENT_NOTICE_V1 } from "@workspace/api-base";
 import { recordConsentGranted } from "../lib/communication/consent-service";
 import { sendSms, sendWhatsApp, buildWaMeLink, buildConsentSms, isTournamentLicensedForComm } from "../lib/comm-sender";
+import { resolveTournamentFeatures } from "@workspace/platform-core/tournament-features";
 import { isMobileRevoked } from "../lib/communication/policy-engine";
 import { sendDltSms, playerSoldTemplateId } from "../lib/fast2sms";
 import { getPublicOrigin } from "../lib/runtime-env";
@@ -43,6 +44,17 @@ import {
   META_AUCTION_PLAYER_SOLD_LANGUAGE,
   META_AUCTION_PLAYER_SOLD_CATEGORY,
 } from "../lib/whatsapp";
+import { generateAndHostPlayerSoldPoster } from "../lib/poster/player-sold-poster-service.js";
+import {
+  VERIFIED_APPROVED_TEMPLATES,
+  DEV_UNAPPROVED_TEMPLATES,
+  BIDWAR_APPROVED_TEMPLATE_ALLOWLIST,
+  normalizeTemplateKey,
+  isMetaApprovedTemplate,
+  validateTemplateDispatchEligibility,
+  getOperationalApprovedTemplates,
+  getAllTemplatesForAdminAudit,
+} from "../lib/communication/template-registry";
 
 const router = Router();
 
@@ -152,26 +164,58 @@ export const CANONICAL_WA_TEMPLATES: Record<string, CanonicalWaTemplate> = {
   },
 };
 
-/** Ensure default canonical templates are seeded into wa_templates table */
+/** Ensure default canonical templates are seeded into wa_templates table without falsely approving unverified dev templates */
 export async function ensureCanonicalTemplatesSeeded(): Promise<void> {
   try {
-    const existing = await db
-      .select({ templateName: waTemplatesTable.templateName })
+    const q = db
+      .select({ templateName: waTemplatesTable.templateName, status: waTemplatesTable.status })
       .from(waTemplatesTable);
+    const existing = typeof (q as any)?.then === "function" ? await q : (Array.isArray(q) ? q : []);
     const existingList = Array.isArray(existing) ? existing : [];
-    const existingNames = new Set(existingList.map((t) => t.templateName));
+    const existingMap = new Map(existingList.map((t) => [t.templateName, t.status]));
 
-    for (const [name, tpl] of Object.entries(CANONICAL_WA_TEMPLATES)) {
-      if (!existingNames.has(name)) {
+    // 1. Ensure the genuine Meta-approved template exists and has approved status
+    const approvedTpl = VERIFIED_APPROVED_TEMPLATES[META_AUCTION_PLAYER_SOLD_TEMPLATE];
+    if (!existingMap.has(META_AUCTION_PLAYER_SOLD_TEMPLATE)) {
+      if (typeof db?.insert === "function") {
         await db
           .insert(waTemplatesTable)
           .values({
-            templateName: name,
-            category: tpl.category,
-            description: tpl.description,
+            templateName: META_AUCTION_PLAYER_SOLD_TEMPLATE,
+            category: approvedTpl.category,
+            description: approvedTpl.description,
             status: "approved",
           })
           .onConflictDoNothing();
+      }
+    } else if (existingMap.get(META_AUCTION_PLAYER_SOLD_TEMPLATE) !== "approved") {
+      if (typeof db?.update === "function") {
+        try {
+          await db
+            .update(waTemplatesTable)
+            .set({ status: "approved" })
+            .where(eq(waTemplatesTable.templateName, META_AUCTION_PLAYER_SOLD_TEMPLATE));
+        } catch {
+          // Non-fatal
+        }
+      }
+    }
+
+    // 2. Data Safety: Do NOT delete historical records, but normalize any dev templates
+    // that were previously hardcoded as "approved" back to "unapproved" / "duplicate"
+    for (const [devName, devTpl] of Object.entries(DEV_UNAPPROVED_TEMPLATES)) {
+      if (existingMap.has(devName)) {
+        const curStatus = existingMap.get(devName);
+        if (curStatus === "approved" && typeof db?.update === "function") {
+          try {
+            await db
+              .update(waTemplatesTable)
+              .set({ status: devTpl.status })
+              .where(eq(waTemplatesTable.templateName, devName));
+          } catch {
+            // Non-fatal
+          }
+        }
       }
     }
   } catch (err) {
@@ -688,6 +732,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         scoringEnabled: tournamentsTable.scoringEnabled,
         scoringPhase: tournamentsTable.scoringPhase,
         licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+        featuresJson: tournamentsTable.featuresJson,
       })
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tid));
@@ -695,7 +740,12 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
 
     if (d.channel === "whatsapp" || d.channel === "both") {
       if (!isTournamentLicensedForComm(tournament)) {
-        res.status(403).json({ error: "WhatsApp messaging requires a live license and unlocked tournament" });
+        const rawFeatures = tournament.featuresJson;
+        const features = rawFeatures ? resolveTournamentFeatures(rawFeatures) : null;
+        const errMsg = features?.whatsappNotifications === false
+          ? "WhatsApp messaging has been disabled for this tournament by an administrator"
+          : "WhatsApp messaging requires a live license and unlocked tournament";
+        res.status(403).json({ error: errMsg });
         return;
       }
     }
@@ -914,12 +964,18 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         scoringEnabled: tournamentsTable.scoringEnabled,
         scoringPhase: tournamentsTable.scoringPhase,
         licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+        featuresJson: tournamentsTable.featuresJson,
       })
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, d.tournamentId));
     if (!t) { res.status(404).json({ error: "Tournament not found" }); return; }
     if (!isTournamentLicensedForComm(t)) {
-      res.status(403).json({ error: "WhatsApp messaging requires a live license and unlocked tournament" });
+      const rawFeatures = t.featuresJson;
+      const features = rawFeatures ? resolveTournamentFeatures(rawFeatures) : null;
+      const errMsg = features?.whatsappNotifications === false
+        ? "WhatsApp messaging has been disabled for this tournament by an administrator"
+        : "WhatsApp messaging requires a live license and unlocked tournament";
+      res.status(403).json({ error: errMsg });
       return;
     }
   }
@@ -1125,13 +1181,31 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           const rawAmt = suppliedVars["3"] ?? suppliedVars["Sold Amount"] ?? suppliedVars["Sold Amount (₹)"] ?? "0";
           const var3 = rawAmt.startsWith("₹") ? rawAmt : `₹${rawAmt}`;
           const var4 = suppliedVars["4"] ?? suppliedVars["Tournament Name"] ?? "Auction";
+          let dynamicHeaderUrl = resolvePlayerSoldImageUrl();
+          try {
+            const parsedAmt = parseFloat(rawAmt.replace(/[^0-9.]/g, "")) || 0;
+            const posterRes = await generateAndHostPlayerSoldPoster({
+              tournamentId: d.tournamentId || 0,
+              playerId: r.recipientId,
+              playerName: var1,
+              teamName: var2,
+              amount: parsedAmt,
+              tournamentName: var4,
+            });
+            if (posterRes?.publicUrl) {
+              dynamicHeaderUrl = posterRes.publicUrl;
+            }
+          } catch (pErr) {
+            logger.warn({ err: pErr }, "comm/send: dynamic poster generation fell back to resolved URL");
+          }
+
           templateComponents = [
             {
               type: "header" as const,
               parameters: [
                 {
                   type: "image" as const,
-                  image: { link: resolvePlayerSoldImageUrl() },
+                  image: { link: dynamicHeaderUrl },
                 },
               ],
             },
@@ -1306,25 +1380,55 @@ router.get("/auth/admin/communicate/templates", async (req, res) => {
   if (!req.jwtUser.isAdmin) { res.status(403).json({ error: "Admin required" }); return; }
   await ensureCanonicalTemplatesSeeded();
   const templates = await db.select().from(waTemplatesTable).orderBy(waTemplatesTable.templateName);
+  const approvedOnly = req.query.approved_only === "true" || req.query.approvedOnly === "true";
+
   const enriched = templates.map((t) => {
-    const canonical = CANONICAL_WA_TEMPLATES[t.templateName];
+    const isAllowlisted = isMetaApprovedTemplate(t.templateName);
+    const verifiedTpl = isAllowlisted ? VERIFIED_APPROVED_TEMPLATES[normalizeTemplateKey(t.templateName)!] : undefined;
+    const devTpl = !isAllowlisted ? DEV_UNAPPROVED_TEMPLATES[t.templateName] : undefined;
+    const canonical = verifiedTpl || CANONICAL_WA_TEMPLATES[t.templateName];
+
+    // Authoritative status resolution: a template is only approved if confirmed by Meta evidence
+    const authoritativeStatus = isAllowlisted ? "approved" : (t.status === "approved" ? "unapproved" : t.status);
+
     return {
       id: t.id,
       templateName: t.templateName,
+      metaTemplateName: isAllowlisted ? META_AUCTION_PLAYER_SOLD_TEMPLATE : (devTpl?.metaTemplateName || null),
       templateSid: t.templateSid,
-      category: t.category || canonical?.category || "utility",
-      description: t.description || canonical?.description || "",
-      status: t.status,
-      title: canonical?.title || t.templateName,
-      body: canonical?.body || "",
-      language: canonical?.language || "en",
-      headerType: canonical?.headerType || "none",
-      headerImageUrl: canonical?.headerImageUrl || null,
-      metaApproved: canonical?.metaApproved ?? (t.status === "approved"),
-      variables: canonical?.variables || [],
-      sampleArgs: canonical?.sampleArgs || [],
+      category: verifiedTpl?.category || t.category || canonical?.category || "utility",
+      description: verifiedTpl?.description || devTpl?.description || t.description || canonical?.description || "",
+      status: authoritativeStatus,
+      title: verifiedTpl?.title || devTpl?.title || canonical?.title || t.templateName,
+      displayName: verifiedTpl?.displayName || devTpl?.title || canonical?.title || t.templateName,
+      body: verifiedTpl?.body || devTpl?.body || canonical?.body || "",
+      language: verifiedTpl?.language || canonical?.language || "en",
+      headerType: verifiedTpl?.headerType || canonical?.headerType || "none",
+      headerImageUrl: verifiedTpl?.headerImageUrl || canonical?.headerImageUrl || null,
+      metaApproved: isAllowlisted,
+      isUsableInBidwar: isAllowlisted,
+      variables: verifiedTpl?.variables || devTpl?.variables || canonical?.variables || [],
+      sampleArgs: verifiedTpl?.sampleArgs || devTpl?.sampleArgs || canonical?.sampleArgs || [],
+      evidenceSource: isAllowlisted
+        ? (verifiedTpl?.evidenceSource || "Meta WhatsApp Business Manager (WABA) Confirmed Template Registry")
+        : "None (development placeholder)",
+      evidenceTimestamp: isAllowlisted ? (verifiedTpl?.evidenceTimestamp || "2026-10-29T00:00:00Z") : null,
+      liveSyncAvailable: false,
+      liveSyncNote: isAllowlisted
+        ? "Live Meta Graph API sync unavailable without direct Meta credentials; serving previously verified approval evidence."
+        : "Template is not approved in Meta; live sync not applicable.",
+      connectedEvents: verifiedTpl?.connectedEvents || devTpl?.connectedEvents || [],
+      exclusionReason: isAllowlisted
+        ? null
+        : (devTpl?.reason || "Not an approved Meta template on the BIDWAR allowlist"),
     };
   });
+
+  if (approvedOnly) {
+    res.json(enriched.filter((t) => t.metaApproved && t.isUsableInBidwar));
+    return;
+  }
+
   res.json(enriched);
 });
 
@@ -1483,6 +1587,95 @@ router.get("/auth/admin/communicate/consent-status/:tournamentId", async (req, r
   }).from(teamsTable).where(eq(teamsTable.tournamentId, tid));
 
   res.json({ players: playerStats, owners: ownerStats });
+});
+
+// ─── Recent Sales for Communication Preview ─────────────────────────────────
+
+router.get("/auth/admin/communicate/recent-sales/:tournamentId", async (req, res) => {
+  if (!req.jwtUser || (!req.jwtUser.isAdmin && !req.jwtUser.organizerAccountId)) {
+    res.status(403).json({ error: "Not authorized" });
+    return;
+  }
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+
+  try {
+    const [tourn] = await db
+      .select({
+        id: tournamentsTable.id,
+        name: tournamentsTable.name,
+        sport: tournamentsTable.sport,
+        auctionUnit: tournamentsTable.auctionUnit,
+      })
+      .from(tournamentsTable)
+      .where(eq(tournamentsTable.id, tid))
+      .limit(1);
+
+    if (!tourn) {
+      res.status(404).json({ error: "Tournament not found" });
+      return;
+    }
+
+    const soldPlayers = await db
+      .select({
+        id: playersTable.id,
+        name: playersTable.name,
+        photoUrl: playersTable.photoUrl,
+        role: playersTable.role,
+        soldPrice: playersTable.soldPrice,
+        teamId: playersTable.teamId,
+      })
+      .from(playersTable)
+      .where(and(eq(playersTable.tournamentId, tid), eq(playersTable.status, "sold")))
+      .orderBy(desc(playersTable.soldPrice))
+      .limit(30);
+
+    const teamIds = Array.from(new Set(soldPlayers.map((p) => p.teamId).filter(Boolean))) as number[];
+    const teams = teamIds.length > 0
+      ? await db
+          .select({
+            id: teamsTable.id,
+            name: teamsTable.name,
+            logoUrl: teamsTable.logoUrl,
+            shortCode: teamsTable.shortCode,
+            color: teamsTable.color,
+          })
+          .from(teamsTable)
+          .where(inArray(teamsTable.id, teamIds))
+      : [];
+
+    const teamMap = new Map(teams.map((t) => [t.id, t]));
+
+    const sales = soldPlayers.map((p) => {
+      const t = p.teamId ? teamMap.get(p.teamId) : null;
+      const amt = p.soldPrice ?? 0;
+      const unit = (tourn.auctionUnit ?? "rupee") as "rupee" | "points";
+      return {
+        id: p.id,
+        playerName: p.name,
+        playerPhotoUrl: p.photoUrl ?? null,
+        playerRole: p.role ?? null,
+        teamId: p.teamId,
+        teamName: t?.name ?? "Team",
+        teamLogoUrl: t?.logoUrl ?? null,
+        teamShortCode: t?.shortCode ?? null,
+        teamColor: t?.color ?? null,
+        amount: amt,
+        formattedAmount: `₹${Math.round(amt).toLocaleString("en-IN")}`,
+        tournamentName: tourn.name,
+        tournamentSport: tourn.sport ?? "Cricket",
+        auctionUnit: unit,
+      };
+    });
+
+    res.json({ tournament: tourn, sales });
+  } catch (err) {
+    logger.error({ err, tid }, "Failed to fetch recent sales for communicate");
+    res.status(500).json({ error: "Failed to fetch recent sales" });
+  }
 });
 
 export default router;

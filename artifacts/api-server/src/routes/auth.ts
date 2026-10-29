@@ -994,6 +994,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
       scoring: z.boolean().optional(),
       sponsorshipHub: z.boolean().optional(),
       analytics: z.boolean().optional(),
+      whatsappNotifications: z.boolean().optional(),
     }).optional(),
     reason: z.string().optional(),
   });

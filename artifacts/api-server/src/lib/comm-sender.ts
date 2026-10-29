@@ -24,6 +24,7 @@ import { db } from "@workspace/db";
 import { tournamentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { getActiveWhatsAppProvider, resolveWhatsAppProviderId } from "./communication/providers";
+import { resolveTournamentFeatures } from "@workspace/platform-core/tournament-features";
 
 export type SendResult = {
   success: boolean;
@@ -220,10 +221,21 @@ export function isTournamentLicensedForComm(
     scoringEnabled?: boolean | null;
     scoringPhase?: string | null;
     licenseGrantedAt?: Date | string | null;
+    featuresJson?: Record<string, unknown> | null;
+    features?: { whatsappNotifications?: boolean } | null;
   } | null | undefined,
 ): boolean {
   if (!tournament) return false;
   if (tournament.adminLocked) return false;
+
+  // Explicit admin disablement via tournament feature flags (e.g. discounted in-person license)
+  const rawFeatures = (tournament as any).featuresJson ?? (tournament as any).features;
+  if (rawFeatures) {
+    const features = resolveTournamentFeatures(rawFeatures);
+    if (features.whatsappNotifications === false) {
+      return false;
+    }
+  }
   if (tournament.licenseStatus === "active") return true;
 
   if (
@@ -256,6 +268,7 @@ export async function sendLicensedWhatsApp(
         scoringEnabled: tournamentsTable.scoringEnabled,
         scoringPhase: tournamentsTable.scoringPhase,
         licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+        featuresJson: tournamentsTable.featuresJson,
       })
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tournamentId));

@@ -8,41 +8,12 @@ export const META_AUCTION_PLAYER_SOLD_TEMPLATE = "auction_player_sold";
 export const META_AUCTION_PLAYER_SOLD_LANGUAGE = "en";
 export const META_AUCTION_PLAYER_SOLD_CATEGORY = "utility";
 
-/**
- * Resolves the public image URL for the auction_player_sold Meta template image header.
- * Priority:
- * 1. Explicitly passed customUrl
- * 2. Environment variable WHATSAPP_PLAYER_SOLD_IMAGE_URL
- * 3. Default canonical public asset path: ${getPublicOrigin()}/assets/branding/player-sold-banner.jpg
- */
-export function resolvePlayerSoldImageUrl(customUrl?: string | null): string {
-  if (customUrl && typeof customUrl === "string" && customUrl.trim()) {
-    return customUrl.trim();
-  }
-  const envUrl = process.env.WHATSAPP_PLAYER_SOLD_IMAGE_URL?.trim();
-  if (envUrl) {
-    return envUrl;
-  }
-  const appUrl = process.env.APP_URL?.trim() || process.env.PUBLIC_ORIGIN?.trim();
-  if (appUrl) {
-    return `${appUrl.replace(/\/+$/, "")}/assets/branding/player-sold-banner.jpg`;
-  }
-  try {
-    const origin = getPublicOrigin();
-    return `${origin}/assets/branding/player-sold-banner.jpg`;
-  } catch {
-    return "https://bidwar.in/assets/branding/player-sold-banner.jpg";
-  }
-}
-
-function isValidHttpUrl(candidate: string): boolean {
-  try {
-    const parsed = new URL(candidate);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
+import {
+  resolvePlayerSoldImageUrl,
+  isValidHttpUrl,
+} from "./communication/template-registry";
+import { generateAndHostPlayerSoldPoster } from "./poster/player-sold-poster-service.js";
+export { resolvePlayerSoldImageUrl, isValidHttpUrl, generateAndHostPlayerSoldPoster };
 
 // In-memory idempotency cache (10-minute TTL) to prevent duplicate event dispatches from retries
 const recentPlayerSoldIdempotency = new Map<string, number>();
@@ -68,10 +39,17 @@ export async function notifyPlayerSold(opts: {
   tournamentId: number;
   playerId?: number | null;
   playerName: string;
+  playerPhotoUrl?: string | null;
+  playerRole?: string | null;
   teamId?: number | null;
   teamName: string;
+  teamLogoUrl?: string | null;
+  teamShortCode?: string | null;
+  teamColor?: string | null;
   amount: number;
   tournamentName: string;
+  tournamentSport?: string | null;
+  auctionUnit?: "rupee" | "points" | null;
   whatsappConsent?: boolean | null;
   headerImageUrl?: string | null;
   idempotencyKey?: string | null;
@@ -84,27 +62,10 @@ export async function notifyPlayerSold(opts: {
   const playerName = opts.playerName?.trim() || "Player";
   const teamName = opts.teamName?.trim() || "Team";
   const tournamentName = opts.tournamentName?.trim() || "the tournament";
-  const formattedAmount = `₹${Math.round(opts.amount).toLocaleString("en-IN")}`;
+  const rawAmount = typeof opts.amount === "number" && !isNaN(opts.amount) ? Math.max(0, opts.amount) : 0;
+  const formattedAmount = `₹${Math.round(rawAmount).toLocaleString("en-IN")}`;
 
-  // Image Header URL Resolution & Safety Validation
-  const imageUrl = resolvePlayerSoldImageUrl(opts.headerImageUrl);
-  if (!imageUrl || !isValidHttpUrl(imageUrl)) {
-    logger.warn(
-      {
-        tournamentId: opts.tournamentId,
-        playerName,
-        imageUrl,
-      },
-      "notifyPlayerSold: Missing or invalid header image URL for WhatsApp template auction_player_sold",
-    );
-    return {
-      success: false,
-      blocked: true,
-      error: "Missing or invalid header image URL for WhatsApp template auction_player_sold",
-    };
-  }
-
-  // Idempotency / Duplicate-Event Suppression Check
+  // Idempotency / Duplicate-Event Suppression Check (checked before heavy poster generation)
   const idempotencyKey =
     opts.idempotencyKey ||
     buildPlayerSoldIdempotencyKey({
@@ -112,7 +73,7 @@ export async function notifyPlayerSold(opts: {
       playerId: opts.playerId,
       playerName,
       teamName,
-      amount: opts.amount,
+      amount: rawAmount,
       mobile: opts.mobile,
     });
 
@@ -135,6 +96,38 @@ export async function notifyPlayerSold(opts: {
     };
   }
 
+  // Dynamic Poster Image Header URL Resolution & Safety Validation
+  let imageUrl: string | null = null;
+  if (opts.headerImageUrl) {
+    imageUrl = resolvePlayerSoldImageUrl(opts.headerImageUrl);
+  } else {
+    try {
+      const posterResult = await generateAndHostPlayerSoldPoster({
+        tournamentId: opts.tournamentId,
+        playerId: opts.playerId,
+        playerName,
+        playerPhotoUrl: opts.playerPhotoUrl,
+        playerRole: opts.playerRole,
+        teamId: opts.teamId,
+        teamName,
+        teamLogoUrl: opts.teamLogoUrl,
+        teamShortCode: opts.teamShortCode,
+        teamColor: opts.teamColor,
+        amount: rawAmount,
+        auctionUnit: opts.auctionUnit ?? "rupee",
+        tournamentName,
+        tournamentSport: opts.tournamentSport ?? "Cricket",
+      });
+      imageUrl = posterResult.publicUrl;
+    } catch (posterErr) {
+      logger.error(
+        { err: posterErr, tournamentId: opts.tournamentId, playerName },
+        "notifyPlayerSold: Failed to generate personalized player sold poster",
+      );
+      imageUrl = null;
+    }
+  }
+
   // Meta-approved exact template body copy (source of truth from Meta WhatsApp Manager)
   const msg =
     `🏏 PLAYER SOLD!\n\n` +
@@ -142,6 +135,42 @@ export async function notifyPlayerSold(opts: {
     `You have been sold to *${teamName}* for *${formattedAmount}* in the *${tournamentName}* auction.\n\n` +
     `Wishing you and your team great success in the tournament!\n\n` +
     `BIDWAR | From Auction to Champions`;
+
+  if (!imageUrl || !isValidHttpUrl(imageUrl)) {
+    logger.warn(
+      {
+        tournamentId: opts.tournamentId,
+        playerName,
+        imageUrl,
+      },
+      "notifyPlayerSold: Missing or invalid header image URL for WhatsApp template auction_player_sold",
+    );
+    try {
+      if (typeof db?.insert === "function") {
+        await db.insert(commLogsTable).values({
+          tournamentId: opts.tournamentId,
+          recipientType: "player",
+          recipientId: opts.playerId ?? null,
+          recipientMobile: opts.mobile,
+          channel: "whatsapp",
+          templateName: META_AUCTION_PLAYER_SOLD_TEMPLATE,
+          messageContent: msg,
+          sentByAdminId: null,
+          blastId: idempotencyKey,
+          deliveryStatus: "failed",
+          metaMessageId: null,
+          errorMessage: "Missing or invalid header image URL for WhatsApp template auction_player_sold",
+        });
+      }
+    } catch {
+      // Non-fatal
+    }
+    return {
+      success: false,
+      blocked: true,
+      error: "Missing or invalid header image URL for WhatsApp template auction_player_sold",
+    };
+  }
 
   // Meta Cloud API template components matching approved template specification
   const templateComponents = [
@@ -167,21 +196,23 @@ export async function notifyPlayerSold(opts: {
     },
   ];
 
-  const result = await dispatchPushWhatsApp({
-    event: "player_sold",
-    tournamentId: opts.tournamentId,
-    mobile: opts.mobile,
-    body: msg,
-    recipientConsent: opts.whatsappConsent,
-    templateName: META_AUCTION_PLAYER_SOLD_TEMPLATE,
-    templateLanguage: META_AUCTION_PLAYER_SOLD_LANGUAGE,
-    templateComponents,
-  });
+  try {
+    const result = await dispatchPushWhatsApp({
+      event: "player_sold",
+      tournamentId: opts.tournamentId,
+      mobile: opts.mobile,
+      body: msg,
+      recipientConsent: opts.whatsappConsent,
+      templateName: META_AUCTION_PLAYER_SOLD_TEMPLATE,
+      templateLanguage: META_AUCTION_PLAYER_SOLD_LANGUAGE,
+      templateComponents,
+    });
 
-  if (result.success) {
-    recentPlayerSoldIdempotency.set(idempotencyKey, Date.now());
+    if (result.success) {
+      recentPlayerSoldIdempotency.set(idempotencyKey, Date.now());
+    }
 
-    // Best-effort audit logging into commLogsTable
+    // Best-effort audit logging into commLogsTable for both successful and blocked/failed outcomes
     try {
       if (typeof db?.insert === "function") {
         await db.insert(commLogsTable).values({
@@ -194,9 +225,9 @@ export async function notifyPlayerSold(opts: {
           messageContent: msg,
           sentByAdminId: null, // Automated auction event
           blastId: idempotencyKey,
-          deliveryStatus: "sent",
+          deliveryStatus: result.success ? "sent" : "failed",
           metaMessageId: result.messageSid ?? null,
-          errorMessage: null,
+          errorMessage: result.success ? null : (result.error ?? "Dispatch blocked by policy"),
         });
       }
     } catch (logErr) {
@@ -205,14 +236,44 @@ export async function notifyPlayerSold(opts: {
         "notifyPlayerSold: Failed to write audit record to commLogsTable (non-fatal)",
       );
     }
-  }
 
-  return result;
+    return result;
+  } catch (err: any) {
+    logger.error(
+      { err, tournamentId: opts.tournamentId, playerId: opts.playerId, to: maskPhoneNumber(opts.mobile) },
+      "notifyPlayerSold: Unexpected failure in WhatsApp dispatch",
+    );
+    try {
+      if (typeof db?.insert === "function") {
+        await db.insert(commLogsTable).values({
+          tournamentId: opts.tournamentId,
+          recipientType: "player",
+          recipientId: opts.playerId ?? null,
+          recipientMobile: opts.mobile,
+          channel: "whatsapp",
+          templateName: META_AUCTION_PLAYER_SOLD_TEMPLATE,
+          messageContent: msg,
+          sentByAdminId: null,
+          blastId: idempotencyKey,
+          deliveryStatus: "failed",
+          metaMessageId: null,
+          errorMessage: err?.message ?? "Unexpected failure in WhatsApp dispatch",
+        });
+      }
+    } catch {
+      // Non-fatal
+    }
+    return {
+      success: false,
+      error: err?.message ?? "Failed to send WhatsApp player sold notification",
+    };
+  }
 }
 
 export async function notifyPlayerUnsold(opts: {
   mobile: string | null;
   tournamentId: number;
+  playerId?: number | null;
   playerName: string;
   tournamentName: string;
   whatsappConsent?: boolean | null;
@@ -222,18 +283,41 @@ export async function notifyPlayerUnsold(opts: {
   }
   const msg =
     `*BidWar Auction Update*\n\nHi ${opts.playerName},\n\nYou went *UNSOLD* in today's auction for *${opts.tournamentName}*.\n\nDon't worry — there may be another round. Stay ready!`;
-  return dispatchPushWhatsApp({
+  const result = await dispatchPushWhatsApp({
     event: "player_unsold",
     tournamentId: opts.tournamentId,
     mobile: opts.mobile,
     body: msg,
     recipientConsent: opts.whatsappConsent,
   });
+
+  try {
+    if (typeof db?.insert === "function") {
+      await db.insert(commLogsTable).values({
+        tournamentId: opts.tournamentId,
+        recipientType: "player",
+        recipientId: opts.playerId ?? null,
+        recipientMobile: opts.mobile,
+        channel: "whatsapp",
+        templateName: "player_unsold",
+        messageContent: msg,
+        sentByAdminId: null,
+        deliveryStatus: result.success ? "sent" : "failed",
+        metaMessageId: result.messageSid ?? null,
+        errorMessage: result.success ? null : (result.error ?? "Dispatch blocked by policy"),
+      });
+    }
+  } catch {
+    // Non-fatal
+  }
+
+  return result;
 }
 
 export async function notifyPlayerReAuction(opts: {
   mobile: string | null;
   tournamentId: number;
+  playerId?: number | null;
   playerName: string;
   tournamentName: string;
   whatsappConsent?: boolean | null;
@@ -243,11 +327,33 @@ export async function notifyPlayerReAuction(opts: {
   }
   const msg =
     `*BidWar Auction Update*\n\nHi ${opts.playerName},\n\nYou have been returned to the *auction pool* for *${opts.tournamentName}* and will be *RE-AUCTIONED*.\n\nStay tuned!`;
-  return dispatchPushWhatsApp({
+  const result = await dispatchPushWhatsApp({
     event: "player_reauction",
     tournamentId: opts.tournamentId,
     mobile: opts.mobile,
     body: msg,
     recipientConsent: opts.whatsappConsent,
   });
+
+  try {
+    if (typeof db?.insert === "function") {
+      await db.insert(commLogsTable).values({
+        tournamentId: opts.tournamentId,
+        recipientType: "player",
+        recipientId: opts.playerId ?? null,
+        recipientMobile: opts.mobile,
+        channel: "whatsapp",
+        templateName: "player_reauction",
+        messageContent: msg,
+        sentByAdminId: null,
+        deliveryStatus: result.success ? "sent" : "failed",
+        metaMessageId: result.messageSid ?? null,
+        errorMessage: result.success ? null : (result.error ?? "Dispatch blocked by policy"),
+      });
+    }
+  } catch {
+    // Non-fatal
+  }
+
+  return result;
 }

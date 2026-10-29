@@ -1390,6 +1390,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
     playerTag: z.enum(PLAYER_TAG_VALUES).nullable().optional(),
     playerTagTeamId: z.number().int().nullable().optional(),
     isNonPlayingMember: z.boolean().optional(),
+    whatsappConsent: z.boolean().optional(),
     reason: z.string().optional(),
     registrationPaymentStatus: z.enum(REGISTRATION_PAYMENT_STATUSES).optional(),
     specifications: z.array(playerSpecificationInputSchema).optional(),
@@ -1570,6 +1571,35 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
       updates.whatsappConsentMethod = null;
     }
     updates.mobileNumber = normalizedMobile;
+  }
+  if (d.whatsappConsent !== undefined) {
+    const targetMobile = normalizedMobile ?? existing.mobileNumber;
+    if (d.whatsappConsent && !existing.whatsappConsent && targetMobile) {
+      await recordConsentGranted({
+        recipientType: "player",
+        recipientId: playerId,
+        mobile: targetMobile,
+        tournamentId: tid,
+        noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+        consentScope: "tournament_operational",
+        source: "organizer_portal",
+      });
+      updates.whatsappConsent = true;
+      updates.whatsappConsentAt = new Date();
+      updates.whatsappConsentMethod = "organizer_declaration";
+    } else if (!d.whatsappConsent && existing.whatsappConsent && targetMobile) {
+      await recordConsentWithdrawal({
+        mobile: targetMobile,
+        recipientType: "player",
+        recipientId: playerId,
+        tournamentId: tid,
+        reason: "ORGANIZER_MANUAL_WITHDRAWAL",
+        source: "organizer_portal",
+      });
+      updates.whatsappConsent = false;
+      updates.whatsappConsentAt = null;
+      updates.whatsappConsentMethod = null;
+    }
   }
   if (normalizedEmail !== undefined) updates.email = normalizedEmail;
   if (d.cricheroUrl !== undefined) updates.cricheroUrl = d.cricheroUrl;

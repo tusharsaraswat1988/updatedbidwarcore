@@ -2160,16 +2160,23 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
 
   const { soldPlayer, team } = sellResult;
 
-  // Fire-and-forget WhatsApp notification
-  notifyPlayerSold({
+  // Fire-and-forget WhatsApp notification with dynamic Player Sold poster
+  void notifyPlayerSold({
     mobile: soldPlayer?.mobileNumber ?? null,
     tournamentId: tid,
     playerId: soldPlayer?.id ?? playerId,
     playerName: soldPlayer?.name ?? "Player",
+    playerPhotoUrl: soldPlayer?.photoUrl ?? null,
+    playerRole: soldPlayer?.role ?? null,
     teamId: team?.id ?? teamId,
     teamName: team?.name ?? "Team",
+    teamLogoUrl: team?.logoUrl ?? null,
+    teamShortCode: team?.shortCode ?? null,
+    teamColor: team?.color ?? null,
     amount: soldAmount,
     tournamentName: tournament?.name ?? "the tournament",
+    tournamentSport: tournament?.sport ?? "cricket",
+    auctionUnit: (tournament?.auctionUnit ?? "rupee") as any,
     whatsappConsent: soldPlayer?.whatsappConsent,
   });
 
@@ -2390,15 +2397,22 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
   // Tournament already loaded for trial gate; reuse for notifications/audit.
   const manualTournament = manualSellTournament;
 
-  notifyPlayerSold({
+  void notifyPlayerSold({
     mobile: soldPlayer?.mobileNumber ?? null,
     tournamentId: tid,
     playerId: soldPlayer?.id ?? playerId,
     playerName: soldPlayer?.name ?? "Player",
+    playerPhotoUrl: soldPlayer?.photoUrl ?? null,
+    playerRole: soldPlayer?.role ?? null,
     teamId: team?.id ?? teamId,
     teamName: team?.name ?? "Team",
+    teamLogoUrl: team?.logoUrl ?? null,
+    teamShortCode: team?.shortCode ?? null,
+    teamColor: team?.color ?? null,
     amount,
     tournamentName: manualTournament?.name ?? "the tournament",
+    tournamentSport: manualTournament?.sport ?? "cricket",
+    auctionUnit: (manualTournament?.auctionUnit ?? "rupee") as any,
     whatsappConsent: soldPlayer?.whatsappConsent,
   });
 

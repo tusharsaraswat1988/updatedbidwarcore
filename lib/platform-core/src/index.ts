@@ -19,6 +19,7 @@ export {
   resolveTournamentFeatures,
   mergeTournamentFeatures,
   isBuzzStudioEnabled,
+  isWhatsAppNotificationsEnabled,
   tournamentFeaturesSchemaShape,
 } from "./tournament-features.ts";
 
