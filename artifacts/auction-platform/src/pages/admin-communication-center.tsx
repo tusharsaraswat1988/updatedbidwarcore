@@ -204,6 +204,26 @@ interface WaTemplateOption {
   sampleArgs?: string[];
 }
 
+interface WaProviderStatus {
+  provider: "kv_techmedia" | "twilio" | "meta_direct" | "mock" | "none";
+  displayName: string;
+  configured: boolean;
+  configValid: boolean;
+  configErrors: string[];
+  status: "unconfigured" | "invalid_config" | "configured" | "mock";
+  verifiedConnectivity: boolean;
+  connectivityNote: string;
+  environment: string;
+  isProduction: boolean;
+  deliveryHealth: {
+    totalLogged: number;
+    deliveredCount: number;
+    failedCount: number;
+    lastDispatchedAt: string | null;
+    lastDeliveryStatus: string | null;
+  };
+}
+
 interface TournamentItem {
   id: number;
   name: string;
@@ -346,7 +366,20 @@ export default function AdminCommunicationCenter() {
   const [waCustomText, setWaCustomText] = useState("");
   const [waCustomMobile, setWaCustomMobile] = useState("");
   const [waSending, setSendingWa] = useState(false);
-  const [waSendResult, setWaSendResult] = useState<{ success: boolean; sent: number; failed: number; stub?: boolean; error?: string } | null>(null);
+  const [waSendResult, setWaSendResult] = useState<{
+    success: boolean;
+    blastId?: string;
+    total?: number;
+    sent: number;
+    blocked?: number;
+    failed: number;
+    stub?: boolean;
+    error?: string;
+    results?: Array<{ mobile: string; channel: string; success: boolean; blocked?: boolean; error?: string }>;
+  } | null>(null);
+  const [showDispatchConfirmDialog, setShowDispatchConfirmDialog] = useState(false);
+  const [receiptSearch, setReceiptSearch] = useState("");
+  const [receiptStatusFilter, setReceiptStatusFilter] = useState("all");
   const [waLogs, setWaLogs] = useState<CommLog[]>([]);
   const [loadingWaLogs, setLoadingWaLogs] = useState(false);
   const [consentStats, setConsentStats] = useState<ConsentStats | null>(null);
@@ -355,6 +388,13 @@ export default function AdminCommunicationCenter() {
   const [botLink, setBotLink] = useState<{ link: string | null; configured: boolean } | null>(null);
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Gate A: Provider Status, Templates Loading & Mobile Responsive View Switcher
+  const [waProviderStatus, setWaProviderStatus] = useState<WaProviderStatus | null>(null);
+  const [loadingProviderStatus, setLoadingProviderStatus] = useState(false);
+  const [loadingWaTemplates, setLoadingWaTemplates] = useState(false);
+  const [waTemplatesError, setWaTemplatesError] = useState<string | null>(null);
+  const [waMobileTab, setWaMobileTab] = useState<"compose" | "preview">("compose");
 
   // Contacts State
   const [missingPlayers, setMissingPlayers] = useState<MissingContact[]>([]);
@@ -480,15 +520,33 @@ export default function AdminCommunicationCenter() {
     }
   }, [selectedTournamentId]);
 
-  // Load WhatsApp Logs & Consent
+  // Load WhatsApp Logs, Provider Status, Templates & Consent
   const loadWaData = useCallback(async () => {
     setLoadingWaLogs(true);
+    setLoadingProviderStatus(true);
+    setLoadingWaTemplates(true);
+    setWaTemplatesError(null);
     try {
+      // 1. Fetch Authoritative Provider Status
+      try {
+        const pRes = await fetch("/api/auth/admin/communicate/provider-status", { credentials: "include" });
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          setWaProviderStatus(pData);
+        }
+      } catch {
+        // non-blocking for logs display
+      } finally {
+        setLoadingProviderStatus(false);
+      }
+
+      // 2. Fetch WhatsApp Message Logs
       const params = new URLSearchParams({ channel: "whatsapp" });
       if (selectedTournamentId && selectedTournamentId !== "__all__") params.set("tournamentId", selectedTournamentId);
       const res = await fetch(`/api/auth/admin/communicate/logs?${params}`, { credentials: "include" });
       if (res.ok) setWaLogs(await res.json());
 
+      // 3. Fetch Consent Stats
       if (selectedTournamentId && selectedTournamentId !== "__all__") {
         const cRes = await fetch(`/api/auth/admin/communicate/consent-status/${selectedTournamentId}`, { credentials: "include" });
         if (cRes.ok) setConsentStats(await cRes.json());
@@ -496,18 +554,30 @@ export default function AdminCommunicationCenter() {
         setConsentStats(null);
       }
 
+      // 4. Fetch Bot Link
       const linkRes = await fetch("/api/consent/wa-link", { credentials: "include" });
       if (linkRes.ok) setBotLink(await linkRes.json());
 
-      const tRes = await fetch("/api/auth/admin/communicate/templates", { credentials: "include" });
-      if (tRes.ok) {
-        const templates = await tRes.json();
-        setAvailableWaTemplates(templates);
+      // 5. Fetch Authoritative Templates
+      try {
+        const tRes = await fetch("/api/auth/admin/communicate/templates", { credentials: "include" });
+        if (tRes.ok) {
+          const templates = await tRes.json();
+          setAvailableWaTemplates(templates);
+        } else {
+          setWaTemplatesError("Failed to load approved templates from server registry.");
+        }
+      } catch {
+        setWaTemplatesError("Network error while connecting to template catalog.");
+      } finally {
+        setLoadingWaTemplates(false);
       }
     } catch {
       // ignore
     } finally {
       setLoadingWaLogs(false);
+      setLoadingProviderStatus(false);
+      setLoadingWaTemplates(false);
     }
   }, [selectedTournamentId]);
 
@@ -763,9 +833,8 @@ export default function AdminCommunicationCenter() {
     }
   };
 
-  // Send WhatsApp Handler
-  const handleSendWa = async () => {
-    setSendingWa(true);
+  // Initiate Send WhatsApp: Validate first, then open explicit confirmation dialog
+  const handleSendWa = () => {
     setWaSendResult(null);
 
     // Client-side validations for immediate user feedback
@@ -773,7 +842,6 @@ export default function AdminCommunicationCenter() {
       const cleanMobile = waCustomMobile.replace(/\D/g, "");
       if (cleanMobile.length < 10) {
         setWaSendResult({ success: false, sent: 0, failed: 1, error: "Please enter a valid mobile number (minimum 10 digits)" });
-        setSendingWa(false);
         return;
       }
     }
@@ -781,7 +849,6 @@ export default function AdminCommunicationCenter() {
     if (waTemplateKey === "custom") {
       if (!waCustomText.trim()) {
         setWaSendResult({ success: false, sent: 0, failed: 1, error: "Please enter custom message text before sending" });
-        setSendingWa(false);
         return;
       }
     } else if (selectedWaTpl?.variables && selectedWaTpl.variables.length > 0) {
@@ -790,11 +857,19 @@ export default function AdminCommunicationCenter() {
         const missing = selectedWaTpl.variables.find((v) => !waTemplateVariables[v.key]?.trim());
         if (missing) {
           setWaSendResult({ success: false, sent: 0, failed: 1, error: `Please provide value for variable: ${missing.label}` });
-          setSendingWa(false);
           return;
         }
       }
     }
+
+    // Open confirmation dialog before real dispatch
+    setShowDispatchConfirmDialog(true);
+  };
+
+  // Execute WhatsApp Broadcast upon explicit confirmation
+  const executeSendWa = async () => {
+    setSendingWa(true);
+    setWaSendResult(null);
 
     try {
       const body: Record<string, unknown> = {
@@ -820,17 +895,53 @@ export default function AdminCommunicationCenter() {
       });
       const data = await r.json();
       if (r.ok && data.success) {
-        setWaSendResult({ success: true, sent: data.sent ?? 0, failed: data.failed ?? 0, stub: data.stub });
+        setWaSendResult({
+          success: true,
+          blastId: data.blastId,
+          total: data.total ?? ((data.sent ?? 0) + (data.failed ?? 0)),
+          sent: data.sent ?? 0,
+          blocked: data.blocked ?? 0,
+          failed: data.failed ?? 0,
+          stub: data.stub,
+          results: data.results,
+        });
+        setShowDispatchConfirmDialog(false);
         void loadWaData();
       } else {
-        setWaSendResult({ success: false, sent: 0, failed: 1, error: data.error ?? "WhatsApp Dispatch Failed" });
+        setWaSendResult({
+          success: false,
+          sent: 0,
+          failed: 1,
+          error: data.error ?? "WhatsApp Dispatch Failed",
+        });
+        setShowDispatchConfirmDialog(false);
       }
     } catch {
       setWaSendResult({ success: false, sent: 0, failed: 1, error: "Network error sending WhatsApp" });
+      setShowDispatchConfirmDialog(false);
     } finally {
       setSendingWa(false);
     }
   };
+
+  // Search & Filtered Delivery Receipts
+  const filteredWaLogs = useMemo(() => {
+    return waLogs.filter((l) => {
+      const searchLower = receiptSearch.toLowerCase().trim();
+      const matchesSearch =
+        !searchLower ||
+        (l.recipientMobile && l.recipientMobile.toLowerCase().includes(searchLower)) ||
+        (l.templateName && l.templateName.toLowerCase().includes(searchLower)) ||
+        (l.messageContent && l.messageContent.toLowerCase().includes(searchLower));
+      const matchesStatus =
+        receiptStatusFilter === "all" ||
+        (receiptStatusFilter === "failed" && l.deliveryStatus === "failed") ||
+        (receiptStatusFilter === "sent" && l.deliveryStatus === "sent") ||
+        (receiptStatusFilter === "delivered" && (l.deliveryStatus === "delivered" || l.deliveryStatus === "read")) ||
+        (receiptStatusFilter === "read" && l.deliveryStatus === "read");
+      return matchesSearch && matchesStatus;
+    });
+  }, [waLogs, receiptSearch, receiptStatusFilter]);
 
   // Bulk Consent Declare
   const handleBulkDeclare = async () => {
@@ -1972,25 +2083,89 @@ export default function AdminCommunicationCenter() {
               TAB 4: WHATSAPP CHANNEL HUB (PROPERLY UPGRADED & COMPLETE)
              ═════════════════════════════════════════════ */}
           <TabsContent value="whatsapp" className="space-y-6">
-            {/* WhatsApp Connection & Gateway Banner */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-emerald-500/15 text-emerald-400">
+            {/* ═════════════════════════════════════════════════════════════════════
+                GATE A: TRUTHFUL WHATSAPP PROVIDER GATEWAY BANNER
+               ═════════════════════════════════════════════════════════════════════ */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between p-4.5 rounded-xl border border-border bg-card/80 backdrop-blur-sm gap-4 shadow-xs">
+              <div className="flex items-start sm:items-center gap-3.5">
+                <div className={`p-2.5 rounded-xl border ${
+                  waProviderStatus?.status === "configured"
+                    ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400"
+                    : waProviderStatus?.status === "mock"
+                    ? "bg-amber-500/15 border-amber-500/30 text-amber-400"
+                    : waProviderStatus?.status === "invalid_config"
+                    ? "bg-rose-500/15 border-rose-500/30 text-rose-400"
+                    : "bg-zinc-500/15 border-zinc-500/30 text-zinc-400"
+                }`}>
                   <MessageSquare className="h-6 w-6" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-emerald-400">Meta WhatsApp Cloud & Twilio API</h3>
-                    <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px] gap-1">
-                      <Wifi className="h-2.5 w-2.5" /> High Quality Rating
-                    </Badge>
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-bold tracking-tight">
+                      Active Gateway:{" "}
+                      <span className="text-foreground">
+                        {loadingProviderStatus ? "Checking status..." : (waProviderStatus?.displayName || "Not Configured")}
+                      </span>
+                    </h3>
+                    {loadingProviderStatus ? (
+                      <Badge variant="outline" className="text-[10px] gap-1">
+                        <RefreshCw className="h-2.5 w-2.5 animate-spin" /> Verifying
+                      </Badge>
+                    ) : waProviderStatus?.status === "configured" ? (
+                      <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px] gap-1 font-medium">
+                        <CheckCircle2 className="h-2.5 w-2.5" /> Provider Configured
+                      </Badge>
+                    ) : waProviderStatus?.status === "mock" ? (
+                      <Badge className="bg-amber-500/15 text-amber-300 border-amber-500/30 text-[10px] gap-1 font-medium">
+                        <AlertTriangle className="h-2.5 w-2.5" /> Mock Mode (Dev Only)
+                      </Badge>
+                    ) : waProviderStatus?.status === "invalid_config" ? (
+                      <Badge className="bg-rose-500/15 text-rose-300 border-rose-500/30 text-[10px] gap-1 font-medium">
+                        <XCircle className="h-2.5 w-2.5" /> Missing Credentials
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-muted-foreground text-[10px] gap-1">
+                        <XCircle className="h-2.5 w-2.5" /> Unconfigured
+                      </Badge>
+                    )}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Verified Business Account • Auto Opt-out Footer Active
+                  <p className="text-xs text-muted-foreground">
+                    {waProviderStatus?.connectivityNote || "Managed via server environment (WHATSAPP_PROVIDER) • UI switching disabled for safety"}
                   </p>
+
+                  {/* Delivery Health Metrics */}
+                  {waProviderStatus?.deliveryHealth && waProviderStatus.deliveryHealth.totalLogged > 0 && (
+                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground pt-0.5">
+                      <span className="flex items-center gap-1 text-emerald-400 font-medium">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 inline-block" />
+                        {waProviderStatus.deliveryHealth.deliveredCount} delivered
+                      </span>
+                      {waProviderStatus.deliveryHealth.failedCount > 0 && (
+                        <span className="text-rose-400 font-medium">
+                          {waProviderStatus.deliveryHealth.failedCount} failed
+                        </span>
+                      )}
+                      <span>(last {waProviderStatus.deliveryHealth.totalLogged} dispatches)</span>
+                      {waProviderStatus.deliveryHealth.lastDispatchedAt && (
+                        <span className="text-[10px] text-muted-foreground/80">
+                          • Last: {formatDate(waProviderStatus.deliveryHealth.lastDispatchedAt)}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs border-border hover:bg-muted/50"
+                  onClick={() => void loadWaData()}
+                  disabled={loadingProviderStatus}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingProviderStatus ? "animate-spin" : ""}`} /> Refresh Status
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
@@ -2001,8 +2176,8 @@ export default function AdminCommunicationCenter() {
                 </Button>
                 <Button
                   size="sm"
-                  className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                  disabled={bulkDeclaring || !selectedTournamentId}
+                  className="h-8 gap-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                  disabled={bulkDeclaring || !selectedTournamentId || selectedTournamentId === "__all__"}
                   onClick={handleBulkDeclare}
                 >
                   {bulkDeclaring ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <BadgeCheck className="h-3.5 w-3.5" />}
@@ -2010,6 +2185,24 @@ export default function AdminCommunicationCenter() {
                 </Button>
               </div>
             </div>
+
+            {/* Provider Configuration Warning Alert */}
+            {waProviderStatus?.configErrors && waProviderStatus.configErrors.length > 0 && (
+              <div className="p-3.5 rounded-xl border border-rose-500/25 bg-rose-500/10 text-xs text-rose-300 flex items-start gap-2.5">
+                <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-semibold text-rose-300">Provider Credentials Required</p>
+                  <p className="text-[11px] text-rose-300/80">
+                    The active WhatsApp provider ({waProviderStatus.displayName}) requires the following environment variables on the server before live messages can be dispatched:
+                  </p>
+                  <ul className="list-disc list-inside space-y-0.5 font-mono text-[11px] text-rose-200">
+                    {waProviderStatus.configErrors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
 
             {/* License Warning if not licensed */}
             {!isLicensedForWa && selectedTournamentId && (
@@ -2087,24 +2280,112 @@ export default function AdminCommunicationCenter() {
               </div>
             )}
 
+            {/* Rich Dispatch Execution Summary Banner */}
             {waSendResult && (
-              <div className={`p-4 rounded-xl border flex items-center gap-3 ${waSendResult.success ? "border-green-500/30 bg-green-500/10 text-green-400" : "border-red-500/30 bg-red-500/10 text-red-400"}`}>
-                {waSendResult.success ? <CheckCircle2 className="h-5 w-5 shrink-0" /> : <XCircle className="h-5 w-5 shrink-0" />}
-                <div className="text-xs">
-                  <p className="font-bold">{waSendResult.success ? "WhatsApp Broadcast Delivered!" : "Send Error"}</p>
-                  <p className="text-muted-foreground mt-0.5">
-                    {waSendResult.success
-                      ? `Delivered to ${waSendResult.sent} consented recipient(s) ${waSendResult.stub ? "(Stub Mode)" : ""}`
-                      : waSendResult.error}
-                  </p>
-                </div>
-              </div>
+              <Card className={`border ${waSendResult.success ? "border-emerald-500/30 bg-emerald-500/5" : "border-rose-500/30 bg-rose-500/5"}`}>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      {waSendResult.success ? (
+                        <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
+                          <CheckCircle2 className="h-5 w-5" />
+                        </div>
+                      ) : (
+                        <div className="p-2 rounded-lg bg-rose-500/20 text-rose-400">
+                          <XCircle className="h-5 w-5" />
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="text-sm font-bold text-foreground">
+                          {waSendResult.success ? "WhatsApp Broadcast Execution Completed" : "Broadcast Dispatch Blocked / Failed"}
+                        </h4>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {waSendResult.stub
+                            ? "Simulated in Mock/Stub Mode (Non-production environment)"
+                            : waSendResult.error || "Results aggregated from policy evaluation and provider delivery pipeline"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-xs font-semibold">
+                        Sent: {waSendResult.sent}
+                      </Badge>
+                      {(waSendResult.blocked ?? 0) > 0 && (
+                        <Badge className="bg-amber-500/15 text-amber-300 border-amber-500/30 text-xs font-semibold">
+                          Blocked: {waSendResult.blocked}
+                        </Badge>
+                      )}
+                      {waSendResult.failed > 0 && (
+                        <Badge className="bg-rose-500/15 text-rose-300 border-rose-500/30 text-xs font-semibold">
+                          Failed: {waSendResult.failed}
+                        </Badge>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setWaSendResult(null)}
+                        className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Per-recipient breakdown if any blocks or failures occurred */}
+                  {waSendResult.results && waSendResult.results.some((r) => !r.success) && (
+                    <div className="pt-2.5 border-t border-border/60 space-y-1.5">
+                      <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                        Blocked or Failed Recipients Breakdown:
+                      </p>
+                      <div className="max-h-36 overflow-y-auto divide-y divide-border/40 text-xs font-mono">
+                        {waSendResult.results.filter((r) => !r.success).map((r, idx) => (
+                          <div key={idx} className="py-1.5 flex items-center justify-between gap-3">
+                            <span className="font-medium text-foreground">{r.mobile}</span>
+                            <span className={`text-[11px] truncate max-w-sm ${r.blocked ? "text-amber-400" : "text-rose-400"}`}>
+                              {r.error || (r.blocked ? "Blocked by policy" : "Provider dispatch error")}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             )}
+
+            {/* Mobile Responsive View Switcher (< lg) */}
+            <div className="lg:hidden flex rounded-lg p-1 bg-muted/40 border border-border">
+              <button
+                type="button"
+                onClick={() => setWaMobileTab("compose")}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                  waMobileTab === "compose"
+                    ? "bg-background text-foreground shadow-xs border border-border/50"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Send className="h-3.5 w-3.5 text-emerald-400" />
+                Compose Broadcast
+              </button>
+              <button
+                type="button"
+                onClick={() => setWaMobileTab("preview")}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                  waMobileTab === "preview"
+                    ? "bg-background text-foreground shadow-xs border border-border/50"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Eye className="h-3.5 w-3.5 text-emerald-400" />
+                Live Preview Mockup
+              </button>
+            </div>
 
             {/* Broadcast Form & Live WhatsApp Bubble Mockup */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Left Column: WhatsApp Composer */}
-              <div className="space-y-4 lg:col-span-6">
+              <div className={`space-y-4 lg:col-span-6 ${waMobileTab === "compose" ? "block" : "hidden lg:block"}`}>
                 <Card className="border-border bg-card/60 backdrop-blur-sm">
                   <CardHeader className="pb-3">
                     <CardTitle className="text-base flex items-center gap-2">
@@ -2112,7 +2393,7 @@ export default function AdminCommunicationCenter() {
                       1. WhatsApp Broadcast Composer
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Send rich WhatsApp templates directly to player and team owner devices
+                      Send approved WhatsApp templates directly to player and team owner devices
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -2145,22 +2426,58 @@ export default function AdminCommunicationCenter() {
                       </div>
                     )}
 
-                    {/* Template Selector */}
-                    <div>
-                      <Label className="text-xs font-semibold text-muted-foreground">Approved WhatsApp Template</Label>
-                      <Select value={waTemplateKey} onValueChange={setWaTemplateKey}>
-                        <SelectTrigger className="mt-1.5 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {waTemplates.map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {/* Template Selector with Loading / Error / Empty States */}
+                    {loadingWaTemplates ? (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-muted-foreground">Approved WhatsApp Template</Label>
+                        <div className="h-9 w-full rounded-md bg-muted/60 animate-pulse" />
+                      </div>
+                    ) : waTemplatesError ? (
+                      <div className="p-3 rounded-lg border border-rose-500/30 bg-rose-500/10 text-xs text-rose-300 flex items-center justify-between">
+                        <span>{waTemplatesError}</span>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void loadWaData()}>Retry</Button>
+                      </div>
+                    ) : (
+                      <div>
+                        <Label className="text-xs font-semibold text-muted-foreground">Approved WhatsApp Template</Label>
+                        <Select value={waTemplateKey} onValueChange={setWaTemplateKey}>
+                          <SelectTrigger className="mt-1.5 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {waTemplates.map((t) => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {t.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* Selected Template Details Card */}
+                    {selectedWaTpl && waTemplateKey !== "custom" && (
+                      <div className="p-2.5 rounded-lg border border-border/70 bg-muted/30 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[11px] font-semibold text-foreground">
+                              {selectedWaTpl.templateName || selectedWaTpl.id}
+                            </span>
+                            {selectedWaTpl.category && (
+                              <Badge variant="outline" className="text-[9px] uppercase px-1.5 py-0 text-muted-foreground">
+                                {selectedWaTpl.category}
+                              </Badge>
+                            )}
+                          </div>
+                          <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[9px] gap-1 py-0">
+                            <BadgeCheck className="h-2.5 w-2.5" /> Approved
+                          </Badge>
+                        </div>
+                        {selectedWaTpl.description && (
+                          <p className="text-[11px] text-muted-foreground">{selectedWaTpl.description}</p>
+                        )}
+                      </div>
+                    )}
 
                     {/* Template Dynamic Variables (if required) */}
                     {waTemplateKey !== "custom" && selectedWaTpl?.variables && selectedWaTpl.variables.length > 0 && (
@@ -2218,13 +2535,18 @@ export default function AdminCommunicationCenter() {
               </div>
 
               {/* Right Column: Live WhatsApp Bubble Mockup */}
-              <div className="space-y-4 lg:col-span-6">
-                <Card className="border-border bg-card/60 backdrop-blur-sm">
+              <div className={`space-y-4 lg:col-span-6 ${waMobileTab === "preview" ? "block" : "hidden lg:block"}`}>
+                <Card className="border-border bg-card/60 backdrop-blur-sm sticky top-6">
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Eye className="h-4 w-4 text-emerald-400" />
-                      Live WhatsApp Preview Mockup
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Eye className="h-4 w-4 text-emerald-400" />
+                        Live WhatsApp Preview Mockup
+                      </CardTitle>
+                      <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                        Real-time Preview
+                      </Badge>
+                    </div>
                     <CardDescription className="text-xs">
                       Simulated rendering inside WhatsApp Messenger UI
                     </CardDescription>
@@ -2258,25 +2580,57 @@ export default function AdminCommunicationCenter() {
                         </div>
                       </div>
                     </div>
+                    <p className="text-[11px] text-muted-foreground mt-3 text-center">
+                      Simulated Preview (Illustrative formatting only; actual device display depends on WhatsApp client. Not a real delivery receipt).
+                    </p>
                   </CardContent>
                 </Card>
               </div>
             </div>
 
-            {/* WhatsApp Logs Table */}
+            {/* WhatsApp Logs Table (Searchable & Filterable) */}
             <Card className="border-border bg-card/60">
-              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <CardTitle className="text-base flex items-center gap-2">
                     <Clock className="h-4 w-4 text-emerald-400" />
                     WhatsApp Delivery Receipts
                   </CardTitle>
+                  <CardDescription className="text-xs">
+                    Reconciled delivery receipts and provider status audit trail
+                  </CardDescription>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => void loadWaData()} className="h-8 gap-1 text-xs">
-                  <RefreshCw className="h-3.5 w-3.5" /> Refresh
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => void loadWaData()} className="h-8 gap-1 text-xs">
+                    <RefreshCw className="h-3.5 w-3.5" /> Refresh
+                  </Button>
+                </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {/* Search & Status Filters */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search recipient mobile, template name, or message text..."
+                      value={receiptSearch}
+                      onChange={(e) => setReceiptSearch(e.target.value)}
+                      className="h-8 pl-8 text-xs bg-background/50"
+                    />
+                  </div>
+                  <Select value={receiptStatusFilter} onValueChange={setReceiptStatusFilter}>
+                    <SelectTrigger className="h-8 w-36 text-xs">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="sent">Sent</SelectItem>
+                      <SelectItem value="delivered">Delivered / Read</SelectItem>
+                      <SelectItem value="failed">Failed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -2287,8 +2641,8 @@ export default function AdminCommunicationCenter() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {waLogs.length > 0 ? (
-                      waLogs.map((l) => (
+                    {filteredWaLogs.length > 0 ? (
+                      filteredWaLogs.map((l) => (
                         <TableRow key={l.id}>
                           <TableCell className="font-mono text-xs font-medium">
                             {l.recipientMobile}
@@ -2298,7 +2652,15 @@ export default function AdminCommunicationCenter() {
                             <div className="text-[11px] text-muted-foreground truncate max-w-sm">{l.messageContent}</div>
                           </TableCell>
                           <TableCell>
-                            <StatusBadge status={l.deliveryStatus} />
+                            <div className="flex flex-col gap-1 items-start">
+                              <StatusBadge status={l.deliveryStatus} />
+                              {l.errorMessage && (
+                                <span title={l.errorMessage} className="inline-flex items-center gap-1 text-[10px] text-rose-400 font-mono max-w-xs truncate">
+                                  <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                                  {l.errorMessage}
+                                </span>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">
                             {formatDate(l.sentAt)}
@@ -2308,7 +2670,9 @@ export default function AdminCommunicationCenter() {
                     ) : (
                       <TableRow>
                         <TableCell colSpan={4} className="text-center py-6 text-xs text-muted-foreground">
-                          No WhatsApp dispatches recorded for this tournament yet.
+                          {receiptSearch || receiptStatusFilter !== "all"
+                            ? "No delivery receipts matched your search or status filter."
+                            : "No WhatsApp dispatches recorded for this tournament yet."}
                         </TableCell>
                       </TableRow>
                     )}
@@ -2316,6 +2680,94 @@ export default function AdminCommunicationCenter() {
                 </Table>
               </CardContent>
             </Card>
+
+            {/* Pre-Dispatch Explicit Confirmation Dialog */}
+            <Dialog open={showDispatchConfirmDialog} onOpenChange={setShowDispatchConfirmDialog}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-base">
+                    <Send className="h-4 w-4 text-emerald-400" /> Confirm WhatsApp Broadcast Dispatch
+                  </DialogTitle>
+                  <DialogDescription className="text-xs">
+                    Please review recipient scope, parameters, and licensing safeguards before triggering delivery.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-3.5 py-2 text-xs">
+                  <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Tournament:</span>
+                      <span className="font-semibold text-foreground">
+                        {tournaments.find((t) => String(t.id) === selectedTournamentId)?.name || (selectedTournamentId ? `Tournament #${selectedTournamentId}` : "All Tournaments")}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Target Audience:</span>
+                      <Badge variant="outline" className="text-[11px] font-medium">
+                        {waRecipientGroup === "all_players" && "👥 Consented Players"}
+                        {waRecipientGroup === "sold_players" && "🏆 Sold Players"}
+                        {waRecipientGroup === "unsold_players" && "⏳ Unsold Players"}
+                        {waRecipientGroup === "all_owners" && "👔 Team Owners"}
+                        {waRecipientGroup === "organizer" && "👑 Tournament Organiser"}
+                        {waRecipientGroup === "custom" && `📱 Custom: ${waCustomMobile}`}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Selected Template:</span>
+                      <span className="font-medium text-emerald-400">{selectedWaTpl?.title || waTemplateKey}</span>
+                    </div>
+                  </div>
+
+                  {/* Variables Summary */}
+                  {selectedWaTpl?.variables && selectedWaTpl.variables.length > 0 && waTemplateKey !== "custom" && (
+                    <div className="rounded-lg border border-border bg-muted/20 p-2.5 space-y-1.5">
+                      <span className="text-[11px] font-semibold text-muted-foreground">Interpolated Parameters:</span>
+                      <div className="space-y-1">
+                        {selectedWaTpl.variables.map((v) => (
+                          <div key={v.key} className="flex items-center justify-between text-[11px]">
+                            <span className="text-muted-foreground font-mono">{`{{${v.key}}}`} ({v.label}):</span>
+                            <span className="font-medium truncate max-w-[180px]">{waTemplateVariables[v.key] || "(auto-resolved from tournament)"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Message Preview */}
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-semibold text-muted-foreground">Message Body (Live Preview):</span>
+                    <div className="rounded-lg border border-zinc-700 bg-[#005c4b] p-3 text-xs text-zinc-100 whitespace-pre-line max-h-36 overflow-y-auto font-sans leading-relaxed">
+                      {previewWaBody}
+                    </div>
+                  </div>
+
+                  {/* Policy Safeguard Reminder */}
+                  <div className="p-2.5 rounded-lg border border-amber-500/25 bg-amber-500/10 text-[11px] text-amber-300 space-y-0.5">
+                    <p className="font-semibold flex items-center gap-1">
+                      <Shield className="h-3 w-3" /> Policy Enforcement Active:
+                    </p>
+                    <p className="text-amber-300/80">
+                      Dispatches fail closed. Opted-out recipients and unlicensed tournaments are blocked. No automatic fallback to SMS occurs.
+                    </p>
+                  </div>
+                </div>
+
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button variant="outline" size="sm" onClick={() => setShowDispatchConfirmDialog(false)} disabled={waSending}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-semibold"
+                    disabled={waSending}
+                    onClick={executeSendWa}
+                  >
+                    {waSending ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                    Confirm & Dispatch Broadcast
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* ═════════════════════════════════════════════════════════════════════

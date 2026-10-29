@@ -31,6 +31,7 @@ import { sendSms, sendWhatsApp, buildWaMeLink, buildConsentSms, isTournamentLice
 import { sendDltSms, playerSoldTemplateId } from "../lib/fast2sms";
 import { getPublicOrigin } from "../lib/runtime-env";
 import { logger } from "../lib/logger";
+import { resolveWhatsAppProviderId, getWhatsAppProvider } from "../lib/communication/providers/index.js";
 
 const router = Router();
 
@@ -693,7 +694,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
             metaMessageId: null,
             errorMessage: err,
           });
-          results.push({ mobile, channel: "whatsapp", success: false, error: err });
+          results.push({ mobile, channel: "whatsapp", success: false, blocked: true, error: err });
         } else {
           const waResult = await sendWhatsApp(mobile, waBody, resolvedTemplateSid);
           await db.insert(commLogsTable).values({
@@ -759,12 +760,18 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
       }
     }
 
+    const sentCount = results.filter(r => r.success).length;
+    const blockedCount = results.filter(r => (r as any).blocked || (!r.success && r.error?.includes("consent"))).length;
+    const failedCount = results.filter(r => !r.success).length;
+
     res.json({
       success: true,
       blastId,
       template: "player_sold",
-      sent: results.filter(r => r.success).length,
-      failed: results.filter(r => !r.success).length,
+      total: results.length,
+      sent: sentCount,
+      blocked: blockedCount,
+      failed: failedCount,
       stub: results.some(r => r.stub),
       results,
     });
@@ -904,7 +911,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           metaMessageId: null,
           errorMessage: err,
         });
-        results.push({ mobile: r.mobile, channel: "whatsapp", success: false, error: err });
+        results.push({ mobile: r.mobile, channel: "whatsapp", success: false, blocked: true, error: err });
       } else {
         const waResult = await sendWhatsApp(r.mobile, d.messageContent, resolvedTemplateSid);
         await db.insert(commLogsTable).values({
@@ -945,7 +952,105 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
     }
   }
 
-  res.json({ success: true, blastId, sent: results.filter(r => r.success).length, failed: results.filter(r => !r.success).length, stub: results.some(r => r.stub), results });
+  const sentCount = results.filter(r => r.success).length;
+  const blockedCount = results.filter(r => (r as any).blocked || (!r.success && r.error?.includes("consent"))).length;
+  const failedCount = results.filter(r => !r.success).length;
+
+  res.json({
+    success: true,
+    blastId,
+    total: results.length,
+    sent: sentCount,
+    blocked: blockedCount,
+    failed: failedCount,
+    stub: results.some(r => r.stub),
+    results,
+  });
+});
+
+// ─── WhatsApp Provider Status (admin-managed, read-only) ───────────────────────
+
+router.get("/auth/admin/communicate/provider-status", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+
+  const providerId = resolveWhatsAppProviderId();
+  const provider = getWhatsAppProvider(providerId);
+  const validation = provider.validateConfig();
+
+  const isConfigured = providerId !== "none";
+  let status: "unconfigured" | "invalid_config" | "configured" | "mock";
+  if (providerId === "none") {
+    status = "unconfigured";
+  } else if (providerId === "mock") {
+    status = "mock";
+  } else if (!validation.valid) {
+    status = "invalid_config";
+  } else {
+    status = "configured";
+  }
+
+  const providerDisplayNames: Record<string, string> = {
+    kv_techmedia: "KV TechMedia",
+    twilio: "Twilio WhatsApp",
+    meta_direct: "Meta Direct Cloud API",
+    mock: "Mock Provider (Test/Dev Only)",
+    none: "Not Configured",
+  };
+
+  // Query recent delivery logs for WhatsApp channel to give truthful health metrics without pinging live provider
+  let recentHealth = {
+    totalLogged: 0,
+    deliveredCount: 0,
+    failedCount: 0,
+    lastDispatchedAt: null as string | null,
+    lastDeliveryStatus: null as string | null,
+  };
+
+  try {
+    const recentLogs = await db
+      .select({
+        id: commLogsTable.id,
+        deliveryStatus: commLogsTable.deliveryStatus,
+        sentAt: commLogsTable.sentAt,
+      })
+      .from(commLogsTable)
+      .where(eq(commLogsTable.channel, "whatsapp"))
+      .orderBy(desc(commLogsTable.sentAt))
+      .limit(50);
+
+    if (Array.isArray(recentLogs) && recentLogs.length > 0) {
+      recentHealth.totalLogged = recentLogs.length;
+      recentHealth.deliveredCount = recentLogs.filter((l) =>
+        ["sent", "delivered", "read"].includes(l.deliveryStatus || "")
+      ).length;
+      recentHealth.failedCount = recentLogs.filter(
+        (l) => l.deliveryStatus === "failed"
+      ).length;
+      recentHealth.lastDispatchedAt = recentLogs[0].sentAt
+        ? new Date(recentLogs[0].sentAt).toISOString()
+        : null;
+      recentHealth.lastDeliveryStatus = recentLogs[0].deliveryStatus ?? null;
+    }
+  } catch (err) {
+    logger.warn({ err }, "provider-status: unable to query commLogsTable");
+  }
+
+  res.json({
+    provider: providerId,
+    displayName: providerDisplayNames[providerId] || providerId,
+    configured: isConfigured,
+    configValid: validation.valid,
+    configErrors: validation.errors,
+    status,
+    verifiedConnectivity: false,
+    connectivityNote: "Live connectivity not verified via live ping to conserve provider quota and prevent accidental billing",
+    environment: process.env.NODE_ENV || "development",
+    isProduction: process.env.NODE_ENV === "production",
+    deliveryHealth: recentHealth,
+  });
 });
 
 // ─── WhatsApp Template Config (admin-managed) ─────────────────────────────────
