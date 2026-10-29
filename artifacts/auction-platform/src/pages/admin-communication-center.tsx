@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
+import { useToast } from "@/hooks/use-toast";
 import { AdminShell } from "@/components/admin-shell";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
 import { EmailRichEditor } from "@/components/communication/email-rich-editor";
@@ -307,6 +308,7 @@ type RecipientCategory = "organiser" | "team_owner" | "player" | "group" | "cust
 
 export default function AdminCommunicationCenter() {
   const { isLoggedIn, isLoading } = useAdminPageGuard();
+  const { toast } = useToast();
   const [location, navigate] = useLocation();
   
   const parsed = tabFromPath(location);
@@ -659,11 +661,24 @@ export default function AdminCommunicationCenter() {
         if (cRes.ok) setConsentStats(await cRes.json());
 
         // 3b. Fetch Recent Sales for dynamic poster preview
+        let fetchedSales: any[] = [];
         try {
           const sRes = await fetch(`/api/auth/admin/communicate/recent-sales/${selectedTournamentId}`, { credentials: "include" });
           if (sRes.ok) {
             const sData = await sRes.json();
-            setRecentSales(sData.sales ?? []);
+            fetchedSales = sData.sales ?? [];
+            setRecentSales(fetchedSales);
+            if (fetchedSales.length > 0) {
+              const first = fetchedSales[0];
+              setSelectedSaleId(String(first.id));
+              setWaTemplateVariables({
+                "1": first.playerName,
+                "2": first.teamName,
+                "3": first.formattedAmount,
+                "4": first.tournamentName,
+              });
+              setSelectedPlayerId(String(first.id));
+            }
           }
         } catch {
           // non-fatal
@@ -680,6 +695,21 @@ export default function AdminCommunicationCenter() {
             const pData = await pRes.json();
             const pList = Array.isArray(pData) ? pData : (pData.players ?? []);
             setWaTournamentPlayers(pList);
+
+            // Auto-resolve mobile number for the active sale or first player
+            const targetId = fetchedSales.length > 0 ? String(fetchedSales[0].id) : (selectedPlayerId || "");
+            if (targetId) {
+              const matched = pList.find((p: any) => String(p.id) === targetId);
+              if (matched?.mobileNumber) {
+                setWaCustomMobile(matched.mobileNumber);
+              }
+            } else if (pList.length > 0) {
+              const firstSold = pList.find((p: any) => p.status === "sold" || (p.soldPrice && p.soldPrice > 0)) || pList[0];
+              if (firstSold) {
+                setSelectedPlayerId(String(firstSold.id));
+                if (firstSold.mobileNumber) setWaCustomMobile(firstSold.mobileNumber);
+              }
+            }
           }
           if (tRes.ok) {
             const tData = await tRes.json();
@@ -1069,42 +1099,70 @@ export default function AdminCommunicationCenter() {
   const handleSendWa = () => {
     setWaSendResult(null);
 
+    let effectivePlayerId = selectedPlayerId;
+    if (!effectivePlayerId && activeSale?.id) {
+      effectivePlayerId = String(activeSale.id);
+      setSelectedPlayerId(effectivePlayerId);
+    }
+
     let effectiveMobile = waCustomMobile.trim();
+    if (!effectiveMobile && effectivePlayerId) {
+      const match = waTournamentPlayers.find((p) => String(p.id) === effectivePlayerId);
+      if (match?.mobileNumber) {
+        effectiveMobile = match.mobileNumber.trim();
+        setWaCustomMobile(effectiveMobile);
+      }
+    }
+
     if (waTargetType === "particular_player") {
-      if (!selectedPlayerId) {
-        setWaSendResult({ success: false, sent: 0, failed: 1, error: "Please select a player to send this WhatsApp message to." });
+      if (!effectivePlayerId) {
+        const err = "Please select a player to send this WhatsApp message to.";
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: err });
+        toast({ title: "Recipient Required", description: err, variant: "destructive" });
         return;
       }
       if (!effectiveMobile || effectiveMobile.replace(/\D/g, "").length < 10) {
-        setWaSendResult({ success: false, sent: 0, failed: 1, error: "The selected player has no registered mobile number. Please enter a valid 10-digit number." });
+        const err = "The selected player has no registered mobile number. Please enter a valid 10-digit number.";
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: err });
+        toast({ title: "Mobile Required", description: err, variant: "destructive" });
         return;
       }
     } else if (waTargetType === "particular_owner") {
       if (!selectedTeamId) {
-        setWaSendResult({ success: false, sent: 0, failed: 1, error: "Please select a team owner to message." });
+        const err = "Please select a team owner to message.";
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: err });
+        toast({ title: "Team Owner Required", description: err, variant: "destructive" });
         return;
       }
       if (!effectiveMobile || effectiveMobile.replace(/\D/g, "").length < 10) {
-        setWaSendResult({ success: false, sent: 0, failed: 1, error: "The selected team owner has no registered mobile number. Please enter a valid 10-digit number." });
+        const err = "The selected team owner has no registered mobile number. Please enter a valid 10-digit number.";
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: err });
+        toast({ title: "Mobile Required", description: err, variant: "destructive" });
         return;
       }
     } else if (waTargetType === "organizer") {
       const currentT = tournaments.find((t) => String(t.id) === selectedTournamentId);
       const orgMobile = currentT?.organizerMobile || effectiveMobile;
       if (!orgMobile || orgMobile.replace(/\D/g, "").length < 10) {
-        setWaSendResult({ success: false, sent: 0, failed: 1, error: "The tournament organiser has no registered mobile number." });
+        const err = "The tournament organiser has no registered mobile number.";
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: err });
+        toast({ title: "Mobile Required", description: err, variant: "destructive" });
         return;
       }
     } else if (waTargetType === "custom") {
       if (!effectiveMobile || effectiveMobile.replace(/\D/g, "").length < 10) {
-        setWaSendResult({ success: false, sent: 0, failed: 1, error: "Please enter a valid mobile number (minimum 10 digits)" });
+        const err = "Please enter a valid mobile number (minimum 10 digits)";
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: err });
+        toast({ title: "Mobile Required", description: err, variant: "destructive" });
         return;
       }
     }
 
     if (waTemplateKey === "custom") {
       if (!waCustomText.trim()) {
-        setWaSendResult({ success: false, sent: 0, failed: 1, error: "Please enter custom message text before sending" });
+        const err = "Please enter custom message text before sending";
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: err });
+        toast({ title: "Message Required", description: err, variant: "destructive" });
         return;
       }
     } else if (selectedWaTpl?.variables && selectedWaTpl.variables.length > 0) {
@@ -1117,7 +1175,9 @@ export default function AdminCommunicationCenter() {
       if (!isAutoDbPlayerSold) {
         const missing = selectedWaTpl.variables.find((v) => !waTemplateVariables[v.key]?.trim());
         if (missing) {
-          setWaSendResult({ success: false, sent: 0, failed: 1, error: `Please provide value for variable: ${missing.label}` });
+          const err = `Please provide value for variable: ${missing.label}`;
+          setWaSendResult({ success: false, sent: 0, failed: 1, error: err });
+          toast({ title: "Missing Variable", description: err, variant: "destructive" });
           return;
         }
       }
@@ -1134,6 +1194,12 @@ export default function AdminCommunicationCenter() {
 
     let effectiveGroup: string = "custom";
     let effectiveMobile = waCustomMobile.trim();
+    if (!effectiveMobile && selectedPlayerId) {
+      const match = waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId);
+      if (match?.mobileNumber) {
+        effectiveMobile = match.mobileNumber.trim();
+      }
+    }
 
     if (waTargetType === "particular_player" || waTargetType === "particular_owner" || waTargetType === "custom") {
       effectiveGroup = "custom";
@@ -1171,29 +1237,47 @@ export default function AdminCommunicationCenter() {
       });
       const data = await r.json();
       if (r.ok && data.success) {
+        const sentCount = data.sent ?? 0;
+        const failedCount = data.failed ?? 0;
         setWaSendResult({
           success: true,
           blastId: data.blastId,
-          total: data.total ?? ((data.sent ?? 0) + (data.failed ?? 0)),
-          sent: data.sent ?? 0,
+          total: data.total ?? (sentCount + failedCount),
+          sent: sentCount,
           blocked: data.blocked ?? 0,
-          failed: data.failed ?? 0,
+          failed: failedCount,
           stub: data.stub,
           results: data.results,
+        });
+        toast({
+          title: "WhatsApp Dispatched Successfully",
+          description: `Dispatched to ${sentCount} recipient${sentCount === 1 ? "" : "s"}.`,
         });
         setShowDispatchConfirmDialog(false);
         void loadWaData();
       } else {
+        const errMsg = data.error ?? "WhatsApp Dispatch Failed";
         setWaSendResult({
           success: false,
           sent: 0,
           failed: 1,
-          error: data.error ?? "WhatsApp Dispatch Failed",
+          error: errMsg,
+        });
+        toast({
+          title: "Dispatch Failed",
+          description: errMsg,
+          variant: "destructive",
         });
         setShowDispatchConfirmDialog(false);
       }
     } catch {
-      setWaSendResult({ success: false, sent: 0, failed: 1, error: "Network error sending WhatsApp" });
+      const errMsg = "Network error sending WhatsApp";
+      setWaSendResult({ success: false, sent: 0, failed: 1, error: errMsg });
+      toast({
+        title: "Network Error",
+        description: errMsg,
+        variant: "destructive",
+      });
       setShowDispatchConfirmDialog(false);
     } finally {
       setSendingWa(false);
@@ -3079,6 +3163,11 @@ export default function AdminCommunicationCenter() {
                                   "3": sale.formattedAmount,
                                   "4": sale.tournamentName,
                                 });
+                                setSelectedPlayerId(String(sale.id));
+                                const match = waTournamentPlayers.find((p) => String(p.id) === String(sale.id) || p.name.toLowerCase() === sale.playerName.toLowerCase());
+                                if (match?.mobileNumber) {
+                                  setWaCustomMobile(match.mobileNumber);
+                                }
                               }
                             }
                           }}
@@ -3140,9 +3229,20 @@ export default function AdminCommunicationCenter() {
                       <p>Business messages automatically append the required opt-out instruction ("Reply STOP to unsubscribe").</p>
                     </div>
 
+                    {/* Inline error notice right above the send button */}
+                    {waSendResult && !waSendResult.success && (
+                      <div className="p-3 rounded-lg border border-red-500/50 bg-red-500/10 text-xs text-red-200 flex items-start gap-2.5 animate-in fade-in duration-200">
+                        <XCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                        <div className="space-y-0.5">
+                          <p className="font-semibold text-red-300">Action Required</p>
+                          <p className="text-[11px] text-red-200/90 leading-relaxed">{waSendResult.error}</p>
+                        </div>
+                      </div>
+                    )}
+
                     <Button
                       type="button"
-                      className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                      className="w-full gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white shadow-md hover:shadow-lg transition-all text-sm font-semibold py-2.5 cursor-pointer"
                       disabled={waSending}
                       onClick={handleSendWa}
                     >
