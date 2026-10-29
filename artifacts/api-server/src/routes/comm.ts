@@ -43,6 +43,9 @@ import {
   META_AUCTION_PLAYER_SOLD_TEMPLATE,
   META_AUCTION_PLAYER_SOLD_LANGUAGE,
   META_AUCTION_PLAYER_SOLD_CATEGORY,
+  META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE,
+  META_ORGANISER_ONBOARDING_WELCOME_LANGUAGE,
+  META_ORGANISER_ONBOARDING_WELCOME_CATEGORY,
 } from "../lib/whatsapp";
 import { generateAndHostPlayerSoldPoster } from "../lib/poster/player-sold-poster-service.js";
 import {
@@ -92,6 +95,20 @@ export const CANONICAL_WA_TEMPLATES: Record<string, CanonicalWaTemplate> = {
       { key: "4", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
     ],
     sampleArgs: ["Virat Kohli", "Royal Challengers", "₹25,00,000", "Premier League 2026"],
+  },
+  organiser_onboarding_welcome: {
+    templateName: META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE,
+    title: "🏏 Organiser Onboarding Welcome",
+    category: "marketing",
+    description: "Meta-approved onboarding welcome message sent to tournament organisers upon registration or manually via admin",
+    language: "en",
+    headerType: "none",
+    metaApproved: true,
+    body: "🏏 Welcome to BIDWAR, {{1}}!\n\nThank you for joining BIDWAR as a Tournament Organiser.\n\nBIDWAR helps you manage your tournament activities, including team registration, fixtures, live scoring and player auctions — all in one place.\n\nWe're excited to be part of your sporting journey!\n\nNeed help getting started? Our team is here to assist you.\n\nBIDWAR | From Auction to Champions",
+    variables: [
+      { key: "1", label: "Organiser Name", placeholder: "e.g. Rajesh" },
+    ],
+    sampleArgs: ["Rajesh"],
   },
   player_sold: {
     templateName: META_AUCTION_PLAYER_SOLD_TEMPLATE,
@@ -175,32 +192,33 @@ export async function ensureCanonicalTemplatesSeeded(): Promise<void> {
     const existingMap = new Map(existingList.map((t) => [t.templateName, t.status]));
 
     // 1. Ensure the genuine Meta-approved template exists and has approved status
-    const approvedTpl = VERIFIED_APPROVED_TEMPLATES[META_AUCTION_PLAYER_SOLD_TEMPLATE];
-    if (!existingMap.has(META_AUCTION_PLAYER_SOLD_TEMPLATE)) {
-      if (typeof db?.insert === "function") {
-        await db
-          .insert(waTemplatesTable)
-          .values({
-            templateName: META_AUCTION_PLAYER_SOLD_TEMPLATE,
-            category: approvedTpl.category,
-            description: approvedTpl.description,
-            status: "approved",
-          })
-          .onConflictDoNothing();
-      }
-    } else if (existingMap.get(META_AUCTION_PLAYER_SOLD_TEMPLATE) !== "approved") {
-      if (typeof db?.update === "function") {
-        try {
+    // 1. Ensure genuine Meta-approved templates exist and have approved status
+    for (const approvedTpl of Object.values(VERIFIED_APPROVED_TEMPLATES)) {
+      if (!existingMap.has(approvedTpl.templateName)) {
+        if (typeof db?.insert === "function") {
           await db
-            .update(waTemplatesTable)
-            .set({ status: "approved" })
-            .where(eq(waTemplatesTable.templateName, META_AUCTION_PLAYER_SOLD_TEMPLATE));
-        } catch {
-          // Non-fatal
+            .insert(waTemplatesTable)
+            .values({
+              templateName: approvedTpl.templateName,
+              category: approvedTpl.category,
+              description: approvedTpl.description,
+              status: "approved",
+            })
+            .onConflictDoNothing();
+        }
+      } else if (existingMap.get(approvedTpl.templateName) !== "approved") {
+        if (typeof db?.update === "function") {
+          try {
+            await db
+              .update(waTemplatesTable)
+              .set({ status: "approved" })
+              .where(eq(waTemplatesTable.templateName, approvedTpl.templateName));
+          } catch {
+            // Non-fatal
+          }
         }
       }
     }
-
     // 2. Data Safety: Do NOT delete historical records, but normalize any dev templates
     // that were previously hardcoded as "approved" back to "unapproved" / "duplicate"
     for (const [devName, devTpl] of Object.entries(DEV_UNAPPROVED_TEMPLATES)) {
@@ -279,6 +297,9 @@ function normalizeCommTemplateName(name: string | undefined | null): string | nu
   const key = name.trim().toLowerCase().replace(/[\s-]+/g, "_");
   if (key === "player_sold" || key === "playersold" || key === "auction_player_sold") {
     return META_AUCTION_PLAYER_SOLD_TEMPLATE;
+  }
+  if (key === "organizer_onboarding_welcome" || key === "organiser_onboarding_welcome") {
+    return META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE;
   }
   return name.trim();
 }
@@ -688,7 +709,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   }
 
   // Early recipient validation for manual/custom before DB queries
-  if (d.recipientGroup === "manual" || d.recipientGroup === "custom") {
+  if (d.recipientGroup === "manual" || d.recipientGroup === "custom" || (d.recipientGroup === "organizer" && (Boolean(d.customMobile) || Boolean(d.manualMobiles)))) {
     const rawMobiles: string[] = [];
     if (typeof d.customMobile === "string" && d.customMobile.trim()) {
       rawMobiles.push(d.customMobile.trim());
@@ -960,30 +981,33 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   // All WhatsApp sends (including manual/custom) require a tournamentId so the
   // license can be verified; no anonymous/license-free WA blasts allowed.
   if (d.channel === "whatsapp" || d.channel === "both") {
-    if (!d.tournamentId) {
+    const isPlatformOnboarding = canonicalTemplate === META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE;
+    if (!d.tournamentId && !isPlatformOnboarding) {
       res.status(400).json({ error: "tournamentId is required for WhatsApp sends to enforce license gating" });
       return;
     }
-    const [t] = await db
-      .select({
-        licenseStatus: tournamentsTable.licenseStatus,
-        adminLocked: tournamentsTable.adminLocked,
-        scoringEnabled: tournamentsTable.scoringEnabled,
-        scoringPhase: tournamentsTable.scoringPhase,
-        licenseGrantedAt: tournamentsTable.licenseGrantedAt,
-        featuresJson: tournamentsTable.featuresJson,
-      })
-      .from(tournamentsTable)
-      .where(eq(tournamentsTable.id, d.tournamentId));
-    if (!t) { res.status(404).json({ error: "Tournament not found" }); return; }
-    if (!isTournamentLicensedForComm(t)) {
-      const rawFeatures = t.featuresJson;
-      const features = rawFeatures ? resolveTournamentFeatures(rawFeatures) : null;
-      const errMsg = features?.whatsappNotifications === false
-        ? "WhatsApp messaging has been disabled for this tournament by an administrator"
-        : "WhatsApp messaging requires a live license and unlocked tournament";
-      res.status(403).json({ error: errMsg });
-      return;
+    if (d.tournamentId) {
+      const [t] = await db
+        .select({
+          licenseStatus: tournamentsTable.licenseStatus,
+          adminLocked: tournamentsTable.adminLocked,
+          scoringEnabled: tournamentsTable.scoringEnabled,
+          scoringPhase: tournamentsTable.scoringPhase,
+          licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+          featuresJson: tournamentsTable.featuresJson,
+        })
+        .from(tournamentsTable)
+        .where(eq(tournamentsTable.id, d.tournamentId));
+      if (!t) { res.status(404).json({ error: "Tournament not found" }); return; }
+      if (!isTournamentLicensedForComm(t)) {
+        const rawFeatures = t.featuresJson;
+        const features = rawFeatures ? resolveTournamentFeatures(rawFeatures) : null;
+        const errMsg = features?.whatsappNotifications === false
+          ? "WhatsApp messaging has been disabled for this tournament by an administrator"
+          : "WhatsApp messaging requires a live license and unlocked tournament";
+        res.status(403).json({ error: errMsg });
+        return;
+      }
     }
   }
 
@@ -992,7 +1016,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   const recipients: Recipient[] = [];
   const seenRecipients = new Set<string>();
 
-  if (d.recipientGroup === "manual" || d.recipientGroup === "custom") {
+  if (d.recipientGroup === "manual" || d.recipientGroup === "custom" || (d.recipientGroup === "organizer" && (Boolean(d.customMobile) || Boolean(d.manualMobiles)))) {
     const rawMobiles: string[] = [];
     if (typeof d.customMobile === "string" && d.customMobile.trim()) {
       rawMobiles.push(d.customMobile.trim());
@@ -1119,6 +1143,42 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         });
       }
     }
+  } else if (d.recipientGroup === "organizer") {
+    if (d.tournamentId) {
+      const [t] = await db.select({ organizerMobile: tournamentsTable.organizerMobile, organizerId: tournamentsTable.organizerId }).from(tournamentsTable).where(eq(tournamentsTable.id, d.tournamentId));
+      if (t?.organizerMobile) {
+        let orgConsent = false;
+        if (t.organizerId) {
+          const [org] = await db.select({ whatsappConsent: organizersTable.whatsappConsent })
+            .from(organizersTable).where(eq(organizersTable.id, t.organizerId));
+          orgConsent = org?.whatsappConsent ?? false;
+        }
+        const isRevoked = await isMobileRevoked(t.organizerMobile);
+        const normKey = t.organizerMobile.replace(/\D/g, "").replace(/^0/, "91");
+        if (!seenRecipients.has(normKey)) {
+          seenRecipients.add(normKey);
+          recipients.push({ mobile: t.organizerMobile, recipientType: "organizer", recipientId: t.organizerId, whatsappConsent: Boolean(orgConsent && !isRevoked) });
+        }
+      }
+    } else if (d.customMobile) {
+      const normResult = validateAndNormalizeMobile(d.customMobile);
+      if (normResult.valid && normResult.normalized) {
+        const mobile = normResult.normalized;
+        const norm = mobile.replace(/\D/g, "").replace(/^0/, "91");
+        const tenDigit = norm.length === 12 && norm.startsWith("91") ? norm.slice(2) : norm;
+        const orgRows = await db.select({ id: organizersTable.id, whatsappConsent: organizersTable.whatsappConsent })
+          .from(organizersTable)
+          .where(or(eq(organizersTable.mobile, mobile), eq(organizersTable.mobile, norm), eq(organizersTable.mobile, tenDigit)));
+        const org = Array.isArray(orgRows) ? orgRows[0] : null;
+        const isRevoked = await isMobileRevoked(mobile);
+        recipients.push({
+          mobile,
+          recipientType: "organizer",
+          recipientId: org?.id ?? null,
+          whatsappConsent: Boolean((org?.whatsappConsent ?? true) && !isRevoked),
+        });
+      }
+    }
   } else if (d.tournamentId) {
     const tid = d.tournamentId;
     if (d.recipientGroup === "all_players" || d.recipientGroup === "sold_players" || d.recipientGroup === "unsold_players") {
@@ -1148,23 +1208,6 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
             const isRevoked = await isMobileRevoked(t.ownerMobile);
             recipients.push({ mobile: t.ownerMobile, recipientType: "team_owner", recipientId: t.id, whatsappConsent: Boolean(t.whatsappConsent && !isRevoked) });
           }
-        }
-      }
-    } else if (d.recipientGroup === "organizer") {
-      const [t] = await db.select({ organizerMobile: tournamentsTable.organizerMobile, organizerId: tournamentsTable.organizerId }).from(tournamentsTable).where(eq(tournamentsTable.id, tid));
-      if (t?.organizerMobile) {
-        // Look up organizer's actual WhatsApp consent
-        let orgConsent = false;
-        if (t.organizerId) {
-          const [org] = await db.select({ whatsappConsent: organizersTable.whatsappConsent })
-            .from(organizersTable).where(eq(organizersTable.id, t.organizerId));
-          orgConsent = org?.whatsappConsent ?? false;
-        }
-        const isRevoked = await isMobileRevoked(t.organizerMobile);
-        const normKey = t.organizerMobile.replace(/\D/g, "").replace(/^0/, "91");
-        if (!seenRecipients.has(normKey)) {
-          seenRecipients.add(normKey);
-          recipients.push({ mobile: t.organizerMobile, recipientType: "organizer", recipientId: t.organizerId, whatsappConsent: Boolean(orgConsent && !isRevoked) });
         }
       }
     }
@@ -1263,15 +1306,27 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           ];
         }
 
+        const isOrgWelcome = canonicalTemplate === META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE;
+        if (isOrgWelcome && !templateComponents) {
+          const suppliedVars = d.templateVariables ?? {};
+          const var1 = suppliedVars["1"] ?? suppliedVars["Organiser Name"] ?? suppliedVars["Organizer Name"] ?? "Organiser";
+          templateComponents = [
+            {
+              type: "body" as const,
+              parameters: [{ type: "text" as const, text: var1 }],
+            },
+          ];
+        }
+
         const waResult = await sendWhatsApp(
           r.mobile,
           d.messageContent,
           resolvedTemplateSid,
-          isSoldTmpl
+          (isSoldTmpl || isOrgWelcome)
             ? {
                 type: "template",
-                templateName: META_AUCTION_PLAYER_SOLD_TEMPLATE,
-                templateLanguage: META_AUCTION_PLAYER_SOLD_LANGUAGE,
+                templateName: isSoldTmpl ? META_AUCTION_PLAYER_SOLD_TEMPLATE : META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE,
+                templateLanguage: isSoldTmpl ? META_AUCTION_PLAYER_SOLD_LANGUAGE : META_ORGANISER_ONBOARDING_WELCOME_LANGUAGE,
                 templateComponents,
               }
             : undefined,
@@ -1436,7 +1491,7 @@ router.get("/auth/admin/communicate/templates", async (req, res) => {
     return {
       id: t.id,
       templateName: t.templateName,
-      metaTemplateName: isAllowlisted ? META_AUCTION_PLAYER_SOLD_TEMPLATE : (devTpl?.metaTemplateName || null),
+      metaTemplateName: isAllowlisted ? (verifiedTpl?.metaTemplateName || t.templateName) : (devTpl?.metaTemplateName || null),
       templateSid: t.templateSid,
       category: verifiedTpl?.category || t.category || canonical?.category || "utility",
       description: verifiedTpl?.description || devTpl?.description || t.description || canonical?.description || "",

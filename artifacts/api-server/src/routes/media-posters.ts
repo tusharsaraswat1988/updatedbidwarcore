@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import {
   getPlayerSoldPosterBufferByToken,
+  resolveAuthoritativeSaleData,
 } from "../lib/poster/player-sold-poster-service.js";
 import { generatePlayerSoldPosterBuffer } from "../lib/poster/player-sold-poster-generator.js";
 import { logger } from "../lib/logger.js";
@@ -9,29 +10,64 @@ const router = Router();
 
 /**
  * GET /api/media/player-sold-poster/preview.png
- * Generates an illustrative sample Player Sold poster on-demand.
- * Supports query parameters (?name=...&team=...&price=...&tournament=...)
+ * Generates an authoritative Player Sold poster on-demand with photos, logos, and sport branding.
+ * Supports query parameters (?playerId=...&name=...&team=...&price=...&tournament=...)
+ * Explicitly sends no-cache headers to prevent proxy/browser serving stale cached previews.
  * Note: Must be registered BEFORE /:token.png so "preview" is not captured as a token.
  */
 router.get("/media/player-sold-poster/preview.png", async (req: Request, res: Response) => {
   try {
-    const playerName = String(req.query.name || "Virat Kohli");
-    const teamName = String(req.query.team || "Royal Challengers");
-    const tournamentName = String(req.query.tournament || "Premier League 2026");
-    const amount = Number(req.query.price || 2500000);
-    const role = String(req.query.role || "Top-Order Batter");
+    const playerId = req.query.playerId ? Number(req.query.playerId) : undefined;
+    const teamId = req.query.teamId ? Number(req.query.teamId) : undefined;
+    const tournamentId = req.query.tournamentId ? Number(req.query.tournamentId) : 0;
+    const playerName = req.query.name ? String(req.query.name) : undefined;
+    const teamName = req.query.team ? String(req.query.team) : undefined;
+    const tournamentName = req.query.tournament ? String(req.query.tournament) : undefined;
+    const amount = req.query.price ? Number(req.query.price) : 0;
+    const role = req.query.role ? String(req.query.role) : undefined;
+    const sport = req.query.sport ? String(req.query.sport) : undefined;
+    const photoUrl = req.query.photoUrl ? String(req.query.photoUrl) : undefined;
+    const logoUrl = req.query.logoUrl ? String(req.query.logoUrl) : undefined;
+    const shortCode = req.query.shortCode ? String(req.query.shortCode) : undefined;
+    const color = req.query.color ? String(req.query.color) : undefined;
+    const auctionUnit = req.query.unit === "points" ? "points" : "rupee";
+
+    // Authoritative DB lookup resolves actual player photograph, team logo, color & sport
+    const authoritative = await resolveAuthoritativeSaleData({
+      tournamentId,
+      playerId,
+      playerName,
+      playerPhotoUrl: photoUrl,
+      playerRole: role,
+      teamId,
+      teamName,
+      teamLogoUrl: logoUrl,
+      teamShortCode: shortCode,
+      teamColor: color,
+      amount,
+      auctionUnit,
+      tournamentName,
+      tournamentSport: sport,
+    });
 
     const buffer = await generatePlayerSoldPosterBuffer({
-      playerName,
-      playerRole: role,
-      teamName,
-      amount,
-      tournamentName,
-      tournamentSport: "Cricket",
+      playerName: authoritative.playerName,
+      playerPhotoUrl: authoritative.playerPhotoUrl,
+      playerRole: authoritative.playerRole,
+      teamName: authoritative.teamName,
+      teamLogoUrl: authoritative.teamLogoUrl,
+      teamShortCode: authoritative.teamShortCode,
+      teamColor: authoritative.teamColor,
+      amount: authoritative.amount,
+      auctionUnit: authoritative.auctionUnit,
+      tournamentName: authoritative.tournamentName,
+      tournamentSport: authoritative.tournamentSport,
     });
 
     res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     res.send(buffer);
   } catch (err) {
     logger.error({ err }, "Error generating preview poster");

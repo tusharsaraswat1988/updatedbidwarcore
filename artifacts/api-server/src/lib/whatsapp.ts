@@ -8,6 +8,10 @@ export const META_AUCTION_PLAYER_SOLD_TEMPLATE = "auction_player_sold";
 export const META_AUCTION_PLAYER_SOLD_LANGUAGE = "en";
 export const META_AUCTION_PLAYER_SOLD_CATEGORY = "utility";
 
+export const META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE = "organiser_onboarding_welcome";
+export const META_ORGANISER_ONBOARDING_WELCOME_LANGUAGE = "en";
+export const META_ORGANISER_ONBOARDING_WELCOME_CATEGORY = "marketing";
+
 import {
   resolvePlayerSoldImageUrl,
   isValidHttpUrl,
@@ -17,9 +21,14 @@ export { resolvePlayerSoldImageUrl, isValidHttpUrl, generateAndHostPlayerSoldPos
 
 // In-memory idempotency cache (10-minute TTL) to prevent duplicate event dispatches from retries
 const recentPlayerSoldIdempotency = new Map<string, number>();
+const recentOrganiserWelcomeIdempotency = new Map<string, number>();
 
 export function clearPlayerSoldIdempotencyCache(): void {
   recentPlayerSoldIdempotency.clear();
+}
+
+export function clearOrganiserWelcomeIdempotencyCache(): void {
+  recentOrganiserWelcomeIdempotency.clear();
 }
 
 export function buildPlayerSoldIdempotencyKey(opts: {
@@ -356,4 +365,126 @@ export async function notifyPlayerReAuction(opts: {
   }
 
   return result;
+}
+
+export async function notifyOrganiserOnboardingWelcome(opts: {
+  mobile: string | null;
+  organizerId?: number | null;
+  name: string;
+  whatsappConsent?: boolean | null;
+  idempotencyKey?: string | null;
+}): Promise<SendResult & { blocked?: boolean }> {
+  if (!opts.mobile || !opts.mobile.trim()) {
+    return { success: false, blocked: true, error: "Missing recipient mobile number" };
+  }
+
+  const name = opts.name?.trim() || "Organiser";
+  const normMobile = opts.mobile.replace(/\D/g, "");
+  const idempotencyKey = opts.idempotencyKey || `org_welcome:${opts.organizerId ?? name}:${normMobile}`;
+
+  const lastSent = recentOrganiserWelcomeIdempotency.get(idempotencyKey);
+  if (lastSent && Date.now() - lastSent < 600_000) {
+    logger.info(
+      { idempotencyKey, organizerId: opts.organizerId, to: maskPhoneNumber(opts.mobile) },
+      "notifyOrganiserOnboardingWelcome: Duplicate welcome suppressed by idempotency guard",
+    );
+    return {
+      success: true,
+      blocked: true,
+      stub: true,
+      messageSid: "suppressed_duplicate_idempotency",
+      error: "Duplicate organiser welcome notification suppressed",
+    };
+  }
+
+  // Meta-approved exact template body copy
+  const msg =
+    `🏏 Welcome to BIDWAR, ${name}!\n\n` +
+    `Thank you for joining BIDWAR as a Tournament Organiser.\n\n` +
+    `BIDWAR helps you manage your tournament activities, including team registration, fixtures, live scoring and player auctions — all in one place.\n\n` +
+    `We're excited to be part of your sporting journey!\n\n` +
+    `Need help getting started? Our team is here to assist you.\n\n` +
+    `BIDWAR | From Auction to Champions`;
+
+  // Meta Cloud API template components matching approved template specification ({{1}} = Organiser Name)
+  const templateComponents = [
+    {
+      type: "body" as const,
+      parameters: [
+        { type: "text" as const, text: name },
+      ],
+    },
+  ];
+
+  try {
+    const result = await dispatchPushWhatsApp({
+      event: "organiser_onboarding_welcome",
+      tournamentId: null,
+      mobile: opts.mobile,
+      body: msg,
+      recipientConsent: opts.whatsappConsent,
+      templateName: META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE,
+      templateLanguage: META_ORGANISER_ONBOARDING_WELCOME_LANGUAGE,
+      templateComponents,
+    });
+
+    if (result.success) {
+      recentOrganiserWelcomeIdempotency.set(idempotencyKey, Date.now());
+    }
+
+    try {
+      if (typeof db?.insert === "function") {
+        await db.insert(commLogsTable).values({
+          tournamentId: null,
+          recipientType: "organizer",
+          recipientId: opts.organizerId ?? null,
+          recipientMobile: opts.mobile,
+          channel: "whatsapp",
+          templateName: META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE,
+          messageContent: msg,
+          sentByAdminId: null,
+          blastId: idempotencyKey,
+          deliveryStatus: result.success ? "sent" : "failed",
+          metaMessageId: result.messageSid ?? null,
+          errorMessage: result.success ? null : (result.error ?? "Dispatch blocked by policy"),
+        });
+      }
+    } catch (logErr) {
+      logger.warn(
+        { err: logErr, organizerId: opts.organizerId },
+        "notifyOrganiserOnboardingWelcome: Failed to write audit record to commLogsTable (non-fatal)",
+      );
+    }
+
+    return result;
+  } catch (err: any) {
+    logger.error(
+      { err, organizerId: opts.organizerId, to: maskPhoneNumber(opts.mobile) },
+      "notifyOrganiserOnboardingWelcome: Unexpected failure in WhatsApp dispatch",
+    );
+    try {
+      if (typeof db?.insert === "function") {
+        await db.insert(commLogsTable).values({
+          tournamentId: null,
+          recipientType: "organizer",
+          recipientId: opts.organizerId ?? null,
+          recipientMobile: opts.mobile,
+          channel: "whatsapp",
+          templateName: META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE,
+          messageContent: msg,
+          sentByAdminId: null,
+          blastId: idempotencyKey,
+          deliveryStatus: "failed",
+          metaMessageId: null,
+          errorMessage: err?.message ?? "Unexpected failure in WhatsApp dispatch",
+        });
+      }
+    } catch {
+      // Non-fatal
+    }
+    return {
+      success: false,
+      error: err?.message ?? "Failed to send WhatsApp organiser onboarding welcome",
+    };
+  }
 }

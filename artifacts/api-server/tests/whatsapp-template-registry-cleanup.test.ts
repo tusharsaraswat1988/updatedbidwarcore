@@ -19,6 +19,11 @@ import {
   META_AUCTION_PLAYER_SOLD_TEMPLATE,
   META_AUCTION_PLAYER_SOLD_LANGUAGE,
   META_AUCTION_PLAYER_SOLD_CATEGORY,
+  META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE,
+  META_ORGANISER_ONBOARDING_WELCOME_LANGUAGE,
+  META_ORGANISER_ONBOARDING_WELCOME_CATEGORY,
+  notifyOrganiserOnboardingWelcome,
+  clearOrganiserWelcomeIdempotencyCache,
 } from "../src/lib/whatsapp";
 import {
   getWhatsAppProvider,
@@ -77,14 +82,18 @@ describe("BIDWAR — WhatsApp Template Registry Cleanup & Approved-Only Admin UI
   // 1. Audit & Template Registry Truthfulness
   // ───────────────────────────────────────────────────────────────────────────
   describe("1. Audit & Template Registry Truthfulness", () => {
-    it("allowlist contains ONLY 'auction_player_sold' as confirmed Meta-approved template", () => {
+    it("allowlist contains confirmed Meta-approved templates ('auction_player_sold' and 'organiser_onboarding_welcome')", () => {
       expect(BIDWAR_APPROVED_TEMPLATE_ALLOWLIST.has("auction_player_sold")).toBe(true);
-      expect(BIDWAR_APPROVED_TEMPLATE_ALLOWLIST.size).toBe(1);
+      expect(BIDWAR_APPROVED_TEMPLATE_ALLOWLIST.has("organiser_onboarding_welcome")).toBe(true);
+      expect(BIDWAR_APPROVED_TEMPLATE_ALLOWLIST.size).toBe(2);
     });
 
-    it("isMetaApprovedTemplate returns true ONLY for canonical auction_player_sold", () => {
+    it("isMetaApprovedTemplate returns true for canonical approved templates", () => {
       expect(isMetaApprovedTemplate("auction_player_sold")).toBe(true);
       expect(isMetaApprovedTemplate("AUCTION_PLAYER_SOLD")).toBe(true);
+      expect(isMetaApprovedTemplate("organiser_onboarding_welcome")).toBe(true);
+      expect(isMetaApprovedTemplate("organizer_onboarding_welcome")).toBe(true);
+      expect(isMetaApprovedTemplate("ORGANISER_ONBOARDING_WELCOME")).toBe(true);
       // Duplicate aliases, dev placeholders, unapproved templates, and custom messages are strictly false
       expect(isMetaApprovedTemplate("player_sold")).toBe(false);
       expect(isMetaApprovedTemplate("welcome_invite")).toBe(false);
@@ -95,6 +104,24 @@ describe("BIDWAR — WhatsApp Template Registry Cleanup & Approved-Only Admin UI
       expect(isMetaApprovedTemplate("unknown_template")).toBe(false);
       expect(isMetaApprovedTemplate(null)).toBe(false);
       expect(isMetaApprovedTemplate(undefined)).toBe(false);
+    });
+
+    it("preserves exact Meta configuration for organiser_onboarding_welcome", () => {
+      const tpl = VERIFIED_APPROVED_TEMPLATES[META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE];
+      expect(tpl).toBeDefined();
+      expect(tpl.metaTemplateName).toBe("organiser_onboarding_welcome");
+      expect(tpl.language).toBe(META_ORGANISER_ONBOARDING_WELCOME_LANGUAGE);
+      expect(tpl.category).toBe(META_ORGANISER_ONBOARDING_WELCOME_CATEGORY);
+      expect(tpl.headerType).toBe("none");
+      expect(tpl.status).toBe("approved");
+      expect(tpl.metaApproved).toBe(true);
+      expect(tpl.isUsableInBidwar).toBe(true);
+      expect(tpl.variables).toEqual([
+        { key: "1", label: "Organiser Name", placeholder: "e.g. Rajesh" },
+      ]);
+      expect(tpl.body).toContain("🏏 Welcome to BIDWAR, {{1}}!");
+      expect(tpl.body).toContain("Thank you for joining BIDWAR as a Tournament Organiser.");
+      expect(tpl.body).toContain("BIDWAR | From Auction to Champions");
     });
 
     it("preserves exact Meta configuration for auction_player_sold", () => {
@@ -152,10 +179,14 @@ describe("BIDWAR — WhatsApp Template Registry Cleanup & Approved-Only Admin UI
   // 2. Dispatch Eligibility Validation
   // ───────────────────────────────────────────────────────────────────────────
   describe("2. Dispatch Eligibility Validation", () => {
-    it("approves auction_player_sold for dispatch", () => {
-      const res = validateTemplateDispatchEligibility("auction_player_sold");
-      expect(res.eligible).toBe(true);
-      expect(res.canonicalName).toBe("auction_player_sold");
+    it("approves auction_player_sold and organiser_onboarding_welcome for dispatch", () => {
+      const resSold = validateTemplateDispatchEligibility("auction_player_sold");
+      expect(resSold.eligible).toBe(true);
+      expect(resSold.canonicalName).toBe("auction_player_sold");
+
+      const resWelcome = validateTemplateDispatchEligibility("organiser_onboarding_welcome");
+      expect(resWelcome.eligible).toBe(true);
+      expect(resWelcome.canonicalName).toBe("organiser_onboarding_welcome");
     });
 
     it("rejects unapproved development placeholders with explicit error", () => {
@@ -210,7 +241,7 @@ describe("BIDWAR — WhatsApp Template Registry Cleanup & Approved-Only Admin UI
       const res = await request(app).get("/auth/admin/communicate/templates?approved_only=true");
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
-      // Only auction_player_sold should be returned
+      // Both Meta-approved templates should be returned when present
       expect(res.body).toHaveLength(1);
       expect(res.body[0].templateName).toBe("auction_player_sold");
       expect(res.body[0].metaApproved).toBe(true);
@@ -486,6 +517,155 @@ describe("BIDWAR — WhatsApp Template Registry Cleanup & Approved-Only Admin UI
       expect(bodyComp?.parameters[1].text).toBe("Mumbai Indians");
       expect(bodyComp?.parameters[2].text).toBe("₹16,00,000");
       expect(bodyComp?.parameters[3].text).toBe("IPL 2026");
+    });
+
+    it("successfully dispatches canonical organiser_onboarding_welcome without requiring tournamentId", async () => {
+      vi.spyOn(db, "select").mockImplementation((() => ({
+        from: vi.fn().mockImplementation((table: any) => {
+          if (table === waConsentEventsTable) {
+            return {
+              where: vi.fn().mockReturnValue({
+                orderBy: vi.fn().mockReturnValue({
+                  limit: vi.fn().mockResolvedValue([]),
+                }),
+              }),
+            };
+          }
+          if (table === waTemplatesTable) {
+            return {
+              where: vi.fn().mockResolvedValue([
+                { templateName: "organiser_onboarding_welcome", status: "approved" },
+              ]),
+            };
+          }
+          return {
+            where: vi.fn().mockImplementation(() => ({
+              limit: vi.fn().mockResolvedValue([{ id: 1, mobile: "9876543210", whatsappConsent: true }]),
+              then: (r: any) => Promise.resolve([{ id: 1, mobile: "9876543210", whatsappConsent: true }]).then(r),
+            })),
+          };
+        }),
+      })) as any);
+
+      vi.spyOn(db, "insert").mockReturnValue({
+        values: vi.fn().mockReturnValue({
+          onConflictDoNothing: vi.fn().mockResolvedValue({}),
+        }),
+      } as any);
+
+      const res = await request(app)
+        .post("/auth/admin/communicate/send")
+        .send({
+          channel: "whatsapp",
+          recipientGroup: "organizer",
+          customMobile: "9876543210",
+          templateName: "organiser_onboarding_welcome",
+          templateVariables: {
+            "1": "Rajesh Kumar",
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.sent).toBe(1);
+
+      const sent = mockProvider.getSentMessages();
+      expect(sent).toHaveLength(1);
+      expect(sent[0].to).toBe("9876543210");
+      expect(sent[0].type).toBe("template");
+      expect(sent[0].templateName).toBe("organiser_onboarding_welcome");
+      expect(sent[0].templateLanguage).toBe("en");
+
+      const bodyComp = sent[0].templateComponents?.find((c: any) => c.type === "body");
+      expect(bodyComp).toBeDefined();
+      expect(bodyComp?.parameters).toHaveLength(1);
+      expect(bodyComp?.parameters[0].text).toBe("Rajesh Kumar");
+    });
+  });
+
+  describe("5. Dedicated notifyOrganiserOnboardingWelcome Service Helper", () => {
+    it("successfully sends organiser onboarding welcome with single body parameter {{1}}", async () => {
+      clearOrganiserWelcomeIdempotencyCache();
+      vi.spyOn(db, "select").mockImplementation((() => ({
+        from: vi.fn().mockImplementation((table: any) => {
+          if (table === waConsentEventsTable) {
+            return {
+              where: vi.fn().mockReturnValue({
+                orderBy: vi.fn().mockReturnValue({
+                  limit: vi.fn().mockResolvedValue([]),
+                }),
+              }),
+            };
+          }
+          return { where: vi.fn().mockResolvedValue([]) };
+        }),
+      })) as any);
+      vi.spyOn(db, "insert").mockReturnValue({
+        values: vi.fn().mockResolvedValue({}),
+      } as any);
+
+      const result = await notifyOrganiserOnboardingWelcome({
+        organizerId: 42,
+        name: "Vikram Malhotra",
+        mobile: "9876543210",
+        whatsappConsent: true,
+      });
+
+      expect(result.success).toBe(true);
+
+      const sent = mockProvider.getSentMessages();
+      expect(sent).toHaveLength(1);
+      expect(sent[0].to).toBe("9876543210");
+      expect(sent[0].type).toBe("template");
+      expect(sent[0].templateName).toBe("organiser_onboarding_welcome");
+      expect(sent[0].templateLanguage).toBe("en");
+      expect(sent[0].textBody).toContain("Welcome to BIDWAR, Vikram Malhotra!");
+      expect(sent[0].textBody).toContain("Thank you for joining BIDWAR as a Tournament Organiser.");
+
+      const bodyComp = sent[0].templateComponents?.find((c: any) => c.type === "body");
+      expect(bodyComp).toBeDefined();
+      expect(bodyComp?.parameters[0].text).toBe("Vikram Malhotra");
+    });
+
+    it("suppresses duplicate sends using in-memory idempotency guard", async () => {
+      clearOrganiserWelcomeIdempotencyCache();
+      vi.spyOn(db, "select").mockImplementation((() => ({
+        from: vi.fn().mockImplementation((table: any) => {
+          if (table === waConsentEventsTable) {
+            return {
+              where: vi.fn().mockReturnValue({
+                orderBy: vi.fn().mockReturnValue({
+                  limit: vi.fn().mockResolvedValue([]),
+                }),
+              }),
+            };
+          }
+          return { where: vi.fn().mockResolvedValue([]) };
+        }),
+      })) as any);
+      vi.spyOn(db, "insert").mockReturnValue({
+        values: vi.fn().mockResolvedValue({}),
+      } as any);
+
+      const first = await notifyOrganiserOnboardingWelcome({
+        organizerId: 42,
+        name: "Vikram Malhotra",
+        mobile: "9876543210",
+        whatsappConsent: true,
+      });
+      expect(first.success).toBe(true);
+
+      const second = await notifyOrganiserOnboardingWelcome({
+        organizerId: 42,
+        name: "Vikram Malhotra",
+        mobile: "9876543210",
+        whatsappConsent: true,
+      });
+      expect(second.success).toBe(true);
+      expect(second.messageSid).toBe("suppressed_duplicate_idempotency");
+
+      // Provider was only called once
+      expect(mockProvider.getSentMessages()).toHaveLength(1);
     });
   });
 });

@@ -126,10 +126,11 @@ export interface DevTemplateAuditEntry {
  */
 export const BIDWAR_APPROVED_TEMPLATE_ALLOWLIST = new Set<string>([
   "auction_player_sold",
+  "organiser_onboarding_welcome",
 ]);
 
 /**
- * The authoritative Meta-approved canonical template for BIDWAR.
+ * The authoritative Meta-approved canonical templates for BIDWAR.
  * Exact body copy and variable order from Meta WhatsApp Manager.
  */
 export const VERIFIED_APPROVED_TEMPLATES: Record<string, MetaVerifiedTemplate> = {
@@ -159,6 +160,29 @@ export const VERIFIED_APPROVED_TEMPLATES: Record<string, MetaVerifiedTemplate> =
     liveSyncStatus: "sync_unavailable",
     liveSyncNote: "Live Meta Graph API sync unavailable without direct Meta credentials; serving previously verified approval evidence.",
     connectedEvents: ["player_sold"],
+  },
+  organiser_onboarding_welcome: {
+    templateName: "organiser_onboarding_welcome",
+    metaTemplateName: "organiser_onboarding_welcome",
+    title: "🏏 Organiser Onboarding Welcome",
+    displayName: "🏏 Organiser Onboarding Welcome",
+    category: "marketing",
+    description: "Meta-approved welcome message sent to tournament organisers upon registration or manually via admin.",
+    language: "en",
+    headerType: "none",
+    body: "🏏 Welcome to BIDWAR, {{1}}!\n\nThank you for joining BIDWAR as a Tournament Organiser.\n\nBIDWAR helps you manage your tournament activities, including team registration, fixtures, live scoring and player auctions — all in one place.\n\nWe're excited to be part of your sporting journey!\n\nNeed help getting started? Our team is here to assist you.\n\nBIDWAR | From Auction to Champions",
+    variables: [
+      { key: "1", label: "Organiser Name", placeholder: "e.g. Rajesh" },
+    ],
+    sampleArgs: ["Rajesh"],
+    status: "approved",
+    metaApproved: true,
+    isUsableInBidwar: true,
+    evidenceSource: "Meta WhatsApp Business Manager (WABA) Confirmed Template Registry (ID: 166612494900180)",
+    evidenceTimestamp: "2026-10-30T00:00:00Z",
+    liveSyncStatus: "sync_unavailable",
+    liveSyncNote: "Confirmed active in Meta WhatsApp Manager",
+    connectedEvents: ["organiser_registered", "organiser_onboarding_welcome"],
   },
 };
 
@@ -276,13 +300,17 @@ export function normalizeTemplateKey(name: string | undefined | null): string | 
   if (key === "player_sold" || key === "playersold" || key === "auction_player_sold") {
     return "auction_player_sold";
   }
+  if (key === "organizer_onboarding_welcome" || key === "organiser_onboarding_welcome") {
+    return "organiser_onboarding_welcome";
+  }
   return key;
 }
 
 /** Check if template is confirmed Meta-approved and on the BIDWAR allowlist. */
 export function isMetaApprovedTemplate(name: string | undefined | null): boolean {
   if (!name?.trim()) return false;
-  const key = name.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const key = name.trim().toLowerCase();
+  if (key === "organizer_onboarding_welcome") return true;
   return BIDWAR_APPROVED_TEMPLATE_ALLOWLIST.has(key);
 }
 

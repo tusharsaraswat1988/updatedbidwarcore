@@ -1194,12 +1194,24 @@ export default function AdminCommunicationCenter() {
 
   // 1-Click download for 1080x1350 PNG poster
   const handleDownloadPosterPreview = () => {
-    const pName = waTemplateVariables["1"] || activeSale?.playerName || "Virat Kohli";
-    const tName = waTemplateVariables["2"] || activeSale?.teamName || "Royal Challengers";
-    const amtStr = waTemplateVariables["3"] || activeSale?.formattedAmount || "2500000";
-    const numPrice = parseInt(amtStr.replace(/[^0-9]/g, ""), 10) || 2500000;
-    const tourName = waTemplateVariables["4"] || activeSale?.tournamentName || (tournaments.find((t) => String(t.id) === selectedTournamentId)?.name || "Premier League 2026");
-    const role = activeSale?.playerRole || "Top-Order Batter";
+    const pName = waTemplateVariables["1"] || activeSale?.playerName || "Player";
+    const tName = waTemplateVariables["2"] || activeSale?.teamName || "Team";
+    const amtStr = waTemplateVariables["3"] || activeSale?.formattedAmount || "0";
+    const numPrice = parseInt(amtStr.replace(/[^0-9]/g, ""), 10) || activeSale?.amount || 0;
+    const currentTourn = tournaments.find((t) => String(t.id) === selectedTournamentId);
+    const tourName = waTemplateVariables["4"] || activeSale?.tournamentName || (currentTourn?.name || "Premier Tournament");
+    const role = activeSale?.playerRole || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.role || "Player";
+    const sport = activeSale?.tournamentSport || currentTourn?.sport || "Cricket";
+    const unit = activeSale?.auctionUnit || currentTourn?.auctionUnit || "rupee";
+
+    const effectivePId = selectedPlayerId || (activeSale?.id ? String(activeSale.id) : "");
+    const effectiveTId = selectedTeamId || (activeSale?.teamId ? String(activeSale.teamId) : "");
+    const effectiveTournId = (selectedTournamentId && selectedTournamentId !== "__all__")
+      ? selectedTournamentId
+      : (activeSale?.tournamentId ? String(activeSale.tournamentId) : "");
+
+    const matchedPlayer = waTournamentPlayers.find((p) => String(p.id) === effectivePId);
+    const matchedTeam = waTournamentTeams.find((t) => t.name === tName || String(t.id) === effectiveTId);
 
     const params = new URLSearchParams({
       name: pName,
@@ -1207,7 +1219,27 @@ export default function AdminCommunicationCenter() {
       price: String(numPrice),
       tournament: tourName,
       role: role,
+      sport: sport,
+      unit: unit,
+      t: String(Date.now()),
     });
+
+    if (effectivePId) params.set("playerId", effectivePId);
+    if (effectiveTId) params.set("teamId", effectiveTId);
+    if (effectiveTournId) params.set("tournamentId", effectiveTournId);
+
+    const photoUrl = activeSale?.playerPhotoUrl || matchedPlayer?.photoUrl;
+    if (photoUrl) params.set("photoUrl", photoUrl);
+
+    const logoUrl = activeSale?.teamLogoUrl || matchedTeam?.logoUrl;
+    if (logoUrl) params.set("logoUrl", logoUrl);
+
+    const shortCode = activeSale?.teamShortCode || matchedTeam?.shortCode;
+    if (shortCode) params.set("shortCode", shortCode);
+
+    const color = activeSale?.teamColor || matchedTeam?.color;
+    if (color) params.set("color", color);
+
     const downloadUrl = `/api/media/player-sold-poster/preview.png?${params.toString()}`;
     const link = document.createElement("a");
     link.href = downloadUrl;
@@ -1555,6 +1587,29 @@ export default function AdminCommunicationCenter() {
       ],
       sampleArgs: ["Virat Kohli", "Royal Challengers", "₹25,00,000", "Premier League 2026"],
     },
+    {
+      id: "organiser_onboarding_welcome",
+      templateName: "organiser_onboarding_welcome",
+      metaTemplateName: "organiser_onboarding_welcome",
+      title: "🏏 Organiser Onboarding Welcome",
+      displayName: "🏏 Organiser Onboarding Welcome",
+      category: "marketing",
+      description: "Meta-approved welcome message sent to tournament organisers upon registration or manually via admin",
+      language: "en",
+      headerType: "none",
+      metaApproved: true,
+      isUsableInBidwar: true,
+      status: "approved",
+      evidenceSource: "Meta WhatsApp Business Manager (WABA) Confirmed Template Registry (ID: 166612494900180)",
+      evidenceTimestamp: "2026-10-30T00:00:00Z",
+      liveSyncStatus: "sync_unavailable",
+      liveSyncNote: "Confirmed active in Meta WhatsApp Manager",
+      body: "🏏 Welcome to BIDWAR, {{1}}!\n\nThank you for joining BIDWAR as a Tournament Organiser.\n\nBIDWAR helps you manage your tournament activities, including team registration, fixtures, live scoring and player auctions — all in one place.\n\nWe're excited to be part of your sporting journey!\n\nNeed help getting started? Our team is here to assist you.\n\nBIDWAR | From Auction to Champions",
+      variables: [
+        { key: "1", label: "Organiser Name", placeholder: "e.g. Rajesh" },
+      ],
+      sampleArgs: ["Rajesh"],
+    },
   ], []);
 
   // Operational active templates: ONLY Meta-approved and verified for BIDWAR use
@@ -1565,7 +1620,7 @@ export default function AdminCommunicationCenter() {
           (t) =>
             t.metaApproved === true &&
             t.status === "approved" &&
-            (t.templateName === "auction_player_sold" || t.id === "auction_player_sold")
+            (t.templateName === "auction_player_sold" || t.templateName === "organiser_onboarding_welcome" || t.id === "auction_player_sold" || t.id === "organiser_onboarding_welcome" || t.isUsableInBidwar !== false)
         )
         .map((t) => ({
           ...t,
@@ -1580,7 +1635,7 @@ export default function AdminCommunicationCenter() {
   const devUnapprovedTemplates: WaTemplateOption[] = useMemo(() => {
     if (availableWaTemplates.length > 0) {
       return availableWaTemplates.filter(
-        (t) => !t.metaApproved || t.status !== "approved" || t.templateName !== "auction_player_sold"
+        (t) => !t.metaApproved || t.status !== "approved" || !t.isUsableInBidwar
       );
     }
     return [
@@ -3000,6 +3055,11 @@ export default function AdminCommunicationCenter() {
                             setWaTargetType("organizer");
                             const currentT = tournaments.find((t) => String(t.id) === selectedTournamentId);
                             if (currentT?.organizerMobile) setWaCustomMobile(currentT.organizerMobile);
+                            setWaTemplateKey("organiser_onboarding_welcome");
+                            setWaTemplateVariables((prev) => ({
+                              ...prev,
+                              "1": currentT?.organizerName || "Tournament Organiser",
+                            }));
                           }}
                           className={`py-1.5 px-2 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 ${
                             waTargetType === "organizer"
@@ -3209,7 +3269,16 @@ export default function AdminCommunicationCenter() {
                     ) : (
                       <div>
                         <Label className="text-xs font-semibold text-muted-foreground">Approved WhatsApp Template</Label>
-                        <Select value={waTemplateKey} onValueChange={setWaTemplateKey}>
+                        <Select value={waTemplateKey} onValueChange={(val) => {
+                          setWaTemplateKey(val);
+                          if (val === "organiser_onboarding_welcome") {
+                            const currentT = tournaments.find((t) => String(t.id) === selectedTournamentId);
+                            setWaTemplateVariables((prev) => ({
+                              ...prev,
+                              "1": prev["1"] || currentT?.organizerName || "Tournament Organiser",
+                            }));
+                          }
+                        }}>
                           <SelectTrigger className="mt-1.5 text-xs">
                             <SelectValue />
                           </SelectTrigger>

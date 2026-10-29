@@ -247,83 +247,88 @@ export class CommunicationPolicyEngine {
 
       // D. Recipient Consent Guard (Strict Fail-Closed Opt-In)
       let hasConsent = recipientConsent;
-      if ((hasConsent === undefined || hasConsent === null) && tournamentId && recipientMobile) {
+      if ((hasConsent === undefined || hasConsent === null) && recipientMobile) {
         try {
           const norm = recipientMobile.replace(/\D/g, "").replace(/^0/, "91");
           const tenDigit = norm.length === 12 && norm.startsWith("91") ? norm.slice(2) : norm;
-          const pQ = db
-            .select({ whatsappConsent: playersTable.whatsappConsent })
-            .from(playersTable)
-            .where(
-              and(
-                eq(playersTable.tournamentId, tournamentId),
-                or(
-                  eq(playersTable.mobileNumber, recipientMobile),
-                  eq(playersTable.mobileNumber, norm),
-                  eq(playersTable.mobileNumber, tenDigit),
-                  sql`regexp_replace(${playersTable.mobileNumber}, '\\D', '', 'g') = ${norm}`,
-                ),
-              ),
-            );
-          const pRows = typeof (pQ as any)?.limit === "function" ? await (pQ as any).limit(1) : await pQ;
-          const player = Array.isArray(pRows) ? pRows[0] : null;
 
-          if (player) {
-            hasConsent = player.whatsappConsent;
-          } else {
-            // Check teamsTable for team owner
-            const tQ = db
-              .select({ whatsappConsent: teamsTable.whatsappConsent })
-              .from(teamsTable)
+          if (tournamentId) {
+            const pQ = db
+              .select({ whatsappConsent: playersTable.whatsappConsent })
+              .from(playersTable)
               .where(
                 and(
-                  eq(teamsTable.tournamentId, tournamentId),
+                  eq(playersTable.tournamentId, tournamentId),
                   or(
-                    eq(teamsTable.ownerMobile, recipientMobile),
-                    eq(teamsTable.ownerMobile, norm),
-                    eq(teamsTable.ownerMobile, tenDigit),
-                    sql`regexp_replace(${teamsTable.ownerMobile}, '\\D', '', 'g') = ${norm}`,
+                    eq(playersTable.mobileNumber, recipientMobile),
+                    eq(playersTable.mobileNumber, norm),
+                    eq(playersTable.mobileNumber, tenDigit),
+                    sql`regexp_replace(${playersTable.mobileNumber}, '\\D', '', 'g') = ${norm}`,
                   ),
                 ),
               );
-            const tRows = typeof (tQ as any)?.limit === "function" ? await (tQ as any).limit(1) : await tQ;
-            const team = Array.isArray(tRows) ? tRows[0] : null;
+            const pRows = typeof (pQ as any)?.limit === "function" ? await (pQ as any).limit(1) : await pQ;
+            const player = Array.isArray(pRows) ? pRows[0] : null;
 
-            if (team) {
-              hasConsent = team.whatsappConsent;
+            if (player) {
+              hasConsent = player.whatsappConsent;
             } else {
-              // Check organizersTable
-              const oQ = db
-                .select({ whatsappConsent: organizersTable.whatsappConsent })
-                .from(organizersTable)
+              // Check teamsTable for team owner
+              const tQ = db
+                .select({ whatsappConsent: teamsTable.whatsappConsent })
+                .from(teamsTable)
                 .where(
-                  or(
-                    eq(organizersTable.mobile, recipientMobile),
-                    eq(organizersTable.mobile, norm),
-                    eq(organizersTable.mobile, tenDigit),
+                  and(
+                    eq(teamsTable.tournamentId, tournamentId),
+                    or(
+                      eq(teamsTable.ownerMobile, recipientMobile),
+                      eq(teamsTable.ownerMobile, norm),
+                      eq(teamsTable.ownerMobile, tenDigit),
+                      sql`regexp_replace(${teamsTable.ownerMobile}, '\\D', '', 'g') = ${norm}`,
+                    ),
                   ),
                 );
-              const oRows = typeof (oQ as any)?.limit === "function" ? await (oQ as any).limit(1) : await oQ;
-              const org = Array.isArray(oRows) ? oRows[0] : null;
-              if (org) {
-                hasConsent = org.whatsappConsent;
-              } else {
-                // Check scorerAccountsTable
-                const sQ = db
-                  .select({ whatsappConsent: scorerAccountsTable.whatsappConsent })
-                  .from(scorerAccountsTable)
-                  .where(
-                    or(
-                      eq(scorerAccountsTable.mobile, recipientMobile),
-                      eq(scorerAccountsTable.mobile, norm),
-                      eq(scorerAccountsTable.mobile, tenDigit),
-                    ),
-                  );
-                const sRows = typeof (sQ as any)?.limit === "function" ? await (sQ as any).limit(1) : await sQ;
-                const scorer = Array.isArray(sRows) ? sRows[0] : null;
-                if (scorer) {
-                  hasConsent = scorer.whatsappConsent;
-                }
+              const tRows = typeof (tQ as any)?.limit === "function" ? await (tQ as any).limit(1) : await tQ;
+              const team = Array.isArray(tRows) ? tRows[0] : null;
+
+              if (team) {
+                hasConsent = team.whatsappConsent;
+              }
+            }
+          }
+
+          if (hasConsent === undefined || hasConsent === null) {
+            // Check organizersTable
+            const oQ = db
+              .select({ whatsappConsent: organizersTable.whatsappConsent })
+              .from(organizersTable)
+              .where(
+                or(
+                  eq(organizersTable.mobile, recipientMobile),
+                  eq(organizersTable.mobile, norm),
+                  eq(organizersTable.mobile, tenDigit),
+                ),
+              );
+            const oRows = typeof (oQ as any)?.limit === "function" ? await (oQ as any).limit(1) : await oQ;
+            const org = Array.isArray(oRows) ? oRows[0] : null;
+            if (org) {
+              hasConsent = org.whatsappConsent;
+            } else {
+              // Check scorerAccountsTable
+              const sQ = db
+                .select({ whatsappConsent: scorerAccountsTable.whatsappConsent })
+                .from(scorerAccountsTable)
+                .where(
+                  or(
+                    eq(scorerAccountsTable.mobile, recipientMobile),
+                    eq(scorerAccountsTable.mobile, norm),
+                    eq(scorerAccountsTable.mobile, tenDigit),
+                  ),
+                );
+              const sRows = typeof (sQ as any)?.limit === "function" ? await (sQ as any).limit(1) : await sQ;
+              const scorer = Array.isArray(sRows) ? sRows[0] : null;
+              if (scorer) {
+                hasConsent = scorer.whatsappConsent;
               }
             }
           }
@@ -381,7 +386,7 @@ export const communicationPolicyEngine = new CommunicationPolicyEngine();
  */
 export async function dispatchPushWhatsApp(opts: {
   event: CommunicationPushEvent | string;
-  tournamentId: number;
+  tournamentId?: number | null;
   mobile: string | null;
   body: string;
   recipientConsent?: boolean | null;

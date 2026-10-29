@@ -71,7 +71,7 @@ export function createSalePosterToken(opts: {
 }): string {
   const pId = opts.playerId ?? "0";
   const tId = opts.teamId ?? "0";
-  const raw = `sold:${opts.tournamentId}:${pId}:${tId}:${opts.amount}`;
+  const raw = `sold:v2:${opts.tournamentId}:${pId}:${tId}:${opts.amount}`;
   return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 24);
 }
 
@@ -307,6 +307,8 @@ export async function generateAndHostPlayerSoldPoster(
         public_id: `sold_${token}`,
         resource_type: "image",
         format: "png",
+        overwrite: true,
+        invalidate: true,
         tags: ["player_sold_poster", `tournament_${authoritative.tournamentId}`],
       });
 

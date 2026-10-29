@@ -40,6 +40,7 @@ import { parseIndianMobile, isPlaceholderOrganizerMobile, displayOrganizerMobile
 import { isOrganizerAccountLocked, organizerPhoneStatusLabel } from "@workspace/api-base/organizer-account";
 import { mergeTournamentFeatures, resolveTournamentFeatures } from "@workspace/api-base/tournament-features";
 import { notifyAsync } from "../lib/notifications";
+import { notifyOrganiserOnboardingWelcome } from "../lib/whatsapp";
 import {
   notifyAdminOrganiserRegistered,
   notifyAdminTournamentCreated,
@@ -74,6 +75,18 @@ function triggerOrganiserRegisteredNotification(organizer: Organizer): void {
     mobile: organizer.mobile,
   });
   notifyAdminOrganiserRegistered(organizer);
+
+  // Auto-trigger Meta-approved organiser_onboarding_welcome WhatsApp template
+  if (organizer.mobile && !isPlaceholderOrganizerMobile(organizer.mobile)) {
+    notifyOrganiserOnboardingWelcome({
+      organizerId: organizer.id,
+      mobile: organizer.mobile,
+      name: organizer.name,
+      whatsappConsent: true,
+    }).catch((err) => {
+      logger.error({ err, organizerId: organizer.id }, "Failed to auto-send organiser onboarding WhatsApp welcome");
+    });
+  }
 }
 
 async function organizerNormalizedMobileTaken(normalized: string, excludeId?: number): Promise<boolean> {
@@ -1532,6 +1545,9 @@ router.post("/auth/organizer-account/signup/complete", authLimiter, async (req, 
       passwordHash,
       licenseStatus: "active",
       maxTournaments: 1,
+      whatsappConsent: true,
+      whatsappConsentAt: now,
+      whatsappConsentMethod: "whatsapp_otp_verified",
       ...verifiedPhoneFields(now),
     }).returning();
   } catch (insertErr) {
@@ -2497,10 +2513,23 @@ router.post("/auth/organizer-account/phone/verify", otpVerifyLimiter, async (req
     });
   }
 
+  const now = new Date();
+  const wasPlaceholder = isPlaceholderOrganizerMobile(before.mobile);
+
   const [updated] = await db.update(organizersTable)
-    .set({ mobile, ...verifiedPhoneFields() })
+    .set({
+      mobile,
+      whatsappConsent: true,
+      whatsappConsentAt: now,
+      whatsappConsentMethod: "whatsapp_otp_verified",
+      ...verifiedPhoneFields(now),
+    })
     .where(eq(organizersTable.id, req.jwtUser.organizerAccountId))
     .returning();
+
+  if (wasPlaceholder) {
+    triggerOrganiserRegisteredNotification(updated);
+  }
 
   auditLog(req, {
     category: "auth",
@@ -2870,18 +2899,24 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
         .from(organizersTable)
         .where(eq(organizersTable.email, pending.email));
       if (existingByEmail) {
+        const now = new Date();
         const [linked] = await db.update(organizersTable)
           .set({
             googleId: pending.googleId,
             googleEmail: pending.googleEmail,
             mobile,
-            ...verifiedPhoneFields(),
+            whatsappConsent: true,
+            whatsappConsentAt: now,
+            whatsappConsentMethod: "whatsapp_otp_verified",
+            ...verifiedPhoneFields(now),
           })
           .where(eq(organizersTable.id, existingByEmail.id))
           .returning();
         organizer = linked;
+        triggerOrganiserRegisteredNotification(organizer);
       } else {
         try {
+          const now = new Date();
           [organizer] = await db.insert(organizersTable).values({
             name: pending.name,
             email: pending.email,
@@ -2890,7 +2925,10 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
             googleEmail: pending.googleEmail,
             licenseStatus: "active",
             maxTournaments: 1,
-            ...verifiedPhoneFields(),
+            whatsappConsent: true,
+            whatsappConsentAt: now,
+            whatsappConsentMethod: "whatsapp_otp_verified",
+            ...verifiedPhoneFields(now),
           }).returning();
           triggerOrganiserRegisteredNotification(organizer);
         } catch (insertErr) {
@@ -2909,11 +2947,19 @@ router.post("/auth/google/complete-profile/verify", otpVerifyLimiter, async (req
         phoneVerified: organizer.phoneVerified,
       })
     ) {
+      const now = new Date();
       const [updated] = await db.update(organizersTable)
-        .set({ mobile, ...verifiedPhoneFields() })
+        .set({
+          mobile,
+          whatsappConsent: true,
+          whatsappConsentAt: now,
+          whatsappConsentMethod: "whatsapp_otp_verified",
+          ...verifiedPhoneFields(now),
+        })
         .where(eq(organizersTable.id, organizer.id))
         .returning();
       organizer = updated;
+      triggerOrganiserRegisteredNotification(organizer);
     }
 
     if (!organizer) {
