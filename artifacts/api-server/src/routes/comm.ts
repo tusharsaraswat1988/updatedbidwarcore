@@ -625,7 +625,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
 
   // Validate approved template against authoritative database registry
   if (!isCustomOrFreeform) {
-    const [dbTmpl] = await db
+    const candidateRows = await db
       .select({
         templateName: waTemplatesTable.templateName,
         templateSid: waTemplatesTable.templateSid,
@@ -640,6 +640,12 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
             )
           : eq(waTemplatesTable.templateName, canonicalTemplate!),
       );
+
+    // Prefer the canonical approved template if multiple alias rows exist
+    const dbTmpl =
+      candidateRows.find((t) => t.status === "approved" && t.templateName === META_AUCTION_PLAYER_SOLD_TEMPLATE) ??
+      candidateRows.find((t) => t.status === "approved") ??
+      candidateRows[0];
 
     if (!dbTmpl || dbTmpl.status !== "approved") {
       res.status(400).json({ error: `Template "${d.templateName}" is not approved.` });

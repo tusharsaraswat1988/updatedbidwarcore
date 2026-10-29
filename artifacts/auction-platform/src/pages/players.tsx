@@ -598,6 +598,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
     playerTag: player?.playerTag || "",
     playerTagTeamId: player?.playerTagTeamId ? String(player.playerTagTeamId) : "",
     isNonPlayingMember: player?.isNonPlayingMember ?? false,
+    whatsappConsent: player ? player.whatsappConsent !== false : true,
     markPaymentCompleted: false,
   });
 
@@ -931,6 +932,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       playerTag: (form.playerTag || undefined) as any,
       playerTagTeamId: form.playerTagTeamId ? parseInt(form.playerTagTeamId) : undefined,
       isNonPlayingMember: form.isNonPlayingMember || undefined,
+      whatsappConsent: form.whatsappConsent,
       markPaymentCompleted: !player && tournament?.enableRegistrationPayment ? form.markPaymentCompleted : undefined,
       customAnswers: Object.keys(customAnswers).length > 0 ? customAnswers : undefined,
     };
@@ -1690,6 +1692,27 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             </label>
           )}
         </div>
+
+        {/* WhatsApp Notification Consent */}
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-1 mt-2">
+          <label className="flex items-start gap-2.5 cursor-pointer text-xs">
+            <input
+              type="checkbox"
+              checked={form.whatsappConsent}
+              onChange={e => f("whatsappConsent", e.target.checked)}
+              className="w-4 h-4 rounded border-border bg-input accent-emerald-500 cursor-pointer mt-0.5"
+            />
+            <div>
+              <span className="text-foreground font-semibold flex items-center gap-1.5">
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
+                WhatsApp Match & Auction Alerts Consent
+              </span>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                Player has given consent to receive tournament updates, schedule changes, and auction notifications on WhatsApp.
+              </p>
+            </div>
+          </label>
+        </div>
       </div>
 
       {/* 6. Custom Registration Questions */}
@@ -1881,6 +1904,7 @@ function BulkUploadDialog({ tournamentId, sportSlug, categories, onClose }: {
   const [catalog, setCatalog] = useState<SportSpecCatalog | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [result, setResult] = useState<{ created: number; failed: number; errors: string[] } | null>(null);
+  const [confirmConsent, setConfirmConsent] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -1914,8 +1938,12 @@ function BulkUploadDialog({ tournamentId, sportSlug, categories, onClose }: {
   }
 
   async function handleUpload() {
-    const players = parsePlayerCsv(csv, catalog);
-    if (!players.length) return;
+    const rawPlayers = parsePlayerCsv(csv, catalog);
+    if (!rawPlayers.length) return;
+    const players = rawPlayers.map(p => ({
+      ...p,
+      whatsappConsent: confirmConsent,
+    }));
     const res = await bulkCreate.mutateAsync({ tournamentId, data: { players } });
     setResult({ created: res.created, failed: res.failed, errors: res.errors ?? [] });
     qc.invalidateQueries({ queryKey: getListPlayersQueryKey(tournamentId) });
@@ -1968,6 +1996,26 @@ function BulkUploadDialog({ tournamentId, sportSlug, categories, onClose }: {
               </div>
             </div>
           )}
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
+            <label className="flex items-start gap-2.5 cursor-pointer text-xs">
+              <input
+                type="checkbox"
+                checked={confirmConsent}
+                onChange={e => setConfirmConsent(e.target.checked)}
+                className="w-4 h-4 rounded border-border bg-input accent-emerald-500 cursor-pointer mt-0.5"
+              />
+              <div>
+                <span className="text-foreground font-semibold flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
+                  Confirm WhatsApp Consent for Uploaded Players
+                </span>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+                  I confirm that all players in this list have consented to receive tournament notifications and auction alerts on WhatsApp.
+                </p>
+              </div>
+            </label>
+          </div>
+
           <div className="flex gap-3">
             <Button
               className="flex-1"

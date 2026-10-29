@@ -44,6 +44,8 @@ import {
   XCircle,
   AlertTriangle,
   BadgeCheck,
+  Briefcase,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -243,6 +245,9 @@ interface TournamentItem {
   sport?: string;
   licenseStatus?: string;
   adminLocked?: boolean;
+  organizerName?: string;
+  organizerMobile?: string;
+  organizerEmail?: string;
 }
 
 interface MissingContact {
@@ -373,6 +378,32 @@ export default function AdminCommunicationCenter() {
 
   // WhatsApp State
   const [waRecipientGroup, setWaRecipientGroup] = useState("all_players");
+  const [waTargetType, setWaTargetType] = useState<"particular_player" | "particular_owner" | "organizer" | "broadcast_group" | "custom">("particular_player");
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string>("");
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [waBroadcastGroup, setWaBroadcastGroup] = useState<string>("sold_players");
+  const [waTournamentPlayers, setWaTournamentPlayers] = useState<Array<{
+    id: number;
+    name: string;
+    mobileNumber?: string | null;
+    primaryRole?: string | null;
+    role?: string | null;
+    status?: string | null;
+    soldPrice?: number | null;
+    teamId?: number | null;
+    photoUrl?: string | null;
+    whatsappConsent?: boolean;
+  }>>([]);
+  const [waTournamentTeams, setWaTournamentTeams] = useState<Array<{
+    id: number;
+    name: string;
+    shortCode?: string | null;
+    ownerName?: string | null;
+    ownerMobile?: string | null;
+    color?: string | null;
+    logoUrl?: string | null;
+  }>>([]);
+  const [loadingWaTargets, setLoadingWaTargets] = useState(false);
   const [waTemplateKey, setWaTemplateKey] = useState("auction_player_sold");
   const [availableWaTemplates, setAvailableWaTemplates] = useState<WaTemplateOption[]>([]);
   const [waTemplateVariables, setWaTemplateVariables] = useState<Record<string, string>>({});
@@ -637,9 +668,34 @@ export default function AdminCommunicationCenter() {
         } catch {
           // non-fatal
         }
+
+        // 3c. Fetch Tournament Players and Teams for direct targeting
+        try {
+          setLoadingWaTargets(true);
+          const [pRes, tRes] = await Promise.all([
+            fetch(`/api/tournaments/${selectedTournamentId}/players`, { credentials: "include" }),
+            fetch(`/api/tournaments/${selectedTournamentId}/teams`, { credentials: "include" }),
+          ]);
+          if (pRes.ok) {
+            const pData = await pRes.json();
+            const pList = Array.isArray(pData) ? pData : (pData.players ?? []);
+            setWaTournamentPlayers(pList);
+          }
+          if (tRes.ok) {
+            const tData = await tRes.json();
+            const tList = Array.isArray(tData) ? tData : (tData.teams ?? []);
+            setWaTournamentTeams(tList);
+          }
+        } catch {
+          // non-fatal
+        } finally {
+          setLoadingWaTargets(false);
+        }
       } else {
         setConsentStats(null);
         setRecentSales([]);
+        setWaTournamentPlayers([]);
+        setWaTournamentTeams([]);
       }
 
       // 4. Fetch Bot Link
@@ -921,14 +977,126 @@ export default function AdminCommunicationCenter() {
     }
   };
 
+  // Handler when selecting a player in the WhatsApp composer
+  const handleSelectPlayer = (pId: string) => {
+    setSelectedPlayerId(pId);
+    if (!pId) return;
+    const p = waTournamentPlayers.find((item) => String(item.id) === pId);
+    if (!p) return;
+
+    if (p.mobileNumber) {
+      setWaCustomMobile(p.mobileNumber);
+    }
+
+    const tObj = tournaments.find((t) => String(t.id) === selectedTournamentId);
+    const tournamentName = tObj?.name || "Premier League 2026";
+
+    // Check if player has a recent sale record
+    const sale = recentSales.find((s) => s.id === p.id || s.playerName.toLowerCase() === p.name.toLowerCase());
+    if (sale) {
+      setSelectedSaleId(String(sale.id));
+      setWaTemplateKey("auction_player_sold");
+      setWaTemplateVariables({
+        "1": sale.playerName,
+        "2": sale.teamName,
+        "3": sale.formattedAmount,
+        "4": sale.tournamentName || tournamentName,
+      });
+    } else if (p.status === "sold" || (p.soldPrice && p.soldPrice > 0)) {
+      const team = waTournamentTeams.find((t) => t.id === p.teamId);
+      const amtStr = p.soldPrice ? `₹${p.soldPrice.toLocaleString("en-IN")}` : "₹0";
+      setWaTemplateKey("auction_player_sold");
+      setWaTemplateVariables({
+        "1": p.name,
+        "2": team?.name || "Winning Team",
+        "3": amtStr,
+        "4": tournamentName,
+      });
+    } else {
+      setWaTemplateVariables((prev) => ({
+        ...prev,
+        "1": p.name,
+        "4": tournamentName,
+      }));
+    }
+  };
+
+  // Handler when selecting a team owner
+  const handleSelectTeam = (tId: string) => {
+    setSelectedTeamId(tId);
+    if (!tId) return;
+    const tm = waTournamentTeams.find((item) => String(item.id) === tId);
+    if (!tm) return;
+
+    if (tm.ownerMobile) {
+      setWaCustomMobile(tm.ownerMobile);
+    }
+    const tObj = tournaments.find((t) => String(t.id) === selectedTournamentId);
+    setWaTemplateVariables((prev) => ({
+      ...prev,
+      "1": tm.ownerName || tm.name,
+      "2": tm.name,
+      "4": tObj?.name || "Premier League 2026",
+    }));
+  };
+
+  // 1-Click download for 1080x1350 PNG poster
+  const handleDownloadPosterPreview = () => {
+    const pName = waTemplateVariables["1"] || activeSale?.playerName || "Virat Kohli";
+    const tName = waTemplateVariables["2"] || activeSale?.teamName || "Royal Challengers";
+    const amtStr = waTemplateVariables["3"] || activeSale?.formattedAmount || "2500000";
+    const numPrice = parseInt(amtStr.replace(/[^0-9]/g, ""), 10) || 2500000;
+    const tourName = waTemplateVariables["4"] || activeSale?.tournamentName || (tournaments.find((t) => String(t.id) === selectedTournamentId)?.name || "Premier League 2026");
+    const role = activeSale?.playerRole || "Top-Order Batter";
+
+    const params = new URLSearchParams({
+      name: pName,
+      team: tName,
+      price: String(numPrice),
+      tournament: tourName,
+      role: role,
+    });
+    const downloadUrl = `/api/media/player-sold-poster/preview.png?${params.toString()}`;
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = `${pName.replace(/[^a-zA-Z0-9]/g, "_")}_Sold_Poster.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   // Initiate Send WhatsApp: Validate first, then open explicit confirmation dialog
   const handleSendWa = () => {
     setWaSendResult(null);
 
-    // Client-side validations for immediate user feedback
-    if (waRecipientGroup === "custom") {
-      const cleanMobile = waCustomMobile.replace(/\D/g, "");
-      if (cleanMobile.length < 10) {
+    let effectiveMobile = waCustomMobile.trim();
+    if (waTargetType === "particular_player") {
+      if (!selectedPlayerId) {
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: "Please select a player to send this WhatsApp message to." });
+        return;
+      }
+      if (!effectiveMobile || effectiveMobile.replace(/\D/g, "").length < 10) {
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: "The selected player has no registered mobile number. Please enter a valid 10-digit number." });
+        return;
+      }
+    } else if (waTargetType === "particular_owner") {
+      if (!selectedTeamId) {
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: "Please select a team owner to message." });
+        return;
+      }
+      if (!effectiveMobile || effectiveMobile.replace(/\D/g, "").length < 10) {
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: "The selected team owner has no registered mobile number. Please enter a valid 10-digit number." });
+        return;
+      }
+    } else if (waTargetType === "organizer") {
+      const currentT = tournaments.find((t) => String(t.id) === selectedTournamentId);
+      const orgMobile = currentT?.organizerMobile || effectiveMobile;
+      if (!orgMobile || orgMobile.replace(/\D/g, "").length < 10) {
+        setWaSendResult({ success: false, sent: 0, failed: 1, error: "The tournament organiser has no registered mobile number." });
+        return;
+      }
+    } else if (waTargetType === "custom") {
+      if (!effectiveMobile || effectiveMobile.replace(/\D/g, "").length < 10) {
         setWaSendResult({ success: false, sent: 0, failed: 1, error: "Please enter a valid mobile number (minimum 10 digits)" });
         return;
       }
@@ -944,7 +1112,8 @@ export default function AdminCommunicationCenter() {
         (waTemplateKey === "auction_player_sold" || waTemplateKey === "player_sold") &&
         selectedTournamentId &&
         selectedTournamentId !== "__all__" &&
-        (waRecipientGroup === "sold_players" || waRecipientGroup === "all_players");
+        waTargetType === "broadcast_group" &&
+        (waBroadcastGroup === "sold_players" || waBroadcastGroup === "all_players");
       if (!isAutoDbPlayerSold) {
         const missing = selectedWaTpl.variables.find((v) => !waTemplateVariables[v.key]?.trim());
         if (missing) {
@@ -963,10 +1132,25 @@ export default function AdminCommunicationCenter() {
     setSendingWa(true);
     setWaSendResult(null);
 
+    let effectiveGroup: string = "custom";
+    let effectiveMobile = waCustomMobile.trim();
+
+    if (waTargetType === "particular_player" || waTargetType === "particular_owner" || waTargetType === "custom") {
+      effectiveGroup = "custom";
+    } else if (waTargetType === "organizer") {
+      effectiveGroup = "organizer";
+      const currentT = tournaments.find((t) => String(t.id) === selectedTournamentId);
+      if (currentT?.organizerMobile) {
+        effectiveMobile = currentT.organizerMobile;
+      }
+    } else if (waTargetType === "broadcast_group") {
+      effectiveGroup = waBroadcastGroup;
+    }
+
     try {
       const body: Record<string, unknown> = {
         channel: "whatsapp",
-        recipientGroup: waRecipientGroup,
+        recipientGroup: effectiveGroup,
         messageContent: waTemplateKey === "custom" ? waCustomText : "",
         templateName: waTemplateKey,
         templateVariables: waTemplateVariables,
@@ -974,9 +1158,9 @@ export default function AdminCommunicationCenter() {
       if (selectedTournamentId && selectedTournamentId !== "__all__") {
         body.tournamentId = parseInt(selectedTournamentId);
       }
-      if (waRecipientGroup === "custom") {
-        body.customMobile = waCustomMobile;
-        body.manualMobiles = [waCustomMobile];
+      if (effectiveGroup === "custom" || effectiveGroup === "organizer") {
+        body.customMobile = effectiveMobile;
+        body.manualMobiles = [effectiveMobile];
       }
 
       const r = await fetch("/api/auth/admin/communicate/send", {
@@ -2556,34 +2740,242 @@ export default function AdminCommunicationCenter() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div>
-                      <Label className="text-xs font-semibold text-muted-foreground">Target Audience</Label>
-                      <Select value={waRecipientGroup} onValueChange={setWaRecipientGroup}>
-                        <SelectTrigger className="mt-1.5 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all_players">👥 Consented Players</SelectItem>
-                          <SelectItem value="sold_players">🏆 Sold Players</SelectItem>
-                          <SelectItem value="unsold_players">⏳ Unsold Players</SelectItem>
-                          <SelectItem value="all_owners">👔 Team Owners</SelectItem>
-                          <SelectItem value="organizer">👑 Tournament Organiser</SelectItem>
-                          <SelectItem value="custom">📱 Custom WhatsApp Mobile</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {waRecipientGroup === "custom" && (
-                      <div>
-                        <Label className="text-xs text-muted-foreground">WhatsApp Mobile (E.164 / 10 Digits)</Label>
-                        <Input
-                          placeholder="e.g. +919876543210"
-                          value={waCustomMobile}
-                          onChange={(e) => setWaCustomMobile(e.target.value)}
-                          className="mt-1 text-xs"
-                        />
+                    {/* 1. Recipient Target Selector */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          <Users className="h-3.5 w-3.5 text-emerald-400" />
+                          Target Recipient
+                        </Label>
+                        <span className="text-[10px] text-muted-foreground">Individual or Group</span>
                       </div>
-                    )}
+
+                      {/* Target Type Pill Tabs */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-muted/40 rounded-lg border border-border/60">
+                        <button
+                          type="button"
+                          onClick={() => setWaTargetType("particular_player")}
+                          className={`py-1.5 px-2 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                            waTargetType === "particular_player"
+                              ? "bg-emerald-600 text-white shadow-xs font-semibold"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                          }`}
+                        >
+                          <User className="h-3.5 w-3.5" />
+                          Player
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWaTargetType("particular_owner")}
+                          className={`py-1.5 px-2 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                            waTargetType === "particular_owner"
+                              ? "bg-emerald-600 text-white shadow-xs font-semibold"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                          }`}
+                        >
+                          <Briefcase className="h-3.5 w-3.5" />
+                          Team Owner
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setWaTargetType("organizer");
+                            const currentT = tournaments.find((t) => String(t.id) === selectedTournamentId);
+                            if (currentT?.organizerMobile) setWaCustomMobile(currentT.organizerMobile);
+                          }}
+                          className={`py-1.5 px-2 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                            waTargetType === "organizer"
+                              ? "bg-emerald-600 text-white shadow-xs font-semibold"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                          }`}
+                        >
+                          <Crown className="h-3.5 w-3.5" />
+                          Organiser
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWaTargetType("broadcast_group")}
+                          className={`py-1.5 px-2 text-xs font-medium rounded-md transition-all flex items-center justify-center gap-1.5 ${
+                            waTargetType === "broadcast_group"
+                              ? "bg-emerald-600 text-white shadow-xs font-semibold"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                          }`}
+                        >
+                          <Radio className="h-3.5 w-3.5" />
+                          Broadcast
+                        </button>
+                      </div>
+
+                      {/* Sub-Selection based on Target Type */}
+                      {waTargetType === "particular_player" && (
+                        <div className="p-3 rounded-lg border border-border/80 bg-muted/20 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                              <User className="h-3.5 w-3.5" /> Select Particular Player
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {waTournamentPlayers.length} players loaded
+                            </span>
+                          </div>
+
+                          <Select value={selectedPlayerId} onValueChange={handleSelectPlayer}>
+                            <SelectTrigger className="text-xs bg-background">
+                              <SelectValue placeholder="Choose a player..." />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-64">
+                              {waTournamentPlayers.length === 0 ? (
+                                <div className="p-2 text-xs text-muted-foreground text-center">No players registered in this tournament</div>
+                              ) : (
+                                waTournamentPlayers.map((p) => {
+                                  const isSold = p.status === "sold" || (p.soldPrice && p.soldPrice > 0);
+                                  const team = waTournamentTeams.find((t) => t.id === p.teamId);
+                                  return (
+                                    <SelectItem key={p.id} value={String(p.id)} className="text-xs py-1.5">
+                                      <div className="flex items-center justify-between gap-3 w-full">
+                                        <span className="font-semibold text-foreground">{p.name}</span>
+                                        <div className="flex items-center gap-1.5 text-[10px]">
+                                          {isSold ? (
+                                            <Badge variant="outline" className="px-1.5 py-0 text-amber-300 border-amber-500/40 bg-amber-500/10">
+                                              🏆 Sold {team ? `(${team.shortCode || team.name})` : ""}
+                                            </Badge>
+                                          ) : (
+                                            <Badge variant="outline" className="px-1.5 py-0 text-zinc-400 border-zinc-600/40">
+                                              {p.status || "Registered"}
+                                            </Badge>
+                                          )}
+                                          <span className="font-mono text-muted-foreground">{p.mobileNumber ? `📱 ${p.mobileNumber}` : "❌ No mobile"}</span>
+                                        </div>
+                                      </div>
+                                    </SelectItem>
+                                  );
+                                })
+                              )}
+                            </SelectContent>
+                          </Select>
+
+                          {/* Player details & mobile override */}
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-muted-foreground">WhatsApp Mobile:</span>
+                              <span className="text-[10px] text-zinc-400">(Editable for direct dispatch)</span>
+                            </div>
+                            <Input
+                              placeholder="e.g. +919876543210"
+                              value={waCustomMobile}
+                              onChange={(e) => setWaCustomMobile(e.target.value)}
+                              className="h-8 text-xs font-mono bg-background"
+                            />
+                            {!waCustomMobile && selectedPlayerId && (
+                              <p className="text-[10px] text-amber-400">⚠️ This player has no registered phone number. Enter one above to dispatch.</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {waTargetType === "particular_owner" && (
+                        <div className="p-3 rounded-lg border border-border/80 bg-muted/20 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                              <Briefcase className="h-3.5 w-3.5" /> Select Particular Team Owner
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {waTournamentTeams.length} teams loaded
+                            </span>
+                          </div>
+
+                          <Select value={selectedTeamId} onValueChange={handleSelectTeam}>
+                            <SelectTrigger className="text-xs bg-background">
+                              <SelectValue placeholder="Choose a team..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {waTournamentTeams.length === 0 ? (
+                                <div className="p-2 text-xs text-muted-foreground text-center">No teams registered in this tournament</div>
+                              ) : (
+                                waTournamentTeams.map((tm) => (
+                                  <SelectItem key={tm.id} value={String(tm.id)} className="text-xs py-1.5">
+                                    <div className="flex items-center justify-between gap-3 w-full">
+                                      <span className="font-semibold text-foreground">{tm.name} ({tm.shortCode || "TEAM"})</span>
+                                      <span className="text-[10px] text-muted-foreground">
+                                        Owner: {tm.ownerName || "Unnamed"} ({tm.ownerMobile ? `📱 ${tm.ownerMobile}` : "❌ No mobile"})
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+
+                          {/* Team Owner details & mobile override */}
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-muted-foreground">Owner WhatsApp Mobile:</span>
+                              <span className="text-[10px] text-zinc-400">(Editable)</span>
+                            </div>
+                            <Input
+                              placeholder="e.g. +919876543210"
+                              value={waCustomMobile}
+                              onChange={(e) => setWaCustomMobile(e.target.value)}
+                              className="h-8 text-xs font-mono bg-background"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {waTargetType === "organizer" && (
+                        <div className="p-3 rounded-lg border border-border/80 bg-muted/20 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                              <Crown className="h-3.5 w-3.5" /> Tournament Organiser Contact
+                            </span>
+                            <Badge variant="outline" className="text-[9px] text-amber-300 border-amber-500/30">
+                              Admin & Setup
+                            </Badge>
+                          </div>
+                          {(() => {
+                            const currentT = tournaments.find((t) => String(t.id) === selectedTournamentId);
+                            return (
+                              <div className="space-y-2 text-xs">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-muted-foreground">Organiser Name:</span>
+                                  <span className="font-semibold text-foreground">{currentT?.organizerName || "Tournament Organiser"}</span>
+                                </div>
+                                <div className="space-y-1">
+                                  <span className="text-[11px] text-muted-foreground">WhatsApp Mobile:</span>
+                                  <Input
+                                    placeholder="e.g. +919876543210"
+                                    value={waCustomMobile || currentT?.organizerMobile || ""}
+                                    onChange={(e) => setWaCustomMobile(e.target.value)}
+                                    className="h-8 text-xs font-mono bg-background"
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+
+                      {waTargetType === "broadcast_group" && (
+                        <div className="p-3 rounded-lg border border-border/80 bg-muted/20 space-y-2">
+                          <Label className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                            <Radio className="h-3.5 w-3.5" /> Broadcast Group Audience
+                          </Label>
+                          <Select value={waBroadcastGroup} onValueChange={setWaBroadcastGroup}>
+                            <SelectTrigger className="text-xs bg-background">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="sold_players">🏆 All Sold Players (Personalized Sold Posters)</SelectItem>
+                              <SelectItem value="all_players">👥 All Consented Players</SelectItem>
+                              <SelectItem value="unsold_players">⏳ Unsold Players</SelectItem>
+                              <SelectItem value="all_owners">👔 All Team Owners</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-[10px] text-muted-foreground">
+                            Delivers official WhatsApp notification to all consented recipients in this group.
+                          </p>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Template Selector with Loading / Error / Empty States */}
                     {loadingWaTemplates ? (
@@ -2634,7 +3026,7 @@ export default function AdminCommunicationCenter() {
                             )}
                             {selectedWaTpl.headerType === "image" && (
                               <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-amber-300 border-amber-500/30 bg-amber-500/10">
-                                🖼️ Image Header
+                                🖼️ 4:5 Portrait Image Header
                               </Badge>
                             )}
                           </div>
@@ -2645,14 +3037,6 @@ export default function AdminCommunicationCenter() {
                         {selectedWaTpl.description && (
                           <p className="text-[11px] text-muted-foreground">{selectedWaTpl.description}</p>
                         )}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pt-1.5 border-t border-border/40 text-[10px] text-muted-foreground">
-                          <span>
-                            <strong>Evidence:</strong> {selectedWaTpl.evidenceSource || "Meta WhatsApp Business Manager (WABA) Confirmed Template"}
-                          </span>
-                          <span className="italic text-zinc-400">
-                            Live sync offline (Serving verified evidence)
-                          </span>
-                        </div>
                       </div>
                     )}
 
@@ -2662,11 +3046,11 @@ export default function AdminCommunicationCenter() {
                         <div className="flex items-center justify-between">
                           <Label className="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
                             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                            Poster Sale Source
+                            Poster Preview Data Source
                           </Label>
                           {selectedSaleId === "sample" ? (
                             <Badge variant="outline" className="text-[9px] bg-amber-500/20 text-amber-300 border-amber-500/40">
-                              Illustrative Preview
+                              Illustrative Sample
                             </Badge>
                           ) : (
                             <Badge variant="outline" className="text-[9px] bg-emerald-500/20 text-emerald-300 border-emerald-500/40">
@@ -2703,7 +3087,7 @@ export default function AdminCommunicationCenter() {
                             <SelectValue placeholder="Select sale or test data..." />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="sample">🎨 Illustrative Test Data (Sample Player)</SelectItem>
+                            <SelectItem value="sample">🎨 Illustrative Sample (Virat Kohli)</SelectItem>
                             {recentSales.map((sale) => (
                               <SelectItem key={sale.id} value={String(sale.id)}>
                                 ⭐ {sale.playerName} → {sale.teamName} ({sale.formattedAmount})
@@ -2711,11 +3095,6 @@ export default function AdminCommunicationCenter() {
                             ))}
                           </SelectContent>
                         </Select>
-                        <p className="text-[10px] text-amber-300/80">
-                          {selectedSaleId === "sample"
-                            ? "Displaying representative preview using standard test data. Switch to a real sale above to preview actual auction event data."
-                            : `Displaying authentic sold poster data for ${activeSale?.playerName ?? "player"} acquired by ${activeSale?.teamName ?? "team"}.`}
-                        </p>
                       </div>
                     )}
 
@@ -2724,8 +3103,8 @@ export default function AdminCommunicationCenter() {
                       <div className="space-y-2 p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5">
                         <div className="flex items-center justify-between">
                           <Label className="text-xs font-semibold text-emerald-400">Template Dynamic Variables</Label>
-                          {(waTemplateKey === "auction_player_sold" || waTemplateKey === "player_sold") && (waRecipientGroup === "sold_players" || waRecipientGroup === "all_players") && selectedTournamentId && selectedTournamentId !== "__all__" && (
-                            <span className="text-[10px] text-muted-foreground italic">Auto-resolved from tournament auction data</span>
+                          {waTargetType === "particular_player" && (
+                            <span className="text-[10px] text-emerald-300/80 italic">Auto-resolved from player profile</span>
                           )}
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -2768,7 +3147,7 @@ export default function AdminCommunicationCenter() {
                       onClick={handleSendWa}
                     >
                       {waSending ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      Dispatch WhatsApp Broadcast
+                      {waTargetType === "broadcast_group" ? "Dispatch WhatsApp Broadcast" : "Send WhatsApp Message"}
                     </Button>
                   </CardContent>
                 </Card>
@@ -2783,8 +3162,8 @@ export default function AdminCommunicationCenter() {
                         <Eye className="h-4 w-4 text-emerald-400" />
                         Live WhatsApp Preview Mockup
                       </CardTitle>
-                      <Badge variant="outline" className="text-[10px] text-muted-foreground">
-                        Real-time Preview
+                      <Badge variant="outline" className="text-[10px] text-amber-300 border-amber-500/40 bg-amber-500/10">
+                        4:5 Portrait
                       </Badge>
                     </div>
                     <CardDescription className="text-xs">
@@ -2809,27 +3188,28 @@ export default function AdminCommunicationCenter() {
                       </div>
 
                       {/* WhatsApp Emerald Bubble with Optional Image Header */}
-                      <div className="overflow-hidden rounded-xl rounded-tl-xs bg-[#005c4b] text-xs text-zinc-100 shadow">
+                      <div className="overflow-hidden rounded-xl rounded-tl-xs bg-[#005c4b] text-xs text-zinc-100 shadow w-full">
                         {selectedWaTpl?.headerType === "image" && (
                           (waTemplateKey === "auction_player_sold" || waTemplateKey === "player_sold") ? (
-                            <div className="relative w-full aspect-[16/9] overflow-hidden border-b border-emerald-600/40">
+                            <div className="relative w-full aspect-[4/5] overflow-hidden border-b border-emerald-600/40">
                               <PlayerSoldPoster
                                 playerName={waTemplateVariables["1"] || activeSale?.playerName || "Virat Kohli"}
-                                playerPhotoUrl={activeSale?.playerPhotoUrl}
-                                playerRole={activeSale?.playerRole}
+                                playerPhotoUrl={activeSale?.playerPhotoUrl || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.photoUrl}
+                                playerRole={activeSale?.playerRole || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.primaryRole || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.role}
                                 teamName={waTemplateVariables["2"] || activeSale?.teamName || "Royal Challengers"}
-                                teamLogoUrl={activeSale?.teamLogoUrl}
-                                teamShortCode={activeSale?.teamShortCode}
-                                teamColor={activeSale?.teamColor}
+                                teamLogoUrl={activeSale?.teamLogoUrl || waTournamentTeams.find((t) => t.name === waTemplateVariables["2"])?.logoUrl}
+                                teamShortCode={activeSale?.teamShortCode || waTournamentTeams.find((t) => t.name === waTemplateVariables["2"])?.shortCode}
+                                teamColor={activeSale?.teamColor || waTournamentTeams.find((t) => t.name === waTemplateVariables["2"])?.color}
                                 amount={waTemplateVariables["3"] || activeSale?.formattedAmount || "₹25,00,000"}
                                 tournamentName={waTemplateVariables["4"] || activeSale?.tournamentName || (tournaments.find((t) => String(t.id) === selectedTournamentId)?.name || "Premier League 2026")}
                                 tournamentSport={activeSale?.tournamentSport || "Cricket"}
                                 auctionUnit={activeSale?.auctionUnit || "rupee"}
-                                isIllustrative={!activeSale}
+                                isIllustrative={!activeSale && waTargetType !== "particular_player"}
                                 showDownloadButton={false}
+                                className="w-full h-full"
                               />
-                              <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-mono text-emerald-300 backdrop-blur-xs flex items-center gap-1 z-20">
-                                <span>🖼️ Dynamic Sold Poster</span>
+                              <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/80 text-[10px] font-mono font-bold text-amber-300 backdrop-blur-xs flex items-center gap-1.5 z-20 shadow-sm border border-amber-500/30">
+                                <span>🖼️ 4:5 Portrait Sold Poster</span>
                               </div>
                             </div>
                           ) : (
@@ -2857,6 +3237,24 @@ export default function AdminCommunicationCenter() {
                         </div>
                       </div>
                     </div>
+
+                    {/* 1-Click Social Media / WhatsApp Status Export Button */}
+                    {(waTemplateKey === "auction_player_sold" || waTemplateKey === "player_sold") && (
+                      <div className="w-full max-w-sm mt-3 pt-3 border-t border-zinc-800 flex flex-col items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDownloadPosterPreview}
+                          className="w-full gap-2 border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 text-xs font-semibold py-2"
+                        >
+                          <Download className="w-4 h-4 text-amber-400" />
+                          Save High-Res Poster (1080×1350 PNG for Social Media)
+                        </Button>
+                        <p className="text-[10px] text-zinc-400 text-center">
+                          4:5 Portrait aspect ratio • Perfect for WhatsApp Status, Stories & Instagram feed
+                        </p>
+                      </div>
+                    )}
                     <p className="text-[11px] text-muted-foreground mt-3 text-center">
                       Simulated Preview (Illustrative formatting only; actual device display depends on WhatsApp client. Not a real delivery receipt).
                     </p>
@@ -2866,97 +3264,74 @@ export default function AdminCommunicationCenter() {
             </div>
 
             {/* Restricted Development / Non-Approved Templates Registry (Debug View) */}
-            <div className="border border-border/80 rounded-xl bg-card/40 p-4 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-xs font-semibold tracking-tight text-foreground flex items-center gap-1.5">
-                      <Lock className="h-3.5 w-3.5 text-amber-400" />
-                      Restricted Development Templates Registry
-                    </h4>
-                    <Badge variant="outline" className="text-[10px] text-amber-400 border-amber-500/30 bg-amber-500/10">
-                      Non-Operational / Dev Only
-                    </Badge>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Audit view of locally invented placeholders, duplicates, and unapproved templates excluded from active operational dispatch.
-                  </p>
+            {/* Developer Audit / Non-Approved Templates (Clean Collapsible Accordion) */}
+            <details className="border border-border/60 rounded-xl bg-card/25 p-3.5 text-xs group transition-all">
+              <summary className="flex items-center justify-between cursor-pointer list-none select-none text-muted-foreground hover:text-foreground">
+                <div className="flex items-center gap-2">
+                  <Lock className="h-3.5 w-3.5 text-zinc-400" />
+                  <span className="font-semibold text-xs text-foreground/80">Developer Registry: Blocked / Non-Approved Templates</span>
+                  <Badge variant="outline" className="text-[9px] text-zinc-400 border-border">
+                    {devUnapprovedTemplates.length} Excluded
+                  </Badge>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowDebugTemplates(!showDebugTemplates)}
-                  className="h-7 text-xs border-border shrink-0 gap-1.5"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  {showDebugTemplates ? "Hide Debug Templates" : `View Excluded Templates (${devUnapprovedTemplates.length})`}
-                </Button>
-              </div>
-
-              {showDebugTemplates && (
-                <div className="space-y-3 pt-2 border-t border-border/60">
-                  <div className="p-2.5 rounded-lg border border-amber-500/25 bg-amber-500/10 text-[11px] text-amber-300 space-y-1">
-                    <p className="font-semibold flex items-center gap-1.5">
-                      <AlertTriangle className="h-3.5 w-3.5" /> Operational Safety Isolation Active
-                    </p>
-                    <p className="text-amber-300/80 leading-relaxed">
-                      Per Meta WhatsApp Business API rules, unapproved templates cannot be dispatched to live recipients. These items are strictly omitted from the broadcast dropdown above and will be rejected server-side if attempted.
-                    </p>
-                  </div>
-
-                  <div className="overflow-x-auto rounded-lg border border-border bg-card/80">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="text-[11px]">
-                          <TableHead>Template / ID</TableHead>
-                          <TableHead>Category / Lang</TableHead>
-                          <TableHead>Registry Status</TableHead>
-                          <TableHead>Exclusion Reason</TableHead>
-                          <TableHead className="text-right">Dispatch Safety</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {devUnapprovedTemplates.map((t) => (
-                          <TableRow key={t.id} className="text-xs">
-                            <TableCell className="font-mono text-xs">
-                              <div className="font-semibold text-foreground">{t.templateName || t.id}</div>
-                              <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">{t.title}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Badge variant="outline" className="text-[9px] uppercase px-1 py-0">
-                                  {t.category || "utility"}
-                                </Badge>
-                                <span className="text-[10px] text-muted-foreground">({t.language || "en"})</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {t.status === "duplicate" ? (
-                                <Badge className="bg-sky-500/15 text-sky-400 border-sky-500/30 text-[10px] font-medium">
-                                  Duplicate Alias
-                                </Badge>
-                              ) : (
-                                <Badge className="bg-zinc-500/20 text-zinc-400 border-zinc-500/30 text-[10px] font-medium">
-                                  Unapproved Dev
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-[11px] text-muted-foreground max-w-sm">
-                              {t.exclusionReason || "Not registered or approved in Meta WhatsApp Business Manager."}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Badge variant="outline" className="text-[10px] text-rose-400 border-rose-500/30 bg-rose-500/10 font-mono">
-                                BLOCKED
+                <span className="text-[10px] text-zinc-500 group-open:rotate-180 transition-transform">▼</span>
+              </summary>
+              <div className="space-y-3 pt-3 mt-2 border-t border-border/50">
+                <p className="text-[11px] text-muted-foreground">
+                  Internal audit of draft, duplicate, and development-only templates excluded from live dispatch per Meta WABA policies.
+                </p>
+                <div className="overflow-x-auto rounded-lg border border-border bg-card/80">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="text-[11px]">
+                        <TableHead>Template / ID</TableHead>
+                        <TableHead>Category / Lang</TableHead>
+                        <TableHead>Registry Status</TableHead>
+                        <TableHead>Exclusion Reason</TableHead>
+                        <TableHead className="text-right">Dispatch Safety</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {devUnapprovedTemplates.map((t) => (
+                        <TableRow key={t.id} className="text-xs">
+                          <TableCell className="font-mono text-xs">
+                            <div className="font-semibold text-foreground">{t.templateName || t.id}</div>
+                            <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">{t.title}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="text-[9px] uppercase px-1 py-0">
+                                {t.category || "utility"}
                               </Badge>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                              <span className="text-[10px] text-muted-foreground">({t.language || "en"})</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {t.status === "duplicate" ? (
+                              <Badge className="bg-sky-500/15 text-sky-400 border-sky-500/30 text-[10px] font-medium">
+                                Duplicate Alias
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-zinc-500/20 text-zinc-400 border-zinc-500/30 text-[10px] font-medium">
+                                Unapproved Dev
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-[11px] text-muted-foreground max-w-sm">
+                            {t.exclusionReason || "Not registered or approved in Meta WhatsApp Business Manager."}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant="outline" className="text-[10px] text-rose-400 border-rose-500/30 bg-rose-500/10 font-mono">
+                              BLOCKED
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-              )}
-            </div>
+              </div>
+            </details>
 
             {/* WhatsApp Logs Table (Searchable & Filterable) */}
             <Card className="border-border bg-card/60">
@@ -3074,12 +3449,15 @@ export default function AdminCommunicationCenter() {
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Target Audience:</span>
                       <Badge variant="outline" className="text-[11px] font-medium">
-                        {waRecipientGroup === "all_players" && "👥 Consented Players"}
-                        {waRecipientGroup === "sold_players" && "🏆 Sold Players"}
-                        {waRecipientGroup === "unsold_players" && "⏳ Unsold Players"}
-                        {waRecipientGroup === "all_owners" && "👔 Team Owners"}
-                        {waRecipientGroup === "organizer" && "👑 Tournament Organiser"}
-                        {waRecipientGroup === "custom" && `📱 Custom: ${waCustomMobile}`}
+                        {waTargetType === "particular_player" && `👤 Player: ${waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.name || "Selected Player"} (${waCustomMobile})`}
+                        {waTargetType === "particular_owner" && `👔 Owner: ${waTournamentTeams.find((t) => String(t.id) === selectedTeamId)?.name || "Selected Team"} (${waCustomMobile})`}
+                        {waTargetType === "organizer" && `👑 Organiser (${waCustomMobile})`}
+                        {waTargetType === "broadcast_group" && (
+                          waBroadcastGroup === "sold_players" ? "🏆 All Sold Players" :
+                          waBroadcastGroup === "unsold_players" ? "⏳ Unsold Players" :
+                          waBroadcastGroup === "all_owners" ? "👔 All Team Owners" : "👥 All Consented Players"
+                        )}
+                        {waTargetType === "custom" && `📱 Custom: ${waCustomMobile}`}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
@@ -3109,21 +3487,22 @@ export default function AdminCommunicationCenter() {
                     <div className="overflow-hidden rounded-lg border border-zinc-700 bg-[#005c4b] text-xs text-zinc-100 max-h-56 overflow-y-auto">
                       {selectedWaTpl?.headerType === "image" && (
                         (waTemplateKey === "auction_player_sold" || waTemplateKey === "player_sold") ? (
-                          <div className="relative w-full aspect-[16/9] overflow-hidden border-b border-emerald-600/40">
+                          <div className="relative w-full aspect-[4/5] overflow-hidden border-b border-emerald-600/40">
                             <PlayerSoldPoster
                               playerName={waTemplateVariables["1"] || activeSale?.playerName || "Virat Kohli"}
-                              playerPhotoUrl={activeSale?.playerPhotoUrl}
-                              playerRole={activeSale?.playerRole}
+                              playerPhotoUrl={activeSale?.playerPhotoUrl || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.photoUrl}
+                              playerRole={activeSale?.playerRole || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.primaryRole || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.role}
                               teamName={waTemplateVariables["2"] || activeSale?.teamName || "Royal Challengers"}
-                              teamLogoUrl={activeSale?.teamLogoUrl}
-                              teamShortCode={activeSale?.teamShortCode}
-                              teamColor={activeSale?.teamColor}
+                              teamLogoUrl={activeSale?.teamLogoUrl || waTournamentTeams.find((t) => t.name === waTemplateVariables["2"])?.logoUrl}
+                              teamShortCode={activeSale?.teamShortCode || waTournamentTeams.find((t) => t.name === waTemplateVariables["2"])?.shortCode}
+                              teamColor={activeSale?.teamColor || waTournamentTeams.find((t) => t.name === waTemplateVariables["2"])?.color}
                               amount={waTemplateVariables["3"] || activeSale?.formattedAmount || "₹25,00,000"}
                               tournamentName={waTemplateVariables["4"] || activeSale?.tournamentName || (tournaments.find((t) => String(t.id) === selectedTournamentId)?.name || "Premier League 2026")}
                               tournamentSport={activeSale?.tournamentSport || "Cricket"}
                               auctionUnit={activeSale?.auctionUnit || "rupee"}
-                              isIllustrative={!activeSale}
+                              isIllustrative={!activeSale && waTargetType !== "particular_player"}
                               showDownloadButton={false}
+                              className="w-full h-full"
                             />
                           </div>
                         ) : (

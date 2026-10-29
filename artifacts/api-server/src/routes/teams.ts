@@ -496,6 +496,19 @@ router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
       res.status(400).json({ error: DUPLICATE_OWNER_MOBILE_ERROR });
       return;
     }
+
+    if (existing.ownerMobile && normalizedOwnerMobile !== existing.ownerMobile) {
+      await handlePhoneNumberChange({
+        entityType: "team_owner",
+        entityId: teamId,
+        oldMobile: existing.ownerMobile,
+        newMobile: normalizedOwnerMobile,
+        tournamentId: tid,
+      });
+      updates.whatsappConsent = false;
+      updates.whatsappConsentAt = null;
+      updates.whatsappConsentMethod = null;
+    }
   }
 
   let team!: typeof teamsTable.$inferSelect;

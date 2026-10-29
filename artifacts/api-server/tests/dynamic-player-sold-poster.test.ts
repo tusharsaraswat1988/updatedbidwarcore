@@ -190,10 +190,10 @@ describe("BIDWAR — Dynamic Player-Sold Poster for WhatsApp Image Header", () =
       expect(buffer[2]).toBe(0x4e);
       expect(buffer[3]).toBe(0x47);
 
-      // Inspect dimensions with Sharp
+      // Inspect dimensions with Sharp (1080x1350 portrait 4:5 for WhatsApp & Social Media)
       const metadata = await sharp(buffer).metadata();
-      expect(metadata.width).toBe(POSTER_WIDTH); // 1200
-      expect(metadata.height).toBe(POSTER_HEIGHT); // 675 (16:9)
+      expect(metadata.width).toBe(POSTER_WIDTH); // 1080
+      expect(metadata.height).toBe(POSTER_HEIGHT); // 1350 (4:5 portrait)
       expect(metadata.format).toBe("png");
     });
 
@@ -211,8 +211,8 @@ describe("BIDWAR — Dynamic Player-Sold Poster for WhatsApp Image Header", () =
 
       expect(Buffer.isBuffer(buffer)).toBe(true);
       const metadata = await sharp(buffer).metadata();
-      expect(metadata.width).toBe(1200);
-      expect(metadata.height).toBe(675);
+      expect(metadata.width).toBe(1080);
+      expect(metadata.height).toBe(1350);
     });
 
     it("formats rupee and points currencies correctly without abbreviation truncation", () => {

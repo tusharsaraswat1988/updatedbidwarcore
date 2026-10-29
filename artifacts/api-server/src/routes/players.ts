@@ -635,6 +635,8 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
     return;
   }
 
+  const hasConsent = d.whatsappConsent !== false;
+
   const [player] = await db
     .insert(playersTable)
     .values({
@@ -669,9 +671,24 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
       playerTag: (d.playerTag ?? null) as string | null,
       playerTagTeamId: d.playerTagTeamId ?? null,
       isNonPlayingMember: d.isNonPlayingMember ?? false,
+      whatsappConsent: hasConsent,
+      whatsappConsentAt: hasConsent ? new Date() : null,
+      whatsappConsentMethod: hasConsent ? "organizer_declaration" : null,
       ...paymentFields,
     })
     .returning();
+
+  if (hasConsent && mobileNumber) {
+    await recordConsentGranted({
+      recipientType: "player",
+      recipientId: player.id,
+      mobile: mobileNumber,
+      tournamentId: tid,
+      noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+      consentScope: "tournament_operational",
+      source: "organizer_declaration",
+    });
+  }
 
   // If newly retained, sync team.purseUsed
   if (player.status === "retained" && player.teamId) {
@@ -1299,6 +1316,7 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         }
       }
       const bulkLegacySpecFields = await resolveLegacyFieldsForInsert(tid, pd.role, pd);
+      const bulkConsent = pd.whatsappConsent !== false;
       const [inserted] = await db.insert(playersTable).values({
         tournamentId: tid,
         serialNo: nextSerial++,
@@ -1325,10 +1343,24 @@ router.post("/tournaments/:tournamentId/players/bulk", async (req, res) => {
         availabilityDates: pd.availabilityDates ?? null,
         retainedPrice: pd.retainedPrice ?? null,
         status: (pd.status ?? "available") as "available" | "sold" | "unsold" | "retained",
+        whatsappConsent: bulkConsent,
+        whatsappConsentAt: bulkConsent ? new Date() : null,
+        whatsappConsentMethod: bulkConsent ? "organizer_declaration" : null,
       }).returning({ id: playersTable.id });
       if (inserted) {
         await persistPlayerSpecificationsDualWrite(tid, inserted.id, pd.role, pd);
         syncAuctionPlayerToMasterAsync(inserted.id, tid);
+        if (bulkConsent && bulkMobile) {
+          await recordConsentGranted({
+            recipientType: "player",
+            recipientId: inserted.id,
+            mobile: bulkMobile,
+            tournamentId: tid,
+            noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+            consentScope: "tournament_operational",
+            source: "organizer_declaration",
+          });
+        }
       }
       batchMobiles.add(bulkMobile);
       created++;
@@ -2100,6 +2132,9 @@ router.post("/tournaments/:tournamentId/import-players", async (req, res) => {
       globalPlayerId: p.globalPlayerId,
       status: "available" as const,
       teamId: null,
+      whatsappConsent: p.whatsappConsent,
+      whatsappConsentAt: p.whatsappConsentAt,
+      whatsappConsentMethod: p.whatsappConsentMethod,
     }).returning({ id: playersTable.id });
 
     if (importedPlayer) {

@@ -2485,6 +2485,15 @@ router.post("/auth/organizer-account/phone/verify", otpVerifyLimiter, async (req
     .where(eq(organizersTable.id, req.jwtUser.organizerAccountId));
   if (!before) { res.status(404).json({ error: "Account not found." }); return; }
 
+  if (before.mobile && before.mobile !== mobile) {
+    await handlePhoneNumberChange({
+      entityType: "organizer",
+      entityId: before.id,
+      oldMobile: before.mobile,
+      newMobile: mobile,
+    });
+  }
+
   const [updated] = await db.update(organizersTable)
     .set({ mobile, ...verifiedPhoneFields() })
     .where(eq(organizersTable.id, req.jwtUser.organizerAccountId))

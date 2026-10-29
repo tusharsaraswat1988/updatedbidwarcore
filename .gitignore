@@ -84,3 +84,4 @@ secrets.toml
 .superpowers/
 .env.production.*
 .env.production.env
+scratch/

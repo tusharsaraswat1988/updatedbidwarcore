@@ -474,7 +474,10 @@ describe("BIDWAR — WhatsApp Template Registry Cleanup & Approved-Only Admin UI
       const headerComp = components?.find((c: any) => c.type === "header");
       expect(headerComp).toBeDefined();
       expect(headerComp?.parameters[0].type).toBe("image");
-      expect(headerComp?.parameters[0].image.link).toBe(resolvePlayerSoldImageUrl());
+      expect(
+        headerComp?.parameters[0].image.link === resolvePlayerSoldImageUrl() ||
+        headerComp?.parameters[0].image.link?.includes("/api/media/player-sold-poster/")
+      ).toBe(true);
 
       const bodyComp = components?.find((c: any) => c.type === "body");
       expect(bodyComp).toBeDefined();

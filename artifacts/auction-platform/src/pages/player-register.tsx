@@ -501,7 +501,7 @@ export default function PlayerRegister() {
   const showAchievements = fieldVisibility.achievements;
   const showCrichero = sportCaps.hasLegacyCricketSpecs && fieldVisibility.cricheroUrl;
   const showMatchAvailability = fieldVisibility.matchAvailability;
-  const showWhatsappConsent = fieldVisibility.whatsappConsent;
+  const showWhatsappConsent = true;
   const showProfileDetails = showCity || showAge || showGender;
 
   const requirePhoto = fieldRequirements.photo;
@@ -516,8 +516,8 @@ export default function PlayerRegister() {
   const requireAchievements = fieldRequirements.achievements;
   const requireCrichero = fieldRequirements.cricheroUrl;
   const requireMatchAvailability = fieldRequirements.matchAvailability;
-  // WhatsApp consent must never be required (DPDP Act Sec 6(4) / Meta Policy)
-  const requireWhatsappConsent = false;
+  // WhatsApp consent is permanently mandatory on all registration forms
+  const requireWhatsappConsent = true;
 
   function formatDeadline(d: string | null | undefined) {
     if (!d) return "";
@@ -773,6 +773,13 @@ export default function PlayerRegister() {
       }
     }
 
+    if (!closedSelfUpdateMode && !waConsent) {
+      setErrorMsg("WhatsApp consent is required to receive match updates and tournament alerts.");
+      const waEl = document.getElementById("register-whatsapp");
+      if (waEl) waEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
     try {
       setRegisterPending(true);
       const closedPayload = closedSelfUpdateMode
@@ -813,7 +820,7 @@ export default function PlayerRegister() {
             selectedBidValue: !scoringMode && playerBidValueMode && !existingRegistration
               ? parseInt(selectedBidValue, 10)
               : undefined,
-            whatsappConsent: showWhatsappConsent ? waConsent : undefined,
+            whatsappConsent: waConsent,
             registrationDeclarationAccepted: declarationRequired ? declarationAccepted : undefined,
             utrNumber: utrNumber.trim() || undefined,
             paymentScreenshotUrl: paymentScreenshotUrl.trim() || undefined,
@@ -1854,7 +1861,7 @@ export default function PlayerRegister() {
                           <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                           <h3 className="text-sm font-bold text-foreground">WhatsApp Match & Auction Alerts</h3>
                         </div>
-                        <span className="reg-badge reg-badge--opt">Optional</span>
+                        <span className="reg-badge reg-badge--req">Required</span>
                       </div>
 
                       <label className="flex items-start gap-3 cursor-pointer select-none pt-1" htmlFor="register-whatsapp">
@@ -1866,11 +1873,11 @@ export default function PlayerRegister() {
                           className="w-5 h-5 rounded text-primary focus:ring-primary shrink-0 mt-0.5 cursor-pointer"
                         />
                         <span className="text-sm font-medium text-foreground leading-snug">
-                          Receive tournament alerts, schedule updates, and auction notifications on WhatsApp
+                          I confirm consent to receive tournament alerts, schedule updates, and auction notifications on WhatsApp
                         </span>
                       </label>
                       <p className="text-xs text-muted-foreground pl-8 leading-relaxed">
-                        I authorize BIDWAR to send tournament schedule changes, match notifications, and auction alerts to my registered mobile number. Consent is optional, does not affect tournament registration, and can be withdrawn at any time by replying STOP on WhatsApp.
+                        I authorize BIDWAR to send tournament schedule changes, match notifications, and auction alerts to my registered mobile number. Consent can be withdrawn at any time by replying STOP on WhatsApp.
                       </p>
                     </div>
                   ) : null}

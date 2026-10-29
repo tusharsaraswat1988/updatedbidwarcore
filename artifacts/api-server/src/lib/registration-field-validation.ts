@@ -39,7 +39,7 @@ export function sanitizeRegistrationInputByVisibility(
   if (!visibility.achievements) next.achievements = undefined;
   if (!visibility.cricheroUrl) next.cricheroUrl = undefined;
   if (!visibility.matchAvailability) next.availabilityDates = undefined;
-  if (!visibility.whatsappConsent) next.whatsappConsent = false;
+  next.whatsappConsent = input.whatsappConsent;
   if (visibility.photo === false) {
     next.photoUrl = undefined;
     next.photoPublicId = undefined;

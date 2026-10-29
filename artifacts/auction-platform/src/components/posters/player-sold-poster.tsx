@@ -186,11 +186,11 @@ export function PlayerSoldPoster({
         </div>
 
         {/* ─── SECTION 2: HERO PLAYER PORTRAIT & IDENTITY ─── */}
-        <div className="relative z-10 w-full flex flex-col items-center justify-center my-auto py-2">
+        <div className="relative z-10 w-full flex flex-col items-center justify-center my-0.5 py-1">
           {/* Portrait Container with Gold Trim */}
           <div className="relative flex items-center justify-center">
             {/* Outer Circular/Rounded Portrait Card */}
-            <div className="relative w-28 h-32 sm:w-36 sm:h-40 md:w-44 md:h-48 rounded-2xl overflow-hidden border-2 border-amber-400/90 bg-slate-900 shadow-xl shadow-amber-500/25 flex items-center justify-center">
+            <div className="relative w-20 h-24 sm:w-28 sm:h-32 md:w-36 md:h-40 rounded-2xl overflow-hidden border-2 border-amber-400/90 bg-slate-900 shadow-xl shadow-amber-500/25 flex items-center justify-center">
               {playerPhotoUrl ? (
                 <img
                   src={cldUrl(playerPhotoUrl, "soldCard")}
@@ -207,41 +207,41 @@ export function PlayerSoldPoster({
 
               {/* Deliberate Branded Fallback (Initials Crest + Silhouette) */}
               <div
-                className={`player-fallback-avatar w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 p-2 ${
+                className={`player-fallback-avatar w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 p-1.5 ${
                   playerPhotoUrl ? "hidden" : "flex"
                 }`}
               >
-                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 p-0.5 shadow-md flex items-center justify-center mb-1">
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 p-0.5 shadow-md flex items-center justify-center mb-0.5">
                   <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center">
-                    <span className="font-display font-black text-amber-400 text-sm sm:text-xl tracking-wider">
+                    <span className="font-display font-black text-amber-400 text-xs sm:text-lg tracking-wider">
                       {initials}
                     </span>
                   </div>
                 </div>
-                <User className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400/60" />
-                <span className="text-[7px] sm:text-[8px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">
+                <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400/60" />
+                <span className="text-[6px] sm:text-[7px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">
                   BIDWAR PLAYER
                 </span>
               </div>
 
               {/* Floating Gold SOLD Ribbon */}
-              <div className="absolute top-1.5 left-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-[8px] sm:text-[9px] px-2 py-0.5 rounded shadow-md flex items-center gap-1 uppercase tracking-wider">
-                <Sparkles className="w-2.5 h-2.5 fill-slate-950" />
+              <div className="absolute top-1 left-1 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-[7px] sm:text-[8px] px-1.5 py-0.5 rounded shadow-md flex items-center gap-1 uppercase tracking-wider">
+                <Sparkles className="w-2 h-2 fill-slate-950" />
                 SOLD
               </div>
             </div>
           </div>
 
           {/* Player Name and Role */}
-          <div className="text-center mt-2 w-full px-2">
-            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-amber-400">
+          <div className="text-center mt-1 w-full px-2">
+            <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-wider text-amber-400">
               🏏 CONGRATULATIONS!
             </span>
-            <h1 className="text-base sm:text-xl md:text-2xl font-black text-white tracking-tight leading-tight truncate font-display drop-shadow-md">
+            <h1 className="text-sm sm:text-lg md:text-xl font-black text-white tracking-tight leading-tight truncate font-display drop-shadow-md">
               {safePlayerName}
             </h1>
             <div className="inline-flex items-center gap-1 mt-0.5">
-              <span className="px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-bold bg-slate-800/90 text-amber-300 border border-amber-500/30 uppercase tracking-wide truncate max-w-[200px]">
+              <span className="px-2 py-0.5 rounded-full text-[7px] sm:text-[8px] font-bold bg-slate-800/90 text-amber-300 border border-amber-500/30 uppercase tracking-wide truncate max-w-[200px]">
                 {safeRole}
               </span>
             </div>
