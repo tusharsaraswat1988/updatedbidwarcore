@@ -101,7 +101,16 @@ export default function AdminCommunicate() {
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loadingTournaments, setLoadingTournaments] = useState(true);
-  const [selectedTid, setSelectedTid] = useState<string>("");
+  const [selectedTid, setSelectedTid] = useState<string>(() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const u = sp.get("tournamentId");
+      if (u) return u === "__all__" ? "" : u;
+      return localStorage.getItem("bidwar_admin_selected_tournament_id") || "";
+    } catch {
+      return "";
+    }
+  });
   const [consentStats, setConsentStats] = useState<ConsentStats | null>(null);
   const [logs, setLogs] = useState<CommLog[]>([]);
   const [blasts, setBlasts] = useState<BlastEntry[]>([]);
@@ -280,7 +289,16 @@ export default function AdminCommunicate() {
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Tournament</Label>
             <div className="flex items-center gap-3">
-              <Select value={selectedTid || "__all__"} onValueChange={v => setSelectedTid(v === "__all__" ? "" : v)}>
+              <Select
+                value={selectedTid || "__all__"}
+                onValueChange={(v) => {
+                  const next = v === "__all__" ? "" : v;
+                  setSelectedTid(next);
+                  try {
+                    localStorage.setItem("bidwar_admin_selected_tournament_id", next);
+                  } catch {}
+                }}
+              >
                 <SelectTrigger className="max-w-sm">
                   <SelectValue placeholder="Select tournament (optional)" />
                 </SelectTrigger>
