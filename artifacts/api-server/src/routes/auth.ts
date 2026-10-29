@@ -513,7 +513,10 @@ router.patch("/auth/organizer/:tournamentId/password", async (req, res) => {
 
 router.get("/auth/admin/tournaments", async (req, res) => {
   if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
-  const tournaments = await db.select().from(tournamentsTable).orderBy(tournamentsTable.createdAt);
+  const tournaments = await db
+    .select()
+    .from(tournamentsTable)
+    .orderBy(desc(tournamentsTable.createdAt), desc(tournamentsTable.id));
   res.json(tournaments.map(t => ({
     id: t.id,
     name: t.name,
