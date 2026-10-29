@@ -174,7 +174,8 @@ describe("WhatsApp Push Communication — Production Readiness Verification", ()
       expect(mockProvider.getSentMessages()).toHaveLength(1);
       const sent = mockProvider.getSentMessages()[0];
       expect(sent.to).toBe("+919876543210");
-      expect(sent.textBody).toContain("Congratulations Rohit Sharma!");
+      expect(sent.templateName).toBe("auction_player_sold");
+      expect(sent.textBody).toContain("Congratulations, Rohit Sharma!");
       expect(sent.textBody).toContain("Mumbai Warriors");
       expect(sent.textBody).toContain("₹2,50,00,000");
     });

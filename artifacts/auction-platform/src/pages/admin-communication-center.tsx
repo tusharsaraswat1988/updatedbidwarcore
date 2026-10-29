@@ -200,7 +200,11 @@ interface WaTemplateOption {
   status?: string;
   category?: string;
   description?: string;
-  variables: Array<{ key: string; label: string; placeholder: string }>;
+  language?: string;
+  headerType?: "image" | "text" | "video" | "document" | "none";
+  headerImageUrl?: string | null;
+  metaApproved?: boolean;
+  variables: Array<{ key: string; label: string; placeholder: string; description?: string }>;
   sampleArgs?: string[];
 }
 
@@ -360,7 +364,7 @@ export default function AdminCommunicationCenter() {
 
   // WhatsApp State
   const [waRecipientGroup, setWaRecipientGroup] = useState("all_players");
-  const [waTemplateKey, setWaTemplateKey] = useState("player_sold");
+  const [waTemplateKey, setWaTemplateKey] = useState("auction_player_sold");
   const [availableWaTemplates, setAvailableWaTemplates] = useState<WaTemplateOption[]>([]);
   const [waTemplateVariables, setWaTemplateVariables] = useState<Record<string, string>>({});
   const [waCustomText, setWaCustomText] = useState("");
@@ -499,6 +503,45 @@ export default function AdminCommunicationCenter() {
       // ignore
     }
   }, [apiBase, search, statusFilter]);
+
+  const handleViewJob = async (j: CommJob) => {
+    setViewJob(j);
+    if (!j.htmlBody) {
+      try {
+        const res = await fetch(`${apiBase}/jobs/${j.id}`, { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.job) {
+            setViewJob((prev) => (prev?.id === j.id ? { ...prev, ...data.job } : prev));
+          }
+        }
+      } catch {
+        // keep existing j
+      }
+    }
+  };
+
+  const handleResendJob = async (jobId: string) => {
+    try {
+      setResendingId(jobId);
+      const res = await fetch(`${apiBase}/jobs/${jobId}/resend`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert("Email job queued for resend successfully.");
+        void loadJobs();
+        setViewJob(null);
+      } else {
+        alert(data.error ?? "Failed to resend email job.");
+      }
+    } catch {
+      alert("Network error while attempting to resend.");
+    } finally {
+      setResendingId(null);
+    }
+  };
 
   // Load SMS Logs
   const loadSmsLogs = useCallback(async () => {
@@ -850,7 +893,11 @@ export default function AdminCommunicationCenter() {
         return;
       }
     } else if (selectedWaTpl?.variables && selectedWaTpl.variables.length > 0) {
-      const isAutoDbPlayerSold = waTemplateKey === "player_sold" && selectedTournamentId && selectedTournamentId !== "__all__" && (waRecipientGroup === "sold_players" || waRecipientGroup === "all_players");
+      const isAutoDbPlayerSold =
+        (waTemplateKey === "auction_player_sold" || waTemplateKey === "player_sold") &&
+        selectedTournamentId &&
+        selectedTournamentId !== "__all__" &&
+        (waRecipientGroup === "sold_players" || waRecipientGroup === "all_players");
       if (!isAutoDbPlayerSold) {
         const missing = selectedWaTpl.variables.find((v) => !waTemplateVariables[v.key]?.trim());
         if (missing) {
@@ -1003,17 +1050,44 @@ export default function AdminCommunicationCenter() {
   // WhatsApp Pre-Approved Templates Metadata
   const defaultWaTemplates: WaTemplateOption[] = useMemo(() => [
     {
-      id: "player_sold",
-      templateName: "player_sold",
-      title: "🏆 Player Sold Celebration",
-      body: "*BidWar Auction Update*\n\nCongratulations {{1}}!\n\nYou have been *SOLD* to *{{2}}* for *₹{{3}}* in *{{4}}*.\n\nGood luck for the tournament!",
+      id: "auction_player_sold",
+      templateName: "auction_player_sold",
+      title: "🏏 Player Sold Celebration",
+      category: "utility",
+      description: "Meta-approved celebratory announcement with image header sent when a player is sold to a team",
+      language: "en",
+      headerType: "image",
+      headerImageUrl: "/assets/branding/player-sold-banner.jpg",
+      metaApproved: true,
+      status: "approved",
+      body: "🏏 PLAYER SOLD!\n\nCongratulations, {{1}}! 🎉\n\nYou have been sold to *{{2}}* for *{{3}}* in the *{{4}}* auction.\n\nWishing you and your team great success in the tournament!\n\nBIDWAR | From Auction to Champions",
       variables: [
         { key: "1", label: "Player Name", placeholder: "e.g. Virat Kohli" },
-        { key: "2", label: "Team Name", placeholder: "e.g. Royal Challengers" },
-        { key: "3", label: "Sold Amount (₹)", placeholder: "e.g. 25,00,000" },
+        { key: "2", label: "Winning Team", placeholder: "e.g. Royal Challengers" },
+        { key: "3", label: "Sold Amount", placeholder: "e.g. ₹25,00,000" },
         { key: "4", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
       ],
-      sampleArgs: ["Virat Kohli", "Royal Challengers", "25,00,000", "Premier League 2026"],
+      sampleArgs: ["Virat Kohli", "Royal Challengers", "₹25,00,000", "Premier League 2026"],
+    },
+    {
+      id: "player_sold",
+      templateName: "auction_player_sold",
+      title: "🏏 Player Sold Celebration (Alias)",
+      category: "utility",
+      description: "Meta-approved template alias for auction_player_sold",
+      language: "en",
+      headerType: "image",
+      headerImageUrl: "/assets/branding/player-sold-banner.jpg",
+      metaApproved: true,
+      status: "approved",
+      body: "🏏 PLAYER SOLD!\n\nCongratulations, {{1}}! 🎉\n\nYou have been sold to *{{2}}* for *{{3}}* in the *{{4}}* auction.\n\nWishing you and your team great success in the tournament!\n\nBIDWAR | From Auction to Champions",
+      variables: [
+        { key: "1", label: "Player Name", placeholder: "e.g. Virat Kohli" },
+        { key: "2", label: "Winning Team", placeholder: "e.g. Royal Challengers" },
+        { key: "3", label: "Sold Amount", placeholder: "e.g. ₹25,00,000" },
+        { key: "4", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
+      ],
+      sampleArgs: ["Virat Kohli", "Royal Challengers", "₹25,00,000", "Premier League 2026"],
     },
     {
       id: "welcome_invite",
@@ -1725,7 +1799,7 @@ export default function AdminCommunicationCenter() {
                                 size="sm"
                                 variant="outline"
                                 className="h-7 text-xs"
-                                onClick={() => setViewJob(j)}
+                                onClick={() => void handleViewJob(j)}
                               >
                                 View
                               </Button>
@@ -2424,20 +2498,30 @@ export default function AdminCommunicationCenter() {
 
                     {/* Selected Template Details Card */}
                     {selectedWaTpl && waTemplateKey !== "custom" && (
-                      <div className="p-2.5 rounded-lg border border-border/70 bg-muted/30 text-xs space-y-1.5">
+                      <div className="p-3 rounded-lg border border-border/70 bg-muted/30 text-xs space-y-2">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-[11px] font-semibold text-foreground">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-xs font-bold text-foreground">
                               {selectedWaTpl.templateName || selectedWaTpl.id}
                             </span>
                             {selectedWaTpl.category && (
-                              <Badge variant="outline" className="text-[9px] uppercase px-1.5 py-0 text-muted-foreground">
+                              <Badge variant="outline" className="text-[9px] uppercase px-1.5 py-0 text-sky-400 border-sky-400/30">
                                 {selectedWaTpl.category}
                               </Badge>
                             )}
+                            {selectedWaTpl.language && (
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-muted-foreground">
+                                {selectedWaTpl.language === "en" ? "English (en)" : selectedWaTpl.language}
+                              </Badge>
+                            )}
+                            {selectedWaTpl.headerType === "image" && (
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 text-amber-300 border-amber-500/30 bg-amber-500/10">
+                                🖼️ Image Header
+                              </Badge>
+                            )}
                           </div>
-                          <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[9px] gap-1 py-0">
-                            <BadgeCheck className="h-2.5 w-2.5" /> Approved
+                          <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[9px] gap-1 py-0 font-semibold">
+                            <BadgeCheck className="h-3 w-3" /> Meta Approved
                           </Badge>
                         </div>
                         {selectedWaTpl.description && (
@@ -2451,7 +2535,7 @@ export default function AdminCommunicationCenter() {
                       <div className="space-y-2 p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5">
                         <div className="flex items-center justify-between">
                           <Label className="text-xs font-semibold text-emerald-400">Template Dynamic Variables</Label>
-                          {waTemplateKey === "player_sold" && (waRecipientGroup === "sold_players" || waRecipientGroup === "all_players") && selectedTournamentId && selectedTournamentId !== "__all__" && (
+                          {(waTemplateKey === "auction_player_sold" || waTemplateKey === "player_sold") && (waRecipientGroup === "sold_players" || waRecipientGroup === "all_players") && selectedTournamentId && selectedTournamentId !== "__all__" && (
                             <span className="text-[10px] text-muted-foreground italic">Auto-resolved from tournament auction data</span>
                           )}
                         </div>
@@ -2535,15 +2619,29 @@ export default function AdminCommunicationCenter() {
                         </div>
                       </div>
 
-                      {/* WhatsApp Emerald Bubble */}
-                      <div className="rounded-xl rounded-tl-xs bg-[#005c4b] p-3 text-xs text-zinc-100 shadow space-y-2 leading-relaxed whitespace-pre-line">
-                        {previewWaBody}
-                        <div className="pt-2 border-t border-emerald-600/40 text-[10px] text-emerald-200/70 italic">
-                          Reply STOP to unsubscribe.
-                        </div>
-                        <div className="flex items-center justify-end gap-1 text-[9px] text-emerald-300/80">
-                          <span>12:45 PM</span>
-                          <CheckCheck className="h-3.5 w-3.5 text-sky-400" />
+                      {/* WhatsApp Emerald Bubble with Optional Image Header */}
+                      <div className="overflow-hidden rounded-xl rounded-tl-xs bg-[#005c4b] text-xs text-zinc-100 shadow">
+                        {selectedWaTpl?.headerType === "image" && (
+                          <div className="relative w-full aspect-[16/9] bg-black/40 overflow-hidden border-b border-emerald-600/40">
+                            <img
+                              src={selectedWaTpl.headerImageUrl || "/assets/branding/player-sold-banner.jpg"}
+                              alt="Header Artwork Banner"
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-black/70 text-[9px] font-mono text-emerald-300 backdrop-blur-xs flex items-center gap-1">
+                              <span>🖼️ Meta Image Header</span>
+                            </div>
+                          </div>
+                        )}
+                        <div className="p-3 space-y-2 leading-relaxed whitespace-pre-line">
+                          {previewWaBody}
+                          <div className="pt-2 border-t border-emerald-600/40 text-[10px] text-emerald-200/70 italic">
+                            Reply STOP to unsubscribe.
+                          </div>
+                          <div className="flex items-center justify-end gap-1 text-[9px] text-emerald-300/80">
+                            <span>12:45 PM</span>
+                            <CheckCheck className="h-3.5 w-3.5 text-sky-400" />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2700,11 +2798,22 @@ export default function AdminCommunicationCenter() {
                     </div>
                   )}
 
-                  {/* Message Preview */}
+                  {/* Message Preview with Optional Header Image */}
                   <div className="space-y-1">
-                    <span className="text-[11px] font-semibold text-muted-foreground">Message Body (Live Preview):</span>
-                    <div className="rounded-lg border border-zinc-700 bg-[#005c4b] p-3 text-xs text-zinc-100 whitespace-pre-line max-h-36 overflow-y-auto font-sans leading-relaxed">
-                      {previewWaBody}
+                    <span className="text-[11px] font-semibold text-muted-foreground">Message Live Preview:</span>
+                    <div className="overflow-hidden rounded-lg border border-zinc-700 bg-[#005c4b] text-xs text-zinc-100 max-h-56 overflow-y-auto">
+                      {selectedWaTpl?.headerType === "image" && (
+                        <div className="relative w-full aspect-[16/9] bg-black/40 overflow-hidden border-b border-emerald-600/40">
+                          <img
+                            src={selectedWaTpl.headerImageUrl || "/assets/branding/player-sold-banner.jpg"}
+                            alt="Header Artwork Banner"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div className="p-3 whitespace-pre-line font-sans leading-relaxed">
+                        {previewWaBody}
+                      </div>
                     </div>
                   </div>
 
@@ -3091,6 +3200,125 @@ export default function AdminCommunicationCenter() {
             </div>
             <DialogFooter>
               <Button size="sm" onClick={() => setShowQrDialog(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dispatched Email View & Preview Dialog */}
+        <Dialog open={!!viewJob} onOpenChange={(open) => !open && setViewJob(null)}>
+          <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0 overflow-hidden bg-card border-border">
+            <DialogHeader className="p-4 pb-3 border-b border-border bg-muted/20">
+              <div className="flex items-start justify-between gap-3 pr-6">
+                <div className="space-y-1">
+                  <DialogTitle className="text-base flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-primary shrink-0" />
+                    <span className="truncate max-w-xl">{viewJob?.subject || viewJob?.templateInternalKey || "Dispatched Email"}</span>
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>
+                      <strong>To:</strong> {viewJob?.recipient?.recipientName || "—"} &lt;{viewJob?.recipient?.recipientEmail || "No email"}&gt;
+                    </span>
+                    {viewJob?.recipient?.recipientRole && (
+                      <span className="capitalize">
+                        • <strong>Role:</strong> {viewJob.recipient.recipientRole}
+                      </span>
+                    )}
+                    <span>
+                      • <strong>Sent:</strong> {formatDate(viewJob?.sentAt || viewJob?.createdAt || null)}
+                    </span>
+                  </DialogDescription>
+                </div>
+                {viewJob && <StatusBadge status={viewJob.status} />}
+              </div>
+            </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {/* Meta bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-2.5 rounded-lg border border-border bg-muted/30 text-xs">
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Template Key</span>
+                  <span className="font-mono font-medium truncate block">{viewJob?.templateInternalKey || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Triggered By</span>
+                  <span className="font-mono font-medium truncate block">{viewJob?.triggeredByEvent || "Manual / Admin"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Sent By</span>
+                  <span className="font-medium capitalize block">{viewJob?.sentBy || "system"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-muted-foreground block">Retries</span>
+                  <span className="font-medium block">{viewJob?.retryCount ?? 0}</span>
+                </div>
+              </div>
+
+              {viewJob?.pendingReason && (
+                <div className="p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 text-xs text-yellow-400">
+                  <strong>Pending Reason:</strong> {viewJob.pendingReason}
+                </div>
+              )}
+
+              {/* Email Body Iframe Preview */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                  <span className="font-semibold uppercase tracking-wider text-[10px]">Rendered Email Content</span>
+                  {viewJob?.htmlBody && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 text-[10px] gap-1 px-2"
+                      onClick={() => {
+                        if (viewJob?.htmlBody) {
+                          void navigator.clipboard.writeText(viewJob.htmlBody);
+                        }
+                      }}
+                    >
+                      <Copy className="h-3 w-3" /> Copy Raw HTML
+                    </Button>
+                  )}
+                </div>
+
+                <div className="border border-border rounded-lg overflow-hidden bg-white shadow-inner">
+                  {viewJob?.htmlBody ? (
+                    <iframe
+                      srcDoc={viewJob.htmlBody}
+                      title={viewJob.subject || "Email Preview"}
+                      className="w-full h-[460px] border-0 bg-white"
+                      sandbox="allow-same-origin"
+                    />
+                  ) : (
+                    <div className="h-64 flex flex-col items-center justify-center text-xs text-muted-foreground italic">
+                      <Mail className="h-8 w-8 mb-2 opacity-30 text-zinc-900" />
+                      <span className="text-zinc-600">No rendered email body found for this job record.</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="p-3 border-t border-border bg-muted/20 flex sm:justify-between items-center gap-2">
+              <div>
+                {viewJob && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs gap-1.5"
+                    disabled={resendingId === viewJob.id || !viewJob.recipient?.recipientEmail}
+                    onClick={() => void handleResendJob(viewJob.id)}
+                  >
+                    {resendingId === viewJob.id ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    )}
+                    Resend Email
+                  </Button>
+                )}
+              </div>
+              <Button size="sm" onClick={() => setViewJob(null)}>
                 Close
               </Button>
             </DialogFooter>

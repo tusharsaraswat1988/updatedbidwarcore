@@ -146,22 +146,46 @@ export async function sendSms(to: string, body: string): Promise<SendResult> {
 
 // ─── WhatsApp Dispatch via Provider Abstraction ──────────────────────────────
 
+export interface SendWhatsAppOptions {
+  type?: "text" | "template";
+  templateName?: string;
+  templateLanguage?: string;
+  templateComponents?: Array<{
+    type: "header" | "body" | "button";
+    sub_type?: string;
+    index?: string | number;
+    parameters: Array<{
+      type: "text" | "currency" | "date_time" | "image" | "document" | "video";
+      text?: string;
+      image?: { link: string };
+      document?: { link: string; filename?: string };
+    }>;
+  }>;
+}
+
 /** Send a WhatsApp message via the active configured provider. */
 export async function sendWhatsApp(
   to: string,
   body: string,
   templateSid?: string,
+  options?: SendWhatsAppOptions,
 ): Promise<SendResult> {
   const activeProvider = getActiveWhatsAppProvider();
   const maskedTo = maskPhoneNumber(to);
 
-  logger.info({ provider: activeProvider.providerId, to: maskedTo }, "sendWhatsApp: initiating dispatch");
+  logger.info(
+    { provider: activeProvider.providerId, to: maskedTo, template: options?.templateName },
+    "sendWhatsApp: initiating dispatch",
+  );
 
   const res = await activeProvider.send({
     to,
-    type: "text",
+    type: options?.type ?? (options?.templateName ? "template" : "text"),
     textBody: body,
     templateSid,
+    templateName: options?.templateName,
+    templateLanguage: options?.templateLanguage ?? (options?.templateName ? "en" : undefined),
+    templateComponents: options?.templateComponents,
   });
 
   if (!res.success) {

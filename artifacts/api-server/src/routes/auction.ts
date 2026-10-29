@@ -2164,7 +2164,9 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
   notifyPlayerSold({
     mobile: soldPlayer?.mobileNumber ?? null,
     tournamentId: tid,
+    playerId: soldPlayer?.id ?? playerId,
     playerName: soldPlayer?.name ?? "Player",
+    teamId: team?.id ?? teamId,
     teamName: team?.name ?? "Team",
     amount: soldAmount,
     tournamentName: tournament?.name ?? "the tournament",
@@ -2391,7 +2393,9 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
   notifyPlayerSold({
     mobile: soldPlayer?.mobileNumber ?? null,
     tournamentId: tid,
+    playerId: soldPlayer?.id ?? playerId,
     playerName: soldPlayer?.name ?? "Player",
+    teamId: team?.id ?? teamId,
     teamName: team?.name ?? "Team",
     amount,
     tournamentName: manualTournament?.name ?? "the tournament",

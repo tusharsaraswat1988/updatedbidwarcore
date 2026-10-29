@@ -351,6 +351,19 @@ export async function dispatchPushWhatsApp(opts: {
   body: string;
   recipientConsent?: boolean | null;
   templateSid?: string;
+  templateName?: string;
+  templateLanguage?: string;
+  templateComponents?: Array<{
+    type: "header" | "body" | "button";
+    sub_type?: string;
+    index?: string | number;
+    parameters: Array<{
+      type: "text" | "currency" | "date_time" | "image" | "document" | "video";
+      text?: string;
+      image?: { link: string };
+      document?: { link: string; filename?: string };
+    }>;
+  }>;
 }): Promise<SendResult & { blocked?: boolean }> {
   const policy = await communicationPolicyEngine.evaluatePushPolicy({
     event: opts.event,
@@ -377,5 +390,10 @@ export async function dispatchPushWhatsApp(opts: {
     };
   }
 
-  return sendWhatsApp(opts.mobile!, opts.body, opts.templateSid);
+  return sendWhatsApp(opts.mobile!, opts.body, opts.templateSid, {
+    type: opts.templateName ? "template" : "text",
+    templateName: opts.templateName,
+    templateLanguage: opts.templateLanguage,
+    templateComponents: opts.templateComponents,
+  });
 }

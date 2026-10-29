@@ -46,6 +46,7 @@ export interface RecordConsentGrantedOptions {
   source: ConsentSource;
   ip?: string | null;
   tokenUsed?: string | null;
+  tx?: any;
 }
 
 export interface RecordConsentWithdrawalOptions {
@@ -107,8 +108,10 @@ export async function recordConsentGranted(
     source,
     ip = null,
     tokenUsed = null,
+    tx,
   } = options;
 
+  const client = tx ?? db;
   const norm = normalizePhone(mobile);
   const updateData = {
     whatsappConsent: true,
@@ -120,17 +123,17 @@ export async function recordConsentGranted(
   try {
     // 1. Update the authoritative entity record
     if (recipientType === "player" && recipientId > 0) {
-      await db.update(playersTable).set(updateData).where(eq(playersTable.id, recipientId));
+      await client.update(playersTable).set(updateData).where(eq(playersTable.id, recipientId));
     } else if (recipientType === "team_owner" && recipientId > 0) {
-      await db.update(teamsTable).set(updateData).where(eq(teamsTable.id, recipientId));
+      await client.update(teamsTable).set(updateData).where(eq(teamsTable.id, recipientId));
     } else if (recipientType === "organizer" && recipientId > 0) {
-      await db.update(organizersTable).set(updateData).where(eq(organizersTable.id, recipientId));
+      await client.update(organizersTable).set(updateData).where(eq(organizersTable.id, recipientId));
     } else if (recipientType === "scorer" && recipientId > 0) {
-      await db.update(scorerAccountsTable).set(updateData as any).where(eq(scorerAccountsTable.id, recipientId));
+      await client.update(scorerAccountsTable).set(updateData as any).where(eq(scorerAccountsTable.id, recipientId));
     }
 
     // 2. Append immutable audit ledger event
-    const [inserted] = await db
+    const [inserted] = await client
       .insert(waConsentEventsTable)
       .values({
         mobile: norm,

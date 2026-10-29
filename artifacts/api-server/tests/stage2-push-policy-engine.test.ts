@@ -79,7 +79,8 @@ describe("Stage 2: WhatsApp Push & Communication Policy Engine", () => {
 
       const sent = mock.getSentMessages()[0];
       expect(sent.to).toBe("+919876543210");
-      expect(sent.textBody).toContain("Congratulations Virat Kohli!");
+      expect(sent.templateName).toBe("auction_player_sold");
+      expect(sent.textBody).toContain("Congratulations, Virat Kohli!");
       expect(sent.textBody).toContain("SOLD");
       expect(sent.textBody).toContain("Royal Challengers");
       expect(sent.textBody).toContain("₹1,50,00,000");

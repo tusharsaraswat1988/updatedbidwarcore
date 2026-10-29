@@ -37,6 +37,12 @@ import { sendDltSms, playerSoldTemplateId } from "../lib/fast2sms";
 import { getPublicOrigin } from "../lib/runtime-env";
 import { logger } from "../lib/logger";
 import { resolveWhatsAppProviderId, getWhatsAppProvider } from "../lib/communication/providers/index.js";
+import {
+  resolvePlayerSoldImageUrl,
+  META_AUCTION_PLAYER_SOLD_TEMPLATE,
+  META_AUCTION_PLAYER_SOLD_LANGUAGE,
+  META_AUCTION_PLAYER_SOLD_CATEGORY,
+} from "../lib/whatsapp";
 
 const router = Router();
 
@@ -48,24 +54,50 @@ export interface CanonicalWaTemplate {
   category: "utility" | "marketing" | "authentication";
   description: string;
   body: string;
-  variables: Array<{ key: string; label: string; placeholder: string }>;
+  language?: string;
+  headerType?: "image" | "text" | "video" | "document" | "none";
+  headerImageUrl?: string;
+  metaApproved?: boolean;
+  variables: Array<{ key: string; label: string; placeholder: string; description?: string }>;
   sampleArgs: string[];
 }
 
 export const CANONICAL_WA_TEMPLATES: Record<string, CanonicalWaTemplate> = {
-  player_sold: {
-    templateName: "player_sold",
-    title: "🏆 Player Sold Celebration",
+  auction_player_sold: {
+    templateName: META_AUCTION_PLAYER_SOLD_TEMPLATE,
+    title: "🏏 Player Sold Celebration",
     category: "utility",
-    description: "Celebratory announcement sent when a player is sold to a team",
-    body: "*BidWar Auction Update*\n\nCongratulations {{1}}!\n\nYou have been *SOLD* to *{{2}}* for *₹{{3}}* in *{{4}}*.\n\nGood luck for the tournament!",
+    description: "Meta-approved celebratory announcement with image header sent when a player is sold to a team",
+    language: "en",
+    headerType: "image",
+    headerImageUrl: resolvePlayerSoldImageUrl(),
+    metaApproved: true,
+    body: "🏏 PLAYER SOLD!\n\nCongratulations, {{1}}! 🎉\n\nYou have been sold to *{{2}}* for *{{3}}* in the *{{4}}* auction.\n\nWishing you and your team great success in the tournament!\n\nBIDWAR | From Auction to Champions",
     variables: [
       { key: "1", label: "Player Name", placeholder: "e.g. Virat Kohli" },
-      { key: "2", label: "Team Name", placeholder: "e.g. Royal Challengers" },
-      { key: "3", label: "Sold Amount (₹)", placeholder: "e.g. 25,00,000" },
+      { key: "2", label: "Winning Team", placeholder: "e.g. Royal Challengers" },
+      { key: "3", label: "Sold Amount", placeholder: "e.g. ₹25,00,000" },
       { key: "4", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
     ],
-    sampleArgs: ["Virat Kohli", "Royal Challengers", "25,00,000", "Premier League 2026"],
+    sampleArgs: ["Virat Kohli", "Royal Challengers", "₹25,00,000", "Premier League 2026"],
+  },
+  player_sold: {
+    templateName: META_AUCTION_PLAYER_SOLD_TEMPLATE,
+    title: "🏏 Player Sold Celebration",
+    category: "utility",
+    description: "Meta-approved celebratory announcement with image header sent when a player is sold to a team (alias for auction_player_sold)",
+    language: "en",
+    headerType: "image",
+    headerImageUrl: resolvePlayerSoldImageUrl(),
+    metaApproved: true,
+    body: "🏏 PLAYER SOLD!\n\nCongratulations, {{1}}! 🎉\n\nYou have been sold to *{{2}}* for *{{3}}* in the *{{4}}* auction.\n\nWishing you and your team great success in the tournament!\n\nBIDWAR | From Auction to Champions",
+    variables: [
+      { key: "1", label: "Player Name", placeholder: "e.g. Virat Kohli" },
+      { key: "2", label: "Winning Team", placeholder: "e.g. Royal Challengers" },
+      { key: "3", label: "Sold Amount", placeholder: "e.g. ₹25,00,000" },
+      { key: "4", label: "Tournament Name", placeholder: "e.g. Premier League 2026" },
+    ],
+    sampleArgs: ["Virat Kohli", "Royal Challengers", "₹25,00,000", "Premier League 2026"],
   },
   welcome_invite: {
     templateName: "welcome_invite",
@@ -201,18 +233,32 @@ export function validateAndNormalizeMobile(raw: unknown): { valid: boolean; norm
 function normalizeCommTemplateName(name: string | undefined | null): string | null {
   if (!name?.trim()) return null;
   const key = name.trim().toLowerCase().replace(/[\s-]+/g, "_");
-  if (key === "player_sold" || key === "playersold") return "player_sold";
+  if (key === "player_sold" || key === "playersold" || key === "auction_player_sold") {
+    return META_AUCTION_PLAYER_SOLD_TEMPLATE;
+  }
   return name.trim();
 }
 
 function buildPlayerSoldWaMessage(opts: {
   playerName: string;
   teamName: string;
-  amount: number;
+  amount: number | string;
   tournamentName: string;
 }): string {
-  const amt = `₹${opts.amount.toLocaleString("en-IN")}`;
-  return `*BidWar Auction Update*\n\nCongratulations ${opts.playerName}!\n\nYou have been *SOLD* to *${opts.teamName}* for *${amt}* in *${opts.tournamentName}*.\n\nGood luck for the tournament!`;
+  const amt =
+    typeof opts.amount === "number"
+      ? `₹${Math.round(opts.amount).toLocaleString("en-IN")}`
+      : String(opts.amount).startsWith("₹")
+        ? String(opts.amount)
+        : `₹${opts.amount}`;
+
+  return (
+    `🏏 PLAYER SOLD!\n\n` +
+    `Congratulations, ${opts.playerName}! 🎉\n\n` +
+    `You have been sold to *${opts.teamName}* for *${amt}* in the *${opts.tournamentName}* auction.\n\n` +
+    `Wishing you and your team great success in the tournament!\n\n` +
+    `BIDWAR | From Auction to Champions`
+  );
 }
 
 function buildPlayerSoldSmsPreview(opts: {
@@ -378,39 +424,107 @@ router.get("/consent/:token", async (req, res) => {
 
 // ─── Consent Token: Web Fallback Confirm ─────────────────────────────────────
 
-router.post("/consent/:token/confirm", async (req, res) => {
-  const [ct] = await db.select().from(consentTokensTable).where(eq(consentTokensTable.token, req.params.token));
-  if (!ct) { res.status(404).json({ error: "Token not found" }); return; }
-  if (ct.used) { res.json({ success: true, alreadyConfirmed: true }); return; }
-  if (new Date() > ct.expiresAt) { res.status(410).json({ error: "Token expired" }); return; }
+class TokenExpiredError extends Error {
+  constructor() {
+    super("Token expired");
+    this.name = "TokenExpiredError";
+  }
+}
 
+router.post("/consent/:token/confirm", async (req, res) => {
+  const tokenRaw = req.params.token;
+  if (!tokenRaw || typeof tokenRaw !== "string" || !tokenRaw.trim()) {
+    res.status(404).json({ error: "Token not found" });
+    return;
+  }
+  const token = tokenRaw.trim();
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null;
 
-  await recordConsentGranted({
-    recipientType: ct.recipientType as any,
-    recipientId: ct.recipientId,
-    mobile: ct.mobile,
-    tournamentId: ct.tournamentId,
-    noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
-    consentScope: "tournament_operational",
-    source: "consent_link",
-    tokenUsed: ct.token,
-    ip,
-  });
+  try {
+    const runTx = async <T>(fn: (tx: any) => Promise<T>): Promise<T> => {
+      if (typeof db.transaction === "function") {
+        return await db.transaction(fn);
+      }
+      return await fn(db);
+    };
 
-  await db.update(consentTokensTable).set({ used: true }).where(eq(consentTokensTable.token, ct.token));
+    const outcome = await runTx(async (tx) => {
+      // 1. Atomic conditional consumption: UPDATE ... WHERE token = ? AND used = false RETURNING ...
+      const [consumed] = await tx
+        .update(consentTokensTable)
+        .set({ used: true })
+        .where(
+          and(
+            eq(consentTokensTable.token, token),
+            eq(consentTokensTable.used, false),
+          ),
+        )
+        .returning();
 
-  await db.insert(commLogsTable).values({
-    tournamentId: ct.tournamentId,
-    recipientType: ct.recipientType,
-    recipientId: ct.recipientId,
-    recipientMobile: ct.mobile,
-    channel: "web",
-    messageContent: `Web consent link confirmed (${CURRENT_CONSENT_NOTICE_VERSION})`,
-    deliveryStatus: "delivered",
-  });
+      if (consumed) {
+        // Enforce 72-hour expiration on the consumed token
+        if (new Date() > consumed.expiresAt) {
+          throw new TokenExpiredError();
+        }
 
-  res.json({ success: true });
+        // Successfully and exclusively consumed — record affirmative consent
+        await recordConsentGranted({
+          recipientType: consumed.recipientType as any,
+          recipientId: consumed.recipientId,
+          mobile: consumed.mobile,
+          tournamentId: consumed.tournamentId,
+          noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+          consentScope: "tournament_operational",
+          source: "consent_link",
+          tokenUsed: consumed.token,
+          ip,
+          tx,
+        });
+
+        await tx.insert(commLogsTable).values({
+          tournamentId: consumed.tournamentId,
+          recipientType: consumed.recipientType,
+          recipientId: consumed.recipientId,
+          recipientMobile: consumed.mobile,
+          channel: "web",
+          messageContent: `Web consent link confirmed (${CURRENT_CONSENT_NOTICE_VERSION})`,
+          deliveryStatus: "delivered",
+        });
+
+        return { status: 200, body: { success: true } };
+      }
+
+      // 2. If update did not match, inspect existing token for idempotent replay or errors
+      const [existing] = await tx
+        .select()
+        .from(consentTokensTable)
+        .where(eq(consentTokensTable.token, token))
+        .limit(1);
+
+      if (!existing) {
+        return { status: 404, body: { error: "Token not found" } };
+      }
+
+      if (existing.used) {
+        return { status: 200, body: { success: true, alreadyConfirmed: true } };
+      }
+
+      if (new Date() > existing.expiresAt) {
+        return { status: 410, body: { error: "Token expired" } };
+      }
+
+      return { status: 400, body: { error: "Unable to confirm consent token" } };
+    });
+
+    res.status(outcome.status).json(outcome.body);
+  } catch (err) {
+    if (err instanceof TokenExpiredError) {
+      res.status(410).json({ error: "Token expired" });
+      return;
+    }
+    logger.error({ err, token }, "Failed to confirm consent token");
+    res.status(500).json({ error: "Failed to confirm consent" });
+  }
 });
 
 // ─── Organizer Declaration (Decommissioned P0-A) ──────────────────────────────
@@ -455,7 +569,9 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
   const d = parsed.data;
   const canonicalTemplate = normalizeCommTemplateName(d.templateName);
-  const isPlayerSoldTemplate = canonicalTemplate === "player_sold";
+  const isPlayerSoldTemplate =
+    canonicalTemplate === META_AUCTION_PLAYER_SOLD_TEMPLATE ||
+    canonicalTemplate === "player_sold";
   const isCustomOrFreeform = !canonicalTemplate || canonicalTemplate === "custom";
 
   // Ensure canonical templates are registered in wa_templates
@@ -472,7 +588,14 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         status: waTemplatesTable.status,
       })
       .from(waTemplatesTable)
-      .where(eq(waTemplatesTable.templateName, canonicalTemplate!));
+      .where(
+        isPlayerSoldTemplate
+          ? or(
+              eq(waTemplatesTable.templateName, META_AUCTION_PLAYER_SOLD_TEMPLATE),
+              eq(waTemplatesTable.templateName, "player_sold"),
+            )
+          : eq(waTemplatesTable.templateName, canonicalTemplate!),
+      );
 
     if (!dbTmpl || dbTmpl.status !== "approved") {
       res.status(400).json({ error: `Template "${d.templateName}" is not approved.` });
@@ -481,7 +604,9 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
     resolvedTemplateSid = dbTmpl.templateSid ?? undefined;
 
     // Validate variables if template definition specifies them
-    const canonicalDef = CANONICAL_WA_TEMPLATES[canonicalTemplate!];
+    const canonicalDef =
+      CANONICAL_WA_TEMPLATES[canonicalTemplate!] ??
+      CANONICAL_WA_TEMPLATES[META_AUCTION_PLAYER_SOLD_TEMPLATE];
     if (canonicalDef && canonicalDef.variables.length > 0) {
       const isAutoDbPlayerSold = isPlayerSoldTemplate && d.tournamentId && (d.recipientGroup === "sold_players" || d.recipientGroup === "all_players");
       if (!isAutoDbPlayerSold) {
@@ -618,7 +743,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
     const appUrl = process.env.APP_URL?.trim() || getPublicOrigin();
     const blastId = generateBlastId();
     const results: Array<{ mobile: string; channel: string; success: boolean; stub?: boolean; error?: string; blocked?: boolean }> = [];
-    const logTemplateName = "player_sold";
+    const logTemplateName = META_AUCTION_PLAYER_SOLD_TEMPLATE;
 
     logger.info({
       tournamentId: tid,
@@ -626,7 +751,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
       channel: d.channel,
       dltTemplateId,
       templateIdSource: envTemplateId ? "env" : "db",
-    }, "Admin communicate: player_sold blast starting");
+    }, "Admin communicate: auction_player_sold blast starting");
 
     for (const player of soldPlayers) {
       const mobile = player.mobileNumber!;
@@ -665,7 +790,34 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           });
           results.push({ mobile, channel: "whatsapp", success: false, blocked: true, error: err });
         } else {
-          const waResult = await sendWhatsApp(mobile, waBody, resolvedTemplateSid);
+          const amtFormatted = `₹${Math.round(amount).toLocaleString("en-IN")}`;
+          const playerSoldComponents = [
+            {
+              type: "header" as const,
+              parameters: [
+                {
+                  type: "image" as const,
+                  image: { link: resolvePlayerSoldImageUrl() },
+                },
+              ],
+            },
+            {
+              type: "body" as const,
+              parameters: [
+                { type: "text" as const, text: playerName },
+                { type: "text" as const, text: teamName },
+                { type: "text" as const, text: amtFormatted },
+                { type: "text" as const, text: tournament.name },
+              ],
+            },
+          ];
+
+          const waResult = await sendWhatsApp(mobile, waBody, resolvedTemplateSid, {
+            type: "template",
+            templateName: META_AUCTION_PLAYER_SOLD_TEMPLATE,
+            templateLanguage: META_AUCTION_PLAYER_SOLD_LANGUAGE,
+            templateComponents: playerSoldComponents,
+          });
           await db.insert(commLogsTable).values({
             tournamentId: tid,
             recipientType: "player",
@@ -938,6 +1090,15 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
     const shouldSendSms = (d.channel === "sms" || d.channel === "both");
 
     if (shouldSendWa) {
+      const isSoldTmpl =
+        canonicalTemplate === META_AUCTION_PLAYER_SOLD_TEMPLATE ||
+        d.templateName === "player_sold" ||
+        d.templateName === META_AUCTION_PLAYER_SOLD_TEMPLATE;
+
+      const effectiveWaTemplateName = isSoldTmpl
+        ? META_AUCTION_PLAYER_SOLD_TEMPLATE
+        : (d.templateName ?? null);
+
       if (!r.whatsappConsent) {
         const err = "Recipient has no WhatsApp consent or opted out (STOP / missing_or_unverified_consent)";
         await db.insert(commLogsTable).values({
@@ -946,7 +1107,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           recipientId: r.recipientId,
           recipientMobile: r.mobile,
           channel: "whatsapp",
-          templateName: d.templateName ?? null,
+          templateName: effectiveWaTemplateName,
           messageContent: d.messageContent,
           sentByAdminId: "master_admin",
           blastId,
@@ -956,14 +1117,57 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         });
         results.push({ mobile: r.mobile, channel: "whatsapp", success: false, blocked: true, error: err });
       } else {
-        const waResult = await sendWhatsApp(r.mobile, d.messageContent, resolvedTemplateSid);
+        let templateComponents: any = undefined;
+        if (isSoldTmpl) {
+          const suppliedVars = d.templateVariables ?? {};
+          const var1 = suppliedVars["1"] ?? suppliedVars["Player Name"] ?? "Player";
+          const var2 = suppliedVars["2"] ?? suppliedVars["Winning Team"] ?? suppliedVars["Team Name"] ?? "Team";
+          const rawAmt = suppliedVars["3"] ?? suppliedVars["Sold Amount"] ?? suppliedVars["Sold Amount (₹)"] ?? "0";
+          const var3 = rawAmt.startsWith("₹") ? rawAmt : `₹${rawAmt}`;
+          const var4 = suppliedVars["4"] ?? suppliedVars["Tournament Name"] ?? "Auction";
+          templateComponents = [
+            {
+              type: "header" as const,
+              parameters: [
+                {
+                  type: "image" as const,
+                  image: { link: resolvePlayerSoldImageUrl() },
+                },
+              ],
+            },
+            {
+              type: "body" as const,
+              parameters: [
+                { type: "text" as const, text: var1 },
+                { type: "text" as const, text: var2 },
+                { type: "text" as const, text: var3 },
+                { type: "text" as const, text: var4 },
+              ],
+            },
+          ];
+        }
+
+        const waResult = await sendWhatsApp(
+          r.mobile,
+          d.messageContent,
+          resolvedTemplateSid,
+          isSoldTmpl
+            ? {
+                type: "template",
+                templateName: META_AUCTION_PLAYER_SOLD_TEMPLATE,
+                templateLanguage: META_AUCTION_PLAYER_SOLD_LANGUAGE,
+                templateComponents,
+              }
+            : undefined,
+        );
+
         await db.insert(commLogsTable).values({
           tournamentId: d.tournamentId ?? null,
           recipientType: r.recipientType,
           recipientId: r.recipientId,
           recipientMobile: r.mobile,
           channel: "whatsapp",
-          templateName: d.templateName ?? null,
+          templateName: effectiveWaTemplateName,
           messageContent: d.messageContent,
           sentByAdminId: "master_admin",
           blastId,
@@ -1113,6 +1317,10 @@ router.get("/auth/admin/communicate/templates", async (req, res) => {
       status: t.status,
       title: canonical?.title || t.templateName,
       body: canonical?.body || "",
+      language: canonical?.language || "en",
+      headerType: canonical?.headerType || "none",
+      headerImageUrl: canonical?.headerImageUrl || null,
+      metaApproved: canonical?.metaApproved ?? (t.status === "approved"),
       variables: canonical?.variables || [],
       sampleArgs: canonical?.sampleArgs || [],
     };
