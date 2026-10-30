@@ -1,8 +1,8 @@
 import crypto from "node:crypto";
 import {
-  generatePlayerSoldPosterBuffer,
-  type PlayerSoldPosterInput,
-} from "./player-sold-poster-generator.js";
+  generatePlayerSoldPosterV2Buffer as generatePlayerSoldPosterBuffer,
+  type PlayerSoldPosterV2Input as PlayerSoldPosterInput,
+} from "./player-sold-poster-generator-v2.js";
 import { getCloudinary, uploadBufferToCloudinary } from "../cloudinary-media-service.js";
 import { getPublicOrigin } from "../runtime-env.js";
 import { logger } from "../logger.js";
@@ -73,7 +73,7 @@ export function createSalePosterToken(opts: {
 }): string {
   const pId = opts.playerId ?? "0";
   const tId = opts.teamId ?? "0";
-  const raw = `sold:v2:${opts.tournamentId}:${pId}:${tId}:${opts.amount}`;
+  const raw = `sold:v2.1:${opts.tournamentId}:${pId}:${tId}:${opts.amount}`;
   return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 24);
 }
 

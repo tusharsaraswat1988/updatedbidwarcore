@@ -139,6 +139,7 @@ export interface TournamentTypographyLayout {
   fontSize: number;
   line1Y: number;
   line2Y?: number;
+  letterSpacing: number;
 }
 
 export function computeTournamentTypography(rawName?: string): TournamentTypographyLayout {
@@ -146,28 +147,28 @@ export function computeTournamentTypography(rawName?: string): TournamentTypogra
   const len = name.length;
   const words = name.split(/\s+/).filter(Boolean);
 
-  // If <= 38 chars, single line maximizes the right-side horizontal space and makes it look big!
-  const shouldSplit = len > 38 && words.length > 1;
+  // If short name (<= 16 chars or single word), single line maximizes bold impact
+  const shouldSplit = len > 16 && words.length > 1;
 
   if (!shouldSplit) {
-    let fontSize = 38;
-    if (len <= 14) fontSize = 52;
-    else if (len <= 18) fontSize = 48;
-    else if (len <= 24) fontSize = 44;
-    else if (len <= 30) fontSize = 40;
-    else if (len <= 34) fontSize = 38;
-    else fontSize = 34;
+    let fontSize = 58;
+    if (len <= 12) fontSize = 62;
+    else if (len <= 16) fontSize = 58;
+    else if (len <= 20) fontSize = 52;
+    else if (len <= 25) fontSize = 44;
+    else fontSize = 38;
 
     return {
       isTwoLines: false,
       line1: name,
       line2: null,
       fontSize,
-      line1Y: 66,
+      line1Y: 88,
+      letterSpacing: 2,
     };
   }
 
-  // Split into 2 balanced lines across word boundaries if > 38 chars
+  // Split into 2 balanced lines across word boundaries to fill the dedicated header space
   let bestIndex = 1;
   let minDiff = Infinity;
   for (let i = 1; i < words.length; i++) {
@@ -184,18 +185,36 @@ export function computeTournamentTypography(rawName?: string): TournamentTypogra
   const line2 = words.slice(bestIndex).join(" ");
   const maxLineLen = Math.max(line1.length, line2.length);
 
-  let fontSize = 30;
-  if (maxLineLen <= 18) fontSize = 32;
-  else if (maxLineLen <= 24) fontSize = 28;
-  else fontSize = 24;
+  let fontSize = 58;
+  let line1Y = 66;
+  let line2Y = 122;
+
+  if (maxLineLen <= 16) {
+    fontSize = 58;
+    line1Y = 66;
+    line2Y = 122;
+  } else if (maxLineLen <= 21) {
+    fontSize = 52;
+    line1Y = 66;
+    line2Y = 120;
+  } else if (maxLineLen <= 26) {
+    fontSize = 46;
+    line1Y = 64;
+    line2Y = 114;
+  } else {
+    fontSize = 38;
+    line1Y = 60;
+    line2Y = 106;
+  }
 
   return {
     isTwoLines: true,
     line1,
     line2,
     fontSize,
-    line1Y: 50,
-    line2Y: 80,
+    line1Y,
+    line2Y,
+    letterSpacing: maxLineLen <= 18 ? 2 : 1.2,
   };
 }
 
@@ -303,13 +322,14 @@ export function PlayerSoldPosterV2({
   const playerInitials = getInitials(playerName);
 
   // Optical centering parameters for Golden Energy Ring & Photo
+  // Downsized by ~20% and shifted down to create ample dedicated space for the bold header headline
   const cx = 540;
-  const cy = 365;
-  const r = 248;
-  const ringWidth = 710;
-  const ringHeight = Math.round(ringWidth * (985 / 1024)); // 683px
-  const ringX = Math.round(cx - ringWidth * (511 / 1024)); // 186px
-  const ringY = Math.round(cy - ringHeight * (490.8 / 985)); // 25px
+  const cy = 405;
+  const r = 198;
+  const ringWidth = 570;
+  const ringHeight = Math.round(ringWidth * (985 / 1024)); // 548px
+  const ringX = Math.round(cx - ringWidth * (511 / 1024)); // 255px
+  const ringY = Math.round(cy - ringHeight * (490.8 / 985)); // 132px
 
   // Name splitting & responsive sizing (Bigger, bolder athletic font)
   const { line1, line2 } = splitPlayerName(playerName);
@@ -449,22 +469,22 @@ export function PlayerSoldPosterV2({
 
         {/* Layer 1B: Header (Zone 1) — Official BidWar Logo + Dynamic Tournament Headline */}
         <g id="layer-header" filter="url(#name-shadow)">
-          {/* Official BidWar Logo on the left in its dedicated space (compact & crisp) */}
+          {/* Official BidWar Logo on the left in its dedicated space */}
           <image
             href="/bidwar-clean-logo-v2.png"
             x="55"
-            y="38"
-            width="138"
-            height="34"
+            y="46"
+            width="155"
+            height="38"
             preserveAspectRatio="xMinYMid meet"
           />
 
           {/* Vertical Gold Divider Line */}
           <line
-            x1="210"
-            y1="28"
-            x2="210"
-            y2="82"
+            x1="228"
+            y1="26"
+            x2="228"
+            y2="132"
             stroke="#d4af37"
             strokeWidth="1.5"
             strokeOpacity="0.45"
@@ -474,40 +494,40 @@ export function PlayerSoldPosterV2({
           {tournLayout.isTwoLines ? (
             <g id="header-tournament-title">
               <text
-                x="228"
+                x="248"
                 y={tournLayout.line1Y}
                 textAnchor="start"
                 fill="url(#header-gold-grad)"
                 fontFamily="'Barlow Condensed', 'Oswald', 'Impact', 'Arial Narrow', sans-serif"
                 fontSize={tournLayout.fontSize}
                 fontWeight="900"
-                letterSpacing="1.2"
+                letterSpacing={tournLayout.letterSpacing}
               >
                 {tournLayout.line1}
               </text>
               <text
-                x="228"
+                x="248"
                 y={tournLayout.line2Y}
                 textAnchor="start"
                 fill="url(#header-gold-grad)"
                 fontFamily="'Barlow Condensed', 'Oswald', 'Impact', 'Arial Narrow', sans-serif"
                 fontSize={tournLayout.fontSize}
                 fontWeight="900"
-                letterSpacing="1.2"
+                letterSpacing={tournLayout.letterSpacing}
               >
                 {tournLayout.line2}
               </text>
             </g>
           ) : (
             <text
-              x="228"
+              x="248"
               y={tournLayout.line1Y}
               textAnchor="start"
               fill="url(#header-gold-grad)"
               fontFamily="'Barlow Condensed', 'Oswald', 'Impact', 'Arial Narrow', sans-serif"
               fontSize={tournLayout.fontSize}
               fontWeight="900"
-              letterSpacing="1.5"
+              letterSpacing={tournLayout.letterSpacing}
             >
               {tournLayout.line1}
             </text>

@@ -10,6 +10,12 @@ import {
   POSTER_WIDTH,
   POSTER_HEIGHT,
 } from "../src/lib/poster/player-sold-poster-generator.js";
+import {
+  generatePlayerSoldPosterV2Buffer,
+  buildPosterV2Svg,
+  POSTER_V2_WIDTH,
+  POSTER_V2_HEIGHT,
+} from "../src/lib/poster/player-sold-poster-generator-v2.js";
 
 let mockUser: any = { isAdmin: true, adminLevel: "master" };
 const testApp = express();
@@ -266,7 +272,8 @@ describe("BIDWAR — Dynamic Player-Sold Poster for WhatsApp Image Header", () =
       expect(svg).not.toContain("OFFICIAL AUCTION • SOLD");
 
       // 3. Below them: Tournament name banner
-      expect(svg).toContain("BIDWAR PREMIER LEAGUE");
+      expect(svg).toContain("BIDWAR PREMIER");
+      expect(svg).toContain("LEAGUE");
 
       // 4. Hero image
       expect(svg).toContain("mockphoto");
@@ -287,6 +294,65 @@ describe("BIDWAR — Dynamic Player-Sold Poster for WhatsApp Image Header", () =
       expect(svg).toContain("DPS CHAMPIONS");
       expect(svg).toContain("mockteamlogo");
       expect(svg).not.toContain("🏆"); // Replaced with SVG path
+    });
+
+    
+    it("verifies the exact updated V2 design hierarchy matching the UI rendered component", async () => {
+      const svg = buildPosterV2Svg({
+        playerName: "Tushar Saraswat",
+        playerRole: "BATSMAN",
+        teamName: "DPS CHAMPIONS",
+        amount: 10000,
+        auctionUnit: "points",
+        tournamentName: "BidWar Premier League",
+      });
+
+      // 1. Barlow Condensed typography font definition
+      expect(svg).toContain("Barlow Condensed");
+
+      // 2. Center coordinates for Golden Energy Ring & Photo downsized & shifted down
+      expect(svg).toContain('cx="540" cy="405" r="198"');
+      expect(svg).toContain('width="570"');
+
+      // 3. Official BidWar logo (width 155, height 38, y 46)
+      expect(svg).toContain('width="155"');
+      expect(svg).toContain('height="38"');
+
+      // 4. Vertical gold divider line (x1=228, y1=26, x2=228, y2=132)
+      expect(svg).toContain('x1="228"');
+      expect(svg).toContain('y1="26"');
+      expect(svg).toContain('x2="228"');
+      expect(svg).toContain('y2="132"');
+
+      // 5. Dynamic Tournament Headline at x="248" (two-line balanced wrapping)
+      expect(svg).toContain('x="248"');
+      expect(svg).toContain("BIDWAR");
+      expect(svg).toContain("PREMIER LEAGUE");
+
+      // 6. Name splitting & Sold amount
+      expect(svg).toContain("TUSHAR");
+      expect(svg).toContain("SARASWAT");
+      expect(svg).toContain("10,000 Pt.");
+
+      // 7. Team panel
+      expect(svg).toContain("DPS CHAMPIONS");
+
+      // 8. Brand signature footer
+      expect(svg).toContain("FROM AUCTION TO CHAMPIONS");
+
+      // 9. Generates valid PNG buffer with dimensions 1080x1350
+      const buffer = await generatePlayerSoldPosterV2Buffer({
+        playerName: "Tushar Saraswat",
+        playerRole: "BATSMAN",
+        teamName: "DPS CHAMPIONS",
+        amount: 10000,
+        auctionUnit: "points",
+        tournamentName: "BidWar Premier League",
+      });
+      const meta = await sharp(buffer).metadata();
+      expect(meta.width).toBe(POSTER_V2_WIDTH);
+      expect(meta.height).toBe(POSTER_V2_HEIGHT);
+      expect(meta.format).toBe("png");
     });
 
     it("generates a high-resolution PNG artifact of the redesigned poster for verification", async () => {

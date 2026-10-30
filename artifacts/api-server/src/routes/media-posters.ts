@@ -20,17 +20,17 @@ router.get("/media/player-sold-poster/preview.png", async (req: Request, res: Re
     const playerId = req.query.playerId ? Number(req.query.playerId) : undefined;
     const teamId = req.query.teamId ? Number(req.query.teamId) : undefined;
     const tournamentId = req.query.tournamentId ? Number(req.query.tournamentId) : 0;
-    const playerName = req.query.name ? String(req.query.name) : undefined;
-    const teamName = req.query.team ? String(req.query.team) : undefined;
-    const tournamentName = req.query.tournament ? String(req.query.tournament) : undefined;
-    const amount = req.query.price ? Number(req.query.price) : 0;
-    const role = req.query.role ? String(req.query.role) : undefined;
-    const sport = req.query.sport ? String(req.query.sport) : undefined;
-    const photoUrl = req.query.photoUrl ? String(req.query.photoUrl) : undefined;
-    const logoUrl = req.query.logoUrl ? String(req.query.logoUrl) : undefined;
-    const shortCode = req.query.shortCode ? String(req.query.shortCode) : undefined;
-    const color = req.query.color ? String(req.query.color) : undefined;
-    const auctionUnit = req.query.unit === "rupee" ? "rupee" : "points";
+    const playerName = req.query.name ? String(req.query.name) : (req.query.playerName ? String(req.query.playerName) : undefined);
+    const teamName = req.query.team ? String(req.query.team) : (req.query.teamName ? String(req.query.teamName) : undefined);
+    const tournamentName = req.query.tournament ? String(req.query.tournament) : (req.query.tournamentName ? String(req.query.tournamentName) : undefined);
+    const amount = req.query.price ? Number(req.query.price) : (req.query.amount ? Number(req.query.amount) : 0);
+    const role = req.query.role ? String(req.query.role) : (req.query.playerRole ? String(req.query.playerRole) : undefined);
+    const sport = req.query.sport ? String(req.query.sport) : (req.query.tournamentSport ? String(req.query.tournamentSport) : undefined);
+    const photoUrl = req.query.photoUrl ? String(req.query.photoUrl) : (req.query.playerPhotoUrl ? String(req.query.playerPhotoUrl) : undefined);
+    const logoUrl = req.query.logoUrl ? String(req.query.logoUrl) : (req.query.teamLogoUrl ? String(req.query.teamLogoUrl) : undefined);
+    const shortCode = req.query.shortCode ? String(req.query.shortCode) : (req.query.teamShortCode ? String(req.query.teamShortCode) : undefined);
+    const color = req.query.color ? String(req.query.color) : (req.query.teamColor ? String(req.query.teamColor) : undefined);
+    const auctionUnit = (req.query.unit === "rupee" || req.query.auctionUnit === "rupee") ? "rupee" : "points";
 
     // Authoritative DB lookup resolves actual player photograph, team logo, color & sport
     const authoritative = await resolveAuthoritativeSaleData({
