@@ -354,7 +354,30 @@ export function buildPosterSvg(
 /**
  * Generates a high-resolution, production-ready 1080x1350 Player Sold portrait poster PNG buffer.
  */
+import { generatePlayerSoldPosterV2Buffer } from "./player-sold-poster-generator-v2.js";
+
 export async function generatePlayerSoldPosterBuffer(
+  input: PlayerSoldPosterInput,
+): Promise<Buffer> {
+  return generatePlayerSoldPosterV2Buffer({
+    playerName: input.playerName,
+    playerPhotoUrl: input.playerPhotoUrl,
+    playerRole: input.playerRole,
+    teamName: input.teamName,
+    teamLogoUrl: input.teamLogoUrl,
+    teamShortCode: input.teamShortCode,
+    teamColor: input.teamColor,
+    amount: input.amount,
+    auctionUnit: (input.auctionUnit ?? "rupee") as "rupee" | "points",
+    tournamentName: input.tournamentName,
+    tournamentSport: input.tournamentSport,
+    bidwarLogoUrl: input.bidwarLogoUrl,
+    titleSponsorLogoUrl: input.titleSponsorLogoUrl,
+    coSponsorLogoUrls: input.coSponsorLogoUrls,
+  });
+}
+
+async function _legacyGeneratePlayerSoldPosterBuffer(
   input: PlayerSoldPosterInput,
 ): Promise<Buffer> {
   const [

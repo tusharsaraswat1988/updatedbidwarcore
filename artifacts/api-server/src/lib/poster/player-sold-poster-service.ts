@@ -73,7 +73,7 @@ export function createSalePosterToken(opts: {
 }): string {
   const pId = opts.playerId ?? "0";
   const tId = opts.teamId ?? "0";
-  const raw = `sold:v2.1:${opts.tournamentId}:${pId}:${tId}:${opts.amount}`;
+  const raw = `sold:v2.2:${opts.tournamentId}:${pId}:${tId}:${opts.amount}`;
   return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 24);
 }
 
@@ -316,7 +316,7 @@ export async function generateAndHostPlayerSoldPoster(
     tournamentId: authoritative.tournamentId,
     playerId: authoritative.playerId,
     teamId: authoritative.teamId,
-    amount: authoritative.amount,
+    amount: Number(authoritative.amount) || 0,
   });
 
   // Check if locally cached and not expired
@@ -343,7 +343,7 @@ export async function generateAndHostPlayerSoldPoster(
     teamLogoUrl: authoritative.teamLogoUrl,
     teamShortCode: authoritative.teamShortCode,
     teamColor: authoritative.teamColor,
-    amount: authoritative.amount,
+    amount: Number(authoritative.amount) || 0,
     auctionUnit: authoritative.auctionUnit,
     tournamentName: authoritative.tournamentName,
     tournamentSport: authoritative.tournamentSport,
@@ -385,7 +385,7 @@ export async function generateAndHostPlayerSoldPoster(
             tournamentId: authoritative.tournamentId,
             playerId: authoritative.playerId,
             teamId: authoritative.teamId,
-            amount: authoritative.amount,
+            amount: Number(authoritative.amount) || 0,
           },
         });
 
@@ -425,7 +425,7 @@ export async function generateAndHostPlayerSoldPoster(
       tournamentId: authoritative.tournamentId,
       playerId: authoritative.playerId,
       teamId: authoritative.teamId,
-      amount: authoritative.amount,
+      amount: Number(authoritative.amount) || 0,
     },
   });
 
