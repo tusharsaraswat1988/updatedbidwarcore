@@ -3,7 +3,7 @@ import {
   getPlayerSoldPosterBufferByToken,
   resolveAuthoritativeSaleData,
 } from "../lib/poster/player-sold-poster-service.js";
-import { generatePlayerSoldPosterBuffer } from "../lib/poster/player-sold-poster-generator.js";
+import { generatePlayerSoldPosterV2Buffer as generatePlayerSoldPosterBuffer } from "../lib/poster/player-sold-poster-generator-v2.js";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
@@ -30,7 +30,7 @@ router.get("/media/player-sold-poster/preview.png", async (req: Request, res: Re
     const logoUrl = req.query.logoUrl ? String(req.query.logoUrl) : undefined;
     const shortCode = req.query.shortCode ? String(req.query.shortCode) : undefined;
     const color = req.query.color ? String(req.query.color) : undefined;
-    const auctionUnit = req.query.unit === "points" ? "points" : "rupee";
+    const auctionUnit = req.query.unit === "rupee" ? "rupee" : "points";
 
     // Authoritative DB lookup resolves actual player photograph, team logo, color & sport
     const authoritative = await resolveAuthoritativeSaleData({
@@ -59,7 +59,7 @@ router.get("/media/player-sold-poster/preview.png", async (req: Request, res: Re
       teamShortCode: authoritative.teamShortCode,
       teamColor: authoritative.teamColor,
       amount: authoritative.amount,
-      auctionUnit: authoritative.auctionUnit,
+      auctionUnit: authoritative.auctionUnit ?? undefined,
       tournamentName: authoritative.tournamentName,
       tournamentSport: authoritative.tournamentSport,
       bidwarLogoUrl: authoritative.bidwarLogoUrl,

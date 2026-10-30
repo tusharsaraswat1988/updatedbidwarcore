@@ -46,6 +46,8 @@ const AdminOrganiserDetail = lazy(() => import("@/pages/admin-organiser-detail")
 const AdminReports = lazy(() => import("@/pages/admin-reports"));
 const AdminIntelligence = lazy(() => import("@/pages/admin-intelligence"));
 const ObsV2OverlayPreview = lazy(() => import("@/pages/obs-v2-overlay-preview"));
+/** Design preview sandbox — not production. Remove/gate after approval. */
+const SoldPosterV2Preview = lazy(() => import("@/pages/sold-poster-v2-preview"));
 const ObsV2Overlay = lazy(() => import("@/pages/obs-v2-overlay"));
 /** @deprecated Prefer /obs/v2 — kept for bookmarks during rollout */
 const ObsLabOverlayPreview = lazy(() => import("@/pages/obs-v2-overlay-preview"));
@@ -239,7 +241,10 @@ function PlatformRouter() {
         <Route path="/tournament/:id/display" component={DisplayView} />
         <Route path="/tournament/:id/side-display" component={SideDisplayView} />
         <Route path="/tournament/:id/score-display" component={RedirectToScoringApp} />
-        {/* V2 Broadcast Overlays (Must precede legacy :matchId wildcard) */}
+        {/* SOLD Poster V2 design preview � standalone sandbox, not production */}
+        <Route path="/poster-v2-preview" component={SoldPosterV2Preview} />
+
+                {/* V2 Broadcast Overlays (Must precede legacy :matchId wildcard) */}
         <Route path="/tournament/:id/cricket/obs/v2/preview" component={CricketObsV2Preview} />
         <Route path="/tournament/:id/cricket/obs/v2" component={CricketObsV2Preview} />
         <Route path="/cricket/obs/v2/preview" component={CricketObsV2Preview} />

@@ -264,7 +264,7 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
     reportTitle,
     tournamentName: t.name,
     tournamentSport: t.sport,
-    auctionUnit: (t.auctionUnit ?? "rupee") as "rupee" | "points",
+    auctionUnit: (t.auctionUnit ?? "points") as "rupee" | "points",
     generatedAt,
     filtersApplied,
   };
@@ -801,7 +801,7 @@ router.get("/auth/admin/reports/:tournamentId/context", requireReportAuth, heavy
       id: ctx.tournament.id,
       name: ctx.tournament.name,
       sport: ctx.tournament.sport,
-      auctionUnit: ctx.tournament.auctionUnit ?? "rupee",
+      auctionUnit: ctx.tournament.auctionUnit ?? "points",
     },
     teams: ctx.teams.map(t => ({ id: t.id, name: t.name, shortCode: t.shortCode, color: t.color })),
     categories: ctx.categories.map(c => ({ id: c.id, name: c.name, colorCode: c.colorCode })),

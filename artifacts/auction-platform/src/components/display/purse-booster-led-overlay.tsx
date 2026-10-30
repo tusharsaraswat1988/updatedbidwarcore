@@ -12,7 +12,7 @@ function overlayIsLive(overlay: LedPurseBoosterOverlayView | null, now: number):
 
 export const PurseBoosterLedOverlay = memo(function PurseBoosterLedOverlay({
   overlay,
-  unit = "rupee",
+  unit = "points",
 }: {
   overlay: LedPurseBoosterOverlayView | null;
   unit?: AuctionUnit;

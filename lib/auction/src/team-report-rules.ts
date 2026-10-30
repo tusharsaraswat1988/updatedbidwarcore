@@ -1,5 +1,5 @@
 import { parseBidTiers, type AuctionReadinessInput } from "./auction-readiness";
-import { formatShortAuctionAmount, type AuctionUnit } from "./auction-unit";
+import { formatShortAuctionAmount, normalizeAuctionUnit, type AuctionUnit } from "./auction-unit";
 import { isPlayerBidValueMode } from "./bid-value";
 
 export type TeamReportAuctionRules = {
@@ -22,7 +22,7 @@ export function describeBidIncrementRules(
     | "bidTier2Increment"
     | "bidTier3Increment"
   >,
-  unit: AuctionUnit = "rupee",
+  unit: AuctionUnit = "points",
   formatAmount: (amount: number, unit: AuctionUnit) => string = formatShortAuctionAmount,
 ): string[] {
   const tiers = parseBidTiers(tournament).filter((tier) => tier.increment > 0);
@@ -71,14 +71,16 @@ export function computeTeamReportPlanningRows(
   totalAcquired: number,
   minimumSquadSize: number,
   maximumSquadSize: number,
-): { planningRows: number; slotsRemaining: number } {
+): {
+  planningRows: number;
+  slotsRemaining: number;
+} {
   const slotsToReachMin = minimumSquadSize > 0
     ? Math.max(0, minimumSquadSize - totalAcquired)
     : 0;
   const slotsToReachMax = maximumSquadSize > 0
     ? Math.max(0, maximumSquadSize - totalAcquired)
     : 0;
-
   const planningRows = Math.max(
     slotsToReachMin,
     slotsToReachMax,
@@ -108,7 +110,7 @@ export function buildTeamReportAuctionRules(input: {
     | "bidTier3Increment"
   >;
 }): TeamReportAuctionRules {
-  const unit: AuctionUnit = input.auctionUnit === "points" ? "points" : "rupee";
+  const unit: AuctionUnit = normalizeAuctionUnit(input.auctionUnit);
   const minBid = input.minBid > 0 ? input.minBid : null;
   const categoryMinBids = input.categories
     .filter((category) => category.minBid != null && category.minBid > 0 && category.minBid !== input.minBid)

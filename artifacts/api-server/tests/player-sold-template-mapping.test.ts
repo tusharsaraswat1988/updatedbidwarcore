@@ -132,6 +132,7 @@ describe("Player Sold Meta Template Mapping & Payload Integration", () => {
         teamId: 7,
         teamName: "Royal Challengers",
         amount: 25000000,
+        auctionUnit: "rupee",
         tournamentName: "Premier League 2026",
         whatsappConsent: true,
       });
@@ -196,6 +197,7 @@ describe("Player Sold Meta Template Mapping & Payload Integration", () => {
           playerName: "Test Player",
           teamName: "Test Team",
           amount: tc.amount,
+          auctionUnit: "rupee",
           tournamentName: "Premier League 2026",
           whatsappConsent: true,
         });

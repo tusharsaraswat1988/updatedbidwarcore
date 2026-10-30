@@ -306,7 +306,7 @@ router.post("/tournaments", async (req, res) => {
       logoUrl: d.logoUrl ?? null,
       logoPublicId: d.logoPublicId ?? null,
       sponsorLogos: validatedSponsorLogos ?? null,
-      auctionUnit: d.auctionUnit ?? "rupee",
+      auctionUnit: d.auctionUnit ?? "points",
       basePurse: d.basePurse ?? 10000000,
       minBid: d.minBid ?? 100000,
       bidIncrement: d.bidIncrement ?? 100000,

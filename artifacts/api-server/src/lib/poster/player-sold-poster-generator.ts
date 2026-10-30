@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { fetchImageBuffer } from "../pdf-branding.js";
-import { formatAuctionAmount, type AuctionUnit } from "@workspace/api-base/auction-unit";
+import { formatAuctionAmount, normalizeAuctionUnit, type AuctionUnit } from "@workspace/api-base/auction-unit";
 import { sharpToBuffer } from "../sharp-pipeline.js";
 
 export interface PlayerSoldPosterInput {
@@ -109,7 +109,7 @@ export function buildPosterSvg(
   const initials = escapeXml(getInitials(input.playerName || "Player"));
   const shortCode = escapeXml((input.teamShortCode?.trim() || input.teamName?.slice(0, 3) || "TM").toUpperCase());
 
-  const unit: AuctionUnit = input.auctionUnit === "points" ? "points" : "rupee";
+  const unit: AuctionUnit = normalizeAuctionUnit(input.auctionUnit);
   const formattedPrice = escapeXml(formatAuctionAmount(input.amount, unit));
 
   // Dynamic font sizing for player name based on character length - big and impactful

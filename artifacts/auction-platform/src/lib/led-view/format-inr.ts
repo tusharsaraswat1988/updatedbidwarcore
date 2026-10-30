@@ -4,11 +4,11 @@ import {
   formatLedAuctionAmountFull,
 } from "@workspace/api-base/auction-unit";
 
-export function formatINR(n: number, unit: AuctionUnit = "rupee"): string {
+export function formatINR(n: number, unit: AuctionUnit = "points"): string {
   return formatLedAuctionAmount(n, unit);
 }
 
-export function formatINRFull(n: number, unit: AuctionUnit = "rupee"): string {
+export function formatINRFull(n: number, unit: AuctionUnit = "points"): string {
   return formatLedAuctionAmountFull(n, unit);
 }
 

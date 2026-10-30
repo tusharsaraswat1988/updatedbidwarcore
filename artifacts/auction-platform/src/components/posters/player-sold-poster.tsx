@@ -41,7 +41,7 @@ export function PlayerSoldPoster({
   amount,
   tournamentName,
   tournamentSport = "Cricket",
-  auctionUnit = "rupee",
+  auctionUnit = "points",
   isIllustrative = false,
   className = "",
   showDownloadButton = true,

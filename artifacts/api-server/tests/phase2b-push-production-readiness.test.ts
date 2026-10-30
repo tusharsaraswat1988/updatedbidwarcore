@@ -166,6 +166,7 @@ describe("WhatsApp Push Communication — Production Readiness Verification", ()
         playerName: "Rohit Sharma",
         teamName: "Mumbai Warriors",
         amount: 25000000,
+        auctionUnit: "rupee",
         tournamentName: "Premier League 2026",
         whatsappConsent: true,
       });

@@ -304,6 +304,7 @@ if (startServers) {
     "pnpm",
     ["--filter", "@workspace/api-server", "run", "start"],
     devEnv({ PORT: API_PORT_STR }),
+    { restartOnCrash: true },
   );
 
   // Must exceed SCHEMA_BOOT_TIMEOUT_MS (90s default) — API binds PORT only after schema.

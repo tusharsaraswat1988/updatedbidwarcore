@@ -214,12 +214,12 @@ export function getTeamWiseStatus(team: LedTeam, minimumBid: number): TeamWiseSt
   return null;
 }
 
-export function formatTeamWiseMoney(value: number, unit: AuctionUnit = "rupee") {
+export function formatTeamWiseMoney(value: number, unit: AuctionUnit = "points") {
   return formatAuctionAmount(value, unit);
 }
 
 /** Short form for stat blocks — ₹4.60Cr / ₹12.50L or points equivalent */
-export function formatTeamWiseMoneyShort(value: number, unit: AuctionUnit = "rupee") {
+export function formatTeamWiseMoneyShort(value: number, unit: AuctionUnit = "points") {
   return formatShortAuctionAmount(value, unit);
 }
 
@@ -230,7 +230,7 @@ export type HighestPurseTickerDisplay =
 
 export function getHighestPurseTickerDisplay(
   teams: readonly LedTeam[],
-  unit: AuctionUnit = "rupee",
+  unit: AuctionUnit = "points",
 ): HighestPurseTickerDisplay | null {
   if (teams.length === 0) return null;
 

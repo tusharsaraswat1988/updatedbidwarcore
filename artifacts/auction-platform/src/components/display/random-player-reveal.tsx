@@ -130,7 +130,7 @@ export const RandomPlayerReveal = memo(function RandomPlayerReveal({
   selectedPlayer,
   candidatePool,
   roleLabel = "Player",
-  auctionUnit = "rupee",
+  auctionUnit = "points",
   tournamentName = "Auction",
   startedAt,
   onComplete,

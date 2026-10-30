@@ -2176,7 +2176,7 @@ router.post("/tournaments/:tournamentId/auction/sell", async (req, res) => {
     amount: soldAmount,
     tournamentName: tournament?.name ?? "the tournament",
     tournamentSport: tournament?.sport ?? "cricket",
-    auctionUnit: (tournament?.auctionUnit ?? "rupee") as any,
+    auctionUnit: (tournament?.auctionUnit ?? "points") as any,
     whatsappConsent: soldPlayer?.whatsappConsent,
   });
 
@@ -2412,7 +2412,7 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
     amount,
     tournamentName: manualTournament?.name ?? "the tournament",
     tournamentSport: manualTournament?.sport ?? "cricket",
-    auctionUnit: (manualTournament?.auctionUnit ?? "rupee") as any,
+    auctionUnit: (manualTournament?.auctionUnit ?? "points") as any,
     whatsappConsent: soldPlayer?.whatsappConsent,
   });
 

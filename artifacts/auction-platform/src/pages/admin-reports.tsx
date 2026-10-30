@@ -766,7 +766,7 @@ async function captureAndDownloadElement(element: HTMLElement, filename: string)
 
 function Top5ShowcasePoster({ data, tournament }: { data: ReportData; tournament: AdminTournamentRow | null }) {
   const { logoSrc, brandName } = usePosterBranding();
-  const unit: AuctionUnit = data.auctionUnit ?? "rupee";
+  const unit: AuctionUnit = data.auctionUnit ?? "points";
   const posterRef = useRef<HTMLDivElement | null>(null);
   const [downloading, setDownloading] = useState(false);
 
@@ -1042,7 +1042,7 @@ function Top5ShowcasePoster({ data, tournament }: { data: ReportData; tournament
 
 function TeamSoldSquadShowcase({ data }: { data: ReportData }) {
   const { logoSrc, brandName } = usePosterBranding();
-  const unit: AuctionUnit = data.auctionUnit ?? "rupee";
+  const unit: AuctionUnit = data.auctionUnit ?? "points";
   const [selectedTeamTab, setSelectedTeamTab] = useState<string>("all");
   const [downloadingTeam, setDownloadingTeam] = useState<string | null>(null);
   const [downloadingAll, setDownloadingAll] = useState(false);

@@ -8,7 +8,7 @@ import { getPublicOrigin } from "../runtime-env.js";
 import { logger } from "../logger.js";
 import { db, playersTable, teamsTable, tournamentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import type { AuctionUnit } from "@workspace/api-base/auction-unit";
+import { normalizeAuctionUnit, type AuctionUnit } from "@workspace/api-base/auction-unit";
 import { parseSponsorLogos, resolveSponsorPriorityType, SponsorPriorityType } from "@workspace/api-base/sponsor-priority";
 import { brandingService } from "../branding-service.js";
 
@@ -151,7 +151,7 @@ export async function resolveAuthoritativeSaleData(
 
   let resolvedTournamentName = input.tournamentName ?? "Tournament";
   let resolvedSport = input.tournamentSport ?? "Cricket";
-  let resolvedUnit: AuctionUnit = input.auctionUnit ?? "rupee";
+  let resolvedUnit: AuctionUnit = normalizeAuctionUnit(input.auctionUnit);
   let resolvedTeamId = input.teamId ?? null;
   let resolvedAmount = input.amount;
 

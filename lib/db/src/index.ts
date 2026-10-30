@@ -46,12 +46,18 @@ export const pool = new Pool({
   connectionString: resolveDatabaseUrl(),
   // Fail fast if a new connection can't be established in 20s (Neon cold start
   // can take up to ~15s; beyond that it's likely a connectivity problem).
-  connectionTimeoutMillis: 20_000,
+  connectionTimeoutMillis: 30_000,
   // Release idle connections after 30s to avoid stale TCP issues on Neon.
   idleTimeoutMillis: 30_000,
   max: resolvePoolMax(),
 });
 export const db = drizzle(pool, { schema });
+
+// Prevent unhandled idle client errors from crashing the Node.js process.
+// Cloud databases (such as Neon) terminate idle sockets periodically.
+pool.on("error", (err) => {
+  console.warn("[db:pool] Unexpected error on idle client (pool will reconnect automatically):", err?.message || err);
+});
 
 // Keep Neon database alive with a lightweight ping every 4 minutes.
 // Neon suspends the compute after ~5 minutes of inactivity, causing cold-start

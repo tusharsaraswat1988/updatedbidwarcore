@@ -12,7 +12,7 @@ export { formatAuctionAmount };
 
 export function formatIndianRupee(
   amount: number | null | undefined,
-  unit: AuctionUnit = "rupee",
+  unit: AuctionUnit = "points",
 ): string {
   return formatAuctionAmount(amount, unit);
 }
@@ -23,14 +23,14 @@ export function parseIndianAmountInput(raw: string | number | null | undefined):
 
 export function formatIndianAmountWords(
   raw: string | number | null | undefined,
-  unit: AuctionUnit = "rupee",
+  unit: AuctionUnit = "points",
 ): string {
   return formatAuctionAmountWords(raw, unit);
 }
 
 export function formatShortIndianRupee(
   amount: number | null | undefined,
-  unit: AuctionUnit = "rupee",
+  unit: AuctionUnit = "points",
 ): string {
   return formatShortAuctionAmount(amount, unit);
 }
@@ -38,6 +38,7 @@ export function formatShortIndianRupee(
 export { formatSoldForBroadcast };
 
 export {
+  DEFAULT_AUCTION_UNIT,
   normalizeAuctionUnit,
   normalizeAuctionUnit as resolveAuctionUnit,
   auctionUnitSymbol,

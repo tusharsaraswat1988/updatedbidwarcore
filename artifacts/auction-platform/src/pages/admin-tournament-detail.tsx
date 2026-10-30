@@ -437,7 +437,7 @@ export default function AdminTournamentDetailPage() {
                   <>
                     <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-2 text-center min-w-[85px]">
                       <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Base Purse</div>
-                      <div className="text-sm font-bold text-primary">{formatAuctionAmount(t.basePurse, t.auctionUnit || "rupee")}</div>
+                      <div className="text-sm font-bold text-primary">{formatAuctionAmount(t.basePurse, t.auctionUnit || "points")}</div>
                     </div>
                     <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-2 text-center min-w-[70px]">
                       <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Bid Events</div>
@@ -1177,7 +1177,7 @@ export default function AdminTournamentDetailPage() {
                           </span>
                           <span className="mt-1 block sm:mt-0 sm:text-right">
                             <span className="text-muted-foreground sm:hidden">Price: </span>
-                            {formatAuctionAmount(p.soldPrice || p.basePrice, detail.tournament.auctionUnit || "rupee")}
+                            {formatAuctionAmount(p.soldPrice || p.basePrice, detail.tournament.auctionUnit || "points")}
                           </span>
                           <div className="mt-1 flex justify-end sm:mt-0">
                             {p.email ? (
@@ -1233,7 +1233,7 @@ export default function AdminTournamentDetailPage() {
                           {team.ownerEmail && <span className="block text-[11px] text-muted-foreground truncate">{team.ownerEmail}</span>}
                         </div>
                         <span className="mt-1 block sm:mt-0 sm:text-right">
-                          {formatAuctionAmount(team.purseUsed, detail.tournament.auctionUnit || "rupee")} used
+                          {formatAuctionAmount(team.purseUsed, detail.tournament.auctionUnit || "points")} used
                         </span>
                         <div className="mt-1 flex justify-end sm:mt-0">
                           {team.ownerEmail ? (
@@ -1283,7 +1283,7 @@ export default function AdminTournamentDetailPage() {
                         <span className="mt-1 block font-medium text-white sm:mt-0">{bid.playerName || "Event"}</span>
                         <span className="mt-1 block text-muted-foreground sm:mt-0">{bid.teamName || "No team"}</span>
                         <span className="mt-1 block text-primary sm:mt-0 sm:text-right">
-                          {formatAuctionAmount(bid.amount, detail.tournament.auctionUnit || "rupee")}
+                          {formatAuctionAmount(bid.amount, detail.tournament.auctionUnit || "points")}
                         </span>
                       </div>
                     ))}

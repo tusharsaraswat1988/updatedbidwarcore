@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 export function IndianAmountHint({
   value,
-  unit = "rupee",
+  unit = "points",
   className,
 }: {
   value: string | number | null | undefined;

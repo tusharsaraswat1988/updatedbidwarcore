@@ -1283,7 +1283,10 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         let templateComponents: any = undefined;
         let loggedContent = d.messageContent;
         if (isSoldTmpl) {
-          let tournUnit: AuctionUnit = "rupee";
+          const suppliedVars = d.templateVariables ?? {};
+          const rawAmt = suppliedVars["3"] ?? suppliedVars["Sold Amount"] ?? suppliedVars["Sold Amount (₹)"] ?? suppliedVars["Sold Amount (Pt.)"] ?? "0";
+          const trimmedRaw = String(rawAmt).trim();
+          let tournUnit: AuctionUnit = trimmedRaw.startsWith("₹") ? "rupee" : "points";
           if (d.tournamentId) {
             try {
               const [tRow] = await db
@@ -1299,13 +1302,10 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
             }
           }
 
-          const suppliedVars = d.templateVariables ?? {};
           const var1 = suppliedVars["1"] ?? suppliedVars["Player Name"] ?? "Player";
           const var2 = suppliedVars["2"] ?? suppliedVars["Winning Team"] ?? suppliedVars["Team Name"] ?? "Team";
-          const rawAmt = suppliedVars["3"] ?? suppliedVars["Sold Amount"] ?? suppliedVars["Sold Amount (₹)"] ?? suppliedVars["Sold Amount (Pt.)"] ?? "0";
           const parsedAmt = parseFloat(String(rawAmt).replace(/[^0-9.]/g, "")) || 0;
           let var3: string;
-          const trimmedRaw = String(rawAmt).trim();
           if (tournUnit === "points") {
             if (trimmedRaw.endsWith("Pt.") && !trimmedRaw.startsWith("₹")) {
               var3 = trimmedRaw;

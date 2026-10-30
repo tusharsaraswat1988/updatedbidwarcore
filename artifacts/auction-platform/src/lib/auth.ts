@@ -576,6 +576,7 @@ export async function withdrawOrganizerWaConsent(): Promise<{ success: boolean; 
 export async function createOrganizerTournament(data: {
   name: string; sport?: string; city: string; venue?: string; auctionDate?: string; auctionTime?: string;
   basePurse?: number; minimumSquadSize?: number; minBid?: number; bidIncrement?: number;
+  auctionUnit?: string;
   variantId?: string; competitionTypeId?: string;
   ruleProfileId?: string; ruleProfileVersion?: string;
   presentationProfileId?: string; presentationProfileVersion?: string;

@@ -1,5 +1,7 @@
 export type AuctionUnit = "rupee" | "points";
 
+export const DEFAULT_AUCTION_UNIT: AuctionUnit = "points";
+
 export const AUCTION_UNITS = ["rupee", "points"] as const;
 
 export const AUCTION_UNIT_OPTIONS: ReadonlyArray<{
@@ -12,7 +14,7 @@ export const AUCTION_UNIT_OPTIONS: ReadonlyArray<{
 ];
 
 export function normalizeAuctionUnit(value: string | null | undefined): AuctionUnit {
-  return value === "points" ? "points" : "rupee";
+  return value === "rupee" ? "rupee" : "points";
 }
 
 export function auctionUnitSymbol(unit: AuctionUnit): string {
@@ -25,11 +27,11 @@ export function auctionUnitSuffix(unit: AuctionUnit): string {
 
 export function formatAuctionAmount(
   amount: number | null | undefined,
-  unit: AuctionUnit = "rupee",
+  unit: AuctionUnit = DEFAULT_AUCTION_UNIT,
 ): string {
-  if (amount == null) return unit === "points" ? "0 Pt." : "₹0";
+  if (amount == null) return unit === "rupee" ? "₹0" : "0 Pt.";
   const formatted = Math.round(amount).toLocaleString("en-IN", { maximumFractionDigits: 0 });
-  return unit === "points" ? `${formatted} Pt.` : `₹${formatted}`;
+  return unit === "rupee" ? `₹${formatted}` : `${formatted} Pt.`;
 }
 
 /**
@@ -38,25 +40,25 @@ export function formatAuctionAmount(
  */
 export function formatPdfSafeAuctionAmount(
   amount: number | null | undefined,
-  unit: AuctionUnit = "rupee",
+  unit: AuctionUnit = DEFAULT_AUCTION_UNIT,
 ): string {
-  if (amount == null) return unit === "points" ? "0 Pt." : "Rs. 0";
+  if (amount == null) return unit === "rupee" ? "Rs. 0" : "0 Pt.";
   const formatted = Math.round(amount).toLocaleString("en-IN", { maximumFractionDigits: 0 });
-  return unit === "points" ? `${formatted} Pt.` : `Rs. ${formatted}`;
+  return unit === "rupee" ? `Rs. ${formatted}` : `${formatted} Pt.`;
 }
 
 export function formatShortAuctionAmount(
   amount: number | null | undefined,
-  unit: AuctionUnit = "rupee",
+  unit: AuctionUnit = DEFAULT_AUCTION_UNIT,
 ): string {
-  if (amount == null) return unit === "points" ? "0 Pt." : "₹0";
+  if (amount == null) return unit === "rupee" ? "₹0" : "0 Pt.";
   if (amount >= 10_000_000) {
     const val = (amount / 10_000_000).toFixed(2);
-    return unit === "points" ? `${val} Cr Pt.` : `₹${val}Cr`;
+    return unit === "rupee" ? `₹${val}Cr` : `${val} Cr Pt.`;
   }
   if (amount >= 100_000) {
     const val = (amount / 100_000).toFixed(2);
-    return unit === "points" ? `${val} L Pt.` : `₹${val}L`;
+    return unit === "rupee" ? `₹${val}L` : `${val} L Pt.`;
   }
   return formatAuctionAmount(amount, unit);
 }
@@ -64,41 +66,41 @@ export function formatShortAuctionAmount(
 /** IPL-style sold line for broadcast overlays, e.g. SOLD FOR ₹12.50 LAKH */
 export function formatSoldForBroadcast(
   amount: number | null | undefined,
-  unit: AuctionUnit = "rupee",
+  unit: AuctionUnit = DEFAULT_AUCTION_UNIT,
 ): string {
   if (amount == null || amount <= 0) return "SOLD FOR —";
   if (amount >= 10_000_000) {
     const cr = amount / 10_000_000;
     const val = cr % 1 === 0 ? cr.toFixed(0) : cr.toFixed(2);
-    return unit === "points" ? `SOLD FOR ${val} CRORE PT.` : `SOLD FOR ₹${val} CRORE`;
+    return unit === "rupee" ? `SOLD FOR ₹${val} CRORE` : `SOLD FOR ${val} CRORE PT.`;
   }
   if (amount >= 100_000) {
     const lakh = amount / 100_000;
     const val = lakh % 1 === 0 ? lakh.toFixed(0) : lakh.toFixed(2);
-    return unit === "points" ? `SOLD FOR ${val} LAKH PT.` : `SOLD FOR ₹${val} LAKH`;
+    return unit === "rupee" ? `SOLD FOR ₹${val} LAKH` : `SOLD FOR ${val} LAKH PT.`;
   }
   return `SOLD FOR ${formatAuctionAmount(amount, unit).toUpperCase()}`;
 }
 
 /** LED broadcast short format — e.g. ₹1.25 L or 1.25 L Pt. */
-export function formatLedAuctionAmount(n: number, unit: AuctionUnit = "rupee"): string {
+export function formatLedAuctionAmount(n: number, unit: AuctionUnit = DEFAULT_AUCTION_UNIT): string {
   if (n >= 1_00_00_000) {
     const cr = n / 1_00_00_000;
     const val = cr.toFixed(cr >= 10 ? 1 : 2);
-    return unit === "points" ? `${val} CR PT.` : `₹${val} CR`;
+    return unit === "rupee" ? `₹${val} CR` : `${val} CR PT.`;
   }
   if (n >= 1_00_000) {
     const lakh = n / 1_00_000;
     const val = lakh.toFixed(lakh >= 10 ? 1 : 2);
-    return unit === "points" ? `${val} L PT.` : `₹${val} L`;
+    return unit === "rupee" ? `₹${val} L` : `${val} L PT.`;
   }
-  return unit === "points" ? `${n.toLocaleString("en-IN")} PT.` : `₹${n.toLocaleString("en-IN")}`;
+  return unit === "rupee" ? `₹${n.toLocaleString("en-IN")}` : `${n.toLocaleString("en-IN")} PT.`;
 }
 
-export function formatLedAuctionAmountFull(n: number, unit: AuctionUnit = "rupee"): string {
-  return unit === "points"
-    ? `${n.toLocaleString("en-IN")} PT.`
-    : `₹${n.toLocaleString("en-IN")}`;
+export function formatLedAuctionAmountFull(n: number, unit: AuctionUnit = DEFAULT_AUCTION_UNIT): string {
+  return unit === "rupee"
+    ? `₹${n.toLocaleString("en-IN")}`
+    : `${n.toLocaleString("en-IN")} PT.`;
 }
 
 export function parseAuctionAmountInput(raw: string | number | null | undefined): number {
@@ -112,7 +114,7 @@ export function parseAuctionAmountInput(raw: string | number | null | undefined)
 /** Human-readable Indian amount, e.g. 11000000 → "1 Cr 10 lakh". */
 export function formatAuctionAmountWords(
   raw: string | number | null | undefined,
-  unit: AuctionUnit = "rupee",
+  unit: AuctionUnit = DEFAULT_AUCTION_UNIT,
 ): string {
   const n = parseAuctionAmountInput(raw);
   if (n <= 0) return "";

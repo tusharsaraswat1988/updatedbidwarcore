@@ -1,4 +1,5 @@
 import type { TournamentProductMode } from "@workspace/platform-core";
+import type { AuctionUnit } from "@workspace/api-base/auction-unit";
 
 export type WizardStepId = "details" | "products" | "configuration";
 
@@ -12,6 +13,7 @@ export type TournamentCreationDraft = {
   productMode: TournamentProductMode;
   /** Legacy compatibility alias */
   licenseType?: LicenseOptionId;
+  auctionUnit: AuctionUnit;
   basePurse: string;
   minBid: string;
   bidIncrement: string;
@@ -49,6 +51,7 @@ export function emptyTournamentCreationDraft(
     sportId: "cricket",
     productMode: "auction_only",
     licenseType: "auction_only",
+    auctionUnit: "points",
     basePurse: "10000000",
     minBid: "100000",
     bidIncrement: "50000",

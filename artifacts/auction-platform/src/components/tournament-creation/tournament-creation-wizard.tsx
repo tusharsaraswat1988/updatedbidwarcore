@@ -7,6 +7,20 @@ import { Label } from "@/components/ui/label";
 import { CityAutocomplete } from "@/components/city-autocomplete";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AUCTION_UNIT_OPTIONS,
+  budgetFieldLabel,
+  minValueFieldLabel,
+  bidIncrementFieldLabel,
+  type AuctionUnit,
+} from "@/lib/format";
+import {
   Loader2,
   Trophy,
   MapPin,
@@ -47,6 +61,7 @@ export type TournamentCreationPayload = {
   basePurse?: number;
   minBid?: number;
   bidIncrement?: number;
+  auctionUnit?: AuctionUnit;
   auctionDate?: string;
   auctionTime?: string;
   playerRegistrationMode?: string;
@@ -207,6 +222,7 @@ export function TournamentCreationWizard({
       basePurse: auctionEnabled ? parseInt(draft.basePurse || "10000000", 10) : undefined,
       minBid: auctionEnabled ? parseInt(draft.minBid || "100000", 10) : undefined,
       bidIncrement: auctionEnabled ? parseInt(draft.bidIncrement || "50000", 10) : undefined,
+      auctionUnit: auctionEnabled ? draft.auctionUnit : undefined,
       auctionDate: auctionEnabled && draft.auctionDate ? draft.auctionDate : undefined,
       playerRegistrationMode: scoringEnabled && !auctionEnabled ? "scoring" : "auction",
     };
@@ -505,38 +521,62 @@ export function TournamentCreationWizard({
                   </span>
                 </div>
 
+                <div className="space-y-1.5 pb-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                      Auction Units <span className="text-destructive">*</span>
+                    </Label>
+                    <span className="text-[10px] text-muted-foreground">Points (Pt.) by default &bull; Rupee (₹) optional</span>
+                  </div>
+                  <Select
+                    value={draft.auctionUnit}
+                    onValueChange={(value: AuctionUnit) => patch({ auctionUnit: value })}
+                  >
+                    <SelectTrigger className="h-10 text-xs bg-background/80 border-border">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="dark">
+                      {AUCTION_UNIT_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-muted-foreground">Team Budget (₹)</Label>
+                    <Label className="text-xs font-semibold text-muted-foreground">{budgetFieldLabel(draft.auctionUnit)}</Label>
                     <Input
                       type="number"
                       value={draft.basePurse}
                       onChange={(e) => patch({ basePurse: e.target.value })}
                       className="h-10 text-sm font-medium"
                     />
-                    <IndianAmountHint value={draft.basePurse} className="text-[10px]" />
+                    <IndianAmountHint value={draft.basePurse} unit={draft.auctionUnit} className="text-[10px]" />
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-muted-foreground">Min Player Bid (₹)</Label>
+                    <Label className="text-xs font-semibold text-muted-foreground">{minValueFieldLabel(draft.auctionUnit)}</Label>
                     <Input
                       type="number"
                       value={draft.minBid}
                       onChange={(e) => patch({ minBid: e.target.value })}
                       className="h-10 text-sm font-medium"
                     />
-                    <IndianAmountHint value={draft.minBid} className="text-[10px]" />
+                    <IndianAmountHint value={draft.minBid} unit={draft.auctionUnit} className="text-[10px]" />
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-xs font-semibold text-muted-foreground">Bid Increment (₹)</Label>
+                    <Label className="text-xs font-semibold text-muted-foreground">{bidIncrementFieldLabel(draft.auctionUnit)}</Label>
                     <Input
                       type="number"
                       value={draft.bidIncrement}
                       onChange={(e) => patch({ bidIncrement: e.target.value })}
                       className="h-10 text-sm font-medium"
                     />
-                    <IndianAmountHint value={draft.bidIncrement} className="text-[10px]" />
+                    <IndianAmountHint value={draft.bidIncrement} unit={draft.auctionUnit} className="text-[10px]" />
                   </div>
                 </div>
 

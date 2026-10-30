@@ -6,11 +6,16 @@ import {
 } from "../team-report-rules";
 
 describe("describeBidIncrementRules", () => {
-  it("formats a single flat increment", () => {
+  it("formats a single flat increment (defaults to points)", () => {
     const lines = describeBidIncrementRules({
       bidTiers: JSON.stringify([{ increment: 100000 }]),
     });
-    expect(lines).toEqual(["Each raise must be exactly ₹1.00L."]);
+    expect(lines).toEqual(["Each raise must be exactly 1.00 L Pt.."]);
+
+    const rupeeLines = describeBidIncrementRules({
+      bidTiers: JSON.stringify([{ increment: 100000 }]),
+    }, "rupee");
+    expect(rupeeLines).toEqual(["Each raise must be exactly ₹1.00L."]);
   });
 
   it("formats tiered increments", () => {
@@ -21,8 +26,18 @@ describe("describeBidIncrementRules", () => {
         { increment: 100000 },
       ]),
     });
-    expect(lines[0]).toContain("Up to ₹1.00L");
-    expect(lines.at(-1)).toContain("Above ₹2.00L");
+    expect(lines[0]).toContain("Up to 1.00 L Pt.");
+    expect(lines.at(-1)).toContain("Above 2.00 L Pt.");
+
+    const rupeeLines = describeBidIncrementRules({
+      bidTiers: JSON.stringify([
+        { upTo: 100000, increment: 25000 },
+        { upTo: 200000, increment: 50000 },
+        { increment: 100000 },
+      ]),
+    }, "rupee");
+    expect(rupeeLines[0]).toContain("Up to ₹1.00L");
+    expect(rupeeLines.at(-1)).toContain("Above ₹2.00L");
   });
 });
 

@@ -178,6 +178,7 @@ describe("BIDWAR — Meta-Approved WhatsApp auction_player_sold Template Integra
         playerName: "Rohit Sharma",
         teamName: "Mumbai Warriors",
         amount: 25000000,
+        auctionUnit: "rupee",
         tournamentName: "Indian Premier League 2026",
         whatsappConsent: true,
       });
@@ -213,6 +214,7 @@ describe("BIDWAR — Meta-Approved WhatsApp auction_player_sold Template Integra
         playerName: "विराट कोहली (Captain)",
         teamName: "Royal Challengers™ & Bangalore",
         amount: 18000000,
+        auctionUnit: "rupee",
         tournamentName: "T20 Cup 2026 🏏",
         whatsappConsent: true,
       });

@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AdminShell } from "@/components/admin-shell";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
 import { EmailRichEditor } from "@/components/communication/email-rich-editor";
-import { PlayerSoldPoster } from "@/components/posters/player-sold-poster";
+import { PlayerSoldPosterV2 } from "@/components/posters/player-sold-poster-v2";
 import { formatAuctionAmount, normalizeAuctionUnit, type AuctionUnit } from "@/lib/format";
 import {
   Activity,
@@ -464,6 +464,7 @@ export default function AdminCommunicationCenter() {
     formattedAmount: string;
     tournamentName: string;
     tournamentSport: string;
+    tournamentId?: number | null;
     auctionUnit: "rupee" | "points";
   }>>([]);
   const [selectedSaleId, setSelectedSaleId] = useState<string>("sample");
@@ -1222,7 +1223,7 @@ export default function AdminCommunicationCenter() {
     const tourName = waTemplateVariables["4"] || activeSale?.tournamentName || (currentTourn?.name || "Premier Tournament");
     const role = activeSale?.playerRole || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.role || "Player";
     const sport = activeSale?.tournamentSport || currentTourn?.sport || "Cricket";
-    const unit = activeSale?.auctionUnit || currentTourn?.auctionUnit || "rupee";
+    const unit = activeSale?.auctionUnit || currentTourn?.auctionUnit || "points";
 
     const effectivePId = selectedPlayerId || (activeSale?.id ? String(activeSale.id) : "");
     const effectiveTId = selectedTeamId || (activeSale?.teamId ? String(activeSale.teamId) : "");
@@ -3517,7 +3518,7 @@ export default function AdminCommunicationCenter() {
                         {selectedWaTpl?.headerType === "image" && (
                           (waTemplateKey === "auction_player_sold" || waTemplateKey === "player_sold") ? (
                             <div className="relative w-full aspect-[4/5] overflow-hidden border-b border-emerald-600/40">
-                              <PlayerSoldPoster
+                              <PlayerSoldPosterV2
                                 playerName={waTemplateVariables["1"] || activeSale?.playerName || "Virat Kohli"}
                                 playerPhotoUrl={activeSale?.playerPhotoUrl || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.photoUrl}
                                 playerRole={activeSale?.playerRole || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.primaryRole || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.role}
@@ -3533,9 +3534,6 @@ export default function AdminCommunicationCenter() {
                                 showDownloadButton={false}
                                 className="w-full h-full"
                               />
-                              <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-black/80 text-[10px] font-mono font-bold text-amber-300 backdrop-blur-xs flex items-center gap-1.5 z-20 shadow-sm border border-amber-500/30">
-                                <span>🖼️ 4:5 Portrait Sold Poster</span>
-                              </div>
                             </div>
                           ) : (
                             <div className="relative w-full aspect-[16/9] bg-black/40 overflow-hidden border-b border-emerald-600/40">
@@ -3813,7 +3811,7 @@ export default function AdminCommunicationCenter() {
                       {selectedWaTpl?.headerType === "image" && (
                         (waTemplateKey === "auction_player_sold" || waTemplateKey === "player_sold") ? (
                           <div className="relative w-full aspect-[4/5] overflow-hidden border-b border-emerald-600/40">
-                            <PlayerSoldPoster
+                            <PlayerSoldPosterV2
                               playerName={waTemplateVariables["1"] || activeSale?.playerName || "Virat Kohli"}
                               playerPhotoUrl={activeSale?.playerPhotoUrl || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.photoUrl}
                               playerRole={activeSale?.playerRole || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.primaryRole || waTournamentPlayers.find((p) => String(p.id) === selectedPlayerId)?.role}

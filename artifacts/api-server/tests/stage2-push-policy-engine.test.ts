@@ -50,6 +50,7 @@ describe("Stage 2: WhatsApp Push & Communication Policy Engine", () => {
       adminLocked: false,
       scoringEnabled: true,
       scoringPhase: "active",
+      auctionUnit: "rupee",
       licenseGrantedAt: new Date(),
     };
 
@@ -70,6 +71,7 @@ describe("Stage 2: WhatsApp Push & Communication Policy Engine", () => {
         teamName: "Royal Challengers",
         amount: 15000000,
         tournamentName: "Premier Cricket League 2026",
+        auctionUnit: "rupee",
         whatsappConsent: true,
       });
 
@@ -101,6 +103,7 @@ describe("Stage 2: WhatsApp Push & Communication Policy Engine", () => {
         tournamentId: 101,
         playerName: "Steve Smith",
         tournamentName: "Premier Cricket League 2026",
+        auctionUnit: "rupee",
         whatsappConsent: true,
       });
 
@@ -128,6 +131,7 @@ describe("Stage 2: WhatsApp Push & Communication Policy Engine", () => {
         tournamentId: 101,
         playerName: "David Warner",
         tournamentName: "Premier Cricket League 2026",
+        auctionUnit: "rupee",
         whatsappConsent: true,
       });
 

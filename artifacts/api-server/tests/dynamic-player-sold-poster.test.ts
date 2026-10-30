@@ -271,12 +271,11 @@ describe("BIDWAR — Dynamic Player-Sold Poster for WhatsApp Image Header", () =
       // 4. Hero image
       expect(svg).toContain("mockphoto");
 
-      // 5. Player Name (Big, bold)
+      // 5. Player Name (Big, bold typography)
       expect(svg).toContain("Tushar Saraswat");
 
-      // 6. Exclusion check: NO "CONGRATULATIONS!" and NO role / batsman pill
+      // 6. Exclusion check: NO "CONGRATULATIONS!"
       expect(svg).not.toContain("CONGRATULATIONS!");
-      expect(svg).not.toContain("BATSMAN");
 
       // 7. Sold points: "SOLD FOR", "10,000 Pt.", NO "VERIFIED SALE"
       expect(svg).toContain("SOLD FOR");

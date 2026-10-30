@@ -2131,7 +2131,7 @@ function StatusBadge({ status, className }: { status: string; className?: string
 
 function formatPlayerBaseValue(
   player: { basePrice?: number | null },
-  unit: AuctionUnit = "rupee",
+  unit: AuctionUnit = "points",
 ): { text: string; className: string } {
   if (player.basePrice != null && player.basePrice > 0) {
     return { text: formatIndianRupee(player.basePrice, unit), className: "text-foreground font-mono font-medium" };
@@ -2145,7 +2145,7 @@ function formatSoldAtAmount(
     soldPrice?: number | null;
     retainedPrice?: number | null;
   },
-  unit: AuctionUnit = "rupee",
+  unit: AuctionUnit = "points",
 ): { text: string; className: string } {
   if (player.status === "sold" && player.soldPrice) {
     return { text: formatIndianRupee(player.soldPrice, unit), className: "text-emerald-300 font-mono font-semibold" };
@@ -2776,7 +2776,7 @@ function PlayerDetailPanel({
   onDelete,
   onWithdraw,
   onReinstate,
-  auctionUnit = "rupee",
+  auctionUnit = "points",
 }: {
   player: any;
   cat: { name: string; colorCode?: string | null } | null;
