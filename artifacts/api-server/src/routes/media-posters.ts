@@ -62,6 +62,9 @@ router.get("/media/player-sold-poster/preview.png", async (req: Request, res: Re
       auctionUnit: authoritative.auctionUnit,
       tournamentName: authoritative.tournamentName,
       tournamentSport: authoritative.tournamentSport,
+      bidwarLogoUrl: authoritative.bidwarLogoUrl,
+      titleSponsorLogoUrl: authoritative.titleSponsorLogoUrl,
+      coSponsorLogoUrls: authoritative.coSponsorLogoUrls,
     });
 
     res.setHeader("Content-Type", "image/png");

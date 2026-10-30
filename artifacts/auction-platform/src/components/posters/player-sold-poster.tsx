@@ -20,6 +20,8 @@ export interface PlayerSoldPosterProps {
   isIllustrative?: boolean;
   className?: string;
   showDownloadButton?: boolean;
+  titleSponsorLogoUrl?: string | null;
+  coSponsorLogoUrls?: string[] | null;
 }
 
 function getInitials(name: string): string {
@@ -43,6 +45,8 @@ export function PlayerSoldPoster({
   isIllustrative = false,
   className = "",
   showDownloadButton = true,
+  titleSponsorLogoUrl,
+  coSponsorLogoUrls = [],
 }: PlayerSoldPosterProps) {
   const { logos, brandName, iconVersion } = useBranding();
   const logoSrc =
@@ -59,9 +63,10 @@ export function PlayerSoldPoster({
   const safePlayerName = playerName?.trim() || "Player Name";
   const safeTeamName = teamName?.trim() || "Winning Team";
   const safeTournamentName = tournamentName?.trim() || "BidWar Premier Tournament";
-  const safeRole = (playerRole?.trim() || "Player").replace(/_/g, " ").toUpperCase();
   const initials = getInitials(safePlayerName);
   const shortCode = (teamShortCode?.trim() || safeTeamName.slice(0, 3)).toUpperCase();
+
+  const validCoSponsors = (coSponsorLogoUrls || []).filter(Boolean);
 
   const handleDownload = async () => {
     if (!posterRef.current) return;
@@ -148,49 +153,66 @@ export function PlayerSoldPoster({
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-72 h-72 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 w-80 h-48 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
 
-        {/* ─── SECTION 1: TOP TOURNAMENT & BRANDING HEADER ─── */}
-        <div className="relative z-10 w-full border-b border-white/10 pb-2.5">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              {logoSrc && (
-                <img
-                  src={logoSrc}
-                  alt={brandName || "BidWar"}
-                  className="h-6 sm:h-7 w-auto max-w-[80px] object-contain shrink-0"
-                  crossOrigin="anonymous"
-                />
-              )}
-              <div className="h-5 w-[1px] bg-white/20 shrink-0" />
-              <div className="min-w-0">
-                <span className="inline-block text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-amber-400 truncate">
-                  🏏 {tournamentSport} AUCTION
-                </span>
-                <p className="text-[10px] sm:text-xs font-bold text-slate-100 truncate leading-tight">
-                  {safeTournamentName}
-                </p>
+        {/* ─── SECTION 1: TOP HEADER (BidWar Logo Left & Sponsor Logos Right) ─── */}
+        <div className="relative z-10 w-full flex items-center justify-between gap-3 pb-1 border-b border-white/10">
+          {/* Top Left: BidWar Logo from Branding */}
+          <div className="flex items-center min-w-0 shrink-0">
+            {logoSrc ? (
+              <img
+                src={logoSrc}
+                alt={brandName || "BidWar"}
+                className="h-6 sm:h-8 w-auto max-w-[100px] sm:max-w-[120px] object-contain shrink-0"
+                crossOrigin="anonymous"
+              />
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-md bg-amber-500 flex items-center justify-center font-black text-slate-950 text-xs">
+                  BW
+                </div>
+                <span className="font-black text-xs tracking-wider text-white">BIDWAR</span>
               </div>
-            </div>
+            )}
+          </div>
 
-            <div className="flex items-center gap-1.5 shrink-0">
-              {isIllustrative && (
-                <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                  Preview
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500/20 via-yellow-500/25 to-amber-500/20 text-amber-300 border border-amber-500/40 shadow-xs">
-                <Crown className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
-                SOLD
-              </span>
-            </div>
+          {/* Top Right: Title Sponsor & Co-Sponsors Logos Only */}
+          <div className="flex items-center justify-end gap-2 shrink-0">
+            {validCoSponsors.slice(0, 3).map((coLogo, i) => (
+              <img
+                key={i}
+                src={coLogo}
+                alt="Co-Sponsor"
+                className="h-5 sm:h-6 w-auto max-w-[50px] sm:max-w-[70px] object-contain rounded opacity-90"
+                crossOrigin="anonymous"
+              />
+            ))}
+            {titleSponsorLogoUrl && (
+              <img
+                src={titleSponsorLogoUrl}
+                alt="Title Sponsor"
+                className="h-6 sm:h-8 w-auto max-w-[80px] sm:max-w-[110px] object-contain rounded"
+                crossOrigin="anonymous"
+              />
+            )}
           </div>
         </div>
 
-        {/* ─── SECTION 2: HERO PLAYER PORTRAIT & IDENTITY ─── */}
-        <div className="relative z-10 w-full flex flex-col items-center justify-center my-0.5 py-1">
+        {/* ─── SECTION 2: TOURNAMENT NAME BANNER (Below Top Header) ─── */}
+        <div className="relative z-10 w-full text-center py-1">
+          <div className="flex items-center justify-center gap-2">
+            <div className="h-[1px] flex-1 bg-gradient-to-r from-transparent to-amber-500/40" />
+            <span className="text-[10px] sm:text-xs md:text-sm font-black uppercase tracking-widest text-amber-300 truncate max-w-[85%] font-display">
+              {safeTournamentName}
+            </span>
+            <div className="h-[1px] flex-1 bg-gradient-to-l from-transparent to-amber-500/40" />
+          </div>
+        </div>
+
+        {/* ─── SECTION 3: HERO PLAYER PORTRAIT ─── */}
+        <div className="relative z-10 w-full flex flex-col items-center justify-center my-0.5">
           {/* Portrait Container with Gold Trim */}
           <div className="relative flex items-center justify-center">
-            {/* Outer Circular/Rounded Portrait Card */}
-            <div className="relative w-20 h-24 sm:w-28 sm:h-32 md:w-36 md:h-40 rounded-2xl overflow-hidden border-2 border-amber-400/90 bg-slate-900 shadow-xl shadow-amber-500/25 flex items-center justify-center">
+            {/* Outer Rounded Portrait Card */}
+            <div className="relative w-24 h-28 sm:w-32 sm:h-36 md:w-44 md:h-48 rounded-2xl overflow-hidden border-2 border-amber-400/90 bg-slate-900 shadow-xl shadow-amber-500/25 flex items-center justify-center">
               {playerPhotoUrl ? (
                 <img
                   src={cldUrl(playerPhotoUrl, "soldCard")}
@@ -211,67 +233,52 @@ export function PlayerSoldPoster({
                   playerPhotoUrl ? "hidden" : "flex"
                 }`}
               >
-                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 p-0.5 shadow-md flex items-center justify-center mb-0.5">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 p-0.5 shadow-md flex items-center justify-center mb-0.5">
                   <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center">
-                    <span className="font-display font-black text-amber-400 text-xs sm:text-lg tracking-wider">
+                    <span className="font-display font-black text-amber-400 text-sm sm:text-xl tracking-wider">
                       {initials}
                     </span>
                   </div>
                 </div>
-                <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400/60" />
+                <User className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400/60" />
                 <span className="text-[6px] sm:text-[7px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">
                   BIDWAR PLAYER
                 </span>
               </div>
 
               {/* Floating Gold SOLD Ribbon */}
-              <div className="absolute top-1 left-1 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-[7px] sm:text-[8px] px-1.5 py-0.5 rounded shadow-md flex items-center gap-1 uppercase tracking-wider">
-                <Sparkles className="w-2 h-2 fill-slate-950" />
+              <div className="absolute top-1.5 left-1.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-[8px] sm:text-[9px] px-2 py-0.5 rounded shadow-md flex items-center gap-1 uppercase tracking-wider">
+                <Sparkles className="w-2.5 h-2.5 fill-slate-950" />
                 SOLD
               </div>
             </div>
           </div>
 
-          {/* Player Name and Role */}
-          <div className="text-center mt-1 w-full px-2">
-            <span className="text-[7px] sm:text-[8px] font-black uppercase tracking-wider text-amber-400">
-              🏏 CONGRATULATIONS!
-            </span>
-            <h1 className="text-sm sm:text-lg md:text-xl font-black text-white tracking-tight leading-tight truncate font-display drop-shadow-md">
+          {/* Player Name (BIG & BOLD, under portrait, no congratulations or batsman) */}
+          <div className="text-center mt-1.5 w-full px-2">
+            <h1 className="text-base sm:text-2xl md:text-3xl font-black text-white tracking-tight leading-tight truncate font-display drop-shadow-md">
               {safePlayerName}
             </h1>
-            <div className="inline-flex items-center gap-1 mt-0.5">
-              <span className="px-2 py-0.5 rounded-full text-[7px] sm:text-[8px] font-bold bg-slate-800/90 text-amber-300 border border-amber-500/30 uppercase tracking-wide truncate max-w-[200px]">
-                {safeRole}
-              </span>
-            </div>
           </div>
         </div>
 
-        {/* ─── SECTION 3: WINNING BID HIGHLIGHT CARD ─── */}
+        {/* ─── SECTION 4: SOLD POINTS (BIG & BOLD, centered, no verified sale badge) ─── */}
         <div className="relative z-10 w-full my-1">
-          <div className="rounded-xl bg-gradient-to-r from-amber-950/60 via-slate-900/95 to-amber-950/60 border border-amber-500/60 p-2 sm:p-2.5 flex items-center justify-between shadow-lg">
-            <div className="min-w-0">
-              <p className="text-[7px] sm:text-[8px] font-black uppercase tracking-widest text-amber-400">
-                WINNING BID / SOLD FOR
-              </p>
-              <p className="text-base sm:text-2xl md:text-3xl font-black text-amber-300 font-display tracking-tight leading-none mt-0.5 truncate">
-                {formattedPrice}
-              </p>
-            </div>
-            <div className="shrink-0 pl-2">
-              <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded bg-amber-400 text-slate-950 font-black text-[8px] sm:text-[9px] uppercase tracking-wider shadow">
-                VERIFIED SALE
-              </span>
-            </div>
+          <div className="rounded-xl bg-gradient-to-r from-amber-950/70 via-slate-900/95 to-amber-950/70 border border-amber-500/70 p-2 sm:p-3 text-center shadow-lg">
+            <p className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-amber-400">
+              SOLD FOR
+            </p>
+            <p className="text-xl sm:text-3xl md:text-4xl font-black text-amber-300 font-display tracking-tight leading-none mt-1 truncate drop-shadow-md">
+              {formattedPrice}
+            </p>
           </div>
         </div>
 
-        {/* ─── SECTION 4: WINNING TEAM CARD ─── */}
+        {/* ─── SECTION 5: SOLD TO TEAM CARD ─── */}
         <div className="relative z-10 w-full mb-1">
           <div className="rounded-xl bg-slate-900/90 border border-slate-700/80 p-2 sm:p-2.5 flex items-center justify-between gap-2 shadow-inner">
-            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-slate-800 border border-amber-400/40 flex items-center justify-center overflow-hidden shrink-0 shadow">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-lg bg-slate-800 border border-amber-400/40 flex items-center justify-center overflow-hidden shrink-0 shadow">
                 {teamLogoUrl ? (
                   <img
                     src={cldUrl(teamLogoUrl, "teamLogo")}
@@ -286,7 +293,7 @@ export function PlayerSoldPoster({
                   />
                 ) : null}
                 <span
-                  className={`team-fallback-code text-[9px] sm:text-xs font-black text-amber-400 ${
+                  className={`team-fallback-code text-[10px] sm:text-xs font-black text-amber-400 ${
                     teamLogoUrl ? "hidden" : "block"
                   }`}
                 >
@@ -295,21 +302,21 @@ export function PlayerSoldPoster({
               </div>
               <div className="min-w-0">
                 <p className="text-[7px] sm:text-[8px] font-extrabold uppercase tracking-wider text-slate-400">
-                  Acquired By
+                  SOLD TO
                 </p>
-                <p className="text-xs sm:text-sm font-black text-white truncate leading-tight">
+                <p className="text-xs sm:text-base font-black text-white truncate leading-tight">
                   {safeTeamName}
                 </p>
               </div>
             </div>
 
-            <div className="shrink-0 flex items-center">
-              <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400/70" />
+            <div className="shrink-0 flex items-center pr-1">
+              <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" />
             </div>
           </div>
         </div>
 
-        {/* ─── SECTION 5: FOOTER & AUTHENTICATION SEAL ─── */}
+        {/* ─── SECTION 6: FOOTER ─── */}
         <div className="relative z-10 w-full border-t border-white/10 pt-1.5 flex items-center justify-between text-[7px] sm:text-[8px] text-slate-400">
           <div className="flex items-center gap-1 font-semibold text-slate-300">
             <span className="text-amber-400 font-black">BIDWAR</span>

@@ -6,6 +6,7 @@ import mediaPostersRouter from "../src/routes/media-posters.js";
 import commRouter from "../src/routes/comm.js";
 import {
   generatePlayerSoldPosterBuffer,
+  buildPosterSvg,
   POSTER_WIDTH,
   POSTER_HEIGHT,
 } from "../src/lib/poster/player-sold-poster-generator.js";
@@ -65,6 +66,21 @@ describe("BIDWAR — Dynamic Player-Sold Poster for WhatsApp Image Header", () =
     auctionUnit: "rupee",
     sport: "Cricket",
   };
+
+  const pointsTournament = {
+    id: 102,
+    name: "BIDWAR PREMIER LEAGUE",
+    licenseStatus: "active",
+    adminLocked: false,
+    scoringEnabled: true,
+    scoringPhase: "active",
+    licenseGrantedAt: new Date(),
+    featuresJson: { whatsappNotifications: true },
+    auctionUnit: "points",
+    sport: "Cricket",
+  };
+
+  let currentTestTournament: any = null;
 
   function makeChainable(val: any[]) {
     const p = Promise.resolve(val);
@@ -132,7 +148,7 @@ describe("BIDWAR — Dynamic Player-Sold Poster for WhatsApp Image Header", () =
       const builder: any = {
         from: vi.fn().mockImplementation((table: any) => {
           if (table === tournamentsTable) {
-            return makeChainable([licensedTournament]);
+            return makeChainable([currentTestTournament || licensedTournament]);
           }
           if (table === waConsentEventsTable) {
             return makeChainable([]);
@@ -219,6 +235,120 @@ describe("BIDWAR — Dynamic Player-Sold Poster for WhatsApp Image Header", () =
       expect(formatAuctionAmount(25000000, "rupee")).toBe("₹2,50,00,000");
       expect(formatAuctionAmount(500000, "rupee")).toBe("₹5,00,000");
       expect(formatAuctionAmount(1500, "points")).toBe("1,500 Pt.");
+    });
+
+    it("verifies the exact updated design hierarchy, typography, and element exclusions", () => {
+      const svg = buildPosterSvg(
+        {
+          playerName: "Tushar Saraswat",
+          playerRole: "Batsman",
+          teamName: "DPS CHAMPIONS",
+          amount: 10000,
+          auctionUnit: "points",
+          tournamentName: "BidWar Premier League",
+          bidwarLogoUrl: "https://bidwar.in/logo.png",
+          titleSponsorLogoUrl: "https://bidwar.in/title-sponsor.png",
+          coSponsorLogoUrls: ["https://bidwar.in/co-sponsor.png"],
+        },
+        "data:image/png;base64,mockphoto",
+        "data:image/png;base64,mockteamlogo",
+        "data:image/png;base64,mockbidwarlogo",
+        "data:image/png;base64,mocktitlesponsor",
+        ["data:image/png;base64,mockcosponsor"],
+      );
+
+      // 1. Top left: BidWar branding logo data URI
+      expect(svg).toContain("mockbidwarlogo");
+
+      // 2. Top right: Title and Co-sponsor logos only (no official auction/sold filler badge)
+      expect(svg).toContain("mocktitlesponsor");
+      expect(svg).toContain("mockcosponsor");
+      expect(svg).not.toContain("OFFICIAL AUCTION • SOLD");
+
+      // 3. Below them: Tournament name banner
+      expect(svg).toContain("BIDWAR PREMIER LEAGUE");
+
+      // 4. Hero image
+      expect(svg).toContain("mockphoto");
+
+      // 5. Player Name (Big, bold)
+      expect(svg).toContain("Tushar Saraswat");
+
+      // 6. Exclusion check: NO "CONGRATULATIONS!" and NO role / batsman pill
+      expect(svg).not.toContain("CONGRATULATIONS!");
+      expect(svg).not.toContain("BATSMAN");
+
+      // 7. Sold points: "SOLD FOR", "10,000 Pt.", NO "VERIFIED SALE"
+      expect(svg).toContain("SOLD FOR");
+      expect(svg).toContain("10,000 Pt.");
+      expect(svg).not.toContain("VERIFIED SALE");
+
+      // 8. Sold to team: Team logo & name, vector trophy (no raw Unicode emoji glyph bug)
+      expect(svg).toContain("SOLD TO");
+      expect(svg).toContain("DPS CHAMPIONS");
+      expect(svg).toContain("mockteamlogo");
+      expect(svg).not.toContain("🏆"); // Replaced with SVG path
+    });
+
+    it("generates a high-resolution PNG artifact of the redesigned poster for verification", async () => {
+      const fs = await import("fs");
+      const path = await import("path");
+      
+      const outDir = "C:/Users/ishit/.gemini/antigravity/brain/830aaecb-df41-4718-9231-f409d9ca1617";
+      const uploadedOrig = path.join(outDir, ".user_uploaded", "media_1793334915307_16afcbca.jpg");
+      let extractedPhotoDataUri: string | null = null;
+      let extractedLogoDataUri: string | null = null;
+
+      if (fs.existsSync(uploadedOrig)) {
+        try {
+          const meta = await sharp(uploadedOrig).metadata();
+          if (meta.width && meta.height) {
+            // Player photo region from the uploaded screenshot
+            const photoBuf = await sharp(uploadedOrig)
+              .extract({
+                left: Math.round(meta.width * 0.31),
+                top: Math.round(meta.height * 0.14),
+                width: Math.round(meta.width * 0.38),
+                height: Math.round(meta.height * 0.34),
+              })
+              .png()
+              .toBuffer();
+            extractedPhotoDataUri = `data:image/png;base64,${photoBuf.toString("base64")}`;
+
+            // Team logo region
+            const logoBuf = await sharp(uploadedOrig)
+              .extract({
+                left: Math.round(meta.width * 0.12),
+                top: Math.round(meta.height * 0.74),
+                width: Math.round(meta.width * 0.10),
+                height: Math.round(meta.height * 0.08),
+              })
+              .png()
+              .toBuffer();
+            extractedLogoDataUri = `data:image/png;base64,${logoBuf.toString("base64")}`;
+          }
+        } catch {
+          // Fallback if extraction fails
+        }
+      }
+
+      const buffer = await generatePlayerSoldPosterBuffer({
+        playerName: "Tushar Saraswat",
+        playerPhotoUrl: extractedPhotoDataUri,
+        playerRole: null,
+        teamName: "DPS CHAMPIONS",
+        teamLogoUrl: extractedLogoDataUri,
+        teamShortCode: "DPS",
+        amount: 10000,
+        auctionUnit: "points",
+        tournamentName: "BIDWAR PREMIER LEAGUE",
+        tournamentSport: "Cricket",
+      });
+
+      if (fs.existsSync(outDir)) {
+        fs.writeFileSync(path.join(outDir, "redesigned_sold_poster.png"), buffer);
+      }
+      expect(buffer.length).toBeGreaterThan(1000);
     });
   });
 
@@ -381,6 +511,45 @@ describe("BIDWAR — Dynamic Player-Sold Poster for WhatsApp Image Header", () =
       ]);
     });
 
+    it("formats points unit (Pt.) consistently across WhatsApp message body, variables, and poster for points-based tournament", async () => {
+      const res = await notifyPlayerSold({
+        mobile: "+919876543211",
+        tournamentId: 102,
+        playerId: 19,
+        playerName: "Anubhav Bassi",
+        playerPhotoUrl: null,
+        playerRole: "Bowler",
+        teamId: 2,
+        teamName: "SUNBEAMS ANAADIS",
+        amount: 45000,
+        auctionUnit: "points",
+        tournamentName: "BIDWAR PREMIER LEAGUE",
+        tournamentSport: "Cricket",
+        whatsappConsent: true,
+      });
+
+      expect(res.success).toBe(true);
+
+      const sent = mockWhatsAppProvider.getSentMessages();
+      expect(sent).toHaveLength(1);
+      const msg = sent[0];
+
+      // Body variable {{3}} must be "45,000 Pt." (NOT "₹45,000")
+      const bodyComp = msg.templateComponents?.find((c) => c.type === "body");
+      expect(bodyComp).toBeDefined();
+      expect(bodyComp?.parameters).toEqual([
+        { type: "text", text: "Anubhav Bassi" },
+        { type: "text", text: "SUNBEAMS ANAADIS" },
+        { type: "text", text: "45,000 Pt." },
+        { type: "text", text: "BIDWAR PREMIER LEAGUE" },
+      ]);
+      expect(bodyComp?.parameters[2].text).toBe("45,000 Pt.");
+
+      // Text body message must also display "45,000 Pt." and not "₹"
+      expect(msg.textBody).toContain("for *45,000 Pt.* in the *BIDWAR PREMIER LEAGUE* auction");
+      expect(msg.textBody).not.toContain("₹45,000");
+    });
+
     it("fails closed and suppresses dispatch if image header URL cannot be resolved or is invalid", async () => {
       const res = await notifyPlayerSold({
         mobile: "+919876543210",
@@ -462,6 +631,17 @@ describe("BIDWAR — Dynamic Player-Sold Poster for WhatsApp Image Header", () =
       expect(res.body.sales[0].playerName).toBe("Virat Kohli");
       expect(res.body.sales[0].teamName).toBe("Royal Challengers");
       expect(res.body.sales[0].formattedAmount).toContain("2,50,00,000");
+      expect(res.body.sales[0].formattedAmount).toContain("₹");
+    });
+
+    it("returns recent sales formatted with 'Pt.' when tournament auctionUnit is 'points'", async () => {
+      currentTestTournament = pointsTournament;
+      const res = await request(testApp).get("/api/auth/admin/communicate/recent-sales/102");
+      expect(res.status).toBe(200);
+      expect(res.body.tournament.auctionUnit).toBe("points");
+      expect(res.body.sales[0].formattedAmount).toBe("2,50,00,000 Pt.");
+      expect(res.body.sales[0].formattedAmount).not.toContain("₹");
+      currentTestTournament = null;
     });
 
     it("returns 400 when invalid tournamentId is passed to recent sales", async () => {

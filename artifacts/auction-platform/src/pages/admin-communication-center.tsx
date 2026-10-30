@@ -5,6 +5,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { useAdminPageGuard } from "@/components/admin/use-admin-page-guard";
 import { EmailRichEditor } from "@/components/communication/email-rich-editor";
 import { PlayerSoldPoster } from "@/components/posters/player-sold-poster";
+import { formatAuctionAmount, normalizeAuctionUnit, type AuctionUnit } from "@/lib/format";
 import {
   Activity,
   Archive,
@@ -244,11 +245,13 @@ interface TournamentItem {
   id: number;
   name: string;
   sport?: string;
+  auctionUnit?: "rupee" | "points";
   licenseStatus?: string;
   adminLocked?: boolean;
   organizerName?: string;
   organizerMobile?: string;
   organizerEmail?: string;
+  createdAt?: string;
 }
 
 interface MissingContact {
@@ -470,6 +473,14 @@ export default function AdminCommunicationCenter() {
     if (selectedSaleId === "sample") return null;
     return recentSales.find((s) => String(s.id) === selectedSaleId) || null;
   }, [recentSales, selectedSaleId]);
+
+  const currentTournament = useMemo(() => {
+    return tournaments.find((t) => String(t.id) === selectedTournamentId) || null;
+  }, [tournaments, selectedTournamentId]);
+
+  const currentAuctionUnit: AuctionUnit = useMemo(() => {
+    return normalizeAuctionUnit(activeSale?.auctionUnit || currentTournament?.auctionUnit);
+  }, [activeSale?.auctionUnit, currentTournament?.auctionUnit]);
   const [waCustomText, setWaCustomText] = useState("");
   const [waCustomMobile, setWaCustomMobile] = useState("");
   const [waSending, setSendingWa] = useState(false);
@@ -790,6 +801,15 @@ export default function AdminCommunicationCenter() {
             const sData = await sRes.json();
             fetchedSales = sData.sales ?? [];
             setRecentSales(fetchedSales);
+            if (sData.tournament?.auctionUnit) {
+              setTournaments((prev) =>
+                prev.map((t) =>
+                  String(t.id) === selectedTournamentId
+                    ? { ...t, auctionUnit: sData.tournament.auctionUnit }
+                    : t
+                )
+              );
+            }
             if (fetchedSales.length > 0) {
               const first = fetchedSales[0];
               setSelectedSaleId(String(first.id));
@@ -1156,7 +1176,7 @@ export default function AdminCommunicationCenter() {
       });
     } else if (p.status === "sold" || (p.soldPrice && p.soldPrice > 0)) {
       const team = waTournamentTeams.find((t) => t.id === p.teamId);
-      const amtStr = p.soldPrice ? `₹${p.soldPrice.toLocaleString("en-IN")}` : "₹0";
+      const amtStr = p.soldPrice ? formatAuctionAmount(p.soldPrice, currentAuctionUnit) : formatAuctionAmount(0, currentAuctionUnit);
       setWaTemplateKey("auction_player_sold");
       setWaTemplateVariables({
         "1": p.name,
@@ -3354,7 +3374,7 @@ export default function AdminCommunicationCenter() {
                               setWaTemplateVariables({
                                 "1": "Virat Kohli",
                                 "2": "Royal Challengers",
-                                "3": "₹25,00,000",
+                                "3": formatAuctionAmount(2500000, currentAuctionUnit),
                                 "4": tObj?.name || "Premier League 2026",
                               });
                             } else {
@@ -3402,9 +3422,11 @@ export default function AdminCommunicationCenter() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {selectedWaTpl.variables.map((v) => (
                             <div key={v.key} className="space-y-1">
-                              <Label className="text-[11px] text-muted-foreground">{v.label} ({`{{${v.key}}}`})</Label>
+                              <Label className="text-[11px] text-muted-foreground">
+                                {v.label} {v.key === "3" ? `(${currentAuctionUnit === "points" ? "Pt." : "₹"})` : `({{${v.key}}})`}
+                              </Label>
                               <Input
-                                placeholder={v.placeholder}
+                                placeholder={v.key === "3" ? (currentAuctionUnit === "points" ? "e.g. 25,00,000 Pt." : "e.g. ₹25,00,000") : v.placeholder}
                                 value={waTemplateVariables[v.key] ?? ""}
                                 onChange={(e) => setWaTemplateVariables((prev) => ({ ...prev, [v.key]: e.target.value }))}
                                 className="h-8 text-xs bg-background/50"
@@ -3503,10 +3525,10 @@ export default function AdminCommunicationCenter() {
                                 teamLogoUrl={activeSale?.teamLogoUrl || waTournamentTeams.find((t) => t.name === waTemplateVariables["2"])?.logoUrl}
                                 teamShortCode={activeSale?.teamShortCode || waTournamentTeams.find((t) => t.name === waTemplateVariables["2"])?.shortCode}
                                 teamColor={activeSale?.teamColor || waTournamentTeams.find((t) => t.name === waTemplateVariables["2"])?.color}
-                                amount={waTemplateVariables["3"] || activeSale?.formattedAmount || "₹25,00,000"}
+                                amount={waTemplateVariables["3"] || activeSale?.formattedAmount || formatAuctionAmount(2500000, currentAuctionUnit)}
                                 tournamentName={waTemplateVariables["4"] || activeSale?.tournamentName || (tournaments.find((t) => String(t.id) === selectedTournamentId)?.name || "Premier League 2026")}
                                 tournamentSport={activeSale?.tournamentSport || "Cricket"}
-                                auctionUnit={activeSale?.auctionUnit || "rupee"}
+                                auctionUnit={currentAuctionUnit}
                                 isIllustrative={!activeSale && waTargetType !== "particular_player"}
                                 showDownloadButton={false}
                                 className="w-full h-full"
@@ -3799,10 +3821,10 @@ export default function AdminCommunicationCenter() {
                               teamLogoUrl={activeSale?.teamLogoUrl || waTournamentTeams.find((t) => t.name === waTemplateVariables["2"])?.logoUrl}
                               teamShortCode={activeSale?.teamShortCode || waTournamentTeams.find((t) => t.name === waTemplateVariables["2"])?.shortCode}
                               teamColor={activeSale?.teamColor || waTournamentTeams.find((t) => t.name === waTemplateVariables["2"])?.color}
-                              amount={waTemplateVariables["3"] || activeSale?.formattedAmount || "₹25,00,000"}
+                              amount={waTemplateVariables["3"] || activeSale?.formattedAmount || formatAuctionAmount(2500000, currentAuctionUnit)}
                               tournamentName={waTemplateVariables["4"] || activeSale?.tournamentName || (tournaments.find((t) => String(t.id) === selectedTournamentId)?.name || "Premier League 2026")}
                               tournamentSport={activeSale?.tournamentSport || "Cricket"}
-                              auctionUnit={activeSale?.auctionUnit || "rupee"}
+                              auctionUnit={currentAuctionUnit}
                               isIllustrative={!activeSale && waTargetType !== "particular_player"}
                               showDownloadButton={false}
                               className="w-full h-full"

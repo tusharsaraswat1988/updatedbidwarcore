@@ -231,6 +231,7 @@ export type AdminTournamentDetail = {
     scoringEnabled: boolean;
     scoringPhase: string;
     productMode: "auction_only" | "scoring_only" | "both";
+    auctionUnit?: "rupee" | "points";
     features: { ownerApp?: boolean; scoring?: boolean; sponsorshipHub?: boolean; analytics?: boolean; whatsappNotifications?: boolean };
     createdAt: string;
   };

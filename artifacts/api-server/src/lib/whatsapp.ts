@@ -2,7 +2,9 @@ import { dispatchPushWhatsApp } from "./communication/policy-engine";
 import type { SendResult } from "./comm-sender";
 import { getPublicOrigin } from "./runtime-env";
 import { logger, maskPhoneNumber } from "./logger";
-import { db, commLogsTable } from "@workspace/db";
+import { db, commLogsTable, tournamentsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import { formatAuctionAmount, normalizeAuctionUnit, type AuctionUnit } from "@workspace/auction/auction-unit";
 
 export const META_AUCTION_PLAYER_SOLD_TEMPLATE = "auction_player_sold";
 export const META_AUCTION_PLAYER_SOLD_LANGUAGE = "en";
@@ -72,7 +74,24 @@ export async function notifyPlayerSold(opts: {
   const teamName = opts.teamName?.trim() || "Team";
   const tournamentName = opts.tournamentName?.trim() || "the tournament";
   const rawAmount = typeof opts.amount === "number" && !isNaN(opts.amount) ? Math.max(0, opts.amount) : 0;
-  const formattedAmount = `₹${Math.round(rawAmount).toLocaleString("en-IN")}`;
+
+  // Resolve auctionUnit (honors tournament setting, e.g. "rupee" or "points")
+  let unit: AuctionUnit = normalizeAuctionUnit(opts.auctionUnit);
+  if (!opts.auctionUnit && opts.tournamentId && typeof db?.select === "function") {
+    try {
+      const [tournRow] = await db
+        .select({ auctionUnit: tournamentsTable.auctionUnit })
+        .from(tournamentsTable)
+        .where(eq(tournamentsTable.id, opts.tournamentId))
+        .limit(1);
+      if (tournRow?.auctionUnit) {
+        unit = normalizeAuctionUnit(tournRow.auctionUnit);
+      }
+    } catch {
+      // fallback to unit
+    }
+  }
+  const formattedAmount = formatAuctionAmount(rawAmount, unit);
 
   // Idempotency / Duplicate-Event Suppression Check (checked before heavy poster generation)
   const idempotencyKey =
@@ -123,7 +142,7 @@ export async function notifyPlayerSold(opts: {
         teamShortCode: opts.teamShortCode,
         teamColor: opts.teamColor,
         amount: rawAmount,
-        auctionUnit: opts.auctionUnit ?? "rupee",
+        auctionUnit: unit,
         tournamentName,
         tournamentSport: opts.tournamentSport ?? "Cricket",
       });

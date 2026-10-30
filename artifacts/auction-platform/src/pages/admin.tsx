@@ -1745,11 +1745,11 @@ function DetailPanel({
                         {p.role || "—"}
                       </span>
                       <span className="text-xs font-mono">
-                        {formatShortIndianRupee(p.basePrice)}
+                        {formatShortIndianRupee(p.basePrice, t.auctionUnit || "rupee")}
                       </span>
                       <span className="text-xs font-mono">
                         {p.soldPrice
-                          ? formatShortIndianRupee(p.soldPrice)
+                          ? formatShortIndianRupee(p.soldPrice, t.auctionUnit || "rupee")
                           : "—"}
                       </span>
                       <span

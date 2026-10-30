@@ -9,6 +9,8 @@ import { logger } from "../logger.js";
 import { db, playersTable, teamsTable, tournamentsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { AuctionUnit } from "@workspace/api-base/auction-unit";
+import { parseSponsorLogos, resolveSponsorPriorityType, SponsorPriorityType } from "@workspace/api-base/sponsor-priority";
+import { brandingService } from "../branding-service.js";
 
 export interface StoredPosterEntry {
   token: string;
@@ -108,6 +110,9 @@ export interface ResolveAndGeneratePosterInput {
   auctionUnit?: AuctionUnit | null;
   tournamentName?: string | null;
   tournamentSport?: string | null;
+  bidwarLogoUrl?: string | null;
+  titleSponsorLogoUrl?: string | null;
+  coSponsorLogoUrls?: string[] | null;
 }
 
 export interface GeneratedPosterResult {
@@ -200,12 +205,16 @@ export async function resolveAuthoritativeSaleData(
         }
       }
 
+      let resolvedTitleSponsorLogo: string | null = null;
+      let resolvedCoSponsorLogos: string[] = [];
+
       if (input.tournamentId) {
         const query = db
           .select({
             name: tournamentsTable.name,
             sport: tournamentsTable.sport,
             auctionUnit: tournamentsTable.auctionUnit,
+            sponsorLogos: tournamentsTable.sponsorLogos,
           })
           .from(tournamentsTable)
           .where(eq(tournamentsTable.id, input.tournamentId));
@@ -217,8 +226,49 @@ export async function resolveAuthoritativeSaleData(
           if (tourn.name) resolvedTournamentName = tourn.name;
           if (tourn.sport) resolvedSport = tourn.sport;
           if (tourn.auctionUnit) resolvedUnit = tourn.auctionUnit as AuctionUnit;
+
+          if (tourn.sponsorLogos) {
+            try {
+              const parsed = parseSponsorLogos(tourn.sponsorLogos);
+              const title = parsed.find((s) => resolveSponsorPriorityType(s) === SponsorPriorityType.TITLE);
+              if (title?.url) resolvedTitleSponsorLogo = title.url;
+
+              const co = parsed.filter((s) => resolveSponsorPriorityType(s) === SponsorPriorityType.CO_SPONSOR);
+              resolvedCoSponsorLogos = co.map((s) => s.url).filter((u): u is string => Boolean(u));
+            } catch {
+              // Graceful fallback
+            }
+          }
         }
       }
+
+      // Resolve BidWar Branding Platform Logo
+      let resolvedBidwarLogo: string | null = null;
+      try {
+        resolvedBidwarLogo = await brandingService.resolveEmailLogoAssetUrl();
+      } catch {
+        // Fallback
+      }
+
+      return {
+        tournamentId: input.tournamentId,
+        playerId: input.playerId,
+        teamId: input.teamId ?? resolvedTeamId,
+        playerName: resolvedPlayerName,
+        playerPhotoUrl: resolvedPhotoUrl,
+        playerRole: resolvedRole,
+        teamName: resolvedTeamName,
+        teamLogoUrl: resolvedTeamLogo,
+        teamShortCode: resolvedTeamShortCode,
+        teamColor: resolvedTeamColor,
+        amount: resolvedAmount,
+        auctionUnit: resolvedUnit,
+        tournamentName: resolvedTournamentName,
+        tournamentSport: resolvedSport,
+        bidwarLogoUrl: input.bidwarLogoUrl ?? resolvedBidwarLogo,
+        titleSponsorLogoUrl: input.titleSponsorLogoUrl ?? resolvedTitleSponsorLogo,
+        coSponsorLogoUrls: input.coSponsorLogoUrls ?? (resolvedCoSponsorLogos.length > 0 ? resolvedCoSponsorLogos : null),
+      };
     } catch (dbErr) {
       logger.warn(
         { err: dbErr, tournamentId: input.tournamentId, playerId: input.playerId },
@@ -242,6 +292,9 @@ export async function resolveAuthoritativeSaleData(
     auctionUnit: resolvedUnit,
     tournamentName: resolvedTournamentName,
     tournamentSport: resolvedSport,
+    bidwarLogoUrl: input.bidwarLogoUrl ?? null,
+    titleSponsorLogoUrl: input.titleSponsorLogoUrl ?? null,
+    coSponsorLogoUrls: input.coSponsorLogoUrls ?? null,
   };
 }
 
@@ -281,7 +334,7 @@ export async function generateAndHostPlayerSoldPoster(
     };
   }
 
-  // 3. Generate high-res 1200x675 PNG poster
+  // 3. Generate high-res 1080x1350 PNG poster
   const buffer = await generatePlayerSoldPosterBuffer({
     playerName: authoritative.playerName,
     playerPhotoUrl: authoritative.playerPhotoUrl,
@@ -294,6 +347,9 @@ export async function generateAndHostPlayerSoldPoster(
     auctionUnit: authoritative.auctionUnit,
     tournamentName: authoritative.tournamentName,
     tournamentSport: authoritative.tournamentSport,
+    bidwarLogoUrl: authoritative.bidwarLogoUrl,
+    titleSponsorLogoUrl: authoritative.titleSponsorLogoUrl,
+    coSponsorLogoUrls: authoritative.coSponsorLogoUrls,
   });
 
   const expiresAt = now + POSTER_RETENTION_TTL_MS;

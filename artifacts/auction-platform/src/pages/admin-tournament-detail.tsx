@@ -33,6 +33,7 @@ import {
 import { AdminShell } from "@/components/admin-shell";
 import { displayOrganizerMobile } from "@workspace/api-base/mobile";
 import { cn } from "@/lib/utils";
+import { formatAuctionAmount } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LiveAuctionMonitor } from "@/components/admin/live-auction-monitor";
 import { LiveConnectedEndpointsPanel } from "@/components/admin/live-connected-endpoints-panel";
@@ -436,7 +437,7 @@ export default function AdminTournamentDetailPage() {
                   <>
                     <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-2 text-center min-w-[85px]">
                       <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Base Purse</div>
-                      <div className="text-sm font-bold text-primary">₹{(t.basePurse / 10000000).toFixed(2)} Cr</div>
+                      <div className="text-sm font-bold text-primary">{formatAuctionAmount(t.basePurse, t.auctionUnit || "rupee")}</div>
                     </div>
                     <div className="rounded-lg bg-muted/20 border border-border/60 px-3 py-2 text-center min-w-[70px]">
                       <div className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Bid Events</div>
@@ -1176,7 +1177,7 @@ export default function AdminTournamentDetailPage() {
                           </span>
                           <span className="mt-1 block sm:mt-0 sm:text-right">
                             <span className="text-muted-foreground sm:hidden">Price: </span>
-                            ₹{(p.soldPrice || p.basePrice).toLocaleString("en-IN")}
+                            {formatAuctionAmount(p.soldPrice || p.basePrice, detail.tournament.auctionUnit || "rupee")}
                           </span>
                           <div className="mt-1 flex justify-end sm:mt-0">
                             {p.email ? (
@@ -1232,7 +1233,7 @@ export default function AdminTournamentDetailPage() {
                           {team.ownerEmail && <span className="block text-[11px] text-muted-foreground truncate">{team.ownerEmail}</span>}
                         </div>
                         <span className="mt-1 block sm:mt-0 sm:text-right">
-                          ₹{team.purseUsed.toLocaleString("en-IN")} used
+                          {formatAuctionAmount(team.purseUsed, detail.tournament.auctionUnit || "rupee")} used
                         </span>
                         <div className="mt-1 flex justify-end sm:mt-0">
                           {team.ownerEmail ? (
@@ -1282,7 +1283,7 @@ export default function AdminTournamentDetailPage() {
                         <span className="mt-1 block font-medium text-white sm:mt-0">{bid.playerName || "Event"}</span>
                         <span className="mt-1 block text-muted-foreground sm:mt-0">{bid.teamName || "No team"}</span>
                         <span className="mt-1 block text-primary sm:mt-0 sm:text-right">
-                          ₹{bid.amount.toLocaleString("en-IN")}
+                          {formatAuctionAmount(bid.amount, detail.tournament.auctionUnit || "rupee")}
                         </span>
                       </div>
                     ))}

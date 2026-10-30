@@ -48,6 +48,7 @@ import {
   META_ORGANISER_ONBOARDING_WELCOME_CATEGORY,
 } from "../lib/whatsapp";
 import { generateAndHostPlayerSoldPoster } from "../lib/poster/player-sold-poster-service.js";
+import { formatAuctionAmount, normalizeAuctionUnit, type AuctionUnit } from "@workspace/auction/auction-unit";
 import {
   VERIFIED_APPROVED_TEMPLATES,
   DEV_UNAPPROVED_TEMPLATES,
@@ -309,13 +310,30 @@ function buildPlayerSoldWaMessage(opts: {
   teamName: string;
   amount: number | string;
   tournamentName: string;
+  auctionUnit?: AuctionUnit | null;
 }): string {
-  const amt =
-    typeof opts.amount === "number"
-      ? `₹${Math.round(opts.amount).toLocaleString("en-IN")}`
-      : String(opts.amount).startsWith("₹")
-        ? String(opts.amount)
-        : `₹${opts.amount}`;
+  const unit = normalizeAuctionUnit(opts.auctionUnit);
+  let amt: string;
+  if (typeof opts.amount === "number") {
+    amt = formatAuctionAmount(opts.amount, unit);
+  } else {
+    const str = String(opts.amount ?? "").trim();
+    if (unit === "points") {
+      if (str.endsWith("Pt.") && !str.startsWith("₹")) {
+        amt = str;
+      } else {
+        const parsed = parseFloat(str.replace(/[^0-9.]/g, "")) || 0;
+        amt = formatAuctionAmount(parsed, "points");
+      }
+    } else {
+      if (str.startsWith("₹") && !str.endsWith("Pt.")) {
+        amt = str;
+      } else {
+        const parsed = parseFloat(str.replace(/[^0-9.]/g, "")) || 0;
+        amt = formatAuctionAmount(parsed, "rupee");
+      }
+    }
+  }
 
   return (
     `🏏 PLAYER SOLD!\n\n` +
@@ -761,6 +779,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         scoringPhase: tournamentsTable.scoringPhase,
         licenseGrantedAt: tournamentsTable.licenseGrantedAt,
         featuresJson: tournamentsTable.featuresJson,
+        auctionUnit: tournamentsTable.auctionUnit,
       })
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tid));
@@ -831,11 +850,14 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
       templateIdSource: envTemplateId ? "env" : "db",
     }, "Admin communicate: auction_player_sold blast starting");
 
+    const tournUnit = normalizeAuctionUnit(tournament.auctionUnit);
+
     for (const player of soldPlayers) {
       const mobile = player.mobileNumber!;
       const playerName = player.name ?? "Player";
       const teamName = (player.teamId != null ? teamNameById.get(player.teamId) : null) ?? "Team";
       const amount = player.soldPrice ?? 0;
+      const amtFormatted = formatAuctionAmount(amount, tournUnit);
       const shouldSendWa = (d.channel === "whatsapp" || d.channel === "both");
       const shouldSendSms = (d.channel === "sms" || d.channel === "both");
 
@@ -843,8 +865,9 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         const waBody = buildPlayerSoldWaMessage({
           playerName,
           teamName,
-          amount,
+          amount: amtFormatted,
           tournamentName: tournament.name,
+          auctionUnit: tournUnit,
         });
 
         const isRevoked = await isMobileRevoked(mobile);
@@ -868,7 +891,6 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           });
           results.push({ mobile, channel: "whatsapp", success: false, blocked: true, error: err });
         } else {
-          const amtFormatted = `₹${Math.round(amount).toLocaleString("en-IN")}`;
           const playerSoldComponents = [
             {
               type: "header" as const,
@@ -1259,22 +1281,62 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
         results.push({ mobile: r.mobile, channel: "whatsapp", success: false, blocked: true, error: err });
       } else {
         let templateComponents: any = undefined;
+        let loggedContent = d.messageContent;
         if (isSoldTmpl) {
+          let tournUnit: AuctionUnit = "rupee";
+          if (d.tournamentId) {
+            try {
+              const [tRow] = await db
+                .select({ auctionUnit: tournamentsTable.auctionUnit })
+                .from(tournamentsTable)
+                .where(eq(tournamentsTable.id, d.tournamentId))
+                .limit(1);
+              if (tRow?.auctionUnit) {
+                tournUnit = normalizeAuctionUnit(tRow.auctionUnit);
+              }
+            } catch {
+              // fallback
+            }
+          }
+
           const suppliedVars = d.templateVariables ?? {};
           const var1 = suppliedVars["1"] ?? suppliedVars["Player Name"] ?? "Player";
           const var2 = suppliedVars["2"] ?? suppliedVars["Winning Team"] ?? suppliedVars["Team Name"] ?? "Team";
-          const rawAmt = suppliedVars["3"] ?? suppliedVars["Sold Amount"] ?? suppliedVars["Sold Amount (₹)"] ?? "0";
-          const var3 = rawAmt.startsWith("₹") ? rawAmt : `₹${rawAmt}`;
+          const rawAmt = suppliedVars["3"] ?? suppliedVars["Sold Amount"] ?? suppliedVars["Sold Amount (₹)"] ?? suppliedVars["Sold Amount (Pt.)"] ?? "0";
+          const parsedAmt = parseFloat(String(rawAmt).replace(/[^0-9.]/g, "")) || 0;
+          let var3: string;
+          const trimmedRaw = String(rawAmt).trim();
+          if (tournUnit === "points") {
+            if (trimmedRaw.endsWith("Pt.") && !trimmedRaw.startsWith("₹")) {
+              var3 = trimmedRaw;
+            } else {
+              var3 = formatAuctionAmount(parsedAmt, "points");
+            }
+          } else {
+            if (trimmedRaw.startsWith("₹") && !trimmedRaw.endsWith("Pt.")) {
+              var3 = trimmedRaw;
+            } else {
+              var3 = formatAuctionAmount(parsedAmt, "rupee");
+            }
+          }
           const var4 = suppliedVars["4"] ?? suppliedVars["Tournament Name"] ?? "Auction";
+          loggedContent = buildPlayerSoldWaMessage({
+            playerName: var1,
+            teamName: var2,
+            amount: var3,
+            tournamentName: var4,
+            auctionUnit: tournUnit,
+          });
+
           let dynamicHeaderUrl = resolvePlayerSoldImageUrl();
           try {
-            const parsedAmt = parseFloat(rawAmt.replace(/[^0-9.]/g, "")) || 0;
             const posterRes = await generateAndHostPlayerSoldPoster({
               tournamentId: d.tournamentId || 0,
               playerId: r.recipientId,
               playerName: var1,
               teamName: var2,
               amount: parsedAmt,
+              auctionUnit: tournUnit,
               tournamentName: var4,
             });
             if (posterRes?.publicUrl) {
@@ -1339,7 +1401,7 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           recipientMobile: r.mobile,
           channel: "whatsapp",
           templateName: effectiveWaTemplateName,
-          messageContent: d.messageContent,
+          messageContent: loggedContent,
           sentByAdminId: "master_admin",
           blastId,
           deliveryStatus: waResult.success ? "sent" : "failed",
@@ -1749,7 +1811,7 @@ router.get("/auth/admin/communicate/recent-sales/:tournamentId", async (req, res
     const sales = soldPlayers.map((p) => {
       const t = p.teamId ? teamMap.get(p.teamId) : null;
       const amt = p.soldPrice ?? 0;
-      const unit = (tourn.auctionUnit ?? "rupee") as "rupee" | "points";
+      const unit = normalizeAuctionUnit(tourn.auctionUnit);
       return {
         id: p.id,
         playerName: p.name,
@@ -1761,7 +1823,7 @@ router.get("/auth/admin/communicate/recent-sales/:tournamentId", async (req, res
         teamShortCode: t?.shortCode ?? null,
         teamColor: t?.color ?? null,
         amount: amt,
-        formattedAmount: `₹${Math.round(amt).toLocaleString("en-IN")}`,
+        formattedAmount: formatAuctionAmount(amt, unit),
         tournamentName: tourn.name,
         tournamentSport: tourn.sport ?? "Cricket",
         auctionUnit: unit,
