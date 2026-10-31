@@ -1,18 +1,44 @@
 import pg from "pg";
 import dotenv from "dotenv";
-dotenv.config();
+import fs from "fs";
+import path from "path";
 
 const { Client } = pg;
 
-async function main() {
-  const url = process.env.DATABASE_URL;
-  if (!url) {
-    throw new Error("DATABASE_URL is missing in environment");
+function resolveDatabaseUrl(): { url: string; target: string } {
+  const args = process.argv.slice(2);
+  const isProd = args.includes("--prod") || args.includes("--target=prod") || process.env.TARGET_ENV === "production" || process.env.NODE_ENV === "production";
+
+  if (isProd) {
+    const prodFiles = [".env.production.env", ".env.production"];
+    for (const file of prodFiles) {
+      if (fs.existsSync(file)) {
+        const envConfig = dotenv.parse(fs.readFileSync(file));
+        if (envConfig.DATABASE_URL) {
+          return { url: envConfig.DATABASE_URL, target: `PROD (${file})` };
+        }
+      }
+    }
   }
+
+  // Fallback to .env
+  dotenv.config();
+  if (process.env.DATABASE_URL) {
+    return { url: process.env.DATABASE_URL, target: isProd ? "PROD (process.env)" : "DEV (.env)" };
+  }
+
+  throw new Error("DATABASE_URL is missing in environment");
+}
+
+async function main() {
+  const { url, target } = resolveDatabaseUrl();
+  const dbHost = new URL(url.replace("postgresql://", "http://")).host;
+  console.log(`Targeting: ${target}`);
+  console.log(`Connecting to Neon DB on host: ${dbHost}`);
 
   const client = new Client({ connectionString: url, ssl: { rejectUnauthorized: false } });
   await client.connect();
-  console.log("Connected to Neon DB.");
+  console.log("Connected to Neon DB successfully.");
 
   try {
     await client.query("BEGIN");
