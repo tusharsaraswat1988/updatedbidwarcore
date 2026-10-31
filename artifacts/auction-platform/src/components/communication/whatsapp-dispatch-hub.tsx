@@ -79,7 +79,8 @@ export interface CommLog {
   messageContent: string;
   sentByAdminId?: string | null;
   blastId?: string | null;
-  deliveryStatus: "queued" | "sent" | "delivered" | "failed" | string;
+  deliveryStatus: "queued" | "sent" | "delivered" | "read" | "failed" | string;
+  deliveryUpdatedAt?: string | null;
   metaMessageId?: string | null;
   errorMessage?: string | null;
   sentAt: string;
@@ -155,7 +156,7 @@ export interface WhatsAppDispatchHubProps {
 
 type ParticipantTab = "player" | "owner" | "organizer" | "broadcast";
 type PlayerStatusFilter = "all" | "sold" | "available";
-type LogStatusFilter = "all" | "delivered" | "sent" | "failed";
+type LogStatusFilter = "all" | "delivered" | "read" | "sent" | "failed";
 
 function formatDate(iso: string | null) {
   if (!iso) return "-";
@@ -453,6 +454,7 @@ export function WhatsAppDispatchHub({
     return list.filter((l) => {
       // Status filter
       if (historyStatusFilter !== "all") {
+        if (historyStatusFilter === "read" && l.deliveryStatus !== "read") return false;
         if (historyStatusFilter === "delivered" && l.deliveryStatus !== "delivered") return false;
         if (historyStatusFilter === "sent" && l.deliveryStatus !== "sent") return false;
         if (historyStatusFilter === "failed" && l.deliveryStatus !== "failed") return false;
@@ -481,6 +483,11 @@ export function WhatsAppDispatchHub({
     if (templateKey === "organiser_onboarding_welcome") {
       const v1 = templateVariables["1"] || currentTournament?.organizerName || "Tournament Organiser";
       return `🏏 *Welcome to BIDWAR, ${v1}!* \n\nThank you for joining BIDWAR as a Tournament Organiser.\n\nBIDWAR helps you manage your tournament activities, including team registration, fixtures, live scoring and player auctions — all in one place.\n\nWe're excited to be part of your sporting journey!\n\nNeed help getting started? Our team is here to assist you.\n\nBIDWAR | From Auction to Champions`;
+    }
+    if (templateKey === "team_owner_welcome_login") {
+      const v1 = templateVariables["1"] || activeTeam?.ownerName || "Team Owner";
+      const v2 = templateVariables["2"] || currentTournament?.name || "the tournament";
+      return `🏏 Welcome to BIDWAR, ${v1}!\n\nYou have been successfully registered as a Team Owner for ${v2}.\n\nYour login details will be shared with you before the auction starts.\n\nStay tuned, and get ready for an exciting tournament!\n\nBest Wishes !`;
     }
     return customText || "Type your custom message...";
   }, [templateKey, templateVariables, activePlayer, activeTeam, currentTournament, currentAuctionUnit, customText]);
@@ -1211,6 +1218,11 @@ export function WhatsAppDispatchHub({
                   setTemplateKey(val);
                   if (val === "organiser_onboarding_welcome") {
                     setTemplateVariables({ "1": currentTournament?.organizerName || "Tournament Organiser" });
+                  } else if (val === "team_owner_welcome_login") {
+                    setTemplateVariables({
+                      "1": activeTeam?.ownerName || "Team Owner",
+                      "2": currentTournament?.name || "Bidwar Premier League",
+                    });
                   } else if (val === "auction_player_sold") {
                     setTemplateVariables({
                       "1": activePlayer?.name || "Player Name",
@@ -1225,6 +1237,7 @@ export function WhatsAppDispatchHub({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="auction_player_sold">🏏 Player Sold Celebration (With 4:5 Poster Header)</SelectItem>
+                    <SelectItem value="team_owner_welcome_login">🏏 Team Owner Welcome (Meta Approved Utility)</SelectItem>
                     <SelectItem value="organiser_onboarding_welcome">🏏 Organiser Onboarding Welcome (Text Template)</SelectItem>
                     <SelectItem value="custom">✍️ Custom Direct WhatsApp Message</SelectItem>
                   </SelectContent>
@@ -1292,6 +1305,37 @@ export function WhatsAppDispatchHub({
                     className="h-8 text-xs bg-background/60"
                     placeholder="e.g. Rajesh"
                   />
+                </div>
+              )}
+
+              {/* Dynamic Variables Inputs (if team_owner_welcome_login) */}
+              {templateKey === "team_owner_welcome_login" && (
+                <div className="p-3 rounded-lg border border-emerald-500/25 bg-emerald-500/5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-emerald-400">Template Dynamic Parameters</Label>
+                    <span className="text-[10px] text-emerald-300/80 italic">Auto-resolved from team</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Team Owner Name {"({{1}})"}</Label>
+                      <Input
+                        value={templateVariables["1"] || ""}
+                        onChange={(e) => setTemplateVariables((prev) => ({ ...prev, "1": e.target.value }))}
+                        className="h-8 text-xs bg-background/60"
+                        placeholder="e.g. Tushar"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">Tournament Name {"({{2}})"}</Label>
+                      <Input
+                        value={templateVariables["2"] || ""}
+                        onChange={(e) => setTemplateVariables((prev) => ({ ...prev, "2": e.target.value }))}
+                        className="h-8 text-xs bg-background/60"
+                        placeholder="e.g. Bidwar Premier League"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1476,7 +1520,7 @@ export function WhatsAppDispatchHub({
               </div>
 
               {/* Status Filter Pills */}
-              <div className="flex items-center gap-1 text-[10px]">
+              <div className="flex flex-wrap items-center gap-1 text-[10px]">
                 <button
                   type="button"
                   onClick={() => setHistoryStatusFilter("all")}
@@ -1497,18 +1541,29 @@ export function WhatsAppDispatchHub({
                       : "bg-muted/30 text-muted-foreground border-border hover:text-foreground"
                   }`}
                 >
-                  Delivered
+                  ✓✓ Delivered
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHistoryStatusFilter("read")}
+                  className={`px-2 py-0.5 rounded-full border transition-all ${
+                    historyStatusFilter === "read"
+                      ? "bg-sky-500/20 text-sky-300 border-sky-500/40 font-semibold"
+                      : "bg-muted/30 text-muted-foreground border-border hover:text-foreground"
+                  }`}
+                >
+                  ✓✓ Read
                 </button>
                 <button
                   type="button"
                   onClick={() => setHistoryStatusFilter("sent")}
                   className={`px-2 py-0.5 rounded-full border transition-all ${
                     historyStatusFilter === "sent"
-                      ? "bg-sky-500/20 text-sky-300 border-sky-500/40 font-semibold"
+                      ? "bg-blue-500/20 text-blue-300 border-blue-500/40 font-semibold"
                       : "bg-muted/30 text-muted-foreground border-border hover:text-foreground"
                   }`}
                 >
-                  Sent
+                  ✓ Sent
                 </button>
                 <button
                   type="button"
@@ -1519,7 +1574,7 @@ export function WhatsAppDispatchHub({
                       : "bg-muted/30 text-muted-foreground border-border hover:text-foreground"
                   }`}
                 >
-                  Failed
+                  ✕ Failed
                 </button>
               </div>
 
@@ -1541,6 +1596,7 @@ export function WhatsAppDispatchHub({
                     const matchedTeam = waTournamentTeams.find((t) => t.ownerMobile && t.ownerMobile.includes(log.recipientMobile));
                     const recipientLabel = matchedPlayer ? matchedPlayer.name : matchedTeam ? `${matchedTeam.name} (${matchedTeam.ownerName || "Owner"})` : null;
 
+                    const isRead = log.deliveryStatus === "read";
                     const isDelivered = log.deliveryStatus === "delivered";
                     const isFailed = log.deliveryStatus === "failed";
                     const isSent = log.deliveryStatus === "sent";
@@ -1564,18 +1620,27 @@ export function WhatsAppDispatchHub({
                           </div>
 
                           <div className="flex items-center gap-1.5 shrink-0">
+                            {isRead && (
+                              <Badge className="bg-sky-500/20 text-sky-400 border-sky-500/30 text-[9px] px-1.5 py-0 font-medium inline-flex items-center gap-1">
+                                <CheckCheck className="h-2.5 w-2.5 text-sky-400" />
+                                Read
+                              </Badge>
+                            )}
                             {isDelivered && (
-                              <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[9px] px-1.5 py-0 font-medium">
+                              <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[9px] px-1.5 py-0 font-medium inline-flex items-center gap-1">
+                                <CheckCheck className="h-2.5 w-2.5 text-emerald-400" />
                                 Delivered
                               </Badge>
                             )}
                             {isSent && (
-                              <Badge className="bg-sky-500/20 text-sky-300 border-sky-500/30 text-[9px] px-1.5 py-0 font-medium">
+                              <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 text-[9px] px-1.5 py-0 font-medium inline-flex items-center gap-1">
+                                <Check className="h-2.5 w-2.5 text-blue-400" />
                                 Sent
                               </Badge>
                             )}
                             {isFailed && (
-                              <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/30 text-[9px] px-1.5 py-0 font-medium">
+                              <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/30 text-[9px] px-1.5 py-0 font-medium inline-flex items-center gap-1">
+                                <XCircle className="h-2.5 w-2.5 text-rose-400" />
                                 Failed
                               </Badge>
                             )}
@@ -1914,20 +1979,32 @@ export function WhatsAppDispatchHub({
                   <span className="text-muted-foreground">Delivery Status:</span>
                   <Badge
                     className={
-                      selectedLogDetail.deliveryStatus === "delivered"
-                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                      selectedLogDetail.deliveryStatus === "read"
+                        ? "bg-sky-500/20 text-sky-400 border-sky-500/30 inline-flex items-center gap-1"
+                        : selectedLogDetail.deliveryStatus === "delivered"
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30 inline-flex items-center gap-1"
                         : selectedLogDetail.deliveryStatus === "sent"
-                        ? "bg-sky-500/20 text-sky-300 border-sky-500/30"
-                        : "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                        ? "bg-blue-500/20 text-blue-300 border-blue-500/30 inline-flex items-center gap-1"
+                        : "bg-rose-500/20 text-rose-300 border-rose-500/30 inline-flex items-center gap-1"
                     }
                   >
+                    {selectedLogDetail.deliveryStatus === "read" && <CheckCheck className="h-3 w-3 text-sky-400" />}
+                    {selectedLogDetail.deliveryStatus === "delivered" && <CheckCheck className="h-3 w-3 text-emerald-400" />}
+                    {selectedLogDetail.deliveryStatus === "sent" && <Check className="h-3 w-3 text-blue-400" />}
+                    {selectedLogDetail.deliveryStatus === "failed" && <XCircle className="h-3 w-3 text-rose-400" />}
                     {selectedLogDetail.deliveryStatus.toUpperCase()}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Sent Timestamp:</span>
+                  <span className="text-muted-foreground">Dispatched At:</span>
                   <span>{formatDate(selectedLogDetail.sentAt)}</span>
                 </div>
+                {selectedLogDetail.deliveryUpdatedAt && selectedLogDetail.deliveryStatus !== "sent" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Status Confirmed At:</span>
+                    <span className="font-mono text-emerald-400">{formatDate(selectedLogDetail.deliveryUpdatedAt)}</span>
+                  </div>
+                )}
                 {selectedLogDetail.metaMessageId && (
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground">Provider Message ID:</span>

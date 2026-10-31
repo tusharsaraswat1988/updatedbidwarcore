@@ -180,6 +180,7 @@ interface CommLog {
   sentByAdminId: string | null;
   blastId: string | null;
   deliveryStatus: string;
+  deliveryUpdatedAt?: string | null;
   sentAt: string;
   errorMessage: string | null;
   metaMessageId: string | null;
@@ -277,18 +278,61 @@ interface SmsSettingsData {
   viewerLinkTemplateIdFromEnv?: string | null;
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, deliveryUpdatedAt }: { status: string; deliveryUpdatedAt?: string | null }) {
+  if (status === "read") {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-sky-500/15 text-sky-400 border-sky-500/30 text-[10px] font-semibold gap-1 inline-flex items-center"
+        title={deliveryUpdatedAt ? `Read confirmed at ${formatDate(deliveryUpdatedAt)}` : "Read confirmed"}
+      >
+        <CheckCheck className="h-3 w-3 text-sky-400" />
+        READ
+      </Badge>
+    );
+  }
+  if (status === "delivered") {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30 text-[10px] font-semibold gap-1 inline-flex items-center"
+        title={deliveryUpdatedAt ? `Delivered confirmed at ${formatDate(deliveryUpdatedAt)}` : "Delivered to device"}
+      >
+        <CheckCheck className="h-3 w-3 text-emerald-400" />
+        DELIVERED
+      </Badge>
+    );
+  }
+  if (status === "sent") {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-blue-500/15 text-blue-400 border-blue-500/30 text-[10px] font-semibold gap-1 inline-flex items-center"
+        title="Dispatched from provider gateway"
+      >
+        <Check className="h-3 w-3 text-blue-400" />
+        SENT
+      </Badge>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <Badge
+        variant="outline"
+        className="bg-red-500/15 text-red-400 border-red-500/30 text-[10px] font-semibold gap-1 inline-flex items-center"
+      >
+        <XCircle className="h-3 w-3 text-red-400" />
+        FAILED
+      </Badge>
+    );
+  }
   const map: Record<string, string> = {
     pending: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
     ready_to_send: "bg-blue-500/15 text-blue-400 border-blue-500/30",
     queued: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
     processing: "bg-purple-500/15 text-purple-300 border-purple-500/30",
-    delivered: "bg-green-500/15 text-green-400 border-green-500/30",
     opened: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
     clicked: "bg-teal-500/15 text-teal-300 border-teal-500/30",
-    sent: "bg-blue-500/15 text-blue-400 border-blue-500/30",
-    read: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-    failed: "bg-red-500/15 text-red-400 border-red-500/30",
     cancelled: "bg-muted text-muted-foreground border-border",
     draft: "bg-slate-500/15 text-slate-300 border-slate-500/30",
   };
@@ -1504,7 +1548,7 @@ export default function AdminCommunicationCenter() {
         receiptStatusFilter === "all" ||
         (receiptStatusFilter === "failed" && l.deliveryStatus === "failed") ||
         (receiptStatusFilter === "sent" && l.deliveryStatus === "sent") ||
-        (receiptStatusFilter === "delivered" && (l.deliveryStatus === "delivered" || l.deliveryStatus === "read")) ||
+        (receiptStatusFilter === "delivered" && l.deliveryStatus === "delivered") ||
         (receiptStatusFilter === "read" && l.deliveryStatus === "read");
       return matchesSearch && matchesStatus;
     });

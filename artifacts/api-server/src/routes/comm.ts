@@ -46,6 +46,9 @@ import {
   META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE,
   META_ORGANISER_ONBOARDING_WELCOME_LANGUAGE,
   META_ORGANISER_ONBOARDING_WELCOME_CATEGORY,
+  META_TEAM_OWNER_WELCOME_TEMPLATE,
+  META_TEAM_OWNER_WELCOME_LANGUAGE,
+  META_TEAM_OWNER_WELCOME_CATEGORY,
 } from "../lib/whatsapp";
 import { generateAndHostPlayerSoldPoster } from "../lib/poster/player-sold-poster-service.js";
 import { formatAuctionAmount, normalizeAuctionUnit, type AuctionUnit } from "@workspace/auction/auction-unit";
@@ -110,6 +113,21 @@ export const CANONICAL_WA_TEMPLATES: Record<string, CanonicalWaTemplate> = {
       { key: "1", label: "Organiser Name", placeholder: "e.g. Rajesh" },
     ],
     sampleArgs: ["Rajesh"],
+  },
+  team_owner_welcome_login: {
+    templateName: META_TEAM_OWNER_WELCOME_TEMPLATE,
+    title: "🏏 Team Owner Welcome",
+    category: "utility",
+    description: "Meta-approved welcome notification sent to Team Owners upon team registration in live tournaments",
+    language: "en",
+    headerType: "none",
+    metaApproved: true,
+    body: "🏏 Welcome to BIDWAR, {{1}}!\n\nYou have been successfully registered as a Team Owner for {{2}}.\n\nYour login details will be shared with you before the auction starts.\n\nStay tuned, and get ready for an exciting tournament!\n\nBest Wishes !",
+    variables: [
+      { key: "1", label: "Team Owner Name", placeholder: "e.g. Tushar" },
+      { key: "2", label: "Tournament Name", placeholder: "e.g. Bidwar Premier League" },
+    ],
+    sampleArgs: ["Tushar", "Bidwar Premier League"],
   },
   player_sold: {
     templateName: META_AUCTION_PLAYER_SOLD_TEMPLATE,
@@ -301,6 +319,9 @@ function normalizeCommTemplateName(name: string | undefined | null): string | nu
   }
   if (key === "organizer_onboarding_welcome" || key === "organiser_onboarding_welcome") {
     return META_ORGANISER_ONBOARDING_WELCOME_TEMPLATE;
+  }
+  if (key === "team_owner_welcome" || key === "welcome_team_owner" || key === "team_owner_welcome_login") {
+    return META_TEAM_OWNER_WELCOME_TEMPLATE;
   }
   return name.trim();
 }
@@ -1685,6 +1706,76 @@ router.get("/auth/admin/communicate/logs/:id", async (req, res) => {
   const [log] = await db.select().from(commLogsTable).where(eq(commLogsTable.id, id));
   if (!log) { res.status(404).json({ error: "Not found" }); return; }
   res.json(log);
+});
+
+// ─── Simulate WhatsApp Delivery Receipt (Admin / Dev / QA) ────────────────────
+
+router.post("/auth/admin/communicate/simulate-receipt", async (req, res) => {
+  if (!req.jwtUser.isAdmin) {
+    res.status(403).json({ error: "Admin required" });
+    return;
+  }
+
+  const { commLogId, metaMessageId, status, errorMessage } = req.body ?? {};
+  if (!status || !["sent", "delivered", "read", "failed"].includes(status)) {
+    res.status(400).json({ error: "Invalid status. Allowed: 'sent', 'delivered', 'read', 'failed'" });
+    return;
+  }
+
+  let targetRow;
+  if (commLogId) {
+    const id = parseInt(String(commLogId), 10);
+    const [row] = await db.select().from(commLogsTable).where(eq(commLogsTable.id, id)).limit(1);
+    targetRow = row;
+  } else if (metaMessageId) {
+    const [row] = await db.select().from(commLogsTable).where(eq(commLogsTable.metaMessageId, String(metaMessageId))).limit(1);
+    targetRow = row;
+  } else {
+    res.status(400).json({ error: "Either commLogId or metaMessageId is required" });
+    return;
+  }
+
+  if (!targetRow) {
+    res.status(404).json({ error: "Communication log not found" });
+    return;
+  }
+
+  const STATUS_RANK: Record<string, number> = {
+    pending: 0,
+    submitted: 10,
+    sent: 20,
+    delivered: 30,
+    read: 40,
+    failed: 50,
+  };
+
+  const currentRank = STATUS_RANK[targetRow.deliveryStatus] ?? 0;
+  const newRank = STATUS_RANK[status] ?? 0;
+
+  if (newRank >= currentRank || status === "failed") {
+    const updateData: {
+      deliveryStatus: string;
+      deliveryUpdatedAt: Date;
+      errorMessage?: string | null;
+    } = {
+      deliveryStatus: status,
+      deliveryUpdatedAt: new Date(),
+    };
+    if (errorMessage !== undefined) {
+      updateData.errorMessage = errorMessage;
+    }
+    await db.update(commLogsTable).set(updateData).where(eq(commLogsTable.id, targetRow.id));
+    const [updated] = await db.select().from(commLogsTable).where(eq(commLogsTable.id, targetRow.id));
+    res.json({ success: true, log: updated, updated: true });
+    return;
+  }
+
+  res.json({
+    success: false,
+    message: "Out of order status ignored by monotonic guard",
+    log: targetRow,
+    updated: false,
+  });
 });
 
 // ─── Automated Blast History ───────────────────────────────────────────────────

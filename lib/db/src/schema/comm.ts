@@ -77,6 +77,7 @@ export const commLogsTable = pgTable(
     index("ix_comm_logs_recipient_mobile").on(t.recipientMobile),
     index("ix_comm_logs_sent_at").on(t.sentAt),
     index("ix_comm_logs_blast_id").on(t.blastId),
+    index("ix_comm_logs_meta_message_id").on(t.metaMessageId),
   ],
 );
 

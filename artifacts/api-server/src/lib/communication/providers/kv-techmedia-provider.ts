@@ -137,6 +137,14 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
     }
 
     const secret = this.config.appSecret ?? process.env.KV_META_APP_SECRET;
+    const verifyToken = this.config.verifyToken ?? process.env.KV_WEBHOOK_VERIFY_TOKEN;
+
+    // 1. Accept token in query param or header (standard for KV TechMedia webhook portals)
+    const suppliedToken = (req.query?.["token"] || req.query?.["verify_token"] || req.headers?.["x-verify-token"]) as string | undefined;
+    if (verifyToken && suppliedToken && suppliedToken.trim() === verifyToken.trim()) {
+      return true;
+    }
+
     if (!secret || secret.trim() === "") {
       logger.error(
         "Webhook signature validation failed: KV_META_APP_SECRET missing (failing closed)",
@@ -521,6 +529,42 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
             });
           }
         }
+      }
+    }
+
+    // Fallback: Support direct / flat statuses payloads from BSP portals
+    if (statuses.length === 0) {
+      const topStatuses = Array.isArray((body as any).statuses)
+        ? (body as any).statuses
+        : (body as any).id && (body as any).status
+        ? [body]
+        : [];
+
+      for (const s of topStatuses) {
+        if (!s.id || !s.status) continue;
+        const mappedStatus =
+          s.status === "sent"
+            ? "sent"
+            : s.status === "delivered"
+              ? "delivered"
+              : s.status === "read"
+                ? "read"
+                : "failed";
+
+        const timestamp = s.timestamp
+          ? (typeof s.timestamp === "number" || /^\d+$/.test(String(s.timestamp))
+              ? new Date(parseInt(String(s.timestamp), 10) * 1000)
+              : new Date(s.timestamp))
+          : new Date();
+
+        statuses.push({
+          providerMessageId: s.id,
+          status: mappedStatus,
+          recipientId: s.recipient_id ?? s.to ?? "",
+          timestamp,
+          errorCode: s.errors?.[0]?.code ?? s.code,
+          errorMessage: s.errors?.[0]?.message ?? s.errors?.[0]?.title ?? s.error ?? s.message,
+        });
       }
     }
 

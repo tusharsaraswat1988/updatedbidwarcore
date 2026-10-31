@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type { Request } from "express";
 import { logger, maskPhoneNumber } from "../../logger";
+import { getPublicOrigin } from "../../runtime-env";
 import type {
   IWhatsAppProvider,
   WhatsAppSendInput,
@@ -158,6 +159,19 @@ export class TwilioWhatsAppProvider implements IWhatsAppProvider {
     };
     if (input.templateSid) {
       params["ContentSid"] = input.templateSid;
+    }
+
+    let publicOrigin = process.env.APP_URL?.trim() || "";
+    if (!publicOrigin) {
+      try {
+        publicOrigin = getPublicOrigin() || "";
+      } catch {
+        publicOrigin = "";
+      }
+    }
+    publicOrigin = publicOrigin.replace(/\/+$/, "");
+    if (publicOrigin.startsWith("http")) {
+      params["StatusCallback"] = `${publicOrigin}/webhooks/comm-delivery`;
     }
 
     const authHeader = `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`;

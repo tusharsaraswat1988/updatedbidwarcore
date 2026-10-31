@@ -8,7 +8,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Pencil, Upload, Wand2, AlertTriangle, Image as ImageIcon, X, Wallet } from "lucide-react";
+import { Pencil, Upload, Wand2, AlertTriangle, Image as ImageIcon, X, Wallet, MessageSquare } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { AuctionUnit } from "@workspace/api-base/auction-unit";
 import { IndianAmountHint } from "@/components/ui/indian-amount-hint";
 import { parseIndianMobile, sanitizeMobileInput } from "@workspace/api-base/mobile";
@@ -190,6 +191,7 @@ export function TeamForm({
       logoPublicId: form.logoPublicId.trim() || undefined,
       coachName: form.coachName.trim() || null,
       coachMobile: form.coachMobile.trim() || null,
+      whatsappConsent: form.whatsappConsent,
       // Sports: omit purse — create defaults from tournament; update leaves purse untouched.
       ...(showPurse ? { purse: form.purse } : {}),
     };
@@ -301,6 +303,28 @@ export function TeamForm({
         onChange={v => { setForm(f => ({ ...f, ownerEmail: v })); if (ownerEmailError) setOwnerEmailError(""); }}
         error={ownerEmailError || undefined}
       />
+
+      <div className="flex items-start gap-2.5 p-3 rounded-lg border border-border/70 bg-card/50">
+        <Checkbox
+          id="whatsapp-consent"
+          checked={form.whatsappConsent}
+          onCheckedChange={(checked) =>
+            setForm((f) => ({ ...f, whatsappConsent: checked === true }))
+          }
+        />
+        <div className="grid gap-1 leading-none">
+          <label
+            htmlFor="whatsapp-consent"
+            className="text-xs font-semibold cursor-pointer flex items-center gap-1.5"
+          >
+            <MessageSquare className="h-3.5 w-3.5 text-emerald-500" />
+            Send Team Owner Welcome & Tournament Updates on WhatsApp
+          </label>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Confirms team owner has consented to receive official tournament announcements and auction notifications on this mobile number.
+          </p>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">

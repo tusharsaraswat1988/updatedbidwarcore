@@ -127,6 +127,7 @@ export interface DevTemplateAuditEntry {
 export const BIDWAR_APPROVED_TEMPLATE_ALLOWLIST = new Set<string>([
   "auction_player_sold",
   "organiser_onboarding_welcome",
+  "team_owner_welcome_login",
 ]);
 
 /**
@@ -183,6 +184,30 @@ export const VERIFIED_APPROVED_TEMPLATES: Record<string, MetaVerifiedTemplate> =
     liveSyncStatus: "sync_unavailable",
     liveSyncNote: "Confirmed active in Meta WhatsApp Manager",
     connectedEvents: ["organiser_registered", "organiser_onboarding_welcome"],
+  },
+  team_owner_welcome_login: {
+    templateName: "team_owner_welcome_login",
+    metaTemplateName: "team_owner_welcome_login",
+    title: "🏏 Team Owner Welcome",
+    displayName: "🏏 Team Owner Welcome",
+    category: "utility",
+    description: "Meta-approved welcome notification sent to registered Team Owners upon team creation in live tournaments.",
+    language: "en",
+    headerType: "none",
+    body: "🏏 Welcome to BIDWAR, {{1}}!\n\nYou have been successfully registered as a Team Owner for {{2}}.\n\nYour login details will be shared with you before the auction starts.\n\nStay tuned, and get ready for an exciting tournament!\n\nBest Wishes !",
+    variables: [
+      { key: "1", label: "Team Owner Name", placeholder: "e.g. Tushar" },
+      { key: "2", label: "Tournament Name", placeholder: "e.g. Bidwar Premier League" },
+    ],
+    sampleArgs: ["Tushar", "Bidwar Premier League"],
+    status: "approved",
+    metaApproved: true,
+    isUsableInBidwar: true,
+    evidenceSource: "Meta WhatsApp Business Manager (ID: 1651972416514207)",
+    evidenceTimestamp: "2026-10-30T00:00:00Z",
+    liveSyncStatus: "sync_unavailable",
+    liveSyncNote: "Confirmed active in Meta WhatsApp Manager",
+    connectedEvents: ["team_owner_registered", "team_owner_welcome", "team_owner_welcome_login"],
   },
 };
 
@@ -303,6 +328,9 @@ export function normalizeTemplateKey(name: string | undefined | null): string | 
   if (key === "organizer_onboarding_welcome" || key === "organiser_onboarding_welcome") {
     return "organiser_onboarding_welcome";
   }
+  if (key === "team_owner_welcome" || key === "welcome_team_owner" || key === "team_owner_welcome_login") {
+    return "team_owner_welcome_login";
+  }
   return key;
 }
 
@@ -311,6 +339,7 @@ export function isMetaApprovedTemplate(name: string | undefined | null): boolean
   if (!name?.trim()) return false;
   const key = name.trim().toLowerCase();
   if (key === "organizer_onboarding_welcome") return true;
+  if (key === "team_owner_welcome" || key === "welcome_team_owner") return true;
   return BIDWAR_APPROVED_TEMPLATE_ALLOWLIST.has(key);
 }
 

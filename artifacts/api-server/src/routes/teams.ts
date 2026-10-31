@@ -29,6 +29,7 @@ import { createVerifiedOwnerSession } from "../lib/owner-session";
 import { defaultTeamPatchReason, resolveAuditReasonWithDefault } from "../lib/audit-reason";
 import { snapshotTeam } from "../lib/audit-snapshots";
 import { notifyAsync } from "../lib/notifications";
+import { notifyTeamOwnerWelcome } from "../lib/whatsapp";
 import { recoverJobsForTeamEmailUpdate } from "../lib/communication/recovery.js";
 import { commitBatchCloudinaryImageWrites } from "../lib/cloudinary-media-service";
 import {
@@ -145,6 +146,7 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
     purse: z.number().int().min(0).optional(),
     coachName: z.string().optional().nullable(),
     coachMobile: z.string().optional().nullable(),
+    whatsappConsent: z.boolean().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.issues[0]?.message || "Invalid input" }); return; }
@@ -199,6 +201,8 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
 
+  const hasConsent = d.whatsappConsent === true;
+
   let team: typeof teamsTable.$inferSelect;
   try {
     [team] = await db
@@ -221,6 +225,9 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
         accessCode: genAccessCode(),
         coachName,
         coachMobile,
+        whatsappConsent: hasConsent,
+        whatsappConsentAt: hasConsent ? new Date() : null,
+        whatsappConsentMethod: hasConsent ? "organizer_declaration" : null,
       })
       .returning();
   } catch (err) {
@@ -229,6 +236,36 @@ router.post("/tournaments/:tournamentId/teams", async (req, res) => {
       return;
     }
     throw err;
+  }
+
+  if (hasConsent && ownerMobile) {
+    try {
+      await recordConsentGranted({
+        recipientType: "team_owner",
+        recipientId: team.id,
+        mobile: ownerMobile,
+        tournamentId: tid,
+        noticeVersion: CURRENT_CONSENT_NOTICE_VERSION,
+        consentScope: "tournament_operational",
+        source: "organizer_portal",
+      });
+    } catch (err) {
+      logger.warn({ err, teamId: team.id }, "Failed to record team owner consent (non-fatal)");
+    }
+  }
+
+  // WhatsApp: notify team owner with welcome message (fire-and-forget, live tournaments only when organizer gave consent)
+  if (tournament.licenseStatus === "active" && hasConsent && ownerMobile) {
+    void notifyTeamOwnerWelcome({
+      mobile: ownerMobile,
+      tournamentId: tid,
+      teamId: team.id,
+      ownerName: team.ownerName,
+      tournamentName: tournament.name,
+      whatsappConsent: true,
+    }).catch((err) => {
+      logger.error({ err, teamId: team.id }, "Team owner welcome WhatsApp dispatch failed");
+    });
   }
 
   // DLT SMS: notify team owner about their access code (fire-and-forget, live auction tournaments only)
@@ -826,6 +863,57 @@ router.post("/tournaments/:tid/teams/:teamId/wa-consent/withdraw", async (req, r
   });
 
   res.json({ success: true, whatsappConsent: false });
+});
+
+// ─── Manual Dispatch Team Owner Welcome WhatsApp ─────────────────────────────
+
+router.post("/tournaments/:tournamentId/teams/:teamId/send-welcome-whatsapp", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const teamId = parseInt(req.params.teamId);
+  if (isNaN(tid) || isNaN(teamId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) {
+    res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+  if (tournament.licenseStatus !== "active") {
+    res.status(400).json({ error: "WhatsApp notifications can only be sent in live licensed tournaments." });
+    return;
+  }
+
+  const [team] = await db
+    .select()
+    .from(teamsTable)
+    .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
+  if (!team) {
+    res.status(404).json({ error: "Team not found" });
+    return;
+  }
+  if (!team.ownerMobile) {
+    res.status(400).json({ error: "Team owner mobile is missing." });
+    return;
+  }
+
+  const result = await notifyTeamOwnerWelcome({
+    mobile: team.ownerMobile,
+    tournamentId: tid,
+    teamId: team.id,
+    ownerName: team.ownerName,
+    tournamentName: tournament.name,
+    whatsappConsent: team.whatsappConsent,
+  });
+
+  if (!result.success) {
+    res.status(400).json({ error: result.error || "Failed to send WhatsApp message" });
+    return;
+  }
+
+  res.json({ success: true, message: "Welcome WhatsApp message dispatched successfully" });
 });
 
 export default router;

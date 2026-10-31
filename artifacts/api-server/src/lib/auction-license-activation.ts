@@ -113,6 +113,15 @@ export async function commitAdminLicenseTransition(
       } catch (err) {
         req.log?.warn({ err, tournamentId: input.tournamentId }, "live license broadcast failed");
       }
+
+      try {
+        const { autoDispatchPendingTeamOwnerWelcomes } = await import("./whatsapp");
+        void autoDispatchPendingTeamOwnerWelcomes(input.tournamentId, before.name).catch((err) => {
+          req.log?.warn({ err, tournamentId: input.tournamentId }, "Auto-dispatch pending team owner welcomes failed");
+        });
+      } catch (err) {
+        req.log?.warn({ err, tournamentId: input.tournamentId }, "Failed to import autoDispatchPendingTeamOwnerWelcomes");
+      }
     }
     return { ok: true, tournament: outcome.tournament, demoRemoved: outcome.demoRemoved };
   } catch (err) {

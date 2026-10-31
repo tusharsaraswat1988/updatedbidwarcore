@@ -331,12 +331,20 @@ async function handleMetaWebhook(req: import("express").Request, res: import("ex
       const currentRank = STATUS_RANK[current.deliveryStatus] ?? 0;
       const newRank = STATUS_RANK[status.status] ?? 0;
       if (newRank >= currentRank || status.status === "failed") {
+        const updateData: {
+          deliveryStatus: string;
+          deliveryUpdatedAt: Date;
+          errorMessage?: string | null;
+        } = {
+          deliveryStatus: status.status,
+          deliveryUpdatedAt: status.timestamp,
+        };
+        if (status.status === "failed" && status.errorMessage) {
+          updateData.errorMessage = status.errorMessage;
+        }
         await db
           .update(commLogsTable)
-          .set({
-            deliveryStatus: status.status,
-            deliveryUpdatedAt: status.timestamp,
-          })
+          .set(updateData)
           .where(eq(commLogsTable.metaMessageId, status.providerMessageId));
       } else {
         logger.info(
@@ -446,7 +454,19 @@ router.post("/webhooks/comm-delivery", async (req, res) => {
       const currentRank = STATUS_RANK[current.deliveryStatus] ?? 0;
       const newRank = STATUS_RANK[mapped] ?? 0;
       if (newRank >= currentRank || mapped === "failed") {
-        await db.update(commLogsTable).set({ deliveryStatus: mapped, deliveryUpdatedAt: new Date() }).where(eq(commLogsTable.metaMessageId, sid));
+        const updateData: {
+          deliveryStatus: string;
+          deliveryUpdatedAt: Date;
+          errorMessage?: string | null;
+        } = {
+          deliveryStatus: mapped,
+          deliveryUpdatedAt: new Date(),
+        };
+        const twilioErr = body.ErrorMessage ?? body.errorMessage ?? (body.ErrorCode ? `Twilio Error ${body.ErrorCode}` : null);
+        if (mapped === "failed" && twilioErr) {
+          updateData.errorMessage = twilioErr;
+        }
+        await db.update(commLogsTable).set(updateData).where(eq(commLogsTable.metaMessageId, sid));
       }
     }
   }
