@@ -84,7 +84,7 @@ function toBulkSmsMobile(mobile: string): string {
 async function sendBulkSms(to: string, body: string): Promise<SendResult> {
   const password = process.env.BULKSMS_KEY ?? process.env.BULKSMS_PASSWORD;
   const sender = process.env.BULKSMS_SENDER;
-  const templateId = process.env.BULKSMS_TEMPLATE_ID;
+  const templateId = process.env.BULKSMS_CONSENT_TEMPLATE_ID ?? process.env.BULKSMS_TEMPLATE_ID;
 
   const maskedTo = maskPhoneNumber(to);
 

@@ -144,7 +144,15 @@ async function runConsentBlast() {
 
       const waLink = buildWaMeLink(token);
       const smsBody = buildConsentSms(t.name, waLink);
-      const result = await sendSms(target.mobile, smsBody);
+      const consentTplId = process.env.BULKSMS_CONSENT_TEMPLATE_ID || null;
+      let result: { success: boolean; error?: string; messageSid?: string; stub?: boolean };
+      if (consentTplId && (process.env.BULKSMS_KEY || process.env.BULKSMS_PASSWORD)) {
+        const { sendDltSms } = await import("./fast2sms");
+        const dltRes = await sendDltSms([target.mobile], consentTplId, [t.name, waLink]);
+        result = { success: dltRes.success, error: dltRes.error };
+      } else {
+        result = await sendSms(target.mobile, smsBody);
+      }
 
       // Unified communication log entry for automated scheduler-driven blasts.
       // sentByAdminId is null because the sender is the system scheduler.

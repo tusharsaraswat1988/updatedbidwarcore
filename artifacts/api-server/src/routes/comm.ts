@@ -500,7 +500,15 @@ router.post("/consent/generate", async (req, res) => {
 
   const waLink = buildWaMeLink(token);
   const smsBody = buildConsentSms(tournament.name, waLink);
-  const result = await sendSms(mobile, smsBody);
+  const consentTplId = process.env.BULKSMS_CONSENT_TEMPLATE_ID || null;
+  let result: { success: boolean; error?: string; messageSid?: string; stub?: boolean };
+  if (consentTplId && (process.env.BULKSMS_KEY || process.env.BULKSMS_PASSWORD)) {
+    const { sendDltSms } = await import("../lib/fast2sms");
+    const dltRes = await sendDltSms([mobile], consentTplId, [tournament.name, waLink]);
+    result = { success: dltRes.success, error: dltRes.error };
+  } else {
+    result = await sendSms(mobile, smsBody);
+  }
 
   res.json({ success: true, token, waLink, sent: result });
 });

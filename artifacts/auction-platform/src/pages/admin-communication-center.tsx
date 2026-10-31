@@ -1647,6 +1647,14 @@ export default function AdminCommunicationCenter() {
       sample: "Watch live player auction for Premier League 2026 at https://bidwar.in/live/742. BidWar",
     },
     {
+      id: "consent_invite",
+      name: "WhatsApp Consent Opt-In SMS Invite",
+      dltId: "BULKSMS_CONSENT_TEMPLATE_ID (Auto)",
+      format: "BidWar: {#var#} auction kal hoga. WhatsApp updates ke liye click karein: {#var#} - Reply STOP to opt out.",
+      variables: ["Tournament Name", "WhatsApp Consent / Opt-In Link"],
+      sample: "BidWar: Premier League 2026 auction kal hoga. WhatsApp updates ke liye click karein: https://wa.me/919876543210?text=OPTIN12345 - Reply STOP to opt out.",
+    },
+    {
       id: "custom",
       name: "Custom Transactional SMS",
       dltId: "Service Explicit DLT",

@@ -5,6 +5,7 @@ import {
   playerSoldTemplateId,
   teamOwnerTemplateId,
   viewerLinkTemplateId,
+  consentTemplateId,
 } from "../src/lib/fast2sms";
 import { sendEmail, isEmailEnabled } from "../src/lib/notifications/providers/email-provider";
 
@@ -117,18 +118,22 @@ describe("Stage 0 — SMS & Email Compatibility Baseline Tests", () => {
       process.env.BULKSMS_PLAYER_SOLD_TEMPLATE_ID = "ENV_SOLD_123";
       process.env.BULKSMS_TEAM_OWNER_TEMPLATE_ID = "ENV_OWNER_456";
       process.env.BULKSMS_VIEWER_LINK_TEMPLATE_ID = "ENV_VIEWER_789";
+      process.env.BULKSMS_CONSENT_TEMPLATE_ID = "ENV_CONSENT_101";
 
       expect(playerSoldTemplateId()).toBe("ENV_SOLD_123");
       expect(teamOwnerTemplateId()).toBe("ENV_OWNER_456");
       expect(viewerLinkTemplateId()).toBe("ENV_VIEWER_789");
+      expect(consentTemplateId()).toBe("ENV_CONSENT_101");
 
       delete process.env.BULKSMS_PLAYER_SOLD_TEMPLATE_ID;
       delete process.env.BULKSMS_TEAM_OWNER_TEMPLATE_ID;
       delete process.env.BULKSMS_VIEWER_LINK_TEMPLATE_ID;
+      delete process.env.BULKSMS_CONSENT_TEMPLATE_ID;
 
       expect(playerSoldTemplateId()).toBe("");
       expect(teamOwnerTemplateId()).toBe("");
       expect(viewerLinkTemplateId()).toBe("");
+      expect(consentTemplateId()).toBe("");
     });
 
     it("returns error when API key, sender, or template ID is missing", async () => {

@@ -26,6 +26,10 @@ export function teamOwnerTemplateId(): string {
   return process.env.BULKSMS_TEAM_OWNER_TEMPLATE_ID ?? "";
 }
 
+export function consentTemplateId(): string {
+  return process.env.BULKSMS_CONSENT_TEMPLATE_ID ?? "";
+}
+
 export function viewerLinkTemplateId(): string {
   return process.env.BULKSMS_VIEWER_LINK_TEMPLATE_ID ?? "";
 }
