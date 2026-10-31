@@ -8,6 +8,10 @@ const SPORT_LABELS: Record<string, string> = {
   table_tennis: "Table Tennis",
   basketball: "Basketball",
   hockey: "Hockey",
+  chess: "Chess",
+  pickleball: "Pickleball",
+  squash: "Squash",
+  carrom: "Carrom",
   generic: "Generic",
 };
 

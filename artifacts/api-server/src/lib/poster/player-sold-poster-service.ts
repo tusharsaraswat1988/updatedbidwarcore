@@ -75,7 +75,7 @@ export function createSalePosterToken(opts: {
 }): string {
   const pId = opts.playerId ?? (opts.playerName ? opts.playerName.trim().toLowerCase() : "0");
   const tId = opts.teamId ?? (opts.teamName ? opts.teamName.trim().toLowerCase() : "0");
-  const raw = `sold:v2.5:${opts.tournamentId}:${pId}:${tId}:${opts.amount}`;
+  const raw = `sold:v2.6:${opts.tournamentId}:${pId}:${tId}:${opts.amount}`;
   return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 24);
 }
 

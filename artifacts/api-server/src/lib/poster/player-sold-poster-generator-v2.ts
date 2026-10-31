@@ -857,6 +857,20 @@ export function buildPosterV2Svg(
 
 export const buildPosterSvg = buildPosterV2Svg;
 
+export async function convertBufferToPngDataUri(buffer: Buffer): Promise<string> {
+  try {
+    if (buffer.length >= 4 && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+      return `data:image/png;base64,${buffer.toString("base64")}`;
+    }
+    // Always transcode other formats (WebP, JPEG, AVIF, GIF, etc.) to PNG buffer
+    // because librsvg in Sharp does not reliably decode WebP inside SVG <image> tags!
+    const pngBuf = await sharp(buffer).png().toBuffer();
+    return `data:image/png;base64,${pngBuf.toString("base64")}`;
+  } catch (err) {
+    return `data:image/png;base64,${buffer.toString("base64")}`;
+  }
+}
+
 export function bufferToDataUri(buffer: Buffer): string {
   if (buffer.length >= 4) {
     if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
@@ -865,9 +879,6 @@ export function bufferToDataUri(buffer: Buffer): string {
     if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
       return `data:image/jpeg;base64,${buffer.toString("base64")}`;
     }
-    if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) {
-      return `data:image/webp;base64,${buffer.toString("base64")}`;
-    }
   }
   return `data:image/png;base64,${buffer.toString("base64")}`;
 }
@@ -875,10 +886,20 @@ export function bufferToDataUri(buffer: Buffer): string {
 export async function resolveImageToDataUri(urlOrPath?: string | null): Promise<string | null> {
   if (!urlOrPath || !urlOrPath.trim()) return null;
   const str = urlOrPath.trim();
-  if (str.startsWith("data:")) return str;
+  if (str.startsWith("data:")) {
+    if (str.startsWith("data:image/webp;base64,")) {
+      try {
+        const rawBuf = Buffer.from(str.replace(/^data:image\/webp;base64,/, ""), "base64");
+        return await convertBufferToPngDataUri(rawBuf);
+      } catch {
+        return str;
+      }
+    }
+    return str;
+  }
   if (str.startsWith("http://") || str.startsWith("https://")) {
     const buf = await fetchImageBuffer(str);
-    if (buf) return bufferToDataUri(buf);
+    if (buf) return await convertBufferToPngDataUri(buf);
     return null;
   }
   // Local path resolution fallback
@@ -893,7 +914,7 @@ export async function resolveImageToDataUri(urlOrPath?: string | null): Promise<
   for (const c of candidates) {
     try {
       if (fs.existsSync(c)) {
-        return bufferToDataUri(fs.readFileSync(c));
+        return await convertBufferToPngDataUri(fs.readFileSync(c));
       }
     } catch {
       // ignore
@@ -903,7 +924,7 @@ export async function resolveImageToDataUri(urlOrPath?: string | null): Promise<
   try {
     const fullUrl = `${origin.replace(/\/+$/, "")}/${clean}`;
     const buf = await fetchImageBuffer(fullUrl);
-    if (buf) return bufferToDataUri(buf);
+    if (buf) return await convertBufferToPngDataUri(buf);
   } catch {
     // ignore
   }

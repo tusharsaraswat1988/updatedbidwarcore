@@ -25,9 +25,9 @@ const CRICKET_ROLES: SportRoleDefinition[] = [
 ];
 
 const BADMINTON_ROLES: SportRoleDefinition[] = [
-  { code: "singles", label: "Singles" },
-  { code: "doubles", label: "Doubles" },
-  { code: "mixed", label: "Mixed" },
+  { code: "singles", label: "Singles Player", aliases: ["Singles"] },
+  { code: "doubles", label: "Doubles Player", aliases: ["Doubles"] },
+  { code: "mixed", label: "Mixed Doubles", aliases: ["Mixed"] },
 ];
 
 const FOOTBALL_ROLES: SportRoleDefinition[] = [
@@ -39,10 +39,10 @@ const FOOTBALL_ROLES: SportRoleDefinition[] = [
 
 const VOLLEYBALL_ROLES: SportRoleDefinition[] = [
   { code: "setter", label: "Setter" },
+  { code: "libero", label: "Libero" },
   { code: "outside_hitter", label: "Outside Hitter", aliases: ["OH"] },
   { code: "middle_blocker", label: "Middle Blocker", aliases: ["MB"] },
-  { code: "libero", label: "Libero" },
-  { code: "opposite", label: "Opposite", aliases: ["OPP"] },
+  { code: "opposite", label: "Opposite Hitter", aliases: ["OPP", "Opposite"] },
 ];
 
 const KABADDI_ROLES: SportRoleDefinition[] = [
@@ -52,30 +52,59 @@ const KABADDI_ROLES: SportRoleDefinition[] = [
 ];
 
 const TENNIS_ROLES: SportRoleDefinition[] = [
-  { code: "singles", label: "Singles" },
-  { code: "doubles", label: "Doubles" },
-  { code: "mixed_doubles", label: "Mixed Doubles" },
+  { code: "singles", label: "Singles Player", aliases: ["Singles"] },
+  { code: "doubles", label: "Doubles Specialist", aliases: ["Doubles"] },
+  { code: "mixed_doubles", label: "Mixed Doubles Specialist", aliases: ["Mixed Doubles", "Mixed"] },
+  { code: "all_court", label: "All-Court Player", aliases: ["All-Court"] },
 ];
 
 const TABLE_TENNIS_ROLES: SportRoleDefinition[] = [
-  { code: "singles", label: "Singles" },
-  { code: "doubles", label: "Doubles" },
-  { code: "mixed", label: "Mixed" },
+  { code: "offensive_attacker", label: "Offensive Attacker", aliases: ["Attacker", "Offensive"] },
+  { code: "all_round", label: "All-Round Player", aliases: ["All-Round"] },
+  { code: "defensive_chopper", label: "Defensive Chopper", aliases: ["Chopper", "Defensive"] },
+  { code: "doubles", label: "Doubles Specialist", aliases: ["Doubles"] },
 ];
 
 const BASKETBALL_ROLES: SportRoleDefinition[] = [
-  { code: "point_guard", label: "Point Guard", aliases: ["PG"] },
-  { code: "shooting_guard", label: "Shooting Guard", aliases: ["SG"] },
-  { code: "small_forward", label: "Small Forward", aliases: ["SF"] },
-  { code: "power_forward", label: "Power Forward", aliases: ["PF"] },
-  { code: "center", label: "Center", aliases: ["C"] },
+  { code: "point_guard", label: "Point Guard (PG)", aliases: ["PG", "Point Guard"] },
+  { code: "shooting_guard", label: "Shooting Guard (SG)", aliases: ["SG", "Shooting Guard"] },
+  { code: "small_forward", label: "Small Forward (SF)", aliases: ["SF", "Small Forward"] },
+  { code: "power_forward", label: "Power Forward (PF)", aliases: ["PF", "Power Forward"] },
+  { code: "center", label: "Center (C)", aliases: ["C", "Center"] },
 ];
 
 const HOCKEY_ROLES: SportRoleDefinition[] = [
-  { code: "goalkeeper", label: "Goalkeeper", aliases: ["GK"] },
+  { code: "goalkeeper", label: "Goalkeeper (GK)", aliases: ["GK", "Goalkeeper"] },
   { code: "defender", label: "Defender" },
   { code: "midfielder", label: "Midfielder" },
-  { code: "forward", label: "Forward" },
+  { code: "forward", label: "Forward / Striker", aliases: ["Forward", "Striker"] },
+];
+
+const CHESS_ROLES: SportRoleDefinition[] = [
+  { code: "board_1", label: "Board 1 (Top Board)", aliases: ["Board 1", "Top Board"] },
+  { code: "board_2", label: "Board 2 (Senior Board)", aliases: ["Board 2", "Senior Board"] },
+  { code: "board_3", label: "Board 3 (Junior Board)", aliases: ["Board 3", "Junior Board"] },
+  { code: "board_4", label: "Board 4 (Women's Board)", aliases: ["Board 4", "Women's Board"] },
+  { code: "reserve", label: "Reserve / Open Board", aliases: ["Reserve", "Open Board"] },
+];
+
+const PICKLEBALL_ROLES: SportRoleDefinition[] = [
+  { code: "singles", label: "Singles Player", aliases: ["Singles"] },
+  { code: "doubles", label: "Doubles Specialist", aliases: ["Doubles"] },
+  { code: "mixed_doubles", label: "Mixed Doubles Specialist", aliases: ["Mixed Doubles", "Mixed"] },
+  { code: "dinking_specialist", label: "Dinking / Defensive Specialist", aliases: ["Dinking Specialist", "Defensive"] },
+];
+
+const SQUASH_ROLES: SportRoleDefinition[] = [
+  { code: "singles", label: "Singles Player", aliases: ["Singles"] },
+  { code: "top_seed", label: "Top Seed / Board 1", aliases: ["Top Seed", "Board 1"] },
+  { code: "veterans", label: "Masters / Veterans", aliases: ["Masters", "Veterans"] },
+  { code: "junior", label: "Junior Player", aliases: ["Junior"] },
+];
+
+const CARROM_ROLES: SportRoleDefinition[] = [
+  { code: "singles", label: "Singles Player", aliases: ["Singles"] },
+  { code: "doubles", label: "Doubles Specialist", aliases: ["Doubles"] },
 ];
 
 const GENERIC_ROLES: SportRoleDefinition[] = [
@@ -140,6 +169,26 @@ export const SPORT_REGISTRY: Record<string, SportConfig> = {
     roles: HOCKEY_ROLES,
     matchSettingKeys: ["quarters", "penalty_shootout"],
   },
+  chess: {
+    id: "chess",
+    label: "Chess",
+    roles: CHESS_ROLES,
+  },
+  pickleball: {
+    id: "pickleball",
+    label: "Pickleball",
+    roles: PICKLEBALL_ROLES,
+  },
+  squash: {
+    id: "squash",
+    label: "Squash",
+    roles: SQUASH_ROLES,
+  },
+  carrom: {
+    id: "carrom",
+    label: "Carrom",
+    roles: CARROM_ROLES,
+  },
   generic: {
     id: "generic",
     label: "Generic",
@@ -155,7 +204,7 @@ export function normalizeSportId(raw: unknown): string {
     soccer: "football",
     "field hockey": "hockey",
   };
-  return aliases[s] ?? s.replace(/\s+/g, "_");
+  return aliases[s] ?? s.replace(/[\s-]+/g, "_");
 }
 
 export function getSportConfig(sport: unknown): SportConfig {
