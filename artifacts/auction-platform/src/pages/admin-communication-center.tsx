@@ -1403,6 +1403,38 @@ export default function AdminCommunicationCenter() {
         body.customMobile = effectiveMobile;
       }
 
+      const isPlayerSold = waTemplateKey === "player_sold" || waTemplateKey?.includes("player_sold");
+      if (isPlayerSold) {
+        const pName = waTemplateVariables["1"] || activeSale?.playerName || "Player";
+        const tName = waTemplateVariables["2"] || activeSale?.teamName || "Team";
+        const effectivePId = selectedPlayerId || (activeSale?.id ? String(activeSale.id) : "");
+        const effectiveTId = selectedTeamId || (activeSale?.teamId ? String(activeSale.teamId) : "");
+        const matchedPlayer = waTournamentPlayers.find((p) => String(p.id) === effectivePId || (pName && p.name.toLowerCase() === pName.toLowerCase()));
+        const matchedTeam = waTournamentTeams.find((t) => (tName && t.name.toLowerCase() === tName.toLowerCase()) || String(t.id) === effectiveTId);
+
+        if (effectivePId && !isNaN(parseInt(effectivePId))) {
+          body.playerId = parseInt(effectivePId);
+        } else if (matchedPlayer?.id) {
+          body.playerId = matchedPlayer.id;
+        }
+        if (effectiveTId && !isNaN(parseInt(effectiveTId))) {
+          body.teamId = parseInt(effectiveTId);
+        } else if (matchedTeam?.id) {
+          body.teamId = matchedTeam.id;
+        }
+
+        const photoUrl = activeSale?.playerPhotoUrl || matchedPlayer?.photoUrl;
+        if (photoUrl) body.playerPhotoUrl = photoUrl;
+        const role = activeSale?.playerRole || matchedPlayer?.primaryRole || (matchedPlayer as any)?.role;
+        if (role) body.playerRole = role;
+        const logoUrl = activeSale?.teamLogoUrl || matchedTeam?.logoUrl;
+        if (logoUrl) body.teamLogoUrl = logoUrl;
+        const shortCode = activeSale?.teamShortCode || matchedTeam?.shortCode;
+        if (shortCode) body.teamShortCode = shortCode;
+        const color = activeSale?.teamColor || matchedTeam?.color;
+        if (color) body.teamColor = color;
+      }
+
       const r = await fetch("/api/auth/admin/communicate/send", {
         method: "POST",
         credentials: "include",

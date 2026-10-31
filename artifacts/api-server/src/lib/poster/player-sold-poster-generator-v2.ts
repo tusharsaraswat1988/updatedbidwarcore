@@ -24,47 +24,48 @@ export const POSTER_V2_HEIGHT = 1350;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const BG_CANDIDATE_PATHS = [
-  path.resolve(__dirname, "../../assets/player-sold-bg-v2.png"),
-  path.resolve(__dirname, "../../../../auction-platform/public/assets/branding/player-sold-bg-v2.png"),
-  "C:/Users/ishit/.gemini/antigravity/brain/5575cce9-44b0-4c9f-82d6-b50717768848/step1-user-background-1080x1350.png",
-];
-
-const GOLD_LEAF_CANDIDATE_PATHS = [
-  path.resolve(__dirname, "../../assets/gold-leaf-banner-v2.png"),
-  path.resolve(__dirname, "../../../../auction-platform/public/assets/branding/gold-leaf-banner-v2.png"),
-  "C:/Users/ishit/.gemini/antigravity/brain/5575cce9-44b0-4c9f-82d6-b50717768848/gold-leaf-asset.png",
-  "C:/Users/ishit/.gemini/antigravity/brain/5575cce9-44b0-4c9f-82d6-b50717768848/.user_uploaded/media_1793346854869_97024d9b.png",
-];
-
-const GOLDEN_RING_CANDIDATE_PATHS = [
-  path.resolve(__dirname, "../../assets/glowing-golden-energy-ring.png"),
-  path.resolve(__dirname, "../../../../auction-platform/public/assets/branding/glowing-golden-energy-ring.png"),
-  "C:/Users/ishit/.gemini/antigravity/brain/5575cce9-44b0-4c9f-82d6-b50717768848/glowing-golden-energy-ring.png",
-];
-
-const FONT_CANDIDATE_PATHS = [
-  path.resolve(__dirname, "../../assets/BarlowCondensed-ExtraBold.ttf"),
-  path.resolve(__dirname, "../../../../auction-platform/public/fonts/BarlowCondensed-ExtraBold.ttf"),
-  path.resolve(process.cwd(), "artifacts/api-server/src/assets/BarlowCondensed-ExtraBold.ttf"),
-];
-
-const BIDWAR_LOGO_CANDIDATE_PATHS = [
-  path.resolve(__dirname, "../../assets/bidwar-clean-logo-v2.png"),
-  path.resolve(__dirname, "../../../../auction-platform/public/assets/branding/bidwar-clean-logo-v2.png"),
-  path.resolve(__dirname, "../../../../auction-platform/public/bidwar-clean-logo-v2.png"),
-  path.resolve(process.cwd(), "artifacts/api-server/src/assets/bidwar-clean-logo-v2.png"),
-  path.resolve(process.cwd(), "artifacts/auction-platform/public/assets/branding/bidwar-clean-logo-v2.png"),
-  path.resolve(process.cwd(), "artifacts/auction-platform/public/bidwar-clean-logo-v2.png"),
-  path.resolve(__dirname, "../../assets/bidwar-reverse-logo.png"),
-  path.resolve(process.cwd(), "artifacts/auction-platform/public/bidwar-reverse-logo.png"),
-];
-
-function resolveFirstExisting(candidates: string[]): string {
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
+export function findAssetFile(filename: string): string | null {
+  const candidates = [
+    path.resolve(__dirname, "assets", filename),
+    path.resolve(__dirname, "../src/assets", filename),
+    path.resolve(__dirname, "../../src/assets", filename),
+    path.resolve(__dirname, "../../assets", filename),
+    path.resolve(process.cwd(), "artifacts/api-server/dist/assets", filename),
+    path.resolve(process.cwd(), "artifacts/api-server/src/assets", filename),
+    path.resolve(process.cwd(), "artifacts/auction-platform/public/assets/branding", filename),
+    path.resolve(process.cwd(), "artifacts/auction-platform/public/fonts", filename),
+    path.resolve(process.cwd(), "artifacts/auction-platform/public", filename),
+    path.resolve(process.cwd(), "artifacts/auction-platform/dist/public/assets/branding", filename),
+    path.resolve(process.cwd(), "artifacts/auction-platform/dist/public/fonts", filename),
+    path.resolve(process.cwd(), "public/assets/branding", filename),
+  ];
+  for (const c of candidates) {
+    try {
+      if (fs.existsSync(c)) return c;
+    } catch {
+      // ignore
+    }
   }
-  return candidates[0];
+  return null;
+}
+
+export function loadAssetAsDataUri(filename: string, mimeType = "image/png"): string {
+  const filePath = findAssetFile(filename);
+  if (filePath && fs.existsSync(filePath)) {
+    const buf = fs.readFileSync(filePath);
+    return `data:${mimeType};base64,${buf.toString("base64")}`;
+  }
+  console.error(`[PlayerSoldPosterV2] CRITICAL ERROR: Asset "${filename}" not found in any candidate path!`);
+  return "";
+}
+
+export function loadAssetAsBase64(filename: string): string {
+  const filePath = findAssetFile(filename);
+  if (filePath && fs.existsSync(filePath)) {
+    return fs.readFileSync(filePath).toString("base64");
+  }
+  console.error(`[PlayerSoldPosterV2] CRITICAL ERROR: Font/asset "${filename}" not found in any candidate path!`);
+  return "";
 }
 
 function escapeXml(value: string | null | undefined): string {
@@ -358,34 +359,12 @@ export function buildPosterV2Svg(
   photoDataUri?: string | null,
   teamLogoDataUri?: string | null,
 ): string {
-  const bgPath = resolveFirstExisting(BG_CANDIDATE_PATHS);
-  const goldPath = resolveFirstExisting(GOLD_LEAF_CANDIDATE_PATHS);
-  const ringPath = resolveFirstExisting(GOLDEN_RING_CANDIDATE_PATHS);
-  const fontPath = resolveFirstExisting(FONT_CANDIDATE_PATHS);
+  const bgDataUri = loadAssetAsDataUri("player-sold-bg-v2.png");
+  const goldDataUri = loadAssetAsDataUri("gold-leaf-banner-v2.png");
+  const ringDataUri = loadAssetAsDataUri("glowing-golden-energy-ring.png");
+  const fontBase64 = loadAssetAsBase64("BarlowCondensed-ExtraBold.ttf");
+  const bidwarLogoDataUri = loadAssetAsDataUri("bidwar-clean-logo-v2.png") || loadAssetAsDataUri("bidwar-reverse-logo.png");
 
-  let bgDataUri = "/assets/branding/player-sold-bg-v2.png";
-  let goldDataUri = "/assets/branding/gold-leaf-banner-v2.png";
-  let ringDataUri = "/assets/branding/glowing-golden-energy-ring.png";
-  let fontBase64 = "";
-
-  if (fs.existsSync(bgPath)) {
-    bgDataUri = `data:image/png;base64,${fs.readFileSync(bgPath).toString("base64")}`;
-  }
-  if (fs.existsSync(goldPath)) {
-    goldDataUri = `data:image/png;base64,${fs.readFileSync(goldPath).toString("base64")}`;
-  }
-  if (fs.existsSync(ringPath)) {
-    ringDataUri = `data:image/png;base64,${fs.readFileSync(ringPath).toString("base64")}`;
-  }
-  if (fs.existsSync(fontPath)) {
-    fontBase64 = fs.readFileSync(fontPath).toString("base64");
-  }
-
-  const bidwarLogoPath = resolveFirstExisting(BIDWAR_LOGO_CANDIDATE_PATHS);
-  let bidwarLogoDataUri = "/bidwar-reverse-logo.png";
-  if (fs.existsSync(bidwarLogoPath)) {
-    bidwarLogoDataUri = `data:image/png;base64,${fs.readFileSync(bidwarLogoPath).toString("base64")}`;
-  }
   const tournLayout = computeTournamentTypography(input?.tournamentName);
 
   const displayAmount = escapeXml(formatAuctionAmountLocal(input?.amount, input?.auctionUnit || "rupee"));
@@ -524,20 +503,25 @@ export function buildPosterV2Svg(
     </filter>
   </defs>
 
-  <!-- Layer 1: Background -->
-  <image href="${bgDataUri}" x="0" y="0" width="${POSTER_V2_WIDTH}" height="${POSTER_V2_HEIGHT}" preserveAspectRatio="xMidYMid slice" />
+  <!-- Layer 1: Background (Base midnight background + Stadium Artwork) -->
+  <rect x="0" y="0" width="${POSTER_V2_WIDTH}" height="${POSTER_V2_HEIGHT}" fill="#0b0416" />
+  ${bgDataUri ? `<image href="${bgDataUri}" x="0" y="0" width="${POSTER_V2_WIDTH}" height="${POSTER_V2_HEIGHT}" preserveAspectRatio="xMidYMid slice" />` : ""}
 
   <!-- Layer 1B: Header (Zone 1) — Official BidWar Logo + Dynamic Tournament Headline -->
   <g id="layer-header" filter="url(#name-shadow)">
     <!-- Official BidWar Logo on the left in its dedicated space -->
-    <image
+    ${
+      bidwarLogoDataUri
+        ? `<image
       href="${bidwarLogoDataUri}"
       x="55"
       y="46"
       width="155"
       height="38"
       preserveAspectRatio="xMinYMid meet"
-    />
+    />`
+        : `<text x="55" y="74" fill="#ffd54f" font-family="'Barlow Condensed'" font-size="34" font-weight="900" letter-spacing="1">BIDWAR</text>`
+    }
 
     <!-- Vertical Gold Divider Line -->
     <line
@@ -603,7 +587,7 @@ export function buildPosterV2Svg(
   </g>
 
   <!-- Layer 2B: Golden Energy Ring PNG (Positioned ON TOP of photograph) -->
-  <image id="layer-golden-energy-ring" href="${ringDataUri}" x="${ringX}" y="${ringY}" width="${ringWidth}" height="${ringHeight}" preserveAspectRatio="xMidYMid meet" />
+  ${ringDataUri ? `<image id="layer-golden-energy-ring" href="${ringDataUri}" x="${ringX}" y="${ringY}" width="${ringWidth}" height="${ringHeight}" preserveAspectRatio="xMidYMid meet" />` : ""}
 
   <!-- Layer 3: Dynamic Player Name (Athletic Condensed Display, Two-tone, -8° Slant) -->
   <g id="layer-player-name" filter="url(#name-shadow)">
@@ -665,7 +649,7 @@ export function buildPosterV2Svg(
   </g>
 
   <!-- Layer 4: User-Provided Gold Leaf PNG Layer -->
-  <image href="${goldDataUri}" x="60" y="${goldY}" width="960" height="320" preserveAspectRatio="xMidYMid meet" />
+  ${goldDataUri ? `<image href="${goldDataUri}" x="60" y="${goldY}" width="960" height="320" preserveAspectRatio="xMidYMid meet" />` : ""}
 
   <!-- Layer 4: Sold Amount Typography Refinement -->
   <g id="layer-sold-amount">
@@ -873,7 +857,7 @@ export function buildPosterV2Svg(
 
 export const buildPosterSvg = buildPosterV2Svg;
 
-function bufferToDataUri(buffer: Buffer): string {
+export function bufferToDataUri(buffer: Buffer): string {
   if (buffer.length >= 4) {
     if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
       return `data:image/png;base64,${buffer.toString("base64")}`;
@@ -888,24 +872,49 @@ function bufferToDataUri(buffer: Buffer): string {
   return `data:image/png;base64,${buffer.toString("base64")}`;
 }
 
+export async function resolveImageToDataUri(urlOrPath?: string | null): Promise<string | null> {
+  if (!urlOrPath || !urlOrPath.trim()) return null;
+  const str = urlOrPath.trim();
+  if (str.startsWith("data:")) return str;
+  if (str.startsWith("http://") || str.startsWith("https://")) {
+    const buf = await fetchImageBuffer(str);
+    if (buf) return bufferToDataUri(buf);
+    return null;
+  }
+  // Local path resolution fallback
+  const clean = str.replace(/^\/+/, "");
+  const candidates = [
+    path.resolve(process.cwd(), clean),
+    path.resolve(process.cwd(), "artifacts/auction-platform/public", clean),
+    path.resolve(process.cwd(), "artifacts/auction-platform/dist/public", clean),
+    path.resolve(process.cwd(), "artifacts/api-server", clean),
+    path.resolve(process.cwd(), "public", clean),
+  ];
+  for (const c of candidates) {
+    try {
+      if (fs.existsSync(c)) {
+        return bufferToDataUri(fs.readFileSync(c));
+      }
+    } catch {
+      // ignore
+    }
+  }
+  const origin = process.env.APP_URL?.trim() || "https://bidwar.in";
+  try {
+    const fullUrl = `${origin.replace(/\/+$/, "")}/${clean}`;
+    const buf = await fetchImageBuffer(fullUrl);
+    if (buf) return bufferToDataUri(buf);
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 export async function generatePlayerSoldPosterV2Buffer(
   input?: PlayerSoldPosterV2Input,
 ): Promise<Buffer> {
-  let photoDataUri: string | null = null;
-  if (input?.playerPhotoUrl && input.playerPhotoUrl.startsWith("http")) {
-    const rawBuffer = await fetchImageBuffer(input.playerPhotoUrl.trim());
-    if (rawBuffer) {
-      photoDataUri = bufferToDataUri(rawBuffer);
-    }
-  }
-
-  let teamLogoDataUri: string | null = null;
-  if (input?.teamLogoUrl && input.teamLogoUrl.startsWith("http")) {
-    const rawLogoBuffer = await fetchImageBuffer(input.teamLogoUrl.trim());
-    if (rawLogoBuffer) {
-      teamLogoDataUri = bufferToDataUri(rawLogoBuffer);
-    }
-  }
+  const photoDataUri = await resolveImageToDataUri(input?.playerPhotoUrl);
+  const teamLogoDataUri = await resolveImageToDataUri(input?.teamLogoUrl);
 
   const svg = buildPosterV2Svg(input, photoDataUri, teamLogoDataUri);
   return await sharp(Buffer.from(svg))

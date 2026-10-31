@@ -7,7 +7,7 @@ import { getCloudinary, uploadBufferToCloudinary } from "../cloudinary-media-ser
 import { getPublicOrigin } from "../runtime-env.js";
 import { logger } from "../logger.js";
 import { db, playersTable, teamsTable, tournamentsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and, ilike } from "drizzle-orm";
 import { normalizeAuctionUnit, type AuctionUnit } from "@workspace/api-base/auction-unit";
 import { parseSponsorLogos, resolveSponsorPriorityType, SponsorPriorityType } from "@workspace/api-base/sponsor-priority";
 import { brandingService } from "../branding-service.js";
@@ -68,12 +68,14 @@ export function getPosterCacheSize(): number {
 export function createSalePosterToken(opts: {
   tournamentId: number;
   playerId?: number | null;
+  playerName?: string | null;
   teamId?: number | null;
+  teamName?: string | null;
   amount: number;
 }): string {
-  const pId = opts.playerId ?? "0";
-  const tId = opts.teamId ?? "0";
-  const raw = `sold:v2.2:${opts.tournamentId}:${pId}:${tId}:${opts.amount}`;
+  const pId = opts.playerId ?? (opts.playerName ? opts.playerName.trim().toLowerCase() : "0");
+  const tId = opts.teamId ?? (opts.teamName ? opts.teamName.trim().toLowerCase() : "0");
+  const raw = `sold:v2.5:${opts.tournamentId}:${pId}:${tId}:${opts.amount}`;
   return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 24);
 }
 
@@ -161,6 +163,7 @@ export async function resolveAuthoritativeSaleData(
       if (input.playerId) {
         const query = db
           .select({
+            id: playersTable.id,
             name: playersTable.name,
             photoUrl: playersTable.photoUrl,
             role: playersTable.role,
@@ -175,8 +178,35 @@ export async function resolveAuthoritativeSaleData(
 
         if (p) {
           if (p.name) resolvedPlayerName = p.name;
-          if (p.photoUrl) resolvedPhotoUrl = p.photoUrl;
-          if (p.role) resolvedRole = p.role;
+          if (!resolvedPhotoUrl && p.photoUrl) resolvedPhotoUrl = p.photoUrl;
+          if (!resolvedRole && p.role) resolvedRole = p.role;
+          if (!resolvedTeamId && p.teamId) resolvedTeamId = p.teamId;
+          if (!resolvedAmount && typeof p.soldPrice === "number") resolvedAmount = p.soldPrice;
+        }
+      } else if (input.playerName && input.playerName.trim() && input.playerName.trim().toLowerCase() !== "player") {
+        const conds = [ilike(playersTable.name, input.playerName.trim())];
+        if (input.tournamentId) {
+          conds.push(eq(playersTable.tournamentId, input.tournamentId));
+        }
+        const query = db
+          .select({
+            id: playersTable.id,
+            name: playersTable.name,
+            photoUrl: playersTable.photoUrl,
+            role: playersTable.role,
+            teamId: playersTable.teamId,
+            soldPrice: playersTable.soldPrice,
+          })
+          .from(playersTable)
+          .where(and(...conds));
+
+        const res = typeof (query as any)?.limit === "function" ? await (query as any).limit(1) : await query;
+        const p = Array.isArray(res) && res.length > 0 ? res[0] : null;
+
+        if (p) {
+          if (p.name) resolvedPlayerName = p.name;
+          if (!resolvedPhotoUrl && p.photoUrl) resolvedPhotoUrl = p.photoUrl;
+          if (!resolvedRole && p.role) resolvedRole = p.role;
           if (!resolvedTeamId && p.teamId) resolvedTeamId = p.teamId;
           if (!resolvedAmount && typeof p.soldPrice === "number") resolvedAmount = p.soldPrice;
         }
@@ -199,9 +229,34 @@ export async function resolveAuthoritativeSaleData(
 
         if (t) {
           if (t.name) resolvedTeamName = t.name;
-          if (t.logoUrl) resolvedTeamLogo = t.logoUrl;
-          if (t.shortCode) resolvedTeamShortCode = t.shortCode;
-          if (t.color) resolvedTeamColor = t.color;
+          if (!resolvedTeamLogo && t.logoUrl) resolvedTeamLogo = t.logoUrl;
+          if (!resolvedTeamShortCode && t.shortCode) resolvedTeamShortCode = t.shortCode;
+          if (!resolvedTeamColor && t.color) resolvedTeamColor = t.color;
+        }
+      } else if (input.teamName && input.teamName.trim() && input.teamName.trim().toLowerCase() !== "team") {
+        const conds = [ilike(teamsTable.name, input.teamName.trim())];
+        if (input.tournamentId) {
+          conds.push(eq(teamsTable.tournamentId, input.tournamentId));
+        }
+        const query = db
+          .select({
+            id: teamsTable.id,
+            name: teamsTable.name,
+            logoUrl: teamsTable.logoUrl,
+            shortCode: teamsTable.shortCode,
+            color: teamsTable.color,
+          })
+          .from(teamsTable)
+          .where(and(...conds));
+
+        const res = typeof (query as any)?.limit === "function" ? await (query as any).limit(1) : await query;
+        const t = Array.isArray(res) && res.length > 0 ? res[0] : null;
+
+        if (t) {
+          if (t.name) resolvedTeamName = t.name;
+          if (!resolvedTeamLogo && t.logoUrl) resolvedTeamLogo = t.logoUrl;
+          if (!resolvedTeamShortCode && t.shortCode) resolvedTeamShortCode = t.shortCode;
+          if (!resolvedTeamColor && t.color) resolvedTeamColor = t.color;
         }
       }
 
@@ -315,7 +370,9 @@ export async function generateAndHostPlayerSoldPoster(
   const token = createSalePosterToken({
     tournamentId: authoritative.tournamentId,
     playerId: authoritative.playerId,
+    playerName: authoritative.playerName,
     teamId: authoritative.teamId,
+    teamName: authoritative.teamName,
     amount: Number(authoritative.amount) || 0,
   });
 

@@ -647,6 +647,13 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
     manualMobiles: z.union([z.array(z.string()), z.string()]).optional(),
     customMobile: z.string().optional(),
     templateVariables: z.record(z.string()).optional(),
+    playerId: z.number().int().optional(),
+    playerPhotoUrl: z.string().optional(),
+    playerRole: z.string().optional(),
+    teamId: z.number().int().optional(),
+    teamLogoUrl: z.string().optional(),
+    teamShortCode: z.string().optional(),
+    teamColor: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid input", details: parsed.error.issues }); return; }
@@ -1332,9 +1339,15 @@ router.post("/auth/admin/communicate/send", async (req, res) => {
           try {
             const posterRes = await generateAndHostPlayerSoldPoster({
               tournamentId: d.tournamentId || 0,
-              playerId: r.recipientId,
+              playerId: d.playerId || (r.recipientType === "player" ? r.recipientId : undefined),
               playerName: var1,
+              playerPhotoUrl: d.playerPhotoUrl,
+              playerRole: d.playerRole,
+              teamId: d.teamId || d.specificTeamId,
               teamName: var2,
+              teamLogoUrl: d.teamLogoUrl,
+              teamShortCode: d.teamShortCode,
+              teamColor: d.teamColor,
               amount: parsedAmt,
               auctionUnit: tournUnit,
               tournamentName: var4,
