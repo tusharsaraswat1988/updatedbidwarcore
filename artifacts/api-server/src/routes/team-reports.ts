@@ -25,7 +25,7 @@ function playerAcquisitionAmount(p: {
 
 const router = Router();
 
-function fmtRupee(n: number | null | undefined): string {
+function fmtAmount(n: number | null | undefined, unit: "rupee" | "points" = "points", forPdf = false): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "-";
   const s = Math.abs(Math.round(n)).toString();
   let result: string;
@@ -35,15 +35,28 @@ function fmtRupee(n: number | null | undefined): string {
     const rest = s.slice(0, -3);
     result = rest.replace(/(\d)(?=(\d\d)+$)/g, "$1,") + "," + last3;
   }
-  return `\u20B9${n < 0 ? "-" : ""}${result}`;
+  const prefix = n < 0 ? "-" : "";
+  if (unit === "rupee") {
+    return `${forPdf ? "Rs. " : "₹"}${prefix}${result}`;
+  }
+  return `${prefix}${result} Pt.`;
 }
 
-function fmtShort(n: number | null | undefined): string {
+function fmtShort(n: number | null | undefined, unit: "rupee" | "points" = "points", forPdf = false): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "-";
-  if (n >= 10000000) return `\u20B9${(n / 10000000).toFixed(2)} Cr`;
-  if (n >= 100000) return `\u20B9${(n / 100000).toFixed(2)} L`;
-  if (n >= 1000) return `\u20B9${(n / 1000).toFixed(1)} K`;
-  return `\u20B9${n}`;
+  if (n >= 10000000) {
+    const val = (n / 10000000).toFixed(2);
+    return unit === "rupee" ? `${forPdf ? "Rs. " : "₹"}${val} Cr` : `${val} Cr Pt.`;
+  }
+  if (n >= 100000) {
+    const val = (n / 100000).toFixed(2);
+    return unit === "rupee" ? `${forPdf ? "Rs. " : "₹"}${val} L` : `${val} L Pt.`;
+  }
+  if (n >= 1000) {
+    const val = (n / 1000).toFixed(1);
+    return unit === "rupee" ? `${forPdf ? "Rs. " : "₹"}${val} K` : `${val} K Pt.`;
+  }
+  return unit === "rupee" ? `${forPdf ? "Rs. " : "₹"}${n}` : `${n} Pt.`;
 }
 
 router.get("/tournaments/:tournamentId/team-reports", async (req: Request, res: Response) => {
@@ -160,6 +173,7 @@ router.get("/tournaments/:tournamentId/team-reports/:teamId", async (req: Reques
       id: tournament.id,
       name: tournament.name,
       sport: tournament.sport,
+      status: tournament.status,
       logoUrl: tournament.logoUrl ?? null,
       licenseStatus: tournament.licenseStatus,
       minimumSquadSize: tournament.minimumSquadSize,
@@ -218,6 +232,8 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   if (!team) { res.status(404).json({ error: "Team not found" }); return; }
 
   const isLicensed = tournament.licenseStatus === "active" || (tournament.licenseStatus === "completed" && tournament.licenseGrantedAt != null);
+  const unit = tournament.auctionUnit === "rupee" ? "rupee" : "points";
+  const isCompleted = tournament.status === "completed";
 
   const categories = await db.select().from(categoriesTable).where(eq(categoriesTable.tournamentId, tid)).orderBy(categoriesTable.sortOrder);
   const catMap = new Map(categories.map(c => [c.id, c]));
@@ -250,7 +266,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   const remainingPurse = team.purse - retainedSpend - preSoldSpend;
 
   const totalAcquired = allAcquired.length;
-  const { planningRows, slotsRemaining } = computeTeamReportPlanningRows(
+  const { planningRows } = computeTeamReportPlanningRows(
     totalAcquired,
     tournament.minimumSquadSize,
     tournament.maximumSquadSize,
@@ -265,11 +281,11 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     { key: "role", label: "Role" },
     { key: "jerseyNumber", label: "Jersey No." },
     { key: "jerseySize", label: "Jersey Size" },
-    { key: "status", label: "Status" },
+    { key: "status", label: "Type" },
     { key: "remainingBalance", label: "Balance" },
   ].filter(c => selectedCols.includes(c.key));
 
-  const fileName = `${team.name.replace(/[^a-zA-Z0-9]/g, "_")}_PreAuction_Report.pdf`;
+  const fileName = `${team.name.replace(/[^a-zA-Z0-9]/g, "_")}_${isCompleted ? "Squad_Reconciliation" : "PreAuction"}_Report.pdf`;
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
 
@@ -284,13 +300,15 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   const LEFT = doc.page.margins.left;
   const TOP = doc.page.margins.top;
 
+  const reportDocHeading = isCompleted ? "OFFICIAL SQUAD & PURSE RECONCILIATION" : "PRE-AUCTION TEAM REPORT";
+
   function drawPageHeader() {
     doc.save();
     doc.fillColor("#0a0a0a").rect(LEFT, TOP, W, 48).fill();
     doc.fillColor("#FBBF24").font("Helvetica-Bold").fontSize(15).text("BidWar", LEFT + 10, TOP + 8);
     doc.fillColor("#ffffff").font("Helvetica").fontSize(8).text(tournament.sport.toUpperCase() + " · " + tournament.name, LEFT + 10, TOP + 28);
     doc.fillColor("#ffffff").font("Helvetica-Bold").fontSize(10)
-      .text("PRE-AUCTION TEAM REPORT", LEFT, TOP + 8, { width: W - 10, align: "right" });
+      .text(reportDocHeading, LEFT, TOP + 8, { width: W - 10, align: "right" });
     doc.fillColor("#94a3b8").font("Helvetica").fontSize(7)
       .text(new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", year: "numeric" }), LEFT, TOP + 28, { width: W - 10, align: "right" });
     doc.restore();
@@ -330,10 +348,10 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   doc.fillColor("#94a3b8").font("Helvetica").fontSize(7).text("PURSE SUMMARY", cX + 10, hdrY + 8);
 
   const summaryItems = [
-    { label: "Total Purse", value: fmtShort(team.purse) },
-    { label: "Retained Spend", value: fmtShort(retainedSpend) },
-    { label: "Pre-Sold Spend", value: fmtShort(preSoldSpend) },
-    { label: "Remaining Purse", value: fmtShort(remainingPurse) },
+    { label: "Total Purse", value: fmtShort(team.purse, unit, true) },
+    { label: "Retained Spend", value: fmtShort(retainedSpend, unit, true) },
+    { label: isCompleted ? "Auction Spend" : "Pre-Sold Spend", value: fmtShort(preSoldSpend, unit, true) },
+    { label: isCompleted ? "Unspent Purse" : "Remaining Purse", value: fmtShort(remainingPurse, unit, true) },
   ];
   summaryItems.forEach((item, i) => {
     const row = Math.floor(i / 2);
@@ -371,7 +389,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
   const mandatoryCols: ColDef[] = [
     { label: "Serial #", width: 0.4, get: (p) => String(p.serialNo) },
     { label: "Player Name", width: 2.2, get: (p) => p.name },
-    { label: "Amount", width: 1.0, get: (p) => fmtShort(playerAcquisitionAmount(p)) },
+    { label: `Amount`, width: 1.0, get: (p) => fmtShort(playerAcquisitionAmount(p), unit, true) },
   ];
 
   const colMap: Record<string, ColDef> = {
@@ -383,8 +401,8 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     role: { label: "Role", width: 0.9, get: (p) => p.role?.replace(/_/g, " ") || "-" },
     jerseyNumber: { label: "Jersey", width: 0.55, get: (p) => p.jerseyNumber || "-" },
     jerseySize: { label: "Size", width: 1.45, get: (p) => p.jerseySize ? jerseySizeLabel(p.jerseySize) : "-" },
-    status: { label: "Type", width: 0.7, get: (p) => p.status === "retained" ? "Retained" : "Pre-Sold" },
-    remainingBalance: { label: "Balance", width: 0.95, get: (_p, balance) => fmtShort(balance) },
+    status: { label: "Type", width: 0.7, get: (p) => p.status === "retained" ? "Retained" : (isCompleted ? "Acquired" : "Pre-Sold") },
+    remainingBalance: { label: "Balance", width: 0.95, get: (_p, balance) => fmtShort(balance, unit, true) },
   };
 
   const activeCols = [
@@ -445,9 +463,9 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
     doc.moveDown(0.5);
   }
 
-  // Pre-sold players
+  // Pre-sold / acquired players
   if (preSold.length > 0) {
-    drawSectionHeading(`Pre-Sold Players (${preSold.length})`);
+    drawSectionHeading(`${isCompleted ? "Auction Acquisitions" : "Pre-Sold Players"} (${preSold.length})`);
     drawTableHeader();
     preSold.forEach((p) => drawPlayerRow(p));
     doc.moveDown(0.5);
@@ -455,44 +473,46 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
 
   if (retained.length === 0 && preSold.length === 0) {
     ensureRoom(30);
-    doc.fillColor("#94a3b8").font("Helvetica-Oblique").fontSize(9).text("No retained or pre-sold players assigned to this team.", LEFT, doc.y);
+    doc.fillColor("#94a3b8").font("Helvetica-Oblique").fontSize(9).text("No players assigned to this team yet.", LEFT, doc.y);
     doc.moveDown(0.5);
   }
 
-  // ── Auction planning table ────────────────────────────────────────────────
+  // ── Auction planning table (only when planning rows remain) ──────────────
 
-  ensureRoom(32);
-  doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(9).text(`Auction Working Sheet — ${planningRows} Slots`, LEFT, doc.y);
-  doc.moveDown(0.3);
+  if (planningRows > 0) {
+    ensureRoom(32);
+    doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(9).text(`Auction Working Sheet — ${planningRows} Slots Remaining`, LEFT, doc.y);
+    doc.moveDown(0.3);
 
-  const planCols = [
-    { label: "S.No", w: 0.4 },
-    { label: "Player Name", w: 2.0 },
-    { label: "Category", w: 0.9 },
-    { label: "Amount", w: 0.9 },
-    { label: "Balance", w: 0.9 },
-  ];
-  const planTotal = planCols.reduce((s, c) => s + c.w, 0);
-  const planWidths = planCols.map(c => (c.w / planTotal) * W);
+    const planCols = [
+      { label: "S.No", w: 0.4 },
+      { label: "Player Name", w: 2.0 },
+      { label: "Category", w: 0.9 },
+      { label: "Amount", w: 0.9 },
+      { label: "Balance", w: 0.9 },
+    ];
+    const planTotal = planCols.reduce((s, c) => s + c.w, 0);
+    const planWidths = planCols.map(c => (c.w / planTotal) * W);
 
-  ensureRoom(18);
-  const phY = doc.y;
-  doc.fillColor("#1e293b").rect(LEFT, phY, W, 15).fill();
-  let px = LEFT + 4;
-  doc.fillColor("#FBBF24").font("Helvetica-Bold").fontSize(7.5);
-  planCols.forEach((c, i) => {
-    doc.text(c.label.toUpperCase(), px, phY + 4, { width: planWidths[i] - 6, lineBreak: false });
-    px += planWidths[i];
-  });
-  doc.y = phY + 15;
+    ensureRoom(18);
+    const phY = doc.y;
+    doc.fillColor("#1e293b").rect(LEFT, phY, W, 15).fill();
+    let px = LEFT + 4;
+    doc.fillColor("#FBBF24").font("Helvetica-Bold").fontSize(7.5);
+    planCols.forEach((c, i) => {
+      doc.text(c.label.toUpperCase(), px, phY + 4, { width: planWidths[i] - 6, lineBreak: false });
+      px += planWidths[i];
+    });
+    doc.y = phY + 15;
 
-  for (let i = 0; i < planningRows; i++) {
-    ensureRoom(14);
-    const rY = doc.y;
-    if (i % 2 === 0) doc.fillColor("#f8fafc").rect(LEFT, rY, W, 13).fill();
-    doc.fillColor("#94a3b8").font("Helvetica").fontSize(7.5).text(String(totalAcquired + i + 1), LEFT + 4, rY + 3, { width: planWidths[0] - 6, lineBreak: false });
-    doc.fillColor("#cbd5e1").font("Helvetica").fontSize(7).text("___________________________", LEFT + 4 + planWidths[0], rY + 5, { width: planWidths[1] - 6, lineBreak: false });
-    doc.y = rY + 13;
+    for (let i = 0; i < planningRows; i++) {
+      ensureRoom(14);
+      const rY = doc.y;
+      if (i % 2 === 0) doc.fillColor("#f8fafc").rect(LEFT, rY, W, 13).fill();
+      doc.fillColor("#94a3b8").font("Helvetica").fontSize(7.5).text(String(totalAcquired + i + 1), LEFT + 4, rY + 3, { width: planWidths[0] - 6, lineBreak: false });
+      doc.fillColor("#cbd5e1").font("Helvetica").fontSize(7).text("___________________________", LEFT + 4 + planWidths[0], rY + 5, { width: planWidths[1] - 6, lineBreak: false });
+      doc.y = rY + 13;
+    }
   }
 
   // ── Footer + watermark ──────────────────────────────────────────────────────
@@ -525,7 +545,7 @@ router.post("/tournaments/:tournamentId/team-reports/:teamId/pdf", async (req: R
         .text(branding.poweredByText, brandTextX, footerY);
     }
     doc.fillColor("#94a3b8").font("Helvetica").fontSize(6.5)
-      .text(`Page ${i + 1} of ${range.count}  ·  ${team.name} Pre-Auction Report  ·  Confidential`, LEFT, ph - doc.page.margins.bottom + 9, { width: W - 6, align: "right" });
+      .text(`Page ${i + 1} of ${range.count}  ·  ${team.name} ${isCompleted ? "Squad Reconciliation" : "Pre-Auction"} Report  ·  Confidential`, LEFT, ph - doc.page.margins.bottom + 9, { width: W - 6, align: "right" });
     doc.restore();
   }
 

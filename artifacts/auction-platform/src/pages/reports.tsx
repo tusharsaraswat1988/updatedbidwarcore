@@ -2,17 +2,13 @@ import { useRoute, useSearch } from "wouter";
 import {
   useGetTournamentSummary,
   useGetTournament,
-  useGetTopBids,
   getGetTournamentSummaryQueryKey,
   getGetTournamentQueryKey,
-  getGetTopBidsQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
 import { OrganizerSectionHeader } from "@/components/organizer-page-chrome";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Users, Wallet, TrendingUp, BarChart3, UserCheck, Award, FileText } from "lucide-react";
-import { formatShortIndianRupee } from "@/lib/format";
+import { Users, Wallet, TrendingUp, BarChart3, UserCheck, FileText } from "lucide-react";
+import { formatShortIndianRupee, normalizeAuctionUnit } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReportCenter } from "@/components/reports/report-center";
 import { TEAM_PLANNING_SHEET_ID } from "@/pages/team-reports";
@@ -29,17 +25,16 @@ export default function Reports() {
   const { data: tournament } = useGetTournament(tournamentId, {
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
-  const { data: topBids } = useGetTopBids(tournamentId, {
-    query: { queryKey: getGetTopBidsQueryKey(tournamentId), enabled: !!tournamentId },
-  });
+
+  const unit = normalizeAuctionUnit(tournament?.auctionUnit);
 
   return (
     <AppLayout tournamentId={tournamentId}>
       <div className="org-page-content">
         <OrganizerSectionHeader
           tournament={tournament}
-          title={<span className="flex items-center gap-2"><BarChart3 className="w-6 h-6 sm:w-7 sm:h-7 text-primary" /> Reports</span>}
-          description="Auction overview and documents."
+          title={<span className="flex items-center gap-2"><BarChart3 className="w-6 h-6 sm:w-7 sm:h-7 text-primary" /> Reports & Document Center</span>}
+          description="Tournament intelligence, squad worksheets, visual posters, and official exports."
         />
 
         {/* Summary Stats */}
@@ -66,84 +61,22 @@ export default function Reports() {
             <div className="org-kpi-card flex justify-between items-start gap-3">
               <div className="min-w-0">
                 <p className="org-kpi-label">Total Spent</p>
-                <p className="org-kpi-value text-primary">{formatShortIndianRupee(summary?.totalSpent)}</p>
+                <p className="org-kpi-value text-primary">{formatShortIndianRupee(summary?.totalSpent, unit)}</p>
               </div>
               <div className="org-kpi-icon bg-primary/10"><Wallet className="w-5 h-5 text-primary" /></div>
             </div>
             <div className="org-kpi-card flex justify-between items-start gap-3">
               <div className="min-w-0">
                 <p className="org-kpi-label">Highest Bid</p>
-                <p className="org-kpi-value text-purple-400">{formatShortIndianRupee(summary?.highestBid)}</p>
+                <p className="org-kpi-value text-purple-400">{formatShortIndianRupee(summary?.highestBid, unit)}</p>
               </div>
               <div className="org-kpi-icon bg-purple-500/10"><TrendingUp className="w-5 h-5 text-purple-400" /></div>
             </div>
           </div>
         )}
 
-        {topBids && topBids.length > 0 ? (
-          <Card className="panel border-none flex flex-col">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs sm:text-sm flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 font-bold">
-                    <Award className="w-4 h-4 text-primary" /> Top 5 Sold Players
-                  </span>
-                  <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-amber-500/30 text-amber-400 bg-amber-500/10 font-bold">
-                    TOP 5
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-1 flex-1">
-                <div className="space-y-1.5">
-                  {topBids.slice(0, 5).map((entry, i) => (
-                    <div
-                      key={entry.playerId}
-                      className="org-list-row gap-2.5 py-1.5 px-1"
-                    >
-                      <div
-                        className="w-5 h-5 rounded-full flex items-center justify-center font-display font-black text-[10px] flex-shrink-0"
-                        style={{
-                          backgroundColor: i === 0 ? "#F59E0B22" : i === 1 ? "#94A3B822" : i === 2 ? "#A855F722" : "#1e293b",
-                          color: i === 0 ? "#F59E0B" : i === 1 ? "#94A3B8" : i === 2 ? "#A855F7" : "#888",
-                        }}
-                      >
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-xs truncate leading-tight text-foreground">{entry.playerName}</h4>
-                        <p className="text-[10px] text-muted-foreground truncate capitalize">
-                          {entry.role}{entry.teamName ? ` · ${entry.teamName}` : ""}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="font-mono font-bold text-primary text-xs leading-tight">
-                          {formatShortIndianRupee(entry.soldPrice)}
-                        </p>
-                        {entry.basePrice && entry.soldPrice > 0 && (
-                          <p className="text-[9px] font-mono text-muted-foreground">
-                            {Math.round((entry.soldPrice / entry.basePrice) * 10) / 10}x
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-          </Card>
-        ) : null}
-
         {/* ─── Integrated Reports & Posters Center ─────────────────────────── */}
-        <div className="pt-6 border-t border-border/60 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <h2 className="text-lg sm:text-xl font-bold font-display text-foreground flex items-center gap-2">
-                <FileText className="w-5 h-5 text-primary" /> Documents
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Team planning sheets, posters, and PDF, Excel, or CSV exports for this tournament.
-              </p>
-            </div>
-          </div>
-
+        <div className="space-y-4">
           <ReportCenter
             tournamentId={tournamentId}
             hideTournamentSelector={true}

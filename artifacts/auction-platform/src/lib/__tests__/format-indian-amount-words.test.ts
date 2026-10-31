@@ -3,14 +3,14 @@ import { formatIndianAmountWords } from "../format";
 
 describe("formatIndianAmountWords", () => {
   it("formats crore and lakh combinations", () => {
-    expect(formatIndianAmountWords(11000000)).toBe("1 Cr 10 lakh");
-    expect(formatIndianAmountWords("10000000")).toBe("1 Cr");
+    expect(formatIndianAmountWords(11000000, "rupee")).toBe("1 Cr 10 lakh");
+    expect(formatIndianAmountWords("10000000", "rupee")).toBe("1 Cr");
   });
 
   it("formats lakh and thousand amounts", () => {
-    expect(formatIndianAmountWords(100000)).toBe("1 lakh");
-    expect(formatIndianAmountWords(10000)).toBe("10 thousand");
-    expect(formatIndianAmountWords(1500)).toBe("1 thousand 500");
+    expect(formatIndianAmountWords(100000, "rupee")).toBe("1 lakh");
+    expect(formatIndianAmountWords(10000, "rupee")).toBe("10 thousand");
+    expect(formatIndianAmountWords(1500, "rupee")).toBe("1 thousand 500");
   });
 
   it("returns empty for invalid or zero values", () => {

@@ -50,11 +50,19 @@ function setCrossOriginAnonymous(root: ParentNode): void {
   });
 }
 
-function applyFullPageLayout(root: HTMLElement): void {
+export type ExportPdfOptions = {
+  orientation?: "portrait" | "landscape";
+};
+
+function applyFullPageLayout(root: HTMLElement, orientation: "portrait" | "landscape" = "portrait"): void {
+  const isLandscape = orientation === "landscape";
+  const widthPx = isLandscape ? A4_HEIGHT_PX : A4_WIDTH_PX;
+  const heightPx = isLandscape ? A4_WIDTH_PX : A4_HEIGHT_PX;
+
   root.style.display = "flex";
   root.style.flexDirection = "column";
-  root.style.width = `${A4_WIDTH_PX}px`;
-  root.style.minHeight = `${A4_HEIGHT_PX}px`;
+  root.style.width = `${widthPx}px`;
+  root.style.minHeight = `${heightPx}px`;
   root.style.height = "auto";
   root.style.maxWidth = "none";
   root.style.margin = "0";
@@ -148,7 +156,14 @@ async function inlineCorsSensitiveImages(root: HTMLElement): Promise<ImageRestor
   return restores;
 }
 
-async function renderElementPdf(element: HTMLElement): Promise<jsPDF> {
+async function renderElementPdf(element: HTMLElement, options?: ExportPdfOptions): Promise<jsPDF> {
+  const orientation = options?.orientation ?? "portrait";
+  const isLandscape = orientation === "landscape";
+  const targetWidthMm = isLandscape ? A4_HEIGHT_MM : A4_WIDTH_MM;
+  const targetHeightMm = isLandscape ? A4_WIDTH_MM : A4_HEIGHT_MM;
+  const targetWidthPx = isLandscape ? A4_HEIGHT_PX : A4_WIDTH_PX;
+  const targetHeightPx = isLandscape ? A4_WIDTH_PX : A4_HEIGHT_PX;
+
   element.scrollIntoView({ block: "start", inline: "nearest" });
   await document.fonts.ready;
 
@@ -160,14 +175,14 @@ async function renderElementPdf(element: HTMLElement): Promise<jsPDF> {
   const savedStyles = captureInlineStyles(element, layoutTargets);
   try {
     setCrossOriginAnonymous(element);
-    applyFullPageLayout(element);
+    applyFullPageLayout(element, orientation);
     await waitForImages(element);
     await new Promise<void>((resolve) => {
       requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
     });
 
-    const captureWidth = A4_WIDTH_PX;
-    const captureHeight = Math.max(element.scrollHeight, element.offsetHeight, A4_HEIGHT_PX);
+    const captureWidth = targetWidthPx;
+    const captureHeight = Math.max(element.scrollHeight, element.offsetHeight, targetHeightPx);
 
     const canvas = await html2canvas(element, {
       scale: 2,
@@ -182,7 +197,7 @@ async function renderElementPdf(element: HTMLElement): Promise<jsPDF> {
       windowWidth: captureWidth,
       customIsSameOrigin: (src, oldFn) => !shouldForceCorsImageLoad(src, oldFn),
       onclone: (_doc, clonedEl) => {
-        applyFullPageLayout(clonedEl);
+        applyFullPageLayout(clonedEl, orientation);
         setCrossOriginAnonymous(clonedEl);
       },
     });
@@ -191,17 +206,17 @@ async function renderElementPdf(element: HTMLElement): Promise<jsPDF> {
       throw new Error("Could not capture the report preview.");
     }
 
-    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pdf = new jsPDF({ orientation, unit: "mm", format: "a4" });
     const imgData = canvas.toDataURL("image/jpeg", 0.92);
-    const renderedHeightMm = (canvas.height / canvas.width) * A4_WIDTH_MM;
+    const renderedHeightMm = (canvas.height / canvas.width) * targetWidthMm;
 
-    if (renderedHeightMm <= A4_HEIGHT_MM) {
-      pdf.addImage(imgData, "JPEG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM);
+    if (renderedHeightMm <= targetHeightMm) {
+      pdf.addImage(imgData, "JPEG", 0, 0, targetWidthMm, targetHeightMm);
     } else {
-      const scale = A4_HEIGHT_MM / renderedHeightMm;
-      const scaledWidth = A4_WIDTH_MM * scale;
-      const xOffset = (A4_WIDTH_MM - scaledWidth) / 2;
-      pdf.addImage(imgData, "JPEG", xOffset, 0, scaledWidth, A4_HEIGHT_MM);
+      const scale = targetHeightMm / renderedHeightMm;
+      const scaledWidth = targetWidthMm * scale;
+      const xOffset = (targetWidthMm - scaledWidth) / 2;
+      pdf.addImage(imgData, "JPEG", xOffset, 0, scaledWidth, targetHeightMm);
     }
 
     return pdf;
@@ -214,14 +229,21 @@ async function renderElementPdf(element: HTMLElement): Promise<jsPDF> {
 /**
  * Export a DOM element as a single A4 PDF page, preserving aspect ratio.
  */
-export async function exportElementToPdf(element: HTMLElement, filename: string): Promise<void> {
-  const pdf = await renderElementPdf(element);
+export async function exportElementToPdf(
+  element: HTMLElement,
+  filename: string,
+  options?: ExportPdfOptions,
+): Promise<void> {
+  const pdf = await renderElementPdf(element, options);
   pdf.save(filename);
 }
 
 /** Open the browser print dialog using the same rendered PDF as export. */
-export async function printElementAsPdf(element: HTMLElement): Promise<void> {
-  const pdf = await renderElementPdf(element);
+export async function printElementAsPdf(
+  element: HTMLElement,
+  options?: ExportPdfOptions,
+): Promise<void> {
+  const pdf = await renderElementPdf(element, options);
   const blob = pdf.output("blob");
   const url = URL.createObjectURL(blob);
   const iframe = document.createElement("iframe");

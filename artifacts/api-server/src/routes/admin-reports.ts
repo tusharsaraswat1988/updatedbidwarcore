@@ -118,36 +118,47 @@ const REPORT_TYPES: ReportType[] = [
   { id: "top_5_showcase", title: "Top 5 Sold Players (Poster Showcase)", description: "Visual poster of top 5 highest sold players with photo, team logo and bid price.", category: "live" },
   { id: "team_showcase", title: "Team-Wise Sold Players Showcase", description: "Visual squad cards with player photos, team logos and prices for community sharing.", category: "post" },
   { id: "master_catalogue", title: "Master Player Catalogue", description: "Full player registry with role, base price and status.", category: "pre" },
-  { id: "jersey_sizing", title: "Jersey Sizing Report", description: "Players grouped by jersey size with jersey number.", category: "pre" },
-  { id: "contact_directory", title: "Player Contact Directory", description: "Player names, mobile numbers, role and city.", category: "directory" },
+  { id: "jersey_sizing", title: "Jersey Sizing Report", description: "Players grouped by jersey size with team allocation and jersey numbers.", category: "pre" },
+  { id: "contact_directory", title: "Player Contact Directory", description: "Player names, mobile numbers, email, role, city and team.", category: "directory" },
   { id: "sold_players", title: "Sold Player Report", description: "All sold players with team, price and category.", category: "live" },
   { id: "unsold_players", title: "Unsold Player Report", description: "Players that did not get sold (re-auction candidates).", category: "live" },
   { id: "top_sold", title: "Top Sold Players", description: "Top 25 most expensive sold players.", category: "live" },
+  { id: "team_squad", title: "Team Squad Rosters", description: "Detailed roster for each team with player status, category and acquisition price.", category: "post" },
   { id: "team_purse", title: "Team Purse Breakdown", description: "Purse used, remaining and player count for each team.", category: "post" },
+  { id: "financial_summary", title: "Financial & Spend Analysis", description: "Comprehensive tournament purse, top spend, and auction expenditure breakdown.", category: "post" },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmtRupee(n: number | null | undefined): string {
+function fmtAmount(n: number | null | undefined, unit: "rupee" | "points" = "points"): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "-";
-  // Indian formatting: 1,00,00,000
   const s = Math.abs(Math.round(n)).toString();
-  let result;
+  let result: string;
   if (s.length <= 3) result = s;
   else {
     const last3 = s.slice(-3);
     const rest = s.slice(0, -3);
     result = rest.replace(/(\d)(?=(\d\d)+$)/g, "$1,") + "," + last3;
   }
-  return `₹${n < 0 ? "-" : ""}${result}`;
+  const prefix = n < 0 ? "-" : "";
+  return unit === "rupee" ? `₹${prefix}${result}` : `${prefix}${result} Pt.`;
 }
 
-function fmtShortRupee(n: number | null | undefined): string {
+function fmtShortAmount(n: number | null | undefined, unit: "rupee" | "points" = "points"): string {
   if (n === null || n === undefined || Number.isNaN(n)) return "-";
-  if (n >= 10000000) return `₹${(n / 10000000).toFixed(2)} Cr`;
-  if (n >= 100000) return `₹${(n / 100000).toFixed(2)} L`;
-  if (n >= 1000) return `₹${(n / 1000).toFixed(1)} K`;
-  return `₹${n}`;
+  if (n >= 10000000) {
+    const val = (n / 10000000).toFixed(2);
+    return unit === "rupee" ? `₹${val} Cr` : `${val} Cr Pt.`;
+  }
+  if (n >= 100000) {
+    const val = (n / 100000).toFixed(2);
+    return unit === "rupee" ? `₹${val} L` : `${val} L Pt.`;
+  }
+  if (n >= 1000) {
+    const val = (n / 1000).toFixed(1);
+    return unit === "rupee" ? `₹${val} K` : `${val} K Pt.`;
+  }
+  return unit === "rupee" ? `₹${n}` : `${n} Pt.`;
 }
 
 function fmtText(v: unknown): string {
@@ -161,7 +172,11 @@ function formatJerseySize(v: unknown): string {
   return jerseySizeLabel(text);
 }
 
-function buildFiltersDescription(f: Filters, ctx: { categories: Map<number, string>; teams: Map<number, string> }): string[] {
+function buildFiltersDescription(
+  f: Filters,
+  ctx: { categories: Map<number, string>; teams: Map<number, string> },
+  unit: "rupee" | "points" = "points",
+): string[] {
   const out: string[] = [];
   if (f.categoryIds?.length) out.push(`Categories: ${f.categoryIds.map(id => ctx.categories.get(id) ?? `#${id}`).join(", ")}`);
   if (f.teamIds?.length) out.push(`Teams: ${f.teamIds.map(id => ctx.teams.get(id) ?? `#${id}`).join(", ")}`);
@@ -171,8 +186,8 @@ function buildFiltersDescription(f: Filters, ctx: { categories: Map<number, stri
   if (f.cities?.length) out.push(`Cities: ${f.cities.join(", ")}`);
   if (f.jerseySizes?.length) out.push(`Jersey sizes: ${f.jerseySizes.map(jerseySizeLabel).join(", ")}`);
   if (f.search) out.push(`Name contains: ${f.search}`);
-  if (f.minPrice !== undefined) out.push(`Min price: ${fmtRupee(f.minPrice)}`);
-  if (f.maxPrice !== undefined) out.push(`Max price: ${fmtRupee(f.maxPrice)}`);
+  if (f.minPrice !== undefined) out.push(`Min price: ${fmtAmount(f.minPrice, unit)}`);
+  if (f.maxPrice !== undefined) out.push(`Max price: ${fmtAmount(f.maxPrice, unit)}`);
   return out;
 }
 
@@ -204,49 +219,93 @@ async function loadFilteredPlayers(tournamentId: number, f: Filters) {
   return await db.select().from(playersTable).where(and(...conditions)).orderBy(playersTable.serialNo);
 }
 
-// ─── Report builders ──────────────────────────────────────────────────────────
+// ─── Column definitions ─────────────────────────────────────────────────────
 
-const PLAYER_COLUMNS: Column[] = [
-  { key: "serialNo", label: "Serial #", width: 0.6, format: v => fmtText(v) },
-  { key: "name", label: "Name", width: 1.6 },
-  { key: "role", label: "Role", width: 1, format: v => fmtText(v).replace(/_/g, " ") },
-  { key: "city", label: "City", width: 1.1, format: v => fmtText(v) },
-  { key: "jerseyNumber", label: "Jersey No.", width: 0.7, format: v => fmtText(v) },
-  { key: "jerseySize", label: "Jersey Size", width: 1.45, format: v => formatJerseySize(v) },
-  { key: "categoryName", label: "Category", width: 1, format: v => fmtText(v) },
-  { key: "basePrice", label: "Base Price", width: 1.1, format: v => fmtShortRupee(v as number) },
-  { key: "status", label: "Status", width: 0.8, format: v => fmtText(v).toUpperCase() },
-  { key: "teamName", label: "Team", width: 1.1, format: v => fmtText(v) },
-  { key: "soldPrice", label: "Sold Price", width: 1.1, format: v => fmtShortRupee(v as number) },
-];
+function getMasterCatalogueColumns(unit: "rupee" | "points"): Column[] {
+  const priceUnitSuffix = unit === "points" ? " (Pt.)" : " (₹)";
+  return [
+    { key: "serialNo", label: "Serial #", width: 0.6, format: v => fmtText(v) },
+    { key: "name", label: "Name", width: 1.6 },
+    { key: "role", label: "Role", width: 1, format: v => fmtText(v).replace(/_/g, " ") },
+    { key: "city", label: "City", width: 1.1, format: v => fmtText(v) },
+    { key: "categoryName", label: "Category", width: 1, format: v => fmtText(v) },
+    { key: "basePrice", label: `Base Price${priceUnitSuffix}`, width: 1.1, format: v => fmtShortAmount(v as number, unit) },
+    { key: "status", label: "Status", width: 0.8, format: v => fmtText(v).toUpperCase() },
+    { key: "teamName", label: "Team", width: 1.2, format: v => fmtText(v) },
+    { key: "soldPrice", label: `Final Price${priceUnitSuffix}`, width: 1.1, format: v => fmtShortAmount(v as number, unit) },
+  ];
+}
 
-const CONTACT_COLUMNS: Column[] = [
-  { key: "name", label: "Name", width: 1.6 },
-  { key: "mobileNumber", label: "Mobile", width: 1.3, format: v => fmtText(v) },
-  { key: "role", label: "Role", width: 1, format: v => fmtText(v).replace(/_/g, " ") },
-  { key: "city", label: "City", width: 1.2, format: v => fmtText(v) },
-  { key: "jerseyNumber", label: "Jersey No.", width: 0.7, format: v => fmtText(v) },
-  { key: "jerseySize", label: "Jersey Size", width: 1.45, format: v => formatJerseySize(v) },
-  { key: "teamName", label: "Team", width: 1.2, format: v => fmtText(v) },
-  { key: "status", label: "Status", width: 0.8, format: v => fmtText(v).toUpperCase() },
-];
+function getSoldPlayerColumns(unit: "rupee" | "points", options?: { hideStatus?: boolean }): Column[] {
+  const priceUnitSuffix = unit === "points" ? " (Pt.)" : " (₹)";
+  const cols: Column[] = [
+    { key: "serialNo", label: "Serial #", width: 0.6, format: v => fmtText(v) },
+    { key: "name", label: "Name", width: 1.6 },
+    { key: "role", label: "Role", width: 1, format: v => fmtText(v).replace(/_/g, " ") },
+    { key: "city", label: "City", width: 1.1, format: v => fmtText(v) },
+    { key: "categoryName", label: "Category", width: 1, format: v => fmtText(v) },
+    { key: "basePrice", label: `Base Price${priceUnitSuffix}`, width: 1.1, format: v => fmtShortAmount(v as number, unit) },
+  ];
 
-const TEAM_PURSE_COLUMNS: Column[] = [
-  { key: "name", label: "Team", width: 2 },
-  { key: "shortCode", label: "Code", width: 0.6 },
-  { key: "playerCount", label: "Players", width: 0.7 },
-  { key: "purse", label: "Purse", width: 1.1, format: v => fmtShortRupee(v as number) },
-  { key: "purseUsed", label: "Spent", width: 1.1, format: v => fmtShortRupee(v as number) },
-  { key: "purseRemaining", label: "Remaining", width: 1.1, format: v => fmtShortRupee(v as number) },
-  { key: "utilization", label: "Used %", width: 0.7, format: v => `${(v as number).toFixed(1)}%` },
-];
+  if (!options?.hideStatus) {
+    cols.push({ key: "status", label: "Status", width: 0.8, format: v => fmtText(v).toUpperCase() });
+  }
+
+  cols.push(
+    { key: "teamName", label: "Team", width: 1.3, format: v => fmtText(v) },
+    { key: "soldPrice", label: `Sold Price${priceUnitSuffix}`, width: 1.2, format: v => fmtShortAmount(v as number, unit) },
+  );
+
+  return cols;
+}
+
+function getContactColumns(): Column[] {
+  return [
+    { key: "serialNo", label: "Serial #", width: 0.6, format: v => fmtText(v) },
+    { key: "name", label: "Name", width: 1.6 },
+    { key: "mobileNumber", label: "Mobile", width: 1.3, format: v => fmtText(v) },
+    { key: "email", label: "Email", width: 1.6, format: v => fmtText(v) },
+    { key: "role", label: "Role", width: 1, format: v => fmtText(v).replace(/_/g, " ") },
+    { key: "city", label: "City", width: 1.1, format: v => fmtText(v) },
+    { key: "teamName", label: "Team", width: 1.2, format: v => fmtText(v) },
+    { key: "status", label: "Status", width: 0.8, format: v => fmtText(v).toUpperCase() },
+  ];
+}
+
+function getJerseyColumns(): Column[] {
+  return [
+    { key: "serialNo", label: "Serial #", width: 0.6, format: v => fmtText(v) },
+    { key: "name", label: "Name", width: 1.6 },
+    { key: "teamName", label: "Team", width: 1.3, format: v => fmtText(v) },
+    { key: "jerseyNumber", label: "Jersey No.", width: 0.8, format: v => fmtText(v) },
+    { key: "role", label: "Role", width: 1, format: v => fmtText(v).replace(/_/g, " ") },
+    { key: "city", label: "City", width: 1.1, format: v => fmtText(v) },
+    { key: "mobileNumber", label: "Mobile", width: 1.2, format: v => fmtText(v) },
+  ];
+}
+
+function getTeamPurseColumns(unit: "rupee" | "points"): Column[] {
+  const priceUnitSuffix = unit === "points" ? " (Pt.)" : " (₹)";
+  return [
+    { key: "name", label: "Team", width: 2 },
+    { key: "shortCode", label: "Code", width: 0.6 },
+    { key: "playerCount", label: "Players", width: 0.7 },
+    { key: "purse", label: `Purse${priceUnitSuffix}`, width: 1.1, format: v => fmtShortAmount(v as number, unit) },
+    { key: "purseUsed", label: `Spent${priceUnitSuffix}`, width: 1.1, format: v => fmtShortAmount(v as number, unit) },
+    { key: "purseRemaining", label: `Remaining${priceUnitSuffix}`, width: 1.1, format: v => fmtShortAmount(v as number, unit) },
+    { key: "utilization", label: "Used %", width: 0.7, format: v => `${(v as number).toFixed(1)}%` },
+  ];
+}
+
+// ─── Report builder ──────────────────────────────────────────────────────────
 
 async function buildReport(typeId: string, tournamentId: number, filters: Filters): Promise<ReportData | null> {
   const ctx = await loadContext(tournamentId);
   if (!ctx) return null;
   const t = ctx.tournament;
+  const unit: "rupee" | "points" = (t.auctionUnit === "rupee" ? "rupee" : "points");
   const generatedAt = new Date().toISOString();
-  const filtersApplied = buildFiltersDescription(filters, { categories: ctx.categoryMap, teams: ctx.teamMap });
+  const filtersApplied = buildFiltersDescription(filters, { categories: ctx.categoryMap, teams: ctx.teamMap }, unit);
 
   const enrich = (p: typeof playersTable.$inferSelect) => ({
     ...p,
@@ -264,7 +323,7 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
     reportTitle,
     tournamentName: t.name,
     tournamentSport: t.sport,
-    auctionUnit: (t.auctionUnit ?? "points") as "rupee" | "points",
+    auctionUnit: unit,
     generatedAt,
     filtersApplied,
   };
@@ -280,12 +339,12 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
       ...baseHeader,
       summary: [
         { label: "Top Players", value: String(top5.length) },
-        { label: "Combined Spend", value: fmtShortRupee(totalSpend) },
-        { label: "#1 Highest Sold", value: fmtShortRupee(top5[0]?.soldPrice ?? 0) },
+        { label: "Combined Spend", value: fmtShortAmount(totalSpend, unit) },
+        { label: "#1 Highest Sold", value: fmtShortAmount(top5[0]?.soldPrice ?? 0, unit) },
       ],
       sections: [{
         heading: "Top 5 Highest Sold Players",
-        columns: PLAYER_COLUMNS,
+        columns: getSoldPlayerColumns(unit, { hideStatus: true }),
         rows: top5 as unknown as Record<string, unknown>[],
       }],
     };
@@ -301,8 +360,8 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
       if (!rows.length) continue;
       const totalSpent = rows.reduce((s, p) => s + (p.soldPrice ?? p.retainedPrice ?? 0), 0);
       sections.push({
-        heading: `${team.name} (${rows.length} players · Spent: ${fmtShortRupee(totalSpent)})`,
-        columns: PLAYER_COLUMNS,
+        heading: `${team.name} (${rows.length} players · Spent: ${fmtShortAmount(totalSpent, unit)})`,
+        columns: getSoldPlayerColumns(unit),
         rows: rows as unknown as Record<string, unknown>[],
       });
     }
@@ -318,15 +377,20 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
 
   if (typeId === "master_catalogue") {
     const players = (await loadFilteredPlayers(tournamentId, filters)).map(enrich);
+    const soldCount = players.filter(p => p.status === "sold").length;
+    const retainedCount = players.filter(p => p.status === "retained").length;
+    const unsoldCount = players.filter(p => p.status === "unsold").length;
+    const availableCount = players.filter(p => p.status === "available").length;
     return {
       ...baseHeader,
       summary: [
         { label: "Total Players", value: String(players.length) },
-        { label: "Sold", value: String(players.filter(p => p.status === "sold").length) },
-        { label: "Unsold", value: String(players.filter(p => p.status === "unsold").length) },
-        { label: "Available", value: String(players.filter(p => p.status === "available").length) },
+        { label: "Sold", value: String(soldCount) },
+        { label: "Retained", value: String(retainedCount) },
+        { label: "Unsold", value: String(unsoldCount) },
+        { label: "Available", value: String(availableCount) },
       ],
-      sections: [{ columns: PLAYER_COLUMNS, rows: players as unknown as Record<string, unknown>[] }],
+      sections: [{ columns: getMasterCatalogueColumns(unit), rows: players as unknown as Record<string, unknown>[] }],
     };
   }
 
@@ -335,10 +399,10 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
     const sections: ReportSection[] = [];
     for (const cat of ctx.categories) {
       const rows = players.filter(p => p.categoryId === cat.id);
-      if (rows.length) sections.push({ heading: `${cat.name} (${rows.length})`, columns: PLAYER_COLUMNS, rows: rows as unknown as Record<string, unknown>[] });
+      if (rows.length) sections.push({ heading: `${cat.name} (${rows.length})`, columns: getMasterCatalogueColumns(unit), rows: rows as unknown as Record<string, unknown>[] });
     }
     const uncategorised = players.filter(p => !p.categoryId);
-    if (uncategorised.length) sections.push({ heading: `Uncategorised (${uncategorised.length})`, columns: PLAYER_COLUMNS, rows: uncategorised as unknown as Record<string, unknown>[] });
+    if (uncategorised.length) sections.push({ heading: `Uncategorised (${uncategorised.length})`, columns: getMasterCatalogueColumns(unit), rows: uncategorised as unknown as Record<string, unknown>[] });
     return { ...baseHeader, summary: [{ label: "Categories", value: String(sections.length) }, { label: "Players", value: String(players.length) }], sections };
   }
 
@@ -352,7 +416,7 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
     }
     const sections = [...groups.entries()]
       .sort((a, b) => b[1].length - a[1].length)
-      .map(([city, rows]) => ({ heading: `${city} (${rows.length})`, columns: PLAYER_COLUMNS, rows: rows as unknown as Record<string, unknown>[] }));
+      .map(([city, rows]) => ({ heading: `${city} (${rows.length})`, columns: getMasterCatalogueColumns(unit), rows: rows as unknown as Record<string, unknown>[] }));
     return { ...baseHeader, summary: [{ label: "Cities", value: String(groups.size) }, { label: "Players", value: String(players.length) }], sections };
   }
 
@@ -368,23 +432,16 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
     const sections = sizeOrder
       .filter(size => groups.has(size))
       .map(size => ({
-        heading: `${jerseySizeLabel(size)} (${groups.get(size)!.length})`,
-        columns: [
-          { key: "name", label: "Name", width: 1.6 },
-          { key: "jerseyNumber", label: "Jersey No.", width: 0.7, format: (v: unknown) => fmtText(v) },
-          { key: "jerseySize", label: "Size", width: 1.45, format: (v: unknown) => formatJerseySize(v) },
-          { key: "role", label: "Role", width: 1, format: (v: unknown) => fmtText(v).replace(/_/g, " ") },
-          { key: "city", label: "City", width: 1.1, format: (v: unknown) => fmtText(v) },
-          { key: "mobileNumber", label: "Mobile", width: 1.2, format: (v: unknown) => fmtText(v) },
-        ],
+        heading: `${jerseySizeLabel(size)} (${groups.get(size)!.length} players)`,
+        columns: getJerseyColumns(),
         rows: groups.get(size)! as unknown as Record<string, unknown>[],
       }));
     return {
       ...baseHeader,
       summary: [
         { label: "Sizes", value: String(sections.length) },
-        { label: "Players", value: String(players.length) },
-        { label: "With Size", value: String(players.filter(p => p.jerseySize).length) },
+        { label: "Total Players", value: String(players.length) },
+        { label: "With Size Assigned", value: String(players.filter(p => p.jerseySize).length) },
       ],
       sections,
     };
@@ -393,13 +450,15 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
   if (typeId === "contact_directory") {
     const players = (await loadFilteredPlayers(tournamentId, filters)).map(enrich);
     const withMobile = players.filter(p => p.mobileNumber && p.mobileNumber.trim());
+    const withEmail = players.filter(p => p.email && p.email.trim());
     return {
       ...baseHeader,
       summary: [
-        { label: "Players", value: String(players.length) },
+        { label: "Total Players", value: String(players.length) },
         { label: "With Mobile", value: String(withMobile.length) },
+        { label: "With Email", value: String(withEmail.length) },
       ],
-      sections: [{ columns: CONTACT_COLUMNS, rows: players as unknown as Record<string, unknown>[] }],
+      sections: [{ columns: getContactColumns(), rows: players as unknown as Record<string, unknown>[] }],
     };
   }
 
@@ -407,17 +466,22 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
     const f: Filters = { ...filters, statuses: ["sold"] };
     const players = (await loadFilteredPlayers(tournamentId, f)).map(enrich)
       .sort((a, b) => (b.soldPrice ?? 0) - (a.soldPrice ?? 0));
-    const totalSpend = players.reduce((s, p) => s + (p.soldPrice ?? 0), 0);
-    const avg = players.length ? totalSpend / players.length : 0;
+    const retainedOnly = (await loadFilteredPlayers(tournamentId, { ...filters, statuses: ["retained"] })).map(enrich);
+    const totalSoldSpend = players.reduce((s, p) => s + (p.soldPrice ?? 0), 0);
+    const totalRetainedSpend = retainedOnly.reduce((s, p) => s + (p.retainedPrice ?? 0), 0);
+    const totalSquadSpend = totalSoldSpend + totalRetainedSpend;
+    const avg = players.length ? totalSoldSpend / players.length : 0;
     return {
       ...baseHeader,
       summary: [
-        { label: "Sold Players", value: String(players.length) },
-        { label: "Total Spend", value: fmtShortRupee(totalSpend) },
-        { label: "Average Bid", value: fmtShortRupee(avg) },
-        { label: "Highest Bid", value: fmtShortRupee(players[0]?.soldPrice ?? 0) },
+        { label: "Sold in Auction", value: String(players.length) },
+        { label: "Auction Spend", value: fmtShortAmount(totalSoldSpend, unit) },
+        { label: "Retained Spend", value: fmtShortAmount(totalRetainedSpend, unit) },
+        { label: "Total Squad Spend", value: fmtShortAmount(totalSquadSpend, unit) },
+        { label: "Average Bid", value: fmtShortAmount(avg, unit) },
+        { label: "Highest Bid", value: fmtShortAmount(players[0]?.soldPrice ?? 0, unit) },
       ],
-      sections: [{ columns: PLAYER_COLUMNS, rows: players as unknown as Record<string, unknown>[] }],
+      sections: [{ columns: getSoldPlayerColumns(unit, { hideStatus: true }), rows: players as unknown as Record<string, unknown>[] }],
     };
   }
 
@@ -427,7 +491,7 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
     return {
       ...baseHeader,
       summary: [{ label: "Unsold Players", value: String(players.length) }],
-      sections: [{ columns: PLAYER_COLUMNS, rows: players as unknown as Record<string, unknown>[] }],
+      sections: [{ columns: getMasterCatalogueColumns(unit), rows: players as unknown as Record<string, unknown>[] }],
     };
   }
 
@@ -436,10 +500,17 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
     const all = (await loadFilteredPlayers(tournamentId, f)).map(enrich)
       .sort((a, b) => (b.soldPrice ?? 0) - (a.soldPrice ?? 0))
       .slice(0, 25);
+    const totalSpend = all.reduce((s, p) => s + (p.soldPrice ?? 0), 0);
+    const avg = all.length ? totalSpend / all.length : 0;
     return {
       ...baseHeader,
-      summary: [{ label: "Showing", value: `Top ${all.length}` }],
-      sections: [{ columns: PLAYER_COLUMNS, rows: all as unknown as Record<string, unknown>[] }],
+      summary: [
+        { label: "Showing", value: `Top ${all.length}` },
+        { label: `Top ${all.length} Spend`, value: fmtShortAmount(totalSpend, unit) },
+        { label: "Average Top Bid", value: fmtShortAmount(avg, unit) },
+        { label: "Highest Bid", value: fmtShortAmount(all[0]?.soldPrice ?? 0, unit) },
+      ],
+      sections: [{ columns: getSoldPlayerColumns(unit, { hideStatus: true }), rows: all as unknown as Record<string, unknown>[] }],
     };
   }
 
@@ -452,8 +523,8 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
       if (!rows.length) continue;
       const totalSpent = rows.reduce((s, p) => s + (p.soldPrice ?? p.retainedPrice ?? 0), 0);
       sections.push({
-        heading: `${team.name}  (${rows.length} players · spent ${fmtShortRupee(totalSpent)} · purse ${fmtShortRupee(team.purse)})`,
-        columns: PLAYER_COLUMNS,
+        heading: `${team.name}  (${rows.length} players · Spent: ${fmtShortAmount(totalSpent, unit)} · Purse: ${fmtShortAmount(team.purse, unit)})`,
+        columns: getSoldPlayerColumns(unit),
         rows: rows as unknown as Record<string, unknown>[],
       });
     }
@@ -491,10 +562,11 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
       ...baseHeader,
       summary: [
         { label: "Teams", value: String(rows.length) },
-        { label: "Total Purse", value: fmtShortRupee(totalPurse) },
-        { label: "Spent", value: fmtShortRupee(totalSpent) },
+        { label: "Total Purse", value: fmtShortAmount(totalPurse, unit) },
+        { label: "Total Spent", value: fmtShortAmount(totalSpent, unit) },
+        { label: "Remaining", value: fmtShortAmount(totalPurse - totalSpent, unit) },
       ],
-      sections: [{ columns: TEAM_PURSE_COLUMNS, rows: rows as unknown as Record<string, unknown>[] }],
+      sections: [{ columns: getTeamPurseColumns(unit), rows: rows as unknown as Record<string, unknown>[] }],
     };
   }
 
@@ -503,8 +575,10 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
     const sold = allPlayers.filter(p => p.status === "sold");
     const unsold = allPlayers.filter(p => p.status === "unsold");
     const retained = allPlayers.filter(p => p.status === "retained");
-    const totalSpend = sold.reduce((s, p) => s + (p.soldPrice ?? 0), 0);
-    const avg = sold.length ? totalSpend / sold.length : 0;
+    const totalSoldSpend = sold.reduce((s, p) => s + (p.soldPrice ?? 0), 0);
+    const totalRetainedSpend = retained.reduce((s, p) => s + (p.retainedPrice ?? 0), 0);
+    const totalSpend = totalSoldSpend + totalRetainedSpend;
+    const avg = sold.length ? totalSoldSpend / sold.length : 0;
     const sortedSold = [...sold].sort((a, b) => (b.soldPrice ?? 0) - (a.soldPrice ?? 0));
     const top = sortedSold.slice(0, 10);
     const cheap = [...sold].sort((a, b) => (a.soldPrice ?? 0) - (b.soldPrice ?? 0)).slice(0, 5);
@@ -512,16 +586,18 @@ async function buildReport(typeId: string, tournamentId: number, filters: Filter
       ...baseHeader,
       summary: [
         { label: "Total Players", value: String(allPlayers.length) },
-        { label: "Sold", value: String(sold.length) },
-        { label: "Unsold", value: String(unsold.length) },
+        { label: "Sold in Auction", value: String(sold.length) },
         { label: "Retained", value: String(retained.length) },
-        { label: "Total Spend", value: fmtShortRupee(totalSpend) },
-        { label: "Average Bid", value: fmtShortRupee(avg) },
-        { label: "Highest Bid", value: fmtShortRupee(sortedSold[0]?.soldPrice ?? 0) },
+        { label: "Unsold", value: String(unsold.length) },
+        { label: "Auction Spend", value: fmtShortAmount(totalSoldSpend, unit) },
+        { label: "Retained Spend", value: fmtShortAmount(totalRetainedSpend, unit) },
+        { label: "Total Spend", value: fmtShortAmount(totalSpend, unit) },
+        { label: "Average Bid", value: fmtShortAmount(avg, unit) },
+        { label: "Highest Bid", value: fmtShortAmount(sortedSold[0]?.soldPrice ?? 0, unit) },
       ],
       sections: [
-        { heading: "Top 10 Spends", columns: PLAYER_COLUMNS, rows: top.map(enrich) as unknown as Record<string, unknown>[] },
-        { heading: "Lowest 5 Spends", columns: PLAYER_COLUMNS, rows: cheap.map(enrich) as unknown as Record<string, unknown>[] },
+        { heading: "Top 10 Spends", columns: getSoldPlayerColumns(unit, { hideStatus: true }), rows: top.map(enrich) as unknown as Record<string, unknown>[] },
+        { heading: "Lowest 5 Spends", columns: getSoldPlayerColumns(unit, { hideStatus: true }), rows: cheap.map(enrich) as unknown as Record<string, unknown>[] },
       ],
     };
   }
@@ -574,7 +650,8 @@ function renderPdf(report: ReportData, res: Response, branding: BrandingData): v
       const x = doc.page.margins.left + i * boxW;
       doc.roundedRect(x + 3, yTop, boxW - 6, 36, 4).fillAndStroke("#fef3c7", "#fcd34d");
       doc.fillColor("#78350f").font("Helvetica").fontSize(7).text(s.label.toUpperCase(), x + 8, yTop + 5, { width: boxW - 16 });
-      doc.fillColor("#1f2937").font("Helvetica-Bold").fontSize(13).text(s.value, x + 8, yTop + 16, { width: boxW - 16 });
+      const safeVal = String(s.value).replace(/₹/g, "Rs. ");
+      doc.fillColor("#1f2937").font("Helvetica-Bold").fontSize(12).text(safeVal, x + 8, yTop + 16, { width: boxW - 16 });
     });
     doc.fillColor("#000000");
     doc.y = yTop + 44;
@@ -582,50 +659,63 @@ function renderPdf(report: ReportData, res: Response, branding: BrandingData): v
 
   function filtersBlock() {
     if (!report.filtersApplied.length) return;
+    const safeFilters = report.filtersApplied.map(f => f.replace(/₹/g, "Rs. "));
     doc.fillColor("#475569").font("Helvetica-Oblique").fontSize(8)
-      .text(`Filters → ${report.filtersApplied.join("  ·  ")}`, doc.page.margins.left, doc.y, { width: pageWidth });
+      .text(`Filters → ${safeFilters.join("  ·  ")}`, doc.page.margins.left, doc.y, { width: pageWidth });
     doc.moveDown(0.4);
     doc.fillColor("#000000");
   }
 
-  function ensureRoom(needed: number) {
-    if (doc.y + needed > doc.page.height - doc.page.margins.bottom - 20) {
-      doc.addPage();
-      header();
-      doc.y = doc.page.margins.top + 60;
-    }
-  }
-
-  function renderSection(section: ReportSection, isFirst: boolean) {
-    if (section.heading) {
-      ensureRoom(20);
-      doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(11).text(section.heading, doc.page.margins.left, doc.y);
-      doc.moveDown(0.3);
-    }
-    if (!section.rows.length) {
-      doc.fillColor("#94a3b8").font("Helvetica-Oblique").fontSize(9).text("No data", doc.page.margins.left, doc.y);
-      doc.moveDown(0.5);
-      return;
-    }
+  function renderSection(section: ReportSection) {
     const totalW = section.columns.reduce((s, c) => s + (c.width ?? 1), 0);
     const colWidths = section.columns.map(c => ((c.width ?? 1) / totalW) * pageWidth);
 
+    const drawTableHeader = () => {
+      const hY = doc.y;
+      doc.rect(doc.page.margins.left, hY, pageWidth, 18).fill("#1e293b");
+      let x = doc.page.margins.left + 6;
+      doc.fillColor("#fbbf24").font("Helvetica-Bold").fontSize(8);
+      section.columns.forEach((c, i) => {
+        const safeHeaderLabel = c.label.toUpperCase().replace(/₹/g, "RS.");
+        doc.text(safeHeaderLabel, x, hY + 5, { width: colWidths[i] - 6, ellipsis: true, lineBreak: false });
+        x += colWidths[i];
+      });
+      doc.fillColor("#000000");
+      doc.y = hY + 18;
+    };
+
+    // Need room for section heading + table header + at least 2 data rows (~60pt)
+    if (doc.y + 60 > doc.page.height - doc.page.margins.bottom - 20) {
+      doc.addPage();
+      header();
+    }
+
+    if (section.heading) {
+      doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(11).text(section.heading.replace(/₹/g, "Rs. "), doc.page.margins.left, doc.y);
+      doc.moveDown(0.3);
+    }
+
+    if (!section.rows.length) {
+      doc.fillColor("#94a3b8").font("Helvetica-Oblique").fontSize(9).text("No matching records found", doc.page.margins.left, doc.y);
+      doc.moveDown(0.5);
+      return;
+    }
+
     // header row
-    ensureRoom(24);
-    const hY = doc.y;
-    doc.rect(doc.page.margins.left, hY, pageWidth, 18).fill("#1e293b");
-    let x = doc.page.margins.left + 6;
-    doc.fillColor("#fbbf24").font("Helvetica-Bold").fontSize(8);
-    section.columns.forEach((c, i) => {
-      doc.text(c.label.toUpperCase(), x, hY + 5, { width: colWidths[i] - 6, ellipsis: true, lineBreak: false });
-      x += colWidths[i];
-    });
-    doc.fillColor("#000000");
-    doc.y = hY + 18;
+    drawTableHeader();
 
     // data rows
     section.rows.forEach((row, idx) => {
-      ensureRoom(20);
+      if (doc.y + 20 > doc.page.height - doc.page.margins.bottom - 20) {
+        doc.addPage();
+        header();
+        if (section.heading) {
+          doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(9).text(`${section.heading.replace(/₹/g, "Rs. ")} (continued)`, doc.page.margins.left, doc.y);
+          doc.moveDown(0.2);
+        }
+        drawTableHeader();
+      }
+
       const rY = doc.y;
       if (idx % 2 === 0) doc.rect(doc.page.margins.left, rY, pageWidth, 16).fill("#f8fafc");
       let cx = doc.page.margins.left + 6;
@@ -633,19 +723,20 @@ function renderPdf(report: ReportData, res: Response, branding: BrandingData): v
       section.columns.forEach((c, i) => {
         const raw = row[c.key];
         const text = c.format ? c.format(raw, row) : fmtText(raw);
-        doc.text(text, cx, rY + 4, { width: colWidths[i] - 6, ellipsis: true, lineBreak: false });
+        const safeText = String(text).replace(/₹/g, "Rs. ");
+        doc.text(safeText, cx, rY + 4, { width: colWidths[i] - 6, ellipsis: true, lineBreak: false });
         cx += colWidths[i];
       });
       doc.y = rY + 16;
     });
+
     doc.moveDown(0.6);
-    isFirst && void 0;
   }
 
   header();
   summary();
   filtersBlock();
-  report.sections.forEach((s, i) => renderSection(s, i === 0));
+  report.sections.forEach((s) => renderSection(s));
 
   // Footer with page numbers + watermark
   const range = doc.bufferedPageRange();
@@ -676,16 +767,17 @@ async function renderExcel(report: ReportData, res: Response, branding: Branding
     const sheet = wb.addWorksheet(sheetName.replace(/[\\/?*[\]:]/g, "-"));
 
     // Title rows
-    sheet.mergeCells(1, 1, 1, section.columns.length);
+    const colCount = Math.max(1, section.columns.length + 1);
+    sheet.mergeCells(1, 1, 1, colCount);
     sheet.getCell(1, 1).value = `${report.tournamentName} — ${report.reportTitle}`;
     sheet.getCell(1, 1).font = { bold: true, size: 14, color: { argb: "FF0F172A" } };
 
-    sheet.mergeCells(2, 1, 2, section.columns.length);
+    sheet.mergeCells(2, 1, 2, colCount);
     sheet.getCell(2, 1).value = `Generated ${new Date(report.generatedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST`;
     sheet.getCell(2, 1).font = { italic: true, size: 9, color: { argb: "FF64748B" } };
 
     if (section.heading) {
-      sheet.mergeCells(3, 1, 3, section.columns.length);
+      sheet.mergeCells(3, 1, 3, colCount);
       sheet.getCell(3, 1).value = section.heading;
       sheet.getCell(3, 1).font = { bold: true, size: 11, color: { argb: "FF0F172A" } };
     }
@@ -698,12 +790,46 @@ async function renderExcel(report: ReportData, res: Response, branding: Branding
 
     section.rows.forEach((row, idx) => {
       const r = sheet.getRow(headerRowIdx + 1 + idx);
-      r.values = [idx + 1, ...section.columns.map(c => {
+      r.getCell(1).value = idx + 1;
+      r.getCell(1).numFmt = "#,##0";
+
+      section.columns.forEach((c, colIdx) => {
         const raw = row[c.key];
-        if (c.format) return c.format(raw, row);
-        if (raw === null || raw === undefined) return "";
-        return raw as string | number;
-      })];
+        const cell = r.getCell(colIdx + 2);
+
+        // Numeric money fields
+        if (["basePrice", "soldPrice", "retainedPrice", "purse", "purseUsed", "purseRemaining"].includes(c.key)) {
+          if (raw !== null && raw !== undefined && !Number.isNaN(Number(raw))) {
+            cell.value = Number(raw);
+            if (report.auctionUnit === "rupee") {
+              cell.numFmt = "[$₹-4009]#,##,##0";
+            } else {
+              cell.numFmt = '#,##,##0 "Pt."';
+            }
+          } else {
+            cell.value = "";
+          }
+        } else if (c.key === "utilization") {
+          if (raw !== null && raw !== undefined && !Number.isNaN(Number(raw))) {
+            cell.value = Number(raw) / 100;
+            cell.numFmt = "0.0%";
+          } else {
+            cell.value = "";
+          }
+        } else if (c.key === "playerCount" || c.key === "serialNo") {
+          if (raw !== null && raw !== undefined && !Number.isNaN(Number(raw))) {
+            cell.value = Number(raw);
+            cell.numFmt = "#,##0";
+          } else {
+            cell.value = "";
+          }
+        } else {
+          // Standard text / formatted text
+          const formatted = c.format ? c.format(raw, row) : (raw === null || raw === undefined ? "" : String(raw));
+          cell.value = formatted;
+        }
+      });
+
       if (idx % 2 === 0) {
         r.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF8FAFC" } };
       }

@@ -57,7 +57,7 @@ import { MIN_AUCTION_TIMER_SECONDS } from "./auction-timer";
 /** Default bid tiers JSON for newly created tournaments — one open-ended tier, blank raise-by. */
 export const DEFAULT_NEW_TOURNAMENT_BID_TIERS_JSON = JSON.stringify([{ increment: 0 }]);
 
-export const DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS = 10;
+export const DEFAULT_NEW_TOURNAMENT_TIMER_SECONDS = 30;
 export const DEFAULT_NEW_TOURNAMENT_BID_TIMER_SECONDS = 10;
 export const DEFAULT_NEW_TOURNAMENT_PLAYER_SELECTION_MODE = "random";
 
@@ -151,6 +151,22 @@ export const MIN_TEAMS_REQUIRED = 2;
 
 export { minPlayersRequired };
 
+/**
+ * Calculates the operational squad target: total players needed to legally fill minimum squads.
+ * For trial mode: 1.
+ * For live mode: max(teamCount, MIN_TEAMS_REQUIRED) * max(minimumSquadSize, 1).
+ */
+export function minSquadTargetPlayers(
+  teamCount: number,
+  minimumSquadSize: number,
+  mode: AuctionReadinessMode = "live",
+): number {
+  if (mode === "trial") return 1;
+  const effectiveTeams = Math.max(teamCount, MIN_TEAMS_REQUIRED);
+  const squad = Math.max(minimumSquadSize, 1);
+  return effectiveTeams * squad;
+}
+
 function playersIssueMessage(mode: AuctionReadinessMode): string {
   return mode === "trial" ? "Add at least 1 player" : "Add at least 2 players";
 }
@@ -205,6 +221,7 @@ export function validateAuctionReadiness(
 export type ReadinessChecklistItem = {
   id: AuctionReadinessCheckId;
   label: string;
+  detail?: string;
   done: boolean;
   link?: string;
 };
@@ -223,15 +240,30 @@ export function getReadinessChecklistItems(
 
   return READINESS_CHECK_ORDER.map((id) => {
     let label = CHECK_LABELS[id];
+    let detail: string | undefined = undefined;
     if (id === "players") {
       label = playersIssueMessage(mode);
     }
     if (failing.has(id)) {
       label = issueMessages.get(id) ?? label;
+    } else {
+      if (id === "openingTimer") {
+        label = `Opening Bid Timer: ${input.timerSeconds || 30}s`;
+        detail = "Default: 30s";
+      } else if (id === "bidTimer") {
+        label = `Bid Reset Timer: ${input.bidTimerSeconds || 10}s`;
+        detail = "Default: 10s";
+      } else if (id === "playerOrder") {
+        const pMode = (input.playerSelectionMode ?? "random").trim().toLowerCase();
+        const modeName = pMode === "random" ? "Random Draw" : pMode === "manual" ? "Manual Selection" : "Sequential Order";
+        label = `Player Order: ${modeName}`;
+        detail = pMode === "random" ? "Default: Random" : undefined;
+      }
     }
     return {
       id,
       label,
+      detail,
       done: !failing.has(id),
       link: links?.[id],
     };

@@ -30,7 +30,7 @@ export function SettingsSaveBar({
       if (autoSavePhase === "pending") {
         return { label: "Unsaved changes", tone: "amber" as const, icon: <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden /> };
       }
-      if (autoSavePhase === "blocked" && blockReason) {
+      if (blockReason) {
         return { label: blockReason, tone: "amber" as const, icon: <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden /> };
       }
       if (autoSavePhase === "error") {
@@ -121,7 +121,7 @@ export function AutoSaveStatusPill({ phase, isDirty, isSaving, blockReason }: Au
   } else if (phase === "pending") {
     label = "Saving soon…";
     tone = "amber";
-  } else if (phase === "blocked" && blockReason) {
+  } else if (blockReason) {
     label = blockReason;
     tone = "amber";
   } else if (phase === "error") {

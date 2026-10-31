@@ -62,8 +62,58 @@ function matchingPreset(cols: Set<ColKey>): PresetKey | null {
 }
 
 const REPORT_TH =
-  "border border-gray-400 px-2 py-1 text-[10px] font-bold uppercase leading-tight whitespace-normal tracking-wide align-middle";
-const REPORT_CELL = "border border-gray-400 px-2 py-1 align-middle text-xs";
+  "border border-gray-400 px-1.5 py-1 text-[10px] font-bold uppercase leading-tight tracking-wide align-middle select-none";
+const REPORT_CELL = "border border-gray-400 px-1.5 py-1 align-middle text-xs";
+
+type ActiveColumnDef = {
+  key: string;
+  header: string;
+  weight: number;
+  align: "left" | "center" | "right";
+};
+
+function getActiveColumns(cols: Set<ColKey>): ActiveColumnDef[] {
+  const result: ActiveColumnDef[] = [
+    { key: "serialNo", header: "S.No", weight: 0.55, align: "left" },
+    { key: "name", header: "Player Name", weight: 2.2, align: "left" },
+  ];
+
+  if (cols.has("age")) {
+    result.push({ key: "age", header: "Age", weight: 0.45, align: "center" });
+  }
+  if (cols.has("city")) {
+    result.push({ key: "city", header: "City", weight: 0.8, align: "left" });
+  }
+  if (cols.has("mobileNumber")) {
+    result.push({ key: "mobileNumber", header: "Mobile", weight: 1.05, align: "left" });
+  }
+  if (cols.has("email")) {
+    result.push({ key: "email", header: "Email", weight: 1.35, align: "left" });
+  }
+  if (cols.has("categoryName")) {
+    result.push({ key: "categoryName", header: "Category", weight: 0.8, align: "left" });
+  }
+  if (cols.has("role")) {
+    result.push({ key: "role", header: "Role", weight: 0.8, align: "left" });
+  }
+  if (cols.has("jerseyNumber")) {
+    result.push({ key: "jerseyNumber", header: "Jersey No.", weight: 0.55, align: "center" });
+  }
+  if (cols.has("jerseySize")) {
+    result.push({ key: "jerseySize", header: "Jersey Size", weight: 0.7, align: "center" });
+  }
+  if (cols.has("status")) {
+    result.push({ key: "status", header: "Type", weight: 0.8, align: "left" });
+  }
+
+  result.push({ key: "amount", header: "Amount", weight: 1.15, align: "right" });
+
+  if (cols.has("remainingBalance")) {
+    result.push({ key: "remainingBalance", header: "Balance", weight: 1.15, align: "right" });
+  }
+
+  return result;
+}
 const PLANNING_ROW_MIN_PX = 28;
 const PLANNING_SECTION_TITLE_PX = 22;
 const PLANNING_TABLE_HEAD_PX = 30;
@@ -159,34 +209,8 @@ type ReportData = {
   squadInfo: { totalAcquired: number; slotsRemaining: number; planningRows: number };
 };
 
-function PlayerNameCell({
-  name,
-  photoUrl,
-  showPhoto,
-  placeholder,
-}: {
-  name?: string;
-  photoUrl?: string | null;
-  showPhoto: boolean;
-  placeholder?: boolean;
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-1.5">
-      {showPhoto ? (
-        placeholder ? (
-          <div className="h-7 w-7 flex-shrink-0" />
-        ) : (
-          <PlayerPhoto url={photoUrl ?? null} name={name ?? ""} small />
-        )
-      ) : null}
-      <span className={cn("min-w-0 leading-tight", name ? "font-semibold text-gray-900" : "")}>
-        {name ?? "\u00A0"}
-      </span>
-    </div>
-  );
-}
 function PlayerPhoto({ url, name, small }: { url: string | null; name: string; small?: boolean }) {
-  const size = small ? "w-7 h-7" : "w-10 h-10";
+  const size = small ? "w-6 h-6" : "w-10 h-10";
   if (url) {
     return (
       <img
@@ -204,6 +228,33 @@ function PlayerPhoto({ url, name, small }: { url: string | null; name: string; s
   );
 }
 
+function PlayerNameCell({
+  name,
+  photoUrl,
+  showPhoto,
+  placeholder,
+}: {
+  name?: string;
+  photoUrl?: string | null;
+  showPhoto: boolean;
+  placeholder?: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-1.5 overflow-hidden" title={name || undefined}>
+      {showPhoto ? (
+        placeholder ? (
+          <div className="h-6 w-6 flex-shrink-0" />
+        ) : (
+          <PlayerPhoto url={photoUrl ?? null} name={name ?? ""} small />
+        )
+      ) : null}
+      <span className={cn("min-w-0 truncate text-xs leading-normal", name ? "font-semibold text-gray-900" : "text-gray-300")}>
+        {name ?? (placeholder ? "—" : "\u00A0")}
+      </span>
+    </div>
+  );
+}
+
 function PlayerTable({
   players, cols, initialBalance, sectionLabel, showPhoto,
 }: {
@@ -215,27 +266,33 @@ function PlayerTable({
 }) {
   if (players.length === 0) return null;
 
+  const activeCols = getActiveColumns(cols);
+  const totalWeight = activeCols.reduce((sum, c) => sum + c.weight, 0);
   let balance = initialBalance;
 
   return (
     <div className="mb-2 flex-shrink-0 print-section">
       <h3 className="mb-1 px-1 text-[10px] font-bold uppercase tracking-widest text-gray-500 print-section-heading">{sectionLabel}</h3>
-      <table className="w-full table-fixed border-collapse border border-gray-400 text-sm">
+      <table className="w-full table-fixed border-collapse border border-gray-400 text-xs">
+        <colgroup>
+          {activeCols.map((col) => {
+            const widthPct = `${((col.weight / totalWeight) * 100).toFixed(2)}%`;
+            return <col key={col.key} style={{ width: widthPct }} />;
+          })}
+        </colgroup>
         <thead>
           <tr className="bg-slate-800 text-yellow-400 print-table-header">
-            <th className={`w-10 ${REPORT_TH} text-left`}>Serial #</th>
-            <th className={`${REPORT_TH} text-left`}>Player Name</th>
-            {cols.has("age") && <th className={`w-14 ${REPORT_TH} text-center`}>Age</th>}
-            {cols.has("city") && <th className={`w-24 ${REPORT_TH} text-left`}>City</th>}
-            {cols.has("mobileNumber") && <th className={`w-28 ${REPORT_TH} text-left`}>Mobile</th>}
-            {cols.has("email") && <th className={`w-36 ${REPORT_TH} text-left`}>Email</th>}
-            {cols.has("categoryName") && <th className={`w-28 ${REPORT_TH} text-left`}>Category</th>}
-            {cols.has("role") && <th className={`w-24 ${REPORT_TH} text-left`}>Role</th>}
-            {cols.has("jerseyNumber") && <th className={`w-16 ${REPORT_TH} text-center`}>Jersey No.</th>}
-            {cols.has("jerseySize") && <th className={`w-36 ${REPORT_TH} text-center`}>Jersey Size</th>}
-            {cols.has("status") && <th className={`w-24 ${REPORT_TH} text-left`}>Type</th>}
-            <th className={`w-24 ${REPORT_TH} text-right`}>Amount</th>
-            {cols.has("remainingBalance") && <th className={`w-24 ${REPORT_TH} text-right`}>Balance</th>}
+            {activeCols.map((col) => (
+              <th
+                key={col.key}
+                className={cn(
+                  REPORT_TH,
+                  col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left",
+                )}
+              >
+                {col.header}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -246,36 +303,78 @@ function PlayerTable({
             const cell = REPORT_CELL;
             return (
               <tr key={p.id} className={`print-row ${i % 2 === 0 ? "bg-white" : "bg-gray-50"}`}>
-                <td className={`${cell} text-gray-500`}>{p.serialNo ?? p.id}</td>
-                <td className={cell}>
+                <td className={cn(cell, "text-left font-mono text-[11px] text-gray-500 whitespace-nowrap")}>
+                  {p.serialNo ?? p.id}
+                </td>
+                <td className={cn(cell, "text-left")}>
                   <PlayerNameCell name={p.name} photoUrl={p.photoUrl} showPhoto={showPhoto} />
                 </td>
-                {cols.has("age") && <td className={`${cell} text-center text-gray-600`}>{p.age ?? "-"}</td>}
-                {cols.has("city") && <td className={`${cell} text-gray-600`}>{p.city || "-"}</td>}
-                {cols.has("mobileNumber") && <td className={`${cell} font-mono text-xs text-gray-600`}>{p.mobileNumber || "-"}</td>}
-                {cols.has("email") && <td className={`${cell} text-xs text-gray-600 break-all`}>{p.email || "-"}</td>}
+                {cols.has("age") && (
+                  <td className={cn(cell, "text-center text-gray-600 whitespace-nowrap")}>
+                    {p.age ?? "-"}
+                  </td>
+                )}
+                {cols.has("city") && (
+                  <td className={cn(cell, "text-left text-gray-600 truncate")} title={p.city || ""}>
+                    {p.city || "-"}
+                  </td>
+                )}
+                {cols.has("mobileNumber") && (
+                  <td className={cn(cell, "text-left font-mono text-[11px] text-gray-600 whitespace-nowrap")}>
+                    {p.mobileNumber || "-"}
+                  </td>
+                )}
+                {cols.has("email") && (
+                  <td className={cn(cell, "text-left text-[11px] text-gray-600 truncate")} title={p.email || ""}>
+                    {p.email || "-"}
+                  </td>
+                )}
                 {cols.has("categoryName") && (
-                  <td className={cell}>
+                  <td className={cn(cell, "text-left truncate")}>
                     {p.categoryName ? (
-                      <span className="rounded px-1.5 py-0.5 text-xs font-medium" style={{ backgroundColor: (p.categoryColor || "#3B82F6") + "22", color: p.categoryColor || "#3B82F6" }}>
+                      <span
+                        className="inline-block max-w-full truncate rounded px-1.5 py-0.5 text-[10px] font-semibold"
+                        style={{ backgroundColor: (p.categoryColor || "#3B82F6") + "22", color: p.categoryColor || "#3B82F6" }}
+                      >
                         {p.categoryName}
                       </span>
                     ) : "-"}
                   </td>
                 )}
-                {cols.has("role") && <td className={`${cell} capitalize text-gray-600`}>{p.role?.replace(/_/g, " ") || "-"}</td>}
-                {cols.has("jerseyNumber") && <td className={`${cell} text-center text-gray-600`}>{p.jerseyNumber || "-"}</td>}
-                {cols.has("jerseySize") && <td className={`${cell} text-center text-gray-600 whitespace-nowrap`}>{p.jerseySize ? jerseySizeLabel(p.jerseySize) : "-"}</td>}
+                {cols.has("role") && (
+                  <td className={cn(cell, "text-left capitalize text-gray-600 truncate")} title={p.role || ""}>
+                    {p.role?.replace(/_/g, " ") || "-"}
+                  </td>
+                )}
+                {cols.has("jerseyNumber") && (
+                  <td className={cn(cell, "text-center text-gray-600 font-mono text-[11px] whitespace-nowrap")}>
+                    {p.jerseyNumber || "-"}
+                  </td>
+                )}
+                {cols.has("jerseySize") && (
+                  <td className={cn(cell, "text-center text-gray-600 whitespace-nowrap text-[11px]")}>
+                    {p.jerseySize ? jerseySizeLabel(p.jerseySize) : "-"}
+                  </td>
+                )}
                 {cols.has("status") && (
-                  <td className={cell}>
-                    <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${p.status === "retained" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                  <td className={cn(cell, "text-left")}>
+                    <span
+                      className={cn(
+                        "inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap",
+                        p.status === "retained" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700",
+                      )}
+                    >
                       {p.status === "retained" ? "Retained" : "Pre-Sold"}
                     </span>
                   </td>
                 )}
-                <td className={`${cell} text-right font-mono font-semibold text-gray-900`}>{formatShortIndianRupee(price)}</td>
+                <td className={cn(cell, "text-right font-mono font-semibold text-gray-900 whitespace-nowrap")}>
+                  {formatShortIndianRupee(price)}
+                </td>
                 {cols.has("remainingBalance") && (
-                  <td className={`${cell} text-right font-mono font-semibold text-emerald-700`}>{formatShortIndianRupee(rowBalance)}</td>
+                  <td className={cn(cell, "text-right font-mono font-semibold text-emerald-700 whitespace-nowrap")}>
+                    {formatShortIndianRupee(rowBalance)}
+                  </td>
                 )}
               </tr>
             );
@@ -301,7 +400,8 @@ function AuctionPlanningTable({
   showPhoto: boolean;
   className?: string;
 }) {
-  const headCell = REPORT_TH;
+  const activeCols = getActiveColumns(cols);
+  const totalWeight = activeCols.reduce((sum, c) => sum + c.weight, 0);
   const bodyCell = REPORT_CELL;
   const rowStyle = { height: rowHeight, minHeight: rowHeight };
 
@@ -311,22 +411,26 @@ function AuctionPlanningTable({
         Auction Working Sheet — {displayRows} Slots
       </h3>
       <div className="flex min-h-0 flex-1 flex-col">
-        <table className="h-full w-full table-fixed border-collapse border border-gray-400 text-sm print-table">
+        <table className="h-full w-full table-fixed border-collapse border border-gray-400 text-xs print-table">
+          <colgroup>
+            {activeCols.map((col) => {
+              const widthPct = `${((col.weight / totalWeight) * 100).toFixed(2)}%`;
+              return <col key={col.key} style={{ width: widthPct }} />;
+            })}
+          </colgroup>
           <thead>
             <tr className="bg-slate-800 text-yellow-400 print-table-header">
-              <th className={`w-10 ${headCell} text-left`}>S.No</th>
-              <th className={`${headCell} text-left`}>Player Name</th>
-              {cols.has("age") && <th className={`w-14 ${headCell} text-center`}>Age</th>}
-              {cols.has("city") && <th className={`w-24 ${headCell} text-left`}>City</th>}
-              {cols.has("mobileNumber") && <th className={`w-28 ${headCell} text-left`}>Mobile</th>}
-              {cols.has("email") && <th className={`w-36 ${headCell} text-left`}>Email</th>}
-              {cols.has("categoryName") && <th className={`w-28 ${headCell} text-left`}>Category</th>}
-              {cols.has("role") && <th className={`w-24 ${headCell} text-left`}>Role</th>}
-              {cols.has("jerseyNumber") && <th className={`w-16 ${headCell} text-center`}>Jersey No.</th>}
-              {cols.has("jerseySize") && <th className={`w-36 ${headCell} text-center`}>Jersey Size</th>}
-              {cols.has("status") && <th className={`w-24 ${headCell} text-left`}>Type</th>}
-              <th className={`w-24 ${headCell} text-right`}>Amount</th>
-              {cols.has("remainingBalance") && <th className={`w-24 ${headCell} text-right`}>Balance</th>}
+              {activeCols.map((col) => (
+                <th
+                  key={col.key}
+                  className={cn(
+                    REPORT_TH,
+                    col.align === "center" ? "text-center" : col.align === "right" ? "text-right" : "text-left",
+                  )}
+                >
+                  {col.header}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -336,8 +440,10 @@ function AuctionPlanningTable({
                 style={rowStyle}
                 className={cn("print-row", i % 2 === 0 ? "bg-white" : "bg-gray-50")}
               >
-                <td className={`${bodyCell} text-gray-500`} style={rowStyle}>{startSno + i}</td>
-                <td className={bodyCell} style={rowStyle}>
+                <td className={cn(bodyCell, "text-left font-mono text-[11px] text-gray-500 whitespace-nowrap")} style={rowStyle}>
+                  {startSno + i}
+                </td>
+                <td className={cn(bodyCell, "text-left")} style={rowStyle}>
                   <PlayerNameCell showPhoto={showPhoto} placeholder />
                 </td>
                 {cols.has("age") && <td className={bodyCell} style={rowStyle}>&nbsp;</td>}
@@ -359,15 +465,20 @@ function AuctionPlanningTable({
     </div>
   );
 }
-
 function ReportPreview({
   report,
   cols,
   showSponsors,
+  orientation = "portrait",
+  zoomMode = "fit",
+  tournamentStatus,
 }: {
   report: ReportData;
   cols: Set<ColKey>;
   showSponsors: boolean;
+  orientation?: "portrait" | "landscape";
+  zoomMode?: "fit" | "actual";
+  tournamentStatus?: string;
 }) {
   const { tournament, team, purgeSummary, retainedPlayers, preSoldPlayers, nonPlayingMembers, squadInfo, auctionRules, sponsors = [] } = report;
   const { logos, brandName, poweredByText, miniBrandText, loading: brandingLoading, visibility, iconVersion } = useBranding();
@@ -375,6 +486,12 @@ function ReportPreview({
   const showPhoto = cols.has("photo");
   const allAcquired = retainedPlayers.length + preSoldPlayers.length;
   const isLicensed = report.isLicensed;
+  const isCompleted = (tournament as any)?.status === "completed" || report.tournament?.licenseStatus === "completed" || tournamentStatus === "completed";
+  const isLive = (tournament as any)?.status === "live" || (tournament as any)?.status === "in_progress" || tournamentStatus === "live" || tournamentStatus === "in_progress";
+  const reportHeading = isCompleted ? "Official Squad & Purse Reconciliation" : isLive ? "Live Squad & Purse Tracker" : "Pre-Auction Team Report";
+  const acquiredSectionLabel = isCompleted ? `Auction Acquisitions (${preSoldPlayers.length})` : `Pre-Sold Players (${preSoldPlayers.length})`;
+  const acquiredSpendLabel = isCompleted || isLive ? "Auction Spend" : "Pre-Sold Spend";
+  const remainingPurseLabel = isCompleted ? "Unspent Purse" : "Remaining Purse";
   const brandLogoUrl = cldUrl(logos.mainReverse || logos.main || logos.mini, "brandWordmark") || logos.mainReverse || logos.main || logos.mini;
   const platformLogoUrl = getPublicBrandLogoSrc(["mainReverse", "main", "mini"], iconVersion);
   const websiteUrl = report.platform?.websiteUrl ?? PLATFORM_BASE_URL;
@@ -438,7 +555,16 @@ function ReportPreview({
   return (
     <div
       id="print-report"
-      className="report-sheet relative mx-auto flex min-h-[297mm] w-[210mm] max-w-full flex-col bg-white text-gray-900"
+      className={cn(
+        "report-sheet relative mx-auto flex flex-col bg-white text-gray-900 transition-all",
+        zoomMode === "actual"
+          ? orientation === "landscape"
+            ? "w-[297mm] min-h-[210mm] max-w-[297mm]"
+            : "w-[210mm] min-h-[297mm] max-w-[210mm]"
+          : orientation === "landscape"
+            ? "w-full max-w-[297mm] min-h-[210mm]"
+            : "w-full max-w-[210mm] min-h-[297mm]",
+      )}
     >
       {!isLicensed && (
         <div
@@ -469,7 +595,7 @@ function ReportPreview({
             className="h-9 w-auto max-w-[150px] flex-shrink-0 object-contain"
           />
           <p className="flex-1 text-center text-xs font-semibold uppercase tracking-[0.15em] text-slate-300">
-            Pre-Auction Team Report
+            {reportHeading}
           </p>
           <p className="flex-shrink-0 text-[10px] text-slate-500">
             {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
@@ -487,8 +613,8 @@ function ReportPreview({
             </div>
           </div>
           <div className="flex-shrink-0 rounded border border-slate-500/70 bg-white px-2.5 py-1.5 shadow-sm">
-            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-600">Access Code</p>
-            <p className="mt-1 font-mono text-sm font-semibold tracking-[0.5em] text-slate-500">_ _ _ _ _ _</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.16em] text-slate-600">{isCompleted ? "Status" : "Access Code"}</p>
+            <p className="mt-1 font-mono text-sm font-semibold tracking-[0.2em] text-slate-500">{isCompleted ? "COMPLETED" : "_ _ _ _ _ _"}</p>
           </div>
         </div>
 
@@ -532,8 +658,8 @@ function ReportPreview({
               {[
                 { label: "Total Purse", value: formatAmount(purgeSummary.totalPurse), highlight: false },
                 { label: "Retained Spend", value: formatAmount(purgeSummary.retainedSpend), highlight: false },
-                { label: "Pre-Sold Spend", value: formatAmount(purgeSummary.preSoldSpend), highlight: false },
-                { label: "Remaining Purse", value: formatAmount(purgeSummary.remainingPurse), highlight: true },
+                { label: acquiredSpendLabel, value: formatAmount(purgeSummary.preSoldSpend), highlight: false },
+                { label: remainingPurseLabel, value: formatAmount(purgeSummary.remainingPurse), highlight: true },
               ].map(item => (
                 <div key={item.label}>
                   <p className="text-[10px] text-slate-500">{item.label}</p>
@@ -581,7 +707,7 @@ function ReportPreview({
             players={preSoldPlayers}
             cols={cols}
             initialBalance={purgeSummary.totalPurse - purgeSummary.retainedSpend}
-            sectionLabel={`Pre-Sold Players (${preSoldPlayers.length})`}
+            sectionLabel={acquiredSectionLabel}
             showPhoto={showPhoto}
           />
         </div>
@@ -659,6 +785,8 @@ export function TeamPlanningWorkspace({
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const [cols, setCols] = useState<Set<ColKey>>(() => loadCols(tournamentId));
   const [showSponsors, setShowSponsors] = useState(() => loadShowSponsors(tournamentId));
+  const [orientation, setOrientation] = useState<"portrait" | "landscape">("portrait");
+  const [zoomMode, setZoomMode] = useState<"fit" | "actual">("fit");
   const [exporting, setExporting] = useState(false);
   const [printing, setPrinting] = useState(false);
 
@@ -708,7 +836,7 @@ export function TeamPlanningWorkspace({
 
     setPrinting(true);
     try {
-      await printElementAsPdf(element);
+      await printElementAsPdf(element, { orientation });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Something went wrong while preparing the print preview.";
       toast({ title: "Print failed", description: message, variant: "destructive" });
@@ -728,11 +856,13 @@ export function TeamPlanningWorkspace({
     setExporting(true);
     try {
       const teamName = report.team.name || "team";
+      const isCompleted = tournament?.status === "completed" || report.tournament?.licenseStatus === "completed";
       await exportElementToPdf(
         element,
-        `${teamName.replace(/[^a-zA-Z0-9]/g, "_")}_PreAuction_Report.pdf`,
+        `${teamName.replace(/[^a-zA-Z0-9]/g, "_")}_${isCompleted ? "Squad_Reconciliation" : "PreAuction"}_Report.pdf`,
+        { orientation },
       );
-      toast({ title: "PDF exported", description: "Your pre-auction report has been downloaded." });
+      toast({ title: "PDF exported", description: isCompleted ? "Your squad reconciliation report has been downloaded." : "Your pre-auction report has been downloaded." });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Something went wrong while creating the PDF.";
       toast({ title: "Export failed", description: message, variant: "destructive" });
@@ -769,7 +899,7 @@ export function TeamPlanningWorkspace({
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          @page { size: A4 portrait; margin: 0; }
+          @page { size: A4 ${orientation}; margin: 0; }
 
           html, body {
             margin: 0 !important;
@@ -791,9 +921,9 @@ export function TeamPlanningWorkspace({
           #print-report {
             position: fixed !important;
             inset: 0 !important;
-            width: 210mm !important;
-            max-width: 210mm !important;
-            min-height: 297mm !important;
+            width: ${orientation === "landscape" ? "297mm" : "210mm"} !important;
+            max-width: ${orientation === "landscape" ? "297mm" : "210mm"} !important;
+            min-height: ${orientation === "landscape" ? "210mm" : "297mm"} !important;
             margin: 0 auto !important;
             padding: 0 !important;
             border: none !important;
@@ -842,7 +972,7 @@ export function TeamPlanningWorkspace({
               <TournamentContextLabel tournament={tournament} className="mb-1" />
               <h1 className="flex items-center gap-2 text-base font-bold">
                 <FileText className="h-4 w-4 text-primary" />
-                Planning sheets
+                {tournament?.status === "completed" ? "Squad & purse reports" : "Planning sheets"}
               </h1>
             </div>
             <div className="flex gap-2">
@@ -858,7 +988,7 @@ export function TeamPlanningWorkspace({
           </header>
 
           <div className="flex min-h-0 flex-1">
-            <aside className="print-hide flex w-60 shrink-0 flex-col overflow-x-hidden overflow-y-auto border-r border-border bg-card">
+            <aside className={cn("print-hide flex shrink-0 flex-col overflow-x-hidden overflow-y-auto border-r border-border bg-card", embedded ? "w-52" : "w-60")}>
               <p className="px-4 pb-1.5 pt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Teams</p>
               {loadingTeams ? (
                 <div className="space-y-1 px-2 pb-3">
@@ -905,23 +1035,83 @@ export function TeamPlanningWorkspace({
 
             <main className="flex min-w-0 flex-1 flex-col bg-muted/30">
               <div className="print-hide border-b border-border px-4 py-3">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="mr-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Columns</span>
-                  {PRESET_KEYS.map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => applyPreset(preset)}
-                      className={cn(
-                        "rounded border px-2 py-1 text-xs capitalize transition-colors",
-                        currentPreset === preset
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground hover:border-primary hover:text-primary",
-                      )}
-                    >
-                      {preset}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="mr-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Columns</span>
+                    {PRESET_KEYS.map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => applyPreset(preset)}
+                        className={cn(
+                          "rounded border px-2 py-1 text-xs capitalize transition-colors",
+                          currentPreset === preset
+                            ? "border-primary bg-primary/10 text-primary font-medium"
+                            : "border-border text-muted-foreground hover:border-primary hover:text-primary",
+                        )}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-1">View</span>
+                      <button
+                        type="button"
+                        onClick={() => setZoomMode("fit")}
+                        title="Fit sheet width cleanly to your screen"
+                        className={cn(
+                          "rounded border px-2 py-1 text-xs transition-colors",
+                          zoomMode === "fit"
+                            ? "border-primary bg-primary/10 text-primary font-medium"
+                            : "border-border text-muted-foreground hover:border-primary hover:text-primary",
+                        )}
+                      >
+                        Fit to Screen
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setZoomMode("actual")}
+                        title="Inspect exact A4 print size (100%)"
+                        className={cn(
+                          "rounded border px-2 py-1 text-xs transition-colors",
+                          zoomMode === "actual"
+                            ? "border-primary bg-primary/10 text-primary font-medium"
+                            : "border-border text-muted-foreground hover:border-primary hover:text-primary",
+                        )}
+                      >
+                        100% (A4)
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1 border-l border-border pl-3">
+                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mr-1">Orientation</span>
+                      <button
+                        type="button"
+                        onClick={() => setOrientation("portrait")}
+                        className={cn(
+                          "rounded border px-2.5 py-1 text-xs transition-colors",
+                          orientation === "portrait"
+                            ? "border-primary bg-primary/10 text-primary font-medium"
+                            : "border-border text-muted-foreground hover:border-primary hover:text-primary",
+                        )}
+                      >
+                        Portrait (A4)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setOrientation("landscape")}
+                        className={cn(
+                          "rounded border px-2.5 py-1 text-xs transition-colors",
+                          orientation === "landscape"
+                            ? "border-primary bg-primary/10 text-primary font-medium"
+                            : "border-border text-muted-foreground hover:border-primary hover:text-primary",
+                        )}
+                      >
+                        Landscape (Wide)
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 xl:grid-cols-4">
                   {OPTIONAL_COLS.map((col) => (
@@ -968,17 +1158,29 @@ export function TeamPlanningWorkspace({
                     <p className="text-sm text-muted-foreground">Could not load this sheet. Check that the tournament license is active.</p>
                   </div>
                 ) : (
-                  <div className="p-6">
-                    <div className="mb-4 flex items-center gap-2">
-                      <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: report.team.color || "#3B82F6" }} />
-                      <span className="text-sm font-semibold">{report.team.name}</span>
-                      <Badge variant="outline" className="text-xs">Planning sheet</Badge>
-                      {!report.isLicensed ? (
-                        <Badge variant="destructive" className="text-xs">Unlicensed</Badge>
-                      ) : null}
+                  <div className={embedded ? "p-3 sm:p-4" : "p-4 sm:p-6"}>
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: report.team.color || "#3B82F6" }} />
+                        <span className="text-sm font-semibold">{report.team.name}</span>
+                        <Badge variant="outline" className="text-xs">{tournament?.status === "completed" ? "Squad sheet" : "Planning sheet"}</Badge>
+                        {!report.isLicensed ? (
+                          <Badge variant="destructive" className="text-xs">Unlicensed</Badge>
+                        ) : null}
+                      </div>
+                      {zoomMode === "actual" && (
+                        <span className="text-[11px] text-muted-foreground">Showing 100% A4 print size (horizontal scroll enabled)</span>
+                      )}
                     </div>
-                    <div className="mx-auto max-w-5xl overflow-hidden rounded-lg border border-border shadow-xl">
-                      <ReportPreview report={report} cols={cols} showSponsors={showSponsors} />
+                    <div className="mx-auto max-w-full overflow-x-auto rounded-lg border border-border bg-slate-900/40 p-1 sm:p-2 shadow-xl">
+                      <ReportPreview
+                        report={report}
+                        cols={cols}
+                        showSponsors={showSponsors}
+                        orientation={orientation}
+                        zoomMode={zoomMode}
+                        tournamentStatus={tournament?.status}
+                      />
                     </div>
                   </div>
                 )}

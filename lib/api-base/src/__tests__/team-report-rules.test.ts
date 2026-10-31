@@ -6,11 +6,11 @@ import {
 } from "../team-report-rules";
 
 describe("describeBidIncrementRules", () => {
-  it("formats a single flat increment (defaults to points)", () => {
+  it("formats a single flat increment (defaults to points) without double period", () => {
     const lines = describeBidIncrementRules({
       bidTiers: JSON.stringify([{ increment: 100000 }]),
     });
-    expect(lines).toEqual(["Each raise must be exactly 1.00 L Pt.."]);
+    expect(lines).toEqual(["Each raise must be exactly 1.00 L Pt."]);
 
     const rupeeLines = describeBidIncrementRules({
       bidTiers: JSON.stringify([{ increment: 100000 }]),
@@ -65,6 +65,31 @@ describe("computeTeamReportPlanningRows", () => {
     expect(computeTeamReportPlanningRows(1, 10, 0)).toEqual({
       planningRows: 9,
       slotsRemaining: 9,
+    });
+  });
+
+  it("returns zero planning rows when squad target is met", () => {
+    expect(computeTeamReportPlanningRows(10, 10, 0)).toEqual({
+      planningRows: 0,
+      slotsRemaining: 0,
+    });
+    expect(computeTeamReportPlanningRows(12, 10, 12)).toEqual({
+      planningRows: 0,
+      slotsRemaining: 0,
+    });
+  });
+
+  it("provides 8 planning rows when no limits are set and team has no players", () => {
+    expect(computeTeamReportPlanningRows(0, 0, 0)).toEqual({
+      planningRows: 8,
+      slotsRemaining: 0,
+    });
+  });
+
+  it("returns zero planning rows when no limits are set but team already has acquired players", () => {
+    expect(computeTeamReportPlanningRows(10, 0, 0)).toEqual({
+      planningRows: 0,
+      slotsRemaining: 0,
     });
   });
 });

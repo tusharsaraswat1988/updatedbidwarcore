@@ -12,6 +12,11 @@ export type TeamReportAuctionRules = {
   maximumSquadSize: number | null;
 };
 
+function terminateSentence(str: string): string {
+  const trimmed = str.trim();
+  return trimmed.endsWith(".") ? trimmed : `${trimmed}.`;
+}
+
 export function describeBidIncrementRules(
   tournament: Pick<
     AuctionReadinessInput,
@@ -30,7 +35,7 @@ export function describeBidIncrementRules(
 
   if (tiers.length === 1 && tiers[0].upTo == null) {
     return [
-      `Each raise must be exactly ${formatAmount(tiers[0].increment, unit)}.`,
+      terminateSentence(`Each raise must be exactly ${formatAmount(tiers[0].increment, unit)}`),
     ];
   }
 
@@ -43,21 +48,23 @@ export function describeBidIncrementRules(
       const previousUpTo = tiers[index - 1]?.upTo;
       if (previousUpTo != null && previousUpTo > 0) {
         lines.push(
-          `Above ${formatAmount(previousUpTo, unit)}: each raise is exactly ${increment}.`,
+          terminateSentence(`Above ${formatAmount(previousUpTo, unit)}: each raise is exactly ${increment}`),
         );
       } else {
-        lines.push(`Each raise must be exactly ${increment}.`);
+        lines.push(terminateSentence(`Each raise must be exactly ${increment}`));
       }
       return;
     }
 
     if (tier.upTo != null && tier.upTo > 0) {
       if (index === 0) {
-        lines.push(`Up to ${formatAmount(tier.upTo, unit)}: each raise is exactly ${increment}.`);
+        lines.push(terminateSentence(`Up to ${formatAmount(tier.upTo, unit)}: each raise is exactly ${increment}`));
       } else {
         const previousUpTo = tiers[index - 1]?.upTo ?? 0;
         lines.push(
-          `Above ${formatAmount(previousUpTo, unit)} up to ${formatAmount(tier.upTo, unit)}: each raise is exactly ${increment}.`,
+          terminateSentence(
+            `Above ${formatAmount(previousUpTo, unit)} up to ${formatAmount(tier.upTo, unit)}: each raise is exactly ${increment}`,
+          ),
         );
       }
     }
@@ -75,17 +82,22 @@ export function computeTeamReportPlanningRows(
   planningRows: number;
   slotsRemaining: number;
 } {
+  const hasSquadTargets = minimumSquadSize > 0 || maximumSquadSize > 0;
   const slotsToReachMin = minimumSquadSize > 0
     ? Math.max(0, minimumSquadSize - totalAcquired)
     : 0;
   const slotsToReachMax = maximumSquadSize > 0
     ? Math.max(0, maximumSquadSize - totalAcquired)
     : 0;
-  const planningRows = Math.max(
-    slotsToReachMin,
-    slotsToReachMax,
-    slotsToReachMin === 0 && slotsToReachMax === 0 ? 8 : 0,
-  );
+
+  let planningRows: number;
+  if (hasSquadTargets) {
+    planningRows = Math.max(slotsToReachMin, slotsToReachMax);
+  } else {
+    // When no squad size is configured: if no players acquired yet, provide 8 blank worksheet rows.
+    // If players have already been acquired, no mandatory blank rows are needed.
+    planningRows = totalAcquired === 0 ? 8 : 0;
+  }
 
   return {
     planningRows,

@@ -200,7 +200,7 @@ export function CreateTournamentModal({
     basePurse: "10000000",
     minBid: "100000",
     timerSeconds: "30",
-    bidTimerSeconds: "15",
+    bidTimerSeconds: "10",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -289,7 +289,7 @@ export function CreateTournamentModal({
       basePurse: isAuction ? (Number(form.basePurse) || 10000000) : 10000000,
       minBid: isAuction ? (Number(form.minBid) || 100000) : 100000,
       timerSeconds: isAuction ? (Number(form.timerSeconds) || 30) : 30,
-      bidTimerSeconds: isAuction ? (Number(form.bidTimerSeconds) || 15) : 15,
+      bidTimerSeconds: isAuction ? (Number(form.bidTimerSeconds) || 10) : 10,
     });
     setLoading(false);
     if (r.success) {
@@ -1335,7 +1335,7 @@ function DetailPanel({
                     <Input
                       type="number"
                       className="h-8 text-sm"
-                      value={(editForm.bidTimerSeconds as number) || 15}
+                      value={(editForm.bidTimerSeconds as number) || 10}
                       onChange={(e) =>
                         setEditForm((f) => ({
                           ...f,
@@ -1350,7 +1350,7 @@ function DetailPanel({
                     </Label>
                     <Select
                       value={
-                        (editForm.playerSelectionMode as string) || "sequential"
+                        (editForm.playerSelectionMode as string) || "random"
                       }
                       onValueChange={(v) =>
                         setEditForm((f) => ({ ...f, playerSelectionMode: v }))

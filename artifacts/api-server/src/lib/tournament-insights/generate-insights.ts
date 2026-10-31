@@ -98,21 +98,40 @@ export function buildTemplateInsights(summary: TournamentInsightsSummary): Tourn
   }
 
   if (summary.tournamentPhase === "setup") {
+    const hasTeams = summary.totalTeams > 0;
+    const combinedPurse = summary.totalBudgetRemaining + summary.totalBudgetSpent;
+
     return clampInsights([
-      {
-        type: "insight",
-        emoji: "📋",
-        title: `${summary.totalTeams} teams, ${summary.totalPlayers} players registered`,
-        description: `The ${summary.sport} auction floor is set — once bidding opens, live intelligence will appear here.`,
-        priority: 1,
-      },
-      {
-        type: "strategy",
-        emoji: TYPE_EMOJI.strategy,
-        title: "War chests are loaded",
-        description: `${formatInr(summary.totalBudgetRemaining + summary.totalBudgetSpent)} in combined team budgets ready to deploy.`,
-        priority: 2,
-      },
+      hasTeams
+        ? {
+            type: "insight",
+            emoji: "📋",
+            title: `${summary.totalTeams} teams, ${summary.totalPlayers} players registered`,
+            description: `The ${summary.sport} auction floor is set — once bidding opens, live intelligence will appear here.`,
+            priority: 1,
+          }
+        : {
+            type: "insight",
+            emoji: "📋",
+            title: `${summary.totalPlayers} players registered, awaiting teams`,
+            description: `Team rosters are currently empty. Register at least 2 teams before opening bidding.`,
+            priority: 1,
+          },
+      hasTeams
+        ? {
+            type: "strategy",
+            emoji: TYPE_EMOJI.strategy,
+            title: "War chests are loaded",
+            description: `${formatInr(combinedPurse)} in combined team budgets ready to deploy.`,
+            priority: 2,
+          }
+        : {
+            type: "strategy",
+            emoji: "⏳",
+            title: "Team War Chests Pending",
+            description: "No teams registered yet. Add teams to calculate combined auction purses.",
+            priority: 2,
+          },
     ]);
   }
 

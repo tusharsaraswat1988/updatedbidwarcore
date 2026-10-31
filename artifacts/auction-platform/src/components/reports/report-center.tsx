@@ -612,7 +612,7 @@ export function ReportCenter({
                       /* Standard Tabular Presentation for All Reports */
                       <div className="space-y-6">
                         {data.sections.map((section, idx) => (
-                          <SectionTable key={idx} section={section} />
+                          <SectionTable key={idx} section={section} unit={data.auctionUnit ?? ctx?.tournament?.auctionUnit ?? "points"} />
                         ))}
                       </div>
                     )}
@@ -706,6 +706,24 @@ export function usePosterBranding() {
     getObsBrandMarkSrc(logos, iconVersion) ||
     OBS_BROADCAST_LOGO_FALLBACK;
   return { logoSrc, brandName: brandName || "BidWar" };
+}
+
+export async function captureElementToBlob(element: HTMLElement): Promise<Blob> {
+  const html2canvas = (await import("html2canvas-pro")).default;
+  await document.fonts.ready;
+  const canvas = await html2canvas(element, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    backgroundColor: "#030712",
+  });
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Canvas toBlob failed"));
+    }, "image/png");
+  });
 }
 
 export async function captureAndDownloadElement(element: HTMLElement, filename: string) {
@@ -858,7 +876,7 @@ export function Top5ShowcasePoster({ data, tournament }: { data: ReportData; tou
                   <h2 className="text-lg sm:text-xl font-black text-white leading-tight break-words">
                     {String(top1.name)}
                   </h2>
-                  {top1.role && (
+                  {Boolean(top1.role) && (
                     <p className="text-xs font-bold text-amber-300 uppercase mt-0.5 break-words">
                       {String(top1.role).replace(/_/g, " ")}
                     </p>
@@ -866,12 +884,12 @@ export function Top5ShowcasePoster({ data, tournament }: { data: ReportData; tou
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 text-[11px] text-slate-300">
-                  {top1.categoryName && (
+                  {Boolean(top1.categoryName) && (
                     <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
                       {String(top1.categoryName)}
                     </span>
                   )}
-                  {top1.city && (
+                  {Boolean(top1.city) && (
                     <span className="flex items-center gap-1 text-slate-400">
                       <MapPin className="w-3 h-3 text-slate-400" /> {String(top1.city)}
                     </span>
@@ -954,7 +972,7 @@ export function Top5ShowcasePoster({ data, tournament }: { data: ReportData; tou
                       <p className="text-[10px] font-semibold text-amber-300 uppercase leading-snug mt-0.5 break-words">
                         {String(p.role || "").replace(/_/g, " ")}
                       </p>
-                      {p.categoryName && (
+                      {Boolean(p.categoryName) && (
                         <span className="text-[9px] text-slate-400 block mt-0.5 break-words">
                           {String(p.categoryName)}
                         </span>
@@ -1038,6 +1056,9 @@ export function TeamSoldSquadShowcase({ data }: { data: ReportData }) {
   const handleDownloadAllTeams = async () => {
     setDownloadingAll(true);
     try {
+      const JSZipModule = await import("jszip");
+      const JSZip = (JSZipModule as any).default || JSZipModule;
+      const zip = new JSZip();
       const safeTournament = (data.tournamentName || "tournament").toLowerCase().replace(/[^a-z0-9]/g, "_");
       for (const section of data.sections) {
         if (!section.rows.length) continue;
@@ -1046,10 +1067,17 @@ export function TeamSoldSquadShowcase({ data }: { data: ReportData }) {
         const el = teamCardsRef.current.get(teamName);
         if (el) {
           const safeTeam = teamName.toLowerCase().replace(/[^a-z0-9]/g, "_");
-          await captureAndDownloadElement(el, `${safeTournament}_${safeTeam}_squad_poster`);
-          await new Promise(r => setTimeout(r, 400));
+          const blob = await captureElementToBlob(el);
+          zip.file(`${safeTeam}_squad_poster.png`, blob);
         }
       }
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.download = `${safeTournament}_all_team_posters.zip`;
+      a.href = url;
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (e) {
       console.error(e);
     } finally {
@@ -1082,7 +1110,7 @@ export function TeamSoldSquadShowcase({ data }: { data: ReportData }) {
             onClick={handleDownloadAllTeams}
           >
             {downloadingAll ? <RefreshCw className="w-3 h-3 animate-spin text-primary" /> : <Download className="w-3 h-3 text-primary" />}
-            Download All Teams ({data.sections.length})
+            Download All Teams ZIP ({data.sections.length})
           </Button>
         </div>
 
@@ -1250,20 +1278,20 @@ export function TeamSoldSquadShowcase({ data }: { data: ReportData }) {
                             <p className="font-bold text-xs sm:text-sm text-white leading-snug break-words">
                               {String(p.name)}
                             </p>
-                            {p.jerseyNumber && (
+                            {Boolean(p.jerseyNumber) && (
                               <span className="text-[9px] font-mono font-bold text-slate-400 shrink-0">
-                                #{p.jerseyNumber}
+                                #{String(p.jerseyNumber)}
                               </span>
                             )}
                           </div>
 
                           <div className="space-y-0.5">
-                            {p.role && (
+                            {Boolean(p.role) && (
                               <p className="text-[10px] font-semibold text-amber-300 uppercase leading-snug break-words">
                                 {String(p.role).replace(/_/g, " ")}
                               </p>
                             )}
-                            {p.categoryName && (
+                            {Boolean(p.categoryName) && (
                               <p className="text-[9px] text-slate-400 break-words leading-tight">
                                 {String(p.categoryName)}
                               </p>
@@ -1304,16 +1332,25 @@ export function TeamSoldSquadShowcase({ data }: { data: ReportData }) {
   );
 }
 
-export function SectionTable({ section }: { section: Section }) {
+export function SectionTable({ section, unit = "points" }: { section: Section; unit?: AuctionUnit }) {
   if (!section.rows.length) {
-    if (!section.heading) return null;
     return (
-      <div className="space-y-1">
-        <p className="font-display font-semibold text-sm text-foreground">{section.heading}</p>
-        <p className="text-xs text-muted-foreground italic">No rows</p>
+      <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 p-6 text-center space-y-1.5">
+        <div className="w-8 h-8 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center justify-center mx-auto">
+          <BadgeCheck className="w-4 h-4" />
+        </div>
+        <p className="font-semibold text-xs text-foreground">
+          {section.heading ? `${section.heading}: No matching records` : "No records to display"}
+        </p>
+        <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
+          There are currently no rows matching the selected filters.
+        </p>
       </div>
     );
   }
+
+  const hasSerialNo = section.columns.some(c => c.key === "serialNo");
+
   return (
     <div className="space-y-2">
       {section.heading && (
@@ -1327,7 +1364,9 @@ export function SectionTable({ section }: { section: Section }) {
           <table className="w-full text-xs print-table">
             <thead className="bg-muted/60 border-b border-border/60">
               <tr>
-                <th className="text-left px-3 py-2 font-bold text-muted-foreground w-10">#</th>
+                {!hasSerialNo && (
+                  <th className="text-left px-3 py-2 font-bold text-muted-foreground w-10">#</th>
+                )}
                 {section.columns.map(c => (
                   <th key={c.key} className="text-left px-3 py-2 font-bold text-muted-foreground whitespace-nowrap">{c.label}</th>
                 ))}
@@ -1336,9 +1375,11 @@ export function SectionTable({ section }: { section: Section }) {
             <tbody>
               {section.rows.slice(0, 300).map((row, i) => (
                 <tr key={i} className={`border-b border-border/30 transition hover:bg-muted/30 ${i % 2 === 0 ? "" : "bg-muted/10"}`}>
-                  <td className="px-3 py-2 text-muted-foreground font-mono">{i + 1}</td>
+                  {!hasSerialNo && (
+                    <td className="px-3 py-2 text-muted-foreground font-mono">{i + 1}</td>
+                  )}
                   {section.columns.map(c => (
-                    <td key={c.key} className="px-3 py-2 whitespace-nowrap">{renderCell(row, c.key)}</td>
+                    <td key={c.key} className="px-3 py-2 whitespace-nowrap">{renderCell(row, c.key, unit)}</td>
                   ))}
                 </tr>
               ))}
@@ -1356,12 +1397,12 @@ export function SectionTable({ section }: { section: Section }) {
   );
 }
 
-function renderCell(row: Record<string, unknown>, key: string) {
+function renderCell(row: Record<string, unknown>, key: string, unit: AuctionUnit = "points") {
   const v = row[key];
   if (v === null || v === undefined || v === "") return <span className="text-muted-foreground/50">-</span>;
   if (typeof v === "number") {
     if (key.toLowerCase().includes("price") || key === "purse" || key === "purseUsed" || key === "purseRemaining") {
-      return <span className="font-semibold text-foreground">{formatShortRupee(v)}</span>;
+      return <span className="font-semibold text-foreground">{formatReportAmount(v, unit)}</span>;
     }
     if (key === "utilization") return <span className="font-semibold">{v.toFixed(1)}%</span>;
     return String(v);
@@ -1378,11 +1419,17 @@ function renderCell(row: Record<string, unknown>, key: string) {
   return String(v);
 }
 
-function formatShortRupee(n: number): string {
-  if (n >= 10000000) return `₹${(n / 10000000).toFixed(2)} Cr`;
-  if (n >= 100000) return `₹${(n / 100000).toFixed(2)} L`;
-  if (n >= 1000) return `₹${(n / 1000).toFixed(1)} K`;
-  return `₹${n}`;
+function formatReportAmount(n: number, unit: AuctionUnit = "points"): string {
+  if (unit === "rupee") {
+    if (n >= 10000000) return `₹${(n / 10000000).toFixed(2)} Cr`;
+    if (n >= 100000) return `₹${(n / 100000).toFixed(2)} L`;
+    if (n >= 1000) return `₹${(n / 1000).toFixed(1)} K`;
+    return `₹${n}`;
+  }
+  if (n >= 10000000) return `${(n / 10000000).toFixed(2)} Cr Pt.`;
+  if (n >= 100000) return `${(n / 100000).toFixed(2)} L Pt.`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)} K Pt.`;
+  return `${n} Pt.`;
 }
 
 export function FilterBar({
@@ -1485,7 +1532,7 @@ export function FilterBar({
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Min sold price (₹)</Label>
+            <Label className="text-xs text-muted-foreground">Min sold price ({ctx.tournament.auctionUnit === "rupee" ? "₹" : "Pt."})</Label>
             <Input type="number"
               value={filters.minPrice ?? ""}
               onChange={e => setFilters(p => ({ ...p, minPrice: e.target.value ? Number(e.target.value) : undefined }))}
@@ -1494,7 +1541,7 @@ export function FilterBar({
             <IndianAmountHint value={filters.minPrice} className="text-[10px]" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Max sold price (₹)</Label>
+            <Label className="text-xs text-muted-foreground">Max sold price ({ctx.tournament.auctionUnit === "rupee" ? "₹" : "Pt."})</Label>
             <Input type="number"
               value={filters.maxPrice ?? ""}
               onChange={e => setFilters(p => ({ ...p, maxPrice: e.target.value ? Number(e.target.value) : undefined }))}

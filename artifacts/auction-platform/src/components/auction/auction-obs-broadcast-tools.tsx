@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { explainSurfaceReadiness, SPONSOR_MEDIA_SLOT_COUNT } from "@workspace/scoring-core";
+import { explainSurfaceReadiness } from "@workspace/scoring-core";
 import type { AuctionState } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -25,8 +25,6 @@ type Props = {
   layout: "bar" | "panel";
   onApplied: (state: AuctionState) => void;
 };
-
-const FILE_ACCEPT = "image/png,image/jpeg,image/webp,video/mp4,video/quicktime,.mp4,.mov,.png,.jpg,.jpeg,.webp";
 
 function hasSponsor(slot: SponsorMediaSlotDto): boolean {
   return Boolean(slot.id) && slot.processingStatus !== "empty";
@@ -87,7 +85,6 @@ export function AuctionObsBroadcastTools({
   const slot = filled.find((item) => item.slotNumber === selected) ?? filled[0] ?? null;
   const ready = slot ? slotReady(obs, slot) : false;
   const playing = obs?.playback.status === "playing";
-  const uploadTarget = slots.find((item) => !hasSponsor(item)) ?? null;
 
   useEffect(() => {
     if (!slot) return;
@@ -219,25 +216,6 @@ export function AuctionObsBroadcastTools({
     }
   }
 
-  async function onUpload(file: File | undefined) {
-    if (!file || !uploadTarget) return;
-    setBusy(true);
-    try {
-      const title = file.name.replace(/\.[^.]+$/, "");
-      await uploadSponsorMediaSlot(tournamentId, uploadTarget.slotNumber, file, title, 10);
-      toast({ title: "Ad added", description: "It can be pushed once OBS shows Ready." });
-      loadSlots();
-    } catch (err: unknown) {
-      toast({
-        title: "Upload failed",
-        description: err instanceof Error ? err.message : "Could not upload",
-        variant: "destructive",
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const fieldClass = "h-7 rounded border border-white/15 bg-black/30 px-2 text-[11px] text-white placeholder:text-white/30";
 
   return (
@@ -307,7 +285,7 @@ export function AuctionObsBroadcastTools({
           onChange={(event) => setSelected(Number(event.target.value))}
           className={cn(fieldClass, panel ? "w-full" : "max-w-[11rem]")}
         >
-          {filled.length === 0 ? <option value="">No ads yet</option> : null}
+          {filled.length === 0 ? <option value="">No ads configured</option> : null}
           {filled.map((item) => (
             <option key={item.slotNumber} value={item.slotNumber}>
               {item.title || `Ad ${item.slotNumber}`}
@@ -337,24 +315,16 @@ export function AuctionObsBroadcastTools({
         >
           Cancel
         </Button>
-        {filled.length < SPONSOR_MEDIA_SLOT_COUNT && uploadTarget ? (
-          <label className={cn(
-            "inline-flex h-7 items-center rounded border border-white/15 px-2 text-[11px] font-semibold text-white/70",
-            disabled || busy ? "cursor-not-allowed opacity-50" : "cursor-pointer",
-          )}>
-            Add ad
-            <input
-              type="file"
-              accept={FILE_ACCEPT}
-              className="hidden"
-              disabled={disabled || busy}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
-                void onUpload(file);
-              }}
-            />
-          </label>
+        {filled.length === 0 ? (
+          <a
+            href={`/tournament/${tournamentId}/settings?tab=sponsors`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-7 items-center gap-1 rounded border border-white/15 px-2 text-[10px] font-medium text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            title="Configure sponsor videos in Tournament Settings"
+          >
+            Setup in Settings ↗
+          </a>
         ) : null}
       </div>
     </div>

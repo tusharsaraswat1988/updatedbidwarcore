@@ -39,7 +39,7 @@ import {
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
   Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop, IndianRupee, ClipboardList, Handshake,
-  Play, Coffee, Plus, Sparkles, HelpCircle,
+  Play, Coffee, Plus, Sparkles, HelpCircle, Lock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -48,6 +48,7 @@ import { SettingsCard, SettingsInsetBlock, SettingsTabPanel } from "@/components
 import { AutoSaveStatusPill, DEFAULT_SETTINGS_AUDIT_REASON, SettingsSaveBar } from "@/components/settings/settings-save-bar";
 import { useDebouncedAutoSave } from "@/hooks/use-debounced-auto-save";
 import { SponsorLogosEditor, SponsorLogosToolbar } from "@/components/settings/sponsor-logos-editor";
+import { SponsorMediaSettingsEditor } from "@/components/settings/sponsor-media-settings-editor";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { SportSelect } from "@/components/sport-select";
 import { CityAutocomplete } from "@/components/city-autocomplete";
@@ -200,11 +201,11 @@ export default function TournamentSettings() {
       basePurse: t.basePurse ? String(t.basePurse) : "",
       minBid: t.minBid ? String(t.minBid) : "",
       timerSeconds: String(t.timerSeconds ?? "30"),
-      bidTimerSeconds: String(t.bidTimerSeconds ?? "15"),
+      bidTimerSeconds: String(t.bidTimerSeconds ?? "10"),
       bidExtensionEnabled: t.bidExtensionEnabled ?? false,
       bidExtensionThresholdSeconds: String(t.bidExtensionThresholdSeconds ?? "3"),
       bidExtensionSeconds: String(t.bidExtensionSeconds ?? "5"),
-      playerSelectionMode: t.playerSelectionMode || "sequential",
+      playerSelectionMode: t.playerSelectionMode || "random",
       registrationDeadline: t.registrationDeadline || "",
       registrationLimit: t.registrationLimit != null ? String(t.registrationLimit) : "",
       enableRegistrationPayment: t.enableRegistrationPayment ?? false,
@@ -295,7 +296,14 @@ export default function TournamentSettings() {
     let initialSponsors: SponsorLogo[];
     try {
       const parsed = t.sponsorLogos ? JSON.parse(t.sponsorLogos) : [];
-      initialSponsors = normalizeSponsorLogos(parsed);
+      initialSponsors = normalizeSponsorLogos(parsed).map((l) => {
+        const isTitle = Boolean(l.isTitleSponsor);
+        const isCo = Boolean(l.isCoSponsor);
+        const redundant =
+          (isTitle && /^title\s*sponsor$/i.test(l.type?.trim() || "")) ||
+          (isCo && /^co[\s-]*sponsor$/i.test(l.type?.trim() || ""));
+        return redundant ? { ...l, type: "" } : l;
+      });
     } catch { initialSponsors = []; }
     setSponsorLogos(initialSponsors);
     const initialRegConfig = parseRegistrationFieldsConfig(
@@ -626,7 +634,16 @@ export default function TournamentSettings() {
       return false;
     }
 
-    const filteredLogos = sponsorLogos.filter(l => l.url.trim());
+    const filteredLogos = sponsorLogos
+      .filter(l => l.url.trim())
+      .map(l => {
+        const isTitle = Boolean(l.isTitleSponsor);
+        const isCo = Boolean(l.isCoSponsor);
+        const redundant =
+          (isTitle && /^title\s*sponsor$/i.test(l.type?.trim() || "")) ||
+          (isCo && /^co[\s-]*sponsor$/i.test(l.type?.trim() || ""));
+        return redundant ? { ...l, type: "" } : l;
+      });
     const dataPayload: Record<string, unknown> = {
       reason: DEFAULT_SETTINGS_AUDIT_REASON,
       name: editForm.name as string,
@@ -1856,7 +1873,7 @@ export default function TournamentSettings() {
                             {bidTimerError ? (
                               <p className="text-[10px] text-destructive">{bidTimerError}</p>
                             ) : (
-                              <p className="text-[10px] text-muted-foreground">Recommended: 15s (min {MIN_AUCTION_TIMER_SECONDS}s)</p>
+                              <p className="text-[10px] text-muted-foreground">Recommended: 10s (min {MIN_AUCTION_TIMER_SECONDS}s)</p>
                             )}
                           </div>
                         </div>
@@ -1989,7 +2006,7 @@ export default function TournamentSettings() {
                             <FieldTooltip text="Controls which player is brought up when the operator clicks Next Player during the live auction." />
                           </Label>
                           <Select
-                            value={editForm.playerSelectionMode as string || "sequential"}
+                            value={editForm.playerSelectionMode as string || "random"}
                             onValueChange={v => setEditForm(f => ({ ...f, playerSelectionMode: v }))}
                           >
                             <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
@@ -2012,26 +2029,36 @@ export default function TournamentSettings() {
         {/* ── SPONSORS ── */}
         {activeSection === "sponsors" && (
           <SettingsTabPanel>
-            <SettingsCard
-              title="Sponsor Logos"
-              description="Logos appear on the LED display, side screens, and stream overlay. They rotate every 4 seconds on the big screen. (Logo required; name and type optional. Up to 5 logos at once.)"
-              icon={<Handshake className="w-4 h-4 text-muted-foreground" />}
-              headerAction={
-                <SponsorLogosToolbar
+            <div className="space-y-6">
+              <SettingsCard
+                title="Sponsor Logos"
+                description="Logos appear on the LED display, side screens, and stream overlay. They rotate every 4 seconds on the big screen. (Select up to 5 image files per bulk upload; name and category are optional.)"
+                icon={<Handshake className="w-4 h-4 text-muted-foreground" />}
+                headerAction={
+                  <SponsorLogosToolbar
+                    logos={sponsorLogos}
+                    onUploadFile={handleSponsorLogoUpload}
+                    uploadingIdx={sponsorUploadingIdx}
+                  />
+                }
+              >
+                <SponsorLogosEditor
                   logos={sponsorLogos}
+                  onChange={setSponsorLogos}
                   onUploadFile={handleSponsorLogoUpload}
                   uploadingIdx={sponsorUploadingIdx}
+                  showToolbar={false}
                 />
-              }
-            >
-              <SponsorLogosEditor
-                logos={sponsorLogos}
-                onChange={setSponsorLogos}
-                onUploadFile={handleSponsorLogoUpload}
-                uploadingIdx={sponsorUploadingIdx}
-                showToolbar={false}
-              />
-            </SettingsCard>
+              </SettingsCard>
+
+              <SettingsCard
+                title="Sponsor Video & Broadcast Commercials (Optional)"
+                description="Optional: Upload commercial videos (MP4) or full-screen graphics for OBS stream breaks and big-screen displays. Pre-configured ads can be selected and pushed live from the Auction Console."
+                icon={<Clapperboard className="w-4 h-4 text-muted-foreground" />}
+              >
+                <SponsorMediaSettingsEditor tournamentId={tournamentId} />
+              </SettingsCard>
+            </div>
           </SettingsTabPanel>
         )}
 
@@ -2377,7 +2404,7 @@ export default function TournamentSettings() {
               headerClassName="border-rose-500/15"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-rose-500/20 bg-card/60 backdrop-blur-sm">
-                <div className="space-y-1 min-w-0 flex-1">
+                <div className="space-y-1.5 min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <RotateCcw className="w-4 h-4 text-rose-400 shrink-0" />
                     <span className="text-sm font-semibold text-foreground">Auction Reset</span>
@@ -2385,12 +2412,40 @@ export default function TournamentSettings() {
                   <p className="text-xs text-muted-foreground leading-relaxed">
                     Clears live bids, returns sold players to the pool, and restores team purses. Your player list and team rosters are preserved.
                   </p>
+                  {tournament?.status === "completed" ? (
+                    <div className="flex items-start gap-2 pt-2 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 mt-2">
+                      <Lock className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-amber-200">Reset locked — Tournament is Completed</span>
+                        <p className="text-[11px] text-amber-300/80 mt-0.5 leading-relaxed">
+                          Auction reset is disabled for completed tournaments to protect finalized team rosters, player sales, and live history records. Resetting practice data is only available while a tournament is in Setup or Active status.
+                        </p>
+                      </div>
+                    </div>
+                  ) : tournament?.adminLocked ? (
+                    <div className="flex items-start gap-2 pt-2 text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg p-2.5 mt-2">
+                      <Lock className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                      <div>
+                        <span className="font-semibold text-amber-200">Reset locked — Tournament is Admin Locked</span>
+                        <p className="text-[11px] text-amber-300/80 mt-0.5 leading-relaxed">
+                          This tournament has an administrative security lock enabled. Contact BidWar operations or super admin to unlock.
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-rose-500/30 text-rose-400 hover:bg-rose-500/15 hover:text-rose-200 font-medium text-xs h-9 px-4 shrink-0 transition-colors gap-1.5"
-                  disabled={tournament?.status === "completed"}
+                  className="border-rose-500/30 text-rose-400 hover:bg-rose-500/15 hover:text-rose-200 font-medium text-xs h-9 px-4 shrink-0 transition-colors gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={tournament?.status === "completed" || !!tournament?.adminLocked}
+                  title={
+                    tournament?.status === "completed"
+                      ? "Reset is locked because the tournament is marked as Completed."
+                      : tournament?.adminLocked
+                        ? "Reset is locked because this tournament has an administrative lock."
+                        : undefined
+                  }
                   onClick={() => navigate(auctionResetPath(tournamentId, settingsPath(tournamentId, "recovery")))}
                 >
                   <RotateCcw className="w-3.5 h-3.5" />

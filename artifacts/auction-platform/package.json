@@ -13,7 +13,6 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "devDependencies": {
-    "vitest": "^4.1.6",
     "@hookform/resolvers": "^3.10.0",
     "@imgly/background-removal": "^1.7.0",
     "@radix-ui/react-accordion": "^1.2.4",
@@ -52,10 +51,10 @@
     "@vitejs/plugin-react": "catalog:",
     "@workspace/api-base": "workspace:*",
     "@workspace/api-client-react": "workspace:*",
-    "@workspace/platform-core": "workspace:*",
     "@workspace/badminton-core": "workspace:*",
     "@workspace/blog-data": "workspace:*",
     "@workspace/cheer-presets": "workspace:*",
+    "@workspace/platform-core": "workspace:*",
     "@workspace/scoring-core": "workspace:*",
     "browser-image-compression": "^2.0.2",
     "class-variance-authority": "catalog:",
@@ -85,6 +84,7 @@
     "vaul": "^1.1.2",
     "vite": "catalog:",
     "vite-plugin-compression2": "^2.5.3",
+    "vitest": "^4.1.6",
     "wouter": "^3.3.5",
     "zod": "catalog:"
   },
@@ -96,6 +96,7 @@
     "express-static-gzip": "^3.0.1",
     "html2canvas-pro": "^2.0.4",
     "jspdf": "^4.2.1",
+    "jszip": "^3.10.2",
     "qrcode.react": "^4.2.0",
     "xlsx": "^0.18.5"
   }

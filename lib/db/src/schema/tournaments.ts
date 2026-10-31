@@ -34,7 +34,7 @@ export const tournamentsTable = pgTable("tournaments", {
   bidTier2Increment: integer("bid_tier2_increment").notNull().default(50000),
   bidTier3Increment: integer("bid_tier3_increment").notNull().default(100000),
   bidTiers: text("bid_tiers"),
-  timerSeconds: integer("timer_seconds").notNull().default(10),
+  timerSeconds: integer("timer_seconds").notNull().default(30),
   bidTimerSeconds: integer("bid_timer_seconds").notNull().default(10),
   /** When enabled, bids in the last N seconds extend the timer instead of full reset */
   bidExtensionEnabled: boolean("bid_extension_enabled").notNull().default(false),

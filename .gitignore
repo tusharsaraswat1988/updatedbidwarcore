@@ -85,3 +85,9 @@ secrets.toml
 .env.production.*
 .env.production.env
 scratch/
+
+# Temporary simulation and profile artifacts
+artifacts/chrome-profile-*
+artifacts/simulation-logs/
+artifacts/simulation-screenshots/
+.agents/teamwork/
