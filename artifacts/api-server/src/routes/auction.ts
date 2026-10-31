@@ -58,7 +58,7 @@ import {
 } from "../lib/auction-events";
 import { computeTeamPurseProtection } from "../lib/purse-protection";
 import { formatPurseProtectionBidError } from "@workspace/api-base/purse-protection";
-import { notifyPlayerSold, notifyPlayerUnsold, notifyPlayerReAuction } from "../lib/whatsapp";
+import { notifyPlayerSold } from "../lib/whatsapp";
 import { enqueuePlayerSoldEmailAsync } from "../lib/communication/player-sold-email-service.js";
 import { isNameClean } from "../lib/name-filter";
 import { CHEER_DEFAULT_PRESETS } from "../lib/cheer-constants";
@@ -2529,16 +2529,8 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
       .where(eq(auctionSessionsTable.tournamentId, tid));
   });
 
-  // Tournament fetch is read-only; after commit so notification uses fresh data.
+  // Tournament fetch is read-only; after commit so logging uses fresh data.
   const unsoldTournament = tournament;
-
-  notifyPlayerUnsold({
-    mobile: player?.mobileNumber ?? null,
-    tournamentId: tid,
-    playerName: player?.name ?? "Player",
-    tournamentName: unsoldTournament?.name ?? "the tournament",
-    whatsappConsent: player?.whatsappConsent,
-  });
 
   // Log player auction end as unsold (fire-and-forget)
   logPlayerAuctionEnd({
@@ -2646,14 +2638,6 @@ router.post("/tournaments/:tournamentId/auction/re-auction", async (req, res) =>
       .where(eq(auctionSessionsTable.tournamentId, tid));
   });
   rememberLedOverlayPatch(tid, returnToLive);
-
-  notifyPlayerReAuction({
-    mobile: player.mobileNumber ?? null,
-    tournamentId: tid,
-    playerName: player.name,
-    tournamentName: reTournament?.name ?? "the tournament",
-    whatsappConsent: player.whatsappConsent,
-  });
 
   const [playerAfter] = await db.select().from(playersTable).where(eq(playersTable.id, playerId));
   auditLog(req, {

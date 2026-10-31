@@ -298,92 +298,52 @@ export async function notifyPlayerSold(opts: {
   }
 }
 
+/**
+ * Unsold player WhatsApp notifications are permanently disabled per business requirements.
+ * BidWar does not send WhatsApp notifications to unsold players.
+ */
 export async function notifyPlayerUnsold(opts: {
   mobile: string | null;
   tournamentId: number;
   playerId?: number | null;
-  playerName: string;
-  tournamentName: string;
+  playerName?: string;
+  tournamentName?: string;
   whatsappConsent?: boolean | null;
+  auctionUnit?: "rupee" | "points" | null;
 }): Promise<SendResult & { blocked?: boolean }> {
-  if (!opts.mobile) {
-    return { success: false, blocked: true, error: "Missing recipient mobile number" };
-  }
-  const msg =
-    `*BidWar Auction Update*\n\nHi ${opts.playerName},\n\nYou went *UNSOLD* in today's auction for *${opts.tournamentName}*.\n\nDon't worry — there may be another round. Stay ready!`;
-  const result = await dispatchPushWhatsApp({
-    event: "player_unsold",
-    tournamentId: opts.tournamentId,
-    mobile: opts.mobile,
-    body: msg,
-    recipientConsent: opts.whatsappConsent,
-  });
-
-  try {
-    if (typeof db?.insert === "function") {
-      await db.insert(commLogsTable).values({
-        tournamentId: opts.tournamentId,
-        recipientType: "player",
-        recipientId: opts.playerId ?? null,
-        recipientMobile: opts.mobile,
-        channel: "whatsapp",
-        templateName: "player_unsold",
-        messageContent: msg,
-        sentByAdminId: null,
-        deliveryStatus: result.success ? "sent" : "failed",
-        metaMessageId: result.messageSid ?? null,
-        errorMessage: result.success ? null : (result.error ?? "Dispatch blocked by policy"),
-      });
-    }
-  } catch {
-    // Non-fatal
-  }
-
-  return result;
+  logger.info(
+    { tournamentId: opts.tournamentId, playerId: opts.playerId },
+    "notifyPlayerUnsold: Player unsold WhatsApp notification is permanently disabled",
+  );
+  return {
+    success: false,
+    blocked: true,
+    error: "Player unsold WhatsApp notification is permanently disabled",
+  };
 }
 
+/**
+ * Re-auction player WhatsApp notifications are permanently disabled per business requirements.
+ * BidWar does not send WhatsApp notifications when a player is returned to pool for re-auction.
+ */
 export async function notifyPlayerReAuction(opts: {
   mobile: string | null;
   tournamentId: number;
   playerId?: number | null;
-  playerName: string;
-  tournamentName: string;
+  playerName?: string;
+  tournamentName?: string;
   whatsappConsent?: boolean | null;
+  auctionUnit?: "rupee" | "points" | null;
 }): Promise<SendResult & { blocked?: boolean }> {
-  if (!opts.mobile) {
-    return { success: false, blocked: true, error: "Missing recipient mobile number" };
-  }
-  const msg =
-    `*BidWar Auction Update*\n\nHi ${opts.playerName},\n\nYou have been returned to the *auction pool* for *${opts.tournamentName}* and will be *RE-AUCTIONED*.\n\nStay tuned!`;
-  const result = await dispatchPushWhatsApp({
-    event: "player_reauction",
-    tournamentId: opts.tournamentId,
-    mobile: opts.mobile,
-    body: msg,
-    recipientConsent: opts.whatsappConsent,
-  });
-
-  try {
-    if (typeof db?.insert === "function") {
-      await db.insert(commLogsTable).values({
-        tournamentId: opts.tournamentId,
-        recipientType: "player",
-        recipientId: opts.playerId ?? null,
-        recipientMobile: opts.mobile,
-        channel: "whatsapp",
-        templateName: "player_reauction",
-        messageContent: msg,
-        sentByAdminId: null,
-        deliveryStatus: result.success ? "sent" : "failed",
-        metaMessageId: result.messageSid ?? null,
-        errorMessage: result.success ? null : (result.error ?? "Dispatch blocked by policy"),
-      });
-    }
-  } catch {
-    // Non-fatal
-  }
-
-  return result;
+  logger.info(
+    { tournamentId: opts.tournamentId, playerId: opts.playerId },
+    "notifyPlayerReAuction: Player re-auction WhatsApp notification is permanently disabled",
+  );
+  return {
+    success: false,
+    blocked: true,
+    error: "Player re-auction WhatsApp notification is permanently disabled",
+  };
 }
 
 export async function notifyOrganiserOnboardingWelcome(opts: {

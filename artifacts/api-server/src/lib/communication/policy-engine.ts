@@ -133,6 +133,22 @@ export class CommunicationPolicyEngine {
 
     // 2. Channel-specific checks
     if (channel === "whatsapp") {
+      // Outbound push messages for unsold and re-auction are permanently disabled
+      if (event === "player_unsold" || event === "player_reauction") {
+        logger.info(
+          { event, tournamentId, to: maskedMobile },
+          `Push policy suppressed: WhatsApp notification for "${event}" is permanently disabled`,
+        );
+        return {
+          allowed: false,
+          reason: `WhatsApp notification for "${event}" is permanently disabled`,
+          channel,
+          event,
+          tournamentId,
+          recipientMobile,
+        };
+      }
+
       // A. Verified Meta Template Allowlist Guard
       if (input.templateName !== undefined && input.templateName !== null) {
         const eligibility = validateTemplateDispatchEligibility(input.templateName);

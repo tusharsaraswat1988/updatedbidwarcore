@@ -250,7 +250,7 @@ describe("BIDWAR — WhatsApp Consent Phase 1: P0 Safety Lockdown Verification",
       expect(unsoldRes.blocked).toBe(true);
       expect(mockProvider.getSentMessages()).toHaveLength(0);
 
-      // 3. notifyPlayerReAuction with affirmative consent proceeds
+      // 3. notifyPlayerReAuction is permanently disabled and blocked even with affirmative consent
       const reAuctionRes = await notifyPlayerReAuction({
         mobile: "+919876543210",
         tournamentId: 101,
@@ -258,8 +258,9 @@ describe("BIDWAR — WhatsApp Consent Phase 1: P0 Safety Lockdown Verification",
         tournamentName: "Premier League 2026",
         whatsappConsent: true,
       });
-      expect(reAuctionRes.success).toBe(true);
-      expect(mockProvider.getSentMessages()).toHaveLength(1);
+      expect(reAuctionRes.success).toBe(false);
+      expect(reAuctionRes.blocked).toBe(true);
+      expect(mockProvider.getSentMessages()).toHaveLength(0);
     });
   });
 

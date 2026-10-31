@@ -198,6 +198,7 @@ describe("Player Sold Meta Template Mapping & Payload Integration", () => {
           teamName: "Test Team",
           amount: tc.amount,
           auctionUnit: "rupee",
+          headerImageUrl: "https://bidwar.in/assets/branding/player-sold-banner.jpg",
           tournamentName: "Premier League 2026",
           whatsappConsent: true,
         });
@@ -338,6 +339,9 @@ describe("Player Sold Meta Template Mapping & Payload Integration", () => {
     });
 
     it("allows distinct players or distinct tournaments to dispatch independently", async () => {
+      mockProvider.clearSentMessages();
+      clearPlayerSoldIdempotencyCache();
+
       await notifyPlayerSold({
         mobile: "+919876543210",
         tournamentId: 101,
@@ -345,6 +349,7 @@ describe("Player Sold Meta Template Mapping & Payload Integration", () => {
         playerName: "Player One",
         teamName: "Team A",
         amount: 100000,
+        headerImageUrl: "https://bidwar.in/assets/branding/player-sold-banner.jpg",
         tournamentName: "Premier League 2026",
         whatsappConsent: true,
       });
@@ -356,6 +361,7 @@ describe("Player Sold Meta Template Mapping & Payload Integration", () => {
         playerName: "Player Two",
         teamName: "Team B",
         amount: 200000,
+        headerImageUrl: "https://bidwar.in/assets/branding/player-sold-banner.jpg",
         tournamentName: "Premier League 2026",
         whatsappConsent: true,
       });

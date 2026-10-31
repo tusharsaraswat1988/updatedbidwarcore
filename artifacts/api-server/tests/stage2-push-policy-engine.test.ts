@@ -89,7 +89,7 @@ describe("Stage 2: WhatsApp Push & Communication Policy Engine", () => {
       expect(sent.textBody).toContain("Premier Cricket League 2026");
     });
 
-    it("dispatches Player Unsold notification through active provider with exact copy", async () => {
+    it("blocks Player Unsold notification as permanently disabled", async () => {
       vi.spyOn(db, "select").mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue([licensedTournament]),
@@ -107,17 +107,13 @@ describe("Stage 2: WhatsApp Push & Communication Policy Engine", () => {
         whatsappConsent: true,
       });
 
-      expect(result.success).toBe(true);
-      expect(mock.getSentMessages().length).toBe(1);
-
-      const sent = mock.getSentMessages()[0];
-      expect(sent.textBody).toContain("Hi Steve Smith");
-      expect(sent.textBody).toContain("UNSOLD");
-      expect(sent.textBody).toContain("Premier Cricket League 2026");
-      expect(sent.textBody).toContain("Stay ready!");
+      expect(result.success).toBe(false);
+      expect(result.blocked).toBe(true);
+      expect(result.error).toContain("disabled");
+      expect(mock.getSentMessages().length).toBe(0);
     });
 
-    it("dispatches Player Re-Auction notification through active provider with exact copy", async () => {
+    it("blocks Player Re-Auction notification as permanently disabled", async () => {
       vi.spyOn(db, "select").mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockResolvedValue([licensedTournament]),
@@ -135,14 +131,10 @@ describe("Stage 2: WhatsApp Push & Communication Policy Engine", () => {
         whatsappConsent: true,
       });
 
-      expect(result.success).toBe(true);
-      expect(mock.getSentMessages().length).toBe(1);
-
-      const sent = mock.getSentMessages()[0];
-      expect(sent.textBody).toContain("Hi David Warner");
-      expect(sent.textBody).toContain("auction pool");
-      expect(sent.textBody).toContain("RE-AUCTIONED");
-      expect(sent.textBody).toContain("Premier Cricket League 2026");
+      expect(result.success).toBe(false);
+      expect(result.blocked).toBe(true);
+      expect(result.error).toContain("disabled");
+      expect(mock.getSentMessages().length).toBe(0);
     });
 
     it("safely handles missing recipient mobile without sending or erroring", async () => {

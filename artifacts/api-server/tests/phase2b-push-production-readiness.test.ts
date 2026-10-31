@@ -181,7 +181,7 @@ describe("WhatsApp Push Communication — Production Readiness Verification", ()
       expect(sent.textBody).toContain("₹2,50,00,000");
     });
 
-    it("dispatches notifyPlayerUnsold to active provider with exact copy", async () => {
+    it("verifies notifyPlayerUnsold is permanently disabled and does not dispatch to active provider", async () => {
       const res = await notifyPlayerUnsold({
         mobile: "+919876543210",
         tournamentId: 101,
@@ -190,14 +190,13 @@ describe("WhatsApp Push Communication — Production Readiness Verification", ()
         whatsappConsent: true,
       });
 
-      expect(res.success).toBe(true);
-      expect(mockProvider.getSentMessages()).toHaveLength(1);
-      const sent = mockProvider.getSentMessages()[0];
-      expect(sent.textBody).toContain("Hi Steve Smith");
-      expect(sent.textBody).toContain("UNSOLD");
+      expect(res.success).toBe(false);
+      expect(res.blocked).toBe(true);
+      expect(res.error).toContain("disabled");
+      expect(mockProvider.getSentMessages()).toHaveLength(0);
     });
 
-    it("dispatches notifyPlayerReAuction to active provider with exact copy", async () => {
+    it("verifies notifyPlayerReAuction is permanently disabled and does not dispatch to active provider", async () => {
       const res = await notifyPlayerReAuction({
         mobile: "+919876543210",
         tournamentId: 101,
@@ -206,11 +205,10 @@ describe("WhatsApp Push Communication — Production Readiness Verification", ()
         whatsappConsent: true,
       });
 
-      expect(res.success).toBe(true);
-      expect(mockProvider.getSentMessages()).toHaveLength(1);
-      const sent = mockProvider.getSentMessages()[0];
-      expect(sent.textBody).toContain("Hi David Warner");
-      expect(sent.textBody).toContain("RE-AUCTIONED");
+      expect(res.success).toBe(false);
+      expect(res.blocked).toBe(true);
+      expect(res.error).toContain("disabled");
+      expect(mockProvider.getSentMessages()).toHaveLength(0);
     });
   });
 
