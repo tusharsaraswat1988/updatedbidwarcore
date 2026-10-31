@@ -17,6 +17,7 @@ import {
   Mail,
   MessageSquare,
   MonitorDown,
+  Play,
   Radio,
   RefreshCw,
   Server,
@@ -72,7 +73,6 @@ import {
   updateAdminTournament,
   verifyAndGrantTournamentLicense,
 } from "@/lib/auth";
-import { LicenseModeControl } from "@/components/admin/license-mode-control";
 import { AdminScrollPanel } from "@/components/admin/admin-scroll-panel";
 import { MetricCard } from "@/components/admin/admin-metric-card";
 import { StatusBadge, type StatusTone } from "@/components/admin/admin-status-badge";
@@ -289,6 +289,17 @@ export default function AdminTournamentDetailPage() {
   const soldCount = useMemo(() => {
     return detail?.players.filter((p) => p.status === "sold").length ?? 0;
   }, [detail?.players]);
+
+  const auctionPhase: "setup" | "active" | "completed" = useMemo(() => {
+    if (!t) return "setup";
+    if (t.status === "completed" || t.licenseStatus === "completed") {
+      return "completed";
+    }
+    if (t.status === "draft" && soldCount === 0) {
+      return "setup";
+    }
+    return "active";
+  }, [t, soldCount]);
 
   const matchCounts = detail?.matchCounts ?? { total: 0, live: 0, completed: 0, upcoming: 0 };
   const licenseRequest = detail?.licenseRequest;
@@ -629,14 +640,14 @@ export default function AdminTournamentDetailPage() {
                           variant="outline"
                           className={cn(
                             "text-[10px] font-semibold uppercase",
-                            t.licenseStatus === "active"
+                            auctionPhase === "active"
                               ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                              : t.licenseStatus === "completed"
+                              : auctionPhase === "completed"
                               ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
                               : "bg-amber-500/10 text-amber-400 border-amber-500/20"
                           )}
                         >
-                          {t.licenseStatus}
+                          {auctionPhase === "active" ? "Active / Live" : auctionPhase}
                         </Badge>
                       </div>
 
@@ -644,31 +655,87 @@ export default function AdminTournamentDetailPage() {
                         Ending auction marks auction completed and preserves active sports scoring.
                       </div>
 
-                      <div className="pt-1">
-                        <LicenseModeControl
-                          licenseStatus={t.licenseStatus}
-                          isMaster={isMaster}
-                          actionLoading={actionLoading}
-                          onSwitchToTrial={() => requestLicenseChange("Switch to Trial", "trial")}
-                          onSwitchToLive={() => requestLicenseChange("Switch to Live", "active")}
-                          onEndAuction={() => {
-                            if (!window.confirm("This will end the auction and prevent further bidding. Continue?")) return;
-                            requestLicenseChange("End auction", "completed", false);
-                          }}
-                        />
+                      <div className="grid grid-cols-3 gap-2 pt-1">
+                        <div
+                          className={cn(
+                            "h-8 px-2 flex items-center justify-center rounded-md border text-xs font-medium text-center transition-colors",
+                            auctionPhase === "setup"
+                              ? "border-amber-500/40 bg-amber-500/10 text-amber-300 font-semibold"
+                              : "border-border/40 bg-muted/10 text-muted-foreground opacity-60"
+                          )}
+                        >
+                          Setup
+                        </div>
+                        <div
+                          className={cn(
+                            "h-8 px-2 flex items-center justify-center rounded-md border text-xs font-medium text-center transition-colors",
+                            auctionPhase === "active"
+                              ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 font-semibold"
+                              : "border-border/40 bg-muted/10 text-muted-foreground opacity-60"
+                          )}
+                        >
+                          Active / Live
+                        </div>
+                        <div
+                          className={cn(
+                            "h-8 px-2 flex items-center justify-center rounded-md border text-xs font-medium text-center transition-colors",
+                            auctionPhase === "completed"
+                              ? "border-blue-500/40 bg-blue-500/10 text-blue-300 font-semibold"
+                              : "border-border/40 bg-muted/10 text-muted-foreground opacity-60"
+                          )}
+                        >
+                          Completed
+                        </div>
                       </div>
 
-                      {isMaster && t.adminLocked && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full h-8 text-xs border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 gap-1.5"
-                          disabled={!!actionLoading}
-                          onClick={() => doAction("Re-open Auction", () => unlockTournament(tournamentId))}
-                        >
-                          <Unlock className="h-3.5 w-3.5" />
-                          Re-open / Unlock Auction
-                        </Button>
+                      {isMaster && (
+                        <div className="pt-1">
+                          {auctionPhase === "active" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full h-8 text-xs border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 gap-1.5"
+                              disabled={!!actionLoading}
+                              onClick={() => {
+                                if (!window.confirm("This will end the auction and prevent further bidding. Continue?")) return;
+                                requestLicenseChange("End auction", "completed", false);
+                              }}
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              End Auction
+                            </Button>
+                          )}
+                          {auctionPhase === "completed" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full h-8 text-xs border-blue-500/40 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 gap-1.5"
+                              disabled={!!actionLoading}
+                              onClick={() => {
+                                if (t.adminLocked) {
+                                  doAction("Re-open Auction", () => unlockTournament(tournamentId));
+                                } else {
+                                  requestLicenseChange("Re-open Bidding", "active", false);
+                                }
+                              }}
+                            >
+                              <Unlock className="h-3.5 w-3.5" />
+                              Re-open / Unlock Auction
+                            </Button>
+                          )}
+                          {auctionPhase === "setup" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full h-8 text-xs border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 gap-1.5"
+                              disabled={!!actionLoading}
+                              onClick={() => requestLicenseChange("Start Bidding", "active", false)}
+                            >
+                              <Play className="h-3.5 w-3.5" />
+                              Start / Open Bidding
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
@@ -729,25 +796,62 @@ export default function AdminTournamentDetailPage() {
                   )}
 
                   {/* Tournament License Status box */}
-                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3.5 flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-semibold text-foreground">Tournament License Status</div>
-                      <div className="text-[11px] text-muted-foreground mt-0.5">
-                        {t.licenseStatus === "active" ? "Production license unlocked" : "Trial limits applied"}
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                        <Shield className="h-3.5 w-3.5 text-primary" />
+                        Tournament License Status
                       </div>
-                    </div>
-                    {isMaster && (
-                      <Button
-                        size="sm"
-                        variant={t.licenseStatus === "active" ? "outline" : "default"}
-                        className="h-8 text-xs"
-                        onClick={() => requestLicenseChange(
-                          t.licenseStatus === "active" ? "Switch to Trial" : "Switch to Live License",
-                          t.licenseStatus === "active" ? "trial" : "active"
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px] font-semibold uppercase",
+                          t.licenseStatus === "active"
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                            : t.licenseStatus === "completed"
+                            ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                            : "bg-amber-500/10 text-amber-400 border-amber-500/20"
                         )}
                       >
-                        {t.licenseStatus === "active" ? "Switch to Trial" : "Upgrade to Live"}
-                      </Button>
+                        {t.licenseStatus === "active" ? "Production License" : t.licenseStatus === "trial" ? "Trial License" : "Concluded"}
+                      </Badge>
+                    </div>
+
+                    <div className="text-[11px] text-muted-foreground">
+                      {t.licenseStatus === "active"
+                        ? "Production license unlocked — all squad, player, and bidding limits unrestricted."
+                        : t.licenseStatus === "completed"
+                        ? "Tournament concluded. Production license was active."
+                        : "Trial limits applied (Max 20 players, 2 teams). Upgrade to lift limits."}
+                    </div>
+
+                    {isMaster && (
+                      <div className="pt-1 flex gap-2">
+                        {t.licenseStatus === "trial" ? (
+                          <Button
+                            size="sm"
+                            className="w-full h-8 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5"
+                            disabled={!!actionLoading}
+                            onClick={() => setVerifyPaymentOpen(true)}
+                          >
+                            <Shield className="h-3.5 w-3.5" />
+                            Verify Payment & Upgrade License
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-8 text-xs font-medium border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+                            disabled={!!actionLoading}
+                            onClick={() => requestLicenseChange(
+                              t.licenseStatus === "active" ? "Switch to Trial" : "Switch to Live License",
+                              t.licenseStatus === "active" ? "trial" : "active"
+                            )}
+                          >
+                            {t.licenseStatus === "active" ? "Switch to Trial License" : "Upgrade to Live"}
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
 

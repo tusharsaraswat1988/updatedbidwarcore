@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Users, UserX, ChevronDown, ChevronRight, Zap, Radar } from "lucide-react";
+import { ArrowLeft, Users, UserX, ChevronDown, ChevronRight, Zap, Radar, X } from "lucide-react";
 import { useGetTeamScout, getGetTeamScoutQueryKey } from "@workspace/api-client-react";
 import { formatShortIndianRupee } from "@/lib/format";
 import { TeamLogo } from "@/components/TeamLogo";
@@ -170,6 +170,15 @@ function TeamRow({
 
 export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted }: Props) {
   const [tab, setTab] = useState<Tab>("teams");
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onBack();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onBack]);
+
   const { brandName, logos, iconVersion } = useBranding();
   const brandLogoSrc = resolveHeaderBrandLogoUrl(logos, iconVersion);
 
@@ -231,23 +240,31 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
             decoding="async"
           />
         </div>
-        <div className="flex items-center gap-3 px-4 pt-3 pb-3">
+        <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-3 bg-[#18123a] border-b border-[#4a4478]">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: `${teamColor}20`, color: teamColor, border: `2px solid ${teamColor}44` }}
+            >
+              <Radar className="w-4 h-4" strokeWidth={2.25} />
+            </div>
+            <div className="min-w-0">
+              <p className="font-display font-bold text-lg text-white leading-none">Rival Intelligence</p>
+              <p className="text-xs text-[#a8a0c4] mt-0.5">Purses, rosters & unsold pool</p>
+            </div>
+          </div>
           <button
+            type="button"
             onClick={onBack}
-            className="p-2 -ml-2 text-[#a8a0c4] hover:text-white transition-colors rounded-xl hover:bg-[#2a2458] active:scale-90 flex-shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/35 border-2 border-red-500/50 text-red-200 font-black text-xs transition-all active:scale-95 shrink-0 shadow-lg cursor-pointer"
+            title="Close scouting and return to live auction (ESC)"
           >
-            <ArrowLeft className="w-6 h-6" />
+            <X className="w-4 h-4 text-red-300 stroke-[3]" />
+            <span>CLOSE</span>
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-mono bg-black/60 rounded border border-red-500/40 text-red-200 ml-1">
+              ESC
+            </kbd>
           </button>
-          <div className="flex-1 min-w-0">
-            <p className="font-display font-bold text-lg text-white leading-none">Scout</p>
-            <p className="text-xs text-[#6b6490] mt-0.5">Rival intelligence</p>
-          </div>
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ backgroundColor: `${teamColor}20`, color: teamColor, border: `2px solid ${teamColor}44` }}
-          >
-            <Radar className="w-4 h-4" strokeWidth={2.25} />
-          </div>
         </div>
       </div>
 
@@ -363,6 +380,20 @@ export function Scout({ tournamentId, teamId, teamColor, onBack, auctionStarted 
             ))}
           </div>
         )}
+      </div>
+
+      <div className="p-3 bg-[#161036] border-t border-[#4a4478] flex items-center justify-between gap-3 shrink-0">
+        <p className="text-[11px] text-[#a8a0c4] uppercase tracking-wider font-semibold">
+          Rival Radar Active
+        </p>
+        <button
+          type="button"
+          onClick={onBack}
+          className="py-2 px-4 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-200 font-bold text-xs transition-all active:scale-[0.98] flex items-center gap-2 cursor-pointer shadow-md"
+        >
+          <X className="w-4 h-4 text-red-400 stroke-[2.5]" />
+          <span>Close & Return to Auction</span>
+        </button>
       </div>
     </div>
   );

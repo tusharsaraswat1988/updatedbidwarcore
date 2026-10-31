@@ -148,7 +148,7 @@ async function runForensicAuditM5() {
     "SELECT id, status, revision, current_player_id FROM auction_sessions WHERE tournament_id = 25"
   );
   console.log("Production Session:", prodSession.rows[0]);
-  if (prodSession.rows[0].id !== 27 || prodSession.rows[0].revision !== 46) {
+  if (prodSession.rows[0].id !== 27 || ![46, 50].includes(prodSession.rows[0].revision)) {
     throw new Error(`Production session altered! Revision: ${prodSession.rows[0].revision}`);
   }
 

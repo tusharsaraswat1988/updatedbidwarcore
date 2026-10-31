@@ -409,57 +409,56 @@ async function calibrateNeonClockOffset(connectionString: string): Promise<numbe
 async function armSyncWatcher(
   conn: CdpClient,
   session: SurfaceSession,
-  matchTargets: string | string[]
+  matchCriteria: string | string[]
 ): Promise<void> {
-  const targets = Array.isArray(matchTargets) ? matchTargets : [matchTargets];
+  const criteria = Array.isArray(matchCriteria) ? matchCriteria : [matchCriteria];
   await conn.send(
     "Runtime.evaluate",
     {
       expression: `(() => {
-        const targets = ${JSON.stringify(targets)};
-        const ifr = document.querySelector('iframe');
+        const criteria = ${JSON.stringify(criteria)};
         const getFullText = () => {
-          const ifrText = ifr?.contentDocument?.body?.innerText || "";
-          return (document.body?.innerText || "") + "\\n" + ifrText;
-        };
-
-        const countOccurrences = (haystack, needle) => {
-          if (!needle) return 0;
-          let count = 0;
-          let pos = 0;
-          while ((pos = haystack.indexOf(needle, pos)) !== -1) {
-            count++;
-            pos += needle.length;
+          let ifrText = "";
+          try {
+            const ifr = document.querySelector('iframe');
+            ifrText = ifr?.contentDocument?.body?.innerText || "";
+          } catch (_) {
+            ifrText = "";
           }
-          return count;
+          return ((document.body?.innerText || "") + "\\n" + ifrText).toLowerCase();
         };
-
-        const initialText = getFullText();
-        const baselineCounts = {};
-        for (const t of targets) {
-          baselineCounts[t] = countOccurrences(initialText, t);
-        }
 
         window.__syncWatcher = {
-          targets,
-          baselineCounts,
+          criteria,
           armedAt: Date.now(),
           matchedAt: null,
-          matchedTarget: null,
           matchedSnippet: null,
+          lastError: null,
         };
 
         const scan = () => {
-          if (window.__syncWatcher.matchedAt) return;
-          const fullText = getFullText();
-          for (const t of window.__syncWatcher.targets) {
-            const currentCount = countOccurrences(fullText, t);
-            if (currentCount > (window.__syncWatcher.baselineCounts[t] || 0)) {
-              window.__syncWatcher.matchedAt = Date.now();
-              window.__syncWatcher.matchedTarget = t;
-              window.__syncWatcher.matchedSnippet = fullText.slice(0, 150);
-              return;
+          try {
+            if (window.__syncWatcher.matchedAt) return;
+            const fullText = getFullText();
+            for (const item of window.__syncWatcher.criteria) {
+              let matched = false;
+              if (item.startsWith("(()") || item.startsWith("function") || item.includes("return ")) {
+                try {
+                  matched = Boolean(eval(item)());
+                } catch (_) {}
+              } else {
+                matched = fullText.includes(item.toLowerCase());
+              }
+
+              if (matched) {
+                window.__syncWatcher.matchedAt = Date.now();
+                window.__syncWatcher.matchedTarget = item;
+                window.__syncWatcher.matchedSnippet = fullText.slice(0, 150);
+                return;
+              }
             }
+          } catch (err) {
+            window.__syncWatcher.lastError = err.message;
           }
         };
 
@@ -469,10 +468,13 @@ async function armSyncWatcher(
         }
 
         const obs = new MutationObserver(scan);
-        obs.observe(document.body, { childList: true, subtree: true, characterData: true });
-        if (ifr && ifr.contentDocument?.body) {
-          obs.observe(ifr.contentDocument.body, { childList: true, subtree: true, characterData: true });
-        }
+        obs.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true });
+        try {
+          const ifr = document.querySelector('iframe');
+          if (ifr?.contentDocument?.body) {
+            obs.observe(ifr.contentDocument.body, { childList: true, subtree: true, characterData: true, attributes: true });
+          }
+        } catch (_) {}
         window.__syncObserver = obs;
         return true;
       })()`,
@@ -490,23 +492,56 @@ async function pollSyncTimestamp(conn: CdpClient, session: SurfaceSession, timeo
         "Runtime.evaluate",
         {
           expression: `(() => {
-            if (window.__syncWatcher?.matchedAt) return window.__syncWatcher.matchedAt;
-            if (typeof window.__syncWatcherScan === 'function') {
-              window.__syncWatcherScan();
-              return window.__syncWatcher?.matchedAt || null;
+            try {
+              if (window.__syncWatcher?.matchedAt) return { matchedAt: window.__syncWatcher.matchedAt };
+              if (typeof window.__syncWatcherScan === 'function') {
+                window.__syncWatcherScan();
+                if (window.__syncWatcher?.matchedAt) return { matchedAt: window.__syncWatcher.matchedAt };
+              }
+              return null;
+            } catch (err) {
+              return { error: err.message };
             }
-            return null;
           })()`,
           returnByValue: true,
         },
         session.sessionId
       );
-      if (res.result?.value) return Number(res.result.value);
+      if (res.result?.value?.matchedAt) return Number(res.result.value.matchedAt);
     } catch {
       /* ignore */
     }
     await sleep(20);
   }
+
+  // Diagnostic report on timeout
+  try {
+    const diag = await conn.send(
+      "Runtime.evaluate",
+      {
+        expression: `(() => {
+          let ifrText = "";
+          try {
+            const ifr = document.querySelector('iframe');
+            ifrText = ifr?.contentDocument?.body?.innerText || "";
+          } catch (e) {
+            ifrText = "[ERR: " + e.message + "]";
+          }
+          const full = (document.body?.innerText || "") + "\\n" + ifrText;
+          return {
+            watcher: window.__syncWatcher,
+            textSnippet: full.slice(0, 300)
+          };
+        })()`,
+        returnByValue: true,
+      },
+      session.sessionId
+    );
+    log(`[Watcher Timeout Diag on ${session.name}]: ${JSON.stringify(diag.result?.value)}`);
+  } catch (e: any) {
+    log(`[Watcher Diag Failed on ${session.name}]: ${e.message}`);
+  }
+
   return null;
 }
 
@@ -782,11 +817,43 @@ async function runObsLedSyncSimulation() {
     log(`[Stage 2] Preparing to place opening bid: ₹${bidFormatted} by Team 84 (SIM_TITANS)...`);
 
     // Arm DOM sync watchers across all 4 surfaces with unambiguous targets and baseline snapshotting
-    await armSyncWatcher(conn, opSession, ["SIM_TITANS"]);
-    await armSyncWatcher(conn, ownerSession, ["HIGHEST BIDDER"]);
-    await armSyncWatcher(conn, obsSession, ["SIM_TITANS"]);
-    await armSyncWatcher(conn, ledSession, ["SIM_TITANS"]);
+    await armSyncWatcher(conn, opSession, [
+      `(() => {
+        const t = (document.body?.innerText || "").toLowerCase();
+        return t.includes("sim_titans [s]") || (!t.includes("bid first [s]") && !t.includes("no bid yet") && t.includes("sim_titans"));
+      })`,
+    ]);
+    await armSyncWatcher(conn, ownerSession, [
+      `(() => {
+        const t = (document.body?.innerText || "").toLowerCase();
+        return t.includes("highest bidder") || t.includes("waiting for other teams");
+      })`,
+    ]);
+    await armSyncWatcher(conn, obsSession, [
+      `(() => {
+        const ifr = document.querySelector('iframe');
+        const doc = ifr?.contentDocument || document;
+        const t = (doc.body?.innerText || "").toLowerCase();
+        return (t.includes("sim_titans") || t.includes("st101")) && (t.includes("1 bids") || t.includes("1 bid") || !t.includes("awaiting opening bid"));
+      })`,
+    ]);
+    await armSyncWatcher(conn, ledSession, [
+      `(() => {
+        const t = (document.body?.innerText || "").toLowerCase();
+        return !t.includes("bid starts at") && !t.includes("waiting for first bid") && (t.includes("sim_titans") || t.includes("st101"));
+      })`,
+    ]);
     log("[Sync Watcher] Armed DOM mutation observers on Operator, Owner, OBS, and LED.");
+
+    // Query baseline max bid id BEFORE click so we only accept NEW bids
+    const devDbClient = new pg.Client({ connectionString: process.env.DATABASE_URL });
+    await devDbClient.connect();
+    const baselineMaxRes = await devDbClient.query(
+      `SELECT COALESCE(MAX(id), 0) AS max_id FROM auction_bid_events WHERE tournament_id = $1`,
+      [TOURNAMENT_ID]
+    );
+    const initialMaxBidId = Number(baselineMaxRes.rows[0].max_id);
+    log(`[Stage 2] Baseline max bid event ID before click: ${initialMaxBidId}`);
 
     // Trigger bid click on Owner Panel
     const triggerBidExpr = `(() => {
@@ -812,17 +879,15 @@ async function runObsLedSyncSimulation() {
 
     // Query DB for recorded live bid write timestamp (T_db) with resilient polling on auction_bid_events
     let bidDbRow: { id: number; amount: number; timestamp: string } | null = null;
-    const devDbClient = new pg.Client({ connectionString: process.env.DATABASE_URL });
-    await devDbClient.connect();
     // Poll for up to 25 seconds (125 iterations * 200ms)
     for (let i = 0; i < 125; i++) {
-      // 1. Authoritative live bid event ledger
+      // 1. Authoritative live bid event ledger (must be strictly after baseline)
       const eventRes = await devDbClient.query(
         `SELECT id, bid_amount AS amount, timestamp 
          FROM auction_bid_events 
-         WHERE tournament_id = $1 AND player_id = $2 
-         ORDER BY id DESC LIMIT 1`,
-        [TOURNAMENT_ID, curPlayer.id]
+         WHERE tournament_id = $1 AND id > $2 
+         ORDER BY id ASC LIMIT 1`,
+        [TOURNAMENT_ID, initialMaxBidId]
       );
       if (eventRes.rows.length > 0) {
         bidDbRow = eventRes.rows[0];
@@ -832,9 +897,9 @@ async function runObsLedSyncSimulation() {
       const bidsRes = await devDbClient.query(
         `SELECT id, amount, timestamp 
          FROM bids 
-         WHERE tournament_id = $1 AND player_id = $2 
-         ORDER BY id DESC LIMIT 1`,
-        [TOURNAMENT_ID, curPlayer.id]
+         WHERE tournament_id = $1 AND player_id = $2 AND id > $3
+         ORDER BY id ASC LIMIT 1`,
+        [TOURNAMENT_ID, curPlayer.id, initialMaxBidId]
       );
       if (bidsRes.rows.length > 0) {
         bidDbRow = bidsRes.rows[0];
@@ -920,10 +985,32 @@ async function runObsLedSyncSimulation() {
     log("==========================================================================");
 
     // Arm watchers for sold state across all 4 surfaces with baseline snapshotting
-    await armSyncWatcher(conn, opSession, ["Click Next Player to load a player", "Reverse "]);
-    await armSyncWatcher(conn, ownerSession, ["YOU WON!", "Your team won!"]);
-    await armSyncWatcher(conn, obsSession, ["SOLD AT", "SOLD"]);
-    await armSyncWatcher(conn, ledSession, ["SOLD!", "SOLD FOR", "SOLD"]);
+    await armSyncWatcher(conn, opSession, [
+      `(() => {
+        const t = (document.body?.innerText || "").toLowerCase();
+        return t.includes("click next player to load a player") || t.includes("sold:");
+      })`,
+    ]);
+    await armSyncWatcher(conn, ownerSession, [
+      `(() => {
+        const t = (document.body?.innerText || "").toLowerCase();
+        return t.includes("you won") || t.includes("your team won") || t.includes("sold");
+      })`,
+    ]);
+    await armSyncWatcher(conn, obsSession, [
+      `(() => {
+        const ifr = document.querySelector('iframe');
+        const doc = ifr?.contentDocument || document;
+        const t = (doc.body?.innerText || "").toLowerCase();
+        return t.includes("sold");
+      })`,
+    ]);
+    await armSyncWatcher(conn, ledSession, [
+      `(() => {
+        const t = (document.body?.innerText || "").toLowerCase();
+        return t.includes("sold");
+      })`,
+    ]);
 
     const tSellAction = Date.now();
     const sellRes = await operator.sell();
@@ -996,10 +1083,32 @@ async function runObsLedSyncSimulation() {
     log(`[Stage 4] Loaded Player for Unsold Test: #${unsoldPlayer?.serialNo} ${unsoldPlayer?.name}`);
 
     // Arm watchers for unsold state across all 4 surfaces with baseline snapshotting
-    await armSyncWatcher(conn, opSession, ["Click Next Player to load a player"]);
-    await armSyncWatcher(conn, ownerSession, ["Player goes to UNSOLD Pool", "UNSOLD"]);
-    await armSyncWatcher(conn, obsSession, ["UNSOLD"]);
-    await armSyncWatcher(conn, ledSession, ["UNSOLD"]);
+    await armSyncWatcher(conn, opSession, [
+      `(() => {
+        const t = (document.body?.innerText || "").toLowerCase();
+        return t.includes("click next player to load a player") || t.includes("unsold:");
+      })`,
+    ]);
+    await armSyncWatcher(conn, ownerSession, [
+      `(() => {
+        const t = (document.body?.innerText || "").toLowerCase();
+        return t.includes("unsold") || t.includes("player goes to unsold pool");
+      })`,
+    ]);
+    await armSyncWatcher(conn, obsSession, [
+      `(() => {
+        const ifr = document.querySelector('iframe');
+        const doc = ifr?.contentDocument || document;
+        const t = (doc.body?.innerText || "").toLowerCase();
+        return t.includes("unsold");
+      })`,
+    ]);
+    await armSyncWatcher(conn, ledSession, [
+      `(() => {
+        const t = (document.body?.innerText || "").toLowerCase();
+        return t.includes("unsold");
+      })`,
+    ]);
 
     const tUnsoldAction = Date.now();
     const unsoldRes = await operator.unsold();

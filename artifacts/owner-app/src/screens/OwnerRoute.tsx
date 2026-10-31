@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useParams } from "wouter";
 import { useWakeLock } from "../hooks/useWakeLock";
 import {
@@ -327,32 +328,11 @@ export function OwnerRoute() {
     );
   }
 
-  if (screen === "squad") {
-    return (
-      <Squad
-        tournamentId={tournamentId}
-        teamId={teamId}
-        team={team}
-        teamPurse={teamPurse ?? null}
-        onBack={() => setScreen("live")}
-      />
-    );
-  }
-
-  if (screen === "scout") {
-    return (
-      <Scout
-        tournamentId={tournamentId}
-        teamId={teamId}
-        teamColor={teamColor}
-        onBack={() => setScreen("live")}
-        auctionStarted={scoutAutoReturn}
-      />
-    );
-  }
+  const isDrawerOpen = screen === "squad" || screen === "scout";
 
   return (
-    <LiveBid
+    <div className="relative w-full h-full overflow-hidden bg-background">
+      <LiveBid
       state={state ?? null}
       team={team}
       tournament={tournament ?? null}
@@ -377,5 +357,49 @@ export function OwnerRoute() {
         });
       }}
     />
+
+      {/* Slide-over Tactical Drawer for Squad / Rivals */}
+      <AnimatePresence>
+        {isDrawerOpen && (
+          <motion.div
+            key="tactical-drawer-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex justify-end"
+            onClick={() => setScreen("live")}
+          >
+            <motion.div
+              key="tactical-drawer-panel"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              className="w-full sm:max-w-xl md:max-w-2xl h-full bg-[#1b1542] border-l border-[#4a4478] shadow-2xl flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {screen === "squad" ? (
+                <Squad
+                  tournamentId={tournamentId}
+                  teamId={teamId}
+                  team={team}
+                  teamPurse={teamPurse ?? null}
+                  onBack={() => setScreen("live")}
+                />
+              ) : (
+                <Scout
+                  tournamentId={tournamentId}
+                  teamId={teamId}
+                  teamColor={teamColor}
+                  onBack={() => setScreen("live")}
+                  auctionStarted={scoutAutoReturn}
+                />
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

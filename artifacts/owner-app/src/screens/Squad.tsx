@@ -1,6 +1,7 @@
+import { useEffect } from "react";
 import { useListPlayers, getListPlayersQueryKey } from "@workspace/api-client-react";
 import { resolveRetainedSpend } from "@workspace/api-base";
-import { ChevronLeft, User, ShieldUser } from "lucide-react";
+import { ChevronLeft, User, ShieldUser, X } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { useBranding } from "@/hooks/useBranding";
 import { resolveHeaderBrandLogoUrl } from "@/lib/brand-assets";
@@ -81,6 +82,15 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
   const maxAllowedBid = teamPurse?.maxAllowedBid ?? Math.max(0, capacity - purseUsed);
   const count     = myPlayers.length;
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onBack();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onBack]);
+
+
   return (
     <div
       className="auction-surface h-full min-h-0 flex flex-col bg-background overflow-hidden safe-top safe-bottom select-none"
@@ -97,29 +107,40 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
             decoding="async"
           />
         </div>
-        <div className="flex items-center gap-4 px-4 pt-3 pb-3">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1 text-[#a8a0c4] hover:text-white transition-colors p-2 -ml-2 rounded-xl hover:bg-[#2a2458] active:scale-95"
-            title="Back to bidding"
-          >
-            <ChevronLeft className="w-7 h-7" />
-          </button>
-          <TeamLogo
-            logoUrl={team.logoUrl}
-            shortCode={team.shortCode}
-            teamName={team.name}
-            teamColor={teamColor}
-            className="w-12 h-12 rounded-xl"
-            textClassName="text-base"
-          />
-          <div className="flex-1 min-w-0">
-            <p className="font-display font-bold text-xl leading-none truncate" style={{ color: teamColor }}>
-              {team.name}
-            </p>
-            <p className="text-sm text-[#a8a0c4] mt-0.5">My Squad</p>
+        <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-3 bg-[#18123a] border-b border-[#4a4478]">
+          <div className="flex items-center gap-3 min-w-0">
+            <TeamLogo
+              logoUrl={team.logoUrl}
+              shortCode={team.shortCode}
+              teamName={team.name}
+              teamColor={teamColor}
+              className="w-10 h-10 rounded-xl flex-shrink-0"
+              textClassName="text-sm"
+            />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="font-display font-bold text-lg leading-none truncate" style={{ color: teamColor }}>
+                  {team.name}
+                </p>
+                <span className="text-[10px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#4a4478] text-[#a8a0c4]">
+                  ROSTER
+                </span>
+              </div>
+              <p className="text-xs text-[#a8a0c4] mt-0.5">My Squad</p>
+            </div>
           </div>
-          <ShieldUser className="w-7 h-7 flex-shrink-0" style={{ color: teamColor }} strokeWidth={2.25} />
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/35 border-2 border-red-500/50 text-red-200 font-black text-xs transition-all active:scale-95 shrink-0 shadow-lg cursor-pointer"
+            title="Close roster and return to live auction (ESC)"
+          >
+            <X className="w-4 h-4 text-red-300 stroke-[3]" />
+            <span>CLOSE</span>
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-mono bg-black/60 rounded border border-red-500/40 text-red-200 ml-1">
+              ESC
+            </kbd>
+          </button>
         </div>
       </div>
 
@@ -236,9 +257,19 @@ export function Squad({ tournamentId, teamId, team, teamPurse, onBack }: Props) 
         )}
       </div>
 
-      <p className="text-center text-sm text-[#3d3670] uppercase tracking-widest py-4 flex-shrink-0 border-t border-[#4a4478]">
-        {poweredByText}
-      </p>
+      <div className="p-3 bg-[#161036] border-t border-[#4a4478] flex items-center justify-between gap-3 shrink-0">
+        <p className="text-[11px] text-[#a8a0c4] uppercase tracking-wider font-semibold">
+          {count} Players in Roster
+        </p>
+        <button
+          type="button"
+          onClick={onBack}
+          className="py-2 px-4 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-200 font-bold text-xs transition-all active:scale-[0.98] flex items-center gap-2 cursor-pointer shadow-md"
+        >
+          <X className="w-4 h-4 text-red-400 stroke-[2.5]" />
+          <span>Close & Return to Auction</span>
+        </button>
+      </div>
     </div>
   );
 }

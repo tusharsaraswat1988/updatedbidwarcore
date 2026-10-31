@@ -15,6 +15,8 @@ import { formatIndianRupee, formatShortIndianRupee, resolveAuctionUnit } from "@
 import { computeNextBidAmount, resolveRetainedSpend, isTeamEligibleForTrialAuction, resolveOwnerLiveBidFooterPurse, resolveOwnerPlayingSquadTotal, resolveOwnerSquadRequirement, ownerSquadMinSubline, ownerSquadMaxSubline } from "@workspace/api-base";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { InterLotCommandCenter } from "@/components/InterLotCommandCenter";
 import { PlayerTagBadge } from "@/components/PlayerTagBadge";
 import { Toast } from "@/components/Toast";
 import { AuctionConnectionBanner, AuctionFeedIndicator } from "@/components/AuctionConnectionBanner";
@@ -244,22 +246,13 @@ function PlayerCard({ player, teamColor, unit, categoryName, sport, tier }: {
           : { borderColor: "#4a4478" }
       }
     >
-      <div
-        className={`${photoClass} relative rounded-xl bg-[#4a4478] flex-shrink-0 overflow-hidden flex items-center justify-center`}
-        style={
-          tagTheme
-            ? {
-                border: `2px solid ${tagTheme.color}`,
-                boxShadow: `0 0 14px ${tagTheme.glow}, inset 0 0 20px ${tagTheme.glow}`,
-              }
-            : { border: "1px solid #3d3670" }
-        }
-      >
-        {player.photoUrl ? (
-          <img src={player.photoUrl} alt={player.name} className="w-full h-full object-cover" />
-        ) : (
-          <User className="w-10 h-10 text-[#6b6490]" />
-        )}
+      <div className="relative flex-shrink-0">
+        <PlayerAvatar
+          name={player.name ?? "Player"}
+          photoUrl={player.photoUrl}
+          accentColor={tagTheme?.color ?? teamColor}
+          className={`${photoClass} rounded-xl`}
+        />
         {player.playerTag ? (
           <div className="absolute left-1 top-1 z-10 max-w-[calc(100%-0.25rem)]">
             <PlayerTagBadge tagKey={player.playerTag} />
@@ -684,14 +677,31 @@ function TeamPurseFooter({
   );
 }
 
-function BidAmount({ amount, isLeading, teamColor, leadingTeam, unit, tier }: {
+function BidAmount({
+  amount,
+  isLeading,
+  teamColor,
+  leadingTeam,
+  unit,
+  tier,
+  hasPlayer = true,
+}: {
   amount: number;
   isLeading: boolean;
   teamColor: string;
   leadingTeam?: string | null;
   unit: ReturnType<typeof resolveAuctionUnit>;
   tier: DeviceTier;
+  hasPlayer?: boolean;
 }) {
+  if (!hasPlayer) {
+    return (
+      <div className="text-center py-2 px-4 rounded-xl bg-[#201a47]/60 border border-[#4a4478]/70 max-w-xs mx-auto my-1 shadow-inner">
+        <p className="text-[10px] font-bold text-[#a8a0c4] uppercase tracking-widest">Stage Status</p>
+        <p className="font-display font-bold text-sm text-[#e2dff5] mt-0.5">Awaiting Next Lot Draw</p>
+      </div>
+    );
+  }
   const amountClass = tier === "mobile" ? "text-5xl" : tier === "tablet" ? "text-6xl" : "text-7xl";
   return (
     <div className="text-center py-2">
@@ -1115,13 +1125,13 @@ function UnsoldPlayerCard({ name, photoUrl }: { name: string; photoUrl?: string 
       className="flex items-center gap-5 p-5 rounded-2xl border bg-[#2a2458] relative overflow-hidden"
       style={{ borderColor: "rgba(239,68,68,0.35)" }}
     >
-      <div className="w-20 h-28 rounded-xl bg-[#4a4478] border border-[#3d3670] flex-shrink-0 overflow-hidden flex items-center justify-center">
-        {photoUrl ? (
-          <img src={photoUrl} alt={name} className="w-full h-full object-cover opacity-70 grayscale" />
-        ) : (
-          <User className="w-10 h-10 text-[#6b6490]" />
-        )}
-      </div>
+      <PlayerAvatar
+        name={name}
+        photoUrl={photoUrl}
+        accentColor="#ef4444"
+        grayscale={true}
+        className="w-20 h-28 rounded-xl"
+      />
       <div className="flex-1 min-w-0">
         <p className="text-xs font-bold uppercase tracking-widest mb-1 text-red-400">Unsold</p>
         <h2 className="font-display font-bold text-2xl leading-tight text-white truncate">{name}</h2>
@@ -1153,16 +1163,22 @@ function LastSoldPlayerCard({ player, teamColor, wonByThisTeam, unit }: {
       className="flex items-center gap-5 p-5 rounded-2xl border bg-[#2a2458] relative overflow-hidden"
       style={{ borderColor: `${soldColor}40` }}
     >
-      <div className="w-20 h-28 rounded-xl bg-[#4a4478] border border-[#3d3670] flex-shrink-0 overflow-hidden flex items-center justify-center">
-        {player.photoUrl ? (
-          <img src={player.photoUrl} alt={player.name ?? ""} className="w-full h-full object-cover opacity-70" />
-        ) : (
-          <User className="w-10 h-10 text-[#6b6490]" />
-        )}
-      </div>
+      <PlayerAvatar
+        name={player.name}
+        photoUrl={player.photoUrl}
+        accentColor={wonByThisTeam ? "#10b981" : teamColor}
+        className="w-20 h-28 rounded-xl"
+      />
       <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: soldColor }}>
-          {wonByThisTeam ? "Your team won!" : "Last sold"}
+        <p className="text-xs font-bold uppercase tracking-widest mb-1 flex items-center gap-1.5" style={{ color: wonByThisTeam ? "#10b981" : soldColor }}>
+          {wonByThisTeam ? (
+            <>
+              <Trophy className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-emerald-400 font-black">YOUR TEAM WON!</span>
+            </>
+          ) : (
+            "LAST SOLD"
+          )}
         </p>
         <h2 className="font-display font-bold text-2xl leading-tight text-white truncate">{player.name}</h2>
         {player.role && <p className="text-sm text-[#a8a0c4] capitalize mt-1">{player.role}</p>}
@@ -1613,17 +1629,40 @@ function LiveBidHeader({
           <p className={`font-display font-bold leading-none truncate ${teamNameClass}`} style={{ color: teamColor }}>
             {team.name}
           </p>
-          <span
-            className={`text-[10px] font-black px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-              isActive
-                ? "bg-green-500/20 text-green-400"
-                : isPaused
-                  ? "bg-amber-500/20 text-amber-400"
-                  : "bg-[#4a4478] text-[#a8a0c4]"
-            }`}
-          >
-            {statusLabel}
-          </span>
+          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border flex-shrink-0 ${
+            isActive
+              ? "bg-emerald-500/15 border-emerald-500/35 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
+              : isPaused
+                ? "bg-amber-500/20 border-amber-500/35 text-amber-400"
+                : "bg-[#4a4478] border-[#5d568e] text-[#a8a0c4]"
+          }`}>
+            {isActive && (
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              </span>
+            )}
+            <span className="text-[10px] font-black uppercase tracking-wider">{statusLabel}</span>
+            {isActive && (
+              <span className="inline-flex items-end gap-[2px] h-3 ml-0.5">
+                <motion.span
+                  animate={{ height: ["30%", "100%", "45%", "85%", "30%"] }}
+                  transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
+                  className="w-[2px] bg-emerald-400 rounded-full"
+                />
+                <motion.span
+                  animate={{ height: ["80%", "35%", "100%", "50%", "80%"] }}
+                  transition={{ duration: 0.7, repeat: Infinity, ease: "easeInOut", delay: 0.15 }}
+                  className="w-[2px] bg-emerald-400 rounded-full"
+                />
+                <motion.span
+                  animate={{ height: ["40%", "90%", "25%", "95%", "40%"] }}
+                  transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+                  className="w-[2px] bg-emerald-400 rounded-full"
+                />
+              </span>
+            )}
+          </div>
           <AuctionFeedIndicator
             feedState={feed.state}
             secondsSinceLastActivity={feed.secondsSinceLastActivity}
@@ -2073,6 +2112,7 @@ export function LiveBid({
             leadingTeam={state?.currentBidTeamName}
             unit={unit}
             tier={tier}
+            hasPlayer={hasPlayer}
           />
 
           <TeamSquadSnapshot
@@ -2333,6 +2373,7 @@ export function LiveBid({
             leadingTeam={state?.currentBidTeamName}
             unit={unit}
             tier={tier}
+            hasPlayer={hasPlayer}
           />
           <TeamSquadSnapshot
             teamColor={teamColor}
@@ -2364,32 +2405,47 @@ export function LiveBid({
       <div className="w-[40%] flex flex-col px-3 sm:px-4 py-3 sm:py-4 gap-2 sm:gap-3 flex-shrink-0 min-w-[180px]">
         <div className={`flex-1 flex flex-col ${tier === "mobile" ? "min-h-[42vh]" : tier === "tablet" ? "min-h-[44vh]" : "min-h-[40vh]"}`}>
           <AnimatePresence mode="wait">
-            <BidButton
-              key={`split-${ownerBiddingEnabled}-${isOnBreak}-${isLeading}-${expired}-${timerActive}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
-              ownerBiddingEnabled={ownerBiddingEnabled}
-              canBid={canBid}
-              isLeading={isLeading}
-              timerExpired={expired}
-              timerActive={timerActive}
-              hasPlayer={hasPlayer}
-              isActive={isActive}
-              isPaused={isPaused}
-              isIdle={isIdle}
-              isOnBreak={isOnBreak}
-              hasLiveCountdown={hasLiveCountdown}
-              breakMins={breakMins}
-              breakSecs={breakSecs}
-              breakMessage={breakMessage}
-              breakLabel={breakLabel}
-              bidding={bidding}
-              bidFeedback={bidFeedback}
-              nextBidAmount={nextBidAmount}
-              teamColor={teamColor}
-              onBid={handleBidTap}
-              layout="split"
-              tier={tier}
-              unit={unit}
-            />
+            {hasPlayer || isOnBreak ? (
+              <BidButton
+                key={`split-${ownerBiddingEnabled}-${isOnBreak}-${isLeading}-${expired}-${timerActive}-${isActive}-${hasPlayer}-${breakMins}-${breakSecs}`}
+                ownerBiddingEnabled={ownerBiddingEnabled}
+                canBid={canBid}
+                isLeading={isLeading}
+                timerExpired={expired}
+                timerActive={timerActive}
+                hasPlayer={hasPlayer}
+                isActive={isActive}
+                isPaused={isPaused}
+                isIdle={isIdle}
+                isOnBreak={isOnBreak}
+                hasLiveCountdown={hasLiveCountdown}
+                breakMins={breakMins}
+                breakSecs={breakSecs}
+                breakMessage={breakMessage}
+                breakLabel={breakLabel}
+                bidding={bidding}
+                bidFeedback={bidFeedback}
+                nextBidAmount={nextBidAmount}
+                teamColor={teamColor}
+                onBid={handleBidTap}
+                layout="split"
+                tier={tier}
+                unit={unit}
+              />
+            ) : (
+              <InterLotCommandCenter
+                key="inter-lot-war-room"
+                tournamentId={tournamentId}
+                teamId={teamId}
+                teamColor={teamColor}
+                isPaused={isPaused}
+                isIdle={isIdle}
+                unit={unit}
+                onViewSquad={onViewSquad}
+                onViewScout={onViewScout}
+                sport={tournament?.sport}
+              />
+            )}
           </AnimatePresence>
         </div>
 
