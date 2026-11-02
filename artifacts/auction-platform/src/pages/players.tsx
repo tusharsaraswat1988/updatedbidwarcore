@@ -619,7 +619,15 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
 
   const [customAnswers, setCustomAnswers] = useState<Record<string, any>>(() => {
     const raw = (player?.customAnswers as Record<string, any>) || (player?.customAnswersJson as Record<string, any>);
-    return raw && typeof raw === "object" ? { ...raw } : {};
+    if (!raw || typeof raw !== "object") return {};
+    const validIds = new Set((regConfig.customQuestions ?? []).map((q) => q.id));
+    const filtered: Record<string, any> = {};
+    for (const [k, v] of Object.entries(raw)) {
+      if (validIds.has(k)) {
+        filtered[k] = v;
+      }
+    }
+    return filtered;
   });
 
   const handleCustomAnswerChange = (questionId: string, val: any) => {
@@ -740,7 +748,14 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         if (tournamentMatch.customAnswers || tournamentMatch.customAnswersJson) {
           const matchedAnswers = (tournamentMatch.customAnswers || tournamentMatch.customAnswersJson) as Record<string, any>;
           if (matchedAnswers && typeof matchedAnswers === "object") {
-            setCustomAnswers(matchedAnswers);
+            const validIds = new Set((regConfig.customQuestions ?? []).map((q) => q.id));
+            const filtered: Record<string, any> = {};
+            for (const [k, v] of Object.entries(matchedAnswers)) {
+              if (validIds.has(k)) {
+                filtered[k] = v;
+              }
+            }
+            setCustomAnswers(filtered);
           }
         }
         setForm(prev => ({
@@ -934,7 +949,16 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       isNonPlayingMember: form.isNonPlayingMember || undefined,
       whatsappConsent: form.whatsappConsent,
       markPaymentCompleted: !player && tournament?.enableRegistrationPayment ? form.markPaymentCompleted : undefined,
-      customAnswers: Object.keys(customAnswers).length > 0 ? customAnswers : undefined,
+      customAnswers:
+        customQuestions.length > 0
+          ? Object.fromEntries(
+              Object.entries(customAnswers).filter(
+                ([k, v]) => customQuestions.some((q) => q.id === k) && v !== undefined && v !== null && v !== ""
+              )
+            )
+          : (player?.customAnswers || player?.customAnswersJson)
+            ? {}
+            : undefined,
     };
     try {
       const saveTarget = player ?? matchedTournamentPlayer;

@@ -629,7 +629,7 @@ router.post("/tournaments/:tournamentId/players", async (req, res) => {
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
   const customQuestionsForCreate = parseRegistrationFieldsConfig(tRowForCustom?.registrationFieldsJson).customQuestions ?? [];
-  const customValForCreate = validateCustomAnswers(customQuestionsForCreate, d.customAnswers);
+  const customValForCreate = validateCustomAnswers(customQuestionsForCreate, d.customAnswers, { pruneUnknown: true });
   if (!customValForCreate.ok) {
     res.status(400).json({ error: customValForCreate.error, field: customValForCreate.field });
     return;
@@ -1652,7 +1652,7 @@ router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) =>
       .from(tournamentsTable)
       .where(eq(tournamentsTable.id, tid));
     const customQuestions = parseRegistrationFieldsConfig(tRow?.registrationFieldsJson).customQuestions ?? [];
-    const customVal = validateCustomAnswers(customQuestions, d.customAnswers);
+    const customVal = validateCustomAnswers(customQuestions, d.customAnswers, { pruneUnknown: true });
     if (!customVal.ok) {
       res.status(400).json({ error: customVal.error, field: customVal.field });
       return;

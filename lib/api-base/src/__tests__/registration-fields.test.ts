@@ -79,6 +79,12 @@ describe("registration-fields", () => {
     expect(validateCustomAnswers(questions, {}).ok).toBe(false);
     expect(validateCustomAnswers(questions, { q_req: "My answer", q_opt: "Yes" }).ok).toBe(true);
     expect(validateCustomAnswers(questions, { q_req: "My answer", q_opt: "Invalid" }).ok).toBe(false);
+    expect(validateCustomAnswers(questions, { q_req: "My answer", q_deleted: "Old answer" }).ok).toBe(false);
+    const pruned = validateCustomAnswers(questions, { q_req: "My answer", q_deleted: "Old answer" }, { pruneUnknown: true });
+    expect(pruned.ok).toBe(true);
+    if (pruned.ok) {
+      expect(pruned.sanitizedAnswers).toEqual({ q_req: "My answer" });
+    }
   });
 
   it("requires name, mobile, photo, and role by default", () => {

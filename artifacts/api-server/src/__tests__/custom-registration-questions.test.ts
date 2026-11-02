@@ -281,6 +281,24 @@ describe("Custom Registration Questions — Answer Validation", () => {
       expect(res.field).toBe("customAnswers.some_field");
     }
   });
+
+  it("prunes unknown or obsolete question IDs when pruneUnknown is true", () => {
+    const res = validateCustomAnswers(testQuestions, {
+      q_name_on_jersey: "Rohit",
+      q_dominant_hand: "Right",
+      q_kit_needed: ["Gloves"],
+      q_mvpmehna_rahg: "obsolete_answer_from_deleted_question",
+    }, { pruneUnknown: true });
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.sanitizedAnswers).toEqual({
+        q_name_on_jersey: "Rohit",
+        q_dominant_hand: "Right",
+        q_kit_needed: ["Gloves"],
+      });
+      expect((res.sanitizedAnswers as any).q_mvpmehna_rahg).toBeUndefined();
+    }
+  });
 });
 
 describe("Privacy & Serializer Isolation", () => {

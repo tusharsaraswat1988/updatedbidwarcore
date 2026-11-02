@@ -230,6 +230,7 @@ export function validateCustomQuestionsDefinition(
 export function validateCustomAnswers(
   questions: RegistrationCustomQuestion[] | undefined,
   answers: unknown,
+  options?: { pruneUnknown?: boolean },
 ):
   | { ok: true; sanitizedAnswers: Record<string, unknown> }
   | { ok: false; error: string; field?: string } {
@@ -242,6 +243,9 @@ export function validateCustomAnswers(
   const allowedIds = new Set(activeQuestions.map((q) => q.id));
   for (const k of Object.keys(rawAnswers)) {
     if (!allowedIds.has(k)) {
+      if (options?.pruneUnknown) {
+        continue;
+      }
       return {
         ok: false,
         error: `Invalid question ID "${k}".`,
