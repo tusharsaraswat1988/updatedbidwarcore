@@ -358,13 +358,19 @@ describe("Tournament-wide Owner Bidding Enable/Disable Suite", () => {
           return chain;
         }),
         select: vi.fn(() => ({
-          from: (table: any) => ({
-            where: () => {
-              if (table === teamsTableMock) return Promise.resolve([mockTeam1]);
-              if (table === playersTableMock) return Promise.resolve([mockPlayer]);
-              return Promise.resolve([]);
-            },
-          }),
+          from: (table: any) => {
+            const queryChain: any = {
+              where: () => queryChain,
+              for: () => queryChain,
+              then: (resolve: (v: unknown) => void) => {
+                if (table === teamsTableMock) return Promise.resolve([mockTeam1]).then(resolve);
+                if (table === playersTableMock) return Promise.resolve([mockPlayer]).then(resolve);
+                if (table === auctionSessionsTableMock) return Promise.resolve([activeSession]).then(resolve);
+                return Promise.resolve([]).then(resolve);
+              },
+            };
+            return queryChain;
+          },
         })),
         insert: vi.fn(() => ({
           values: () => Promise.resolve([]),
@@ -514,8 +520,11 @@ describe("Tournament-wide Owner Bidding Enable/Disable Suite", () => {
     });
 
     it("allows operator to mark player unsold", async () => {
+      activeSession.currentBid = null;
+      activeSession.currentBidTeamId = null;
       const res = await request(app)
-        .post(`/api/tournaments/${TOURNAMENT_ID}/auction/unsold`);
+        .post(`/api/tournaments/${TOURNAMENT_ID}/auction/unsold`)
+        .send({ expectedRevision: activeSession.revision });
 
       expect(res.status).toBe(200);
     });

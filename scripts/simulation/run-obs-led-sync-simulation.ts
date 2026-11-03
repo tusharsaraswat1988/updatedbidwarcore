@@ -305,11 +305,12 @@ class OperatorApi {
     return res.json();
   }
 
-  async unsold(): Promise<any> {
+  async unsold(expectedRevision?: number): Promise<any> {
+    const rev = expectedRevision ?? (await this.getState()).revision ?? 0;
     const res = await fetch(`${API_ORIGIN}/api/tournaments/${TOURNAMENT_ID}/auction/unsold`, {
       method: "POST",
       headers: { "Content-Type": "application/json", cookie: this.cookieHeader },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ expectedRevision: rev }),
     });
     if (!res.ok) {
       const err = await res.text();

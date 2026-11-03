@@ -92,6 +92,7 @@ import type {
   TournamentInsightsResponse,
   TournamentSummary,
   TournamentUpdate,
+  UnsoldInput,
   UpdateAuctionSettingsBody,
   UploadImage200,
   UploadImageBody,
@@ -3531,11 +3532,14 @@ export const getMarkUnsoldUrl = (tournamentId: number) => {
 
 export const markUnsold = async (
   tournamentId: number,
+  unsoldInput: UnsoldInput,
   options?: RequestInit,
 ): Promise<AuctionState> => {
   return customFetch<AuctionState>(getMarkUnsoldUrl(tournamentId), {
     ...options,
     method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(unsoldInput),
   });
 };
 
@@ -3546,14 +3550,14 @@ export const getMarkUnsoldMutationOptions = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof markUnsold>>,
     TError,
-    { tournamentId: number },
+    { tournamentId: number; data: BodyType<UnsoldInput> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationOptions<
   Awaited<ReturnType<typeof markUnsold>>,
   TError,
-  { tournamentId: number },
+  { tournamentId: number; data: BodyType<UnsoldInput> },
   TContext
 > => {
   const mutationKey = ["markUnsold"];
@@ -3567,11 +3571,11 @@ export const getMarkUnsoldMutationOptions = <
 
   const mutationFn: MutationFunction<
     Awaited<ReturnType<typeof markUnsold>>,
-    { tournamentId: number }
+    { tournamentId: number; data: BodyType<UnsoldInput> }
   > = (props) => {
-    const { tournamentId } = props ?? {};
+    const { tournamentId, data } = props ?? {};
 
-    return markUnsold(tournamentId, requestOptions);
+    return markUnsold(tournamentId, data, requestOptions);
   };
 
   return { mutationFn, ...mutationOptions };
@@ -3580,7 +3584,7 @@ export const getMarkUnsoldMutationOptions = <
 export type MarkUnsoldMutationResult = NonNullable<
   Awaited<ReturnType<typeof markUnsold>>
 >;
-
+export type MarkUnsoldMutationBody = BodyType<UnsoldInput>;
 export type MarkUnsoldMutationError = ErrorType<unknown>;
 
 /**
@@ -3593,14 +3597,14 @@ export const useMarkUnsold = <
   mutation?: UseMutationOptions<
     Awaited<ReturnType<typeof markUnsold>>,
     TError,
-    { tournamentId: number },
+    { tournamentId: number; data: BodyType<UnsoldInput> },
     TContext
   >;
   request?: SecondParameter<typeof customFetch>;
 }): UseMutationResult<
   Awaited<ReturnType<typeof markUnsold>>,
   TError,
-  { tournamentId: number },
+  { tournamentId: number; data: BodyType<UnsoldInput> },
   TContext
 > => {
   return useMutation(getMarkUnsoldMutationOptions(options));
@@ -4146,7 +4150,7 @@ export const setPresentationContext = async (
 };
 
 export const getSetPresentationContextMutationOptions = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -4188,13 +4192,13 @@ export type SetPresentationContextMutationResult = NonNullable<
 >;
 export type SetPresentationContextMutationBody =
   BodyType<SetPresentationContextBody>;
-export type SetPresentationContextMutationError = ErrorType<unknown>;
+export type SetPresentationContextMutationError = ErrorType<void>;
 
 /**
  * @summary Set explicit on-air presentation context for OBS and displays
  */
 export const useSetPresentationContext = <
-  TError = ErrorType<unknown>,
+  TError = ErrorType<void>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<

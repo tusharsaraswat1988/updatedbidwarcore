@@ -764,7 +764,11 @@ export default function AuctionOperator() {
   }
   async function handleUnsold() {
     if (controlsLocked || markUnsold.isPending) return;
-    const result = await markUnsold.mutateAsync({ tournamentId });
+    const currentRev = (state as { revision?: number } | undefined)?.revision ?? 0;
+    const result = await markUnsold.mutateAsync({
+      tournamentId,
+      data: { expectedRevision: currentRev },
+    });
     applyMutationResult(result);
   }
   async function handleManualSell() {

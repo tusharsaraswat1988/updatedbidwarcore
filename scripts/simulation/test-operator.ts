@@ -28,6 +28,7 @@ async function testOperatorAndBid() {
   const unsoldRes = await fetch("http://127.0.0.1:8081/api/tournaments/18/auction/unsold", {
     method: "POST",
     headers: { "Content-Type": "application/json", cookie },
+    body: JSON.stringify({ expectedRevision: state.revision ?? 0 }),
   });
   console.log("Unsold status:", unsoldRes.status);
 }

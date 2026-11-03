@@ -90,9 +90,12 @@ async function inspectDOM() {
   conn.close();
 
   // Mark unsold to leave state clean
+  const stateRes = await fetch("http://127.0.0.1:8081/api/tournaments/18/auction");
+  const stateData = await stateRes.json();
   await fetch("http://127.0.0.1:8081/api/tournaments/18/auction/unsold", {
     method: "POST",
     headers: { "Content-Type": "application/json", cookie: cookieHeader },
+    body: JSON.stringify({ expectedRevision: stateData.revision ?? 0 }),
   });
 }
 

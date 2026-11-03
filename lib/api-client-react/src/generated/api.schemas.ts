@@ -1098,6 +1098,11 @@ export interface ManualSellInput {
   reason?: string;
 }
 
+export interface UnsoldInput {
+  /** Expected auction session revision for optimistic concurrency control */
+  expectedRevision: number;
+}
+
 export interface ReAuctionInput {
   playerId: number;
   startFromBase?: boolean;
@@ -1431,13 +1436,18 @@ export interface PresentationContext {
    * @nullable
    */
   selectedTeamId?: number | null;
-  /** Presentation revision the operator sends back as expectedRevision. */
+  /**
+   * Presentation revision. Clients send this back as expectedRevision.
+   * @minimum 0
+   */
   revision?: number;
 }
 
 export interface AuctionState {
   tournamentId: number;
   status: AuctionStateStatus;
+  /** Monotonically increasing auction session revision for optimistic concurrency control */
+  revision?: number;
   currentPlayer?: Player | null;
   /** @nullable */
   currentBid?: number | null;
@@ -1526,8 +1536,11 @@ export interface SetPresentationContextBody {
   context?: SetPresentationContextBodyContext;
   /** @nullable */
   selectedTeamId?: number | null;
-  /** Revision the operator observed. A stale value is rejected. */
-  expectedRevision?: number;
+  /**
+   * Revision the caller observed. A stale value is rejected with 409.
+   * @minimum 0
+   */
+  expectedRevision: number;
 }
 
 export type ApplyPurseBoosterRequestTarget =
@@ -2238,7 +2251,7 @@ export interface ScoringStandingRow {
   tied?: number;
   noResult?: number;
   points?: number;
-  /** Points as a percentage of maximum points from matches played. */
+  /** Points as a percentage of maximum points from matches played. Full precision; display may round to two decimals. */
   pointsPercentage?: number;
   /** Full-precision net run rate used for ranking. Display may round to three decimals. */
   netRunRate?: number;
@@ -2409,7 +2422,10 @@ export const SetDisplayOverlayBodyMode = {
 
 export type SetDisplayOverlayBody = {
   mode: SetDisplayOverlayBodyMode;
-  /** Required by the current operator for MAIN, so a stale reset cannot overwrite a newer OBS selection. */
+  /**
+   * Observed presentation revision. Sent with MAIN so a stale reset cannot overwrite a newer OBS selection.
+   * @minimum 0
+   */
   expectedRevision?: number;
 };
 

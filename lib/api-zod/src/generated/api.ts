@@ -2705,10 +2705,17 @@ export const GetAuctionStateParams = zod.object({
 });
 
 export const getAuctionStateResponsePresentationContextContextDefault = `auction`;
+export const getAuctionStateResponsePresentationContextRevisionMin = 0;
 
 export const GetAuctionStateResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -3052,6 +3059,13 @@ export const GetAuctionStateResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(getAuctionStateResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -3071,10 +3085,17 @@ export const UpdateAuctionSettingsBody = zod.object({
 });
 
 export const updateAuctionSettingsResponsePresentationContextContextDefault = `auction`;
+export const updateAuctionSettingsResponsePresentationContextRevisionMin = 0;
 
 export const UpdateAuctionSettingsResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -3420,6 +3441,13 @@ export const UpdateAuctionSettingsResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(updateAuctionSettingsResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -3435,10 +3463,17 @@ export const StartAuctionParams = zod.object({
 });
 
 export const startAuctionResponsePresentationContextContextDefault = `auction`;
+export const startAuctionResponsePresentationContextRevisionMin = 0;
 
 export const StartAuctionResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -3782,6 +3817,13 @@ export const StartAuctionResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(startAuctionResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -3797,10 +3839,17 @@ export const PauseAuctionParams = zod.object({
 });
 
 export const pauseAuctionResponsePresentationContextContextDefault = `auction`;
+export const pauseAuctionResponsePresentationContextRevisionMin = 0;
 
 export const PauseAuctionResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -4144,6 +4193,13 @@ export const PauseAuctionResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(pauseAuctionResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -4164,10 +4220,17 @@ export const NextPlayerBody = zod.object({
 });
 
 export const nextPlayerResponsePresentationContextContextDefault = `auction`;
+export const nextPlayerResponsePresentationContextRevisionMin = 0;
 
 export const NextPlayerResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -4511,6 +4574,13 @@ export const NextPlayerResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(nextPlayerResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -4535,10 +4605,17 @@ export const PlaceBidBody = zod.object({
 });
 
 export const placeBidResponsePresentationContextContextDefault = `auction`;
+export const placeBidResponsePresentationContextRevisionMin = 0;
 
 export const PlaceBidResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -4882,6 +4959,13 @@ export const PlaceBidResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(placeBidResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -4897,10 +4981,17 @@ export const SellPlayerParams = zod.object({
 });
 
 export const sellPlayerResponsePresentationContextContextDefault = `auction`;
+export const sellPlayerResponsePresentationContextRevisionMin = 0;
 
 export const SellPlayerResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -5244,6 +5335,13 @@ export const SellPlayerResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(sellPlayerResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -5268,10 +5366,17 @@ export const ManualSellBody = zod.object({
 });
 
 export const manualSellResponsePresentationContextContextDefault = `auction`;
+export const manualSellResponsePresentationContextRevisionMin = 0;
 
 export const ManualSellResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -5615,6 +5720,13 @@ export const ManualSellResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(manualSellResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -5629,11 +5741,26 @@ export const MarkUnsoldParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
 
+export const MarkUnsoldBody = zod.object({
+  expectedRevision: zod
+    .number()
+    .describe(
+      "Expected auction session revision for optimistic concurrency control",
+    ),
+});
+
 export const markUnsoldResponsePresentationContextContextDefault = `auction`;
+export const markUnsoldResponsePresentationContextRevisionMin = 0;
 
 export const MarkUnsoldResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -5977,6 +6104,13 @@ export const MarkUnsoldResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(markUnsoldResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -6001,10 +6135,17 @@ export const ReAuctionPlayerBody = zod.object({
 });
 
 export const reAuctionPlayerResponsePresentationContextContextDefault = `auction`;
+export const reAuctionPlayerResponsePresentationContextRevisionMin = 0;
 
 export const ReAuctionPlayerResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -6348,6 +6489,13 @@ export const ReAuctionPlayerResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(reAuctionPlayerResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -6380,10 +6528,17 @@ export const ReAuctionAllUnsoldBody = zod.object({
 });
 
 export const reAuctionAllUnsoldResponsePresentationContextContextDefault = `auction`;
+export const reAuctionAllUnsoldResponsePresentationContextRevisionMin = 0;
 
 export const ReAuctionAllUnsoldResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -6727,6 +6882,13 @@ export const ReAuctionAllUnsoldResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(reAuctionAllUnsoldResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -6749,10 +6911,17 @@ export const ConcludeAuctionBody = zod.object({
 });
 
 export const concludeAuctionResponsePresentationContextContextDefault = `auction`;
+export const concludeAuctionResponsePresentationContextRevisionMin = 0;
 
 export const ConcludeAuctionResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -7096,6 +7265,13 @@ export const ConcludeAuctionResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(concludeAuctionResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -7111,10 +7287,17 @@ export const UndoLastActionParams = zod.object({
 });
 
 export const undoLastActionResponsePresentationContextContextDefault = `auction`;
+export const undoLastActionResponsePresentationContextRevisionMin = 0;
 
 export const UndoLastActionResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -7458,6 +7641,13 @@ export const UndoLastActionResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(undoLastActionResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -7491,10 +7681,17 @@ export const ResetTrialAuctionBody = zod.object({
 });
 
 export const resetTrialAuctionResponsePresentationContextContextDefault = `auction`;
+export const resetTrialAuctionResponsePresentationContextRevisionMin = 0;
 
 export const ResetTrialAuctionResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -7838,6 +8035,13 @@ export const ResetTrialAuctionResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(resetTrialAuctionResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -7852,16 +8056,31 @@ export const SetDisplayOverlayParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
 
+export const setDisplayOverlayBodyExpectedRevisionMin = 0;
+
 export const SetDisplayOverlayBody = zod.object({
   mode: zod.enum(["off", "team", "player", "top5", "banner"]),
-  expectedRevision: zod.number().int().nonnegative().optional(),
+  expectedRevision: zod
+    .number()
+    .min(setDisplayOverlayBodyExpectedRevisionMin)
+    .optional()
+    .describe(
+      "Observed presentation revision. Sent with MAIN so a stale reset cannot overwrite a newer OBS selection.",
+    ),
 });
 
 export const setDisplayOverlayResponsePresentationContextContextDefault = `auction`;
+export const setDisplayOverlayResponsePresentationContextRevisionMin = 0;
 
 export const SetDisplayOverlayResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -8205,6 +8424,13 @@ export const SetDisplayOverlayResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(setDisplayOverlayResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -8219,17 +8445,31 @@ export const SetPresentationContextParams = zod.object({
   tournamentId: zod.coerce.number(),
 });
 
+export const setPresentationContextBodyExpectedRevisionMin = 0;
+
 export const SetPresentationContextBody = zod.object({
   context: zod.enum(["auction", "top5", "team"]).optional(),
   selectedTeamId: zod.number().nullish(),
-  expectedRevision: zod.number().int().nonnegative(),
+  expectedRevision: zod
+    .number()
+    .min(setPresentationContextBodyExpectedRevisionMin)
+    .describe(
+      "Revision the caller observed. A stale value is rejected with 409.",
+    ),
 });
 
 export const setPresentationContextResponsePresentationContextContextDefault = `auction`;
+export const setPresentationContextResponsePresentationContextRevisionMin = 0;
 
 export const SetPresentationContextResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -8575,6 +8815,13 @@ export const SetPresentationContextResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(setPresentationContextResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -8596,10 +8843,17 @@ export const SetDisplayPlayerFilterBody = zod.object({
 });
 
 export const setDisplayPlayerFilterResponsePresentationContextContextDefault = `auction`;
+export const setDisplayPlayerFilterResponsePresentationContextRevisionMin = 0;
 
 export const SetDisplayPlayerFilterResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -8945,6 +9199,13 @@ export const SetDisplayPlayerFilterResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(setDisplayPlayerFilterResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -9022,10 +9283,17 @@ export const SyncFortuneWheelBody = zod.object({
 });
 
 export const syncFortuneWheelResponsePresentationContextContextDefault = `auction`;
+export const syncFortuneWheelResponsePresentationContextRevisionMin = 0;
 
 export const SyncFortuneWheelResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -9369,6 +9637,13 @@ export const SyncFortuneWheelResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(syncFortuneWheelResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -9388,10 +9663,17 @@ export const SetCategoryFilterBody = zod.object({
 });
 
 export const setCategoryFilterResponsePresentationContextContextDefault = `auction`;
+export const setCategoryFilterResponsePresentationContextRevisionMin = 0;
 
 export const SetCategoryFilterResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -9735,6 +10017,13 @@ export const SetCategoryFilterResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(setCategoryFilterResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -9766,10 +10055,17 @@ export const SetBreakTimerBody = zod.object({
 });
 
 export const setBreakTimerResponsePresentationContextContextDefault = `auction`;
+export const setBreakTimerResponsePresentationContextRevisionMin = 0;
 
 export const SetBreakTimerResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -10113,6 +10409,13 @@ export const SetBreakTimerResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(setBreakTimerResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -10138,10 +10441,17 @@ export const StartTimerBody = zod.object({
 });
 
 export const startTimerResponsePresentationContextContextDefault = `auction`;
+export const startTimerResponsePresentationContextRevisionMin = 0;
 
 export const StartTimerResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -10485,6 +10795,13 @@ export const StartTimerResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(startTimerResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -10500,10 +10817,17 @@ export const StopTimerParams = zod.object({
 });
 
 export const stopTimerResponsePresentationContextContextDefault = `auction`;
+export const stopTimerResponsePresentationContextRevisionMin = 0;
 
 export const StopTimerResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -10847,6 +11171,13 @@ export const StopTimerResponse = zod.object({
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
         ),
+      revision: zod
+        .number()
+        .min(stopTimerResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
+        ),
     })
     .optional()
     .describe(
@@ -10862,10 +11193,17 @@ export const DeferPlayerParams = zod.object({
 });
 
 export const deferPlayerResponsePresentationContextContextDefault = `auction`;
+export const deferPlayerResponsePresentationContextRevisionMin = 0;
 
 export const DeferPlayerResponse = zod.object({
   tournamentId: zod.number(),
   status: zod.enum(["idle", "active", "paused", "completed"]),
+  revision: zod
+    .number()
+    .optional()
+    .describe(
+      "Monotonically increasing auction session revision for optimistic concurrency control",
+    ),
   currentPlayer: zod
     .object({
       id: zod.number(),
@@ -11208,6 +11546,13 @@ export const DeferPlayerResponse = zod.object({
         .nullish()
         .describe(
           "Team highlighted in team presentation. Null cycles all teams.",
+        ),
+      revision: zod
+        .number()
+        .min(deferPlayerResponsePresentationContextRevisionMin)
+        .optional()
+        .describe(
+          "Presentation revision. Clients send this back as expectedRevision.",
         ),
     })
     .optional()
@@ -11634,9 +11979,24 @@ export const GetScoringStandingsResponse = zod.object({
       tied: zod.number().optional(),
       noResult: zod.number().optional(),
       points: zod.number().optional(),
-      pointsPercentage: zod.number().optional(),
-      netRunRate: zod.number().optional(),
-      qualified: zod.boolean().optional(),
+      pointsPercentage: zod
+        .number()
+        .optional()
+        .describe(
+          "Points as a percentage of maximum points from matches played. Full precision; display may round to two decimals.",
+        ),
+      netRunRate: zod
+        .number()
+        .optional()
+        .describe(
+          "Full-precision net run rate used for ranking. Display may round to three decimals.",
+        ),
+      qualified: zod
+        .boolean()
+        .optional()
+        .describe(
+          "Server qualification flag for a group standings row. Absent on the overall table.",
+        ),
     }),
   ),
 });

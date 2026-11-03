@@ -953,6 +953,12 @@ paths:
           required: true
           schema:
             type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnsoldInput"
       responses:
         "200":
           description: Player marked unsold
@@ -3278,6 +3284,14 @@ components:
           type: string
           description: Optional audit reason for manual sell
 
+    UnsoldInput:
+      type: object
+      required: [expectedRevision]
+      properties:
+        expectedRevision:
+          type: integer
+          description: Expected auction session revision for optimistic concurrency control
+
     ReAuctionInput:
       type: object
       required: [playerId]
@@ -3402,6 +3416,9 @@ components:
         status:
           type: string
           enum: [idle, active, paused, completed]
+        revision:
+          type: integer
+          description: Monotonically increasing auction session revision for optimistic concurrency control
         currentPlayer:
           $ref: "#/components/schemas/Player"
           nullable: true
