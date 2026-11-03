@@ -1,22 +1,16 @@
-/**
- * Phase 2 P1 Security Hotfix Regression Suite
- *
- * Covers:
- * - SEC-2026-01: Auction Transaction Lock Detachment (tx.update scoping)
- * - SEC-2026-02: Manual-Sell Squad Capacity & Available Status Enforcement
- * - SEC-2026-03: ₹0 Manual Sale Undo Stack & Bids Durability
- * - SEC-2026-04: Existing Player Profile Takeover Fail-Closed Gate
- * - SEC-2026-05: Scorer Zero-Assignment Global Access Bypass Removal
- */
-
 import { describe, it, expect } from "vitest";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
+import { readFile } from "fs/promises";
+import path from "path";
+
+async function loadNormalized(relPath: string) {
+  const fullPath = path.resolve(__dirname, relPath);
+  const raw = await readFile(fullPath, "utf8");
+  return raw.replace(/\r\n/g, "\n");
+}
 
 describe("SEC-2026-01: Auction Transaction Lock Detachment", () => {
   it("verifies POST /auction/bid uses tx.update instead of global db.update inside transaction", async () => {
-    const auctionTsPath = path.resolve(__dirname, "../routes/auction.ts");
-    const src = await readFile(auctionTsPath, "utf8");
+    const src = await loadNormalized("../routes/auction.ts");
 
     // Extract the /auction/bid handler
     const bidHandlerStart = src.indexOf('router.post("/tournaments/:tournamentId/auction/bid"');
@@ -33,8 +27,7 @@ describe("SEC-2026-01: Auction Transaction Lock Detachment", () => {
   });
 
   it("verifies optimistic concurrency CAS revision check is enforced on tx.update", async () => {
-    const auctionTsPath = path.resolve(__dirname, "../routes/auction.ts");
-    const src = await readFile(auctionTsPath, "utf8");
+    const src = await loadNormalized("../routes/auction.ts");
 
     const bidHandlerStart = src.indexOf('router.post("/tournaments/:tournamentId/auction/bid"');
     const bidHandlerEnd = src.indexOf('router.post("/tournaments/:tournamentId/auction/sell"', bidHandlerStart);
@@ -48,8 +41,7 @@ describe("SEC-2026-01: Auction Transaction Lock Detachment", () => {
 
 describe("SEC-2026-02: Manual-Sell Squad Capacity & Status Enforcement", () => {
   it("verifies manual-sell enforces maximumSquadSize and category limits", async () => {
-    const auctionTsPath = path.resolve(__dirname, "../routes/auction.ts");
-    const src = await readFile(auctionTsPath, "utf8");
+    const src = await loadNormalized("../routes/auction.ts");
 
     const manualSellStart = src.indexOf('router.post("/tournaments/:tournamentId/auction/manual-sell"');
     const manualSellEnd = src.indexOf('router.post("/tournaments/:tournamentId/auction/unsold"', manualSellStart);
@@ -65,8 +57,7 @@ describe("SEC-2026-02: Manual-Sell Squad Capacity & Status Enforcement", () => {
   });
 
   it("verifies manual-sell requires player to be currently 'available' in tx.update", async () => {
-    const auctionTsPath = path.resolve(__dirname, "../routes/auction.ts");
-    const src = await readFile(auctionTsPath, "utf8");
+    const src = await loadNormalized("../routes/auction.ts");
 
     const manualSellStart = src.indexOf('router.post("/tournaments/:tournamentId/auction/manual-sell"');
     const manualSellEnd = src.indexOf('router.post("/tournaments/:tournamentId/auction/unsold"', manualSellStart);
@@ -81,8 +72,7 @@ describe("SEC-2026-02: Manual-Sell Squad Capacity & Status Enforcement", () => {
 
 describe("SEC-2026-03: ₹0 Manual Sale Undo Stack & Bids Durability", () => {
   it("verifies bidsTable record is always inserted for manual sell even when amount is 0", async () => {
-    const auctionTsPath = path.resolve(__dirname, "../routes/auction.ts");
-    const src = await readFile(auctionTsPath, "utf8");
+    const src = await loadNormalized("../routes/auction.ts");
 
     const manualSellStart = src.indexOf('router.post("/tournaments/:tournamentId/auction/manual-sell"');
     const manualSellEnd = src.indexOf('router.post("/tournaments/:tournamentId/auction/unsold"', manualSellStart);
@@ -99,8 +89,7 @@ describe("SEC-2026-03: ₹0 Manual Sale Undo Stack & Bids Durability", () => {
   });
 
   it("verifies undo handler cleanly handles ₹0 sales and sequential LIFO reversals", async () => {
-    const auctionTsPath = path.resolve(__dirname, "../routes/auction.ts");
-    const src = await readFile(auctionTsPath, "utf8");
+    const src = await loadNormalized("../routes/auction.ts");
 
     const undoStart = src.indexOf('router.post("/tournaments/:tournamentId/auction/undo"');
     const undoEnd = src.indexOf('router.post("/tournaments/:tournamentId/auction/display-overlay"', undoStart);
@@ -115,8 +104,7 @@ describe("SEC-2026-03: ₹0 Manual Sale Undo Stack & Bids Durability", () => {
 
 describe("SEC-2026-04: Existing Player Profile Takeover Protection", () => {
   it("verifies unauthenticated public registration fails closed on existing mobile without leaking PII", async () => {
-    const playersTsPath = path.resolve(__dirname, "../routes/players.ts");
-    const src = await readFile(playersTsPath, "utf8");
+    const src = await loadNormalized("../routes/players.ts");
 
     const handleRegStart = src.indexOf("async function handlePublicPlayerRegistration");
     expect(handleRegStart).toBeGreaterThan(0);
@@ -136,8 +124,7 @@ describe("SEC-2026-04: Existing Player Profile Takeover Protection", () => {
 
 describe("SEC-2026-05: Scorer Zero-Assignment Global Access Bypass Removal", () => {
   it("assertScorerMayAccessTournament removes zero-assignment bypass and requires assignment", async () => {
-    const scorerAuthTsPath = path.resolve(__dirname, "../lib/scorer-auth.ts");
-    const src = await readFile(scorerAuthTsPath, "utf8");
+    const src = await loadNormalized("../lib/scorer-auth.ts");
 
     const fnStart = src.indexOf("export async function assertScorerMayAccessTournament");
     expect(fnStart).toBeGreaterThan(0);
@@ -154,8 +141,7 @@ describe("SEC-2026-05: Scorer Zero-Assignment Global Access Bypass Removal", () 
   });
 
   it("verifies ScorerAuthError class structure and properties in scorer-auth.ts", async () => {
-    const scorerAuthTsPath = path.resolve(__dirname, "../lib/scorer-auth.ts");
-    const src = await readFile(scorerAuthTsPath, "utf8");
+    const src = await loadNormalized("../lib/scorer-auth.ts");
     expect(src).toContain("export class ScorerAuthError extends Error");
     expect(src).toContain("public readonly code: string");
     expect(src).toContain("public readonly status: number");
