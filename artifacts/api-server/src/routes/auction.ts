@@ -21,7 +21,7 @@ import {
   organizersTable,
   purseBoostersTable,
 } from "@workspace/db";
-import { eq, and, asc, desc, inArray, notInArray, sql } from "drizzle-orm";
+import { eq, and, asc, desc, inArray, notInArray, sql, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { addSseClient, removeSseClient, getSseClientCount } from "../lib/broadcast";
 import { logger } from "../lib/logger";
@@ -2594,43 +2594,154 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!requireAuctionModule(res, tournament)) return;
 
+  const unsoldBodySchema = z.object({
+    expectedRevision: z.number().int().optional(),
+  });
+  const unsoldBody = unsoldBodySchema.safeParse(req.body ?? {});
+  const unsoldConfirmation = unsoldBody.success ? unsoldBody.data : {};
+
   const session = await getOrCreateSession(tid);
   if (rejectIfAuctionPaused(session, res)) return;
   if (!session.currentPlayerId) { res.status(400).json({ error: "No current player" }); return; }
+
+  if (session.currentBid !== null) {
+    res.status(409).json({
+      error: "Cannot mark player unsold: an active bid has been placed.",
+      currentBid: session.currentBid,
+      currentBidTeamId: session.currentBidTeamId,
+      hint: "bid_in_progress",
+    });
+    return;
+  }
+
+  if (
+    unsoldConfirmation.expectedRevision !== undefined &&
+    session.revision !== null &&
+    session.revision !== undefined &&
+    unsoldConfirmation.expectedRevision !== session.revision
+  ) {
+    res.status(409).json({
+      error: "Auction state changed — a new action occurred before your unsold request. Please refresh.",
+      currentRevision: session.revision,
+      hint: "stale_unsold",
+    });
+    return;
+  }
 
   const [player] = await db
     .select()
     .from(playersTable)
     .where(eq(playersTable.id, session.currentPlayerId));
 
+  class UnsoldTransactionAbortError extends Error {
+    constructor(public reason: "stale_unsold" | "bid_in_progress" | "player_not_available") {
+      super(`Unsold transaction aborted: ${reason}`);
+      this.name = "UnsoldTransactionAbortError";
+    }
+  }
+
   // Atomic: player status and session cleared together — no partial state.
   const currentPlayerId = session.currentPlayerId;
-  await db.transaction(async (tx) => {
-    await lockAuctionMutation(tx, tid);
-    await tx
-      .update(playersTable)
-      .set({ status: "unsold" })
-      .where(eq(playersTable.id, currentPlayerId));
+  try {
+    await db.transaction(async (tx) => {
+      await lockAuctionMutation(tx, tid);
 
-    await tx
-      .update(auctionSessionsTable)
-      .set({
-        currentPlayerId: null,
-        currentBid: null,
-        currentBidTeamId: null,
-        timerEndsAt: null,
-        pausedTimeRemaining: null,
-        revision: sql`COALESCE(revision, 0) + 1`,
-        lastAction: `UNSOLD: ${player?.name ?? "Player"}`,
-        lastOutcome: JSON.stringify({
-          type: "unsold",
-          playerId: player?.id ?? null,
-          playerName: player?.name ?? "Player",
-          photoUrl: player?.photoUrl ?? null,
-        }),
-      })
-      .where(eq(auctionSessionsTable.tournamentId, tid));
-  });
+      const [currentSession] = await tx
+        .select()
+        .from(auctionSessionsTable)
+        .where(eq(auctionSessionsTable.tournamentId, tid))
+        .for("update");
+
+      if (!currentSession || currentSession.currentPlayerId !== currentPlayerId) {
+        throw new UnsoldTransactionAbortError("stale_unsold");
+      }
+
+      if (currentSession.currentBid !== null) {
+        throw new UnsoldTransactionAbortError("bid_in_progress");
+      }
+
+      if (
+        unsoldConfirmation.expectedRevision !== undefined &&
+        (currentSession.revision ?? 0) !== unsoldConfirmation.expectedRevision
+      ) {
+        throw new UnsoldTransactionAbortError("stale_unsold");
+      }
+
+      const expectedRevision =
+        unsoldConfirmation.expectedRevision !== undefined
+          ? unsoldConfirmation.expectedRevision
+          : (currentSession.revision ?? 0);
+
+      const updatedSessions = await tx
+        .update(auctionSessionsTable)
+        .set({
+          currentPlayerId: null,
+          currentBid: null,
+          currentBidTeamId: null,
+          timerEndsAt: null,
+          pausedTimeRemaining: null,
+          revision: sql`COALESCE(revision, 0) + 1`,
+          lastAction: `UNSOLD: ${player?.name ?? "Player"}`,
+          lastOutcome: JSON.stringify({
+            type: "unsold",
+            playerId: player?.id ?? null,
+            playerName: player?.name ?? "Player",
+            photoUrl: player?.photoUrl ?? null,
+          }),
+        })
+        .where(
+          and(
+            eq(auctionSessionsTable.tournamentId, tid),
+            eq(auctionSessionsTable.currentPlayerId, currentPlayerId),
+            isNull(auctionSessionsTable.currentBid),
+            sql`COALESCE(${auctionSessionsTable.revision}, 0) = ${expectedRevision}`,
+          ),
+        )
+        .returning();
+
+      if (updatedSessions.length === 0) {
+        throw new UnsoldTransactionAbortError("stale_unsold");
+      }
+
+      const updatedPlayers = await tx
+        .update(playersTable)
+        .set({ status: "unsold" })
+        .where(
+          and(
+            eq(playersTable.id, currentPlayerId),
+            eq(playersTable.status, "available"),
+          ),
+        )
+        .returning();
+
+      if (updatedPlayers.length === 0) {
+        throw new UnsoldTransactionAbortError("player_not_available");
+      }
+    });
+  } catch (err: any) {
+    if (err instanceof UnsoldTransactionAbortError || err?.name === "UnsoldTransactionAbortError") {
+      if (err.reason === "bid_in_progress") {
+        res.status(409).json({
+          error: "Cannot mark player unsold: an active bid has been placed.",
+          hint: "bid_in_progress",
+        });
+        return;
+      }
+      if (err.reason === "player_not_available") {
+        res.status(409).json({
+          error: "This player is no longer available to be marked unsold.",
+          hint: "player_not_available",
+        });
+        return;
+      }
+      res.status(409).json({
+        error: "Auction state changed — a new action occurred before your unsold request. Please refresh.",
+        hint: "stale_unsold",
+      });
+      return;
+    }
+    throw err;
+  }
 
   // Tournament fetch is read-only; after commit so logging uses fresh data.
   const unsoldTournament = tournament;

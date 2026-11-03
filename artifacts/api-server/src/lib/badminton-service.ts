@@ -110,6 +110,14 @@ import {
   findOtherLiveMatchOnCourt,
   friendlyBadmintonCommandMessage,
 } from "./badminton-ops";
+import { ScorerLockError } from "./scorer-match-locks";
+
+export type ScorerLeaseContext = {
+  scorerId: number;
+  sessionId: string;
+  leaseId?: string | null;
+  leaseVersion?: number | null;
+};
 
 // ── Errors ────────────────────────────────────────────────────────────────────
 
@@ -502,6 +510,7 @@ async function persistBadmintonCommandEvents(
   commandEvents: Array<{ eventType: string; payload: Record<string, unknown> }>,
   actor: Actor,
   projectionMode: "incremental" | "replay",
+  opts?: { lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   const fixtureId = await getMatchFixtureId(matchId, tournamentId);
 
@@ -517,6 +526,7 @@ async function persistBadmintonCommandEvents(
       projectionMode,
       priorState: projectionMode === "incremental" ? priorState : undefined,
       matchMeta: meta,
+      lease: opts?.lease,
     });
     markLatency("persist_batch_done");
 
@@ -525,6 +535,9 @@ async function persistBadmintonCommandEvents(
     markLatency("persist_snapshot_done");
     return projected;
   } catch (err) {
+    if (err instanceof ScorerLockError) {
+      throw err;
+    }
     if (err instanceof ScoringPlatformError) {
       throw new BadmintonServiceError(err.code ?? "PLATFORM_ERROR", err.message, err.status);
     }
@@ -832,6 +845,7 @@ export async function startBadmintonMatch(
   tournamentId: number,
   input: BadmintonMatchStartedPayload,
   actor: Actor,
+  opts?: { lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament", 404);
@@ -921,6 +935,7 @@ export async function startBadmintonMatch(
     result.events,
     actor,
     "incremental",
+    opts,
   );
 }
 
@@ -929,7 +944,7 @@ export async function awardPoint(
   tournamentId: number,
   winningSide: BadmintonSide,
   actor: Actor,
-  opts?: { rallyLength?: number; idempotencyKey?: string },
+  opts?: { rallyLength?: number; idempotencyKey?: string; lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   markLatency("awardPoint_enter");
 
@@ -981,6 +996,7 @@ export async function awardPoint(
     // project of the new events avoids a second full load+replay on every point
     // (event-loop stall that freezes all SSE displays). Undo/recovery keep "replay".
     "incremental",
+    opts,
   );
   markLatency("awardPoint_persist_done");
   return projected;
@@ -990,6 +1006,7 @@ export async function undoLastPoint(
   matchId: number,
   tournamentId: number,
   actor: Actor,
+  opts?: { lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
@@ -1018,6 +1035,7 @@ export async function undoLastPoint(
     result.events,
     actor,
     "replay",
+    opts,
   );
 }
 
@@ -1028,6 +1046,7 @@ export async function handleTimeout(
   side: BadmintonSide | null,
   kind: "regular" | "medical",
   actor: Actor,
+  opts?: { lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
@@ -1064,6 +1083,7 @@ export async function handleTimeout(
     result.events,
     actor,
     "replay",
+    opts,
   );
 }
 
@@ -1072,6 +1092,7 @@ export async function handleInterval(
   tournamentId: number,
   action: "start" | "end",
   actor: Actor,
+  opts?: { lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
@@ -1095,6 +1116,7 @@ export async function handleInterval(
     result.events,
     actor,
     "replay",
+    opts,
   );
 }
 
@@ -1102,6 +1124,7 @@ export async function handleCourtChangeAck(
   matchId: number,
   tournamentId: number,
   actor: Actor,
+  opts?: { lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
@@ -1127,6 +1150,7 @@ export async function handleCourtChangeAck(
     result.events,
     actor,
     "replay",
+    opts,
   );
 }
 
@@ -1135,6 +1159,7 @@ export async function handleCorrectToss(
   tournamentId: number,
   input: BadmintonTossCorrectedPayload,
   actor: Actor,
+  opts?: { lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
@@ -1157,6 +1182,7 @@ export async function handleCorrectToss(
     result.events,
     actor,
     "replay",
+    opts,
   );
 
   // Keep roster JSON on detail/scoring match aligned when ends are swapped.
@@ -1199,6 +1225,7 @@ export async function handleRetirement(
   actor: Actor,
   reason?: string,
   assignedMarginPoints?: number,
+  opts?: { lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament", 404);
@@ -1235,6 +1262,7 @@ export async function handleRetirement(
     result.events,
     actor,
     "replay",
+    opts,
   );
 }
 
@@ -1245,6 +1273,7 @@ export async function handleWalkover(
   actor: Actor,
   reason?: string,
   assignedMarginPoints?: number,
+  opts?: { lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament", 404);
@@ -1290,6 +1319,7 @@ async function persistCommandResult(
   state: BadmintonMatchState,
   result: { ok: true; events: Array<{ eventType: string; payload: Record<string, unknown> }> } | { ok: false; error: string },
   actor: Actor,
+  opts?: { lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   if (!result.ok) {
     throw new BadmintonServiceError(
@@ -1306,6 +1336,7 @@ async function persistCommandResult(
     result.events,
     actor,
     "replay",
+    opts,
   );
 }
 
@@ -1316,6 +1347,7 @@ export async function handleDisqualification(
   reason: string,
   actor: Actor,
   assignedMarginPoints?: number,
+  opts?: { lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
@@ -1328,7 +1360,7 @@ export async function handleDisqualification(
     reason,
     assignedMarginPoints,
   );
-  return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
+  return persistCommandResult(matchId, tournamentId, meta, state, result, actor, opts);
 }
 
 export async function handlePauseMatch(
@@ -1337,6 +1369,7 @@ export async function handlePauseMatch(
   reason: MatchPauseReason,
   actor: Actor,
   detail?: string,
+  opts?: { lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
@@ -1344,7 +1377,7 @@ export async function handlePauseMatch(
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdPauseMatch(state, reason, detail);
-  return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
+  return persistCommandResult(matchId, tournamentId, meta, state, result, actor, opts);
 }
 
 /**
@@ -1619,6 +1652,7 @@ export async function handleAddMatchNote(
   tournamentId: number,
   text: string,
   actor: Actor,
+  opts?: { lease?: ScorerLeaseContext },
 ): Promise<BadmintonMatchState> {
   const meta = await getMatchMeta(matchId, tournamentId);
   if (!meta) throw new BadmintonServiceError("MATCH_NOT_FOUND", "Match not found in this tournament");
@@ -1626,7 +1660,7 @@ export async function handleAddMatchNote(
   const events = await loadBadmintonEvents(matchId);
   const state = replayBadmintonViaPlatform(meta, events);
   const result = cmdAddMatchNote(state, text);
-  return persistCommandResult(matchId, tournamentId, meta, state, result, actor);
+  return persistCommandResult(matchId, tournamentId, meta, state, result, actor, opts);
 }
 
 export async function handleForceEndMatch(

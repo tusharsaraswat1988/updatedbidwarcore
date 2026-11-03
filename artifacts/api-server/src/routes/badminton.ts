@@ -44,6 +44,7 @@ import {
   badmintonMatchDetailsTable,
   badmintonAnalyticsTable,
   scoringMatchesTable,
+  scorerMatchLocksTable,
   tournamentsTable,
 } from "@workspace/db";
 import {
@@ -243,7 +244,64 @@ router.use(async (req, res, next) => {
 
 type ScoringActorContext =
   | { kind: "organizer_or_admin"; usedScorer: false }
-  | { kind: "scorer"; usedScorer: true; scorer: ScorerAuthContext };
+  | {
+      kind: "scorer";
+      usedScorer: true;
+      scorer: ScorerAuthContext;
+      lock?: typeof scorerMatchLocksTable.$inferSelect;
+    };
+
+function leaseFrom(
+  req: Request,
+  auth: ScoringActorContext,
+):
+  | {
+      scorerId: number;
+      sessionId: string;
+      leaseId?: string | null;
+      leaseVersion?: number | null;
+    }
+  | undefined {
+  if (!auth.usedScorer) return undefined;
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+  return {
+    scorerId: auth.scorer.scorerId,
+    sessionId: auth.scorer.sessionId,
+    leaseId: (typeof body.leaseId === "string" ? body.leaseId : auth.lock?.leaseId) ?? null,
+    leaseVersion:
+      (typeof body.leaseVersion === "number" ? body.leaseVersion : auth.lock?.leaseVersion) ?? null,
+  };
+}
+
+function handleBadmintonError(res: import("express").Response, e: unknown): boolean {
+  if (e instanceof ScorerLockError) {
+    const code =
+      e.code === "MATCH_LOCKED" || e.code === "SCORER_LEASE_REVOKED"
+        ? "MATCH_LOCKED"
+        : e.code === "SCORER_LEASE_STALE"
+          ? "SCORER_LEASE_STALE"
+          : e.code === "SCORER_LEASE_EXPIRED"
+            ? "SCORER_LEASE_EXPIRED"
+            : e.code === "SCORER_LEASE_REQUIRED"
+              ? "SCORER_LEASE_REQUIRED"
+              : "MATCH_LOCK_REQUIRED";
+    res.status(e.status ?? 409).json({
+      error: e.message,
+      code,
+      leaseCode: e.code,
+      message: e.message,
+    });
+    return true;
+  }
+  if (e instanceof BadmintonServiceError) {
+    res.status(e.status).json({
+      error: friendlyBadmintonCommandMessage(e.message),
+      code: e.code,
+    });
+    return true;
+  }
+  return false;
+}
 
 function actorFrom(req: Request, auth: ScoringActorContext) {
   if (req.jwtUser?.isAdmin) return { type: "admin", id: "admin" };
@@ -524,8 +582,8 @@ async function canWriteScoring(
         };
       }
       await assertScorerMayAccessTournament(scorer.scorerId, tournamentId);
-      await assertSessionOwnsMatchLock({ matchId, sessionId: scorer.sessionId });
-      return { ok: true, ctx: { kind: "scorer", usedScorer: true, scorer } };
+      const lock = await assertSessionOwnsMatchLock({ matchId, sessionId: scorer.sessionId });
+      return { ok: true, ctx: { kind: "scorer", usedScorer: true, scorer, lock } };
     } catch (e) {
       // Fall through to owner path when token is not a scorer JWT (e.g. organizer
       // Bearer) — only hard-fail lock/auth errors from a resolved scorer identity.
@@ -3113,6 +3171,7 @@ router.post("/matches/:matchId/start", async (req, res) => {
         format,
       } as BadmintonMatchStartedPayload,
       actorFrom(req, scoringAuth),
+      { lease: leaseFrom(req, scoringAuth) },
     );
 
     auditLog(req, {
@@ -3127,12 +3186,7 @@ router.post("/matches/:matchId/start", async (req, res) => {
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
-    if (e instanceof BadmintonServiceError) {
-      return void res.status(e.status).json({
-        error: friendlyBadmintonCommandMessage(e.message),
-        code: e.code,
-      });
-    }
+    if (handleBadmintonError(res, e)) return;
     throw e;
   }
 });
@@ -3170,6 +3224,7 @@ router.post("/matches/:matchId/point", async (req, res) => {
         {
           rallyLength: parsed.data.rallyLength,
           idempotencyKey: parsed.data.idempotencyKey,
+          lease: leaseFrom(req, scoringAuth),
         },
       );
       markLatency("awardPoint_returned");
@@ -3223,9 +3278,7 @@ router.post("/matches/:matchId/point", async (req, res) => {
     const breakdown = toPhaseBreakdown(marks);
     res.json({ state, _latency: breakdown });
   } catch (e) {
-    if (e instanceof BadmintonServiceError) {
-      return void res.status(e.status).json({ error: e.message, code: e.code });
-    }
+    if (handleBadmintonError(res, e)) return;
     throw e;
   }
 });
@@ -3239,7 +3292,12 @@ router.post("/matches/:matchId/undo", async (req, res) => {
   const { tournamentId, auth: scoringAuth } = auth;
 
   try {
-    const state = await undoLastPoint(matchId, tournamentId, actorFrom(req, scoringAuth));
+    const state = await undoLastPoint(
+      matchId,
+      tournamentId,
+      actorFrom(req, scoringAuth),
+      { lease: leaseFrom(req, scoringAuth) },
+    );
     const auditActor = auditActorFrom(req, scoringAuth);
     await writeScorerAudit({
       ...auditActor,
@@ -3251,9 +3309,7 @@ router.post("/matches/:matchId/undo", async (req, res) => {
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
-    if (e instanceof BadmintonServiceError) {
-      return void res.status(e.status).json({ error: e.message, code: e.code });
-    }
+    if (handleBadmintonError(res, e)) return;
     throw e;
   }
 });
@@ -3291,13 +3347,12 @@ router.post("/matches/:matchId/timeout", async (req, res) => {
       parsed.data.side ?? null,
       parsed.data.kind,
       actorFrom(req, scoringAuth),
+      { lease: leaseFrom(req, scoringAuth) },
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
-    if (e instanceof BadmintonServiceError) {
-      return void res.status(e.status).json({ error: e.message, code: e.code });
-    }
+    if (handleBadmintonError(res, e)) return;
     throw e;
   }
 });
@@ -3323,13 +3378,12 @@ router.post("/matches/:matchId/interval", async (req, res) => {
       tournamentId,
       parsed.data.action,
       actorFrom(req, scoringAuth),
+      { lease: leaseFrom(req, scoringAuth) },
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
-    if (e instanceof BadmintonServiceError) {
-      return void res.status(e.status).json({ error: e.message, code: e.code });
-    }
+    if (handleBadmintonError(res, e)) return;
     throw e;
   }
 });
@@ -3343,13 +3397,16 @@ router.post("/matches/:matchId/court-change", async (req, res) => {
   const { tournamentId, auth: scoringAuth } = auth;
 
   try {
-    const state = await handleCourtChangeAck(matchId, tournamentId, actorFrom(req, scoringAuth));
+    const state = await handleCourtChangeAck(
+      matchId,
+      tournamentId,
+      actorFrom(req, scoringAuth),
+      { lease: leaseFrom(req, scoringAuth) },
+    );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
-    if (e instanceof BadmintonServiceError) {
-      return void res.status(e.status).json({ error: e.message, code: e.code });
-    }
+    if (handleBadmintonError(res, e)) return;
     throw e;
   }
 });
@@ -3424,13 +3481,12 @@ router.post("/matches/:matchId/edit-toss", async (req, res) => {
       tournamentId,
       parsed.data,
       actorFrom(req, scoringAuth),
+      { lease: leaseFrom(req, scoringAuth) },
     );
     broadcastBadmintonMatchUpdate(matchId, tournamentId, state);
     res.json({ state });
   } catch (e) {
-    if (e instanceof BadmintonServiceError) {
-      return void res.status(e.status).json({ error: e.message, code: e.code });
-    }
+    if (handleBadmintonError(res, e)) return;
     const message = e instanceof Error ? e.message : "Could not update toss";
     console.error("[badminton] edit-toss failed:", e);
     return void res.status(500).json({ error: message, code: "EDIT_TOSS_FAILED" });
