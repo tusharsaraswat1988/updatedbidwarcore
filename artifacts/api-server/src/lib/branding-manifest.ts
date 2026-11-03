@@ -3,18 +3,6 @@ import { brandingSettingsTable } from "@workspace/db/schema";
 import { BRANDING_ICON_PATHS } from "@workspace/api-base/branding-assets";
 import { getBrandingIconCacheVersion } from "./branding-asset-resolver.js";
 
-const PLATFORM_BASE_URL = "https://bidwar.in";
-
-/** Absolute URL for a canonical icon path, cache-busted by branding asset version. */
-async function canonicalManifestIconUrl(
-  path: string,
-  baseUrl = PLATFORM_BASE_URL,
-): Promise<string> {
-  const version = await getBrandingIconCacheVersion();
-  const suffix = version > 0 ? `?v=${version}` : "";
-  return `${baseUrl}${path}${suffix}`;
-}
-
 /** Same-origin icon path for PWA manifests (works on cloud and LAN). */
 async function relativeManifestIconUrl(path: string): Promise<string> {
   const version = await getBrandingIconCacheVersion();
@@ -24,8 +12,8 @@ async function relativeManifestIconUrl(path: string): Promise<string> {
 
 export async function buildAuctionPlatformManifest(): Promise<Record<string, unknown>> {
   const [settings] = await db.select().from(brandingSettingsTable).limit(1);
-  const icon192 = await canonicalManifestIconUrl(BRANDING_ICON_PATHS.pwaIcon192);
-  const icon512 = await canonicalManifestIconUrl(BRANDING_ICON_PATHS.pwaIcon512);
+  const icon192 = await relativeManifestIconUrl(BRANDING_ICON_PATHS.pwaIcon192);
+  const icon512 = await relativeManifestIconUrl(BRANDING_ICON_PATHS.pwaIcon512);
   const brandName = settings?.brandName?.trim() || "BidWar";
   const themeColor = settings?.backgroundColor?.trim() || "#09090b";
 
