@@ -632,7 +632,9 @@ export class ConversationRouter {
       const isOrganizerRole =
         identity.kind === "member"
           ? identity.roles.some((r) => r.role.toLowerCase() === "organizer")
-          : identity.targets.some((t) => t.type === "organizer");
+          : identity.kind === "legacy"
+            ? identity.targets.some((t) => t.type === "organizer")
+            : false;
 
       if (licensedTournaments.length > 0) {
         return {
@@ -662,7 +664,7 @@ export class ConversationRouter {
     } catch (err) {
       logger.warn({ err, mobile: maskPhoneNumber(norm) }, "ConversationRouter: Failed to resolve assistant user context, using fallback");
       return {
-        userCategory: identity.kind === "guest" ? "guest" : "registered_member",
+        userCategory: (identity as any).kind === "guest" ? "guest" : "registered_member",
         displayName: identity.displayName,
         mobile: norm,
         isBeginner: true,
@@ -1423,6 +1425,7 @@ export class ConversationRouter {
             messageId: input.messageId,
             ip,
             userContext: await this.resolveAssistantUserContext(identity, mobile),
+            identity,
           });
           await this.sendReply(null, from, aiResult.text, input.channel);
           await this.recordProcessedInboundMessage(input.messageId ?? `hello_guest_${Date.now()}`, mobile, input.channel, text);
@@ -1704,6 +1707,7 @@ export class ConversationRouter {
         messageId: input.messageId,
         ip,
         userContext,
+        identity,
       });
       await this.sendReply(null, from, aiResult.text, input.channel);
       await this.recordProcessedInboundMessage(input.messageId ?? `guest_ai_${Date.now()}`, mobile, input.channel, text);

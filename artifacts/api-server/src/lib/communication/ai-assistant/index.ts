@@ -7,4 +7,5 @@ export * from "./guardrails";
 export * from "./session-manager";
 export * from "./lead-capture-service";
 export * from "./human-handoff";
+export * from "./conversational-intelligence";
 export * from "./guest-assistant-service";

@@ -35,6 +35,7 @@ import {
   loadMatchEvents,
   persistScoringEvent,
   persistScoringEventBatch,
+  type PersistEventInput,
   rowToEnvelope,
 } from "./event-store";
 import { getScoringAdapter, runPostMatchProjectionPipeline } from "./projections";
@@ -85,6 +86,12 @@ export type AppendEventBatchInput = {
   projectionMode: "incremental" | "replay";
   priorState?: unknown;
   matchMeta: unknown;
+  lease?: {
+    scorerId: number;
+    sessionId: string;
+    leaseId?: string | null;
+    leaseVersion?: number | null;
+  };
 };
 
 function isUniqueViolation(err: unknown): boolean {
@@ -741,8 +748,7 @@ export async function appendMatchEventBatch(input: AppendEventBatchInput) {
     throw new ScoringPlatformError("Adapter does not support event processing", 500, "ADAPTER_UNSUPPORTED");
   }
 
-  const persistInputs = [];
-  let seq = await getNextEventSequence(input.matchId);
+  const persistInputs: PersistEventInput[] = [];
 
   for (const event of input.events) {
     const parsed = parseScoringEvent(input.sportSlug, event.eventType, event.payload);
@@ -755,15 +761,29 @@ export async function appendMatchEventBatch(input: AppendEventBatchInput) {
       fixtureId: input.fixtureId,
       sportSlug: input.sportSlug,
       eventType: event.eventType,
-      sequence: seq,
+      sequence: 0,
       actorType: input.actor.type,
       actorId: input.actor.id,
       payload: parsed.payload,
     });
-    seq += 1;
   }
 
-  const { startSequence, envelopes } = await persistScoringEventBatch(input.matchId, persistInputs);
+  const { startSequence, envelopes } = await db.transaction(async (tx) => {
+    // 1. Authoritative lease fencing inside transaction write boundary.
+    // Row is locked FOR UPDATE in Postgres to prevent TOCTOU takeover races.
+    if (input.lease) {
+      await assertAuthoritativeScorerLease(tx, {
+        matchId: input.matchId,
+        scorerId: input.lease.scorerId,
+        sessionId: input.lease.sessionId,
+        leaseId: input.lease.leaseId,
+        leaseVersion: input.lease.leaseVersion,
+      });
+    }
+
+    // 2. Persist event batch inside the exact same database transaction
+    return await persistScoringEventBatch(input.matchId, persistInputs, tx);
+  });
 
   let state: unknown;
 

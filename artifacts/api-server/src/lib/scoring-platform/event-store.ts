@@ -45,8 +45,11 @@ export async function loadMatchEvents(
   return rows.map(rowToEnvelope);
 }
 
-export async function getNextEventSequence(matchId: number): Promise<number> {
-  const [last] = await db
+export async function getNextEventSequence(
+  matchId: number,
+  tx: EventStoreTx | typeof db = db,
+): Promise<number> {
+  const [last] = await tx
     .select({ sequence: scoringEventsTable.sequence })
     .from(scoringEventsTable)
     .where(eq(scoringEventsTable.matchId, matchId))
@@ -101,14 +104,15 @@ export async function persistScoringEvent(
 export async function persistScoringEventBatch(
   matchId: number,
   inputs: PersistEventInput[],
+  tx?: EventStoreTx,
 ): Promise<{ startSequence: number; envelopes: ScoringEventEnvelope[] }> {
   if (inputs.length === 0) {
-    const next = await getNextEventSequence(matchId);
+    const next = await getNextEventSequence(matchId, tx ?? db);
     return { startSequence: next, envelopes: [] };
   }
 
-  const result = await db.transaction(async (tx) => {
-    const [last] = await tx
+  const run = async (t: EventStoreTx) => {
+    const [last] = await t
       .select({ sequence: scoringEventsTable.sequence })
       .from(scoringEventsTable)
       .where(eq(scoringEventsTable.matchId, matchId))
@@ -122,14 +126,16 @@ export async function persistScoringEventBatch(
     for (const input of inputs) {
       const envelope = await persistScoringEvent(
         { ...input, matchId, sequence: seq },
-        tx,
+        t,
       );
       envelopes.push(envelope);
       seq += 1;
     }
 
     return { startSequence, envelopes };
-  });
+  };
+
+  const result = tx ? await run(tx) : await db.transaction(run);
 
   try {
     const { markLatency } = await import("../badminton-latency-trace");

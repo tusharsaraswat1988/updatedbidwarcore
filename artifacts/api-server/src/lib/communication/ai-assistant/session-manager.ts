@@ -16,6 +16,16 @@ export interface GuestChatMessage {
   timestamp: string;
 }
 
+export type LanguagePreference = "hindi" | "english" | "hinglish";
+
+export interface DeliveredTopicSummary {
+  pricingDelivered?: boolean;
+  featuresOverviewDelivered?: boolean;
+  signupUrlDelivered?: boolean;
+  supportContactDelivered?: boolean;
+  lastTopic?: string;
+}
+
 export interface GuestLeadData {
   name?: string;
   sport?: string;
@@ -31,6 +41,8 @@ export interface GuestSessionPayload {
   leadCaptured?: boolean;
   leadInquiryId?: number;
   leadData?: GuestLeadData;
+  languagePreference?: LanguagePreference;
+  deliveredSummary?: DeliveredTopicSummary;
 }
 
 const MAX_TURNS = 8; // Max 8 messages (4 user + 4 assistant turns)
@@ -65,6 +77,8 @@ export class SessionManager {
         leadCaptured: Boolean(parsed.leadCaptured),
         leadInquiryId: parsed.leadInquiryId,
         leadData: parsed.leadData,
+        languagePreference: parsed.languagePreference,
+        deliveredSummary: parsed.deliveredSummary,
       };
     } catch (err) {
       logger.warn(
@@ -76,13 +90,103 @@ export class SessionManager {
   }
 
   /**
+   * Set or update explicit language preference for a mobile user.
+   */
+  public async setLanguagePreference(
+    mobile: string,
+    languagePreference: LanguagePreference
+  ): Promise<GuestSessionPayload> {
+    const current = await this.getSession(mobile);
+    const payload: GuestSessionPayload = {
+      ...current,
+      languagePreference,
+    };
+    const sessionData = JSON.stringify(payload);
+    const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+
+    try {
+      await db
+        .insert(botSessionsTable)
+        .values({
+          mobile,
+          pendingAction: "guest_ai_session",
+          pendingData: sessionData,
+          expiresAt,
+        })
+        .onConflictDoUpdate({
+          target: botSessionsTable.mobile,
+          set: {
+            pendingAction: "guest_ai_session",
+            pendingData: sessionData,
+            expiresAt,
+          },
+        });
+    } catch (err) {
+      logger.warn(
+        { err, mobile: maskPhoneNumber(mobile) },
+        "SessionManager: Failed to persist language preference"
+      );
+    }
+    return payload;
+  }
+
+  /**
+   * Update delivered summary (for anti-repetition tracking).
+   */
+  public async updateDeliveredSummary(
+    mobile: string,
+    summary: Partial<DeliveredTopicSummary>
+  ): Promise<GuestSessionPayload> {
+    const current = await this.getSession(mobile);
+    const payload: GuestSessionPayload = {
+      ...current,
+      deliveredSummary: {
+        ...current.deliveredSummary,
+        ...summary,
+      },
+    };
+    const sessionData = JSON.stringify(payload);
+    const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+
+    try {
+      await db
+        .insert(botSessionsTable)
+        .values({
+          mobile,
+          pendingAction: "guest_ai_session",
+          pendingData: sessionData,
+          expiresAt,
+        })
+        .onConflictDoUpdate({
+          target: botSessionsTable.mobile,
+          set: {
+            pendingAction: "guest_ai_session",
+            pendingData: sessionData,
+            expiresAt,
+          },
+        });
+    } catch (err) {
+      logger.warn(
+        { err, mobile: maskPhoneNumber(mobile) },
+        "SessionManager: Failed to persist delivered summary"
+      );
+    }
+    return payload;
+  }
+
+  /**
    * Append a new user + assistant exchange to the session and refresh 24h TTL.
    */
   public async appendTurn(
     mobile: string,
     userText: string,
     assistantText: string,
-    detectedLead?: Partial<GuestLeadData>
+    detectedLead?: Partial<GuestLeadData>,
+    extra?: {
+      languagePreference?: LanguagePreference;
+      topic?: string;
+      deliveredSummary?: Partial<DeliveredTopicSummary>;
+    }
   ): Promise<GuestSessionPayload> {
     const current = await this.getSession(mobile);
     const now = new Date().toISOString();
@@ -101,11 +205,32 @@ export class SessionManager {
       ...detectedLead,
     };
 
+    // Auto-detect delivered knowledge to avoid repetitive marketing dumps
+    const hasPricing =
+      /₹\s*[0-9]|Starter|Pro|Free Trial \(2 teams\)|per-tournament|price/i.test(assistantText);
+    const hasFeatures =
+      /1080p LED|OBS Live|real-time player bidding|Operator Console|scoring module/i.test(assistantText);
+    const hasSignupUrl =
+      /bidwar\.in\/organizer\?tab=signup/i.test(assistantText);
+    const hasContact =
+      /\+91\s*8707488250|bidwarsupport@gmail\.com/i.test(assistantText);
+
+    const updatedSummary: DeliveredTopicSummary = {
+      pricingDelivered: (current.deliveredSummary?.pricingDelivered || hasPricing) ?? false,
+      featuresOverviewDelivered: (current.deliveredSummary?.featuresOverviewDelivered || hasFeatures) ?? false,
+      signupUrlDelivered: (current.deliveredSummary?.signupUrlDelivered || hasSignupUrl) ?? false,
+      supportContactDelivered: (current.deliveredSummary?.supportContactDelivered || hasContact) ?? false,
+      lastTopic: extra?.topic || current.deliveredSummary?.lastTopic || "General",
+      ...extra?.deliveredSummary,
+    };
+
     const payload: GuestSessionPayload = {
       messages: clampedMessages,
       leadCaptured: current.leadCaptured,
       leadInquiryId: current.leadInquiryId,
       leadData: Object.keys(mergedLeadData).length > 0 ? mergedLeadData : undefined,
+      languagePreference: extra?.languagePreference || current.languagePreference,
+      deliveredSummary: updatedSummary,
     };
 
     const sessionData = JSON.stringify(payload);

@@ -18,7 +18,7 @@ const INJECTION_PATTERNS = [
 ];
 
 const PRIVATE_DATA_PATTERNS = [
-  /\b(?:select\s+.*\s+from\s+|insert\s+into|drop\s+table|delete\s+from)\b/i,
+  /\b(?:select\s+[\w*,\s]+\s+from\s+(?:members|users|tournaments|players|teams|comm_logs|otp_sessions)|insert\s+into\s+\w+|drop\s+table\s+\w+|delete\s+from\s+(?:members|users|tournaments|players|teams|comm_logs))\b/i,
   /\b(?:admin_password|session_secret|jwt_secret|database_url)\b/i,
 ];
 
@@ -107,8 +107,8 @@ export class GuardrailsService {
     }
 
     // 4. Fallback if response was completely emptied
-    if (!text || text.length < 5) {
-      text = "Namaste! BidWar live sports auction platform ke baare mein janne ke liye https://bidwar.in pe jayein ya hamare support number +91 8707488250 pe WhatsApp karein.";
+    if (!text || text.length < 2) {
+      text = "Namaste! Main BidWar assistant hun. Bataiye main aapki kya madad kar sakta hun?";
     }
 
     return {
