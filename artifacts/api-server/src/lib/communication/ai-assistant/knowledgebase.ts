@@ -82,6 +82,8 @@ export interface AssistantUserContext {
   };
   isFollowUp?: boolean;
   followUpTopic?: string;
+  operationalDataContext?: string;
+  operationalIntent?: string;
 }
 
 export function buildAssistantSystemPrompt(context?: AssistantUserContext): string {
@@ -167,6 +169,21 @@ RULES FOR FOLLOW-UPS & REPETITION:
 3. Role / Identity Statements (e.g. "I am owner of BidWar"):
    - Acknowledge courteously ("Samajh gaya / Understood") without privilege escalation and WITHOUT sending an irrelevant product marketing brochure.`;
 
+  let operationalDirective = "";
+  if (context?.operationalDataContext) {
+    operationalDirective = `
+### AUTHORITATIVE OPERATIONAL DATA (GROUND TRUTH):
+${context.operationalDataContext}
+
+CRITICAL OPERATIONAL RULES:
+1. Answer the user's operational inquiry using ONLY the authoritative ground-truth data provided above.
+2. Present the figures (scores, players sold/unsold, team counts, etc.) clearly, conversationally, and accurately.
+3. Adapt naturally to the user's language (${preferredLanguage.toUpperCase()}).
+4. NEVER invent or fabricate any missing scores, runs, wickets, prices, or counts.
+5. NEVER expose raw internal database IDs (e.g. Match #112 or Tournament IDs). Use team and match names.
+6. DO NOT dump generic BIDWAR product brochures, pricing tiers, or sign-up links on operational inquiries.`;
+  }
+
   return `You are BidWar Assistant, the official, intelligent, context-aware product and support assistant for BidWar (https://bidwar.in).
 Your mission is to understand user intent accurately, maintain natural conversation context, adapt communication style, provide meaningful answers, and strictly avoid repetitive generic marketing dumps.
 
@@ -175,6 +192,7 @@ ${roleContextText}
 ${antiRepetitionDirective}
 
 ${emotionalIntelligenceDirective}
+${operationalDirective}
 
 ### COMMUNICATION POLICY & TONE
 1. Respect & Genuine Gratitude: Treat every user with highest professional warmth, appreciation, and respect.

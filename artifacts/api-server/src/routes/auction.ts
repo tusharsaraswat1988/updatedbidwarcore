@@ -945,6 +945,7 @@ async function buildAuctionStateInner(tournamentId: number, timings: AuctionStat
   const result = {
     tournamentId,
     status: session.status,
+    revision: session.revision ?? 0,
     currentPlayer,
     currentBid: session.currentBid,
     currentBidTeamId: session.currentBidTeamId,
@@ -2595,10 +2596,17 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
   if (!requireAuctionModule(res, tournament)) return;
 
   const unsoldBodySchema = z.object({
-    expectedRevision: z.number().int().optional(),
+    expectedRevision: z.number().int({ message: "expectedRevision must be an integer" }),
   });
-  const unsoldBody = unsoldBodySchema.safeParse(req.body ?? {});
-  const unsoldConfirmation = unsoldBody.success ? unsoldBody.data : {};
+  const unsoldBody = unsoldBodySchema.safeParse(req.body);
+  if (!unsoldBody.success) {
+    res.status(400).json({
+      error: "expectedRevision is required and must be an integer",
+      details: unsoldBody.error.flatten(),
+    });
+    return;
+  }
+  const unsoldConfirmation = unsoldBody.data;
 
   const session = await getOrCreateSession(tid);
   if (rejectIfAuctionPaused(session, res)) return;
@@ -2615,7 +2623,6 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
   }
 
   if (
-    unsoldConfirmation.expectedRevision !== undefined &&
     session.revision !== null &&
     session.revision !== undefined &&
     unsoldConfirmation.expectedRevision !== session.revision
@@ -2660,17 +2667,11 @@ router.post("/tournaments/:tournamentId/auction/unsold", async (req, res) => {
         throw new UnsoldTransactionAbortError("bid_in_progress");
       }
 
-      if (
-        unsoldConfirmation.expectedRevision !== undefined &&
-        (currentSession.revision ?? 0) !== unsoldConfirmation.expectedRevision
-      ) {
+      if ((currentSession.revision ?? 0) !== unsoldConfirmation.expectedRevision) {
         throw new UnsoldTransactionAbortError("stale_unsold");
       }
 
-      const expectedRevision =
-        unsoldConfirmation.expectedRevision !== undefined
-          ? unsoldConfirmation.expectedRevision
-          : (currentSession.revision ?? 0);
+      const expectedRevision = unsoldConfirmation.expectedRevision;
 
       const updatedSessions = await tx
         .update(auctionSessionsTable)

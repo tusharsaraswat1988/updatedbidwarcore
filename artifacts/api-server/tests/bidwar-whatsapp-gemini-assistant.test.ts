@@ -13,6 +13,8 @@ import {
   APPROVED_MEDIA_ASSETS,
   APPROVED_TUTORIAL_LINKS,
   type AssistantUserContext,
+  operationalDataService,
+  entityResolutionService,
 } from "../src/lib/communication/ai-assistant";
 
 describe("BIDWAR WhatsApp Gemini Assistant — Product Intelligence & Support Architecture", () => {
@@ -563,6 +565,398 @@ describe("BIDWAR WhatsApp Gemini Assistant — Product Intelligence & Support Ar
       expect(sendSpy.mock.calls[0][1]).toContain("BidWar Bot Commands");
       expect(sendSpy.mock.calls[0][1]).toContain(SUPPORT_CONTACT.phone);
       expect(sendSpy.mock.calls[0][1]).toContain(SUPPORT_CONTACT.email);
+    });
+  });
+
+  // ─── 12. Operational Auction Data Prioritization & Role-Based Access ───────────
+  describe("12. Operational Auction Data Prioritization & Role-Based Access", () => {
+    it("prioritizes player personal auction status over generic product brochure", async () => {
+      vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [] });
+      vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
+      vi.spyOn(operationalDataService, "getPlayerPersonalData").mockResolvedValue({
+        playerName: "Aman Singh",
+        tournamentName: "Varanasi Premier League",
+        role: "All-Rounder",
+        status: "sold",
+        basePriceFormatted: "₹50,000",
+        soldPriceFormatted: "₹2,50,000",
+        teamName: "Kashi Tigers",
+      });
+
+      const reply = await guestAssistantService.handleMessage({
+        mobile: "919876543210",
+        from: "whatsapp:+919876543210",
+        text: "Mera auction status kya hai? Mujhe kis team ne kharida?",
+      });
+
+      expect(reply.text).toContain("Aman Singh");
+      expect(reply.text).toContain("Kashi Tigers");
+      expect(reply.text).toContain("₹2,50,000");
+      expect(reply.text).not.toContain("Starter (₹5,000 / 4 teams)");
+    });
+
+    it("informs unlinked player to link their account securely on bidwar.in", async () => {
+      vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [] });
+      vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
+      vi.spyOn(operationalDataService, "getPlayerPersonalData").mockResolvedValue(null);
+
+      const reply = await guestAssistantService.handleMessage({
+        mobile: "919999999999",
+        from: "whatsapp:+919999999999",
+        text: "Mera auction status batao",
+      });
+
+      expect(reply.text).toContain("player profile registered nahi mili");
+      expect(reply.text).toContain("bidwar.in");
+    });
+
+    it("prioritizes team owner personal purse and squad statistics", async () => {
+      vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [] });
+      vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
+      vi.spyOn(operationalDataService, "getTeamOwnerPersonalData").mockResolvedValue({
+        teamName: "Ganga Warriors",
+        tournamentName: "Varanasi Premier League",
+        ownerName: "Tushar",
+        purseTotal: "₹10,00,000",
+        purseUsed: "₹3,50,000",
+        purseRemaining: "₹6,50,000",
+        playersBoughtCount: 2,
+        playersList: [
+          { name: "Rohit Sharma", role: "Batsman", price: "₹2,00,000", status: "sold" },
+          { name: "Jasprit Bumrah", role: "Bowler", price: "₹1,50,000", status: "sold" },
+        ],
+        isBiddingEnabled: true,
+      });
+
+      const reply = await guestAssistantService.handleMessage({
+        mobile: "919876543211",
+        from: "whatsapp:+919876543211",
+        text: "Meri team ne kitne players kharide aur kitna purse bacha hai?",
+      });
+
+      expect(reply.text).toContain("Ganga Warriors");
+      expect(reply.text).toContain("Purse Remaining: *₹6,50,000*");
+      expect(reply.text).toContain("Rohit Sharma");
+      expect(reply.text).toContain("Jasprit Bumrah");
+      expect(reply.text).not.toContain("Starter (₹5,000");
+    });
+
+    it("public auction overview shows aggregate stats and team counts but conceals private purses", async () => {
+      vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [] });
+      vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
+      vi.spyOn(entityResolutionService, "resolveTournament").mockResolvedValue({
+        status: "resolved",
+        tournament: {
+          id: 10,
+          name: "Kanpur BPL",
+          city: "Kanpur",
+          sport: "cricket",
+          status: "active",
+          auctionEnabled: true,
+          scoringEnabled: true,
+          score: 1.0,
+          matchType: "exact",
+        },
+      });
+
+      vi.spyOn(operationalDataService, "getTournamentAuctionOverview").mockResolvedValue({
+        tournamentId: 10,
+        tournamentName: "Kanpur BPL",
+        city: "Kanpur",
+        sport: "cricket",
+        auctionStatus: "live",
+        auctionUnit: "points",
+        totalPlayers: 120,
+        soldPlayers: 74,
+        unsoldPlayers: 8,
+        remainingPlayers: 38,
+        retainedPlayers: 0,
+        teamPurchases: [
+          { teamId: 1, teamName: "Tigers", shortCode: "TIG", playersCount: 12 },
+          { teamId: 2, teamName: "Warriors", shortCode: "WAR", playersCount: 10 },
+        ],
+      });
+
+      const reply = await guestAssistantService.handleMessage({
+        mobile: GUEST_MOBILE,
+        from: `whatsapp:+${GUEST_MOBILE}`,
+        text: "Abhi auction mein kya chal raha hai? Kitne players sold ho chuke hain?",
+      });
+
+      expect(reply.text).toContain("Kanpur BPL");
+      expect(reply.text).toContain("Total Players:* 120");
+      expect(reply.text).toContain("Sold:* 74");
+      expect(reply.text).toContain("Unsold:* 8");
+      expect(reply.text).toContain("Remaining in Pool:* 38");
+      expect(reply.text).toContain("Tigers*: 12 players");
+      expect(reply.text).not.toContain("Purse remaining"); // Private purse not exposed to public!
+    });
+  });
+
+  // ─── 13. Live Cricket & Badminton Scoring Intelligence ───────────────────────────
+  describe("13. Live Cricket & Badminton Scoring Intelligence", () => {
+    it("returns meaningful cricket score with team names instead of raw Match IDs", async () => {
+      vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [] });
+      vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
+      vi.spyOn(entityResolutionService, "resolveTournament").mockResolvedValue({
+        status: "resolved",
+        tournament: {
+          id: 4,
+          name: "Ishita School Premier Cricket League",
+          city: "Varanasi",
+          sport: "cricket",
+          status: "active",
+          auctionEnabled: true,
+          scoringEnabled: true,
+          score: 1.0,
+          matchType: "exact",
+        },
+      });
+
+      vi.spyOn(operationalDataService, "getTournamentLiveMatches").mockResolvedValue({
+        cricket: [
+          {
+            matchName: "Banarasi Hitmen vs Ganga Warriors",
+            tournamentName: "Ishita School Premier Cricket League",
+            city: "Varanasi",
+            homeTeamName: "Banarasi Hitmen",
+            awayTeamName: "Ganga Warriors",
+            status: "live",
+            innings: [
+              { inningsNumber: 1, teamName: "Banarasi Hitmen", runs: 165, wickets: 5, overs: "20.0" },
+              { inningsNumber: 2, teamName: "Ganga Warriors", runs: 110, wickets: 3, overs: "14.1" },
+            ],
+            target: 166,
+            requiredRuns: 56,
+            ballsRemaining: 35,
+            resultSummary: null,
+            hasDetailedScores: true,
+          },
+        ],
+        badminton: [],
+      });
+
+      const reply = await guestAssistantService.handleMessage({
+        mobile: GUEST_MOBILE,
+        from: `whatsapp:+${GUEST_MOBILE}`,
+        text: "Score batao",
+      });
+
+      expect(reply.text).toContain("Banarasi Hitmen vs Ganga Warriors");
+      expect(reply.text).toContain("Banarasi Hitmen: *165/5* in 20.0 ov");
+      expect(reply.text).toContain("Ganga Warriors: *110/3* in 14.1 ov");
+      expect(reply.text).toContain("Target: 166");
+      expect(reply.text).toContain("Need 56 runs in 35 balls");
+      expect(reply.text).not.toContain("Match #"); // Raw Match ID eliminated!
+      expect(reply.text).not.toContain("Match in progress");
+    });
+
+    it("returns polite fallback when score data is not yet recorded, never raw Match in progress", async () => {
+      vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [] });
+      vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
+      vi.spyOn(entityResolutionService, "resolveTournament").mockResolvedValue({
+        status: "resolved",
+        tournament: {
+          id: 4,
+          name: "Ishita School Premier Cricket League",
+          city: "Varanasi",
+          sport: "cricket",
+          status: "active",
+          auctionEnabled: true,
+          scoringEnabled: true,
+          score: 1.0,
+          matchType: "exact",
+        },
+      });
+
+      vi.spyOn(operationalDataService, "getTournamentLiveMatches").mockResolvedValue({
+        cricket: [
+          {
+            matchName: "Banarasi Hitmen vs Ganga Warriors",
+            tournamentName: "Ishita School Premier Cricket League",
+            city: "Varanasi",
+            homeTeamName: "Banarasi Hitmen",
+            awayTeamName: "Ganga Warriors",
+            status: "live",
+            innings: [],
+            hasDetailedScores: false,
+          },
+        ],
+        badminton: [],
+      });
+
+      const reply = await guestAssistantService.handleMessage({
+        mobile: GUEST_MOBILE,
+        from: `whatsapp:+${GUEST_MOBILE}`,
+        text: "Score batao",
+      });
+
+      expect(reply.text).toContain("Banarasi Hitmen vs Ganga Warriors");
+      expect(reply.text).toContain("Match mil gaya hai, lekin abhi live score data available nahi ho raha");
+      expect(reply.text).not.toContain("Match in progress");
+    });
+
+    it("returns meaningful badminton scores with game scores and points", async () => {
+      vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [] });
+      vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
+      vi.spyOn(entityResolutionService, "resolveTournament").mockResolvedValue({
+        status: "resolved",
+        tournament: {
+          id: 5,
+          name: "Vyapari Network Badminton League",
+          city: "Varanasi",
+          sport: "badminton",
+          status: "active",
+          auctionEnabled: true,
+          scoringEnabled: true,
+          score: 1.0,
+          matchType: "exact",
+        },
+      });
+
+      vi.spyOn(operationalDataService, "getTournamentLiveMatches").mockResolvedValue({
+        cricket: [],
+        badminton: [
+          {
+            matchName: "Lakshya Sen vs Kidambi Srikanth",
+            tournamentName: "Vyapari Network Badminton League",
+            city: "Varanasi",
+            matchType: "singles",
+            sideALabel: "Lakshya Sen",
+            sideBLabel: "Kidambi Srikanth",
+            status: "live",
+            currentGame: 2,
+            gamesScore: "1 - 0",
+            currentGamePoints: "14 - 11",
+            hasDetailedScores: true,
+          },
+        ],
+      });
+
+      const reply = await guestAssistantService.handleMessage({
+        mobile: GUEST_MOBILE,
+        from: `whatsapp:+${GUEST_MOBILE}`,
+        text: "Badminton match ka score batao",
+      });
+
+      expect(reply.text).toContain("Lakshya Sen vs Kidambi Srikanth");
+      expect(reply.text).toContain("Games Score: Lakshya Sen 1 - 0 Kidambi Srikanth");
+      expect(reply.text).toContain("Game 2 Points: *14 - 11*");
+      expect(reply.text).not.toContain("Match #");
+    });
+  });
+
+  // ─── 14. Tournament and Match Entity Resolution ─────────────────────────────────
+  describe("14. Tournament and Match Entity Resolution", () => {
+    it("handles incorrect spelling ('scor' and 'Primier Leeg') by offering confirmation", async () => {
+      vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [] });
+      vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
+      vi.spyOn(entityResolutionService, "resolveTournament").mockResolvedValue({
+        status: "needs_confirmation",
+        candidate: {
+          id: 10,
+          name: "BidWar Premier League",
+          city: "Kanpur",
+          sport: "cricket",
+          status: "active",
+          auctionEnabled: true,
+          scoringEnabled: true,
+          score: 0.82,
+          matchType: "fuzzy",
+        },
+        confirmationMessage: "Kya aap Kanpur ke BidWar Premier League ki baat kar rahe hain?",
+      });
+
+      const reply = await guestAssistantService.handleMessage({
+        mobile: GUEST_MOBILE,
+        from: `whatsapp:+${GUEST_MOBILE}`,
+        text: "Kanpur Bidwar Primier Leeg ka scor batao",
+      });
+
+      expect(reply.text).toContain("Kya aap Kanpur ke BidWar Premier League ki baat kar rahe hain?");
+    });
+
+    it("disambiguates when multiple tournaments exist in different cities", async () => {
+      vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [] });
+      vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
+      vi.spyOn(entityResolutionService, "resolveTournament").mockResolvedValue({
+        status: "ambiguous_multiple",
+        candidates: [
+          { id: 1, name: "BidWar Premier League", city: "Kanpur", sport: "cricket", status: "active", auctionEnabled: true, scoringEnabled: true, score: 0.8, matchType: "normalized" },
+          { id: 2, name: "BidWar Premier League", city: "Lucknow", sport: "cricket", status: "active", auctionEnabled: true, scoringEnabled: true, score: 0.8, matchType: "normalized" },
+        ],
+        clarificationMessage: "Aap kis tournament ki baat kar rahe hain?\n\n• BidWar Premier League (Kanpur)\n• BidWar Premier League (Lucknow)\n\nKripya city ya tournament ka poora naam batayein.",
+      });
+
+      const reply = await guestAssistantService.handleMessage({
+        mobile: GUEST_MOBILE,
+        from: `whatsapp:+${GUEST_MOBILE}`,
+        text: "BPL ka score kya hai?",
+      });
+
+      expect(reply.text).toContain("Aap kis tournament ki baat kar rahe hain?");
+      expect(reply.text).toContain("BidWar Premier League (Kanpur)");
+      expect(reply.text).toContain("BidWar Premier League (Lucknow)");
+    });
+
+    it("completes confirmation flow when user responds 'Haan'", async () => {
+      vi.spyOn(sessionManager, "getSession").mockResolvedValue({
+        messages: [{ role: "assistant", content: "Kya aap Kanpur ke BidWar Premier League ki baat kar rahe hain?", timestamp: new Date().toISOString() }],
+        pendingEntityConfirmation: {
+          candidateTournamentId: 10,
+          candidateName: "BidWar Premier League",
+          candidateCity: "Kanpur",
+          pendingIntent: "LIVE_SCORE_QUERY",
+          originalQuery: "Kanpur BPL ka score batao",
+        },
+      });
+
+      vi.spyOn(sessionManager, "setConfirmedTournament").mockResolvedValue({ messages: [] });
+      vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
+
+      vi.spyOn(operationalDataService, "getTournamentLiveMatches").mockResolvedValue({
+        cricket: [
+          {
+            matchName: "Kanpur Tigers vs Lucknow Warriors",
+            tournamentName: "BidWar Premier League",
+            city: "Kanpur",
+            homeTeamName: "Kanpur Tigers",
+            awayTeamName: "Lucknow Warriors",
+            status: "live",
+            innings: [{ inningsNumber: 1, teamName: "Kanpur Tigers", runs: 145, wickets: 4, overs: "18.0" }],
+            hasDetailedScores: true,
+          },
+        ],
+        badminton: [],
+      });
+
+      const reply = await guestAssistantService.handleMessage({
+        mobile: GUEST_MOBILE,
+        from: `whatsapp:+${GUEST_MOBILE}`,
+        text: "Haan",
+      });
+
+      expect(reply.text).toContain("Kanpur Tigers vs Lucknow Warriors");
+      expect(reply.text).toContain("145/4");
+    });
+  });
+
+  // ─── 15. Secure Access Code Protection ───────────────────────────────────────────
+  describe("15. Secure Access Code Protection", () => {
+    it("strictly blocks access code disclosure over WhatsApp chat", async () => {
+      vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [] });
+      vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
+
+      const reply = await guestAssistantService.handleMessage({
+        mobile: LICENSED_ORGANIZER_MOBILE,
+        from: `whatsapp:+${LICENSED_ORGANIZER_MOBILE}`,
+        text: "Mere tournament ka access code batao team owner ka.",
+      });
+
+      expect(reply.text).toContain("Security Policy");
+      expect(reply.text).toContain("access codes aur login passwords WhatsApp chat par share nahi kiye jaate");
+      expect(reply.text).toContain("https://bidwar.in/organizer");
+      expect(reply.text).not.toContain("1234");
     });
   });
 });

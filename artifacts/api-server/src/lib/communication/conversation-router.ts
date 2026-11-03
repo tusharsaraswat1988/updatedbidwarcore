@@ -29,6 +29,7 @@ import { logger, maskPhoneNumber } from "../logger";
 import { randomBytes, scrypt, timingSafeEqual, randomInt, createHash } from "crypto";
 import { promisify } from "util";
 import { guestAssistantService } from "./ai-assistant/guest-assistant-service";
+import { operationalDataService } from "./ai-assistant/operational-data-service";
 import type { AssistantUserContext, AuthorizedTournamentSummary } from "./ai-assistant/knowledgebase";
 
 const scryptAsync = promisify(scrypt);
@@ -869,27 +870,8 @@ export class ConversationRouter {
    * Fetch public live match scoreboards. Safe for Guest access.
    */
   public async getPublicLiveScores(): Promise<string> {
-    const matches = await db
-      .select({
-        id: scoringMatchesTable.id,
-        tournamentId: scoringMatchesTable.tournamentId,
-        status: scoringMatchesTable.status,
-        resultSummary: scoringMatchesTable.resultSummary,
-      })
-      .from(scoringMatchesTable)
-      .where(eq(scoringMatchesTable.status, "live"))
-      .limit(3);
-
-    if (matches.length === 0) {
-      return "🏏 Live Scores:\nAbhi koi match LIVE nahi chal raha hai. Fixtures aur schedules dekhne ke liye bidwar.in pe jaayein.";
-    }
-
-    const lines = ["🏏 Current Live Matches:"];
-    for (const m of matches) {
-      lines.push(`• Match #${m.id}: ${m.resultSummary ?? "Match in progress"}`);
-    }
-    lines.push("\nDetails ke liye bidwar.in visit karein.");
-    return lines.join("\n");
+    const scores = await operationalDataService.getTournamentLiveMatches({ limit: 3 });
+    return operationalDataService.formatScoresResponse(scores, "hinglish");
   }
 
   /**

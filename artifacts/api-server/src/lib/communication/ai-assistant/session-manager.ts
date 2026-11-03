@@ -36,6 +36,14 @@ export interface GuestLeadData {
   notes?: string;
 }
 
+export interface PendingEntityConfirmation {
+  candidateTournamentId: number;
+  candidateName: string;
+  candidateCity?: string | null;
+  pendingIntent: string;
+  originalQuery: string;
+}
+
 export interface GuestSessionPayload {
   messages: GuestChatMessage[];
   leadCaptured?: boolean;
@@ -43,6 +51,11 @@ export interface GuestSessionPayload {
   leadData?: GuestLeadData;
   languagePreference?: LanguagePreference;
   deliveredSummary?: DeliveredTopicSummary;
+  confirmedTournamentId?: number;
+  confirmedTournamentName?: string;
+  confirmedTournamentCity?: string;
+  confirmedMatchId?: number;
+  pendingEntityConfirmation?: PendingEntityConfirmation;
 }
 
 const MAX_TURNS = 8; // Max 8 messages (4 user + 4 assistant turns)
@@ -79,6 +92,11 @@ export class SessionManager {
         leadData: parsed.leadData,
         languagePreference: parsed.languagePreference,
         deliveredSummary: parsed.deliveredSummary,
+        confirmedTournamentId: parsed.confirmedTournamentId,
+        confirmedTournamentName: parsed.confirmedTournamentName,
+        confirmedTournamentCity: parsed.confirmedTournamentCity,
+        confirmedMatchId: parsed.confirmedMatchId,
+        pendingEntityConfirmation: parsed.pendingEntityConfirmation,
       };
     } catch (err) {
       logger.warn(
@@ -125,6 +143,93 @@ export class SessionManager {
       logger.warn(
         { err, mobile: maskPhoneNumber(mobile) },
         "SessionManager: Failed to persist language preference"
+      );
+    }
+    return payload;
+  }
+
+  /**
+   * Set confirmed tournament context for multi-turn conversations.
+   */
+  public async setConfirmedTournament(
+    mobile: string,
+    tournamentId: number,
+    tournamentName: string,
+    city?: string | null
+  ): Promise<GuestSessionPayload> {
+    const current = await this.getSession(mobile);
+    const payload: GuestSessionPayload = {
+      ...current,
+      confirmedTournamentId: tournamentId,
+      confirmedTournamentName: tournamentName,
+      confirmedTournamentCity: city ?? undefined,
+      pendingEntityConfirmation: undefined, // Clear pending clarification once confirmed
+    };
+    const sessionData = JSON.stringify(payload);
+    const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+
+    try {
+      await db
+        .insert(botSessionsTable)
+        .values({
+          mobile,
+          pendingAction: "guest_ai_session",
+          pendingData: sessionData,
+          expiresAt,
+        })
+        .onConflictDoUpdate({
+          target: botSessionsTable.mobile,
+          set: {
+            pendingAction: "guest_ai_session",
+            pendingData: sessionData,
+            expiresAt,
+          },
+        });
+    } catch (err) {
+      logger.warn(
+        { err, mobile: maskPhoneNumber(mobile) },
+        "SessionManager: Failed to persist confirmed tournament"
+      );
+    }
+    return payload;
+  }
+
+  /**
+   * Store pending entity confirmation (e.g. "Kya aap Kanpur ke BPL ki baat kar rahe hain?").
+   */
+  public async setPendingEntityConfirmation(
+    mobile: string,
+    confirmation: PendingEntityConfirmation | undefined
+  ): Promise<GuestSessionPayload> {
+    const current = await this.getSession(mobile);
+    const payload: GuestSessionPayload = {
+      ...current,
+      pendingEntityConfirmation: confirmation,
+    };
+    const sessionData = JSON.stringify(payload);
+    const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+
+    try {
+      await db
+        .insert(botSessionsTable)
+        .values({
+          mobile,
+          pendingAction: "guest_ai_session",
+          pendingData: sessionData,
+          expiresAt,
+        })
+        .onConflictDoUpdate({
+          target: botSessionsTable.mobile,
+          set: {
+            pendingAction: "guest_ai_session",
+            pendingData: sessionData,
+            expiresAt,
+          },
+        });
+    } catch (err) {
+      logger.warn(
+        { err, mobile: maskPhoneNumber(mobile) },
+        "SessionManager: Failed to persist pending entity confirmation"
       );
     }
     return payload;
@@ -186,6 +291,11 @@ export class SessionManager {
       languagePreference?: LanguagePreference;
       topic?: string;
       deliveredSummary?: Partial<DeliveredTopicSummary>;
+      confirmedTournamentId?: number;
+      confirmedTournamentName?: string;
+      confirmedTournamentCity?: string;
+      confirmedMatchId?: number;
+      pendingEntityConfirmation?: PendingEntityConfirmation;
     }
   ): Promise<GuestSessionPayload> {
     const current = await this.getSession(mobile);
@@ -231,6 +341,14 @@ export class SessionManager {
       leadData: Object.keys(mergedLeadData).length > 0 ? mergedLeadData : undefined,
       languagePreference: extra?.languagePreference || current.languagePreference,
       deliveredSummary: updatedSummary,
+      confirmedTournamentId: extra?.confirmedTournamentId ?? current.confirmedTournamentId,
+      confirmedTournamentName: extra?.confirmedTournamentName ?? current.confirmedTournamentName,
+      confirmedTournamentCity: extra?.confirmedTournamentCity ?? current.confirmedTournamentCity,
+      confirmedMatchId: extra?.confirmedMatchId ?? current.confirmedMatchId,
+      pendingEntityConfirmation:
+        extra?.pendingEntityConfirmation !== undefined
+          ? extra.pendingEntityConfirmation
+          : current.pendingEntityConfirmation,
     };
 
     const sessionData = JSON.stringify(payload);

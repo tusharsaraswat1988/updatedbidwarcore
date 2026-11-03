@@ -21,12 +21,22 @@ export type ConversationalIntentType =
   | "EMOTIONAL_FRUSTRATION"
   | "EMOTIONAL_CONFUSION"
   | "GENUINE_FAQ"
+  | "AUCTION_OVERVIEW_QUERY"
+  | "TEAM_PURCHASE_QUERY"
+  | "PLAYER_PERSONAL_QUERY"
+  | "TEAM_OWNER_PERSONAL_QUERY"
+  | "PLAYER_LOOKUP_QUERY"
+  | "ACCESS_CODE_QUERY"
+  | "LIVE_SCORE_QUERY"
+  | "AFFIRMATION_CONFIRMATION"
+  | "NEXT_MATCH_FOLLOWUP"
   | "GENERAL_CONVERSATION";
 
 export interface IntentDetectionResult {
   intent: ConversationalIntentType;
   confidence: number;
   extractedName?: string;
+  extractedPlayerName?: string;
   explicitLanguage?: LanguagePreference;
   emotionalTone?: "frustration" | "confusion" | "appreciation" | "urgency" | "disappointment" | "neutral";
   details?: string;
@@ -102,7 +112,27 @@ export class ConversationalIntelligenceService {
   }
 
   /**
+   * Extract player name from player lookup queries (e.g. "Rohit Sharma ka auction status batao").
+   */
+  public extractPlayerName(text: string): string | undefined {
+    const clean = text.trim();
+    if (/\b(?:mera|meri|mujhe|main|team|teams|kaunsi|kis|abhi|live|bpl)\b/i.test(clean.split(/\s+/)[0])) {
+      return undefined;
+    }
+    const match = clean.match(/^([A-Za-z][A-Za-z\s.'-]{2,40}?)\s+(?:ka|ki|ke)?\s*(?:auction\s+status|bidding|status|profile|kitne\s+mein\s+bika)\b/i);
+    if (match && match[1]) {
+      const name = match[1].trim();
+      if (!/^(?:mera|meri|mujhe|main|kis|kaunsi|abhi|live|tournament|match|team)$/i.test(name)) {
+        return name;
+      }
+    }
+    return undefined;
+  }
+
+  /**
    * Core Conversational Intent Classification.
+   * Operational requests (Auction, Scoring, Access Code, Personal Status) take strict
+   * precedence over generic product FAQs.
    */
   public detectIntent(
     text: string,
@@ -111,7 +141,103 @@ export class ConversationalIntelligenceService {
   ): IntentDetectionResult {
     const clean = text.trim();
 
-    // 1. Name Change / Profile Modification Intent
+    // 1. Access Code Request (Security Sensitive!)
+    if (
+      /\b(?:access\s*code|passcode|secret\s*code|team\s*code|login\s*code|owner\s*code|pin)\b/i.test(clean) &&
+      /\b(?:batao|chahiye|kya\s+hai|de\s+do|provide|share|tell|show|get|code)\b/i.test(clean)
+    ) {
+      return {
+        intent: "ACCESS_CODE_QUERY",
+        confidence: 0.98,
+      };
+    }
+
+    // 2. Affirmation / Confirmation (e.g. "Haan", "Yes", "Sahi hai", "Hanji", "Wahi")
+    if (
+      /^(?:haan|ha|han|hanji|haanji|yes|yeah|yup|sahi|sahi\s+hai|wahi|right|correct|sure|theek\s+hai|ha\s+bhai)$/i.test(clean) ||
+      /\b(?:haan\s+wahi|sahi\s+hai\s+wahi|haan\s+batao|yes\s+please)\b/i.test(clean)
+    ) {
+      return {
+        intent: "AFFIRMATION_CONFIRMATION",
+        confidence: 0.95,
+      };
+    }
+
+    // 3. Next Match Follow-up ("Aur dusre match ka?", "Dusra match", "Next match")
+    if (
+      /\b(?:dusre\s+match|dusra\s+match|next\s+match|other\s+match|agla\s+match)\b/i.test(clean)
+    ) {
+      return {
+        intent: "NEXT_MATCH_FOLLOWUP",
+        confidence: 0.95,
+      };
+    }
+
+    // 4. Player Personal Inquiry ("Mera auction status kya hai?", "Mujhe kis team ne kharida?", "Meri bidding kitne mein hui?", "Main sold hua ya unsold?")
+    if (
+      /\b(?:mera\s+auction\s+status|mera\s+player\s+profile|mera\s+status|mera\s+sold\s+price|meri\s+bidding|main\s+sold\s+hua|main\s+unsold\s+raha|main\s+bik\s+gaya|mujhe\s+kis(?:i|\s+team\s+ne|\s+ne)\s+(?:kharida|liya)|mujhe\s+kitne\s+mein\s+(?:kharida|liya|bika))\b/i.test(clean) ||
+      (/\b(?:mera|meri)\b/i.test(clean) && /\b(?:auction\s+status|sold\s+price|bidding\s+amount|player\s+profile)\b/i.test(clean))
+    ) {
+      return {
+        intent: "PLAYER_PERSONAL_QUERY",
+        confidence: 0.95,
+      };
+    }
+
+    // 5. Team Owner Personal Inquiry ("Meri team ne kitne players kharide?", "Mere paas kitna purse bacha hai?", "Meri team ke players kaun hain?", "Meri team ka auction status")
+    if (
+      /\b(?:meri\s+team\s+ne\s+kitne\s+players|mere\s+paas\s+kitna\s+purse|meri\s+team\s+ke\s+players|meri\s+team\s+ka\s+auction\s+status|meri\s+team\s+ne\s+kitni\s+bidding|meri\s+team\s+ka\s+purse|mera\s+purse\s+kitna|meri\s+team\s+ka\s+budget)\b/i.test(clean) ||
+      (/\b(?:meri\s+team|mere\s+paas)\b/i.test(clean) && /\b(?:purse\s+bacha|budget\s+bacha|players\s+kharide|kitni\s+bidding)\b/i.test(clean))
+    ) {
+      return {
+        intent: "TEAM_OWNER_PERSONAL_QUERY",
+        confidence: 0.95,
+      };
+    }
+
+    // 6. Team-wise Purchases Inquiry ("Kaunsi team ne kitne players kharide?", "Kaunsi team ne kitne players liye?")
+    if (
+      /\b(?:kaunsi\s+team\s+ne\s+kitne|kis\s+team\s+ne\s+kitne|teams\s+ne\s+kitne\s+players|team\s*wise\s+purchases|team\s*wise\s+players)\b/i.test(clean) ||
+      (/\b(?:kaunsi\s+team|kis\s+team|teams)\b/i.test(clean) && /\b(?:players\s+(?:kharide|liye)|purchase|squad)\b/i.test(clean))
+    ) {
+      return {
+        intent: "TEAM_PURCHASE_QUERY",
+        confidence: 0.92,
+      };
+    }
+
+    // 7. Player Lookup Query ("Rohit Sharma ka auction status batao", "<Player> ka status batao")
+    const extractedPlayer = this.extractPlayerName(clean);
+    if (extractedPlayer && /\b(?:auction|status|bidding|bika|kharida|sold|unsold)\b/i.test(clean)) {
+      return {
+        intent: "PLAYER_LOOKUP_QUERY",
+        confidence: 0.92,
+        extractedPlayerName: extractedPlayer,
+      };
+    }
+
+    // 8. Live Score Query ("Kanpur mein chal rahe BPL ka score batao", "Live score kya hai?", "Score batao", "scor batao", "skor")
+    if (
+      /\b(?:score|scores|scor|skor|live\s+score|match\s+ka\s+score|score\s+batao|kya\s+score\s+hai|live\s+match)\b/i.test(clean)
+    ) {
+      return {
+        intent: "LIVE_SCORE_QUERY",
+        confidence: 0.92,
+      };
+    }
+
+    // 9. Auction Overview Query ("Abhi auction mein kya chal raha hai?", "Kitne players sold ho chuke hain?", "Auction live hai kya?", "Auction mein kitne players remaining hain?")
+    if (
+      /\b(?:auction\s+mein\s+kya\s+chal\s+raha|kitne\s+players\s+sold|kitne\s+players\s+bik|auction\s+live\s+hai\s+kya|auction\s+status|remaining\s+players|unsold\s+players|sold\s+players|auction\s+update|auction\s+kaisa\s+chal\s+raha)\b/i.test(clean) ||
+      (/\bauction\b/i.test(clean) && /\b(?:kya\s+chal|status|kitne|live|chal\s+raha|remaining|sold|unsold)\b/i.test(clean))
+    ) {
+      return {
+        intent: "AUCTION_OVERVIEW_QUERY",
+        confidence: 0.92,
+      };
+    }
+
+    // 10. Name Change / Profile Modification Intent
     if (
       /\b(?:change\s+my\s+name|update\s+my\s+name|change\s+name\s+in\s+db|naam\s+badal|naam\s+change|naam\s+update)\b/i.test(clean) ||
       /\bname\s+in\s+db\b/i.test(clean)
@@ -124,7 +250,7 @@ export class ConversationalIntelligenceService {
       };
     }
 
-    // 2. Explicit Language Switch Intent
+    // 11. Explicit Language Switch Intent
     const explicitLang = this.detectExplicitLanguage(clean);
     if (explicitLang) {
       return {
@@ -134,7 +260,7 @@ export class ConversationalIntelligenceService {
       };
     }
 
-    // 3. Role / Identity Statement Intent
+    // 12. Role / Identity Statement Intent
     if (
       /\b(?:i\s+am\s+(?:the\s+)?(?:owner|founder|creator|boss|admin|ceo)\s+of\s+bidwar)\b/i.test(clean) ||
       /\b(?:main\s+bidwar\s+ka\s+(?:owner|founder|malik)\s+hoon)\b/i.test(clean) ||
@@ -146,7 +272,7 @@ export class ConversationalIntelligenceService {
       };
     }
 
-    // 4. Follow-Up Continuity Intent ("Aur batao", "explain more", "what else?")
+    // 13. Follow-Up Continuity Intent ("Aur batao", "explain more", "what else?")
     if (
       /\b(?:aur\s+batao|explain\s+more|what\s+else|uske\s+baare\s+mein\s+batao|tell\s+me\s+more|more\s+details|aage\s+batao|aur\s+kya\s+hai|wahi\s+jo\s+maine\s+pehle\s+bola|nahi,?\s*mera\s+matlab|ab\s+kya\s+karna\s+hai)\b/i.test(clean) ||
       /^aur\s+batao\??$/i.test(clean) ||
@@ -160,7 +286,7 @@ export class ConversationalIntelligenceService {
       };
     }
 
-    // 5. Appreciation Intent
+    // 14. Appreciation Intent
     if (
       /\b(?:thanks,?\s*ho\s+gaya|thanks\s+a\s+lot|thank\s+you|bahut\s+shukriya|shukriya|dhanyawad|thanks\s+ho\s+gaya|done\s+thanks|awesome\s+thanks)\b/i.test(clean) ||
       /^thanks\??$/i.test(clean) ||
@@ -174,7 +300,7 @@ export class ConversationalIntelligenceService {
       };
     }
 
-    // 6. Emotional Frustration & Complaint Intent
+    // 15. Emotional Frustration & Complaint Intent
     if (
       /\b(?:problem\s+aa\s+rahi\s+hai|bahut\s+bekar\s+experience|bekar\s+experience|kuch\s+kaam\s+nahi\s+kar\s+raha|error\s+aa\s+raha\s+hai|dimag\s+kharab|worst\s+experience|very\s+frustrated|not\s+working|stuck|pareshan)\b/i.test(clean)
     ) {
@@ -186,7 +312,7 @@ export class ConversationalIntelligenceService {
       };
     }
 
-    // 7. Emotional Confusion Intent
+    // 16. Emotional Confusion Intent
     if (
       /\b(?:kuch\s+samajh\s+nahi\s+aa\s+raha|samajh\s+nahi\s+aaya|confused|so\s+confusing|how\s+to\s+start)\b/i.test(clean)
     ) {
@@ -197,7 +323,7 @@ export class ConversationalIntelligenceService {
       };
     }
 
-    // 8. Genuine FAQ Inquiry (Direct question on what is BidWar / features / pricing)
+    // 17. Genuine FAQ Inquiry (Direct question on what is BidWar / features / pricing)
     if (
       /\b(?:what\s+is\s+bidwar|bidwar\s+kya\s+hai|features\s+kya\s+hain|what\s+are\s+the\s+features|pricing\s+kya\s+hai|what\s+is\s+the\s+pricing|plans\s+batao|rate\s+kya\s+hai|how\s+much\s+does\s+it\s+cost)\b/i.test(clean)
     ) {
