@@ -11,3 +11,4 @@ export * from "./conversational-intelligence";
 export * from "./guest-assistant-service";
 export * from "./operational-data-service";
 export * from "./entity-resolution-service";
+export * from "./audio-transcription-service";

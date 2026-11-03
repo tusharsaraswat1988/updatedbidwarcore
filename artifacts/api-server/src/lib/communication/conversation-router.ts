@@ -30,6 +30,7 @@ import { randomBytes, scrypt, timingSafeEqual, randomInt, createHash } from "cry
 import { promisify } from "util";
 import { guestAssistantService } from "./ai-assistant/guest-assistant-service";
 import { operationalDataService } from "./ai-assistant/operational-data-service";
+import { audioTranscriptionService } from "./ai-assistant/audio-transcription-service";
 import type { AssistantUserContext, AuthorizedTournamentSummary } from "./ai-assistant/knowledgebase";
 
 const scryptAsync = promisify(scrypt);
@@ -45,6 +46,9 @@ export interface NormalizedInboundMessage {
   raw?: unknown;
   ip?: string | null;
   tournamentId?: number;
+  type?: string;
+  mediaId?: string;
+  mimeType?: string;
 }
 
 export interface ConsentTarget {
@@ -881,7 +885,30 @@ export class ConversationRouter {
   public async processInboundMessage(input: NormalizedInboundMessage): Promise<{ handled: boolean; replySent?: boolean; deduplicated?: boolean }> {
     const mobile = this.normalizePhone(input.from);
     const from = input.channel === "whatsapp" ? `whatsapp:+${mobile}` : `+${mobile}`;
-    const text = input.text.trim();
+    let text = (input.text ?? "").trim();
+    const isAudio =
+      input.type === "audio" ||
+      input.type === "voice" ||
+      (input.raw as any)?.type === "audio" ||
+      (input.raw as any)?.type === "voice" ||
+      Boolean((input.raw as any)?.audio);
+
+    if (!text && isAudio) {
+      const transcription = await audioTranscriptionService.transcribe({
+        raw: input.raw,
+        mediaId: (input.raw as any)?.audio?.id ?? (input.raw as any)?.voice?.id ?? input.mediaId,
+        mimeType: (input.raw as any)?.audio?.mime_type ?? (input.raw as any)?.voice?.mime_type ?? input.mimeType,
+      });
+
+      if (transcription.success && transcription.transcript) {
+        text = transcription.transcript.trim();
+        logger.info(
+          { mobile: maskPhoneNumber(mobile), transcript: text },
+          "ConversationRouter: Audio message transcribed successfully"
+        );
+      }
+    }
+
     const upper = text.toUpperCase();
     const ip = input.ip ?? null;
     const trimmedId = input.messageId?.trim();
@@ -1706,3 +1733,4 @@ export class ConversationRouter {
 }
 
 export const conversationRouter = new ConversationRouter();
+

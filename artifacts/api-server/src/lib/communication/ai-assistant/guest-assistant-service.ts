@@ -4,7 +4,7 @@
  * Coordinates conversational intelligence, intent recognition, emotional awareness,
  * session memory, anti-repetition tracking, Google Gemini generation, guardrail
  * enforcement, lead capture, operational auction & scoring retrieval, entity
- * resolution, and secure role-based data access.
+ * resolution, audio message transcription, and secure role-based data access.
  */
 
 import { GoogleGenAI } from "@google/genai";
@@ -26,6 +26,7 @@ import { humanHandoff } from "./human-handoff";
 import { conversationalIntelligence } from "./conversational-intelligence";
 import { operationalDataService } from "./operational-data-service";
 import { entityResolutionService } from "./entity-resolution-service";
+import { audioTranscriptionService } from "./audio-transcription-service";
 import type { ResolvedIdentity } from "../conversation-router";
 
 export interface GuestAssistantInput {
@@ -36,6 +37,7 @@ export interface GuestAssistantInput {
   ip?: string | null;
   userContext?: AssistantUserContext;
   identity?: ResolvedIdentity;
+  raw?: any;
 }
 
 export interface GuestAssistantResponse {
@@ -68,6 +70,10 @@ export class GuestAssistantService {
   /**
    * In-memory sliding window rate limiter per mobile phone number.
    */
+  public resetRateLimit(): void {
+    requestTimestamps.clear();
+  }
+
   public checkRateLimit(mobile: string): boolean {
     const now = Date.now();
     const oneHourAgo = now - 60 * 60 * 1000;
@@ -86,29 +92,29 @@ export class GuestAssistantService {
   }
 
   /**
-   * Reset rate limit (primarily for testing purposes).
-   */
-  public resetRateLimit(mobile?: string): void {
-    if (mobile) {
-      requestTimestamps.delete(mobile);
-    } else {
-      requestTimestamps.clear();
-    }
-  }
-
-  /**
-   * Primary entry point for processing incoming WhatsApp messages.
+   * Primary entry point for inbound WhatsApp user messages.
    */
   public async handleMessage(input: GuestAssistantInput): Promise<GuestAssistantResponse> {
-    const { mobile, text } = input;
-    const cleanText = text.trim();
+    const { mobile, from, text } = input;
+    const cleanText = (text ?? "").trim();
+    const ip = input.ip ?? null;
 
     logger.info(
       { mobile: maskPhoneNumber(mobile), length: cleanText.length, userCategory: input.userContext?.userCategory },
       "GuestAssistantService: Processing incoming WhatsApp message"
     );
 
-    // 1. Sliding window rate limit check
+    // 0. Empty Message / Audio Note where transcription is missing or unintelligible
+    if (!cleanText || cleanText.length === 0) {
+      const preferredLang = input.userContext?.preferredLanguage;
+      const audioReply = audioTranscriptionService.buildUnclearAudioReply(preferredLang);
+      return {
+        text: audioReply,
+        intent: "UNKNOWN_UNCLEAR",
+      };
+    }
+
+    // 1. Sliding window rate limit check (20 msgs / hour)
     if (!this.checkRateLimit(mobile)) {
       logger.warn(
         { mobile: maskPhoneNumber(mobile) },
@@ -218,9 +224,10 @@ export class GuestAssistantService {
             confirmedTournamentName: pending.candidateName,
             confirmedTournamentCity: pending.candidateCity ?? undefined,
           });
-          return { text: formatted, intent: "LIVE_SCORE_QUERY" };
-        } else {
-          // Default to Auction Overview
+          return { text: formatted, intent: pending.pendingIntent };
+        }
+
+        if (pending.pendingIntent === "AUCTION_OVERVIEW_QUERY" || pending.pendingIntent === "TEAM_PURCHASE_QUERY") {
           const overview = await operationalDataService.getTournamentAuctionOverview({
             tournamentId: pending.candidateTournamentId,
             viewerRole: "public",
@@ -258,7 +265,7 @@ export class GuestAssistantService {
       return { text: securityReply, intent: intentResult.intent };
     }
 
-    // ─── 5d. Player Personal Inquiry ─────────────────────────────────────────────
+    // ─── 5d. Player Personal Inquiry ("Mera auction status kya hai?") ──────────────
     if (intentResult.intent === "PLAYER_PERSONAL_QUERY") {
       const playerDetail = await operationalDataService.getPlayerPersonalData(mobile, session.confirmedTournamentId);
       let replyText = "";
@@ -270,7 +277,6 @@ export class GuestAssistantService {
             : "Aapke is mobile number se koi player profile registered nahi mili. Apna auction status dekhne ke liye bidwar.in portal par apne registered number se login karein.";
       } else {
         const teamStr = playerDetail.teamName ? `*${playerDetail.teamName}*` : "Pool / Unsold";
-        const priceStr = playerDetail.soldPriceFormatted ?? playerDetail.basePriceFormatted;
         const statusDisplay =
           playerDetail.status === "sold"
             ? "Sold 🎉"
@@ -295,11 +301,12 @@ export class GuestAssistantService {
 
       await sessionManager.appendTurn(mobile, cleanText, replyText, undefined, {
         languagePreference: currentLanguage,
+        topic: "Auction Module",
       });
       return { text: replyText, intent: intentResult.intent };
     }
 
-    // ─── 5e. Team Owner Personal Inquiry ─────────────────────────────────────────
+    // ─── 5e. Team Owner Personal Inquiry ("Mere paas kitna purse bacha hai?") ─────
     if (intentResult.intent === "TEAM_OWNER_PERSONAL_QUERY") {
       const teamDetail = await operationalDataService.getTeamOwnerPersonalData(mobile, session.confirmedTournamentId);
       let replyText = "";
@@ -329,82 +336,47 @@ export class GuestAssistantService {
 
       await sessionManager.appendTurn(mobile, cleanText, replyText, undefined, {
         languagePreference: currentLanguage,
+        topic: "Auction Module",
       });
       return { text: replyText, intent: intentResult.intent };
     }
 
-    // ─── 5f. Player Lookup Query (e.g. "Rohit Sharma ka auction status batao") ───
+    // ─── 5f. Player Lookup Query ("Rohit Sharma ka auction status batao") ──────────
     if (intentResult.intent === "PLAYER_LOOKUP_QUERY" && intentResult.extractedPlayerName) {
-      const searchName = intentResult.extractedPlayerName;
       const authorizedIds = input.userContext?.authorizedTournaments?.map((t) => t.id) ?? [];
-
       const resolution = await entityResolutionService.resolveTournament({
-        queryText: cleanRawWithoutPlayer(cleanText, searchName),
+        queryText: cleanRawWithoutPlayer(cleanText, intentResult.extractedPlayerName),
         authorizedTournamentIds: authorizedIds,
         confirmedTournamentId: session.confirmedTournamentId,
       });
 
-      if (resolution.status === "needs_confirmation") {
-        await sessionManager.setPendingEntityConfirmation(mobile, {
-          candidateTournamentId: resolution.candidate.id,
-          candidateName: resolution.candidate.name,
-          candidateCity: resolution.candidate.city,
-          pendingIntent: intentResult.intent,
-          originalQuery: cleanText,
-        });
-        await sessionManager.appendTurn(mobile, cleanText, resolution.confirmationMessage);
-        return { text: resolution.confirmationMessage, intent: "ENTITY_CLARIFICATION" };
-      }
+      const tournamentId = resolution.status === "resolved" ? resolution.tournament.id : session.confirmedTournamentId;
+      const lookupResult = tournamentId
+        ? await operationalDataService.lookupPlayerInTournament({
+            searchName: intentResult.extractedPlayerName,
+            tournamentId,
+          })
+        : null;
 
-      if (resolution.status === "ambiguous_multiple" || resolution.status === "not_found") {
-        const clarification =
-          resolution.status === "ambiguous_multiple"
-            ? resolution.clarificationMessage
-            : "Kaunse tournament ke player ka status chahiye? Tournament ka naam ya city bata dein.";
-        await sessionManager.appendTurn(mobile, cleanText, clarification);
-        return { text: clarification, intent: "ENTITY_CLARIFICATION" };
-      }
-
-      const targetTournamentId = resolution.tournament.id;
-      const playerDetail = await operationalDataService.lookupPlayerInTournament({
-        tournamentId: targetTournamentId,
-        searchName,
-      });
-
-      let replyText = "";
-      if (!playerDetail) {
-        replyText = `"${searchName}" ${resolution.tournament.name} mein registered nahi mila. Kripya naam ki spelling check karein ya poora naam batayein.`;
+      let lookupReply = "";
+      if (!lookupResult) {
+        lookupReply = currentLanguage === "english"
+          ? `Could not find any auction record for player "${intentResult.extractedPlayerName}". Please check the spelling or provide the tournament name.`
+          : `"${intentResult.extractedPlayerName}" khiladi ka auction record nahi mila. Kripya naam ki spelling check karein ya tournament ka naam batayein.`;
       } else {
-        const statusLabel =
-          playerDetail.status === "sold"
-            ? `Sold to *${playerDetail.teamName ?? "Team"}* for *${playerDetail.soldPriceFormatted ?? playerDetail.basePriceFormatted}*`
-            : playerDetail.status === "retained"
-              ? `Retained by *${playerDetail.teamName ?? "Team"}*`
-              : playerDetail.status === "unsold"
-                ? `Unsold (Base Price: ${playerDetail.basePriceFormatted})`
-                : `Available in Pool (Base Price: ${playerDetail.basePriceFormatted})`;
-
-        replyText = [
-          `🏏 *Player Auction Details:*`,
-          `• Khiladi: *${playerDetail.playerName}*`,
-          `• Tournament: ${playerDetail.tournamentName}`,
-          playerDetail.role ? `• Role: ${playerDetail.role}` : null,
-          `• Status: ${statusLabel}`,
-          "",
-          "Live auction stream aur complete squad ke liye bidwar.in dekhein.",
-        ].filter(Boolean).join("\n");
+        const teamText = lookupResult.teamName ? ` (Team: ${lookupResult.teamName})` : "";
+        const priceText = lookupResult.soldPrice ? `₹${lookupResult.soldPrice.toLocaleString("en-IN")}` : `Base ₹${lookupResult.basePrice.toLocaleString("en-IN")}`;
+        lookupReply = `👤 ${lookupResult.playerName} (${lookupResult.tournamentName}):\n• Role: ${lookupResult.role}\n• Status: ${lookupResult.status.toUpperCase()}${teamText}\n• Price: ${priceText}`;
       }
 
-      await sessionManager.appendTurn(mobile, cleanText, replyText, undefined, {
+      await sessionManager.appendTurn(mobile, cleanText, lookupReply, undefined, {
         languagePreference: currentLanguage,
-        confirmedTournamentId: targetTournamentId,
-        confirmedTournamentName: resolution.tournament.name,
-        confirmedTournamentCity: resolution.tournament.city ?? undefined,
+        topic: "Auction Module",
       });
-      return { text: replyText, intent: intentResult.intent };
+      return { text: lookupReply, intent: intentResult.intent };
     }
 
-    // ─── 5g. Live Score Query & Next Match Follow-up ─────────────────────────────
+    // ─── 5g. Live Scoring Query ("Kanpur BPL ka score batao", "Live score kya hai?")
     if (intentResult.intent === "LIVE_SCORE_QUERY" || intentResult.intent === "NEXT_MATCH_FOLLOWUP") {
       const authorizedIds = input.userContext?.authorizedTournaments?.map((t) => t.id) ?? [];
 
@@ -443,15 +415,10 @@ export class GuestAssistantService {
         city: targetTournament.city ?? undefined,
       });
 
-      const formattedScoreText = operationalDataService.formatScoresResponse(
-        scores,
-        currentLanguage,
-        targetTournament.name
-      );
+      const formattedScoreText = operationalDataService.formatScoresResponse(scores, currentLanguage, targetTournament.name);
 
-      // Attempt conversational phrasing via Gemini if available
       let finalScoreReply = formattedScoreText;
-      if (this.isEnabled() && process.env.GEMINI_API_KEY) {
+      if (this.isEnabled() && process.env.GEMINI_API_KEY && scores.length > 0) {
         try {
           const groundedContext: AssistantUserContext = {
             userCategory: input.userContext?.userCategory ?? "guest",
@@ -460,7 +427,7 @@ export class GuestAssistantService {
             turnCount,
             preferredLanguage: currentLanguage,
             operationalDataContext: formattedScoreText,
-            operationalIntent: "LIVE_SCORE",
+            operationalIntent: "LIVE_SCORING",
           };
           finalScoreReply = await this.generateLlmResponse(cleanText, session.messages, groundedContext);
         } catch (err) {
@@ -657,6 +624,54 @@ export class GuestAssistantService {
       };
     }
 
+    // ─── 5n. Bot Feedback / Repetition Complaint ("Tumhare paas aur response nahi hai kya?") ───
+    if (intentResult.intent === "BOT_FEEDBACK_REPETITION") {
+      const feedbackReply = conversationalIntelligence.handleBotFeedback(currentLanguage);
+      await sessionManager.appendTurn(mobile, cleanText, feedbackReply, undefined, {
+        languagePreference: currentLanguage,
+      });
+      return {
+        text: feedbackReply,
+        intent: intentResult.intent,
+      };
+    }
+
+    // ─── 5o. Casual Conversation ("Kya haal-chaal?", "Bhai kya kar rahe ho?", "Tum kaise ho?") ───
+    if (intentResult.intent === "CASUAL_CONVERSATION") {
+      const casualReply = conversationalIntelligence.handleCasualConversation(cleanText, currentLanguage);
+      await sessionManager.appendTurn(mobile, cleanText, casualReply, undefined, {
+        languagePreference: currentLanguage,
+      });
+      return {
+        text: casualReply,
+        intent: intentResult.intent,
+      };
+    }
+
+    // ─── 5p. Natural Greeting ("Hi", "Hello", "Good morning") ────────────────────
+    if (intentResult.intent === "GREETING") {
+      const greetingReply = conversationalIntelligence.handleGreeting(cleanText, currentLanguage);
+      await sessionManager.appendTurn(mobile, cleanText, greetingReply, undefined, {
+        languagePreference: currentLanguage,
+      });
+      return {
+        text: greetingReply,
+        intent: intentResult.intent,
+      };
+    }
+
+    // ─── 5q. Unknown / Unclear Intent ("asdfgh", "???", gibberish) ───────────────
+    if (intentResult.intent === "UNKNOWN_UNCLEAR") {
+      const unclearReply = conversationalIntelligence.handleUnknownUnclear(currentLanguage);
+      await sessionManager.appendTurn(mobile, cleanText, unclearReply, undefined, {
+        languagePreference: currentLanguage,
+      });
+      return {
+        text: unclearReply,
+        intent: intentResult.intent,
+      };
+    }
+
     // ─── 6. General Knowledge & FAQ Processing via Gemini ────────────────────────
     const lastTopic = session.deliveredSummary?.lastTopic || "General";
     const mergedUserContext: AssistantUserContext = {
@@ -758,43 +773,60 @@ export class GuestAssistantService {
     ];
 
     const ai = this.getGenAIClient(apiKey);
+    const isMockClient =
+      (ai?.models?.generateContent as any)?.mock !== undefined ||
+      (this.getGenAIClient as any)?.mock !== undefined;
+
+    if (apiKey.startsWith("mock-") && !isMockClient) {
+      logger.warn("GuestAssistantService: Mock GEMINI_API_KEY provided without mocked client, using fallback");
+      return this.buildFallbackReply(userText, context);
+    }
+
     const response = await ai.models.generateContent({
       model,
       contents,
       config: {
         systemInstruction,
         temperature: 0.3,
-        maxOutputTokens: 400,
-        abortSignal: AbortSignal.timeout(8000), // 8-second strict timeout
+        maxOutputTokens: 500,
+        abortSignal: AbortSignal.timeout(8000),
       },
     });
 
-    const content = response.text?.trim();
-    if (!content) {
-      throw new Error("Empty response received from Gemini API");
+    const textPart = (response.text ?? response.candidates?.[0]?.content?.parts?.[0]?.text)?.trim();
+    if (!textPart) {
+      throw new Error("Empty response from Gemini API");
     }
 
-    return content;
+    return textPart;
   }
 
   /**
-   * Graceful, context-aware fallback when Gemini is offline, timing out, or unconfigured.
-   * If operational data context is provided, returns that directly rather than marketing brochure.
+   * Context-aware deterministic fallback reply.
+   *
+   * CRITICAL CONTRACT:
+   * The generic 10-line BIDWAR overview brochure is ONLY returned for explicit product/pricing inquiries.
+   * Casual conversations, greetings, bot feedback, audio fallbacks, and unclear queries receive
+   * their respective conversational responses and NEVER default to marketing dumps.
    */
   public buildFallbackReply(
     userQuery: string,
     context?: AssistantUserContext,
     session?: GuestSessionPayload
   ): string {
-    // Grounded operational data bypass: NEVER dump marketing brochure for operational requests
     if (context?.operationalDataContext) {
       return context.operationalDataContext;
     }
 
-    const clean = userQuery.trim();
+    const clean = (userQuery ?? "").trim();
     const lang = context?.preferredLanguage ?? session?.languagePreference;
-    const isHindi = lang ? lang !== "english" : /(?:hai|karein|karna|chahiye|aap|karo|batao|dhanyawad|shukriya|mujhe|kaise)/i.test(clean);
+    const isHindi = lang ? lang !== "english" : /(?:hai|karein|karna|chahiye|aap|karo|batao|dhanyawad|shukriya|mujhe|kaise|bhai)/i.test(clean);
     const isReturning = (context?.turnCount ?? 0) > 0;
+
+    // 0. Empty query (e.g. voice note where transcription was unavailable)
+    if (!clean || clean.length === 0) {
+      return audioTranscriptionService.buildUnclearAudioReply(lang);
+    }
 
     // 1. Emotional Frustration / Trouble
     if (/\b(?:problem\s+aa\s+rahi\s+hai|dikkat|not\s+working|error\s+aa\s+raha)\b/i.test(clean)) {
@@ -809,13 +841,45 @@ export class GuestAssistantService {
     }
 
     // 2. Appreciation
-    if (/\b(?:thanks,?\s*ho\s+gaya|thanks\s+ho\s+gaya)\b/i.test(clean)) {
+    if (/\b(?:thanks,?\s*ho\s+gaya|thanks\s+ho\s+gaya|thank\s+you|shukriya|dhanyawad)\b/i.test(clean)) {
       return isHindi
         ? "Bahut badhiya! Agar aage kisi step mein help chahiye ho toh bataiyega."
         : "You're very welcome! Feel free to ask if you need help with any other step.";
     }
 
-    // 3. Follow-Up ("Aur batao", "explain more") on returning turn
+    // 3. Bot Feedback / Repetition Complaint
+    if (
+      /\b(?:tumhare\s+paas\s+(?:koi\s+)?(?:aur\s+)?response\s+nahi\s+hai|koi\s+aur\s+response|baar\s*baar\s+wahi|bar\s*bar\s+wahi|same\s+response|repetitive|kuch\s+aur\s+bolo)\b/i.test(clean)
+    ) {
+      return conversationalIntelligence.handleBotFeedback(lang);
+    }
+
+    // 4. Casual Conversation ("Kya haal-chaal?", "Kaise ho?", "Bhai kya kar rahe ho?", "Aur batao")
+    if (
+      /\b(?:kya\s+haal[-\s]*chaal|kya\s+hal[-\s]*chal|haal\s*chaal|hal\s*chal|bhai\s+kya\s+kar\s+rahe|kya\s+kar\s+rahe\s+ho|tum\s+kaise\s+ho|kaise\s+ho|kaisa\s+hai|aur\s+batao|how\s+are\s+you|what's\s+up)\b/i.test(clean)
+    ) {
+      return conversationalIntelligence.handleCasualConversation(clean, lang);
+    }
+
+    // 5. Natural Greetings ("Hi", "Hello", "Good morning")
+    if (/^(?:hi|hello|hey|namaste|pranam|namaskar|good\s+morning|good\s+afternoon|good\s+evening)$/i.test(clean)) {
+      return conversationalIntelligence.handleGreeting(clean, lang);
+    }
+
+    // 6. Name Change / Profile Update
+    if (/\b(?:change\s+(?:my\s+)?name|update\s+(?:my\s+)?name|mera\s+naam|naam\s+badal|naam\s+change)\b/i.test(clean)) {
+      const extractedName = conversationalIntelligence.extractRequestedName(clean);
+      if (!extractedName) {
+        return isHindi
+          ? "Aap apna naya naam kya rakhna chahte hain? Kripya batayein (jaise: 'Mera naam Shanu kar do')."
+          : "What name would you like to update to? Please reply with your desired name (for example: 'Change my name to Shanu').";
+      }
+      return isHindi
+        ? "Aapka mobile number kisi registered BidWar account se linked nahi hai. Profile name update karne ke liye kripya apne registered phone number se message karein ya bidwar.in par sign up karein."
+        : "Your phone number is not linked to an active BidWar account. To update your profile name, please message from your registered phone number or sign up at https://bidwar.in.";
+    }
+
+    // 7. Follow-Up ("Aur batao", "explain more") on returning turn
     if (isReturning && /\b(?:aur\s+batao|explain\s+more|what\s+else)\b/i.test(clean)) {
       const lastTopic = context?.followUpTopic || session?.deliveredSummary?.lastTopic;
       if (lastTopic && /auction/i.test(lastTopic)) {
@@ -828,42 +892,52 @@ export class GuestAssistantService {
         : "Would you like more details on Live Auction Bidding, Cricket/Badminton Scoring, or Tournament Setup?";
     }
 
-    // 4. Default fallback matching existing contract with support contact and signup url
-    if (isHindi) {
-      const greetingHeader = isReturning
-        ? "BidWar sports auction aur scoring par aapka sawal mila hai:"
-        : "Namaste! BidWar me aapka swagat hai. BidWar se judne ke liye shukriya.\n\nBidWar India ka live sports auction aur sports scoring platform hai:";
+    // 8. Explicit BIDWAR Product / Features / Pricing Inquiry
+    // ONLY send the comprehensive brochure when the user explicitly asks what is BidWar or asks about features/plans!
+    const isExplicitBidwarQuery =
+      /\b(?:what\s+is\s+bidwar|bidwar\s+kya\s+hai|bidwar\s+ke\s+baare\s+mein|features\s+kya\s+hain|what\s+are\s+the\s+features|pricing\s+kya\s+hai|pricing|plans|cost|rate\s+kya\s+hai|kaise\s+use\s+karein|how\s+to\s+use|how\s+do\s+i\s+use)\b/i.test(clean);
+
+    if (isExplicitBidwarQuery) {
+      if (isHindi) {
+        const greetingHeader = isReturning
+          ? "BidWar sports auction aur scoring par aapka sawal mila hai:"
+          : "Namaste! BidWar me aapka swagat hai. BidWar se judne ke liye shukriya.\n\nBidWar India ka live sports auction aur sports scoring platform hai:";
+
+        return [
+          greetingHeader,
+          "• Real-time player bidding aur team owner mobile panels (Android/iOS)",
+          "• 1080p LED stage display aur OBS live streaming overlay",
+          "• Cricket aur Badminton live match scoring",
+          "• Pricing: Free Trial (2 teams), Starter (₹5,000 / 4 teams), Pro (₹6,000 / 8 teams)",
+          "",
+          "Aap directly hamare tournament operations expert se connect kar sakte hain:",
+          `📞 Call / WhatsApp: ${SUPPORT_CONTACT.phone}`,
+          `💬 WhatsApp: ${SUPPORT_CONTACT.whatsappUrl}`,
+          "🌐 Free Account: https://bidwar.in/organizer?tab=signup",
+        ].join("\n");
+      }
+
+      const greetingHeaderEn = isReturning
+        ? "Here is the key information regarding your BidWar inquiry:"
+        : "Welcome to BidWar!\n\nBidWar is India's live sports auction & scoring platform:";
 
       return [
-        greetingHeader,
-        "• Real-time player bidding aur team owner mobile panels (Android/iOS)",
-        "• 1080p LED stage display aur OBS live streaming overlay",
-        "• Cricket aur Badminton live match scoring",
+        greetingHeaderEn,
+        "• Real-time player bidding & mobile bidding panels for franchise owners",
+        "• 1080p LED broadcast display & OBS live stream overlays",
+        "• Cricket and Badminton live match scoring",
         "• Pricing: Free Trial (2 teams), Starter (₹5,000 / 4 teams), Pro (₹6,000 / 8 teams)",
         "",
-        "Aap directly hamare tournament operations expert se connect kar sakte hain:",
+        "Speak directly with our tournament operations team:",
         `📞 Call / WhatsApp: ${SUPPORT_CONTACT.phone}`,
         `💬 WhatsApp: ${SUPPORT_CONTACT.whatsappUrl}`,
-        "🌐 Free Account: https://bidwar.in/organizer?tab=signup",
+        "🌐 Sign up free: https://bidwar.in/organizer?tab=signup",
       ].join("\n");
     }
 
-    const greetingHeaderEn = isReturning
-      ? "Here is the key information regarding your BidWar inquiry:"
-      : "Welcome to BidWar!\n\nBidWar is India's live sports auction & scoring platform:";
-
-    return [
-      greetingHeaderEn,
-      "• Real-time player bidding & mobile bidding panels for franchise owners",
-      "• 1080p LED broadcast display & OBS live stream overlays",
-      "• Cricket and Badminton live match scoring",
-      "• Pricing: Free Trial (2 teams), Starter (₹5,000 / 4 teams), Pro (₹6,000 / 8 teams)",
-      "",
-      "Speak directly with our tournament operations team:",
-      `📞 Call / WhatsApp: ${SUPPORT_CONTACT.phone}`,
-      `💬 WhatsApp: ${SUPPORT_CONTACT.whatsappUrl}`,
-      "🌐 Sign up free: https://bidwar.in/organizer?tab=signup",
-    ].join("\n");
+    // 9. Unknown / Unclear message: ask polite clarification question.
+    // NEVER send the product brochure as universal fallback!
+    return conversationalIntelligence.handleUnknownUnclear(lang);
   }
 }
 

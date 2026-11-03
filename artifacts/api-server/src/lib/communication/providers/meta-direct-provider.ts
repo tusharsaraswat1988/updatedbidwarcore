@@ -407,6 +407,11 @@ export class MetaDirectProvider implements IWhatsAppProvider {
               text =
                 m.interactive?.button_reply?.title ??
                 m.interactive?.list_reply?.title;
+            } else if (
+              (m.type === "audio" || m.type === "voice") &&
+              (m.audio?.transcript || m.voice?.transcript || m.transcript)
+            ) {
+              text = m.audio?.transcript ?? m.voice?.transcript ?? m.transcript;
             }
 
             messages.push({

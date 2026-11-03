@@ -429,6 +429,9 @@ async function handleMetaWebhook(req: import("express").Request, res: import("ex
       messageId: msg.messageId,
       raw: msg.raw,
       ip: req.ip ?? null,
+      type: msg.type,
+      mediaId: (msg.raw as any)?.audio?.id ?? (msg.raw as any)?.voice?.id,
+      mimeType: (msg.raw as any)?.audio?.mime_type ?? (msg.raw as any)?.voice?.mime_type,
     });
     if (!result.handled) {
       allHandled = false;
