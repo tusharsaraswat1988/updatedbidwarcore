@@ -4,7 +4,8 @@
 **Repository:** `tusharsaraswat1988/updatedbidwarcore`  
 **Current Branch:** `fix/auction-manifest-same-origin-icons`  
 **Base Branch:** `main`  
-**Target Pull Request:** Targets `main`  
+**Target Pull Request:** [PR #164: fix(branding): make auction platform pwa manifest icons same-origin](https://github.com/tusharsaraswat1988/updatedbidwarcore/pull/164) (OPEN / UNMERGED)  
+**Commit SHA:** `328c4dc2013984c9e07d450f77f5a083e7f0dd92`  
 **Staging Host:** `https://stagingbidwar.up.railway.app`  
 **Production Host:** `https://bidwar.in`  
 **Verification Date:** 2026-11-03  
