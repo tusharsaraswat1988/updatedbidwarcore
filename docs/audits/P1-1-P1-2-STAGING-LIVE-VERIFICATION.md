@@ -4,13 +4,14 @@
 **Audit / Verification Type:** Staging Deployment Preparation & Live Verification Audit  
 **Repository:** `tusharsaraswat1988/updatedbidwarcore`  
 **Current Branch:** `fix/p1-session-revocation-isolation`  
-**Remediation Commit SHA:** `0b72370544011c2517659c3fb36893459ed8c5c0`  
+**Remediation Commit SHA:** `d8b1bed026eb4439e0e065826cb5deffa2433296`  
 **Baseline Commit SHA:** `aa211f06270dffc841ed9a550d1235124bdf8167`  
+**Pull Request:** [PR #163: fix(security): organizer session revocation and environment origin isolation](https://github.com/tusharsaraswat1988/updatedbidwarcore/pull/163) (OPEN / UNMERGED)  
 **GitHub Remote Target:** `origin/fix/p1-session-revocation-isolation`  
 **Staging Host:** `https://stagingbidwar.up.railway.app`  
 **Production Host:** `https://bidwar.in`  
 **Verification Date:** 2026-11-03  
-**Final Status:** **STAGING PARTIAL — Branch Created & Pushed; Staging DB Confirmed Isolated; Awaiting Staging Branch Deployment Configuration**
+**Final Status:** **STAGING PARTIAL — PR #163 Created (Open/Unmerged); Staging DB Confirmed Isolated; Awaiting Railway Staging Branch Switch**
 
 ---
 
@@ -30,12 +31,18 @@
 
 ---
 
-## 2. Phase 1 — Safe Branch Preparation
+## 2. Phase 1 — Safe Branch Preparation & Pull Request
 
 - **Previous Baseline:** `aa211f06270dffc841ed9a550d1235124bdf8167` (`origin/main`)
 - **New Branch Created:** `fix/p1-session-revocation-isolation`
-- **Remediation Commit SHA:** `0b72370544011c2517659c3fb36893459ed8c5c0`
+- **Remediation Commit SHA:** `d8b1bed026eb4439e0e065826cb5deffa2433296`
 - **Pushed Remote Target:** `origin/fix/p1-session-revocation-isolation` (Verified: `main` untouched)
+- **Pull Request #163 Opened:**
+  - **PR URL:** `https://github.com/tusharsaraswat1988/updatedbidwarcore/pull/163`
+  - **Title:** `fix(security): organizer session revocation and environment origin isolation`
+  - **Base SHA:** `aa211f06270dffc841ed9a550d1235124bdf8167` (`main`)
+  - **Head SHA:** `d8b1bed026eb4439e0e065826cb5deffa2433296` (`fix/p1-session-revocation-isolation`)
+  - **PR State:** `open`, `merged: false` (Strict quarantine maintained)
 
 ### Staged & Committed File List (16 files)
 1. `lib/db/migrations/0039_organizer_sessions.sql` (New DDL migration)
