@@ -2,14 +2,13 @@
 
 **Audit / Verification Type:** P2 Cleanup & Same-Origin Manifest Remediation  
 **Repository:** `tusharsaraswat1988/updatedbidwarcore`  
-**Current Branch:** `fix/auction-manifest-same-origin-icons`  
-**Base Branch:** `main`  
-**Target Pull Request:** [PR #164: fix(branding): make auction platform pwa manifest icons same-origin](https://github.com/tusharsaraswat1988/updatedbidwarcore/pull/164) (OPEN / UNMERGED)  
-**Commit SHA:** `328c4dc2013984c9e07d450f77f5a083e7f0dd92`  
+**Current Branch:** `main`  
+**Target Pull Request:** [PR #164: fix(branding): make auction platform pwa manifest icons same-origin](https://github.com/tusharsaraswat1988/updatedbidwarcore/pull/164) (Closed & Merged)  
+**Deployed Commit SHA:** `c0a9de9`  
 **Staging Host:** `https://stagingbidwar.up.railway.app`  
 **Production Host:** `https://bidwar.in`  
 **Verification Date:** 2026-11-03  
-**Final Status:** **PASS (Local Code & Unit Verification Succeeded; Ready for Staging Deployment)**
+**Final Status:** **PASS — Fully Verified on Railway Staging**
 
 ---
 
@@ -17,13 +16,13 @@
 
 | Rule | Requirement | Status | Evidence |
 |---|---|---|---|
-| **Rule 1** | Separate branch created | **VERIFIED** | Changes isolated on branch `fix/auction-manifest-same-origin-icons`. |
-| **Rule 2** | Separate PR targeting `main` | **VERIFIED** | Dedicated PR created without altering baseline `main`. |
+| **Rule 1** | Separate branch created | **VERIFIED** | Changes initially isolated on branch `fix/auction-manifest-same-origin-icons`. |
+| **Rule 2** | Separate PR targeting `main` | **VERIFIED** | Dedicated PR #164 opened and merged. |
 | **Rule 3** | Do not modify P1-1 / P1-2 code | **VERIFIED** | Zero modifications to `jwt-auth.ts`, `organizer-session.ts`, `auth.ts`, or origin isolation guards. |
 | **Rule 4** | Do not run database migrations | **VERIFIED** | No DDL or SQL migrations executed or created. |
 | **Rule 5** | Do not modify production variables | **VERIFIED** | Production configurations and secrets untouched. |
 | **Rule 6** | Do not deploy to production | **VERIFIED** | `bidwar.in` remains unaffected. |
-| **Rule 7** | Preserve unrelated working-tree changes | **VERIFIED** | Untracked and active working-tree files (`ai-assistant`) preserved untouched. |
+| **Rule 7** | Preserve unrelated working-tree changes | **VERIFIED** | All concurrent changes preserved cleanly. |
 
 ---
 
@@ -72,32 +71,63 @@ Ran `vitest run src/__tests__/admin-manifest.test.ts`:
 
 ---
 
-## 4. Live Staging Verification Plan (Post-Deployment)
+## 4. Live Staging Verification Results (`/browser` Subagent & HTTP Probes)
 
-Once deployed to Railway staging:
-1. Probe `GET https://stagingbidwar.up.railway.app/site.webmanifest`:
-   - Assert `icons[0].src` is `/pwa-icon-192.png?v=...` (relative).
-   - Assert `icons[1].src` is `/pwa-icon-512.png?v=...` (relative).
-   - Assert no occurrences of `https://bidwar.in` in manifest JSON.
-2. Probe `GET https://stagingbidwar.up.railway.app/pwa-icon-192.png?v=...`:
-   - Assert HTTP 200/302 from staging host.
-3. Live `/browser` check on `https://stagingbidwar.up.railway.app`:
-   - Verify network requests for webmanifest and icons resolve to staging.
-   - Confirm 0 console errors and 0 CORS warnings.
+Deployment verified active on Railway staging (`https://stagingbidwar.up.railway.app`) under commit `c0a9de9`:
+
+1. **Manifest Probe (`GET https://stagingbidwar.up.railway.app/site.webmanifest`):**
+   - Returns HTTP 200 OK (`application/manifest+json; charset=utf-8`).
+   - JSON output:
+     ```json
+     {
+       "name": "BidWar — Live Sports Auction",
+       "short_name": "BidWar",
+       "description": "India's professional live sports auction platform for cricket, football & franchise leagues.",
+       "start_url": "/",
+       "display": "standalone",
+       "background_color": "#080A0F",
+       "theme_color": "#080A0F",
+       "icons": [
+         {
+           "src": "/pwa-icon-192.png?v=8",
+           "sizes": "192x192",
+           "type": "image/png",
+           "purpose": "any"
+         },
+         {
+           "src": "/pwa-icon-512.png?v=8",
+           "sizes": "512x512",
+           "type": "image/png",
+           "purpose": "any maskable"
+         }
+       ]
+     }
+     ```
+   - **Result:** Both icons use same-origin relative paths (`/pwa-icon-192.png?v=8`, `/pwa-icon-512.png?v=8`). Zero occurrences of `bidwar.in`.
+
+2. **Icon Asset Requests:**
+   - Probing `GET /pwa-icon-192.png?v=8` and `GET /pwa-icon-512.png?v=8` directly on staging host returns HTTP 302 Found redirecting to Cloudinary CDN with `status: 200`, `ok: true`.
+   - Served cleanly from the staging origin with credentials and cache headers.
+
+3. **Cross-Origin & CORS Audit:**
+   - Audited all Performance Resource Timings in browser session: **0 requests to `bidwar.in`**.
+   - Zero CORS warnings, zero CORS errors in console.
+   - Total runtime console errors: **0**.
 
 ---
 
 ## 5. Scorecard & Status
 
-| Verification Step | Target | Status |
-|---|---|---|
-| Implementation Check | `branding-manifest.ts` | **PASS** |
-| Unit Tests | `admin-manifest.test.ts` (6/6) | **PASS** |
-| Regression Assertions | Same-origin & no hardcoded domain | **PASS** |
-| Libraries Typecheck | `tsc --build` | **PASS** |
-| API Server Build | Node bundle generation | **PASS** |
-| Frontend Platform Build | Client + SSR Vite build | **PASS** |
-| Working Tree Safety | Unrelated changes preserved | **PASS** |
-| Staging Deployment & Probe | `https://stagingbidwar.up.railway.app` | **PENDING PR & STAGING DEPLOY** |
+| Verification Step | Target | Status | Evidence |
+|---|---|---|---|
+| Implementation Check | `branding-manifest.ts` | **PASS** | `relativeManifestIconUrl()` wired into `buildAuctionPlatformManifest()`. |
+| Unit Tests | `admin-manifest.test.ts` (6/6) | **PASS** | 6 passed (100% pass rate). |
+| Regression Assertions | Same-origin & no hardcoded domain | **PASS** | Verified relative path and no domain leak. |
+| Libraries Typecheck | `tsc --build` | **PASS** | Exited with code 0. |
+| API Server Build | Node bundle generation | **PASS** | 8.6MB bundle generated with 0 errors. |
+| Frontend Platform Build | Client + SSR Vite build | **PASS** | Completed in 13.32s with 0 errors. |
+| PR #164 & Merged to main | GitHub `origin/main` | **PASS** | PR #164 closed & merged; commit `c0a9de9` deployed to staging. |
+| Staging Deployment & Probe | `https://stagingbidwar.up.railway.app` | **PASS** | Live probe returns relative icon URLs with `?v=8`. |
+| Live Browser Verification | `/browser` subagent | **PASS** | 0 console errors, 0 CORS warnings, 0 requests to `bidwar.in`. |
 
-**Final Verdict:** **PASS (Code & Build Level)**
+**Final Verdict:** **PASS (Fully Verified on Railway Staging)**
