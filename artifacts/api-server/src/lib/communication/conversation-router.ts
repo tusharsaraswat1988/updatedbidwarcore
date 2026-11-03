@@ -28,6 +28,7 @@ import {
 import { logger, maskPhoneNumber } from "../logger";
 import { randomBytes, scrypt, timingSafeEqual, randomInt, createHash } from "crypto";
 import { promisify } from "util";
+import { guestAssistantService } from "./ai-assistant/guest-assistant-service";
 
 const scryptAsync = promisify(scrypt);
 
@@ -1290,6 +1291,18 @@ export class ConversationRouter {
     // 8. HELLO / HI / MENU
     if (upper === "HELLO" || upper === "HI" || upper === "NAMASTE" || upper === "MENU") {
       if (identity.kind === "guest") {
+        if (guestAssistantService.isEnabled()) {
+          const aiResult = await guestAssistantService.handleMessage({
+            mobile,
+            from,
+            text,
+            messageId: input.messageId,
+            ip,
+          });
+          await this.sendReply(null, from, aiResult.text, input.channel);
+          await this.recordProcessedInboundMessage(input.messageId ?? `hello_guest_${Date.now()}`, mobile, input.channel, text);
+          return { handled: true, replySent: true };
+        }
         await this.sendReply(null,
           from,
           "Namaste! Main BidWar Assistant hun.\n\nPublic Commands:\n• 'BPL' — BPL schedules & live stream\n• 'SCORES' — Live match updates\n• 'HELP' — Jankari\n\nApna account ya auction details dekhne ke liye bidwar.in pe login karein.", input.channel);
@@ -1556,7 +1569,21 @@ export class ConversationRouter {
       return { handled: true, replySent: true };
     }
 
-    // Unknown command
+    // 13. Guest Natural Language Inquiries or Unknown Command Fallback
+    if (identity.kind === "guest" && guestAssistantService.isEnabled()) {
+      const aiResult = await guestAssistantService.handleMessage({
+        mobile,
+        from,
+        text,
+        messageId: input.messageId,
+        ip,
+      });
+      await this.sendReply(null, from, aiResult.text, input.channel);
+      await this.recordProcessedInboundMessage(input.messageId ?? `guest_ai_${Date.now()}`, mobile, input.channel, text);
+      return { handled: true, replySent: true };
+    }
+
+    // Unknown command for members or when guest assistant is disabled
     await this.sendReply(null,
       from,
       "BidWar Bot Menu:\n• 'HELLO' — Subscribe / Start\n• 'BPL' — BPL Updates\n• 'SCORES' — Live Scores\n• 'DATA' — Profile Info\n• 'STOP' — Unsubscribe", input.channel);
