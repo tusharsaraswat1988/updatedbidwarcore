@@ -1,13 +1,19 @@
 /**
- * BidWar Public Guest AI Assistant Orchestrator
+ * BidWar WhatsApp Gemini Assistant Orchestrator
  *
  * Coordinates session memory, prompt assembly, Google Gemini generation,
- * guardrail enforcement, lead capture, and human handoff for prospective organizers.
+ * guardrail enforcement, lead capture, and support escalation for guests,
+ * trial organizers, and licensed tournament organizers.
  */
 
 import { GoogleGenAI } from "@google/genai";
 import { logger, maskPhoneNumber } from "../../logger";
-import { buildSystemPrompt, SUPPORT_CONTACT } from "./knowledgebase";
+import {
+  buildAssistantSystemPrompt,
+  buildSystemPrompt,
+  SUPPORT_CONTACT,
+  type AssistantUserContext,
+} from "./knowledgebase";
 import { guardrails } from "./guardrails";
 import { sessionManager, type GuestChatMessage } from "./session-manager";
 import { leadCaptureService } from "./lead-capture-service";
@@ -19,6 +25,7 @@ export interface GuestAssistantInput {
   text: string;
   messageId?: string;
   ip?: string | null;
+  userContext?: AssistantUserContext;
 }
 
 export interface GuestAssistantResponse {
@@ -79,25 +86,25 @@ export class GuestAssistantService {
   }
 
   /**
-   * Primary entry point for processing incoming guest WhatsApp messages.
+   * Primary entry point for processing incoming WhatsApp messages through Gemini.
    */
   public async handleMessage(input: GuestAssistantInput): Promise<GuestAssistantResponse> {
     const { mobile, text } = input;
     const cleanText = text.trim();
 
     logger.info(
-      { mobile: maskPhoneNumber(mobile), length: cleanText.length },
-      "GuestAssistantService: Processing incoming guest message"
+      { mobile: maskPhoneNumber(mobile), length: cleanText.length, userCategory: input.userContext?.userCategory },
+      "GuestAssistantService: Processing incoming WhatsApp message"
     );
 
     // 1. Sliding window rate limit check
     if (!this.checkRateLimit(mobile)) {
       logger.warn(
         { mobile: maskPhoneNumber(mobile) },
-        "GuestAssistantService: Rate limit exceeded for guest mobile"
+        "GuestAssistantService: Rate limit exceeded for mobile"
       );
       return {
-        text: "Aapne thode samay mein bohot saare messages bheje hain. Kripya 1 ghante baad koshish karein, ya directly hamare support team ko call karein:\n\n📞 +91 8707488250\n📧 bidwarsupport@gmail.com",
+        text: `Aapne thode samay mein bohot saare messages bheje hain. Kripya 1 ghante baad koshish karein, ya directly hamare support team ko call karein:\n\n📞 ${SUPPORT_CONTACT.phone}\n📧 ${SUPPORT_CONTACT.email}`,
         rateLimited: true,
       };
     }
@@ -110,7 +117,7 @@ export class GuestAssistantService {
         "GuestAssistantService: Inbound message flagged by guardrails"
       );
       return {
-        text: "Namaste! Main BidWar sports auction assistant hun. Main tournaments, auctions, pricing aur setup ke baare mein aapki madad kar sakta hun. Aap kya janna chahte hain?",
+        text: "Namaste! Main BidWar sports auction aur scoring assistant hun. Main tournaments, auctions, pricing, cricket/badminton scoring aur setup ke baare mein aapki madad kar sakta hun. Aap kya janna chahte hain?",
       };
     }
 
@@ -118,7 +125,7 @@ export class GuestAssistantService {
     if (humanHandoff.isHandoffRequested(cleanText)) {
       logger.info(
         { mobile: maskPhoneNumber(mobile) },
-        "GuestAssistantService: Human handoff requested by guest"
+        "GuestAssistantService: Human handoff requested"
       );
       const handoffReply = humanHandoff.buildHandoffReply(cleanText);
 
@@ -133,20 +140,30 @@ export class GuestAssistantService {
 
     // 4. Retrieve multi-turn conversation memory
     const session = await sessionManager.getSession(mobile);
+    const turnCount = Math.floor(session.messages.length / 2);
 
-    // 5. Extract lead details
+    const mergedUserContext: AssistantUserContext = {
+      userCategory: input.userContext?.userCategory ?? "guest",
+      displayName: input.userContext?.displayName ?? "Guest",
+      mobile,
+      authorizedTournaments: input.userContext?.authorizedTournaments,
+      isBeginner: input.userContext?.isBeginner ?? true,
+      turnCount,
+    };
+
+    // 5. Extract lead details (for prospective organizers or guests)
     const detectedLead = leadCaptureService.extractLeadData(cleanText, session.leadData);
 
     // 6. Generate AI response via Gemini
     let rawReply = "";
     try {
-      rawReply = await this.generateLlmResponse(cleanText, session.messages);
+      rawReply = await this.generateLlmResponse(cleanText, session.messages, mergedUserContext);
     } catch (err) {
       logger.warn(
         { err, mobile: maskPhoneNumber(mobile) },
         "GuestAssistantService: LLM generation failed or timed out, using fallback"
       );
-      rawReply = this.buildFallbackReply(cleanText);
+      rawReply = this.buildFallbackReply(cleanText, mergedUserContext);
     }
 
     // 7. Sanitize outbound response through guardrails
@@ -156,9 +173,13 @@ export class GuestAssistantService {
     // 8. Update conversation memory
     await sessionManager.appendTurn(mobile, cleanText, finalReply, detectedLead);
 
-    // 9. Lead qualification & recording
+    // 9. Lead qualification & recording (for guests/trial organizers)
     let leadCaptured = false;
-    if (!session.leadCaptured && leadCaptureService.isQualifiedLead(detectedLead)) {
+    const shouldCaptureLead =
+      mergedUserContext.userCategory === "guest" ||
+      mergedUserContext.userCategory === "trial_organizer";
+
+    if (shouldCaptureLead && !session.leadCaptured && leadCaptureService.isQualifiedLead(detectedLead)) {
       const summary = [
         ...session.messages.map((m) => `${m.role}: ${m.content}`),
         `user: ${cleanText}`,
@@ -180,16 +201,17 @@ export class GuestAssistantService {
    */
   private async generateLlmResponse(
     userText: string,
-    history: GuestChatMessage[]
+    history: GuestChatMessage[],
+    context?: AssistantUserContext
   ): Promise<string> {
     const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey) {
       logger.warn("GuestAssistantService: GEMINI_API_KEY not configured, using fallback reply");
-      return this.buildFallbackReply(userText);
+      return this.buildFallbackReply(userText, context);
     }
 
     const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
-    const systemInstruction = buildSystemPrompt();
+    const systemInstruction = buildAssistantSystemPrompt(context);
 
     // Map conversation turns to Gemini Content schema: roles must be 'user' or 'model'
     const contents = [
@@ -210,7 +232,7 @@ export class GuestAssistantService {
       config: {
         systemInstruction,
         temperature: 0.3,
-        maxOutputTokens: 350,
+        maxOutputTokens: 400,
         abortSignal: AbortSignal.timeout(8000), // 8-second strict timeout
       },
     });
@@ -226,16 +248,20 @@ export class GuestAssistantService {
   /**
    * Graceful, informative fallback when Gemini is offline, timing out, or unconfigured.
    */
-  public buildFallbackReply(userQuery: string): string {
+  public buildFallbackReply(userQuery: string, context?: AssistantUserContext): string {
     const isHindi = /(?:hai|karein|karna|chahiye|aap|karo|batao|dhanyawad|shukriya|mujhe|kaise)/i.test(userQuery);
+    const isReturning = (context?.turnCount ?? 0) > 0;
 
     if (isHindi) {
+      const greetingHeader = isReturning
+        ? "BidWar sports auction aur scoring par aapka sawal mila hai:"
+        : "Namaste! BidWar me aapka swagat hai. BidWar se judne ke liye shukriya.\n\nBidWar India ka live sports auction aur sports scoring platform hai:";
+
       return [
-        "Namaste! BidWar me aapka swagat hai.",
-        "",
-        "BidWar India ka live sports auction platform hai:",
+        greetingHeader,
         "• Real-time player bidding aur team owner mobile panels (Android/iOS)",
         "• 1080p LED stage display aur OBS live streaming overlay",
+        "• Cricket aur Badminton live match scoring",
         "• Pricing: Free Trial (2 teams), Starter (₹5,000 / 4 teams), Pro (₹6,000 / 8 teams)",
         "",
         "Aap directly hamare tournament operations expert se connect kar sakte hain:",
@@ -245,12 +271,15 @@ export class GuestAssistantService {
       ].join("\n");
     }
 
+    const greetingHeaderEn = isReturning
+      ? "Here is the key information regarding your BidWar inquiry:"
+      : "Welcome to BidWar!\n\nBidWar is India's live sports auction & scoring platform:";
+
     return [
-      "Welcome to BidWar!",
-      "",
-      "BidWar is India's live sports auction & scoring platform:",
+      greetingHeaderEn,
       "• Real-time player bidding & mobile bidding panels for franchise owners",
       "• 1080p LED broadcast display & OBS live stream overlays",
+      "• Cricket and Badminton live match scoring",
       "• Pricing: Free Trial (2 teams), Starter (₹5,000 / 4 teams), Pro (₹6,000 / 8 teams)",
       "",
       "Speak directly with our tournament operations team:",
@@ -262,3 +291,4 @@ export class GuestAssistantService {
 }
 
 export const guestAssistantService = new GuestAssistantService();
+export const bidwarAssistantService = guestAssistantService;

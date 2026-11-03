@@ -29,6 +29,7 @@ import { logger, maskPhoneNumber } from "../logger";
 import { randomBytes, scrypt, timingSafeEqual, randomInt, createHash } from "crypto";
 import { promisify } from "util";
 import { guestAssistantService } from "./ai-assistant/guest-assistant-service";
+import type { AssistantUserContext, AuthorizedTournamentSummary } from "./ai-assistant/knowledgebase";
 
 const scryptAsync = promisify(scrypt);
 
@@ -547,6 +548,129 @@ export class ConversationRouter {
   }
 
   /**
+   * Resolve authorization context for the BidWar Gemini Assistant.
+   * Maintains strict separation between:
+   * - User identity and role
+   * - Tournament license status
+   * - Authorized tournament scope
+   * - Knowledge familiarity (beginners receive step-by-step guidance)
+   *
+   * Security contract:
+   * - Trial Organizers receive general BidWar knowledge and setup guidance only. Zero private data.
+   * - Licensed Organizers receive authorized tournament summary (backend verified).
+   * - Registered Members receive general product info and member guidance.
+   */
+  public async resolveAssistantUserContext(
+    identity: ResolvedIdentity,
+    mobile: string,
+  ): Promise<AssistantUserContext> {
+    const norm = this.normalizePhone(mobile);
+    const tenDigit = norm.startsWith("91") && norm.length === 12 ? norm.slice(2) : norm;
+
+    if (identity.kind === "guest") {
+      return {
+        userCategory: "guest",
+        displayName: "Guest",
+        mobile: norm,
+        isBeginner: true,
+      };
+    }
+
+    try {
+      // Find tournaments associated with this organizer or member
+      const tournamentConditions = [
+        eq(tournamentsTable.organizerMobile, norm),
+        eq(tournamentsTable.organizerMobile, `+${norm}`),
+        eq(tournamentsTable.organizerMobile, tenDigit),
+      ];
+
+      if (identity.kind === "member" && identity.tournamentIds.length > 0) {
+        tournamentConditions.push(sql`${tournamentsTable.id} IN ${identity.tournamentIds}`);
+      } else if (identity.kind === "legacy" && identity.tournamentIds.length > 0) {
+        tournamentConditions.push(sql`${tournamentsTable.id} IN ${identity.tournamentIds}`);
+      }
+
+      const orgTournaments = await db
+        .select({
+          id: tournamentsTable.id,
+          name: tournamentsTable.name,
+          sport: tournamentsTable.sport,
+          status: tournamentsTable.status,
+          licenseStatus: tournamentsTable.licenseStatus,
+          adminLocked: tournamentsTable.adminLocked,
+          auctionEnabled: tournamentsTable.auctionEnabled,
+          scoringEnabled: tournamentsTable.scoringEnabled,
+          scoringPhase: tournamentsTable.scoringPhase,
+          licenseGrantedAt: tournamentsTable.licenseGrantedAt,
+          featuresJson: tournamentsTable.featuresJson,
+        })
+        .from(tournamentsTable)
+        .where(or(...tournamentConditions));
+
+      const licensedTournaments: AuthorizedTournamentSummary[] = [];
+      let hasTrialTournament = false;
+
+      if (Array.isArray(orgTournaments)) {
+        for (const t of orgTournaments) {
+          const isLicensed = isTournamentLicensedForComm(t);
+          if (isLicensed) {
+            licensedTournaments.push({
+              id: t.id,
+              name: t.name,
+              sport: t.sport,
+              status: t.status,
+              licenseStatus: "licensed",
+              auctionEnabled: Boolean(t.auctionEnabled),
+              scoringEnabled: Boolean(t.scoringEnabled),
+            });
+          } else if (t.licenseStatus === "trial") {
+            hasTrialTournament = true;
+          }
+        }
+      }
+
+      const isOrganizerRole =
+        identity.kind === "member"
+          ? identity.roles.some((r) => r.role.toLowerCase() === "organizer")
+          : identity.targets.some((t) => t.type === "organizer");
+
+      if (licensedTournaments.length > 0) {
+        return {
+          userCategory: "licensed_organizer",
+          displayName: identity.displayName,
+          mobile: norm,
+          authorizedTournaments: licensedTournaments,
+          isBeginner: true,
+        };
+      }
+
+      if (hasTrialTournament || isOrganizerRole) {
+        return {
+          userCategory: "trial_organizer",
+          displayName: identity.displayName,
+          mobile: norm,
+          isBeginner: true,
+        };
+      }
+
+      return {
+        userCategory: "registered_member",
+        displayName: identity.displayName,
+        mobile: norm,
+        isBeginner: true,
+      };
+    } catch (err) {
+      logger.warn({ err, mobile: maskPhoneNumber(norm) }, "ConversationRouter: Failed to resolve assistant user context, using fallback");
+      return {
+        userCategory: identity.kind === "guest" ? "guest" : "registered_member",
+        displayName: identity.displayName,
+        mobile: norm,
+        isBeginner: true,
+      };
+    }
+  }
+
+  /**
    * Universal Revocation for STOP / UNSUBSCRIBE / NO / DECLINE.
    * Immediately revokes WhatsApp consent without altering SMS consent.
    */
@@ -894,7 +1018,7 @@ export class ConversationRouter {
 
     // Inactive / Revoked / Unverified checks - fail closed for private actions
     if (identity.kind === "inactive_member") {
-      if (upper === "BPL" || upper.includes("PREMIER LEAGUE")) {
+      if (upper === "BPL" || upper === "BIDWAR PREMIER LEAGUE" || /^BPL\b/i.test(upper)) {
         const bpl = await this.getPublicBplInfo();
         await this.sendReply(null, from, bpl, input.channel);
       } else if (upper === "SCORES" || upper === "SCORE" || upper === "LIVE") {
@@ -904,14 +1028,14 @@ export class ConversationRouter {
         await this.sendReply(
           null,
           from,
-          "BidWar Bot Commands:\n• 'BPL' — Premier League updates & stream\n• 'SCORES' — Live match updates\n• 'STOP' — Unsubscribe\n\nSahayata ke liye support@bidwar.in pe sampark karein.",
+          "BidWar Bot Commands:\n• 'BPL' — Premier League updates & stream\n• 'SCORES' — Live match updates\n• 'STOP' — Unsubscribe\n\nSahayata ke liye bidwarsupport@gmail.com pe sampark karein.",
           input.channel,
         );
       } else {
         await this.sendReply(
           null,
           from,
-          `🔒 Account Inactive: Aapka account active nahi hai (${identity.status}). Kripya support@bidwar.in se sampark karein.`,
+          `🔒 Account Inactive: Aapka account active nahi hai (${identity.status}). Kripya bidwarsupport@gmail.com se sampark karein.`,
           input.channel,
         );
       }
@@ -920,7 +1044,7 @@ export class ConversationRouter {
     }
 
     if (identity.kind === "unverified_mobile") {
-      if (upper === "BPL" || upper.includes("PREMIER LEAGUE")) {
+      if (upper === "BPL" || upper === "BIDWAR PREMIER LEAGUE" || /^BPL\b/i.test(upper)) {
         const bpl = await this.getPublicBplInfo();
         await this.sendReply(null, from, bpl, input.channel);
       } else if (upper === "SCORES" || upper === "SCORE" || upper === "LIVE") {
@@ -930,7 +1054,7 @@ export class ConversationRouter {
         await this.sendReply(
           null,
           from,
-          "BidWar Bot Commands:\n• 'BPL' — Premier League updates & stream\n• 'SCORES' — Live match updates\n• 'STOP' — Unsubscribe\n\nSahayata ke liye support@bidwar.in pe sampark karein.",
+          "BidWar Bot Commands:\n• 'BPL' — Premier League updates & stream\n• 'SCORES' — Live match updates\n• 'STOP' — Unsubscribe\n\nSahayata ke liye bidwarsupport@gmail.com pe sampark karein.",
           input.channel,
         );
       } else {
@@ -1298,6 +1422,7 @@ export class ConversationRouter {
             text,
             messageId: input.messageId,
             ip,
+            userContext: await this.resolveAssistantUserContext(identity, mobile),
           });
           await this.sendReply(null, from, aiResult.text, input.channel);
           await this.recordProcessedInboundMessage(input.messageId ?? `hello_guest_${Date.now()}`, mobile, input.channel, text);
@@ -1545,7 +1670,7 @@ export class ConversationRouter {
     }
 
     // 10. BPL — Public Information
-    if (upper === "BPL" || upper.includes("PREMIER LEAGUE")) {
+    if (upper === "BPL" || upper === "BIDWAR PREMIER LEAGUE" || /^BPL\b/i.test(upper)) {
       const bplSummary = await this.getPublicBplInfo();
       await this.sendReply(null, from, bplSummary, input.channel);
       await this.recordProcessedInboundMessage(input.messageId ?? `bpl_${Date.now()}`, mobile, input.channel, text);
@@ -1564,19 +1689,21 @@ export class ConversationRouter {
     if (upper === "HELP") {
       await this.sendReply(null,
         from,
-        "BidWar Bot Commands:\n• 'BPL' — Premier League updates & stream\n• 'SCORES' — Live match updates\n• 'DATA' — Apni team / player info\n• 'STOP' — Unsubscribe\n\nSahayata ke liye support@bidwar.in pe sampark karein.", input.channel);
+        "BidWar Bot Commands:\n• 'BPL' — Premier League updates & stream\n• 'SCORES' — Live match updates\n• 'DATA' — Apni team / player info\n• 'STOP' — Unsubscribe\n\nSahayata ke liye bidwarsupport@gmail.com ya +91 8707488250 pe sampark karein.", input.channel);
       await this.recordProcessedInboundMessage(input.messageId ?? `help_${Date.now()}`, mobile, input.channel, text);
       return { handled: true, replySent: true };
     }
 
     // 13. Guest Natural Language Inquiries or Unknown Command Fallback
-    if (identity.kind === "guest" && guestAssistantService.isEnabled()) {
+    if (guestAssistantService.isEnabled()) {
+      const userContext = await this.resolveAssistantUserContext(identity, mobile);
       const aiResult = await guestAssistantService.handleMessage({
         mobile,
         from,
         text,
         messageId: input.messageId,
         ip,
+        userContext,
       });
       await this.sendReply(null, from, aiResult.text, input.channel);
       await this.recordProcessedInboundMessage(input.messageId ?? `guest_ai_${Date.now()}`, mobile, input.channel, text);

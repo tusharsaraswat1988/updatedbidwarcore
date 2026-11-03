@@ -39,20 +39,22 @@ export class HumanHandoffService {
 
     if (isHindi) {
       return [
-        "Aap hamare sports tournament team se directly connect kar sakte hain:",
+        "Aapka sawal note kar liya gaya hai. BidWar se judne aur aapke interest ke liye bahut shukriya!",
         "",
+        "Aap hamare sports tournament team se directly connect kar sakte hain:",
         `📞 Call / WhatsApp: ${SUPPORT_CONTACT.phone}`,
         `💬 WhatsApp Direct Link: ${SUPPORT_CONTACT.whatsappUrl}`,
         `📧 Email: ${SUPPORT_CONTACT.email}`,
         `🏢 Office: ${SUPPORT_CONTACT.officeAddress}`,
         "",
-        "Aap directly upar diye gaye number par WhatsApp message ya call kar sakte hain. Hamare experts aapse turant connect karke aapke tournament setup aur live demo me sahayata karenge.",
+        "Aap directly upar diye gaye number par WhatsApp message ya call kar sakte hain. Hamare experts aapse turant connect karke aapke tournament setup aur live demo me poori sahayata karenge.",
       ].join("\n");
     }
 
     return [
-      "You can connect directly with our tournament operations team:",
+      "Thank you for reaching out and for your interest in BidWar! We truly appreciate your inquiry.",
       "",
+      "You can connect directly with our tournament operations team:",
       `📞 Call / WhatsApp: ${SUPPORT_CONTACT.phone}`,
       `💬 WhatsApp Direct Link: ${SUPPORT_CONTACT.whatsappUrl}`,
       `📧 Email: ${SUPPORT_CONTACT.email}`,

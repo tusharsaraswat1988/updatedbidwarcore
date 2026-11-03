@@ -72,7 +72,9 @@ export class GuardrailsService {
       const cleanUrl = url.replace(/[.,;!?]+$/, "");
       const isAllowed = WHITELISTED_URLS.some((w) => cleanUrl.startsWith(w)) ||
         cleanUrl.startsWith("https://wa.me/918707488250") ||
-        cleanUrl.startsWith("https://bidwar.in");
+        cleanUrl.startsWith("https://bidwar.in") ||
+        cleanUrl.startsWith("https://www.youtube.com/@bidwarofficial") ||
+        cleanUrl.startsWith("https://youtube.com/@bidwarofficial");
 
       if (isAllowed) {
         return cleanUrl;
