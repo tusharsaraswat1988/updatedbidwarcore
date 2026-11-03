@@ -184,11 +184,11 @@ describe("cricket scorer auth — scorer-auth.ts exports", () => {
     expect(fnSlice).toContain("resolveScorerAuthFromToken");
   });
 
-  it("assertScorerMayAccessTournament preserves zero-assignment bypass", async () => {
+  it("assertScorerMayAccessTournament enforces strict tournament assignment and rejects zero-assignment bypass", async () => {
     const src = await readFile(scorerAuthUrl, "utf8");
-    // Zero-assignment open access — intentional legacy behavior
-    expect(src).toContain("assignedCount === 0");
-    expect(src).toContain("return;");
+    expect(src).not.toContain("assignedCount === 0");
+    expect(src).toContain("isScorerAssignedToTournament");
+    expect(src).toContain("TOURNAMENT_NOT_ASSIGNED");
   });
 });
 

@@ -83,7 +83,16 @@ const {
 
   return {
     mockDbUpdate: vi.fn(),
-    mockTransaction: vi.fn(),
+    mockTransaction: vi.fn(async (callback: any) => {
+      const tx = {
+        update: (table: any) => mockDbUpdate(table),
+        execute: () => Promise.resolve(),
+        select: () => ({ from: () => ({ where: () => Promise.resolve([]) }) }),
+        insert: () => ({ values: () => Promise.resolve() }),
+        delete: () => ({ where: () => Promise.resolve([]) }),
+      };
+      return callback ? callback(tx) : undefined;
+    }),
     mockBroadcast: vi.fn().mockResolvedValue({ status: "active" }),
     tournamentsTableMock,
     playersTableMock,
@@ -505,6 +514,16 @@ describe("P0 Fix #2: SELL vs Last-Second BID Concurrency Safety", () => {
 describe("P0 Fix #3: BID vs Auction State-Change Concurrency Safety", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockTransaction.mockImplementation(async (callback: any) => {
+      const tx = {
+        update: (table: any) => mockDbUpdate(table),
+        execute: () => Promise.resolve(),
+        select: () => ({ from: () => ({ where: () => Promise.resolve([]) }) }),
+        insert: () => ({ values: () => Promise.resolve() }),
+        delete: () => ({ where: () => Promise.resolve([]) }),
+      };
+      return callback ? callback(tx) : undefined;
+    });
     activeSession = {
       id: 1,
       tournamentId: TOURNAMENT_ID,

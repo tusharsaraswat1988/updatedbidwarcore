@@ -1897,24 +1897,24 @@ router.post("/tournaments/:tournamentId/auction/bid", async (req, res) => {
   // If 0 rows are updated, a concurrent bid or auction state change won the race — return 409.
   const committed = await db.transaction(async (tx) => {
     await lockAuctionMutation(tx, tid);
-    return db
-    .update(auctionSessionsTable)
-    .set({
-      currentBid: amount,
-      currentBidTeamId: teamId,
-      timerEndsAt: newTimerEndsAt,
-      timerType: "bid",
-      pausedTimeRemaining: null,
-      revision: sql`COALESCE(revision, 0) + 1`,
-      lastAction: `${team.name} bid ₹${amount.toLocaleString("en-IN")}`,
-    })
-    .where(and(
-      eq(auctionSessionsTable.tournamentId, tid),
-      sql`COALESCE(${auctionSessionsTable.revision}, 0) = ${currentRevision}`,
-      eq(auctionSessionsTable.currentPlayerId, session.currentPlayerId!),
-      eq(auctionSessionsTable.status, "active"),
-    ))
-    .returning({ id: auctionSessionsTable.id });
+    return tx
+      .update(auctionSessionsTable)
+      .set({
+        currentBid: amount,
+        currentBidTeamId: teamId,
+        timerEndsAt: newTimerEndsAt,
+        timerType: "bid",
+        pausedTimeRemaining: null,
+        revision: sql`COALESCE(revision, 0) + 1`,
+        lastAction: `${team.name} bid ₹${amount.toLocaleString("en-IN")}`,
+      })
+      .where(and(
+        eq(auctionSessionsTable.tournamentId, tid),
+        sql`COALESCE(${auctionSessionsTable.revision}, 0) = ${currentRevision}`,
+        eq(auctionSessionsTable.currentPlayerId, session.currentPlayerId!),
+        eq(auctionSessionsTable.status, "active"),
+      ))
+      .returning({ id: auctionSessionsTable.id });
   });
 
   if (committed.length === 0) {
@@ -2336,63 +2336,166 @@ router.post("/tournaments/:tournamentId/auction/manual-sell", async (req, res) =
   const manualSellTournament = tournament;
   if (!(await assertTeamAllowedInTrialAuction(res, manualSellTournament, tid, teamId))) return;
 
-  // ── Purse validation ───────────────────────────────────────────────────────
-  if (amount > 0) {
-    const protection = await computeTeamPurseProtection(tid, teamId);
-    if (amount > protection.maxAllowedBid) {
-      res.status(400).json({ error: formatPurseProtectionBidError(protection, "Insufficient purse for this team") });
+  // ── Capacity and Purse validation (SEC-2026-02) ───────────────────────────
+  const protection = await computeTeamPurseProtection(tid, teamId);
+  const { maxAllowedBid, maximumSquadSize } = protection;
+
+  if (maximumSquadSize > 0) {
+    const allPlayers = await db
+      .select({ id: playersTable.id, status: playersTable.status, teamId: playersTable.teamId, isNonPlayingMember: playersTable.isNonPlayingMember })
+      .from(playersTable)
+      .where(eq(playersTable.tournamentId, tid));
+    const playersBought = allPlayers.filter(
+      (p) => p.teamId === teamId && (p.status === "sold" || p.status === "retained") && !p.isNonPlayingMember
+    ).length;
+    if (playersBought >= maximumSquadSize) {
+      res.status(400).json({
+        error: `Maximum squad size reached — this team already has ${playersBought} player${playersBought !== 1 ? "s" : ""} (limit: ${maximumSquadSize})`,
+      });
       return;
     }
   }
 
-  // All four table writes are atomic — no partial state on failure.
-  const { soldPlayer, team, teamAfter } = await db.transaction(async (tx) => {
-    await lockAuctionMutation(tx, tid);
-    await tx
-      .update(playersTable)
-      .set({ status: "sold", teamId, soldPrice: amount })
-      .where(eq(playersTable.id, playerId));
-
-    // Phase 6: atomic purse increment — no read-modify-write, no lost update
-    if (amount > 0) {
-      await tx
-        .update(teamsTable)
-        .set({ purseUsed: sql`COALESCE(purse_used, 0) + ${amount}` })
-        .where(eq(teamsTable.id, teamId));
-      await tx.insert(bidsTable).values({ tournamentId: tid, playerId, teamId, amount });
+  // Category max players check
+  if (playerBefore?.categoryId) {
+    const [cat] = await db
+      .select({ maxPlayers: categoriesTable.maxPlayers, name: categoriesTable.name })
+      .from(categoriesTable)
+      .where(eq(categoriesTable.id, playerBefore.categoryId));
+    if (cat?.maxPlayers && cat.maxPlayers > 0) {
+      const catPlayers = await db
+        .select({ id: playersTable.id, isNonPlayingMember: playersTable.isNonPlayingMember })
+        .from(playersTable)
+        .where(
+          and(
+            eq(playersTable.tournamentId, tid),
+            eq(playersTable.teamId, teamId),
+            eq(playersTable.categoryId, playerBefore.categoryId),
+            inArray(playersTable.status, ["sold", "retained"])
+          )
+        );
+      const catPlayerCount = catPlayers.filter((p) => !p.isNonPlayingMember).length;
+      if (catPlayerCount >= cat.maxPlayers) {
+        res.status(400).json({
+          error: `Category limit reached — your team already has the maximum ${cat.maxPlayers} player${cat.maxPlayers !== 1 ? "s" : ""} in the "${cat.name}" category`,
+        });
+        return;
+      }
     }
+  }
 
-    const [txTeam] = await tx.select().from(teamsTable).where(eq(teamsTable.id, teamId));
-    const [txSoldPlayer] = await tx.select().from(playersTable).where(eq(playersTable.id, playerId));
-    const txTeamAfter = txTeam; // same row post-update, re-used for audit snapshot
+  if (amount > 0 && amount > maxAllowedBid) {
+    res.status(400).json({ error: formatPurseProtectionBidError(protection, "Insufficient purse for this team") });
+    return;
+  }
 
-    await tx
-      .update(auctionSessionsTable)
-      .set({
-        currentPlayerId: null,
-        currentBid: null,
-        currentBidTeamId: null,
-        timerEndsAt: null,
-        pausedTimeRemaining: null,
-        revision: sql`COALESCE(revision, 0) + 1`,
-        lastAction: `SOLD: ${txSoldPlayer?.name ?? "Player"} to ${txTeam?.name ?? "Team"} for ₹${amount.toLocaleString("en-IN")} (manual)`,
-        lastOutcome: JSON.stringify({
-          type: "sold",
-          playerId,
-          playerName: txSoldPlayer?.name ?? "Player",
-          photoUrl: txSoldPlayer?.photoUrl ?? null,
-          teamId,
-          teamName: txTeam?.name ?? null,
-          teamColor: txTeam?.color ?? null,
-          teamLogoUrl: txTeam?.logoUrl ?? null,
-          amount,
-          isManual: true,
-        }),
-      })
-      .where(eq(auctionSessionsTable.tournamentId, tid));
+  class ManualSellTransactionAbortError extends Error {
+    constructor(public reason: "player_not_available" | "squad_full" | "category_full") {
+      super(`Manual sell transaction aborted: ${reason}`);
+      this.name = "ManualSellTransactionAbortError";
+    }
+  }
 
-    return { soldPlayer: txSoldPlayer, team: txTeam, teamAfter: txTeamAfter };
-  });
+  // All four table writes are atomic — no partial state on failure.
+  let sellResult: { soldPlayer: any; team: any; teamAfter: any };
+  try {
+    sellResult = await db.transaction(async (tx) => {
+      await lockAuctionMutation(tx, tid);
+
+      // Concurrency check on player status: player must be 'available' (SEC-2026-02)
+      const updatedPlayers = await tx
+        .update(playersTable)
+        .set({ status: "sold", teamId, soldPrice: amount })
+        .where(and(
+          eq(playersTable.id, playerId),
+          eq(playersTable.status, "available"),
+        ))
+        .returning();
+
+      if (updatedPlayers.length === 0) {
+        throw new ManualSellTransactionAbortError("player_not_available");
+      }
+      const txSoldPlayer = updatedPlayers[0];
+
+      // In-transaction squad limit enforcement (SEC-2026-02)
+      if (maximumSquadSize > 0) {
+        const txSquadPlayers = await tx
+          .select({ id: playersTable.id, isNonPlayingMember: playersTable.isNonPlayingMember })
+          .from(playersTable)
+          .where(
+            and(
+              eq(playersTable.tournamentId, tid),
+              eq(playersTable.teamId, teamId),
+              inArray(playersTable.status, ["sold", "retained"]),
+            ),
+          );
+        const boughtCount = txSquadPlayers.filter((p) => !p.isNonPlayingMember).length;
+        if (boughtCount > maximumSquadSize) {
+          throw new ManualSellTransactionAbortError("squad_full");
+        }
+      }
+
+      // Phase 6: atomic purse increment — no read-modify-write, no lost update
+      if (amount > 0) {
+        await tx
+          .update(teamsTable)
+          .set({ purseUsed: sql`COALESCE(purse_used, 0) + ${amount}` })
+          .where(eq(teamsTable.id, teamId));
+      }
+
+      // Phase 2 / SEC-2026-03: Always record sale in bidsTable (including amount = 0)
+      // so undo stack ordering is strictly preserved and ₹0 manual sales are undoable.
+      await tx.insert(bidsTable).values({ tournamentId: tid, playerId, teamId, amount });
+
+      const [txTeam] = await tx.select().from(teamsTable).where(eq(teamsTable.id, teamId));
+      const txTeamAfter = txTeam; // same row post-update, re-used for audit snapshot
+
+      await tx
+        .update(auctionSessionsTable)
+        .set({
+          currentPlayerId: null,
+          currentBid: null,
+          currentBidTeamId: null,
+          timerEndsAt: null,
+          pausedTimeRemaining: null,
+          revision: sql`COALESCE(revision, 0) + 1`,
+          lastAction: `SOLD: ${txSoldPlayer?.name ?? "Player"} to ${txTeam?.name ?? "Team"} for ₹${amount.toLocaleString("en-IN")} (manual)`,
+          lastOutcome: JSON.stringify({
+            type: "sold",
+            playerId,
+            playerName: txSoldPlayer?.name ?? "Player",
+            photoUrl: txSoldPlayer?.photoUrl ?? null,
+            teamId,
+            teamName: txTeam?.name ?? null,
+            teamColor: txTeam?.color ?? null,
+            teamLogoUrl: txTeam?.logoUrl ?? null,
+            amount,
+            isManual: true,
+          }),
+        })
+        .where(eq(auctionSessionsTable.tournamentId, tid));
+
+      return { soldPlayer: txSoldPlayer, team: txTeam, teamAfter: txTeamAfter };
+    });
+  } catch (err: any) {
+    if (err instanceof ManualSellTransactionAbortError || err?.name === "ManualSellTransactionAbortError") {
+      if (err.reason === "squad_full") {
+        res.status(400).json({ error: "Maximum squad size reached for this team." });
+        return;
+      }
+      if (err.reason === "category_full") {
+        res.status(400).json({ error: "Category limit reached for this team in this player's category." });
+        return;
+      }
+      res.status(409).json({
+        error: "This player has already been sold or is no longer available.",
+        hint: "already_sold",
+      });
+      return;
+    }
+    throw err;
+  }
+  const { soldPlayer, team, teamAfter } = sellResult;
 
   // Tournament already loaded for trial gate; reuse for notifications/audit.
   const manualTournament = manualSellTournament;

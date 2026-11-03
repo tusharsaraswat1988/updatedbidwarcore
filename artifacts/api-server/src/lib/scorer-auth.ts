@@ -751,12 +751,16 @@ export async function isScorerAssignedToTournament(
  * Sprint 1 / C3 — when the tournament has ≥1 assignment, the scorer must be
  * assigned. Zero assignments keeps legacy open access for gradual rollout.
  */
+/**
+ * Strict tournament-scoped authorization (SEC-2026-05):
+ * Scorer must be explicitly assigned to the tournament in scorer_tournament_assignments
+ * or listed in the tournament's scoring_officials roster.
+ * The legacy zero-assignment bypass is removed to prevent cross-tenant access.
+ */
 export async function assertScorerMayAccessTournament(
   scorerId: number,
   tournamentId: number,
 ): Promise<void> {
-  const assignedCount = await countScorerAssignmentsForTournament(tournamentId);
-  if (assignedCount === 0) return;
   const ok = await isScorerAssignedToTournament(scorerId, tournamentId);
   if (!ok) {
     throw new ScorerAuthError(

@@ -8,11 +8,11 @@ export const modules: ModuleMap = {
   "./components/mockups/led-display/NeonMumbai.tsx": () => import("../components/mockups/led-display/NeonMumbai.tsx"),
   "./components/mockups/led-display/StadiumCard.tsx": () => import("../components/mockups/led-display/StadiumCard.tsx"),
   "./components/mockups/led-display/Top5AuctionBroadcast.tsx": () => import("../components/mockups/led-display/Top5AuctionBroadcast.tsx"),
-  "./components/mockups/operator-panel/BeginnerFriendly.tsx": () => import("../components/mockups/operator-panel/BeginnerFriendly.tsx"),
-  "./components/mockups/operator-panel/BroadcastPremium.tsx": () => import("../components/mockups/operator-panel/BroadcastPremium.tsx"),
-  "./components/mockups/operator-panel/ProOperator.tsx": () => import("../components/mockups/operator-panel/ProOperator.tsx"),
   "./components/mockups/obs-overlay/CurrentBaseline.tsx": () => import("../components/mockups/obs-overlay/CurrentBaseline.tsx"),
   "./components/mockups/obs-overlay/MockupGallery.tsx": () => import("../components/mockups/obs-overlay/MockupGallery.tsx"),
   "./components/mockups/obs-overlay/RedesignLive.tsx": () => import("../components/mockups/obs-overlay/RedesignLive.tsx"),
-  "./components/mockups/obs-overlay/RedesignSold.tsx": () => import("../components/mockups/obs-overlay/RedesignSold.tsx")
+  "./components/mockups/obs-overlay/RedesignSold.tsx": () => import("../components/mockups/obs-overlay/RedesignSold.tsx"),
+  "./components/mockups/operator-panel/BeginnerFriendly.tsx": () => import("../components/mockups/operator-panel/BeginnerFriendly.tsx"),
+  "./components/mockups/operator-panel/BroadcastPremium.tsx": () => import("../components/mockups/operator-panel/BroadcastPremium.tsx"),
+  "./components/mockups/operator-panel/ProOperator.tsx": () => import("../components/mockups/operator-panel/ProOperator.tsx")
 };

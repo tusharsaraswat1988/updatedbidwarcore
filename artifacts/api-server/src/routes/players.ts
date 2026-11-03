@@ -905,6 +905,19 @@ async function handlePublicPlayerRegistration(req: Request, res: Response, tid: 
 
   const existingDup = await findDuplicatePlayerMobile(tid, mobileNumber);
   if (existingDup) {
+    // SEC-2026-04: Existing player profiles must not be overwritten by unauthenticated
+    // public callers based solely on a matching mobile number.
+    // If not authenticated as the tournament organizer, fail closed with 409 without leaking player identity.
+    const isOrganizer = await canAccessPrivateTournamentData(req, tid);
+    if (!isOrganizer) {
+      res.status(409).json({
+        error: "This mobile number is already registered in this tournament. If you need to update your details or believe this is an error, please contact your tournament organizer.",
+        code: "PLAYER_ALREADY_REGISTERED",
+        field: "mobileNumber",
+      });
+      return;
+    }
+
     const [existing] = await db
       .select()
       .from(playersTable)

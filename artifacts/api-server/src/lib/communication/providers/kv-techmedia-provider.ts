@@ -286,9 +286,12 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
     errorPayload?: any,
   ): { retryable: boolean; message: string } {
     const metaError = errorPayload?.error;
-    const errorCode = metaError?.code;
-    const errorMessage =
-      metaError?.message ?? errorPayload?.message ?? `HTTP ${statusCode}`;
+    const errorCode = typeof metaError === "object" ? metaError?.code : undefined;
+    const errorString =
+      typeof metaError === "string"
+        ? metaError
+        : metaError?.message ?? errorPayload?.message;
+    const errorMessage = errorString ?? `HTTP ${statusCode}`;
 
     // Rate limits (429 or Meta rate limit error codes: 4, 80007, 130429)
     if (
@@ -305,10 +308,21 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
       return { retryable: true, message: `Gateway server error: ${errorMessage}` };
     }
 
+    // Explicit authentication errors (HTTP 401, Meta code 190, or BSP token invalidated string)
+    if (
+      statusCode === 401 ||
+      errorCode === 190 ||
+      (errorString && /token.*invalid|unauthoriz/i.test(errorString))
+    ) {
+      return {
+        retryable: false,
+        message: `Authentication token invalid/expired: ${errorMessage}`,
+      };
+    }
+
     // Explicit non-retryable Meta client errors
     // 131026: Receiver is incapable of receiving this message (not on WhatsApp)
     // 132000: Template param count mismatch or template not approved
-    // 190: Access token expired
     if (errorCode === 131026) {
       return {
         retryable: false,
@@ -319,12 +333,6 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
       return {
         retryable: false,
         message: `Template parameter error (132000): ${errorMessage}`,
-      };
-    }
-    if (errorCode === 190) {
-      return {
-        retryable: false,
-        message: `Authentication token invalid/expired (190): ${errorMessage}`,
       };
     }
 
