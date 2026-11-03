@@ -99,7 +99,7 @@ export class GuardrailsService {
     });
 
     // 3. Ensure no leaked API keys or secrets
-    if (/sk-[a-zA-Z0-9_-]{20,}/.test(text) || /Bearer\s+[a-zA-Z0-9_-]{20,}/.test(text)) {
+    if (/sk-[a-zA-Z0-9_-]{20,}/.test(text) || /AIza[a-zA-Z0-9_-]{20,}/.test(text) || /Bearer\s+[a-zA-Z0-9_-]{20,}/.test(text)) {
       flags.push("Secret leak blocked");
       text = "Namaste! Details ke liye https://bidwar.in visit karein ya +91 8707488250 pe call karein.";
     }

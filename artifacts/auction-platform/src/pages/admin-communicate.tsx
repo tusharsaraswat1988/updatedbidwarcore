@@ -68,8 +68,8 @@ function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     pending: "bg-yellow-500/15 text-yellow-400",
     sent: "bg-blue-500/15 text-blue-400",
-    delivered: "bg-green-500/15 text-green-400",
-    read: "bg-green-600/15 text-green-300",
+    delivered: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
+    read: "bg-sky-500/15 text-sky-400 border border-sky-500/30",
     failed: "bg-red-500/15 text-red-400",
   };
   return <Badge className={`text-[10px] uppercase ${map[status] || "bg-muted/20 text-muted-foreground"}`}>{status}</Badge>;

@@ -22,6 +22,7 @@ import {
   waConsentEventsTable,
   botSessionsTable,
   waTemplatesTable,
+  communicationJobsTable,
 } from "@workspace/db";
 import { eq, and, desc, or, sql, gt } from "drizzle-orm";
 import { sendSms, sendWhatsApp, sendLicensedWhatsApp, isTournamentLicensedForComm } from "../lib/comm-sender";
@@ -280,7 +281,7 @@ async function logConsentEvent(
  * Handle Meta Cloud API / KV TechMedia webhooks.
  * Supports GET hub.challenge verification and POST signed payloads.
  */
-router.get(["/webhooks/kv-meta", "/webhooks/comm-inbound"], (req, res) => {
+router.get(["/webhooks/kv-meta", "/webhooks/comm-inbound", "/webhooks/whatsapp"], (req, res) => {
   const isMetaDirect = resolveWhatsAppProviderId() === "meta_direct";
   const verifier = isMetaDirect ? metaDirectProvider : kvTechMediaProvider;
   const { isValid, challenge } = verifier.verifyWebhookChallenge(req);
@@ -328,6 +329,34 @@ async function handleMetaWebhook(req: import("express").Request, res: import("ex
       .limit(1);
 
     if (current) {
+      // Monotonic guard:
+      // 'read' is terminal positive; cannot regress to 'delivered', 'sent', or 'failed'
+      if (current.deliveryStatus === "read") {
+        logger.info(
+          { providerMessageId: status.providerMessageId, current: current.deliveryStatus, incoming: status.status },
+          "Ignoring status receipt: message already reached terminal 'read' status",
+        );
+        continue;
+      }
+
+      // 'delivered' cannot regress to 'sent' or 'failed'
+      if (current.deliveryStatus === "delivered" && (status.status === "sent" || status.status === "failed")) {
+        logger.info(
+          { providerMessageId: status.providerMessageId, current: current.deliveryStatus, incoming: status.status },
+          "Ignoring status receipt: message already delivered, cannot regress to sent or failed",
+        );
+        continue;
+      }
+
+      // Duplicate delivery check: idempotent skip
+      if (current.deliveryStatus === status.status) {
+        logger.info(
+          { providerMessageId: status.providerMessageId, status: status.status },
+          "Duplicate webhook delivery received; status already recorded (idempotent skip)",
+        );
+        continue;
+      }
+
       const currentRank = STATUS_RANK[current.deliveryStatus] ?? 0;
       const newRank = STATUS_RANK[status.status] ?? 0;
       if (newRank >= currentRank || status.status === "failed") {
@@ -352,6 +381,41 @@ async function handleMetaWebhook(req: import("express").Request, res: import("ex
           "Ignoring out-of-order delivery status receipt (monotonic guard)",
         );
       }
+    } else {
+      logger.warn(
+        { providerMessageId: status.providerMessageId, status: status.status },
+        "Delivery status receipt received for unknown providerMessageId; acknowledged without update",
+      );
+    }
+
+    // Keep communication_jobs in sync if matching providerMessageId exists
+    try {
+      const [job] = await db
+        .select({ id: communicationJobsTable.id, status: communicationJobsTable.status })
+        .from(communicationJobsTable)
+        .where(eq(communicationJobsTable.providerMessageId, status.providerMessageId))
+        .limit(1);
+
+      if (job) {
+        if (status.status === "delivered" && job.status !== "delivered" && job.status !== "opened") {
+          await db
+            .update(communicationJobsTable)
+            .set({ status: "delivered", deliveredAt: status.timestamp, updatedAt: new Date() })
+            .where(eq(communicationJobsTable.id, job.id));
+        } else if (status.status === "read" && job.status !== "opened") {
+          await db
+            .update(communicationJobsTable)
+            .set({ status: "opened", openedAt: status.timestamp, updatedAt: new Date() })
+            .where(eq(communicationJobsTable.id, job.id));
+        } else if (status.status === "failed" && job.status !== "failed" && job.status !== "delivered" && job.status !== "opened") {
+          await db
+            .update(communicationJobsTable)
+            .set({ status: "failed", errorMessage: status.errorMessage, updatedAt: new Date() })
+            .where(eq(communicationJobsTable.id, job.id));
+        }
+      }
+    } catch {
+      // Non-blocking synchronization
     }
   }
 
@@ -377,10 +441,10 @@ async function handleMetaWebhook(req: import("express").Request, res: import("ex
     return;
   }
 
-  res.status(200).json({ success: true });
+  res.status(200).json({ success: true, processedStatuses: statuses.length, processedMessages: messages.length });
 }
 
-router.post("/webhooks/kv-meta", handleMetaWebhook);
+router.post(["/webhooks/kv-meta", "/webhooks/whatsapp"], handleMetaWebhook);
 
 // ─── Inbound WhatsApp / SMS ───────────────────────────────────────────────────
 

@@ -82,10 +82,11 @@ describe("BIDWAR — WhatsApp Template Registry Cleanup & Approved-Only Admin UI
   // 1. Audit & Template Registry Truthfulness
   // ───────────────────────────────────────────────────────────────────────────
   describe("1. Audit & Template Registry Truthfulness", () => {
-    it("allowlist contains confirmed Meta-approved templates ('auction_player_sold' and 'organiser_onboarding_welcome')", () => {
+    it("allowlist contains confirmed Meta-approved templates ('auction_player_sold', 'organiser_onboarding_welcome', and 'team_owner_welcome_login')", () => {
       expect(BIDWAR_APPROVED_TEMPLATE_ALLOWLIST.has("auction_player_sold")).toBe(true);
       expect(BIDWAR_APPROVED_TEMPLATE_ALLOWLIST.has("organiser_onboarding_welcome")).toBe(true);
-      expect(BIDWAR_APPROVED_TEMPLATE_ALLOWLIST.size).toBe(2);
+      expect(BIDWAR_APPROVED_TEMPLATE_ALLOWLIST.has("team_owner_welcome_login")).toBe(true);
+      expect(BIDWAR_APPROVED_TEMPLATE_ALLOWLIST.size).toBe(3);
     });
 
     it("isMetaApprovedTemplate returns true for canonical approved templates", () => {

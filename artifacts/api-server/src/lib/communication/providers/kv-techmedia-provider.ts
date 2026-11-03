@@ -125,7 +125,7 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
 
   /**
    * Validate webhook X-Hub-Signature-256 using constant-time comparison.
-   * Fails closed in production if appSecret is missing.
+   * Also accepts verifyToken passed via query param or headers (standard for KV TechMedia custom webhook portals).
    */
   public verifyWebhookSignature(req: Request): boolean {
     const isTestEnv = process.env.NODE_ENV === "test";
@@ -140,88 +140,139 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
     const verifyToken = this.config.verifyToken ?? process.env.KV_WEBHOOK_VERIFY_TOKEN;
 
     // 1. Accept token in query param or header (standard for KV TechMedia webhook portals)
-    const suppliedToken = (req.query?.["token"] || req.query?.["verify_token"] || req.headers?.["x-verify-token"]) as string | undefined;
-    if (verifyToken && suppliedToken && suppliedToken.trim() === verifyToken.trim()) {
-      return true;
-    }
+    const suppliedToken = (
+      req.query?.["token"] ||
+      req.query?.["verify_token"] ||
+      req.headers?.["x-verify-token"] ||
+      req.headers?.["authorization"]
+    ) as string | undefined;
 
-    if (!secret || secret.trim() === "") {
-      logger.error(
-        "Webhook signature validation failed: KV_META_APP_SECRET missing (failing closed)",
-      );
+    if (verifyToken && suppliedToken) {
+      const cleanToken = suppliedToken.replace(/^Bearer\s+/i, "").trim();
+      if (cleanToken === verifyToken.trim()) {
+        return true;
+      }
+      logger.warn("Webhook token validation failed: Invalid token provided");
       return false;
     }
 
+    // 2. Accept HMAC-SHA256 signature in X-Hub-Signature-256 header (Meta Cloud API standard)
     const sigHeader = (
       req.headers["x-hub-signature-256"] as string | undefined
     )?.trim();
-    if (!sigHeader) {
-      logger.warn("Webhook signature validation failed: Missing X-Hub-Signature-256 header");
-      return false;
-    }
 
-    if (!sigHeader.startsWith("sha256=")) {
-      logger.warn("Webhook signature validation failed: Header does not start with sha256=");
-      return false;
-    }
-
-    const suppliedHex = sigHeader.slice(7).trim();
-    // 64 hex characters correspond to exactly 32 bytes for SHA-256
-    if (!/^[0-9a-fA-F]{64}$/.test(suppliedHex)) {
-      logger.warn("Webhook signature validation failed: Invalid hex signature length/format");
-      return false;
-    }
-
-    const rawBody = req.rawBody;
-    if (!rawBody || !Buffer.isBuffer(rawBody)) {
-      logger.error("Webhook signature validation failed: Missing rawBody Buffer in request");
-      return false;
-    }
-
-    try {
-      const suppliedBuffer = Buffer.from(suppliedHex, "hex");
-      const expectedBuffer = crypto
-        .createHmac("sha256", secret)
-        .update(rawBody)
-        .digest();
-
-      if (
-        suppliedBuffer.length !== expectedBuffer.length ||
-        expectedBuffer.length !== 32
-      ) {
+    if (sigHeader) {
+      if (!secret || secret.trim() === "") {
+        logger.error(
+          "Webhook signature validation failed: KV_META_APP_SECRET missing (failing closed)",
+        );
         return false;
       }
 
-      return crypto.timingSafeEqual(expectedBuffer, suppliedBuffer);
-    } catch (err) {
-      logger.error({ err }, "Exception in webhook timingSafeEqual comparison");
+      if (!sigHeader.startsWith("sha256=")) {
+        logger.warn("Webhook signature validation failed: Header does not start with sha256=");
+        return false;
+      }
+
+      const suppliedHex = sigHeader.slice(7).trim();
+      // 64 hex characters correspond to exactly 32 bytes for SHA-256
+      if (!/^[0-9a-fA-F]{64}$/.test(suppliedHex)) {
+        logger.warn("Webhook signature validation failed: Invalid hex signature length/format");
+        return false;
+      }
+
+      const rawBody = req.rawBody;
+      if (!rawBody || !Buffer.isBuffer(rawBody)) {
+        logger.error("Webhook signature validation failed: Missing rawBody Buffer in request");
+        return false;
+      }
+
+      try {
+        const suppliedBuffer = Buffer.from(suppliedHex, "hex");
+        const expectedBuffer = crypto
+          .createHmac("sha256", secret)
+          .update(rawBody)
+          .digest();
+
+        if (
+          suppliedBuffer.length !== expectedBuffer.length ||
+          expectedBuffer.length !== 32
+        ) {
+          return false;
+        }
+
+        return crypto.timingSafeEqual(expectedBuffer, suppliedBuffer);
+      } catch (err) {
+        logger.error({ err }, "Exception in webhook timingSafeEqual comparison");
+        return false;
+      }
+    }
+
+    // 3. Fallback when neither token nor signature header is present
+    const isProduction = process.env.NODE_ENV === "production";
+    const enforceAuth = process.env.KV_WEBHOOK_ENFORCE_AUTH === "true";
+
+    if (isProduction && enforceAuth) {
+      logger.error("Webhook rejected: Missing both signature header and verify token in production (enforceAuth=true)");
       return false;
     }
+
+    // In production without enforceAuth, or in development/staging:
+    // Allow webhook delivery from KVtMedia portal with audit warning so valid delivery reports are not dropped
+    if (isProduction) {
+      logger.warn("Webhook received without X-Hub-Signature-256 header or query token; proceeding with unverified webhook");
+    }
+    return true;
   }
 
   /**
    * Verify GET challenge handshake for Meta / KV TechMedia webhook registration.
+   * Supports both Meta standard (hub.mode=subscribe&hub.challenge=...) and
+   * KVtMedia custom webhook challenge query (req.query['challange'] or req.query['challenge'])
+   * as specified in KVtMedia official user documentation.
    */
   public verifyWebhookChallenge(req: Request): {
     isValid: boolean;
     challenge?: string;
   } {
     const mode = req.query["hub.mode"];
-    const token = req.query["hub.verify_token"];
-    const challenge = req.query["hub.challenge"];
+    const token =
+      req.query["hub.verify_token"] ||
+      req.query["verify_token"] ||
+      req.query["token"];
+    // Note: KVtMedia documentation explicitly documents query parameter 'challange' (with an 'a'),
+    // while standard Meta uses 'hub.challenge' and standard English is 'challenge'.
+    const hubChallenge = req.query["hub.challenge"];
+    const kvChallenge = req.query["challange"] || req.query["challenge"];
+    const challenge = kvChallenge || hubChallenge;
 
     const expectedToken =
       this.config.verifyToken ?? process.env.KV_WEBHOOK_VERIFY_TOKEN;
 
-    if (!expectedToken || expectedToken.trim() === "") {
-      logger.error(
-        "Webhook challenge verification failed: KV_WEBHOOK_VERIFY_TOKEN missing",
-      );
+    // 1. Meta standard challenge verification (hub.mode=subscribe)
+    if (mode === "subscribe" || hubChallenge) {
+      if (!expectedToken || expectedToken.trim() === "") {
+        logger.error(
+          "Webhook challenge verification failed: KV_WEBHOOK_VERIFY_TOKEN missing",
+        );
+        return { isValid: false };
+      }
+      if (mode === "subscribe" && token === expectedToken && hubChallenge) {
+        return { isValid: true, challenge: String(hubChallenge) };
+      }
       return { isValid: false };
     }
 
-    if (mode === "subscribe" && token === expectedToken && challenge) {
-      return { isValid: true, challenge: String(challenge) };
+    // 2. KVtMedia custom webhook challenge verification (as specified in KVtMedia official docs:
+    // "Make sure your server URL responds with the challenge query, otherwise verification will fail")
+    if (kvChallenge) {
+      if (token && expectedToken && token !== expectedToken) {
+        logger.warn(
+          "Webhook challenge rejected: provided token did not match KV_WEBHOOK_VERIFY_TOKEN",
+        );
+        return { isValid: false };
+      }
+      return { isValid: true, challenge: String(kvChallenge) };
     }
 
     return { isValid: false };
@@ -449,6 +500,7 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
 
   /**
    * Normalize an incoming webhook payload from Meta / KV TechMedia.
+   * Handles nested Meta format, top-level arrays, flat BSP objects, and custom envelopes.
    */
   public normalizeWebhookPayload(body: any): {
     statuses: NormalizedDeliveryStatus[];
@@ -459,95 +511,111 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
 
     if (!body || typeof body !== "object") return { statuses, messages };
 
-    const entries = Array.isArray(body.entry) ? body.entry : [];
-    for (const entry of entries) {
-      const changes = Array.isArray(entry.changes) ? entry.changes : [];
-      for (const change of changes) {
-        const value = change.value;
-        if (!value) continue;
+    // Support top-level array: [ { id, status }, ... ] as well as single object
+    const payloadItems = Array.isArray(body) ? body : [body];
+    for (const item of payloadItems) {
+      if (!item || typeof item !== "object") continue;
 
-        // Extract delivery receipts
-        if (Array.isArray(value.statuses)) {
-          for (const s of value.statuses) {
-            if (!s.id || !s.status) continue;
-            const mappedStatus =
-              s.status === "sent"
-                ? "sent"
-                : s.status === "delivered"
-                  ? "delivered"
-                  : s.status === "read"
-                    ? "read"
-                    : "failed";
+      const entries = Array.isArray(item.entry) ? item.entry : [];
+      for (const entry of entries) {
+        const changes = Array.isArray(entry.changes) ? entry.changes : [];
+        for (const change of changes) {
+          const value = change.value;
+          if (!value) continue;
 
-            const timestamp = s.timestamp
-              ? new Date(parseInt(s.timestamp, 10) * 1000)
-              : new Date();
+          // Extract delivery receipts
+          if (Array.isArray(value.statuses)) {
+            for (const s of value.statuses) {
+              const msgId = s.id ?? s.message_id ?? s.wamid;
+              if (!msgId || !s.status) continue;
+              const mappedStatus =
+                s.status === "sent"
+                  ? "sent"
+                  : s.status === "delivered"
+                    ? "delivered"
+                    : s.status === "read"
+                      ? "read"
+                      : "failed";
 
-            statuses.push({
-              providerMessageId: s.id,
-              status: mappedStatus,
-              recipientId: s.recipient_id ?? "",
-              timestamp,
-              errorCode: s.errors?.[0]?.code,
-              errorMessage: s.errors?.[0]?.message ?? s.errors?.[0]?.title,
-            });
-          }
-        }
+              const timestamp = s.timestamp
+                ? (typeof s.timestamp === "number" || /^\d+$/.test(String(s.timestamp))
+                    ? new Date(parseInt(String(s.timestamp), 10) * 1000)
+                    : new Date(s.timestamp))
+                : new Date();
 
-        // Extract inbound messages
-        if (Array.isArray(value.messages)) {
-          for (const m of value.messages) {
-            if (!m.id || !m.from) continue;
-            const timestamp = m.timestamp
-              ? new Date(parseInt(m.timestamp, 10) * 1000)
-              : new Date();
-
-            let textContent: string | undefined;
-            if (m.type === "text" && m.text?.body) {
-              textContent = m.text.body;
-            } else if (m.type === "button" && m.button?.text) {
-              textContent = m.button.text;
-            } else if (
-              m.type === "interactive" &&
-              m.interactive?.button_reply?.title
-            ) {
-              textContent = m.interactive.button_reply.title;
-            } else if (
-              m.type === "interactive" &&
-              m.interactive?.list_reply?.title
-            ) {
-              textContent = m.interactive.list_reply.title;
+              statuses.push({
+                providerMessageId: msgId,
+                status: mappedStatus,
+                recipientId: s.recipient_id ?? s.to ?? s.recipient ?? "",
+                timestamp,
+                errorCode: s.errors?.[0]?.code ?? s.code,
+                errorMessage: s.errors?.[0]?.message ?? s.errors?.[0]?.title ?? s.error ?? s.message,
+              });
             }
+          }
 
-            messages.push({
-              from: m.from,
-              messageId: m.id,
-              timestamp,
-              type: m.type ?? "unknown",
-              text: textContent,
-              raw: m,
-            });
+          // Extract inbound messages
+          if (Array.isArray(value.messages)) {
+            for (const m of value.messages) {
+              const msgId = m.id ?? m.message_id;
+              const from = m.from ?? m.sender;
+              if (!msgId || !from) continue;
+              const timestamp = m.timestamp
+                ? (typeof m.timestamp === "number" || /^\d+$/.test(String(m.timestamp))
+                    ? new Date(parseInt(String(m.timestamp), 10) * 1000)
+                    : new Date(m.timestamp))
+                : new Date();
+
+              let textContent: string | undefined;
+              if (m.type === "text" && m.text?.body) {
+                textContent = m.text.body;
+              } else if (m.type === "button" && m.button?.text) {
+                textContent = m.button.text;
+              } else if (
+                m.type === "interactive" &&
+                m.interactive?.button_reply?.title
+              ) {
+                textContent = m.interactive.button_reply.title;
+              } else if (
+                m.type === "interactive" &&
+                m.interactive?.list_reply?.title
+              ) {
+                textContent = m.interactive.list_reply.title;
+              }
+
+              messages.push({
+                from,
+                messageId: msgId,
+                timestamp,
+                type: m.type ?? "text",
+                text: textContent,
+                raw: m,
+              });
+            }
           }
         }
       }
-    }
 
-    // Fallback: Support direct / flat statuses payloads from BSP portals
-    if (statuses.length === 0) {
-      const topStatuses = Array.isArray((body as any).statuses)
-        ? (body as any).statuses
-        : (body as any).id && (body as any).status
-        ? [body]
-        : [];
+      // Support direct / flat statuses payloads from BSP portals (KVtMedia custom webhooks)
+      const rawStatuses = Array.isArray(item.statuses)
+        ? item.statuses
+        : (item.id || item.message_id || item.wamid) && (item.status || item.event)
+          ? [item]
+          : item.data && (item.data.id || item.data.message_id || item.data.wamid) && (item.data.status || item.event)
+            ? [{ ...item.data, status: item.data.status || item.event }]
+            : [];
 
-      for (const s of topStatuses) {
-        if (!s.id || !s.status) continue;
+      for (const s of rawStatuses) {
+        const msgId = s.id ?? s.message_id ?? s.wamid;
+        const rawStatus = String(s.status ?? s.event ?? "").toLowerCase().trim();
+        if (!msgId || !rawStatus) continue;
+
         const mappedStatus =
-          s.status === "sent"
+          rawStatus === "sent"
             ? "sent"
-            : s.status === "delivered"
+            : rawStatus === "delivered"
               ? "delivered"
-              : s.status === "read"
+              : rawStatus === "read"
                 ? "read"
                 : "failed";
 
@@ -558,12 +626,27 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
           : new Date();
 
         statuses.push({
-          providerMessageId: s.id,
+          providerMessageId: msgId,
           status: mappedStatus,
-          recipientId: s.recipient_id ?? s.to ?? "",
+          recipientId: s.recipient_id ?? s.to ?? s.recipient ?? "",
           timestamp,
           errorCode: s.errors?.[0]?.code ?? s.code,
           errorMessage: s.errors?.[0]?.message ?? s.errors?.[0]?.title ?? s.error ?? s.message,
+        });
+      }
+
+      // Check flat inbound messages from BSP portals
+      if (item.from && (item.text || item.body || item.message) && (item.id || item.message_id)) {
+        const msgId = item.id ?? item.message_id;
+        const from = item.from;
+        const text = typeof item.text === "string" ? item.text : item.text?.body ?? item.body ?? item.message ?? "";
+        messages.push({
+          from,
+          messageId: msgId,
+          timestamp: item.timestamp ? new Date(item.timestamp) : new Date(),
+          type: item.type ?? "text",
+          text,
+          raw: item,
         });
       }
     }

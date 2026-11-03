@@ -18,10 +18,12 @@ describe("STAGING END-TO-END VERIFICATION: Public WhatsApp AI Assistant", () => 
 
   beforeEach(() => {
     process.env = { ...originalEnv };
-    process.env.OPENAI_API_KEY = "sk-staging-mock-key";
-    process.env.INTELLIGENCE_LLM_MODEL = "gpt-4o-mini";
+    process.env.GEMINI_API_KEY = "mock-staging-gemini-key";
+    process.env.GEMINI_MODEL = "gemini-2.5-flash";
     process.env.AI_ASSISTANT_ENABLED = "true";
     process.env.WHATSAPP_PROVIDER = "mock";
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.INTELLIGENCE_LLM_MODEL;
     guestAssistantService.resetRateLimit();
     vi.restoreAllMocks();
   });
@@ -43,19 +45,14 @@ describe("STAGING END-TO-END VERIFICATION: Public WhatsApp AI Assistant", () => 
 
     const sendSpy = vi.spyOn(commSender, "sendWhatsApp").mockResolvedValue({ success: true });
 
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content:
-                "Namaste! BidWar me aapka swagat hai. Aap cricket, football ya kisi bhi franchise sport ke liye live player auction conduct kar sakte hain. Free trial setup karne ke liye visit karein: https://bidwar.in/organizer?tab=signup",
-            },
-          },
-        ],
-      }),
-    });
+    vi.spyOn(guestAssistantService, "getGenAIClient").mockReturnValue({
+      models: {
+        generateContent: vi.fn().mockResolvedValue({
+          text:
+            "Namaste! BidWar me aapka swagat hai. Aap cricket, football ya kisi bhi franchise sport ke liye live player auction conduct kar sakte hain. Free trial setup karne ke liye visit karein: https://bidwar.in/organizer?tab=signup",
+        }),
+      },
+    } as any);
 
     const res = await router.processInboundMessage({
       from: CONTROLLED_GUEST_NUMBER,
@@ -82,19 +79,14 @@ describe("STAGING END-TO-END VERIFICATION: Public WhatsApp AI Assistant", () => 
 
     const sendSpy = vi.spyOn(commSender, "sendWhatsApp").mockResolvedValue({ success: true });
 
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content:
-                "BidWar par aap bohot aasaani se auction kar sakte hain. Team owners apne mobile phone se bid kar sakte hain aur projector par 1080p LED display chalta hai. Free trial 2 teams ke liye free hai.",
-            },
-          },
-        ],
-      }),
-    });
+    vi.spyOn(guestAssistantService, "getGenAIClient").mockReturnValue({
+      models: {
+        generateContent: vi.fn().mockResolvedValue({
+          text:
+            "BidWar par aap bohot aasaani se auction kar sakte hain. Team owners apne mobile phone se bid kar sakte hain aur projector par 1080p LED display chalta hai. Free trial 2 teams ke liye free hai.",
+        }),
+      },
+    } as any);
 
     const res = await router.processInboundMessage({
       from: CONTROLLED_GUEST_NUMBER,
@@ -121,19 +113,14 @@ describe("STAGING END-TO-END VERIFICATION: Public WhatsApp AI Assistant", () => 
     const sendSpy = vi.spyOn(commSender, "sendWhatsApp").mockResolvedValue({ success: true });
 
     // Simulate LLM returning verified Pro plan
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        choices: [
-          {
-            message: {
-              content:
-                "BidWar ke plans fixed aur one-time hain: Starter ₹5,000 (4 teams) aur Pro plan ₹6,000 (8 teams) ka hai. No monthly charges.",
-            },
-          },
-        ],
-      }),
-    });
+    vi.spyOn(guestAssistantService, "getGenAIClient").mockReturnValue({
+      models: {
+        generateContent: vi.fn().mockResolvedValue({
+          text:
+            "BidWar ke plans fixed aur one-time hain: Starter ₹5,000 (4 teams) aur Pro plan ₹6,000 (8 teams) ka hai. No monthly charges.",
+        }),
+      },
+    } as any);
 
     const res = await router.processInboundMessage({
       from: CONTROLLED_GUEST_NUMBER,
@@ -302,7 +289,11 @@ describe("STAGING END-TO-END VERIFICATION: Public WhatsApp AI Assistant", () => 
   });
 
   it("9. AI Timeout Fallback: delivers branded support card without failing webhook", async () => {
-    globalThis.fetch = vi.fn().mockRejectedValue(new Error("Network timeout after 8000ms"));
+    vi.spyOn(guestAssistantService, "getGenAIClient").mockReturnValue({
+      models: {
+        generateContent: vi.fn().mockRejectedValue(new Error("Network timeout after 8000ms")),
+      },
+    } as any);
 
     vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [], leadCaptured: false });
     vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });

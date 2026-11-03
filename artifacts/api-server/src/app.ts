@@ -15,6 +15,7 @@ import path from "path";
 import { existsSync } from "fs";
 import expressStaticGzip from "express-static-gzip";
 import router from "./routes";
+import webhooksRouter from "./routes/webhooks";
 import { logger } from "./lib/logger";
 import { globalLimiter } from "./lib/rate-limiters";
 import { jwtAuthMiddleware } from "./middleware/jwt-auth";
@@ -218,6 +219,7 @@ logger.info("Auth: stateless JWT cookies (bidwar_auth)");
 app.use(globalLimiter);
 
 app.use("/api", router);
+app.use(webhooksRouter);
 
 // ── Crawl assets (robots.txt + sitemaps) — always registered ───────────────
 registerSeoRoutes(app);

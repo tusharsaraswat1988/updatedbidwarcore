@@ -1760,6 +1760,28 @@ router.post("/auth/admin/communicate/simulate-receipt", async (req, res) => {
   const currentRank = STATUS_RANK[targetRow.deliveryStatus] ?? 0;
   const newRank = STATUS_RANK[status] ?? 0;
 
+  // Monotonic guard: 'read' cannot regress to 'delivered', 'sent', or 'failed'
+  if (targetRow.deliveryStatus === "read") {
+    res.json({
+      success: false,
+      message: "Message already reached terminal 'read' status; cannot regress",
+      log: targetRow,
+      updated: false,
+    });
+    return;
+  }
+
+  // 'delivered' cannot regress to 'sent' or 'failed'
+  if (targetRow.deliveryStatus === "delivered" && (status === "sent" || status === "failed")) {
+    res.json({
+      success: false,
+      message: "Message already delivered; cannot regress to sent or failed",
+      log: targetRow,
+      updated: false,
+    });
+    return;
+  }
+
   if (newRank >= currentRank || status === "failed") {
     const updateData: {
       deliveryStatus: string;

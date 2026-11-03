@@ -20,9 +20,11 @@ describe("BidWar Public Guest AI WhatsApp Assistant", () => {
 
   beforeEach(() => {
     process.env = { ...originalEnv };
-    process.env.OPENAI_API_KEY = "sk-test-mock-key";
-    process.env.INTELLIGENCE_LLM_MODEL = "gpt-4o-mini";
+    process.env.GEMINI_API_KEY = "mock-gemini-key";
+    process.env.GEMINI_MODEL = "gemini-2.5-flash";
     process.env.AI_ASSISTANT_ENABLED = "true";
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.INTELLIGENCE_LLM_MODEL;
     vi.restoreAllMocks();
     guestAssistantService.resetRateLimit();
   });
@@ -107,6 +109,11 @@ describe("BidWar Public Guest AI WhatsApp Assistant", () => {
       const result = guardrails.sanitizeOutbound(input);
       expect(result.sanitizedText).not.toContain("sk-proj-");
       expect(result.flags).toContain("Secret leak blocked");
+
+      const inputGemini = "Here is your key AIzaSyD3fakeGeminiApiKeyTest1234567890 to access.";
+      const resultGemini = guardrails.sanitizeOutbound(inputGemini);
+      expect(resultGemini.sanitizedText).not.toContain("AIzaSy");
+      expect(resultGemini.flags).toContain("Secret leak blocked");
     });
   });
 
@@ -221,21 +228,14 @@ describe("BidWar Public Guest AI WhatsApp Assistant", () => {
     });
   });
 
-  describe("6. OpenAI Integration, Timeouts & Fallback", () => {
-    it("returns formatted LLM response on successful OpenAI completion", async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [
-            {
-              message: {
-                content: "BidWar supports 8-team cricket auctions with our Pro plan at ₹6,000. Try our free trial at https://bidwar.in/organizer?tab=signup",
-              },
-            },
-          ],
-        }),
+  describe("6. Google Gemini Integration, Timeouts & Fallback", () => {
+    it("returns formatted LLM response on successful Gemini completion", async () => {
+      const generateMock = vi.fn().mockResolvedValue({
+        text: "BidWar supports 8-team cricket auctions with our Pro plan at ₹6,000. Try our free trial at https://bidwar.in/organizer?tab=signup",
       });
-      globalThis.fetch = mockFetch;
+      vi.spyOn(guestAssistantService, "getGenAIClient").mockReturnValue({
+        models: { generateContent: generateMock },
+      } as any);
 
       vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [], leadCaptured: false });
       vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
@@ -248,12 +248,15 @@ describe("BidWar Public Guest AI WhatsApp Assistant", () => {
 
       expect(res.text).toContain("₹6,000");
       expect(res.text).toContain("https://bidwar.in/organizer?tab=signup");
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(generateMock).toHaveBeenCalledTimes(1);
+      const callArgs = generateMock.mock.calls[0][0];
+      expect(callArgs.model).toBe("gemini-2.5-flash");
     });
 
-    it("falls back gracefully with branded message when OpenAI times out or fails", async () => {
-      const mockFetch = vi.fn().mockRejectedValue(new Error("Timeout"));
-      globalThis.fetch = mockFetch;
+    it("falls back gracefully with branded message when Gemini times out or fails", async () => {
+      vi.spyOn(guestAssistantService, "getGenAIClient").mockReturnValue({
+        models: { generateContent: vi.fn().mockRejectedValue(new Error("Timeout")) },
+      } as any);
 
       vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [], leadCaptured: false });
       vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
@@ -269,8 +272,8 @@ describe("BidWar Public Guest AI WhatsApp Assistant", () => {
       expect(res.text).toContain("https://bidwar.in/organizer?tab=signup");
     });
 
-    it("falls back gracefully when OPENAI_API_KEY is not configured", async () => {
-      delete process.env.OPENAI_API_KEY;
+    it("falls back gracefully when GEMINI_API_KEY is not configured", async () => {
+      delete process.env.GEMINI_API_KEY;
 
       vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [], leadCaptured: false });
       vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
@@ -291,10 +294,9 @@ describe("BidWar Public Guest AI WhatsApp Assistant", () => {
       const mobile = "919999888877";
       vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [], leadCaptured: false });
       vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ choices: [{ message: { content: "Sample answer" } }] }),
-      });
+      vi.spyOn(guestAssistantService, "getGenAIClient").mockReturnValue({
+        models: { generateContent: vi.fn().mockResolvedValue({ text: "Sample answer" }) },
+      } as any);
 
       // Send 20 requests
       for (let i = 0; i < 20; i++) {

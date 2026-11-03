@@ -1,10 +1,11 @@
 /**
  * BidWar Public Guest AI Assistant Orchestrator
  *
- * Coordinates session memory, prompt assembly, OpenAI chat completions,
+ * Coordinates session memory, prompt assembly, Google Gemini generation,
  * guardrail enforcement, lead capture, and human handoff for prospective organizers.
  */
 
+import { GoogleGenAI } from "@google/genai";
 import { logger, maskPhoneNumber } from "../../logger";
 import { buildSystemPrompt, SUPPORT_CONTACT } from "./knowledgebase";
 import { guardrails } from "./guardrails";
@@ -31,6 +32,14 @@ const HOURLY_RATE_LIMIT = 20; // Max 20 requests per hour per phone
 const requestTimestamps = new Map<string, number[]>();
 
 export class GuestAssistantService {
+  /**
+   * Instantiate or retrieve GoogleGenAI client.
+   * Can be overridden or spied on in tests.
+   */
+  public getGenAIClient(apiKey: string): GoogleGenAI {
+    return new GoogleGenAI({ apiKey });
+  }
+
   /**
    * Check if the AI Assistant is enabled via environment variables.
    */
@@ -128,7 +137,7 @@ export class GuestAssistantService {
     // 5. Extract lead details
     const detectedLead = leadCaptureService.extractLeadData(cleanText, session.leadData);
 
-    // 6. Generate AI response
+    // 6. Generate AI response via Gemini
     let rawReply = "";
     try {
       rawReply = await this.generateLlmResponse(cleanText, session.messages);
@@ -167,66 +176,55 @@ export class GuestAssistantService {
   }
 
   /**
-   * Call OpenAI Chat Completion with 8-second timeout and strict parameters.
+   * Call Google Gemini API with 8-second timeout and strict parameters.
    */
   private async generateLlmResponse(
     userText: string,
     history: GuestChatMessage[]
   ): Promise<string> {
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
     if (!apiKey) {
-      logger.warn("GuestAssistantService: OPENAI_API_KEY not configured, using fallback reply");
+      logger.warn("GuestAssistantService: GEMINI_API_KEY not configured, using fallback reply");
       return this.buildFallbackReply(userText);
     }
 
-    const model = process.env.INTELLIGENCE_LLM_MODEL?.trim() || "gpt-4o-mini";
-    const systemPrompt = buildSystemPrompt();
+    const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+    const systemInstruction = buildSystemPrompt();
 
-    const formattedHistory = history.map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    }));
-
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+    // Map conversation turns to Gemini Content schema: roles must be 'user' or 'model'
+    const contents = [
+      ...history.map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      })),
+      {
+        role: "user",
+        parts: [{ text: userText }],
       },
-      body: JSON.stringify({
-        model,
+    ];
+
+    const ai = this.getGenAIClient(apiKey);
+    const response = await ai.models.generateContent({
+      model,
+      contents,
+      config: {
+        systemInstruction,
         temperature: 0.3,
-        max_tokens: 350,
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...formattedHistory,
-          { role: "user", content: userText },
-        ],
-      }),
-      signal: AbortSignal.timeout(8000), // 8-second strict timeout
+        maxOutputTokens: 350,
+        abortSignal: AbortSignal.timeout(8000), // 8-second strict timeout
+      },
     });
 
-    if (!response.ok) {
-      const status = response.status;
-      const errText = await response.text();
-      logger.error({ status, errText }, "GuestAssistantService: OpenAI API error response");
-      throw new Error(`OpenAI API failed with HTTP ${status}`);
-    }
-
-    const data = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-
-    const content = data.choices?.[0]?.message?.content?.trim();
+    const content = response.text?.trim();
     if (!content) {
-      throw new Error("Empty response received from OpenAI API");
+      throw new Error("Empty response received from Gemini API");
     }
 
     return content;
   }
 
   /**
-   * Graceful, informative fallback when OpenAI is offline, timing out, or unconfigured.
+   * Graceful, informative fallback when Gemini is offline, timing out, or unconfigured.
    */
   public buildFallbackReply(userQuery: string): string {
     const isHindi = /(?:hai|karein|karna|chahiye|aap|karo|batao|dhanyawad|shukriya|mujhe|kaise)/i.test(userQuery);
