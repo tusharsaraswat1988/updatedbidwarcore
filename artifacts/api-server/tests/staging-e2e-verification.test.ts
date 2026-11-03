@@ -308,4 +308,170 @@ describe("STAGING END-TO-END VERIFICATION: Public WhatsApp AI Assistant", () => 
     expect(reply.text).toContain("+91 8707488250");
     expect(reply.text).toContain("https://bidwar.in/organizer?tab=signup");
   });
+
+  it("10. Trial Organizer Guidance: provides setup guidance while strictly withholding private operational data", async () => {
+    vi.spyOn(router, "resolveIdentity").mockResolvedValue({
+      kind: "member",
+      member: { id: "mem_trial_staging", displayName: "Suresh Raina", primaryMobile: CONTROLLED_MEMBER_NUMBER } as any,
+      roles: [{ id: 1, memberId: "mem_trial_staging", role: "organizer", scope: "global", tournamentId: null } as any],
+      links: [],
+      tournamentIds: [101],
+      isAmbiguous: false,
+      displayName: "Suresh Raina",
+    });
+
+    vi.spyOn(router, "resolveAssistantUserContext").mockResolvedValue({
+      userCategory: "trial_organizer",
+      displayName: "Suresh Raina",
+      mobile: CONTROLLED_MEMBER_NUMBER,
+      isBeginner: true,
+    });
+
+    vi.spyOn(router, "isMessageAlreadyProcessed").mockResolvedValue(false);
+    vi.spyOn(router, "recordProcessedInboundMessage").mockResolvedValue();
+    const sendSpy = vi.spyOn(commSender, "sendWhatsApp").mockResolvedValue({ success: true });
+
+    let capturedInstruction = "";
+    vi.spyOn(guestAssistantService, "getGenAIClient").mockReturnValue({
+      models: {
+        generateContent: vi.fn().mockImplementation((req: any) => {
+          capturedInstruction = req.config?.systemInstruction ?? "";
+          return Promise.resolve({
+            text: "BidWar par 2 teams ke sath Free Trial test karein: 1. Teams purse setup karein, 2. Player registration link share karein, 3. Operator console se test bids execute karein.",
+          });
+        }),
+      },
+    } as any);
+
+    const res = await router.processInboundMessage({
+      from: CONTROLLED_MEMBER_NUMBER,
+      channel: "whatsapp",
+      text: "Can I test player bidding before paying?",
+      messageId: "wamid.STAGING_TRIAL_001",
+    });
+
+    expect(res.handled).toBe(true);
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+    expect(capturedInstruction).toContain("TRIAL ORGANIZER");
+    expect(capturedInstruction).toContain("ZERO-DISCLOSURE POLICY");
+    expect(sendSpy.mock.calls[0][1]).toContain("Free Trial");
+  });
+
+  it("11. Licensed Organizer Scope: backend verifies license and passes authorized tournament scope to Gemini", async () => {
+    vi.spyOn(router, "resolveIdentity").mockResolvedValue({
+      kind: "member",
+      member: { id: "mem_licensed_staging", displayName: "Hardik Pandya", primaryMobile: CONTROLLED_MEMBER_NUMBER } as any,
+      roles: [{ id: 2, memberId: "mem_licensed_staging", role: "organizer", scope: "tournament", tournamentId: 303 } as any],
+      links: [],
+      tournamentIds: [303],
+      isAmbiguous: false,
+      displayName: "Hardik Pandya",
+    });
+
+    vi.spyOn(router, "resolveAssistantUserContext").mockResolvedValue({
+      userCategory: "licensed_organizer",
+      displayName: "Hardik Pandya",
+      mobile: CONTROLLED_MEMBER_NUMBER,
+      authorizedTournaments: [
+        {
+          id: 303,
+          name: "Baroda Championship Cup",
+          sport: "cricket",
+          status: "live",
+          licenseStatus: "licensed",
+          auctionEnabled: true,
+          scoringEnabled: true,
+        },
+      ],
+      isBeginner: true,
+    });
+
+    vi.spyOn(router, "isMessageAlreadyProcessed").mockResolvedValue(false);
+    vi.spyOn(router, "recordProcessedInboundMessage").mockResolvedValue();
+    const sendSpy = vi.spyOn(commSender, "sendWhatsApp").mockResolvedValue({ success: true });
+
+    let capturedInstruction = "";
+    vi.spyOn(guestAssistantService, "getGenAIClient").mockReturnValue({
+      models: {
+        generateContent: vi.fn().mockImplementation((req: any) => {
+          capturedInstruction = req.config?.systemInstruction ?? "";
+          return Promise.resolve({
+            text: "Baroda Championship Cup ke liye 1080p LED display setup karne ke liye projector ko laptop ke HDMI se connect karein aur full-screen mode on karein.",
+          });
+        }),
+      },
+    } as any);
+
+    const res = await router.processInboundMessage({
+      from: CONTROLLED_MEMBER_NUMBER,
+      channel: "whatsapp",
+      text: "How to setup LED screen for Baroda Championship Cup?",
+      messageId: "wamid.STAGING_LICENSED_001",
+    });
+
+    expect(res.handled).toBe(true);
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+    expect(capturedInstruction).toContain("LICENSED ORGANIZER");
+    expect(capturedInstruction).toContain("Baroda Championship Cup");
+    expect(capturedInstruction).toContain("ID: 303");
+    expect(sendSpy.mock.calls[0][1]).toContain("Baroda Championship Cup");
+  });
+
+  it("12. Knowledge Boundaries: enforces Path B support escalation and Path C out-of-scope redirection", async () => {
+    vi.spyOn(sessionManager, "getSession").mockResolvedValue({ messages: [] });
+    vi.spyOn(sessionManager, "appendTurn").mockResolvedValue({ messages: [] });
+
+    // Path B: Unknown custom requirement
+    vi.spyOn(guestAssistantService, "getGenAIClient").mockReturnValue({
+      models: {
+        generateContent: vi.fn().mockResolvedValue({
+          text: `BidWar se judne aur aapke interest ke liye bahut shukriya! Custom 50 teams enterprise setup ke liye aap hamari tournament operations team se connect kar sakte hain:\n📞 Call / WhatsApp: ${SUPPORT_CONTACT.phone}\n💬 WhatsApp Link: ${SUPPORT_CONTACT.whatsappUrl}\n📧 Email: ${SUPPORT_CONTACT.email}`,
+        }),
+      },
+    } as any);
+
+    const replyPathB = await guestAssistantService.handleMessage({
+      mobile: CONTROLLED_GUEST_NUMBER,
+      from: `whatsapp:+${CONTROLLED_GUEST_NUMBER}`,
+      text: "Can BidWar handle 50 teams with custom API webhooks?",
+    });
+
+    expect(replyPathB.text).toContain(SUPPORT_CONTACT.phone);
+    expect(replyPathB.text).toContain(SUPPORT_CONTACT.email);
+    expect(replyPathB.text).toContain("shukriya");
+
+    // Path C: Non-BidWar question
+    vi.spyOn(guestAssistantService, "getGenAIClient").mockReturnValue({
+      models: {
+        generateContent: vi.fn().mockResolvedValue({
+          text: "Main BidWar sports auction aur scoring platform ka assistant hun. Main tournaments, live auctions aur match scoring me aapki madad kar sakta hun. Kya aap kisi sports tournament ke bare me janna chahte hain?",
+        }),
+      },
+    } as any);
+
+    const replyPathC = await guestAssistantService.handleMessage({
+      mobile: CONTROLLED_GUEST_NUMBER,
+      from: `whatsapp:+${CONTROLLED_GUEST_NUMBER}`,
+      text: "Who won the FIFA World Cup in 1998?",
+    });
+
+    expect(replyPathC.text).toContain("BidWar sports auction");
+  });
+
+  it("13. Greeting De-duplication: suppresses repetitive welcomes in multi-turn conversations", async () => {
+    // Turn 1
+    const turn1Fallback = guestAssistantService.buildFallbackReply("kaise register karein?", {
+      userCategory: "guest",
+      turnCount: 0,
+    });
+    expect(turn1Fallback).toContain("Namaste! BidWar me aapka swagat hai");
+
+    // Turn 2 in same active session
+    const turn2Fallback = guestAssistantService.buildFallbackReply("aur team add kaise karein?", {
+      userCategory: "guest",
+      turnCount: 2,
+    });
+    expect(turn2Fallback).not.toContain("Namaste! BidWar me aapka swagat hai");
+    expect(turn2Fallback).toContain("BidWar sports auction aur scoring par aapka sawal mila hai");
+  });
 });
