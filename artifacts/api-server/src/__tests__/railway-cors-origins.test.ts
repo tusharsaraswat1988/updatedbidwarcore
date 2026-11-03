@@ -259,7 +259,7 @@ describe("platform-aware CORS origins", () => {
     assertRuntimeEnv();
     expect(isCorsOriginAllowed("https://stagingbidwar.up.railway.app")).toBe(true);
 
-    // Also in production fallback
+    // Strict boundary in production: staging origins are rejected
     resetRuntimeConfigForTests();
     clearEnv();
     process.env.NODE_ENV = "production";
@@ -275,7 +275,7 @@ describe("platform-aware CORS origins", () => {
     process.env.SERVE_STATIC = "true";
 
     assertRuntimeEnv();
-    expect(isCorsOriginAllowed("https://stagingbidwar.up.railway.app")).toBe(true);
+    expect(isCorsOriginAllowed("https://stagingbidwar.up.railway.app")).toBe(false);
   });
 });
 

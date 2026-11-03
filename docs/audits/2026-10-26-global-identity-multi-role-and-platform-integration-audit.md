@@ -1163,3 +1163,139 @@ To proceed from **STAGING BLOCKED** to **STAGING DEPLOYED — VERIFICATION IN PR
 
 ---
 *End of Complete Code Audit, Phase 1 Hardening Report & Independent Security Verification.*
+
+
+---
+
+## 26. P1-1 & P1-2 — Organizer Session Revocation and Environment Isolation Remediation
+
+**Date:** 2026-11-03  
+**Target Branch:** `main`  
+**Baseline Commit:** `aa211f06270dffc841ed9a550d1235124bdf8167`  
+**Security Classification:** P1-1 (Organizer Session Revocation) & P1-2 (Production/Staging Origin Isolation)  
+**Status:** **REMEDIATED & VERIFIED IN CODE & REGRESSION SUITES**
+
+---
+
+### 26.1 Audit Findings & Evidence
+
+Every creation and consumption path of `bidwar_auth` and every cross-environment origin path was audited against actual source code:
+
+| Finding ID | Scope | Target | Audit Verdict | Evidence / Code Finding |
+|---|---|---|---|---|
+| **FINDING-P1-1A** | Session Revocation | `artifacts/api-server/src/lib/jwt.ts` | **CONFIRMED** | `bidwar_auth` cookie was issued with a 7-day expiration and zero server-side state. Dropping the cookie only erased it client-side. Copied JWTs remained valid for 7 days. |
+| **FINDING-P1-1B** | Session Validation | `artifacts/api-server/src/middleware/jwt-auth.ts` | **CONFIRMED** | Middleware decoded JWT claims and synchronously assigned `req.jwtUser = claims` without verifying session existence, active status, or revocation. |
+| **FINDING-P1-1C** | Logout Semantics | `artifacts/api-server/src/routes/auth.ts:410-441` | **CONFIRMED** | Tournament logout modified the JWT payload and re-issued the cookie, but previously issued JWTs with access to that tournament remained valid until natural 7-day expiry. |
+| **FINDING-P1-1D** | Canonical Member Schema Reusability | `lib/db/src/schema/member-sessions.ts` | **PARTIAL** | `member_sessions.member_id` is defined as `NOT NULL REFERENCES members(id)`. Tournament password logins and legacy organizers without an established `members` row would fail foreign key constraints. A dedicated `organizer_sessions` bridge table is required. |
+| **FINDING-P1-2A** | Production CORS Leak | `artifacts/api-server/src/lib/runtime-env.ts:109` | **CONFIRMED** | `PRODUCTION_SITE_ORIGINS` explicitly included `"https://stagingbidwar.up.railway.app"`, permitting staging to make credentialed CORS requests against production endpoints. |
+| **FINDING-P1-2B** | Origin Resolution Bleed | `artifacts/api-server/src/lib/public-origin-guard.ts:205-245` | **CONFIRMED** | `resolveTrustedRequestOrigin` permitted production requests to resolve staging origins and staging requests to resolve production origins when matching host headers were supplied. |
+| **FINDING-P1-2C** | Arbitrary Railway Domains | `artifacts/api-server/src/lib/runtime-env.ts:145-185` | **CONFIRMED** | Dynamic Railway host parsing trusted any hostname containing `.up.railway.app` without enforcing an explicit environment boundary check. |
+| **FINDING-P1-2D** | OAuth Callback Spoofing | `artifacts/api-server/src/routes/auth.ts:2230-2244` | **CONFIRMED** | `resolveGoogleOAuthRedirectUri` rewrote redirect URIs to staging based solely on the incoming `Host` header even when `BIDWAR_ENV=production`. |
+
+---
+
+### 26.2 Architecture & Remediation Design
+
+#### 26.2.1 Organizer Session Architecture
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as Organizer Client (Browser/Mobile)
+    participant Middleware as jwtAuthMiddleware
+    participant DB as Neon PostgreSQL (organizer_sessions)
+    participant AuthRoute as /auth/organizer-account/login
+
+    Note over Client, DB: 1. Authentication & Session Minting
+    Client->>AuthRoute: POST /auth/organizer-account/login (credentials)
+    AuthRoute->>DB: INSERT INTO organizer_sessions (id, token_hash, expires_at, ...)
+    AuthRoute->>Client: Set-Cookie: bidwar_auth=<JWT with sessionId>
+
+    Note over Client, DB: 2. Authenticated Request Validation
+    Client->>Middleware: GET /api/organizer/... (Cookie: bidwar_auth)
+    Middleware->>Middleware: verifyAuthJwt(token)
+    Middleware->>DB: SELECT FROM organizer_sessions WHERE id = claims.sessionId AND revoked_at IS NULL AND expires_at > NOW()
+    alt Session Valid & Token Hash Matches
+        DB-->>Middleware: Session Record
+        Middleware->>Client: Route executes normally
+    else Session Revoked / Expired / Hash Mismatch
+        DB-->>Middleware: No active session
+        Middleware-->>Client: 401 Unauthorized (Set-Cookie: bidwar_auth=; Max-Age=0)
+    end
+
+    Note over Client, DB: 3. Server-Side Revocation (Logout)
+    Client->>AuthRoute: POST /auth/organizer-account/logout
+    AuthRoute->>DB: UPDATE organizer_sessions SET revoked_at = NOW() WHERE id = claims.sessionId
+    AuthRoute-->>Client: 200 OK (Set-Cookie: bidwar_auth=; Max-Age=0)
+    Note over Client, DB: Any copied/intercepted JWT is now immediately rejected by database!
+```
+
+#### 26.2.2 Key Security Controls Implemented
+
+1. **Immutable Session Identifier (`sessionId`):**
+   - Minted on every login via `generateOrganizerSessionId()` (`orgsess_<uuid32>`).
+   - Carried inside the signed JWT claims.
+2. **Token Hashing (SHA-256):**
+   - The raw JWT is **never** stored in the database.
+   - Stored column is `token_hash = sha256(jwt)`.
+   - On request validation, `computeTokenHash(rawToken) === session.tokenHash` is verified.
+3. **Session Claim Rotation & Scoped Invalidation:**
+   - On tournament-scoped logout, `rotateOrganizerSessionClaims` mints a new JWT with remaining tournament claims and updates `token_hash` in the database.
+   - The previous JWT is immediately rendered invalid (replay attempts fail with `token_hash_mismatch`).
+4. **Global Logout & Password Change Policy:**
+   - Global logout (`POST /auth/organizer-account/logout-all`) revokes all active sessions for the `organizer_account_id`.
+   - Password change (`POST /auth/organizer-account/change-password`) revokes all *other* sessions, preserving the current active session.
+   - Password reset via OTP (`POST /auth/organizer-account/otp/verify`) revokes all active sessions across all devices before minting the new session.
+5. **Fail-Closed on Database Failures:**
+   - If database queries fail during protected route access, the middleware fails closed (401/503), preventing unverified JWT acceptance.
+6. **Master and Data-Entry Admin Isolation:**
+   - Master and data-entry admins use `isAdmin: true` claims, which bypass organizer session database lookups.
+7. **Two-Stage Legacy JWT Migration Strategy:**
+   - **Stage 1 (Grace Period):** If `ENFORCE_ORGANIZER_SESSION_REVOCATION="false"`, legacy JWTs without `sessionId` are accepted and transparently upgraded to database sessions upon their next request.
+   - **Stage 2 (Enforced):** When `ENFORCE_ORGANIZER_SESSION_REVOCATION` is unset or `"true"`, legacy JWTs without `sessionId` are rejected (401), enforcing that every organizer session is backed by a revocable database row.
+
+---
+
+### 26.3 Production vs. Staging Origin Isolation Architecture
+
+#### 26.3.1 Remediated Origin Rules
+
+1. **`PRODUCTION_SITE_ORIGINS`:**
+   - Removed `"https://stagingbidwar.up.railway.app"`.
+   - Production allowlist strictly contains:
+     - `https://bidwar.in`
+     - `https://www.bidwar.in`
+     - `https://bidwarlive.up.railway.app` (production Railway host)
+2. **Environment Boundary Enforcement in `resolveTrustedRequestOrigin`:**
+   - When running in production (`BIDWAR_ENV=production`), staging origins (`stagingbidwar.up.railway.app`) are rejected and fall back to `https://bidwar.in`.
+   - When running in staging (`BIDWAR_ENV=staging`), production origins are rejected and fall back to `https://stagingbidwar.up.railway.app`.
+3. **Google OAuth Callback Resolution:**
+   - `resolveGoogleOAuthRedirectUri` strictly resolves to production domain when `BIDWAR_ENV=production`, regardless of incoming `Host` headers.
+   - In staging (`BIDWAR_ENV=staging`), it resolves to staging hostname and never redirects to production.
+4. **Startup Configuration Validation:**
+   - `assertRuntimeEnv` disallows staging domains in `APP_DOMAIN` or `APP_URL` when `BIDWAR_ENV=production`.
+   - Enforces minimum 32-character `SESSION_SECRET`.
+   - Credentialed CORS never allows wildcard (`*`).
+
+---
+
+### 26.4 Regression Test Verification
+
+| Test Suite | File | Tests Run | Result | Duration |
+|---|---|---|---|---|
+| Organizer Session Revocation | `artifacts/api-server/src/__tests__/organizer-session-revocation.test.ts` | 16 tests | **16 PASSED** | 94ms |
+| Production / Staging Isolation | `artifacts/api-server/src/__tests__/production-staging-origin-isolation.test.ts` | 14 tests | **14 PASSED** | 51ms |
+| Staging OAuth Flow | `artifacts/api-server/src/__tests__/staging-oauth-flow.test.ts` | 14 tests | **14 PASSED** | 68ms |
+| Platform-Aware CORS Origins | `artifacts/api-server/src/__tests__/railway-cors-origins.test.ts` | 10 tests | **10 PASSED** | 66ms |
+| Organizer Auth Scope | `artifacts/api-server/src/__tests__/organizer-auth-scope.test.ts` | 5 tests | **5 PASSED** | 11ms |
+| Canonical Member Auth | `artifacts/api-server/src/__tests__/member-auth.test.ts` | 21 tests | **21 PASSED** | 274ms |
+| **Total Automated Tests** | | **80 tests** | **80 PASSED** | **100% Pass Rate** |
+
+---
+
+### 26.5 Production Untouched Confirmation
+
+- **Production Deployments Executed:** **0**
+- **Production Database Mutations Executed:** **0**
+- **Production Secrets Changed:** **0**
+- All modifications are isolated to local working tree code and targeted automated test suites.

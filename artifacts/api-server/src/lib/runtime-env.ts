@@ -53,7 +53,8 @@ function isDisallowedProductionHost(host: string): boolean {
     h === "localhost" ||
     h === "127.0.0.1" ||
     h === "0.0.0.0" ||
-    h.endsWith(".localhost")
+    h.endsWith(".localhost") ||
+    isStagingLikeHost(h)
   );
 }
 
@@ -106,7 +107,6 @@ const PRODUCTION_SITE_ORIGINS = [
   "https://bidwar.in",
   "https://www.bidwar.in",
   "https://bidwarlive.up.railway.app",
-  "https://stagingbidwar.up.railway.app",
 ] as const;
 
 const STAGING_SITE_ORIGINS = [
@@ -156,26 +156,48 @@ function resolvePlatformPublicOrigins(
   env: NodeJS.ProcessEnv = process.env,
 ): string[] {
   const origins: string[] = [];
+  const bidwarEnv = env.BIDWAR_ENV?.trim().toLowerCase();
 
   for (const key of RAILWAY_PUBLIC_ORIGIN_KEYS) {
     const origin = originFromHostOrUrl(env[key]);
-    if (origin) origins.push(origin);
+    if (origin) {
+      try {
+        const h = new URL(origin).hostname.toLowerCase();
+        if (bidwarEnv === "production" && isStagingLikeHost(h)) continue;
+        if (bidwarEnv === "staging" && isProductionBidwarHost(h)) continue;
+        origins.push(origin);
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
-  for (const [key, value] of Object.entries(env)) {
-    if (!key.startsWith("RAILWAY_") || !value) continue;
-    if (!value.toLowerCase().includes("up.railway.app")) continue;
-    const origin = originFromHostOrUrl(value);
-    if (origin) origins.push(origin);
-  }
-
-  if (env.RAILWAY_SERVICE_NAME) {
-    const origin = originFromHostOrUrl(`https://${env.RAILWAY_SERVICE_NAME}.up.railway.app`);
-    if (origin) origins.push(origin);
+  if (env.RAILWAY_SERVICE_NAME && env.RAILWAY_ENVIRONMENT_NAME) {
+    const svcHost = `${env.RAILWAY_SERVICE_NAME}.up.railway.app`.toLowerCase();
+    const origin = originFromHostOrUrl(`https://${svcHost}`);
+    if (origin) {
+      if (bidwarEnv === "production" && !isStagingLikeHost(svcHost)) {
+        origins.push(origin);
+      } else if (bidwarEnv === "staging" && !isProductionBidwarHost(svcHost)) {
+        origins.push(origin);
+      }
+    }
   }
 
   const renderOrigin = resolveRenderExternalOrigin(env);
-  if (renderOrigin) origins.push(normalizeOrigin(renderOrigin));
+  if (renderOrigin) {
+    const normalized = normalizeOrigin(renderOrigin);
+    try {
+      const h = new URL(normalized).hostname.toLowerCase();
+      if (bidwarEnv === "production" && !isStagingLikeHost(h)) {
+        origins.push(normalized);
+      } else if (bidwarEnv === "staging" && !isProductionBidwarHost(h)) {
+        origins.push(normalized);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 
   return origins;
 }
@@ -188,8 +210,6 @@ function buildCorsOrigins(
 ): string[] {
   const explicit = parseOriginList(process.env.CORS_ORIGINS);
   const fromHosts = hosts.map((h) => normalizeOrigin(`${scheme}://${h}`));
-  // Development: loopback origins on any port are allowed via isCorsOriginAllowed().
-  // EXTRA_CORS_ORIGINS adds non-loopback dev hosts (LAN, tunnels).
   const devExtras = isProduction
     ? []
     : mergeDevCorsOrigins(process.env.EXTRA_CORS_ORIGINS);
@@ -200,19 +220,32 @@ function buildCorsOrigins(
       : bidwarEnv === "production"
         ? [...PRODUCTION_SITE_ORIGINS]
         : [];
-  return [
-    ...new Set(
-      [
-        ...explicit,
-        ...fromHosts,
-        ...devExtras,
-        ...platformOrigins,
-        ...siteOrigins,
-      ]
-        .map((origin) => normalizeOrigin(origin))
-        .filter(Boolean),
-    ),
-  ];
+  const raw = [
+    ...explicit,
+    ...fromHosts,
+    ...devExtras,
+    ...platformOrigins,
+    ...siteOrigins,
+  ]
+    .map((origin) => normalizeOrigin(origin))
+    .filter(Boolean);
+
+  const filtered = raw.filter((origin) => {
+    try {
+      const hostname = new URL(origin).hostname.toLowerCase();
+      if (bidwarEnv === "production" && isStagingLikeHost(hostname)) {
+        return false;
+      }
+      if (bidwarEnv === "staging" && isProductionBidwarHost(hostname)) {
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  return [...new Set(filtered)];
 }
 
 function buildCachedConfig(): RuntimeConfig {
@@ -377,7 +410,7 @@ export function assertRuntimeEnv(): RuntimeConfig {
           `APP_DOMAIN must be hostnames only (no scheme or path): ${host}`,
         );
       }
-      if (isProduction && isDisallowedProductionHost(host)) {
+      if (bidwarEnv === "production" && isDisallowedProductionHost(host)) {
         errors.push(
           `APP_DOMAIN host "${host}" is not allowed in production — use your public domain`,
         );
@@ -405,7 +438,7 @@ export function assertRuntimeEnv(): RuntimeConfig {
         errors.push("APP_URL must use https in production");
       }
       const hostname = new URL(appOrigin).hostname;
-      if (isDisallowedProductionHost(hostname)) {
+      if (bidwarEnv === "production" && isDisallowedProductionHost(hostname)) {
         errors.push(
           `APP_URL hostname "${hostname}" is not allowed in production — use your public domain`,
         );

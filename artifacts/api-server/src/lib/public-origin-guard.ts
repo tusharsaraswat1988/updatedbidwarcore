@@ -70,7 +70,7 @@ export function resolveRenderExternalOrigin(env: NodeJS.ProcessEnv = process.env
 
 /**
  * Resolve the public URL Railway assigns to this service.
- * Checks RAILWAY_PUBLIC_DOMAIN, RAILWAY_STATIC_URL, RAILWAY_PUBLIC_URL.
+ * Checks verified keys: RAILWAY_PUBLIC_DOMAIN, RAILWAY_STATIC_URL, RAILWAY_PUBLIC_URL.
  */
 export function resolveRailwayExternalOrigin(env: NodeJS.ProcessEnv = process.env): string | null {
   for (const key of ["RAILWAY_PUBLIC_DOMAIN", "RAILWAY_STATIC_URL", "RAILWAY_PUBLIC_URL"] as const) {
@@ -87,21 +87,11 @@ export function resolveRailwayExternalOrigin(env: NodeJS.ProcessEnv = process.en
     }
   }
 
-  for (const [key, value] of Object.entries(env)) {
-    if (!key.startsWith("RAILWAY_") || !value) continue;
-    if (!value.toLowerCase().includes("up.railway.app")) continue;
-    try {
-      const url = new URL(value.includes("://") ? value : `https://${value}`);
-      if (url.hostname && !isProductionBidwarHost(url.hostname)) {
-        return `${url.protocol}//${url.host}`.replace(/\/+$/, "");
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
   if (env.RAILWAY_SERVICE_NAME && env.RAILWAY_ENVIRONMENT_NAME) {
-    return `https://${env.RAILWAY_SERVICE_NAME}.up.railway.app`;
+    const svcHost = `${env.RAILWAY_SERVICE_NAME}.up.railway.app`.toLowerCase();
+    if (!isProductionBidwarHost(svcHost)) {
+      return `https://${svcHost}`;
+    }
   }
 
   return null;
@@ -202,7 +192,7 @@ export function correctStagingPublicOriginMismatch(input: {
 /**
  * Pick a public origin for the current HTTP request.
  * - Staging hosts stay on staging (never fall back to production).
- * - Production hosts stay on production.
+ * - Production hosts stay on production (never fall back to staging).
  * - Untrusted hosts fall back to the environment canonical origin.
  */
 export function resolveTrustedRequestOrigin(input: {
@@ -215,16 +205,24 @@ export function resolveTrustedRequestOrigin(input: {
   const host = input.requestHost?.split(":")[0]?.trim().toLowerCase();
   if (!host) return input.publicOrigin;
 
+  const env = input.bidwarEnv?.trim().toLowerCase();
+  const isStagingEnv = env === "staging";
+  const isProdEnv = env === "production";
+
   // Staging host detection: any verified staging host stays on https://${host}
   const isStagingRequest = isStagingLikeHost(host) || STAGING_SITE_HOSTS.has(host);
   if (isStagingRequest) {
+    // In production environment, never emit a staging origin even if request claims it
+    if (isProdEnv) {
+      return input.publicOrigin;
+    }
     return `https://${host}`;
   }
 
   // Production request
   if (isProductionBidwarHost(host)) {
     // A staging process must never redirect back to production even if a header claims bidwar.in
-    if (input.bidwarEnv?.trim().toLowerCase() === "staging") {
+    if (isStagingEnv) {
       return input.publicOrigin;
     }
     return `${input.publicScheme}://${host}`;
@@ -232,15 +230,29 @@ export function resolveTrustedRequestOrigin(input: {
 
   // Explicitly trusted app hosts
   if (input.appHosts.some((h) => h.toLowerCase() === host)) {
+    if (isProdEnv && isStagingLikeHost(host)) {
+      return input.publicOrigin;
+    }
+    if (isStagingEnv && isProductionBidwarHost(host)) {
+      return input.publicOrigin;
+    }
     return `${input.publicScheme}://${host}`;
   }
 
   // Staging safeguard: fallback must never be production
   if (
-    input.bidwarEnv?.trim().toLowerCase() === "staging" &&
+    isStagingEnv &&
     isProductionBidwarHost(hostnameOfOrigin(input.publicOrigin) || "")
   ) {
     return CANONICAL_STAGING_ORIGIN;
+  }
+
+  // Production safeguard: fallback must never be staging
+  if (
+    isProdEnv &&
+    isStagingLikeHost(hostnameOfOrigin(input.publicOrigin) || "")
+  ) {
+    return "https://bidwar.in";
   }
 
   return input.publicOrigin;

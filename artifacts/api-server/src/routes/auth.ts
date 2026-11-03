@@ -16,6 +16,12 @@ import {
 } from "../lib/login-attempt-guard";
 import { setAuthCookie, clearAuthCookie, setOAuthCookie, clearOAuthCookie, COOKIE_NAME, signNativeGoogleHandoffJwt, verifyNativeGoogleHandoffJwt } from "../lib/jwt";
 import type { AuthClaims } from "../lib/jwt";
+import {
+  createOrganizerSession,
+  revokeOrganizerSession,
+  revokeAllOrganizerSessions,
+  rotateOrganizerSessionClaims,
+} from "../lib/organizer-session";
 import { sendDltSms } from "../lib/fast2sms";
 import { sendOtp as bulkSmsOtpSend, verifyOtp as bulkSmsOtpVerify, resendOtp as bulkSmsOtpResend } from "../lib/bulksms-otp";
 import {
@@ -369,7 +375,15 @@ router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res)
     tournament.organizerId === req.jwtUser.organizerAccountId
   ) {
     const organizer = { ...(req.jwtUser.organizer ?? {}), [String(tid)]: true as const };
-    setAuthCookie(res, { ...req.jwtUser, organizer });
+    if (req.sessionId) {
+      await rotateOrganizerSessionClaims(res, req.sessionId, { ...req.jwtUser, organizer });
+    } else {
+      await createOrganizerSession(res, {
+        organizerAccountId: req.jwtUser.organizerAccountId,
+        claims: { ...req.jwtUser, organizer },
+        req,
+      });
+    }
     auditLog(req, {
       category: "auth",
       action: "auth.tournament_organizer_login",
@@ -396,7 +410,16 @@ router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res)
     return;
   }
   const organizer = { ...(req.jwtUser.organizer ?? {}), [String(tid)]: true as const };
-  setAuthCookie(res, { ...req.jwtUser, organizer });
+  if (req.sessionId) {
+    await rotateOrganizerSessionClaims(res, req.sessionId, { ...req.jwtUser, organizer });
+  } else {
+    await createOrganizerSession(res, {
+      tournamentId: tid,
+      sessionScope: "tournament_password",
+      claims: { ...req.jwtUser, organizer },
+      req,
+    });
+  }
   auditLog(req, {
     category: "auth",
     action: "auth.tournament_organizer_login",
@@ -407,7 +430,7 @@ router.post("/auth/organizer/:tournamentId/login", authLimiter, async (req, res)
   res.json({ success: true });
 });
 
-router.post("/auth/organizer/:tournamentId/logout", (req, res) => {
+router.post("/auth/organizer/:tournamentId/logout", async (req, res) => {
   const tidKey = req.params.tournamentId;
   const tid = parseInt(tidKey);
   const hadAccess = !!req.jwtUser.organizer?.[tidKey];
@@ -425,8 +448,15 @@ router.post("/auth/organizer/:tournamentId/logout", (req, res) => {
     (remainingClaims.organizer && Object.keys(remainingClaims.organizer).length > 0);
 
   if (hasRemainingSession) {
-    setAuthCookie(res, remainingClaims);
+    if (req.sessionId) {
+      await rotateOrganizerSessionClaims(res, req.sessionId, remainingClaims);
+    } else {
+      setAuthCookie(res, remainingClaims);
+    }
   } else {
+    if (req.sessionId) {
+      await revokeOrganizerSession(req.sessionId);
+    }
     clearAuthCookie(res);
   }
   if (!isNaN(tid) && hadAccess) {
@@ -488,7 +518,12 @@ router.get("/auth/organizer/:tournamentId/me", async (req, res) => {
 
     if (owns) {
       const updatedOrgMap = { ...(req.jwtUser.organizer ?? {}), [tid]: true as const };
-      setAuthCookie(res, { ...req.jwtUser, organizer: updatedOrgMap });
+      const updatedClaims = { ...req.jwtUser, organizer: updatedOrgMap };
+      if (req.sessionId) {
+        await rotateOrganizerSessionClaims(res, req.sessionId, updatedClaims);
+      } else {
+        setAuthCookie(res, updatedClaims);
+      }
       res.json({ isOrganizer: true });
       return;
     }
@@ -513,7 +548,12 @@ router.patch("/auth/organizer/:tournamentId/password", async (req, res) => {
     if (tournament?.organizerId === req.jwtUser.organizerAccountId) {
       isOrganizer = true;
       const updatedOrgMap = { ...(req.jwtUser.organizer ?? {}), [tidStr]: true as const };
-      setAuthCookie(res, { ...req.jwtUser, organizer: updatedOrgMap });
+      const updatedClaims = { ...req.jwtUser, organizer: updatedOrgMap };
+      if (req.sessionId) {
+        await rotateOrganizerSessionClaims(res, req.sessionId, updatedClaims);
+      } else {
+        setAuthCookie(res, updatedClaims);
+      }
     }
   }
   if (!isOrganizer) { res.status(401).json({ error: "Not authorised" }); return; }
@@ -1577,7 +1617,11 @@ router.post("/auth/organizer-account/signup/complete", authLimiter, async (req, 
     .where(eq(tournamentsTable.organizerId, organizer.id));
   for (const t of myTournaments) orgMap[String(t.id)] = true;
 
-  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
+  await createOrganizerSession(res, {
+    organizerAccountId: organizer.id,
+    claims: { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap },
+    req,
+  });
   triggerOrganiserRegisteredNotification(organizer);
   auditLog(req, {
     category: "auth",
@@ -1673,7 +1717,11 @@ router.post("/auth/organizer-account/login", async (req, res) => {
     .orderBy(desc(tournamentsTable.createdAt), desc(tournamentsTable.id));
   for (const t of myTournaments) orgMap[String(t.id)] = true;
 
-  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
+  await createOrganizerSession(res, {
+    organizerAccountId: organizer.id,
+    claims: { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap },
+    req,
+  });
   auditLog(req, {
     category: "auth",
     action: "auth.organizer_login",
@@ -1696,6 +1744,9 @@ router.get("/auth/organizer-account/me", async (req, res) => {
   }
   const [organizer] = await db.select().from(organizersTable).where(eq(organizersTable.id, req.jwtUser.organizerAccountId));
   if (!organizer) {
+    if (req.sessionId) {
+      await revokeOrganizerSession(req.sessionId);
+    }
     clearAuthCookie(res);
     res.json({ loggedIn: false });
     return;
@@ -1725,7 +1776,12 @@ router.get("/auth/organizer-account/me", async (req, res) => {
     }
   }
   if (mapChanged) {
-    setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap });
+    const updatedClaims = { ...req.jwtUser, organizerAccountId: organizer.id, organizer: orgMap };
+    if (req.sessionId) {
+      await rotateOrganizerSessionClaims(res, req.sessionId, updatedClaims);
+    } else {
+      setAuthCookie(res, updatedClaims);
+    }
   }
 
   res.json({
@@ -1735,7 +1791,7 @@ router.get("/auth/organizer-account/me", async (req, res) => {
   });
 });
 
-router.post("/auth/organizer-account/logout", (req, res) => {
+router.post("/auth/organizer-account/logout", async (req, res) => {
   if (req.jwtUser.organizerAccountId) {
     auditLog(req, {
       category: "auth",
@@ -1743,7 +1799,27 @@ router.post("/auth/organizer-account/logout", (req, res) => {
       summary: `Organizer #${req.jwtUser.organizerAccountId} logged out`,
     });
   }
+  if (req.sessionId) {
+    await revokeOrganizerSession(req.sessionId);
+  }
   clearAuthCookie(res);
+  res.json({ success: true });
+});
+
+router.post("/auth/organizer-account/logout-all", async (req, res) => {
+  const accountId = req.jwtUser.organizerAccountId;
+  if (!accountId) {
+    clearAuthCookie(res);
+    res.json({ success: true });
+    return;
+  }
+  await revokeAllOrganizerSessions(accountId);
+  clearAuthCookie(res);
+  auditLog(req, {
+    category: "auth",
+    action: "auth.organizer_logout_all",
+    summary: `Organizer #${accountId} revoked all sessions (global logout)`,
+  });
   res.json({ success: true });
 });
 
@@ -1957,7 +2033,12 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   notifyAdminTournamentCreated(tournament);
 
   const updatedOrgMap = { ...(req.jwtUser.organizer ?? {}), [String(tournament.id)]: true as const };
-  setAuthCookie(res, { ...req.jwtUser, organizer: updatedOrgMap });
+  const updatedClaims = { ...req.jwtUser, organizer: updatedOrgMap };
+  if (req.sessionId) {
+    await rotateOrganizerSessionClaims(res, req.sessionId, updatedClaims);
+  } else {
+    setAuthCookie(res, updatedClaims);
+  }
 
   res.status(201).json({
     success: true,
@@ -2028,6 +2109,7 @@ router.post("/auth/organizer-account/otp/verify", otpVerifyLimiter, async (req, 
       return;
     }
 
+    await revokeAllOrganizerSessions(organizer.id);
     await issueOrganizerAuthCookie(req, res, updated.id);
     res.json({ success: true, organizer: organizerToJson(updated) });
   } catch (err) {
@@ -2143,12 +2225,13 @@ export function sanitizeOAuthNext(raw: string | undefined): string | undefined {
 
 /**
  * Build canonical Google OAuth redirect_uri for this request.
- * Guaranteed never to redirect staging requests to production.
+ * Guaranteed never to redirect staging requests to production, and never to redirect production to staging.
  */
 export function resolveGoogleOAuthRedirectUri(headers: import("node:http").IncomingHttpHeaders): string {
   let redirectUri = buildPublicUrlForRequest(headers, "/api/auth/google/callback");
   const host = requestHostFromHeaders(headers);
-  if (host && isStagingLikeHost(host)) {
+  const isProduction = process.env.BIDWAR_ENV === "production";
+  if (!isProduction && host && isStagingLikeHost(host)) {
     try {
       const parsed = new URL(redirectUri);
       if (isProductionBidwarHost(parsed.hostname)) {
@@ -2208,7 +2291,11 @@ async function issueOrganizerAuthCookie(
     const orgMap: Record<string, true> = { ...(req.jwtUser.organizer ?? {}) };
     const myTournaments = await db.select().from(tournamentsTable).where(eq(tournamentsTable.organizerId, organizerId));
     for (const t of myTournaments) orgMap[String(t.id)] = true;
-    setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizerId, organizer: orgMap });
+    await createOrganizerSession(res, {
+      organizerAccountId: organizerId,
+      claims: { ...req.jwtUser, organizerAccountId: organizerId, organizer: orgMap },
+      req,
+    });
   };
 
   try {
@@ -2682,6 +2769,10 @@ router.post("/auth/organizer-account/change-password", authLimiter, async (req, 
     .where(eq(organizersTable.id, req.jwtUser.organizerAccountId))
     .returning();
 
+  if (req.jwtUser.organizerAccountId) {
+    await revokeAllOrganizerSessions(req.jwtUser.organizerAccountId, req.sessionId);
+  }
+
   res.json({ success: true, organizer: organizerToJson(updated) });
 });
 
@@ -3022,7 +3113,11 @@ router.post("/auth/google/complete-profile/skip", async (req, res) => {
   }).returning();
 
   clearOAuthCookie(res);
-  setAuthCookie(res, { ...req.jwtUser, organizerAccountId: organizer.id, organizer: { ...(req.jwtUser.organizer ?? {}) } });
+  await createOrganizerSession(res, {
+    organizerAccountId: organizer.id,
+    claims: { ...req.jwtUser, organizerAccountId: organizer.id, organizer: { ...(req.jwtUser.organizer ?? {}) } },
+    req,
+  });
   triggerOrganiserRegisteredNotification(organizer);
   auditLog(req, {
     category: "auth",

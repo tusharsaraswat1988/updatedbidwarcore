@@ -73,4 +73,5 @@ export * from "./tournament-participations";
 export * from "./member-identity-links";
 export * from "./member-auth-identities";
 export * from "./member-sessions";
+export * from "./organizer-sessions";
 export * from "./bpl-editions";

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import jwt from "jsonwebtoken";
 import type { Response } from "express";
 import { getSessionSecret } from "./runtime-env";
@@ -21,6 +22,7 @@ export interface AuthClaims {
   tournamentDirector?: Record<string, true>;
   organizerAccountId?: number;
   email?: string;
+  sessionId?: string;
 }
 
 export interface OAuthState {
@@ -78,6 +80,10 @@ export function signAuthJwt(claims: AuthClaims): string {
   // re-signing a previously decoded payload — jsonwebtoken rejects duplicate exp.
   const { exp: _exp, iat: _iat, nbf: _nbf, ...cleanClaims } = claims as AuthClaims & { exp?: unknown; iat?: unknown; nbf?: unknown };
   return jwt.sign(cleanClaims, getSecret(), { expiresIn: JWT_EXPIRY });
+}
+
+export function computeTokenHash(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 export function verifyAuthJwt(token: string): AuthClaims | null {
@@ -199,10 +205,11 @@ function clearCookieAllVariants(res: Response, name: string): void {
   clearAuthCookieVariants(res, name);
 }
 
-export function setAuthCookie(res: Response, claims: AuthClaims): void {
+export function setAuthCookie(res: Response, claims: AuthClaims): { token: string; tokenHash: string } {
   clearCookieAllVariants(res, COOKIE_NAME);
   const token = signAuthJwt(claims);
   res.cookie(COOKIE_NAME, token, baseCookieOpts(res, JWT_EXPIRY));
+  return { token, tokenHash: computeTokenHash(token) };
 }
 
 export function clearAuthCookie(res: Response): void {
@@ -229,4 +236,4 @@ export function clearOwnerSessionCookie(res: Response): void {
   clearCookieAllVariants(res, OWNER_COOKIE_NAME);
 }
 
-export { COOKIE_NAME, OAUTH_COOKIE_NAME, OWNER_COOKIE_NAME };
+export { COOKIE_NAME, OAUTH_COOKIE_NAME, OWNER_COOKIE_NAME, JWT_EXPIRY };
