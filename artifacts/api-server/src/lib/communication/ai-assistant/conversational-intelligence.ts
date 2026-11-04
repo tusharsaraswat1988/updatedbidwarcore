@@ -34,7 +34,15 @@ export type ConversationalIntentType =
   | "LIVE_SCORE_QUERY"
   | "AFFIRMATION_CONFIRMATION"
   | "NEXT_MATCH_FOLLOWUP"
-  | "GENERAL_CONVERSATION";
+  | "GENERAL_CONVERSATION"
+  | "TOP_SOLD_PLAYERS_QUERY"
+  | "LAST_SOLD_PLAYERS_QUERY"
+  | "TEAM_PURSE_RANKING_QUERY"
+  | "MAX_BID_QUERY"
+  | "TEAM_HIERARCHY_QUERY"
+  | "SOLD_PLAYERS_SORTED_QUERY"
+  | "AUCTION_RULES_QUERY"
+  | "LIVE_AUCTION_STATE_QUERY";
 
 export interface IntentDetectionResult {
   intent: ConversationalIntentType;
@@ -44,6 +52,9 @@ export interface IntentDetectionResult {
   explicitLanguage?: LanguagePreference;
   emotionalTone?: "frustration" | "confusion" | "appreciation" | "urgency" | "disappointment" | "neutral";
   details?: string;
+  limit?: number;
+  metric?: "spent" | "remaining";
+  sortOrder?: "desc" | "asc";
 }
 
 export class ConversationalIntelligenceService {
@@ -136,7 +147,10 @@ export class ConversationalIntelligenceService {
     const match = clean.match(/^([A-Za-z][A-Za-z\s.'-]{2,40}?)\s+(?:ka|ki|ke)?\s*(?:auction\s+status|bidding|status|profile|kitne\s+mein\s+bika)\b/i);
     if (match && match[1]) {
       const name = match[1].trim();
-      if (!/^(?:mera|meri|mujhe|main|kis|kaunsi|abhi|live|tournament|match|team)$/i.test(name)) {
+      if (
+        !/^(?:mera|meri|mujhe|main|kis|kaunsi|abhi|live|tournament|match|team)$/i.test(name) &&
+        !/\b(?:league|cup|trophy|premier|tournament|championship|super|dpl|bpl|ipl|auction)\b/i.test(name)
+      ) {
         return name;
       }
     }
@@ -197,6 +211,16 @@ export class ConversationalIntelligenceService {
       };
     }
 
+    // 3b. Maximum Next Bid Query ("Maximum next bid kitni kar sakte hain?", "Meri team kitna bid kar sakti hai?")
+    if (
+      /\b(?:maximum\s+(?:permissible\s+)?next\s+bid|max\s+(?:next\s+)?bid|agla\s+bid\s+kitna|next\s+bid\s+kitni|kitna\s+bid\s+kar\s+sakte|maximum\s+bid|max\s+permissible)\b/i.test(clean)
+    ) {
+      return {
+        intent: "MAX_BID_QUERY",
+        confidence: 0.96,
+      };
+    }
+
     // 4. Player Personal Inquiry ("Mera auction status kya hai?", "Mujhe kis team ne kharida?", "Meri bidding kitne mein hui?", "Main sold hua ya unsold?")
     if (
       /\b(?:mera\s+auction\s+status|mera\s+player\s+profile|mera\s+status|mera\s+sold\s+price|meri\s+bidding|main\s+sold\s+hua|main\s+unsold\s+raha|main\s+bik\s+gaya|mujhe\s+kis(?:i|\s+team\s+ne|\s+ne)\s+(?:kharida|liya)|mujhe\s+kitne\s+mein\s+(?:kharida|liya|bika))\b/i.test(clean) ||
@@ -210,11 +234,115 @@ export class ConversationalIntelligenceService {
 
     // 5. Team Owner Personal Inquiry ("Meri team ne kitne players kharide?", "Mere paas kitna purse bacha hai?", "Meri team ke players kaun hain?", "Meri team ka auction status")
     if (
-      /\b(?:meri\s+team\s+ne\s+kitne\s+players|mere\s+paas\s+kitna\s+purse|meri\s+team\s+ke\s+players|meri\s+team\s+ka\s+auction\s+status|meri\s+team\s+ne\s+kitni\s+bidding|meri\s+team\s+ka\s+purse|mera\s+purse\s+kitna|meri\s+team\s+ka\s+budget)\b/i.test(clean) ||
-      (/\b(?:meri\s+team|mere\s+paas)\b/i.test(clean) && /\b(?:purse\s+bacha|budget\s+bacha|players\s+kharide|kitni\s+bidding)\b/i.test(clean))
+      /\b(?:meri\s+team\s+ne\s+kitne\s+players|mere\s+paas\s+kitna\s+purse|meri\s+team\s+ke\s+players|meri\s+team\s+ka\s+auction\s+status|meri\s+team\s+ne\s+kitni\s+bidding|meri\s+team\s+ka\s+purse|mera\s+purse\s+kitna|meri\s+team\s+ka\s+budget|meri\s+team\s+mein\s+kaun|meri\s+team\s+ka\s+remaining\s+purse)\b/i.test(clean) ||
+      (/\b(?:meri\s+team|mere\s+paas)\b/i.test(clean) && /\b(?:purse\s+bacha|budget\s+bacha|players\s+kharide|kitni\s+bidding|kaun[- ]kaun\s+se\s+players|remaining\s+purse)\b/i.test(clean))
     ) {
       return {
         intent: "TEAM_OWNER_PERSONAL_QUERY",
+        confidence: 0.95,
+      };
+    }
+
+    // 5b. Top N Highest Sold Players ("Sabse mehenga player kaun bika?", "Top 5 highest sold players batao", "Top 5 batao", "Sabse zyada amount kis player par laga")
+    const isSingleTop = /\b(?:sabse\s+mehenga|sabse\s+mehengi|highest\s+sold\s+player|sabse\s+zyada\s+amount\s+kis\s+player|most\s+expensive\s+player)\b/i.test(clean);
+    const topMatch = clean.match(/\b(?:top|highest)\s*(\d+)?\b/i);
+    if (
+      isSingleTop ||
+      (/\b(?:top\s*\d*|highest)\b/i.test(clean) && /\b(?:sold|players?|khiladi|bika|amount|mehenge?)\b/i.test(clean)) ||
+      /^(?:top\s*\d+|top\s+\d+\s+batao|top\s+batao)$/i.test(clean)
+    ) {
+      let limit = 5;
+      if (isSingleTop) {
+        limit = 1;
+      } else if (topMatch && topMatch[1]) {
+        limit = parseInt(topMatch[1], 10) || 5;
+      } else {
+        const numMatch = clean.match(/\b(\d+)\b/);
+        if (numMatch) limit = parseInt(numMatch[1], 10) || 5;
+      }
+      return {
+        intent: "TOP_SOLD_PLAYERS_QUERY",
+        confidence: 0.95,
+        limit,
+      };
+    }
+
+    // 5c. Last N Recently Sold Players ("Last 5 sold players kaun hain?", "Last 5 sold players", "Last sold players")
+    const lastMatch = clean.match(/\b(?:last|pichle|aakhri|latest|recent)\s*(\d+)?\b/i);
+    if (
+      /\b(?:last\s*\d*\s*sold|recently\s+sold|latest\s+sold|pichle\s*\d*\s*sold|aakhri\s*\d*\s*sold|last\s+\d+\s+players)\b/i.test(clean) ||
+      (/\b(?:last|pichle|aakhri|latest|recent)\b/i.test(clean) && /\b(?:sold\s+players?|bik\s+chuke|bika|players?\s+kaun\s+hai)\b/i.test(clean)) ||
+      /^(?:last\s*\d+|last\s+\d+\s+batao|last\s+batao)$/i.test(clean)
+    ) {
+      let limit = 5;
+      if (lastMatch && lastMatch[1]) {
+        limit = parseInt(lastMatch[1], 10) || 5;
+      } else {
+        const numMatch = clean.match(/\b(\d+)\b/);
+        if (numMatch) limit = parseInt(numMatch[1], 10) || 5;
+      }
+      return {
+        intent: "LAST_SOLD_PLAYERS_QUERY",
+        confidence: 0.95,
+        limit,
+      };
+    }
+
+    // 5d. Team Purse / Spending Rankings ("Kaunsi team ne sabse zyada paisa kharch kiya?", "Kis team ka purse sabse zyada bacha hai?")
+    if (
+      /\b(?:kaunsi\s+team\s+ne\s+sabse\s+zyada\s+paisa\s+kharch|kis\s+team\s+ne\s+sabse\s+zyada\s+paisa|kis\s+team\s+ka\s+purse\s+sabse\s+zyada|kis\s+team\s+ke\s+paas\s+sabse\s+zyada\s+purse|kis\s+team\s+ke\s+paas\s+sabse\s+kam\s+purse|team\s+spending\s+summary|purse\s+ranking|spending\s+ranking)\b/i.test(clean) ||
+      (/\b(?:kaunsi\s+team|kis\s+team|teams)\b/i.test(clean) && /\b(?:sabse\s+zyada\s+paisa|sabse\s+zyada\s+kharch|sabse\s+zyada\s+purse|purse\s+sabse\s+zyada|highest\s+purse|most\s+spent)\b/i.test(clean))
+    ) {
+      const metric = /\b(?:kharch|spent|spending|lagaya)\b/i.test(clean) ? "spent" : "remaining";
+      return {
+        intent: "TEAM_PURSE_RANKING_QUERY",
+        confidence: 0.95,
+        metric,
+      };
+    }
+
+    // 5e. Team-wise Acquisition Hierarchy ("Team-wise sold players ki list do", "Auction mein ab tak ka complete sold-player hierarchy batao")
+    if (
+      /\b(?:team[-\s]*wise\s+sold\s+players|complete\s+sold[-\s]*player\s+hierarchy|sold[-\s]*player\s+hierarchy|hierarchy\s+batao|har\s+team\s+ke\s+sold\s+players|complete\s+hierarchy|team[-\s]*wise\s+(?:sold\s+)?players\s+ki\s+list)\b/i.test(clean) ||
+      (/\bteam[-\s]*wise\b/i.test(clean) && /\b(?:sold|players|list|hierarchy)\b/i.test(clean)) ||
+      (/\bhierarchy\b/i.test(clean) && /\b(?:sold|auction|player|players|team)\b/i.test(clean))
+    ) {
+      return {
+        intent: "TEAM_HIERARCHY_QUERY",
+        confidence: 0.95,
+      };
+    }
+
+    // 5f. Sold Players Descending / Sorted ("Players ko sold amount ke descending order mein dikhao")
+    if (
+      /\b(?:descending\s+order|sold\s+amount\s+ke\s+(?:descending\s+)?order|amount\s+ke\s+descending|price\s+ke\s+descending)\b/i.test(clean)
+    ) {
+      return {
+        intent: "SOLD_PLAYERS_SORTED_QUERY",
+        confidence: 0.95,
+        sortOrder: "desc",
+      };
+    }
+
+    // 5g. Actual Configured Tournament / Auction Rules ("Tournament ke rules kya hain?", "Bid increment rules kya hain?", "Squad size limits kya hain?")
+    if (
+      /\b(?:tournament\s+ke\s+rules|auction\s+ke\s+rules|auction\s+rules|bid\s+increment\s+rules?|bid\s+increment\s+kya\s+hai|squad\s+size\s+limits?|purse\s+rules?|base\s+prices?\s+kya\s+hain?|player\s+categories|auction\s+format|registration\s+link\s+kya\s+hai|rules\s+batao|rules\s+kya\s+hain?)\b/i.test(clean) ||
+      (/\b(?:rules|format|bid\s+increment|base\s+prices?|squad\s+limits?|player\s+categories)\b/i.test(clean) && /\b(?:tournament|auction|kya\s+hai|kya\s+hain|rules)\b/i.test(clean))
+    ) {
+      return {
+        intent: "AUCTION_RULES_QUERY",
+        confidence: 0.95,
+      };
+    }
+
+    // 5h. Live Auction State Query ("Abhi auction ka kya status hai?", "Diamond Premier League ka status batao", "Current auction state kya hai?", "Abhi kaunsa player chal raha hai?", "Current bid kitni hai?")
+    if (
+      /\b(?:abhi\s+auction\s+ka\s+kya\s+status|current\s+auction\s+state|auction\s+live\s+hai\s+kya|current\s+player\s+kaun|current\s+bid\s+kitni|leading\s+team\s+kaunsi|abhi\s+kaunsa\s+player\s+chal\s+raha|current\s+player\s+on\s+block|live\s+auction\s+status|auction\s+(?:ka\s+)?(?:kya\s+)?status)\b/i.test(clean) ||
+      (/\b(?:league|cup|trophy|premier|tournament)\b/i.test(clean) && /\b(?:status|state)\b/i.test(clean) && !/\b(?:score|match)\b/i.test(clean)) ||
+      (/\b(?:abhi|current|live)\b/i.test(clean) && /\b(?:auction\s+ka\s+kya\s+status|auction\s+state|player\s+chal\s+raha|leading\s+team|current\s+player|auction\s+status)\b/i.test(clean))
+    ) {
+      return {
+        intent: "LIVE_AUCTION_STATE_QUERY",
         confidence: 0.95,
       };
     }

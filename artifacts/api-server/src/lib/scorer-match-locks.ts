@@ -71,12 +71,12 @@ export async function acquireMatchLock(input: {
       .from(scorerMatchLocksTable)
       .where(eq(scorerMatchLocksTable.matchId, input.matchId))
       .for("update");
-    const existing = rows[0] ?? null;
+    let existing = rows[0] ?? null;
 
     if (!existing) {
       const leaseId = crypto.randomUUID();
       const leaseVersion = 1;
-      const [lock] = await tx
+      const inserted = await tx
         .insert(scorerMatchLocksTable)
         .values({
           matchId: input.matchId,
@@ -88,20 +88,36 @@ export async function acquireMatchLock(input: {
           lastHeartbeatAt: now,
           expiresAt,
         })
+        .onConflictDoNothing()
         .returning();
 
-      await writeScorerAudit({
-        actorType: "scorer",
-        actorId: String(input.scorerId),
-        scorerId: input.scorerId,
-        sessionId: input.sessionId,
-        tournamentId: input.tournamentId,
-        matchId: input.matchId,
-        sport: input.sport,
-        action: "lock_acquired",
-        payload: { leaseId, leaseVersion },
-      });
-      return { ok: true, reacquired: false, lock: lock! };
+      const lock = inserted[0];
+      if (lock) {
+        await writeScorerAudit({
+          actorType: "scorer",
+          actorId: String(input.scorerId),
+          scorerId: input.scorerId,
+          sessionId: input.sessionId,
+          tournamentId: input.tournamentId,
+          matchId: input.matchId,
+          sport: input.sport,
+          action: "lock_acquired",
+          payload: { leaseId, leaseVersion },
+        });
+        return { ok: true, reacquired: false, lock };
+      }
+
+      // Another transaction won the insert race concurrently.
+      // Re-read with row lock to evaluate winner's lease status safely.
+      const reloaded = await tx
+        .select()
+        .from(scorerMatchLocksTable)
+        .where(eq(scorerMatchLocksTable.matchId, input.matchId))
+        .for("update");
+      existing = reloaded[0] ?? null;
+      if (!existing) {
+        return { ok: false, code: "MATCH_LOCKED" };
+      }
     }
 
     // Same session reacquisition / heartbeat refresh OR same scorer re-login takeover
@@ -210,7 +226,7 @@ export async function heartbeatMatchLock(input: {
       .from(scorerMatchLocksTable)
       .where(eq(scorerMatchLocksTable.matchId, input.matchId))
       .for("update");
-    const existing = rows[0] ?? null;
+    let existing = rows[0] ?? null;
 
     if (!existing) {
       throw new ScorerLockError("No lock for this match", "LOCK_NOT_FOUND", 404);
@@ -254,7 +270,7 @@ export async function releaseMatchLock(input: {
       .from(scorerMatchLocksTable)
       .where(eq(scorerMatchLocksTable.matchId, input.matchId))
       .for("update");
-    const existing = rows[0] ?? null;
+    let existing = rows[0] ?? null;
 
     if (!existing) return false;
     if (existing.sessionId !== input.sessionId) {
@@ -293,7 +309,7 @@ export async function forceUnlockMatch(input: {
       .from(scorerMatchLocksTable)
       .where(eq(scorerMatchLocksTable.matchId, input.matchId))
       .for("update");
-    const existing = rows[0] ?? null;
+    let existing = rows[0] ?? null;
 
     if (!existing) return false;
 

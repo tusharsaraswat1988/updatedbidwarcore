@@ -197,7 +197,8 @@ Verify with [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md) after every dep
 | `COMMUNICATION_WORKER_ENABLED` | No | `true` | Dashboard | Background retry worker for queued communications (default: `true`) |
 | `TWILIO_ACCOUNT_SID` | If Twilio | `ACxxxxxxxx...` | Secret | WhatsApp sends in stub mode |
 | `TWILIO_AUTH_TOKEN` | If Twilio | Auth token string | Secret | WhatsApp stub mode; webhook signature check skipped |
-| `TWILIO_WHATSAPP_FROM` | If Twilio | `+18382214175` | Dashboard | WhatsApp sender |
+| `TWILIO_WHATSAPP_FROM` | If Twilio | `+918543854379` | Dashboard | WhatsApp sender |
+| `KV_TECHMEDIA_WHATSAPP_NUMBER` | If KV TechMedia | `918543854379` | Dashboard | WhatsApp bot / sender number |
 | `TWILIO_WA_TEMPLATES` | No | `tpl_a,tpl_b` | Dashboard | WhatsApp template list empty in comm UI |
 | `EMAIL_ENABLED` | No | `true` | Dashboard | Email notifications run in stub mode (logged, not sent) |
 | `RESEND_API_KEY` | No | `re_...` | Secret | Resend API calls fail; emails stubbed when `EMAIL_ENABLED=true` |
