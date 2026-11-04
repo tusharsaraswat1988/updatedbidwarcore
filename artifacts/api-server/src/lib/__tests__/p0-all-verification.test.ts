@@ -40,8 +40,9 @@ describe("P0 Forensic Audit Verification", () => {
       // Verify HTML size is substantial (full rendered page, not empty boot shell)
       expect(result.appHtml.length).toBeGreaterThan(50000);
 
-      // Verify H1 exists in server-rendered output
-      expect(result.appHtml).toMatch(/<h1[^>]*>[\s\S]*?From Auction[\s\S]*?<\/h1>/i);
+      // Verify commercial H1 exists in server-rendered output
+      expect(result.appHtml).toMatch(/<h1[^>]*>[\s\S]*?Sports Auction Software[\s\S]*?<\/h1>/i);
+      expect(result.appHtml).toContain("From Auction to Champions");
 
       // Verify no boot splash inside rendered app
       expect(result.appHtml).not.toContain('id="bidwar-boot-splash"');

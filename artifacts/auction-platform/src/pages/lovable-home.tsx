@@ -431,15 +431,16 @@ export default function LovableHome() {
         />
 
         {/* Sticky Desktop & Mobile CTAs */}
-        <button
-          type="button"
-          onClick={openDemoWhatsApp}
+        <a
+          href={waMeUrl(DEMO_WA_MESSAGE)}
+          target="_blank"
+          rel="noopener noreferrer"
           className="gold-button gold-button-hover fixed bottom-6 right-6 z-40 hidden rounded-full px-6 py-3.5 text-xs font-bold uppercase tracking-wider shadow-2xl md:inline-flex items-center gap-2"
-          aria-label="Book live demo"
+          aria-label="Book live demo on WhatsApp"
         >
           <span>Book Live Demo</span>
           <span>→</span>
-        </button>
+        </a>
         <ScrollToTopButton placement="desktop-left" />
         <div
           ref={stickyCtaRef}
@@ -447,13 +448,12 @@ export default function LovableHome() {
           className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-stage/95 px-3 pt-3 backdrop-blur-md md:hidden pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         >
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={goSignup}
-              className="gold-button min-h-11 flex-1 rounded-md px-3 py-3 text-xs font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            <a
+              href="/organizer?tab=signup"
+              className="gold-button min-h-11 flex-1 inline-flex items-center justify-center rounded-md px-3 py-3 text-xs font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               Start Free Trial (2 Teams)
-            </button>
+            </a>
             {showScrollTop ? (
               <button
                 type="button"
@@ -759,11 +759,11 @@ function Hero({
           </div>
 
           <h1 className="text-hero font-display tracking-tight">
-            <span className="block">From Auction</span>
-            <span className="block gold-text">to Champions.</span>
+            <span className="block">IPL-Style Live</span>
+            <span className="block gold-text">Sports Auction Software.</span>
           </h1>
           <p className="text-display-md mt-4 max-w-xl font-display text-foreground">
-            One Platform. Every Stage of the Game.
+            From Auction to Champions — Real-Time Bidding &amp; Tournament Engine.
           </p>
 
           <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
@@ -772,20 +772,21 @@ function Hero({
           </p>
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={goSignup}
-              className="gold-button gold-button-hover min-h-11 rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
+            <a
+              href="/organizer?tab=signup"
+              className="gold-button gold-button-hover min-h-11 inline-flex items-center justify-center rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
             >
               Start Free Trial →
-            </button>
-            <button
-              type="button"
-              onClick={onDemo}
-              className="ghost-button ghost-button-hover min-h-11 rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
+            </a>
+            <a
+              href={waMeUrl(DEMO_WA_MESSAGE)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Book Live Demo on WhatsApp"
+              className="ghost-button ghost-button-hover min-h-11 inline-flex items-center justify-center rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
             >
               Book Live Demo
-            </button>
+            </a>
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-mono">
@@ -1538,7 +1539,7 @@ function AcademyPromo({
     {
       id: "ep1-setup",
       title: "Set Up Teams, Purses & Player Pools in 5 Minutes",
-      duration: "12:04",
+      status: "Curriculum · Coming Soon",
       tag: "Beginner",
       ep: "EPISODE 01",
       desc: "Configure team slots, virtual points purse limits, category pools (A/B/C) and QR player registration.",
@@ -1546,7 +1547,7 @@ function AcademyPromo({
     {
       id: "ep2-operator",
       title: "Operator Masterclass: Running Bids, Timers & Undos",
-      duration: "24:31",
+      status: "Curriculum · Coming Soon",
       tag: "Operator",
       ep: "EPISODE 02",
       desc: "Auctioneer control techniques: quick increments, countdown buzzer management, unsold recycling, and emergency undo.",
@@ -1554,7 +1555,7 @@ function AcademyPromo({
     {
       id: "ep3-owners",
       title: "Team-Owner Mobile Guide: Bidding & Purse Guard",
-      duration: "06:18",
+      status: "Curriculum · Coming Soon",
       tag: "Team Owners",
       ep: "EPISODE 03",
       desc: "How team owners log in on any phone browser, track remaining budget, and place real-time bids with purse protection.",
@@ -1562,7 +1563,7 @@ function AcademyPromo({
     {
       id: "ep4-broadcast",
       title: "LED Wall & OBS Livestream Setup for YouTube/Facebook",
-      duration: "18:47",
+      status: "Curriculum · Coming Soon",
       tag: "Broadcast",
       ep: "EPISODE 04",
       desc: "Wiring your laptop to 1080p60 LED stage walls, lower-thirds overlays in OBS Studio, and rotating sponsor banners.",
@@ -1605,8 +1606,8 @@ function AcademyPromo({
                     <span className="font-mono text-[9px] uppercase tracking-widest text-primary font-bold">
                       {lesson.ep}
                     </span>
-                    <span className="rounded bg-white/10 px-2 py-0.5 font-mono text-[9px] text-foreground">
-                      {lesson.duration}
+                    <span className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[9px] font-semibold text-primary">
+                      {lesson.status}
                     </span>
                   </div>
 
@@ -1624,10 +1625,10 @@ function AcademyPromo({
                   </span>
                   <button
                     type="button"
-                    onClick={() => onPlayLesson(lesson.title, lesson.duration, lesson.tag)}
-                    className="inline-flex min-h-11 items-center gap-1 px-1 text-primary text-xs font-bold uppercase tracking-wider hover:underline"
+                    onClick={() => navigate("/academy")}
+                    className="inline-flex min-h-11 items-center gap-1 px-1 text-primary text-xs font-bold uppercase tracking-wider hover:underline font-mono"
                   >
-                    <Play className="h-3 w-3 fill-current" /> Watch Video
+                    View Academy Syllabus →
                   </button>
                 </div>
               </div>

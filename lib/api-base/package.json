@@ -58,7 +58,8 @@
     "./tournament-rules": "./src/tournament-rules/index.ts",
     "./team-report-rules": "./src/team-report-rules.ts",
     "./auction-rules-pdf": "./src/auction-rules-pdf.ts",
-    "./consent-notice": "./src/consent-notice.ts"
+    "./consent-notice": "./src/consent-notice.ts",
+    "./pricing-tiers": "./src/pricing-tiers.ts"
   },
   "devDependencies": {
     "@types/node": "catalog:",

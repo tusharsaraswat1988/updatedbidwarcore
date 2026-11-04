@@ -32,6 +32,17 @@ export function TournamentCalculator({ onStartTrial }: { onStartTrial: () => voi
         </div>
 
         <AuctionExperienceSimulator onStartTrial={onStartTrial} />
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3.5 px-2">
+          <div className="text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">Ready to run your auction?</span> Set up your tournament in under 5 minutes with a zero-risk 2-team free trial.
+          </div>
+          <a
+            href="/organizer?tab=signup"
+            className="gold-button gold-button-hover min-h-10 inline-flex items-center justify-center rounded-md px-4 py-2 text-xs font-bold uppercase tracking-wider"
+          >
+            Start Free Trial (2 Teams) →
+          </a>
+        </div>
       </div>
     </section>
   );

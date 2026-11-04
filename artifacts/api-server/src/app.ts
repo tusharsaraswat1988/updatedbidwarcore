@@ -102,8 +102,9 @@ app.set("trust proxy", 1);
 // Therefore app-level host redirect is disabled by default and can be enabled
 // explicitly with ENABLE_APP_HOST_REDIRECT=true once edge rules are aligned.
 const CANONICAL_HOST = "bidwar.in";
-const NON_CANONICAL_HOST = "bidwar.in";
-const ENABLE_APP_HOST_REDIRECT = process.env.ENABLE_APP_HOST_REDIRECT === "true";
+const NON_CANONICAL_HOST = "www.bidwar.in";
+// App-level host redirect 301s www.bidwar.in to bidwar.in
+const ENABLE_APP_HOST_REDIRECT = process.env.ENABLE_APP_HOST_REDIRECT !== "false";
 
 if (isProd && ENABLE_APP_HOST_REDIRECT) {
   app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
