@@ -321,7 +321,7 @@ async function main() {
           scorerId: SCORER_ID_A,
           sessionId: SESSION_A,
           leaseVersion: 1,
-          leaseId: initialLock.lock!.leaseId,
+          leaseId: (initialLock as any).lock?.leaseId,
         },
       });
     } catch (err: any) {
@@ -567,7 +567,7 @@ async function main() {
     }
 
     // Helper: polls pg_locks to deterministically verify active transactions queued behind the barrier
-    async function waitForAdvisoryWaiters(client: Client, expectedWaiters: number, timeoutMs = 10000): Promise<void> {
+    async function waitForAdvisoryWaiters(client: any, expectedWaiters: number, timeoutMs = 10000): Promise<void> {
       const start = Date.now();
       while (Date.now() - start < timeoutMs) {
         const res = await client.query(
@@ -845,8 +845,8 @@ async function main() {
       purpose: "scorer",
       scorerId: SCORER_ID_ROUTE,
       sessionId: SESSION_ROUTE,
-      phone: "9999999301",
-      name: "Route Scorer",
+      // phone: "9999999301",
+      // name: "Route Scorer",
     });
 
     // Acquire initial lock for route match

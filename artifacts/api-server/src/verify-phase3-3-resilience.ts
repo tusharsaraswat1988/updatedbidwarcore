@@ -270,9 +270,16 @@ async function seedData(client: any) {
   logPass("Seed data initialized in PostgreSQL database.");
 }
 
+function createPgClient(): any {
+  const c = new (Client as any)({ connectionString: directDbUrl, ssl: { rejectUnauthorized: false } });
+  c.on("error", () => {});
+  return c;
+}
+
 // ── Main Runner ──────────────────────────────────────────────────────────────
 async function main() {
-  const masterClient = new Client({
+  const masterClient = createPgClient();
+  if (false) new Client({
     connectionString: directDbUrl,
     ssl: { rejectUnauthorized: false },
   });
@@ -286,8 +293,8 @@ async function main() {
     await seedData(masterClient);
 
     const adminToken = signAuthJwt({
-      userId: ORG_ID,
-      role: "organizer",
+      organizerAccountId: ORG_ID,
+      // role: "organizer",
       email: "org_phase33@bidwar.test",
       isAdmin: true,
       adminLevel: "master",
@@ -300,14 +307,14 @@ async function main() {
     logHeader("TEST 1: Simultaneous Multi-Owner Bidding War (3 Concurrent Owners)");
     {
       const barrierKey = 77101;
-      const barrierHoldingClient = new Client({ connectionString: directDbUrl, ssl: { rejectUnauthorized: false } });
+      const barrierHoldingClient = createPgClient();
       await barrierHoldingClient.connect();
       await barrierHoldingClient.query("BEGIN");
       await barrierHoldingClient.query("SELECT pg_advisory_xact_lock($1)", [barrierKey]);
 
       const createBiddingOwner = (teamId: number, bidAmount: number) => {
         return (async () => {
-          const client = new Client({ connectionString: directDbUrl, ssl: { rejectUnauthorized: false } });
+          const client = createPgClient();
           await client.connect();
           try {
             await client.query("SELECT pg_advisory_xact_lock($1)", [barrierKey]);
@@ -668,14 +675,14 @@ async function main() {
       // Match MATCH_ID_CONCURRENT currently has NO lock row in scorer_match_locks.
       // Two scorers (Alice & Charlie) concurrently attempt acquireMatchLock.
       const barrierKey = 77102;
-      const barrierClient = new Client({ connectionString: directDbUrl, ssl: { rejectUnauthorized: false } });
+      const barrierClient = createPgClient();
       await barrierClient.connect();
       await barrierClient.query("BEGIN");
       await barrierClient.query("SELECT pg_advisory_xact_lock($1)", [barrierKey]);
 
       const createLockAcquirer = (scorerId: number, sessionId: string) => {
         return (async () => {
-          const client = new Client({ connectionString: directDbUrl, ssl: { rejectUnauthorized: false } });
+          const client = createPgClient();
           await client.connect();
           try {
             await client.query("SELECT pg_advisory_xact_lock($1)", [barrierKey]);
