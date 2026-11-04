@@ -8,6 +8,11 @@
 **Staging Healthz Endpoint:** `https://stagingbidwar.up.railway.app/api/healthz`  
 **Environment Target:** Dedicated Staging Only (Production Untouched)
 
+> [!IMPORTANT]
+> **CORRIGENDUM & EVIDENCE CLASSIFICATION AMENDMENT (Phase 3.2 Corrective Audit)**:
+> In the Phase 3.1 test suite (`phase3-1-concurrency-verification.test.ts`), concurrency scenarios were validated using in-memory unit simulations (`MockDbStore`, `withMutationLock`, `SimulatedPostgresLockRow`, and simulated router handlers) rather than multi-connection physical PostgreSQL processes. While these unit simulations accurately tested application state transitions, describing them as "genuine PostgreSQL" and "production-route" tests was imprecise.
+> Genuine multi-connection PostgreSQL verification — utilizing distinct physical client TCP connections, live PostgreSQL database instances, kernel-level `SELECT ... FOR UPDATE` and `pg_advisory_xact_lock` row/advisory locking, and all 7 real Express HTTP routes — was executed in Phase 3.2 via `verify-phase3-2-real-postgres.ts`. See `docs/audits/BIDWAR-PHASE-3-2-REAL-POSTGRES-VERIFICATION-2026-11.md` for the full real-database evidence.
+
 ---
 
 ## 1. Executive Summary & Verification Classification

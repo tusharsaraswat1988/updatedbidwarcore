@@ -1,8 +1,8 @@
 import { pgTable, text, serial, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
-import { tournamentsTable } from "./tournaments.js";
-import { organizersTable } from "./organizers.js";
+import { tournamentsTable } from "./tournaments";
+import { organizersTable } from "./organizers";
 
 export const tournamentLicenseRequestsTable = pgTable(
   "tournament_license_requests",

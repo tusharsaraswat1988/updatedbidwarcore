@@ -32,7 +32,8 @@ if (rawUrl) {
   process.env.DIRECT_DATABASE_URL = isolatedUrl.replace("-pooler.", ".");
 }
 
-import { createPgClient, Client } from "@workspace/db";
+import { createPgClient, Client, db } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import request from "supertest";
 import express from "express";
 import cookieParser from "cookie-parser";
@@ -139,7 +140,8 @@ async function cleanupTestData(client: any) {
   const scorers = [SCORER_ID_A, SCORER_ID_B, SCORER_ID_ROUTE];
 
   await client.query(`DELETE FROM scoring_events WHERE match_id = ANY($1::int[])`, [matches]);
-  await client.query(`DELETE FROM scorer_match_locks WHERE match_id = ANY($1::int[])`, [matches]);
+  const delLocks = await client.query(`DELETE FROM scorer_match_locks WHERE match_id = ANY($1::int[])`, [matches]);
+  console.log(`[cleanup] Deleted scorer_match_locks rows: ${delLocks.rowCount}`);
   await client.query(`DELETE FROM badminton_match_details WHERE scoring_match_id = ANY($1::int[])`, [matches]);
   await client.query(`DELETE FROM scoring_matches WHERE id = ANY($1::int[])`, [matches]);
   await client.query(`DELETE FROM scorer_tournament_assignments WHERE scorer_id = ANY($1::int[])`, [scorers]);
@@ -242,6 +244,12 @@ async function main() {
   });
   await masterClient.connect();
 
+  const masterDbCheck = await masterClient.query("SELECT current_database()");
+  console.log("MASTER CLIENT CURRENT_DATABASE:", masterDbCheck.rows[0]);
+
+  const drizzleDbCheck = await db.execute(sql`SELECT current_database()`);
+  console.log("DRIZZLE DB CURRENT_DATABASE:", (drizzleDbCheck as any).rows[0]);
+
   try {
     await cleanupTestData(masterClient);
     await seedData(masterClient);
@@ -261,6 +269,7 @@ async function main() {
       tournamentId: TID_BADMINTON,
       sport: "badminton",
     });
+    console.log("INITIAL LOCK RESULT:", initialLock);
     assert(initialLock.ok && initialLock.lock?.leaseVersion === 1, "Alice acquired lease version 1");
 
     // Bob takes over lock
@@ -366,6 +375,7 @@ async function main() {
 
       // Start Client B takeover attempt concurrently
       const clientBPromise = (async () => {
+        try {
         await clientB.query("BEGIN");
         // This query will BLOCK in PostgreSQL waiting for Client A's transaction
         await clientB.query(
@@ -376,6 +386,10 @@ async function main() {
         );
         await clientB.query("COMMIT");
         clientBFinished = true;
+        } catch (bErr) {
+          console.error("Client B query failed:", bErr);
+          throw bErr;
+        }
       })();
 
       // Wait 300ms to allow Client B's query to arrive at Postgres server
@@ -384,12 +398,17 @@ async function main() {
       assert(clientBBlocked, "Client B is genuinely blocked waiting on PostgreSQL row lock!");
 
       // Client A persists valid event and commits
+      try {
       await clientA.query(`
-        INSERT INTO scoring_events (match_id, sequence, tournament_id, sport_slug, event_type, actor_type, actor_id, payload)
+        INSERT INTO scoring_events (match_id, sequence, tournament_id, sport_slug, event_type, actor_type, actor_id, payload_json)
         VALUES ($1, 1, $2, 'badminton', 'badminton.point.won', 'scorer', $3, '{"winningSide":"left","gameNumber":1,"winnerScore":1,"loserScore":0,"isGamePoint":false,"isMatchPoint":false}'::jsonb)
       `, [MATCH_ID_2, TID_BADMINTON, String(SCORER_ID_A)]);
       await clientA.query("COMMIT");
       logPass("Client A committed transaction and released row lock.");
+      } catch (errA) {
+        console.error(">>> CLIENT A FAILED WITH:", errA);
+        throw errA;
+      }
 
       // Now Client B must unblock and finish immediately
       await clientBPromise;
@@ -424,13 +443,13 @@ async function main() {
     // Setup active session for Player 1
     await masterClient.query(`
       INSERT INTO auction_sessions (
-        tournament_id, status, current_player_id, current_bid, current_bidder_team_id, revision, last_action
+        tournament_id, status, current_player_id, current_bid, current_bid_team_id, revision, last_action
       ) VALUES ($1, 'live', $2, NULL, NULL, 10, 'player_selected')
       ON CONFLICT (tournament_id) DO UPDATE SET
         status = 'live',
         current_player_id = $2,
         current_bid = NULL,
-        current_bidder_team_id = NULL,
+        current_bid_team_id = NULL,
         revision = 10,
         last_action = 'player_selected';
     `, [TID_AUCTION, PLAYER_ID_1]);
@@ -448,7 +467,7 @@ async function main() {
       // Update session with new bid and increment revision
       await connA.query(`
         UPDATE auction_sessions
-        SET current_bid = 250000, current_bidder_team_id = $1, revision = revision + 1, last_action = 'bid'
+        SET current_bid = 250000, current_bid_team_id = $1, revision = revision + 1, last_action = 'bid'
         WHERE tournament_id = $2
       `, [TEAM_ID_1, TID_AUCTION]);
 
@@ -493,7 +512,7 @@ async function main() {
 
       // Verify DB State integrity
       const postSess = await masterClient.query(
-        `SELECT current_bid, current_bidder_team_id, revision FROM auction_sessions WHERE tournament_id = $1`,
+        `SELECT current_bid, current_bid_team_id, revision FROM auction_sessions WHERE tournament_id = $1`,
         [TID_AUCTION],
       );
       assert(postSess.rows[0].current_bid === 250000, "Auction session retains valid current_bid = 250000");
@@ -522,7 +541,7 @@ async function main() {
     // Setup active session for Player 2
     await masterClient.query(`
       UPDATE auction_sessions
-      SET status = 'live', current_player_id = $1, current_bid = NULL, current_bidder_team_id = NULL, revision = 20, last_action = 'player_selected'
+      SET status = 'live', current_player_id = $1, current_bid = NULL, current_bid_team_id = NULL, revision = 20, last_action = 'player_selected'
       WHERE tournament_id = $2
     `, [PLAYER_ID_2, TID_AUCTION]);
 
@@ -617,59 +636,100 @@ async function main() {
       .set("Authorization", `Bearer ${scorerJwt}`)
       .send({
         matchKind: "singles",
-        leftSide: { label: "Left Player", shortLabel: "LP" },
-        rightSide: { label: "Right Player", shortLabel: "RP" },
-        tossWinner: "leftSide",
-        tossChoice: "serve",
-        server: "leftSide",
-        receiver: "rightSide",
+        leftSide: { label: "Left Player", shortLabel: "LP", playerIds: [1] },
+        rightSide: { label: "Right Player", shortLabel: "RP", playerIds: [2] },
+        firstServer: "left",
         format: {
-          totalGames: 3,
-          pointsPerGame: 21,
+          totalGames: 1,
+          pointsPerGame: 2,
           deuceAt: 20,
           maxPoints: 30,
-          midGameSideChange: false,
+          midGameSideChange: true,
         },
       });
+    if (startRes.status !== 200) {
+      console.error("POST /start error body:", startRes.body);
+    }
     assert(startRes.status === 200, `POST /start returned HTTP 200 (got ${startRes.status})`);
+    logPass("POST /start succeeded (HTTP 200)");
 
-    // Route 2: POST /matches/:matchId/point
-    logInfo("Executing 2/7: POST /matches/:matchId/point...");
-    const pointRes1 = await request(app)
-      .post(`/api/tournaments/${TID_ROUTE}/badminton/matches/${MATCH_ROUTE}/point`)
+    // Route 2: POST /matches/:matchId/edit-toss (valid at 0-0)
+    logInfo("Executing 2/7: POST /matches/:matchId/edit-toss...");
+    const editTossRes = await request(app)
+      .post(`/api/tournaments/${TID_ROUTE}/badminton/matches/${MATCH_ROUTE}/edit-toss`)
       .set("Authorization", `Bearer ${scorerJwt}`)
       .send({
-        scoringSide: "left",
-        reason: "winner",
+        leftSide: { label: "Left Player", shortLabel: "LP", playerIds: [1] },
+        rightSide: { label: "Right Player", shortLabel: "RP", playerIds: [2] },
+        firstServer: "right",
+        endsSwapped: false,
       });
-    assert(pointRes1.status === 200, `POST /point returned HTTP 200 (got ${pointRes1.status})`);
+    if (editTossRes.status !== 200) {
+      console.error("POST /edit-toss error body:", editTossRes.body);
+    }
+    assert(editTossRes.status === 200, `POST /edit-toss returned HTTP 200 (got ${editTossRes.status})`);
+    logPass("POST /edit-toss succeeded (HTTP 200)");
 
-    // Route 3: POST /matches/:matchId/undo
-    logInfo("Executing 3/7: POST /matches/:matchId/undo...");
-    const undoRes = await request(app)
-      .post(`/api/tournaments/${TID_ROUTE}/badminton/matches/${MATCH_ROUTE}/undo`)
-      .set("Authorization", `Bearer ${scorerJwt}`)
-      .send({});
-    assert(undoRes.status === 200, `POST /undo returned HTTP 200 (got ${undoRes.status})`);
-
-    // Route 4: POST /matches/:matchId/timeout
-    logInfo("Executing 4/7: POST /matches/:matchId/timeout...");
+    // Route 3: POST /matches/:matchId/timeout (start then end)
+    logInfo("Executing 3/7: POST /matches/:matchId/timeout...");
     const timeoutRes = await request(app)
       .post(`/api/tournaments/${TID_ROUTE}/badminton/matches/${MATCH_ROUTE}/timeout`)
       .set("Authorization", `Bearer ${scorerJwt}`)
       .send({
+        action: "start",
         side: "left",
-        durationSeconds: 60,
+        kind: "regular",
       });
-    assert(timeoutRes.status === 200, `POST /timeout returned HTTP 200 (got ${timeoutRes.status})`);
+    if (timeoutRes.status !== 200) {
+      console.error("POST /timeout start error body:", timeoutRes.body);
+    }
+    assert(timeoutRes.status === 200, `POST /timeout start returned HTTP 200 (got ${timeoutRes.status})`);
+    
+    // End the timeout so match can proceed
+    const timeoutEndRes = await request(app)
+      .post(`/api/tournaments/${TID_ROUTE}/badminton/matches/${MATCH_ROUTE}/timeout`)
+      .set("Authorization", `Bearer ${scorerJwt}`)
+      .send({
+        action: "end",
+      });
+    assert(timeoutEndRes.status === 200, `POST /timeout end returned HTTP 200 (got ${timeoutEndRes.status})`);
+    logPass("POST /timeout (start & end) succeeded (HTTP 200)");
 
-    // Route 5: POST /matches/:matchId/interval
+    // Route 4: POST /matches/:matchId/point (awards point to right, score reaches interval threshold 1)
+    logInfo("Executing 4/7: POST /matches/:matchId/point...");
+    const pointRes1 = await request(app)
+      .post(`/api/tournaments/${TID_ROUTE}/badminton/matches/${MATCH_ROUTE}/point`)
+      .set("Authorization", `Bearer ${scorerJwt}`)
+      .send({
+        side: "right",
+      });
+    if (pointRes1.status !== 200) {
+      console.error("POST /point error body:", pointRes1.body);
+    }
+    assert(pointRes1.status === 200, `POST /point returned HTTP 200 (got ${pointRes1.status})`);
+    logPass("POST /point succeeded (HTTP 200)");
+
+    // Route 5: POST /matches/:matchId/interval (start then end)
     logInfo("Executing 5/7: POST /matches/:matchId/interval...");
     const intervalRes = await request(app)
       .post(`/api/tournaments/${TID_ROUTE}/badminton/matches/${MATCH_ROUTE}/interval`)
       .set("Authorization", `Bearer ${scorerJwt}`)
-      .send({});
-    assert(intervalRes.status === 200, `POST /interval returned HTTP 200 (got ${intervalRes.status})`);
+      .send({
+        action: "start",
+      });
+    if (intervalRes.status !== 200) {
+      console.error("POST /interval start error body:", intervalRes.body);
+    }
+    assert(intervalRes.status === 200, `POST /interval start returned HTTP 200 (got ${intervalRes.status})`);
+
+    const intervalEndRes = await request(app)
+      .post(`/api/tournaments/${TID_ROUTE}/badminton/matches/${MATCH_ROUTE}/interval`)
+      .set("Authorization", `Bearer ${scorerJwt}`)
+      .send({
+        action: "end",
+      });
+    assert(intervalEndRes.status === 200, `POST /interval end returned HTTP 200 (got ${intervalEndRes.status})`);
+    logPass("POST /interval (start & end) succeeded (HTTP 200)");
 
     // Route 6: POST /matches/:matchId/court-change
     logInfo("Executing 6/7: POST /matches/:matchId/court-change...");
@@ -677,18 +737,23 @@ async function main() {
       .post(`/api/tournaments/${TID_ROUTE}/badminton/matches/${MATCH_ROUTE}/court-change`)
       .set("Authorization", `Bearer ${scorerJwt}`)
       .send({});
+    if (courtChangeRes.status !== 200) {
+      console.error("POST /court-change error body:", courtChangeRes.body);
+    }
     assert(courtChangeRes.status === 200, `POST /court-change returned HTTP 200 (got ${courtChangeRes.status})`);
+    logPass("POST /court-change succeeded (HTTP 200)");
 
-    // Route 7: POST /matches/:matchId/edit-toss
-    logInfo("Executing 7/7: POST /matches/:matchId/edit-toss...");
-    const editTossRes = await request(app)
-      .post(`/api/tournaments/${TID_ROUTE}/badminton/matches/${MATCH_ROUTE}/edit-toss`)
+    // Route 7: POST /matches/:matchId/undo
+    logInfo("Executing 7/7: POST /matches/:matchId/undo...");
+    const undoRes = await request(app)
+      .post(`/api/tournaments/${TID_ROUTE}/badminton/matches/${MATCH_ROUTE}/undo`)
       .set("Authorization", `Bearer ${scorerJwt}`)
-      .send({
-        tossWinner: "rightSide",
-        tossChoice: "serve",
-      });
-    assert(editTossRes.status === 200, `POST /edit-toss returned HTTP 200 (got ${editTossRes.status})`);
+      .send({});
+    if (undoRes.status !== 200) {
+      console.error("POST /undo error body:", undoRes.body);
+    }
+    assert(undoRes.status === 200, `POST /undo returned HTTP 200 (got ${undoRes.status})`);
+    logPass("POST /undo succeeded (HTTP 200)");
 
     // Verify all persisted rows in scoring_events
     const eventRows = await masterClient.query(
@@ -726,8 +791,7 @@ async function main() {
       .post(`/api/tournaments/${TID_ROUTE}/badminton/matches/${MATCH_ROUTE}/point`)
       .set("Authorization", `Bearer ${scorerJwt}`)
       .send({
-        scoringSide: "left",
-        reason: "winner",
+        side: "right",
       });
 
     assert(staleRouteRes.status === 409, `Stale route call rejected with HTTP 409 (got ${staleRouteRes.status})`);
