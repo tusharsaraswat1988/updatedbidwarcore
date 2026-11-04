@@ -136,7 +136,7 @@ export function PublicAuthCta({
         <button
           type="button"
           onClick={() => go("/organizer")}
-          className="ghost-button ghost-button-hover rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-medium whitespace-nowrap"
+          className="ghost-button ghost-button-hover rounded-lg px-2 sm:px-3 py-1.5 text-xs font-medium whitespace-nowrap"
         >
           Sign in
         </button>

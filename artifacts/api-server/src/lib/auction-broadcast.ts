@@ -48,7 +48,7 @@ export async function emitAuctionStateEvent<T extends BuiltAuctionState = BuiltA
     invalidate: sseInvalidate,
   });
 
-  return { ...state, eventVersion: envelope.version };
+  return { ...state, eventVersion: envelope.version } as unknown as T;
 }
 
 export async function emitBidEvent(

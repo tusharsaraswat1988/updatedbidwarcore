@@ -239,7 +239,7 @@ export function sendInjectedHtml(
   return true;
 }
 
-const ROOT_BEFORE_BODY_RE = /<div id="root">[\s\S]*<\/div>(?=\s*(?:<script|<\/body>))/;
+const ROOT_BEFORE_BODY_RE = /<div id="root"[^>]*>[\s\S]*<\/div>(?=\s*(?:<script|<\/body>))/;
 
 function serializeForScript(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
@@ -257,7 +257,7 @@ export function injectSsrHomepageDocument(
 
   let html = shellHtml;
   if (ROOT_BEFORE_BODY_RE.test(html)) {
-    html = html.replace(ROOT_BEFORE_BODY_RE, `<div id="root">${rootMarkup}</div>`);
+    html = html.replace(ROOT_BEFORE_BODY_RE, () => `<div id="root">${rootMarkup}</div>`);
   }
 
   return html.replace(

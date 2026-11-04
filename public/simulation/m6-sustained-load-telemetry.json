@@ -1,0 +1,1684 @@
+{
+  "simulation": {
+    "tournamentId": 18,
+    "tournamentName": "SIM_BIDWAR_PREMIER_LEAGUE",
+    "startTime": "2026-11-02T11:17:59.401Z",
+    "endTime": "2026-11-02T11:48:01.255Z",
+    "durationMinutes": 30,
+    "status": "COMPLETED",
+    "totalBidsAttempted": 79,
+    "totalBidsAccepted": 67,
+    "totalBidsRejected": 13,
+    "totalLotsExecuted": 20,
+    "totalCyclesCompleted": 1
+  },
+  "summary": {
+    "server": {
+      "baselineRssMb": 263.5,
+      "peakRssMb": 281.4,
+      "finalRssMb": 276.7,
+      "rssGrowthMb": 13.2,
+      "rssMemoryLeakDetected": false,
+      "meanEventLoopPingMs": 12.02,
+      "maxEventLoopPingMs": 22.41
+    },
+    "database": {
+      "baselineActiveConnections": 1,
+      "peakActiveConnections": 4,
+      "meanQueryLatencyMs": 88.3,
+      "maxQueryLatencyMs": 90.8,
+      "deadlocksOrLockTimeouts": 0
+    },
+    "browserSurfaces": {
+      "operator": {
+        "baselineJsHeapMb": 21.68,
+        "peakJsHeapMb": 47.12,
+        "finalJsHeapMb": 16.49
+      },
+      "ownersMean": {
+        "baselineJsHeapMb": 14.94,
+        "peakJsHeapMb": 15.38,
+        "finalJsHeapMb": 14.93
+      },
+      "obs_v2": {
+        "baselineJsHeapMb": 19.75,
+        "peakJsHeapMb": 22.59,
+        "finalJsHeapMb": 22.4
+      },
+      "led_screen": {
+        "baselineJsHeapMb": 16.69,
+        "peakJsHeapMb": 17.57,
+        "finalJsHeapMb": 17.3
+      }
+    },
+    "sseStability": {
+      "totalHeartbeatsReceived": 183,
+      "expectedHeartbeats": 150,
+      "heartbeatGaps": 0,
+      "unplannedDisconnections": 0,
+      "missedOrDuplicateEvents": 0
+    }
+  },
+  "snapshots": [
+    {
+      "minute": 1,
+      "timestamp": "2026-11-02T11:19:00.594Z",
+      "elapsedSeconds": 60,
+      "activeCycle": 1,
+      "activeLot": 26,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 263.5,
+        "heapUsedMb": 196.8,
+        "heapTotalMb": 238.5,
+        "eventLoopPingMs": 13.01,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 15,
+        "poolWaiting": 0,
+        "queryLatencyMs": 87.66,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 21.68,
+          "nodes": 1436,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 1.868
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.94,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 19.75,
+          "nodes": 784,
+          "layoutDurationSec": 0.234,
+          "recalcStyleDurationSec": 3.928
+        },
+        "led": {
+          "jsHeapUsedMb": 16.69,
+          "nodes": 440,
+          "layoutDurationSec": 17.434,
+          "recalcStyleDurationSec": 25.046
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 38,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 2,
+      "timestamp": "2026-11-02T11:20:00.424Z",
+      "elapsedSeconds": 120,
+      "activeCycle": 1,
+      "activeLot": 51,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 276.1,
+        "heapUsedMb": 218.4,
+        "heapTotalMb": 248.7,
+        "eventLoopPingMs": 14.43,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 15,
+        "poolWaiting": 0,
+        "queryLatencyMs": 90.7,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 44.43,
+          "nodes": 1472,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 1.954
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.62,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 21.99,
+          "nodes": 849,
+          "layoutDurationSec": 0.238,
+          "recalcStyleDurationSec": 4.382
+        },
+        "led": {
+          "jsHeapUsedMb": 17.1,
+          "nodes": 447,
+          "layoutDurationSec": 17.47,
+          "recalcStyleDurationSec": 25.115
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 43,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 3,
+      "timestamp": "2026-11-02T11:21:01.621Z",
+      "elapsedSeconds": 181,
+      "activeCycle": 1,
+      "activeLot": 77,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 26,
+      "server": {
+        "rssMb": 278.8,
+        "heapUsedMb": 216.2,
+        "heapTotalMb": 246,
+        "eventLoopPingMs": 12.84,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 15,
+        "poolWaiting": 0,
+        "queryLatencyMs": 90.39,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 21.82,
+          "nodes": 1436,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 2.035
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.44,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 20.32,
+          "nodes": 771,
+          "layoutDurationSec": 0.242,
+          "recalcStyleDurationSec": 4.944
+        },
+        "led": {
+          "jsHeapUsedMb": 16.99,
+          "nodes": 440,
+          "layoutDurationSec": 17.5,
+          "recalcStyleDurationSec": 25.178
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 49,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 4,
+      "timestamp": "2026-11-02T11:22:01.509Z",
+      "elapsedSeconds": 241,
+      "activeCycle": 1,
+      "activeLot": 102,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 280.3,
+        "heapUsedMb": 217.7,
+        "heapTotalMb": 246,
+        "eventLoopPingMs": 13.49,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 15,
+        "poolWaiting": 0,
+        "queryLatencyMs": 88.28,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 44.56,
+          "nodes": 1472,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 2.131
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.57,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.27,
+          "nodes": 862,
+          "layoutDurationSec": 0.246,
+          "recalcStyleDurationSec": 5.524
+        },
+        "led": {
+          "jsHeapUsedMb": 16.79,
+          "nodes": 447,
+          "layoutDurationSec": 17.531,
+          "recalcStyleDurationSec": 25.251
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 54,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 5,
+      "timestamp": "2026-11-02T11:22:59.780Z",
+      "elapsedSeconds": 300,
+      "activeCycle": 1,
+      "activeLot": 127,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 280.5,
+        "heapUsedMb": 207.4,
+        "heapTotalMb": 246.7,
+        "eventLoopPingMs": 12.98,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 15,
+        "poolWaiting": 0,
+        "queryLatencyMs": 86.71,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 47.12,
+          "nodes": 1502,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 2.216
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.66,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 19.76,
+          "nodes": 771,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 6.04
+        },
+        "led": {
+          "jsHeapUsedMb": 16.6,
+          "nodes": 440,
+          "layoutDurationSec": 17.557,
+          "recalcStyleDurationSec": 25.306
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 58,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 6,
+      "timestamp": "2026-11-02T11:24:01.322Z",
+      "elapsedSeconds": 361,
+      "activeCycle": 1,
+      "activeLot": 153,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 26,
+      "server": {
+        "rssMb": 281,
+        "heapUsedMb": 203.3,
+        "heapTotalMb": 247.7,
+        "eventLoopPingMs": 13.74,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 15,
+        "poolWaiting": 0,
+        "queryLatencyMs": 89.94,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 44.58,
+          "nodes": 1472,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 2.294
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.27,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.25,
+          "nodes": 849,
+          "layoutDurationSec": 0.254,
+          "recalcStyleDurationSec": 6.74
+        },
+        "led": {
+          "jsHeapUsedMb": 16.67,
+          "nodes": 447,
+          "layoutDurationSec": 17.588,
+          "recalcStyleDurationSec": 25.376
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 63,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 7,
+      "timestamp": "2026-11-02T11:25:00.914Z",
+      "elapsedSeconds": 421,
+      "activeCycle": 1,
+      "activeLot": 178,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 279.3,
+        "heapUsedMb": 204.6,
+        "heapTotalMb": 249,
+        "eventLoopPingMs": 8.04,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 15,
+        "poolWaiting": 0,
+        "queryLatencyMs": 87.13,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 44.34,
+          "nodes": 1502,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 2.372
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.42,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 20.34,
+          "nodes": 784,
+          "layoutDurationSec": 0.258,
+          "recalcStyleDurationSec": 7.234
+        },
+        "led": {
+          "jsHeapUsedMb": 17.06,
+          "nodes": 440,
+          "layoutDurationSec": 17.614,
+          "recalcStyleDurationSec": 25.441
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 68,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 8,
+      "timestamp": "2026-11-02T11:26:00.879Z",
+      "elapsedSeconds": 481,
+      "activeCycle": 1,
+      "activeLot": 203,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 279.4,
+        "heapUsedMb": 199.8,
+        "heapTotalMb": 249,
+        "eventLoopPingMs": 18.01,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 15,
+        "poolWaiting": 0,
+        "queryLatencyMs": 88.99,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 29.54,
+          "nodes": 1448,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 2.459
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.66,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.27,
+          "nodes": 862,
+          "layoutDurationSec": 0.262,
+          "recalcStyleDurationSec": 7.68
+        },
+        "led": {
+          "jsHeapUsedMb": 16.82,
+          "nodes": 447,
+          "layoutDurationSec": 17.645,
+          "recalcStyleDurationSec": 25.51
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 73,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 9,
+      "timestamp": "2026-11-02T11:27:00.823Z",
+      "elapsedSeconds": 541,
+      "activeCycle": 1,
+      "activeLot": 228,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 280.9,
+        "heapUsedMb": 222.1,
+        "heapTotalMb": 249,
+        "eventLoopPingMs": 13.64,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 15,
+        "poolWaiting": 0,
+        "queryLatencyMs": 88.78,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 35.7,
+          "nodes": 1484,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 2.551
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 15.24,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 20.33,
+          "nodes": 771,
+          "layoutDurationSec": 0.266,
+          "recalcStyleDurationSec": 8.101
+        },
+        "led": {
+          "jsHeapUsedMb": 17.18,
+          "nodes": 440,
+          "layoutDurationSec": 17.679,
+          "recalcStyleDurationSec": 25.585
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 78,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 10,
+      "timestamp": "2026-11-02T11:28:00.665Z",
+      "elapsedSeconds": 600,
+      "activeCycle": 1,
+      "activeLot": 253,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 281.4,
+        "heapUsedMb": 213.3,
+        "heapTotalMb": 249.5,
+        "eventLoopPingMs": 6.49,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 6,
+        "poolWaiting": 0,
+        "queryLatencyMs": 87.41,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 29.64,
+          "nodes": 1448,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 2.628
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.82,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.06,
+          "nodes": 862,
+          "layoutDurationSec": 0.27,
+          "recalcStyleDurationSec": 8.547
+        },
+        "led": {
+          "jsHeapUsedMb": 16.87,
+          "nodes": 440,
+          "layoutDurationSec": 17.708,
+          "recalcStyleDurationSec": 25.654
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 83,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 11,
+      "timestamp": "2026-11-02T11:28:59.756Z",
+      "elapsedSeconds": 660,
+      "activeCycle": 1,
+      "activeLot": 278,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 280.4,
+        "heapUsedMb": 213.1,
+        "heapTotalMb": 250,
+        "eventLoopPingMs": 13.81,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 3,
+        "poolWaiting": 0,
+        "queryLatencyMs": 90.8,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 32.06,
+          "nodes": 1478,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 2.789
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 15.16,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 19.8,
+          "nodes": 771,
+          "layoutDurationSec": 0.274,
+          "recalcStyleDurationSec": 9.011
+        },
+        "led": {
+          "jsHeapUsedMb": 17.19,
+          "nodes": 447,
+          "layoutDurationSec": 17.737,
+          "recalcStyleDurationSec": 25.719
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 88,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 12,
+      "timestamp": "2026-11-02T11:30:01.150Z",
+      "elapsedSeconds": 721,
+      "activeCycle": 1,
+      "activeLot": 303,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 278.9,
+        "heapUsedMb": 208.6,
+        "heapTotalMb": 249.7,
+        "eventLoopPingMs": 1.42,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 3,
+        "poolWaiting": 0,
+        "queryLatencyMs": 88.28,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 29.69,
+          "nodes": 1448,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 2.867
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.79,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.29,
+          "nodes": 849,
+          "layoutDurationSec": 0.278,
+          "recalcStyleDurationSec": 9.501
+        },
+        "led": {
+          "jsHeapUsedMb": 17.11,
+          "nodes": 440,
+          "layoutDurationSec": 17.766,
+          "recalcStyleDurationSec": 25.78
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 93,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 13,
+      "timestamp": "2026-11-02T11:31:01.261Z",
+      "elapsedSeconds": 781,
+      "activeCycle": 1,
+      "activeLot": 328,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 280,
+        "heapUsedMb": 209.9,
+        "heapTotalMb": 251.2,
+        "eventLoopPingMs": 15.2,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 4,
+        "poolWaiting": 0,
+        "queryLatencyMs": 86.98,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 35.85,
+          "nodes": 1484,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 2.941
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.84,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 20.39,
+          "nodes": 784,
+          "layoutDurationSec": 0.282,
+          "recalcStyleDurationSec": 10.157
+        },
+        "led": {
+          "jsHeapUsedMb": 17.26,
+          "nodes": 447,
+          "layoutDurationSec": 17.797,
+          "recalcStyleDurationSec": 25.841
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 98,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 14,
+      "timestamp": "2026-11-02T11:32:01.787Z",
+      "elapsedSeconds": 842,
+      "activeCycle": 1,
+      "activeLot": 353,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 279.7,
+        "heapUsedMb": 201.8,
+        "heapTotalMb": 251.2,
+        "eventLoopPingMs": 12.82,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 4,
+        "poolWaiting": 0,
+        "queryLatencyMs": 86.83,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 29.7,
+          "nodes": 1448,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 3.016
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.77,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.31,
+          "nodes": 862,
+          "layoutDurationSec": 0.286,
+          "recalcStyleDurationSec": 10.56
+        },
+        "led": {
+          "jsHeapUsedMb": 17.24,
+          "nodes": 440,
+          "layoutDurationSec": 17.828,
+          "recalcStyleDurationSec": 25.911
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 103,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 15,
+      "timestamp": "2026-11-02T11:33:01.406Z",
+      "elapsedSeconds": 901,
+      "activeCycle": 1,
+      "activeLot": 378,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 279.8,
+        "heapUsedMb": 203.2,
+        "heapTotalMb": 251.2,
+        "eventLoopPingMs": 14.95,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 4,
+        "poolWaiting": 0,
+        "queryLatencyMs": 88.61,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 35.85,
+          "nodes": 1484,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 3.092
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.63,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 20.39,
+          "nodes": 784,
+          "layoutDurationSec": 0.29,
+          "recalcStyleDurationSec": 11.007
+        },
+        "led": {
+          "jsHeapUsedMb": 17.14,
+          "nodes": 447,
+          "layoutDurationSec": 17.854,
+          "recalcStyleDurationSec": 25.972
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 108,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 16,
+      "timestamp": "2026-11-02T11:34:01.613Z",
+      "elapsedSeconds": 961,
+      "activeCycle": 1,
+      "activeLot": 403,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 279.5,
+        "heapUsedMb": 216.1,
+        "heapTotalMb": 251.2,
+        "eventLoopPingMs": 13.15,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 4,
+        "poolWaiting": 0,
+        "queryLatencyMs": 86.49,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 29.74,
+          "nodes": 1448,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 3.161
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.96,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.33,
+          "nodes": 862,
+          "layoutDurationSec": 0.295,
+          "recalcStyleDurationSec": 11.554
+        },
+        "led": {
+          "jsHeapUsedMb": 16.97,
+          "nodes": 440,
+          "layoutDurationSec": 17.885,
+          "recalcStyleDurationSec": 26.055
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 113,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 17,
+      "timestamp": "2026-11-02T11:35:00.273Z",
+      "elapsedSeconds": 1020,
+      "activeCycle": 1,
+      "activeLot": 428,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 280.9,
+        "heapUsedMb": 215.1,
+        "heapTotalMb": 251,
+        "eventLoopPingMs": 14.12,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 4,
+        "poolWaiting": 0,
+        "queryLatencyMs": 87.81,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 33.39,
+          "nodes": 1478,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 3.227
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 15.15,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 19.87,
+          "nodes": 771,
+          "layoutDurationSec": 0.298,
+          "recalcStyleDurationSec": 12.449
+        },
+        "led": {
+          "jsHeapUsedMb": 17.25,
+          "nodes": 447,
+          "layoutDurationSec": 17.919,
+          "recalcStyleDurationSec": 26.14
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 118,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 18,
+      "timestamp": "2026-11-02T11:36:00.388Z",
+      "elapsedSeconds": 1080,
+      "activeCycle": 1,
+      "activeLot": 453,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 279.9,
+        "heapUsedMb": 217.1,
+        "heapTotalMb": 250.5,
+        "eventLoopPingMs": 1.08,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 4,
+        "poolWaiting": 0,
+        "queryLatencyMs": 90.07,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 29.79,
+          "nodes": 1448,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 3.295
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 15.08,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.13,
+          "nodes": 849,
+          "layoutDurationSec": 0.302,
+          "recalcStyleDurationSec": 12.942
+        },
+        "led": {
+          "jsHeapUsedMb": 17.24,
+          "nodes": 440,
+          "layoutDurationSec": 17.945,
+          "recalcStyleDurationSec": 26.197
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 123,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 19,
+      "timestamp": "2026-11-02T11:37:00.688Z",
+      "elapsedSeconds": 1141,
+      "activeCycle": 1,
+      "activeLot": 478,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 278.9,
+        "heapUsedMb": 213.6,
+        "heapTotalMb": 250,
+        "eventLoopPingMs": 10.73,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 4,
+        "poolWaiting": 0,
+        "queryLatencyMs": 87.18,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 35.96,
+          "nodes": 1484,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 3.364
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.83,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 19.9,
+          "nodes": 784,
+          "layoutDurationSec": 0.307,
+          "recalcStyleDurationSec": 13.405
+        },
+        "led": {
+          "jsHeapUsedMb": 16.9,
+          "nodes": 447,
+          "layoutDurationSec": 17.972,
+          "recalcStyleDurationSec": 26.253
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 128,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 20,
+      "timestamp": "2026-11-02T11:38:00.025Z",
+      "elapsedSeconds": 1200,
+      "activeCycle": 1,
+      "activeLot": 501,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 23,
+      "server": {
+        "rssMb": 279.2,
+        "heapUsedMb": 209.6,
+        "heapTotalMb": 252,
+        "eventLoopPingMs": 13.89,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 4,
+        "poolWaiting": 0,
+        "queryLatencyMs": 86.95,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 26.08,
+          "nodes": 1442,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 3.438
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.61,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.16,
+          "nodes": 849,
+          "layoutDurationSec": 0.311,
+          "recalcStyleDurationSec": 13.834
+        },
+        "led": {
+          "jsHeapUsedMb": 17.32,
+          "nodes": 440,
+          "layoutDurationSec": 18.002,
+          "recalcStyleDurationSec": 26.319
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 133,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 21,
+      "timestamp": "2026-11-02T11:39:01.167Z",
+      "elapsedSeconds": 1261,
+      "activeCycle": 1,
+      "activeLot": 526,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 279.1,
+        "heapUsedMb": 201.8,
+        "heapTotalMb": 252,
+        "eventLoopPingMs": 1.32,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 4,
+        "poolWaiting": 0,
+        "queryLatencyMs": 87.38,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 36,
+          "nodes": 1484,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 3.518
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.66,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 20.47,
+          "nodes": 784,
+          "layoutDurationSec": 0.315,
+          "recalcStyleDurationSec": 14.382
+        },
+        "led": {
+          "jsHeapUsedMb": 17.25,
+          "nodes": 447,
+          "layoutDurationSec": 18.036,
+          "recalcStyleDurationSec": 26.39
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 138,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 22,
+      "timestamp": "2026-11-02T11:40:00.905Z",
+      "elapsedSeconds": 1321,
+      "activeCycle": 1,
+      "activeLot": 550,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 24,
+      "server": {
+        "rssMb": 279.6,
+        "heapUsedMb": 203.9,
+        "heapTotalMb": 250.2,
+        "eventLoopPingMs": 12.68,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 4,
+        "poolWaiting": 0,
+        "queryLatencyMs": 88.8,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 29.82,
+          "nodes": 1448,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 3.597
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 15.38,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.38,
+          "nodes": 862,
+          "layoutDurationSec": 0.319,
+          "recalcStyleDurationSec": 14.986
+        },
+        "led": {
+          "jsHeapUsedMb": 17.26,
+          "nodes": 440,
+          "layoutDurationSec": 18.062,
+          "recalcStyleDurationSec": 26.448
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 143,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 23,
+      "timestamp": "2026-11-02T11:41:01.080Z",
+      "elapsedSeconds": 1381,
+      "activeCycle": 1,
+      "activeLot": 575,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 279.4,
+        "heapUsedMb": 215.7,
+        "heapTotalMb": 250.5,
+        "eventLoopPingMs": 13.91,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 3,
+        "poolWaiting": 0,
+        "queryLatencyMs": 86.43,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 36.01,
+          "nodes": 1484,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 3.667
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.92,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 20.46,
+          "nodes": 771,
+          "layoutDurationSec": 0.323,
+          "recalcStyleDurationSec": 15.455
+        },
+        "led": {
+          "jsHeapUsedMb": 17.24,
+          "nodes": 447,
+          "layoutDurationSec": 18.083,
+          "recalcStyleDurationSec": 26.5
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 148,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 24,
+      "timestamp": "2026-11-02T11:42:01.458Z",
+      "elapsedSeconds": 1441,
+      "activeCycle": 1,
+      "activeLot": 600,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 279.4,
+        "heapUsedMb": 216.7,
+        "heapTotalMb": 250.7,
+        "eventLoopPingMs": 14.29,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 3,
+        "poolWaiting": 0,
+        "queryLatencyMs": 89.22,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 29.85,
+          "nodes": 1448,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 3.74
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 15.28,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.37,
+          "nodes": 862,
+          "layoutDurationSec": 0.327,
+          "recalcStyleDurationSec": 15.984
+        },
+        "led": {
+          "jsHeapUsedMb": 16.66,
+          "nodes": 440,
+          "layoutDurationSec": 18.106,
+          "recalcStyleDurationSec": 26.558
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 153,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 25,
+      "timestamp": "2026-11-02T11:43:00.181Z",
+      "elapsedSeconds": 1500,
+      "activeCycle": 1,
+      "activeLot": 624,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 24,
+      "server": {
+        "rssMb": 279.4,
+        "heapUsedMb": 217.5,
+        "heapTotalMb": 250.7,
+        "eventLoopPingMs": 14.49,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 3,
+        "poolWaiting": 0,
+        "queryLatencyMs": 86.97,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 32.28,
+          "nodes": 1478,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 3.813
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 15.04,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 20.43,
+          "nodes": 771,
+          "layoutDurationSec": 0.331,
+          "recalcStyleDurationSec": 16.425
+        },
+        "led": {
+          "jsHeapUsedMb": 17.31,
+          "nodes": 447,
+          "layoutDurationSec": 18.13,
+          "recalcStyleDurationSec": 26.611
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 158,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 26,
+      "timestamp": "2026-11-02T11:44:01.165Z",
+      "elapsedSeconds": 1561,
+      "activeCycle": 1,
+      "activeLot": 649,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 277.9,
+        "heapUsedMb": 211.7,
+        "heapTotalMb": 250.7,
+        "eventLoopPingMs": 22.41,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 3,
+        "poolWaiting": 0,
+        "queryLatencyMs": 90.78,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 29.85,
+          "nodes": 1448,
+          "layoutDurationSec": 0.147,
+          "recalcStyleDurationSec": 3.891
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.78,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.59,
+          "nodes": 849,
+          "layoutDurationSec": 0.335,
+          "recalcStyleDurationSec": 16.842
+        },
+        "led": {
+          "jsHeapUsedMb": 17.57,
+          "nodes": 454,
+          "layoutDurationSec": 18.159,
+          "recalcStyleDurationSec": 26.671
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 163,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 27,
+      "timestamp": "2026-11-02T11:45:00.472Z",
+      "elapsedSeconds": 1620,
+      "activeCycle": 1,
+      "activeLot": 674,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 281,
+        "heapUsedMb": 203.7,
+        "heapTotalMb": 250.5,
+        "eventLoopPingMs": 5.33,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 3,
+        "poolWaiting": 0,
+        "queryLatencyMs": 87.86,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 36.63,
+          "nodes": 1518,
+          "layoutDurationSec": 0.159,
+          "recalcStyleDurationSec": 4.002
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.89,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 20.5,
+          "nodes": 784,
+          "layoutDurationSec": 0.338,
+          "recalcStyleDurationSec": 17.75
+        },
+        "led": {
+          "jsHeapUsedMb": 17.52,
+          "nodes": 447,
+          "layoutDurationSec": 18.196,
+          "recalcStyleDurationSec": 26.756
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 168,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 28,
+      "timestamp": "2026-11-02T11:46:00.744Z",
+      "elapsedSeconds": 1681,
+      "activeCycle": 1,
+      "activeLot": 699,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 280,
+        "heapUsedMb": 203.6,
+        "heapTotalMb": 251.7,
+        "eventLoopPingMs": 14.14,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 3,
+        "poolWaiting": 0,
+        "queryLatencyMs": 88.83,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 44.06,
+          "nodes": 1802,
+          "layoutDurationSec": 0.006,
+          "recalcStyleDurationSec": 0.025
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 15.02,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.2,
+          "nodes": 849,
+          "layoutDurationSec": 0.343,
+          "recalcStyleDurationSec": 18.602
+        },
+        "led": {
+          "jsHeapUsedMb": 17.29,
+          "nodes": 440,
+          "layoutDurationSec": 18.238,
+          "recalcStyleDurationSec": 26.841
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 173,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 29,
+      "timestamp": "2026-11-02T11:47:00.609Z",
+      "elapsedSeconds": 1740,
+      "activeCycle": 1,
+      "activeLot": 724,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 25,
+      "server": {
+        "rssMb": 277,
+        "heapUsedMb": 219.8,
+        "heapTotalMb": 251.7,
+        "eventLoopPingMs": 14.54,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 3,
+        "poolWaiting": 0,
+        "queryLatencyMs": 89.15,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 16.46,
+          "nodes": 222,
+          "layoutDurationSec": 0.006,
+          "recalcStyleDurationSec": 0.025
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 15.32,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 19.95,
+          "nodes": 784,
+          "layoutDurationSec": 0.346,
+          "recalcStyleDurationSec": 19.434
+        },
+        "led": {
+          "jsHeapUsedMb": 17.01,
+          "nodes": 447,
+          "layoutDurationSec": 18.264,
+          "recalcStyleDurationSec": 26.9
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 178,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    },
+    {
+      "minute": 30,
+      "timestamp": "2026-11-02T11:48:01.254Z",
+      "elapsedSeconds": 1801,
+      "activeCycle": 1,
+      "activeLot": 750,
+      "cumulativeBids": 67,
+      "bidsLastMinute": 26,
+      "server": {
+        "rssMb": 276.7,
+        "heapUsedMb": 205.5,
+        "heapTotalMb": 251.7,
+        "eventLoopPingMs": 9.78,
+        "activeSseClients": 10
+      },
+      "database": {
+        "activeConnections": 1,
+        "idleConnections": 3,
+        "poolWaiting": 0,
+        "queryLatencyMs": 87.47,
+        "advisoryLocksHeld": 0
+      },
+      "browser": {
+        "operator": {
+          "jsHeapUsedMb": 16.49,
+          "nodes": 222,
+          "layoutDurationSec": 0.006,
+          "recalcStyleDurationSec": 0.025
+        },
+        "ownersMean": {
+          "jsHeapUsedMb": 14.93,
+          "nodes": 600,
+          "layoutDurationSec": 0.25,
+          "recalcStyleDurationSec": 0.18
+        },
+        "obs": {
+          "jsHeapUsedMb": 22.4,
+          "nodes": 862,
+          "layoutDurationSec": 0.35,
+          "recalcStyleDurationSec": 19.96
+        },
+        "led": {
+          "jsHeapUsedMb": 17.3,
+          "nodes": 440,
+          "layoutDurationSec": 18.295,
+          "recalcStyleDurationSec": 26.965
+        }
+      },
+      "sse": {
+        "heartbeatsReceived": 183,
+        "lastEventVersion": 506,
+        "connectionStatus": "healthy"
+      }
+    }
+  ]
+}

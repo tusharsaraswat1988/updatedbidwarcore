@@ -10,6 +10,7 @@ import {
   MORE_NAV_LINKS,
   SOLUTION_PLATFORM_LINKS,
   SOLUTION_SPORT_LINKS,
+  resolveSectionId,
 } from "@/lib/public-site-links";
 
 const landingHeaderPreset = getBrandSurfacePreset("landing-header");
@@ -58,12 +59,7 @@ export function PublicNavbar() {
 
   const onSectionClick = useCallback(
     (sectionId: string, event?: MouseEvent<HTMLAnchorElement>) => {
-      const targetId =
-        sectionId === "surfaces" || sectionId === "features"
-          ? "auction-screens"
-          : sectionId === "tournaments" || sectionId === "cases"
-            ? "tournament-galleries"
-            : sectionId;
+      const targetId = resolveSectionId(sectionId);
 
       if (!isHome) {
         closeMobileMenu();
@@ -137,7 +133,7 @@ export function PublicNavbar() {
               Auction Screens
             </a>
             <a
-              href="/#experience-bidding"
+              href="/#auction-screens"
               onClick={(e) => onSectionClick("experience-bidding", e)}
               className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
             >
@@ -318,7 +314,7 @@ export function PublicNavbar() {
 
                 {[
                   { label: "Auction Screens", href: "/#auction-screens", sectionId: "auction-screens" },
-                  { label: "Experience Bidding", href: "/#experience-bidding", sectionId: "experience-bidding" },
+                  { label: "Experience Bidding", href: "/#auction-screens", sectionId: "experience-bidding" },
                   { label: "Tournament Galleries", href: "/#tournament-galleries", sectionId: "tournament-galleries" },
                 ].map((item) => (
                   <a

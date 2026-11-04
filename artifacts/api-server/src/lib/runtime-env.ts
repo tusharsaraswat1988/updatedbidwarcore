@@ -619,4 +619,12 @@ export function assertServeStaticBuild(auctionDistPath: string): void {
         `Run "pnpm run build:deploy" from the repository root, then start the server again.`,
     );
   }
+
+  const ssrBundle = path.resolve(auctionDistPath, "../server/entry-server.js");
+  if (!existsSync(ssrBundle)) {
+    console.warn(
+      { path: ssrBundle },
+      "SERVE_STATIC is enabled but entry-server.js was not found. Homepage will use SPA fallback until SSR bundle is built.",
+    );
+  }
 }

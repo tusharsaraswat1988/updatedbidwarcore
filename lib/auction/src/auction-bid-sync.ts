@@ -42,6 +42,13 @@ export type BidMutationDecision =
   | { action: "replace_full" };
 
 /** Monotonic version gate: never accept an older event than the cache. */
+
+/** Check whether an incoming delta version represents a sequence gap against the cached version. */
+export function isSequenceGap(cachedVersion: number, incomingVersion: number | undefined | null): boolean {
+  if (incomingVersion == null || incomingVersion <= 0 || cachedVersion <= 0) return false;
+  return incomingVersion > cachedVersion + 1;
+}
+
 export function shouldAcceptMonotonicVersion(
   cachedVersion: number,
   incomingVersion: number | undefined | null,

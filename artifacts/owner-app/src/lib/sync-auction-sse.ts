@@ -177,16 +177,14 @@ export function applyAuctionSseMessage(
   tournamentId: number,
   msg: SseAuctionMessage,
 ): void {
-  if (isStale(tournamentId, msg.version)) return;
-
-  if (msg.version != null && msg.version > 0) {
-    setCachedVersion(tournamentId, msg.version);
-  }
-
   const key = getGetAuctionStateQueryKey(tournamentId);
   const activityIso = touchAuctionActivity(tournamentId, msg);
 
+  // Authoritative full state snapshots always apply and advance/reset the version cursor
   if (msg.type === "auction_state" && msg.state) {
+    if (msg.version != null && msg.version > 0) {
+      setCachedVersion(tournamentId, msg.version);
+    }
     const teamPurses = msg.state.teamPurses;
     const activityAt =
       activityIso ??
@@ -199,6 +197,19 @@ export function applyAuctionSseMessage(
     syncTeamPurses(qc, tournamentId, teamPurses);
     applyInvalidations(qc, tournamentId, msg.invalidate ?? [], teamPurses);
     return;
+  }
+
+  // Reject stale or duplicate deltas
+  if (isStale(tournamentId, msg.version)) return;
+
+  // Gap detection: if delta version jumps ahead, we missed intermediate events -> pull fresh snapshot
+  const cached = getCachedVersion(tournamentId);
+  if (cached > 0 && msg.version != null && msg.version > cached + 1) {
+    qc.invalidateQueries({ queryKey: getGetAuctionStateQueryKey(tournamentId) });
+  }
+
+  if (msg.version != null && msg.version > 0) {
+    setCachedVersion(tournamentId, msg.version);
   }
 
   if (msg.type === "bid") {

@@ -3,8 +3,10 @@ import { pathToFileURL } from "url";
 import { fileURLToPath } from "url";
 import type { DehydratedState } from "@tanstack/react-query";
 import { getPageMeta } from "./page-meta.js";
+import { existsSync } from "node:fs";
 import {
   getSpaIndexHtml,
+  getSpaIndexShellPath,
   injectPageMeta,
   injectSsrHomepageDocument,
   sendSpaIndexHtml,
@@ -38,27 +40,89 @@ type RenderHomePageFn = (initialData: HomeInitialDataWire) => {
 
 let renderHomePageFn: RenderHomePageFn | null | undefined;
 
-function ssrBundlePath(): string {
+export function getCandidateSsrBundlePaths(): string[] {
   const here = path.dirname(fileURLToPath(import.meta.url));
-  // Bundled into dist/index.mjs — two levels up reaches artifacts/ (see app.ts).
-  return path.resolve(here, "../../auction-platform/dist/server/entry-server.js");
+  const candidates: string[] = [];
+
+  if (process.env.SSR_BUNDLE_PATH?.trim()) {
+    candidates.push(path.resolve(process.env.SSR_BUNDLE_PATH.trim()));
+  }
+
+  const spaShell = getSpaIndexShellPath();
+  if (spaShell) {
+    candidates.push(path.resolve(path.dirname(spaShell), "../server/entry-server.js"));
+  }
+
+  // Two levels up from dist/ in bundled server (artifacts/api-server/dist -> artifacts/auction-platform)
+  candidates.push(path.resolve(here, "../../auction-platform/dist/server/entry-server.js"));
+
+  // Four levels up when executing unbundled from src/lib (artifacts/api-server/src/lib -> artifacts/auction-platform)
+  candidates.push(path.resolve(here, "../../../../auction-platform/dist/server/entry-server.js"));
+
+  // From process.cwd() (workspace root)
+  candidates.push(path.resolve(process.cwd(), "artifacts/auction-platform/dist/server/entry-server.js"));
+
+  // From process.cwd() when cwd is artifacts/api-server
+  candidates.push(path.resolve(process.cwd(), "../auction-platform/dist/server/entry-server.js"));
+
+  return [...new Set(candidates)];
 }
 
-async function loadRenderHomePage(): Promise<RenderHomePageFn | null> {
-  if (renderHomePageFn !== undefined) return renderHomePageFn;
+export function resolveSsrBundlePath(): string {
+  const candidates = getCandidateSsrBundlePaths();
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+  return candidates[0] ?? path.resolve(process.cwd(), "artifacts/auction-platform/dist/server/entry-server.js");
+}
+
+function ssrBundlePath(): string {
+  return resolveSsrBundlePath();
+}
+
+export async function loadRenderHomePage(): Promise<RenderHomePageFn | null> {
+  if (renderHomePageFn !== undefined) {
+    return renderHomePageFn;
+  }
+
+  const resolvedPath = resolveSsrBundlePath();
+  if (!existsSync(resolvedPath)) {
+    logger.warn(
+      {
+        resolvedPath,
+        candidates: getCandidateSsrBundlePaths(),
+        cwd: process.cwd(),
+      },
+      "Homepage SSR bundle does not exist on disk",
+    );
+    return null;
+  }
+
   try {
-    const mod = await import(pathToFileURL(ssrBundlePath()).href) as {
+    const fileUrl = pathToFileURL(resolvedPath).href;
+    const mod = (await import(fileUrl)) as {
       renderHomePage?: RenderHomePageFn;
     };
-    renderHomePageFn = mod.renderHomePage ?? null;
-    if (!renderHomePageFn) {
-      logger.warn({ path: ssrBundlePath() }, "Homepage SSR bundle missing renderHomePage export");
+    if (typeof mod.renderHomePage !== "function") {
+      logger.warn(
+        { path: resolvedPath, exports: Object.keys(mod) },
+        "Homepage SSR bundle missing renderHomePage function export",
+      );
+      return null;
     }
+    renderHomePageFn = mod.renderHomePage;
+    logger.info({ path: resolvedPath }, "Homepage SSR renderer successfully loaded");
+    return renderHomePageFn;
   } catch (err) {
-    logger.warn({ err, path: ssrBundlePath() }, "Homepage SSR bundle failed to load");
-    renderHomePageFn = null;
+    const errorDetails = err instanceof Error ? { message: err.message, stack: err.stack } : { message: String(err) };
+    logger.warn(
+      { err: errorDetails, path: resolvedPath, cwd: process.cwd() },
+      "Homepage SSR bundle failed to load via dynamic import",
+    );
+    return null;
   }
-  return renderHomePageFn;
 }
 
 function toHomeInitialData(page: HomepagePageData): HomeInitialDataWire {
@@ -130,17 +194,22 @@ export async function trySendHomepageSsr(
       totalMs: Math.round(totalMs),
     });
 
+    res.setHeader("X-BidWar-SSR", "rendered");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     res.send(html);
     return true;
   } catch (err) {
+    const errorDetails = err instanceof Error
+      ? { message: err.message, stack: err.stack, phase }
+      : { message: String(err), phase };
     logHomepageSsrFailure({
       cacheHit,
       phase,
       totalMs: Math.round(performance.now() - started),
-      err,
+      err: errorDetails,
     });
+    res.setHeader("X-BidWar-SSR", `fallback; phase=${phase}`);
     return sendSpaHomepageFallback(res);
   }
 }
