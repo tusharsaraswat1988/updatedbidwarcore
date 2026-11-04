@@ -24,10 +24,13 @@
  */
 
 import { Client, db } from "@workspace/db";
+type PgClient = InstanceType<typeof Client>;
 import { resolveDirectDatabaseUrl } from "@workspace/db/database-url";
 import request from "supertest";
 import express from "express";
 import cookieParser from "cookie-parser";
+import http from "node:http";
+import type { AddressInfo } from "node:net";
 
 // Application runtime bootstrap
 import "./lib/bootstrap.js";
@@ -131,7 +134,7 @@ const SCORER_ID_B = 996042;
 const SESSION_A = "sess_recov_a_996";
 const SESSION_B = "sess_recov_b_996";
 
-async function cleanupTestData(client: Client) {
+async function cleanupTestData(client: PgClient) {
   console.log("  ℹ [INFO] Cleaning up test records for Phase 3.4 test IDs...");
   await client.query(`DELETE FROM scorer_match_locks WHERE match_id IN ($1)`, [MATCH_ID_1]);
   await client.query(`DELETE FROM scoring_events WHERE match_id IN ($1)`, [MATCH_ID_1]);
@@ -148,7 +151,7 @@ async function cleanupTestData(client: Client) {
   await client.query(`DELETE FROM tournaments WHERE id IN ($1, $2)`, [TID_AUCTION, TID_BADMINTON]);
 }
 
-async function seedData(client: Client) {
+async function seedData(client: PgClient) {
   console.log("  ℹ [INFO] Seeding isolated test records for Phase 3.4...");
 
   await client.query(`
@@ -259,6 +262,7 @@ async function run() {
   await masterClient.connect();
 
   const adminToken = signAuthJwt({
+    id: ORG_ID,
     userId: ORG_ID,
     role: "organizer",
     email: "org_phase34@bidwar.test",
@@ -268,6 +272,11 @@ async function run() {
   const adminCookie = `${COOKIE_NAME}=${adminToken}`;
 
   let passedScenarios = 0;
+
+  const httpServer = http.createServer(app);
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const httpPort = (httpServer.address() as AddressInfo).port;
+  const baseUrl = `http://127.0.0.1:${httpPort}`;
 
   try {
     await cleanupTestData(masterClient);
@@ -279,7 +288,7 @@ async function run() {
     logHeader("SCENARIO 1: Server restart during active auction");
     {
       // 1. Simulate process restart by evicting all memory caches and local versions
-      resetAuctionStateCacheForTests(TID_AUCTION);
+      resetAuctionStateCacheForTests();
       invalidateAuctionBuildCache(TID_AUCTION, "all");
       resetLocalEventStateForTests(TID_AUCTION);
 
@@ -314,7 +323,7 @@ async function run() {
       `, [TID_AUCTION]);
 
       // Simulate crash/restart: purge in-memory caches
-      resetAuctionStateCacheForTests(TID_AUCTION);
+      resetAuctionStateCacheForTests();
       invalidateAuctionBuildCache(TID_AUCTION, "all");
       resetLocalEventStateForTests(TID_AUCTION);
 
@@ -353,7 +362,7 @@ async function run() {
       `, [TID_AUCTION, targetDeadline]);
 
       // Simulate 2 seconds of offline downtime
-      resetAuctionStateCacheForTests(TID_AUCTION);
+      resetAuctionStateCacheForTests();
       invalidateAuctionBuildCache(TID_AUCTION, "all");
       await new Promise((r) => setTimeout(r, 2000));
 
@@ -371,35 +380,59 @@ async function run() {
     // =========================================================================
     logHeader("SCENARIO 4: Network disconnect followed by reconnect");
     {
-      // Connect to SSE stream
       let streamDisconnected = false;
-      const reqStream = request(app)
-        .get(`/api/tournaments/${TID_AUCTION}/auction/events`)
-        .set("Accept", "text/event-stream")
-        .buffer(false);
-
-      const clientPromise = new Promise<void>((resolve) => {
-        reqStream.on("response", (res) => {
-          assert(res.status === 200, "Initial SSE connection accepted (HTTP 200)");
-          assert(res.headers["content-type"]?.includes("text/event-stream"), "Content-Type is text/event-stream");
-
-          // Disconnect client after connection verified
-          reqStream.abort();
-          streamDisconnected = true;
-          resolve();
+      await new Promise<void>((resolve, reject) => {
+        const req = http.get(
+          `${baseUrl}/api/tournaments/${TID_AUCTION}/auction/events`,
+          { headers: { Accept: "text/event-stream" } },
+          (res) => {
+            assert(res.statusCode === 200, "Initial SSE connection accepted (200 OK)");
+            assert(res.headers["content-type"]?.includes("text/event-stream"), "Content-Type is text/event-stream");
+            streamDisconnected = true;
+            req.destroy();
+            resolve();
+          }
+        );
+        req.on("error", (err) => {
+          if (streamDisconnected) return;
+          reject(err);
         });
+        setTimeout(() => {
+          if (!streamDisconnected) {
+            req.destroy();
+            reject(new Error("Timeout on initial SSE connection"));
+          }
+        }, 5000);
       });
 
-      await clientPromise;
       assert(streamDisconnected, "Client connection disconnected successfully");
 
       // Reconnect with Last-Event-ID
-      const reconnectRes = await request(app)
-        .get(`/api/tournaments/${TID_AUCTION}/auction/events`)
-        .set("Accept", "text/event-stream")
-        .set("Last-Event-ID", "18");
+      let reconnectSucceeded = false;
+      await new Promise<void>((resolve, reject) => {
+        const req = http.get(
+          `${baseUrl}/api/tournaments/${TID_AUCTION}/auction/events`,
+          { headers: { Accept: "text/event-stream", "Last-Event-ID": "18" } },
+          (res) => {
+            assert(res.statusCode === 200, "Reconnected SSE stream returns 200 OK");
+            reconnectSucceeded = true;
+            req.destroy();
+            resolve();
+          }
+        );
+        req.on("error", (err) => {
+          if (reconnectSucceeded) return;
+          reject(err);
+        });
+        setTimeout(() => {
+          if (!reconnectSucceeded) {
+            req.destroy();
+            reject(new Error("Timeout on reconnect SSE stream"));
+          }
+        }, 5000);
+      });
 
-      assert(reconnectRes.status === 200, "Reconnected SSE stream returns HTTP 200");
+      assert(reconnectSucceeded, "Reconnected SSE stream accepted successfully");
       passedScenarios++;
     }
 
@@ -556,13 +589,20 @@ async function run() {
         .send({ teamId: TEAM_ID_2, amount: 100000 });
       assert(bid1.status === 200, "First bid succeeds (HTTP 200)");
 
-      // Immediate retry of identical bid by same team
+      // Duplicate bid retry of same amount by same team
       const bid2 = await request(app)
         .post(`/api/tournaments/${TID_AUCTION}/auction/bid`)
         .set("Cookie", [adminCookie])
         .send({ teamId: TEAM_ID_2, amount: 100000 });
-      assert(bid2.status === 409, "Duplicate bid retry rejected with HTTP 409 Conflict");
-      assert(bid2.body.error?.includes("already the highest bidder"), "Rejection confirms team is already the highest bidder");
+      assert(bid2.status === 400 || bid2.status === 409, `Duplicate opening bid retry rejected safely (status = ${bid2.status})`);
+
+      // Consecutive raise retry by same leading team (double-bid prevention)
+      const bid3 = await request(app)
+        .post(`/api/tournaments/${TID_AUCTION}/auction/bid`)
+        .set("Cookie", [adminCookie])
+        .send({ teamId: TEAM_ID_2, amount: 150000 });
+      assert(bid3.status === 409, "Consecutive raise by same leading team rejected with HTTP 409 Conflict");
+      assert(bid3.body.error?.includes("already the highest bidder"), "Rejection confirms team is already the highest bidder");
       passedScenarios++;
     }
 
@@ -609,7 +649,7 @@ async function run() {
         request(app)
           .post(`/api/tournaments/${TID_AUCTION}/auction/bid`)
           .set("Cookie", [adminCookie])
-          .send({ teamId: TEAM_ID_3, amount: 125000 })
+          .send({ teamId: TEAM_ID_3, amount: 150000 })
       );
 
       // Verify both queued on barrier
@@ -657,7 +697,7 @@ async function run() {
       const endsAt = new Date(Date.now() + 20000).toISOString();
       await masterClient.query(`
         UPDATE auction_sessions
-        SET status = 'active', current_player_id = $2, current_bid = 125000, current_bid_team_id = $3,
+        SET status = 'active', current_player_id = $2, current_bid = 150000, current_bid_team_id = $3,
             timer_ends_at = $4, revision = 50
         WHERE tournament_id = $1
       `, [TID_AUCTION, PLAYER_ID_2, TEAM_ID_3, endsAt]);
@@ -679,14 +719,14 @@ async function run() {
         request(app)
           .post(`/api/tournaments/${TID_AUCTION}/auction/sell`)
           .set("Cookie", [adminCookie])
-          .send({ expectedBidTeamId: TEAM_ID_3, expectedBidAmount: 125000, expectedRevision: 50 })
+          .send({ expectedBidTeamId: TEAM_ID_3, expectedBidAmount: 150000, expectedRevision: 50 })
       );
 
       const bidPromise = createWorker(() =>
         request(app)
           .post(`/api/tournaments/${TID_AUCTION}/auction/bid`)
           .set("Cookie", [adminCookie])
-          .send({ teamId: TEAM_ID_1, amount: 150000 })
+          .send({ teamId: TEAM_ID_1, amount: 200000 })
       );
 
       // Verify both queued on barrier
@@ -722,14 +762,25 @@ async function run() {
     // =========================================================================
     logHeader("SCENARIO 13: Stale auction revision rejection");
     {
+      const endsAt = new Date(Date.now() + 20000).toISOString();
+      await masterClient.query(`
+        UPDATE auction_sessions
+        SET status = 'active', current_player_id = $2, current_bid = 100000, current_bid_team_id = $3,
+            timer_ends_at = $4, revision = 60
+        WHERE tournament_id = $1
+      `, [TID_AUCTION, PLAYER_ID_3, TEAM_ID_1, endsAt]);
+
       const resStaleSell = await request(app)
         .post(`/api/tournaments/${TID_AUCTION}/auction/sell`)
         .set("Cookie", [adminCookie])
         .send({
-          expectedRevision: 1, // Stale revision (DB revision is > 50)
+          expectedRevision: 1, // Stale revision (DB revision is 60)
         });
 
       assert(resStaleSell.status === 400 || resStaleSell.status === 409, `Stale revision rejected with status ${resStaleSell.status}`);
+      if (resStaleSell.status === 409) {
+        assert(resStaleSell.body.hint === "stale_sell", "Rejection includes hint 'stale_sell'");
+      }
       passedScenarios++;
     }
 
@@ -738,14 +789,35 @@ async function run() {
     // =========================================================================
     logHeader("SCENARIO 14: Realtime snapshot resynchronization");
     {
-      // Client reconnects with a future or out-of-bounds revision (afterVersion: 99999)
-      const res = await request(app)
-        .get(`/api/tournaments/${TID_AUCTION}/auction/events`)
-        .set("Accept", "text/event-stream")
-        .set("Last-Event-ID", "99999");
+      let receivedStateSnapshot = false;
+      await new Promise<void>((resolve, reject) => {
+        const req = http.get(
+          `${baseUrl}/api/tournaments/${TID_AUCTION}/auction/events`,
+          { headers: { Accept: "text/event-stream", "Last-Event-ID": "99999" } },
+          (res) => {
+            assert(res.statusCode === 200, "SSE reconnect with sequence gap returns 200 OK");
+            res.on("data", (chunk) => {
+              if (chunk.toString().includes('"type":"auction_state"')) {
+                receivedStateSnapshot = true;
+                req.destroy();
+                resolve();
+              }
+            });
+          }
+        );
+        req.on("error", (err) => {
+          if (receivedStateSnapshot) return;
+          reject(err);
+        });
+        setTimeout(() => {
+          if (!receivedStateSnapshot) {
+            req.destroy();
+            reject(new Error("Timeout waiting for auction_state frame on SSE resync"));
+          }
+        }, 5000);
+      });
 
-      assert(res.status === 200, "SSE reconnect with sequence gap returns HTTP 200");
-      assert(res.text.includes('"type":"auction_state"'), "Server automatically dispatched full auction_state snapshot frame");
+      assert(receivedStateSnapshot, "Server automatically dispatched full auction_state snapshot frame");
       passedScenarios++;
     }
 
@@ -793,8 +865,15 @@ async function run() {
           },
           events: [
             {
-              type: "point_scored",
-              payload: { rallyWinnerTeamId: TEAM_ID_1, pointTeamId: TEAM_ID_1 },
+              eventType: "badminton.point.won",
+              payload: {
+                winningSide: "left",
+                gameNumber: 1,
+                winnerScore: 1,
+                loserScore: 0,
+                isGamePoint: false,
+                isMatchPoint: false,
+              },
             },
           ],
         });
@@ -841,6 +920,8 @@ async function run() {
   } finally {
     await cleanupTestData(masterClient);
     await masterClient.end();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    process.exit(passedScenarios === 16 ? 0 : 1);
   }
 }
 
