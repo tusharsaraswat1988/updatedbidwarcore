@@ -46,7 +46,7 @@ import { resolveDirectDatabaseUrl } from "@workspace/db/database-url";
 import router from "./routes/index.js";
 import { jwtAuthMiddleware } from "./middleware/jwt-auth.js";
 import { organizerAccountStatusMiddleware } from "./middleware/organizer-account-status.js";
-import { signScorerJwt } from "./lib/jwt.js";
+import { signScorerJwt, signAuthJwt } from "./lib/jwt.js";
 import {
   acquireMatchLock,
 } from "./lib/scorer-match-locks.js";
@@ -147,7 +147,8 @@ async function cleanupTestData(client: any) {
   await client.query(`DELETE FROM scorer_tournament_assignments WHERE scorer_id = ANY($1::int[])`, [scorers]);
   await client.query(`DELETE FROM scorer_sessions WHERE scorer_id = ANY($1::int[])`, [scorers]);
   await client.query(`DELETE FROM scorer_accounts WHERE id = ANY($1::int[])`, [scorers]);
-  await client.query(`DELETE FROM bids WHERE tournament_id = ANY($1::int[])`, [tids]);
+  await client.query(`DELETE FROM bids WHERE tournament_id = ANY($1::int[])`, [tids]).catch(() => {});
+  await client.query(`DELETE FROM auction_bid_events WHERE tournament_id = ANY($1::int[])`, [tids]).catch(() => {});
   await client.query(`DELETE FROM auction_sessions WHERE tournament_id = ANY($1::int[])`, [tids]);
   await client.query(`DELETE FROM players WHERE tournament_id = ANY($1::int[])`, [tids]);
   await client.query(`DELETE FROM teams WHERE tournament_id = ANY($1::int[])`, [tids]);
@@ -434,11 +435,10 @@ async function main() {
     }
 
     // =========================================================================
-    // SECTION 2: SEC-2026-07 REAL POSTGRESQL AUCTION CAS & ADVISORY LOCKS
+    // SECTION 2A: DIRECT SQL POSTGRESQL SERIALIZATION DEMONSTRATION (CATEGORY C.1)
     // =========================================================================
-    logHeader("TEST 3: SEC-2026-07 — Auction Advisory Lock & CAS (Ordering 1: Bid Commits First, Unsold Rejects)");
-    logInfo("Session has revision 10. Bid acquires pg_advisory_xact_lock, updates bid to ₹250k, revision to 11.");
-    logInfo("Concurrent unsold request with expectedRevision 10 detects active bid & stale revision, aborts with 409.");
+    logHeader("TEST 3A: Direct SQL Demonstration — Advisory Lock & CAS (Bid Commits First)");
+    logInfo("Direct SQL baseline: connA acquires advisory lock, sets bid to ₹250k, rev 11. connB unblocks, aborts via CAS.");
 
     // Setup active session for Player 1
     await masterClient.query(`
@@ -460,18 +460,15 @@ async function main() {
     await connB.connect();
 
     try {
-      // Client A performs Bid transaction using real pg_advisory_xact_lock
       await connA.query("BEGIN");
       await connA.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`bidwar-demo-reset:${TID_AUCTION}`]);
       
-      // Update session with new bid and increment revision
       await connA.query(`
         UPDATE auction_sessions
         SET current_bid = 250000, current_bid_team_id = $1, revision = revision + 1, last_action = 'bid'
         WHERE tournament_id = $2
       `, [TEAM_ID_1, TID_AUCTION]);
 
-      // Deduct team purse
       await connA.query(`
         UPDATE teams
         SET purse_used = purse_used + 250000
@@ -479,9 +476,8 @@ async function main() {
       `, [TEAM_ID_1]);
 
       await connA.query("COMMIT");
-      logPass("Client A (Bid) committed: currentBid = ₹250,000, revision = 11, team purse updated.");
+      logPass("connA (Bid) committed: currentBid = ₹250,000, revision = 11, team purse updated.");
 
-      // Client B performs Unsold CAS check against real PostgreSQL
       let unsoldRejected = false;
       let rejectionReason = "";
 
@@ -507,38 +503,17 @@ async function main() {
         await connB.query("COMMIT");
       }
 
-      assert(unsoldRejected, "Unsold transaction was safely rejected by CAS check");
+      assert(unsoldRejected, "connB unsold transaction was safely rejected by CAS check");
       assert(rejectionReason.includes("Active bid placed"), `Rejection reason: ${rejectionReason}`);
-
-      // Verify DB State integrity
-      const postSess = await masterClient.query(
-        `SELECT current_bid, current_bid_team_id, revision FROM auction_sessions WHERE tournament_id = $1`,
-        [TID_AUCTION],
-      );
-      assert(postSess.rows[0].current_bid === 250000, "Auction session retains valid current_bid = 250000");
-      assert(postSess.rows[0].revision === 11, "Auction session revision is 11");
-
-      const playerCheck = await masterClient.query(
-        `SELECT status FROM players WHERE id = $1`,
-        [PLAYER_ID_1],
-      );
-      assert(playerCheck.rows[0].status === "available", "Player status remains 'available' (NEVER marked unsold)");
-
-      const teamCheck = await masterClient.query(
-        `SELECT purse_used FROM teams WHERE id = $1`,
-        [TEAM_ID_1],
-      );
-      assert(teamCheck.rows[0].purse_used === 250000, "Team purse is properly preserved without corruption");
+      logPass("Direct SQL demonstration: connB safely rejected after connA commit.");
     } finally {
       await connA.end().catch(() => {});
       await connB.end().catch(() => {});
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    logHeader("TEST 4: SEC-2026-07 — Auction Advisory Lock & CAS (Ordering 2: Unsold Commits First, Bid Rejects)");
-    logInfo("Unsold commits first. Player is marked unsold. Subsequent bid attempt is rejected with HTTP 400.");
+    logHeader("TEST 3B: Direct SQL Demonstration — Advisory Lock & CAS (Unsold Commits First)");
+    logInfo("Direct SQL baseline: conn1 executes unsold, clears current_player_id, rev 21. conn2 detects empty slot and aborts.");
 
-    // Setup active session for Player 2
     await masterClient.query(`
       UPDATE auction_sessions
       SET status = 'live', current_player_id = $1, current_bid = NULL, current_bid_team_id = NULL, revision = 20, last_action = 'player_selected'
@@ -551,7 +526,6 @@ async function main() {
     await conn2.connect();
 
     try {
-      // Conn 1 executes Unsold
       await conn1.query("BEGIN");
       await conn1.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`bidwar-demo-reset:${TID_AUCTION}`]);
       
@@ -565,9 +539,8 @@ async function main() {
         WHERE tournament_id = $1
       `, [TID_AUCTION]);
       await conn1.query("COMMIT");
-      logPass("Client 1 (Unsold) committed: player marked unsold, current_player_id cleared, revision = 21.");
+      logPass("conn1 (Unsold) committed: player marked unsold, current_player_id cleared, revision = 21.");
 
-      // Conn 2 attempts Bid
       let bidRejected = false;
       let bidError = "";
 
@@ -587,21 +560,278 @@ async function main() {
       }
 
       assert(bidRejected, "Bid attempt after unsold was correctly rejected");
-      logPass(`Bid rejection confirmed: ${bidError}`);
-
-      // Verify DB State integrity
-      const p2 = await masterClient.query(`SELECT status FROM players WHERE id = $1`, [PLAYER_ID_2]);
-      assert(p2.rows[0].status === "unsold", "Player 2 is marked 'unsold'");
-
-      const sessFinal = await masterClient.query(`SELECT current_player_id, revision FROM auction_sessions WHERE tournament_id = $1`, [TID_AUCTION]);
-      assert(sessFinal.rows[0].current_player_id === null, "Current player ID is NULL in session");
-      assert(sessFinal.rows[0].revision === 21, "Revision is 21");
-
-      const tPurse = await masterClient.query(`SELECT purse_used FROM teams WHERE id = $1`, [TEAM_ID_2]);
-      assert(tPurse.rows[0].purse_used === 0, "Zero purse deducted from Team 2 (0 corruption)");
+      logPass(`Direct SQL demonstration: bid rejection confirmed (${bidError}).`);
     } finally {
       await conn1.end().catch(() => {});
       await conn2.end().catch(() => {});
+    }
+
+    // Helper: polls pg_locks to deterministically verify active transactions queued behind the barrier
+    async function waitForAdvisoryWaiters(client: Client, expectedWaiters: number, timeoutMs = 10000): Promise<void> {
+      const start = Date.now();
+      while (Date.now() - start < timeoutMs) {
+        const res = await client.query(
+          `SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND NOT granted`,
+        );
+        if (Number(res.rows[0].count) >= expectedWaiters) {
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      throw new Error(`Timed out waiting for ${expectedWaiters} advisory lock waiter(s) in pg_locks`);
+    }
+
+    // =========================================================================
+    // SECTION 2B: REAL PRODUCTION AUCTION ROUTE CONCURRENT RACES (CATEGORY C.2)
+    // =========================================================================
+    logHeader("TEST 4A: SEC-2026-07 — Production Route Race (Bid Commits First, Unsold Rejects)");
+    logInfo("Invoking actual production Express routes: POST /auction/bid vs POST /auction/unsold concurrently.");
+    logInfo("Using pg_locks deterministic synchronization to verify exact PostgreSQL lock queue ordering.");
+
+    const adminToken = signAuthJwt({ isAdmin: true, adminLevel: "master" });
+    const adminCookie = `bidwar_auth=${adminToken}`;
+
+    // Reset Player 1 and Team purses in DB
+    await masterClient.query(`
+      UPDATE players SET status = 'available', team_id = NULL WHERE id = $1;
+    `, [PLAYER_ID_1]);
+    await masterClient.query(`
+      UPDATE teams SET purse_used = 0 WHERE id IN ($1, $2);
+    `, [TEAM_ID_1, TEAM_ID_2]);
+
+    const timerEndsAt1 = new Date(Date.now() + 300000).toISOString();
+    await masterClient.query(`
+      UPDATE auction_sessions SET
+        status = 'active',
+        current_player_id = $1,
+        current_bid = NULL,
+        current_bid_team_id = NULL,
+        timer_ends_at = $2,
+        timer_type = 'player',
+        revision = 10,
+        last_action = 'player_selected'
+      WHERE tournament_id = $3;
+    `, [PLAYER_ID_1, timerEndsAt1, TID_AUCTION]);
+
+    const barrierConnA = new Client({ connectionString: directDbUrl, ssl: { rejectUnauthorized: false } });
+    await barrierConnA.connect();
+
+    try {
+      // 1. Barrier connection holds PostgreSQL advisory lock
+      await barrierConnA.query("BEGIN");
+      await barrierConnA.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`bidwar-demo-reset:${TID_AUCTION}`]);
+      logInfo("Barrier connection acquired pg_advisory_xact_lock on tournament " + TID_AUCTION);
+
+      // 2. Dispatch concurrent production POST /auction/bid
+      logInfo("Dispatching concurrent production POST /auction/bid for Team 1...");
+      const bidPromise = (async () => await request(app)
+        .post(`/api/tournaments/${TID_AUCTION}/auction/bid`)
+        .set("Cookie", [adminCookie])
+        .send({
+          teamId: TEAM_ID_1,
+          amount: 0,
+        }))();
+
+      // Wait deterministically until /bid has entered transaction and is queued on advisory lock in Postgres
+      await waitForAdvisoryWaiters(masterClient, 1);
+      logInfo("Verified via pg_locks: /bid is queued first on advisory lock in PostgreSQL.");
+
+      // 3. Dispatch concurrent production POST /auction/unsold with expectedRevision 10
+      logInfo("Dispatching concurrent production POST /auction/unsold with expectedRevision: 10...");
+      const unsoldPromise = (async () => await request(app)
+        .post(`/api/tournaments/${TID_AUCTION}/auction/unsold`)
+        .set("Cookie", [adminCookie])
+        .send({
+          expectedRevision: 10,
+        }))();
+
+      // Wait deterministically until /unsold has entered transaction and is queued second behind /bid
+      await waitForAdvisoryWaiters(masterClient, 2);
+      logInfo("Verified via pg_locks: /unsold is queued second behind /bid in PostgreSQL lock queue.");
+
+      // 4. Release barrier — PostgreSQL unblocks /bid first, then /unsold
+      logInfo("Releasing barrier — PostgreSQL serializes /bid first, then /unsold...");
+      await barrierConnA.query("COMMIT");
+
+      // 5. Await both production route responses
+      const [bidRes, unsoldRes] = await Promise.all([bidPromise, unsoldPromise]);
+
+      logInfo(`Production /bid responded with HTTP ${bidRes.status}`);
+      logInfo(`Production /unsold responded with HTTP ${unsoldRes.status}`);
+
+      assert(bidRes.status === 200, `Production /bid returned HTTP 200 (got ${bidRes.status})`);
+      logPass("Production /bid succeeded (HTTP 200)");
+
+      assert(unsoldRes.status === 409, `Production /unsold returned HTTP 409 Conflict (got ${unsoldRes.status})`);
+      assert(
+        unsoldRes.body.hint === "bid_in_progress" ||
+        unsoldRes.body.hint === "stale_unsold" ||
+        unsoldRes.body.error?.includes("bid"),
+        `Unsold rejection confirmed with hint '${unsoldRes.body.hint}'`,
+      );
+      logPass(`Production /unsold safely rejected with HTTP 409: ${unsoldRes.body.error}`);
+
+      // 6. Comprehensive database state verification
+      const dbSess1 = await masterClient.query(
+        `SELECT current_player_id, current_bid, current_bid_team_id, revision FROM auction_sessions WHERE tournament_id = $1`,
+        [TID_AUCTION],
+      );
+      assert(dbSess1.rows[0].current_player_id === PLAYER_ID_1, "Session currentPlayerId remains Player 1 (NOT cleared)");
+      assert(dbSess1.rows[0].current_bid === 0, "Session currentBid updated to 0 by winning bid");
+      assert(dbSess1.rows[0].current_bid_team_id === TEAM_ID_1, "Session currentBidTeamId is Team 1");
+      assert(dbSess1.rows[0].revision === 11, "Session revision incremented from 10 to 11");
+
+      const dbP1 = await masterClient.query(
+        `SELECT status, team_id FROM players WHERE id = $1`,
+        [PLAYER_ID_1],
+      );
+      assert(dbP1.rows[0].status === "available", "Player 1 remains 'available' in PostgreSQL (never marked unsold)");
+      assert(dbP1.rows[0].team_id === null, "Player 1 team_id remains NULL (in active bidding)");
+
+      const dbT1 = await masterClient.query(
+        `SELECT purse_used FROM teams WHERE id = $1`,
+        [TEAM_ID_1],
+      );
+      assert(Number(dbT1.rows[0].purse_used) === 0, "Team 1 purse_used is intact (0 corruption)");
+
+      // Check auction_bid_events in database
+      const bidEvents = await masterClient.query(
+        `SELECT bid_amount, team_id FROM auction_bid_events WHERE tournament_id = $1 AND player_id = $2`,
+        [TID_AUCTION, PLAYER_ID_1],
+      );
+      assert(bidEvents.rows.length === 1, "Exactly 1 bid event recorded in auction_bid_events");
+      assert(bidEvents.rows[0].team_id === TEAM_ID_1, "Bid event associated with Team 1");
+      logPass("Live database assertions verified: session, player status, purse, and bid event rows intact.");
+    } finally {
+      await barrierConnA.end().catch(() => {});
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    logHeader("TEST 4B: SEC-2026-07 — Production Route Race (Unsold Commits First, Bid Rejects)");
+    logInfo("Invoking actual production Express routes: POST /auction/unsold vs POST /auction/bid concurrently.");
+    logInfo("Using pg_locks deterministic synchronization to verify exact PostgreSQL lock queue ordering.");
+
+    // Reset Player 2 in DB
+    await masterClient.query(`
+      UPDATE players SET status = 'available', team_id = NULL WHERE id = $1;
+    `, [PLAYER_ID_2]);
+    await masterClient.query(`
+      UPDATE teams SET purse_used = 0 WHERE id IN ($1, $2);
+    `, [TEAM_ID_1, TEAM_ID_2]);
+
+    const timerEndsAt2 = new Date(Date.now() + 300000).toISOString();
+    await masterClient.query(`
+      UPDATE auction_sessions SET
+        status = 'active',
+        current_player_id = $1,
+        current_bid = NULL,
+        current_bid_team_id = NULL,
+        timer_ends_at = $2,
+        timer_type = 'player',
+        revision = 20,
+        last_action = 'player_selected'
+      WHERE tournament_id = $3;
+    `, [PLAYER_ID_2, timerEndsAt2, TID_AUCTION]);
+
+    const barrierConnB = new Client({ connectionString: directDbUrl, ssl: { rejectUnauthorized: false } });
+    await barrierConnB.connect();
+
+    try {
+      // 1. Barrier connection holds PostgreSQL advisory lock
+      await barrierConnB.query("BEGIN");
+      await barrierConnB.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`bidwar-demo-reset:${TID_AUCTION}`]);
+      logInfo("Barrier connection acquired pg_advisory_xact_lock on tournament " + TID_AUCTION);
+
+      // 2. Dispatch concurrent production POST /auction/unsold
+      logInfo("Dispatching concurrent production POST /auction/unsold with expectedRevision: 20...");
+      const unsoldPromise2 = (async () => await request(app)
+        .post(`/api/tournaments/${TID_AUCTION}/auction/unsold`)
+        .set("Cookie", [adminCookie])
+        .send({
+          expectedRevision: 20,
+        }))();
+
+      // Wait deterministically until /unsold is queued first on advisory lock
+      await waitForAdvisoryWaiters(masterClient, 1);
+      logInfo("Verified via pg_locks: /unsold is queued first on advisory lock in PostgreSQL.");
+
+      // 3. Dispatch concurrent production POST /auction/bid behind unsold
+      logInfo("Dispatching concurrent production POST /auction/bid for Team 2 on Player 2...");
+      const bidPromise2 = (async () => await request(app)
+        .post(`/api/tournaments/${TID_AUCTION}/auction/bid`)
+        .set("Cookie", [adminCookie])
+        .send({
+          teamId: TEAM_ID_2,
+          amount: 0,
+        }))();
+
+      // Wait deterministically until /bid is queued second behind /unsold
+      await waitForAdvisoryWaiters(masterClient, 2);
+      logInfo("Verified via pg_locks: /bid is queued second behind /unsold in PostgreSQL lock queue.");
+
+      // 4. Release barrier — PostgreSQL serializes /unsold first, then /bid
+      logInfo("Releasing barrier — PostgreSQL serializes /unsold first, then /bid...");
+      await barrierConnB.query("COMMIT");
+
+      const [unsoldRes2, bidRes2] = await Promise.all([unsoldPromise2, bidPromise2]);
+
+      logInfo(`Production /unsold responded with HTTP ${unsoldRes2.status}`);
+      logInfo(`Production /bid responded with HTTP ${bidRes2.status}`);
+
+      assert(unsoldRes2.status === 200, `Production /unsold returned HTTP 200 (got ${unsoldRes2.status})`);
+      logPass("Production /unsold succeeded (HTTP 200)");
+
+      assert(
+        bidRes2.status === 409 || bidRes2.status === 400,
+        `Production /bid returned HTTP 409 or 400 (got ${bidRes2.status})`,
+      );
+      assert(
+        bidRes2.body.hint === "stale_bid" ||
+        bidRes2.body.error?.includes("concurrent") ||
+        bidRes2.body.error?.includes("No player"),
+        `Bid rejection confirmed: ${bidRes2.body.error}`,
+      );
+      logPass(`Production /bid safely rejected after unsold commit: ${bidRes2.body.error}`);
+
+      // Database state verification
+      const dbP2 = await masterClient.query(
+        `SELECT status, team_id FROM players WHERE id = $1`,
+        [PLAYER_ID_2],
+      );
+      assert(dbP2.rows[0].status === "unsold", "Player 2 status is marked 'unsold' in PostgreSQL");
+      assert(dbP2.rows[0].team_id === null, "Player 2 team_id is NULL (NOT assigned to Team 2)");
+
+      const dbSess2 = await masterClient.query(
+        `SELECT current_player_id, current_bid, current_bid_team_id, revision, last_action FROM auction_sessions WHERE tournament_id = $1`,
+        [TID_AUCTION],
+      );
+      assert(dbSess2.rows[0].current_player_id === null, "Session current_player_id is cleared to NULL");
+      assert(dbSess2.rows[0].current_bid === null, "Session current_bid is NULL");
+      assert(dbSess2.rows[0].current_bid_team_id === null, "Session current_bid_team_id is NULL");
+      assert(dbSess2.rows[0].revision === 21, "Session revision incremented from 20 to 21");
+      assert(dbSess2.rows[0].last_action?.includes("UNSOLD"), `Session last_action contains UNSOLD: '${dbSess2.rows[0].last_action}'`);
+
+      const dbT2 = await masterClient.query(
+        `SELECT purse_used FROM teams WHERE id = $1`,
+        [TEAM_ID_2],
+      );
+      assert(Number(dbT2.rows[0].purse_used) === 0, "Zero purse deducted from Team 2 (0 purse corruption)");
+
+      const rosterCheck = await masterClient.query(
+        `SELECT count(*) FROM players WHERE team_id = $1`,
+        [TEAM_ID_2],
+      );
+      assert(Number(rosterCheck.rows[0].count) === 0, "Team 2 roster has 0 players (no roster corruption)");
+
+      // Verify no bid event was added for Player 2
+      const bidEvents2 = await masterClient.query(
+        `SELECT count(*) FROM auction_bid_events WHERE tournament_id = $1 AND player_id = $2`,
+        [TID_AUCTION, PLAYER_ID_2],
+      );
+      assert(Number(bidEvents2.rows[0].count) === 0, "Zero bid events created for rejected bid on Player 2");
+      logPass("Live database assertions verified: player marked unsold, slot cleared, 0 purse leakage, 0 roster leakage.");
+    } finally {
+      await barrierConnB.end().catch(() => {});
     }
 
     // =========================================================================
@@ -822,6 +1052,7 @@ async function main() {
     if (failedCount > 0) {
       process.exit(1);
     }
+    process.exit(0);
   } finally {
     await masterClient.end().catch(() => {});
   }
