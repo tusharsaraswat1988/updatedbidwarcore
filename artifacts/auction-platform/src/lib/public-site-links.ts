@@ -24,11 +24,27 @@ export const SOLUTION_PLATFORM_LINKS = [
   { label: "Tournament Platform", href: "/tournament-auction-platform" },
 ] as const;
 
+export const SECTION_ID_ALIASES: Record<string, string> = {
+  "experience-bidding": "auction-screens",
+  "solutions": "offerings",
+  "calculator": "simulator",
+  "surfaces": "auction-screens",
+  "features": "auction-screens",
+  "tournaments": "tournament-galleries",
+  "cases": "tournament-galleries",
+  "clients": "our-clients",
+};
+
+export function resolveSectionId(idOrAlias: string): string {
+  const clean = idOrAlias.replace(/^[/#]+/, "");
+  return SECTION_ID_ALIASES[clean] ?? clean;
+}
+
 export const MORE_NAV_LINKS = [
   { label: "Our Clients", href: "/#our-clients", sectionId: "our-clients" },
   { label: "Blog & Articles", href: "/blog" },
   { label: "Organizer Reviews", href: "/#reviews", sectionId: "reviews" },
-  { label: "Tournament Calculator", href: "/#calculator", sectionId: "calculator" },
+  { label: "Tournament Calculator", href: "/#simulator", sectionId: "simulator" },
   { label: "Upcoming Auctions", href: "/upcoming-auctions" },
   { label: "Auction Tips & Guides", href: "/auction-tips" },
   { label: "Frequently Asked Questions", href: "/#faq", sectionId: "faq" },

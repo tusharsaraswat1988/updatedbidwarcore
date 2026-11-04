@@ -20,6 +20,7 @@ import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { injectBrandingIconsIntoHtml } from "@workspace/api-base/branding-icon-head";
 import type { PageMeta } from "./page-meta.js";
+import { DEFAULT_OG_IMAGE_URL } from "./page-meta.js";
 import { logger } from "./logger.js";
 
 let cachedHtml: string | null = null;
@@ -126,7 +127,8 @@ function buildMetaBlock(meta: PageMeta): string {
   const desc = esc(meta.description);
   const ogTitle = esc(meta.ogTitle ?? meta.title);
   const ogDesc = esc(meta.ogDescription ?? meta.description);
-  const ogImage = meta.ogImage ? esc(meta.ogImage) : null;
+  const resolvedOgImage = meta.ogImage || DEFAULT_OG_IMAGE_URL;
+  const ogImage = resolvedOgImage ? esc(resolvedOgImage) : null;
   const twitterTitle = esc(meta.twitterTitle ?? meta.ogTitle ?? meta.title);
   const twitterDesc = esc(meta.twitterDescription ?? meta.ogDescription ?? meta.description);
   const robots = esc(meta.robots ?? "index, follow");
@@ -163,7 +165,7 @@ function buildMetaBlock(meta: PageMeta): string {
     <meta property="og:title" content="${ogTitle}" />
     <meta property="og:description" content="${ogDesc}" />${ogUrlTag}${ogImageTags}${articleTags}
     <meta property="og:locale" content="en_IN" />
-    <meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@bidwar_in" />
     <meta name="twitter:title" content="${twitterTitle}" />
     <meta name="twitter:description" content="${twitterDesc}" />
@@ -239,7 +241,7 @@ export function sendInjectedHtml(
   return true;
 }
 
-const ROOT_BEFORE_BODY_RE = /<div id="root">[\s\S]*<\/div>(?=\s*(?:<script|<\/body>))/;
+const ROOT_BEFORE_BODY_RE = /<div id="root"[^>]*>[\s\S]*<\/div>(?=\s*(?:<script|<\/body>))/;
 
 function serializeForScript(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c");
@@ -257,7 +259,7 @@ export function injectSsrHomepageDocument(
 
   let html = shellHtml;
   if (ROOT_BEFORE_BODY_RE.test(html)) {
-    html = html.replace(ROOT_BEFORE_BODY_RE, `<div id="root">${rootMarkup}</div>`);
+    html = html.replace(ROOT_BEFORE_BODY_RE, () => `<div id="root">${rootMarkup}</div>`);
   }
 
   return html.replace(
@@ -302,20 +304,21 @@ export function injectAcademySsrDocument(
   );
 }
 
-export function injectPageMeta(meta: PageMeta): string | null {
-  if (!cachedHtml) return null;
-
+export function injectPageMetaToHtml(html: string, meta: PageMeta): string {
   const metaBlock = buildMetaBlock(meta);
   const schemaBlock = buildSchemaBlock(meta);
 
-  let html = cachedHtml;
-
-  if (META_RE.test(html)) {
-    html = html.replace(META_RE, metaBlock);
+  let result = html;
+  if (META_RE.test(result)) {
+    result = result.replace(META_RE, metaBlock);
   }
-  if (SCHEMA_RE.test(html)) {
-    html = html.replace(SCHEMA_RE, schemaBlock);
+  if (SCHEMA_RE.test(result)) {
+    result = result.replace(SCHEMA_RE, schemaBlock);
   }
+  return result;
+}
 
-  return html;
+export function injectPageMeta(meta: PageMeta): string | null {
+  if (!cachedHtml) return null;
+  return injectPageMetaToHtml(cachedHtml, meta);
 }

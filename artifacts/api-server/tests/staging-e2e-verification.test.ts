@@ -19,7 +19,7 @@ describe("STAGING END-TO-END VERIFICATION: Public WhatsApp AI Assistant", () => 
   beforeEach(() => {
     process.env = { ...originalEnv };
     process.env.GEMINI_API_KEY = "mock-staging-gemini-key";
-    process.env.GEMINI_MODEL = "gemini-2.5-flash";
+    process.env.GEMINI_MODEL = "gemini-3.8-flash";
     process.env.AI_ASSISTANT_ENABLED = "true";
     process.env.WHATSAPP_PROVIDER = "mock";
     delete process.env.OPENAI_API_KEY;

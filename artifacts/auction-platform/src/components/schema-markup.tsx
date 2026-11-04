@@ -1,5 +1,6 @@
 import { useBranding } from "@/hooks/use-branding";
 import { getOrganizationLogoUrl } from "@/lib/brand-assets";
+import { buildSchemaOrgOffers } from "@workspace/api-base";
 const SOFTWARE_APPLICATION_SCHEMA = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
@@ -15,71 +16,7 @@ const SOFTWARE_APPLICATION_SCHEMA = {
   "releaseNotes": "Supports cricket, football, kabaddi, esports and business leagues.",
   "countriesSupported": "IN",
   "inLanguage": "en-IN",
-  "offers": [
-    {
-      "@type": "Offer",
-      "name": "Free Trial",
-      "price": "0",
-      "priceCurrency": "INR",
-      "description": "Free forever — up to 2 teams. Trial Auction License.",
-      "availability": "https://schema.org/InStock",
-    },
-    {
-      "@type": "Offer",
-      "name": "Starter",
-      "price": "4500",
-      "priceCurrency": "INR",
-      "description": "Up to 4 teams. List ₹5,000 — limited-time ₹4,500 all taxes included.",
-      "availability": "https://schema.org/InStock",
-    },
-    {
-      "@type": "Offer",
-      "name": "Pro",
-      "price": "5400",
-      "priceCurrency": "INR",
-      "description": "Up to 8 teams. List ₹6,000 — limited-time ₹5,400 all taxes included.",
-      "availability": "https://schema.org/InStock",
-    },
-    {
-      "@type": "Offer",
-      "name": "Advanced",
-      "price": "7200",
-      "priceCurrency": "INR",
-      "description": "Up to 12 teams. List ₹8,000 — limited-time ₹7,200 all taxes included.",
-      "availability": "https://schema.org/InStock",
-    },
-    {
-      "@type": "Offer",
-      "name": "Elite",
-      "price": "8100",
-      "priceCurrency": "INR",
-      "description": "Up to 16 teams. List ₹9,000 — limited-time ₹8,100 all taxes included.",
-      "availability": "https://schema.org/InStock",
-    },
-    {
-      "@type": "Offer",
-      "name": "Premium",
-      "price": "9900",
-      "priceCurrency": "INR",
-      "description": "Up to 22 teams. List ₹11,000 — limited-time ₹9,900 all taxes included.",
-      "availability": "https://schema.org/InStock",
-    },
-    {
-      "@type": "Offer",
-      "name": "Champion",
-      "price": "10800",
-      "priceCurrency": "INR",
-      "description": "Up to 30 teams. List ₹12,000 — limited-time ₹10,800 all taxes included.",
-      "availability": "https://schema.org/InStock",
-    },
-  ],
-  "aggregateRating": {
-    "@type": "AggregateRating",
-    "ratingValue": "4.9",
-    "reviewCount": "500",
-    "bestRating": "5",
-    "worstRating": "1",
-  },
+  "offers": buildSchemaOrgOffers(),
   "author": {
     "@type": "Organization",
     "name": "BidWar",

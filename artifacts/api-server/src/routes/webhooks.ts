@@ -295,6 +295,26 @@ router.get(["/webhooks/kv-meta", "/webhooks/comm-inbound", "/webhooks/whatsapp"]
 });
 
 
+export function isMetaOrKvWebhookRequest(req: import("express").Request): boolean {
+  if (req.headers["x-hub-signature-256"]) return true;
+  if (req.headers["x-verify-token"]) return true;
+  if (req.query?.token || req.query?.verify_token || req.query?.challange || req.query?.challenge) return true;
+  const body = req.body;
+  if (body && typeof body === "object") {
+    if (body.object === "whatsapp_business_account") return true;
+    if (Array.isArray(body.entry)) return true;
+    if (Array.isArray(body.statuses)) return true;
+    if (Array.isArray(body) && body.some((item: any) => item?.statuses || item?.status || item?.id)) return true;
+    if (body.id && body.status) return true;
+    if (body.data && (body.data.id || body.data.status)) return true;
+  }
+  const activeProvider = resolveWhatsAppProviderId();
+  if (activeProvider === "kv_techmedia" || activeProvider === "meta_direct") {
+    if (!req.headers["x-twilio-signature"]) return true;
+  }
+  return false;
+}
+
 const STATUS_RANK: Record<string, number> = {
   pending: 0,
   submitted: 10,
@@ -318,15 +338,80 @@ async function handleMetaWebhook(req: import("express").Request, res: import("ex
   // 1. Process delivery receipts with monotonic guard
   for (const status of statuses) {
     logger.info(
-      { providerMessageId: status.providerMessageId, status: status.status },
+      { providerMessageId: status.providerMessageId, status: status.status, recipientId: status.recipientId },
       "Processing Meta/KV delivery status receipt",
     );
 
-    const [current] = await db
-      .select({ deliveryStatus: commLogsTable.deliveryStatus })
+    let [current] = await db
+      .select({
+        id: commLogsTable.id,
+        deliveryStatus: commLogsTable.deliveryStatus,
+        metaMessageId: commLogsTable.metaMessageId,
+      })
       .from(commLogsTable)
       .where(eq(commLogsTable.metaMessageId, status.providerMessageId))
       .limit(1);
+
+    // Heuristic fallback matching by recipient mobile if exact providerMessageId wasn't found
+    if (!current && status.recipientId) {
+      const rawDigits = String(status.recipientId).replace(/\D/g, "");
+      const norm10 = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
+      const norm91 = `91${norm10}`;
+
+      try {
+        const query = db
+          .select({
+            id: commLogsTable.id,
+            deliveryStatus: commLogsTable.deliveryStatus,
+            metaMessageId: commLogsTable.metaMessageId,
+          })
+          .from(commLogsTable)
+          .where(
+            and(
+              eq(commLogsTable.channel, "whatsapp"),
+              or(
+                eq(commLogsTable.recipientMobile, status.recipientId),
+                eq(commLogsTable.recipientMobile, norm10),
+                eq(commLogsTable.recipientMobile, norm91),
+                sql`regexp_replace(${commLogsTable.recipientMobile}, '\\D', '', 'g') = ${norm10}`,
+                sql`regexp_replace(${commLogsTable.recipientMobile}, '\\D', '', 'g') = ${norm91}`
+              )
+            )
+          );
+
+        let candidates: Array<{ id: number; deliveryStatus: string; metaMessageId: string | null }> = [];
+        if (typeof (query as any)?.orderBy === "function") {
+          candidates = await (query as any).orderBy(desc(commLogsTable.sentAt)).limit(5);
+        } else if (typeof (query as any)?.limit === "function") {
+          candidates = await (query as any).limit(5);
+        } else if (typeof (query as any)?.then === "function") {
+          candidates = await (query as any);
+        }
+
+        if (Array.isArray(candidates) && candidates.length > 0) {
+          current =
+            candidates.find(
+              (c) =>
+                !c.metaMessageId ||
+                c.metaMessageId.startsWith("kv_accepted_") ||
+                c.metaMessageId.startsWith("stub_") ||
+                c.metaMessageId.startsWith("meta_accepted_")
+            ) ?? candidates[0];
+
+          logger.info(
+            {
+              commLogId: current.id,
+              previousMetaMessageId: current.metaMessageId,
+              matchedProviderMessageId: status.providerMessageId,
+              recipient: status.recipientId,
+            },
+            "Heuristically resolved delivery status receipt by recipient mobile",
+          );
+        }
+      } catch (err) {
+        logger.debug({ err, recipient: status.recipientId }, "Heuristic recipient lookup skipped or failed");
+      }
+    }
 
     if (current) {
       // Monotonic guard:
@@ -364,6 +449,7 @@ async function handleMetaWebhook(req: import("express").Request, res: import("ex
           deliveryStatus: string;
           deliveryUpdatedAt: Date;
           errorMessage?: string | null;
+          metaMessageId?: string;
         } = {
           deliveryStatus: status.status,
           deliveryUpdatedAt: status.timestamp,
@@ -371,10 +457,23 @@ async function handleMetaWebhook(req: import("express").Request, res: import("ex
         if (status.status === "failed" && status.errorMessage) {
           updateData.errorMessage = status.errorMessage;
         }
+        // Heal placeholder or missing metaMessageId with the real providerMessageId
+        if (
+          status.providerMessageId &&
+          (!current.metaMessageId ||
+            current.metaMessageId.startsWith("kv_accepted_") ||
+            current.metaMessageId.startsWith("stub_") ||
+            current.metaMessageId.startsWith("meta_accepted_"))
+        ) {
+          updateData.metaMessageId = status.providerMessageId;
+        }
+        const updateWhere = current.id
+          ? eq(commLogsTable.id, current.id)
+          : eq(commLogsTable.metaMessageId, status.providerMessageId);
         await db
           .update(commLogsTable)
           .set(updateData)
-          .where(eq(commLogsTable.metaMessageId, status.providerMessageId));
+          .where(updateWhere);
       } else {
         logger.info(
           { providerMessageId: status.providerMessageId, current: current.deliveryStatus, incoming: status.status },
@@ -452,7 +551,7 @@ router.post(["/webhooks/kv-meta", "/webhooks/whatsapp"], handleMetaWebhook);
 // ─── Inbound WhatsApp / SMS ───────────────────────────────────────────────────
 
 router.post("/webhooks/comm-inbound", async (req, res) => {
-  if (req.headers["x-hub-signature-256"] || (req.body && req.body.object === "whatsapp_business_account")) {
+  if (isMetaOrKvWebhookRequest(req)) {
     await handleMetaWebhook(req, res);
     return;
   }
@@ -490,7 +589,7 @@ router.post("/webhooks/comm-inbound", async (req, res) => {
 // ─── Delivery Receipt Webhook ─────────────────────────────────────────────────
 
 router.post("/webhooks/comm-delivery", async (req, res) => {
-  if (req.headers["x-hub-signature-256"] || (req.body && req.body.object === "whatsapp_business_account")) {
+  if (isMetaOrKvWebhookRequest(req)) {
     await handleMetaWebhook(req, res);
     return;
   }

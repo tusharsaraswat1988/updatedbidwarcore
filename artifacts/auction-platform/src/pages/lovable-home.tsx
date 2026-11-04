@@ -29,6 +29,7 @@ import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
 import {
   MORE_NAV_LINKS,
+  resolveSectionId,
   SITE_CONTACT,
   SITE_SOCIAL,
   SITE_SOCIAL_PLACEHOLDERS,
@@ -60,14 +61,7 @@ const DEMO_WA_MESSAGE =
 
 function scrollToSection(sectionId: string, event?: MouseEvent<HTMLAnchorElement>, surfaceIndex?: number) {
   event?.preventDefault();
-  const targetId =
-    sectionId === "surfaces" || sectionId === "features"
-      ? "auction-screens"
-      : sectionId === "tournaments" || sectionId === "cases"
-        ? "tournament-galleries"
-        : sectionId === "clients"
-          ? "our-clients"
-          : sectionId;
+  const targetId = resolveSectionId(sectionId);
   const el = document.getElementById(targetId) || document.getElementById(sectionId);
   if (el) {
     const yOffset = -95; // Account for sticky header + breathing room
@@ -367,7 +361,7 @@ export default function LovableHome() {
   return (
     <>
       <HomeSchemaMarkup />
-      <div className="lovable-home has-mobile-sticky-cta min-h-screen min-w-0 max-w-full text-foreground bg-stage">
+      <div className="lovable-home has-mobile-sticky-cta min-h-screen min-w-0 max-w-full overflow-x-clip text-foreground bg-stage">
         <Header
           onOpenDrawer={() => setDrawerOpen(true)}
           goBlog={goBlog}
@@ -437,15 +431,16 @@ export default function LovableHome() {
         />
 
         {/* Sticky Desktop & Mobile CTAs */}
-        <button
-          type="button"
-          onClick={openDemoWhatsApp}
+        <a
+          href={waMeUrl(DEMO_WA_MESSAGE)}
+          target="_blank"
+          rel="noopener noreferrer"
           className="gold-button gold-button-hover fixed bottom-6 right-6 z-40 hidden rounded-full px-6 py-3.5 text-xs font-bold uppercase tracking-wider shadow-2xl md:inline-flex items-center gap-2"
-          aria-label="Book live demo"
+          aria-label="Book live demo on WhatsApp"
         >
           <span>Book Live Demo</span>
           <span>→</span>
-        </button>
+        </a>
         <ScrollToTopButton placement="desktop-left" />
         <div
           ref={stickyCtaRef}
@@ -453,13 +448,12 @@ export default function LovableHome() {
           className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-stage/95 px-3 pt-3 backdrop-blur-md md:hidden pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         >
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={goSignup}
-              className="gold-button min-h-11 flex-1 rounded-md px-3 py-3 text-xs font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            <a
+              href="/organizer?tab=signup"
+              className="gold-button min-h-11 flex-1 inline-flex items-center justify-center rounded-md px-3 py-3 text-xs font-bold uppercase tracking-wider focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               Start Free Trial (2 Teams)
-            </button>
+            </a>
             {showScrollTop ? (
               <button
                 type="button"
@@ -492,7 +486,7 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
     <header className="sticky top-0 z-30 min-w-0 border-b border-white/10 bg-stage/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 w-full min-w-0 max-w-[1440px] items-center justify-between gap-2 px-3 sm:px-6 lg:px-8">
         <a href="/" className="flex min-w-0 items-center mr-2 xl:mr-6 2xl:mr-8" aria-label={`${BRAND_NAME} Home`}>
-          <BrandMark className="h-9 w-auto max-w-[7.25rem] object-contain object-left sm:h-10 sm:max-w-[168px]" />
+          <BrandMark className="h-8 sm:h-9 md:h-10 w-auto max-w-[6.25rem] sm:max-w-[7.25rem] md:max-w-[168px] object-contain object-left" />
         </a>
 
         <nav className="hidden xl:flex items-center gap-1 xl:gap-2 2xl:gap-3.5 text-[13px] font-medium text-muted-foreground">
@@ -504,7 +498,7 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
             Auction Screens
           </a>
           <a
-            href="#experience-bidding"
+            href="#auction-screens"
             onClick={(e) => scrollToSection("experience-bidding", e)}
             className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
           >
@@ -612,7 +606,7 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
               </div>
               <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between text-xs text-muted-foreground px-1">
                 <a
-                  href="#solutions"
+                  href="#offerings"
                   onClick={(e) => scrollToSection("solutions", e)}
                   className="hover:text-primary transition font-medium"
                 >
@@ -626,12 +620,12 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
           </div>
         </nav>
 
-        <div className="ml-auto flex min-w-0 shrink items-center gap-1.5 sm:gap-2.5 xl:ml-4">
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2.5 xl:ml-4">
           <PublicAuthCta variant="homepage" />
           <button
             type="button"
             onClick={onOpenDrawer}
-            className="ghost-button rounded-md p-2 xl:hidden"
+            className="ghost-button shrink-0 rounded-md p-1.5 sm:p-2 xl:hidden"
             aria-label="Open navigation menu"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -679,14 +673,14 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
         {([
           { label: "BidWar Premier League", href: "/bpl" },
           { label: "Auction Screens", href: "#auction-screens", sectionId: "auction-screens" },
-          { label: "Experience Bidding", href: "#experience-bidding", sectionId: "experience-bidding" },
+          { label: "Experience Bidding", href: "#auction-screens", sectionId: "experience-bidding" },
           { label: "Tournament Galleries", href: "#tournament-galleries", sectionId: "tournament-galleries" },
           { label: "Our Clients", href: "#our-clients", sectionId: "our-clients" },
           { label: "Academy (Video Hub)", href: "/academy", action: goAcademy },
-          { label: "Pricing", href: "#pricing", sectionId: "pricing" },
+          { label: "Pricing", href: "/pricing" },
           { label: "Blog", href: "/blog", action: goBlog },
           { label: "Organizer Reviews", href: "#reviews", sectionId: "reviews" },
-          { label: "Tournament Calculator", href: "#calculator", sectionId: "calculator" },
+          { label: "Tournament Calculator", href: "#simulator", sectionId: "calculator" },
           { label: "Upcoming Auctions", href: "/upcoming-auctions" },
           { label: "Contact Us", href: "/contact", action: goContact },
           { label: "FAQ", href: "#faq", sectionId: "faq" },
@@ -765,11 +759,11 @@ function Hero({
           </div>
 
           <h1 className="text-hero font-display tracking-tight">
-            <span className="block">From Auction</span>
-            <span className="block gold-text">to Champions.</span>
+            <span className="block">IPL-Style Live</span>
+            <span className="block gold-text">Sports Auction Software.</span>
           </h1>
           <p className="text-display-md mt-4 max-w-xl font-display text-foreground">
-            One Platform. Every Stage of the Game.
+            From Auction to Champions — Real-Time Bidding &amp; Tournament Engine.
           </p>
 
           <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
@@ -778,20 +772,21 @@ function Hero({
           </p>
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={goSignup}
-              className="gold-button gold-button-hover min-h-11 rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
+            <a
+              href="/organizer?tab=signup"
+              className="gold-button gold-button-hover min-h-11 inline-flex items-center justify-center rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
             >
               Start Free Trial →
-            </button>
-            <button
-              type="button"
-              onClick={onDemo}
-              className="ghost-button ghost-button-hover min-h-11 rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
+            </a>
+            <a
+              href={waMeUrl(DEMO_WA_MESSAGE)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Book Live Demo on WhatsApp"
+              className="ghost-button ghost-button-hover min-h-11 inline-flex items-center justify-center rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider"
             >
               Book Live Demo
-            </button>
+            </a>
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-mono">
@@ -858,21 +853,27 @@ function Ticker() {
     "VNBL 3.0 · Mumbai Titans bid 4.80L Pts for Rohit Kamble",
     "BPL 2026 · Badminton Premier League Player Draft Open",
     "Bangalore Corporate Cup · 12 Teams Allotted on BidWar",
-    "UNSOLD · Round 2 Accelerated Recycle activated at base 25k Pts",
+    "Accelerated Player Recycle · Round 2 System Automation",
     "Pune Sports Guild · 4th Consecutive Season powered by BidWar",
-    "LED FEED Live · 1080p60 OBS Overlay Stream Active",
+    "LED Screen & Broadcast · 1080p60 Realtime OBS Overlays",
   ];
   const track = [...items, ...items];
   return (
     <div className="max-w-full border-b border-white/5 bg-black/60 py-2.5 overflow-hidden">
-      <div className="flex max-w-full overflow-hidden">
-        <div className="ticker-track flex shrink-0 gap-8 whitespace-nowrap pr-8 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-          {track.map((t, i) => (
-            <span key={i} className="flex items-center gap-2.5">
-              <span className="live-dot" />
-              {t}
-            </span>
-          ))}
+      <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 overflow-hidden">
+        <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
+          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+          <span>Tournament Highlights</span>
+        </div>
+        <div className="flex max-w-full overflow-hidden">
+          <div className="ticker-track flex shrink-0 gap-8 whitespace-nowrap pr-8 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+            {track.map((t, i) => (
+              <span key={i} className="flex items-center gap-2.5">
+                <span className="text-primary/60 font-sans">◆</span>
+                {t}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -913,6 +914,8 @@ const PRODUCT_OFFERINGS = [
 function ProductOfferings() {
   return (
     <section id="offerings" className="mx-auto min-w-0 max-w-7xl px-5 py-14">
+      <span id="solutions" className="sr-only" aria-hidden="true" />
+      <span id="sports" className="sr-only" aria-hidden="true" />
       <div className="mb-6 max-w-2xl">
         <div className="text-[10px] uppercase tracking-[0.24em] text-primary font-semibold font-mono">
           What BidWar runs
@@ -958,7 +961,7 @@ function ProductShowcase({
       tag: "CONTROL ROOM",
       icon: Laptop,
       desc: "Total auctioneer command: 1-click bid increments, timer countdown buzzer, category pool selector, RTM, retentions, and instant emergency undo.",
-      img: "/assets/evidence/auction-control-live-operator.png",
+      img: "/assets/evidence/auction-control-live-operator.webp",
       alt: "BidWar Auction Control console interface showing player queue, timer, quick bid increments and team purses",
       features: [
         "1-Click Quick Bid Increments (₹10k, ₹25k, ₹50k, ₹1L pts)",
@@ -973,7 +976,7 @@ function ProductShowcase({
       tag: "WEB APP",
       icon: Smartphone,
       desc: "Team owners place real-time bids directly from their mobile phones without app installation. Built-in purse guard prevents overspending and enforces squad quotas.",
-      img: "/assets/evidence/team-bidding-screen.png",
+      img: "/assets/evidence/team-bidding-screen.webp",
       alt: "BidWar Team Bidding Screen Web App on smartphone",
       features: [
         "Zero App Store Install — Opens instantly via secure tournament link & PIN",
@@ -988,7 +991,7 @@ function ProductShowcase({
       tag: "STAGE DISPLAY",
       icon: Tv,
       desc: "Broadcast-grade graphics designed for giant venue LED walls and stage projectors. High-visibility player cards, dynamic purse bars, and sponsor branding.",
-      img: "/assets/evidence/live-led-screen.png",
+      img: "/assets/evidence/live-led-screen.webp",
       alt: "BidWar Live LED Stage Screen interface showing tournament status, real-time player card, live bid amount, team purse limits, and sponsor branding",
       features: [
         "Crisp 1080p60 full-screen graphics optimized for giant stage screens",
@@ -1003,7 +1006,7 @@ function ProductShowcase({
       tag: "LIVESTREAM",
       icon: Radio,
       desc: "Direct browser-source link for OBS Studio, vMix, and Streamlabs. Stream your live auction to YouTube, Facebook Live, or TV broadcast with professional lower-thirds.",
-      img: "/assets/evidence/obs-live-overlay.png",
+      img: "/assets/evidence/obs-live-overlay.webp",
       alt: "BidWar OBS Livestream broadcast overlay graphics running for live streaming",
       features: [
         "1-Click OBS Browser Source link with transparent alpha channel",
@@ -1019,7 +1022,7 @@ function ProductShowcase({
       isPortrait: true,
       icon: Globe,
       desc: "Real-time spectator portal for team members, players, fans, and remote stakeholders who want to stay connected and follow the auction live from distance.",
-      img: "/assets/evidence/live-auction-view.png",
+      img: "/assets/evidence/live-auction-view.webp",
       alt: "BidWar Live Auction Remote Spectator View showing live player card, real-time bid, team purse balances, and cheer button",
       features: [
         "Zero-delay live spectator room accessible from anywhere on any phone or PC",
@@ -1035,7 +1038,7 @@ function ProductShowcase({
       isPortrait: true,
       icon: MessageSquare,
       desc: "Instant automated WhatsApp, SMS, and email notifications dispatched to players, franchise owners, and captains for maximum effective reach.",
-      img: "/assets/evidence/automated-communications-sms.png",
+      img: "/assets/evidence/automated-communications-sms.webp",
       alt: "BidWar instant player allotment SMS alert with congratulations message and winning team details",
       features: [
         "Instant WhatsApp & SMS sent to sold players with winning team & points",
@@ -1050,7 +1053,7 @@ function ProductShowcase({
       tag: "REPORTS & SQUAD",
       icon: FileSpreadsheet,
       desc: "Comprehensive post-auction reporting and data export. Generate clean rosters, category expenditure breakdowns, and captain sheets in seconds.",
-      img: "/assets/evidence/reports-catalogue-dashboard.png",
+      img: "/assets/evidence/reports-catalogue-dashboard.webp",
       alt: "BidWar Report Catalogue dashboard showing Top 5 Sold Players poster showcase, PDF, Excel, and CSV export options",
       features: [
         "1-Click Excel / CSV Full Squad Export ready before the crowd leaves",
@@ -1115,6 +1118,9 @@ function ProductShowcase({
 
   return (
     <section id="auction-screens" data-alias="surfaces" className="mx-auto max-w-7xl px-5 py-16 scroll-mt-24">
+      <span id="experience-bidding" className="sr-only" aria-hidden="true" />
+      <span id="surfaces" className="sr-only" aria-hidden="true" />
+      <span id="features" className="sr-only" aria-hidden="true" />
       <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-[10px] uppercase tracking-[0.24em] text-primary font-semibold font-mono">The 7 Connected Auction Screens</div>
@@ -1222,11 +1228,18 @@ function ProductShowcase({
 
                 {/* Portrait Image */}
                 <div className="relative flex-1 overflow-hidden bg-neutral-950">
-                  <img
-                    src={current.img}
-                    alt={current.alt}
-                    className="h-full w-full object-contain object-top"
-                  />
+                  <picture>
+                    <source type="image/webp" srcSet={current.img.endsWith('.webp') ? current.img : current.img.replace(/\.(png|jpg)$/, '.webp')} />
+                    <img
+                      src={current.img}
+                      alt={current.alt}
+                      width={235}
+                      height={482}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-full w-full object-contain object-top"
+                    />
+                  </picture>
                   <div className="absolute inset-0 ring-1 ring-inset ring-white/10 pointer-events-none" />
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent" />
                 </div>
@@ -1263,11 +1276,18 @@ function ProductShowcase({
 
               {/* Image Preview */}
               <div className="relative flex-1 overflow-hidden bg-black">
-                <img
-                  src={current.img}
-                  alt={current.alt}
-                  className="h-full w-full object-contain object-center"
-                />
+                <picture>
+                  <source type="image/webp" srcSet={current.img.endsWith('.webp') ? current.img : current.img.replace(/\.(png|jpg)$/, '.webp')} />
+                  <img
+                    src={current.img}
+                    alt={current.alt}
+                    width={1280}
+                    height={720}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-contain object-center"
+                  />
+                </picture>
                 <div className="absolute inset-0 ring-1 ring-inset ring-white/10 pointer-events-none" />
 
                 <button
@@ -1352,7 +1372,7 @@ function RealTournaments({
         { v: "100%", l: "Purse Accuracy", sub: "Zero Overspend" },
         { v: "0", l: "Disputed Bids", sub: "Stage LED Sync" },
       ],
-      image: "/assets/evidence/vnbl-chhavi-gera-bidding.jpg",
+      image: "/assets/evidence/vnbl-chhavi-gera-bidding.webp",
       reelLabel: "VNBL 3.0 · Stage Highlight Reel",
     },
     {
@@ -1370,7 +1390,7 @@ function RealTournaments({
         { v: "100%", l: "Purse Accuracy", sub: "Zero Errors" },
         { v: "0", l: "Disputed Bids", sub: "Console Sync" },
       ],
-      image: "/assets/evidence/real-auction-laptop-vncl.jpg",
+      image: "/assets/evidence/real-auction-laptop-vncl.webp",
       reelLabel: "APL 2026 · Benaras Club Auction Tape",
     },
     {
@@ -1388,7 +1408,7 @@ function RealTournaments({
         { v: "100%", l: "Live Overlay", sub: "Stage LED Sync" },
         { v: "0s", l: "Scoring Delay", sub: "Ball-by-Ball" },
       ],
-      image: "/assets/evidence/bpl-2026-poster.jpg?v=2",
+      image: "/assets/evidence/bpl-2026-poster.webp",
       reelLabel: "BPL 2026 · Box Cricket Reel",
     },
   ];
@@ -1467,7 +1487,7 @@ function RealTournaments({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span className="max-w-full break-words rounded-full border border-[color:var(--live)]/40 bg-[color:var(--live)]/10 px-3 py-1 text-[10px] font-bold tracking-[0.12em] text-[color:var(--live)] sm:tracking-[0.2em]">
-                <span className="live-dot mr-1.5 align-middle" />{t.seasonTag}
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[color:var(--live)] mr-1.5 align-middle" />{t.seasonTag}
               </span>
               <span className="max-w-full break-words rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[10px] uppercase tracking-[0.12em] text-muted-foreground font-mono sm:tracking-[0.2em]">
                 {t.sportTag}
@@ -1488,11 +1508,18 @@ function RealTournaments({
           {/* Photo & Video Reel Frame */}
           <div className="panel relative overflow-hidden p-3 rounded-xl border border-white/15 bg-black/60 shadow-xl">
             <div className="group relative aspect-video overflow-hidden rounded-lg bg-black">
-              <img
-                src={t.image}
-                alt={t.name}
-                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-              />
+              <picture>
+                <source type="image/webp" srcSet={t.image.replace(/\.(png|jpg)(\?.*)?$/, ".webp")} />
+                <img
+                  src={t.image}
+                  alt={`Live auction photo: ${t.name} - ${t.sportTag}`}
+                  width={640}
+                  height={360}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                />
+              </picture>
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
               <div className="absolute inset-0 flex items-center justify-center gap-3">
@@ -1539,7 +1566,7 @@ function AcademyPromo({
     {
       id: "ep1-setup",
       title: "Set Up Teams, Purses & Player Pools in 5 Minutes",
-      duration: "12:04",
+      status: "Curriculum · Coming Soon",
       tag: "Beginner",
       ep: "EPISODE 01",
       desc: "Configure team slots, virtual points purse limits, category pools (A/B/C) and QR player registration.",
@@ -1547,7 +1574,7 @@ function AcademyPromo({
     {
       id: "ep2-operator",
       title: "Operator Masterclass: Running Bids, Timers & Undos",
-      duration: "24:31",
+      status: "Curriculum · Coming Soon",
       tag: "Operator",
       ep: "EPISODE 02",
       desc: "Auctioneer control techniques: quick increments, countdown buzzer management, unsold recycling, and emergency undo.",
@@ -1555,7 +1582,7 @@ function AcademyPromo({
     {
       id: "ep3-owners",
       title: "Team-Owner Mobile Guide: Bidding & Purse Guard",
-      duration: "06:18",
+      status: "Curriculum · Coming Soon",
       tag: "Team Owners",
       ep: "EPISODE 03",
       desc: "How team owners log in on any phone browser, track remaining budget, and place real-time bids with purse protection.",
@@ -1563,7 +1590,7 @@ function AcademyPromo({
     {
       id: "ep4-broadcast",
       title: "LED Wall & OBS Livestream Setup for YouTube/Facebook",
-      duration: "18:47",
+      status: "Curriculum · Coming Soon",
       tag: "Broadcast",
       ep: "EPISODE 04",
       desc: "Wiring your laptop to 1080p60 LED stage walls, lower-thirds overlays in OBS Studio, and rotating sponsor banners.",
@@ -1606,8 +1633,8 @@ function AcademyPromo({
                     <span className="font-mono text-[9px] uppercase tracking-widest text-primary font-bold">
                       {lesson.ep}
                     </span>
-                    <span className="rounded bg-white/10 px-2 py-0.5 font-mono text-[9px] text-foreground">
-                      {lesson.duration}
+                    <span className="rounded border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[9px] font-semibold text-primary">
+                      {lesson.status}
                     </span>
                   </div>
 
@@ -1625,10 +1652,10 @@ function AcademyPromo({
                   </span>
                   <button
                     type="button"
-                    onClick={() => onPlayLesson(lesson.title, lesson.duration, lesson.tag)}
-                    className="inline-flex min-h-11 items-center gap-1 px-1 text-primary text-xs font-bold uppercase tracking-wider hover:underline"
+                    onClick={() => navigate("/academy")}
+                    className="inline-flex min-h-11 items-center gap-1 px-1 text-primary text-xs font-bold uppercase tracking-wider hover:underline font-mono"
                   >
-                    <Play className="h-3 w-3 fill-current" /> Watch Video
+                    View Academy Syllabus →
                   </button>
                 </div>
               </div>
@@ -2002,7 +2029,7 @@ function Footer() {
     {
       h: "Company & Trust",
       items: [
-        { label: "Pricing & Plans", href: "#pricing" },
+        { label: "Pricing & Plans", href: "/pricing" },
         { label: "Contact & HQ", href: "/contact" },
         { label: "Auction Tips", href: "/auction-tips" },
         { label: "auth-cta" },

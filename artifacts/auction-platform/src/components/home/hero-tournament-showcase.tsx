@@ -4,22 +4,26 @@ const SLIDES = [
   {
     id: "vnbl-chhavi-gera",
     src: "/assets/evidence/vnbl-chhavi-gera-bidding.jpg",
-    alt: "Chhavi Gera Live Player Bidding on Stage",
+    webpSrc: "/assets/evidence/vnbl-chhavi-gera-bidding.webp",
+    alt: "Chhavi Gera Live Player Bidding on Stage at VNBL Auction",
   },
   {
     id: "vnbl-team-group",
     src: "/assets/evidence/vnbl-stage-team-group.jpg",
-    alt: "Tournament Committee & Franchise Owners Stage Group",
+    webpSrc: "/assets/evidence/vnbl-stage-team-group.webp",
+    alt: "Tournament Committee & Franchise Owners Stage Group at VNBL",
   },
   {
     id: "vnbl-top5-leaderboard",
     src: "/assets/evidence/vnbl-top5-leaderboard.jpg",
-    alt: "Top 5 Sold Players Leaderboard LED Wall",
+    webpSrc: "/assets/evidence/vnbl-top5-leaderboard.webp",
+    alt: "Top 5 Sold Players Leaderboard LED Wall at VNBL Auction",
   },
   {
     id: "vnbl-womens-purse",
     src: "/assets/evidence/vnbl-womens-purse-auctioneer.jpg",
-    alt: "Women's League Team Purse Wall & Live Auctioneer",
+    webpSrc: "/assets/evidence/vnbl-womens-purse-auctioneer.webp",
+    alt: "Women's League Team Purse Wall & Live Auctioneer Console",
   },
 ];
 
@@ -51,15 +55,26 @@ export function HeroTournamentShowcase() {
       <div className="relative w-full aspect-[3/2] rounded-2xl overflow-hidden shadow-[0_20px_50px_-10px_rgba(0,0,0,0.65)]">
         {SLIDES.map((slide, index) => {
           const isActive = index === currentIndex;
+          const isLcp = index === 0;
           return (
-            <img
+            <picture
               key={slide.id}
-              src={slide.src}
-              alt={slide.alt}
-              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ease-in-out ${
+              className={`absolute inset-0 h-full w-full transition-opacity duration-1000 ease-in-out ${
                 isActive ? "opacity-100 z-10" : "opacity-0 z-0"
               }`}
-            />
+            >
+              <source type="image/webp" srcSet={slide.webpSrc} />
+              <img
+                src={slide.src}
+                alt={slide.alt}
+                width={600}
+                height={400}
+                loading={isLcp ? "eager" : "lazy"}
+                fetchPriority={isLcp ? "high" : "low"}
+                decoding={isLcp ? "sync" : "async"}
+                className="h-full w-full object-cover"
+              />
+            </picture>
           );
         })}
       </div>

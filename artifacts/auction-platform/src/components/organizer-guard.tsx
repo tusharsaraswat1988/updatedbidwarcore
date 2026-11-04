@@ -84,7 +84,7 @@ export function OrganizerGuard({
   const badmintonRoute = isBadmintonOrganizerPath(location);
   const inScoringApp =
     typeof window !== "undefined" &&
-    location.startsWith(SCORING_APP_BASE);
+    (location.startsWith(SCORING_APP_BASE) || window.location.pathname.startsWith(SCORING_APP_BASE));
 
   const [accessDenied, setAccessDenied] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);

@@ -21,7 +21,7 @@ describe("BidWar Public Guest AI WhatsApp Assistant", () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     process.env.GEMINI_API_KEY = "mock-gemini-key";
-    process.env.GEMINI_MODEL = "gemini-2.5-flash";
+    process.env.GEMINI_MODEL = "gemini-3.8-flash";
     process.env.AI_ASSISTANT_ENABLED = "true";
     delete process.env.OPENAI_API_KEY;
     delete process.env.INTELLIGENCE_LLM_MODEL;
@@ -250,7 +250,7 @@ describe("BidWar Public Guest AI WhatsApp Assistant", () => {
       expect(res.text).toContain("https://bidwar.in/organizer?tab=signup");
       expect(generateMock).toHaveBeenCalledTimes(1);
       const callArgs = generateMock.mock.calls[0][0];
-      expect(callArgs.model).toBe("gemini-2.5-flash");
+      expect(callArgs.model).toBe("gemini-3.8-flash");
     });
 
     it("falls back gracefully with branded message when Gemini times out or fails", async () => {

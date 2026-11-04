@@ -29,6 +29,7 @@ import {
   toIsoDateTime,
 } from "@workspace/blog-data";
 import { getPlatformOpenGraphImageUrl } from "./branding-service.js";
+import { buildSchemaOrgOffers } from "@workspace/api-base";
 import { getPublicOrigin } from "./runtime-env.js";
 
 /** Runtime public origin from APP_URL (via runtime-env). Used for all server-side SEO metadata. */
@@ -47,7 +48,7 @@ export function getBaseUrl(): string {
 
 const BASE_URL = getBaseUrl();
 export { BASE_URL };
-export const DEFAULT_OG_IMAGE_URL = resolvePlatformPrimaryLogoUrl(BASE_URL);
+export const DEFAULT_OG_IMAGE_URL = `${BASE_URL}/bidwar-og-card.png`;
 const PHONE = "+91-8707488250";
 
 // ─── Shared schema fragments ──────────────────────────────────────────────────
@@ -103,14 +104,7 @@ const SOFTWARE_APPLICATION_SCHEMA = {
   "softwareVersion": "3.0",
   "countriesSupported": "IN",
   "inLanguage": "en-IN",
-  "offers": [
-    { "@type": "Offer", "name": "Free Trial", "price": "0", "priceCurrency": "INR", "description": "Free forever plan — up to 2 teams per tournament.", "availability": "https://schema.org/InStock" },
-    { "@type": "Offer", "name": "Starter", "price": "5000", "priceCurrency": "INR", "description": "Up to 4 teams per tournament.", "availability": "https://schema.org/InStock" },
-    { "@type": "Offer", "name": "Pro", "price": "6000", "priceCurrency": "INR", "description": "Up to 8 teams per tournament.", "availability": "https://schema.org/InStock" },
-    { "@type": "Offer", "name": "Advanced", "price": "8000", "priceCurrency": "INR", "description": "Up to 12 teams per tournament.", "availability": "https://schema.org/InStock" },
-    { "@type": "Offer", "name": "Elite", "price": "10000", "priceCurrency": "INR", "description": "Up to 16 teams per tournament.", "availability": "https://schema.org/InStock" },
-  ],
-  "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.9", "reviewCount": "500", "bestRating": "5", "worstRating": "1" },
+  "offers": buildSchemaOrgOffers(),
   "author": ORGANIZATION_SCHEMA,
   "featureList": [
     "Live real-time bidding",
@@ -140,7 +134,7 @@ const HOME_FAQ_SCHEMA = {
     { "@type": "Question", "name": "Does BidWar support projector and LED screens?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. BidWar includes a dedicated full-screen LED Display Mode for large projectors and smart TVs. It features animated player cards, live bid counters, a SOLD stamp animation, team purse strips, and sponsor logo rotation — all in broadcast-quality resolution." } },
     { "@type": "Question", "name": "Is BidWar cloud-based?", "acceptedAnswer": { "@type": "Answer", "text": "Yes. BidWar is fully cloud-based. The operator dashboard, team owner panels, and LED display all run in a browser — no downloads or installations required. All bid data syncs in real time across all connected devices from any location." } },
     { "@type": "Question", "name": "Is BidWar suitable for local tournaments?", "acceptedAnswer": { "@type": "Answer", "text": "Absolutely. BidWar scales from 2-team club auctions to 16-team state-level franchise leagues. The free trial plan supports 2 teams at no cost, making it ideal for first-time organizers and small community tournaments." } },
-    { "@type": "Question", "name": "How much does BidWar cost?", "acceptedAnswer": { "@type": "Answer", "text": "BidWar uses one-time per-tournament pricing — no monthly fees. Plans start free (2 teams), then ₹5,000 for Starter (4 teams), ₹6,000 for Pro (8 teams), ₹8,000 for Advanced (12 teams), and ₹10,000 for Elite (16 teams). All prices are per auction event and activate an Auction License for the BidWar Auction Module only." } },
+    { "@type": "Question", "name": "How much does BidWar cost?", "acceptedAnswer": { "@type": "Answer", "text": "BidWar uses one-time per-tournament pricing — no monthly fees. Plans start free (2 teams), then ₹3,750 for Starter (4 teams), ₹4,500 for Pro (8 teams), ₹6,000 for Advanced (12 teams), ₹6,750 for Elite (16 teams), ₹8,250 for Premium (22 teams), and ₹9,000 for Champion (30 teams) with current launch pricing. All prices are per auction event and activate an Auction License for the BidWar Auction Module only." } },
     { "@type": "Question", "name": "What is included in a BidWar Auction License?", "acceptedAnswer": { "@type": "Answer", "text": "An Auction License covers the BidWar Auction Module for one tournament — including one auction purse, unlimited player categories and registrations, and complete auction management up to your plan's team limit. It does not include Sports Scoring, match management, fixtures, live scoring, points tables, statistics, or live streaming. Those require a separate Sports Scoring License." } },
     { "@type": "Question", "name": "Which sports does BidWar support?", "acceptedAnswer": { "@type": "Answer", "text": "BidWar supports all franchise-style sports including cricket, football, kabaddi, basketball, volleyball, badminton, esports, and business/corporate leagues. Any sport where players are auctioned to teams with a budget can be run on BidWar." } },
   ],
@@ -234,7 +228,43 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     keywords: "sports auction software, cricket auction software, IPL style auction, live player auction platform, franchise auction system, tournament management software India, digital sports auction, real-time bidding software, cricket league auction",
     ogTitle: "BidWar — Live Sports Auction Software | Run IPL-Style Player Auctions",
     ogDescription: "Run professional IPL-style player auctions live. Real-time bidding, LED broadcast display, team owner mobile panel, Broadcast Overlay. Built for cricket, football, kabaddi and franchise leagues across India.",
+    ogImage: DEFAULT_OG_IMAGE_URL,
     schemas: [graph(SOFTWARE_APPLICATION_SCHEMA, ORGANIZATION_SCHEMA, WEBSITE_SCHEMA, HOME_FAQ_SCHEMA)],
+  },
+
+  "/pricing": {
+    title: "Pricing | BidWar — One-Time Per-Tournament Auction License",
+    description: "BidWar pricing: one-time per-tournament Auction License, starting free for 2 teams. No monthly fees, no auto-renewals. Compare Starter, Pro, Advanced, Elite and Champion plans.",
+    canonical: `${BASE_URL}/pricing`,
+    keywords: "sports auction pricing, cricket auction software cost, BidWar pricing plans, tournament auction license, IPL style auction software pricing",
+    ogTitle: "BidWar Pricing — One Tournament. One License. No Monthly Fees.",
+    ogDescription: "Transparent one-time per-tournament pricing. Free for 2 teams, affordable tiers up to 16+ teams. Includes real-time bidding, LED display, mobile owner panels.",
+    schemas: [graph(ORGANIZATION_SCHEMA, SOFTWARE_APPLICATION_SCHEMA, {
+      "@type": "WebPage",
+      "name": "BidWar Pricing",
+      "url": `${BASE_URL}/pricing`,
+      "description": "BidWar pricing: one-time per-tournament Auction License, starting free for 2 teams.",
+      "isPartOf": { "@type": "WebSite", "url": BASE_URL },
+      "breadcrumb": breadcrumb("Pricing", `${BASE_URL}/pricing`),
+    })],
+  },
+
+  "/bpl": {
+    title: "BidWar Premier League (BPL) | Official Tournament Hub",
+    description: "Follow the BidWar Premier League live. Track team purse spending, player bidding wars, squad compositions, and auction results in real time.",
+    canonical: `${BASE_URL}/bpl`,
+    keywords: "BidWar Premier League, BPL cricket auction, live player bidding, cricket league auction, BPL squads, BPL results",
+    ogTitle: "BidWar Premier League (BPL) — Live Auction & Tournament Hub",
+    ogDescription: "The official hub for BidWar Premier League auctions. Live bidding updates, team squads, auction ledger, and tournament stats.",
+    schemas: [graph(ORGANIZATION_SCHEMA, {
+      "@type": "SportsEvent",
+      "name": "BidWar Premier League",
+      "url": `${BASE_URL}/bpl`,
+      "description": "Official tournament hub for the BidWar Premier League.",
+      "organizer": ORGANIZATION_SCHEMA,
+      "isPartOf": { "@type": "WebSite", "url": BASE_URL },
+      "breadcrumb": breadcrumb("BPL Hub", `${BASE_URL}/bpl`),
+    })],
   },
 
   "/upcoming-auctions": {
@@ -630,7 +660,7 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
 function withPlatformOgImage(meta: PageMeta): PageMeta {
   if (meta.ogImage) return meta;
   const platformOg = getPlatformOpenGraphImageUrl();
-  return platformOg ? { ...meta, ogImage: platformOg } : meta;
+  return { ...meta, ogImage: platformOg || DEFAULT_OG_IMAGE_URL };
 }
 
 /**
@@ -654,6 +684,32 @@ export function getPageMeta(pathname: string): PageMeta | null {
     const knownLegal = STATIC_PAGES[`/legal/${slug}`];
     if (knownLegal) return withPlatformOgImage(knownLegal);
     return null;
+  }
+
+  // Pattern match for /bpl/:edition
+  const bplEditionMatch = pathname.match(/^\/bpl\/([a-zA-Z0-9_-]+)$/);
+  if (bplEditionMatch) {
+    const edition = bplEditionMatch[1]!;
+    const cleanEdition = edition.replace(/[-_]/g, " ").toUpperCase();
+    return withPlatformOgImage({
+      title: `BidWar Premier League ${cleanEdition} | Official Tournament Edition`,
+      description: `Follow the BidWar Premier League ${cleanEdition} live auction, team rosters, bidding ledger, and player stats.`,
+      canonical: `${BASE_URL}/bpl/${edition}`,
+      keywords: `BPL ${edition}, BidWar Premier League ${cleanEdition}, cricket auction ${edition}, live player bidding`,
+      ogTitle: `BidWar Premier League ${cleanEdition} — Live Auction Edition`,
+      ogDescription: `Live auction results, purse spending, and squads for BidWar Premier League ${cleanEdition}.`,
+      schemas: [
+        graph(ORGANIZATION_SCHEMA, {
+          "@type": "SportsEvent",
+          "name": `BidWar Premier League ${cleanEdition}`,
+          "url": `${BASE_URL}/bpl/${edition}`,
+          "description": `BidWar Premier League ${cleanEdition} live auction event.`,
+          "organizer": ORGANIZATION_SCHEMA,
+          "isPartOf": { "@type": "WebSite", "url": BASE_URL },
+          "breadcrumb": breadcrumb(`BPL ${cleanEdition}`, `${BASE_URL}/bpl/${edition}`),
+        }),
+      ],
+    });
   }
 
   // ── Blog pages ──────────────────────────────────────────────────────────────

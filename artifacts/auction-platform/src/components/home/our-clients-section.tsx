@@ -94,7 +94,14 @@ export function OurClientsSection() {
 
   const allClients = useMemo(() => {
     const list = clientsData && clientsData.length > 0 ? clientsData : FALLBACK_CLIENTS;
-    return list.filter((c) => c.active !== false);
+    return list.filter((c) => {
+      if (c.active === false) return false;
+      const lower = (c.name || "").toLowerCase();
+      if (lower.includes("cwp detailer") || lower.includes("cwp motor") || lower.includes("detailer's and motors")) {
+        return false;
+      }
+      return true;
+    });
   }, [clientsData]);
 
   // Smooth scroll buttons
@@ -240,9 +247,12 @@ export function OurClientsSection() {
                     {client.logoUrl ? (
                       <img
                         src={client.logoUrl}
-                        alt={client.name}
+                        alt={`${client.name} logo`}
+                        width={160}
+                        height={85}
                         className="max-h-[75px] sm:max-h-[85px] w-auto max-w-[90%] object-contain drop-shadow-md transition-all duration-300 group-hover:scale-105 pointer-events-none"
                         loading="lazy"
+                        decoding="async"
                         draggable={false}
                       />
                     ) : (
@@ -256,9 +266,9 @@ export function OurClientsSection() {
 
                   {/* Bottom: Clean Client Name (No extra redirect arrow text) */}
                   <div className="mt-3 pt-3 border-t border-white/5 w-full text-center">
-                    <h3 className="font-display font-semibold text-xs sm:text-sm text-foreground group-hover:text-amber-300 transition-colors line-clamp-2 leading-snug">
+                    <div className="font-display font-semibold text-xs sm:text-sm text-foreground group-hover:text-amber-300 transition-colors line-clamp-2 leading-snug">
                       {client.name}
-                    </h3>
+                    </div>
                   </div>
                 </CardWrapper>
               );

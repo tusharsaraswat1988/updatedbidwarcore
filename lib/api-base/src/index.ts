@@ -269,3 +269,9 @@ export {
   getActiveConsentNotice,
   formatConsentNoticeSummary,
 } from "./consent-notice";
+
+export {
+  CANONICAL_PRICING_TIERS,
+  buildSchemaOrgOffers,
+  type CanonicalPricingTier,
+} from "./pricing-tiers";

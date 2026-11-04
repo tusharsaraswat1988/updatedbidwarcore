@@ -1,6 +1,6 @@
 import { useRef, type KeyboardEvent } from "react";
 import { Play, Star, ShieldCheck, Quote, ChevronLeft, ChevronRight } from "lucide-react";
-import { scrollBehavior } from "@/lib/home-mobile-chrome";
+import { scrollBehavior } from "../../lib/home-mobile-chrome";
 
 export type OrganizerReview = {
   id: string;
@@ -33,7 +33,7 @@ export const ORGANIZER_REVIEWS: OrganizerReview[] = [
     rating: 5,
     teamsCount: 6,
     playersCount: 78,
-    duration: "02:45",
+    duration: "",
     avatarText: "AM",
     avatarGradient: "from-amber-500 to-orange-600",
     verifiedYear: "Verified Season 3",
@@ -86,7 +86,7 @@ export const ORGANIZER_REVIEWS: OrganizerReview[] = [
     rating: 5,
     teamsCount: 15,
     playersCount: 350,
-    duration: "03:40",
+    duration: "",
     avatarText: "VM",
     avatarGradient: "from-purple-600 to-indigo-500",
     verifiedYear: "Verified Season 2",
@@ -103,7 +103,7 @@ export const ORGANIZER_REVIEWS: OrganizerReview[] = [
     rating: 5,
     teamsCount: 5,
     playersCount: 65,
-    duration: "02:30",
+    duration: "",
     avatarText: "P",
     avatarGradient: "from-emerald-600 to-teal-500",
     verifiedYear: "Verified 2026",
@@ -255,16 +255,23 @@ export function OrganizerVideoReviews({
               </div>
             </div>
 
-            {/* Video Action Button */}
+            {/* Video Action Button or Verified Testimonial Badge */}
             <div className="mt-5 border-t border-white/10 pt-3">
-              <button
-                type="button"
-                onClick={() => onPlayVideo(r)}
-                className="gold-button gold-button-hover flex min-h-11 w-full items-center justify-center gap-2 rounded-md px-3 py-2.5 text-xs font-bold uppercase tracking-wider"
-              >
-                <Play className="h-3.5 w-3.5 fill-current" />
-                <span>Watch Story ({r.duration})</span>
-              </button>
+              {r.youtubeId ? (
+                <button
+                  type="button"
+                  onClick={() => onPlayVideo(r)}
+                  className="gold-button gold-button-hover flex min-h-11 w-full items-center justify-center gap-2 rounded-md px-3 py-2.5 text-xs font-bold uppercase tracking-wider"
+                >
+                  <Play className="h-3.5 w-3.5 fill-current" />
+                  <span>{`Watch Video (${r.duration})`}</span>
+                </button>
+              ) : (
+                <div className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-400 font-mono">
+                  <ShieldCheck className="h-4 w-4 shrink-0" />
+                  <span>Verified Tournament Review</span>
+                </div>
+              )}
             </div>
           </div>
         ))}

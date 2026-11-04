@@ -163,7 +163,7 @@ Vite proxies all `/api` traffic (REST, SSE, uploads, OAuth) to `API_DEV_PROXY_TA
    ADMIN_PASSWORD=<strong password>
    PORT=3000
    GEMINI_API_KEY=<your-google-gemini-api-key>
-   GEMINI_MODEL=gemini-2.5-flash
+   GEMINI_MODEL=gemini-3.8-flash
    AI_ASSISTANT_ENABLED=true
    ```
 4. **Settings → Deploy → Build command**: `pnpm run build`

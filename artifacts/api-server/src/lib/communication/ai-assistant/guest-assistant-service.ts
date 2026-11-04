@@ -25,7 +25,7 @@ import { leadCaptureService } from "./lead-capture-service";
 import { humanHandoff } from "./human-handoff";
 import { conversationalIntelligence } from "./conversational-intelligence";
 import { operationalDataService } from "./operational-data-service";
-import { entityResolutionService } from "./entity-resolution-service";
+import { entityResolutionService, type CandidateTournament } from "./entity-resolution-service";
 import { audioTranscriptionService } from "./audio-transcription-service";
 import type { ResolvedIdentity } from "../conversation-router";
 
@@ -47,6 +47,12 @@ export interface GuestAssistantResponse {
   rateLimited?: boolean;
   intent?: string;
 }
+
+export type OperationalTournamentResolution =
+  | { status: "resolved"; tournament: { id: number; name: string; city?: string | null } }
+  | { status: "denied"; message: string }
+  | { status: "clarification"; message: string }
+  | { status: "needs_confirmation"; candidate: CandidateTournament; message: string };
 
 const HOURLY_RATE_LIMIT = 20; // Max 20 requests per hour per phone
 const requestTimestamps = new Map<string, number[]>();
@@ -243,6 +249,122 @@ export class GuestAssistantService {
           });
           return { text: formatted, intent: "AUCTION_OVERVIEW_QUERY" };
         }
+
+        if (pending.pendingIntent === "LIVE_AUCTION_STATE_QUERY") {
+          const liveState = await operationalDataService.getLiveAuctionState(pending.candidateTournamentId);
+          const formatted = liveState
+            ? operationalDataService.formatLiveAuctionStateResponse(liveState, currentLanguage)
+            : `"${pending.candidateName}" ka live auction data abhi available nahi hai.`;
+          await sessionManager.appendTurn(mobile, cleanText, formatted, undefined, {
+            languagePreference: currentLanguage,
+            confirmedTournamentId: pending.candidateTournamentId,
+            confirmedTournamentName: pending.candidateName,
+            confirmedTournamentCity: pending.candidateCity ?? undefined,
+          });
+          return { text: formatted, intent: "LIVE_AUCTION_STATE_QUERY" };
+        }
+
+        if (pending.pendingIntent === "TOP_SOLD_PLAYERS_QUERY") {
+          const topPlayers = await operationalDataService.getTopSoldPlayers({ tournamentId: pending.candidateTournamentId, limit: 5 });
+          const formatted = operationalDataService.formatTopSoldPlayersResponse(topPlayers, currentLanguage, pending.candidateName, 5);
+          await sessionManager.appendTurn(mobile, cleanText, formatted, undefined, {
+            languagePreference: currentLanguage,
+            confirmedTournamentId: pending.candidateTournamentId,
+            confirmedTournamentName: pending.candidateName,
+            confirmedTournamentCity: pending.candidateCity ?? undefined,
+          });
+          return { text: formatted, intent: "TOP_SOLD_PLAYERS_QUERY" };
+        }
+
+        if (pending.pendingIntent === "LAST_SOLD_PLAYERS_QUERY") {
+          const lastPlayers = await operationalDataService.getLastSoldPlayers({ tournamentId: pending.candidateTournamentId, limit: 5 });
+          const formatted = operationalDataService.formatLastSoldPlayersResponse(lastPlayers, currentLanguage, pending.candidateName, 5);
+          await sessionManager.appendTurn(mobile, cleanText, formatted, undefined, {
+            languagePreference: currentLanguage,
+            confirmedTournamentId: pending.candidateTournamentId,
+            confirmedTournamentName: pending.candidateName,
+            confirmedTournamentCity: pending.candidateCity ?? undefined,
+          });
+          return { text: formatted, intent: "LAST_SOLD_PLAYERS_QUERY" };
+        }
+
+        if (pending.pendingIntent === "TEAM_PURSE_RANKING_QUERY") {
+          const rankings = await operationalDataService.getTeamPurseAndRankings({ tournamentId: pending.candidateTournamentId, sortBy: "spent" });
+          const formatted = operationalDataService.formatTeamPurseRankingsResponse(rankings, currentLanguage, pending.candidateName, "spent");
+          await sessionManager.appendTurn(mobile, cleanText, formatted, undefined, {
+            languagePreference: currentLanguage,
+            confirmedTournamentId: pending.candidateTournamentId,
+            confirmedTournamentName: pending.candidateName,
+            confirmedTournamentCity: pending.candidateCity ?? undefined,
+          });
+          return { text: formatted, intent: "TEAM_PURSE_RANKING_QUERY" };
+        }
+
+        if (pending.pendingIntent === "MAX_BID_QUERY") {
+          const teamDetail = await operationalDataService.getTeamOwnerPersonalData(mobile, pending.candidateTournamentId);
+          const formatted = teamDetail
+            ? operationalDataService.formatMaxBidResponse(teamDetail, currentLanguage)
+            : currentLanguage === "english"
+              ? "No team owner record was found for your phone in this tournament."
+              : "Is tournament mein aapka number kisi team owner account se linked nahi mila.";
+          await sessionManager.appendTurn(mobile, cleanText, formatted, undefined, {
+            languagePreference: currentLanguage,
+            confirmedTournamentId: pending.candidateTournamentId,
+            confirmedTournamentName: pending.candidateName,
+            confirmedTournamentCity: pending.candidateCity ?? undefined,
+          });
+          return { text: formatted, intent: "MAX_BID_QUERY" };
+        }
+
+        if (pending.pendingIntent === "TEAM_HIERARCHY_QUERY") {
+          const hierarchy = await operationalDataService.getTeamWiseAcquisitionHierarchy(pending.candidateTournamentId);
+          const formatted = operationalDataService.formatTeamHierarchyResponse(hierarchy, currentLanguage, pending.candidateName);
+          await sessionManager.appendTurn(mobile, cleanText, formatted, undefined, {
+            languagePreference: currentLanguage,
+            confirmedTournamentId: pending.candidateTournamentId,
+            confirmedTournamentName: pending.candidateName,
+            confirmedTournamentCity: pending.candidateCity ?? undefined,
+          });
+          return { text: formatted, intent: "TEAM_HIERARCHY_QUERY" };
+        }
+
+        if (pending.pendingIntent === "SOLD_PLAYERS_SORTED_QUERY") {
+          const sorted = await operationalDataService.getAllSoldPlayersSorted(pending.candidateTournamentId, "desc");
+          const formatted = operationalDataService.formatTopSoldPlayersResponse(sorted, currentLanguage, pending.candidateName, 100);
+          await sessionManager.appendTurn(mobile, cleanText, formatted, undefined, {
+            languagePreference: currentLanguage,
+            confirmedTournamentId: pending.candidateTournamentId,
+            confirmedTournamentName: pending.candidateName,
+            confirmedTournamentCity: pending.candidateCity ?? undefined,
+          });
+          return { text: formatted, intent: "SOLD_PLAYERS_SORTED_QUERY" };
+        }
+
+        if (pending.pendingIntent === "AUCTION_RULES_QUERY") {
+          const rules = await operationalDataService.getTournamentDetailsAndRules(pending.candidateTournamentId);
+          const formatted = rules
+            ? operationalDataService.formatTournamentRulesResponse(rules, currentLanguage)
+            : `"${pending.candidateName}" ke rules abhi available nahi hain.`;
+          await sessionManager.appendTurn(mobile, cleanText, formatted, undefined, {
+            languagePreference: currentLanguage,
+            confirmedTournamentId: pending.candidateTournamentId,
+            confirmedTournamentName: pending.candidateName,
+            confirmedTournamentCity: pending.candidateCity ?? undefined,
+          });
+          return { text: formatted, intent: "AUCTION_RULES_QUERY" };
+        }
+
+        const defaultReply =
+          currentLanguage === "english"
+            ? `Tournament "${pending.candidateName}" has been selected. What would you like to know?`
+            : `"${pending.candidateName}" select ho gaya hai. Aap iske baare mein kya janna chahte hain?`;
+        await sessionManager.appendTurn(mobile, cleanText, defaultReply, undefined, {
+          languagePreference: currentLanguage,
+          confirmedTournamentId: pending.candidateTournamentId,
+          confirmedTournamentName: pending.candidateName,
+          confirmedTournamentCity: pending.candidateCity ?? undefined,
+        });
+        return { text: defaultReply, intent: "ENTITY_CLARIFIED" };
       } else if (isNegative) {
         await sessionManager.setPendingEntityConfirmation(mobile, undefined);
         const reply =
@@ -325,8 +447,10 @@ export class GuestAssistantService {
           `• Total Purse: ${teamDetail.purseTotal}`,
           `• Purse Used: ${teamDetail.purseUsed}`,
           `• Purse Remaining: *${teamDetail.purseRemaining}*`,
+          teamDetail.maxAllowedBid ? `• Maximum Allowed Next Bid: *${teamDetail.maxAllowedBid}*` : null,
+          teamDetail.reservePurse ? `• Reserved for Squad Slots: ${teamDetail.reservePurse}` : null,
           `• Players Bought: ${teamDetail.playersBoughtCount}`,
-        ].join("\n");
+        ].filter(Boolean).join("\n");
 
         if (teamDetail.playersList.length > 0) {
           replyText += "\n\n*Players Roster:*\n" + teamDetail.playersList.map((p) => `• ${p.name} (${p.role ?? "Player"}): ${p.price}`).join("\n");
@@ -365,7 +489,7 @@ export class GuestAssistantService {
           : `"${intentResult.extractedPlayerName}" khiladi ka auction record nahi mila. Kripya naam ki spelling check karein ya tournament ka naam batayein.`;
       } else {
         const teamText = lookupResult.teamName ? ` (Team: ${lookupResult.teamName})` : "";
-        const priceText = lookupResult.soldPrice ? `₹${lookupResult.soldPrice.toLocaleString("en-IN")}` : `Base ₹${lookupResult.basePrice.toLocaleString("en-IN")}`;
+        const priceText = lookupResult.soldPriceFormatted ? lookupResult.soldPriceFormatted : `Base ${lookupResult.basePriceFormatted}`;
         lookupReply = `👤 ${lookupResult.playerName} (${lookupResult.tournamentName}):\n• Role: ${lookupResult.role}\n• Status: ${lookupResult.status.toUpperCase()}${teamText}\n• Price: ${priceText}`;
       }
 
@@ -418,7 +542,7 @@ export class GuestAssistantService {
       const formattedScoreText = operationalDataService.formatScoresResponse(scores, currentLanguage, targetTournament.name);
 
       let finalScoreReply = formattedScoreText;
-      if (this.isEnabled() && process.env.GEMINI_API_KEY && scores.length > 0) {
+      if (this.isEnabled() && process.env.GEMINI_API_KEY && (scores.cricket.length > 0 || scores.badminton.length > 0)) {
         try {
           const groundedContext: AssistantUserContext = {
             userCategory: input.userContext?.userCategory ?? "guest",
@@ -444,6 +568,460 @@ export class GuestAssistantService {
         confirmedTournamentCity: targetTournament.city ?? undefined,
       });
       return { text: finalScoreReply, intent: intentResult.intent };
+    }
+
+    // ─── 5g-2. Live Auction State Query ("Abhi auction ka kya status hai?", "Current auction state kya hai?") ──
+    if (intentResult.intent === "LIVE_AUCTION_STATE_QUERY") {
+      const tourneyResolution = await this.resolveOperationalTournament(input, cleanText, session, intentResult.intent);
+      if (tourneyResolution.status === "denied") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: intentResult.intent };
+      }
+      if (tourneyResolution.status === "clarification") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+      if (tourneyResolution.status === "needs_confirmation") {
+        await sessionManager.setPendingEntityConfirmation(mobile, {
+          candidateTournamentId: tourneyResolution.candidate.id,
+          candidateName: tourneyResolution.candidate.name,
+          candidateCity: tourneyResolution.candidate.city,
+          pendingIntent: intentResult.intent,
+          originalQuery: cleanText,
+        });
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+
+      const targetTournament = tourneyResolution.tournament;
+      const liveState = await operationalDataService.getLiveAuctionState(targetTournament.id);
+      let replyText = liveState
+        ? operationalDataService.formatLiveAuctionStateResponse(liveState, currentLanguage)
+        : `"${targetTournament.name}" ka live auction data abhi available nahi hai.`;
+
+      if (this.isEnabled() && process.env.GEMINI_API_KEY && liveState) {
+        try {
+          const groundedContext: AssistantUserContext = {
+            ...input.userContext,
+            userCategory: input.userContext?.userCategory ?? "guest",
+            displayName: input.userContext?.displayName ?? "Guest",
+            mobile,
+            turnCount,
+            preferredLanguage: currentLanguage,
+            operationalDataContext: replyText,
+            operationalIntent: "LIVE_AUCTION_STATE",
+          };
+          replyText = await this.generateLlmResponse(cleanText, session.messages, groundedContext);
+        } catch (err) {
+          logger.warn({ err }, "GuestAssistantService: LLM formatting for live auction state failed, using deterministic text");
+        }
+      }
+
+      await sessionManager.appendTurn(mobile, cleanText, replyText, undefined, {
+        languagePreference: currentLanguage,
+        topic: "Auction Module",
+        confirmedTournamentId: targetTournament.id,
+        confirmedTournamentName: targetTournament.name,
+        confirmedTournamentCity: targetTournament.city ?? undefined,
+      });
+      return { text: replyText, intent: intentResult.intent };
+    }
+
+    // ─── 5g-3. Top N Sold Players Query ("Top 5 highest sold players batao", "Sabse mehenga player kaun bika?") ──
+    if (intentResult.intent === "TOP_SOLD_PLAYERS_QUERY") {
+      const tourneyResolution = await this.resolveOperationalTournament(input, cleanText, session, intentResult.intent);
+      if (tourneyResolution.status === "denied") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: intentResult.intent };
+      }
+      if (tourneyResolution.status === "clarification") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+      if (tourneyResolution.status === "needs_confirmation") {
+        await sessionManager.setPendingEntityConfirmation(mobile, {
+          candidateTournamentId: tourneyResolution.candidate.id,
+          candidateName: tourneyResolution.candidate.name,
+          candidateCity: tourneyResolution.candidate.city,
+          pendingIntent: intentResult.intent,
+          originalQuery: cleanText,
+        });
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+
+      const targetTournament = tourneyResolution.tournament;
+      const limit = intentResult.limit ?? 5;
+      const topPlayers = await operationalDataService.getTopSoldPlayers({ tournamentId: targetTournament.id, limit });
+      let replyText = operationalDataService.formatTopSoldPlayersResponse(topPlayers, currentLanguage, targetTournament.name, limit);
+
+      if (this.isEnabled() && process.env.GEMINI_API_KEY && topPlayers.length > 0) {
+        try {
+          const groundedContext: AssistantUserContext = {
+            ...input.userContext,
+            userCategory: input.userContext?.userCategory ?? "guest",
+            displayName: input.userContext?.displayName ?? "Guest",
+            mobile,
+            turnCount,
+            preferredLanguage: currentLanguage,
+            operationalDataContext: replyText,
+            operationalIntent: "TOP_SOLD_PLAYERS",
+          };
+          replyText = await this.generateLlmResponse(cleanText, session.messages, groundedContext);
+        } catch (err) {
+          logger.warn({ err }, "GuestAssistantService: LLM formatting for top sold players failed, using deterministic text");
+        }
+      }
+
+      await sessionManager.appendTurn(mobile, cleanText, replyText, undefined, {
+        languagePreference: currentLanguage,
+        topic: "Auction Module",
+        confirmedTournamentId: targetTournament.id,
+        confirmedTournamentName: targetTournament.name,
+        confirmedTournamentCity: targetTournament.city ?? undefined,
+      });
+      return { text: replyText, intent: intentResult.intent };
+    }
+
+    // ─── 5g-4. Last N Sold Players Query ("Last 5 sold players kaun hain?") ────────
+    if (intentResult.intent === "LAST_SOLD_PLAYERS_QUERY") {
+      const tourneyResolution = await this.resolveOperationalTournament(input, cleanText, session, intentResult.intent);
+      if (tourneyResolution.status === "denied") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: intentResult.intent };
+      }
+      if (tourneyResolution.status === "clarification") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+      if (tourneyResolution.status === "needs_confirmation") {
+        await sessionManager.setPendingEntityConfirmation(mobile, {
+          candidateTournamentId: tourneyResolution.candidate.id,
+          candidateName: tourneyResolution.candidate.name,
+          candidateCity: tourneyResolution.candidate.city,
+          pendingIntent: intentResult.intent,
+          originalQuery: cleanText,
+        });
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+
+      const targetTournament = tourneyResolution.tournament;
+      const limit = intentResult.limit ?? 5;
+      const lastPlayers = await operationalDataService.getLastSoldPlayers({ tournamentId: targetTournament.id, limit });
+      let replyText = operationalDataService.formatLastSoldPlayersResponse(lastPlayers, currentLanguage, targetTournament.name, limit);
+
+      if (this.isEnabled() && process.env.GEMINI_API_KEY && lastPlayers.length > 0) {
+        try {
+          const groundedContext: AssistantUserContext = {
+            ...input.userContext,
+            userCategory: input.userContext?.userCategory ?? "guest",
+            displayName: input.userContext?.displayName ?? "Guest",
+            mobile,
+            turnCount,
+            preferredLanguage: currentLanguage,
+            operationalDataContext: replyText,
+            operationalIntent: "LAST_SOLD_PLAYERS",
+          };
+          replyText = await this.generateLlmResponse(cleanText, session.messages, groundedContext);
+        } catch (err) {
+          logger.warn({ err }, "GuestAssistantService: LLM formatting for last sold players failed, using deterministic text");
+        }
+      }
+
+      await sessionManager.appendTurn(mobile, cleanText, replyText, undefined, {
+        languagePreference: currentLanguage,
+        topic: "Auction Module",
+        confirmedTournamentId: targetTournament.id,
+        confirmedTournamentName: targetTournament.name,
+        confirmedTournamentCity: targetTournament.city ?? undefined,
+      });
+      return { text: replyText, intent: intentResult.intent };
+    }
+
+    // ─── 5g-5. Team Purse / Spending Rankings ("Kaunsi team ne sabse zyada paisa kharch kiya?", "Kis team ka purse sabse zyada bacha hai?")
+    if (intentResult.intent === "TEAM_PURSE_RANKING_QUERY") {
+      const tourneyResolution = await this.resolveOperationalTournament(input, cleanText, session, intentResult.intent);
+      if (tourneyResolution.status === "denied") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: intentResult.intent };
+      }
+      if (tourneyResolution.status === "clarification") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+      if (tourneyResolution.status === "needs_confirmation") {
+        await sessionManager.setPendingEntityConfirmation(mobile, {
+          candidateTournamentId: tourneyResolution.candidate.id,
+          candidateName: tourneyResolution.candidate.name,
+          candidateCity: tourneyResolution.candidate.city,
+          pendingIntent: intentResult.intent,
+          originalQuery: cleanText,
+        });
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+
+      const targetTournament = tourneyResolution.tournament;
+      const metric = intentResult.metric ?? "spent";
+      const rankings = await operationalDataService.getTeamPurseAndRankings({ tournamentId: targetTournament.id, sortBy: metric });
+      let replyText = operationalDataService.formatTeamPurseRankingsResponse(rankings, currentLanguage, targetTournament.name, metric);
+
+      if (this.isEnabled() && process.env.GEMINI_API_KEY && rankings.length > 0) {
+        try {
+          const groundedContext: AssistantUserContext = {
+            ...input.userContext,
+            userCategory: input.userContext?.userCategory ?? "guest",
+            displayName: input.userContext?.displayName ?? "Guest",
+            mobile,
+            turnCount,
+            preferredLanguage: currentLanguage,
+            operationalDataContext: replyText,
+            operationalIntent: "TEAM_PURSE_RANKINGS",
+          };
+          replyText = await this.generateLlmResponse(cleanText, session.messages, groundedContext);
+        } catch (err) {
+          logger.warn({ err }, "GuestAssistantService: LLM formatting for team purse rankings failed, using deterministic text");
+        }
+      }
+
+      await sessionManager.appendTurn(mobile, cleanText, replyText, undefined, {
+        languagePreference: currentLanguage,
+        topic: "Auction Module",
+        confirmedTournamentId: targetTournament.id,
+        confirmedTournamentName: targetTournament.name,
+        confirmedTournamentCity: targetTournament.city ?? undefined,
+      });
+      return { text: replyText, intent: intentResult.intent };
+    }
+
+    // ─── 5g-6. Maximum Next Bid Query ("Maximum next bid kitni kar sakte hain?", "Meri team kitna bid kar sakti hai?") ──
+    if (intentResult.intent === "MAX_BID_QUERY") {
+      const tourneyResolution = await this.resolveOperationalTournament(input, cleanText, session, intentResult.intent);
+      if (tourneyResolution.status === "denied") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: intentResult.intent };
+      }
+      if (tourneyResolution.status === "clarification") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+      if (tourneyResolution.status === "needs_confirmation") {
+        await sessionManager.setPendingEntityConfirmation(mobile, {
+          candidateTournamentId: tourneyResolution.candidate.id,
+          candidateName: tourneyResolution.candidate.name,
+          candidateCity: tourneyResolution.candidate.city,
+          pendingIntent: intentResult.intent,
+          originalQuery: cleanText,
+        });
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+
+      const targetTournament = tourneyResolution.tournament;
+      const teamDetail = await operationalDataService.getTeamOwnerPersonalData(mobile, targetTournament.id);
+      let replyText = "";
+      if (!teamDetail) {
+        replyText =
+          currentLanguage === "english"
+            ? "Maximum permissible next bid is calculated for registered team owners. No team owner record was found for your phone in this tournament."
+            : "Maximum permissible next bid kewal registered team owners ke liye calculate hoti hai. Is tournament mein aapka number kisi team owner account se linked nahi mila.";
+      } else {
+        replyText = operationalDataService.formatMaxBidResponse(teamDetail, currentLanguage);
+        if (this.isEnabled() && process.env.GEMINI_API_KEY) {
+          try {
+            const groundedContext: AssistantUserContext = {
+              ...input.userContext,
+              userCategory: input.userContext?.userCategory ?? "guest",
+              displayName: input.userContext?.displayName ?? "Guest",
+              mobile,
+              turnCount,
+              preferredLanguage: currentLanguage,
+              operationalDataContext: replyText,
+              operationalIntent: "MAX_NEXT_BID",
+            };
+            replyText = await this.generateLlmResponse(cleanText, session.messages, groundedContext);
+          } catch (err) {
+            logger.warn({ err }, "GuestAssistantService: LLM formatting for max bid failed, using deterministic text");
+          }
+        }
+      }
+
+      await sessionManager.appendTurn(mobile, cleanText, replyText, undefined, {
+        languagePreference: currentLanguage,
+        topic: "Auction Module",
+        confirmedTournamentId: targetTournament.id,
+        confirmedTournamentName: targetTournament.name,
+        confirmedTournamentCity: targetTournament.city ?? undefined,
+      });
+      return { text: replyText, intent: intentResult.intent };
+    }
+
+    // ─── 5g-7. Team Hierarchy Query ("Team-wise sold players ki list do", "Complete sold-player hierarchy batao") ──
+    if (intentResult.intent === "TEAM_HIERARCHY_QUERY") {
+      const tourneyResolution = await this.resolveOperationalTournament(input, cleanText, session, intentResult.intent);
+      if (tourneyResolution.status === "denied") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: intentResult.intent };
+      }
+      if (tourneyResolution.status === "clarification") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+      if (tourneyResolution.status === "needs_confirmation") {
+        await sessionManager.setPendingEntityConfirmation(mobile, {
+          candidateTournamentId: tourneyResolution.candidate.id,
+          candidateName: tourneyResolution.candidate.name,
+          candidateCity: tourneyResolution.candidate.city,
+          pendingIntent: intentResult.intent,
+          originalQuery: cleanText,
+        });
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+
+      const targetTournament = tourneyResolution.tournament;
+      const hierarchy = await operationalDataService.getTeamWiseAcquisitionHierarchy(targetTournament.id);
+      let replyText = operationalDataService.formatTeamHierarchyResponse(hierarchy, currentLanguage, targetTournament.name);
+
+      if (this.isEnabled() && process.env.GEMINI_API_KEY && hierarchy.length > 0) {
+        try {
+          const groundedContext: AssistantUserContext = {
+            ...input.userContext,
+            userCategory: input.userContext?.userCategory ?? "guest",
+            displayName: input.userContext?.displayName ?? "Guest",
+            mobile,
+            turnCount,
+            preferredLanguage: currentLanguage,
+            operationalDataContext: replyText,
+            operationalIntent: "TEAM_HIERARCHY",
+          };
+          replyText = await this.generateLlmResponse(cleanText, session.messages, groundedContext);
+        } catch (err) {
+          logger.warn({ err }, "GuestAssistantService: LLM formatting for team hierarchy failed, using deterministic text");
+        }
+      }
+
+      await sessionManager.appendTurn(mobile, cleanText, replyText, undefined, {
+        languagePreference: currentLanguage,
+        topic: "Auction Module",
+        confirmedTournamentId: targetTournament.id,
+        confirmedTournamentName: targetTournament.name,
+        confirmedTournamentCity: targetTournament.city ?? undefined,
+      });
+      return { text: replyText, intent: intentResult.intent };
+    }
+
+    // ─── 5g-8. Sold Players Sorted Query ("Players ko sold amount ke descending order mein dikhao") ──
+    if (intentResult.intent === "SOLD_PLAYERS_SORTED_QUERY") {
+      const tourneyResolution = await this.resolveOperationalTournament(input, cleanText, session, intentResult.intent);
+      if (tourneyResolution.status === "denied") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: intentResult.intent };
+      }
+      if (tourneyResolution.status === "clarification") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+      if (tourneyResolution.status === "needs_confirmation") {
+        await sessionManager.setPendingEntityConfirmation(mobile, {
+          candidateTournamentId: tourneyResolution.candidate.id,
+          candidateName: tourneyResolution.candidate.name,
+          candidateCity: tourneyResolution.candidate.city,
+          pendingIntent: intentResult.intent,
+          originalQuery: cleanText,
+        });
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+
+      const targetTournament = tourneyResolution.tournament;
+      const sortedPlayers = await operationalDataService.getAllSoldPlayersSorted(targetTournament.id, "desc");
+      let replyText = operationalDataService.formatTopSoldPlayersResponse(sortedPlayers, currentLanguage, targetTournament.name, 100);
+
+      if (this.isEnabled() && process.env.GEMINI_API_KEY && sortedPlayers.length > 0) {
+        try {
+          const groundedContext: AssistantUserContext = {
+            ...input.userContext,
+            userCategory: input.userContext?.userCategory ?? "guest",
+            displayName: input.userContext?.displayName ?? "Guest",
+            mobile,
+            turnCount,
+            preferredLanguage: currentLanguage,
+            operationalDataContext: replyText,
+            operationalIntent: "SOLD_PLAYERS_SORTED",
+          };
+          replyText = await this.generateLlmResponse(cleanText, session.messages, groundedContext);
+        } catch (err) {
+          logger.warn({ err }, "GuestAssistantService: LLM formatting for sorted sold players failed, using deterministic text");
+        }
+      }
+
+      await sessionManager.appendTurn(mobile, cleanText, replyText, undefined, {
+        languagePreference: currentLanguage,
+        topic: "Auction Module",
+        confirmedTournamentId: targetTournament.id,
+        confirmedTournamentName: targetTournament.name,
+        confirmedTournamentCity: targetTournament.city ?? undefined,
+      });
+      return { text: replyText, intent: intentResult.intent };
+    }
+
+    // ─── 5g-9. Tournament & Auction Rules Query ("Tournament ke rules kya hain?", "Bid increment kya hai?", "Squad size limits kya hain?") ──
+    if (intentResult.intent === "AUCTION_RULES_QUERY") {
+      const tourneyResolution = await this.resolveOperationalTournament(input, cleanText, session, intentResult.intent);
+      if (tourneyResolution.status === "denied") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: intentResult.intent };
+      }
+      if (tourneyResolution.status === "clarification") {
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+      if (tourneyResolution.status === "needs_confirmation") {
+        await sessionManager.setPendingEntityConfirmation(mobile, {
+          candidateTournamentId: tourneyResolution.candidate.id,
+          candidateName: tourneyResolution.candidate.name,
+          candidateCity: tourneyResolution.candidate.city,
+          pendingIntent: intentResult.intent,
+          originalQuery: cleanText,
+        });
+        await sessionManager.appendTurn(mobile, cleanText, tourneyResolution.message);
+        return { text: tourneyResolution.message, intent: "ENTITY_CLARIFICATION" };
+      }
+
+      const targetTournament = tourneyResolution.tournament;
+      const rules = await operationalDataService.getTournamentDetailsAndRules(targetTournament.id);
+      let replyText = rules
+        ? operationalDataService.formatTournamentRulesResponse(rules, currentLanguage)
+        : `"${targetTournament.name}" ke rules abhi available nahi hain.`;
+
+      if (this.isEnabled() && process.env.GEMINI_API_KEY && rules) {
+        try {
+          const groundedContext: AssistantUserContext = {
+            ...input.userContext,
+            userCategory: input.userContext?.userCategory ?? "guest",
+            displayName: input.userContext?.displayName ?? "Guest",
+            mobile,
+            turnCount,
+            preferredLanguage: currentLanguage,
+            operationalDataContext: replyText,
+            operationalIntent: "TOURNAMENT_RULES",
+          };
+          replyText = await this.generateLlmResponse(cleanText, session.messages, groundedContext);
+        } catch (err) {
+          logger.warn({ err }, "GuestAssistantService: LLM formatting for tournament rules failed, using deterministic text");
+        }
+      }
+
+      await sessionManager.appendTurn(mobile, cleanText, replyText, undefined, {
+        languagePreference: currentLanguage,
+        topic: "Auction Module",
+        confirmedTournamentId: targetTournament.id,
+        confirmedTournamentName: targetTournament.name,
+        confirmedTournamentCity: targetTournament.city ?? undefined,
+      });
+      return { text: replyText, intent: intentResult.intent };
     }
 
     // ─── 5h. Auction Overview & Team Purchases Query ─────────────────────────────
@@ -474,7 +1052,7 @@ export class GuestAssistantService {
       }
 
       if (resolution.status === "not_found") {
-        const notFoundMsg = "Kaunse tournament ka auction status chahiye? Tournament ka naam ya city bata dein.";
+        const notFoundMsg = "Kaunse tournament ka auction data dekhna hai? Kripya tournament ka naam ya city batayein.";
         await sessionManager.appendTurn(mobile, cleanText, notFoundMsg);
         return { text: notFoundMsg, intent: "ENTITY_CLARIFICATION" };
       }
@@ -485,11 +1063,16 @@ export class GuestAssistantService {
       let viewerRole: "organizer" | "team_owner" | "player" | "public" = "public";
       if (input.userContext?.userCategory === "licensed_organizer" && authorizedIds.includes(targetTournament.id)) {
         viewerRole = "organizer";
+      } else if (input.userContext?.userCategory === "team_owner") {
+        viewerRole = "team_owner";
+      } else if (input.userContext?.userCategory === "player") {
+        viewerRole = "player";
       }
 
       const overview = await operationalDataService.getTournamentAuctionOverview({
         tournamentId: targetTournament.id,
         viewerRole,
+        viewerTeamId: input.userContext?.activeTeamId,
       });
 
       let formattedOverviewText = "";
@@ -503,6 +1086,7 @@ export class GuestAssistantService {
       if (this.isEnabled() && process.env.GEMINI_API_KEY && overview) {
         try {
           const groundedContext: AssistantUserContext = {
+            ...input.userContext,
             userCategory: input.userContext?.userCategory ?? "guest",
             displayName: input.userContext?.displayName ?? "Guest",
             mobile,
@@ -757,7 +1341,7 @@ export class GuestAssistantService {
       return this.buildFallbackReply(userText, context);
     }
 
-    const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+    const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
     const systemInstruction = buildAssistantSystemPrompt(context);
 
     // Map conversation turns to Gemini Content schema: roles must be 'user' or 'model'
@@ -799,6 +1383,128 @@ export class GuestAssistantService {
     }
 
     return textPart;
+  }
+
+  /**
+   * Resolve and authorize the tournament for an operational query.
+   * Enforces:
+   * 1. Associated licensed tournament access only
+   * 2. Trial organizers get product guidance and operational data is withheld
+   * 3. Multi-tournament disambiguation
+   * 4. Automatic binding if single tournament or confirmed in session
+   * 5. Strict rejection of unassociated tournaments
+   */
+  public async resolveOperationalTournament(
+    input: GuestAssistantInput,
+    cleanText: string,
+    session: GuestSessionPayload,
+    intent: string
+  ): Promise<OperationalTournamentResolution> {
+    const currentLanguage =
+      session.languagePreference ??
+      conversationalIntelligence.inferNaturalLanguage(cleanText);
+    const authorizedList = input.userContext?.authorizedTournaments || [];
+    const authorizedIds = authorizedList.map((t) => t.id);
+
+    // 1. If user is explicitly a trial organizer with no licensed tournaments, deny operational data with upgrade instructions
+    if (
+      input.userContext?.userCategory === "trial_organizer" &&
+      (!input.userContext.memberships || input.userContext.memberships.every((m) => m.licenseStatus !== "licensed" && !m.isLicensed))
+    ) {
+      const msg =
+        currentLanguage === "english"
+          ? `Operational tournament data and live auction intelligence are available for licensed tournaments. Your account is currently on a trial plan. To upgrade your tournament, please visit https://bidwar.in/organizer or contact our team at ${SUPPORT_CONTACT.phone}.`
+          : `Operational tournament data aur live auction intelligence kewal licensed tournaments ke liye available hai. Aapka account abhi trial plan par hai. Apne tournament ko upgrade karne ke liye https://bidwar.in/organizer par jayein ya hamari team se ${SUPPORT_CONTACT.phone} par sampark karein.`;
+      return { status: "denied", message: msg };
+    }
+
+    // 2. If user is guest or has no authorized tournaments, reject request for private tournament operational data
+    if (authorizedIds.length === 0) {
+      const msg =
+        currentLanguage === "english"
+          ? "You do not have access to operational data for this tournament. Please message from your registered tournament mobile number or visit https://bidwar.in."
+          : "Aapka number kisi active licensed tournament se juda hua nahi hai. Private operational data dekhne ke liye kripya registered phone number se message karein ya bidwar.in par jayein.";
+      return { status: "denied", message: msg };
+    }
+
+    // 3. Try to resolve tournament from queryText
+    const resolution = await entityResolutionService.resolveTournament({
+      queryText: cleanText,
+      authorizedTournamentIds: authorizedIds,
+      confirmedTournamentId: session.confirmedTournamentId,
+    });
+
+    if (resolution.status === "needs_confirmation") {
+      return {
+        status: "needs_confirmation",
+        candidate: resolution.candidate,
+        message: resolution.confirmationMessage,
+      };
+    }
+
+    if (resolution.status === "ambiguous_multiple") {
+      return {
+        status: "clarification",
+        message: resolution.clarificationMessage,
+      };
+    }
+
+    if (resolution.status === "resolved") {
+      // Security check: is the resolved tournament in user's authorized licensed tournaments?
+      if (!authorizedIds.includes(resolution.tournament.id)) {
+        const msg =
+          currentLanguage === "english"
+            ? `You do not have authorization to view operational data for "${resolution.tournament.name}". You can only access tournaments associated with your registered phone number.`
+            : `Aapke paas "${resolution.tournament.name}" ke operational data ko access karne ki authorization nahi hai. Aap kewal apne registered tournaments ka data dekh sakte hain.`;
+        return { status: "denied", message: msg };
+      }
+
+      return {
+        status: "resolved",
+        tournament: resolution.tournament,
+      };
+    }
+
+    // 4. If status is "not_found" (user did not mention a tournament by name in this query):
+    // Check conversation context: is there a confirmed tournament in session that is authorized?
+    if (session.confirmedTournamentId && authorizedIds.includes(session.confirmedTournamentId)) {
+      const confirmedTourney = authorizedList.find((t) => t.id === session.confirmedTournamentId);
+      if (confirmedTourney) {
+        return {
+          status: "resolved",
+          tournament: {
+            id: confirmedTourney.id,
+            name: confirmedTourney.name,
+            city: (confirmedTourney as any).city ?? undefined,
+          },
+        };
+      }
+    }
+
+    // If only 1 authorized tournament exists for this user, automatically bind to it!
+    if (authorizedList.length === 1) {
+      const single = authorizedList[0];
+      return {
+        status: "resolved",
+        tournament: {
+          id: single.id,
+          name: single.name,
+          city: (single as any).city ?? undefined,
+        },
+      };
+    }
+
+    // If multiple authorized tournaments exist, ask user to disambiguate which one they mean
+    const tourneyOptions = authorizedList.map((t, idx) => `${idx + 1}. ${t.name}`).join("\n");
+    const clarificationMsg =
+      currentLanguage === "english"
+        ? `You are associated with multiple tournaments. Which tournament are you asking about?\n${tourneyOptions}`
+        : `Aap ek se zyada tournaments se jude hain. Kripya batayein aap kis tournament ke baare mein puch rahe hain?\n${tourneyOptions}`;
+
+    return {
+      status: "clarification",
+      message: clarificationMsg,
+    };
   }
 
   /**
@@ -854,9 +1560,9 @@ export class GuestAssistantService {
       return conversationalIntelligence.handleBotFeedback(lang);
     }
 
-    // 4. Casual Conversation ("Kya haal-chaal?", "Kaise ho?", "Bhai kya kar rahe ho?", "Aur batao")
+    // 4. Casual Conversation ("Kya haal-chaal?", "Kaise ho?", "Bhai kya kar rahe ho?", "Aur batao", "Bhai kaun hai?")
     if (
-      /\b(?:kya\s+haal[-\s]*chaal|kya\s+hal[-\s]*chal|haal\s*chaal|hal\s*chal|bhai\s+kya\s+kar\s+rahe|kya\s+kar\s+rahe\s+ho|tum\s+kaise\s+ho|kaise\s+ho|kaisa\s+hai|aur\s+batao|how\s+are\s+you|what's\s+up)\b/i.test(clean)
+      /\b(?:kya\s+haal[-\s]*chaal|kya\s+hal[-\s]*chal|haal\s*chaal|hal\s*chal|bhai\s+kya\s+kar\s+rahe|kya\s+kar\s+rahe\s+ho|tum\s+kaise\s+ho|kaise\s+ho|kaisa\s+hai|aur\s+batao|how\s+are\s+you|what's\s+up|bhai\s+kaun\s+hai|kaun\s+hai\s+bhai|tum\s+kaun\s+ho|aap\s+kaun\s+ho|who\s+are\s+you)\b/i.test(clean)
     ) {
       return conversationalIntelligence.handleCasualConversation(clean, lang);
     }
@@ -895,7 +1601,7 @@ export class GuestAssistantService {
     // 8. Explicit BIDWAR Product / Features / Pricing Inquiry
     // ONLY send the comprehensive brochure when the user explicitly asks what is BidWar or asks about features/plans!
     const isExplicitBidwarQuery =
-      /\b(?:what\s+is\s+bidwar|bidwar\s+kya\s+hai|bidwar\s+ke\s+baare\s+mein|features\s+kya\s+hain|what\s+are\s+the\s+features|pricing\s+kya\s+hai|pricing|plans|cost|rate\s+kya\s+hai|kaise\s+use\s+karein|how\s+to\s+use|how\s+do\s+i\s+use)\b/i.test(clean);
+      /\b(?:what\s+is\s+bidwar|bidwar\s+kya\s+hai|bidwar\s+ke\s+baare\s+mein|features\s+kya\s+hain|what\s+are\s+the\s+features|pricing\s+kya\s+hai|pricing|plans|cost|rate\s+kya\s+hai|kaise\s+use\s+karein|how\s+to\s+use|how\s+do\s+i\s+use|kaise\s+register\s+karein|register\s+kaise\s+karein|team\s+add\s+kaise\s+karein)\b/i.test(clean);
 
     if (isExplicitBidwarQuery) {
       if (isHindi) {

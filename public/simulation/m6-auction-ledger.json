@@ -1,0 +1,2935 @@
+{
+  "milestone": "M6",
+  "tournamentId": 18,
+  "tournamentCode": "SIMBPL01",
+  "runStartedAt": "2026-11-02T11:11:20.352Z",
+  "runCompletedAt": "2026-11-02T11:17:59.399Z",
+  "totalRequestsAttempted": 80,
+  "summary": {
+    "acceptedCount": 67,
+    "rejectedStaleCount": 12,
+    "rejectedPurseCount": 1,
+    "rejectedLimitCount": 0,
+    "errorCount": 0,
+    "latencyMetricsMs": {
+      "min": 2,
+      "p50": 1613.1,
+      "p95": 1932.4,
+      "p99": 2482.5,
+      "max": 2482.5,
+      "mean": 1527.92
+    }
+  },
+  "transactions": [
+    {
+      "attemptId": "TX-M6-001",
+      "timestamp": "2026-11-02T11:11:20.352Z",
+      "timestampEpochMs": 1793617880352,
+      "actor": {
+        "teamId": 84,
+        "teamName": "SIM_TITANS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 498,
+        "playerName": "Aarav Sharma (Sim)",
+        "basePrice": 10000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 10000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1521.4,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 379,
+          "playerId": 498,
+          "currentBid": 10000,
+          "currentBidTeamId": 84,
+          "currentBidTeamName": "SIM_TITANS",
+          "currentBidTeamColor": "#1D4ED8",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:11:49.923Z",
+          "timerType": "bid",
+          "lastAction": "SIM_TITANS bid ₹10,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-002",
+      "timestamp": "2026-11-02T11:11:23.384Z",
+      "timestampEpochMs": 1793617883384,
+      "actor": {
+        "teamId": 85,
+        "teamName": "SIM_WARRIORS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 498,
+        "playerName": "Aarav Sharma (Sim)",
+        "basePrice": 10000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 15000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1776.3,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 380,
+          "playerId": 498,
+          "currentBid": 15000,
+          "currentBidTeamId": 85,
+          "currentBidTeamName": "SIM_WARRIORS",
+          "currentBidTeamColor": "#DC2626",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:11:52.910Z",
+          "timerType": "bid",
+          "lastAction": "SIM_WARRIORS bid ₹15,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-003",
+      "timestamp": "2026-11-02T11:11:26.812Z",
+      "timestampEpochMs": 1793617886812,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 498,
+        "playerName": "Aarav Sharma (Sim)",
+        "basePrice": 10000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 20000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1557.3,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 381,
+          "playerId": 498,
+          "currentBid": 20000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:11:56.336Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹20,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-004",
+      "timestamp": "2026-11-02T11:11:39.354Z",
+      "timestampEpochMs": 1793617899354,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 499,
+        "playerName": "Rohit Verma (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 15000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1637.4,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 385,
+          "playerId": 499,
+          "currentBid": 15000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:12:08.895Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹15,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-005",
+      "timestamp": "2026-11-02T11:11:41.902Z",
+      "timestampEpochMs": 1793617901902,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 499,
+        "playerName": "Rohit Verma (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 20000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1506.8,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 386,
+          "playerId": 499,
+          "currentBid": 20000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:12:11.417Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹20,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-006",
+      "timestamp": "2026-11-02T11:11:44.385Z",
+      "timestampEpochMs": 1793617904385,
+      "actor": {
+        "teamId": 84,
+        "teamName": "SIM_TITANS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 499,
+        "playerName": "Rohit Verma (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 25000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1506.4,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 387,
+          "playerId": 499,
+          "currentBid": 25000,
+          "currentBidTeamId": 84,
+          "currentBidTeamName": "SIM_TITANS",
+          "currentBidTeamColor": "#1D4ED8",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:12:13.913Z",
+          "timerType": "bid",
+          "lastAction": "SIM_TITANS bid ₹25,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-007",
+      "timestamp": "2026-11-02T11:11:47.659Z",
+      "timestampEpochMs": 1793617907659,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 499,
+        "playerName": "Rohit Verma (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 30000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1547.3,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 388,
+          "playerId": 499,
+          "currentBid": 30000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:12:17.153Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹30,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-008",
+      "timestamp": "2026-11-02T11:12:00.198Z",
+      "timestampEpochMs": 1793617920198,
+      "actor": {
+        "teamId": 85,
+        "teamName": "SIM_WARRIORS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 500,
+        "playerName": "Shikhar Dhawan (Sim)",
+        "basePrice": 20000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 20000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1584.9,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 392,
+          "playerId": 500,
+          "currentBid": 20000,
+          "currentBidTeamId": 85,
+          "currentBidTeamName": "SIM_WARRIORS",
+          "currentBidTeamColor": "#DC2626",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:12:29.660Z",
+          "timerType": "bid",
+          "lastAction": "SIM_WARRIORS bid ₹20,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-010",
+      "timestamp": "2026-11-02T11:12:23.077Z",
+      "timestampEpochMs": 1793617943077,
+      "actor": {
+        "teamId": 85,
+        "teamName": "SIM_WARRIORS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 502,
+        "playerName": "Suryakumar Yadav (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 50000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1440.9,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 399,
+          "playerId": 502,
+          "currentBid": 50000,
+          "currentBidTeamId": 85,
+          "currentBidTeamName": "SIM_WARRIORS",
+          "currentBidTeamColor": "#DC2626",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:12:52.623Z",
+          "timerType": "bid",
+          "lastAction": "SIM_WARRIORS bid ₹50,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-009",
+      "timestamp": "2026-11-02T11:12:23.181Z",
+      "timestampEpochMs": 1793617943181,
+      "actor": {
+        "teamId": 84,
+        "teamName": "SIM_TITANS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 502,
+        "playerName": "Suryakumar Yadav (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 50000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 409,
+        "statusText": "Conflict",
+        "latencyMs": 1598.6,
+        "body": {
+          "error": "A concurrent bid or auction state change occurred — please refresh and bid again.",
+          "hint": "stale_bid"
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-011",
+      "timestamp": "2026-11-02T11:12:26.100Z",
+      "timestampEpochMs": 1793617946100,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 502,
+        "playerName": "Suryakumar Yadav (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 55000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1657.5,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 400,
+          "playerId": 502,
+          "currentBid": 55000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:12:55.436Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹55,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-013",
+      "timestamp": "2026-11-02T11:12:38.464Z",
+      "timestampEpochMs": 1793617958464,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 503,
+        "playerName": "Shubman Gill (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 25000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1678.8,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 404,
+          "playerId": 503,
+          "currentBid": 25000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:13:07.906Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹25,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-014",
+      "timestamp": "2026-11-02T11:12:38.587Z",
+      "timestampEpochMs": 1793617958587,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 503,
+        "playerName": "Shubman Gill (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 25000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 409,
+        "statusText": "Conflict",
+        "latencyMs": 1740.7,
+        "body": {
+          "error": "A concurrent bid or auction state change occurred — please refresh and bid again.",
+          "hint": "stale_bid"
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-012",
+      "timestamp": "2026-11-02T11:12:38.773Z",
+      "timestampEpochMs": 1793617958773,
+      "actor": {
+        "teamId": 84,
+        "teamName": "SIM_TITANS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 503,
+        "playerName": "Shubman Gill (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 25000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 409,
+        "statusText": "Conflict",
+        "latencyMs": 1922.1,
+        "body": {
+          "error": "A concurrent bid or auction state change occurred — please refresh and bid again.",
+          "hint": "stale_bid"
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-015",
+      "timestamp": "2026-11-02T11:12:42.077Z",
+      "timestampEpochMs": 1793617962077,
+      "actor": {
+        "teamId": 85,
+        "teamName": "SIM_WARRIORS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 503,
+        "playerName": "Shubman Gill (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 30000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1807.7,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 405,
+          "playerId": 503,
+          "currentBid": 30000,
+          "currentBidTeamId": 85,
+          "currentBidTeamName": "SIM_WARRIORS",
+          "currentBidTeamColor": "#DC2626",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:13:11.071Z",
+          "timerType": "bid",
+          "lastAction": "SIM_WARRIORS bid ₹30,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-016",
+      "timestamp": "2026-11-02T11:12:45.188Z",
+      "timestampEpochMs": 1793617965188,
+      "actor": {
+        "teamId": 84,
+        "teamName": "SIM_TITANS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 503,
+        "playerName": "Shubman Gill (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 35000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1580.1,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 406,
+          "playerId": 503,
+          "currentBid": 35000,
+          "currentBidTeamId": 84,
+          "currentBidTeamName": "SIM_TITANS",
+          "currentBidTeamColor": "#1D4ED8",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:13:14.735Z",
+          "timerType": "bid",
+          "lastAction": "SIM_TITANS bid ₹35,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-020",
+      "timestamp": "2026-11-02T11:12:57.510Z",
+      "timestampEpochMs": 1793617977510,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 504,
+        "playerName": "Jasprit Bumrah (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 50000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1402.8,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 410,
+          "playerId": 504,
+          "currentBid": 50000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:13:27.045Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹50,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-021",
+      "timestamp": "2026-11-02T11:12:57.603Z",
+      "timestampEpochMs": 1793617977603,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 504,
+        "playerName": "Jasprit Bumrah (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 50000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 409,
+        "statusText": "Conflict",
+        "latencyMs": 1518.9,
+        "body": {
+          "error": "A concurrent bid or auction state change occurred — please refresh and bid again.",
+          "hint": "stale_bid"
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-017",
+      "timestamp": "2026-11-02T11:12:57.867Z",
+      "timestampEpochMs": 1793617977867,
+      "actor": {
+        "teamId": 84,
+        "teamName": "SIM_TITANS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 504,
+        "playerName": "Jasprit Bumrah (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 50000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 409,
+        "statusText": "Conflict",
+        "latencyMs": 1696.3,
+        "body": {
+          "error": "A concurrent bid or auction state change occurred — please refresh and bid again.",
+          "hint": "stale_bid"
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-018",
+      "timestamp": "2026-11-02T11:12:57.976Z",
+      "timestampEpochMs": 1793617977976,
+      "actor": {
+        "teamId": 85,
+        "teamName": "SIM_WARRIORS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 504,
+        "playerName": "Jasprit Bumrah (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 50000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 409,
+        "statusText": "Conflict",
+        "latencyMs": 1855.2,
+        "body": {
+          "error": "A concurrent bid or auction state change occurred — please refresh and bid again.",
+          "hint": "stale_bid"
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-019",
+      "timestamp": "2026-11-02T11:12:58.336Z",
+      "timestampEpochMs": 1793617978336,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 504,
+        "playerName": "Jasprit Bumrah (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 50000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 409,
+        "statusText": "Conflict",
+        "latencyMs": 2168.5,
+        "body": {
+          "error": "A concurrent bid or auction state change occurred — please refresh and bid again.",
+          "hint": "stale_bid"
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-022",
+      "timestamp": "2026-11-02T11:13:01.343Z",
+      "timestampEpochMs": 1793617981343,
+      "actor": {
+        "teamId": 84,
+        "teamName": "SIM_TITANS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 504,
+        "playerName": "Jasprit Bumrah (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 55000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1480.6,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 411,
+          "playerId": 504,
+          "currentBid": 55000,
+          "currentBidTeamId": 84,
+          "currentBidTeamName": "SIM_TITANS",
+          "currentBidTeamColor": "#1D4ED8",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:13:30.890Z",
+          "timerType": "bid",
+          "lastAction": "SIM_TITANS bid ₹55,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-025",
+      "timestamp": "2026-11-02T11:13:12.134Z",
+      "timestampEpochMs": 1793617992134,
+      "actor": {
+        "teamId": 85,
+        "teamName": "SIM_WARRIORS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 505,
+        "playerName": "Mohammed Shami (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 35000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 409,
+        "statusText": "Bid button not found",
+        "latencyMs": 23,
+        "body": {
+          "ok": false,
+          "error": "Bid button not found",
+          "text": "SW102\n\nSIM_WARRIORS\n\nLIVE\nSYNC\nMY SQUAD\nRIVALS\nLEAVE\n27s\n#8\nMohammed Shami (Sim)"
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-023",
+      "timestamp": "2026-11-02T11:13:12.134Z",
+      "timestampEpochMs": 1793617992134,
+      "actor": {
+        "teamId": 85,
+        "teamName": "SIM_WARRIORS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 505,
+        "playerName": "Mohammed Shami (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 25000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 409,
+        "statusText": "Bid button not found",
+        "latencyMs": 8,
+        "body": {
+          "ok": false,
+          "error": "Bid button not found",
+          "text": "SW102\n\nSIM_WARRIORS\n\nLIVE\nSYNC\nMY SQUAD\nRIVALS\nLEAVE\n27s\n#8\nMohammed Shami (Sim)"
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-024",
+      "timestamp": "2026-11-02T11:13:13.796Z",
+      "timestampEpochMs": 1793617993796,
+      "actor": {
+        "teamId": 85,
+        "teamName": "SIM_WARRIORS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 505,
+        "playerName": "Mohammed Shami (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 30000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1638.7,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 415,
+          "playerId": 505,
+          "currentBid": 25000,
+          "currentBidTeamId": 85,
+          "currentBidTeamName": "SIM_WARRIORS",
+          "currentBidTeamColor": "#DC2626",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:13:43.286Z",
+          "timerType": "bid",
+          "lastAction": "SIM_WARRIORS bid ₹25,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-026",
+      "timestamp": "2026-11-02T11:13:26.416Z",
+      "timestampEpochMs": 1793618006416,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 506,
+        "playerName": "Kuldeep Yadav (Sim)",
+        "basePrice": 20000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 20000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "moderate",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1665.9,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 419,
+          "playerId": 506,
+          "currentBid": 20000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:13:55.920Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹20,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-027",
+      "timestamp": "2026-11-02T11:13:30.246Z",
+      "timestampEpochMs": 1793618010246,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 506,
+        "playerName": "Kuldeep Yadav (Sim)",
+        "basePrice": 20000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 25000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 2016.3,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 420,
+          "playerId": 506,
+          "currentBid": 25000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:13:59.719Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹25,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-028",
+      "timestamp": "2026-11-02T11:13:33.551Z",
+      "timestampEpochMs": 1793618013551,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 506,
+        "playerName": "Kuldeep Yadav (Sim)",
+        "basePrice": 20000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 30000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "moderate",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1505.7,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 421,
+          "playerId": 506,
+          "currentBid": 30000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:14:03.032Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹30,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-029",
+      "timestamp": "2026-11-02T11:13:46.589Z",
+      "timestampEpochMs": 1793618026589,
+      "actor": {
+        "teamId": 84,
+        "teamName": "SIM_TITANS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 507,
+        "playerName": "Yuzvendra Chahal (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 15000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "slow",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1778.5,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 425,
+          "playerId": 507,
+          "currentBid": 15000,
+          "currentBidTeamId": 84,
+          "currentBidTeamName": "SIM_TITANS",
+          "currentBidTeamColor": "#1D4ED8",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:14:16.046Z",
+          "timerType": "bid",
+          "lastAction": "SIM_TITANS bid ₹15,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-030",
+      "timestamp": "2026-11-02T11:13:50.438Z",
+      "timestampEpochMs": 1793618030438,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 507,
+        "playerName": "Yuzvendra Chahal (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 20000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "slow",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1656,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 426,
+          "playerId": 507,
+          "currentBid": 20000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:14:19.933Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹20,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-031",
+      "timestamp": "2026-11-02T11:13:54.249Z",
+      "timestampEpochMs": 1793618034249,
+      "actor": {
+        "teamId": 84,
+        "teamName": "SIM_TITANS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 507,
+        "playerName": "Yuzvendra Chahal (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 25000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "slow",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1438.2,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 427,
+          "playerId": 507,
+          "currentBid": 25000,
+          "currentBidTeamId": 84,
+          "currentBidTeamName": "SIM_TITANS",
+          "currentBidTeamColor": "#1D4ED8",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:14:23.773Z",
+          "timerType": "bid",
+          "lastAction": "SIM_TITANS bid ₹25,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-032",
+      "timestamp": "2026-11-02T11:14:07.681Z",
+      "timestampEpochMs": 1793618047681,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 508,
+        "playerName": "Arshdeep Singh (Sim)",
+        "basePrice": 10000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 10000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "poor",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1732,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 431,
+          "playerId": 508,
+          "currentBid": 10000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:14:37.164Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹10,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-033",
+      "timestamp": "2026-11-02T11:14:11.886Z",
+      "timestampEpochMs": 1793618051886,
+      "actor": {
+        "teamId": 85,
+        "teamName": "SIM_WARRIORS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 508,
+        "playerName": "Arshdeep Singh (Sim)",
+        "basePrice": 10000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 15000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1605.7,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 432,
+          "playerId": 508,
+          "currentBid": 15000,
+          "currentBidTeamId": 85,
+          "currentBidTeamName": "SIM_WARRIORS",
+          "currentBidTeamColor": "#DC2626",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:14:41.302Z",
+          "timerType": "bid",
+          "lastAction": "SIM_WARRIORS bid ₹15,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-034",
+      "timestamp": "2026-11-02T11:14:36.959Z",
+      "timestampEpochMs": 1793618076959,
+      "actor": {
+        "teamId": 84,
+        "teamName": "SIM_TITANS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 510,
+        "playerName": "Hardik Pandya (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 50000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1664.5,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 439,
+          "playerId": 510,
+          "currentBid": 50000,
+          "currentBidTeamId": 84,
+          "currentBidTeamName": "SIM_TITANS",
+          "currentBidTeamColor": "#1D4ED8",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:15:06.287Z",
+          "timerType": "bid",
+          "lastAction": "SIM_TITANS bid ₹50,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-035",
+      "timestamp": "2026-11-02T11:14:40.957Z",
+      "timestampEpochMs": 1793618080957,
+      "actor": {
+        "teamId": 85,
+        "teamName": "SIM_WARRIORS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 510,
+        "playerName": "Hardik Pandya (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 55000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 409,
+        "statusText": "Bid button not found",
+        "latencyMs": 2,
+        "body": {
+          "ok": false,
+          "error": "Bid button not found",
+          "text": "SW102\n\nSIM_WARRIORS\n\nPAUSED\nSYNC\nMY SQUAD\nRIVALS\nLEAVE\n\nAUCTION PAUSED\n\nAuction "
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-036",
+      "timestamp": "2026-11-02T11:14:46.692Z",
+      "timestampEpochMs": 1793618086692,
+      "actor": {
+        "teamId": 85,
+        "teamName": "SIM_WARRIORS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 510,
+        "playerName": "Hardik Pandya (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 55000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1742.5,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 442,
+          "playerId": 510,
+          "currentBid": 55000,
+          "currentBidTeamId": 85,
+          "currentBidTeamName": "SIM_WARRIORS",
+          "currentBidTeamColor": "#DC2626",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:15:16.181Z",
+          "timerType": "bid",
+          "lastAction": "SIM_WARRIORS bid ₹55,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-037",
+      "timestamp": "2026-11-02T11:14:49.776Z",
+      "timestampEpochMs": 1793618089776,
+      "actor": {
+        "teamId": 84,
+        "teamName": "SIM_TITANS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 510,
+        "playerName": "Hardik Pandya (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 60000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1643.6,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 443,
+          "playerId": 510,
+          "currentBid": 60000,
+          "currentBidTeamId": 84,
+          "currentBidTeamName": "SIM_TITANS",
+          "currentBidTeamColor": "#1D4ED8",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:15:19.283Z",
+          "timerType": "bid",
+          "lastAction": "SIM_TITANS bid ₹60,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-038",
+      "timestamp": "2026-11-02T11:15:02.450Z",
+      "timestampEpochMs": 1793618102450,
+      "actor": {
+        "teamId": 85,
+        "teamName": "SIM_WARRIORS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 511,
+        "playerName": "Ravindra Jadeja (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 25000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1638.8,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 447,
+          "playerId": 511,
+          "currentBid": 25000,
+          "currentBidTeamId": 85,
+          "currentBidTeamName": "SIM_WARRIORS",
+          "currentBidTeamColor": "#DC2626",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:15:31.989Z",
+          "timerType": "bid",
+          "lastAction": "SIM_WARRIORS bid ₹25,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-039",
+      "timestamp": "2026-11-02T11:15:06.033Z",
+      "timestampEpochMs": 1793618106033,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 511,
+        "playerName": "Ravindra Jadeja (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 30000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1613.1,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 448,
+          "playerId": 511,
+          "currentBid": 30000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:15:35.524Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹30,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-040",
+      "timestamp": "2026-11-02T11:15:10.505Z",
+      "timestampEpochMs": 1793618110505,
+      "actor": {
+        "teamId": 85,
+        "teamName": "SIM_WARRIORS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 511,
+        "playerName": "Ravindra Jadeja (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 35000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1677.9,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 449,
+          "playerId": 511,
+          "currentBid": 35000,
+          "currentBidTeamId": 85,
+          "currentBidTeamName": "SIM_WARRIORS",
+          "currentBidTeamColor": "#DC2626",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:15:40.002Z",
+          "timerType": "bid",
+          "lastAction": "SIM_WARRIORS bid ₹35,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-041",
+      "timestamp": "2026-11-02T11:15:24.475Z",
+      "timestampEpochMs": 1793618124475,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 512,
+        "playerName": "Axar Patel (Sim)",
+        "basePrice": 20000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 20000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1659.6,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 453,
+          "playerId": 512,
+          "currentBid": 20000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:15:53.875Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹20,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-042",
+      "timestamp": "2026-11-02T11:15:25.283Z",
+      "timestampEpochMs": 1793618125283,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_ROYALS (Tab B)",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 512,
+        "playerName": "Axar Patel (Sim)",
+        "basePrice": 20000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 20000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 409,
+        "statusText": "already_leader_or_disabled",
+        "latencyMs": 15,
+        "body": {
+          "ok": false,
+          "error": "Bid button not found",
+          "text": "BidWar\nSK104\nSIM_KINGS\n\nEnter your access code to join\n\nIncorrect code. Please t"
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-043",
+      "timestamp": "2026-11-02T11:15:28.351Z",
+      "timestampEpochMs": 1793618128351,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 512,
+        "playerName": "Axar Patel (Sim)",
+        "basePrice": 20000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 25000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1635.5,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 454,
+          "playerId": 512,
+          "currentBid": 25000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:15:57.868Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹25,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-044",
+      "timestamp": "2026-11-02T11:15:31.707Z",
+      "timestampEpochMs": 1793618131707,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_ROYALS (Tab B)",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 512,
+        "playerName": "Axar Patel (Sim)",
+        "basePrice": 20000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 30000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 409,
+        "statusText": "stale_bid",
+        "latencyMs": 25,
+        "body": {}
+      }
+    },
+    {
+      "attemptId": "TX-M6-045",
+      "timestamp": "2026-11-02T11:15:45.691Z",
+      "timestampEpochMs": 1793618145691,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 513,
+        "playerName": "Washington Sundar (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 15000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1845.9,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 458,
+          "playerId": 513,
+          "currentBid": 15000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:14.794Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹15,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-046",
+      "timestamp": "2026-11-02T11:15:48.821Z",
+      "timestampEpochMs": 1793618148821,
+      "actor": {
+        "teamId": 84,
+        "teamName": "SIM_TITANS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 513,
+        "playerName": "Washington Sundar (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 20000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1932.4,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 459,
+          "playerId": 513,
+          "currentBid": 20000,
+          "currentBidTeamId": 84,
+          "currentBidTeamName": "SIM_TITANS",
+          "currentBidTeamColor": "#1D4ED8",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:18.208Z",
+          "timerType": "bid",
+          "lastAction": "SIM_TITANS bid ₹20,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-047",
+      "timestamp": "2026-11-02T11:16:04.458Z",
+      "timestampEpochMs": 1793618164458,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 15000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1724.5,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 464,
+          "playerId": 514,
+          "currentBid": 15000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:33.969Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹15,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-048",
+      "timestamp": "2026-11-02T11:16:06.844Z",
+      "timestampEpochMs": 1793618166844,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 20000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1508.1,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 465,
+          "playerId": 514,
+          "currentBid": 20000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:36.338Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹20,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-049",
+      "timestamp": "2026-11-02T11:16:09.110Z",
+      "timestampEpochMs": 1793618169110,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 25000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1680.2,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 466,
+          "playerId": 514,
+          "currentBid": 25000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:38.518Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹25,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-050",
+      "timestamp": "2026-11-02T11:16:11.286Z",
+      "timestampEpochMs": 1793618171286,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 30000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1640.5,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 467,
+          "playerId": 514,
+          "currentBid": 30000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:40.747Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹30,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-051",
+      "timestamp": "2026-11-02T11:16:13.899Z",
+      "timestampEpochMs": 1793618173899,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 35000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1722.5,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 468,
+          "playerId": 514,
+          "currentBid": 35000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:43.279Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹35,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-052",
+      "timestamp": "2026-11-02T11:16:16.070Z",
+      "timestampEpochMs": 1793618176070,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 40000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1546,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 469,
+          "playerId": 514,
+          "currentBid": 40000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:45.553Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹40,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-053",
+      "timestamp": "2026-11-02T11:16:18.123Z",
+      "timestampEpochMs": 1793618178123,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 45000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1467.9,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 470,
+          "playerId": 514,
+          "currentBid": 45000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:47.660Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹45,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-054",
+      "timestamp": "2026-11-02T11:16:20.477Z",
+      "timestampEpochMs": 1793618180477,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 50000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1485.4,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 471,
+          "playerId": 514,
+          "currentBid": 50000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:50.010Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹50,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-055",
+      "timestamp": "2026-11-02T11:16:22.529Z",
+      "timestampEpochMs": 1793618182529,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 55000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1507.9,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 472,
+          "playerId": 514,
+          "currentBid": 55000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:52.108Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹55,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-056",
+      "timestamp": "2026-11-02T11:16:24.784Z",
+      "timestampEpochMs": 1793618184784,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 60000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1644.4,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 473,
+          "playerId": 514,
+          "currentBid": 60000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:54.267Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹60,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-057",
+      "timestamp": "2026-11-02T11:16:27.703Z",
+      "timestampEpochMs": 1793618187703,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 65000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1647.7,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 474,
+          "playerId": 514,
+          "currentBid": 65000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:57.053Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹65,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-058",
+      "timestamp": "2026-11-02T11:16:29.431Z",
+      "timestampEpochMs": 1793618189431,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 70000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1469.7,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 475,
+          "playerId": 514,
+          "currentBid": 70000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:16:58.978Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹70,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-059",
+      "timestamp": "2026-11-02T11:16:31.667Z",
+      "timestampEpochMs": 1793618191667,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 75000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1696.3,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 476,
+          "playerId": 514,
+          "currentBid": 75000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:01.089Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹75,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-060",
+      "timestamp": "2026-11-02T11:16:34.169Z",
+      "timestampEpochMs": 1793618194169,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 80000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1520.7,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 477,
+          "playerId": 514,
+          "currentBid": 80000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:03.622Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹80,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-061",
+      "timestamp": "2026-11-02T11:16:36.611Z",
+      "timestampEpochMs": 1793618196611,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 85000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1850.1,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 478,
+          "playerId": 514,
+          "currentBid": 85000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:06.071Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹85,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-062",
+      "timestamp": "2026-11-02T11:16:38.789Z",
+      "timestampEpochMs": 1793618198789,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 90000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1529.3,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 479,
+          "playerId": 514,
+          "currentBid": 90000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:08.271Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹90,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-063",
+      "timestamp": "2026-11-02T11:16:41.401Z",
+      "timestampEpochMs": 1793618201401,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 95000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1677.1,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 480,
+          "playerId": 514,
+          "currentBid": 95000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:10.876Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹95,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-064",
+      "timestamp": "2026-11-02T11:16:43.692Z",
+      "timestampEpochMs": 1793618203692,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 100000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1700.3,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 481,
+          "playerId": 514,
+          "currentBid": 100000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:13.162Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹1,00,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-065",
+      "timestamp": "2026-11-02T11:16:45.745Z",
+      "timestampEpochMs": 1793618205745,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 105000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1527.6,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 482,
+          "playerId": 514,
+          "currentBid": 105000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:15.242Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹1,05,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-066",
+      "timestamp": "2026-11-02T11:16:48.228Z",
+      "timestampEpochMs": 1793618208228,
+      "actor": {
+        "teamId": 86,
+        "teamName": "SIM_ROYALS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 514,
+        "playerName": "Shivam Dube (Sim)",
+        "basePrice": 15000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 110000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1534.5,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 483,
+          "playerId": 514,
+          "currentBid": 110000,
+          "currentBidTeamId": 86,
+          "currentBidTeamName": "SIM_ROYALS",
+          "currentBidTeamColor": "#BE185D",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:17.682Z",
+          "timerType": "bid",
+          "lastAction": "SIM_ROYALS bid ₹1,10,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-067",
+      "timestamp": "2026-11-02T11:17:12.807Z",
+      "timestampEpochMs": 1793618232807,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 516,
+        "playerName": "Rishabh Pant (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 50000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1543.9,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 490,
+          "playerId": 516,
+          "currentBid": 50000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:42.330Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹50,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-068",
+      "timestamp": "2026-11-02T11:17:15.295Z",
+      "timestampEpochMs": 1793618235295,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 516,
+        "playerName": "Rishabh Pant (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 55000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1618.8,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 491,
+          "playerId": 516,
+          "currentBid": 55000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:44.854Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹55,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-069",
+      "timestamp": "2026-11-02T11:17:17.585Z",
+      "timestampEpochMs": 1793618237585,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 516,
+        "playerName": "Rishabh Pant (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 60000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1783.9,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 492,
+          "playerId": 516,
+          "currentBid": 60000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:46.901Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹60,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-070",
+      "timestamp": "2026-11-02T11:17:20.612Z",
+      "timestampEpochMs": 1793618240612,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 516,
+        "playerName": "Rishabh Pant (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 65000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 2482.5,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 493,
+          "playerId": 516,
+          "currentBid": 65000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:50.125Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹65,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-071",
+      "timestamp": "2026-11-02T11:17:23.065Z",
+      "timestampEpochMs": 1793618243065,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 516,
+        "playerName": "Rishabh Pant (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 70000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1533.6,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 494,
+          "playerId": 516,
+          "currentBid": 70000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:52.601Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹70,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-072",
+      "timestamp": "2026-11-02T11:17:25.240Z",
+      "timestampEpochMs": 1793618245240,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 516,
+        "playerName": "Rishabh Pant (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 75000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1605.9,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 495,
+          "playerId": 516,
+          "currentBid": 75000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:54.781Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹75,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-073",
+      "timestamp": "2026-11-02T11:17:27.297Z",
+      "timestampEpochMs": 1793618247297,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 516,
+        "playerName": "Rishabh Pant (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 80000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1531.2,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 496,
+          "playerId": 516,
+          "currentBid": 80000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:56.843Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹80,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-074",
+      "timestamp": "2026-11-02T11:17:29.700Z",
+      "timestampEpochMs": 1793618249700,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 516,
+        "playerName": "Rishabh Pant (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 85000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1569,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 497,
+          "playerId": 516,
+          "currentBid": 85000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:17:59.232Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹85,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-075",
+      "timestamp": "2026-11-02T11:17:31.846Z",
+      "timestampEpochMs": 1793618251846,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 516,
+        "playerName": "Rishabh Pant (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 90000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1575.7,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 498,
+          "playerId": 516,
+          "currentBid": 90000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:18:01.395Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹90,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-076",
+      "timestamp": "2026-11-02T11:17:34.075Z",
+      "timestampEpochMs": 1793618254075,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 516,
+        "playerName": "Rishabh Pant (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 95000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1613.4,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 499,
+          "playerId": 516,
+          "currentBid": 95000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:18:03.518Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹95,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-077",
+      "timestamp": "2026-11-02T11:17:36.340Z",
+      "timestampEpochMs": 1793618256340,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 516,
+        "playerName": "Rishabh Pant (Sim)",
+        "basePrice": 50000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 100000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1419.3,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 500,
+          "playerId": 516,
+          "currentBid": 100000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:18:05.926Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹1,00,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-078",
+      "timestamp": "2026-11-02T11:17:48.262Z",
+      "timestampEpochMs": 1793618268262,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 517,
+        "playerName": "KL Rahul (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 950000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 400,
+        "statusText": "Purse boundary exceeded",
+        "latencyMs": 485,
+        "body": {
+          "error": "Opening bid must be exactly ₹25,000"
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-079",
+      "timestamp": "2026-11-02T11:17:51.445Z",
+      "timestampEpochMs": 1793618271445,
+      "actor": {
+        "teamId": 88,
+        "teamName": "SIM_STRIKERS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 517,
+        "playerName": "KL Rahul (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 25000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1558.7,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 504,
+          "playerId": 517,
+          "currentBid": 25000,
+          "currentBidTeamId": 88,
+          "currentBidTeamName": "SIM_STRIKERS",
+          "currentBidTeamColor": "#059669",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:18:20.989Z",
+          "timerType": "bid",
+          "lastAction": "SIM_STRIKERS bid ₹25,000",
+          "bidIncrement": 5000
+        }
+      }
+    },
+    {
+      "attemptId": "TX-M6-080",
+      "timestamp": "2026-11-02T11:17:54.329Z",
+      "timestampEpochMs": 1793618274329,
+      "actor": {
+        "teamId": 87,
+        "teamName": "SIM_KINGS",
+        "role": "team_owner"
+      },
+      "targetPlayer": {
+        "playerId": 517,
+        "playerName": "KL Rahul (Sim)",
+        "basePrice": 25000
+      },
+      "action": "BID_PLACED",
+      "bidAmount": 30000,
+      "sessionRevisionBefore": 0,
+      "networkProfile": "normal",
+      "response": {
+        "status": 200,
+        "statusText": "OK",
+        "latencyMs": 1481.6,
+        "body": {
+          "bidAck": true,
+          "eventVersion": 505,
+          "playerId": 517,
+          "currentBid": 30000,
+          "currentBidTeamId": 87,
+          "currentBidTeamName": "SIM_KINGS",
+          "currentBidTeamColor": "#7C3AED",
+          "currentBidTeamLogoUrl": null,
+          "timerEndsAt": "2026-11-02T11:18:23.837Z",
+          "timerType": "bid",
+          "lastAction": "SIM_KINGS bid ₹30,000",
+          "bidIncrement": 5000
+        }
+      }
+    }
+  ]
+}

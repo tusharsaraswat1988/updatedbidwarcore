@@ -197,13 +197,14 @@ Verify with [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md) after every dep
 | `COMMUNICATION_WORKER_ENABLED` | No | `true` | Dashboard | Background retry worker for queued communications (default: `true`) |
 | `TWILIO_ACCOUNT_SID` | If Twilio | `ACxxxxxxxx...` | Secret | WhatsApp sends in stub mode |
 | `TWILIO_AUTH_TOKEN` | If Twilio | Auth token string | Secret | WhatsApp stub mode; webhook signature check skipped |
-| `TWILIO_WHATSAPP_FROM` | If Twilio | `+18382214175` | Dashboard | WhatsApp sender |
+| `TWILIO_WHATSAPP_FROM` | If Twilio | `+918543854379` | Dashboard | WhatsApp sender |
+| `KV_TECHMEDIA_WHATSAPP_NUMBER` | If KV TechMedia | `918543854379` | Dashboard | WhatsApp bot / sender number |
 | `TWILIO_WA_TEMPLATES` | No | `tpl_a,tpl_b` | Dashboard | WhatsApp template list empty in comm UI |
 | `EMAIL_ENABLED` | No | `true` | Dashboard | Email notifications run in stub mode (logged, not sent) |
 | `RESEND_API_KEY` | No | `re_...` | Secret | Resend API calls fail; emails stubbed when `EMAIL_ENABLED=true` |
 | `MAIL_FROM` | No | `BidWar <noreply@mail.bidwar.in>` | Dashboard | Resend rejects sends without verified sender |
 | `GEMINI_API_KEY` | No | `AIzaSy...` | Secret | WhatsApp public guest AI assistant falls back to branded support template |
-| `GEMINI_MODEL` | No | `gemini-2.5-flash` | Dashboard | Google Gemini model for public WhatsApp assistant (default: `gemini-2.5-flash`) |
+| `GEMINI_MODEL` | No | `gemini-3.8-flash` | Dashboard | Google Gemini model for public WhatsApp assistant (default: `gemini-3.8-flash`) |
 | `AI_ASSISTANT_ENABLED` | No | `true` | Dashboard | Enable/disable WhatsApp Public Guest AI Assistant (default: true) |
 | `OPENAI_API_KEY` | No | `sk-proj-...` | Secret | AI briefings and tournament insights return null |
 | `INTELLIGENCE_LLM_MODEL` | No | `gpt-4o-mini` | Dashboard | Model used for LLM briefings & insights |

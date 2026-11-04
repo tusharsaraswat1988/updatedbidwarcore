@@ -15,10 +15,15 @@ const DEFAULT_SEEDS = [
   { name: "KV Tech Media", clientType: "brand", displayOrder: 7 },
 ];
 
+function isInternalCwpEntity(name: string): boolean {
+  const lower = (name || "").toLowerCase();
+  return lower.includes("cwp detailer") || lower.includes("cwp motor") || lower.includes("detailer's and motors");
+}
+
 /** Active clients for public landing page — same query as GET /api/clients. */
 export async function listActive(): Promise<ClientRow[]> {
   try {
-    const rows = await db
+    let rows = await db
       .select()
       .from(clientsTable)
       .where(eq(clientsTable.active, true))
@@ -27,14 +32,14 @@ export async function listActive(): Promise<ClientRow[]> {
     if (rows.length === 0) {
       // Lazy auto-seed if table is empty
       await seedDefaultsIfEmpty();
-      return db
+      rows = await db
         .select()
         .from(clientsTable)
         .where(eq(clientsTable.active, true))
         .orderBy(asc(clientsTable.displayOrder), asc(clientsTable.createdAt));
     }
 
-    return rows;
+    return rows.filter((r) => !isInternalCwpEntity(r.name));
   } catch (err) {
     console.error("[clients-service] listActive error:", err);
     return [];

@@ -35,6 +35,9 @@ export const ROBOTS_DISALLOW_PREFIXES = [
 
 /** Explicit Allow entries for high-value commercial URLs (robots.txt hint). */
 export const ROBOTS_ALLOW_PATHS = [
+  "/pricing",
+  "/bpl",
+  "/bpl/",
   "/upcoming-auctions",
   "/contact",
   "/auction-tips",
@@ -91,6 +94,8 @@ function matchesAny(pathname: string, patterns: RegExp[]): boolean {
 
 function isPublicContentPath(pathname: string): boolean {
   if (PUBLIC_INDEXABLE_EXACT.has(pathname)) return true;
+  if (pathname === "/pricing") return true;
+  if (pathname === "/bpl" || /^\/bpl\/[a-zA-Z0-9_-]+$/.test(pathname)) return true;
   if (pathname === "/legal") return true;
   if (/^\/legal\/[a-z-]+$/.test(pathname)) return true;
   if (/^\/blog(?:\/|$)/.test(pathname)) return true;
@@ -347,6 +352,8 @@ export function buildSitemapPages(): string {
 
   const urls: SitemapEntry[] = [
     entry(`${getBaseUrl()}/`, "weekly", "1.0", today),
+    entry(`${getBaseUrl()}/pricing`, "weekly", "0.95", today),
+    entry(`${getBaseUrl()}/bpl`, "weekly", "0.9", today),
     entry(`${getBaseUrl()}/upcoming-auctions`, "daily", "0.8", today),
     entry(`${getBaseUrl()}/contact`, "monthly", "0.7", today),
     entry(`${getBaseUrl()}/auction-tips`, "monthly", "0.7", today),

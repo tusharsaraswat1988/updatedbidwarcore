@@ -15,7 +15,7 @@ const FOOTER_COLUMNS: Array<{ h: string; items: FooterItem[] }> = [
     h: "Auction Platform",
     items: [
       { label: "Auction Screens", href: "/#auction-screens" },
-      { label: "Experience Bidding", href: "/#experience-bidding" },
+      { label: "Experience Bidding", href: "/#auction-screens" },
       { label: "Tournament Galleries", href: "/#tournament-galleries" },
       { label: "Pricing", href: "/pricing" },
     ],
@@ -43,8 +43,6 @@ const FOOTER_COLUMNS: Array<{ h: string; items: FooterItem[] }> = [
     items: [
       { label: "Contact", href: "/contact" },
       { label: "auth-cta" },
-      { label: "About" },
-      { label: "Careers" },
     ],
   },
 ];
