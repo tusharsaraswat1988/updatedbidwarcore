@@ -757,7 +757,7 @@ export class GuestAssistantService {
       return this.buildFallbackReply(userText, context);
     }
 
-    const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+    const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
     const systemInstruction = buildAssistantSystemPrompt(context);
 
     // Map conversation turns to Gemini Content schema: roles must be 'user' or 'model'
@@ -854,9 +854,9 @@ export class GuestAssistantService {
       return conversationalIntelligence.handleBotFeedback(lang);
     }
 
-    // 4. Casual Conversation ("Kya haal-chaal?", "Kaise ho?", "Bhai kya kar rahe ho?", "Aur batao")
+    // 4. Casual Conversation ("Kya haal-chaal?", "Kaise ho?", "Bhai kya kar rahe ho?", "Aur batao", "Bhai kaun hai?")
     if (
-      /\b(?:kya\s+haal[-\s]*chaal|kya\s+hal[-\s]*chal|haal\s*chaal|hal\s*chal|bhai\s+kya\s+kar\s+rahe|kya\s+kar\s+rahe\s+ho|tum\s+kaise\s+ho|kaise\s+ho|kaisa\s+hai|aur\s+batao|how\s+are\s+you|what's\s+up)\b/i.test(clean)
+      /\b(?:kya\s+haal[-\s]*chaal|kya\s+hal[-\s]*chal|haal\s*chaal|hal\s*chal|bhai\s+kya\s+kar\s+rahe|kya\s+kar\s+rahe\s+ho|tum\s+kaise\s+ho|kaise\s+ho|kaisa\s+hai|aur\s+batao|how\s+are\s+you|what's\s+up|bhai\s+kaun\s+hai|kaun\s+hai\s+bhai|tum\s+kaun\s+ho|aap\s+kaun\s+ho|who\s+are\s+you)\b/i.test(clean)
     ) {
       return conversationalIntelligence.handleCasualConversation(clean, lang);
     }
@@ -895,7 +895,7 @@ export class GuestAssistantService {
     // 8. Explicit BIDWAR Product / Features / Pricing Inquiry
     // ONLY send the comprehensive brochure when the user explicitly asks what is BidWar or asks about features/plans!
     const isExplicitBidwarQuery =
-      /\b(?:what\s+is\s+bidwar|bidwar\s+kya\s+hai|bidwar\s+ke\s+baare\s+mein|features\s+kya\s+hain|what\s+are\s+the\s+features|pricing\s+kya\s+hai|pricing|plans|cost|rate\s+kya\s+hai|kaise\s+use\s+karein|how\s+to\s+use|how\s+do\s+i\s+use)\b/i.test(clean);
+      /\b(?:what\s+is\s+bidwar|bidwar\s+kya\s+hai|bidwar\s+ke\s+baare\s+mein|features\s+kya\s+hain|what\s+are\s+the\s+features|pricing\s+kya\s+hai|pricing|plans|cost|rate\s+kya\s+hai|kaise\s+use\s+karein|how\s+to\s+use|how\s+do\s+i\s+use|kaise\s+register\s+karein|register\s+kaise\s+karein|team\s+add\s+kaise\s+karein)\b/i.test(clean);
 
     if (isExplicitBidwarQuery) {
       if (isHindi) {

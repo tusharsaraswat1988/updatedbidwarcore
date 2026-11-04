@@ -53,7 +53,7 @@ export class AudioTranscriptionService {
       try {
         const { GoogleGenAI } = await import("@google/genai");
         const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY.trim() });
-        const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash";
+        const model = process.env.GEMINI_MODEL?.trim() || "gemini-3.8-flash";
 
         const base64Audio = input.audioBuffer.toString("base64");
         const mimeType = input.mimeType || "audio/ogg";

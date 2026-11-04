@@ -22,7 +22,7 @@ describe("BIDWAR WhatsApp AI — Conversational Intelligence & Behavioral Regres
   beforeEach(() => {
     process.env = { ...originalEnv };
     process.env.GEMINI_API_KEY = "mock-gemini-key";
-    process.env.GEMINI_MODEL = "gemini-2.5-flash";
+    process.env.GEMINI_MODEL = "gemini-3.8-flash";
     process.env.AI_ASSISTANT_ENABLED = "true";
     process.env.WHATSAPP_PROVIDER = "mock";
     guestAssistantService.resetRateLimit();

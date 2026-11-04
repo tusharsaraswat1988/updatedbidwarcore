@@ -262,6 +262,40 @@ describe("KV TechMedia WhatsApp Provider & Communication Gateway", () => {
       );
     });
 
+    it("sends message successfully and parses message ID nested under data wrapper (KV TechMedia CRM format)", async () => {
+      const provider = new KVTechMediaProvider({
+        baseUrl: "https://crmapi.kvtmedia.com/api/meta",
+        apiVersion: "v19.0",
+        phoneNumberId: "10987654321",
+        accessToken: "test_access_token",
+      });
+
+      const mockResponse = {
+        status: "success",
+        message: "Message sent successfully",
+        data: {
+          messaging_product: "whatsapp",
+          contacts: [{ input: "919876543210", wa_id: "919876543210" }],
+          messages: [{ id: "wamid.HBgLKVTMEDIA_NESTED_ID..." }],
+        },
+      };
+
+      vi.spyOn(globalThis, "fetch").mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => mockResponse,
+      } as unknown as Response);
+
+      const result = await provider.send({
+        to: "9876543210",
+        type: "text",
+        textBody: "Hello BidWar Player",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.messageId).toBe("wamid.HBgLKVTMEDIA_NESTED_ID...");
+    });
+
     it("handles network timeout gracefully with retryable=true", async () => {
       const provider = new KVTechMediaProvider({
         phoneNumberId: "10987654321",

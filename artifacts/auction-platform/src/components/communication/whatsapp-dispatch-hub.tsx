@@ -183,6 +183,7 @@ export function WhatsAppDispatchHub({
 
   // Data State
   const [loadingWaData, setLoadingWaData] = useState(false);
+  const [refreshingLogs, setRefreshingLogs] = useState(false);
   const [waLogs, setWaLogs] = useState<CommLog[]>([]);
   const [consentStats, setConsentStats] = useState<ConsentStats | null>(null);
   const [waTournamentPlayers, setWaTournamentPlayers] = useState<WaPlayer[]>([]);
@@ -329,9 +330,44 @@ export function WhatsAppDispatchHub({
     }
   }, [selectedTournamentId, currentTournament, currentAuctionUnit]);
 
+  // Refresh only logs and status without resetting participant selection or form state
+  const refreshLogs = useCallback(async () => {
+    try {
+      setRefreshingLogs(true);
+      const params = new URLSearchParams({ channel: "whatsapp" });
+      if (selectedTournamentId && selectedTournamentId !== "__all__") {
+        params.set("tournamentId", selectedTournamentId);
+      }
+      const logsRes = await fetch(`/api/auth/admin/communicate/logs?${params}`, { credentials: "include" });
+      if (logsRes.ok) {
+        const logsData = await logsRes.json();
+        setWaLogs(Array.isArray(logsData) ? logsData : []);
+      }
+      try {
+        const pRes = await fetch("/api/auth/admin/communicate/provider-status", { credentials: "include" });
+        if (pRes.ok) setWaProviderStatus(await pRes.json());
+      } catch {
+        // non-blocking
+      }
+    } catch {
+      // non-blocking
+    } finally {
+      setRefreshingLogs(false);
+    }
+  }, [selectedTournamentId]);
+
   useEffect(() => {
     void loadData();
-  }, [loadData]);
+
+    // Auto-poll WhatsApp logs every 10 seconds while the page is visible so delivery/read updates reflect live
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void refreshLogs();
+      }
+    }, 10_000);
+
+    return () => clearInterval(interval);
+  }, [loadData, refreshLogs]);
 
   // When Participant changes: intelligently auto-bind template & variables
   const handleSelectPlayer = (player: WaPlayer) => {
@@ -1490,10 +1526,10 @@ export function WhatsAppDispatchHub({
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                    onClick={() => void loadData()}
+                    onClick={() => void refreshLogs()}
                     title="Refresh Logs"
                   >
-                    <RefreshCw className={`h-3 w-3 ${loadingWaData ? "animate-spin" : ""}`} />
+                    <RefreshCw className={`h-3 w-3 ${refreshingLogs || loadingWaData ? "animate-spin" : ""}`} />
                   </Button>
                 </div>
               </div>

@@ -60,6 +60,34 @@ export interface NormalizedInboundMessage {
   raw: unknown;
 }
 
+export function extractProviderMessageId(data: any): string | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  if (Array.isArray(data.messages) && data.messages[0]?.id) {
+    return String(data.messages[0].id).trim();
+  }
+  if (Array.isArray(data.data?.messages) && data.data.messages[0]?.id) {
+    return String(data.data.messages[0].id).trim();
+  }
+  const candidate =
+    data.data?.id ??
+    data.data?.message_id ??
+    data.data?.messageId ??
+    data.data?.wamid ??
+    data.id ??
+    data.message_id ??
+    data.messageId ??
+    data.wamid ??
+    data.messages?.[0]?.message_id ??
+    data.result?.messages?.[0]?.id ??
+    data.result?.id ??
+    data.result?.message_id;
+
+  if (candidate && typeof candidate === "string" && candidate.trim()) {
+    return candidate.trim();
+  }
+  return undefined;
+}
+
 export class KVTechMediaProvider implements IWhatsAppProvider {
   private config: KVTechMediaConfig;
 
@@ -461,11 +489,11 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
         };
       }
 
-      const messageId = responseData?.messages?.[0]?.id;
+      const messageId = extractProviderMessageId(responseData);
       if (!messageId) {
         logger.warn(
           { to: maskPhoneNumber(toMsisdn), responseData },
-          "KV TechMedia response missing messages[0].id",
+          "KV TechMedia response missing messages[0].id or alternative messageId fields",
         );
         return {
           success: true,
@@ -535,13 +563,14 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
           if (Array.isArray(value.statuses)) {
             for (const s of value.statuses) {
               const msgId = s.id ?? s.message_id ?? s.wamid;
-              if (!msgId || !s.status) continue;
+              const rawStatus = String(s.status ?? "").toLowerCase().trim();
+              if (!msgId || !rawStatus) continue;
               const mappedStatus =
-                s.status === "sent"
+                rawStatus === "sent"
                   ? "sent"
-                  : s.status === "delivered"
+                  : rawStatus === "delivered"
                     ? "delivered"
-                    : s.status === "read"
+                    : rawStatus === "read"
                       ? "read"
                       : "failed";
 
@@ -554,7 +583,7 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
               statuses.push({
                 providerMessageId: msgId,
                 status: mappedStatus,
-                recipientId: s.recipient_id ?? s.to ?? s.recipient ?? "",
+                recipientId: s.recipient_id ?? s.to ?? s.recipient ?? s.mobile ?? s.phone ?? "",
                 timestamp,
                 errorCode: s.errors?.[0]?.code ?? s.code,
                 errorMessage: s.errors?.[0]?.message ?? s.errors?.[0]?.title ?? s.error ?? s.message,
@@ -636,7 +665,7 @@ export class KVTechMediaProvider implements IWhatsAppProvider {
         statuses.push({
           providerMessageId: msgId,
           status: mappedStatus,
-          recipientId: s.recipient_id ?? s.to ?? s.recipient ?? "",
+          recipientId: s.recipient_id ?? s.to ?? s.recipient ?? s.mobile ?? s.phone ?? "",
           timestamp,
           errorCode: s.errors?.[0]?.code ?? s.code,
           errorMessage: s.errors?.[0]?.message ?? s.errors?.[0]?.title ?? s.error ?? s.message,

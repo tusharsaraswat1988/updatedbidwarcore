@@ -290,10 +290,10 @@ export class ConversationalIntelligenceService {
     }
 
     // 12. Casual Conversation Intent
-    // Examples: "Kya haal-chaal?", "Bhai kya kar rahe ho?", "Tum kaise ho?", "Bhai aur batao", "How are you?"
+    // Examples: "Kya haal-chaal?", "Bhai kya kar rahe ho?", "Tum kaise ho?", "Bhai aur batao", "How are you?", "Bhai kaun hai?"
     if (
-      /\b(?:kya\s+haal[-\s]*chaal|kya\s+hal[-\s]*chal|haal\s*chaal|hal\s*chal|bhai\s+kya\s+kar\s+rahe|kya\s+kar\s+rahe\s+ho|tum\s+kaise\s+ho|kaise\s+ho\s+bhai|kaise\s+ho|kaisa\s+hai|bhai\s+aur\s+batao|sab\s+theek|sab\s+badhiya|how\s+are\s+you|what(?:'s|\s+is)\s+up|what\s+are\s+you\s+doing)\b/i.test(clean) ||
-      /^(?:aur\s+batao|kya\s+haal|haal\s+chaal|sab\s+theek\??)$/i.test(clean)
+      /\b(?:kya\s+haal[-\s]*chaal|kya\s+hal[-\s]*chal|haal\s*chaal|hal\s*chal|bhai\s+kya\s+kar\s+rahe|kya\s+kar\s+rahe\s+ho|tum\s+kaise\s+ho|kaise\s+ho\s+bhai|kaise\s+ho|kaisa\s+hai|bhai\s+aur\s+batao|sab\s+theek|sab\s+badhiya|how\s+are\s+you|what(?:'s|\s+is)\s+up|what\s+are\s+you\s+doing|bhai\s+kaun\s+hai|kaun\s+hai\s+bhai|tum\s+kaun\s+ho|aap\s+kaun\s+ho|who\s+are\s+you|who\s+r\s+u)\b/i.test(clean) ||
+      /^(?:aur\s+batao|kya\s+haal|haal\s+chaal|sab\s+theek\??|bhai\s+kaun\s+hai\??|kaun\s+hai\??)$/i.test(clean)
     ) {
       return {
         intent: "CASUAL_CONVERSATION",
@@ -556,6 +556,9 @@ export class ConversationalIntelligenceService {
     const isEnglish = preferredLanguage === "english";
 
     if (isEnglish) {
+      if (/\b(?:bhai\s+kaun\s+hai|kaun\s+hai\s+bhai|tum\s+kaun\s+ho|aap\s+kaun\s+ho|who\s+are\s+you|who\s+r\s+u)\b/i.test(text)) {
+        return "I am BidWar's AI Assistant! I assist with live player auctions, real-time bidding, and match scoring. How can I help you today?";
+      }
       if (/\b(?:how\s+are\s+you|how's\s+it\s+going|how\s+are\s+things)\b/i.test(text)) {
         return "I'm doing great, thanks for asking! How are things with you?";
       }
@@ -565,6 +568,9 @@ export class ConversationalIntelligenceService {
       return "Doing well! How are things on your end?";
     }
 
+    if (/\b(?:bhai\s+kaun\s+hai|kaun\s+hai\s+bhai|kaun\s+hai|tum\s+kaun\s+ho|aap\s+kaun\s+ho|who\s+are\s+you|who\s+r\s+u)\b/i.test(text)) {
+      return "Main BidWar ka AI Assistant hoon! Main sports auction aur tournament scoring me aapki madad karta hoon. Boliye, main aapke liye kya kar sakta hoon?";
+    }
     if (/\b(?:kya\s+haal[-\s]*chaal|kya\s+hal[-\s]*chal|haal\s*chaal|hal\s*chal)\b/i.test(text)) {
       return "Main badhiya hoon bhai! Tum sunao, kya haal hai?";
     }

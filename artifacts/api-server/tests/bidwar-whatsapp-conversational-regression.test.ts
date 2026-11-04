@@ -18,7 +18,7 @@ describe("BIDWAR WhatsApp AI — Conversational Intent & Anti-Repetition Regress
   beforeEach(() => {
     process.env = { ...originalEnv };
     process.env.GEMINI_API_KEY = "mock-key";
-    process.env.GEMINI_MODEL = "gemini-2.5-flash";
+    process.env.GEMINI_MODEL = "gemini-3.8-flash";
     process.env.AI_ASSISTANT_ENABLED = "true";
     process.env.WHATSAPP_PROVIDER = "mock";
     guestAssistantService.resetRateLimit();

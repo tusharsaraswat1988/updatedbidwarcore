@@ -203,7 +203,7 @@ Verify with [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md) after every dep
 | `RESEND_API_KEY` | No | `re_...` | Secret | Resend API calls fail; emails stubbed when `EMAIL_ENABLED=true` |
 | `MAIL_FROM` | No | `BidWar <noreply@mail.bidwar.in>` | Dashboard | Resend rejects sends without verified sender |
 | `GEMINI_API_KEY` | No | `AIzaSy...` | Secret | WhatsApp public guest AI assistant falls back to branded support template |
-| `GEMINI_MODEL` | No | `gemini-2.5-flash` | Dashboard | Google Gemini model for public WhatsApp assistant (default: `gemini-2.5-flash`) |
+| `GEMINI_MODEL` | No | `gemini-3.8-flash` | Dashboard | Google Gemini model for public WhatsApp assistant (default: `gemini-3.8-flash`) |
 | `AI_ASSISTANT_ENABLED` | No | `true` | Dashboard | Enable/disable WhatsApp Public Guest AI Assistant (default: true) |
 | `OPENAI_API_KEY` | No | `sk-proj-...` | Secret | AI briefings and tournament insights return null |
 | `INTELLIGENCE_LLM_MODEL` | No | `gpt-4o-mini` | Dashboard | Model used for LLM briefings & insights |

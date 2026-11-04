@@ -554,6 +554,79 @@ describe("WhatsApp Delivery & Read Receipts Lifecycle Engine", () => {
         }),
       );
     });
+
+    it("Scenario 11: Heuristic fallback matches recipient mobile and heals placeholder kv_accepted_ ID to real wamid", async () => {
+      const app = createTestApp();
+      vi.spyOn(kvTechMediaProvider, "verifyWebhookSignature").mockReturnValue(true);
+
+      // First select by exact metaMessageId returns empty; second select by recipient returns the log
+      vi.spyOn(db, "select")
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue([]),
+            }),
+          }),
+        } as any)
+        .mockReturnValueOnce({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              orderBy: vi.fn().mockReturnValue({
+                limit: vi.fn().mockResolvedValue([
+                  {
+                    id: 88,
+                    deliveryStatus: "sent",
+                    metaMessageId: "kv_accepted_1793693868642",
+                  },
+                ]),
+              }),
+            }),
+          }),
+        } as any);
+
+      const setMock = vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue({}),
+      });
+      const updateSpy = vi.spyOn(db, "update").mockReturnValue({
+        set: setMock,
+      } as any);
+
+      const res = await request(app)
+        .post("/webhooks/kv-meta")
+        .send({
+          object: "whatsapp_business_account",
+          entry: [
+            {
+              id: "WABA_ID_TEST",
+              changes: [
+                {
+                  value: {
+                    messaging_product: "whatsapp",
+                    statuses: [
+                      {
+                        id: "wamid.HBgMOTE3MDU0MDA3NzMzFQIA",
+                        status: "delivered",
+                        timestamp: "1730000050",
+                        recipient_id: "917054007733",
+                      },
+                    ],
+                  },
+                  field: "messages",
+                },
+              ],
+            },
+          ],
+        });
+
+      expect(res.status).toBe(200);
+      expect(updateSpy).toHaveBeenCalled();
+      expect(setMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deliveryStatus: "delivered",
+          metaMessageId: "wamid.HBgMOTE3MDU0MDA3NzMzFQIA",
+        }),
+      );
+    });
   });
 
   describe("Admin Simulation Endpoint (/auth/admin/communicate/simulate-receipt)", () => {

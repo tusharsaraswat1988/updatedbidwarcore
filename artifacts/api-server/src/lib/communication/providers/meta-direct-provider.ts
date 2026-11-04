@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import type { Request } from "express";
 import { logger, maskPhoneNumber } from "../../logger";
+import { extractProviderMessageId } from "./kv-techmedia-provider";
 import type {
   IWhatsAppProvider,
   WhatsAppSendInput,
@@ -317,7 +318,7 @@ export class MetaDirectProvider implements IWhatsAppProvider {
         };
       }
 
-      const messageId = responseData?.messages?.[0]?.id ?? `meta_accepted_${Date.now()}`;
+      const messageId = extractProviderMessageId(responseData) ?? `meta_accepted_${Date.now()}`;
       logger.info({ to: maskPhoneNumber(toMsisdn), messageId }, "Meta Direct WhatsApp sent successfully");
 
       return {
