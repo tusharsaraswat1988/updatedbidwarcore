@@ -1207,7 +1207,7 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
           "SSE event sequence mismatch or gap — sending authoritative auction snapshot",
         );
         const state = await getCachedOrBuildState(tid);
-        const version = Math.max(latestVersion, state.revision ?? 0, afterVersion);
+        const version = Math.max(latestVersion, state.revision ?? 0);
         const envelope = {
           type: "auction_state",
           version,

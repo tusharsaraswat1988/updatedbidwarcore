@@ -71,8 +71,16 @@ export type SseAuctionMessage = {
 
 const versionByTournament = new Map<number, number>();
 
-function getCachedVersion(tournamentId: number): number {
+export function getCachedVersion(tournamentId: number): number {
   return versionByTournament.get(tournamentId) ?? 0;
+}
+
+export function resetCachedVersion(tournamentId: number, version: number): void {
+  versionByTournament.set(tournamentId, version);
+}
+
+export function resetCachedVersionsForTests(): void {
+  versionByTournament.clear();
 }
 
 function setCachedVersion(tournamentId: number, version: number): void {
@@ -257,7 +265,7 @@ export function applyAuctionSseMessage(
   // Authoritative full state snapshots always apply and advance/reset the version cursor
   if (msg.type === "auction_state" && msg.state) {
     if (msg.version != null && msg.version > 0) {
-      setCachedVersion(tournamentId, msg.version);
+      resetCachedVersion(tournamentId, msg.version);
     }
     const teamPurses = msg.state.teamPurses;
     const activityAt =

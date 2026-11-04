@@ -42,8 +42,11 @@ import { organizerAccountStatusMiddleware } from "./middleware/organizer-account
 import { signAuthJwt, COOKIE_NAME } from "./lib/jwt.js";
 import {
   getCurrentEventVersion,
+  nextEventVersion,
+  setLocalEventVersionForTests,
   resetLocalEventStateForTests,
   formatSseFrame,
+  publishAuctionEvent,
 } from "./lib/auction-events.js";
 import {
   addSseClient,
@@ -262,9 +265,8 @@ async function run() {
   await masterClient.connect();
 
   const adminToken = signAuthJwt({
-    id: ORG_ID,
-    userId: ORG_ID,
-    role: "organizer",
+    organizerAccountId: ORG_ID,
+    organizer: { [String(ORG_ID)]: true },
     email: "org_phase34@bidwar.test",
     isAdmin: true,
     adminLevel: "master",
@@ -387,7 +389,7 @@ async function run() {
           { headers: { Accept: "text/event-stream" } },
           (res) => {
             assert(res.statusCode === 200, "Initial SSE connection accepted (200 OK)");
-            assert(res.headers["content-type"]?.includes("text/event-stream"), "Content-Type is text/event-stream");
+            assert(Boolean(res.headers["content-type"]?.includes("text/event-stream")), "Content-Type is text/event-stream");
             streamDisconnected = true;
             req.destroy();
             resolve();
@@ -785,20 +787,68 @@ async function run() {
     }
 
     // =========================================================================
-    // SCENARIO 14: Realtime snapshot resynchronization
+    // SCENARIO 14A: Future Last-Event-ID cursor recovery & authoritative snapshot verification
     // =========================================================================
-    logHeader("SCENARIO 14: Realtime snapshot resynchronization");
+    logHeader("SCENARIO 14A: Future Last-Event-ID cursor recovery & snapshot verification");
     {
-      let receivedStateSnapshot = false;
+      let snapshotEnvelope: any = null;
       await new Promise<void>((resolve, reject) => {
         const req = http.get(
           `${baseUrl}/api/tournaments/${TID_AUCTION}/auction/events`,
           { headers: { Accept: "text/event-stream", "Last-Event-ID": "99999" } },
           (res) => {
-            assert(res.statusCode === 200, "SSE reconnect with sequence gap returns 200 OK");
+            assert(res.statusCode === 200, "SSE reconnect with future cursor returns 200 OK");
+            res.on("data", (chunk) => {
+              const str = chunk.toString();
+              if (str.includes('"type":"auction_state"')) {
+                const match = str.match(/data:\s*({.*})/);
+                if (match) {
+                  try {
+                    snapshotEnvelope = JSON.parse(match[1]);
+                    req.destroy();
+                    resolve();
+                  } catch (e) {}
+                }
+              }
+            });
+          }
+        );
+        req.on("error", (err) => {
+          if (snapshotEnvelope) return;
+          reject(err);
+        });
+        setTimeout(() => {
+          if (!snapshotEnvelope) {
+            req.destroy();
+            reject(new Error("Timeout waiting for auction_state frame on future cursor resync"));
+          }
+        }, 5000);
+      });
+
+      assert(snapshotEnvelope != null, "Server automatically dispatched full auction_state snapshot frame");
+      assert(snapshotEnvelope.type === "auction_state", "Envelope type is authoritative 'auction_state'");
+      assert(snapshotEnvelope.version < 99999, `Server did NOT adopt client's invalid future cursor (snapshot version: ${snapshotEnvelope.version} < 99999)`);
+      assert(snapshotEnvelope.state != null, "Snapshot state payload is present");
+      assert(snapshotEnvelope.state.revision != null && snapshotEnvelope.state.revision > 0, `Authoritative DB revision in snapshot is valid (${snapshotEnvelope.state.revision})`);
+      passedScenarios++;
+    }
+
+    // =========================================================================
+    // SCENARIO 14B: Independent event-buffer eviction gap recovery
+    // =========================================================================
+    logHeader("SCENARIO 14B: Independent event-buffer eviction gap recovery");
+    {
+      // Client reconnects with Last-Event-ID: 1 when auction revision is >= 60 (evicted past buffer)
+      let receivedEvictionSnapshot = false;
+      await new Promise<void>((resolve, reject) => {
+        const req = http.get(
+          `${baseUrl}/api/tournaments/${TID_AUCTION}/auction/events`,
+          { headers: { Accept: "text/event-stream", "Last-Event-ID": "1" } },
+          (res) => {
+            assert(res.statusCode === 200, "SSE reconnect with evicted buffer gap returns 200 OK");
             res.on("data", (chunk) => {
               if (chunk.toString().includes('"type":"auction_state"')) {
-                receivedStateSnapshot = true;
+                receivedEvictionSnapshot = true;
                 req.destroy();
                 resolve();
               }
@@ -806,18 +856,18 @@ async function run() {
           }
         );
         req.on("error", (err) => {
-          if (receivedStateSnapshot) return;
+          if (receivedEvictionSnapshot) return;
           reject(err);
         });
         setTimeout(() => {
-          if (!receivedStateSnapshot) {
+          if (!receivedEvictionSnapshot) {
             req.destroy();
-            reject(new Error("Timeout waiting for auction_state frame on SSE resync"));
+            reject(new Error("Timeout waiting for auction_state frame on buffer eviction gap"));
           }
         }, 5000);
       });
 
-      assert(receivedStateSnapshot, "Server automatically dispatched full auction_state snapshot frame");
+      assert(receivedEvictionSnapshot, "Server automatically dispatched authoritative snapshot upon buffer eviction gap");
       passedScenarios++;
     }
 
@@ -854,15 +904,11 @@ async function run() {
       let aliceError: any = null;
       try {
         await appendMatchEventBatch({
+          tournamentId: TID_BADMINTON,
           matchId: MATCH_ID_1,
           sportSlug: "badminton",
+          fixtureId: null,
           actor: { type: "scorer", id: String(SCORER_ID_A) },
-          lease: {
-            scorerId: SCORER_ID_A,
-            sessionId: SESSION_A,
-            leaseId: leaseA.leaseId,
-            leaseVersion: leaseA.leaseVersion,
-          },
           events: [
             {
               eventType: "badminton.point.won",
@@ -876,6 +922,23 @@ async function run() {
               },
             },
           ],
+          projectionMode: "replay",
+          matchMeta: {
+            matchId: MATCH_ID_1,
+            tournamentId: TID_BADMINTON,
+            sportSlug: "badminton",
+            matchKind: "singles",
+            sides: {
+              home: { id: 1, label: "Alice", shortLabel: "A" },
+              away: { id: 2, label: "Bob", shortLabel: "B" },
+            },
+          },
+          lease: {
+            scorerId: SCORER_ID_A,
+            sessionId: SESSION_A,
+            leaseId: leaseA.leaseId,
+            leaseVersion: leaseA.leaseVersion,
+          },
         });
       } catch (err) {
         aliceError = err;
@@ -911,17 +974,111 @@ async function run() {
       passedScenarios++;
     }
 
+    // =========================================================================
+    // SCENARIO 17: Crash window between database commit and event publication
+    // =========================================================================
+    logHeader("SCENARIO 17: Crash window between DB commit and event publication");
+    {
+      // 1. Transaction commits revision 75 directly in PostgreSQL
+      await masterClient.query(`
+        UPDATE auction_sessions
+        SET revision = 75, current_bid = 300000, current_bid_team_id = $2, last_action = 'Crash window test bid'
+        WHERE tournament_id = $1
+      `, [TID_AUCTION, TEAM_ID_1]);
+
+      // 2. Simulate crash window: local event version counter was left at 74 and event 75 was NEVER published
+      setLocalEventVersionForTests(TID_AUCTION, 74);
+
+      // 3. Reconnecting client connects with Last-Event-ID: 74
+      let recoveredSnapshot: any = null;
+      await new Promise<void>((resolve, reject) => {
+        const req = http.get(
+          `${baseUrl}/api/tournaments/${TID_AUCTION}/auction/events`,
+          { headers: { Accept: "text/event-stream", "Last-Event-ID": "74" } },
+          (res) => {
+            assert(res.statusCode === 200, "Reconnecting client accepted after crash window");
+            res.on("data", (chunk) => {
+              const str = chunk.toString();
+              if (str.includes('"type":"auction_state"')) {
+                const match = str.match(/data:\s*({.*})/);
+                if (match) {
+                  try {
+                    recoveredSnapshot = JSON.parse(match[1]);
+                    req.destroy();
+                    resolve();
+                  } catch (e) {}
+                }
+              }
+            });
+          }
+        );
+        req.on("error", (err) => {
+          if (recoveredSnapshot) return;
+          reject(err);
+        });
+        setTimeout(() => {
+          if (!recoveredSnapshot) {
+            req.destroy();
+            reject(new Error("Timeout waiting for snapshot recovery during crash window"));
+          }
+        }, 5000);
+      });
+
+      assert(recoveredSnapshot != null, "Crash window gap successfully triggered authoritative snapshot frame");
+      assert(recoveredSnapshot.version >= 75, `Recovered snapshot version is aligned with DB revision (version = ${recoveredSnapshot.version})`);
+      assert(recoveredSnapshot.state.currentBid === 300000, "Recovered snapshot contains un-broadcast committed bid (300,000)");
+
+      // 4. Subsequent mutation occurs and publishes event 76
+      const nextVer = await nextEventVersion(TID_AUCTION, 76);
+      assert(nextVer >= 76, `Next event version monotonic post-crash (version = ${nextVer})`);
+      passedScenarios++;
+    }
+
+    // =========================================================================
+    // SCENARIO 18: Deterministic multi-instance concurrency regression tests
+    // =========================================================================
+    logHeader("SCENARIO 18: Deterministic multi-instance concurrency regression tests");
+    {
+      const CONCURRENT_INSTANCES = 10;
+      resetLocalEventStateForTests(TID_AUCTION);
+
+      // Seed session at revision 80
+      await masterClient.query(`
+        UPDATE auction_sessions
+        SET revision = 80
+        WHERE tournament_id = $1
+      `, [TID_AUCTION]);
+
+      // 10 simulated instances call nextEventVersion concurrently on cold start
+      const promises: Promise<number>[] = [];
+      for (let i = 0; i < CONCURRENT_INSTANCES; i++) {
+        promises.push(nextEventVersion(TID_AUCTION, 80));
+      }
+
+      const generatedVersions = await Promise.all(promises);
+      const uniqueVersions = new Set(generatedVersions);
+
+      assert(uniqueVersions.size === CONCURRENT_INSTANCES, `All ${CONCURRENT_INSTANCES} concurrent instances received distinct event versions (unique = ${uniqueVersions.size})`);
+      for (const v of generatedVersions) {
+        assert(v >= 80, `Generated version (${v}) is >= PostgreSQL base floor (80)`);
+      }
+
+      const currentVer = await getCurrentEventVersion(TID_AUCTION);
+      assert(currentVer >= 80 + CONCURRENT_INSTANCES - 1, `Current event version reached peak monotonic value (${currentVer})`);
+      passedScenarios++;
+    }
+
     logHeader("VERIFICATION SUMMARY");
     console.log(`\n${BOLD}${GREEN}======================================================================${RESET}`);
-    console.log(`${BOLD}${GREEN}  ALL 16 AUCTION RECOVERY & RELIABILITY SCENARIOS PASSED!${RESET}`);
-    console.log(`${BOLD}${GREEN}  Passed: ${passedScenarios} / 16 scenarios${RESET}`);
+    console.log(`${BOLD}${GREEN}  ALL 19 AUCTION RECOVERY & RELIABILITY SCENARIOS PASSED!${RESET}`);
+    console.log(`${BOLD}${GREEN}  Passed: ${passedScenarios} / 19 scenarios${RESET}`);
     console.log(`${BOLD}${GREEN}======================================================================${RESET}\n`);
 
   } finally {
     await cleanupTestData(masterClient);
     await masterClient.end();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
-    process.exit(passedScenarios === 16 ? 0 : 1);
+    process.exit(passedScenarios === 19 ? 0 : 1);
   }
 }
 
