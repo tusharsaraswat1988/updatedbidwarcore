@@ -24,4 +24,4 @@ jobs:
       - name: Reject schema PRs without migrations
         env:
           SCHEMA_CI_BASE: origin/${{ github.base_ref }}
-        run: node --import tsx scripts/check-schema-governance.mjs
+        run: node scripts/check-schema-governance.mjs
