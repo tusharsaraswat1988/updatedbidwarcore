@@ -56,6 +56,83 @@ async function setLastAuctionActivityAt(tournamentId: number, iso: string): Prom
 }
 
 
+/**
+ * ============================================================================
+ * BIDWAR AUCTION REVISION & EVENT VERSIONING CONTRACT
+ * ============================================================================
+ * 1. Single Authoritative Source of Truth:
+ *    PostgreSQL `auction_sessions.revision` is the sole source of truth for
+ *    the auction state revision. All state mutations (bid, pause, resume, sell,
+ *    unsold, next player) commit within a transaction guarded by PostgreSQL
+ *    advisory xact locks (`pg_advisory_xact_lock(tournamentId)`), incrementing
+ *    `auction_sessions.revision`.
+ *
+ * 2. Monotonic Event Stream & Non-Regression Guarantee:
+ *    Event versions emitted via Redis pub/sub and SSE (`auction:version:${tid}`)
+ *    must be strictly monotonic and must never lag behind the committed database
+ *    revision (`eventVersion >= auction_sessions.revision`).
+ *
+ * 3. Atomic Cold-Start Seeding & Concurrency Guard:
+ *    On server boot, Redis restart, or key eviction, event version counters
+ *    are atomically initialized via Lua script using the committed database
+ *    revision as the base floor. Multi-instance API servers cannot race or
+ *    clobber each other's version increments during cold start.
+ *
+ * 4. Crash Window Healing:
+ *    If an API server crashes or network fails between the database transaction
+ *    commit (at revision R) and event publication, Redis/local version counters
+ *    will be healed to at least R upon next event query or emit. When clients
+ *    reconnect across this gap, the sequence gap detector identifies the missing
+ *    delta and automatically serves an authoritative `auction_state` snapshot frame
+ *    aligned with PostgreSQL state.
+ * ============================================================================
+ */
+
+export const LUA_NEXT_EVENT_VERSION = `
+local key = KEYS[1]
+local dbRev = tonumber(ARGV[1]) or 0
+local current = redis.call('get', key)
+local nextVal
+if not current then
+  if dbRev > 0 then
+    nextVal = dbRev
+  else
+    nextVal = 1
+  end
+else
+  local num = tonumber(current) or 0
+  if dbRev > num then
+    nextVal = dbRev
+  else
+    nextVal = num + 1
+  end
+end
+redis.call('set', key, nextVal)
+return nextVal
+`;
+
+export const LUA_GET_CURRENT_EVENT_VERSION = `
+local key = KEYS[1]
+local dbRev = tonumber(ARGV[1]) or 0
+local current = redis.call('get', key)
+if current then
+  local num = tonumber(current) or 0
+  if dbRev > num then
+    redis.call('set', key, dbRev)
+    return dbRev
+  else
+    return num
+  end
+else
+  if dbRev > 0 then
+    redis.call('set', key, dbRev)
+    return dbRev
+  else
+    return 0
+  end
+end
+`;
+
 async function getPersistedRevision(tournamentId: number): Promise<number> {
   try {
     const [row] = await db
@@ -69,10 +146,16 @@ async function getPersistedRevision(tournamentId: number): Promise<number> {
   }
 }
 
-function bumpLocalVersion(tournamentId: number): number {
-  const next = (localVersions.get(tournamentId) ?? 0) + 1;
-  localVersions.set(tournamentId, next);
-  return next;
+function bumpLocalVersion(tournamentId: number, dbRev: number): number {
+  if (!localVersions.has(tournamentId)) {
+    const nextVal = dbRev > 0 ? dbRev : 1;
+    localVersions.set(tournamentId, nextVal);
+    return nextVal;
+  }
+  const current = localVersions.get(tournamentId) ?? 0;
+  const nextVal = dbRev > current ? dbRev : current + 1;
+  localVersions.set(tournamentId, nextVal);
+  return nextVal;
 }
 
 function bufferLocal(tournamentId: number, serialized: string): void {
@@ -88,49 +171,43 @@ export function formatSseFrame(version: number, payload: Record<string, unknown>
 
 export async function getCurrentEventVersion(tournamentId: number): Promise<number> {
   const redis = getRedisCommandClient();
+  const dbRev = await getPersistedRevision(tournamentId);
+
   if (redis) {
     try {
-      const v = await redis.get(VERSION_KEY(tournamentId));
-      if (v) return parseInt(v, 10);
-      const dbRev = await getPersistedRevision(tournamentId);
-      if (dbRev > 0) {
-        await redis.set(VERSION_KEY(tournamentId), String(dbRev));
-        return dbRev;
-      }
-      return 0;
+      const res = await redis.eval(LUA_GET_CURRENT_EVENT_VERSION, 1, VERSION_KEY(tournamentId), String(dbRev));
+      return typeof res === "number" ? res : parseInt(String(res), 10);
     } catch (err) {
       markRedisUnavailable(err, "getCurrentEventVersion");
     }
   }
+
   if (!localVersions.has(tournamentId)) {
-    const dbRev = await getPersistedRevision(tournamentId);
     localVersions.set(tournamentId, dbRev);
     return dbRev;
   }
-  return localVersions.get(tournamentId) ?? 0;
+  const current = localVersions.get(tournamentId) ?? 0;
+  if (dbRev > current) {
+    localVersions.set(tournamentId, dbRev);
+    return dbRev;
+  }
+  return current;
 }
 
-async function nextEventVersion(tournamentId: number): Promise<number> {
+export async function nextEventVersion(tournamentId: number, knownRevision?: number): Promise<number> {
+  const dbRev = knownRevision !== undefined ? knownRevision : await getPersistedRevision(tournamentId);
   const redis = getRedisCommandClient();
+
   if (redis) {
     try {
-      const exists = await redis.exists(VERSION_KEY(tournamentId));
-      if (!exists) {
-        const dbRev = await getPersistedRevision(tournamentId);
-        if (dbRev > 0) {
-          await redis.set(VERSION_KEY(tournamentId), String(dbRev));
-        }
-      }
-      return await redis.incr(VERSION_KEY(tournamentId));
+      const res = await redis.eval(LUA_NEXT_EVENT_VERSION, 1, VERSION_KEY(tournamentId), String(dbRev));
+      return typeof res === "number" ? res : parseInt(String(res), 10);
     } catch (err) {
       markRedisUnavailable(err, "nextEventVersion");
     }
   }
-  if (!localVersions.has(tournamentId)) {
-    const dbRev = await getPersistedRevision(tournamentId);
-    localVersions.set(tournamentId, dbRev);
-  }
-  return bumpLocalVersion(tournamentId);
+
+  return bumpLocalVersion(tournamentId, dbRev);
 }
 
 async function bufferEvent(tournamentId: number, serialized: string): Promise<void> {
@@ -247,6 +324,10 @@ export async function startAuctionEventSubscriber(): Promise<void> {
   logger.info("Auction event Redis subscriber started");
 }
 
+
+export function setLocalEventVersionForTests(tournamentId: number, version: number): void {
+  localVersions.set(tournamentId, version);
+}
 
 export function resetLocalEventStateForTests(tournamentId?: number): void {
   if (tournamentId != null) {
