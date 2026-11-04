@@ -55,6 +55,31 @@ export const WHITELISTED_URLS = [
   "https://www.youtube.com/@bidwarofficial",
 ] as const;
 
+export type AssistantUserCategory =
+  | "guest"
+  | "trial_organizer"
+  | "licensed_organizer"
+  | "team_owner"
+  | "player"
+  | "registered_member";
+
+export interface AuthorizedTournamentMembership {
+  tournamentId: number;
+  tournamentName: string;
+  sport: string;
+  status: string;
+  licenseStatus: string;
+  auctionEnabled: boolean;
+  scoringEnabled: boolean;
+  role: "organizer" | "team_owner" | "player" | "scorer" | "member";
+  teamId?: number;
+  teamName?: string;
+  playerId?: number;
+  playerName?: string;
+  city?: string | null;
+  isLicensed?: boolean;
+}
+
 export interface AuthorizedTournamentSummary {
   id: number;
   name: string;
@@ -63,13 +88,19 @@ export interface AuthorizedTournamentSummary {
   licenseStatus: string;
   auctionEnabled: boolean;
   scoringEnabled: boolean;
+  city?: string | null;
 }
 
 export interface AssistantUserContext {
-  userCategory: "guest" | "trial_organizer" | "licensed_organizer" | "registered_member";
+  userCategory: AssistantUserCategory;
   displayName?: string;
   mobile?: string;
   authorizedTournaments?: AuthorizedTournamentSummary[];
+  memberships?: AuthorizedTournamentMembership[];
+  activeTournamentId?: number;
+  activeRole?: "organizer" | "team_owner" | "player" | "scorer" | "member";
+  activeTeamId?: number;
+  activePlayerId?: number;
   isBeginner?: boolean;
   turnCount?: number;
   preferredLanguage?: "hindi" | "english" | "hinglish";
@@ -111,6 +142,30 @@ export function buildAssistantSystemPrompt(context?: AssistantUserContext): stri
 ${tourneyList || "  (Active licensed tournament registered on BidWar)"}
 - AUTHORIZATION POLICY: You may reference general operational features and the above backend-verified tournament metadata. You must NEVER expose raw private database entries, private player contact information, or sensitive financial keys.
 - BEGINNER-FRIENDLY POLICY: Even though the user is a licensed organizer, they may be a complete beginner with live sports auctions, LED setup, OBS streaming, or scoring rules. Always offer gentle, patient, step-by-step guidance.`;
+  } else if (userCategory === "team_owner") {
+    const tourneyList = (context?.authorizedTournaments ?? [])
+      .map((t) => `  - Tournament: "${t.name}" (ID: ${t.id}, Sport: ${t.sport}, Status: ${t.status})`)
+      .join("\n");
+    roleContextText = `
+### USER IDENTITY & AUTHORIZED SCOPE: TEAM OWNER
+- User Name: ${displayName}
+- Account Status: Authenticated Team Owner in associated licensed tournament
+- Authorized Tournaments Scope:
+${tourneyList || "  (Associated licensed tournament registered on BidWar)"}
+- AUTHORIZATION POLICY: You have full access to non-confidential tournament details, actual auction rules, all team squads, public player auction status, and your OWN team's detailed purse, spendable budget, maximum permissible next bid, and squad roster.
+- CONFIDENTIALITY BOUNDARY: You must NEVER disclose team access codes, passwords, organizer credentials, or private contact details of other team owners or players.`;
+  } else if (userCategory === "player") {
+    const tourneyList = (context?.authorizedTournaments ?? [])
+      .map((t) => `  - Tournament: "${t.name}" (ID: ${t.id}, Sport: ${t.sport}, Status: ${t.status})`)
+      .join("\n");
+    roleContextText = `
+### USER IDENTITY & AUTHORIZED SCOPE: REGISTERED PLAYER
+- User Name: ${displayName}
+- Account Status: Authenticated Player registered in associated licensed tournament
+- Authorized Tournaments Scope:
+${tourneyList || "  (Associated licensed tournament registered on BidWar)"}
+- AUTHORIZATION POLICY: You have access to non-confidential tournament details, actual auction rules, all team squads, public player auction rankings, sold prices, and your OWN player auction status.
+- CONFIDENTIALITY BOUNDARY: You must NEVER disclose team access codes, passwords, organizer credentials, or private contact details of other players or owners.`;
   } else if (userCategory === "trial_organizer") {
     roleContextText = `
 ### USER IDENTITY & AUTHORIZED SCOPE: TRIAL ORGANIZER

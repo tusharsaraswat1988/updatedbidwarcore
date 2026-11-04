@@ -608,16 +608,86 @@ export class ConversationRouter {
           scoringPhase: tournamentsTable.scoringPhase,
           licenseGrantedAt: tournamentsTable.licenseGrantedAt,
           featuresJson: tournamentsTable.featuresJson,
+          organizerMobile: tournamentsTable.organizerMobile,
         })
         .from(tournamentsTable)
         .where(or(...tournamentConditions));
 
+      // Also query teams and players to associate specific teamId or playerId
+      let ownedTeams: Array<{ id: number; name: string; tournamentId: number }> = [];
+      try {
+        ownedTeams = await db
+          .select({ id: teamsTable.id, name: teamsTable.name, tournamentId: teamsTable.tournamentId })
+          .from(teamsTable)
+          .where(
+            or(
+              eq(teamsTable.ownerMobile, mobile),
+              eq(teamsTable.ownerMobile, norm),
+              eq(teamsTable.ownerMobile, tenDigit),
+            ),
+          );
+      } catch {}
+
+      let registeredPlayers: Array<{ id: number; name: string; teamId: number | null; tournamentId: number }> = [];
+      try {
+        registeredPlayers = await db
+          .select({ id: playersTable.id, name: playersTable.name, teamId: playersTable.teamId, tournamentId: playersTable.tournamentId })
+          .from(playersTable)
+          .where(
+            or(
+              eq(playersTable.mobileNumber, mobile),
+              eq(playersTable.mobileNumber, norm),
+              eq(playersTable.mobileNumber, tenDigit),
+            ),
+          );
+      } catch {}
+
       const licensedTournaments: AuthorizedTournamentSummary[] = [];
+      const memberships: import("./ai-assistant/knowledgebase").AuthorizedTournamentMembership[] = [];
       let hasTrialTournament = false;
+
+      const isOrganizerRole =
+        identity.kind === "member"
+          ? identity.roles.some((r) => r.role.toLowerCase() === "organizer")
+          : identity.kind === "legacy"
+            ? identity.targets.some((t) => t.type === "organizer")
+            : false;
 
       if (Array.isArray(orgTournaments)) {
         for (const t of orgTournaments) {
           const isLicensed = isTournamentLicensedForComm(t);
+          const normOrgMobile = t.organizerMobile ? this.normalizePhone(t.organizerMobile) : "";
+          const isOrgForT =
+            normOrgMobile === norm ||
+            (identity.kind === "member" &&
+              identity.roles.some(
+                (r) => r.role.toLowerCase() === "organizer" && (r.scope === "global" || r.tournamentId === t.id),
+              )) ||
+            (identity.kind === "legacy" &&
+              identity.targets.some((tr) => tr.type === "organizer" && (tr.tournamentId == null || tr.tournamentId === t.id)));
+
+          const ownedTeam = ownedTeams.find((tm) => tm.tournamentId === t.id);
+          const regPlayer = registeredPlayers.find((p) => p.tournamentId === t.id);
+
+          let role: "organizer" | "team_owner" | "player" | "scorer" | "member" = "member";
+          if (isOrgForT) {
+            role = "organizer";
+          } else if (ownedTeam) {
+            role = "team_owner";
+          } else if (regPlayer) {
+            role = "player";
+          } else if (identity.kind === "member") {
+            const roleInT = identity.roles.find((r) => r.tournamentId === t.id);
+            if (roleInT?.role.toLowerCase() === "team_owner") role = "team_owner";
+            else if (roleInT?.role.toLowerCase() === "player") role = "player";
+            else if (roleInT?.role.toLowerCase() === "scorer") role = "scorer";
+          } else if (identity.kind === "legacy") {
+            const targetInT = identity.targets.find((tr) => tr.tournamentId === t.id);
+            if (targetInT?.type === "team_owner") role = "team_owner";
+            else if (targetInT?.type === "player") role = "player";
+            else if (targetInT?.type === "scorer") role = "scorer";
+          }
+
           if (isLicensed) {
             licensedTournaments.push({
               id: t.id,
@@ -628,25 +698,52 @@ export class ConversationRouter {
               auctionEnabled: Boolean(t.auctionEnabled),
               scoringEnabled: Boolean(t.scoringEnabled),
             });
+
+            memberships.push({
+              tournamentId: t.id,
+              tournamentName: t.name,
+              sport: t.sport,
+              status: t.status,
+              licenseStatus: "licensed",
+              auctionEnabled: Boolean(t.auctionEnabled),
+              scoringEnabled: Boolean(t.scoringEnabled),
+              role,
+              teamId: ownedTeam?.id ?? regPlayer?.teamId ?? undefined,
+              teamName: ownedTeam?.name ?? undefined,
+              playerId: regPlayer?.id ?? undefined,
+              playerName: regPlayer?.name ?? undefined,
+            });
           } else if (t.licenseStatus === "trial") {
             hasTrialTournament = true;
           }
         }
       }
 
-      const isOrganizerRole =
-        identity.kind === "member"
-          ? identity.roles.some((r) => r.role.toLowerCase() === "organizer")
-          : identity.kind === "legacy"
-            ? identity.targets.some((t) => t.type === "organizer")
-            : false;
+      // Determine appropriate user category
+      let userCategory: import("./ai-assistant/knowledgebase").AssistantUserCategory = "registered_member";
 
       if (licensedTournaments.length > 0) {
+        if (memberships.some((m) => m.role === "organizer") || isOrganizerRole) {
+          userCategory = "licensed_organizer";
+        } else if (memberships.some((m) => m.role === "team_owner")) {
+          userCategory = "team_owner";
+        } else if (memberships.some((m) => m.role === "player")) {
+          userCategory = "player";
+        } else {
+          userCategory = "registered_member";
+        }
+
+        const primary = memberships[0];
         return {
-          userCategory: "licensed_organizer",
+          userCategory,
           displayName: identity.displayName,
           mobile: norm,
           authorizedTournaments: licensedTournaments,
+          memberships,
+          activeTournamentId: memberships.length === 1 ? primary?.tournamentId : undefined,
+          activeRole: memberships.length === 1 ? primary?.role : undefined,
+          activeTeamId: memberships.length === 1 ? primary?.teamId : undefined,
+          activePlayerId: memberships.length === 1 ? primary?.playerId : undefined,
           isBeginner: true,
         };
       }
