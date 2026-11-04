@@ -29,6 +29,7 @@ import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import { usePublicBranding } from "@/lib/initial-data/use-public-branding";
 import {
   MORE_NAV_LINKS,
+  resolveSectionId,
   SITE_CONTACT,
   SITE_SOCIAL,
   SITE_SOCIAL_PLACEHOLDERS,
@@ -60,14 +61,7 @@ const DEMO_WA_MESSAGE =
 
 function scrollToSection(sectionId: string, event?: MouseEvent<HTMLAnchorElement>, surfaceIndex?: number) {
   event?.preventDefault();
-  const targetId =
-    sectionId === "surfaces" || sectionId === "features"
-      ? "auction-screens"
-      : sectionId === "tournaments" || sectionId === "cases"
-        ? "tournament-galleries"
-        : sectionId === "clients"
-          ? "our-clients"
-          : sectionId;
+  const targetId = resolveSectionId(sectionId);
   const el = document.getElementById(targetId) || document.getElementById(sectionId);
   if (el) {
     const yOffset = -95; // Account for sticky header + breathing room
@@ -367,7 +361,7 @@ export default function LovableHome() {
   return (
     <>
       <HomeSchemaMarkup />
-      <div className="lovable-home has-mobile-sticky-cta min-h-screen min-w-0 max-w-full text-foreground bg-stage">
+      <div className="lovable-home has-mobile-sticky-cta min-h-screen min-w-0 max-w-full overflow-x-clip text-foreground bg-stage">
         <Header
           onOpenDrawer={() => setDrawerOpen(true)}
           goBlog={goBlog}
@@ -492,7 +486,7 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
     <header className="sticky top-0 z-30 min-w-0 border-b border-white/10 bg-stage/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 w-full min-w-0 max-w-[1440px] items-center justify-between gap-2 px-3 sm:px-6 lg:px-8">
         <a href="/" className="flex min-w-0 items-center mr-2 xl:mr-6 2xl:mr-8" aria-label={`${BRAND_NAME} Home`}>
-          <BrandMark className="h-9 w-auto max-w-[7.25rem] object-contain object-left sm:h-10 sm:max-w-[168px]" />
+          <BrandMark className="h-8 sm:h-9 md:h-10 w-auto max-w-[6.25rem] sm:max-w-[7.25rem] md:max-w-[168px] object-contain object-left" />
         </a>
 
         <nav className="hidden xl:flex items-center gap-1 xl:gap-2 2xl:gap-3.5 text-[13px] font-medium text-muted-foreground">
@@ -504,7 +498,7 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
             Auction Screens
           </a>
           <a
-            href="#experience-bidding"
+            href="#auction-screens"
             onClick={(e) => scrollToSection("experience-bidding", e)}
             className="px-2.5 py-1.5 rounded-md hover:text-foreground hover:bg-white/5 transition-colors whitespace-nowrap"
           >
@@ -612,7 +606,7 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
               </div>
               <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between text-xs text-muted-foreground px-1">
                 <a
-                  href="#solutions"
+                  href="#offerings"
                   onClick={(e) => scrollToSection("solutions", e)}
                   className="hover:text-primary transition font-medium"
                 >
@@ -626,12 +620,12 @@ function Header({ onOpenDrawer, goBlog, goAcademy }: {
           </div>
         </nav>
 
-        <div className="ml-auto flex min-w-0 shrink items-center gap-1.5 sm:gap-2.5 xl:ml-4">
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2.5 xl:ml-4">
           <PublicAuthCta variant="homepage" />
           <button
             type="button"
             onClick={onOpenDrawer}
-            className="ghost-button rounded-md p-2 xl:hidden"
+            className="ghost-button shrink-0 rounded-md p-1.5 sm:p-2 xl:hidden"
             aria-label="Open navigation menu"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -679,14 +673,14 @@ function MobileDrawer({ onClose, goBlog, goAcademy, goContact }: {
         {([
           { label: "BidWar Premier League", href: "/bpl" },
           { label: "Auction Screens", href: "#auction-screens", sectionId: "auction-screens" },
-          { label: "Experience Bidding", href: "#experience-bidding", sectionId: "experience-bidding" },
+          { label: "Experience Bidding", href: "#auction-screens", sectionId: "experience-bidding" },
           { label: "Tournament Galleries", href: "#tournament-galleries", sectionId: "tournament-galleries" },
           { label: "Our Clients", href: "#our-clients", sectionId: "our-clients" },
           { label: "Academy (Video Hub)", href: "/academy", action: goAcademy },
-          { label: "Pricing", href: "#pricing", sectionId: "pricing" },
+          { label: "Pricing", href: "/pricing" },
           { label: "Blog", href: "/blog", action: goBlog },
           { label: "Organizer Reviews", href: "#reviews", sectionId: "reviews" },
-          { label: "Tournament Calculator", href: "#calculator", sectionId: "calculator" },
+          { label: "Tournament Calculator", href: "#simulator", sectionId: "calculator" },
           { label: "Upcoming Auctions", href: "/upcoming-auctions" },
           { label: "Contact Us", href: "/contact", action: goContact },
           { label: "FAQ", href: "#faq", sectionId: "faq" },
@@ -913,6 +907,8 @@ const PRODUCT_OFFERINGS = [
 function ProductOfferings() {
   return (
     <section id="offerings" className="mx-auto min-w-0 max-w-7xl px-5 py-14">
+      <span id="solutions" className="sr-only" aria-hidden="true" />
+      <span id="sports" className="sr-only" aria-hidden="true" />
       <div className="mb-6 max-w-2xl">
         <div className="text-[10px] uppercase tracking-[0.24em] text-primary font-semibold font-mono">
           What BidWar runs
@@ -1115,6 +1111,9 @@ function ProductShowcase({
 
   return (
     <section id="auction-screens" data-alias="surfaces" className="mx-auto max-w-7xl px-5 py-16 scroll-mt-24">
+      <span id="experience-bidding" className="sr-only" aria-hidden="true" />
+      <span id="surfaces" className="sr-only" aria-hidden="true" />
+      <span id="features" className="sr-only" aria-hidden="true" />
       <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-[10px] uppercase tracking-[0.24em] text-primary font-semibold font-mono">The 7 Connected Auction Screens</div>
@@ -2002,7 +2001,7 @@ function Footer() {
     {
       h: "Company & Trust",
       items: [
-        { label: "Pricing & Plans", href: "#pricing" },
+        { label: "Pricing & Plans", href: "/pricing" },
         { label: "Contact & HQ", href: "/contact" },
         { label: "Auction Tips", href: "/auction-tips" },
         { label: "auth-cta" },

@@ -147,4 +147,50 @@ describe("seo-route-policy", () => {
   it("getPageMeta returns null for invalid blog article slugs", () => {
     expect(getPageMeta("/blog/this-slug-does-not-exist-xyz")).toBeNull();
   });
+
+  it("getPageMeta includes pricing page with canonical and robots", () => {
+    const meta = getPageMeta("/pricing");
+    expect(meta).not.toBeNull();
+    expect(meta?.canonical).toBe("https://bidwar.in/pricing");
+    expect(meta?.robots ?? "index, follow").toBe("index, follow");
+    expect(meta?.title).toContain("Pricing");
+  });
+
+  it("getPageMeta includes BPL hub page with canonical and robots", () => {
+    const meta = getPageMeta("/bpl");
+    expect(meta).not.toBeNull();
+    expect(meta?.canonical).toBe("https://bidwar.in/bpl");
+    expect(meta?.robots ?? "index, follow").toBe("index, follow");
+    expect(meta?.title).toContain("BidWar Premier League");
+  });
+
+  it("getPageMeta dynamically resolves BPL edition subpaths", () => {
+    const meta = getPageMeta("/bpl/2026");
+    expect(meta).not.toBeNull();
+    expect(meta?.canonical).toBe("https://bidwar.in/bpl/2026");
+    expect(meta?.robots ?? "index, follow").toBe("index, follow");
+    expect(meta?.title).toContain("2026");
+  });
+
+  it("buildSitemapPages includes /pricing and /bpl", () => {
+    const xml = buildSitemapPages();
+    expect(xml).toContain("/pricing");
+    expect(xml).toContain("/bpl");
+  });
+
+  it("buildRobotsTxt includes /pricing and /bpl", () => {
+    const robots = buildRobotsTxt();
+    expect(robots).toContain("Allow: /pricing");
+    expect(robots).toContain("Allow: /bpl");
+  });
+
+  it("classifyRoute classifies /pricing and /bpl as indexable when resolved", () => {
+    expect(classifyRoute("/pricing", true)).toBe("indexable");
+    expect(classifyRoute("/bpl", true)).toBe("indexable");
+    expect(classifyRoute("/bpl/2026", true)).toBe("indexable");
+  });
+
+  it("classifyRoute classifies unknown routes as not-found", () => {
+    expect(classifyRoute("/completely-invalid-url-12345", false)).toBe("not-found");
+  });
 });

@@ -1,6 +1,8 @@
 import { getRedisCommandClient, getRedisSubscriberClient, isRedisEnabled, markRedisUnavailable } from "./redis";
 import { writeSseToLocalClients } from "./broadcast";
 import { logger } from "./logger";
+import { db, auctionSessionsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 export const EVENT_BUFFER_MAX = 500;
 const VERSION_KEY = (tid: number) => `auction:version:${tid}`;
@@ -53,6 +55,20 @@ async function setLastAuctionActivityAt(tournamentId: number, iso: string): Prom
   }
 }
 
+
+async function getPersistedRevision(tournamentId: number): Promise<number> {
+  try {
+    const [row] = await db
+      .select({ revision: auctionSessionsTable.revision })
+      .from(auctionSessionsTable)
+      .where(eq(auctionSessionsTable.tournamentId, tournamentId));
+    return row?.revision ?? 0;
+  } catch (err) {
+    logger.warn({ err, tournamentId }, "Failed to read persisted revision from DB");
+    return 0;
+  }
+}
+
 function bumpLocalVersion(tournamentId: number): number {
   const next = (localVersions.get(tournamentId) ?? 0) + 1;
   localVersions.set(tournamentId, next);
@@ -75,10 +91,21 @@ export async function getCurrentEventVersion(tournamentId: number): Promise<numb
   if (redis) {
     try {
       const v = await redis.get(VERSION_KEY(tournamentId));
-      return v ? parseInt(v, 10) : 0;
+      if (v) return parseInt(v, 10);
+      const dbRev = await getPersistedRevision(tournamentId);
+      if (dbRev > 0) {
+        await redis.set(VERSION_KEY(tournamentId), String(dbRev));
+        return dbRev;
+      }
+      return 0;
     } catch (err) {
       markRedisUnavailable(err, "getCurrentEventVersion");
     }
+  }
+  if (!localVersions.has(tournamentId)) {
+    const dbRev = await getPersistedRevision(tournamentId);
+    localVersions.set(tournamentId, dbRev);
+    return dbRev;
   }
   return localVersions.get(tournamentId) ?? 0;
 }
@@ -87,10 +114,21 @@ async function nextEventVersion(tournamentId: number): Promise<number> {
   const redis = getRedisCommandClient();
   if (redis) {
     try {
+      const exists = await redis.exists(VERSION_KEY(tournamentId));
+      if (!exists) {
+        const dbRev = await getPersistedRevision(tournamentId);
+        if (dbRev > 0) {
+          await redis.set(VERSION_KEY(tournamentId), String(dbRev));
+        }
+      }
       return await redis.incr(VERSION_KEY(tournamentId));
     } catch (err) {
       markRedisUnavailable(err, "nextEventVersion");
     }
+  }
+  if (!localVersions.has(tournamentId)) {
+    const dbRev = await getPersistedRevision(tournamentId);
+    localVersions.set(tournamentId, dbRev);
   }
   return bumpLocalVersion(tournamentId);
 }
@@ -207,4 +245,17 @@ export async function startAuctionEventSubscriber(): Promise<void> {
   });
 
   logger.info("Auction event Redis subscriber started");
+}
+
+
+export function resetLocalEventStateForTests(tournamentId?: number): void {
+  if (tournamentId != null) {
+    localVersions.delete(tournamentId);
+    localBuffers.delete(tournamentId);
+    localLastActivity.delete(tournamentId);
+  } else {
+    localVersions.clear();
+    localBuffers.clear();
+    localLastActivity.clear();
+  }
 }

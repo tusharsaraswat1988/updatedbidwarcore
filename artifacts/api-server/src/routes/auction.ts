@@ -1201,9 +1201,13 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
       const latestVersion = await getCurrentEventVersion(tid);
       const gap = latestVersion - afterVersion;
 
-      if (gap > 0 && (gap > EVENT_BUFFER_MAX || missed.length < gap)) {
+      if (afterVersion > latestVersion || gap > EVENT_BUFFER_MAX || (gap > 0 && missed.length < gap)) {
+        logger.info(
+          { tournamentId: tid, afterVersion, latestVersion, gap, missedCount: missed.length, action: "sse_resync_snapshot" },
+          "SSE event sequence mismatch or gap — sending authoritative auction snapshot",
+        );
         const state = await getCachedOrBuildState(tid);
-        const version = latestVersion || (await getCurrentEventVersion(tid));
+        const version = Math.max(latestVersion, state.revision ?? 0, afterVersion);
         const envelope = {
           type: "auction_state",
           version,
@@ -1213,6 +1217,12 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
         };
         res.write(formatSseFrame(version, envelope));
       } else {
+        if (missed.length > 0) {
+          logger.info(
+            { tournamentId: tid, afterVersion, latestVersion, count: missed.length, action: "sse_replay_missed" },
+            "SSE replaying missed events to reconnecting client",
+          );
+        }
         for (const event of missed) {
           res.write(formatSseFrame(event.version, event));
         }
@@ -1493,6 +1503,12 @@ router.post("/tournaments/:tournamentId/auction/pause", async (req, res) => {
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
   if (!requireAuctionModule(res, tournament)) return;
   const session = await getOrCreateSession(tid);
+
+  // Idempotency: if already paused, do not re-evaluate pausedTimeRemaining (which would wipe it to null)
+  if (session.status === "paused") {
+    res.json(await broadcastState(tid));
+    return;
+  }
 
   // Capture remaining timer so it can be restored on resume
   let pausedTimeRemaining: number | null = null;
