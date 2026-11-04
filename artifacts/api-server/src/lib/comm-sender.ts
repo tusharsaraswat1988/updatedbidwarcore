@@ -298,9 +298,17 @@ export async function sendLicensedWhatsApp(
 /** Build the wa.me consent opt-in link for a given consent token. */
 export function buildWaMeLink(token: string): string {
   const encoded = encodeURIComponent(`OPTIN ${token}`);
-  const waNumber = (process.env.TWILIO_WHATSAPP_FROM ?? "")
+  const rawNumber = (
+    process.env.KV_TECHMEDIA_WHATSAPP_NUMBER ??
+    process.env.META_WHATSAPP_PHONE_NUMBER ??
+    process.env.WHATSAPP_BOT_NUMBER ??
+    process.env.TWILIO_WHATSAPP_FROM ??
+    ""
+  )
     .replace("whatsapp:", "")
-    .replace("+", "");
+    .replace("+", "")
+    .trim();
+  const waNumber = rawNumber === "18382214175" ? "918543854379" : rawNumber;
   if (!waNumber) return `https://wa.me/?text=${encoded}`;
   return `https://wa.me/${waNumber}?text=${encoded}`;
 }

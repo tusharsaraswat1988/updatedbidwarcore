@@ -548,6 +548,9 @@ export default function AdminCommunicationCenter() {
   const [loadingWaLogs, setLoadingWaLogs] = useState(false);
   const [consentStats, setConsentStats] = useState<ConsentStats | null>(null);
   const [botLink, setBotLink] = useState<{ link: string | null; configured: boolean } | null>(null);
+  const effectiveBotLink = (botLink?.link && !botLink.link.includes("18382214175"))
+    ? botLink.link
+    : "https://wa.me/918543854379?text=hello";
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
@@ -3139,14 +3142,14 @@ export default function AdminCommunicationCenter() {
             </DialogHeader>
             <div className="space-y-4 py-3">
               <div className="p-3 rounded-lg border border-border bg-muted/40 flex items-center justify-between text-xs">
-                <code className="font-mono truncate max-w-xs">{botLink?.link || "https://wa.me/?text=OPTIN"}</code>
+                <code className="font-mono truncate max-w-xs">{effectiveBotLink}</code>
                 <Button
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs gap-1"
                   onClick={() => {
-                    if (botLink?.link) {
-                      void navigator.clipboard.writeText(botLink.link);
+                    if (effectiveBotLink) {
+                      void navigator.clipboard.writeText(effectiveBotLink);
                       setCopiedLink(true);
                       setTimeout(() => setCopiedLink(false), 2000);
                     }

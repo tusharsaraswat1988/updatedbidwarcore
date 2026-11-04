@@ -393,14 +393,18 @@ function generateBlastId(): string {
 // ─── Bot Link (public — must be BEFORE /:token param route) ─────────────────
 
 router.get("/consent/wa-link", (_req, res) => {
-  const waNumber = (
+  const configuredNumber = (
     process.env.KV_TECHMEDIA_WHATSAPP_NUMBER ??
     process.env.META_WHATSAPP_PHONE_NUMBER ??
+    process.env.WHATSAPP_BOT_NUMBER ??
     process.env.TWILIO_WHATSAPP_FROM ??
     ""
   ).replace("whatsapp:", "").replace("+", "").trim();
-  const link = waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent("hello")}` : null;
-  res.json({ link, configured: !!waNumber });
+  const waNumber = (configuredNumber && configuredNumber !== "18382214175")
+    ? configuredNumber
+    : "918543854379";
+  const link = `https://wa.me/${waNumber}?text=${encodeURIComponent("hello")}`;
+  res.json({ link, configured: true });
 });
 
 // ─── Consent Token: Generate + Send SMS (requires admin or organizer auth) ───

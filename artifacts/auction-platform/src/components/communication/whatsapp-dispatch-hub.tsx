@@ -190,6 +190,9 @@ export function WhatsAppDispatchHub({
   const [recentSales, setRecentSales] = useState<WaRecentSale[]>([]);
   const [waProviderStatus, setWaProviderStatus] = useState<WaProviderStatus | null>(null);
   const [botLink, setBotLink] = useState<{ link: string | null; configured: boolean } | null>(null);
+  const effectiveBotLink = (botLink?.link && !botLink.link.includes("18382214175"))
+    ? botLink.link
+    : "https://wa.me/918543854379?text=hello";
 
   // Workflow State: Step 1 Participant
   const [participantTab, setParticipantTab] = useState<ParticipantTab>("player");
@@ -1768,7 +1771,7 @@ export function WhatsAppDispatchHub({
               <div className="flex flex-col items-center justify-center p-4 rounded-xl border border-border bg-muted/20">
                 <div className="p-3 bg-white rounded-xl shadow-md">
                   <QRCodeSVG
-                    value={botLink?.link || "https://wa.me/?text=hello"}
+                    value={effectiveBotLink}
                     size={160}
                     bgColor="#ffffff"
                     fgColor="#0b141a"
@@ -1785,15 +1788,15 @@ export function WhatsAppDispatchHub({
               {/* Direct Deep Link & Copy */}
               <div className="p-2.5 rounded-lg border border-border bg-muted/40 flex items-center justify-between text-xs font-mono">
                 <code className="truncate max-w-[260px] text-emerald-300">
-                  {botLink?.link || "https://wa.me/18382214175?text=hello"}
+                  {effectiveBotLink}
                 </code>
                 <Button
                   size="sm"
                   variant="outline"
                   className="h-7 text-xs gap-1"
                   onClick={() => {
-                    if (botLink?.link) {
-                      void navigator.clipboard.writeText(botLink.link);
+                    if (effectiveBotLink) {
+                      void navigator.clipboard.writeText(effectiveBotLink);
                       setCopiedLink(true);
                       setTimeout(() => setCopiedLink(false), 2000);
                     }
@@ -1810,7 +1813,7 @@ export function WhatsAppDispatchHub({
                 className="w-full gap-2 text-xs border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10"
                 onClick={() => {
                   const shareUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(
-                    `Hi! To receive your live BidWar auction updates, sold celebration posters, and fixtures directly on WhatsApp, please tap this link to opt in: ${botLink?.link || "https://wa.me/?text=hello"}`
+                    `Hi! To receive your live BidWar auction updates, sold celebration posters, and fixtures directly on WhatsApp, please tap this link to opt in: ${effectiveBotLink}`
                   )}`;
                   window.open(shareUrl, "_blank");
                 }}
