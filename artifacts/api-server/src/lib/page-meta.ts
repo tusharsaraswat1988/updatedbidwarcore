@@ -48,7 +48,7 @@ export function getBaseUrl(): string {
 
 const BASE_URL = getBaseUrl();
 export { BASE_URL };
-export const DEFAULT_OG_IMAGE_URL = resolvePlatformPrimaryLogoUrl(BASE_URL);
+export const DEFAULT_OG_IMAGE_URL = `${BASE_URL}/bidwar-og-card.png`;
 const PHONE = "+91-8707488250";
 
 // ─── Shared schema fragments ──────────────────────────────────────────────────
@@ -228,6 +228,7 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     keywords: "sports auction software, cricket auction software, IPL style auction, live player auction platform, franchise auction system, tournament management software India, digital sports auction, real-time bidding software, cricket league auction",
     ogTitle: "BidWar — Live Sports Auction Software | Run IPL-Style Player Auctions",
     ogDescription: "Run professional IPL-style player auctions live. Real-time bidding, LED broadcast display, team owner mobile panel, Broadcast Overlay. Built for cricket, football, kabaddi and franchise leagues across India.",
+    ogImage: DEFAULT_OG_IMAGE_URL,
     schemas: [graph(SOFTWARE_APPLICATION_SCHEMA, ORGANIZATION_SCHEMA, WEBSITE_SCHEMA, HOME_FAQ_SCHEMA)],
   },
 
@@ -659,7 +660,7 @@ const SEO_LANDING_PAGES: Record<string, PageMeta> = {
 function withPlatformOgImage(meta: PageMeta): PageMeta {
   if (meta.ogImage) return meta;
   const platformOg = getPlatformOpenGraphImageUrl();
-  return platformOg ? { ...meta, ogImage: platformOg } : meta;
+  return { ...meta, ogImage: platformOg || DEFAULT_OG_IMAGE_URL };
 }
 
 /**

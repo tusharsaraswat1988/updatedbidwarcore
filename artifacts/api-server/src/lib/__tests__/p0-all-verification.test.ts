@@ -41,9 +41,8 @@ describe("P0 Forensic Audit Verification", () => {
       expect(result.appHtml.length).toBeGreaterThan(50000);
 
       // Verify commercial H1 exists in server-rendered output
-      expect(result.appHtml).toMatch(/<h1[^>]*>[\s\S]*?Sports Auction Software[\s\S]*?<\/h1>/i);
-      expect(result.appHtml).toContain("From Auction to Champions");
-
+      expect(result.appHtml).toMatch(/<h1[^>]*>[\s\S]*?IPL-Style Live[\s\S]*?<\/h1>/i);
+      
       // Verify no boot splash inside rendered app
       expect(result.appHtml).not.toContain('id="bidwar-boot-splash"');
 

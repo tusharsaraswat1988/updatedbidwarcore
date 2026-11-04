@@ -947,7 +947,7 @@ export function AuctionExperienceSimulator({ onStartTrial }: { onStartTrial?: ()
                   <Settings2 className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-display font-black text-xl text-foreground">Manual Direct Allotment</h3>
+                  <div className="font-display font-black text-xl text-foreground">Manual Direct Allotment</div>
                   <p className="text-xs text-muted-foreground">
                     Assign {currentPlayer.name} directly to a team with a custom price
                   </p>
@@ -1133,9 +1133,9 @@ function OperatorDeskPanel({
           </div>
           <div className="min-w-0 leading-tight">
             <div className="text-[10px] font-mono text-yellow-400 font-bold">#{player.serialNo} {player.role}</div>
-            <h4 className="font-display font-black text-xs sm:text-sm text-white uppercase truncate">
+            <div className="font-display font-black text-xs sm:text-sm text-white uppercase truncate">
               {player.name}
-            </h4>
+            </div>
             <div className="text-[10px] font-mono text-emerald-400 font-bold mt-0.5">
               BID: {bid.toLocaleString("en-IN")} PT.
             </div>
@@ -1475,9 +1475,9 @@ function ActualLedStageView({
               <span className="text-white/80">{player.city}</span>
             </div>
 
-            <h3 className="font-display font-black text-xs sm:text-base xl:text-lg text-white tracking-wide uppercase leading-tight truncate" title={player.name}>
+            <div className="font-display font-black text-xs sm:text-base xl:text-lg text-white tracking-wide uppercase leading-tight truncate" title={player.name}>
               {player.name}
-            </h3>
+            </div>
 
             <div className="mt-1 pt-1 border-t border-white/10 text-[8px] sm:text-[9px] font-mono flex items-center justify-between text-white/70">
               <span>AGE: {player.age}</span>
@@ -1757,9 +1757,9 @@ function ActualTop5LedView() {
                 <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover object-top" />
               </div>
               <div className="min-w-0 leading-tight">
-                <h4 className="font-display font-black text-xs sm:text-sm text-white uppercase tracking-wide truncate">
+                <div className="font-display font-black text-xs sm:text-sm text-white uppercase tracking-wide truncate">
                   {item.name}
-                </h4>
+                </div>
                 <div className="text-[9px] font-mono text-white/60 uppercase truncate">
                   SOLD TO — <strong className="text-white font-bold">{item.soldTo}</strong>
                 </div>
@@ -1878,9 +1878,9 @@ function ActualObsStreamView({
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 <span>LIVE AUCTION</span>
               </div>
-              <h3 className="font-display font-black text-sm sm:text-base xl:text-lg text-white tracking-wide uppercase leading-tight truncate">
+              <div className="font-display font-black text-sm sm:text-base xl:text-lg text-white tracking-wide uppercase leading-tight truncate">
                 {player.name}
-              </h3>
+              </div>
               <div className="text-[9px] sm:text-[10px] font-mono text-white/60">
                 {player.role} <span className="text-white/40">·</span> {player.city}
               </div>
@@ -2045,9 +2045,9 @@ function ActualFanViewerView({
           </div>
 
           <div className="flex-1 min-w-0">
-            <h4 className="font-display font-black text-sm sm:text-base text-white tracking-wide truncate">
+            <div className="font-display font-black text-sm sm:text-base text-white tracking-wide truncate">
               {player.name}
-            </h4>
+            </div>
 
             <div className="flex flex-wrap items-center gap-1 my-1">
               <span className="px-1.5 py-0.5 rounded bg-black/60 border border-blue-500/30 text-[9px] font-mono text-cyan-300 font-bold">
@@ -2263,9 +2263,9 @@ function ActualTeamBidderView({
             <span className="px-2 py-0.2 rounded-full bg-emerald-400 text-black font-mono font-black text-[8px] tracking-wider uppercase">
               LOT WON!
             </span>
-            <h3 className="font-display font-black text-base text-white mt-0.5 uppercase">
+            <div className="font-display font-black text-base text-white mt-0.5 uppercase">
               CONGRATULATIONS!
-            </h3>
+            </div>
             <p className="text-[10px] font-mono text-emerald-300 font-bold">
               {player.name} won for ₹{bid.toLocaleString("en-IN")}
             </p>
@@ -2283,9 +2283,9 @@ function ActualTeamBidderView({
             <span className="px-2 py-0.2 rounded-full bg-red-500 text-white font-mono font-black text-[8px] tracking-wider uppercase">
               LOT SOLD
             </span>
-            <h3 className="font-display font-black text-sm text-white mt-0.5 uppercase">
+            <div className="font-display font-black text-sm text-white mt-0.5 uppercase">
               SOLD TO {leadingTeam.name}
-            </h3>
+            </div>
             <p className="text-[10px] font-mono text-white/80 font-bold">
               Final Price: ₹{bid.toLocaleString("en-IN")}
             </p>
@@ -2303,9 +2303,9 @@ function ActualTeamBidderView({
             <span className="px-2 py-0.2 rounded-full bg-purple-500 text-white font-mono font-black text-[8px] tracking-wider uppercase">
               UNSOLD
             </span>
-            <h3 className="font-display font-black text-sm text-white mt-0.5 uppercase">
+            <div className="font-display font-black text-sm text-white mt-0.5 uppercase">
               {player.name}
-            </h3>
+            </div>
             <span className="text-[8px] font-mono text-white/60 bg-black/60 px-2 py-0.5 rounded border border-white/10 mt-1">
               Returned to recall pool · Next lot soon
             </span>
@@ -2322,9 +2322,9 @@ function ActualTeamBidderView({
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[10px] font-mono text-yellow-400 font-bold">#{player.serialNo}</div>
-            <h4 className="font-display font-black text-sm sm:text-base text-white truncate leading-tight">
+            <div className="font-display font-black text-sm sm:text-base text-white truncate leading-tight">
               {player.name}
-            </h4>
+            </div>
             <div className="text-[10px] font-mono text-white/70 mt-0.5">
               ROLE <strong className="text-white font-bold">{player.role}</strong>
             </div>
