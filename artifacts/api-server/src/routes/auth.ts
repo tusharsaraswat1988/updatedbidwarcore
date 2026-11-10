@@ -1056,6 +1056,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
       sponsorshipHub: z.boolean().optional(),
       analytics: z.boolean().optional(),
       whatsappNotifications: z.boolean().optional(),
+      weddingBroadcast: z.boolean().optional(),
     }).optional(),
     reason: z.string().optional(),
   });

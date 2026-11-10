@@ -343,6 +343,24 @@ export function openCricketObsV2Preview(tournamentId: number): void {
   window.open(cricketObsV2PreviewPath(tournamentId), "_blank", "noopener,noreferrer");
 }
 
+/** In-app Cricket OBS V3 Royal Wedding Broadcast Overlay path (transparent 1920x1080). */
+export function cricketObsWeddingPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/obs/wedding`;
+}
+
+/** In-app Cricket OBS V3 Royal Wedding Broadcast Preview path. */
+export function cricketObsWeddingPreviewPath(tournamentId: number): string {
+  return `/tournament/${tournamentId}/cricket/obs/wedding/preview`;
+}
+
+export function openCricketObsWedding(tournamentId: number): void {
+  window.open(cricketObsWeddingPath(tournamentId), "_blank", "noopener,noreferrer");
+}
+
+export function openCricketObsWeddingPreview(tournamentId: number): void {
+  window.open(cricketObsWeddingPreviewPath(tournamentId), "_blank", "noopener,noreferrer");
+}
+
 /** Open setup in the opener tab when launched from Setup; otherwise new tab. */
 export function openSetupArea(tournamentId: number): void {
   const path = setupAreaPath(tournamentId);

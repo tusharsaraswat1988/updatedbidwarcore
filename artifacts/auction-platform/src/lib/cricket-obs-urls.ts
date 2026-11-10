@@ -8,4 +8,8 @@ export {
   cricketObsMatchAppPath,
   cricketObsMatchPath,
   openCricketObsLive,
+  cricketObsWeddingPath,
+  cricketObsWeddingPreviewPath,
+  openCricketObsWedding,
+  openCricketObsWeddingPreview,
 } from "@/lib/tournament-navigation";

@@ -77,7 +77,7 @@ import { AdminScrollPanel } from "@/components/admin/admin-scroll-panel";
 import { MetricCard } from "@/components/admin/admin-metric-card";
 import { StatusBadge, type StatusTone } from "@/components/admin/admin-status-badge";
 import { AdminListHeader } from "@/components/admin/admin-list-header";
-import { liveViewerPath, obsOverlayPath, sideDisplayPath } from "@/lib/tournament-navigation";
+import { cricketObsWeddingPath, liveViewerPath, obsOverlayPath, sideDisplayPath } from "@/lib/tournament-navigation";
 
 type DataTab = "overview" | "players" | "teams" | "bids";
 type Tab = DataTab | `live-${LiveOpsSection}`;
@@ -937,6 +937,56 @@ export default function AdminTournamentDetailPage() {
                             Disable WhatsApp Messaging (Discounted / No-WhatsApp Plan)
                           </Button>
                         )}
+
+                        {t.sport === "cricket" && (
+                          <div className="pt-2 border-t border-border/40 mt-2">
+                            {t.features?.weddingBroadcast ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full h-8 text-xs gap-1.5 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                                disabled={!!actionLoading}
+                                onClick={() =>
+                                  doAction("Disable Wedding Broadcast", async () => {
+                                    const res = await updateAdminTournament(t.id, {
+                                      features: { ...t.features, weddingBroadcast: false },
+                                    });
+                                    if (res.success) {
+                                      showFlash("Royal Wedding Broadcast disabled for this tournament");
+                                      await reloadDetail();
+                                    }
+                                    return res;
+                                  })
+                                }
+                              >
+                                <AlertTriangle className="h-3.5 w-3.5" />
+                                Disable Royal Wedding Broadcast (V3)
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full h-8 text-xs gap-1.5 border-amber-500/60 text-amber-300 hover:bg-amber-500/15"
+                                disabled={!!actionLoading}
+                                onClick={() =>
+                                  doAction("Enable Wedding Broadcast", async () => {
+                                    const res = await updateAdminTournament(t.id, {
+                                      features: { ...t.features, weddingBroadcast: true },
+                                    });
+                                    if (res.success) {
+                                      showFlash("Royal Wedding Broadcast enabled! Wedding overlay links are now available.");
+                                      await reloadDetail();
+                                    }
+                                    return res;
+                                  })
+                                }
+                              >
+                                <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                                Enable Royal Wedding Broadcast (V3)
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1014,6 +1064,17 @@ export default function AdminTournamentDetailPage() {
                           </span>
                           <Badge variant="outline" className={cn("text-[10px]", t.scoringEnabled ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/10" : "text-muted-foreground")}>
                             {t.scoringEnabled ? "Active" : "Disabled"}
+                          </Badge>
+                        </div>
+                      )}
+
+                      {t.sport === "cricket" && (
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="flex items-center gap-1.5 text-muted-foreground">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Royal Wedding Broadcast (V3)
+                          </span>
+                          <Badge variant="outline" className={cn("text-[10px]", t.features?.weddingBroadcast ? "text-amber-400 border-amber-500/30 bg-amber-500/10" : "text-muted-foreground")}>
+                            {t.features?.weddingBroadcast ? "Active" : "Disabled"}
                           </Badge>
                         </div>
                       )}
@@ -1153,6 +1214,14 @@ export default function AdminTournamentDetailPage() {
                             </a>
                           </Button>
                         </>
+                      )}
+
+                      {t.sport === "cricket" && t.features?.weddingBroadcast && (
+                        <Button variant="outline" size="sm" className="h-8 justify-start text-xs gap-2 border-amber-500/40 text-amber-400 hover:bg-amber-500/10" asChild>
+                          <a href={cricketObsWeddingPath(t.id)} target="_blank" rel="noreferrer">
+                            <Sparkles className="h-3.5 w-3.5 text-amber-400" /> OBS V3 Wedding Broadcast
+                          </a>
+                        </Button>
                       )}
                     </div>
                   </div>

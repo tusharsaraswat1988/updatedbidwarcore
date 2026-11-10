@@ -23,6 +23,12 @@ export interface TournamentFeatures {
    * blast dispatches, and WhatsApp push templates are suppressed.
    */
   whatsappNotifications?: boolean;
+  /**
+   * Royal Wedding Edition OBS Broadcast Stage (V3).
+   * When true, unlocks the luxury Indian wedding broadcast overlay link
+   * with custom Bride's XI vs Groom's XI presentation.
+   */
+  weddingBroadcast?: boolean;
 }
 
 /** Canonical defaults when a tournament has no features_json row yet. */
@@ -32,6 +38,7 @@ export const TOURNAMENT_FEATURE_DEFAULTS: Readonly<Required<TournamentFeatures>>
   sponsorshipHub: false,
   analytics: false,
   whatsappNotifications: true,
+  weddingBroadcast: false,
 };
 
 const FEATURE_KEYS = Object.keys(TOURNAMENT_FEATURE_DEFAULTS) as (keyof TournamentFeatures)[];
@@ -96,6 +103,17 @@ export function isWhatsAppNotificationsEnabled(
   return resolveTournamentFeatures(features).whatsappNotifications !== false;
 }
 
+/**
+ * Helper to check if Royal Wedding Broadcast (V3) is enabled for tournament features.
+ * Defaults to false unless explicitly enabled by Admin.
+ */
+export function isWeddingBroadcastEnabled(
+  features?: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
+): boolean {
+  if (!features) return false;
+  return resolveTournamentFeatures(features).weddingBroadcast === true;
+}
+
 /** Zod-compatible partial schema keys for API validation. */
 export const tournamentFeaturesSchemaShape = {
   ownerApp: "boolean",
@@ -103,4 +121,5 @@ export const tournamentFeaturesSchemaShape = {
   sponsorshipHub: "boolean",
   analytics: "boolean",
   whatsappNotifications: "boolean",
+  weddingBroadcast: "boolean",
 } as const;

@@ -19,6 +19,8 @@ import {
   scoreDisplayPath,
   cricketObsV2Path,
   cricketObsV2PreviewPath,
+  cricketObsWeddingPath,
+  cricketObsWeddingPreviewPath,
 } from "@/lib/tournament-navigation";
 import { Copy, ExternalLink, Eye, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -154,6 +156,9 @@ export default function CricketLinksPage() {
   const ledDisplayUrl = scoreDisplayPath(tournamentId, tournament?.auctionCode);
   const obsV2Url = cricketObsV2Path(tournamentId);
   const obsV2PreviewUrl = cricketObsV2PreviewPath(tournamentId);
+  const obsWeddingUrl = cricketObsWeddingPath(tournamentId);
+  const obsWeddingPreviewUrl = cricketObsWeddingPreviewPath(tournamentId);
+  const isWeddingEnabled = Boolean((tournament?.features as Record<string, unknown> | undefined)?.weddingBroadcast);
   const publicFanUrl = cricketPublicPath(tournamentId);
   const scorerPortalUrl = `/scoring-app/cricket/scorer?tid=${tournamentId}`;
   const fanShareText = `Watch live scores for ${tournament?.name ?? "this tournament"}: ${absoluteUrl(publicFanUrl)}`;
@@ -194,6 +199,25 @@ export default function CricketLinksPage() {
               </details>
             }
           />
+          {isWeddingEnabled && (
+            <LinkRow
+              title="OBS V3 Royal Wedding Broadcast Overlay"
+              url={obsWeddingUrl}
+              previewUrl={obsWeddingPreviewUrl}
+              open
+              note="Luxury Indian Wedding edition (Bride's XI vs Groom's XI) with ceremonial gold celebration motion."
+              hint={
+                <details className="mt-2 max-w-xl">
+                  <summary className="cursor-pointer text-xs font-medium text-amber-300 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded-sm">
+                    How to add this in OBS
+                  </summary>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Choose Add Source, then Browser. Paste this URL. Set the width to 1920 and the height to 1080. Leave background transparent.
+                  </p>
+                </details>
+              }
+            />
+          )}
           <LinkRow
             title="Ground LED Scoreboard"
             url={ledDisplayUrl}
