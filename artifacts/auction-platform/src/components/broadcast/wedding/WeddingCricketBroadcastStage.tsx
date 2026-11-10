@@ -87,7 +87,7 @@ export function WeddingCricketBroadcastStage({
   activeEvent,
   className = "",
   hideLower = false,
-  hideFooter = false,
+  hideFooter = true,
   hideAssociateSponsor = false,
   weddingBranding,
 }: WeddingCricketBroadcastStageProps) {

@@ -3,7 +3,6 @@ import { WEDDING_TOKENS } from "./wedding-ui-tokens";
 import { WeddingTeamPlaque } from "./WeddingTeamPlaque";
 import { WeddingBallPill } from "./WeddingBallPill";
 import { WeddingAnimatedValue } from "./WeddingAnimatedValue";
-import { WeddingFloralBouquet } from "./WeddingFloralBouquet";
 import {
   WeddingScoreNum,
   WeddingLabel,
@@ -135,20 +134,6 @@ export const WeddingScorebug = React.forwardRef<HTMLDivElement, WeddingScorebugP
         data-wedding-scorebug="true"
         {...rest}
       >
-        {/* Floral Bouquet Accents Framing the Outer Scoreboard Corners */}
-        <div
-          className="pointer-events-none absolute -left-8 -top-5"
-          style={{ zIndex: WEDDING_TOKENS.layer.scorebugPlaque + 5 }}
-        >
-          <WeddingFloralBouquet variant="corner-left" size={110} />
-        </div>
-        <div
-          className="pointer-events-none absolute -right-8 -top-5"
-          style={{ zIndex: WEDDING_TOKENS.layer.scorebugPlaque + 5 }}
-        >
-          <WeddingFloralBouquet variant="corner-right" size={110} />
-        </div>
-
         {/* ================================================================= */}
         {/* TIER 1: MAIN SCORE STRIP (Height: 92px)                           */}
         {/* ================================================================= */}

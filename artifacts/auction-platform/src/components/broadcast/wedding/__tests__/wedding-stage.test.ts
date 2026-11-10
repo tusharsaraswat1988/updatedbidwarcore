@@ -241,7 +241,7 @@ describe("Phase 2 — Royal Wedding Broadcast Presentation Components", () => {
   });
 
   describe("WeddingCricketBroadcastStage", () => {
-    it("renders 1920x1080 stage with wedding theme and 4-zone geometry", () => {
+    it("renders 1920x1080 stage with wedding theme (footer omitted by default)", () => {
       const frame = createMockBroadcastFrame("CRICKET");
       const html = renderToStaticMarkup(
         createElement(WeddingCricketBroadcastStage, { frame })
@@ -260,7 +260,16 @@ describe("Phase 2 — Royal Wedding Broadcast Presentation Components", () => {
       // Zone 3: Scorebug
       expect(html).toContain("wedding-scorebug");
 
-      // Zone 4: Footer
+      // Zone 4: Footer bar omitted by default
+      expect(html).not.toContain("wedding-footer-bar");
+    });
+
+    it("renders footer when hideFooter is explicitly set to false", () => {
+      const frame = createMockBroadcastFrame("CRICKET");
+      const html = renderToStaticMarkup(
+        createElement(WeddingCricketBroadcastStage, { frame, hideFooter: false })
+      );
+
       expect(html).toContain("wedding-footer-bar");
     });
 

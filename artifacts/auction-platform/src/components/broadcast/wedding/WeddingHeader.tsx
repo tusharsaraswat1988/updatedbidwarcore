@@ -140,13 +140,11 @@ export function WeddingHeader({
         : `${branding.tournamentName} Wedding Cup`
       : "The Wedding Cricket Cup");
 
-  // Derive couple title
+  // Derive couple title (venue strictly excluded per broadcast design specification)
   const coupleTitle =
     weddingBranding?.coupleTitle ||
     (branding.tournamentAccent
       ? branding.tournamentAccent.toUpperCase()
-      : branding.venue
-      ? `${branding.venue.toUpperCase()} · CELEBRATION MATCH`
       : "AARAV & KIARA");
 
   return (
@@ -161,18 +159,20 @@ export function WeddingHeader({
       {/* Top Right Live Bug */}
       <WeddingLiveBug feedStatus={feedStatus} viewerCount={viewerCountText} />
 
-      {/* Centered Ornate Cartouche Plaque */}
+      {/* Centered Ornate Cartouche Plaque (single line title with responsive width) */}
       <div
         className="pointer-events-auto absolute left-1/2 -translate-x-1/2 flex flex-col items-center justify-center text-center"
         style={{
           top: `${WEDDING_TOKENS.canvas.zones.header.top}px`,
-          width: `${WEDDING_TOKENS.canvas.headerPlaque.width}px`,
+          minWidth: `${WEDDING_TOKENS.canvas.headerPlaque.width}px`,
+          maxWidth: "1120px",
+          width: "max-content",
           minHeight: `${WEDDING_TOKENS.canvas.headerPlaque.height}px`,
           background: WEDDING_TOKENS.color.gradient.parchment,
           border: `1.5px solid ${WEDDING_TOKENS.color.gold.borderStrong}`,
           borderRadius: "28px",
           boxShadow: `${WEDDING_TOKENS.depth.shadow.parchment}, 0 0 0 3px rgba(212, 175, 55, 0.25)`,
-          padding: "10px 32px 14px",
+          padding: "10px 48px 14px",
         }}
       >
         {/* Inner delicate gold hairline */}
@@ -184,16 +184,27 @@ export function WeddingHeader({
         {/* Crossed Bats Crest Motif */}
         <CrossedBatsCrest size={38} />
 
-        {/* Title: The Wedding Cricket Cup */}
+        {/* Title: Tournament / Cup Name (strictly single-line with fluid font size) */}
         <WeddingScriptTitle
-          className="mt-[-4px]"
-          style={{ fontSize: "40px", color: WEDDING_TOKENS.color.charcoal.ink }}
+          className="mt-[-4px] whitespace-nowrap"
+          style={{
+            fontSize:
+              cupTitle.length > 32
+                ? "28px"
+                : cupTitle.length > 24
+                ? "32px"
+                : cupTitle.length > 18
+                ? "36px"
+                : "40px",
+            color: WEDDING_TOKENS.color.charcoal.ink,
+            whiteSpace: "nowrap",
+          }}
         >
           {cupTitle}
         </WeddingScriptTitle>
 
         {/* Subtitle: Couple Names Flanked by Delicate Gold Rules & Centered Heart */}
-        <div className="flex flex-col items-center justify-center w-full max-w-[420px] mt-0.5">
+        <div className="flex flex-col items-center justify-center w-max min-w-[360px] max-w-none mt-0.5">
           <span
             className="text-[10px] leading-none text-[#801830] opacity-85 select-none"
             aria-hidden="true"
@@ -208,10 +219,11 @@ export function WeddingHeader({
               }}
             />
             <WeddingSerifSubtitle
-              className="tracking-[0.22em] uppercase font-semibold"
+              className="tracking-[0.22em] uppercase font-semibold whitespace-nowrap"
               style={{
                 fontSize: "13px",
                 color: WEDDING_TOKENS.color.charcoal.espresso,
+                whiteSpace: "nowrap",
               }}
             >
               {coupleTitle}

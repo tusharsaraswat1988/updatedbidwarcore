@@ -213,11 +213,11 @@ export default function CricketObsWeddingPage() {
       <WeddingCricketBroadcastStage
         frame={activeFrame}
         activeEvent={effectiveActiveEvent}
+        hideFooter={true}
         weddingBranding={{
           cupTitle: tournament?.name,
           coupleTitle:
             (tournament as any)?.branding?.tournamentAccent ||
-            (tournament as any)?.venue ||
             undefined,
         }}
       />
