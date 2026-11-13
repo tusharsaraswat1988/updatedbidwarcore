@@ -60,7 +60,7 @@ function navLinkCls(path: string, currentLocation: string, expanded: boolean, _t
   const active = currentLocation === path;
   return `relative flex items-center rounded-md transition-colors cursor-pointer ${
     !expanded ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
-  } ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/[0.06] hover:text-foreground"}`;
+  } ${active ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`;
 }
 
 function isNavActive(path: string, currentLocation: string, _tournamentId?: number) {
@@ -227,7 +227,7 @@ function SidebarNav({
                   title="Open auction control in a new tab"
                   className={`flex items-center rounded-md transition-colors font-bold ${
                     !expanded ? "justify-center w-9 h-9 mx-auto" : "gap-3 px-3 py-2 w-full"
-                  } text-muted-foreground hover:bg-white/[0.06] hover:text-foreground border border-primary/20`}
+                  } text-muted-foreground hover:bg-accent hover:text-foreground border border-primary/20`}
                 >
                   <Gavel className="w-5 h-5 flex-shrink-0" />
                   {expanded && <span>Auction Control</span>}
@@ -241,7 +241,7 @@ function SidebarNav({
                     href={auctionResetPath(tournamentId, location)}
                     title="Clear practice auction data before going live"
                     className={`relative flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-                      location === `/tournament/${tournamentId}/reset` ? "bg-red-500/15 text-red-300" : "text-muted-foreground hover:bg-red-500/10 hover:text-red-300"
+                      location === `/tournament/${tournamentId}/reset` ? "bg-red-500/10 text-red-600 font-semibold" : "text-muted-foreground hover:bg-red-500/10 hover:text-red-600"
                     }`}
                     active={location === `/tournament/${tournamentId}/reset`}
                     showAccent={false}
@@ -469,11 +469,11 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
 
   return (
     <OrganizerShellChromeContext.Provider value={shellChrome}>
-    <div className="lovable-theme auction-ops flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark">
+    <div data-surface="organizer" className="bw-organizer-light auction-ops flex h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground">
       {/* Mobile sidebar backdrop */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-20 bg-stage/70 md:hidden"
+          className="fixed inset-0 z-20 bg-slate-900/40 backdrop-blur-xs md:hidden"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />
@@ -481,7 +481,7 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
 
       {/* Mobile sidebar overlay */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 w-64 bg-card/95 backdrop-blur-md border-r border-border flex flex-col transition-transform duration-200 ease-in-out md:hidden ${
+        className={`fixed inset-y-0 left-0 z-30 w-64 bg-card border-r border-border flex flex-col transition-transform duration-200 ease-in-out md:hidden ${
           mobileOpen ? "translate-x-0 pointer-events-auto" : "-translate-x-full pointer-events-none"
         }`}
         aria-hidden={!mobileOpen}
@@ -505,7 +505,7 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
 
       {/* Desktop sidebar — icon-only on tablet, full on desktop */}
       <aside
-        className="hidden md:flex flex-shrink-0 border-r border-border bg-card/90 backdrop-blur-md flex-col z-10 transition-[width] duration-200 ease-in-out overflow-hidden"
+        className="hidden md:flex flex-shrink-0 border-r border-border bg-card flex-col z-10 transition-[width] duration-200 ease-in-out overflow-hidden"
         style={{ width: collapsed ? 56 : 256 }}
       >
         {/* Header */}

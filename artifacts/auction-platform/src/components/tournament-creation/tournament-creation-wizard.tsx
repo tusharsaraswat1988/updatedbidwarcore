@@ -257,8 +257,8 @@ export function TournamentCreationWizard({
                     isCurrent
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : isPast
-                        ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
-                        : "bg-white/5 border border-white/10 text-muted-foreground",
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/30"
+                        : "bg-slate-100 border border-slate-200 text-muted-foreground dark:bg-white/5 dark:border-white/10",
                   )}
                 >
                   <div
@@ -267,8 +267,8 @@ export function TournamentCreationWizard({
                       isCurrent
                         ? "bg-primary-foreground/20 text-primary-foreground"
                         : isPast
-                          ? "bg-emerald-500/30 text-emerald-300"
-                          : "bg-white/10 text-muted-foreground",
+                          ? "bg-emerald-200 text-emerald-800 dark:bg-emerald-500/30 dark:text-emerald-300"
+                          : "bg-slate-200 text-muted-foreground dark:bg-white/10",
                     )}
                   >
                     {isPast ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : idx + 1}
@@ -279,7 +279,7 @@ export function TournamentCreationWizard({
                   <div
                     className={cn(
                       "flex-1 h-[2px] rounded-full mx-1 transition-all",
-                      idx < stepIndex ? "bg-emerald-500/40" : "bg-white/10",
+                      idx < stepIndex ? "bg-emerald-500/40" : "bg-slate-200 dark:bg-white/10",
                     )}
                   />
                 )}
@@ -312,7 +312,7 @@ export function TournamentCreationWizard({
               <Input
                 value={draft.name}
                 onChange={(e) => patch({ name: e.target.value })}
-                className="h-11 rounded-xl bg-background/80 border-border focus:border-primary text-foreground text-sm font-medium"
+                className="h-11 rounded-xl bg-white border border-slate-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-slate-900 text-sm font-medium shadow-xs"
                 autoFocus
               />
             </div>
@@ -332,10 +332,10 @@ export function TournamentCreationWizard({
                       type="button"
                       onClick={() => patch({ sportId: sport.id })}
                       className={cn(
-                        "flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1.5 sm:gap-2 p-2.5 sm:p-3 rounded-xl border text-center sm:text-left transition-all duration-150 cursor-pointer select-none",
+                        "flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1.5 sm:gap-2 p-2.5 sm:p-3 rounded-xl text-center sm:text-left transition-all duration-150 cursor-pointer select-none",
                         selected
-                          ? "border-primary bg-primary/15 shadow-sm ring-1 ring-primary/40 text-primary font-bold"
-                          : "border-border/60 bg-muted/10 hover:border-primary/40 hover:bg-muted/30 text-foreground",
+                          ? "border-2 border-amber-500 bg-amber-50 shadow-sm text-amber-900 font-bold ring-2 ring-amber-400/30"
+                          : "border-2 border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50 text-slate-800 shadow-xs",
                       )}
                     >
                       <span className="text-xl shrink-0">{emoji}</span>
@@ -370,7 +370,7 @@ export function TournamentCreationWizard({
                 <Input
                   value={draft.venue}
                   onChange={(e) => patch({ venue: e.target.value })}
-                  className="h-11 rounded-xl bg-background/80 border-border focus:border-primary text-foreground text-sm"
+                  className="h-11 rounded-xl bg-white border border-slate-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-slate-900 text-sm shadow-xs"
                 />
               </div>
             </div>
@@ -386,30 +386,30 @@ export function TournamentCreationWizard({
               className={cn(
                 "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all cursor-pointer",
                 draft.productMode === "auction_only"
-                  ? "border-amber-500/80 bg-amber-500/10 shadow-md shadow-amber-500/10 ring-1 ring-amber-500/50"
-                  : "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border",
+                  ? "border-2 border-amber-500 bg-amber-50/70 shadow-sm ring-2 ring-amber-400/30"
+                  : "border-2 border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50 shadow-xs",
               )}
             >
-              <div className="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-2xl shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-2xl shrink-0">
                 🔨
               </div>
               <div className="flex-1 min-w-0 pr-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-bold text-sm text-foreground">
+                  <p className="font-bold text-sm text-slate-900">
                     Live Auction Only
                   </p>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
                     Auction Only
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                   Host-controlled player auction console, LED big screen projector view, team owner mobile bidding, and instant purse tracking. No match scoring required.
                 </p>
               </div>
               {draft.productMode === "auction_only" ? (
-                <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               ) : (
-                <div className="w-5 h-5 rounded-full border border-border/80 shrink-0 mt-0.5" />
+                <div className="w-5 h-5 rounded-full border-2 border-slate-300 shrink-0 mt-0.5" />
               )}
             </div>
 
@@ -420,42 +420,42 @@ export function TournamentCreationWizard({
               }}
               className={cn(
                 "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all",
-                sportSupportsScoring ? "cursor-pointer" : "opacity-60 cursor-not-allowed bg-muted/20 border-dashed border-border/40",
+                sportSupportsScoring ? "cursor-pointer" : "opacity-60 cursor-not-allowed bg-slate-100 border-dashed border-slate-300",
                 draft.productMode === "scoring_only"
-                  ? "border-sky-500/80 bg-sky-500/10 shadow-md shadow-sky-500/10 ring-1 ring-sky-500/50"
+                  ? "border-2 border-sky-500 bg-sky-50/70 shadow-sm ring-2 ring-sky-400/30"
                   : sportSupportsScoring
-                    ? "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border"
+                    ? "border-2 border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50 shadow-xs"
                     : "",
               )}
             >
-              <div className="w-11 h-11 rounded-xl bg-sky-500/20 border border-sky-500/30 flex items-center justify-center text-2xl shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-sky-100 border border-sky-300 flex items-center justify-center text-2xl shrink-0">
                 📊
               </div>
               <div className="flex-1 min-w-0 pr-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-bold text-sm text-foreground">
+                  <p className="font-bold text-sm text-slate-900">
                     Sports Scoring Only (No Auction)
                   </p>
                   {sportSupportsScoring ? (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sky-500/15 text-sky-400 border border-sky-500/30">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-sky-100 text-sky-800 border border-sky-300">
                       Live Ready
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border/50">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-300">
                       Coming Soon
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                   {sportSupportsScoring
                     ? "Complete match scoring for leagues and tournaments. Ball-by-ball scoring pad, points table, NRR, player stats, and public match center."
                     : `Live match scoring is currently available for Cricket and Badminton. Support for ${draft.sportId} is coming soon.`}
                 </p>
               </div>
               {draft.productMode === "scoring_only" ? (
-                <CheckCircle2 className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" />
               ) : (
-                <div className="w-5 h-5 rounded-full border border-border/80 shrink-0 mt-0.5" />
+                <div className="w-5 h-5 rounded-full border-2 border-slate-300 shrink-0 mt-0.5" />
               )}
             </div>
 
@@ -466,42 +466,42 @@ export function TournamentCreationWizard({
               }}
               className={cn(
                 "relative flex items-start gap-3.5 p-4 rounded-2xl border transition-all",
-                sportSupportsScoring ? "cursor-pointer" : "opacity-60 cursor-not-allowed bg-muted/20 border-dashed border-border/40",
+                sportSupportsScoring ? "cursor-pointer" : "opacity-60 cursor-not-allowed bg-slate-100 border-dashed border-slate-300",
                 draft.productMode === "both"
-                  ? "border-primary/80 bg-primary/10 shadow-md shadow-primary/10 ring-1 ring-primary/50"
+                  ? "border-2 border-amber-500 bg-amber-50/70 shadow-sm ring-2 ring-amber-400/30"
                   : sportSupportsScoring
-                    ? "border-border/60 bg-card/40 hover:bg-card/70 hover:border-border"
+                    ? "border-2 border-slate-200 bg-white hover:border-slate-400 hover:bg-slate-50 shadow-xs"
                     : "",
               )}
             >
-              <div className="w-11 h-11 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center text-2xl shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-2xl shrink-0">
                 ⚡
               </div>
               <div className="flex-1 min-w-0 pr-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-bold text-sm text-foreground">
+                  <p className="font-bold text-sm text-slate-900">
                     Both: Auction + Sports Scoring
                   </p>
                   {sportSupportsScoring ? (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary border border-primary/30">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-300">
                       Complete Platform
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border/50">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-300">
                       Coming Soon
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                   {sportSupportsScoring
                     ? "Run the player auction first, then seamlessly transition sold squads into tournament fixtures, live match scoring, and leaderboards."
                     : `Requires match scoring support for ${draft.sportId}. Choose Live Auction Only for this sport.`}
                 </p>
               </div>
               {draft.productMode === "both" ? (
-                <CheckCircle2 className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               ) : (
-                <div className="w-5 h-5 rounded-full border border-border/80 shrink-0 mt-0.5" />
+                <div className="w-5 h-5 rounded-full border-2 border-slate-300 shrink-0 mt-0.5" />
               )}
             </div>
           </div>
@@ -535,7 +535,7 @@ export function TournamentCreationWizard({
                     <SelectTrigger className="h-10 text-xs bg-background/80 border-border">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="dark">
+                    <SelectContent>
                       {AUCTION_UNIT_OPTIONS.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}

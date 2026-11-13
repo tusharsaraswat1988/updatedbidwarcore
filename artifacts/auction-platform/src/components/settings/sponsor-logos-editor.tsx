@@ -257,7 +257,7 @@ function SponsorLogoPreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl dark">
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 truncate text-base font-semibold">
             {tier === "title" && <Crown className="w-4 h-4 text-amber-400" />}
@@ -617,10 +617,10 @@ export function SponsorLogosEditor({
               <button
                 type="button"
                 onClick={() => setFilterTier("all")}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
                   filterTier === "all"
-                    ? "bg-primary/20 text-primary border border-primary/30"
-                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                    ? "bg-amber-100 text-amber-950 border border-amber-300"
+                    : "bg-white text-slate-600 hover:text-slate-900 border border-slate-300"
                 }`}
               >
                 All ({logos.length})
@@ -628,43 +628,43 @@ export function SponsorLogosEditor({
               <button
                 type="button"
                 onClick={() => setFilterTier("title")}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors flex items-center gap-1 ${
                   filterTier === "title"
-                    ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                    ? "bg-amber-100 text-amber-950 border border-amber-300"
+                    : "bg-white text-slate-600 hover:text-slate-900 border border-slate-300"
                 }`}
               >
-                <Crown className="w-3 h-3 text-amber-400" /> Title ({titleCount})
+                <Crown className="w-3 h-3 text-amber-600" /> Title ({titleCount})
               </button>
               <button
                 type="button"
                 onClick={() => setFilterTier("co")}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors flex items-center gap-1 ${
                   filterTier === "co"
-                    ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
-                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                    ? "bg-purple-100 text-purple-950 border border-purple-300"
+                    : "bg-white text-slate-600 hover:text-slate-900 border border-slate-300"
                 }`}
               >
-                <Star className="w-3 h-3 text-violet-400" /> Co ({coCount})
+                <Star className="w-3 h-3 text-purple-600" /> Co ({coCount})
               </button>
               <button
                 type="button"
                 onClick={() => setFilterTier("live")}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors flex items-center gap-1 ${
                   filterTier === "live"
-                    ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                    ? "bg-sky-100 text-sky-950 border border-sky-300"
+                    : "bg-white text-slate-600 hover:text-slate-900 border border-slate-300"
                 }`}
               >
-                <Radio className="w-3 h-3 text-cyan-400" /> Live ({liveCount})
+                <Radio className="w-3 h-3 text-sky-600" /> Live ({liveCount})
               </button>
               <button
                 type="button"
                 onClick={() => setFilterTier("standard")}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
                   filterTier === "standard"
-                    ? "bg-muted/40 text-foreground border border-border"
-                    : "bg-muted/20 text-muted-foreground hover:text-foreground border border-transparent"
+                    ? "bg-slate-200 text-slate-900 border border-slate-400"
+                    : "bg-white text-slate-600 hover:text-slate-900 border border-slate-300"
                 }`}
               >
                 Standard ({logos.length - titleCount - coCount - liveCount})
@@ -687,16 +687,16 @@ export function SponsorLogosEditor({
                 <Sparkles className="w-3.5 h-3.5 text-primary" /> Sponsor Rotation &amp; Overlay Placements:
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11px] leading-relaxed">
-                <div className="p-2 rounded-md bg-card/60 border border-border/40">
-                  <span className="font-semibold text-amber-300 block mb-0.5">👑 Title Sponsor (Max 1)</span>
+                <div className="p-2 rounded-md bg-white border border-slate-200 shadow-xs">
+                  <span className="font-bold text-amber-900 block mb-0.5">👑 Title Sponsor (Max 1)</span>
                   Prominent header placement across live auction display, scoreboard, LED loop, and official team reports.
                 </div>
-                <div className="p-2 rounded-md bg-card/60 border border-border/40">
-                  <span className="font-semibold text-violet-300 block mb-0.5">⭐ Co-Sponsors (Max 3)</span>
+                <div className="p-2 rounded-md bg-white border border-slate-200 shadow-xs">
+                  <span className="font-bold text-purple-900 block mb-0.5">⭐ Co-Sponsors (Max 3)</span>
                   Rotates alongside Title Sponsor on top broadcast overlays, TV graphics, and player cards.
                 </div>
-                <div className="p-2 rounded-md bg-card/60 border border-border/40">
-                  <span className="font-semibold text-cyan-300 block mb-0.5">LIVE STREAMING PARTNER (Max 1)</span>
+                <div className="p-2 rounded-md bg-white border border-slate-200 shadow-xs">
+                  <span className="font-bold text-sky-900 block mb-0.5">LIVE STREAMING PARTNER (Max 1)</span>
                   Permanently pinned on the OBS live stream chyron overlay with custom live streaming designation.
                 </div>
               </div>
@@ -895,40 +895,40 @@ export function SponsorLogosEditor({
                     >
                       <SelectTrigger
                         aria-label={`Sponsorship tier for ${logo.name || `sponsor ${i + 1}`}`}
-                        className={`h-9 text-xs font-medium ${
+                        className={`h-9 text-xs font-semibold ${
                           isTitle
-                            ? "border-amber-500/50 text-amber-300 bg-amber-500/10"
+                            ? "border-amber-300 text-amber-950 bg-amber-50"
                             : isCo
-                            ? "border-violet-500/50 text-violet-300 bg-violet-500/10"
+                            ? "border-purple-300 text-purple-950 bg-purple-50"
                             : isLive
-                            ? "border-cyan-500/50 text-cyan-300 bg-cyan-500/10"
-                            : "border-border/70 text-muted-foreground"
+                            ? "border-sky-300 text-sky-950 bg-sky-50"
+                            : "border-slate-300 text-slate-700 bg-white"
                         }`}
                       >
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="dark">
-                        <SelectItem value="standard" className="text-xs">
+                      <SelectContent>
+                        <SelectItem value="standard" className="text-xs font-medium text-slate-700">
                           Standard Sponsor
                         </SelectItem>
                         <SelectItem
                           value="title"
                           disabled={!isTitle && titleCount >= 1}
-                          className="text-xs text-amber-300 font-medium"
+                          className="text-xs text-amber-900 font-bold"
                         >
                           👑 Title Sponsor {!isTitle && titleCount >= 1 ? "(1/1 Full)" : "(Max 1)"}
                         </SelectItem>
                         <SelectItem
                           value="co"
                           disabled={!isCo && coCount >= 3}
-                          className="text-xs text-violet-300 font-medium"
+                          className="text-xs text-purple-900 font-bold"
                         >
                           ⭐ Co-Sponsor {!isCo && coCount >= 3 ? "(3/3 Full)" : `(${coCount}/3)`}
                         </SelectItem>
                         <SelectItem
                           value="live"
                           disabled={!isLive && liveCount >= 1}
-                          className="text-xs text-cyan-300 font-medium"
+                          className="text-xs text-sky-900 font-bold"
                         >
                           LIVE STREAMING PARTNER {!isLive && liveCount >= 1 ? "(1/1 Full)" : "(Max 1)"}
                         </SelectItem>

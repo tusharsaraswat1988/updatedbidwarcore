@@ -52,7 +52,7 @@ export function AccessStateView({
   const fallback = COPY[code];
   const Icon = fallback.icon;
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background p-6">
+    <div data-surface="organizer" className="bw-organizer-light min-h-screen w-full flex items-center justify-center bg-background p-6">
       <Card className="w-full max-w-md">
         <CardContent className="pt-6 space-y-4">
           <div className="flex gap-3 items-start">

@@ -2,7 +2,7 @@ import React, { ReactNode, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
-import { PORTAL_THEME_CLASS } from "@/lib/portal-theme";
+import { getPortalThemeClass } from "@/lib/portal-theme";
 import { Badge } from "@/components/ui/badge";
 
 export { hubCardClass, hubPanelClass } from "@/components/platform/platform-surface";
@@ -51,7 +51,7 @@ export function FormModal({
         aria-modal="true"
         aria-labelledby="sports-form-modal-title"
         className={cn(
-          PORTAL_THEME_CLASS,
+          getPortalThemeClass(),
           "relative z-10 grid w-full min-h-0 max-h-[calc(100dvh-1.5rem)] overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl sm:max-h-[calc(100dvh-3rem)]",
           footer ? "grid-rows-[auto_minmax(0,1fr)_auto]" : "grid-rows-[auto_minmax(0,1fr)]",
           maxW,

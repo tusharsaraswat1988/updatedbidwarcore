@@ -417,11 +417,11 @@ export function SportsShell({
     cldUrl(logos.mini, "headerLogo") ||
     getBrandLogoSrc(logos, sidebarPreset.logoOrder);
   const headerLogoSrc =
-    cldUrl(logos.mini, "headerLogo") ||
     cldUrl(logos.main, "brandWordmark") ||
     cldUrl(logos.mainReverse, "brandWordmark") ||
+    cldUrl(logos.mini, "headerLogo") ||
     cldUrl(logos.appIcon, "appIcon") ||
-    getBrandLogoSrc(logos, ["mini", "main", "mainReverse", "appIcon"]);
+    getBrandLogoSrc(logos, ["main", "mainReverse", "mini", "appIcon"]);
   const logoAlt = getBrandLogoAlt(brandName);
 
   // Tournament row for title + scoring gate (all sports in this shell).
@@ -591,10 +591,11 @@ export function SportsShell({
       <OrganizerShellChromeContext.Provider value={shellChrome}>
       <div
         className={cn(
-          themeVariant === "console" ? "theme-broadcast-console" : "lovable-theme",
-          "flex flex-col xl:flex-row h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground dark",
+          themeVariant === "console" ? "theme-broadcast-console dark" : "bw-organizer-light",
+          "flex flex-col xl:flex-row h-screen bg-background overflow-hidden selection:bg-primary selection:text-primary-foreground",
           className,
         )}
+        data-surface={themeVariant === "console" ? undefined : "organizer"}
       >
         {/* Mobile Top Navigation Bar (< lg) */}
         <header className="xl:hidden min-h-12 py-2 border-b border-border bg-card/95 backdrop-blur-md px-3 flex items-center justify-between gap-2 shrink-0 z-20">
@@ -730,17 +731,6 @@ export function SportsShell({
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
-              <div className="flex items-center gap-2 pr-3 border-r border-border/60">
-                {brandingLoading ? (
-                  <div className="h-7 w-20 bg-muted/40 animate-pulse rounded" />
-                ) : (
-                  <img
-                    src={headerLogoSrc}
-                    alt={logoAlt}
-                    className="h-7 w-auto max-w-[7rem] object-contain shrink-0 opacity-90 hover:opacity-100 transition-opacity"
-                  />
-                )}
-              </div>
               {tournamentId && !localVenue ? (
                 <LogoutButton tournamentId={tournamentId} />
               ) : null}
@@ -755,15 +745,7 @@ export function SportsShell({
                   "radial-gradient(ellipse at 50% 0%, rgba(30, 41, 59, 0.25), transparent 60%)",
               }}
             />
-          ) : (
-            <div
-              className="absolute inset-0 pointer-events-none opacity-100"
-              style={{
-                background:
-                  "radial-gradient(ellipse at 20% -10%, oklch(0.42 0.15 265 / 0.45), transparent 55%), radial-gradient(ellipse at 90% 0%, oklch(0.85 0.17 88 / 0.08), transparent 50%)",
-              }}
-            />
-          )}
+          ) : null}
           {noPadding ? (
             <div
               className={cn(

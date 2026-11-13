@@ -41,6 +41,11 @@ export function BidwarOrganizerBrandMark({
 }) {
   const { logos, brandName, miniBrandText, loading } = useBranding();
   const preset = getBrandSurfacePreset(surface);
+  const matchedKey = preset.logoOrder.find((key) => Boolean(logos[key]));
+  const isWordmark =
+    matchedKey === "main" ||
+    matchedKey === "mainReverse" ||
+    (!matchedKey && (preset.logoOrder[0] === "main" || preset.logoOrder[0] === "mainReverse"));
   const logoSrc =
     preset.logoOrder
       .map((key) =>
@@ -85,7 +90,7 @@ export function BidwarOrganizerBrandMark({
           {miniBrandText}
         </div>
       )}
-      {preset.showBrandName && !iconOnly ? (
+      {preset.showBrandName && !iconOnly && !isWordmark ? (
         <span className="font-display font-black text-xs sm:text-sm tracking-tight text-foreground leading-none group-hover:text-primary/90 transition-colors">
           {brandName?.trim()?.toUpperCase() || "BIDWAR"}
         </span>
@@ -152,7 +157,7 @@ export function OrganizerMobileTopBar({
         onClick={onOpenMenu}
         aria-label="Open navigation"
         aria-expanded={menuExpanded}
-        className="flex items-center justify-center min-h-[44px] min-w-[44px] -ml-0.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors touch-manipulation shrink-0"
+        className="flex items-center justify-center min-h-[44px] min-w-[44px] -ml-0.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors touch-manipulation shrink-0"
       >
         <Menu className="w-5 h-5" aria-hidden />
       </button>

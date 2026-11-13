@@ -651,59 +651,59 @@ export default function AuctionOverview() {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* Opening Bid Timer */}
-            <div className="p-3.5 rounded-lg border border-border/50 bg-muted/10 space-y-1.5">
+            <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 shadow-xs space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Timer className="w-3.5 h-3.5 text-primary" /> Opening Bid Time
+                <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Timer className="w-3.5 h-3.5 text-amber-600" /> Opening Bid Time
                 </span>
-                <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded border border-primary/20">
+                <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
                   {tournament?.timerSeconds === 30 || !tournament?.timerSeconds ? "Default 30s" : "Custom"}
                 </span>
               </div>
-              <p className="text-xl font-bold font-mono text-foreground">
+              <p className="text-xl font-bold font-mono text-slate-900">
                 {tournament?.timerSeconds ?? 30}s
               </p>
-              <p className="text-[11px] text-muted-foreground leading-snug">
+              <p className="text-[11px] text-slate-600 leading-snug">
                 Countdown when a player first enters the auction block before opening bids.
               </p>
             </div>
 
             {/* Set Bid Timer */}
-            <div className="p-3.5 rounded-lg border border-border/50 bg-muted/10 space-y-1.5">
+            <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 shadow-xs space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-blue-400" /> Bid Reset Timer
+                <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-blue-600" /> Bid Reset Timer
                 </span>
-                <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                <span className="text-[10px] font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded border border-blue-300">
                   {tournament?.bidTimerSeconds === 10 || !tournament?.bidTimerSeconds ? "Default 10s" : "Custom"}
                 </span>
               </div>
-              <p className="text-xl font-bold font-mono text-foreground">
+              <p className="text-xl font-bold font-mono text-slate-900">
                 {tournament?.bidTimerSeconds ?? 10}s
               </p>
-              <p className="text-[11px] text-muted-foreground leading-snug">
+              <p className="text-[11px] text-slate-600 leading-snug">
                 Timer resets to this after each bid. Highest bidder wins at 0s.
               </p>
             </div>
 
             {/* Player Order */}
-            <div className="p-3.5 rounded-lg border border-border/50 bg-muted/10 space-y-1.5">
+            <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/60 shadow-xs space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                  <Shuffle className="w-3.5 h-3.5 text-amber-400" /> Player Order
+                <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Shuffle className="w-3.5 h-3.5 text-amber-600" /> Player Order
                 </span>
-                <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                <span className="text-[10px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
                   {(!tournament?.playerSelectionMode || tournament?.playerSelectionMode === "random") ? "Default Random" : "Custom"}
                 </span>
               </div>
-              <p className="text-xl font-bold text-foreground">
+              <p className="text-xl font-bold text-slate-900">
                 {tournament?.playerSelectionMode === "sequential"
                   ? "In Order (Sequential)"
                   : tournament?.playerSelectionMode === "manual"
                     ? "Manual Queue"
                     : "Random Draw"}
               </p>
-              <p className="text-[11px] text-muted-foreground leading-snug">
+              <p className="text-[11px] text-slate-600 leading-snug">
                 Players are drawn in randomized order for balanced, fair auctions.
               </p>
             </div>

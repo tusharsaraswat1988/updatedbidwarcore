@@ -3,17 +3,17 @@ import type { TournamentInsight } from "@workspace/api-client-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const TYPE_STYLES: Record<TournamentInsight["type"], string> = {
-  trending: "from-orange-500/15 via-amber-500/5 to-transparent border-orange-500/25",
-  insight: "from-emerald-500/15 via-teal-500/5 to-transparent border-emerald-500/25",
-  funFact: "from-violet-500/15 via-purple-500/5 to-transparent border-violet-500/25",
-  strategy: "from-sky-500/15 via-blue-500/5 to-transparent border-sky-500/25",
+  trending: "bg-orange-50/80 border-orange-200 shadow-xs",
+  insight: "bg-emerald-50/80 border-emerald-200 shadow-xs",
+  funFact: "bg-violet-50/80 border-violet-200 shadow-xs",
+  strategy: "bg-sky-50/80 border-sky-200 shadow-xs",
 };
 
 const TYPE_ACCENT: Record<TournamentInsight["type"], string> = {
-  trending: "text-orange-400",
-  insight: "text-emerald-400",
-  funFact: "text-violet-400",
-  strategy: "text-sky-400",
+  trending: "text-orange-800",
+  insight: "text-emerald-800",
+  funFact: "text-violet-800",
+  strategy: "text-sky-800",
 };
 
 function InsightCard({ insight }: { insight: TournamentInsight }) {
@@ -29,10 +29,10 @@ function InsightCard({ insight }: { insight: TournamentInsight }) {
           <p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${TYPE_ACCENT[insight.type]}`}>
             {insight.type === "funFact" ? "Fun Fact" : insight.type}
           </p>
-          <h3 className="font-display font-bold text-sm leading-snug text-foreground">
+          <h3 className="font-display font-bold text-sm leading-snug text-slate-900">
             {insight.title}
           </h3>
-          <p className="text-xs text-muted-foreground leading-relaxed">
+          <p className="text-xs text-slate-700 leading-relaxed">
             {insight.description}
           </p>
         </div>

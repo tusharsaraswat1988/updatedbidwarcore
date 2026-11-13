@@ -119,5 +119,5 @@ export const CRICKET_SCORE_STATIC_SEGMENTS = new Set([
   "links",
 ]);
 
-export const CRICKET_ROUTE_LOADING_CLASS = "min-h-screen bg-background";
+export const CRICKET_ROUTE_LOADING_CLASS = "min-h-screen bg-background text-foreground";
 

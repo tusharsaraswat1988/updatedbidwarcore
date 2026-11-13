@@ -1133,9 +1133,9 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
   }
 
   return (
-    <div className="lovable-home min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-8 text-foreground">
+    <div data-surface="organizer" className="bw-organizer-light min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-8 text-foreground bg-background">
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/8 rounded-full blur-[100px]" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/10 rounded-full blur-[100px]" />
       </div>
       <motion.div
         initial={{ opacity: 0, y: 24 }}
@@ -1158,7 +1158,7 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
         </div>
 
         {view !== "forgot" && (
-          <div className="flex rounded-md bg-white/5 p-1 border border-white/10">
+          <div className="flex rounded-md bg-muted/60 p-1 border border-border">
             <button
               type="button"
               onClick={() => { setView("login"); setError(""); setSignupStep("details"); }}
@@ -1177,13 +1177,13 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
         )}
 
         {next && view !== "forgot" && (
-          <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
             <Lock className="w-3.5 h-3.5 shrink-0" />
             Please log in to continue.
           </div>
         )}
 
-        <Card className="panel border-none shadow-xl">
+        <Card className="panel border border-border shadow-md bg-card">
           <CardContent className="p-5 sm:p-6">
             <AnimatePresence mode="wait">
               {view === "forgot" ? (
@@ -1589,7 +1589,7 @@ function OrganizerAvatarMenu({ organizer, onLogout }: { organizer: OrganizerInfo
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2.5 rounded-xl pl-1.5 pr-3 py-1.5 bg-slate-900/50 hover:bg-slate-800/60 border border-sky-500/20 hover:border-sky-400/30 transition-all cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+        className="flex items-center gap-2.5 rounded-xl pl-1.5 pr-3 py-1.5 bg-card hover:bg-accent border border-border hover:border-slate-300 transition-all cursor-pointer shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         aria-label="Account menu"
       >
         {avatarSrc ? (
@@ -1868,7 +1868,7 @@ function OrganizerDashboard({
   const reduceMotion = useReducedMotion();
 
   return (
-    <div className="organizer-dashboard-premium lovable-theme min-h-screen text-foreground dark">
+    <div data-surface="organizer" className="organizer-dashboard-premium bw-organizer-light min-h-screen text-foreground">
       <div className="organizer-dashboard-bg" aria-hidden />
       <div className="organizer-dashboard-content">
       {/* ── Enhanced Header ── */}
@@ -1891,11 +1891,11 @@ function OrganizerDashboard({
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-display font-black text-sm tracking-tight text-foreground leading-none">BIDWAR</span>
-                <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/35 text-[10px] font-bold text-amber-300 tracking-wider uppercase leading-none hidden sm:inline-block">
+                <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/35 text-[10px] font-bold text-amber-700 tracking-wider uppercase leading-none hidden sm:inline-block">
                   Organizer Hub
                 </span>
               </div>
-              <span className="text-[11px] text-slate-400 truncate leading-tight mt-0.5 hidden sm:block">
+              <span className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5 hidden sm:block">
                 Sports Auction &amp; Event Management
               </span>
             </div>
@@ -1995,10 +1995,10 @@ function OrganizerDashboard({
         {/* Page header — title + primary create action */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h1 className="font-display font-black text-xl sm:text-2xl text-white tracking-tight">
+            <h1 className="font-display font-black text-xl sm:text-2xl text-foreground tracking-tight">
               My Tournaments
             </h1>
-            <p className="text-xs text-slate-400 mt-0.5 hidden sm:block">
+            <p className="text-xs text-muted-foreground mt-0.5 hidden sm:block">
               Open auction or match scoring for each event
             </p>
           </div>
@@ -2027,16 +2027,16 @@ function OrganizerDashboard({
             className={`od-stat-card od-stat-card--gold od-stat-card--compact relative overflow-hidden rounded-lg p-2 sm:p-2.5 text-left transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${
               statusFilter === "all"
                 ? "od-stat-card--selected ring-1 ring-amber-400/55 shadow-[0_0_20px_-8px_rgba(245,184,0,0.35)]"
-                : "hover:border-slate-500/30 opacity-90 hover:opacity-100"
+                : "hover:border-slate-300 opacity-90 hover:opacity-100"
             }`}
           >
             <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 leading-tight">Total Tournaments</span>
-              <div className="w-6 h-6 rounded-md bg-amber-500/15 border border-amber-500/25 text-amber-400 flex items-center justify-center shrink-0">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground leading-tight">Total Tournaments</span>
+              <div className="w-6 h-6 rounded-md bg-amber-500/15 border border-amber-500/25 text-amber-600 flex items-center justify-center shrink-0">
                 <Trophy className="w-3 h-3" aria-hidden />
               </div>
             </div>
-            <p className="text-lg sm:text-xl font-display font-black text-white mt-0.5 tabular-nums">{safeTournaments.length}</p>
+            <p className="text-lg sm:text-xl font-display font-black text-foreground mt-0.5 tabular-nums">{safeTournaments.length}</p>
           </button>
 
           <button
@@ -2046,16 +2046,16 @@ function OrganizerDashboard({
             className={`od-stat-card od-stat-card--green od-stat-card--compact relative overflow-hidden rounded-lg p-2 sm:p-2.5 text-left transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60 ${
               statusFilter === "active"
                 ? "od-stat-card--selected ring-1 ring-emerald-400/55 shadow-[0_0_20px_-8px_rgba(52,211,153,0.28)]"
-                : "hover:border-slate-500/30 opacity-90 hover:opacity-100"
+                : "hover:border-slate-300 opacity-90 hover:opacity-100"
             }`}
           >
             <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 leading-tight">Active &amp; Live</span>
-              <div className="w-6 h-6 rounded-md bg-emerald-500/15 border border-emerald-500/25 text-emerald-400 flex items-center justify-center shrink-0">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground leading-tight">Active &amp; Live</span>
+              <div className="w-6 h-6 rounded-md bg-emerald-500/15 border border-emerald-500/25 text-emerald-600 flex items-center justify-center shrink-0">
                 <Zap className="w-3 h-3" aria-hidden />
               </div>
             </div>
-            <p className="text-lg sm:text-xl font-display font-black text-emerald-400 mt-0.5 tabular-nums">{activeTournaments.length}</p>
+            <p className="text-lg sm:text-xl font-display font-black text-emerald-600 mt-0.5 tabular-nums">{activeTournaments.length}</p>
           </button>
 
           <button
@@ -2065,16 +2065,16 @@ function OrganizerDashboard({
             className={`od-stat-card od-stat-card--cyan od-stat-card--compact relative overflow-hidden rounded-lg p-2 sm:p-2.5 text-left transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 ${
               statusFilter === "completed"
                 ? "od-stat-card--selected ring-1 ring-cyan-400/55 shadow-[0_0_20px_-8px_rgba(34,211,238,0.25)]"
-                : "hover:border-slate-500/30 opacity-90 hover:opacity-100"
+                : "hover:border-slate-300 opacity-90 hover:opacity-100"
             }`}
           >
             <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 leading-tight">Completed</span>
-              <div className="w-6 h-6 rounded-md bg-cyan-500/15 border border-cyan-500/25 text-cyan-400 flex items-center justify-center shrink-0">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-muted-foreground leading-tight">Completed</span>
+              <div className="w-6 h-6 rounded-md bg-cyan-500/15 border border-cyan-500/25 text-cyan-600 flex items-center justify-center shrink-0">
                 <CheckCircle2 className="w-3 h-3" aria-hidden />
               </div>
             </div>
-            <p className="text-lg sm:text-xl font-display font-black text-cyan-400 mt-0.5 tabular-nums">{completedTournaments.length}</p>
+            <p className="text-lg sm:text-xl font-display font-black text-cyan-600 mt-0.5 tabular-nums">{completedTournaments.length}</p>
           </button>
         </div>
 
@@ -2086,10 +2086,10 @@ function OrganizerDashboard({
                 <button
                   type="button"
                   onClick={() => setSportFilter("all")}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 ${
+                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer border shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                     sportFilter === "all"
-                      ? "bg-cyan-500/20 border-cyan-400/45 text-cyan-100 font-semibold"
-                      : "bg-slate-900/35 border-slate-600/40 text-slate-400 hover:text-slate-200"
+                      ? "bg-primary text-primary-foreground border-primary font-semibold"
+                      : "bg-white border-border text-muted-foreground hover:text-foreground hover:bg-slate-50"
                   }`}
                 >
                   All Sports
@@ -2099,10 +2099,10 @@ function OrganizerDashboard({
                     key={sport}
                     type="button"
                     onClick={() => setSportFilter(s => (s.toLowerCase() === sport.toLowerCase() ? "all" : sport))}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium capitalize transition-all cursor-pointer border shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 ${
+                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium capitalize transition-all cursor-pointer border shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
                       sportFilter.toLowerCase() === sport.toLowerCase()
-                        ? "bg-cyan-500/20 border-cyan-400/45 text-cyan-100 font-semibold"
-                        : "bg-slate-900/35 border-slate-600/40 text-slate-400 hover:text-slate-200"
+                        ? "bg-primary text-primary-foreground border-primary font-semibold"
+                        : "bg-white border-border text-muted-foreground hover:text-foreground hover:bg-slate-50"
                     }`}
                   >
                     <span aria-hidden>{sportEmoji(sport)}</span> {sport}
@@ -2111,19 +2111,19 @@ function OrganizerDashboard({
               </div>
             )}
             <div className="relative w-full sm:max-w-xs md:max-w-sm sm:ml-auto min-w-0 shrink-0">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" aria-hidden />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden />
               <Input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search tournaments..."
                 aria-label="Search tournaments"
-                className="od-search-input pl-9 pr-8 h-9 text-sm text-slate-100 placeholder:text-slate-500 w-full"
+                className="od-search-input pl-9 pr-8 h-9 text-sm text-foreground placeholder:text-muted-foreground w-full bg-white border-border"
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                   aria-label="Clear search"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -2222,7 +2222,7 @@ function OrganizerDashboard({
                     <CardContent className="relative z-10 p-3 sm:p-3.5 flex flex-col gap-2 h-full pointer-events-auto">
                       <div className="flex items-start gap-2 min-w-0">
                         <div className="shrink-0">
-                          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg bg-slate-950/40 border border-sky-500/20 p-1 flex items-center justify-center">
+                          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg bg-slate-50 border border-slate-200 p-1 flex items-center justify-center">
                             {logo ? (
                               <img
                                 src={logo}
@@ -2239,21 +2239,21 @@ function OrganizerDashboard({
 
                         <div className="flex-1 min-w-0 pt-0.5">
                           <div className="flex flex-wrap items-center gap-1.5 pr-1">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide bg-slate-800/80 border border-slate-600/50 text-slate-300">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide bg-slate-100 border border-slate-200 text-slate-700">
                               {t.sport}
                             </span>
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${
                                 isActive
-                                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/35"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                   : isCompleted
-                                    ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/35"
-                                    : "bg-amber-500/15 text-amber-300 border-amber-500/35"
+                                    ? "bg-sky-50 text-sky-700 border-sky-200"
+                                    : "bg-amber-50 text-amber-800 border-amber-200"
                               }`}
                             >
                               <span
                                 className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                  isActive ? "bg-emerald-400 animate-pulse" : isCompleted ? "bg-cyan-400" : "bg-amber-400"
+                                  isActive ? "bg-emerald-600 animate-pulse" : isCompleted ? "bg-sky-600" : "bg-amber-600"
                                 }`}
                                 aria-hidden
                               />
@@ -2305,7 +2305,7 @@ function OrganizerDashboard({
                               <MoreVertical className="w-4 h-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 dark z-[100]">
+                          <DropdownMenuContent align="end" className="w-48 z-[100]">
                             {isAuction && t.licenseStatus !== "active" && !isCompleted && (
                               <DropdownMenuItem
                                 disabled={isLocked}
@@ -2360,21 +2360,21 @@ function OrganizerDashboard({
                       </div>
 
                       <h3
-                        className="font-display font-bold text-base sm:text-[1.05rem] leading-snug text-white line-clamp-2 pr-1"
+                        className="font-display font-bold text-base sm:text-[1.05rem] leading-snug text-foreground line-clamp-2 pr-1"
                         title={t.name}
                       >
                         {t.name}
                       </h3>
 
-                      <div className="space-y-1.5 pt-1 border-t border-sky-500/15 text-[11px] sm:text-xs flex-1 min-h-0">
+                      <div className="space-y-1.5 pt-1 border-t border-border text-[11px] sm:text-xs flex-1 min-h-0">
                         {locationStr ? (
-                          <div className="flex items-start gap-1 text-muted-foreground/90">
-                            <MapPin className="w-3 h-3 text-primary/80 shrink-0 mt-0.5" aria-hidden />
-                            <span className="font-medium text-foreground/90 leading-tight line-clamp-2">{locationStr}</span>
+                          <div className="flex items-start gap-1 text-muted-foreground">
+                            <MapPin className="w-3 h-3 text-primary shrink-0 mt-0.5" aria-hidden />
+                            <span className="font-medium text-foreground leading-tight line-clamp-2">{locationStr}</span>
                           </div>
                         ) : null}
 
-                        <div className="flex flex-col gap-0.5 text-white">
+                        <div className="flex flex-col gap-0.5 text-foreground">
                           {auctionDateStr && (
                             <p className="leading-tight">
                               <span>Auction Date</span>

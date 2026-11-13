@@ -17,17 +17,16 @@ import { cn } from "@/lib/utils";
 
 /**
  * Links typography system
- * — Card / row labels: ALL CAPS + bold (write copy in sentence case; CSS uppercases)
- * — Descriptions & page blurb: sentence case, regular weight only
+ * Unified Inter font matching the sidebar and global organiser light mode
  */
 const linksLabelSection =
-  "font-display text-sm sm:text-base font-bold uppercase tracking-[0.07em] text-foreground";
+  "font-sans text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-700";
 const linksLabelRow =
-  "font-display text-xs sm:text-sm font-bold uppercase tracking-[0.06em] leading-snug text-foreground";
+  "font-sans text-sm sm:text-base font-bold tracking-tight text-slate-900";
 const linksLabelTagline =
-  "text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] text-muted-foreground mt-1.5 leading-snug";
+  "text-xs font-medium text-slate-500 mt-1 leading-snug";
 const linksBody =
-  "text-xs sm:text-sm font-normal normal-case tracking-normal text-muted-foreground mt-1 leading-relaxed";
+  "text-xs sm:text-sm font-normal normal-case tracking-normal text-slate-600 mt-1 leading-relaxed";
 
 function LinkSectionHeader({
   title,

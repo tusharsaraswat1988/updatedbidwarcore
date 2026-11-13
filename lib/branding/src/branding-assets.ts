@@ -357,7 +357,7 @@ export const ALL_BRANDING_LOGO_PATHS: readonly BrandingLogoPath[] = Object.value
 
 /** Static fallbacks bundled with auction-platform when DB branding is unset. */
 export const BRANDING_LOGO_STATIC_FALLBACKS: Record<BrandingLogoPath, string> = {
-  [BRANDING_LOGO_PATHS.primary]: "/assets/branding/bidwar-reverse-logo-official.png",
+  [BRANDING_LOGO_PATHS.primary]: "/assets/branding/bidwar-clean-logo-v2.png",
   [BRANDING_LOGO_PATHS.reverse]: "/assets/branding/bidwar-reverse-logo-official.png",
 };
 

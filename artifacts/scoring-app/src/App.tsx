@@ -94,15 +94,15 @@ function tournamentIdFromMissionControlPath(path: string): number {
 
 function SportsTabSuspenseSkeleton() {
   return (
-    <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6" aria-busy="true" aria-label="Loading section">
+    <div className="bw-organizer-light p-6 md:p-8 max-w-7xl mx-auto space-y-6" data-surface="organizer" aria-busy="true" aria-label="Loading section">
       {/* Header Skeleton */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-border/40 pb-6">
         <div className="space-y-2">
           <Skeleton className="h-3.5 w-28 rounded bg-primary/20" />
-          <Skeleton className="h-7 w-64 rounded-lg bg-muted" />
+          <Skeleton className="h-7 w-64 rounded-lg bg-slate-200" />
         </div>
         <div className="flex gap-2">
-          <Skeleton className="h-9 w-24 rounded-lg bg-muted" />
+          <Skeleton className="h-9 w-24 rounded-lg bg-slate-200" />
           <Skeleton className="h-9 w-32 rounded-lg bg-primary/20" />
         </div>
       </div>
@@ -118,13 +118,13 @@ function SportsTabSuspenseSkeleton() {
       {/* Main Content / Table Skeleton */}
       <div className="rounded-xl border border-border/40 bg-card/40 p-6 space-y-4">
         <div className="flex justify-between items-center pb-2">
-          <Skeleton className="h-5 w-44 rounded bg-muted" />
-          <Skeleton className="h-8 w-28 rounded-md bg-muted" />
+          <Skeleton className="h-5 w-44 rounded bg-slate-200" />
+          <Skeleton className="h-8 w-28 rounded-md bg-slate-200" />
         </div>
-        <Skeleton className="h-10 w-full rounded-lg bg-muted/60" />
-        <Skeleton className="h-12 w-full rounded-lg bg-muted/40" />
-        <Skeleton className="h-12 w-full rounded-lg bg-muted/40" />
-        <Skeleton className="h-12 w-full rounded-lg bg-muted/40" />
+        <Skeleton className="h-10 w-full rounded-lg bg-slate-200" />
+        <Skeleton className="h-12 w-full rounded-lg bg-slate-200" />
+        <Skeleton className="h-12 w-full rounded-lg bg-slate-200" />
+        <Skeleton className="h-12 w-full rounded-lg bg-slate-200" />
       </div>
     </div>
   );
@@ -159,11 +159,11 @@ function RouteSuspenseFallback() {
   }
 
   const className = isBadmintonOrganizerPath(location)
-    ? BADMINTON_ROUTE_LOADING_CLASS
+    ? `bw-organizer-light ${BADMINTON_ROUTE_LOADING_CLASS}`
     : isCricketOrganizerPath(location) || isSportsMissionControlPath(location)
-      ? CRICKET_ROUTE_LOADING_CLASS
-      : "min-h-screen bg-background";
-  return <div className={className} aria-busy="true" />;
+      ? `bw-organizer-light ${CRICKET_ROUTE_LOADING_CLASS}`
+      : "bw-organizer-light min-h-screen bg-[#F3F6FA] text-[#0F172A]";
+  return <div className={className} data-surface="organizer" aria-busy="true" />;
 }
 
 function badmintonTournamentIdFromPath(path: string): number {

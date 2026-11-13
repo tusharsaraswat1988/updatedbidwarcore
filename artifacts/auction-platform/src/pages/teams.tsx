@@ -405,7 +405,7 @@ export default function Teams() {
                   </Button>
                 </DialogTrigger>
                 <DialogContent
-                  className="max-w-lg dark"
+                  className="max-w-lg"
                   onPointerDownOutside={e => e.preventDefault()}
                   onEscapeKeyDown={e => e.preventDefault()}
                 >
@@ -525,53 +525,53 @@ export default function Teams() {
                             )}
                             <Badge
                               variant={team.isBiddingEnabled ? "default" : "secondary"}
-                              className={team.isBiddingEnabled ? "bg-green-500/20 text-green-400 border-green-500/20 text-[10px]" : "text-[10px]"}
+                              className={team.isBiddingEnabled ? "bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px] font-bold" : "text-[10px]"}
                             >
                               {team.isBiddingEnabled ? "Bidding ON" : "Blocked"}
                             </Badge>
                           </div>
 
                           <div className="grid grid-cols-2 gap-2">
-                            <div className={`rounded-lg border px-3 py-2 col-span-2 ${boosterTotal > 0 ? "bg-amber-500/6 border-amber-500/25" : "bg-muted/20 border-border"}`}>
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5 flex items-center gap-1">
-                                <Wallet className="w-2.5 h-2.5" /> Budget
+                            <div className={`rounded-xl border px-3 py-2 col-span-2 shadow-xs ${boosterTotal > 0 ? "bg-amber-50/80 border-amber-300" : "bg-slate-50/70 border-slate-200"}`}>
+                              <p className="text-[10px] text-slate-600 font-semibold uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                                <Wallet className="w-2.5 h-2.5 text-slate-700" /> Budget
                               </p>
-                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShort(effectiveCapacity)}</p>
+                              <p className="text-base font-bold font-mono tabular-nums text-slate-900">{formatShort(effectiveCapacity)}</p>
                               {boosterTotal > 0 ? (
                                 <p className="text-[10px] mt-0.5">
-                                  <span className="text-muted-foreground">{formatShort(originalPurse)} base</span>
-                                  <span className="text-amber-400 font-semibold"> + {formatShort(boosterTotal)} booster</span>
+                                  <span className="text-slate-600">{formatShort(originalPurse)} base</span>
+                                  <span className="text-amber-800 font-bold"> + {formatShort(boosterTotal)} booster</span>
                                 </p>
                               ) : (
-                                <p className="text-[10px] text-muted-foreground/70 mt-0.5">Original purse · no active booster</p>
+                                <p className="text-[10px] text-slate-500 mt-0.5">Original purse · no active booster</p>
                               )}
                             </div>
-                            <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Spent</p>
-                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShort(team.purseUsed || 0)}</p>
+                            <div className="rounded-xl bg-slate-50/70 border border-slate-200 px-3 py-2 shadow-xs">
+                              <p className="text-[10px] text-slate-600 font-semibold uppercase tracking-wider mb-0.5">Spent</p>
+                              <p className="text-sm font-bold font-mono tabular-nums text-slate-900">{formatShort(team.purseUsed || 0)}</p>
                             </div>
-                            <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Remaining</p>
-                              <p className="text-sm font-bold font-mono tabular-nums text-foreground">{formatShort(purseRemaining)}</p>
+                            <div className="rounded-xl bg-slate-50/70 border border-slate-200 px-3 py-2 shadow-xs">
+                              <p className="text-[10px] text-slate-600 font-semibold uppercase tracking-wider mb-0.5">Remaining</p>
+                              <p className="text-sm font-bold font-mono tabular-nums text-slate-900">{formatShort(purseRemaining)}</p>
                             </div>
-                            <div className="rounded-lg bg-emerald-500/8 border border-emerald-500/20 px-3 py-2">
-                              <p className="text-[10px] text-emerald-400/80 uppercase tracking-wider mb-0.5">Max Bid / Player</p>
-                              <p className={`text-sm font-bold font-mono tabular-nums ${maxReached ? "text-red-400" : "text-emerald-400"}`}>
+                            <div className="rounded-xl bg-emerald-50/80 border border-emerald-300 px-3 py-2 shadow-xs">
+                              <p className="text-[10px] text-emerald-800 font-semibold uppercase tracking-wider mb-0.5">Max Bid / Player</p>
+                              <p className={`text-sm font-bold font-mono tabular-nums ${maxReached ? "text-rose-700" : "text-emerald-800"}`}>
                                 {maxReached ? "Squad full" : formatShort(maxAllowedBid)}
                               </p>
                             </div>
                             {reserved > 0 ? (
-                              <div className="rounded-lg bg-amber-500/8 border border-amber-500/20 px-3 py-2">
-                                <p className="text-[10px] text-amber-400/80 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                              <div className="rounded-xl bg-amber-50/80 border border-amber-300 px-3 py-2 shadow-xs">
+                                <p className="text-[10px] text-amber-800 font-semibold uppercase tracking-wider mb-0.5 flex items-center gap-1">
                                   <ShieldAlert className="w-2.5 h-2.5" /> Reserved
                                 </p>
-                                <p className="text-sm font-bold font-mono tabular-nums text-amber-400">{formatShort(reserved)}</p>
-                                <p className="text-[9px] text-muted-foreground leading-tight mt-0.5">for {slotsNeeded} slot{slotsNeeded !== 1 ? "s" : ""}</p>
+                                <p className="text-sm font-bold font-mono tabular-nums text-amber-900">{formatShort(reserved)}</p>
+                                <p className="text-[9px] text-slate-600 leading-tight mt-0.5">for {slotsNeeded} slot{slotsNeeded !== 1 ? "s" : ""}</p>
                               </div>
                             ) : (
-                              <div className="rounded-lg bg-muted/20 border border-border px-3 py-2">
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Reserved</p>
-                                <p className="text-sm font-bold font-mono tabular-nums text-muted-foreground/50">—</p>
+                              <div className="rounded-xl bg-slate-50/70 border border-slate-200 px-3 py-2 shadow-xs">
+                                <p className="text-[10px] text-slate-600 font-semibold uppercase tracking-wider mb-0.5">Reserved</p>
+                                <p className="text-sm font-bold font-mono tabular-nums text-slate-400">—</p>
                               </div>
                             )}
                           </div>

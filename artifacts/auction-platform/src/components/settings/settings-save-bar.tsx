@@ -48,9 +48,9 @@ export function SettingsSaveBar({
           <div
             className={`hidden sm:flex items-center gap-1.5 text-xs whitespace-nowrap ${
               status.tone === "amber"
-                ? "text-amber-500"
+                ? "text-amber-600 dark:text-amber-400"
                 : status.tone === "success"
-                  ? "text-emerald-500"
+                  ? "text-emerald-600 dark:text-emerald-400"
                   : status.tone === "destructive"
                     ? "text-destructive"
                     : "text-muted-foreground"
@@ -77,7 +77,7 @@ export function SettingsSaveBar({
   return (
     <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
       {isDirty ? (
-        <div className="hidden sm:flex items-center gap-1.5 text-xs text-amber-500 whitespace-nowrap">
+        <div className="hidden sm:flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 whitespace-nowrap">
           <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden />
           Unsaved changes
         </div>

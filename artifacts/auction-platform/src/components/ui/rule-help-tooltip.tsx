@@ -2,7 +2,7 @@ import * as React from "react";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Info, Sparkles, Trophy, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { PORTAL_THEME_CLASS } from "@/lib/portal-theme";
+import { getPortalThemeClass } from "@/lib/portal-theme";
 
 export interface RuleHelpTooltipProps {
   /** Optional title of the rule or configuration */
@@ -115,7 +115,7 @@ export function RuleHelpTooltip({
             setOpen(false);
           }}
           className={cn(
-            PORTAL_THEME_CLASS,
+            getPortalThemeClass(),
             "z-[350] w-64 sm:w-72 rounded-xl border border-border/80 bg-popover/95 backdrop-blur-md p-3 text-popover-foreground shadow-2xl outline-none",
             "animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
             "data-[side=bottom]:slide-in-from-top-1.5 data-[side=top]:slide-in-from-bottom-1.5 data-[side=left]:slide-in-from-right-1.5 data-[side=right]:slide-in-from-left-1.5",

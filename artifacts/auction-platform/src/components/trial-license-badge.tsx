@@ -16,7 +16,7 @@ export function TrialLicenseBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center border border-amber-500/40 bg-amber-500/15 text-amber-400",
+        "inline-flex items-center border border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/15 dark:text-amber-400",
         sizeClass,
         className,
       )}

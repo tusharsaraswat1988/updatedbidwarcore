@@ -629,21 +629,21 @@ export default function BadmintonControlCenterPage() {
           >
             <div className="space-y-4 min-w-0">
               <div className="flex flex-wrap items-end gap-3">
-                <label className="flex flex-col gap-1 text-[11px] text-white/45">
+                <label className="flex flex-col gap-1 text-[11px] font-semibold text-slate-700">
                   Match no.
                   <input
                     value={matchNoQuery}
                     onChange={(e) => setMatchNoQuery(e.target.value)}
                     placeholder="e.g. 12"
-                    className={cn(inputClass, "w-28")}
+                    className={cn(inputClass, "w-28 bg-white border-slate-300 text-slate-900")}
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-[11px] text-white/45">
+                <label className="flex flex-col gap-1 text-[11px] font-semibold text-slate-700">
                   Court
                   <select
                     value={courtFilter}
                     onChange={(e) => setCourtFilter(e.target.value)}
-                    className={cn(inputClass, "w-40")}
+                    className={cn(inputClass, "w-40 bg-white border-slate-300 text-slate-900")}
                   >
                     <option value="all">All courts</option>
                     {courts.map((c) => (
@@ -653,12 +653,12 @@ export default function BadmintonControlCenterPage() {
                     ))}
                   </select>
                 </label>
-                <label className="flex flex-col gap-1 text-[11px] text-white/45">
+                <label className="flex flex-col gap-1 text-[11px] font-semibold text-slate-700">
                   Category
                   <select
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    className={cn(inputClass, "w-44")}
+                    className={cn(inputClass, "w-44 bg-white border-slate-300 text-slate-900")}
                   >
                     <option value="all">All categories</option>
                     {categories.map((c) => (
@@ -668,12 +668,12 @@ export default function BadmintonControlCenterPage() {
                     ))}
                   </select>
                 </label>
-                <label className="flex flex-col gap-1 text-[11px] text-white/45">
+                <label className="flex flex-col gap-1 text-[11px] font-semibold text-slate-700">
                   Status
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className={cn(inputClass, "w-36")}
+                    className={cn(inputClass, "w-36 bg-white border-slate-300 text-slate-900")}
                   >
                     <option value="all">All</option>
                     <option value="live">Live</option>
@@ -683,7 +683,7 @@ export default function BadmintonControlCenterPage() {
                   </select>
                 </label>
                 {held.length > 0 ? (
-                  <p className="text-sky-200/90 text-xs font-semibold self-center">
+                  <p className="text-sky-800 text-xs font-semibold self-center">
                     {held.length} on hold
                   </p>
                 ) : null}
@@ -697,7 +697,7 @@ export default function BadmintonControlCenterPage() {
               />
 
               <section className="space-y-3" aria-label="Courts">
-                <h2 className="text-white/55 text-xs font-bold uppercase tracking-widest">
+                <h2 className="text-slate-800 text-xs font-bold uppercase tracking-widest">
                   Courts
                 </h2>
                 {liveCount === 0 && readyCount === 0 ? (

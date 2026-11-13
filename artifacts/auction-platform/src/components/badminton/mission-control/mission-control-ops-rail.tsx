@@ -288,11 +288,11 @@ export function MissionControlOpsRail({
     >
       {showScreensFollow ? (
         <div className={cn(hubPanelClass, "p-3 space-y-2")}>
-          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45">
+          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 font-bold">
             Screens follow
           </p>
           {liveMatches.length === 1 && primaryChip ? (
-            <p className="text-xs text-amber-100/90 font-semibold">
+            <p className="text-xs text-amber-900 font-bold">
               Following {primaryChip.label}
             </p>
           ) : null}
@@ -306,8 +306,8 @@ export function MissionControlOpsRail({
                 className={cn(
                   "min-h-9 px-3 rounded-lg border text-left text-xs font-semibold transition-colors disabled:opacity-40",
                   chip.isPrimary
-                    ? "border-amber-500/45 bg-amber-500/20 text-amber-50"
-                    : "border-white/10 bg-white/5 text-white/80 hover:bg-white/10",
+                    ? "border-amber-400 bg-amber-100 text-amber-950 font-bold shadow-xs"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
                   setPrimaryMutation.isPending && chip.isPrimary && "opacity-90",
                 )}
               >
@@ -321,7 +321,7 @@ export function MissionControlOpsRail({
 
       <div className={cn(hubPanelClass, "p-3 space-y-3")}>
         <div>
-          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-white/45 mb-1">
+          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 font-bold mb-1">
             Moments (Venue + OBS)
           </p>
           <p className="text-[11px] text-muted-foreground mb-2">
@@ -502,7 +502,7 @@ export function MissionControlOpsRail({
                     toast({ title: "Scorer link copied" });
                   });
                 }}
-                className="min-h-10 px-3 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-200 text-xs font-semibold inline-flex items-center gap-1.5"
+                className="min-h-10 px-3 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs"
               >
                 <Copy className="w-3.5 h-3.5" />
                 Copy link
@@ -510,7 +510,7 @@ export function MissionControlOpsRail({
               <button
                 type="button"
                 onClick={() => setQrOpen(true)}
-                className="min-h-10 px-3 rounded-lg bg-white/8 hover:bg-white/12 text-white/80 text-xs font-semibold inline-flex items-center gap-1.5"
+                className="min-h-10 px-3 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold inline-flex items-center gap-1.5 shadow-xs"
               >
                 <QrCode className="w-3.5 h-3.5" />
                 QR code
@@ -594,14 +594,14 @@ function RailButton({
       aria-busy={busy || undefined}
       onClick={onClick}
       className={cn(
-        "min-h-8 px-2.5 rounded-lg text-[11px] font-semibold border transition-colors inline-flex items-center gap-1",
+        "min-h-8 px-2.5 rounded-lg text-[11px] font-semibold border transition-colors inline-flex items-center gap-1 shadow-xs",
         isClear
           ? active
-            ? "bg-rose-500/25 border-rose-400/55 text-rose-50"
-            : "bg-rose-500/10 border-rose-400/35 text-rose-100 hover:bg-rose-500/18"
+            ? "bg-rose-100 border-rose-400 text-rose-900 font-bold"
+            : "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100 font-semibold"
           : active
-            ? "bg-amber-500/25 border-amber-500/45 text-amber-50"
-            : "bg-white/5 border-white/10 text-white/75 hover:bg-white/10",
+            ? "bg-amber-100 border-amber-400 text-amber-950 font-bold"
+            : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-slate-900",
         busy && "opacity-80",
       )}
     >

@@ -135,7 +135,7 @@ import {
   type ExportRosterScope,
 } from "@/lib/export-cricket-roster";
 import { RosterImportModal } from "@/components/cricket/roster-import-modal";
-import { PORTAL_THEME_CLASS } from "@/lib/portal-theme";
+import { getPortalThemeClass } from "@/lib/portal-theme";
 import { cn } from "@/lib/utils";
 
 const FALLBACK_ROLES = [
@@ -300,7 +300,7 @@ function PlayerPhotoPreview({
         role="dialog"
         aria-modal="true"
         aria-label={`${name} photo`}
-        className={cn(PORTAL_THEME_CLASS, "relative z-10 flex max-h-full max-w-full flex-col items-center gap-3")}
+        className={cn(getPortalThemeClass(), "relative z-10 flex max-h-full max-w-full flex-col items-center gap-3")}
       >
         <img
           src={cldUrl(photoUrl, "playerCard")}
@@ -1979,7 +1979,7 @@ export default function CricketPlayersPage() {
 
       {/* Share Registration Link Dialog */}
       <Dialog open={regSettingsOpen} onOpenChange={setRegSettingsOpen}>
-        <DialogContent className="max-w-lg dark">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Share Player Registration Link</DialogTitle>
           </DialogHeader>

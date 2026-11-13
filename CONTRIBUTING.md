@@ -216,9 +216,25 @@ See [DEPLOY.md](./DEPLOY.md) for port layout and environment details.
 | Environment variables | Update [RENDER_ENV_VARS.md](./RENDER_ENV_VARS.md) |
 | Third-party integrations (Twilio, OAuth) | Confirm staging uses isolated keys |
 
-### Documentation
+### Documentation (Mandatory Definition of Done)
 
-Update docs in the same PR when you change:
+**Operation Manual Mandate:**
+`docs/BIDWAR_OPERATION_MANUAL.md` is the permanent operational knowledge base for BidWar.
+Whenever ANY feature, screen, button, workflow, setting, permission, validation rule, or integration is:
+- **Created**
+- **Modified**
+- **Renamed**
+- **Moved**
+- **Deprecated**
+- **Removed**
+
+You **MUST update `docs/BIDWAR_OPERATION_MANUAL.md` in the same PR/commit** as the code change.
+Run the automated check before submitting:
+```bash
+pnpm run check:manual
+```
+
+Also update docs in the same PR when you change:
 
 - Deploy steps → `DEPLOY.md`
 - Env vars → `RENDER_ENV_VARS.md`, `.env.example.example`

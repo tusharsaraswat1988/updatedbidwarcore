@@ -367,7 +367,7 @@ export function CustomQuestionsEditor({
                       <SelectTrigger className="h-9 text-xs bg-background">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="dark">
+                      <SelectContent>
                         {REGISTRATION_QUESTION_TYPES.map((typeKey) => (
                           <SelectItem key={typeKey} value={typeKey} className="text-xs">
                             {QUESTION_TYPE_LABELS[typeKey]}

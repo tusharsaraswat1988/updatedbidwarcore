@@ -253,7 +253,7 @@ export function getBadmintonHubBackNav(tournamentId: number, pathname: string): 
   return { kind: "link", href: hub, label: "Back to Operations" };
 }
 
-export const BADMINTON_ROUTE_LOADING_CLASS = "lovable-theme min-h-screen bg-background dark";
+export const BADMINTON_ROUTE_LOADING_CLASS = "min-h-screen bg-background text-foreground";
 
 // ── Tournament Mode (navigation priority only) ────────────────────────────────
 

@@ -28,26 +28,20 @@ import {
 } from "@/lib/tournament-navigation";
 
 function OrganizerAccessLoading({ badmintonRoute }: { badmintonRoute: boolean }) {
-  if (badmintonRoute) {
-    return (
-      <div
-        className={BADMINTON_ROUTE_LOADING_CLASS}
-        aria-busy="true"
-        aria-label="Checking organizer access"
-      />
-    );
-  }
-  // Do not import AppLayout here — it pulls the full auction organizer shell
-  // into every scoring-app / badminton cold load.
   return (
-    <div className="min-h-screen bg-background p-8" aria-busy="true" aria-label="Checking organizer access">
+    <div
+      data-surface="organizer"
+      className="bw-organizer-light min-h-screen bg-[#F3F6FA] text-[#0F172A] p-8"
+      aria-busy="true"
+      aria-label="Checking organizer access"
+    >
       <div className="space-y-4 max-w-2xl">
-        <div className="flex items-center gap-3 text-muted-foreground">
-          <Shield className="w-5 h-5 animate-pulse" />
-          <span className="text-sm">Checking access...</span>
+        <div className="flex items-center gap-3 text-slate-600">
+          <Shield className="w-5 h-5 animate-pulse text-amber-500" />
+          <span className="text-sm font-semibold text-slate-800">Checking access...</span>
         </div>
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-8 w-48 bg-slate-200" />
+        <Skeleton className="h-64 w-full bg-slate-200" />
       </div>
     </div>
   );

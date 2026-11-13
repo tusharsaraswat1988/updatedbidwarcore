@@ -1,0 +1,28 @@
+---
+description: Mandatory Definition of Done requirement to update docs/BIDWAR_OPERATION_MANUAL.md on any feature change
+globs: artifacts/**,lib/**,standalone/**
+alwaysApply: true
+---
+
+# BidWar Operation Manual — Living Document Governance
+
+The canonical Operation Manual for the BidWar platform is located at:
+`docs/BIDWAR_OPERATION_MANUAL.md`
+
+## Mandatory Rule (Definition of Done)
+Whenever any feature, screen, button, workflow, setting, permission, validation rule, or integration is:
+- **Created**
+- **Modified**
+- **Renamed**
+- **Moved**
+- **Deprecated**
+- **Removed**
+
+You **MUST update `docs/BIDWAR_OPERATION_MANUAL.md` in the exact same task/PR/commit** as the code change.
+
+## Verification
+Always run:
+```bash
+pnpm run check:manual
+```
+to verify that all 13 required sections are present and all references remain valid.

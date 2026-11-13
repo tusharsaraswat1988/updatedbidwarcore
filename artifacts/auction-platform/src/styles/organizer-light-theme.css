@@ -1,0 +1,779 @@
+/**
+ * BidWar Global Organiser Light Mode Design System
+ * Scoped strictly to `.bw-organizer-light` and `[data-surface="organizer"]`.
+ * Protected surfaces (Homepage, BPL, OBS overlays, LED displays, Fan/live,
+ * Scorer live pad, Operator console) do NOT carry this scope and remain dark.
+ */
+
+:is(.bw-organizer-light, [data-surface="organizer"]) {
+  color-scheme: light;
+
+  /* ── Core Palette Tokens ── */
+  --org-background: #F3F6FA;
+  --org-surface: #FFFFFF;
+  --org-surface-muted: #F8FAFC;
+  --org-foreground: #0F172A;
+  --org-muted-foreground: #475569;
+  --org-primary: #EAB308;
+  --org-primary-foreground: #0F172A;
+  --org-border: #CBD5E1;
+  --org-input: #FFFFFF;
+  --org-sidebar: #FFFFFF;
+  --org-sidebar-active: #FEF3C7;
+  --org-focus: #2563EB;
+
+  /* ── Status Tokens (Accessible Light Semantics) ── */
+  --org-success: #059669;
+  --org-success-bg: #ECFDF5;
+  --org-success-border: #A7F3D0;
+  --org-success-text: #065F46;
+
+  --org-info: #2563EB;
+  --org-info-bg: #EFF6FF;
+  --org-info-border: #BFDBFE;
+  --org-info-text: #1E40AF;
+
+  --org-warning: #D97706;
+  --org-warning-bg: #FFFBEB;
+  --org-warning-border: #FDE68A;
+  --org-warning-text: #92400E;
+
+  --org-danger: #DC2626;
+  --org-danger-bg: #FEF2F2;
+  --org-danger-border: #FECACA;
+  --org-danger-text: #991B1B;
+
+  /* ── Standard CSS / Tailwind HSL Channel Rebinds ── */
+  --background: 215 28% 97%;          /* #F3F6FA */
+  --foreground: 218 54% 19%;          /* #172B4D */
+
+  --card: 0 0% 100%;                  /* #FFFFFF */
+  --card-foreground: 218 54% 19%;     /* #172B4D */
+  --card-border: 214 32% 91%;         /* #E2E8F0 */
+
+  --popover: 0 0% 100%;               /* #FFFFFF */
+  --popover-foreground: 218 54% 19%;  /* #172B4D */
+  --popover-border: 214 32% 91%;      /* #E2E8F0 */
+
+  --primary: 45 93% 47%;              /* #EAB308 */
+  --primary-foreground: 218 54% 19%;  /* #172B4D */
+  --primary-border: #E2E8F0;
+
+  --secondary: 210 40% 96%;           /* #F1F5F9 */
+  --secondary-foreground: 218 54% 19%;/* #172B4D */
+
+  --muted: 210 40% 96%;               /* #F1F5F9 */
+  --muted-foreground: 215 16% 47%;    /* #64748B */
+
+  --accent: 210 40% 96%;              /* #F1F5F9 */
+  --accent-foreground: 218 54% 19%;   /* #172B4D */
+
+  --destructive: 0 84% 60%;           /* #EF4444 */
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 214 32% 91%;              /* #E2E8F0 */
+  --input: 214 32% 91%;               /* #E2E8F0 */
+  --ring: 217 91% 60%;                /* #2563EB focus ring */
+
+  --sidebar: 0 0% 100%;               /* #FFFFFF */
+  --sidebar-foreground: 218 54% 19%;  /* #172B4D */
+  --sidebar-primary: 45 93% 47%;
+  --sidebar-primary-foreground: 218 54% 19%;
+  --sidebar-accent: 48 96% 89%;       /* #FEF3C7 */
+  --sidebar-accent-foreground: 218 54% 19%;
+  --sidebar-border: 214 32% 91%;      /* #E2E8F0 */
+  --sidebar-ring: 217 91% 60%;
+
+  /* ── Overwrite any Lovable inline color tokens ── */
+  --color-background: #F3F6FA;
+  --color-foreground: #172B4D;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #172B4D;
+  --color-popover: #FFFFFF;
+  --color-popover-foreground: #172B4D;
+  --color-primary: #EAB308;
+  --color-primary-foreground: #172B4D;
+  --color-secondary: #F1F5F9;
+  --color-secondary-foreground: #172B4D;
+  --color-muted: #F1F5F9;
+  --color-muted-foreground: #64748B;
+  --color-accent: #F1F5F9;
+  --color-accent-foreground: #172B4D;
+  --color-destructive: #DC2626;
+  --color-destructive-foreground: #FFFFFF;
+  --color-border: #E2E8F0;
+  --color-input: #E2E8F0;
+  --color-ring: #2563EB;
+  --rail: #FFFFFF;
+  --color-rail: #FFFFFF;
+
+  /* ── Natural Crisp Shadows for Light Mode ── */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --shadow-panel: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+
+  /* Light backgrounds & universal font for full surfaces */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--org-background);
+  color: var(--org-foreground);
+  font-family: var(--font-sans);
+}
+
+/* ── Universal Typography: 100% Inter Across Left Sidebar & Right Content ── */
+:is(.bw-organizer-light, [data-surface="organizer"]),
+:is(.bw-organizer-light, [data-surface="organizer"]) *,
+:is(.bw-organizer-light, [data-surface="organizer"]) ::placeholder {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+/* ── Clear, Authoritative Typographic Hierarchy ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) h1,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="page-title"] {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 1.5rem !important; /* 24px */
+  line-height: 2rem !important;
+  letter-spacing: -0.025em !important;
+  font-weight: 700 !important;
+  color: #0F172A !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) h2 {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 1.125rem !important; /* 18px */
+  line-height: 1.75rem !important;
+  letter-spacing: -0.02em !important;
+  font-weight: 700 !important;
+  color: #0F172A !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) h3,
+:is(.bw-organizer-light, [data-surface="organizer"]) .font-display,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="heading"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="dialog-title"] {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 0.9375rem !important; /* 15px */
+  line-height: 1.375rem !important;
+  letter-spacing: -0.015em !important;
+  font-weight: 600 !important;
+  color: #0F172A !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) h4 {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 0.8125rem !important; /* 13px */
+  line-height: 1.125rem !important;
+  letter-spacing: 0.04em !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  color: #334155 !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-kpi-value,
+:is(.bw-organizer-light, [data-surface="organizer"]) .od-stat-val {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  letter-spacing: -0.02em !important;
+  font-weight: 700 !important;
+  color: #0F172A !important;
+}
+
+/* Clear subheadings and descriptions: readable and non-faded */
+:is(.bw-organizer-light, [data-surface="organizer"]) p.text-muted-foreground,
+:is(.bw-organizer-light, [data-surface="organizer"]) span.text-muted-foreground,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="description"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="page-description"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="section-description"] {
+  color: #475569 !important;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  font-weight: 400;
+}
+
+/* ── Eliminate Faded Text: WCAG AA Compliant Light-Mode Contrast ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-slate-400,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-zinc-400,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-gray-400 {
+  color: #475569 !important; /* slate-600: 5.7:1 contrast on white */
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-slate-500,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-zinc-500,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-gray-500 {
+  color: #334155 !important; /* slate-700: 8.5:1 contrast on white */
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) ::placeholder,
+:is(.bw-organizer-light, [data-surface="organizer"]) .placeholder\:text-muted-foreground::placeholder {
+  color: #64748B !important; /* slate-500: readable placeholder */
+  opacity: 1 !important;
+}
+
+/* ── Sharp Form Controls & Clickable Selection Boxes ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+:is(.bw-organizer-light, [data-surface="organizer"]) textarea,
+:is(.bw-organizer-light, [data-surface="organizer"]) select,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="input"],
+:is(.bw-organizer-light, [data-surface="organizer"]) button[role="combobox"] {
+  border-color: #CBD5E1 !important;
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) textarea:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) select:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) button[role="combobox"]:hover {
+  border-color: #94A3B8 !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):focus,
+:is(.bw-organizer-light, [data-surface="organizer"]) textarea:focus,
+:is(.bw-organizer-light, [data-surface="organizer"]) select:focus,
+:is(.bw-organizer-light, [data-surface="organizer"]) button[role="combobox"]:focus,
+:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):focus-visible,
+:is(.bw-organizer-light, [data-surface="organizer"]) textarea:focus-visible,
+:is(.bw-organizer-light, [data-surface="organizer"]) select:focus-visible,
+:is(.bw-organizer-light, [data-surface="organizer"]) button[role="combobox"]:focus-visible {
+  border-color: #EAB308 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.25) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-numeric],
+:is(.bw-organizer-light, [data-surface="organizer"]) .tabular-nums,
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-kpi-value,
+:is(.bw-organizer-light, [data-surface="organizer"]) .od-stat-val,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-stat-value] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ── Specific Utility Rebinding under Organiser Scope ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-foreground,
+:is(.bw-organizer-light, [data-surface="organizer"]).text-foreground {
+  color: var(--org-foreground) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-muted-foreground,
+:is(.bw-organizer-light, [data-surface="organizer"]).text-muted-foreground {
+  color: var(--org-muted-foreground) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .bg-background,
+:is(.bw-organizer-light, [data-surface="organizer"]).bg-background {
+  background-color: var(--org-background) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .bg-card,
+:is(.bw-organizer-light, [data-surface="organizer"]).bg-card {
+  background-color: var(--org-surface) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-card-foreground,
+:is(.bw-organizer-light, [data-surface="organizer"]).text-card-foreground {
+  color: var(--org-foreground) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .bg-popover,
+:is(.bw-organizer-light, [data-surface="organizer"]).bg-popover {
+  background-color: var(--org-surface) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-popover-foreground,
+:is(.bw-organizer-light, [data-surface="organizer"]).text-popover-foreground {
+  color: var(--org-foreground) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .border-border,
+:is(.bw-organizer-light, [data-surface="organizer"]).border-border {
+  border-color: var(--org-border) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .bg-muted,
+:is(.bw-organizer-light, [data-surface="organizer"]).bg-muted {
+  background-color: var(--org-surface-muted) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .bg-secondary,
+:is(.bw-organizer-light, [data-surface="organizer"]).bg-secondary {
+  background-color: #F1F5F9 !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-secondary-foreground,
+:is(.bw-organizer-light, [data-surface="organizer"]).text-secondary-foreground {
+  color: var(--org-foreground) !important;
+}
+
+/* ── Auction Operations Layer in Light Mode ── */
+:is(.bw-organizer-light, [data-surface="organizer"]).auction-ops,
+:is(.bw-organizer-light, [data-surface="organizer"]) .auction-ops,
+.bw-organizer-light.auction-ops {
+  --ops-bg: #F3F6FA;
+  --ops-surface: #FFFFFF;
+  --ops-input: #FFFFFF;
+  --ops-border: #E2E8F0;
+  --ops-text: #172B4D;
+  --ops-text-secondary: #64748B;
+  --ops-muted: #94A3B8;
+  --ops-control-h: 2.5rem;
+  --ops-radius: 0.5rem;
+
+  --ops-available: #2563EB;
+  --ops-sold: #059669;
+  --ops-unsold: #DC2626;
+  --ops-retained: #7C3AED;
+  --ops-withdrawn: #D97706;
+  --ops-approved: #16A34A;
+  --ops-pending: #D97706;
+  --ops-rejected: #DC2626;
+}
+
+/* ── Organiser Reusable Cards & Rails ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-kpi-card {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-kpi-value {
+  color: var(--org-foreground);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-kpi-label {
+  color: var(--org-muted-foreground);
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-surface-card {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-surface-rail {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  border-top: 1px solid #E2E8F0 !important;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .panel {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06) !important;
+}
+
+/* ── Inset Section Blocks in Modals & Settings (Image 2 & 3 Fixes) ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .form-section-inset,
+:is(.bw-organizer-light, [data-surface="organizer"]) .player-form-section,
+:is(.bw-organizer-light, [data-surface="organizer"]) .settings-inset-block,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="form-section"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [class*="bg-card/40"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [class*="bg-card/50"] {
+  background-color: #F8FAFC !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 0.75rem !important;
+}
+
+/* ── Organiser Tables & Controls (Image 4 Alignment) ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-table-wrapper {
+  background: var(--org-surface) !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) table thead th,
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table thead th {
+  background: #F8FAFC !important;
+  color: #475569 !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+  font-weight: 600;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) table tbody > tr,
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr {
+  border-bottom: 1px solid #F1F5F9 !important;
+  transition: background-color 0.15s ease;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr.org-table-row-interactive {
+  background: #FFFFFF !important;
+  border-color: #F1F5F9 !important;
+  color: var(--org-foreground) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) table tbody > tr:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr.org-table-row-interactive:hover {
+  background: #F8FAFC !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) table tbody > tr[data-state="selected"],
+:is(.bw-organizer-light, [data-surface="organizer"]) table tbody > tr.active,
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr.org-table-row-interactive[data-expanded="true"] {
+  background: #FEF9C3 !important; /* soft yellow hover/active highlight */
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr.org-table-row-interactive[data-expanded="true"]:hover {
+  background: #FEF08A !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) table tbody > tr > td,
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr.org-table-row-interactive > td {
+  border-bottom: 1px solid #F1F5F9;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-expand {
+  background: #F8FAFC !important;
+  border: 1px solid var(--org-border) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-data-toolbar__search > input {
+  background: #FFFFFF !important;
+  border: 1px solid var(--org-border) !important;
+  color: var(--org-foreground) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-data-toolbar__search > input::placeholder {
+  color: #94A3B8 !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-data-toolbar__filter-btn,
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-data-toolbar__sort-trigger,
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-data-toolbar__export-btn {
+  background: #FFFFFF !important;
+  border: 1px solid var(--org-border) !important;
+  color: var(--org-foreground) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-status-tab--active {
+  background: #FEF3C7 !important;
+  color: #92400E !important;
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--org-primary);
+}
+
+/* ── Mobile Player Cards in Light Mode ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-mobile-player-card {
+  background: var(--org-surface) !important;
+  border-color: var(--org-border) !important;
+  box-shadow: var(--shadow-sm);
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-mobile-player-card__tap:active {
+  background: #F1F5F9;
+}
+
+/* ── Tip Banner ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-tip-banner {
+  background: #EFF6FF !important;
+  border: 1px solid #BFDBFE !important;
+  color: #1E40AF !important;
+}
+
+/* ── Radix Portals Styled for Light Mode ── */
+.bw-organizer-light[role="dialog"],
+.bw-organizer-light[role="alertdialog"],
+.bw-organizer-light [data-slot="dialog-content"],
+.bw-organizer-light [data-slot="alert-dialog-content"],
+[data-surface="organizer"][role="dialog"],
+[data-surface="organizer"][role="alertdialog"],
+[data-surface="organizer"] [data-slot="dialog-content"],
+[data-surface="organizer"] [data-slot="alert-dialog-content"] {
+  background-color: #FFFFFF !important;
+  color: var(--org-foreground) !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+}
+
+.bw-organizer-light[role="menu"],
+.bw-organizer-light[role="listbox"],
+.bw-organizer-light [data-slot="dropdown-menu-content"],
+.bw-organizer-light [data-slot="popover-content"],
+.bw-organizer-light [data-slot="select-content"],
+[data-surface="organizer"][role="menu"],
+[data-surface="organizer"][role="listbox"],
+[data-surface="organizer"] [data-slot="dropdown-menu-content"],
+[data-surface="organizer"] [data-slot="popover-content"],
+[data-surface="organizer"] [data-slot="select-content"] {
+  background-color: #FFFFFF !important;
+  color: var(--org-foreground) !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.08) !important;
+}
+
+/* ── Universal Buttons Unification ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-primary,
+:is(.bw-organizer-light, [data-surface="organizer"]) a.bg-primary,
+:is(.bw-organizer-light, [data-surface="organizer"]) .btn-primary,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="default"] {
+  background-color: #EAB308 !important;
+  color: #172B4D !important;
+  font-weight: 600 !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
+  border-color: transparent !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-primary:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) a.bg-primary:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) .btn-primary:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="default"]:hover {
+  background-color: #CA8A04 !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) button.border-border:not(.bg-primary):not([class*="destructive"]),
+:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-secondary,
+:is(.bw-organizer-light, [data-surface="organizer"]) .btn-secondary,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="outline"] {
+  background-color: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  color: #172B4D !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) button.border-border:not(.bg-primary):not([class*="destructive"]):hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-secondary:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) .btn-secondary:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="outline"]:hover {
+  background-color: #F8FAFC !important;
+  border-color: #CBD5E1 !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-destructive,
+:is(.bw-organizer-light, [data-surface="organizer"]) button[class*="destructive"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="destructive"] {
+  background-color: #FEF2F2 !important;
+  border: 1px solid #FECACA !important;
+  color: #DC2626 !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-destructive:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) button[class*="destructive"]:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="destructive"]:hover {
+  background-color: #FEE2E2 !important;
+}
+
+/* ── Universal Skeletons & Light Shimmer ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .animate-pulse,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="skeleton"] {
+  background-color: #E2E8F0 !important;
+}
+
+/* ── Form Controls & Inputs inside Organiser Scope (Issue 1) ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .bg-rail,
+:is(.bw-organizer-light, [data-surface="organizer"]).bg-rail,
+:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+:is(.bw-organizer-light, [data-surface="organizer"]) textarea,
+:is(.bw-organizer-light, [data-surface="organizer"]) select,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="input"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="textarea"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="select-trigger"] {
+  background-color: #FFFFFF !important;
+  border: 1.5px solid #CBD5E1 !important;
+  border-radius: 0.5rem;
+  color: #0F172A !important;
+  box-shadow: none !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) input::placeholder,
+:is(.bw-organizer-light, [data-surface="organizer"]) textarea::placeholder {
+  color: #94A3B8 !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) input:focus-visible,
+:is(.bw-organizer-light, [data-surface="organizer"]) textarea:focus-visible,
+:is(.bw-organizer-light, [data-surface="organizer"]) select:focus-visible,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="input"]:focus-visible,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="select-trigger"]:focus-visible {
+  border-color: #2563EB !important;
+  outline: 2px solid rgb(37 99 235 / 0.25) !important;
+  outline-offset: 0px;
+}
+
+/* ── Clickable / Selection Box Edges & States (Issue 1) ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) [role="radio"]:not(.bg-primary),
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-selectable],
+:is(.bw-organizer-light, [data-surface="organizer"]) .sport-tile,
+:is(.bw-organizer-light, [data-surface="organizer"]) .module-tile,
+:is(.bw-organizer-light, [data-surface="organizer"]) .selection-card {
+  border: 1.5px solid #CBD5E1 !important;
+  background-color: #FFFFFF;
+  transition: all 0.15s ease;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) [role="radio"]:hover:not(:disabled):not([aria-checked="true"]),
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-selectable]:hover:not(:disabled):not([data-selected="true"]),
+:is(.bw-organizer-light, [data-surface="organizer"]) .sport-tile:hover:not([aria-checked="true"]) {
+  border-color: #94A3B8 !important;
+  background-color: #F8FAFC !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) [role="radio"][aria-checked="true"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-selectable][data-selected="true"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-state="checked"]:not([data-slot="checkbox"]) {
+  border: 2px solid #EAB308 !important;
+  background-color: #FEF9C3 !important;
+  box-shadow: 0 0 0 1px #EAB308 !important;
+}
+
+/* ── Accessible Color Semantics & Faded Text Fixes (Issue 7) ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-emerald-400,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-emerald-300 {
+  color: #047857 !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-amber-400,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-amber-300,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-amber-200 {
+  color: #B45309 !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-orange-400,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-orange-300 {
+  color: #C2410C !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-sky-400,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-sky-300,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-sky-200,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-sky-100 {
+  color: #0369A1 !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-violet-400,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-violet-300 {
+  color: #6D28D9 !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-rose-400,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-rose-300,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-red-100 {
+  color: #BE123C !important;
+}
+
+/* Dark mode lingering white text fallback on cards */
+:is(.bw-organizer-light, [data-surface="organizer"]) .panel p.text-white,
+:is(.bw-organizer-light, [data-surface="organizer"]) .bg-card p.text-white,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="card"] p.text-white {
+  color: #0F172A !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .panel p[class*="text-white/"],
+:is(.bw-organizer-light, [data-surface="organizer"]) .bg-card p[class*="text-white/"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="card"] p[class*="text-white/"] {
+  color: #475569 !important;
+}
+
+/* ── Organiser Dashboard (/organizer) Re-Theming ── */
+.organizer-dashboard-premium.bw-organizer-light,
+.bw-organizer-light .organizer-dashboard-premium,
+[data-surface="organizer"] .organizer-dashboard-premium {
+  --od-navy: #172B4D;
+  --od-royal: #1E3A8A;
+  --od-gold: #EAB308;
+  --od-gold-hover: #CA8A04;
+  --od-cyan: #0284C7;
+  --od-glass: #FFFFFF;
+  --od-glass-border: #E2E8F0;
+  background-color: var(--org-background);
+  color: var(--org-foreground);
+}
+
+.bw-organizer-light .organizer-dashboard-bg,
+[data-surface="organizer"] .organizer-dashboard-bg,
+.organizer-dashboard-premium.bw-organizer-light .organizer-dashboard-bg {
+  background: var(--org-background) !important;
+}
+
+.bw-organizer-light .organizer-dashboard-bg::before,
+[data-surface="organizer"] .organizer-dashboard-bg::before,
+.organizer-dashboard-premium.bw-organizer-light .organizer-dashboard-bg::before {
+  display: none !important;
+}
+
+.bw-organizer-light .organizer-dash-header,
+[data-surface="organizer"] .organizer-dash-header,
+.organizer-dashboard-premium.bw-organizer-light .organizer-dash-header {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-bottom: 1px solid var(--org-border) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+.bw-organizer-light .od-stat-card,
+[data-surface="organizer"] .od-stat-card,
+.organizer-dashboard-premium.bw-organizer-light .od-stat-card {
+  background: #FFFFFF !important;
+  border: 1px solid var(--org-border) !important;
+  box-shadow: var(--shadow-sm) !important;
+  backdrop-filter: none !important;
+}
+
+.bw-organizer-light .od-tournament-card,
+[data-surface="organizer"] .od-tournament-card,
+.organizer-dashboard-premium.bw-organizer-light .od-tournament-card {
+  background: #FFFFFF !important;
+  border: 1px solid var(--org-border) !important;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06) !important;
+  backdrop-filter: none !important;
+}
+
+.bw-organizer-light .od-tournament-card:hover:not([aria-disabled="true"]),
+[data-surface="organizer"] .od-tournament-card:hover:not([aria-disabled="true"]),
+.organizer-dashboard-premium.bw-organizer-light .od-tournament-card:hover:not([aria-disabled="true"]) {
+  border-color: #CBD5E1 !important;
+  box-shadow: 0 6px 16px -2px rgb(0 0 0 / 0.08) !important;
+}
+
+.bw-organizer-light .od-search-input,
+[data-surface="organizer"] .od-search-input,
+.organizer-dashboard-premium.bw-organizer-light .od-search-input {
+  background: #FFFFFF !important;
+  border: 1px solid var(--org-border) !important;
+  color: var(--org-foreground) !important;
+}
+
+.bw-organizer-light .od-search-input::placeholder,
+[data-surface="organizer"] .od-search-input::placeholder,
+.organizer-dashboard-premium.bw-organizer-light .od-search-input::placeholder {
+  color: #94A3B8 !important;
+}
+
+/* ── Badges inside Organiser Scope ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .status-active {
+  background-color: #ECFDF5;
+  color: #065F46;
+  border-color: #A7F3D0;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .status-trial {
+  background-color: #FFFBEB;
+  color: #92400E;
+  border-color: #FDE68A;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .status-done {
+  background-color: #EFF6FF;
+  color: #1E40AF;
+  border-color: #BFDBFE;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .status-locked {
+  background-color: #FEF2F2;
+  color: #991B1B;
+  border-color: #FECACA;
+}
+
+/* Numeric tabular figures standard */
+:is(.bw-organizer-light, [data-surface="organizer"]) .tabular-nums,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-numeric] {
+  font-variant-numeric: tabular-nums;
+}

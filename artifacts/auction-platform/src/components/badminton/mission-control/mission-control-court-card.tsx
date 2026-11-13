@@ -43,15 +43,15 @@ function formatTime(iso: string | null | undefined): string {
 function statusStyles(status: CourtOpsStatus): string {
   switch (status) {
     case "LIVE":
-      return "bg-red-500/15 text-red-400 border-red-500/30";
+      return "bg-rose-50 text-rose-800 border-rose-300 font-semibold";
     case "DELAYED":
-      return "bg-orange-500/20 text-orange-300 border-orange-500/40";
+      return "bg-orange-50 text-orange-800 border-orange-300 font-semibold";
     case "READY":
-      return "bg-amber-500/15 text-amber-300 border-amber-500/30";
+      return "bg-amber-50 text-amber-800 border-amber-300 font-semibold";
     case "FINISHED":
-      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+      return "bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold";
     default:
-      return "bg-white/8 text-white/50 border-white/10";
+      return "bg-slate-100 text-slate-700 border-slate-300 font-medium";
   }
 }
 
@@ -141,19 +141,19 @@ export function MissionControlCourtCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-white font-bold text-lg leading-tight">{courtLabel(court)}</h3>
+          <h3 className="text-slate-900 font-bold text-lg leading-tight">{courtLabel(court)}</h3>
           {isLive && isFollowing ? (
-            <p className="text-amber-200/90 text-[11px] font-semibold mt-0.5">On venue & OBS</p>
+            <p className="text-amber-800 text-[11px] font-semibold mt-0.5">On venue & OBS</p>
           ) : isLive ? (
-            <p className="text-white/35 text-[11px] mt-0.5">Live · not on main screens</p>
+            <p className="text-slate-500 text-[11px] mt-0.5">Live · not on main screens</p>
           ) : null}
           {court.scorerName?.trim() ? (
-            <p className="text-white/40 text-[11px] mt-0.5 truncate">
+            <p className="text-slate-600 text-[11px] mt-0.5 truncate">
               Scorer · {court.scorerName.trim()}
               {court.hasScorerPin || court.scorerPin ? " · PIN set" : ""}
             </p>
           ) : court.hasScorerPin || court.scorerPin ? (
-            <p className="text-white/35 text-[11px] mt-0.5">Court PIN set</p>
+            <p className="text-slate-500 text-[11px] mt-0.5">Court PIN set</p>
           ) : null}
         </div>
         <span
@@ -221,7 +221,7 @@ export function MissionControlCourtCard({
       </div>
 
       {readyOverflow > 0 ? (
-        <p className="text-orange-200/90 text-xs rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2">
+        <p className="text-amber-900 text-xs rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 font-medium">
           {readyOverflow + 1} matches ready on this court — start the earliest first.
         </p>
       ) : null}
@@ -235,7 +235,7 @@ export function MissionControlCourtCard({
               type="button"
               disabled={setPrimaryMutation.isPending}
               onClick={() => setPrimaryMutation.mutate(currentMatch.id)}
-              className="min-h-10 px-3 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-50 text-xs font-semibold"
+              className="min-h-10 px-3 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-semibold"
             >
               Show on screens
             </button>
@@ -247,7 +247,7 @@ export function MissionControlCourtCard({
                 type="button"
                 disabled={busy}
                 onClick={() => run(() => director.unhold(), "Hold cleared")}
-                className="min-h-10 px-3 rounded-lg bg-sky-500/25 hover:bg-sky-500/35 text-sky-100 text-xs font-bold"
+                className="min-h-10 px-3 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-900 border border-sky-300 text-xs font-bold"
               >
                 Resume Hold
               </button>
@@ -256,7 +256,7 @@ export function MissionControlCourtCard({
                 type="button"
                 disabled={busy}
                 onClick={() => run(() => director.resume(), "Match resumed")}
-                className="min-h-10 px-3 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 text-xs font-bold"
+                className="min-h-10 px-3 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 text-xs font-bold"
               >
                 Resume
               </button>
@@ -268,7 +268,7 @@ export function MissionControlCourtCard({
                   onClick={() =>
                     run(() => director.hold("Court freed for another match"), "Match on hold")
                   }
-                  className="min-h-10 px-3 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-100 text-xs font-bold"
+                  className="min-h-10 px-3 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-300 text-xs font-bold shadow-xs"
                 >
                   Hold
                 </button>
@@ -276,7 +276,7 @@ export function MissionControlCourtCard({
                   type="button"
                   disabled={busy}
                   onClick={() => run(() => director.pause("technical_issue"), "Match paused")}
-                  className="min-h-10 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-white/85 text-xs font-semibold"
+                  className="min-h-10 px-3 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-semibold shadow-xs"
                 >
                   Pause
                 </button>
@@ -286,10 +286,10 @@ export function MissionControlCourtCard({
         </div>
 
         {currentMatch ? (
-          <details className="group rounded-lg border border-white/8 bg-white/[0.02] open:bg-white/[0.03]">
-            <summary className="cursor-pointer list-none min-h-9 px-2.5 flex items-center text-[11px] font-semibold text-white/45 hover:text-white/70 [&::-webkit-details-marker]:hidden">
+          <details className="group rounded-lg border border-slate-200 bg-slate-50/50 open:bg-slate-50">
+            <summary className="cursor-pointer list-none min-h-9 px-2.5 flex items-center text-[11px] font-semibold text-slate-600 hover:text-slate-900 [&::-webkit-details-marker]:hidden">
               More actions
-              <span className="ml-auto text-white/30 group-open:rotate-180 transition-transform" aria-hidden>
+              <span className="ml-auto text-slate-400 group-open:rotate-180 transition-transform" aria-hidden>
                 ▾
               </span>
             </summary>
@@ -300,11 +300,11 @@ export function MissionControlCourtCard({
                   disabled={busy}
                   onClick={() =>
                     run(
-                      () => forceUnlockBadmintonMatch(tournamentId, currentMatch.id),
+                       () => forceUnlockBadmintonMatch(tournamentId, currentMatch.id),
                       "Scorer lock cleared",
                     )
                   }
-                  className="min-h-9 px-2.5 rounded-lg border border-orange-500/25 bg-orange-500/10 hover:bg-orange-500/20 text-orange-100/90 text-[11px] font-semibold"
+                  className="min-h-9 px-2.5 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-[11px] font-semibold shadow-xs"
                 >
                   Unlock scorer
                 </button>
@@ -312,7 +312,7 @@ export function MissionControlCourtCard({
 
               <a
                 href={badmintonMatchControlPath(tournamentId, currentMatch.id)}
-                className="min-h-9 px-2.5 rounded-lg text-white/50 hover:text-white/75 text-[11px] font-semibold inline-flex items-center"
+                className="min-h-9 px-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-semibold inline-flex items-center shadow-xs"
               >
                 Director
               </a>
@@ -323,7 +323,7 @@ export function MissionControlCourtCard({
                     type="button"
                     disabled={busy}
                     onClick={() => setFinishConfirmOpen(true)}
-                    className="min-h-9 px-2.5 rounded-lg text-white/40 hover:text-red-200/80 text-[11px] font-semibold"
+                    className="min-h-9 px-2.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-semibold shadow-xs"
                   >
                     Force finish
                   </button>
@@ -372,7 +372,7 @@ function MatchSlot({
   const hasSides = left || right;
   return (
     <div>
-      <p className="text-white/40 text-[10px] font-bold uppercase tracking-wider mb-1">{title}</p>
+      <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mb-1">{title}</p>
       {hasSides ? (
         <TeamPlayerVs
           left={identityFromLooseSide(left)}
@@ -382,13 +382,13 @@ function MatchSlot({
           className="items-start"
         />
       ) : (
-        <p className="text-white font-medium truncate">{fallback}</p>
+        <p className="text-slate-800 font-semibold truncate">{fallback}</p>
       )}
       {score ? (
-        <p className="text-white text-xl tabular-nums mt-1 font-display font-bold leading-none">{score}</p>
+        <p className="text-slate-900 text-xl tabular-nums mt-1 font-sans font-bold leading-none">{score}</p>
       ) : null}
-      {scoreMeta ? <p className="text-white/50 text-[11px] tabular-nums mt-1 font-semibold">{scoreMeta}</p> : null}
-      {sub ? <p className="text-white/40 text-xs mt-0.5">{sub}</p> : null}
+      {scoreMeta ? <p className="text-slate-600 text-[11px] tabular-nums mt-1 font-semibold">{scoreMeta}</p> : null}
+      {sub ? <p className="text-slate-500 text-xs mt-0.5">{sub}</p> : null}
     </div>
   );
 }
@@ -411,7 +411,7 @@ function resolveCourtPrimaryAction(input: {
       return (
         <Link
           href={`/tournament/${tournamentId}/badminton/matches?fixture=${nextFixture.id}`}
-          className="min-h-10 px-4 rounded-lg bg-purple-500/25 hover:bg-purple-500/35 text-purple-100 text-sm font-bold inline-flex items-center"
+          className="min-h-10 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold inline-flex items-center shadow-xs"
         >
           Assign match
         </Link>
@@ -420,7 +420,7 @@ function resolveCourtPrimaryAction(input: {
     return (
       <Link
         href={`/tournament/${tournamentId}/badminton/schedule`}
-        className="min-h-10 px-4 rounded-lg bg-white/10 hover:bg-white/15 text-white/75 text-sm font-semibold inline-flex items-center"
+        className="min-h-10 px-4 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-sm font-semibold inline-flex items-center shadow-xs"
       >
         Open schedule
       </Link>
@@ -435,11 +435,11 @@ function resolveCourtPrimaryAction(input: {
             type="button"
             disabled
             title={startBlocker}
-            className="min-h-10 px-4 rounded-lg text-sm font-bold bg-white/10 text-white/40 cursor-not-allowed"
+            className="min-h-10 px-4 rounded-lg text-sm font-bold bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
           >
             Start match
           </button>
-          <p className="text-[11px] text-amber-200/90">{startBlocker}</p>
+          <p className="text-[11px] text-amber-800 font-medium">{startBlocker}</p>
         </div>
       );
     }
@@ -448,15 +448,15 @@ function resolveCourtPrimaryAction(input: {
         <a
           href={badmintonMatchControlPath(tournamentId, currentMatch.id)}
           className={cn(
-            "min-h-10 px-4 rounded-lg text-sm font-bold inline-flex items-center",
+            "min-h-10 px-4 rounded-lg text-sm font-bold inline-flex items-center shadow-xs",
             status === "DELAYED"
-              ? "bg-orange-500/30 hover:bg-orange-500/40 text-orange-50"
-              : "bg-amber-500/30 hover:bg-amber-500/40 text-amber-50",
+              ? "bg-amber-500 hover:bg-amber-600 text-slate-900"
+              : "bg-primary hover:bg-amber-500 text-primary-foreground",
           )}
         >
           Start match
         </a>
-        <p className="text-[11px] text-white/40">Toss &amp; start in Match Control</p>
+        <p className="text-[11px] text-slate-500 font-medium">Toss &amp; start in Match Control</p>
       </div>
     );
   }
@@ -467,7 +467,7 @@ function resolveCourtPrimaryAction(input: {
         href={badmintonScorerMatchPath(currentMatch.id, tournamentId)}
         target="_blank"
         rel="noopener noreferrer"
-        className="min-h-10 px-4 rounded-lg bg-red-500/30 hover:bg-red-500/40 text-red-100 text-sm font-bold inline-flex items-center"
+        className="min-h-10 px-4 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold inline-flex items-center shadow-xs"
       >
         Open scoring
       </a>
@@ -479,7 +479,7 @@ function resolveCourtPrimaryAction(input: {
       return (
         <Link
           href={`/tournament/${tournamentId}/badminton/matches?fixture=${nextFixture.id}`}
-          className="min-h-10 px-4 rounded-lg bg-amber-500/25 hover:bg-amber-500/35 text-amber-50 text-sm font-bold inline-flex items-center"
+          className="min-h-10 px-4 rounded-lg bg-primary hover:bg-amber-500 text-primary-foreground text-sm font-bold inline-flex items-center shadow-xs"
         >
           Assign next
         </Link>
@@ -489,7 +489,7 @@ function resolveCourtPrimaryAction(input: {
       return (
         <a
           href={badmintonMatchControlPath(tournamentId, nextMatch.id)}
-          className="min-h-10 px-4 rounded-lg bg-amber-500/25 hover:bg-amber-500/35 text-amber-50 text-sm font-bold inline-flex items-center"
+          className="min-h-10 px-4 rounded-lg bg-primary hover:bg-amber-500 text-primary-foreground text-sm font-bold inline-flex items-center shadow-xs"
         >
           Start next
         </a>
@@ -498,7 +498,7 @@ function resolveCourtPrimaryAction(input: {
     return (
       <Link
         href={`/tournament/${tournamentId}/badminton/schedule`}
-        className="min-h-10 px-4 rounded-lg bg-white/10 hover:bg-white/15 text-white/75 text-sm font-semibold inline-flex items-center"
+        className="min-h-10 px-4 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-sm font-semibold inline-flex items-center shadow-xs"
       >
         Schedule next
       </Link>

@@ -1184,7 +1184,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                 <SelectTrigger className="h-9 text-xs sm:text-sm">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
-                <SelectContent className="dark">
+                <SelectContent>
                   {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -1269,7 +1269,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
               <SelectTrigger className="h-9 text-xs sm:text-sm">
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
-              <SelectContent position="popper" className="max-h-60 dark">
+              <SelectContent position="popper" className="max-h-60">
                 {buildPlayerRoleSelectOptions(
                   sportRoles.map((r) => r.roleName),
                   form.role,
@@ -1300,7 +1300,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                   <SelectTrigger className="h-9 text-xs sm:text-sm">
                     <SelectValue placeholder="Select bid value" />
                   </SelectTrigger>
-                  <SelectContent className="dark">
+                  <SelectContent>
                     {organizerBidOptions.map((amount) => (
                       <SelectItem key={amount} value={String(amount)}>
                         {formatIndianRupee(amount)}
@@ -1368,7 +1368,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                         <SelectTrigger className="h-9 text-xs sm:text-sm">
                           <SelectValue placeholder={`Select ${group.groupName}`} />
                         </SelectTrigger>
-                        <SelectContent className="dark">
+                        <SelectContent>
                           {group.options.map(o => (
                             <SelectItem key={o.id} value={o.optionName}>{o.optionName}</SelectItem>
                           ))}
@@ -1635,7 +1635,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             <div className="space-y-2">
               <Select value={form.status} onValueChange={handleStatusChange}>
                 <SelectTrigger className="h-9 text-xs sm:text-sm"><SelectValue /></SelectTrigger>
-                <SelectContent className="dark">
+                <SelectContent>
                   <SelectItem value="available">Available for auction</SelectItem>
                   <SelectItem value="retained">Retained (Pre-sold)</SelectItem>
                 </SelectContent>
@@ -1644,7 +1644,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                 <div className="space-y-2 pt-1">
                   <Select value={form.retainedTeamId} onValueChange={v => f("retainedTeamId", v)}>
                     <SelectTrigger className="h-9 text-xs sm:text-sm"><SelectValue placeholder="Select team..." /></SelectTrigger>
-                    <SelectContent className="dark">
+                    <SelectContent>
                       {teams.map(t => (
                         <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
                       ))}
@@ -1671,7 +1671,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             <div className="space-y-2">
               <Select value={form.playerTag || "_none"} onValueChange={v => f("playerTag", v === "_none" ? "" : v)}>
                 <SelectTrigger className="h-9 text-xs sm:text-sm"><SelectValue placeholder="No tag" /></SelectTrigger>
-                <SelectContent className="dark">
+                <SelectContent>
                   <SelectItem value="_none">No tag</SelectItem>
                   {playerTagOptions.map(t => (
                     <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
@@ -1681,7 +1681,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
               {form.playerTag && (
                 <Select value={form.playerTagTeamId || "_none"} onValueChange={v => f("playerTagTeamId", v === "_none" ? "" : v)}>
                   <SelectTrigger className="h-9 text-xs sm:text-sm"><SelectValue placeholder="Any team" /></SelectTrigger>
-                  <SelectContent className="dark">
+                  <SelectContent>
                     <SelectItem value="_none">Any team</SelectItem>
                     {teams.map(t => (
                       <SelectItem key={t.id} value={String(t.id)}>{t.name}</SelectItem>
@@ -1788,7 +1788,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                       <SelectTrigger className="h-9 text-xs sm:text-sm">
                         <SelectValue placeholder="Select an option" />
                       </SelectTrigger>
-                      <SelectContent className="dark">
+                      <SelectContent>
                         {(q.options || []).map((opt) => (
                           <SelectItem key={opt} value={opt}>
                             {opt}
@@ -2508,7 +2508,7 @@ function CombinedPlayersFiltersPopover({
           ) : null}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-0 dark" align="end">
+      <PopoverContent className="w-72 p-0" align="end">
         <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
           <span className="text-xs font-semibold">Filter players</span>
           {activeCount > 0 ? (
@@ -2728,7 +2728,7 @@ function PlayerRowActionsMenu({
           {labeled ? "More" : <MoreHorizontal className="w-4 h-4" />}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="dark" onClick={e => e.stopPropagation()}>
+      <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
         <DropdownMenuItem onClick={onEdit}>
           <Pencil className="w-3.5 h-3.5 mr-2" /> Edit player
         </DropdownMenuItem>
@@ -3115,7 +3115,7 @@ function PlayerPaymentStatusSelect({
           <SelectValue />
         )}
       </SelectTrigger>
-      <SelectContent className="dark" onClick={e => e.stopPropagation()}>
+      <SelectContent onClick={e => e.stopPropagation()}>
         {PAYMENT_STATUS_OPTIONS.map(opt => (
           <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
         ))}
@@ -3539,7 +3539,7 @@ export default function Players() {
                 align="end"
                 sideOffset={6}
                 collisionPadding={12}
-                className="w-72 max-h-[min(28rem,var(--radix-dropdown-menu-content-available-height))] p-1.5 dark border-border/60 bg-popover shadow-md"
+                className="w-72 max-h-[min(28rem,var(--radix-dropdown-menu-content-available-height))] p-1.5 border-border/60 bg-popover shadow-md"
               >
                 <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">
                   Add Players
@@ -3706,7 +3706,7 @@ export default function Players() {
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="dark min-w-[200px]">
+                <SelectContent className="min-w-[200px]">
                   <SelectItem value="id:asc">Serial # (1, 2, 3…)</SelectItem>
                   <SelectItem value="id:desc">Serial # (High to Low)</SelectItem>
                   <SelectItem value="name:asc">Name (A → Z)</SelectItem>
@@ -4155,7 +4155,7 @@ export default function Players() {
       {/* Add / Edit Player Dialog */}
       <Dialog open={open} onOpenChange={v => { setOpen(v); if (!v) setEditing(null); }}>
         <DialogContent
-          className="max-w-3xl dark max-h-[92vh] overflow-y-auto p-5 sm:p-6 space-y-4"
+          className="max-w-3xl max-h-[92vh] overflow-y-auto p-5 sm:p-6 space-y-4"
           onPointerDownOutside={e => e.preventDefault()}
           onEscapeKeyDown={e => e.preventDefault()}
         >
@@ -4208,7 +4208,7 @@ export default function Players() {
       </Dialog>
 
       <Sheet open={drawerPlayer !== null} onOpenChange={open => { if (!open) setDrawerPlayer(null); }}>
-        <SheetContent side="bottom" className="ops-player-sheet dark gap-3">
+        <SheetContent side="bottom" className="ops-player-sheet gap-3">
           {drawerPlayer && (() => {
             const cat = drawerPlayer.categoryId ? catMap[drawerPlayer.categoryId] : null;
             const team = drawerPlayer.teamId ? teamMap[drawerPlayer.teamId] : null;

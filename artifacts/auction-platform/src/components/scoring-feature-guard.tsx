@@ -11,9 +11,9 @@ export function ScoringFeatureGuard({ children }: { children: ReactNode }) {
   if (loading) {
     const loadingClass = isBadmintonOrganizerPath(location)
       ? BADMINTON_ROUTE_LOADING_CLASS
-      : "min-h-screen bg-background";
+      : "min-h-screen bg-background text-foreground";
     return (
-      <div className={loadingClass} aria-busy="true" aria-label="Loading scoring features" />
+      <div data-surface="organizer" className={`bw-organizer-light ${loadingClass}`} aria-busy="true" aria-label="Loading scoring features" />
     );
   }
   if (!scoring) {

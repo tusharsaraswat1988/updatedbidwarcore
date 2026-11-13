@@ -12,6 +12,7 @@ import { RedirectToScoringApp } from "@/components/redirect-to-scoring-app";
 import { RedirectToOwnerApp } from "@/components/redirect-to-owner-app";
 import { readWindowAcademyData } from "@/lib/academy-public";
 
+import { isOrganizerRoute } from "@/lib/portal-theme";
 import { BootSplash } from "@/components/boot-splash";
 
 const TournamentSettings = lazy(() => import("@/pages/tournament-settings"));
@@ -114,16 +115,34 @@ function RouteSuspenseFallback() {
     );
   }
 
+  if (isOrganizerRoute(path)) {
+    return (
+      <div
+        className="bw-organizer-light flex min-h-screen flex-col items-center justify-center gap-3 bg-[#F3F6FA] text-[#172B4D]"
+        data-surface="organizer"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        aria-label="Loading workspace"
+      >
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500" />
+        <p className="text-sm font-medium text-slate-600">Loading…</p>
+      </div>
+    );
+  }
+
   if (/^\/tournament\/\d+\//.test(path)) {
     return (
       <div
-        className="flex min-h-screen items-center justify-center bg-background text-muted-foreground"
+        className="bw-organizer-light flex min-h-screen flex-col items-center justify-center gap-3 bg-[#F3F6FA] text-[#172B4D]"
+        data-surface="organizer"
         role="status"
         aria-live="polite"
         aria-busy="true"
         aria-label="Loading tournament page"
       >
-        <p className="text-sm">Loading…</p>
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500" />
+        <p className="text-sm font-medium text-slate-600">Loading…</p>
       </div>
     );
   }
@@ -164,13 +183,17 @@ function LegacyLiveRedirect() {
 function OrganizerPageFallback() {
   return (
     <div
-      className="flex items-center justify-center py-24 text-sm text-muted-foreground"
+      className="bw-organizer-light flex items-center justify-center py-24 text-sm text-slate-600"
+      data-surface="organizer"
       role="status"
       aria-live="polite"
       aria-busy="true"
       aria-label="Loading tournament page"
     >
-      Loading…
+      <div className="flex items-center gap-2">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500" />
+        <span>Loading…</span>
+      </div>
     </div>
   );
 }

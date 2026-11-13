@@ -97,7 +97,7 @@ function ProfileInfoSection({ organizer, onSaved }: { organizer: OrganizerInfo; 
   }
 
   return (
-    <Card className="border-border/50 bg-card/40">
+    <Card className="border-border bg-card shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <User className="w-4 h-4 text-muted-foreground" /> Profile Info
@@ -233,7 +233,7 @@ function ChangePasswordSection({ organizer, onSaved }: { organizer: OrganizerInf
   }
 
   return (
-    <Card className="border-border/50 bg-card/40">
+    <Card className="border-border bg-card shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-2">
           <KeyRound className="w-4 h-4 text-muted-foreground" />
@@ -396,7 +396,7 @@ function OrganizerWhatsAppConsentSection({ organizer }: { organizer: OrganizerIn
   const isOptedIn = status?.whatsappConsent === true;
 
   return (
-    <Card className="border-border/50 bg-card/40">
+    <Card className="border-border bg-card shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -524,15 +524,15 @@ export default function OrganizerProfilePage() {
   });
 
   if (isLoading) {
-    return <div className="lovable-theme min-h-screen dark" />;
+    return <div data-surface="organizer" className="bw-organizer-light min-h-screen bg-background" />;
   }
 
   if (!organizer) return null;
 
   return (
-    <div className="lovable-theme min-h-screen text-foreground dark">
+    <div data-surface="organizer" className="bw-organizer-light min-h-screen text-foreground bg-background">
       {/* Header */}
-      <div className="border-b border-border/50 bg-background/75 sticky top-0 backdrop-blur-xl z-10">
+      <div className="border-b border-border bg-card sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-6 h-14 flex items-center gap-3">
           <button
             onClick={() => navigate("/organizer")}

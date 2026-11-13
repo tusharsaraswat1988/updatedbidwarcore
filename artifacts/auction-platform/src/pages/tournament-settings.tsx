@@ -1421,7 +1421,7 @@ export default function TournamentSettings() {
                             onValueChange={v => setEditForm(f => ({ ...f, paymentVerificationMethod: v }))}
                           >
                             <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent className="dark">
+                            <SelectContent>
                               <SelectItem value="utr">UTR Number only</SelectItem>
                               <SelectItem value="screenshot">Payment screenshot only</SelectItem>
                               <SelectItem value="utr_and_screenshot">UTR + Screenshot</SelectItem>
@@ -1452,7 +1452,7 @@ export default function TournamentSettings() {
                         onValueChange={(v) => setEditForm(f => ({ ...f, bidValueMode: v }))}
                       >
                         <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent className="dark">
+                        <SelectContent>
                           <SelectItem value="system">System Default (Tournament Min Bid)</SelectItem>
                           <SelectItem value="player">Player Selected (Choice of Base Values)</SelectItem>
                         </SelectContent>
@@ -1682,7 +1682,7 @@ export default function TournamentSettings() {
                           onValueChange={(value) => setEditForm((f) => ({ ...f, auctionUnit: value }))}
                         >
                           <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent className="dark">
+                          <SelectContent>
                             {AUCTION_UNIT_OPTIONS.map((option) => (
                               <SelectItem key={option.value} value={option.value}>
                                 {option.label}
@@ -2010,7 +2010,7 @@ export default function TournamentSettings() {
                             onValueChange={v => setEditForm(f => ({ ...f, playerSelectionMode: v }))}
                           >
                             <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent className="dark">
+                            <SelectContent>
                               <SelectItem value="random">🎲 Random draw — recommended for balanced auctions</SelectItem>
                               <SelectItem value="sequential">📋 In order — players appear in sequence as added</SelectItem>
                               <SelectItem value="manual">👆 Manual pick — operator chooses from active queue</SelectItem>

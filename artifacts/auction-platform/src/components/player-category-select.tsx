@@ -75,7 +75,7 @@ export function PlayerCategorySelect({
           <SelectValue placeholder="Select…" />
         )}
       </SelectTrigger>
-      <SelectContent className="dark" onClick={(e) => e.stopPropagation()}>
+      <SelectContent onClick={(e) => e.stopPropagation()}>
         <SelectItem value="none">{noneLabel}</SelectItem>
         {categories.map((c) => (
           <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>

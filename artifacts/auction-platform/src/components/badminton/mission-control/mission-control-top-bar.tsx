@@ -50,29 +50,9 @@ export function MissionControlTopBar({
 
   return (
     <header
-      className={cn(hubCardClass, "px-3 py-2.5 sm:px-4 sticky top-0 z-20 backdrop-blur-md bg-card/95")}
+      className={cn(hubCardClass, "px-3 py-2.5 sm:px-4 sticky top-0 z-20 backdrop-blur-md bg-white border border-slate-200 shadow-sm")}
       aria-label="Live control status"
     >
-      {logoSrc ? (
-        <div className="flex justify-center mb-2">
-          <a
-            href={BIDWAR_HOME_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            aria-label={`${brandName} — opens home page in a new tab`}
-          >
-            <img
-              src={logoSrc}
-              alt={logoAlt}
-              className="block h-7 sm:h-8 w-auto max-w-[min(200px,45vw)] object-contain"
-              loading="eager"
-              decoding="async"
-            />
-          </a>
-        </div>
-      ) : null}
-
       <div className="flex flex-col lg:flex-row lg:items-center gap-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2 flex-1 min-w-0">
           <div className="min-w-0">
@@ -81,7 +61,7 @@ export function MissionControlTopBar({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold tabular-nums">
-            <span className="text-white/40">{now}</span>
+            <span className="text-slate-500 font-medium">{now}</span>
             <StatusChip label="Live" value={liveCount} tone="live" />
             <StatusChip label="Ready" value={readyCount} tone="ready" />
             {delayedCount > 0 ? <StatusChip label="Delayed" value={delayedCount} tone="delayed" /> : null}
@@ -95,20 +75,20 @@ export function MissionControlTopBar({
               <button
                 type="button"
                 disabled
-                className="w-full sm:w-auto min-h-10 px-4 rounded-lg bg-white/10 text-white/45 text-sm font-bold cursor-not-allowed"
+                className="w-full sm:w-auto min-h-10 px-4 rounded-lg bg-slate-100 text-slate-400 border border-slate-200 text-sm font-semibold cursor-not-allowed"
                 title={primaryAction.disabledReason}
               >
                 {primaryAction.label}
               </button>
               {primaryAction.disabledReason ? (
-                <p className="text-[11px] text-amber-200/90 mt-1 max-w-xs">{primaryAction.disabledReason}</p>
+                <p className="text-[11px] text-amber-700 mt-1 max-w-xs">{primaryAction.disabledReason}</p>
               ) : null}
             </div>
           ) : primaryAction.href ? (
             <button
               type="button"
               onClick={() => navigate(primaryAction.href!)}
-              className="w-full sm:w-auto min-h-10 px-4 rounded-lg bg-amber-500/30 hover:bg-amber-500/40 text-amber-50 text-sm font-bold inline-flex items-center justify-center"
+              className="w-full sm:w-auto min-h-10 px-4 rounded-lg bg-primary hover:bg-amber-500 text-primary-foreground text-sm font-semibold inline-flex items-center justify-center shadow-sm"
             >
               {primaryAction.label}
             </button>
@@ -118,7 +98,7 @@ export function MissionControlTopBar({
             <button
               type="button"
               onClick={() => setResumeConfirmOpen(true)}
-              className="min-h-10 px-3 rounded-lg bg-emerald-500/25 hover:bg-emerald-500/35 text-emerald-100 text-xs font-bold"
+              className="min-h-10 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm"
             >
               Resume screens
             </button>
@@ -126,7 +106,7 @@ export function MissionControlTopBar({
             <button
               type="button"
               onClick={() => setEmergencyConfirmOpen(true)}
-              className="min-h-10 px-3 rounded-lg border border-orange-500/40 bg-orange-500/15 hover:bg-orange-500/25 text-orange-100 text-xs font-bold"
+              className="min-h-10 px-3 rounded-lg border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold"
             >
               Emergency pause
             </button>
@@ -171,16 +151,16 @@ function StatusChip({
 }) {
   const toneClass =
     tone === "live"
-      ? "text-red-300"
+      ? "text-rose-700"
       : tone === "ready"
-        ? "text-amber-200"
+        ? "text-amber-800"
         : tone === "delayed"
-          ? "text-orange-200"
-          : "text-emerald-300";
+          ? "text-orange-800"
+          : "text-emerald-700";
   return (
-    <span className={cn("inline-flex items-baseline gap-1", toneClass)}>
+    <span className={cn("inline-flex items-baseline gap-1 font-semibold", toneClass)}>
       <span className="text-base font-bold">{value}</span>
-      <span className="text-[10px] uppercase tracking-wider opacity-80">{label}</span>
+      <span className="text-[10px] uppercase tracking-wider">{label}</span>
     </span>
   );
 }

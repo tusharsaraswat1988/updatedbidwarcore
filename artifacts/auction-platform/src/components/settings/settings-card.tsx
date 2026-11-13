@@ -32,7 +32,7 @@ export function SettingsCard({
       {title ? (
         <CardHeader
           className={cn(
-            "px-5 py-4 border-b border-border/50 bg-white/[0.02]",
+            "px-5 py-4 border-b border-border/50 bg-muted/20",
             headerClassName,
           )}
         >
