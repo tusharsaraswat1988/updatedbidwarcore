@@ -388,7 +388,7 @@ export default function AdminTournamentsListPage() {
                     {/* Col 1: Tournament Info */}
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-bold text-foreground text-sm hover:text-primary transition-colors">
+                        <span className="font-bold text-foreground text-sm hover:text-primary transition-colors truncate max-w-[280px]" title={t.name}>
                           {t.name}
                         </span>
                         <Badge variant="outline" className={`text-[10px] gap-1 px-1.5 py-0 ${sport.color}`}>

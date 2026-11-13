@@ -22,6 +22,7 @@ import { readWindowDehydratedState, readWindowInitialData, normalizeHomeInitialD
 import { BootSplash } from "@/components/boot-splash";
 import { ErrorBoundary } from "@/components/error-boundary";
 import Landing from "@/pages/lovable-home";
+import AdminLogin from "@/pages/admin-login";
 
 const PlatformApp = lazy(() => import("./platform-app"));
 
@@ -229,6 +230,9 @@ function Router() {
         <Route path="/player-auction-software">{() => <SeoSportLanding slug="player-auction-software" />}</Route>
         <Route path="/sports-league-management-software">{() => <SeoSportLanding slug="sports-league-management-software" />}</Route>
         <Route path="/badminton-scoring-software">{() => <SeoSportLanding slug="badminton-scoring-software" />}</Route>
+
+        {/* Super Admin Login — renders directly to eliminate any intermediate blue loader or boot splash */}
+        <Route path="/admin/login" component={AdminLogin} />
 
         {/* Everything else lives in the operator/admin app shell */}
         <Route>

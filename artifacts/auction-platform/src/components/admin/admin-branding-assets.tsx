@@ -419,11 +419,11 @@ function AssetCard({
         {/* Purpose badge */}
         {assetType === "PRIMARY_LOGO" ? (
           <span className="absolute top-1.5 left-2 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wide bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-500/30 shadow-xs z-10">
-            ☀️ Light Design (Admin &amp; Sites)
+            ☀️ Light Surfaces
           </span>
         ) : assetType === "REVERSE_LOGO" ? (
           <span className="absolute top-1.5 left-2 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wide bg-blue-500/20 text-blue-300 border border-blue-500/30 shadow-xs z-10">
-            🌙 Dark Surfaces &amp; Header
+            🌙 Dark Surfaces
           </span>
         ) : null}
 

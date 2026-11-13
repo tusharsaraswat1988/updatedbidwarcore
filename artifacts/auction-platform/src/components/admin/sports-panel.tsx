@@ -1151,13 +1151,13 @@ export function SportsPanel() {
       {/* ─── Column 3: Specifications & Live Preview ───────────────────────── */}
       <div className="flex-1 flex flex-col min-h-0 bg-background/50">
         {/* Col 3 Header & View Mode Switcher */}
-        <div className="p-3 border-b border-border/60 flex items-center justify-between flex-shrink-0 bg-card/40">
-          <div className="flex items-center gap-2">
-            <ClipboardList className="w-4 h-4 text-primary" />
-            <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground">Specifications & Rules</h3>
+        <div className="p-3 border-b border-border/60 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 flex-shrink-0 bg-card/40">
+          <div className="flex items-center gap-2 min-w-0">
+            <ClipboardList className="w-4 h-4 text-primary shrink-0" />
+            <div className="min-w-0">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-foreground truncate">Specifications & Rules</h3>
               {selectedRole && (
-                <p className="text-[11px] text-muted-foreground mt-0.5">
+                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
                   Attributes for <span className="text-foreground font-medium">{selectedRole.roleName}</span>
                 </p>
               )}
@@ -1165,25 +1165,25 @@ export function SportsPanel() {
           </div>
 
           {selectedRole && (
-            <div className="inline-flex rounded-lg border border-border/60 bg-muted/40 p-0.5 text-xs">
+            <div className="inline-flex rounded-lg border border-border/60 bg-muted/40 p-0.5 text-xs shrink-0">
               <button
                 type="button"
                 onClick={() => setCol3ViewTab("specs")}
                 className={cn(
-                  "px-3 py-1 font-medium rounded-md transition-colors text-xs flex items-center gap-1.5",
+                  "px-2.5 py-1 font-medium rounded-md transition-colors text-xs flex items-center gap-1.5 whitespace-nowrap",
                   col3ViewTab === "specs"
                     ? "bg-background text-foreground shadow-xs font-semibold"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <SlidersHorizontal className="w-3 h-3" />
-                Specifications ({activeSpecGroups.length})
+                Specs ({activeSpecGroups.length})
               </button>
               <button
                 type="button"
                 onClick={() => setCol3ViewTab("preview")}
                 className={cn(
-                  "px-3 py-1 font-medium rounded-md transition-colors text-xs flex items-center gap-1.5",
+                  "px-2.5 py-1 font-medium rounded-md transition-colors text-xs flex items-center gap-1.5 whitespace-nowrap",
                   col3ViewTab === "preview"
                     ? "bg-background text-foreground shadow-xs font-semibold"
                     : "text-muted-foreground hover:text-foreground"

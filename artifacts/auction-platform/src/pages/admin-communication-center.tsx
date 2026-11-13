@@ -1843,7 +1843,7 @@ export default function AdminCommunicationCenter() {
       <AdminShell title="Communication Center">
         <div className="space-y-4 p-6">
           <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-64 w-full" />
+          <Skeleton className="h-48 w-full" />
         </div>
       </AdminShell>
     );
@@ -1913,7 +1913,7 @@ export default function AdminCommunicationCenter() {
 
         {/* Master Channel Selector Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid grid-cols-2 md:grid-cols-6 h-auto gap-1 bg-card/60 p-1.5 border border-border rounded-xl">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 h-auto gap-1 bg-card/60 p-1.5 border border-border rounded-xl">
             <TabsTrigger
               value="overview"
               className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 text-xs font-semibold"
@@ -2059,7 +2059,7 @@ export default function AdminCommunicationCenter() {
                     Aggregated volume of sent, delivered, and pending communication
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="h-64 pt-2">
+                <CardContent className="h-48 pt-2">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={dashboard.graphData}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.15} />

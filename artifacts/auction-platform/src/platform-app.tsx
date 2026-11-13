@@ -14,6 +14,7 @@ import { readWindowAcademyData } from "@/lib/academy-public";
 
 import { isOrganizerRoute, syncDocumentSurfaceTheme } from "@/lib/portal-theme";
 import { BootSplash } from "@/components/boot-splash";
+import AdminLogin from "@/pages/admin-login";
 
 const TournamentSettings = lazy(() => import("@/pages/tournament-settings"));
 const AuctionOperator = lazy(() => import("@/pages/auction-operator"));
@@ -32,7 +33,6 @@ const FortuneWheel = lazy(() => import("@/pages/fortune-wheel"));
 const PlayerRegister = lazy(() => import("@/pages/player-register"));
 const PlayerRegisterLegacy = lazy(() => import("@/pages/player-register-legacy"));
 const OrganizerLogin = lazy(() => import("@/pages/organizer-login"));
-const AdminLogin = lazy(() => import("@/pages/admin-login"));
 const AdminDashboardOverview = lazy(() => import("@/pages/admin-dashboard-overview"));
 const AdminEventsActivities = lazy(() => import("@/pages/admin-events-activities"));
 const AdminLiveOperations = lazy(() => import("@/pages/admin-live-operations"));
@@ -113,6 +113,10 @@ function RouteSuspenseFallback() {
         <p className="text-sm text-white/50">Loading auction control…</p>
       </div>
     );
+  }
+
+  if (path === "/admin/login" || path.startsWith("/admin/login")) {
+    return null;
   }
 
   if (path === "/admin" || path.startsWith("/admin/")) {

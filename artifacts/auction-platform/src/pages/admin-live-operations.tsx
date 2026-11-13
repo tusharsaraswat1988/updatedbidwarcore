@@ -60,7 +60,7 @@ function LiveAuctions({
           className="block w-full border-b border-border p-3.5 text-left text-sm last:border-b-0 hover:bg-accent/50 lg:grid lg:grid-cols-[1fr_120px_180px_140px_140px] lg:items-center lg:gap-4"
         >
           <div className="min-w-0">
-            <div className="font-semibold text-white">{t.name}</div>
+            <div className="font-semibold text-foreground">{t.name}</div>
             <div className="text-xs text-muted-foreground">{t.sport} · ID #{t.id}</div>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 lg:mt-0">

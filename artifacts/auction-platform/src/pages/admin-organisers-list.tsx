@@ -320,7 +320,7 @@ export default function AdminOrganisersListPage() {
 
                     {/* Col 6: Action */}
                     <div className="mt-2.5 text-xs font-semibold text-primary lg:mt-0 lg:text-right">
-                      <span className="inline-block rounded-md px-2.5 py-1 hover:bg-primary/10 transition-colors">
+                      <span className="inline-block rounded-md bg-primary/10 px-2.5 py-1 hover:bg-primary/20 transition-colors">
                         Manage →
                       </span>
                     </div>

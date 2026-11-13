@@ -132,16 +132,19 @@ export default function AdminDashboardOverview() {
     }
     let cancelled = false;
     setPlatformStatsLoading(true);
-    Promise.all(tournaments.map((t) => fetchAdminTournamentDetail(t.id)))
-      .then((details) => {
+    Promise.allSettled(tournaments.map((t) => fetchAdminTournamentDetail(t.id)))
+      .then((results) => {
         if (cancelled) return;
         let totalPlayers = 0;
-        for (const detail of details) {
-          if (detail?.playerCounts?.total) {
-            totalPlayers += detail.playerCounts.total;
+        for (const res of results) {
+          if (res.status === "fulfilled" && res.value?.playerCounts?.total) {
+            totalPlayers += res.value.playerCounts.total;
           }
         }
         setPlatformStats({ totalPlayers });
+      })
+      .catch(() => {
+        if (!cancelled) setPlatformStats({ totalPlayers: 0 });
       })
       .finally(() => {
         if (!cancelled) setPlatformStatsLoading(false);

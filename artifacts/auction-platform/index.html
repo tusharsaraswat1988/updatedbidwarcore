@@ -45,6 +45,20 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Alex+Brush&family=Cinzel:wght@400;600;700;900&family=Great+Vibes&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet" />
 
+    <script>
+      (function(){
+        try {
+          var p = window.location.pathname;
+          if (p === '/admin/login' || p === '/admin/login/') {
+            var el = document.createElement('style');
+            el.id = 'bidwar-admin-login-preboot';
+            el.textContent = 'html,body,#root{background:#F8F7F2 !important;color:#2E281E !important;} #bidwar-boot-splash{display:none !important;}';
+            document.head.appendChild(el);
+          }
+        } catch(e){}
+      })();
+    </script>
+
     <!-- Critical CSS: dark shell + boot splash (inline so first paint is styled before Tailwind loads).
          Colors match the Lovable design tokens (.lovable-home in src/styles/lovable-homepage.css)
          so the loader doesn't flash a different theme before the app mounts. -->

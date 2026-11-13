@@ -22,6 +22,18 @@ describe("BidWar Super Admin Login — Champagne Gold & Pearl Reference Suite", 
     path.resolve(__dirname, "../../styles/admin-neural-login.css"),
     "utf8"
   );
+  const platformAppSrc = readFileSync(
+    path.resolve(__dirname, "../../platform-app.tsx"),
+    "utf8"
+  );
+  const appSrc = readFileSync(
+    path.resolve(__dirname, "../../App.tsx"),
+    "utf8"
+  );
+  const indexHtmlSrc = readFileSync(
+    path.resolve(__dirname, "../../../index.html"),
+    "utf8"
+  );
 
   describe("1. AI Neural Core 3D Engine — Champagne Gold Reference Matching", () => {
     it("uses Fibonacci sphere distribution with 96 nodes", () => {
@@ -214,6 +226,29 @@ describe("BidWar Super Admin Login — Champagne Gold & Pearl Reference Suite", 
     it("includes prefers-reduced-motion accessibility overrides", () => {
       expect(stylesSrc).toContain("@media (prefers-reduced-motion: reduce)");
       expect(stylesSrc).toContain("animation: none !important");
+    });
+  });
+
+  describe("6. Immediate Neural Core Boot — Zero Blue Loader Flash", () => {
+    it("bypasses dark blue console loader in RouteSuspenseFallback for /admin/login", () => {
+      expect(platformAppSrc).toContain('if (path === "/admin/login" || path.startsWith("/admin/login"))');
+      expect(platformAppSrc).toContain("return null;");
+    });
+
+    it("eagerly imports AdminLogin in platform-app.tsx", () => {
+      expect(platformAppSrc).toContain('import AdminLogin from "@/pages/admin-login";');
+      expect(platformAppSrc).not.toContain('lazy(() => import("@/pages/admin-login"))');
+    });
+
+    it("registers /admin/login directly in App.tsx to bypass PlatformApp suspense", () => {
+      expect(appSrc).toContain('import AdminLogin from "@/pages/admin-login";');
+      expect(appSrc).toContain('<Route path="/admin/login" component={AdminLogin} />');
+    });
+
+    it("suppresses boot splash and enforces pearl background in index.html for /admin/login", () => {
+      expect(indexHtmlSrc).toContain("bidwar-admin-login-preboot");
+      expect(indexHtmlSrc).toContain("#F8F7F2");
+      expect(indexHtmlSrc).toContain("#bidwar-boot-splash{display:none !important;}");
     });
   });
 });
