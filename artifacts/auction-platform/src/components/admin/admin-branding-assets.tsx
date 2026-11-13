@@ -2,7 +2,9 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Upload, X, RefreshCw, Image, AlertTriangle, FileImage,
   ChevronDown, ChevronUp, Info, CheckCircle2, Clock, ShieldCheck, Monitor,
+  Sun, Moon, Grid,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -394,10 +396,74 @@ function AssetCard({
         ? `${asset.width}×${asset.height}`
         : "—";
 
+  // Contextual initial preview background:
+  // - PRIMARY_LOGO & PDF_WATERMARK default to "light" (intended for light theme / document surfaces)
+  // - REVERSE_LOGO & OBS_WATERMARK default to "dark" (intended for dark theme / broadcast surfaces)
+  const defaultBgMode: "light" | "dark" | "checker" =
+    assetType === "PRIMARY_LOGO" || assetType === "PDF_WATERMARK"
+      ? "light"
+      : "dark";
+  const [bgMode, setBgMode] = useState<"light" | "dark" | "checker">(defaultBgMode);
+
+  const previewBgClass =
+    bgMode === "light"
+      ? "bg-slate-100 text-slate-900 border-b border-slate-200"
+      : bgMode === "dark"
+        ? "bg-slate-950/95 border-b border-slate-800"
+        : "bg-[linear-gradient(45deg,#334155_25%,transparent_25%),linear-gradient(-45deg,#334155_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#334155_75%),linear-gradient(-45deg,transparent_75%,#334155_75%)] bg-[size:16px_16px] bg-[#1e293b] border-b border-slate-700";
+
   return (
     <div className="rounded-xl border border-border/50 bg-card/30 overflow-hidden flex flex-col">
-      {/* Compact preview */}
-      <div className="relative h-[72px] flex items-center justify-center bg-muted/5 border-b border-border/30">
+      {/* Compact preview with contrast toggle and purpose badge */}
+      <div className={cn("relative h-20 flex items-center justify-center transition-colors duration-200 overflow-hidden", previewBgClass)}>
+        {/* Purpose badge */}
+        {assetType === "PRIMARY_LOGO" ? (
+          <span className="absolute top-1.5 left-2 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wide bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-500/30 shadow-xs z-10">
+            ☀️ Light Design (Admin &amp; Sites)
+          </span>
+        ) : assetType === "REVERSE_LOGO" ? (
+          <span className="absolute top-1.5 left-2 px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-wide bg-blue-500/20 text-blue-300 border border-blue-500/30 shadow-xs z-10">
+            🌙 Dark Surfaces &amp; Header
+          </span>
+        ) : null}
+
+        {/* Contrast toggle */}
+        <div className="absolute top-1.5 right-1.5 flex items-center bg-black/50 backdrop-blur-md rounded-md p-0.5 border border-white/10 z-10">
+          <button
+            type="button"
+            title="Light background preview"
+            onClick={(e) => { e.stopPropagation(); setBgMode("light"); }}
+            className={cn(
+              "p-1 rounded text-xs transition-colors cursor-pointer",
+              bgMode === "light" ? "bg-white text-slate-900 shadow-xs" : "text-slate-400 hover:text-white",
+            )}
+          >
+            <Sun className="w-3 h-3" />
+          </button>
+          <button
+            type="button"
+            title="Dark background preview"
+            onClick={(e) => { e.stopPropagation(); setBgMode("dark"); }}
+            className={cn(
+              "p-1 rounded text-xs transition-colors cursor-pointer",
+              bgMode === "dark" ? "bg-slate-800 text-white shadow-xs" : "text-slate-400 hover:text-white",
+            )}
+          >
+            <Moon className="w-3 h-3" />
+          </button>
+          <button
+            type="button"
+            title="Checkerboard transparency preview"
+            onClick={(e) => { e.stopPropagation(); setBgMode("checker"); }}
+            className={cn(
+              "p-1 rounded text-xs transition-colors cursor-pointer",
+              bgMode === "checker" ? "bg-amber-500/30 text-amber-300 shadow-xs" : "text-slate-400 hover:text-white",
+            )}
+          >
+            <Grid className="w-3 h-3" />
+          </button>
+        </div>
+
         {previewUrl ? (
           <img src={previewUrl} className="max-h-14 max-w-[85%] object-contain" alt={meta.name} />
         ) : (

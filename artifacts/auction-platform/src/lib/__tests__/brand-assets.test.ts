@@ -4,6 +4,7 @@ import {
   getOrganizationLogoUrl,
   isBrandLogoPlaceholderSrc,
 } from "@/lib/brand-assets";
+import { getBrandSurfacePreset } from "@/lib/brand-usage";
 import {
   resolvePlatformLogoPathForOrder,
   resolvePlatformPrimaryLogoPath,
@@ -24,5 +25,22 @@ describe("brand-assets production logo strategy", () => {
       "/bidwar-reverse-logo.png?v=1",
     );
     expect(resolvePlatformPrimaryLogoPath(0)).toBe("/bidwar-primary-logo.png");
+  });
+
+  it("maps light design surfaces to PRIMARY_LOGO and dark design to REVERSE_LOGO", () => {
+    const organizerAuth = getBrandSurfacePreset("organizer-auth");
+    expect(organizerAuth.logoAsset).toBe("PRIMARY_LOGO");
+    expect(organizerAuth.logoOrder[0]).toBe("main");
+    expect(organizerAuth.darkBackground).toBe(false);
+
+    const adminLogin = getBrandSurfacePreset("auth-login");
+    expect(adminLogin.logoAsset).toBe("REVERSE_LOGO");
+    expect(adminLogin.logoOrder[0]).toBe("mainReverse");
+    expect(adminLogin.darkBackground).toBe(true);
+
+    const regHeader = getBrandSurfacePreset("registration-header");
+    expect(regHeader.logoAsset).toBe("PRIMARY_LOGO");
+    expect(regHeader.logoOrder[0]).toBe("main");
+    expect(regHeader.darkBackground).toBe(false);
   });
 });

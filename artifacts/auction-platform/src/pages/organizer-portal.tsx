@@ -78,7 +78,7 @@ import { auctionOverviewPath, resolveScoringEntryPath } from "@/lib/tournament-n
 import { sortOrganizerTournaments } from "@/lib/organizer-tournament-list";
 import "@/styles/organizer-dashboard-premium.css";
 
-const authLoginPreset = getBrandSurfacePreset("auth-login");
+const authLoginPreset = getBrandSurfacePreset("organizer-auth");
 const organizerHeaderPreset = getBrandSurfacePreset("organizer-dashboard-header");
 
 type OrganizerInfo = {
@@ -1879,26 +1879,32 @@ function OrganizerDashboard({
             {/* BidWar brand mark */}
             {(() => {
               const headerLogoSrc = getBrandLogoSrc(logos, organizerHeaderPreset.logoOrder);
-              return headerLogoSrc ? (
-                <img src={headerLogoSrc} alt={logoAlt} className={organizerHeaderPreset.sizeClass} />
-              ) : (
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/25 via-primary/10 to-primary/5 border border-primary/30 flex items-center justify-center font-display font-black text-xs text-primary flex-shrink-0 shadow-sm shadow-primary/10">
-                  {miniBrandText}
+              const isWordmark = Boolean(logos.main || logos.mainReverse);
+              return (
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {headerLogoSrc ? (
+                    <img src={headerLogoSrc} alt={logoAlt} className={organizerHeaderPreset.sizeClass} />
+                  ) : (
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/25 via-primary/10 to-primary/5 border border-primary/30 flex items-center justify-center font-display font-black text-xs text-primary flex-shrink-0 shadow-sm shadow-primary/10">
+                      {miniBrandText}
+                    </div>
+                  )}
+                  <div className="flex flex-col min-w-0">
+                    <div className="flex items-center gap-2">
+                      {!isWordmark && (
+                        <span className="font-display font-black text-sm tracking-tight text-foreground leading-none">BIDWAR</span>
+                      )}
+                      <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/35 text-[10px] font-bold text-amber-700 tracking-wider uppercase leading-none hidden sm:inline-block">
+                        Organizer Hub
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5 hidden sm:block">
+                      Sports Auction &amp; Event Management
+                    </span>
+                  </div>
                 </div>
               );
             })()}
-            
-            <div className="flex flex-col min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-display font-black text-sm tracking-tight text-foreground leading-none">BIDWAR</span>
-                <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/35 text-[10px] font-bold text-amber-700 tracking-wider uppercase leading-none hidden sm:inline-block">
-                  Organizer Hub
-                </span>
-              </div>
-              <span className="text-[11px] text-muted-foreground truncate leading-tight mt-0.5 hidden sm:block">
-                Sports Auction &amp; Event Management
-              </span>
-            </div>
           </div>
 
           {/* Right Area: Profile Menu */}

@@ -50,6 +50,7 @@ export type BrandSurfaceId =
   | "landing-header"
   | "landing-footer"
   | "auth-login"
+  | "organizer-auth"
   | "sidebar-compact"
   | "organizer-dashboard-header"
   | "organizer-main-toolbar"
@@ -106,6 +107,15 @@ export const BRAND_SURFACE_PRESETS: Record<BrandSurfaceId, BrandSurfacePreset> =
     showPoweredBy: false,
     darkBackground: true,
   },
+  /** Organizer Portal auth screen (light background redesign) — uses PRIMARY_LOGO (dark text) */
+  "organizer-auth": {
+    logoAsset: "PRIMARY_LOGO",
+    logoOrder: ["main", "mainReverse", "mini", "appIcon"],
+    sizeClass: "h-16 md:h-20 w-auto max-w-[280px] mx-auto object-contain",
+    showBrandName: false,
+    showPoweredBy: false,
+    darkBackground: false,
+  },
   "sidebar-compact": {
     logoAsset: "SYMBOL_LOGO",
     logoOrder: ["mini", "main", "mainReverse", "appIcon"],
@@ -115,9 +125,9 @@ export const BRAND_SURFACE_PRESETS: Record<BrandSurfaceId, BrandSurfacePreset> =
     darkBackground: false,
   },
   "organizer-dashboard-header": {
-    logoAsset: "SYMBOL_LOGO",
-    logoOrder: ["mini", "main", "mainReverse", "appIcon"],
-    sizeClass: "h-9 w-9 object-contain flex-shrink-0",
+    logoAsset: "PRIMARY_LOGO",
+    logoOrder: ["main", "mainReverse", "mini", "appIcon"],
+    sizeClass: "h-8 w-auto max-w-[8.5rem] object-contain flex-shrink-0",
     showBrandName: false,
     showPoweredBy: false,
     darkBackground: false,
@@ -189,12 +199,12 @@ export const BRAND_SURFACE_PRESETS: Record<BrandSurfaceId, BrandSurfacePreset> =
     darkBackground: true,
   },
   "registration-header": {
-    logoAsset: "SYMBOL_LOGO",
-    logoOrder: ["mini", "appIcon", "mainReverse", "main"],
+    logoAsset: "PRIMARY_LOGO",
+    logoOrder: ["main", "mini", "appIcon", "mainReverse"],
     sizeClass: "h-10 sm:h-12 w-auto",
     showBrandName: false,
     showPoweredBy: false,
-    darkBackground: true,
+    darkBackground: false,
   },
   "pdf-footer": {
     logoAsset: "SYMBOL_LOGO",

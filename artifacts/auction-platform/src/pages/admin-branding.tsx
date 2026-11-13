@@ -301,23 +301,45 @@ function PreviewAuctionBar({ form }: { form: BrandingForm }) {
 }
 
 function PreviewViewerBar({ form, assets }: { form: BrandingForm; assets: PreviewAssets }) {
-  const primaryLogo = assets.PRIMARY_LOGO;
+  const reverseLogo = assets.REVERSE_LOGO || assets.PRIMARY_LOGO;
   return (
     <div className="rounded-xl overflow-hidden border border-border/50">
       <div className="text-[10px] text-muted-foreground/60 px-3 py-1.5 border-b border-border/30 bg-muted/10">
-        Viewer screen
+        Viewer screen (Dark surface)
       </div>
       <div
         className="px-4 py-4 flex flex-col items-center gap-1"
         style={{ backgroundColor: form.backgroundColor }}
       >
-        {primaryLogo
-          ? <img src={primaryLogo} className="h-8 object-contain" alt="" />
+        {reverseLogo
+          ? <img src={reverseLogo} className="h-8 object-contain" alt="" />
           : <p className="text-lg font-black" style={{ color: form.primaryColor, fontFamily: form.headingFont }}>{form.brandName}</p>
         }
         {form.showPoweredByViewer && (
           <span className="text-[10px] text-white/40" style={{ fontFamily: form.bodyFont }}>{form.poweredByText}</span>
         )}
+      </div>
+    </div>
+  );
+}
+
+function PreviewOrganizerPortal({ form, assets }: { form: BrandingForm; assets: PreviewAssets }) {
+  const primaryLogo = assets.PRIMARY_LOGO || assets.REVERSE_LOGO;
+  return (
+    <div className="rounded-xl overflow-hidden border border-border/50">
+      <div className="text-[10px] text-muted-foreground/60 px-3 py-1.5 border-b border-border/30 bg-muted/10">
+        Organizer Portal (Light Design)
+      </div>
+      <div className="px-4 py-3 bg-white flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {primaryLogo
+            ? <img src={primaryLogo} className="h-6 max-w-[8rem] object-contain" alt="" />
+            : <span className="text-sm font-black text-slate-900" style={{ fontFamily: form.headingFont }}>{form.brandName}</span>
+          }
+        </div>
+        <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+          Organizer Hub
+        </span>
       </div>
     </div>
   );
@@ -751,8 +773,9 @@ export default function AdminBranding() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
                   <div className="space-y-2">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5">
-                      <Monitor className="w-3.5 h-3.5" /> Desktop
+                      <Monitor className="w-3.5 h-3.5" /> Desktop &amp; Workspaces
                     </p>
+                    <PreviewOrganizerPortal form={form} assets={previewAssets} />
                     <PreviewLoginHeader form={form} assets={previewAssets} />
                     <PreviewAuctionBar form={form} />
                   </div>
