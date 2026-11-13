@@ -452,7 +452,7 @@ function CompleteProfileForm({
             Verify your mobile number with OTP to continue using BidWar.
           </p>
         </div>
-        <Card className="panel border-none">
+        <Card className="border border-border bg-card shadow-card">
           <CardContent className="p-6">
             {step === "mobile" ? (
               <form onSubmit={handleSendOtp} className="space-y-4">
@@ -550,7 +550,7 @@ function OrganizerSupportModal({ open, onOpenChange }: { open: boolean; onOpenCh
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md panel border-border/80 text-foreground">
+      <DialogContent className="sm:max-w-md border border-border bg-card shadow-xl text-foreground">
         <DialogHeader className="space-y-1">
           <DialogTitle className="text-lg font-bold flex items-center gap-2">
             <span className="p-1.5 rounded-lg bg-primary/10 text-primary">

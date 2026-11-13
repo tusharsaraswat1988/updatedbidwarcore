@@ -363,15 +363,15 @@ export default function Categories() {
             {[1,2,3].map(i => <Skeleton key={i} className="h-36" />)}
           </div>
         ) : categories?.length === 0 ? (
-          <div className="org-surface-card border-dashed py-14 px-8 text-center max-w-xl">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4">
-              <Tag className="w-7 h-7 text-amber-500/60" />
+          <div className="org-surface-card border-dashed py-14 px-8 text-center max-w-xl mx-auto rounded-xl border-2 border-slate-300 bg-white shadow-xs">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-4">
+              <Tag className="w-7 h-7 text-amber-600" />
             </div>
-            <h3 className="font-display font-bold text-lg mb-2">No categories yet — and that is fine</h3>
-            <p className="text-muted-foreground text-sm mb-1">
+            <h3 className="font-display font-bold text-lg mb-2 text-slate-900">No categories yet — and that is fine</h3>
+            <p className="text-slate-600 text-sm mb-1 leading-relaxed">
               Categories are tournament divisions (U-14, Men's Singles, Open). Auction tournaments can also use them as bid tiers with different minimum values.
             </p>
-            <p className="text-xs text-muted-foreground mb-6">
+            <p className="text-xs text-slate-500 mb-6">
               This step is optional. If you skip it, all players will use the tournament-level defaults.
             </p>
             <Button className="gap-2" onClick={() => { setEditing(null); setOpen(true); }}>
@@ -386,42 +386,45 @@ export default function Categories() {
               const assignedCount = playersByCategory.get(cat.id) ?? 0;
               const deleteBlocked = assignedCount > 0;
               return (
-                <Card key={cat.id} className="overflow-hidden panel border-none transition-colors hover:border-primary/40">
-                  <div className="h-1.5" style={{ backgroundColor: cat.colorCode || "#F59E0B" }} />
+                <Card key={cat.id} className="overflow-hidden border border-border bg-card shadow-card transition-all hover:border-slate-400/80 hover:shadow-md">
+                  <div className="h-1.5 w-full" style={{ backgroundColor: cat.colorCode || "#F59E0B" }} />
                   <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3">
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className="w-10 h-10 rounded-lg flex items-center justify-center"
-                          style={{ backgroundColor: `${cat.colorCode}22`, border: `1px solid ${cat.colorCode}44` }}
+                          className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: `${cat.colorCode}18`, border: `1.5px solid ${cat.colorCode}40` }}
                         >
                           {isFilterOnly
                             ? <Filter className="w-5 h-5" style={{ color: cat.colorCode || "#F59E0B" }} />
                             : <Tag className="w-5 h-5" style={{ color: cat.colorCode || "#F59E0B" }} />
                           }
                         </div>
-                        <div>
-                          <h3 className="font-bold text-xl leading-tight">{cat.name}</h3>
-                          {cat.maxPlayers && <p className="text-xs text-muted-foreground">Max {cat.maxPlayers} players/team</p>}
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-lg text-slate-900 leading-tight truncate">{cat.name}</h3>
+                          {cat.maxPlayers && <p className="text-xs text-slate-600 mt-0.5">Max {cat.maxPlayers} players/team</p>}
                           {assignedCount > 0 && (
-                            <p className="text-xs text-amber-500/90">{assignedCount} player{assignedCount === 1 ? "" : "s"} assigned</p>
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-md mt-1">
+                              {assignedCount} player{assignedCount === 1 ? "" : "s"} assigned
+                            </span>
                           )}
-                          {isFilterOnly && <p className="text-xs text-muted-foreground italic">Filter/grouping only</p>}
+                          {isFilterOnly && <p className="text-xs text-slate-500 italic mt-0.5">Filter/grouping only</p>}
                         </div>
                       </div>
-                      <div className="flex gap-1">
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setEditing(cat); setOpen(true); }}>
-                          <Pencil className="w-4 h-4" />
+                      <div className="flex gap-1 shrink-0">
+                        <Button size="icon" variant="outline" className="h-8 w-8 hover:bg-slate-100" onClick={() => { setEditing(cat); setOpen(true); }} aria-label={`Edit ${cat.name}`}>
+                          <Pencil className="w-4 h-4 text-slate-700" />
                         </Button>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <span className="inline-flex">
                               <Button
                                 size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 text-destructive hover:text-destructive disabled:opacity-40"
+                                variant="outline"
+                                className="h-8 w-8 text-destructive hover:bg-red-50 hover:text-red-700 hover:border-red-300 disabled:opacity-40"
                                 disabled={deleteBlocked || deleteCat.isPending}
                                 onClick={() => handleDelete(cat.id, cat.name)}
+                                aria-label={`Delete ${cat.name}`}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </Button>
@@ -436,19 +439,19 @@ export default function Categories() {
                       </div>
                     </div>
                     {!isFilterOnly && (
-                      <div className="grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm">
+                      <div className="grid grid-cols-2 gap-3 border-t border-border pt-3.5 mt-2 text-sm">
                         <div>
-                          <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Min Base Value</p>
-                          <p className="font-bold font-mono" style={{ color: cat.colorCode || "#F59E0B" }}>
+                          <p className="text-slate-500 text-[11px] font-semibold uppercase tracking-wider mb-0.5">Min Base Value</p>
+                          <p className="font-bold font-mono text-slate-900 text-sm">
                             {cat.minBid != null ? formatIndianRupee(cat.minBid) : "Hub default"}
                           </p>
                         </div>
                         <div>
-                          <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Increment</p>
+                          <p className="text-slate-500 text-[11px] font-semibold uppercase tracking-wider mb-0.5">Increment</p>
                           {cat.bidTiers ? (
-                            <p className="font-bold font-mono text-muted-foreground text-xs">Tier system</p>
+                            <span className="inline-flex items-center text-xs font-mono font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded">Tier system</span>
                           ) : (
-                            <p className="font-bold font-mono text-muted-foreground">
+                            <p className="font-bold font-mono text-slate-900 text-sm">
                               {cat.bidIncrement != null ? formatIndianRupee(cat.bidIncrement) : "Hub default"}
                             </p>
                           )}

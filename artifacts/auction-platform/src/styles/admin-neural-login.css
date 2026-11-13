@@ -1,0 +1,146 @@
+/* ==========================================================================
+   BIDWAR SUPER ADMIN — CHAMPAGNE GOLD & PEARL IVORY NEURAL CORE STYLES
+   Futuristic Intelligence Console — Warm Luxury Champagne Aesthetic
+   Palette: Pearl Ivory (#F8F7F2), Warm Beige (#F1EFE7), Champagne Gold (#D4AF37 / #E5C158),
+            Muted Bronze-Taupe (#4A4035), Warm Radiant Gold (#FFD269)
+   Zero Blue / Cyan / Navy Tinting
+   ========================================================================== */
+
+/* Ambient Floating Gradient Meshes (Smooth 110px blur on pearl, zero blue) */
+.login-mesh {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(110px);
+  pointer-events: none;
+  opacity: 0.5;
+  will-change: transform;
+}
+
+/* Mesh A: Soft Warm Champagne ambient drifting top-left */
+.login-mesh-a {
+  width: 580px;
+  height: 580px;
+  background: radial-gradient(circle, rgba(240, 220, 180, 0.22) 0%, rgba(230, 210, 175, 0.08) 55%, transparent 100%);
+  top: -180px;
+  left: -140px;
+  animation: loginFloatA 18s ease-in-out infinite alternate;
+}
+
+/* Mesh B: Luminous Warm Amber-Gold glow drifting bottom-right */
+.login-mesh-b {
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, rgba(255, 210, 120, 0.16) 0%, rgba(245, 195, 100, 0.04) 55%, transparent 100%);
+  bottom: 0%;
+  right: -140px;
+  animation: loginFloatB 20s ease-in-out infinite alternate;
+}
+
+/* Mesh C: Ethereal Pearl Ivory warmth floating center-left */
+.login-mesh-c {
+  width: 480px;
+  height: 480px;
+  background: radial-gradient(circle, rgba(245, 238, 226, 0.75) 0%, rgba(238, 228, 212, 0.18) 55%, transparent 100%);
+  top: 45%;
+  left: 8%;
+  animation: loginFloatC 16s ease-in-out infinite alternate;
+}
+
+/* Concentric Outer Energy Rings (Champagne Gold, Blends Seamlessly into Ivory) */
+.login-orb-ring {
+  position: absolute;
+  inset: -14px;
+  border-radius: 9999px;
+  border: 1px solid rgba(220, 185, 120, 0.32);
+  box-shadow: 0 0 24px rgba(240, 200, 130, 0.14), inset 0 0 14px rgba(240, 200, 130, 0.06);
+  pointer-events: none;
+  animation: loginPulse 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.login-orb-ring-delay {
+  animation: loginPulse 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  animation-delay: 1.8s;
+  border-color: rgba(200, 170, 125, 0.22);
+  box-shadow: 0 0 20px rgba(220, 185, 130, 0.1), inset 0 0 12px rgba(220, 185, 130, 0.04);
+}
+
+.login-orb-sheen {
+  position: absolute;
+  inset: 2px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    140deg,
+    rgba(255, 235, 180, 0.18) 0%,
+    transparent 38%,
+    transparent 62%,
+    rgba(220, 185, 125, 0.12) 100%
+  );
+  pointer-events: none;
+}
+
+/* Keyframe Animations */
+@keyframes loginPulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.6;
+  }
+  65% {
+    transform: scale(1.14);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.14);
+    opacity: 0;
+  }
+}
+
+@keyframes loginFloatA {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(35px, 24px, 0) scale(1.05);
+  }
+  100% {
+    transform: translate3d(18px, 45px, 0) scale(0.98);
+  }
+}
+
+@keyframes loginFloatB {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-35px, -24px, 0) scale(1.04);
+  }
+  100% {
+    transform: translate3d(-18px, -40px, 0) scale(0.97);
+  }
+}
+
+@keyframes loginFloatC {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(22px, -28px, 0) scale(1.06);
+  }
+  100% {
+    transform: translate3d(-14px, -14px, 0) scale(0.95);
+  }
+}
+
+/* Reduced Motion Override */
+@media (prefers-reduced-motion: reduce) {
+  .login-mesh-a,
+  .login-mesh-b,
+  .login-mesh-c {
+    animation: none !important;
+  }
+  .login-orb-ring,
+  .login-orb-ring-delay {
+    animation: none !important;
+    opacity: 0.15 !important;
+    transform: scale(1) !important;
+  }
+}

@@ -32,6 +32,12 @@
   --org-focus: #EAB308;
   --org-focus-ring: 0 0 0 2px #FFFFFF, 0 0 0 4px #EAB308;
 
+  /* ── Broadcast Surface Aliases Remapped to Light Mode ── */
+  --stage: #F1F5F9;
+  --panel: #FFFFFF;
+  --panel-2: #F8FAFC;
+  --rail: #E2E8F0;
+
   /* ── Status Tokens (Accessible Light Semantics) ── */
   --org-success: #059669;
   --org-success-bg: #ECFDF5;
@@ -338,14 +344,32 @@
 
 /* ── Organiser Reusable Cards & Rails ── */
 :is(.bw-organizer-light, [data-surface="organizer"]) .org-kpi-card,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="kpi-card"],
 :is(.bw-organizer-light, [data-surface="organizer"]) .org-surface-card,
 :is(.bw-organizer-light, [data-surface="organizer"]) .org-surface-rail,
 :is(.bw-organizer-light, [data-surface="organizer"]) .panel,
+:is(.bw-organizer-light, [data-surface="organizer"]) .panel-rail,
 :is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="card"] {
   background-color: #FFFFFF !important;
   border: 1px solid #CBD5E1 !important;
   border-radius: 0.75rem !important;
   box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.06), 0 0 0 1px rgb(15 23 42 / 0.04) !important;
+  color: var(--org-foreground) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-mobile-player-card {
+  background-color: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  border-left-width: 3px !important;
+  border-radius: 0.75rem !important;
+  color: #0F172A !important;
+  box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.05) !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-tip-banner {
+  background-color: #F8FAFC !important;
+  border: 1px solid #CBD5E1 !important;
+  color: #334155 !important;
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) .org-kpi-value {

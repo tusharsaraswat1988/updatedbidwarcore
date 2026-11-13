@@ -329,24 +329,24 @@ export function ReportCenter({
       `}</style>
 
       {/* Main Layout: Split Catalogue & Viewer */}
-      <div className="rounded-2xl border border-border/70 bg-card/60 backdrop-blur-sm shadow-xl overflow-hidden flex flex-col lg:flex-row min-h-[700px]">
+      <div className="rounded-2xl border border-border bg-card shadow-card overflow-hidden flex flex-col lg:flex-row min-h-[700px]">
         {/* Left Sidebar: Catalogue */}
-        <aside className="no-print w-full lg:w-80 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border/60 bg-muted/20 flex flex-col">
+        <aside className="no-print w-full lg:w-80 flex-shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-slate-50/50 flex flex-col">
           {/* Header & Tournament selector (if not hidden) */}
-          <div className="p-4 border-b border-border/40 space-y-3">
+          <div className="p-4 border-b border-border/70 space-y-3 bg-white">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-primary" />
-                <h3 className="font-display font-bold text-sm tracking-tight text-foreground">Report Catalogue</h3>
+                <FileText className="w-5 h-5 text-amber-500" />
+                <h3 className="font-display font-bold text-sm tracking-tight text-slate-900">Report Catalogue</h3>
               </div>
-              <Badge variant="secondary" className="text-[10px] font-mono">
+              <Badge variant="secondary" className="text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
                 {reportTypes.length + 1} Active
               </Badge>
             </div>
 
             {!hideTournamentSelector && (
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground font-semibold">Select Tournament</Label>
+                <Label className="text-xs text-slate-600 font-semibold">Select Tournament</Label>
                 <Select
                   value={activeTournamentId ? String(activeTournamentId) : ""}
                   onValueChange={v => {
@@ -355,7 +355,7 @@ export function ReportCenter({
                     onSelectTournament?.(id);
                   }}
                 >
-                  <SelectTrigger className="h-8 text-xs bg-background">
+                  <SelectTrigger className="h-8 text-xs bg-white border-border">
                     <SelectValue placeholder="-- Pick a tournament --" />
                   </SelectTrigger>
                   <SelectContent>
@@ -371,12 +371,12 @@ export function ReportCenter({
 
             {/* Catalogue Search */}
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
+              <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
               <Input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Search reports..."
-                className="h-8 pl-8 text-xs bg-background"
+                className="h-8 pl-8 text-xs bg-white border-border"
               />
             </div>
           </div>
@@ -384,8 +384,8 @@ export function ReportCenter({
           {/* Catalogue Report List */}
           <div className="flex-1 overflow-y-auto p-3 space-y-4 max-h-[600px]">
             {!activeTournamentId ? (
-              <div className="text-center py-10 px-3 text-muted-foreground text-xs">
-                <Trophy className="w-8 h-8 mx-auto mb-2 opacity-50 text-primary" />
+              <div className="text-center py-10 px-3 text-slate-500 text-xs">
+                <Trophy className="w-8 h-8 mx-auto mb-2 text-amber-500" />
                 Please select a tournament above to unlock reports.
               </div>
             ) : (
@@ -398,8 +398,8 @@ export function ReportCenter({
                 return (
                   <div key={catKey} className="space-y-1.5">
                     <div className="flex items-center gap-1.5 px-2 py-1">
-                      <CatIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <CatIcon className="w-3.5 h-3.5 text-slate-500" />
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
                         {meta.label}
                       </span>
                     </div>
@@ -416,25 +416,25 @@ export function ReportCenter({
                             onClick={() => handleSelectReport(r.id)}
                             className={`w-full text-left px-3 py-2.5 rounded-xl border transition flex items-start gap-2.5 ${
                               isSelected
-                                ? "bg-primary/10 border-primary/50 text-foreground shadow-sm ring-1 ring-primary/20"
-                                : "border-border/40 bg-card/40 hover:bg-card/80 text-muted-foreground hover:text-foreground"
+                                ? "bg-amber-50/90 border-amber-400 text-slate-900 shadow-xs ring-1 ring-amber-400/30"
+                                : "border-border/70 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 shadow-xs"
                             }`}
                           >
-                            <div className={`p-1.5 rounded-lg flex-shrink-0 ${isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                            <div className={`p-1.5 rounded-lg flex-shrink-0 ${isSelected ? "bg-amber-400 text-slate-950 font-bold" : "bg-slate-100 text-slate-600"}`}>
                               <Icon className="w-4 h-4" />
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between gap-1">
-                                <p className={`text-xs font-semibold truncate ${isSelected ? "text-primary font-bold" : ""}`}>
+                                <p className={`text-xs font-semibold truncate ${isSelected ? "text-slate-950 font-bold" : "text-slate-900"}`}>
                                   {r.title}
                                 </p>
                                 {isVisual && (
-                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-amber-500/10 text-amber-400 border-amber-500/30">
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 bg-amber-50 text-amber-800 border-amber-300 font-bold">
                                     Poster
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5 leading-snug">
+                              <p className="text-[10px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">
                                 {r.description}
                               </p>
                             </div>
@@ -591,9 +591,9 @@ export function ReportCenter({
                     {data.summary && data.summary.length > 0 && (
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 no-print">
                         {data.summary.map((item, idx) => (
-                          <div key={idx} className="p-3 bg-card/80 border border-border/60 rounded-xl shadow-sm">
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase">{item.label}</p>
-                            <p className="text-base font-bold text-foreground mt-0.5">{item.value}</p>
+                          <div key={idx} className="p-3 bg-white border border-border rounded-xl shadow-xs">
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{item.label}</p>
+                            <p className="text-base font-bold text-slate-900 mt-0.5">{item.value}</p>
                           </div>
                         ))}
                       </div>
@@ -675,9 +675,9 @@ function NoTournamentState() {
   return (
     <div className="flex-1 flex items-center justify-center p-8">
       <div className="text-center max-w-md">
-        <Trophy className="w-14 h-14 text-primary mx-auto mb-3 opacity-60" />
-        <h2 className="font-display font-bold text-xl mb-1 text-foreground">Select a Tournament</h2>
-        <p className="text-sm text-muted-foreground leading-relaxed">
+        <Trophy className="w-14 h-14 text-amber-500 mx-auto mb-3" />
+        <h2 className="font-display font-bold text-xl mb-1 text-slate-900">Select a Tournament</h2>
+        <p className="text-sm text-slate-600 leading-relaxed">
           Please select a tournament to view its detailed report catalogue.
         </p>
       </div>
@@ -689,9 +689,9 @@ function EmptyState() {
   return (
     <div className="flex-1 flex items-center justify-center p-8">
       <div className="text-center max-w-md">
-        <ShieldCheck className="w-14 h-14 text-primary mx-auto mb-3 opacity-60" />
-        <h2 className="font-display font-bold text-xl mb-1 text-foreground">Select a Report</h2>
-        <p className="text-sm text-muted-foreground leading-relaxed">
+        <ShieldCheck className="w-14 h-14 text-amber-500 mx-auto mb-3" />
+        <h2 className="font-display font-bold text-xl mb-1 text-slate-900">Select a Report</h2>
+        <p className="text-sm text-slate-600 leading-relaxed">
           Choose a report from the catalogue on the left to view data, apply filters, print sheets, or export to PDF, Excel, and CSV.
         </p>
       </div>
@@ -1355,31 +1355,31 @@ export function SectionTable({ section, unit = "points" }: { section: Section; u
     <div className="space-y-2">
       {section.heading && (
         <div className="flex items-center gap-2">
-          <div className="w-1.5 h-4 bg-primary rounded-sm print:hidden" />
-          <p className="font-display font-bold text-sm text-foreground">{section.heading}</p>
+          <div className="w-1.5 h-4 bg-amber-500 rounded-sm print:hidden" />
+          <p className="font-display font-bold text-sm text-slate-900">{section.heading}</p>
         </div>
       )}
-      <div className="border border-border/60 rounded-lg overflow-hidden bg-card/60 shadow-sm">
+      <div className="border border-border rounded-lg overflow-hidden bg-card shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-xs print-table">
-            <thead className="bg-muted/60 border-b border-border/60">
+            <thead className="bg-slate-50 border-b border-border">
               <tr>
                 {!hasSerialNo && (
-                  <th className="text-left px-3 py-2 font-bold text-muted-foreground w-10">#</th>
+                  <th className="text-left px-3 py-2.5 font-bold text-slate-700 uppercase tracking-wider text-[11px] w-10">#</th>
                 )}
                 {section.columns.map(c => (
-                  <th key={c.key} className="text-left px-3 py-2 font-bold text-muted-foreground whitespace-nowrap">{c.label}</th>
+                  <th key={c.key} className="text-left px-3 py-2.5 font-bold text-slate-700 uppercase tracking-wider text-[11px] whitespace-nowrap">{c.label}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {section.rows.slice(0, 300).map((row, i) => (
-                <tr key={i} className={`border-b border-border/30 transition hover:bg-muted/30 ${i % 2 === 0 ? "" : "bg-muted/10"}`}>
+                <tr key={i} className={`border-b border-border/70 transition hover:bg-slate-50 ${i % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
                   {!hasSerialNo && (
-                    <td className="px-3 py-2 text-muted-foreground font-mono">{i + 1}</td>
+                    <td className="px-3 py-2.5 text-slate-500 font-mono text-[11px]">{i + 1}</td>
                   )}
                   {section.columns.map(c => (
-                    <td key={c.key} className="px-3 py-2 whitespace-nowrap">{renderCell(row, c.key, unit)}</td>
+                    <td key={c.key} className="px-3 py-2.5 whitespace-nowrap text-slate-900">{renderCell(row, c.key, unit)}</td>
                   ))}
                 </tr>
               ))}
@@ -1387,7 +1387,7 @@ export function SectionTable({ section, unit = "points" }: { section: Section; u
           </table>
         </div>
         {section.rows.length > 300 && (
-          <div className="no-print text-[11px] text-muted-foreground bg-muted/30 px-3 py-2 border-t border-border/30 flex items-center justify-between">
+          <div className="no-print text-[11px] text-slate-600 bg-slate-50 px-3 py-2 border-t border-border flex items-center justify-between">
             <span>Showing first 300 of {section.rows.length} rows.</span>
             <span>Download PDF/Excel to view full dataset.</span>
           </div>
@@ -1399,22 +1399,22 @@ export function SectionTable({ section, unit = "points" }: { section: Section; u
 
 function renderCell(row: Record<string, unknown>, key: string, unit: AuctionUnit = "points") {
   const v = row[key];
-  if (v === null || v === undefined || v === "") return <span className="text-muted-foreground/50">-</span>;
+  if (v === null || v === undefined || v === "") return <span className="text-slate-400">-</span>;
   if (typeof v === "number") {
     if (key.toLowerCase().includes("price") || key === "purse" || key === "purseUsed" || key === "purseRemaining") {
-      return <span className="font-semibold text-foreground">{formatReportAmount(v, unit)}</span>;
+      return <span className="font-semibold text-slate-900">{formatReportAmount(v, unit)}</span>;
     }
-    if (key === "utilization") return <span className="font-semibold">{v.toFixed(1)}%</span>;
+    if (key === "utilization") return <span className="font-semibold text-slate-900">{v.toFixed(1)}%</span>;
     return String(v);
   }
   if (key === "status") {
     const s = String(v).toLowerCase();
     const cls =
-      s === "sold" ? "bg-green-500/15 text-green-400 border-green-500/30"
-      : s === "unsold" ? "bg-red-500/15 text-red-400 border-red-500/30"
-      : s === "retained" ? "bg-blue-500/15 text-blue-400 border-blue-500/30"
-      : "bg-muted/40 text-muted-foreground";
-    return <Badge className={`text-[9px] uppercase font-bold px-1.5 py-0 ${cls}`}>{s}</Badge>;
+      s === "sold" ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+      : s === "unsold" ? "bg-rose-50 text-rose-800 border-rose-300"
+      : s === "retained" ? "bg-blue-50 text-blue-800 border-blue-300"
+      : "bg-slate-100 text-slate-700 border-slate-300";
+    return <Badge className={`text-[9px] uppercase font-bold px-1.5 py-0 border ${cls}`}>{s}</Badge>;
   }
   return String(v);
 }

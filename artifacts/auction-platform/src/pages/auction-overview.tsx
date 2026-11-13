@@ -43,6 +43,7 @@ import {
 } from "@workspace/api-base/auction-readiness";
 import { TrialLicenseBadge } from "@/components/trial-license-badge";
 import { TournamentInsightsSection } from "@/components/tournament-insights-section";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { useTournamentInsightsFeed } from "@/hooks/use-tournament-insights";
 import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
 
@@ -460,148 +461,89 @@ export default function AuctionOverview() {
         <div className="org-stat-grid">
           {isSetupPhase ? (
             <>
-              <div className="org-kpi-card flex justify-between items-start gap-3">
-                <div className="min-w-0">
-                  <p className="org-kpi-label">Teams</p>
-                  {loadingPurses ? <Skeleton className="h-8 w-14 mt-1.5" /> : (
-                    <>
-                      <p className="org-kpi-value">{teamCount}</p>
-                      <p className={`text-xs mt-1 ${teamsReady ? "text-green-400" : "text-muted-foreground"}`}>
-                        {teamsReady ? `Ready · min ${MIN_TEAMS_REQUIRED}` : `${teamCount} of ${MIN_TEAMS_REQUIRED} minimum`}
-                      </p>
-                    </>
-                  )}
-                </div>
-                <div className="org-kpi-icon bg-primary/10"><Users className="w-5 h-5 text-primary" /></div>
-              </div>
-              <div className="org-kpi-card flex justify-between items-start gap-3">
-                <div className="min-w-0">
-                  <p className="org-kpi-label">Registered Players</p>
-                  {loadingSummary ? <Skeleton className="h-8 w-14 mt-1.5" /> : (
-                    <>
-                      <p className="org-kpi-value">{playerCount}</p>
-                      <p className={`text-xs mt-1 ${squadTargetMet ? "text-green-400" : teamsReady ? "text-amber-400" : "text-muted-foreground"}`}>
-                        {squadTargetMet
-                          ? `Squad target met · min ${minPlayersNeeded}`
-                          : `${playerCount} of ${squadTargetPlayersNeeded} needed for squads`}
-                      </p>
-                    </>
-                  )}
-                </div>
-                <div className="org-kpi-icon bg-blue-500/10"><UserCheck className="w-5 h-5 text-blue-500" /></div>
-              </div>
-              <div className="org-kpi-card flex justify-between items-start gap-3">
-                <div className="min-w-0">
-                  <p className="org-kpi-label">Squad Rules</p>
-                  <p className="org-kpi-value text-primary">{tournament?.minimumSquadSize ?? 10} / team</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {squadTargetPlayersNeeded} total players required
-                  </p>
-                </div>
-                <div className="org-kpi-icon bg-primary/10"><Layers className="w-5 h-5 text-primary" /></div>
-              </div>
-              <div
-                className={`org-kpi-card flex justify-between items-start gap-3 ${!tournament?.auctionDate ? "cursor-pointer hover:border-primary/40 transition-colors" : ""}`}
+              <KpiCard
+                label="Teams"
+                value={teamCount}
+                subtitle={teamsReady ? `Ready · min ${MIN_TEAMS_REQUIRED}` : `${teamCount} of ${MIN_TEAMS_REQUIRED} minimum`}
+                icon={<Users className="w-5 h-5 text-amber-600" />}
+                iconBg="bg-amber-500/10 border-amber-500/30"
+                loading={loadingPurses}
+              />
+              <KpiCard
+                label="Registered Players"
+                value={playerCount}
+                subtitle={squadTargetMet
+                  ? `Squad target met · min ${minPlayersNeeded}`
+                  : `${playerCount} of ${squadTargetPlayersNeeded} needed for squads`}
+                icon={<UserCheck className="w-5 h-5 text-blue-600" />}
+                iconBg="bg-blue-500/10 border-blue-500/30"
+                loading={loadingSummary}
+              />
+              <KpiCard
+                label="Squad Rules"
+                value={`${tournament?.minimumSquadSize ?? 10} / team`}
+                subtitle={`${squadTargetPlayersNeeded} total players required`}
+                icon={<Layers className="w-5 h-5 text-amber-600" />}
+                iconBg="bg-amber-500/10 border-amber-500/30"
+              />
+              <KpiCard
+                label="Auction Schedule"
+                value={tournament?.auctionDate ? formatDisplayDate(tournament.auctionDate) : "Unscheduled"}
+                subtitle={tournament?.auctionDate
+                  ? (tournament.venue || (tournament.auctionTime ? `@ ${tournament.auctionTime}` : "Venue unassigned"))
+                  : "Set date & venue →"}
+                icon={<Calendar className="w-5 h-5 text-slate-600" />}
+                iconBg="bg-slate-100 border-slate-200"
+                className={!tournament?.auctionDate ? "cursor-pointer hover:border-amber-400" : ""}
                 onClick={() => {
                   if (!tournament?.auctionDate) {
                     navigate(`/tournament/${tournamentId}/settings?tab=general`);
                   }
                 }}
-              >
-                <div className="min-w-0">
-                  <p className="org-kpi-label">Auction Schedule</p>
-                  <p className={`org-kpi-value text-base sm:text-lg truncate ${tournament?.auctionDate ? "text-foreground" : "text-primary"}`}>
-                    {tournament?.auctionDate ? formatDisplayDate(tournament.auctionDate) : "Unscheduled"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 truncate">
-                    {tournament?.auctionDate
-                      ? (tournament.venue || (tournament.auctionTime ? `@ ${tournament.auctionTime}` : "Venue unassigned"))
-                      : "Set date & venue →"}
-                  </p>
-                </div>
-                <div className="org-kpi-icon bg-muted/30"><Calendar className="w-5 h-5 text-muted-foreground" /></div>
-              </div>
+              />
             </>
           ) : (
             <>
-              <div className="org-kpi-card flex justify-between items-start gap-3">
-                <div className="min-w-0">
-                  <p className="org-kpi-label">Total Players</p>
-                  {loadingSummary ? (
-                    <Skeleton className="h-8 w-14 mt-1.5" />
-                  ) : (
-                    <>
-                      <p className="org-kpi-value">{summary?.totalPlayers || 0}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Registered in tournament
-                      </p>
-                    </>
-                  )}
-                </div>
-                <div className="org-kpi-icon bg-blue-500/10"><Users className="w-5 h-5 text-blue-500" /></div>
-              </div>
-              <div className="org-kpi-card flex justify-between items-start gap-3">
-                <div className="min-w-0">
-                  <p className="org-kpi-label">
-                    {(summary?.retainedPlayers ?? 0) > 0 ? "In Squads" : "Sold"}
-                  </p>
-                  {loadingSummary ? (
-                    <Skeleton className="h-8 w-14 mt-1.5" />
-                  ) : (
-                    <>
-                      <p className="org-kpi-value text-green-500">
-                        {(summary?.retainedPlayers ?? 0) > 0
-                          ? (summary?.soldPlayers || 0) + (summary?.retainedPlayers || 0)
-                          : (summary?.soldPlayers || 0)}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {(summary?.retainedPlayers ?? 0) > 0
-                          ? `${summary?.soldPlayers || 0} sold · ${summary?.retainedPlayers} retained`
-                          : "Acquired in auction"}
-                      </p>
-                    </>
-                  )}
-                </div>
-                <div className="org-kpi-icon bg-green-500/10"><UserCheck className="w-5 h-5 text-green-500" /></div>
-              </div>
-              <div className="org-kpi-card flex justify-between items-start gap-3">
-                <div className="min-w-0">
-                  <p className="org-kpi-label">
-                    {(summary?.availablePlayers ?? 0) > 0 ? "Unsold & Pool" : "Unsold"}
-                  </p>
-                  {loadingSummary ? (
-                    <Skeleton className="h-8 w-14 mt-1.5" />
-                  ) : (
-                    <>
-                      <p className={`org-kpi-value ${((summary?.unsoldPlayers || 0) + (summary?.availablePlayers || 0)) > 0 ? "text-amber-400" : "text-muted-foreground"}`}>
-                        {(summary?.unsoldPlayers || 0) + (summary?.availablePlayers || 0)}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {(summary?.availablePlayers ?? 0) > 0
-                          ? `${summary?.unsoldPlayers || 0} passed · ${summary?.availablePlayers} uncalled`
-                          : "Passed without bid"}
-                      </p>
-                    </>
-                  )}
-                </div>
-                <div className="org-kpi-icon bg-amber-500/10"><UserMinus className="w-5 h-5 text-amber-500" /></div>
-              </div>
-              <div className="org-kpi-card flex justify-between items-start gap-3">
-                <div className="min-w-0">
-                  <p className="org-kpi-label">Total Spent</p>
-                  {loadingSummary ? (
-                    <Skeleton className="h-8 w-20 mt-1.5" />
-                  ) : (
-                    <>
-                      <p className="org-kpi-value text-primary">{formatShort(summary?.totalSpent)}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {summary?.totalTeams || 0} franchises · avg {formatShort(summary?.avgBidAmount)}
-                      </p>
-                    </>
-                  )}
-                </div>
-                <div className="org-kpi-icon bg-primary/10"><Wallet className="w-5 h-5 text-primary" /></div>
-              </div>
+              <KpiCard
+                label="Total Players"
+                value={summary?.totalPlayers || 0}
+                subtitle="Registered in tournament"
+                icon={<Users className="w-5 h-5 text-blue-600" />}
+                iconBg="bg-blue-500/10 border-blue-500/30"
+                loading={loadingSummary}
+              />
+              <KpiCard
+                label={(summary?.retainedPlayers ?? 0) > 0 ? "In Squads" : "Sold"}
+                value={(summary?.retainedPlayers ?? 0) > 0
+                  ? (summary?.soldPlayers || 0) + (summary?.retainedPlayers || 0)
+                  : (summary?.soldPlayers || 0)}
+                subtitle={(summary?.retainedPlayers ?? 0) > 0
+                  ? `${summary?.soldPlayers || 0} sold · ${summary?.retainedPlayers} retained`
+                  : "Acquired in auction"}
+                valueClassName="text-emerald-700"
+                icon={<UserCheck className="w-5 h-5 text-emerald-600" />}
+                iconBg="bg-emerald-500/10 border-emerald-500/30"
+                loading={loadingSummary}
+              />
+              <KpiCard
+                label={(summary?.availablePlayers ?? 0) > 0 ? "Unsold & Pool" : "Unsold"}
+                value={(summary?.unsoldPlayers || 0) + (summary?.availablePlayers || 0)}
+                subtitle={(summary?.availablePlayers ?? 0) > 0
+                  ? `${summary?.unsoldPlayers || 0} passed · ${summary?.availablePlayers} uncalled`
+                  : "Passed without bid"}
+                valueClassName={((summary?.unsoldPlayers || 0) + (summary?.availablePlayers || 0)) > 0 ? "text-amber-800" : "text-slate-500"}
+                icon={<UserMinus className="w-5 h-5 text-amber-600" />}
+                iconBg="bg-amber-500/10 border-amber-500/30"
+                loading={loadingSummary}
+              />
+              <KpiCard
+                label="Total Spent"
+                value={formatShort(summary?.totalSpent)}
+                subtitle={`${summary?.totalTeams || 0} franchises · avg ${formatShort(summary?.avgBidAmount)}`}
+                icon={<Wallet className="w-5 h-5 text-amber-600" />}
+                iconBg="bg-amber-500/10 border-amber-500/30"
+                loading={loadingSummary}
+              />
             </>
           )}
         </div>

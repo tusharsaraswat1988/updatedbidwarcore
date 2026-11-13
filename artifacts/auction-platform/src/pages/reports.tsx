@@ -12,6 +12,7 @@ import { formatShortIndianRupee, normalizeAuctionUnit } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReportCenter } from "@/components/reports/report-center";
 import { TEAM_PLANNING_SHEET_ID } from "@/pages/team-reports";
+import { KpiCard } from "@/components/ui/kpi-card";
 
 export default function Reports() {
   const [, params] = useRoute("/tournament/:id/reports");
@@ -38,42 +39,38 @@ export default function Reports() {
         />
 
         {/* Summary Stats */}
-        {loadingSummary ? (
-          <div className="org-stat-grid">
-            {[1,2,3,4].map(i => <Skeleton key={i} className="h-24 rounded-xl" />)}
-          </div>
-        ) : (
-          <div className="org-stat-grid">
-            <div className="org-kpi-card flex justify-between items-start gap-3">
-              <div className="min-w-0">
-                <p className="org-kpi-label">Total Players</p>
-                <p className="org-kpi-value">{summary?.totalPlayers || 0}</p>
-              </div>
-              <div className="org-kpi-icon bg-blue-500/10"><Users className="w-5 h-5 text-blue-500" /></div>
-            </div>
-            <div className="org-kpi-card flex justify-between items-start gap-3">
-              <div className="min-w-0">
-                <p className="org-kpi-label">Sold</p>
-                <p className="org-kpi-value text-green-500">{summary?.soldPlayers || 0}</p>
-              </div>
-              <div className="org-kpi-icon bg-green-500/10"><UserCheck className="w-5 h-5 text-green-500" /></div>
-            </div>
-            <div className="org-kpi-card flex justify-between items-start gap-3">
-              <div className="min-w-0">
-                <p className="org-kpi-label">Total Spent</p>
-                <p className="org-kpi-value text-primary">{formatShortIndianRupee(summary?.totalSpent, unit)}</p>
-              </div>
-              <div className="org-kpi-icon bg-primary/10"><Wallet className="w-5 h-5 text-primary" /></div>
-            </div>
-            <div className="org-kpi-card flex justify-between items-start gap-3">
-              <div className="min-w-0">
-                <p className="org-kpi-label">Highest Bid</p>
-                <p className="org-kpi-value text-purple-400">{formatShortIndianRupee(summary?.highestBid, unit)}</p>
-              </div>
-              <div className="org-kpi-icon bg-purple-500/10"><TrendingUp className="w-5 h-5 text-purple-400" /></div>
-            </div>
-          </div>
-        )}
+        <div className="org-stat-grid">
+          <KpiCard
+            label="Total Players"
+            value={summary?.totalPlayers || 0}
+            icon={<Users className="w-5 h-5 text-blue-600" />}
+            iconBg="bg-blue-500/10 border-blue-500/30"
+            loading={loadingSummary}
+          />
+          <KpiCard
+            label="Sold"
+            value={summary?.soldPlayers || 0}
+            valueClassName="text-emerald-700"
+            icon={<UserCheck className="w-5 h-5 text-emerald-600" />}
+            iconBg="bg-emerald-500/10 border-emerald-500/30"
+            loading={loadingSummary}
+          />
+          <KpiCard
+            label="Total Spent"
+            value={formatShortIndianRupee(summary?.totalSpent, unit)}
+            icon={<Wallet className="w-5 h-5 text-amber-600" />}
+            iconBg="bg-amber-500/10 border-amber-500/30"
+            loading={loadingSummary}
+          />
+          <KpiCard
+            label="Highest Bid"
+            value={formatShortIndianRupee(summary?.highestBid, unit)}
+            valueClassName="text-purple-700"
+            icon={<TrendingUp className="w-5 h-5 text-purple-600" />}
+            iconBg="bg-purple-500/10 border-purple-500/30"
+            loading={loadingSummary}
+          />
+        </div>
 
         {/* ─── Integrated Reports & Posters Center ─────────────────────────── */}
         <div className="space-y-4">

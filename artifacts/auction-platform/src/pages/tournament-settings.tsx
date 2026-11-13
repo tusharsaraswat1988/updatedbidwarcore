@@ -887,8 +887,8 @@ export default function TournamentSettings() {
       />
 
       {/* Sticky tab strip — horizontally scrollable on mobile */}
-      <div className="sticky top-0 z-20 mb-4 sm:mb-5 rounded-xl border border-border/70 bg-card p-1 shadow-sm shadow-black/15">
-        <div className="flex overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+      <div className="sticky top-0 z-20 mb-4 sm:mb-5 rounded-xl border border-border bg-card p-1.5 shadow-card">
+        <div className="flex overflow-x-auto gap-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
         {tabs.map(tab => {
           const Icon = tab.icon;
           const active = activeSection === tab.id;
@@ -896,10 +896,10 @@ export default function TournamentSettings() {
             <button
               key={tab.id}
               onClick={() => navigate(settingsPath(tournamentId, tab.id), { replace: true })}
-              className={`flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2.5 text-xs sm:text-sm font-semibold transition-all rounded-lg min-w-0 touch-target ${
+              className={`flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 lg:px-5 py-2 text-xs sm:text-sm font-semibold transition-all rounded-lg min-w-0 touch-target ${
                 active
-                  ? "text-primary bg-secondary shadow-sm ring-1 ring-primary/25"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                  ? "text-slate-950 bg-amber-400 font-bold shadow-xs ring-1 ring-amber-500/30"
+                  : "text-slate-600 hover:text-slate-950 hover:bg-slate-100"
               }`}
             >
               <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
@@ -917,14 +917,14 @@ export default function TournamentSettings() {
         {activeSection === "identity" && (
           <SettingsTabPanel className="space-y-5">
             {tournament?.licenseStatus !== "active" && (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+              <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
                 <div className="flex items-start gap-3">
-                  <Sparkles className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <Sparkles className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                   <div className="space-y-0.5">
-                    <p className="text-sm font-semibold text-amber-200">
+                    <p className="text-sm font-bold text-amber-950">
                       Trial Mode — Sample Players & Teams Available
                     </p>
-                    <p className="text-xs text-amber-300/80 leading-relaxed">
+                    <p className="text-xs text-amber-800 leading-relaxed">
                       Practise your live auction workflow: load 10 sample players, 2 teams, 5 sponsors, and demo owner logins in the Trial Demo panel.
                     </p>
                   </div>

@@ -1121,9 +1121,9 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       )}
 
       {/* 1. Identity & Demographics */}
-      <div className="rounded-xl border border-border/70 bg-card/40 p-4 space-y-3.5">
-        <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
-          <User className="w-3.5 h-3.5" />
+      <div className="rounded-xl border border-border bg-slate-50/70 p-4 space-y-3.5">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+          <User className="w-3.5 h-3.5 text-slate-700" />
           <span>Basic Information</span>
         </div>
 
@@ -1253,9 +1253,9 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       </div>
 
       {/* 2. Role & Auction Valuation */}
-      <div className="rounded-xl border border-border/70 bg-card/40 p-4 space-y-3.5">
-        <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
-          <Coins className="w-3.5 h-3.5 text-amber-400" />
+      <div className="rounded-xl border border-border bg-slate-50/70 p-4 space-y-3.5">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+          <Coins className="w-3.5 h-3.5 text-amber-500" />
           <span>Role & Auction Valuation</span>
         </div>
 
@@ -1426,9 +1426,9 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       </div>
 
       {/* 3. Uniform & Kit Sizing */}
-      <div className="rounded-xl border border-border/70 bg-card/40 p-4 space-y-3.5">
-        <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
-          <Shirt className="w-3.5 h-3.5 text-blue-400" />
+      <div className="rounded-xl border border-border bg-slate-50/70 p-4 space-y-3.5">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+          <Shirt className="w-3.5 h-3.5 text-blue-600" />
           <span>Uniform & Kit Sizing</span>
         </div>
 
@@ -1475,9 +1475,9 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       </div>
 
       {/* 4. Photo, Achievements & Availability */}
-      <div className="rounded-xl border border-border/70 bg-card/40 p-4 space-y-3.5">
-        <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
-          <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+      <div className="rounded-xl border border-border bg-slate-50/70 p-4 space-y-3.5">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+          <Sparkles className="w-3.5 h-3.5 text-purple-600" />
           <span>Photo & Profile Details</span>
         </div>
 
@@ -1622,9 +1622,9 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
       />
 
       {/* 5. Auction Status & Assignment */}
-      <div className="rounded-xl border border-border/70 bg-card/40 p-4 space-y-3.5">
-        <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
-          <Trophy className="w-3.5 h-3.5 text-amber-400" />
+      <div className="rounded-xl border border-border bg-slate-50/70 p-4 space-y-3.5">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+          <Trophy className="w-3.5 h-3.5 text-amber-500" />
           <span>Auction Status & Assignment</span>
         </div>
 
@@ -1741,10 +1741,10 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
 
       {/* 6. Custom Registration Questions */}
       {customQuestions.length > 0 && (
-        <div className="rounded-xl border border-border/70 bg-card/40 p-4 space-y-3.5">
+        <div className="rounded-xl border border-border bg-slate-50/70 p-4 space-y-3.5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
-              <FileText className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-800 uppercase tracking-wider">
+              <FileText className="w-3.5 h-3.5 text-slate-700" />
               <span>Additional Registration Questions</span>
             </div>
             <Badge variant="outline" className="text-[10px] text-muted-foreground">
@@ -2860,7 +2860,7 @@ function PlayerDetailPanel({
   ].filter(Boolean).join(" · ");
   const soldLabel = player.status === "retained" ? "Retained" : "Sold";
   const soldAmount = player.status === "retained" ? player.retainedPrice : player.soldPrice;
-  const soldTone = player.status === "retained" ? "text-purple-300" : "text-emerald-300";
+  const soldTone = player.status === "retained" ? "text-purple-700 font-bold" : "text-emerald-700 font-bold";
 
   const showSpecs = Boolean(player.role) || specParts.length > 0 || Boolean(jersey) || Boolean(cat) || Boolean(categories?.length) || Boolean(tagTeam);
 
@@ -2882,7 +2882,7 @@ function PlayerDetailPanel({
               </span>
             ) : null}
             {player.whatsappConsent ? (
-              <Badge variant="secondary" className="text-[10px] h-5 bg-emerald-500/15 text-emerald-400 border-emerald-500/30 gap-1 font-medium">
+              <Badge variant="secondary" className="text-[10px] h-5 bg-emerald-50 text-emerald-800 border-emerald-300 gap-1 font-semibold">
                 <MessageSquare className="w-3 h-3" /> WhatsApp Opted-In
               </Badge>
             ) : (
@@ -2903,7 +2903,7 @@ function PlayerDetailPanel({
           {player.status === "withdrawn" ? (
             <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={onReinstate}>Reinstate</Button>
           ) : player.status !== "sold" && player.status !== "retained" ? (
-            <Button size="sm" variant="ghost" className="h-8 px-2 text-xs text-amber-300" onClick={onWithdraw}>Withdraw</Button>
+            <Button size="sm" variant="ghost" className="h-8 px-2 text-xs text-amber-800 font-semibold hover:text-amber-950" onClick={onWithdraw}>Withdraw</Button>
           ) : null}
           <Button size="sm" variant="ghost" className="h-8 w-8 px-0 text-destructive" onClick={onDelete} aria-label={`Delete ${player.name}`}>
             <Trash2 className="w-3 h-3" />
@@ -3800,7 +3800,7 @@ export default function Players() {
             {/* Desktop: scannable table + inline expand */}
             <div className="hidden lg:block org-table-wrapper">
               <Table className="ops-player-table">
-                <TableHeader className="border-b border-border/30">
+                <TableHeader className="bg-slate-50/80 border-b border-border">
                   <TableRow className="hover:bg-transparent border-0">
                     <SortableTableHead
                       label="#"
@@ -3808,16 +3808,16 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="text-center text-[11px] font-mono text-muted-foreground/70"
+                      className="text-center text-[11px] font-mono font-bold text-slate-700"
                     />
-                    <TableHead className="text-center text-[11px] text-muted-foreground/70">Photo</TableHead>
+                    <TableHead className="text-center text-[11px] font-bold text-slate-700 uppercase tracking-wider">Photo</TableHead>
                     <SortableTableHead
                       label="Player"
                       sortKey="name"
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="ops-col-player text-xs font-semibold text-foreground/90"
+                      className="ops-col-player text-xs font-bold text-slate-900"
                     />
                     {hasCategories && (
                       <SortableTableHead
@@ -3826,7 +3826,7 @@ export default function Players() {
                         activeKey={sortKey}
                         sortDir={sortDir}
                         onSort={handleSort}
-                        className="text-[11px] text-muted-foreground/70"
+                        className="text-[11px] font-bold text-slate-700 uppercase tracking-wider"
                       />
                     )}
                     <SortableTableHead
@@ -3835,7 +3835,7 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="text-[11px] text-muted-foreground/70"
+                      className="text-[11px] font-bold text-slate-700 uppercase tracking-wider"
                     />
                     <SortableTableHead
                       label="Base"
@@ -3844,7 +3844,7 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="text-[11px] text-muted-foreground/70 tabular-nums"
+                      className="text-[11px] font-bold text-slate-700 uppercase tracking-wider tabular-nums"
                     />
                     <SortableTableHead
                       label="Sold"
@@ -3853,7 +3853,7 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="text-[11px] text-muted-foreground/70 tabular-nums"
+                      className="text-[11px] font-bold text-slate-700 uppercase tracking-wider tabular-nums"
                     />
                     <SortableTableHead
                       label="Team"
@@ -3861,9 +3861,9 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="text-[11px] text-muted-foreground/70"
+                      className="text-[11px] font-bold text-slate-700 uppercase tracking-wider"
                     />
-                    <TableHead className="text-[11px] text-muted-foreground/70">
+                    <TableHead className="text-[11px] font-bold text-slate-700">
                       <span className="sr-only">More</span>
                     </TableHead>
                     <TableHead className="ops-col-fill" aria-hidden />
@@ -3902,7 +3902,7 @@ export default function Players() {
                             toggleExpand(player.id);
                           }}
                         >
-                          <TableCell className="text-center font-mono text-[11px] text-muted-foreground/55 tabular-nums py-1.5 align-middle">
+                          <TableCell className="text-center font-mono text-[11px] text-slate-600 font-semibold tabular-nums py-1.5 align-middle">
                             {player.serialNo ?? player.id}
                           </TableCell>
                           <TableCell className="py-1.5 align-middle">
@@ -3910,11 +3910,11 @@ export default function Players() {
                           </TableCell>
                           <TableCell className="ops-col-player py-1.5 align-middle">
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="font-semibold text-foreground text-sm leading-snug truncate" title={player.name}>
+                              <span className="font-semibold text-slate-900 text-sm leading-snug truncate" title={player.name}>
                                 {player.name}
                               </span>
                               {player.whatsappConsent ? (
-                                <span title="WhatsApp notifications enabled" className="inline-flex items-center text-emerald-400 shrink-0">
+                                <span title="WhatsApp notifications enabled" className="inline-flex items-center text-emerald-600 shrink-0">
                                   <MessageSquare className="w-3 h-3" />
                                 </span>
                               ) : null}

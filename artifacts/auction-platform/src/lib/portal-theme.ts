@@ -12,7 +12,10 @@
 
 export function isOrganizerRoute(pathname?: string): boolean {
   if (typeof window === "undefined") return false;
-  const p = pathname ?? window.location.pathname;
+  let p = pathname ?? window.location.pathname;
+  if (p.startsWith("/scoring-app")) {
+    p = p.slice("/scoring-app".length) || "/";
+  }
 
   // 1. Explicitly protected routes remain dark:
   if (
@@ -27,9 +30,11 @@ export function isOrganizerRoute(pathname?: string): boolean {
     p.startsWith("/fan") ||
     p.startsWith("/fanpage") ||
     p.includes("/register") ||
+    p === "/login" ||
     p === "/scoring-app/login" ||
     p.includes("/scorer") ||
-    (p.includes("/score/") && p.includes("/live"))
+    (p.includes("/score/") && p.includes("/live")) ||
+    p.includes("/overlay")
   ) {
     return false;
   }
@@ -39,8 +44,9 @@ export function isOrganizerRoute(pathname?: string): boolean {
     p === "/organizer" ||
     p.startsWith("/organizer/") ||
     p === "/tournament/new" ||
-    p.startsWith("/scoring-app/tournament/") ||
     /^\/tournament\/\d+(\/|$)/.test(p) ||
+    /^\/cricket\/\d+(\/|$)/.test(p) ||
+    /^\/badminton\/\d+(\/|$)/.test(p) ||
     p === "/admin" ||
     p.startsWith("/admin/")
   ) {
@@ -53,6 +59,22 @@ export function isOrganizerRoute(pathname?: string): boolean {
   }
 
   return false;
+}
+
+export function syncDocumentSurfaceTheme(pathname?: string): void {
+  if (typeof document === "undefined") return;
+  const isOrg = isOrganizerRoute(pathname);
+  if (isOrg) {
+    document.documentElement.classList.add("bw-organizer-light");
+    document.documentElement.setAttribute("data-surface", "organizer");
+    document.body.classList.add("bw-organizer-light");
+    document.body.setAttribute("data-surface", "organizer");
+  } else {
+    document.documentElement.classList.remove("bw-organizer-light");
+    document.documentElement.removeAttribute("data-surface");
+    document.body.classList.remove("bw-organizer-light");
+    document.body.removeAttribute("data-surface");
+  }
 }
 
 export function getPortalThemeClass(pathname?: string): string {

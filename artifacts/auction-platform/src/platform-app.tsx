@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from "react";
+import { lazy, Suspense, useMemo, useEffect } from "react";
 import { Switch, Route, Redirect, useLocation, useSearch } from "wouter";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,7 +12,7 @@ import { RedirectToScoringApp } from "@/components/redirect-to-scoring-app";
 import { RedirectToOwnerApp } from "@/components/redirect-to-owner-app";
 import { readWindowAcademyData } from "@/lib/academy-public";
 
-import { isOrganizerRoute } from "@/lib/portal-theme";
+import { isOrganizerRoute, syncDocumentSurfaceTheme } from "@/lib/portal-theme";
 import { BootSplash } from "@/components/boot-splash";
 
 const TournamentSettings = lazy(() => import("@/pages/tournament-settings"));
@@ -241,6 +241,11 @@ function AuctionOrganizerShell({
 
 function PlatformRouter() {
   const [location] = useLocation();
+
+  useEffect(() => {
+    syncDocumentSurfaceTheme(location);
+  }, [location]);
+
   const organizerShell = parseAuctionOrganizerShell(location);
   if (organizerShell) {
     return (

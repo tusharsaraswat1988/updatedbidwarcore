@@ -11,6 +11,7 @@ import {
   CRICKET_ROUTE_LOADING_CLASS,
   isCricketOrganizerPath,
 } from "@/lib/cricket-routes";
+import { syncDocumentSurfaceTheme } from "@/lib/portal-theme";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
 import { ScoringAppDocumentChrome } from "@/components/scoring-app-document-chrome";
 import { ScorerPwaProvider } from "@/contexts/scorer-pwa-context";
@@ -287,6 +288,10 @@ function CricketOrganizerLayout({ tournamentId }: { tournamentId: number }) {
 
 function Router() {
   const [location] = useLocation();
+
+  useEffect(() => {
+    syncDocumentSurfaceTheme(location);
+  }, [location]);
 
   // Normalize accidental double base prefix (e.g. /scoring-app/scoring-app/... -> /scoring-app/...)
   if (location === "/scoring-app" || location.startsWith("/scoring-app/")) {
