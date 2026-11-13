@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { cldUrl } from "@/lib/cloudinary";
 import { getSponsorsByPriority, parseSponsorLogos, type SponsorLogo } from "@/lib/sponsor-logo";
-import { PoweredByBidWarLink } from "@/components/powered-by-bidwar-link";
 
 function RegistrationSponsors({ logos }: { logos: SponsorLogo[] }) {
   const [idx, setIdx] = useState(0);
@@ -121,13 +120,11 @@ export function RegistrationPageHeader({
           )}
         </div>
 
-        <div className="reg-brand-mark">
-          <PoweredByBidWarLink variant="headerLogo" />
-        </div>
-
-        <div className="flex justify-end min-w-0">
-          <RegistrationSponsors logos={sponsorLogos} />
-        </div>
+        {sponsorLogos.length > 0 ? (
+          <div className="flex justify-end min-w-0">
+            <RegistrationSponsors logos={sponsorLogos} />
+          </div>
+        ) : null}
       </div>
 
       <div className="reg-header-copy">

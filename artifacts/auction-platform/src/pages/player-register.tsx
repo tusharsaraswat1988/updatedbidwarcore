@@ -25,6 +25,7 @@ import type { JerseySize } from "@workspace/api-base/jersey-size";
 import type { LowerSize } from "@workspace/api-base/lower-size";
 import { RegistrationPaymentFormSection } from "@/components/registration-payment/registration-payment-form-section";
 import { RegistrationPageHeader, type RegistrationHeaderFact } from "@/components/registration-page-header";
+import { RegistrationPlatformBar } from "@/components/registration/registration-platform-bar";
 import { RegLabel, RegNotice, RegSection, registrationSelectContentClass } from "@/components/registration/registration-chrome";
 import {
   changedAutofillFieldIds,
@@ -161,6 +162,7 @@ function RegistrationFrame({
 }) {
   return (
     <FullscreenLayout className="registration-experience" backdrop={false}>
+      <RegistrationPlatformBar />
       <div className={`reg-shell${wide ? " reg-shell--wide" : ""}${center ? " reg-shell--center" : ""}`}>
         {children}
         <footer className="reg-footer">
