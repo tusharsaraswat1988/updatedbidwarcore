@@ -115,6 +115,22 @@ function RouteSuspenseFallback() {
     );
   }
 
+  if (path === "/admin" || path.startsWith("/admin/")) {
+    return (
+      <div
+        className="bw-admin-dark dark flex min-h-screen flex-col items-center justify-center gap-3 bg-[#090D1A] text-[#F8FAFC]"
+        data-surface="admin"
+        role="status"
+        aria-live="polite"
+        aria-busy="true"
+        aria-label="Loading admin console"
+      >
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-amber-400" />
+        <p className="text-sm font-medium text-slate-400">Loading admin console…</p>
+      </div>
+    );
+  }
+
   if (isOrganizerRoute(path)) {
     return (
       <div

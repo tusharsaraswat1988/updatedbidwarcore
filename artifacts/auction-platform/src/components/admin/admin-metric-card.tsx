@@ -22,9 +22,9 @@ export function MetricCard({
   loading?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card/70 p-4">
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
           {label}
         </span>
         {Icon && <Icon className="h-4 w-4 text-primary" />}
@@ -32,7 +32,7 @@ export function MetricCard({
       {loading ? (
         <Skeleton className="h-8 w-16" />
       ) : (
-        <div className="text-2xl font-black text-white">{value}</div>
+        <div className="text-2xl font-black text-foreground">{value}</div>
       )}
       {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
     </div>

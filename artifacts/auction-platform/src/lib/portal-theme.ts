@@ -34,7 +34,9 @@ export function isOrganizerRoute(pathname?: string): boolean {
     p === "/scoring-app/login" ||
     p.includes("/scorer") ||
     (p.includes("/score/") && p.includes("/live")) ||
-    p.includes("/overlay")
+    p.includes("/overlay") ||
+    p === "/admin" ||
+    p.startsWith("/admin/")
   ) {
     return false;
   }
@@ -46,9 +48,7 @@ export function isOrganizerRoute(pathname?: string): boolean {
     p === "/tournament/new" ||
     /^\/tournament\/\d+(\/|$)/.test(p) ||
     /^\/cricket\/\d+(\/|$)/.test(p) ||
-    /^\/badminton\/\d+(\/|$)/.test(p) ||
-    p === "/admin" ||
-    p.startsWith("/admin/")
+    /^\/badminton\/\d+(\/|$)/.test(p)
   ) {
     return true;
   }
@@ -61,24 +61,46 @@ export function isOrganizerRoute(pathname?: string): boolean {
   return false;
 }
 
+export function isAdminRoute(pathname?: string): boolean {
+  if (typeof window === "undefined") return false;
+  let p = pathname ?? window.location.pathname;
+  if (p === "/admin/login") return false; // Admin Login is isolated luxury canvas
+  return p === "/admin" || p.startsWith("/admin/");
+}
+
 export function syncDocumentSurfaceTheme(pathname?: string): void {
   if (typeof document === "undefined") return;
   const isOrg = isOrganizerRoute(pathname);
+  const isAdmin = isAdminRoute(pathname);
+
   if (isOrg) {
     document.documentElement.classList.add("bw-organizer-light");
     document.documentElement.setAttribute("data-surface", "organizer");
     document.body.classList.add("bw-organizer-light");
     document.body.setAttribute("data-surface", "organizer");
-  } else {
+
+    document.documentElement.classList.remove("bw-admin-dark");
+    document.body.classList.remove("bw-admin-dark");
+  } else if (isAdmin) {
     document.documentElement.classList.remove("bw-organizer-light");
-    document.documentElement.removeAttribute("data-surface");
     document.body.classList.remove("bw-organizer-light");
+
+    document.documentElement.classList.add("bw-admin-dark", "dark");
+    document.documentElement.setAttribute("data-surface", "admin");
+    document.body.classList.add("bw-admin-dark", "dark");
+    document.body.setAttribute("data-surface", "admin");
+  } else {
+    document.documentElement.classList.remove("bw-organizer-light", "bw-admin-dark");
+    document.documentElement.removeAttribute("data-surface");
+    document.body.classList.remove("bw-organizer-light", "bw-admin-dark");
     document.body.removeAttribute("data-surface");
   }
 }
 
 export function getPortalThemeClass(pathname?: string): string {
-  return isOrganizerRoute(pathname) ? "bw-organizer-light" : "lovable-theme dark";
+  if (isOrganizerRoute(pathname)) return "bw-organizer-light";
+  if (isAdminRoute(pathname)) return "bw-admin-dark dark";
+  return "lovable-theme dark";
 }
 
 /**

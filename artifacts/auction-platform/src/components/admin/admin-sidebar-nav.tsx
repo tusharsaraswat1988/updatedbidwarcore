@@ -73,16 +73,16 @@ function NavLink({
     <Link
       href={item.href}
       onClick={onNavigate}
-      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs sm:text-sm font-medium transition-all ${
         active
-          ? "bg-primary/15 text-primary"
-          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+          ? "bg-primary/15 text-primary font-bold shadow-xs border border-primary/30"
+          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
       }`}
     >
-      <Icon className="h-4 w-4 flex-shrink-0" />
+      <Icon className={`h-4 w-4 flex-shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`} />
       <span className="min-w-0 flex-1 truncate">{item.label}</span>
       {item.badge && (
-        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+        <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">
           {item.badge}
         </span>
       )}
@@ -103,7 +103,7 @@ function NavSection({
 }) {
   return (
     <div className="space-y-1">
-      <div className="px-3 pb-1 pt-5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">
+      <div className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
         {label}
       </div>
       {items.map((item) => (

@@ -292,7 +292,7 @@ export default function AdminDashboardOverview() {
             ) : (
               <div className="text-2xl sm:text-3xl font-black text-foreground">{stats.live.length}</div>
             )}
-            <div className="mt-1 text-[11px] font-medium text-red-300/80">
+            <div className="mt-1 text-[11px] font-medium text-red-300">
               {stats.live.length > 0 ? "Streaming live now" : "None active right now"}
             </div>
           </div>
@@ -313,7 +313,7 @@ export default function AdminDashboardOverview() {
             ) : (
               <div className="text-2xl sm:text-3xl font-black text-foreground">{tournaments.length}</div>
             )}
-            <div className="mt-1 text-[11px] font-medium text-amber-300/80">
+            <div className="mt-1 text-[11px] font-medium text-amber-300">
               {stats.activeTournaments.length} active / pipeline
             </div>
           </div>
@@ -337,7 +337,7 @@ export default function AdminDashboardOverview() {
             ) : (
               <div className="text-2xl sm:text-3xl font-black text-foreground">{stats.scheduledThisMonth.length}</div>
             )}
-            <div className="mt-1 text-[11px] font-medium text-sky-300/80">scheduled auctions</div>
+            <div className="mt-1 text-[11px] font-medium text-sky-300">scheduled auctions</div>
           </div>
 
           {/* Card 4: Registered Organisers */}
@@ -356,7 +356,7 @@ export default function AdminDashboardOverview() {
             ) : (
               <div className="text-2xl sm:text-3xl font-black text-foreground">{organisers.length}</div>
             )}
-            <div className="mt-1 text-[11px] font-medium text-emerald-300/80">
+            <div className="mt-1 text-[11px] font-medium text-emerald-300">
               {stats.verifiedOrganisers.length} verified accounts
             </div>
           </div>
@@ -376,7 +376,7 @@ export default function AdminDashboardOverview() {
                 {platformStats?.totalPlayers ?? 0}
               </div>
             )}
-            <div className="mt-1 text-[11px] font-medium text-purple-300/80">across all squads</div>
+            <div className="mt-1 text-[11px] font-medium text-purple-300">across all squads</div>
           </div>
 
           {/* Card 6: Active Sports */}
@@ -395,7 +395,7 @@ export default function AdminDashboardOverview() {
             ) : (
               <div className="text-2xl sm:text-3xl font-black text-foreground">{stats.sportCounts.size}</div>
             )}
-            <div className="mt-1 text-[11px] font-medium text-pink-300/80">multi-format active</div>
+            <div className="mt-1 text-[11px] font-medium text-pink-300">multi-format active</div>
           </div>
         </div>
 
@@ -488,13 +488,13 @@ export default function AdminDashboardOverview() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-1 rounded-lg bg-muted/40 p-1 text-xs overflow-x-auto max-w-full">
+                <div className="flex items-center gap-1 rounded-lg bg-muted/40 p-1 text-xs overflow-x-auto max-w-full border border-border/50">
                   <button
                     onClick={() => setTournamentTab("scheduled")}
                     className={`px-2.5 py-1 rounded-md font-semibold transition-all whitespace-nowrap ${
                       tournamentTab === "scheduled"
-                        ? "bg-background text-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
+                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                     }`}
                   >
                     Scheduled ({stats.upcomingScheduled.length})
@@ -503,8 +503,8 @@ export default function AdminDashboardOverview() {
                     onClick={() => setTournamentTab("recent")}
                     className={`px-2.5 py-1 rounded-md font-semibold transition-all whitespace-nowrap ${
                       tournamentTab === "recent"
-                        ? "bg-background text-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
+                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                     }`}
                   >
                     Recently Created
@@ -513,8 +513,8 @@ export default function AdminDashboardOverview() {
                     onClick={() => setTournamentTab("all")}
                     className={`px-2.5 py-1 rounded-md font-semibold transition-all whitespace-nowrap ${
                       tournamentTab === "all"
-                        ? "bg-background text-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
+                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                     }`}
                   >
                     All ({tournaments.length})

@@ -1,0 +1,169 @@
+/**
+ * BidWar Super Admin Executive Dark Design System
+ * Scoped strictly to `.bw-admin-dark` and `[data-surface="admin"]`.
+ * Protected surfaces (Organizer portal, OBS, LED, live scoring pads) do NOT carry this scope.
+ */
+
+:is(.bw-admin-dark, [data-surface="admin"], html[data-surface="admin"], body[data-surface="admin"]) {
+  color-scheme: dark;
+
+  /* ── Core Semantic Design Tokens ── */
+  --admin-background: #090D1A;           /* Deep midnight obsidian canvas */
+  --admin-surface: #111827;              /* Slate-900 / Deep navy card surface */
+  --admin-surface-elevated: #161F33;     /* Elevated modals, dropdowns, hovered rows */
+  --admin-surface-muted: #0D1424;        /* Inset containers, table headers */
+  --admin-surface-hover: #1E293B;        /* Interactive row hover */
+  --admin-foreground: #F8FAFC;           /* Slate-50: 17:1+ contrast on canvas */
+  --admin-secondary-foreground: #E2E8F0; /* Slate-200: 13:1+ contrast */
+  --admin-muted-foreground: #94A3B8;     /* Slate-400: 6.8:1 WCAG AA compliant on #111827 */
+  --admin-border: #1E293B;               /* Slate-800: crisp, clean border definition */
+  --admin-border-subtle: #162033;        /* Subtle dividers */
+  --admin-border-strong: #334155;        /* Hover / focus ring / card accent border */
+  --admin-primary: #EAB308;              /* BidWar Gold-500 */
+  --admin-primary-hover: #CA8A04;        /* Gold-600 */
+  --admin-primary-foreground: #0F172A;   /* Slate-950: 8.7:1 AAA contrast on gold */
+  --admin-accent: #3B82F6;               /* Electric Blue */
+  --admin-success: #10B981;              /* Emerald */
+  --admin-warning: #F59E0B;              /* Amber */
+  --admin-danger: #EF4444;               /* Rose/Red */
+  --admin-sidebar-background: #0B1120;   /* Executive dark navy sidebar */
+  --admin-sidebar-foreground: #94A3B8;   /* Slate-400 unselected link text */
+  --admin-sidebar-active: #FEF3C7;       /* Soft gold text */
+  --admin-sidebar-active-bg: rgba(234, 179, 8, 0.12);
+  --admin-sidebar-border: #1E293B;
+
+  /* ── Standard CSS / Tailwind HSL Channel Rebinds ── */
+  --background: 222 47% 7%;        /* #090D1A */
+  --foreground: 210 40% 98%;       /* #F8FAFC */
+  --card: 222 47% 11%;             /* #111827 */
+  --card-foreground: 210 40% 98%;  /* #F8FAFC */
+  --card-border: 217 33% 17%;      /* #1E293B */
+  --popover: 222 47% 11%;          /* #111827 */
+  --popover-foreground: 210 40% 98%;
+  --popover-border: 217 33% 17%;
+  --primary: 45 93% 47%;           /* #EAB308 */
+  --primary-foreground: 222 84% 5%;/* #0F172A */
+  --secondary: 222 47% 15%;        /* #161F33 */
+  --secondary-foreground: 210 40% 98%;
+  --muted: 222 47% 12%;            /* #0D1424 */
+  --muted-foreground: 215 20% 65%; /* #94A3B8 */
+  --accent: 217 33% 17%;           /* #1E293B */
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217 33% 17%;           /* #1E293B */
+  --input: 217 33% 17%;            /* #1E293B */
+  --ring: 45 93% 47%;
+
+  /* ── Overwrite Tailwind v4 inline color tokens ── */
+  --color-background: #090D1A;
+  --color-foreground: #F8FAFC;
+  --color-card: #111827;
+  --color-card-foreground: #F8FAFC;
+  --color-popover: #111827;
+  --color-popover-foreground: #F8FAFC;
+  --color-primary: #EAB308;
+  --color-primary-foreground: #0F172A;
+  --color-secondary: #161F33;
+  --color-secondary-foreground: #F8FAFC;
+  --color-muted: #0D1424;
+  --color-muted-foreground: #94A3B8;
+  --color-accent: #1E293B;
+  --color-accent-foreground: #F8FAFC;
+  --color-destructive: #EF4444;
+  --color-destructive-foreground: #F8FAFC;
+  --color-border: #1E293B;
+}
+
+/* Specific component enforcement inside Admin */
+:is(.bw-admin-dark, [data-surface="admin"]) .panel {
+  background: #111827 !important;
+  border: 1px solid #1E293B !important;
+  color: #F8FAFC !important;
+}
+
+:is(.bw-admin-dark, [data-surface="admin"]) [data-slot="card"],
+:is(.bw-admin-dark, [data-surface="admin"]) .card {
+  background-color: #111827;
+  border-color: #1E293B;
+  color: #F8FAFC;
+}
+
+:is(.bw-admin-dark, [data-surface="admin"]) [data-slot="skeleton"],
+:is(.bw-admin-dark, [data-surface="admin"]) .animate-pulse {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Admin Modals, Dialogs, Sheets */
+:is(.bw-admin-dark, [data-surface="admin"])[role="dialog"],
+:is(.bw-admin-dark, [data-surface="admin"])[role="alertdialog"],
+:is(.bw-admin-dark, [data-surface="admin"]) [data-slot="dialog-content"],
+:is(.bw-admin-dark, [data-surface="admin"]) [data-slot="alert-dialog-content"] {
+  background: #111827 !important;
+  border: 1px solid #1E293B !important;
+  color: #F8FAFC !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Admin Popovers, Dropdowns, Select Menus */
+:is(.bw-admin-dark, [data-surface="admin"])[role="menu"],
+:is(.bw-admin-dark, [data-surface="admin"])[role="listbox"],
+:is(.bw-admin-dark, [data-surface="admin"]) [data-slot="dropdown-menu-content"],
+:is(.bw-admin-dark, [data-surface="admin"]) [data-slot="popover-content"],
+:is(.bw-admin-dark, [data-surface="admin"]) [data-slot="select-content"] {
+  background: #111827 !important;
+  border: 1px solid #1E293B !important;
+  color: #F8FAFC !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5) !important;
+}
+
+:is(.bw-admin-dark, [data-surface="admin"]) [role="menuitem"]:hover,
+:is(.bw-admin-dark, [data-surface="admin"]) [role="option"]:hover {
+  background: #1E293B !important;
+  color: #F8FAFC !important;
+}
+
+/* Admin Table System */
+:is(.bw-admin-dark, [data-surface="admin"]) thead,
+:is(.bw-admin-dark, [data-surface="admin"]) th,
+:is(.bw-admin-dark, [data-surface="admin"]) [data-slot="table-head"] {
+  background-color: #0D1424 !important;
+  color: #94A3B8 !important;
+  border-bottom: 1px solid #1E293B !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+:is(.bw-admin-dark, [data-surface="admin"]) tbody tr,
+:is(.bw-admin-dark, [data-surface="admin"]) [data-slot="table-row"] {
+  border-bottom: 1px solid #1E293B !important;
+  transition: background-color 150ms ease !important;
+}
+
+:is(.bw-admin-dark, [data-surface="admin"]) tbody tr:hover,
+:is(.bw-admin-dark, [data-surface="admin"]) [data-slot="table-row"]:hover {
+  background-color: #172340 !important;
+}
+
+/* Admin Inputs, Selects, and Textareas */
+:is(.bw-admin-dark, [data-surface="admin"]) input:not([type="checkbox"]):not([type="radio"]),
+:is(.bw-admin-dark, [data-surface="admin"]) textarea,
+:is(.bw-admin-dark, [data-surface="admin"]) select {
+  background-color: #0D1424 !important;
+  border-color: #1E293B !important;
+  color: #F8FAFC !important;
+}
+
+:is(.bw-admin-dark, [data-surface="admin"]) input::placeholder,
+:is(.bw-admin-dark, [data-surface="admin"]) textarea::placeholder {
+  color: #64748B !important;
+}
+
+:is(.bw-admin-dark, [data-surface="admin"]) input:focus,
+:is(.bw-admin-dark, [data-surface="admin"]) textarea:focus,
+:is(.bw-admin-dark, [data-surface="admin"]) select:focus {
+  border-color: #EAB308 !important;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.25) !important;
+  outline: none !important;
+}

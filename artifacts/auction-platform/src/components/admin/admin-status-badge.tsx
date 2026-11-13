@@ -3,12 +3,12 @@ import { Badge } from "@/components/ui/badge";
 export type StatusTone = "green" | "red" | "amber" | "blue" | "purple" | "muted";
 
 const TONE_CLASSES: Record<StatusTone, string> = {
-  green: "bg-green-500/15 text-green-400",
-  red: "bg-red-500/15 text-red-400",
-  amber: "bg-amber-500/15 text-amber-300",
-  blue: "bg-blue-500/15 text-blue-400",
-  purple: "bg-purple-500/15 text-purple-300",
-  muted: "bg-muted text-muted-foreground",
+  green: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold",
+  red: "bg-red-500/15 text-red-400 border border-red-500/30 font-semibold",
+  amber: "bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold",
+  blue: "bg-blue-500/15 text-blue-400 border border-blue-500/30 font-semibold",
+  purple: "bg-purple-500/15 text-purple-300 border border-purple-500/30 font-semibold",
+  muted: "bg-muted/60 text-muted-foreground border border-border font-medium",
 };
 
 /**

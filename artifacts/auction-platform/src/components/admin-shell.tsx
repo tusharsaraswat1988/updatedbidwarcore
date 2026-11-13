@@ -120,7 +120,7 @@ function AdminGlobalSearch({
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
-        className="h-9 w-full rounded-lg border border-border bg-card/70 pl-9 pr-3 text-xs sm:text-sm outline-none transition focus:border-primary"
+        className="h-9 w-full rounded-lg border border-border bg-background/80 pl-9 pr-3 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
         placeholder={isMobile ? "Search..." : "Search tournaments, organisers..."}
       />
       {showDropdown && (
@@ -250,14 +250,14 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
 
   return (
     <AdminNotificationProvider enabled={isLoggedIn}>
-    <div className="dark flex h-screen overflow-hidden bg-background text-foreground">
-      <aside className="hidden w-60 flex-shrink-0 flex-col border-r border-border bg-card/80 md:flex">
+    <div className="bw-admin-dark dark flex h-screen overflow-hidden bg-background text-foreground" data-surface="admin">
+      <aside className="hidden w-60 flex-shrink-0 flex-col border-r border-border bg-card md:flex">
         <ShellBrand loading={loading} logos={logos} brandName={brandName} />
         <AdminSidebarNav location={location} isMaster={isMaster} />
       </aside>
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent side="left" className="w-[min(100vw-2rem,280px)] p-0 flex flex-col bg-card">
+        <SheetContent side="left" className="w-[min(100vw-2rem,280px)] p-0 flex flex-col bg-card border-r border-border">
           <SheetTitle className="sr-only">Admin navigation</SheetTitle>
           <ShellBrand loading={loading} logos={logos} brandName={brandName} />
           <div className="flex-1 min-h-0 overflow-y-auto">
@@ -270,7 +270,7 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
       </Sheet>
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-14 flex-shrink-0 items-center gap-1.5 sm:gap-3 border-b border-border bg-background/95 px-2.5 sm:px-5">
+        <div className="flex h-14 flex-shrink-0 items-center gap-1.5 sm:gap-3 border-b border-border bg-card/60 backdrop-blur-md px-2.5 sm:px-5">
           <button
             type="button"
             className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground md:hidden flex-shrink-0"
@@ -322,15 +322,15 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
           </AlertDialogContent>
         </AlertDialog>
 
-        <div className="flex-1 overflow-auto">
-          <div className="border-b border-border bg-card/30 px-3 py-3 sm:px-6 sm:py-4">
+        <div className="flex-1 overflow-auto bg-background">
+          <div className="border-b border-border bg-card/40 px-3 py-3 sm:px-6 sm:py-4">
             {eyebrow && (
-              <div className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 {eyebrow}
               </div>
             )}
             <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-              <h1 className="font-display text-lg font-black text-white sm:text-2xl truncate">{title}</h1>
+              <h1 className="font-display text-lg font-black text-foreground sm:text-2xl truncate">{title}</h1>
               {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
             </div>
           </div>

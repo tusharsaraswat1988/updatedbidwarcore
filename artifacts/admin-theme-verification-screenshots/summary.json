@@ -1,0 +1,1090 @@
+[
+  {
+    "name": "01_Admin_Dashboard_Desktop",
+    "url": "http://localhost:24755/admin",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 17,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "oklab(0.785773 0.0131042 0.159253 / 0.15)",
+        "color": "rgb(231, 176, 8)",
+        "borderColor": "oklab(0.785773 0.0131042 0.159253 / 0.3)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "9.03:1",
+      "buttonsCount": 19,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 1,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\01_Admin_Dashboard_Desktop.png",
+    "status": "PASS"
+  },
+  {
+    "name": "02_Admin_Dashboard_Tablet",
+    "url": "http://localhost:24755/admin",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 17,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "oklab(0.785773 0.0131042 0.159253 / 0.15)",
+        "color": "rgb(231, 176, 8)",
+        "borderColor": "oklab(0.785773 0.0131042 0.159253 / 0.3)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "9.03:1",
+      "buttonsCount": 19,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 1,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\02_Admin_Dashboard_Tablet.png",
+    "status": "PASS"
+  },
+  {
+    "name": "03_Admin_Dashboard_Mobile",
+    "url": "http://localhost:24755/admin",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 17,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "Super AdminDashboardLive Aucti"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "oklab(0.785773 0.0131042 0.159253 / 0.15)",
+        "color": "rgb(231, 176, 8)",
+        "borderColor": "oklab(0.785773 0.0131042 0.159253 / 0.3)",
+        "fontSize": "12px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "9.03:1",
+      "buttonsCount": 19,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 1,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "12px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\03_Admin_Dashboard_Mobile.png",
+    "status": "PASS"
+  },
+  {
+    "name": "04_Admin_Tournaments_List",
+    "url": "http://localhost:24755/admin/tournaments",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin/tournaments",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 6,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "6.97:1",
+      "buttonsCount": 20,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 3,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\04_Admin_Tournaments_List.png",
+    "status": "PASS"
+  },
+  {
+    "name": "05_Admin_Tournament_Detail",
+    "url": "http://localhost:24755/admin/tournaments/1",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin/tournaments/1",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 3,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "6.97:1",
+      "buttonsCount": 3,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 1,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\05_Admin_Tournament_Detail.png",
+    "status": "PASS"
+  },
+  {
+    "name": "06_Admin_Organisers_List",
+    "url": "http://localhost:24755/admin/organisers",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin/organisers",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 6,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "6.97:1",
+      "buttonsCount": 8,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 2,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\06_Admin_Organisers_List.png",
+    "status": "PASS"
+  },
+  {
+    "name": "07_Admin_Organiser_Detail",
+    "url": "http://localhost:24755/admin/organisers/1",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin/organisers/1",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 4,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "6.97:1",
+      "buttonsCount": 3,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 1,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\07_Admin_Organiser_Detail.png",
+    "status": "PASS"
+  },
+  {
+    "name": "08_Admin_Live_Operations",
+    "url": "http://localhost:24755/admin/live/auctions",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin/live/auctions",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 10,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "6.97:1",
+      "buttonsCount": 7,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 1,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\08_Admin_Live_Operations.png",
+    "status": "PASS"
+  },
+  {
+    "name": "09_Admin_Events_Activities",
+    "url": "http://localhost:24755/admin/events-activities",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin/events-activities",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 5,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "6.97:1",
+      "buttonsCount": 4,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 1,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\09_Admin_Events_Activities.png",
+    "status": "PASS"
+  },
+  {
+    "name": "10_Admin_BPL_Editions",
+    "url": "http://localhost:24755/admin/bpl",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin/bpl",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 5,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "6.97:1",
+      "buttonsCount": 6,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 1,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\10_Admin_BPL_Editions.png",
+    "status": "PASS"
+  },
+  {
+    "name": "11_Admin_Sports_Specs",
+    "url": "http://localhost:24755/admin/tournaments/sports",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin/tournaments/sports",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 24,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "6.97:1",
+      "buttonsCount": 51,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 9,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\11_Admin_Sports_Specs.png",
+    "status": "PASS"
+  },
+  {
+    "name": "12_Admin_Communication_Center",
+    "url": "http://localhost:24755/admin/communication",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin/communication",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 10,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "6.97:1",
+      "buttonsCount": 12,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 1,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\12_Admin_Communication_Center.png",
+    "status": "PASS"
+  },
+  {
+    "name": "13_Admin_Reports",
+    "url": "http://localhost:24755/admin/settings/reports",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin/settings/reports",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 4,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "6.97:1",
+      "buttonsCount": 4,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 2,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\13_Admin_Reports.png",
+    "status": "PASS"
+  },
+  {
+    "name": "14_Admin_Branding",
+    "url": "http://localhost:24755/admin/settings/branding",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin/settings/branding",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 4,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "6.97:1",
+      "buttonsCount": 10,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 5,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\14_Admin_Branding.png",
+    "status": "PASS"
+  },
+  {
+    "name": "15_Admin_AI_Intelligence",
+    "url": "http://localhost:24755/admin/settings/intelligence",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin/settings/intelligence",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 6,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "6.97:1",
+      "buttonsCount": 17,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 1,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\15_Admin_AI_Intelligence.png",
+    "status": "PASS"
+  },
+  {
+    "name": "16_Admin_System_Diagnostics",
+    "url": "http://localhost:24755/admin/settings/system/diagnostics",
+    "expectedMode": "admin-dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/admin/settings/system/diagnostics",
+      "isLightDom": false,
+      "isAdminDark": true,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 16,
+      "sampleCard": {
+        "bg": "rgb(15, 23, 41)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+      },
+      "cardContrastRatio": "17.08:1",
+      "sidebarLinksCount": 15,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "14px",
+        "fontWeight": "500",
+        "text": "Dashboard"
+      },
+      "sidebarContrastRatio": "6.97:1",
+      "buttonsCount": 5,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(148, 163, 184)",
+        "borderColor": "rgb(29, 40, 58)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 1,
+      "sampleInput": {
+        "bg": "rgb(13, 20, 36)",
+        "color": "rgb(248, 250, 252)",
+        "borderColor": "rgb(30, 41, 59)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\16_Admin_System_Diagnostics.png",
+    "status": "PASS"
+  },
+  {
+    "name": "17_Regression_Organizer_Portal_Light",
+    "url": "http://localhost:24755/organizer",
+    "expectedMode": "light",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/organizer",
+      "isLightDom": true,
+      "isAdminDark": false,
+      "body": {
+        "bg": "rgb(241, 245, 249)",
+        "color": "rgb(15, 23, 42)",
+        "contrastRatio": "16.30:1"
+      },
+      "cardsCount": 9,
+      "sampleCard": {
+        "bg": "rgb(255, 255, 255)",
+        "color": "rgb(15, 23, 42)",
+        "borderColor": "rgb(203, 213, 225)",
+        "fontSize": "16px",
+        "fontWeight": "600",
+        "text": "Tushar Saraswat\n\nOrganizer"
+      },
+      "cardContrastRatio": "17.85:1",
+      "sidebarLinksCount": 0,
+      "sampleSidebarLink": null,
+      "sidebarContrastRatio": null,
+      "buttonsCount": 33,
+      "sampleButton": {
+        "bg": "rgb(255, 255, 255)",
+        "color": "rgb(15, 23, 42)",
+        "borderColor": "rgb(203, 213, 225)",
+        "fontSize": "16px",
+        "fontWeight": "600",
+        "text": "Tushar Saraswat\n\nOrganizer"
+      },
+      "inputsCount": 1,
+      "sampleInput": {
+        "bg": "rgb(255, 255, 255)",
+        "color": "rgb(15, 23, 42)",
+        "borderColor": "rgb(203, 213, 225)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\17_Regression_Organizer_Portal_Light.png",
+    "status": "PASS"
+  },
+  {
+    "name": "18_Regression_Tournament_Players_Light",
+    "url": "http://localhost:24755/tournament/1/players",
+    "expectedMode": "light",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/tournament/1/players",
+      "isLightDom": true,
+      "isAdminDark": false,
+      "body": {
+        "bg": "rgb(241, 245, 249)",
+        "color": "rgb(15, 23, 42)",
+        "contrastRatio": "16.30:1"
+      },
+      "cardsCount": 4,
+      "sampleCard": {
+        "bg": "rgb(255, 255, 255)",
+        "color": "rgb(15, 23, 42)",
+        "borderColor": "rgb(203, 213, 225)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "Main MenuAll TournamentsCurren"
+      },
+      "cardContrastRatio": "17.85:1",
+      "sidebarLinksCount": 22,
+      "sampleSidebarLink": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(15, 23, 42)",
+        "borderColor": "rgb(188, 202, 220)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "sidebarContrastRatio": "17.85:1",
+      "buttonsCount": 15,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "rgb(71, 85, 105)",
+        "borderColor": "rgb(188, 202, 220)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 1,
+      "sampleInput": {
+        "bg": "rgb(255, 255, 255)",
+        "color": "rgb(15, 23, 42)",
+        "borderColor": "rgb(203, 213, 225)",
+        "fontSize": "14px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\18_Regression_Tournament_Players_Light.png",
+    "status": "PASS"
+  },
+  {
+    "name": "19_Regression_Auction_Panel_Dark",
+    "url": "http://localhost:24755/tournament/1/auction",
+    "expectedMode": "dark",
+    "passed": true,
+    "audit": {
+      "documentTitle": "BidWar | IPL-Style Live Sports Auction Software",
+      "currentPath": "/tournament/1/auction",
+      "isLightDom": false,
+      "isAdminDark": false,
+      "body": {
+        "bg": "oklch(0.22 0.13 265)",
+        "color": "oklch(0.98 0.005 90)",
+        "contrastRatio": "1.00:1"
+      },
+      "cardsCount": 22,
+      "sampleCard": {
+        "bg": "oklab(0.28 -0.00958713 -0.109581 / 0.9)",
+        "color": "oklch(0.98 0.005 90)",
+        "borderColor": "oklch(0.48 0.08 265)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": "Vyapari Network Badminton Leag"
+      },
+      "cardContrastRatio": "1.00:1",
+      "sidebarLinksCount": 0,
+      "sampleSidebarLink": null,
+      "sidebarContrastRatio": null,
+      "buttonsCount": 64,
+      "sampleButton": {
+        "bg": "rgba(0, 0, 0, 0)",
+        "color": "oklch(0.78 0.05 250)",
+        "borderColor": "oklab(0.999994 0.0000455678 0.0000200868 / 0.12)",
+        "fontSize": "16px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "inputsCount": 11,
+      "sampleInput": {
+        "bg": "oklab(0 0 0 / 0.3)",
+        "color": "rgb(255, 255, 255)",
+        "borderColor": "oklab(0.999994 0.0000455678 0.0000200868 / 0.15)",
+        "fontSize": "11px",
+        "fontWeight": "400",
+        "text": ""
+      },
+      "hasHorizontalOverflow": false
+    },
+    "screenshot": "C:\\Users\\win 10\\updatedbidwarcore\\artifacts\\admin-theme-verification-screenshots\\19_Regression_Auction_Panel_Dark.png",
+    "status": "PASS"
+  }
+]
