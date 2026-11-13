@@ -14,16 +14,16 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 17,
+      "cardsCount": 12,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "PLATFORM OVERVIEW\nDashboard\nLi"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "oklab(0.785773 0.0131042 0.159253 / 0.15)",
@@ -33,11 +33,11 @@
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "9.03:1",
-      "buttonsCount": 19,
+      "sidebarContrastRatio": "9.51:1",
+      "buttonsCount": 15,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -72,16 +72,16 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 17,
+      "cardsCount": 12,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "PLATFORM OVERVIEW\nDashboard\nLi"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "oklab(0.785773 0.0131042 0.159253 / 0.15)",
@@ -91,11 +91,11 @@
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "9.03:1",
-      "buttonsCount": 19,
+      "sidebarContrastRatio": "9.51:1",
+      "buttonsCount": 14,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -130,16 +130,16 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 17,
+      "cardsCount": 13,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "Super AdminDashboardLive Aucti"
+        "text": "PLATFORM OVERVIEW\nDashboard\nLi"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "oklab(0.785773 0.0131042 0.159253 / 0.15)",
@@ -149,11 +149,11 @@
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "9.03:1",
-      "buttonsCount": 19,
+      "sidebarContrastRatio": "9.51:1",
+      "buttonsCount": 13,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -188,36 +188,36 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 6,
+      "cardsCount": 4,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "TOURNAMENT MANAGEMENT\nTourname"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.869 0.022 252.894)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "14px",
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "6.97:1",
-      "buttonsCount": 20,
+      "sidebarContrastRatio": "18.83:1",
+      "buttonsCount": 10,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
         "text": ""
       },
-      "inputsCount": 3,
+      "inputsCount": 2,
       "sampleInput": {
         "bg": "rgb(13, 20, 36)",
         "color": "rgb(248, 250, 252)",
@@ -246,30 +246,30 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 3,
+      "cardsCount": 1,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "TOURNAMENT & ORGANISERS › OPER"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.869 0.022 252.894)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "14px",
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "6.97:1",
-      "buttonsCount": 3,
+      "sidebarContrastRatio": "18.83:1",
+      "buttonsCount": 4,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -304,30 +304,30 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 6,
+      "cardsCount": 4,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "TOURNAMENT & ORGANISERS\nOrgani"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.869 0.022 252.894)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "14px",
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "6.97:1",
-      "buttonsCount": 8,
+      "sidebarContrastRatio": "18.83:1",
+      "buttonsCount": 7,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -362,30 +362,30 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 4,
+      "cardsCount": 2,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "TOURNAMENT & ORGANISERS › ORGA"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.869 0.022 252.894)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "14px",
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "6.97:1",
+      "sidebarContrastRatio": "18.83:1",
       "buttonsCount": 3,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -420,30 +420,30 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 10,
+      "cardsCount": 8,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "PLATFORM OVERVIEW\nLive Auction"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.869 0.022 252.894)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "14px",
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "6.97:1",
-      "buttonsCount": 7,
+      "sidebarContrastRatio": "18.83:1",
+      "buttonsCount": 4,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -478,30 +478,30 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 5,
+      "cardsCount": 3,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "PLATFORM AUDIT & ACTIVITY LOG\n"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.869 0.022 252.894)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "14px",
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "6.97:1",
-      "buttonsCount": 4,
+      "sidebarContrastRatio": "18.83:1",
+      "buttonsCount": 3,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -538,28 +538,28 @@
       },
       "cardsCount": 5,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "BIDWAR PREMIER LEAGUE\nBPL Edit"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.869 0.022 252.894)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "14px",
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "6.97:1",
+      "sidebarContrastRatio": "18.83:1",
       "buttonsCount": 6,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -594,30 +594,30 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 24,
+      "cardsCount": 22,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "TOURNAMENT & ORGANISERS\nSports"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.869 0.022 252.894)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "14px",
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "6.97:1",
-      "buttonsCount": 51,
+      "sidebarContrastRatio": "18.83:1",
+      "buttonsCount": 58,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -652,30 +652,30 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 10,
+      "cardsCount": 8,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "MASTER PLATFORM HUB\nCommunicat"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.869 0.022 252.894)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "14px",
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "6.97:1",
-      "buttonsCount": 12,
+      "sidebarContrastRatio": "18.83:1",
+      "buttonsCount": 13,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -710,30 +710,30 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 4,
+      "cardsCount": 2,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "PLATFORM SETTINGS\nReport Cente"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.869 0.022 252.894)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "14px",
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "6.97:1",
-      "buttonsCount": 4,
+      "sidebarContrastRatio": "18.83:1",
+      "buttonsCount": 5,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -768,30 +768,30 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 4,
+      "cardsCount": 2,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "PLATFORM SETTINGS\nBranding\nSav"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.869 0.022 252.894)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "14px",
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "6.97:1",
-      "buttonsCount": 10,
+      "sidebarContrastRatio": "18.83:1",
+      "buttonsCount": 11,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -826,30 +826,30 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 6,
+      "cardsCount": 4,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "PLATFORM SETTINGS\nAI & Intelli"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.869 0.022 252.894)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "14px",
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "6.97:1",
-      "buttonsCount": 17,
+      "sidebarContrastRatio": "18.83:1",
+      "buttonsCount": 18,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -884,30 +884,30 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 16,
+      "cardsCount": 14,
       "sampleCard": {
-        "bg": "rgb(15, 23, 41)",
+        "bg": "oklab(0.206403 -0.00300531 -0.0387002 / 0.6)",
         "color": "rgb(248, 250, 252)",
-        "borderColor": "rgb(29, 40, 58)",
+        "borderColor": "oklch(0.279 0.041 260.031)",
         "fontSize": "16px",
         "fontWeight": "400",
-        "text": "SUPER ADMIN\nDashboard\nLive Auc"
+        "text": "PLATFORM SETTINGS\nSystem Setti"
       },
-      "cardContrastRatio": "17.08:1",
+      "cardContrastRatio": "1.05:1",
       "sidebarLinksCount": 15,
       "sampleSidebarLink": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.869 0.022 252.894)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "14px",
         "fontWeight": "500",
         "text": "Dashboard"
       },
-      "sidebarContrastRatio": "6.97:1",
-      "buttonsCount": 5,
+      "sidebarContrastRatio": "18.83:1",
+      "buttonsCount": 6,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
-        "color": "rgb(148, 163, 184)",
+        "color": "oklch(0.704 0.04 256.788)",
         "borderColor": "rgb(29, 40, 58)",
         "fontSize": "16px",
         "fontWeight": "400",
@@ -993,7 +993,7 @@
         "color": "rgb(15, 23, 42)",
         "contrastRatio": "16.30:1"
       },
-      "cardsCount": 4,
+      "cardsCount": 135,
       "sampleCard": {
         "bg": "rgb(255, 255, 255)",
         "color": "rgb(15, 23, 42)",
@@ -1013,7 +1013,7 @@
         "text": ""
       },
       "sidebarContrastRatio": "17.85:1",
-      "buttonsCount": 15,
+      "buttonsCount": 262,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
         "color": "rgb(71, 85, 105)",
@@ -1051,7 +1051,7 @@
         "color": "oklch(0.98 0.005 90)",
         "contrastRatio": "1.00:1"
       },
-      "cardsCount": 22,
+      "cardsCount": 28,
       "sampleCard": {
         "bg": "oklab(0.28 -0.00958713 -0.109581 / 0.9)",
         "color": "oklch(0.98 0.005 90)",
@@ -1064,7 +1064,7 @@
       "sidebarLinksCount": 0,
       "sampleSidebarLink": null,
       "sidebarContrastRatio": null,
-      "buttonsCount": 64,
+      "buttonsCount": 89,
       "sampleButton": {
         "bg": "rgba(0, 0, 0, 0)",
         "color": "oklch(0.78 0.05 250)",

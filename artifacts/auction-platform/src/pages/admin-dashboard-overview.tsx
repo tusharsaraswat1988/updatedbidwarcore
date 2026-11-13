@@ -233,43 +233,41 @@ export default function AdminDashboardOverview() {
     >
       <div className="space-y-6">
         {/* Welcome Header */}
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card/90 to-primary/5 p-5 sm:p-6 shadow-sm">
+        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900/90 to-primary/10 p-5 sm:p-6 shadow-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+              <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-semibold text-emerald-300">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
                 </span>
                 BidWar Platform Active & Operational
               </div>
-              <h1 className="font-display text-2xl sm:text-3xl font-black text-foreground tracking-tight">
+              <h1 className="font-display text-2xl sm:text-3xl font-black text-white tracking-tight">
                 Welcome back! 👋
               </h1>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm font-medium text-slate-300">
                 Track live auctions, scheduled matchdays, organizer registrations, and player pipelines in real time.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="gap-1.5 text-xs font-medium"
+              <button
+                type="button"
                 onClick={() => navigate("/admin/organisers")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition-colors"
               >
-                <Users className="h-3.5 w-3.5 text-primary" />
-                {organisers.length} Organisers
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="gap-1.5 text-xs font-medium"
+                <Users className="h-3.5 w-3.5 text-amber-400" />
+                <span>{organisers.length} Organisers</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => navigate("/admin/tournaments")}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition-colors"
               >
                 <Trophy className="h-3.5 w-3.5 text-amber-400" />
-                {tournaments.length} Tournaments
-              </Button>
+                <span>{tournaments.length} Tournaments</span>
+              </button>
             </div>
           </div>
         </div>
@@ -279,23 +277,23 @@ export default function AdminDashboardOverview() {
           {/* Card 1: Live Auctions */}
           <div
             onClick={() => navigate("/admin/live/auctions")}
-            className="group relative cursor-pointer overflow-hidden rounded-xl border border-red-500/30 bg-gradient-to-br from-red-500/10 via-card to-card p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-red-500/60 hover:shadow-lg hover:shadow-red-500/10"
+            className="group relative cursor-pointer overflow-hidden rounded-xl border border-rose-500/30 bg-gradient-to-br from-rose-500/15 via-[#111827] to-[#111827] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-rose-500/60 hover:shadow-lg hover:shadow-rose-500/10"
           >
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-red-400">Live Auctions</span>
-              <div className="relative flex h-6 w-6 items-center justify-center rounded-lg bg-red-500/20 text-red-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-rose-300">Live Auctions</span>
+              <div className="relative flex h-6 w-6 items-center justify-center rounded-lg bg-rose-500/20 text-rose-300">
                 <Radio className="h-3.5 w-3.5" />
                 {stats.live.length > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                  <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-rose-500 animate-ping" />
                 )}
               </div>
             </div>
             {loading ? (
-              <Skeleton className="h-8 w-14" />
+              <div className="h-8 w-14 animate-pulse rounded bg-slate-800/80" />
             ) : (
-              <div className="text-2xl sm:text-3xl font-black text-foreground">{stats.live.length}</div>
+              <div className="text-2xl sm:text-3xl font-black text-white">{stats.live.length}</div>
             )}
-            <div className="mt-1 text-[11px] font-medium text-red-300">
+            <div className="mt-1 text-[11px] font-semibold text-rose-200/90">
               {stats.live.length > 0 ? "Streaming live now" : "None active right now"}
             </div>
           </div>
@@ -303,20 +301,20 @@ export default function AdminDashboardOverview() {
           {/* Card 2: Total Tournaments */}
           <div
             onClick={() => navigate("/admin/tournaments")}
-            className="group relative cursor-pointer overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-card to-card p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/60 hover:shadow-lg hover:shadow-amber-500/10"
+            className="group relative cursor-pointer overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/15 via-[#111827] to-[#111827] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-500/60 hover:shadow-lg hover:shadow-amber-500/10"
           >
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Tournaments</span>
-              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-300">Tournaments</span>
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300">
                 <Trophy className="h-3.5 w-3.5" />
               </div>
             </div>
             {loading ? (
-              <Skeleton className="h-8 w-14" />
+              <div className="h-8 w-14 animate-pulse rounded bg-slate-800/80" />
             ) : (
-              <div className="text-2xl sm:text-3xl font-black text-foreground">{tournaments.length}</div>
+              <div className="text-2xl sm:text-3xl font-black text-white">{tournaments.length}</div>
             )}
-            <div className="mt-1 text-[11px] font-medium text-amber-300">
+            <div className="mt-1 text-[11px] font-semibold text-amber-200/90">
               {stats.activeTournaments.length} active / pipeline
             </div>
           </div>
@@ -327,122 +325,121 @@ export default function AdminDashboardOverview() {
               setTournamentTab("scheduled");
               window.scrollTo({ top: 380, behavior: "smooth" });
             }}
-            className="group relative cursor-pointer overflow-hidden rounded-xl border border-sky-500/30 bg-gradient-to-br from-sky-500/10 via-card to-card p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-500/60 hover:shadow-lg hover:shadow-sky-500/10"
+            className="group relative cursor-pointer overflow-hidden rounded-xl border border-sky-500/30 bg-gradient-to-br from-sky-500/15 via-[#111827] to-[#111827] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-500/60 hover:shadow-lg hover:shadow-sky-500/10"
           >
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-sky-400">This Month</span>
-              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-sky-500/20 text-sky-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-sky-300">This Month</span>
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-sky-500/20 text-sky-300">
                 <CalendarDays className="h-3.5 w-3.5" />
               </div>
             </div>
             {loading ? (
-              <Skeleton className="h-8 w-14" />
+              <div className="h-8 w-14 animate-pulse rounded bg-slate-800/80" />
             ) : (
-              <div className="text-2xl sm:text-3xl font-black text-foreground">{stats.scheduledThisMonth.length}</div>
+              <div className="text-2xl sm:text-3xl font-black text-white">{stats.scheduledThisMonth.length}</div>
             )}
-            <div className="mt-1 text-[11px] font-medium text-sky-300">scheduled auctions</div>
+            <div className="mt-1 text-[11px] font-semibold text-sky-200/90">scheduled auctions</div>
           </div>
 
           {/* Card 4: Registered Organisers */}
           <div
             onClick={() => navigate("/admin/organisers")}
-            className="group relative cursor-pointer overflow-hidden rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-card to-card p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-500/60 hover:shadow-lg hover:shadow-emerald-500/10"
+            className="group relative cursor-pointer overflow-hidden rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/15 via-[#111827] to-[#111827] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-500/60 hover:shadow-lg hover:shadow-emerald-500/10"
           >
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">Organisers</span>
-              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-300">Organisers</span>
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-300">
                 <Building2 className="h-3.5 w-3.5" />
               </div>
             </div>
             {loading ? (
-              <Skeleton className="h-8 w-14" />
+              <div className="h-8 w-14 animate-pulse rounded bg-slate-800/80" />
             ) : (
-              <div className="text-2xl sm:text-3xl font-black text-foreground">{organisers.length}</div>
+              <div className="text-2xl sm:text-3xl font-black text-white">{organisers.length}</div>
             )}
-            <div className="mt-1 text-[11px] font-medium text-emerald-300">
+            <div className="mt-1 text-[11px] font-semibold text-emerald-200/90">
               {stats.verifiedOrganisers.length} verified accounts
             </div>
           </div>
 
           {/* Card 5: Total Players */}
-          <div className="group relative overflow-hidden rounded-xl border border-purple-500/30 bg-gradient-to-br from-purple-500/10 via-card to-card p-4">
+          <div className="group relative overflow-hidden rounded-xl border border-purple-500/30 bg-gradient-to-br from-purple-500/15 via-[#111827] to-[#111827] p-4">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-purple-400">Players</span>
-              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 text-purple-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-purple-300">Players</span>
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300">
                 <Users className="h-3.5 w-3.5" />
               </div>
             </div>
             {platformStatsLoading ? (
-              <Skeleton className="h-8 w-14" />
+              <div className="h-8 w-14 animate-pulse rounded bg-slate-800/80" />
             ) : (
-              <div className="text-2xl sm:text-3xl font-black text-foreground">
+              <div className="text-2xl sm:text-3xl font-black text-white">
                 {platformStats?.totalPlayers ?? 0}
               </div>
             )}
-            <div className="mt-1 text-[11px] font-medium text-purple-300">across all squads</div>
+            <div className="mt-1 text-[11px] font-semibold text-purple-200/90">across all squads</div>
           </div>
 
           {/* Card 6: Active Sports */}
           <div
             onClick={() => navigate("/admin/tournaments/sports")}
-            className="group relative cursor-pointer overflow-hidden rounded-xl border border-pink-500/30 bg-gradient-to-br from-pink-500/10 via-card to-card p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-pink-500/60 hover:shadow-lg hover:shadow-pink-500/10"
+            className="group relative cursor-pointer overflow-hidden rounded-xl border border-pink-500/30 bg-gradient-to-br from-pink-500/15 via-[#111827] to-[#111827] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-pink-500/60 hover:shadow-lg hover:shadow-pink-500/10"
           >
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-pink-400">Sports</span>
-              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-pink-500/20 text-pink-400">
+              <span className="text-xs font-bold uppercase tracking-wider text-pink-300">Sports</span>
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-pink-500/20 text-pink-300">
                 <Flame className="h-3.5 w-3.5" />
               </div>
             </div>
             {loading ? (
-              <Skeleton className="h-8 w-14" />
+              <div className="h-8 w-14 animate-pulse rounded bg-slate-800/80" />
             ) : (
-              <div className="text-2xl sm:text-3xl font-black text-foreground">{stats.sportCounts.size}</div>
+              <div className="text-2xl sm:text-3xl font-black text-white">{stats.sportCounts.size}</div>
             )}
-            <div className="mt-1 text-[11px] font-medium text-pink-300">multi-format active</div>
+            <div className="mt-1 text-[11px] font-semibold text-pink-200/90">multi-format active</div>
           </div>
         </div>
 
         {/* Live Spotlight / Arena Status */}
         {stats.live.length > 0 ? (
-          <div className="rounded-xl border border-red-500/30 bg-gradient-to-r from-red-500/15 via-card to-card p-4 sm:p-5">
+          <div className="rounded-xl border border-rose-500/30 bg-gradient-to-r from-rose-500/15 via-[#111827] to-[#111827] p-4 sm:p-5">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-start sm:items-center gap-3">
-                <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-red-500/20 text-red-400">
+                <div className="relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-rose-500/20 text-rose-300">
                   <Radio className="h-5 w-5" />
                   <span className="absolute -right-1 -top-1 flex h-3 w-3">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500"></span>
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75"></span>
+                    <span className="relative inline-flex h-3 w-3 rounded-full bg-rose-500"></span>
                   </span>
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-red-500/20 text-red-300 border-red-500/30 uppercase text-[10px] font-bold tracking-wider">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge className="bg-rose-500/20 text-rose-300 border-rose-500/30 uppercase text-[10px] font-bold tracking-wider">
                       Live Auction Matchday
                     </Badge>
-                    <span className="text-xs font-semibold text-white">{stats.live[0].name}</span>
+                    <span className="text-sm font-bold text-white">{stats.live[0].name}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
+                  <p className="text-xs text-slate-300 mt-0.5">
                     {stats.live[0].sport} · Organised by {stats.live[0].organizerName || "Verified Host"} · #{stats.live[0].id}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
+                <button
+                  type="button"
                   onClick={() => navigate(`/live/${stats.live[0].id}`)}
-                  className="gap-1 text-xs"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition-colors"
                 >
                   <ExternalLink className="h-3 w-3" /> Live Viewer
-                </Button>
-                <Button
-                  size="sm"
+                </button>
+                <button
+                  type="button"
                   onClick={() => navigate(tournamentLiveOpsPath(stats.live[0].id, "monitor"))}
-                  className="gap-1 bg-red-600 text-white hover:bg-red-700 text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-rose-700 shadow-md shadow-rose-600/20 transition-colors"
                 >
                   Open Live Monitor <ArrowRight className="h-3 w-3" />
-                </Button>
+                </button>
               </div>
             </div>
           </div>
@@ -478,26 +475,26 @@ export default function AdminDashboardOverview() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Left / Center Column (7 Cols): Tournaments Pipeline */}
           <div className="space-y-4 lg:col-span-7">
-            <div className="rounded-xl border border-border bg-card/70 overflow-hidden shadow-sm">
+            <div className="rounded-xl border border-slate-800 bg-[#111827] overflow-hidden shadow-sm">
               {/* Header with Filter Tabs */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border p-4 gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-800 p-4 gap-3">
                 <div>
-                  <h2 className="font-display text-base font-black text-foreground flex items-center gap-2">
+                  <h2 className="font-display text-base font-black text-white flex items-center gap-2">
                     <Trophy className="h-4 w-4 text-amber-400" />
                     Tournament Pipeline
                   </h2>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-slate-400">
                     Scheduled dates, active tournaments, and recent setups
                   </p>
                 </div>
 
-                <div className="flex items-center gap-1 rounded-lg bg-muted/40 p-1 text-xs overflow-x-auto max-w-full border border-border/50">
+                <div className="flex items-center gap-1 rounded-lg bg-slate-900/80 p-1 text-xs overflow-x-auto max-w-full border border-slate-800">
                   <button
                     onClick={() => setTournamentTab("scheduled")}
                     className={`px-2.5 py-1 rounded-md font-semibold transition-all whitespace-nowrap ${
                       tournamentTab === "scheduled"
-                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                        ? "bg-amber-500 text-slate-950 font-bold shadow-xs"
+                        : "text-slate-300 hover:text-white hover:bg-slate-800"
                     }`}
                   >
                     Scheduled ({stats.upcomingScheduled.length})
@@ -506,8 +503,8 @@ export default function AdminDashboardOverview() {
                     onClick={() => setTournamentTab("recent")}
                     className={`px-2.5 py-1 rounded-md font-semibold transition-all whitespace-nowrap ${
                       tournamentTab === "recent"
-                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                        ? "bg-amber-500 text-slate-950 font-bold shadow-xs"
+                        : "text-slate-300 hover:text-white hover:bg-slate-800"
                     }`}
                   >
                     Recently Created
@@ -516,8 +513,8 @@ export default function AdminDashboardOverview() {
                     onClick={() => setTournamentTab("all")}
                     className={`px-2.5 py-1 rounded-md font-semibold transition-all whitespace-nowrap ${
                       tournamentTab === "all"
-                        ? "bg-primary text-primary-foreground font-bold shadow-xs"
-                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                        ? "bg-amber-500 text-slate-950 font-bold shadow-xs"
+                        : "text-slate-300 hover:text-white hover:bg-slate-800"
                     }`}
                   >
                     All ({tournaments.length})
@@ -526,11 +523,11 @@ export default function AdminDashboardOverview() {
               </div>
 
               {/* Tournament List */}
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-slate-800">
                 {loading ? (
                   <div className="space-y-2 p-4">
                     {[1, 2, 3, 4].map((i) => (
-                      <Skeleton key={i} className="h-14 w-full" />
+                      <div key={i} className="h-14 w-full animate-pulse rounded bg-slate-800/80" />
                     ))}
                   </div>
                 ) : (
@@ -544,17 +541,17 @@ export default function AdminDashboardOverview() {
 
                     if (list.length === 0) {
                       return (
-                        <div className="p-8 text-center text-sm text-muted-foreground">
-                          <Trophy className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                          <p className="font-semibold text-foreground">No tournaments found in this view</p>
-                          <p className="text-xs mt-1">Create a new tournament to get started.</p>
-                          <Button
-                            size="sm"
+                        <div className="p-8 text-center text-sm text-slate-400">
+                          <Trophy className="h-8 w-8 mx-auto text-slate-600 mb-2" />
+                          <p className="font-semibold text-white">No tournaments found in this view</p>
+                          <p className="text-xs mt-1 text-slate-400">Create a new tournament to get started.</p>
+                          <button
+                            type="button"
                             onClick={() => setCreateTournamentOpen(true)}
-                            className="mt-3 gap-1 text-xs"
+                            className="mt-3 inline-flex items-center gap-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-slate-950 hover:bg-amber-600 transition-colors"
                           >
                             <Plus className="h-3.5 w-3.5" /> Create Tournament
-                          </Button>
+                          </button>
                         </div>
                       );
                     }
@@ -565,11 +562,11 @@ export default function AdminDashboardOverview() {
                         <div
                           key={t.id}
                           onClick={() => navigate(`/admin/tournaments/${t.id}`)}
-                          className="group flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 hover:bg-accent/40 cursor-pointer transition-colors gap-3"
+                          className="group flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 hover:bg-slate-800/50 cursor-pointer transition-colors gap-3"
                         >
                           <div className="min-w-0 flex-1 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-foreground group-hover:text-primary transition-colors">
+                              <span className="font-bold text-white group-hover:text-amber-400 transition-colors">
                                 {t.name}
                               </span>
                               <Badge variant="outline" className={`text-[10px] gap-1 px-1.5 py-0 ${sport.color}`}>
@@ -584,27 +581,23 @@ export default function AdminDashboardOverview() {
                               )}
                             </div>
 
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                              <span className="flex items-center gap-1">
-                                <Building2 className="h-3 w-3 text-muted-foreground/70" />
+                            <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
+                              <span className="flex items-center gap-1 text-slate-300">
+                                <Building2 className="h-3 w-3 text-slate-400" />
                                 {t.organizerName || "Unassigned Organiser"}
                               </span>
                               <span>·</span>
-                              <span className="flex items-center gap-1 font-medium text-foreground/80">
-                                <Calendar className="h-3 w-3 text-primary/70" />
+                              <span className="flex items-center gap-1 font-semibold text-amber-300">
+                                <Calendar className="h-3 w-3 text-amber-400" />
                                 {formatDisplayDate(t.auctionDate, t.auctionTime)}
                               </span>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-2 self-end sm:self-center">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 text-xs font-semibold text-primary group-hover:bg-primary/10"
-                            >
+                            <span className="rounded-md bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors group-hover:bg-primary/20">
                               Manage →
-                            </Button>
+                            </span>
                           </div>
                         </div>
                       );
@@ -614,15 +607,14 @@ export default function AdminDashboardOverview() {
               </div>
 
               {tournaments.length > 7 && (
-                <div className="border-t border-border p-3 text-center bg-card/40">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs font-semibold text-primary gap-1"
+                <div className="border-t border-slate-800 p-3 text-center bg-slate-900/60">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-amber-400 hover:text-amber-300"
                     onClick={() => navigate("/admin/tournaments")}
                   >
                     View all {tournaments.length} tournaments <ArrowRight className="h-3.5 w-3.5" />
-                  </Button>
+                  </button>
                 </div>
               )}
             </div>
@@ -631,34 +623,33 @@ export default function AdminDashboardOverview() {
           {/* Right Column (5 Cols): Organiser Onboarding & Creation Pulse */}
           <div className="space-y-6 lg:col-span-5">
             {/* Recent Organiser Signups ("Kon Register Hua") */}
-            <div className="rounded-xl border border-border bg-card/70 overflow-hidden shadow-sm">
-              <div className="flex items-center justify-between border-b border-border p-4">
+            <div className="rounded-xl border border-slate-800 bg-[#111827] overflow-hidden shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-800 p-4">
                 <div>
-                  <h2 className="font-display text-base font-black text-foreground flex items-center gap-2">
+                  <h2 className="font-display text-base font-black text-white flex items-center gap-2">
                     <UserPlus className="h-4 w-4 text-emerald-400" />
                     New Organisers
                   </h2>
-                  <p className="text-xs text-muted-foreground">Recently joined tournament hosts</p>
+                  <p className="text-xs text-slate-400">Recently joined tournament hosts</p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
+                <button
+                  type="button"
                   onClick={() => navigate("/admin/organisers")}
-                  className="text-xs h-7 px-2.5"
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition-colors"
                 >
                   All ({organisers.length})
-                </Button>
+                </button>
               </div>
 
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-slate-800">
                 {loading ? (
                   <div className="space-y-2 p-4">
                     {[1, 2, 3].map((i) => (
-                      <Skeleton key={i} className="h-12 w-full" />
+                      <div key={i} className="h-12 w-full animate-pulse rounded bg-slate-800/80" />
                     ))}
                   </div>
                 ) : stats.recentOrganisers.length === 0 ? (
-                  <p className="p-4 text-xs text-muted-foreground">No organisers registered yet.</p>
+                  <p className="p-4 text-xs text-slate-400">No organisers registered yet.</p>
                 ) : (
                   stats.recentOrganisers.slice(0, 5).map((org) => {
                     const isVerified = org.phoneVerified || org.phoneStatus === "verified";
@@ -666,7 +657,7 @@ export default function AdminDashboardOverview() {
                       <div
                         key={org.id}
                         onClick={() => navigate(`/admin/organisers/${org.id}`)}
-                        className="flex items-center justify-between p-3.5 hover:bg-accent/40 cursor-pointer transition-colors"
+                        className="flex items-center justify-between p-3.5 hover:bg-slate-800/50 cursor-pointer transition-colors"
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400 font-black text-xs">
@@ -674,19 +665,19 @@ export default function AdminDashboardOverview() {
                           </div>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-sm text-foreground truncate">{org.name}</span>
+                              <span className="font-bold text-sm text-white truncate">{org.name}</span>
                               {isVerified && (
                                 <BadgeCheck className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
                               )}
                             </div>
-                            <div className="text-xs text-muted-foreground truncate">
+                            <div className="text-xs text-slate-300 truncate">
                               {org.mobile || org.email || "No direct contact"} · {org.tournamentCount} tournament{org.tournamentCount !== 1 ? "s" : ""}
                             </div>
                           </div>
                         </div>
 
                         <div className="text-right flex-shrink-0 pl-2">
-                          <span className="text-[11px] font-medium text-muted-foreground">
+                          <span className="text-[11px] font-medium text-slate-400">
                             {formatRelativeTime(org.createdAt)}
                           </span>
                         </div>
@@ -698,13 +689,13 @@ export default function AdminDashboardOverview() {
             </div>
 
             {/* Platform Sports Breakdown */}
-            <div className="rounded-xl border border-border bg-card/70 p-4 shadow-sm">
+            <div className="rounded-xl border border-slate-800 bg-[#111827] p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-display text-sm font-black text-foreground flex items-center gap-2">
+                <h3 className="font-display text-sm font-black text-white flex items-center gap-2">
                   <Layers className="h-4 w-4 text-primary" />
                   Sports Represented
                 </h3>
-                <span className="text-xs text-muted-foreground font-medium">
+                <span className="text-xs text-slate-300 font-medium">
                   {stats.sportCounts.size} active formats
                 </span>
               </div>

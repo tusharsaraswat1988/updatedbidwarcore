@@ -15,7 +15,7 @@
   --admin-surface-hover: #1E293B;        /* Interactive row hover */
   --admin-foreground: #F8FAFC;           /* Slate-50: 17:1+ contrast on canvas */
   --admin-secondary-foreground: #E2E8F0; /* Slate-200: 13:1+ contrast */
-  --admin-muted-foreground: #94A3B8;     /* Slate-400: 6.8:1 WCAG AA compliant on #111827 */
+  --admin-muted-foreground: #CBD5E1;     /* Slate-300: 11.5:1 WCAG AAA compliant */
   --admin-border: #1E293B;               /* Slate-800: crisp, clean border definition */
   --admin-border-subtle: #162033;        /* Subtle dividers */
   --admin-border-strong: #334155;        /* Hover / focus ring / card accent border */
@@ -27,7 +27,7 @@
   --admin-warning: #F59E0B;              /* Amber */
   --admin-danger: #EF4444;               /* Rose/Red */
   --admin-sidebar-background: #0B1120;   /* Executive dark navy sidebar */
-  --admin-sidebar-foreground: #94A3B8;   /* Slate-400 unselected link text */
+  --admin-sidebar-foreground: #CBD5E1;   /* Slate-300 unselected link text */
   --admin-sidebar-active: #FEF3C7;       /* Soft gold text */
   --admin-sidebar-active-bg: rgba(234, 179, 8, 0.12);
   --admin-sidebar-border: #1E293B;
@@ -46,7 +46,7 @@
   --secondary: 222 47% 15%;        /* #161F33 */
   --secondary-foreground: 210 40% 98%;
   --muted: 222 47% 12%;            /* #0D1424 */
-  --muted-foreground: 215 20% 65%; /* #94A3B8 */
+  --muted-foreground: 215 20% 75%; /* #CBD5E1 */
   --accent: 217 33% 17%;           /* #1E293B */
   --accent-foreground: 210 40% 98%;
   --destructive: 0 84% 60%;
@@ -67,12 +67,27 @@
   --color-secondary: #161F33;
   --color-secondary-foreground: #F8FAFC;
   --color-muted: #0D1424;
-  --color-muted-foreground: #94A3B8;
+  --color-muted-foreground: #CBD5E1;
   --color-accent: #1E293B;
   --color-accent-foreground: #F8FAFC;
   --color-destructive: #EF4444;
   --color-destructive-foreground: #F8FAFC;
   --color-border: #1E293B;
+}
+
+/* Guard against light mode token bleeding into Admin buttons and cards */
+:is(.bw-admin-dark, [data-surface="admin"]) .bg-secondary {
+  background-color: #1E293B !important;
+  color: #F8FAFC !important;
+}
+
+:is(.bw-admin-dark, [data-surface="admin"]) .bg-card {
+  background-color: #111827 !important;
+  color: #F8FAFC !important;
+}
+
+:is(.bw-admin-dark, [data-surface="admin"]) .text-muted-foreground {
+  color: #94A3B8 !important;
 }
 
 /* Specific component enforcement inside Admin */

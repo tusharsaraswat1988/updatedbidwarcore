@@ -181,6 +181,19 @@ async function runVerification() {
   }
   console.log(`✓ Headless Chrome started on port ${cdpPort}`);
 
+  // Warm up dev server before test loop
+  try {
+    const warmTab = await httpPutJson(`http://127.0.0.1:${cdpPort}/json/new`);
+    const warmClient = new CDPClient(warmTab.webSocketDebuggerUrl);
+    await warmClient.connect();
+    await warmClient.send('Page.enable');
+    await warmClient.send('Page.navigate', { url: 'http://localhost:24755/admin' });
+    await delay(3000);
+    warmClient.close();
+    await httpGetJson(`http://127.0.0.1:${cdpPort}/json/close/${warmTab.id}`);
+    console.log("✓ Vite dev server warmed up");
+  } catch (e) {}
+
   const testCases = [
     // 1. Core Super Admin Dashboard Viewports
     {
@@ -352,7 +365,19 @@ async function runVerification() {
 
       // Navigate
       await client.send('Page.navigate', { url: tc.url });
-      await delay(2500); // Wait for React hydration and queries
+
+      // Wait for React DOM mount and loading states to settle
+      for (let w = 0; w < 12; w++) {
+        await delay(500);
+        try {
+          const checkReady = await client.send('Runtime.evaluate', {
+            expression: `Boolean(document.querySelector('aside, nav, [data-surface], [class*="bg-card"], #root > div')) && !document.querySelector('[aria-busy="true"]')`,
+            returnByValue: true
+          });
+          if (checkReady?.result?.value) break;
+        } catch (e) {}
+      }
+      await delay(1200); // Wait for React queries and theme transitions
 
       // Evaluate styles and contrast
       const auditResult = await client.send('Runtime.evaluate', {

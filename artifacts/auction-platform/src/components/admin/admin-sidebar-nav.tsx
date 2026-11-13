@@ -73,13 +73,13 @@ function NavLink({
     <Link
       href={item.href}
       onClick={onNavigate}
-      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs sm:text-sm font-medium transition-all ${
+      className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs sm:text-sm font-medium transition-all ${
         active
           ? "bg-primary/15 text-primary font-bold shadow-xs border border-primary/30"
-          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+          : "text-slate-300 hover:bg-slate-800/70 hover:text-white"
       }`}
     >
-      <Icon className={`h-4 w-4 flex-shrink-0 ${active ? "text-primary" : "text-muted-foreground"}`} />
+      <Icon className={`h-4 w-4 flex-shrink-0 transition-colors ${active ? "text-primary" : "text-slate-400 group-hover:text-slate-200"}`} />
       <span className="min-w-0 flex-1 truncate">{item.label}</span>
       {item.badge && (
         <span className="rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-bold text-primary">
@@ -103,7 +103,7 @@ function NavSection({
 }) {
   return (
     <div className="space-y-1">
-      <div className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80">
+      <div className="px-3 pb-1 pt-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">
         {label}
       </div>
       {items.map((item) => (

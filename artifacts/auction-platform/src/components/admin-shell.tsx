@@ -191,7 +191,7 @@ function ShellBrand({ loading, logos, brandName }: { loading: boolean; logos: { 
         />
       )}
       <div className="min-w-0">
-        <div className="text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">Super Admin</div>
+        <div className="text-[11px] uppercase tracking-widest text-slate-400 font-bold">Super Admin</div>
       </div>
     </div>
   );
@@ -251,29 +251,29 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
   return (
     <AdminNotificationProvider enabled={isLoggedIn}>
     <div className="bw-admin-dark dark flex h-screen overflow-hidden bg-background text-foreground" data-surface="admin">
-      <aside className="hidden w-60 flex-shrink-0 flex-col border-r border-border bg-card md:flex">
+      <aside className="hidden w-60 flex-shrink-0 flex-col border-r border-slate-800 bg-[#0B1120] md:flex">
         <ShellBrand loading={loading} logos={logos} brandName={brandName} />
         <AdminSidebarNav location={location} isMaster={isMaster} />
       </aside>
 
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent side="left" className="w-[min(100vw-2rem,280px)] p-0 flex flex-col bg-card border-r border-border">
+        <SheetContent side="left" className="w-[min(100vw-2rem,280px)] p-0 flex flex-col bg-[#0B1120] border-r border-slate-800">
           <SheetTitle className="sr-only">Admin navigation</SheetTitle>
           <ShellBrand loading={loading} logos={logos} brandName={brandName} />
           <div className="flex-1 min-h-0 overflow-y-auto">
             <AdminSidebarNav location={location} isMaster={isMaster} onNavigate={closeDrawer} />
           </div>
-          <div className="p-3 border-t border-border flex-shrink-0">
+          <div className="p-3 border-t border-slate-800 flex-shrink-0">
             <AdminPwaInstallHint variant="card" />
           </div>
         </SheetContent>
       </Sheet>
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-14 flex-shrink-0 items-center gap-1.5 sm:gap-3 border-b border-border bg-card/60 backdrop-blur-md px-2.5 sm:px-5">
+        <div className="flex h-14 flex-shrink-0 items-center gap-1.5 sm:gap-3 border-b border-slate-800 bg-[#0B1120]/80 backdrop-blur-md px-2.5 sm:px-5">
           <button
             type="button"
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground md:hidden flex-shrink-0"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white md:hidden flex-shrink-0"
             onClick={() => setDrawerOpen(true)}
             aria-label="Open navigation menu"
           >
@@ -281,10 +281,10 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
           </button>
           <AdminGlobalSearch isMobile={isMobile} isLoggedIn={isLoggedIn} />
           <div
-            className="hidden items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground lg:flex flex-shrink-0"
+            className="hidden items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 lg:flex flex-shrink-0"
             title={adminLevel === "master" ? "Master admin — full platform access" : "Data entry admin — read-only live ops"}
           >
-            <UserCircle className="h-4 w-4" />
+            <UserCircle className="h-4 w-4 text-amber-400" />
             <span>{adminLevel === "master" ? "Master" : "Data Entry"}</span>
           </div>
           <AdminPwaInstallHint variant="compact" />
@@ -294,7 +294,7 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
           <button
             type="button"
             onClick={() => setLogoutOpen(true)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-destructive/10 hover:text-destructive flex-shrink-0"
             title="Sign out"
             aria-label="Sign out"
           >
@@ -323,14 +323,14 @@ export function AdminShell({ children, title, eyebrow, actions }: AdminShellProp
         </AlertDialog>
 
         <div className="flex-1 overflow-auto bg-background">
-          <div className="border-b border-border bg-card/40 px-3 py-3 sm:px-6 sm:py-4">
+          <div className="border-b border-slate-800 bg-card/60 px-3 py-3 sm:px-6 sm:py-4">
             {eyebrow && (
-              <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 {eyebrow}
               </div>
             )}
             <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-              <h1 className="font-display text-lg font-black text-foreground sm:text-2xl truncate">{title}</h1>
+              <h1 className="font-display text-lg font-black text-white sm:text-2xl truncate">{title}</h1>
               {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
             </div>
           </div>
