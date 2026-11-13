@@ -33,13 +33,37 @@ export default function AdminLogin() {
   const logoSrc = getBrandLogoSrc(logos, authLoginPreset.logoOrder);
   const logoAlt = getBrandLogoAlt(brandName);
 
-  // Responsive neural core sizing
+  // Lock body scroll while on admin login to eliminate mobile vertical scrolling
+  useEffect(() => {
+    const origBodyOverflow = document.body.style.overflow;
+    const origBodyOverscroll = document.body.style.overscrollBehavior;
+    const origDocOverflow = document.documentElement.style.overflow;
+    const origDocOverscroll = document.documentElement.style.overscrollBehavior;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.documentElement.style.overflow = "hidden";
+    document.documentElement.style.overscrollBehavior = "none";
+
+    return () => {
+      document.body.style.overflow = origBodyOverflow;
+      document.body.style.overscrollBehavior = origBodyOverscroll;
+      document.documentElement.style.overflow = origDocOverflow;
+      document.documentElement.style.overscrollBehavior = origDocOverscroll;
+    };
+  }, []);
+
+  // Responsive neural core sizing with dynamic mobile viewport height awareness
   useEffect(() => {
     const updateSize = () => {
       if (typeof window === "undefined") return;
-      if (window.innerWidth < 640) {
-        setCoreSize(260);
-      } else if (window.innerWidth < 1024) {
+      const h = window.innerHeight;
+      const w = window.innerWidth;
+      if (h < 640 || w < 360) {
+        setCoreSize(220);
+      } else if (h < 760 || w < 440) {
+        setCoreSize(250);
+      } else if (w < 1024) {
         setCoreSize(290);
       } else {
         setCoreSize(320);
@@ -127,12 +151,15 @@ export default function AdminLogin() {
   const isPasswordVisible = stage === "passwordPrompt" || stage === "authenticating";
 
   return (
-    <div className="relative min-h-screen w-full bg-[#F8F7F2] text-[#2E281E] overflow-hidden flex flex-col items-center justify-center selection:bg-[#E5C158]/30 selection:text-[#2E281E] font-sans">
+    <div
+      id="bidwar-admin-login-root"
+      className="fixed inset-0 h-[100dvh] max-h-[100dvh] w-full bg-[#F8F7F2] text-[#2E281E] overflow-hidden flex flex-col items-center justify-center selection:bg-[#E5C158]/30 selection:text-[#2E281E] font-sans overscroll-none"
+    >
       {/* Full-viewport ambient warm champagne background */}
       <BidWarLoginMeshBackground stage={stage} />
 
       {/* Content layer with refined, balanced spacing */}
-      <div className="relative z-10 flex flex-col items-center justify-center w-full px-4 gap-5 sm:gap-6">
+      <div className="relative z-10 flex flex-col items-center justify-center w-full px-4 gap-4 sm:gap-6">
 
         {/* Brand Logo — Compact on Pearl Surface */}
         <motion.div

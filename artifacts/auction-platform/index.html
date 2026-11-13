@@ -52,7 +52,7 @@
           if (p === '/admin/login' || p === '/admin/login/') {
             var el = document.createElement('style');
             el.id = 'bidwar-admin-login-preboot';
-            el.textContent = 'html,body,#root{background:#F8F7F2 !important;color:#2E281E !important;} #bidwar-boot-splash{display:none !important;}';
+            el.textContent = 'html,body,#root{background:#F8F7F2 !important;color:#2E281E !important;height:100% !important;overflow:hidden !important;overscroll-behavior:none !important;} #bidwar-boot-splash{display:none !important;}';
             document.head.appendChild(el);
           }
         } catch(e){}

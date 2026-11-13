@@ -140,6 +140,16 @@ describe("BidWar Super Admin Login — Champagne Gold & Pearl Reference Suite", 
       expect(adminLoginSrc).not.toContain("bg-blue-500");
     });
 
+    it("locks viewport to dynamic viewport height (100dvh) with zero vertical scroll on mobile", () => {
+      expect(adminLoginSrc).toContain("fixed inset-0");
+      expect(adminLoginSrc).toContain("h-[100dvh]");
+      expect(adminLoginSrc).toContain("max-h-[100dvh]");
+      expect(adminLoginSrc).toContain("overflow-hidden");
+      expect(adminLoginSrc).toContain("overscroll-none");
+      expect(adminLoginSrc).toContain('document.body.style.overflow = "hidden"');
+      expect(adminLoginSrc).toContain('document.documentElement.style.overflow = "hidden"');
+    });
+
     it("uses organizer-auth preset for high-contrast primary logo on light backgrounds", () => {
       expect(adminLoginSrc).toContain('getBrandSurfacePreset("organizer-auth")');
     });
