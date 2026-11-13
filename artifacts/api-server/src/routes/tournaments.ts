@@ -1376,7 +1376,7 @@ router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin
   const adminIdentifier = req.jwtUser?.email || req.jwtUser?.adminLevel || "Super Admin";
   const { paymentAmount, paymentMode, paymentRef, notes, requestId } = parsed.data;
 
-  // Retrieve license request: must belong to tournament and be pending
+  // Retrieve license request: must belong to tournament and be pending (or auto-provision for direct grant)
   let reqRow: typeof tournamentLicenseRequestsTable.$inferSelect | undefined;
   if (requestId) {
     const [row] = await db
@@ -1404,12 +1404,63 @@ router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin
           eq(tournamentLicenseRequestsTable.status, "pending"),
         ),
       )
+      .orderBy(desc(tournamentLicenseRequestsTable.createdAt))
       .limit(1);
-    if (!row) {
-      res.status(400).json({ error: "No pending license request found for this tournament" });
-      return;
+    if (row) {
+      reqRow = row;
+    } else {
+      // Direct grant by Super Admin: auto-provision a license request record
+      let targetOrganizerId = tournament.organizerId;
+      if (!targetOrganizerId) {
+        if (tournament.organizerEmail) {
+          const [org] = await db
+            .select({ id: organizersTable.id })
+            .from(organizersTable)
+            .where(eq(organizersTable.email, tournament.organizerEmail.trim()))
+            .limit(1);
+          if (org) targetOrganizerId = org.id;
+        }
+        if (!targetOrganizerId && tournament.organizerMobile) {
+          const [org] = await db
+            .select({ id: organizersTable.id })
+            .from(organizersTable)
+            .where(eq(organizersTable.mobile, tournament.organizerMobile.trim()))
+            .limit(1);
+          if (org) targetOrganizerId = org.id;
+        }
+        if (!targetOrganizerId) {
+          const [firstOrg] = await db
+            .select({ id: organizersTable.id })
+            .from(organizersTable)
+            .orderBy(organizersTable.id)
+            .limit(1);
+          if (firstOrg) targetOrganizerId = firstOrg.id;
+        }
+      }
+
+      const requestedModules =
+        tournament.auctionEnabled && tournament.scoringEnabled
+          ? "both"
+          : tournament.scoringEnabled
+            ? "scoring"
+            : "auction";
+
+      const [newRow] = await db
+        .insert(tournamentLicenseRequestsTable)
+        .values({
+          tournamentId: tid,
+          organizerId: targetOrganizerId as number,
+          requestedModules,
+          status: "pending",
+          organizerMobile: tournament.organizerMobile || null,
+          notes: notes ? `Direct Admin Grant: ${notes}` : "Direct license grant by Super Admin",
+          paymentAmount: paymentAmount ?? null,
+          paymentMode: paymentMode ?? "upi",
+          paymentRef: paymentRef ?? null,
+        })
+        .returning();
+      reqRow = newRow;
     }
-    reqRow = row;
   }
 
   if (reqRow.status !== "pending") {
@@ -1424,10 +1475,20 @@ router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin
     return;
   }
   const finalMode = (paymentMode ?? reqRow.paymentMode ?? "upi").trim();
-  const finalRef = (paymentRef !== undefined ? paymentRef : reqRow.paymentRef ?? "").trim();
-  if (finalMode !== "waiver" && !finalRef) {
+  let finalRef = (paymentRef !== undefined ? paymentRef : reqRow.paymentRef ?? "").trim();
+  const normalizedMode = finalMode.toLowerCase();
+  const isCashOrWaiver =
+    normalizedMode === "cash" ||
+    normalizedMode === "waiver" ||
+    normalizedMode === "admin_waiver" ||
+    normalizedMode === "offline";
+
+  if (!isCashOrWaiver && !finalRef) {
     res.status(400).json({ error: "Payment reference / UTR is required for verification" });
     return;
+  }
+  if (isCashOrWaiver && !finalRef) {
+    finalRef = normalizedMode === "cash" || normalizedMode === "offline" ? "CASH" : "WAIVER";
   }
 
   const requestedModules = (reqRow.requestedModules || "auction") as "auction" | "scoring" | "both";
@@ -1458,7 +1519,11 @@ router.post("/auth/admin/tournaments/:id/verify-and-grant-license", requireAdmin
           paymentRef: finalRef,
           verifiedBy: adminIdentifier,
           verifiedAt: new Date(),
-          notes: notes ? `${reqRow.notes ? reqRow.notes + "\n" : ""}Admin: ${notes}` : reqRow.notes,
+          notes: notes
+            ? reqRow.notes && !reqRow.notes.includes(notes)
+              ? `${reqRow.notes}\nAdmin: ${notes}`
+              : reqRow.notes || `Admin: ${notes}`
+            : reqRow.notes,
         })
         .where(eq(tournamentLicenseRequestsTable.id, targetRequestId));
 

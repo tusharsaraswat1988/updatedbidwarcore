@@ -20,6 +20,7 @@ const SelectTrigger = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
+    data-slot="select-trigger"
     className={cn(
       "flex w-full cursor-pointer items-center justify-between gap-2 whitespace-nowrap ring-offset-background data-[placeholder]:text-muted-foreground [&>span]:line-clamp-1",
       fieldControlClass,
@@ -31,7 +32,7 @@ const SelectTrigger = React.forwardRef<
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 opacity-50" />
+      <ChevronDown className="h-4 w-4 text-muted-foreground" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ))
@@ -79,6 +80,7 @@ const SelectContent = React.forwardRef<
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
+      data-slot="select-content"
       collisionPadding={12}
       className={cn(
         getPortalThemeClass(),

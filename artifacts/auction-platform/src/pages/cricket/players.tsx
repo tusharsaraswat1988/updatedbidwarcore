@@ -1273,7 +1273,7 @@ export default function CricketPlayersPage() {
                       </div>
 
                       {rosterTable ? (
-                        <div className="overflow-x-auto rounded-xl border border-border/80 bg-card/40 backdrop-blur-sm shadow-sm">
+                        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
                           <table className="w-full text-left text-sm border-collapse min-w-[760px]">
                             <thead>
                               <tr className="border-b border-border/80 bg-muted/40 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">

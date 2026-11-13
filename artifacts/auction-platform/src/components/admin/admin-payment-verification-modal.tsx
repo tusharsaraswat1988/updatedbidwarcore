@@ -95,6 +95,9 @@ export function AdminPaymentVerificationModal({
           paymentMode,
           paymentRef: paymentRef.trim() || undefined,
           notes: adminNote.trim() || undefined,
+          reason: adminNote.trim().length >= 10
+            ? adminNote.trim()
+            : `Verified payment for ${tournamentName}: ${adminNote.trim() || "Approved by Super Admin"}`,
         }),
       });
 

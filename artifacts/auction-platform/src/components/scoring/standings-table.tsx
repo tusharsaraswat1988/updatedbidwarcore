@@ -51,8 +51,8 @@ export function StandingsTable({
               key={`card-${row.drawId ?? "legacy"}-${row.teamId}`}
               className={
                 isQualified
-                  ? "rounded-xl border border-primary/30 bg-primary/5 p-3"
-                  : "rounded-xl border border-border p-3"
+                  ? "rounded-xl border border-primary/40 bg-primary/10 p-3.5 shadow-xs"
+                  : "rounded-xl border border-border bg-card p-3.5 shadow-xs"
               }
             >
               <div className="flex items-center gap-2 min-w-0">
@@ -78,10 +78,10 @@ export function StandingsTable({
           );
         })}
       </ul>
-    <div className="hidden md:block overflow-x-auto rounded-xl border border-border">
+    <div className="hidden md:block overflow-x-auto rounded-xl border border-border bg-card shadow-xs">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-border bg-muted/30 text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <tr className="border-b border-border bg-muted/50 text-left text-xs uppercase tracking-wider text-muted-foreground">
             <th className="px-3 py-2.5 font-semibold">#</th>
             <th className="px-3 py-2.5 font-semibold">Team</th>
             <th className="px-3 py-2.5 font-semibold text-center">P</th>
@@ -109,8 +109,8 @@ export function StandingsTable({
               key={`${row.drawId ?? "legacy"}-${row.teamId}`}
               className={
                 isQualified
-                  ? "border-b border-border/60 last:border-0 bg-primary/5"
-                  : "border-b border-border/60 last:border-0"
+                  ? "border-b border-border/70 last:border-0 bg-primary/10 hover:bg-primary/15 transition-colors"
+                  : "border-b border-border/70 last:border-0 hover:bg-muted/50 transition-colors"
               }
             >
               <td className="px-3 py-2.5 text-muted-foreground">

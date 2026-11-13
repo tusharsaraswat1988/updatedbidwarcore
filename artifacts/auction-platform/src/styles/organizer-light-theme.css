@@ -9,18 +9,28 @@
   color-scheme: light;
 
   /* ── Core Palette Tokens ── */
-  --org-background: #F3F6FA;
-  --org-surface: #FFFFFF;
-  --org-surface-muted: #F8FAFC;
-  --org-foreground: #0F172A;
-  --org-muted-foreground: #475569;
-  --org-primary: #EAB308;
-  --org-primary-foreground: #0F172A;
-  --org-border: #CBD5E1;
+  --org-background: #F1F5F9;           /* Slate-100 canvas (crisp contrast vs white cards) */
+  --org-surface: #FFFFFF;              /* Pure white cards, panels, modals */
+  --org-surface-muted: #F8FAFC;        /* Slate-50 table headers & inset blocks */
+  --org-surface-active: #FEF9C3;       /* Brand yellow-100 tint for selected rows */
+  --org-surface-hover: #F8FAFC;        /* Interactive row hover */
+  --org-foreground: #0F172A;           /* Slate-900 (15:1+ high contrast) */
+  --org-secondary-foreground: #334155; /* Slate-700 (9.5:1 contrast, subheadings) */
+  --org-muted-foreground: #475569;     /* Slate-600 (5.7:1 WCAG AA compliant muted text) */
+  --org-primary: #EAB308;              /* BidWar brand yellow-500 */
+  --org-primary-hover: #CA8A04;        /* Yellow-600 */
+  --org-primary-active: #A16207;       /* Yellow-700 */
+  --org-primary-foreground: #0F172A;   /* Slate-900 (8.7:1 AAA contrast on gold) */
+  --org-border: #CBD5E1;               /* Slate-300: crisp, defined borders */
+  --org-border-subtle: #E2E8F0;        /* Slate-200: subtle row dividers */
+  --org-border-strong: #94A3B8;        /* Slate-400: focus / hover accents */
   --org-input: #FFFFFF;
   --org-sidebar: #FFFFFF;
+  --org-sidebar-border: #CBD5E1;
   --org-sidebar-active: #FEF3C7;
-  --org-focus: #2563EB;
+  --org-sidebar-active-text: #92400E;
+  --org-focus: #EAB308;
+  --org-focus-ring: 0 0 0 2px #FFFFFF, 0 0 0 4px #EAB308;
 
   /* ── Status Tokens (Accessible Light Semantics) ── */
   --org-success: #059669;
@@ -44,86 +54,87 @@
   --org-danger-text: #991B1B;
 
   /* ── Standard CSS / Tailwind HSL Channel Rebinds ── */
-  --background: 215 28% 97%;          /* #F3F6FA */
-  --foreground: 218 54% 19%;          /* #172B4D */
+  --background: 210 40% 96.1%;        /* #F1F5F9 */
+  --foreground: 222.2 84% 4.9%;       /* #0F172A */
 
   --card: 0 0% 100%;                  /* #FFFFFF */
-  --card-foreground: 218 54% 19%;     /* #172B4D */
-  --card-border: 214 32% 91%;         /* #E2E8F0 */
+  --card-foreground: 222.2 84% 4.9%;  /* #0F172A */
+  --card-border: 214.3 31.8% 80%;     /* #CBD5E1 */
 
   --popover: 0 0% 100%;               /* #FFFFFF */
-  --popover-foreground: 218 54% 19%;  /* #172B4D */
-  --popover-border: 214 32% 91%;      /* #E2E8F0 */
+  --popover-foreground: 222.2 84% 4.9%; /* #0F172A */
+  --popover-border: 214.3 31.8% 80%;  /* #CBD5E1 */
 
   --primary: 45 93% 47%;              /* #EAB308 */
-  --primary-foreground: 218 54% 19%;  /* #172B4D */
-  --primary-border: #E2E8F0;
+  --primary-foreground: 222.2 84% 4.9%; /* #0F172A */
+  --primary-border: #CBD5E1;
 
-  --secondary: 210 40% 96%;           /* #F1F5F9 */
-  --secondary-foreground: 218 54% 19%;/* #172B4D */
+  --secondary: 210 40% 96.1%;         /* #F1F5F9 */
+  --secondary-foreground: 222.2 84% 4.9%; /* #0F172A */
 
-  --muted: 210 40% 96%;               /* #F1F5F9 */
-  --muted-foreground: 215 16% 47%;    /* #64748B */
+  --muted: 210 40% 96.1%;             /* #F1F5F9 */
+  --muted-foreground: 215.4 16.3% 36%;/* #475569 (WCAG AA 5.7:1) */
 
-  --accent: 210 40% 96%;              /* #F1F5F9 */
-  --accent-foreground: 218 54% 19%;   /* #172B4D */
+  --accent: 210 40% 96.1%;            /* #F1F5F9 */
+  --accent-foreground: 222.2 84% 4.9%;/* #0F172A */
 
-  --destructive: 0 84% 60%;           /* #EF4444 */
+  --destructive: 0 84.2% 60.2%;       /* #EF4444 */
   --destructive-foreground: 0 0% 100%;
 
-  --border: 214 32% 91%;              /* #E2E8F0 */
-  --input: 214 32% 91%;               /* #E2E8F0 */
-  --ring: 217 91% 60%;                /* #2563EB focus ring */
+  --border: 214.3 31.8% 80%;          /* #CBD5E1 */
+  --input: 214.3 31.8% 80%;           /* #CBD5E1 */
+  --ring: 45 93% 47%;                 /* #EAB308 focus ring */
 
   --sidebar: 0 0% 100%;               /* #FFFFFF */
-  --sidebar-foreground: 218 54% 19%;  /* #172B4D */
+  --sidebar-foreground: 222.2 84% 4.9%; /* #0F172A */
   --sidebar-primary: 45 93% 47%;
-  --sidebar-primary-foreground: 218 54% 19%;
+  --sidebar-primary-foreground: 222.2 84% 4.9%;
   --sidebar-accent: 48 96% 89%;       /* #FEF3C7 */
-  --sidebar-accent-foreground: 218 54% 19%;
-  --sidebar-border: 214 32% 91%;      /* #E2E8F0 */
-  --sidebar-ring: 217 91% 60%;
+  --sidebar-accent-foreground: 28 80% 32%; /* #92400E */
+  --sidebar-border: 214.3 31.8% 80%;  /* #CBD5E1 */
+  --sidebar-ring: 45 93% 47%;
 
-  /* ── Overwrite any Lovable inline color tokens ── */
-  --color-background: #F3F6FA;
-  --color-foreground: #172B4D;
+  /* ── Overwrite Tailwind v4 inline color tokens ── */
+  --color-background: #F1F5F9;
+  --color-foreground: #0F172A;
   --color-card: #FFFFFF;
-  --color-card-foreground: #172B4D;
+  --color-card-foreground: #0F172A;
   --color-popover: #FFFFFF;
-  --color-popover-foreground: #172B4D;
+  --color-popover-foreground: #0F172A;
   --color-primary: #EAB308;
-  --color-primary-foreground: #172B4D;
+  --color-primary-foreground: #0F172A;
   --color-secondary: #F1F5F9;
-  --color-secondary-foreground: #172B4D;
+  --color-secondary-foreground: #0F172A;
   --color-muted: #F1F5F9;
-  --color-muted-foreground: #64748B;
+  --color-muted-foreground: #475569;
   --color-accent: #F1F5F9;
-  --color-accent-foreground: #172B4D;
+  --color-accent-foreground: #0F172A;
   --color-destructive: #DC2626;
   --color-destructive-foreground: #FFFFFF;
-  --color-border: #E2E8F0;
-  --color-input: #E2E8F0;
-  --color-ring: #2563EB;
+  --color-border: #CBD5E1;
+  --color-input: #CBD5E1;
+  --color-ring: #EAB308;
   --rail: #FFFFFF;
   --color-rail: #FFFFFF;
 
-  /* ── Natural Crisp Shadows for Light Mode ── */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-  --shadow-panel: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+  /* ── Crisp Multi-Layer Light Mode Shadows ── */
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.06), 0 0 0 1px rgb(15 23 42 / 0.04);
+  --shadow-card: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.06), 0 0 0 1px rgb(15 23 42 / 0.04);
+  --shadow-md: 0 4px 6px -1px rgb(15 23 42 / 0.07), 0 2px 4px -2px rgb(15 23 42 / 0.07), 0 0 0 1px rgb(15 23 42 / 0.04);
+  --shadow-lg: 0 10px 15px -3px rgb(15 23 42 / 0.08), 0 4px 6px -4px rgb(15 23 42 / 0.08), 0 0 0 1px rgb(15 23 42 / 0.04);
+  --shadow-xl: 0 20px 25px -5px rgb(15 23 42 / 0.1), 0 8px 10px -6px rgb(15 23 42 / 0.1), 0 0 0 1px rgb(15 23 42 / 0.05);
+  --shadow-panel: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.06), 0 0 0 1px rgb(15 23 42 / 0.04);
 
-  /* Light backgrounds & universal font for full surfaces */
+  /* Universal typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-display: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: var(--org-background);
+  background-color: var(--org-background);
   color: var(--org-foreground);
   font-family: var(--font-sans);
 }
 
-/* ── Universal Typography: 100% Inter Across Left Sidebar & Right Content ── */
+/* ── Universal Typography Across Organizer & Match Scoring ── */
 :is(.bw-organizer-light, [data-surface="organizer"]),
 :is(.bw-organizer-light, [data-surface="organizer"]) *,
 :is(.bw-organizer-light, [data-surface="organizer"]) ::placeholder {
@@ -180,7 +191,7 @@
   color: #0F172A !important;
 }
 
-/* Clear subheadings and descriptions: readable and non-faded */
+/* Clear subheadings and descriptions: readable and non-faded (WCAG AA 5.7:1) */
 :is(.bw-organizer-light, [data-surface="organizer"]) p.text-muted-foreground,
 :is(.bw-organizer-light, [data-surface="organizer"]) span.text-muted-foreground,
 :is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="description"],
@@ -192,55 +203,72 @@
   font-weight: 400;
 }
 
-/* ── Eliminate Faded Text: WCAG AA Compliant Light-Mode Contrast ── */
+/* ── Eliminate Faded Text: Systematic WCAG AA Compliant Light-Mode Contrast ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) [class*="text-muted-foreground/"],
 :is(.bw-organizer-light, [data-surface="organizer"]) .text-slate-400,
 :is(.bw-organizer-light, [data-surface="organizer"]) .text-zinc-400,
-:is(.bw-organizer-light, [data-surface="organizer"]) .text-gray-400 {
-  color: #475569 !important; /* slate-600: 5.7:1 contrast on white */
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-gray-400,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-neutral-400 {
+  color: #475569 !important; /* Slate-600: 5.7:1 contrast on white/canvas */
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) .text-slate-500,
 :is(.bw-organizer-light, [data-surface="organizer"]) .text-zinc-500,
-:is(.bw-organizer-light, [data-surface="organizer"]) .text-gray-500 {
-  color: #334155 !important; /* slate-700: 8.5:1 contrast on white */
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-gray-500,
+:is(.bw-organizer-light, [data-surface="organizer"]) .text-neutral-500 {
+  color: #334155 !important; /* Slate-700: 9.5:1 contrast on white */
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) [class*="text-foreground/"] {
+  color: #0F172A !important;
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) ::placeholder,
 :is(.bw-organizer-light, [data-surface="organizer"]) .placeholder\:text-muted-foreground::placeholder {
-  color: #64748B !important; /* slate-500: readable placeholder */
+  color: #64748B !important; /* Slate-500: crisp, readable placeholder */
   opacity: 1 !important;
 }
 
-/* ── Sharp Form Controls & Clickable Selection Boxes ── */
-:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+/* ── Sharp Form Controls & Inputs (Unified Focus & Borders) ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]),
 :is(.bw-organizer-light, [data-surface="organizer"]) textarea,
 :is(.bw-organizer-light, [data-surface="organizer"]) select,
 :is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="input"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="textarea"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="select-trigger"],
 :is(.bw-organizer-light, [data-surface="organizer"]) button[role="combobox"] {
-  border-color: #CBD5E1 !important;
+  border: 1px solid #CBD5E1 !important;
   background-color: #FFFFFF !important;
   color: #0F172A !important;
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  border-radius: 0.5rem !important;
+  box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.04) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
 }
 
-:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):hover,
 :is(.bw-organizer-light, [data-surface="organizer"]) textarea:hover,
 :is(.bw-organizer-light, [data-surface="organizer"]) select:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="input"]:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="select-trigger"]:hover,
 :is(.bw-organizer-light, [data-surface="organizer"]) button[role="combobox"]:hover {
   border-color: #94A3B8 !important;
 }
 
-:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):focus,
+:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):focus,
 :is(.bw-organizer-light, [data-surface="organizer"]) textarea:focus,
 :is(.bw-organizer-light, [data-surface="organizer"]) select:focus,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="input"]:focus,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="select-trigger"]:focus,
 :is(.bw-organizer-light, [data-surface="organizer"]) button[role="combobox"]:focus,
-:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):focus-visible,
+:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):focus-visible,
 :is(.bw-organizer-light, [data-surface="organizer"]) textarea:focus-visible,
 :is(.bw-organizer-light, [data-surface="organizer"]) select:focus-visible,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="input"]:focus-visible,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="select-trigger"]:focus-visible,
 :is(.bw-organizer-light, [data-surface="organizer"]) button[role="combobox"]:focus-visible {
   border-color: #EAB308 !important;
   outline: none !important;
-  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.25) !important;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.28) !important;
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) [data-numeric],
@@ -252,7 +280,7 @@
   font-feature-settings: "tnum";
 }
 
-/* ── Specific Utility Rebinding under Organiser Scope ── */
+/* ── Standard Utility Rebinding under Organiser Scope ── */
 :is(.bw-organizer-light, [data-surface="organizer"]) .text-foreground,
 :is(.bw-organizer-light, [data-surface="organizer"]).text-foreground {
   color: var(--org-foreground) !important;
@@ -308,135 +336,126 @@
   color: var(--org-foreground) !important;
 }
 
-/* ── Auction Operations Layer in Light Mode ── */
-:is(.bw-organizer-light, [data-surface="organizer"]).auction-ops,
-:is(.bw-organizer-light, [data-surface="organizer"]) .auction-ops,
-.bw-organizer-light.auction-ops {
-  --ops-bg: #F3F6FA;
-  --ops-surface: #FFFFFF;
-  --ops-input: #FFFFFF;
-  --ops-border: #E2E8F0;
-  --ops-text: #172B4D;
-  --ops-text-secondary: #64748B;
-  --ops-muted: #94A3B8;
-  --ops-control-h: 2.5rem;
-  --ops-radius: 0.5rem;
-
-  --ops-available: #2563EB;
-  --ops-sold: #059669;
-  --ops-unsold: #DC2626;
-  --ops-retained: #7C3AED;
-  --ops-withdrawn: #D97706;
-  --ops-approved: #16A34A;
-  --ops-pending: #D97706;
-  --ops-rejected: #DC2626;
-}
-
 /* ── Organiser Reusable Cards & Rails ── */
-:is(.bw-organizer-light, [data-surface="organizer"]) .org-kpi-card {
-  background: #FFFFFF !important;
-  border: 1px solid #E2E8F0 !important;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06) !important;
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-kpi-card,
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-surface-card,
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-surface-rail,
+:is(.bw-organizer-light, [data-surface="organizer"]) .panel,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="card"] {
+  background-color: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.06), 0 0 0 1px rgb(15 23 42 / 0.04) !important;
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) .org-kpi-value {
-  color: var(--org-foreground);
+  color: var(--org-foreground) !important;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) .org-kpi-label {
-  color: var(--org-muted-foreground);
+  color: var(--org-secondary-foreground) !important;
+  font-weight: 500;
 }
 
-:is(.bw-organizer-light, [data-surface="organizer"]) .org-surface-card {
-  background: #FFFFFF !important;
-  border: 1px solid #E2E8F0 !important;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06) !important;
-}
-
-:is(.bw-organizer-light, [data-surface="organizer"]) .org-surface-rail {
-  background: #FFFFFF !important;
-  border: 1px solid #E2E8F0 !important;
-  border-top: 1px solid #E2E8F0 !important;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06) !important;
-}
-
-:is(.bw-organizer-light, [data-surface="organizer"]) .panel {
-  background: #FFFFFF !important;
-  border: 1px solid #E2E8F0 !important;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06) !important;
-}
-
-/* ── Inset Section Blocks in Modals & Settings (Image 2 & 3 Fixes) ── */
+/* ── Inset Section Blocks in Modals, Forms & Settings ── */
 :is(.bw-organizer-light, [data-surface="organizer"]) .form-section-inset,
 :is(.bw-organizer-light, [data-surface="organizer"]) .player-form-section,
 :is(.bw-organizer-light, [data-surface="organizer"]) .settings-inset-block,
 :is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="form-section"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [class*="bg-card/30"],
 :is(.bw-organizer-light, [data-surface="organizer"]) [class*="bg-card/40"],
-:is(.bw-organizer-light, [data-surface="organizer"]) [class*="bg-card/50"] {
+:is(.bw-organizer-light, [data-surface="organizer"]) [class*="bg-card/50"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [class*="bg-muted/30"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [class*="bg-muted/40"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [class*="bg-muted/50"] {
   background-color: #F8FAFC !important;
-  border: 1px solid #E2E8F0 !important;
+  border: 1px solid #CBD5E1 !important;
   border-radius: 0.75rem !important;
 }
 
-/* ── Organiser Tables & Controls (Image 4 Alignment) ── */
-:is(.bw-organizer-light, [data-surface="organizer"]) .org-table-wrapper {
-  background: var(--org-surface) !important;
-  border: 1px solid #E2E8F0 !important;
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06);
+/* ── Global Unified Table System ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) table,
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-table-wrapper,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="table-container"] {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .org-table-wrapper,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="table-container"],
+:is(.bw-organizer-light, [data-surface="organizer"]) .cricket-table-wrap {
+  background: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 0 0 1px rgb(15 23 42 / 0.04) !important;
+  overflow: hidden !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) table thead,
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table thead,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="table-header"] {
+  background-color: #F8FAFC !important;
+  border-bottom: 1px solid #CBD5E1 !important;
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) table thead th,
-:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table thead th {
-  background: #F8FAFC !important;
-  color: #475569 !important;
-  border-bottom: 1px solid #E2E8F0 !important;
-  font-weight: 600;
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table thead th,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="table-head"] {
+  background-color: #F8FAFC !important;
+  color: #334155 !important;
+  border-bottom: 1px solid #CBD5E1 !important;
+  font-weight: 600 !important;
+  font-size: 0.75rem !important; /* 12px */
+  line-height: 1rem !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  padding: 0.75rem 1rem !important;
+  vertical-align: middle !important;
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) table tbody > tr,
-:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr {
-  border-bottom: 1px solid #F1F5F9 !important;
-  transition: background-color 0.15s ease;
-}
-
-:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr.org-table-row-interactive {
-  background: #FFFFFF !important;
-  border-color: #F1F5F9 !important;
-  color: var(--org-foreground) !important;
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="table-row"] {
+  background-color: #FFFFFF !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+  transition: background-color 0.15s ease !important;
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) table tbody > tr:hover,
-:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr.org-table-row-interactive:hover {
-  background: #F8FAFC !important;
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="table-row"]:hover {
+  background-color: #F8FAFC !important;
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) table tbody > tr[data-state="selected"],
 :is(.bw-organizer-light, [data-surface="organizer"]) table tbody > tr.active,
-:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr.org-table-row-interactive[data-expanded="true"] {
-  background: #FEF9C3 !important; /* soft yellow hover/active highlight */
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr[data-expanded="true"] {
+  background-color: #FEF9C3 !important; /* Brand soft gold selection */
 }
 
-:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr.org-table-row-interactive[data-expanded="true"]:hover {
-  background: #FEF08A !important;
+:is(.bw-organizer-light, [data-surface="organizer"]) table tbody > tr[data-state="selected"]:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr[data-expanded="true"]:hover {
+  background-color: #FEF08A !important;
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) table tbody > tr > td,
-:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr.org-table-row-interactive > td {
-  border-bottom: 1px solid #F1F5F9;
+:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-table tbody > tr > td,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="table-cell"] {
+  border-bottom: 1px solid #E2E8F0 !important;
+  color: #0F172A !important;
+  font-size: 0.875rem !important;
+  padding: 0.75rem 1rem !important;
+  vertical-align: middle !important;
 }
 
-:is(.bw-organizer-light, [data-surface="organizer"]) .ops-player-expand {
-  background: #F8FAFC !important;
-  border: 1px solid var(--org-border) !important;
+:is(.bw-organizer-light, [data-surface="organizer"]) table tbody > tr:last-child > td {
+  border-bottom: none !important;
 }
 
+/* ── Table Toolbar Controls ── */
 :is(.bw-organizer-light, [data-surface="organizer"]) .org-data-toolbar__search > input {
   background: #FFFFFF !important;
   border: 1px solid var(--org-border) !important;
@@ -444,7 +463,7 @@
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) .org-data-toolbar__search > input::placeholder {
-  color: #94A3B8 !important;
+  color: #64748B !important;
 }
 
 :is(.bw-organizer-light, [data-surface="organizer"]) .org-data-toolbar__filter-btn,
@@ -453,31 +472,127 @@
   background: #FFFFFF !important;
   border: 1px solid var(--org-border) !important;
   color: var(--org-foreground) !important;
+  font-weight: 500;
 }
 
-:is(.bw-organizer-light, [data-surface="organizer"]) .ops-status-tab--active {
-  background: #FEF3C7 !important;
-  color: #92400E !important;
-  font-weight: 600;
-  box-shadow: inset 0 -2px 0 var(--org-primary);
+/* ── Universal Buttons Unification ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-primary,
+:is(.bw-organizer-light, [data-surface="organizer"]) a.bg-primary,
+:is(.bw-organizer-light, [data-surface="organizer"]) .btn-primary,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="default"] {
+  background-color: #EAB308 !important;
+  color: #0F172A !important;
+  font-weight: 700 !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.05) !important;
+  border: 1px solid transparent !important;
+  transition: all 0.15s ease !important;
 }
 
-/* ── Mobile Player Cards in Light Mode ── */
-:is(.bw-organizer-light, [data-surface="organizer"]) .org-mobile-player-card {
-  background: var(--org-surface) !important;
-  border-color: var(--org-border) !important;
-  box-shadow: var(--shadow-sm);
+:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-primary:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) a.bg-primary:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) .btn-primary:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="default"]:hover {
+  background-color: #CA8A04 !important;
+  color: #0F172A !important;
 }
 
-:is(.bw-organizer-light, [data-surface="organizer"]) .org-mobile-player-card__tap:active {
-  background: #F1F5F9;
+:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-primary:active,
+:is(.bw-organizer-light, [data-surface="organizer"]) a.bg-primary:active,
+:is(.bw-organizer-light, [data-surface="organizer"]) .btn-primary:active,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="default"]:active {
+  background-color: #A16207 !important;
+  color: #FFFFFF !important;
 }
 
-/* ── Tip Banner ── */
-:is(.bw-organizer-light, [data-surface="organizer"]) .org-tip-banner {
-  background: #EFF6FF !important;
-  border: 1px solid #BFDBFE !important;
-  color: #1E40AF !important;
+:is(.bw-organizer-light, [data-surface="organizer"]) button.border-border:not(.bg-primary):not([class*="destructive"]),
+:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-secondary,
+:is(.bw-organizer-light, [data-surface="organizer"]) .btn-secondary,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="outline"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="secondary"] {
+  background-color: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  color: #0F172A !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.04) !important;
+  border-radius: 0.5rem !important;
+  transition: all 0.15s ease !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) button.border-border:not(.bg-primary):not([class*="destructive"]):hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-secondary:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) .btn-secondary:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="outline"]:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="secondary"]:hover {
+  background-color: #F8FAFC !important;
+  border-color: #94A3B8 !important;
+  color: #0F172A !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-destructive,
+:is(.bw-organizer-light, [data-surface="organizer"]) button[class*="destructive"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="destructive"] {
+  background-color: #DC2626 !important;
+  border: 1px solid #DC2626 !important;
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+  border-radius: 0.5rem !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-destructive:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) button[class*="destructive"]:hover,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="destructive"]:hover {
+  background-color: #B91C1C !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="ghost"] {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  color: #0F172A !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="ghost"]:hover {
+  background-color: #F1F5F9 !important;
+  color: #0F172A !important;
+}
+
+/* ── Universal Tabs ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) [role="tablist"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="tabs-list"] {
+  background-color: #F1F5F9 !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 0.5rem !important;
+  padding: 3px !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) [role="tab"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="tabs-trigger"] {
+  color: #475569 !important;
+  font-weight: 500 !important;
+  border-radius: 0.375rem !important;
+  transition: all 0.15s ease !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) [role="tab"][data-state="active"],
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="tabs-trigger"][data-state="active"] {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.06), 0 0 0 1px rgb(15 23 42 / 0.04) !important;
+}
+
+/* ── Pagination Active & States ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) a[aria-current="page"] {
+  background-color: #EAB308 !important;
+  color: #0F172A !important;
+  font-weight: 700 !important;
+  border: 1px solid #EAB308 !important;
+}
+
+/* ── Universal Skeletons & Light Shimmer ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .animate-pulse,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="skeleton"] {
+  background-color: #E2E8F0 !important;
 }
 
 /* ── Radix Portals Styled for Light Mode ── */
@@ -491,8 +606,9 @@
 [data-surface="organizer"] [data-slot="alert-dialog-content"] {
   background-color: #FFFFFF !important;
   color: var(--org-foreground) !important;
-  border: 1px solid #E2E8F0 !important;
-  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1) !important;
+  border: 1px solid #CBD5E1 !important;
+  box-shadow: 0 20px 25px -5px rgb(15 23 42 / 0.1), 0 8px 10px -6px rgb(15 23 42 / 0.1), 0 0 0 1px rgb(15 23 42 / 0.05) !important;
+  border-radius: 0.75rem !important;
 }
 
 .bw-organizer-light[role="menu"],
@@ -507,125 +623,20 @@
 [data-surface="organizer"] [data-slot="select-content"] {
   background-color: #FFFFFF !important;
   color: var(--org-foreground) !important;
-  border: 1px solid #E2E8F0 !important;
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.08) !important;
-}
-
-/* ── Universal Buttons Unification ── */
-:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-primary,
-:is(.bw-organizer-light, [data-surface="organizer"]) a.bg-primary,
-:is(.bw-organizer-light, [data-surface="organizer"]) .btn-primary,
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="default"] {
-  background-color: #EAB308 !important;
-  color: #172B4D !important;
-  font-weight: 600 !important;
+  border: 1px solid #CBD5E1 !important;
+  box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.08), 0 0 0 1px rgb(15 23 42 / 0.04) !important;
   border-radius: 0.5rem !important;
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05) !important;
-  border-color: transparent !important;
 }
 
-:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-primary:hover,
-:is(.bw-organizer-light, [data-surface="organizer"]) a.bg-primary:hover,
-:is(.bw-organizer-light, [data-surface="organizer"]) .btn-primary:hover,
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="default"]:hover {
-  background-color: #CA8A04 !important;
-}
-
-:is(.bw-organizer-light, [data-surface="organizer"]) button.border-border:not(.bg-primary):not([class*="destructive"]),
-:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-secondary,
-:is(.bw-organizer-light, [data-surface="organizer"]) .btn-secondary,
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="outline"] {
-  background-color: #FFFFFF !important;
-  border: 1px solid #E2E8F0 !important;
-  color: #172B4D !important;
-}
-
-:is(.bw-organizer-light, [data-surface="organizer"]) button.border-border:not(.bg-primary):not([class*="destructive"]):hover,
-:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-secondary:hover,
-:is(.bw-organizer-light, [data-surface="organizer"]) .btn-secondary:hover,
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="outline"]:hover {
+.bw-organizer-light [role="menuitem"]:hover,
+.bw-organizer-light [role="option"]:hover,
+[data-surface="organizer"] [role="menuitem"]:hover,
+[data-surface="organizer"] [role="option"]:hover {
   background-color: #F8FAFC !important;
-  border-color: #CBD5E1 !important;
-}
-
-:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-destructive,
-:is(.bw-organizer-light, [data-surface="organizer"]) button[class*="destructive"],
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="destructive"] {
-  background-color: #FEF2F2 !important;
-  border: 1px solid #FECACA !important;
-  color: #DC2626 !important;
-}
-
-:is(.bw-organizer-light, [data-surface="organizer"]) button.bg-destructive:hover,
-:is(.bw-organizer-light, [data-surface="organizer"]) button[class*="destructive"]:hover,
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-variant="destructive"]:hover {
-  background-color: #FEE2E2 !important;
-}
-
-/* ── Universal Skeletons & Light Shimmer ── */
-:is(.bw-organizer-light, [data-surface="organizer"]) .animate-pulse,
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="skeleton"] {
-  background-color: #E2E8F0 !important;
-}
-
-/* ── Form Controls & Inputs inside Organiser Scope (Issue 1) ── */
-:is(.bw-organizer-light, [data-surface="organizer"]) .bg-rail,
-:is(.bw-organizer-light, [data-surface="organizer"]).bg-rail,
-:is(.bw-organizer-light, [data-surface="organizer"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
-:is(.bw-organizer-light, [data-surface="organizer"]) textarea,
-:is(.bw-organizer-light, [data-surface="organizer"]) select,
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="input"],
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="textarea"],
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="select-trigger"] {
-  background-color: #FFFFFF !important;
-  border: 1.5px solid #CBD5E1 !important;
-  border-radius: 0.5rem;
   color: #0F172A !important;
-  box-shadow: none !important;
 }
 
-:is(.bw-organizer-light, [data-surface="organizer"]) input::placeholder,
-:is(.bw-organizer-light, [data-surface="organizer"]) textarea::placeholder {
-  color: #94A3B8 !important;
-}
-
-:is(.bw-organizer-light, [data-surface="organizer"]) input:focus-visible,
-:is(.bw-organizer-light, [data-surface="organizer"]) textarea:focus-visible,
-:is(.bw-organizer-light, [data-surface="organizer"]) select:focus-visible,
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="input"]:focus-visible,
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="select-trigger"]:focus-visible {
-  border-color: #2563EB !important;
-  outline: 2px solid rgb(37 99 235 / 0.25) !important;
-  outline-offset: 0px;
-}
-
-/* ── Clickable / Selection Box Edges & States (Issue 1) ── */
-:is(.bw-organizer-light, [data-surface="organizer"]) [role="radio"]:not(.bg-primary),
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-selectable],
-:is(.bw-organizer-light, [data-surface="organizer"]) .sport-tile,
-:is(.bw-organizer-light, [data-surface="organizer"]) .module-tile,
-:is(.bw-organizer-light, [data-surface="organizer"]) .selection-card {
-  border: 1.5px solid #CBD5E1 !important;
-  background-color: #FFFFFF;
-  transition: all 0.15s ease;
-}
-
-:is(.bw-organizer-light, [data-surface="organizer"]) [role="radio"]:hover:not(:disabled):not([aria-checked="true"]),
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-selectable]:hover:not(:disabled):not([data-selected="true"]),
-:is(.bw-organizer-light, [data-surface="organizer"]) .sport-tile:hover:not([aria-checked="true"]) {
-  border-color: #94A3B8 !important;
-  background-color: #F8FAFC !important;
-}
-
-:is(.bw-organizer-light, [data-surface="organizer"]) [role="radio"][aria-checked="true"],
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-selectable][data-selected="true"],
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-state="checked"]:not([data-slot="checkbox"]) {
-  border: 2px solid #EAB308 !important;
-  background-color: #FEF9C3 !important;
-  box-shadow: 0 0 0 1px #EAB308 !important;
-}
-
-/* ── Accessible Color Semantics & Faded Text Fixes (Issue 7) ── */
+/* ── Accessible Color Semantics on Light Mode ── */
 :is(.bw-organizer-light, [data-surface="organizer"]) .text-emerald-400,
 :is(.bw-organizer-light, [data-surface="organizer"]) .text-emerald-300 {
   color: #047857 !important;
@@ -660,32 +671,48 @@
   color: #BE123C !important;
 }
 
-/* Dark mode lingering white text fallback on cards */
-:is(.bw-organizer-light, [data-surface="organizer"]) .panel p.text-white,
-:is(.bw-organizer-light, [data-surface="organizer"]) .bg-card p.text-white,
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="card"] p.text-white {
-  color: #0F172A !important;
+/* ── Badges inside Organiser Scope ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .status-active,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-status="active"] {
+  background-color: #ECFDF5 !important;
+  color: #065F46 !important;
+  border-color: #A7F3D0 !important;
 }
 
-:is(.bw-organizer-light, [data-surface="organizer"]) .panel p[class*="text-white/"],
-:is(.bw-organizer-light, [data-surface="organizer"]) .bg-card p[class*="text-white/"],
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="card"] p[class*="text-white/"] {
-  color: #475569 !important;
+:is(.bw-organizer-light, [data-surface="organizer"]) .status-trial,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-status="trial"] {
+  background-color: #FFFBEB !important;
+  color: #92400E !important;
+  border-color: #FDE68A !important;
 }
 
-/* ── Organiser Dashboard (/organizer) Re-Theming ── */
+:is(.bw-organizer-light, [data-surface="organizer"]) .status-done,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-status="done"] {
+  background-color: #EFF6FF !important;
+  color: #1E40AF !important;
+  border-color: #BFDBFE !important;
+}
+
+:is(.bw-organizer-light, [data-surface="organizer"]) .status-locked,
+:is(.bw-organizer-light, [data-surface="organizer"]) [data-status="locked"] {
+  background-color: #FEF2F2 !important;
+  color: #991B1B !important;
+  border-color: #FECACA !important;
+}
+
+/* ── Organiser Dashboard (/organizer) Harmonization ── */
 .organizer-dashboard-premium.bw-organizer-light,
 .bw-organizer-light .organizer-dashboard-premium,
 [data-surface="organizer"] .organizer-dashboard-premium {
-  --od-navy: #172B4D;
+  --od-navy: #0F172A;
   --od-royal: #1E3A8A;
   --od-gold: #EAB308;
   --od-gold-hover: #CA8A04;
   --od-cyan: #0284C7;
   --od-glass: #FFFFFF;
-  --od-glass-border: #E2E8F0;
-  background-color: var(--org-background);
-  color: var(--org-foreground);
+  --od-glass-border: #CBD5E1;
+  background-color: var(--org-background) !important;
+  color: var(--org-foreground) !important;
 }
 
 .bw-organizer-light .organizer-dashboard-bg,
@@ -694,16 +721,10 @@
   background: var(--org-background) !important;
 }
 
-.bw-organizer-light .organizer-dashboard-bg::before,
-[data-surface="organizer"] .organizer-dashboard-bg::before,
-.organizer-dashboard-premium.bw-organizer-light .organizer-dashboard-bg::before {
-  display: none !important;
-}
-
 .bw-organizer-light .organizer-dash-header,
 [data-surface="organizer"] .organizer-dash-header,
 .organizer-dashboard-premium.bw-organizer-light .organizer-dash-header {
-  background: rgba(255, 255, 255, 0.96) !important;
+  background: rgba(255, 255, 255, 0.98) !important;
   border-bottom: 1px solid var(--org-border) !important;
   box-shadow: var(--shadow-sm) !important;
 }
@@ -713,7 +734,7 @@
 .organizer-dashboard-premium.bw-organizer-light .od-stat-card {
   background: #FFFFFF !important;
   border: 1px solid var(--org-border) !important;
-  box-shadow: var(--shadow-sm) !important;
+  box-shadow: var(--shadow-card) !important;
   backdrop-filter: none !important;
 }
 
@@ -722,15 +743,15 @@
 .organizer-dashboard-premium.bw-organizer-light .od-tournament-card {
   background: #FFFFFF !important;
   border: 1px solid var(--org-border) !important;
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.06) !important;
+  box-shadow: var(--shadow-card) !important;
   backdrop-filter: none !important;
 }
 
 .bw-organizer-light .od-tournament-card:hover:not([aria-disabled="true"]),
 [data-surface="organizer"] .od-tournament-card:hover:not([aria-disabled="true"]),
 .organizer-dashboard-premium.bw-organizer-light .od-tournament-card:hover:not([aria-disabled="true"]) {
-  border-color: #CBD5E1 !important;
-  box-shadow: 0 6px 16px -2px rgb(0 0 0 / 0.08) !important;
+  border-color: #94A3B8 !important;
+  box-shadow: var(--shadow-md) !important;
 }
 
 .bw-organizer-light .od-search-input,
@@ -744,36 +765,24 @@
 .bw-organizer-light .od-search-input::placeholder,
 [data-surface="organizer"] .od-search-input::placeholder,
 .organizer-dashboard-premium.bw-organizer-light .od-search-input::placeholder {
-  color: #94A3B8 !important;
+  color: #64748B !important;
 }
 
-/* ── Badges inside Organiser Scope ── */
-:is(.bw-organizer-light, [data-surface="organizer"]) .status-active {
-  background-color: #ECFDF5;
-  color: #065F46;
-  border-color: #A7F3D0;
+.bw-organizer-light .od-filter-pill-active,
+[data-surface="organizer"] .od-filter-pill-active,
+.organizer-dashboard-premium.bw-organizer-light .od-filter-pill-active {
+  background: var(--org-primary) !important;
+  color: var(--org-primary-foreground) !important;
+  font-weight: 600 !important;
+  border-color: transparent !important;
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.08) !important;
 }
 
-:is(.bw-organizer-light, [data-surface="organizer"]) .status-trial {
-  background-color: #FFFBEB;
-  color: #92400E;
-  border-color: #FDE68A;
-}
-
-:is(.bw-organizer-light, [data-surface="organizer"]) .status-done {
-  background-color: #EFF6FF;
-  color: #1E40AF;
-  border-color: #BFDBFE;
-}
-
-:is(.bw-organizer-light, [data-surface="organizer"]) .status-locked {
-  background-color: #FEF2F2;
-  color: #991B1B;
-  border-color: #FECACA;
-}
-
-/* Numeric tabular figures standard */
-:is(.bw-organizer-light, [data-surface="organizer"]) .tabular-nums,
-:is(.bw-organizer-light, [data-surface="organizer"]) [data-numeric] {
-  font-variant-numeric: tabular-nums;
+/* ── Light Mode Toasts ── */
+.bw-organizer-light [data-radix-toast-root],
+[data-surface="organizer"] [data-radix-toast-root] {
+  background-color: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  color: #0F172A !important;
+  box-shadow: 0 10px 15px -3px rgb(15 23 42 / 0.08), 0 0 0 1px rgb(15 23 42 / 0.04) !important;
 }

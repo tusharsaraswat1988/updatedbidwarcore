@@ -8,6 +8,7 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
     return (
       <input
         type={type}
+        data-slot="input"
         className={cn(
           "flex w-full file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground",
           fieldControlClass,

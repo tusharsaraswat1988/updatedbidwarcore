@@ -1,13 +1,13 @@
 /* Scoped to Organizer Dashboard only — imported from organizer-portal.tsx */
 
 .organizer-dashboard-premium {
-  --od-navy: #070f1f;
-  --od-royal: #0f2847;
-  --od-gold: #f5b800;
-  --od-gold-hover: #e0a800;
-  --od-cyan: #22d3ee;
-  --od-glass: rgba(12, 28, 52, 0.72);
-  --od-glass-border: rgba(56, 189, 248, 0.22);
+  --od-navy: #0F172A;
+  --od-royal: #1E3A8A;
+  --od-gold: #EAB308;
+  --od-gold-hover: #CA8A04;
+  --od-cyan: #0284C7;
+  --od-glass: #FFFFFF;
+  --od-glass-border: #CBD5E1;
 }
 
 .organizer-dashboard-bg {
@@ -15,21 +15,11 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(30, 64, 120, 0.45), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 100% 50%, rgba(14, 165, 233, 0.08), transparent 50%),
-    radial-gradient(ellipse 50% 35% at 0% 80%, rgba(245, 184, 0, 0.06), transparent 45%),
-    linear-gradient(165deg, #050b16 0%, #0a1628 35%, #0c1f3a 70%, #070f1f 100%);
+  background-color: var(--org-background, #F1F5F9);
 }
 
 .organizer-dashboard-bg::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.35;
-  background-image:
-    radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.07) 0, transparent 8%),
-    radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.06) 0, transparent 7%);
+  display: none;
 }
 
 .organizer-dashboard-content {
@@ -38,19 +28,17 @@
 }
 
 .organizer-dash-header {
-  background: linear-gradient(
-    180deg,
-    rgba(10, 22, 40, 0.97) 0%,
-    rgba(8, 18, 34, 0.92) 100%
-  );
-  border-bottom: 1px solid rgba(56, 189, 248, 0.15);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.98);
+  border-bottom: 1px solid var(--org-border, #CBD5E1);
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.05);
 }
 
 .od-stat-card {
-  background: linear-gradient(145deg, rgba(15, 35, 62, 0.75), rgba(8, 20, 38, 0.65));
-  border: 1px solid rgba(148, 163, 184, 0.12);
-  backdrop-filter: blur(8px);
+  background: #FFFFFF;
+  border: 1px solid var(--org-border, #CBD5E1);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 0 0 1px rgb(15 23 42 / 0.04);
+  backdrop-filter: none;
 }
 
 .od-stat-card::after {
@@ -69,7 +57,7 @@
 }
 
 .od-stat-card--green::after {
-  background: linear-gradient(90deg, transparent, #34d399, transparent);
+  background: linear-gradient(90deg, transparent, #10B981, transparent);
 }
 
 .od-stat-card--cyan::after {
@@ -78,22 +66,23 @@
 
 .od-filter-pill-active {
   background: var(--od-gold) !important;
-  color: #0f172a !important;
+  color: #0F172A !important;
   border-color: transparent !important;
-  box-shadow: 0 2px 12px rgba(245, 184, 0, 0.35);
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.08);
 }
 
 .od-search-input {
-  background: rgba(8, 20, 38, 0.85) !important;
-  border: 1px solid rgba(56, 189, 248, 0.2) !important;
+  background: #FFFFFF !important;
+  border: 1px solid var(--org-border, #CBD5E1) !important;
+  color: #0F172A !important;
 }
 
 .od-btn-gold {
   background: var(--od-gold) !important;
-  color: #0f172a !important;
+  color: #0F172A !important;
   font-weight: 700;
   border: none;
-  box-shadow: 0 2px 14px rgba(245, 184, 0, 0.3);
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.08);
 }
 
 .od-btn-gold:hover:not(:disabled) {
@@ -131,16 +120,16 @@
 }
 
 .od-tournament-card {
-  background: linear-gradient(155deg, rgba(14, 36, 64, 0.82), rgba(7, 18, 34, 0.78));
-  border: 1px solid var(--od-glass-border);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+  background: #FFFFFF;
+  border: 1px solid var(--od-glass-border, #CBD5E1);
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 0 0 1px rgb(15 23 42 / 0.04);
   height: 100%;
 }
 
 .organizer-dashboard-premium .od-tournament-card:hover:not([aria-disabled="true"]) {
-  border-color: rgba(56, 189, 248, 0.4);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(56, 189, 248, 0.08);
+  border-color: #94A3B8;
+  box-shadow: 0 6px 16px -2px rgb(15 23 42 / 0.08);
 }
 
 .od-card-decor {
@@ -180,34 +169,31 @@
   opacity: 0.05;
 }
 
-/* Beat .lovable-theme .bg-primary, which remaps Button's default fill to gold. */
 .organizer-dashboard-premium .od-btn-enter-auction,
 .organizer-dashboard-premium .od-btn-match-scoring {
   border: none !important;
   font-weight: 700;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.08);
 }
 
 .organizer-dashboard-premium .od-btn-enter-auction {
-  background: #f5b800 !important;
-  color: #0f172a !important;
-  box-shadow: 0 2px 12px rgba(245, 184, 0, 0.28);
+  background: #EAB308 !important;
+  color: #0F172A !important;
 }
 
 .organizer-dashboard-premium .od-btn-enter-auction:hover:not(:disabled) {
-  background: #e0a800 !important;
-  color: #0f172a !important;
+  background: #CA8A04 !important;
+  color: #0F172A !important;
 }
 
 .organizer-dashboard-premium .od-btn-match-scoring {
-  background: #22d3ee !important;
-  color: #042f3a !important;
-  box-shadow: 0 2px 12px rgba(34, 211, 238, 0.32);
+  background: #0284C7 !important;
+  color: #FFFFFF !important;
 }
 
 .organizer-dashboard-premium .od-btn-match-scoring:hover:not(:disabled) {
-  background: #06b6d4 !important;
-  color: #042f3a !important;
+  background: #0369A1 !important;
+  color: #FFFFFF !important;
 }
 
 .organizer-dashboard-premium .od-btn-enter-auction:disabled,

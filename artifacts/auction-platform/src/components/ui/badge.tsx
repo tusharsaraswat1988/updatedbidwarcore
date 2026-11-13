@@ -21,7 +21,7 @@ const badgeVariants = cva(
           // @replit shadow-xs instead of shadow, no hover because we use hover-elevate
           "border-transparent bg-destructive text-destructive-foreground shadow-xs",
           // @replit shadow-xs" - use badge outline variable
-        outline: "text-foreground border [border-color:var(--badge-outline)]",
+        outline: "text-foreground border border-border bg-card",
       },
     },
     defaultVariants: {
@@ -36,7 +36,12 @@ export interface BadgeProps
 
 function Badge({ className, variant, ...props }: BadgeProps) {
   return (
-    <div className={cn(badgeVariants({ variant }), className)} {...props} />
+    <div
+      data-slot="badge"
+      data-variant={variant ?? "default"}
+      className={cn(badgeVariants({ variant }), className)}
+      {...props}
+    />
   )
 }
 

@@ -832,7 +832,15 @@ export default function AdminTournamentDetailPage() {
                             size="sm"
                             className="w-full h-8 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5"
                             disabled={!!actionLoading}
-                            onClick={() => setVerifyPaymentOpen(true)}
+                            onClick={() => {
+                              setPaymentAmount(String(licenseRequest?.paymentAmount || 4999));
+                              setPaymentMode(licenseRequest?.paymentMode || "upi");
+                              setPaymentRef(licenseRequest?.paymentRef || "");
+                              setPaymentNotes(licenseRequest?.notes || "");
+                              setPaymentAuditReason("Verified payment & granted live license");
+                              setPaymentError(null);
+                              setVerifyPaymentOpen(true);
+                            }}
                           >
                             <Shield className="h-3.5 w-3.5" />
                             Verify Payment & Upgrade License
@@ -1541,11 +1549,20 @@ export default function AdminTournamentDetailPage() {
                 </div>
               </div>
               <div>
-                <label className="text-[11px] text-muted-foreground font-semibold uppercase">Payment Ref / UTR / Order ID</label>
+                <label className="text-[11px] text-muted-foreground font-semibold uppercase">
+                  Payment Ref / UTR / Order ID
+                  {paymentMode.trim().toLowerCase() === "cash" || paymentMode.trim().toLowerCase() === "waiver"
+                    ? " (Optional for Cash/Waiver)"
+                    : ""}
+                </label>
                 <Input
                   value={paymentRef}
                   onChange={(e) => setPaymentRef(e.target.value)}
-                  placeholder="e.g. UPI/1234567890 or Bank Txn ID"
+                  placeholder={
+                    paymentMode.trim().toLowerCase() === "cash"
+                      ? "Optional: e.g. Cash Receipt # or leave blank"
+                      : "e.g. UPI/1234567890 or Bank Txn ID"
+                  }
                   className="mt-1 h-8 text-xs font-mono"
                 />
               </div>

@@ -40,7 +40,9 @@ export function isOrganizerRoute(pathname?: string): boolean {
     p.startsWith("/organizer/") ||
     p === "/tournament/new" ||
     p.startsWith("/scoring-app/tournament/") ||
-    /^\/tournament\/\d+(\/|$)/.test(p)
+    /^\/tournament\/\d+(\/|$)/.test(p) ||
+    p === "/admin" ||
+    p.startsWith("/admin/")
   ) {
     return true;
   }

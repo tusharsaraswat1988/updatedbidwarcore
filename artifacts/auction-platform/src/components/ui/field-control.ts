@@ -7,10 +7,10 @@ import { cn } from "@/lib/utils";
  */
 export const fieldControlClass = cn(
   "rounded-lg border border-border bg-rail text-foreground",
-  "shadow-[inset_0_1px_0_0_oklch(1_0_0_/_0.08)]",
+  "shadow-xs",
   "placeholder:text-muted-foreground",
   "transition-[border-color,box-shadow,background-color]",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary/55",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:border-primary",
   "disabled:cursor-not-allowed disabled:opacity-50",
 );
 

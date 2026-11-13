@@ -223,25 +223,81 @@ vi.mock("@workspace/db", () => {
         },
         returning: () => {
           const tid = extractIdFromCondition(whereFilter);
+          const { numbers } = extractAllFromCondition(whereFilter);
+          const reqId = numbers.find((n) => licenseRequests.has(n)) ?? tid;
           const res = tbl === tournamentsTable && tid !== undefined && tournaments.has(tid)
             ? [tournaments.get(tid)]
             : tbl === auctionSessionsTable && tid !== undefined && auctionSessions.has(tid)
               ? [auctionSessions.get(tid)]
-              : tbl === tournamentLicenseRequestsTable && tid !== undefined && licenseRequests.has(tid)
-                ? [licenseRequests.get(tid)]
+              : tbl === tournamentLicenseRequestsTable && reqId !== undefined && licenseRequests.has(reqId)
+                ? [licenseRequests.get(reqId)]
                 : [];
           return Promise.resolve(res);
         },
         then: (resolve: any) => {
           const tid = extractIdFromCondition(whereFilter);
+          const { numbers } = extractAllFromCondition(whereFilter);
+          const reqId = numbers.find((n) => licenseRequests.has(n)) ?? tid;
           const res = tbl === tournamentsTable && tid !== undefined && tournaments.has(tid)
             ? [tournaments.get(tid)]
             : tbl === auctionSessionsTable && tid !== undefined && auctionSessions.has(tid)
               ? [auctionSessions.get(tid)]
-              : tbl === tournamentLicenseRequestsTable && tid !== undefined && licenseRequests.has(tid)
-                ? [licenseRequests.get(tid)]
+              : tbl === tournamentLicenseRequestsTable && reqId !== undefined && licenseRequests.has(reqId)
+                ? [licenseRequests.get(reqId)]
                 : [];
           return resolve(res);
+        },
+      };
+      return chain;
+    },
+    insert: (tbl: any) => {
+      let insertValues: any = {};
+      const chain: any = {
+        values: (vals: any) => {
+          insertValues = vals;
+          return chain;
+        },
+        returning: () => {
+          if (tbl === tournamentLicenseRequestsTable) {
+            const nextId = Math.max(0, ...Array.from(licenseRequests.keys())) + 1;
+            const newRecord: LicenseRequestRecord = {
+              id: nextId,
+              tournamentId: insertValues.tournamentId,
+              requestedModules: insertValues.requestedModules ?? "auction",
+              status: insertValues.status ?? "pending",
+              paymentVerified: insertValues.paymentVerified ?? false,
+              paymentAmount: insertValues.paymentAmount ?? null,
+              paymentMode: insertValues.paymentMode ?? null,
+              paymentRef: insertValues.paymentRef ?? null,
+              verifiedBy: insertValues.verifiedBy ?? null,
+              verifiedAt: insertValues.verifiedAt ?? null,
+              notes: insertValues.notes ?? null,
+            };
+            licenseRequests.set(nextId, newRecord);
+            return Promise.resolve([newRecord]);
+          }
+          return Promise.resolve([insertValues]);
+        },
+        then: (resolve: any) => {
+          if (tbl === tournamentLicenseRequestsTable) {
+            const nextId = Math.max(0, ...Array.from(licenseRequests.keys())) + 1;
+            const newRecord: LicenseRequestRecord = {
+              id: nextId,
+              tournamentId: insertValues.tournamentId,
+              requestedModules: insertValues.requestedModules ?? "auction",
+              status: insertValues.status ?? "pending",
+              paymentVerified: insertValues.paymentVerified ?? false,
+              paymentAmount: insertValues.paymentAmount ?? null,
+              paymentMode: insertValues.paymentMode ?? null,
+              paymentRef: insertValues.paymentRef ?? null,
+              verifiedBy: insertValues.verifiedBy ?? null,
+              verifiedAt: insertValues.verifiedAt ?? null,
+              notes: insertValues.notes ?? null,
+            };
+            licenseRequests.set(nextId, newRecord);
+            return resolve([newRecord]);
+          }
+          return resolve([insertValues]);
         },
       };
       return chain;
@@ -1016,7 +1072,7 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
       expect(res.body.error).toBe("License request not found for this tournament");
     });
 
-    it("returns 400 if tournament has no pending license request", async () => {
+    it("auto-provisions license request and grants license if tournament has no pending license request", async () => {
       const res = await request(app)
         .post("/auth/admin/tournaments/1/verify-and-grant-license")
         .set("x-is-master", "true")
@@ -1026,8 +1082,32 @@ describe("Tournament Lifecycle Integration Tests (Route Level)", () => {
           reason: "Payment verified in HDFC account statement",
         });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain("No pending license request found for this tournament");
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      const createdReq = Array.from(licenseRequests.values()).find((r) => r.tournamentId === 1);
+      expect(createdReq).toBeDefined();
+      expect(createdReq?.status).toBe("granted");
+      expect(createdReq?.paymentVerified).toBe(true);
+      expect(createdReq?.paymentRef).toBe("UPI/VERIFIED/9999");
+    });
+
+    it("accepts cash payment without requiring reference / UTR and defaults to CASH", async () => {
+      const res = await request(app)
+        .post("/auth/admin/tournaments/1/verify-and-grant-license")
+        .set("x-is-master", "true")
+        .send({
+          paymentAmount: 12000,
+          paymentMode: "CASH",
+          notes: "apurv mittal",
+          reason: "Personal Auction verified cash receipt",
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      const createdReq = Array.from(licenseRequests.values()).find((r) => r.tournamentId === 1);
+      expect(createdReq).toBeDefined();
+      expect(createdReq?.paymentMode).toBe("CASH");
+      expect(createdReq?.paymentRef).toBe("CASH");
     });
 
     it("rejects license grant when payment reference is missing for non-waiver with 400", async () => {

@@ -982,7 +982,7 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
     CREATE TABLE IF NOT EXISTS tournament_license_requests (
       id SERIAL PRIMARY KEY,
       tournament_id INTEGER NOT NULL REFERENCES tournaments(id) ON DELETE CASCADE,
-      organizer_id INTEGER NOT NULL REFERENCES organizers(id) ON DELETE CASCADE,
+      organizer_id INTEGER REFERENCES organizers(id) ON DELETE CASCADE,
       requested_modules TEXT NOT NULL DEFAULT 'auction',
       status TEXT NOT NULL DEFAULT 'pending',
       organizer_mobile TEXT,
@@ -996,6 +996,7 @@ async function runLegacyBootstrapDdl(db: DbQueryable): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    ALTER TABLE tournament_license_requests ALTER COLUMN organizer_id DROP NOT NULL;
     CREATE INDEX IF NOT EXISTS ix_tournament_license_requests_tournament_id ON tournament_license_requests (tournament_id);
     CREATE INDEX IF NOT EXISTS ix_tournament_license_requests_organizer_id ON tournament_license_requests (organizer_id);
     CREATE INDEX IF NOT EXISTS ix_tournament_license_requests_status ON tournament_license_requests (status);

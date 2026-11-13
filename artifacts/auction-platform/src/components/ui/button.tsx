@@ -11,15 +11,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-           // @replit: no hover, and add primary border
-           "bg-primary text-primary-foreground border border-primary-border",
+          "bg-primary text-primary-foreground border border-transparent font-semibold shadow-xs hover:bg-primary/90",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm border-destructive-border",
+          "bg-destructive text-destructive-foreground shadow-xs border border-transparent hover:bg-destructive/90",
         outline:
-          // Solid muted chip — must read as a clickable control (not a hairline label).
-          "border border-border bg-muted text-foreground shadow-sm hover:bg-muted/80 hover:border-foreground/25 active:bg-muted/70",
+          "border border-border bg-card text-foreground shadow-xs hover:bg-muted/70 hover:border-border-strong active:bg-muted/90",
         secondary:
-          "border border-secondary-border bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/90",
+          "border border-border bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
         // Transparent surface for icon/utility actions only
         ghost: "border border-transparent hover:bg-muted/60",
         link: "text-primary underline-offset-4 hover:underline",

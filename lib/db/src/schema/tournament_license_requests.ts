@@ -12,7 +12,6 @@ export const tournamentLicenseRequestsTable = pgTable(
       .notNull()
       .references(() => tournamentsTable.id, { onDelete: "cascade" }),
     organizerId: integer("organizer_id")
-      .notNull()
       .references(() => organizersTable.id, { onDelete: "cascade" }),
     requestedModules: text("requested_modules").notNull().default("auction"), // 'auction' | 'scoring' | 'both'
     status: text("status").notNull().default("pending"), // 'pending' | 'granted' | 'rejected'
