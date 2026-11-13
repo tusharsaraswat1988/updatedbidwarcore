@@ -17,7 +17,6 @@ import {
 } from "@/lib/player-photo";
 import { parseIndianMobile, sanitizeMobileInput, mobilesMatch } from "@workspace/api-base/mobile";
 import { parseOptionalEmail } from "@workspace/api-base/email";
-import { OptionalEmailField } from "@/components/optional-email-field";
 import { CityAutocomplete } from "@/components/city-autocomplete";
 import { JerseySizeSelect } from "@/components/jersey-size-select";
 import { LowerSizeSelect } from "@/components/lower-size-select";
@@ -323,24 +322,6 @@ export default function PlayerRegister() {
   const sportSlug = (tournament as { sport?: string } | undefined)?.sport;
   const sportCaps = getSportCapabilities(sportSlug);
   const roles = useSportRoles(sportSlug);
-
-  // Set default role once roles load
-  useEffect(() => {
-    if (roles.length > 0 && !form.role) {
-      setForm(prev => ({ ...prev, role: roles[0].roleName }));
-    }
-  }, [roles]);
-
-  // Default availability to all match dates when schedule exists
-  useEffect(() => {
-    const matchDates = (tournament as { matchDates?: string | null } | undefined)?.matchDates;
-    if (matchDates) {
-      setForm(prev => ({
-        ...prev,
-        availabilityDates: prev.availabilityDates || matchDates,
-      }));
-    }
-  }, [(tournament as { matchDates?: string | null } | undefined)?.matchDates]);
 
   // Spec groups for selected role
   const selectedRole = roles.find(r => r.roleName === form.role);
@@ -984,6 +965,7 @@ export default function PlayerRegister() {
   const paymentSectionStep = showPaymentSection ? String(nextSectionStep++) : "";
   const declarationSectionStep = showDeclarationSection ? String(nextSectionStep++) : "";
 
+  const emailAuto = autofillAttrs("email");
   const nameAuto = autofillAttrs("name");
   const cityAuto = autofillAttrs("city");
   const ageAuto = autofillAttrs("age");
@@ -1136,8 +1118,8 @@ export default function PlayerRegister() {
                   setFoundProfile(null); setExistingRegistration(null); setMobileLookedUp(false); setRegistrationUpdated(false);
                   resetAutofillReveal();
                   setForm({
-                    name: "", mobileNumber: "", email: "", city: "", role: roles[0]?.roleName ?? "", age: "", gender: "", jerseyNumber: "", jerseySize: "", lowerSize: "",
-                    achievements: "", availabilityDates: (tournament as { matchDates?: string | null }).matchDates ?? "",
+                    name: "", mobileNumber: "", email: "", city: "", role: "", age: "", gender: "", jerseyNumber: "", jerseySize: "", lowerSize: "",
+                    achievements: "", availabilityDates: "",
                     cricheroUrl: "", photoUrl: "", photoPublicId: "", battingStyle: "", bowlingStyle: "", specialization: "", categoryId: "", teamId: "",
                   });
                   setSpecSelections({});
@@ -1232,7 +1214,7 @@ export default function PlayerRegister() {
                           city: "",
                           age: "",
                           gender: "",
-                          role: roles[0]?.roleName ?? "",
+                          role: "",
                           photoUrl: "",
                           photoPublicId: "",
                           battingStyle: "",
@@ -1243,7 +1225,7 @@ export default function PlayerRegister() {
                           lowerSize: "",
                           achievements: "",
                           cricheroUrl: "",
-                          availabilityDates: (tournament as { matchDates?: string | null }).matchDates ?? "",
+                          availabilityDates: "",
                           categoryId: "",
                         }));
                         setSpecSelections({});
@@ -1255,15 +1237,35 @@ export default function PlayerRegister() {
                 </div>
 
                 {showEmail ? (
-                  <OptionalEmailField
-                    id="register-email"
-                    label={requireEmail ? "Email address (Required)" : "Email address (Optional)"}
-                    value={form.email}
-                    onChange={v => { if (!identityFieldsLocked) { f("email", v); if (emailError) setEmailError(""); } }}
-                    error={emailError || undefined}
-                    hint=""
-                    disabled={identityFieldsLocked}
-                  />
+                  <div className={emailAuto.className ? `reg-field ${emailAuto.className}` : "reg-field"} style={emailAuto.style}>
+                    <RegLabel
+                      htmlFor="register-email"
+                      marker={requireEmail ? "required" : "optional"}
+                      locked={identityFieldsLocked}
+                      autofilled={emailAuto.autofilled}
+                    >
+                      Email address
+                    </RegLabel>
+                    <Input
+                      id="register-email"
+                      type="email"
+                      inputMode="email"
+                      autoComplete="email"
+                      value={form.email}
+                      onChange={e => {
+                        if (!identityFieldsLocked) {
+                          f("email", e.target.value);
+                          if (emailError) setEmailError("");
+                        }
+                      }}
+                      className={emailError ? "border-destructive focus-visible:ring-destructive" : undefined}
+                      disabled={identityFieldsLocked}
+                      readOnly={identityFieldsLocked}
+                    />
+                    {emailError ? (
+                      <p className="text-xs text-destructive mt-1">{emailError}</p>
+                    ) : null}
+                  </div>
                 ) : null}
 
                 <div className={nameAuto.className ? `reg-field ${nameAuto.className}` : "reg-field"} style={nameAuto.style}>
@@ -1346,7 +1348,7 @@ export default function PlayerRegister() {
                 <div className={roleAuto.className ? `reg-field ${roleAuto.className}` : "reg-field"} style={roleAuto.style}>
                   <RegLabel htmlFor="register-role" marker={requireRole ? "required" : "optional"} autofilled={roleAuto.autofilled}>Role</RegLabel>
                   <Select
-                    value={form.role}
+                    value={form.role || undefined}
                     onValueChange={v => f("role", v)}
                     disabled={closedUpdateReadOnly}
                   >
@@ -1406,15 +1408,14 @@ export default function PlayerRegister() {
                     <div className={battingAuto.className ? `reg-field ${battingAuto.className}` : "reg-field"} style={battingAuto.style}>
                       <RegLabel htmlFor="register-batting" marker="optional" autofilled={battingAuto.autofilled}>Batting style</RegLabel>
                       <Select
-                        value={form.battingStyle || "unset"}
-                        onValueChange={v => f("battingStyle", v === "unset" ? "" : v)}
+                        value={form.battingStyle || undefined}
+                        onValueChange={v => f("battingStyle", v)}
                         disabled={closedUpdateReadOnly}
                       >
                         <SelectTrigger id="register-batting">
                           <SelectValue placeholder="Select batting style" />
                         </SelectTrigger>
                         <SelectContent className={registrationSelectContentClass}>
-                          <SelectItem value="unset">Select batting style</SelectItem>
                           <SelectItem value="Right Hand Bat">Right Hand Bat</SelectItem>
                           <SelectItem value="Left Hand Bat">Left Hand Bat</SelectItem>
                         </SelectContent>
@@ -1423,15 +1424,14 @@ export default function PlayerRegister() {
                     <div className={bowlingAuto.className ? `reg-field ${bowlingAuto.className}` : "reg-field"} style={bowlingAuto.style}>
                       <RegLabel htmlFor="register-bowling" marker="optional" autofilled={bowlingAuto.autofilled}>Bowling style</RegLabel>
                       <Select
-                        value={form.bowlingStyle || "unset"}
-                        onValueChange={v => f("bowlingStyle", v === "unset" ? "" : v)}
+                        value={form.bowlingStyle || undefined}
+                        onValueChange={v => f("bowlingStyle", v)}
                         disabled={closedUpdateReadOnly}
                       >
                         <SelectTrigger id="register-bowling">
                           <SelectValue placeholder="Select bowling style" />
                         </SelectTrigger>
                         <SelectContent className={registrationSelectContentClass}>
-                          <SelectItem value="unset">Select bowling style</SelectItem>
                           <SelectItem value="Right-arm fast">Right-arm fast</SelectItem>
                           <SelectItem value="Right-arm medium">Right-arm medium</SelectItem>
                           <SelectItem value="Right-arm spin">Right-arm spin</SelectItem>
@@ -1821,7 +1821,10 @@ export default function PlayerRegister() {
                       <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-3">
                         <div className="flex items-center gap-2">
                           <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
-                          <h3 className="text-sm font-bold text-foreground">Tournament Rules & Declaration</h3>
+                          <h3 className="text-sm font-bold text-foreground">
+                            Tournament Rules & Declaration
+                            <span className="text-destructive font-bold text-sm leading-none ml-1" aria-hidden="true">*</span>
+                          </h3>
                         </div>
                         <span className="reg-badge reg-badge--req">Required</span>
                       </div>
@@ -1859,7 +1862,10 @@ export default function PlayerRegister() {
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <MessageSquare className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                          <h3 className="text-sm font-bold text-foreground">WhatsApp Match & Auction Alerts</h3>
+                          <h3 className="text-sm font-bold text-foreground">
+                            WhatsApp Match & Auction Alerts
+                            <span className="text-destructive font-bold text-sm leading-none ml-1" aria-hidden="true">*</span>
+                          </h3>
                         </div>
                         <span className="reg-badge reg-badge--req">Required</span>
                       </div>

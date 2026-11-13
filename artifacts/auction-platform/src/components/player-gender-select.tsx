@@ -40,9 +40,10 @@ export function PlayerGenderSelect({
   style,
   autofilled = false,
 }: Props) {
+  const isRequired = required || marker === "required";
   const select = (
     <Select
-      value={value || "none"}
+      value={value || undefined}
       onValueChange={(v) => onChange(v === "none" ? "" : (v as "M" | "F"))}
       disabled={disabled}
     >
@@ -50,7 +51,7 @@ export function PlayerGenderSelect({
         <SelectValue placeholder="Select gender" />
       </SelectTrigger>
       <SelectContent position="popper" className={contentClassName ?? "max-h-60 w-[var(--radix-select-trigger-width)]"}>
-        <SelectItem value="none">Not specified</SelectItem>
+        {!isRequired ? <SelectItem value="none">Not specified</SelectItem> : null}
         <SelectItem value="M">Male</SelectItem>
         <SelectItem value="F">Female</SelectItem>
       </SelectContent>
@@ -64,9 +65,11 @@ export function PlayerGenderSelect({
   return (
     <div className={className ? `space-y-2 ${className}` : "space-y-2"} style={style}>
       <div className="reg-label-row">
-        <Label htmlFor={id}>
-          {label}
-          {required ? <span className="text-destructive"> *</span> : null}
+        <Label htmlFor={id} className="inline-flex items-center gap-1 min-w-0">
+          <span>{label}</span>
+          {isRequired ? (
+            <span className="text-destructive font-bold text-sm leading-none" aria-hidden="true">*</span>
+          ) : null}
         </Label>
         <span className="reg-label-meta">
           {autofilled ? <RegAutofillMark /> : null}

@@ -54,8 +54,11 @@ export function RegLabel({
 }) {
   return (
     <div className="reg-label-row">
-      <Label htmlFor={htmlFor} className="inline-flex items-center gap-2 min-w-0">
-        {children}
+      <Label htmlFor={htmlFor} className="inline-flex items-center gap-1.5 min-w-0">
+        <span>{children}</span>
+        {marker === "required" ? (
+          <span className="text-destructive font-bold text-sm leading-none" aria-hidden="true">*</span>
+        ) : null}
         {locked ? <span className="reg-badge reg-badge--lock">Locked</span> : null}
       </Label>
       <span className="reg-label-meta">

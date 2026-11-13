@@ -39,9 +39,10 @@ export function LowerSizeSelect({
   style,
   autofilled = false,
 }: Props) {
+  const isRequired = marker === "required";
   const select = (
     <Select
-      value={value || "none"}
+      value={value || undefined}
       onValueChange={(v) => onChange(v === "none" ? "" : (v as LowerSize))}
       disabled={disabled}
     >
@@ -49,7 +50,7 @@ export function LowerSizeSelect({
         <SelectValue placeholder="Select size" />
       </SelectTrigger>
       <SelectContent position="popper" className={contentClassName ?? "max-h-60"}>
-        <SelectItem value="none">Not specified</SelectItem>
+        {!isRequired ? <SelectItem value="none">Not specified</SelectItem> : null}
         {LOWER_SIZE_VALUES.map(size => (
           <SelectItem key={size} value={size}>{lowerSizeLabel(size)}</SelectItem>
         ))}
@@ -64,7 +65,12 @@ export function LowerSizeSelect({
   return (
     <div className={className ? `space-y-2 ${className}` : "space-y-2"} style={style}>
       <div className="reg-label-row">
-        <Label htmlFor={id}>{label}</Label>
+        <Label htmlFor={id} className="inline-flex items-center gap-1 min-w-0">
+          <span>{label}</span>
+          {isRequired ? (
+            <span className="text-destructive font-bold text-sm leading-none" aria-hidden="true">*</span>
+          ) : null}
+        </Label>
         <span className="reg-label-meta">
           {autofilled ? <RegAutofillMark /> : null}
           {marker === "required" ? (
