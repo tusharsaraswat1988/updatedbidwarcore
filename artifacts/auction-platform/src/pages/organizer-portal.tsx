@@ -431,97 +431,96 @@ function CompleteProfileForm({
   }
 
   return (
-    <div data-surface="organizer" className="bw-organizer-light min-h-screen flex flex-col items-center justify-center px-6 text-foreground bg-background">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/8 rounded-full blur-[100px]" />
-      </div>
+    <div data-surface="organizer" className="bw-organizer-light min-h-screen flex flex-col items-center justify-center px-4 py-8 text-foreground bg-[#F4F6F9]">
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="relative w-full max-w-sm space-y-6"
+        transition={{ duration: 0.35 }}
+        className="w-full max-w-[380px] mx-auto space-y-3.5"
       >
-        <div className="text-center space-y-3">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
-            <Phone className="w-7 h-7 text-primary" />
+        <div className="text-center space-y-1.5">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
+            <Phone className="w-6 h-6 text-amber-500" />
           </div>
           <AuthStepIndicator step={step === "mobile" ? 1 : 2} total={2} />
-          <h1 className="text-display-md text-foreground">Complete your profile</h1>
-          <p className="text-muted-foreground text-sm">
+          <h1 className="text-xl font-bold text-slate-900">Complete your profile</h1>
+          <p className="text-slate-500 text-xs">
             Verify your mobile number with OTP to continue using BidWar.
           </p>
         </div>
-        <Card className="border border-border bg-card text-card-foreground shadow-sm">
-          <CardContent className="p-6">
-            {step === "mobile" ? (
-              <form onSubmit={handleSendOtp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2 text-sm">
-                    <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile Number *
-                  </Label>
-                  <Input
-                    type="tel"
-                    value={mobile}
-                    onChange={e => setMobile(sanitizeMobileInput(e.target.value))}
-                    placeholder="10-digit mobile (e.g. 9876543210)"
-                    inputMode="numeric"
-                    maxLength={10}
-                    autoFocus
-                  />
+        <div className="w-full bg-white rounded-2xl border border-slate-200/90 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.08),0_1px_3px_0_rgba(15,23,42,0.04)] p-5 sm:p-6 text-card-foreground">
+          {step === "mobile" ? (
+            <form onSubmit={handleSendOtp} className="space-y-3.5">
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                  <Phone className="w-3.5 h-3.5 text-slate-500" /> Mobile Number *
+                </Label>
+                <Input
+                  type="tel"
+                  value={mobile}
+                  onChange={e => setMobile(sanitizeMobileInput(e.target.value))}
+                  placeholder="10-digit mobile (e.g. 9876543210)"
+                  inputMode="numeric"
+                  maxLength={10}
+                  autoFocus
+                  className="h-11 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg text-sm"
+                />
+              </div>
+              {error && (
+                <div className="p-2.5 rounded-lg border border-red-200 bg-red-50 text-destructive text-xs flex items-start gap-2 font-medium">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+                  <span className="leading-snug">{error}</span>
                 </div>
-                {error && (
-                  <p className="text-destructive text-sm flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5" />{error}
-                  </p>
-                )}
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Phone className="w-4 h-4 mr-2" />}
-                  Send OTP
-                </Button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerify} className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Code sent to <span className="text-foreground font-medium">{mobile}</span>
-                </p>
-                <div className="space-y-2">
-                  <Label className="text-sm">Verification code</Label>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    value={otp}
-                    onChange={e => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    placeholder="6-digit OTP"
-                    autoFocus
-                  />
+              )}
+              <Button type="submit" className="w-full h-11 gold-button font-bold text-slate-900 shadow-xs cursor-pointer rounded-lg text-sm" disabled={loading}>
+                {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Phone className="w-4 h-4 mr-2" />}
+                Send OTP
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerify} className="space-y-3.5">
+              <p className="text-xs text-slate-600">
+                Code sent to <span className="text-slate-900 font-semibold">{mobile}</span>
+              </p>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-slate-800">Verification code</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otp}
+                  onChange={e => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="6-digit OTP"
+                  autoFocus
+                  className="h-11 tracking-widest text-center text-base bg-white border-slate-300 text-slate-900 font-bold rounded-lg"
+                />
+              </div>
+              {error && (
+                <div className="p-2.5 rounded-lg border border-red-200 bg-red-50 text-destructive text-xs flex items-start gap-2 font-medium">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+                  <span className="leading-snug">{error}</span>
                 </div>
-                {error && (
-                  <p className="text-destructive text-sm flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5" />{error}
-                  </p>
-                )}
-                <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
-                  {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                  Verify & Continue
-                </Button>
-                <div className="flex items-center justify-between text-xs">
-                  <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => { setStep("mobile"); setOtp(""); setError(""); }}>
-                    Change number
-                  </button>
-                  <button
-                    type="button"
-                    className="text-primary disabled:opacity-50"
-                    disabled={resendCooldown > 0 || loading}
-                    onClick={() => void handleResend()}
-                  >
-                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
-                  </button>
-                </div>
-              </form>
-            )}
-          </CardContent>
-        </Card>
+              )}
+              <Button type="submit" className="w-full h-11 gold-button font-bold text-slate-900 shadow-xs cursor-pointer rounded-lg text-sm" disabled={loading || otp.length !== 6}>
+                {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                Verify & Continue
+              </Button>
+              <div className="flex items-center justify-between text-xs pt-1">
+                <button type="button" className="text-slate-500 hover:text-slate-900 transition-colors font-medium cursor-pointer" onClick={() => { setStep("mobile"); setOtp(""); setError(""); }}>
+                  Change number
+                </button>
+                <button
+                  type="button"
+                  className="text-amber-600 hover:text-amber-700 disabled:opacity-50 cursor-pointer font-semibold"
+                  disabled={resendCooldown > 0 || loading}
+                  onClick={() => void handleResend()}
+                >
+                  {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
       </motion.div>
     </div>
   );
@@ -714,22 +713,25 @@ function ForgotPasswordFlow({ onBack, onSuccess, onNeedSupport }: { onBack: () =
 
   return (
     <div className="space-y-4">
-      <button onClick={onBack} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+      <button onClick={onBack} className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 transition-colors font-medium cursor-pointer">
         <ArrowLeft className="w-3.5 h-3.5" /> Back to Sign In
       </button>
       <div className="flex items-center gap-2 mb-2">
-        <KeyRound className="w-4 h-4 text-primary" />
-        <p className="font-semibold text-sm">Reset Password</p>
+        <KeyRound className="w-4 h-4 text-amber-500" />
+        <p className="font-bold text-sm text-slate-900">Reset Password</p>
       </div>
       {!done && <AuthStepIndicator step={step === "mobile" ? 1 : 2} total={2} />}
       {done ? (
-        <p className="text-green-400 text-sm flex items-center gap-1.5">
-          <CheckCircle2 className="w-4 h-4" /> Password reset — signing you in...
-        </p>
+        <div className="p-3 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm flex items-center gap-2 font-medium">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>Password reset — signing you in...</span>
+        </div>
       ) : step === "mobile" ? (
-        <form onSubmit={handleSendOtp} className="space-y-3">
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2 text-sm"><Phone className="w-3.5 h-3.5 text-muted-foreground" /> Registered Mobile</Label>
+        <form onSubmit={handleSendOtp} className="space-y-3.5">
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+              <Phone className="w-3.5 h-3.5 text-slate-500" /> Registered Mobile
+            </Label>
             <Input
               type="tel"
               value={mobile}
@@ -738,18 +740,24 @@ function ForgotPasswordFlow({ onBack, onSuccess, onNeedSupport }: { onBack: () =
               inputMode="numeric"
               maxLength={10}
               autoFocus
+              className="h-11 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg text-sm"
             />
           </div>
-          {error && <p className="text-destructive text-xs flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading || !mobile.trim()}>
+          {error && (
+            <div className="p-2.5 rounded-lg border border-red-200 bg-red-50 text-destructive text-xs flex items-start gap-2 font-medium">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+              <span className="leading-snug">{error}</span>
+            </div>
+          )}
+          <Button type="submit" className="w-full h-11 gold-button font-bold text-slate-900 shadow-xs cursor-pointer rounded-lg text-sm" disabled={loading || !mobile.trim()}>
             {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
             Send OTP
           </Button>
         </form>
       ) : (
-        <form onSubmit={handleReset} className="space-y-3">
-          <div className="space-y-2">
-            <Label className="text-sm">OTP sent to {mobile}</Label>
+        <form onSubmit={handleReset} className="space-y-3.5">
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-800">OTP sent to {mobile}</Label>
             <Input
               type="text"
               inputMode="numeric"
@@ -758,58 +766,76 @@ function ForgotPasswordFlow({ onBack, onSuccess, onNeedSupport }: { onBack: () =
               placeholder="6-digit OTP"
               maxLength={6}
               autoFocus
+              className="h-11 tracking-widest text-center text-base bg-white border-slate-300 text-slate-900 font-bold rounded-lg"
             />
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-0.5">
               <button
                 type="button"
                 onClick={handleResend}
                 disabled={resendCooldown > 0 || resending}
-                className="flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
+                className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-700 hover:underline disabled:opacity-50 disabled:no-underline font-semibold cursor-pointer"
               >
                 <RotateCcw className="w-3 h-3" />
                 {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
               </button>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label className="text-sm">New Password</Label>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-800">New Password</Label>
             <div className="relative">
-              <Input type={showNewPw ? "text" : "password"} value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Min 6 characters" className="pr-10" />
-              <button type="button" onClick={() => setShowNewPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <Input
+                type={showNewPw ? "text" : "password"}
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="Min 6 characters"
+                className="h-11 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg text-sm"
+              />
+              <button type="button" onClick={() => setShowNewPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 cursor-pointer">
                 {showNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label className="text-sm">Confirm Password</Label>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-slate-800">Confirm Password</Label>
             <div className="relative">
-              <Input type={showConfirmPw ? "text" : "password"} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repeat password" className="pr-10" />
-              <button type="button" onClick={() => setShowConfirmPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <Input
+                type={showConfirmPw ? "text" : "password"}
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="Repeat password"
+                className="h-11 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg text-sm"
+              />
+              <button type="button" onClick={() => setShowConfirmPw(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 cursor-pointer">
                 {showConfirmPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
           </div>
-          {error && <p className="text-destructive text-xs flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" />{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading || otpCode.length !== 6}>
+          {error && (
+            <div className="p-2.5 rounded-lg border border-red-200 bg-red-50 text-destructive text-xs flex items-start gap-2 font-medium">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+              <span className="leading-snug">{error}</span>
+            </div>
+          )}
+          <Button type="submit" className="w-full h-11 gold-button font-bold text-slate-900 shadow-xs cursor-pointer rounded-lg text-sm" disabled={loading || otpCode.length !== 6}>
             {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <KeyRound className="w-4 h-4 mr-2" />}
             Verify &amp; Reset Password
           </Button>
           <button
             type="button"
             onClick={() => { setStep("mobile"); setOtpCode(""); setError(""); }}
-            className="text-xs text-muted-foreground hover:text-foreground w-full text-center transition-colors cursor-pointer"
+            className="text-xs text-slate-500 hover:text-slate-900 w-full text-center transition-colors font-medium cursor-pointer"
           >
             Change mobile number
           </button>
         </form>
       )}
       {onNeedSupport && (
-        <div className="pt-2 text-center text-xs text-muted-foreground border-t border-border/40">
+        <div className="pt-2 text-center text-xs text-slate-500 border-t border-slate-200">
           Still having trouble?{" "}
           <button
             type="button"
             onClick={onNeedSupport}
-            className="text-primary hover:underline font-medium cursor-pointer"
+            className="text-amber-600 hover:text-amber-700 hover:underline font-semibold cursor-pointer"
           >
             Contact Support
           </button>
@@ -826,10 +852,10 @@ function GoogleSignInButton({ next, prominent }: { next?: string; prominent?: bo
   return (
     <a
       href={href}
-      className={`flex items-center justify-center gap-3 w-full px-4 py-2.5 rounded-lg border transition-colors text-sm font-semibold cursor-pointer ${
+      className={`flex items-center justify-center gap-2.5 w-full h-11 px-4 rounded-lg border transition-colors text-sm font-semibold cursor-pointer shadow-xs ${
         prominent
-          ? "border-amber-400/50 bg-amber-50 hover:bg-amber-100/80 text-slate-900 shadow-xs"
-          : "border-slate-300 bg-white hover:bg-slate-50 text-slate-800 shadow-xs"
+          ? "border-amber-400/50 bg-amber-50 hover:bg-amber-100/80 text-slate-900"
+          : "border-slate-300 bg-white hover:bg-slate-50 text-slate-800"
       }`}
     >
       <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" aria-hidden="true">
@@ -845,17 +871,17 @@ function GoogleSignInButton({ next, prominent }: { next?: string; prominent?: bo
 
 function GoogleSignupBlock({ next }: { next?: string }) {
   return (
-    <div className="space-y-2.5">
-      <p className="text-xs text-center text-slate-600 font-medium tracking-wide">
+    <div className="space-y-2">
+      <p className="text-xs text-center text-slate-500 font-medium">
         Fastest way &mdash; use your Google account
       </p>
       <GoogleSignInButton next={next} prominent />
       <div
         role="note"
-        className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left"
+        className="flex items-start gap-2 rounded-lg border border-slate-200/90 bg-slate-50 px-3 py-2 text-left"
       >
-        <Info className="h-3.5 w-3.5 text-amber-600 shrink-0" aria-hidden />
-        <p className="text-xs text-slate-600">
+        <Info className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" aria-hidden />
+        <p className="text-[11px] text-slate-600 leading-snug">
           Mobile OTP verification is required after Google sign-in to secure your account.
         </p>
       </div>
@@ -923,6 +949,13 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError ?? "");
+
+  useEffect(() => {
+    if (initialError) {
+      setError(initialError);
+    }
+  }, [initialError]);
+
   const [redirectUriHint] = useState(initialRedirectUriHint ?? "");
   const [showPw, setShowPw] = useState(false);
   const [showSignupPw, setShowSignupPw] = useState(false);
@@ -1132,433 +1165,452 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
   }
 
   return (
-    <div data-surface="organizer" className="bw-organizer-light min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-8 text-foreground bg-background">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/10 rounded-full blur-[100px]" />
-      </div>
+    <div data-surface="organizer" className="bw-organizer-light min-h-screen flex flex-col items-center justify-center px-4 py-8 sm:py-12 text-foreground bg-[#F4F6F9]">
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="relative w-full max-w-sm space-y-4 sm:space-y-5"
+        transition={{ duration: 0.35 }}
+        className="w-full max-w-[380px] mx-auto space-y-3"
       >
-        <button
-          onClick={() => navigate("/")}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-xs sm:text-sm cursor-pointer mb-1"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to home
-        </button>
+        {/* Back to home */}
+        <div>
+          <button
+            onClick={() => navigate("/")}
+            className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 font-medium transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" /> Back to home
+          </button>
+        </div>
 
-        <div className="text-center space-y-1.5">
-          <img src={logoSrc} alt={logoAlt} className={authLoginPreset.sizeClass} />
-          <p className="text-xs sm:text-sm font-medium text-muted-foreground">
+        {/* Brand Header */}
+        <div className="text-center space-y-1">
+          <img
+            src={logoSrc}
+            alt={logoAlt}
+            className="h-10 sm:h-11 w-auto max-w-[210px] mx-auto object-contain"
+          />
+          <p className="text-[12px] font-medium text-slate-500 tracking-normal">
             Organizer Portal &bull; Live Sports Auctions
           </p>
         </div>
 
-        {view !== "forgot" && (
-          <div className="flex rounded-md bg-muted/60 p-1 border border-border">
-            <button
-              type="button"
-              onClick={() => { setView("login"); setError(""); setSignupStep("details"); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all normal-case tracking-normal cursor-pointer ${view === "login" ? "gold-button" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => { setView("signup"); setError(""); setSignupStep("details"); }}
-              className={`flex-1 py-2 text-sm font-semibold rounded-md transition-all normal-case tracking-normal cursor-pointer ${view === "signup" ? "gold-button" : "text-muted-foreground hover:text-foreground"}`}
-            >
-              Create Account
-            </button>
-          </div>
-        )}
+        {/* Bounded Authentication Container */}
+        <div className="w-full bg-white rounded-2xl border border-slate-200/90 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.08),0_1px_3px_0_rgba(15,23,42,0.04)] p-5 sm:p-6 text-card-foreground">
+          {/* Segmented Control Tabs */}
+          {view !== "forgot" && (
+            <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200/80 mb-4">
+              <button
+                type="button"
+                onClick={() => { setView("login"); setError(""); setSignupStep("details"); }}
+                className={`flex-1 h-9 sm:h-10 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center ${
+                  view === "login"
+                    ? "bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 font-semibold"
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => { setView("signup"); setError(""); setSignupStep("details"); }}
+                className={`flex-1 h-9 sm:h-10 text-xs sm:text-sm font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center ${
+                  view === "signup"
+                    ? "bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900 font-semibold"
+                }`}
+              >
+                Create Account
+              </button>
+            </div>
+          )}
 
-        {next && view !== "forgot" && (
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
-            <Lock className="w-3.5 h-3.5 shrink-0" />
-            Please log in to continue.
-          </div>
-        )}
+          {next && view !== "forgot" && (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-800 font-medium mb-3.5">
+              <Lock className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+              <span>Please log in to continue.</span>
+            </div>
+          )}
 
-        <Card className="border border-border shadow-sm bg-card text-card-foreground">
-          <CardContent className="p-5 sm:p-6">
-            <AnimatePresence mode="wait">
-              {view === "forgot" ? (
-                <motion.div key="forgot" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-                  <ForgotPasswordFlow
-                    onBack={() => { setView("login"); setError(""); }}
-                    onSuccess={onSuccess}
-                    onNeedSupport={() => setSupportOpen(true)}
+          <AnimatePresence mode="wait">
+            {view === "forgot" ? (
+              <motion.div key="forgot" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+                <ForgotPasswordFlow
+                  onBack={() => { setView("login"); setError(""); }}
+                  onSuccess={onSuccess}
+                  onNeedSupport={() => setSupportOpen(true)}
+                />
+              </motion.div>
+            ) : view === "login" ? (
+              <motion.form
+                key="login"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                onSubmit={handleLogin}
+                className="space-y-3.5"
+              >
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                    <Phone className="w-3.5 h-3.5 text-slate-500" /> Mobile or Email
+                  </Label>
+                  <Input
+                    value={loginForm.identifier}
+                    onChange={e => setLoginForm(f => ({ ...f, identifier: e.target.value }))}
+                    placeholder="+91 98765 43210 or email"
+                    autoComplete="username"
+                    inputMode="tel"
+                    className="h-11 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg text-sm"
                   />
-                </motion.div>
-              ) : view === "login" ? (
-                <motion.form
-                  key="login"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 10 }}
-                  onSubmit={handleLogin}
-                  className="space-y-3.5"
-                >
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                      <Lock className="w-3.5 h-3.5 text-slate-500" /> Password
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => { setView("forgot"); setError(""); }}
+                      className="text-xs text-amber-600 hover:text-amber-700 hover:underline font-semibold cursor-pointer"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      type={showPw ? "text" : "password"}
+                      value={loginForm.password}
+                      onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
+                      placeholder="Enter your password"
+                      autoComplete="current-password"
+                      className="h-11 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPw(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 cursor-pointer"
+                      aria-label={showPw ? "Hide password" : "Show password"}
+                    >
+                      {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                {captchaRequired && loginGuard?.captcha && !turnstileSiteKey && (
+                  <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <Label className="text-xs font-semibold text-slate-700">{loginGuard.captcha.question}</Label>
+                    <Input
+                      value={captchaAnswer}
+                      onChange={e => setCaptchaAnswer(e.target.value)}
+                      placeholder="Your answer"
+                      inputMode="numeric"
+                      autoComplete="off"
+                      className="h-11 bg-white border-slate-300 text-slate-900 rounded-lg text-sm"
+                    />
+                  </div>
+                )}
+                {cooldownSec > 0 && (
+                  <p className="text-amber-600 text-xs flex items-center gap-1.5 font-medium">
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    Too many failed attempts. Try again in {cooldownSec}s.
+                  </p>
+                )}
+                {error && (
+                  <div className="p-2.5 rounded-lg border border-red-200 bg-red-50 text-destructive text-xs flex items-start gap-2 font-medium">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+                    <span className="leading-snug">{error}</span>
+                  </div>
+                )}
+                {redirectUriHint ? (
+                  <p className="text-xs text-slate-600 break-all rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono">
+                    {redirectUriHint}
+                  </p>
+                ) : null}
+                <Button type="submit" className="w-full h-11 gold-button font-bold text-slate-900 shadow-xs cursor-pointer rounded-lg text-sm" disabled={signInDisabled}>
+                  {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {cooldownSec > 0 ? `Sign In (${cooldownSec}s)` : "Sign In"}
+                </Button>
+                <p className="text-[11px] text-slate-600 text-center leading-relaxed">
+                  By continuing, you agree to BidWar{" "}
+                  <a href="/legal/terms" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Terms</a>
+                  {", "}
+                  <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Privacy Policy</a>
+                  {", and "}
+                  <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Platform Policies</a>
+                  .
+                </p>
+                <div className="relative my-2">
+                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200" /></div>
+                  <div className="relative flex justify-center text-[10px] uppercase font-bold text-slate-600 tracking-wider"><span className="bg-white px-2">or</span></div>
+                </div>
+                <GoogleSignInButton next={next} />
+                <p className="text-center text-xs text-slate-600 pt-1">
+                  Need help?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setSupportOpen(true)}
+                    className="text-amber-600 hover:text-amber-700 hover:underline underline-offset-2 font-semibold cursor-pointer"
+                  >
+                    Contact Support
+                  </button>
+                </p>
+              </motion.form>
+            ) : (
+              <motion.div
+                key="signup"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                className="space-y-3.5"
+              >
+                {/* Google — visually prominent path */}
+                <GoogleSignupBlock next={next} />
+
+                <div className="relative my-2.5">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-slate-200" />
+                  </div>
+                  <div className="relative flex justify-center text-[10px] uppercase font-bold text-slate-600 tracking-wider">
+                    <span className="bg-white px-2.5">or register with mobile &amp; email</span>
+                  </div>
+                </div>
+
+                {/* Email + mobile OTP signup */}
+                {signupStep === "details" && (
+                <form onSubmit={handleSignupEmail} className="space-y-3">
                   <div className="space-y-1.5">
-                    <Label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                      <Phone className="w-3.5 h-3.5 text-slate-500" /> Mobile or Email
+                    <Label htmlFor="signup-name" className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                      <User className="w-3.5 h-3.5 text-slate-500" /> Full Name
                     </Label>
                     <Input
-                      value={loginForm.identifier}
-                      onChange={e => setLoginForm(f => ({ ...f, identifier: e.target.value }))}
-                      placeholder="+91 98765 43210 or email"
-                      autoComplete="username"
-                      inputMode="tel"
-                      className="h-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
+                      id="signup-name"
+                      value={signupForm.name}
+                      onChange={e => setSignupForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Your full name"
+                      autoFocus
+                      required
+                      className="h-11 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg text-sm"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                        <Lock className="w-3.5 h-3.5 text-slate-500" /> Password
-                      </Label>
-                      <button
-                        type="button"
-                        onClick={() => { setView("forgot"); setError(""); }}
-                        className="text-xs text-amber-600 hover:text-amber-700 hover:underline font-semibold cursor-pointer"
-                      >
-                        Forgot password?
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <Input
-                        type={showPw ? "text" : "password"}
-                        value={loginForm.password}
-                        onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
-                        placeholder="Enter your password"
-                        autoComplete="current-password"
-                        className="h-10 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPw(v => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 cursor-pointer"
-                      >
-                        {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
+                    <Label htmlFor="signup-email" className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                      <Mail className="w-3.5 h-3.5 text-slate-500" /> Email
+                    </Label>
+                    <Input
+                      id="signup-email"
+                      type="email"
+                      value={signupForm.email}
+                      onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))}
+                      placeholder="name@example.com"
+                      autoComplete="username"
+                      required
+                      className="h-11 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg text-sm"
+                    />
                   </div>
-                  {captchaRequired && loginGuard?.captcha && !turnstileSiteKey && (
-                    <div className="space-y-2 rounded-lg border border-border/50 bg-muted/10 p-3">
-                      <Label className="text-sm text-slate-700">{loginGuard.captcha.question}</Label>
-                      <Input
-                        value={captchaAnswer}
-                        onChange={e => setCaptchaAnswer(e.target.value)}
-                        placeholder="Your answer"
-                        inputMode="numeric"
-                        autoComplete="off"
-                        className="h-10 bg-white border-slate-300 text-slate-900"
-                      />
-                    </div>
-                  )}
-                  {cooldownSec > 0 && (
-                    <p className="text-amber-600 text-xs flex items-center gap-1.5 font-medium">
-                      <Clock className="w-3.5 h-3.5 shrink-0" />
-                      Too many failed attempts. Try again in {cooldownSec}s.
-                    </p>
-                  )}
-                  {error && <p className="text-destructive text-xs flex items-center gap-1.5 font-medium"><AlertTriangle className="w-3.5 h-3.5 shrink-0" />{error}</p>}
-                  {redirectUriHint ? (
-                    <p className="text-xs text-slate-600 break-all rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono">
-                      {redirectUriHint}
-                    </p>
-                  ) : null}
-                  <Button type="submit" className="w-full h-10 gold-button font-bold text-slate-900 shadow-xs cursor-pointer" disabled={signInDisabled}>
-                    {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-                    {cooldownSec > 0 ? `Sign In (${cooldownSec}s)` : "Sign In"}
-                  </Button>
-                  <p className="text-[11px] text-slate-600 text-center leading-relaxed">
-                    By continuing, you agree to BidWar{" "}
-                    <a href="/legal/terms" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Terms</a>
-                    {", "}
-                    <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Privacy Policy</a>
-                    {", and "}
-                    <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Platform Policies</a>
-                    .
-                  </p>
-                  <div className="relative my-1">
-                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200" /></div>
-                    <div className="relative flex justify-center text-xs text-slate-500"><span className="bg-white px-2">or</span></div>
-                  </div>
-                  <GoogleSignInButton next={next} />
-                  <p className="text-center text-xs text-slate-600 pt-1">
-                    Need help?{" "}
-                    <button
-                      type="button"
-                      onClick={() => setSupportOpen(true)}
-                      className="text-amber-600 hover:text-amber-700 hover:underline underline-offset-2 font-semibold cursor-pointer"
-                    >
-                      Contact Support
-                    </button>
-                  </p>
-                </motion.form>
-              ) : (
-                <motion.div
-                  key="signup"
-                  initial={{ opacity: 0, x: 10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  className="space-y-3.5"
-                >
-                  {/* Google — visually prominent path */}
-                  <GoogleSignupBlock next={next} />
-
-                  <div className="relative py-0.5">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-slate-200" />
-                    </div>
-                    <div className="relative flex justify-center text-xs text-slate-600">
-                      <span className="bg-white px-3 font-semibold">or register with mobile &amp; email</span>
-                    </div>
-                  </div>
-
-                  {/* Email + mobile OTP signup */}
-                  {signupStep === "details" && (
-                  <form onSubmit={handleSignupEmail} className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="signup-name" className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                        <User className="w-3.5 h-3.5 text-slate-500" /> Full Name
-                      </Label>
-                      <Input
-                        id="signup-name"
-                        value={signupForm.name}
-                        onChange={e => setSignupForm(f => ({ ...f, name: e.target.value }))}
-                        placeholder="Your full name"
-                        autoFocus
-                        required
-                        className="h-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="signup-email" className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                        <Mail className="w-3.5 h-3.5 text-slate-500" /> Email
-                      </Label>
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        value={signupForm.email}
-                        onChange={e => setSignupForm(f => ({ ...f, email: e.target.value }))}
-                        placeholder="name@example.com"
-                        autoComplete="username"
-                        required
-                        className="h-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="signup-mobile" className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                        <Phone className="w-3.5 h-3.5 text-slate-500" /> Mobile Number
-                      </Label>
-                      <div className="relative flex items-center">
-                        <div className="absolute left-3 flex items-center pointer-events-none text-xs font-bold text-slate-700 border-r border-slate-300 pr-2">
-                          +91
-                        </div>
-                        <Input
-                          id="signup-mobile"
-                          type="tel"
-                          value={signupForm.mobile}
-                          onChange={e => setSignupForm(f => ({ ...f, mobile: sanitizeMobileInput(e.target.value) }))}
-                          placeholder="10-digit mobile"
-                          inputMode="numeric"
-                          maxLength={10}
-                          required
-                          className="h-10 pl-14 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
-                        />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="signup-mobile" className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                      <Phone className="w-3.5 h-3.5 text-slate-500" /> Mobile Number
+                    </Label>
+                    <div className="relative flex items-center">
+                      <div className="absolute left-3 flex items-center pointer-events-none text-xs font-bold text-slate-700 border-r border-slate-300 pr-2">
+                        +91
                       </div>
-                    </div>
-
-                    {error ? (
-                      <p className="text-destructive text-xs flex items-start gap-1.5 pt-0.5 font-medium">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>{error}</span>
-                      </p>
-                    ) : null}
-
-                    <div className="pt-1 space-y-2">
-                      <Button type="submit" className="w-full h-10 gold-button font-bold text-slate-900 shadow-xs cursor-pointer" disabled={loading}>
-                        {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-                        Send OTP
-                      </Button>
-                      <p className="text-[11px] text-slate-600 text-center leading-relaxed">
-                        We&apos;ll verify your mobile before you create a password.
-                      </p>
-                      <p className="text-center text-xs text-slate-600 pt-1">
-                        Need help?{" "}
-                        <button
-                          type="button"
-                          onClick={() => setSupportOpen(true)}
-                          className="text-amber-600 hover:text-amber-700 hover:underline underline-offset-2 font-semibold cursor-pointer"
-                        >
-                          Contact Support
-                        </button>
-                      </p>
-                    </div>
-                  </form>
-                  )}
-
-                  {signupStep === "otp" && (
-                  <form onSubmit={handleSignupVerifyOtp} className="space-y-3.5">
-                    <AuthStepIndicator step={2} total={3} />
-                    <p className="text-xs sm:text-sm text-slate-600">
-                      Enter the code sent to <span className="text-slate-900 font-semibold">{signupForm.mobile}</span>
-                    </p>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="signup-otp" className="text-sm font-semibold text-slate-800">Verification code</Label>
                       <Input
-                        id="signup-otp"
-                        type="text"
+                        id="signup-mobile"
+                        type="tel"
+                        value={signupForm.mobile}
+                        onChange={e => setSignupForm(f => ({ ...f, mobile: sanitizeMobileInput(e.target.value) }))}
+                        placeholder="10-digit mobile"
                         inputMode="numeric"
-                        maxLength={6}
-                        value={signupForm.otp}
-                        onChange={e => setSignupForm(f => ({ ...f, otp: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
-                        placeholder="6-digit OTP"
-                        autoFocus
-                        className="h-10 tracking-widest text-center text-base bg-white border-slate-300 text-slate-900 font-bold"
+                        maxLength={10}
                         required
+                        className="h-11 pl-14 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg text-sm"
                       />
                     </div>
-                    {error ? (
-                      <p className="text-destructive text-xs flex items-start gap-1.5 font-medium">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>{error}</span>
-                      </p>
-                    ) : null}
-                    <Button type="submit" className="w-full h-10 gold-button font-bold text-slate-900 shadow-xs cursor-pointer" disabled={loading || signupForm.otp.length !== 6}>
-                      {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-                      Verify OTP
-                    </Button>
-                    <div className="flex items-center justify-between text-xs pt-1">
-                      <button
-                        type="button"
-                        className="text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
-                        onClick={() => { setSignupStep("details"); setError(""); setSignupForm(f => ({ ...f, otp: "" })); }}
-                      >
-                        Back
-                      </button>
-                      <button
-                        type="button"
-                        className="text-amber-600 hover:text-amber-700 disabled:opacity-50 cursor-pointer font-semibold"
-                        disabled={signupResendCooldown > 0 || loading}
-                        onClick={() => void handleSignupResendOtp()}
-                      >
-                        {signupResendCooldown > 0 ? `Resend in ${signupResendCooldown}s` : "Resend OTP"}
-                      </button>
+                  </div>
+
+                  {error ? (
+                    <div className="p-2.5 rounded-lg border border-red-200 bg-red-50 text-destructive text-xs flex items-start gap-2 font-medium">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+                      <span className="leading-snug">{error}</span>
                     </div>
-                    <div className="pt-2 text-center text-xs text-slate-600 border-t border-slate-200">
-                      Didn&apos;t receive OTP?{" "}
+                  ) : null}
+
+                  <div className="pt-1 space-y-2">
+                    <Button type="submit" className="w-full h-11 gold-button font-bold text-slate-900 shadow-xs cursor-pointer rounded-lg text-sm" disabled={loading}>
+                      {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Send OTP
+                    </Button>
+                    <p className="text-[11px] text-slate-600 text-center leading-relaxed">
+                      We&apos;ll verify your mobile before you create a password.
+                    </p>
+                    <p className="text-center text-xs text-slate-600 pt-1">
+                      Need help?{" "}
                       <button
                         type="button"
                         onClick={() => setSupportOpen(true)}
-                        className="text-amber-600 hover:text-amber-700 hover:underline font-semibold cursor-pointer"
+                        className="text-amber-600 hover:text-amber-700 hover:underline underline-offset-2 font-semibold cursor-pointer"
                       >
-                        Get Help on WhatsApp
+                        Contact Support
+                      </button>
+                    </p>
+                  </div>
+                </form>
+                )}
+
+                {signupStep === "otp" && (
+                <form onSubmit={handleSignupVerifyOtp} className="space-y-3.5">
+                  <AuthStepIndicator step={2} total={3} />
+                  <p className="text-xs sm:text-sm text-slate-600">
+                    Enter the code sent to <span className="text-slate-900 font-semibold">{signupForm.mobile}</span>
+                  </p>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="signup-otp" className="text-xs font-semibold text-slate-800">Verification code</Label>
+                    <Input
+                      id="signup-otp"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={signupForm.otp}
+                      onChange={e => setSignupForm(f => ({ ...f, otp: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
+                      placeholder="6-digit OTP"
+                      autoFocus
+                      className="h-11 tracking-widest text-center text-base bg-white border-slate-300 text-slate-900 font-bold rounded-lg"
+                      required
+                    />
+                  </div>
+                  {error ? (
+                    <div className="p-2.5 rounded-lg border border-red-200 bg-red-50 text-destructive text-xs flex items-start gap-2 font-medium">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+                      <span className="leading-snug">{error}</span>
+                    </div>
+                  ) : null}
+                  <Button type="submit" className="w-full h-11 gold-button font-bold text-slate-900 shadow-xs cursor-pointer rounded-lg text-sm" disabled={loading || signupForm.otp.length !== 6}>
+                    {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                    Verify OTP
+                  </Button>
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <button
+                      type="button"
+                      className="text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
+                      onClick={() => { setSignupStep("details"); setError(""); setSignupForm(f => ({ ...f, otp: "" })); }}
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      className="text-amber-600 hover:text-amber-700 disabled:opacity-50 cursor-pointer font-semibold"
+                      disabled={signupResendCooldown > 0 || loading}
+                      onClick={() => void handleSignupResendOtp()}
+                    >
+                      {signupResendCooldown > 0 ? `Resend in ${signupResendCooldown}s` : "Resend OTP"}
+                    </button>
+                  </div>
+                  <div className="pt-2 text-center text-xs text-slate-600 border-t border-slate-200">
+                    Didn&apos;t receive OTP?{" "}
+                    <button
+                      type="button"
+                      onClick={() => setSupportOpen(true)}
+                      className="text-amber-600 hover:text-amber-700 hover:underline font-semibold cursor-pointer"
+                    >
+                      Get Help on WhatsApp
+                    </button>
+                  </div>
+                </form>
+                )}
+
+                {signupStep === "password" && (
+                <form onSubmit={handleSignupComplete} className="space-y-3">
+                  <AuthStepIndicator step={3} total={3} />
+                  <p className="text-xs sm:text-sm text-slate-600">
+                    Mobile verified. Create your password to finish.
+                  </p>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="signup-password" className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                      <Lock className="w-3.5 h-3.5 text-slate-500" /> Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="signup-password"
+                        type={showSignupPw ? "text" : "password"}
+                        value={signupForm.password}
+                        onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
+                        placeholder="At least 6 characters"
+                        autoComplete="new-password"
+                        className="h-11 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg text-sm"
+                        required
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignupPw(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 cursor-pointer"
+                        aria-label={showSignupPw ? "Hide password" : "Show password"}
+                      >
+                        {showSignupPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                  </form>
-                  )}
-
-                  {signupStep === "password" && (
-                  <form onSubmit={handleSignupComplete} className="space-y-3">
-                    <AuthStepIndicator step={3} total={3} />
-                    <p className="text-xs sm:text-sm text-slate-600">
-                      Mobile verified. Create your password to finish.
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="signup-confirm-password" className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                      <Lock className="w-3.5 h-3.5 text-slate-500" /> Confirm Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="signup-confirm-password"
+                        type={showSignupConfirm ? "text" : "password"}
+                        value={signupForm.confirmPassword}
+                        onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                        placeholder="Re-enter your password"
+                        autoComplete="new-password"
+                        className="h-11 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 rounded-lg text-sm"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignupConfirm(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 cursor-pointer"
+                        aria-label={showSignupConfirm ? "Hide confirm password" : "Show confirm password"}
+                      >
+                        {showSignupConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                  {error ? (
+                    <div className="p-2.5 rounded-lg border border-red-200 bg-red-50 text-destructive text-xs flex items-start gap-2 font-medium">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
+                      <span className="leading-snug">{error}</span>
+                    </div>
+                  ) : null}
+                  <div className="pt-1 space-y-2">
+                    <Button type="submit" className="w-full h-11 gold-button font-bold text-slate-900 shadow-xs cursor-pointer rounded-lg text-sm" disabled={loading}>
+                      {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Create Account
+                    </Button>
+                    <p className="text-[11px] text-slate-600 text-center leading-relaxed">
+                      By continuing, you agree to BidWar{" "}
+                      <a href="/legal/terms" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Terms</a>
+                      {", "}
+                      <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Privacy Policy</a>
+                      {", and "}
+                      <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Platform Policies</a>
+                      .
                     </p>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="signup-password" className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                        <Lock className="w-3.5 h-3.5 text-slate-500" /> Password
-                      </Label>
-                      <div className="relative">
-                        <Input
-                          id="signup-password"
-                          type={showSignupPw ? "text" : "password"}
-                          value={signupForm.password}
-                          onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
-                          placeholder="At least 6 characters"
-                          autoComplete="new-password"
-                          className="h-10 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
-                          required
-                          autoFocus
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowSignupPw(v => !v)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 cursor-pointer"
-                          aria-label={showSignupPw ? "Hide password" : "Show password"}
-                        >
-                          {showSignupPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="signup-confirm-password" className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                        <Lock className="w-3.5 h-3.5 text-slate-500" /> Confirm Password
-                      </Label>
-                      <div className="relative">
-                        <Input
-                          id="signup-confirm-password"
-                          type={showSignupConfirm ? "text" : "password"}
-                          value={signupForm.confirmPassword}
-                          onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                          placeholder="Re-enter your password"
-                          autoComplete="new-password"
-                          className="h-10 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowSignupConfirm(v => !v)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 cursor-pointer"
-                          aria-label={showSignupConfirm ? "Hide confirm password" : "Show confirm password"}
-                        >
-                          {showSignupConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-                    {error ? (
-                      <p className="text-destructive text-xs flex items-start gap-1.5 font-medium">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                        <span>{error}</span>
-                      </p>
-                    ) : null}
-                    <div className="pt-1 space-y-2">
-                      <Button type="submit" className="w-full h-10 gold-button font-bold text-slate-900 shadow-xs cursor-pointer" disabled={loading}>
-                        {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
-                        Create Account
-                      </Button>
-                      <p className="text-[11px] text-slate-600 text-center leading-relaxed">
-                        By continuing, you agree to BidWar{" "}
-                        <a href="/legal/terms" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Terms</a>
-                        {", "}
-                        <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Privacy Policy</a>
-                        {", and "}
-                        <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Platform Policies</a>
-                        .
-                      </p>
-                      <p className="text-center text-xs text-slate-600 pt-1">
-                        Need help?{" "}
-                        <button
-                          type="button"
-                          onClick={() => setSupportOpen(true)}
-                          className="text-amber-600 hover:text-amber-700 hover:underline underline-offset-2 font-semibold cursor-pointer"
-                        >
-                          Contact Support
-                        </button>
-                      </p>
-                    </div>
-                  </form>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </CardContent>
-        </Card>
+                    <p className="text-center text-xs text-slate-600 pt-1">
+                      Need help?{" "}
+                      <button
+                        type="button"
+                        onClick={() => setSupportOpen(true)}
+                        className="text-amber-600 hover:text-amber-700 hover:underline underline-offset-2 font-semibold cursor-pointer"
+                      >
+                        Contact Support
+                      </button>
+                    </p>
+                  </div>
+                </form>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </motion.div>
 
       <OrganizerSupportModal open={supportOpen} onOpenChange={setSupportOpen} />
