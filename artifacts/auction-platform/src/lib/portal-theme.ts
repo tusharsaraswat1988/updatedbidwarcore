@@ -17,9 +17,25 @@ export function isOrganizerRoute(pathname?: string): boolean {
     p = p.slice("/scoring-app".length) || "/";
   }
 
-  // 1. Explicitly protected routes remain dark:
+  // 1. Explicitly protected surfaces & public marketing pages remain dark:
   if (
+    p === "" ||
     p === "/" ||
+    p === "/pricing" ||
+    p === "/contact" ||
+    p === "/legal" ||
+    p.startsWith("/legal/") ||
+    p === "/auction-tips" ||
+    p === "/upcoming-auctions" ||
+    p === "/academy" ||
+    p.startsWith("/academy/") ||
+    p === "/blog" ||
+    p.startsWith("/blog/") ||
+    p.endsWith("-software") ||
+    p.endsWith("-platform") ||
+    p.endsWith("-system") ||
+    p.endsWith("-bidding") ||
+    p.endsWith("-auction") ||
     p.startsWith("/bpl") ||
     (p.includes("/auction") && !p.includes("/auction-overview") && !p.includes("/auction-tips")) ||
     p.includes("/obs") ||
@@ -53,8 +69,9 @@ export function isOrganizerRoute(pathname?: string): boolean {
     return true;
   }
 
-  // 3. Fallback: check DOM for active organiser surface
-  if (typeof document !== "undefined" && document.querySelector('[data-surface="organizer"], .bw-organizer-light')) {
+  // 3. Fallback: check DOM content inside #root for active organiser surface
+  // (strictly inside #root so it never matches html or body itself)
+  if (typeof document !== "undefined" && document.querySelector('#root [data-surface="organizer"], #root .bw-organizer-light')) {
     return true;
   }
 

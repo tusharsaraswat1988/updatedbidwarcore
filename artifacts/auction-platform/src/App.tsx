@@ -21,6 +21,7 @@ import { readWindowDehydratedState, readWindowInitialData, normalizeHomeInitialD
 
 import { BootSplash } from "@/components/boot-splash";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { isOrganizerRoute, syncDocumentSurfaceTheme } from "@/lib/portal-theme";
 import Landing from "@/pages/lovable-home";
 import AdminLogin from "@/pages/admin-login";
 
@@ -177,8 +178,14 @@ function HomeRoute() {
 }
 
 function Router() {
+  const [location] = useLocation();
+
+  useEffect(() => {
+    syncDocumentSurfaceTheme(location);
+  }, [location]);
+
   return (
-    <Suspense fallback={<BootSplash />}>
+    <Suspense fallback={<BootSplash theme={isOrganizerRoute(location) ? "light" : "dark"} />}>
       <Switch>
         {/* Marketing routes */}
         <Route path="/" component={HomeRoute} />
@@ -236,7 +243,7 @@ function Router() {
 
         {/* Everything else lives in the operator/admin app shell */}
         <Route>
-          <Suspense fallback={<BootSplash />}>
+          <Suspense fallback={<BootSplash theme={isOrganizerRoute(location) ? "light" : "dark"} />}>
             <PlatformApp />
           </Suspense>
         </Route>

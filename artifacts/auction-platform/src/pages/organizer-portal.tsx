@@ -31,7 +31,6 @@ import {
   syncOrganizerAccountAuth,
 } from "@/lib/organizer-account-auth-cache";
 import { cldUrl } from "@/lib/cloudinary";
-import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -432,7 +431,7 @@ function CompleteProfileForm({
   }
 
   return (
-    <div className="lovable-home min-h-screen flex flex-col items-center justify-center px-6 text-foreground">
+    <div data-surface="organizer" className="bw-organizer-light min-h-screen flex flex-col items-center justify-center px-6 text-foreground bg-background">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-primary/8 rounded-full blur-[100px]" />
       </div>
@@ -443,16 +442,16 @@ function CompleteProfileForm({
         className="relative w-full max-w-sm space-y-6"
       >
         <div className="text-center space-y-3">
-          <div className="scoreboard-tile w-14 h-14 mx-auto flex items-center justify-center">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center">
             <Phone className="w-7 h-7 text-primary" />
           </div>
           <AuthStepIndicator step={step === "mobile" ? 1 : 2} total={2} />
-          <h1 className="text-display-md">Complete your profile</h1>
+          <h1 className="text-display-md text-foreground">Complete your profile</h1>
           <p className="text-muted-foreground text-sm">
             Verify your mobile number with OTP to continue using BidWar.
           </p>
         </div>
-        <Card className="border border-border bg-card shadow-card">
+        <Card className="border border-border bg-card text-card-foreground shadow-sm">
           <CardContent className="p-6">
             {step === "mobile" ? (
               <form onSubmit={handleSendOtp} className="space-y-4">
@@ -827,19 +826,19 @@ function GoogleSignInButton({ next, prominent }: { next?: string; prominent?: bo
   return (
     <a
       href={href}
-      className={`flex items-center justify-center gap-3 w-full px-4 py-2.5 rounded-lg border transition-colors text-sm font-medium ${
+      className={`flex items-center justify-center gap-3 w-full px-4 py-2.5 rounded-lg border transition-colors text-sm font-semibold cursor-pointer ${
         prominent
-          ? "border-primary/40 bg-primary/5 hover:bg-primary/10 ring-1 ring-primary/20"
-          : "border-border bg-card hover:bg-accent"
+          ? "border-amber-400/50 bg-amber-50 hover:bg-amber-100/80 text-slate-900 shadow-xs"
+          : "border-slate-300 bg-white hover:bg-slate-50 text-slate-800 shadow-xs"
       }`}
     >
-      <svg viewBox="0 0 24 24" className="w-4 h-4" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" aria-hidden="true">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
         <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
       </svg>
-      Continue with Google
+      <span>Continue with Google</span>
     </a>
   );
 }
@@ -847,16 +846,16 @@ function GoogleSignInButton({ next, prominent }: { next?: string; prominent?: bo
 function GoogleSignupBlock({ next }: { next?: string }) {
   return (
     <div className="space-y-2.5">
-      <p className="text-xs text-center text-muted-foreground tracking-wide">
+      <p className="text-xs text-center text-slate-600 font-medium tracking-wide">
         Fastest way &mdash; use your Google account
       </p>
       <GoogleSignInButton next={next} prominent />
       <div
         role="note"
-        className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-left"
+        className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-left"
       >
-        <Info className="h-3.5 w-3.5 text-primary shrink-0" aria-hidden />
-        <p className="text-xs text-muted-foreground">
+        <Info className="h-3.5 w-3.5 text-amber-600 shrink-0" aria-hidden />
+        <p className="text-xs text-slate-600">
           Mobile OTP verification is required after Google sign-in to secure your account.
         </p>
       </div>
@@ -1183,7 +1182,7 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
           </div>
         )}
 
-        <Card className="panel border border-border shadow-md bg-card">
+        <Card className="border border-border shadow-sm bg-card text-card-foreground">
           <CardContent className="p-5 sm:p-6">
             <AnimatePresence mode="wait">
               {view === "forgot" ? (
@@ -1204,8 +1203,8 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                   className="space-y-3.5"
                 >
                   <div className="space-y-1.5">
-                    <Label className="flex items-center gap-2 text-sm font-medium">
-                      <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile or Email
+                    <Label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                      <Phone className="w-3.5 h-3.5 text-slate-500" /> Mobile or Email
                     </Label>
                     <Input
                       value={loginForm.identifier}
@@ -1213,18 +1212,18 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                       placeholder="+91 98765 43210 or email"
                       autoComplete="username"
                       inputMode="tel"
-                      className="h-10"
+                      className="h-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
                     />
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-2 text-sm font-medium">
-                        <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
+                      <Label className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                        <Lock className="w-3.5 h-3.5 text-slate-500" /> Password
                       </Label>
                       <button
                         type="button"
                         onClick={() => { setView("forgot"); setError(""); }}
-                        className="text-xs text-primary hover:underline font-medium cursor-pointer"
+                        className="text-xs text-amber-600 hover:text-amber-700 hover:underline font-semibold cursor-pointer"
                       >
                         Forgot password?
                       </button>
@@ -1236,12 +1235,12 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                         onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
                         placeholder="Enter your password"
                         autoComplete="current-password"
-                        className="h-10 pr-10"
+                        className="h-10 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPw(v => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 cursor-pointer"
                       >
                         {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -1249,53 +1248,53 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                   </div>
                   {captchaRequired && loginGuard?.captcha && !turnstileSiteKey && (
                     <div className="space-y-2 rounded-lg border border-border/50 bg-muted/10 p-3">
-                      <Label className="text-sm text-muted-foreground">{loginGuard.captcha.question}</Label>
+                      <Label className="text-sm text-slate-700">{loginGuard.captcha.question}</Label>
                       <Input
                         value={captchaAnswer}
                         onChange={e => setCaptchaAnswer(e.target.value)}
                         placeholder="Your answer"
                         inputMode="numeric"
                         autoComplete="off"
-                        className="h-10"
+                        className="h-10 bg-white border-slate-300 text-slate-900"
                       />
                     </div>
                   )}
                   {cooldownSec > 0 && (
-                    <p className="text-amber-400 text-xs flex items-center gap-1.5">
+                    <p className="text-amber-600 text-xs flex items-center gap-1.5 font-medium">
                       <Clock className="w-3.5 h-3.5 shrink-0" />
                       Too many failed attempts. Try again in {cooldownSec}s.
                     </p>
                   )}
-                  {error && <p className="text-destructive text-xs flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0" />{error}</p>}
+                  {error && <p className="text-destructive text-xs flex items-center gap-1.5 font-medium"><AlertTriangle className="w-3.5 h-3.5 shrink-0" />{error}</p>}
                   {redirectUriHint ? (
-                    <p className="text-xs text-muted-foreground break-all rounded-md border border-border/50 bg-muted/30 px-3 py-2 font-mono">
+                    <p className="text-xs text-slate-600 break-all rounded-md border border-slate-200 bg-slate-50 px-3 py-2 font-mono">
                       {redirectUriHint}
                     </p>
                   ) : null}
-                  <Button type="submit" className="w-full h-10" disabled={signInDisabled}>
+                  <Button type="submit" className="w-full h-10 gold-button font-bold text-slate-900 shadow-xs cursor-pointer" disabled={signInDisabled}>
                     {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                     {cooldownSec > 0 ? `Sign In (${cooldownSec}s)` : "Sign In"}
                   </Button>
-                  <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+                  <p className="text-[11px] text-slate-600 text-center leading-relaxed">
                     By continuing, you agree to BidWar{" "}
-                    <a href="/legal/terms" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
+                    <a href="/legal/terms" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Terms</a>
                     {", "}
-                    <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Privacy Policy</a>
+                    <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Privacy Policy</a>
                     {", and "}
-                    <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Platform Policies</a>
+                    <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Platform Policies</a>
                     .
                   </p>
                   <div className="relative my-1">
-                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border/70" /></div>
-                    <div className="relative flex justify-center text-xs text-muted-foreground"><span className="bg-card px-2">or</span></div>
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-slate-200" /></div>
+                    <div className="relative flex justify-center text-xs text-slate-500"><span className="bg-white px-2">or</span></div>
                   </div>
                   <GoogleSignInButton next={next} />
-                  <p className="text-center text-xs text-muted-foreground pt-1">
+                  <p className="text-center text-xs text-slate-600 pt-1">
                     Need help?{" "}
                     <button
                       type="button"
                       onClick={() => setSupportOpen(true)}
-                      className="text-primary hover:underline underline-offset-2 font-medium cursor-pointer"
+                      className="text-amber-600 hover:text-amber-700 hover:underline underline-offset-2 font-semibold cursor-pointer"
                     >
                       Contact Support
                     </button>
@@ -1314,10 +1313,10 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
 
                   <div className="relative py-0.5">
                     <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-border/80" />
+                      <span className="w-full border-t border-slate-200" />
                     </div>
-                    <div className="relative flex justify-center text-xs text-muted-foreground">
-                      <span className="bg-card px-3 font-medium">or register with mobile &amp; email</span>
+                    <div className="relative flex justify-center text-xs text-slate-600">
+                      <span className="bg-white px-3 font-semibold">or register with mobile &amp; email</span>
                     </div>
                   </div>
 
@@ -1325,8 +1324,8 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                   {signupStep === "details" && (
                   <form onSubmit={handleSignupEmail} className="space-y-3">
                     <div className="space-y-1.5">
-                      <Label htmlFor="signup-name" className="flex items-center gap-2 text-sm font-medium">
-                        <User className="w-3.5 h-3.5 text-muted-foreground" /> Full Name
+                      <Label htmlFor="signup-name" className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                        <User className="w-3.5 h-3.5 text-slate-500" /> Full Name
                       </Label>
                       <Input
                         id="signup-name"
@@ -1335,12 +1334,12 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                         placeholder="Your full name"
                         autoFocus
                         required
-                        className="h-10"
+                        className="h-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="signup-email" className="flex items-center gap-2 text-sm font-medium">
-                        <Mail className="w-3.5 h-3.5 text-muted-foreground" /> Email
+                      <Label htmlFor="signup-email" className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                        <Mail className="w-3.5 h-3.5 text-slate-500" /> Email
                       </Label>
                       <Input
                         id="signup-email"
@@ -1350,15 +1349,15 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                         placeholder="name@example.com"
                         autoComplete="username"
                         required
-                        className="h-10"
+                        className="h-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="signup-mobile" className="flex items-center gap-2 text-sm font-medium">
-                        <Phone className="w-3.5 h-3.5 text-muted-foreground" /> Mobile Number
+                      <Label htmlFor="signup-mobile" className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                        <Phone className="w-3.5 h-3.5 text-slate-500" /> Mobile Number
                       </Label>
                       <div className="relative flex items-center">
-                        <div className="absolute left-3 flex items-center pointer-events-none text-xs font-semibold text-muted-foreground border-r border-border/60 pr-2">
+                        <div className="absolute left-3 flex items-center pointer-events-none text-xs font-bold text-slate-700 border-r border-slate-300 pr-2">
                           +91
                         </div>
                         <Input
@@ -1370,32 +1369,32 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                           inputMode="numeric"
                           maxLength={10}
                           required
-                          className="h-10 pl-14"
+                          className="h-10 pl-14 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
                         />
                       </div>
                     </div>
 
                     {error ? (
-                      <p className="text-destructive text-xs flex items-start gap-1.5 pt-0.5">
+                      <p className="text-destructive text-xs flex items-start gap-1.5 pt-0.5 font-medium">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <span>{error}</span>
                       </p>
                     ) : null}
 
                     <div className="pt-1 space-y-2">
-                      <Button type="submit" className="w-full h-10" disabled={loading}>
+                      <Button type="submit" className="w-full h-10 gold-button font-bold text-slate-900 shadow-xs cursor-pointer" disabled={loading}>
                         {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                         Send OTP
                       </Button>
-                      <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+                      <p className="text-[11px] text-slate-600 text-center leading-relaxed">
                         We&apos;ll verify your mobile before you create a password.
                       </p>
-                      <p className="text-center text-xs text-muted-foreground pt-1">
+                      <p className="text-center text-xs text-slate-600 pt-1">
                         Need help?{" "}
                         <button
                           type="button"
                           onClick={() => setSupportOpen(true)}
-                          className="text-primary hover:underline underline-offset-2 font-medium cursor-pointer"
+                          className="text-amber-600 hover:text-amber-700 hover:underline underline-offset-2 font-semibold cursor-pointer"
                         >
                           Contact Support
                         </button>
@@ -1407,11 +1406,11 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                   {signupStep === "otp" && (
                   <form onSubmit={handleSignupVerifyOtp} className="space-y-3.5">
                     <AuthStepIndicator step={2} total={3} />
-                    <p className="text-xs sm:text-sm text-muted-foreground">
-                      Enter the code sent to <span className="text-foreground font-medium">{signupForm.mobile}</span>
+                    <p className="text-xs sm:text-sm text-slate-600">
+                      Enter the code sent to <span className="text-slate-900 font-semibold">{signupForm.mobile}</span>
                     </p>
                     <div className="space-y-1.5">
-                      <Label htmlFor="signup-otp" className="text-sm font-medium">Verification code</Label>
+                      <Label htmlFor="signup-otp" className="text-sm font-semibold text-slate-800">Verification code</Label>
                       <Input
                         id="signup-otp"
                         type="text"
@@ -1421,43 +1420,43 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                         onChange={e => setSignupForm(f => ({ ...f, otp: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
                         placeholder="6-digit OTP"
                         autoFocus
-                        className="h-10 tracking-widest text-center text-base"
+                        className="h-10 tracking-widest text-center text-base bg-white border-slate-300 text-slate-900 font-bold"
                         required
                       />
                     </div>
                     {error ? (
-                      <p className="text-destructive text-xs flex items-start gap-1.5">
+                      <p className="text-destructive text-xs flex items-start gap-1.5 font-medium">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <span>{error}</span>
                       </p>
                     ) : null}
-                    <Button type="submit" className="w-full h-10" disabled={loading || signupForm.otp.length !== 6}>
+                    <Button type="submit" className="w-full h-10 gold-button font-bold text-slate-900 shadow-xs cursor-pointer" disabled={loading || signupForm.otp.length !== 6}>
                       {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                       Verify OTP
                     </Button>
                     <div className="flex items-center justify-between text-xs pt-1">
                       <button
                         type="button"
-                        className="text-muted-foreground hover:text-foreground cursor-pointer"
+                        className="text-slate-600 hover:text-slate-900 font-medium cursor-pointer"
                         onClick={() => { setSignupStep("details"); setError(""); setSignupForm(f => ({ ...f, otp: "" })); }}
                       >
                         Back
                       </button>
                       <button
                         type="button"
-                        className="text-primary disabled:opacity-50 cursor-pointer font-medium"
+                        className="text-amber-600 hover:text-amber-700 disabled:opacity-50 cursor-pointer font-semibold"
                         disabled={signupResendCooldown > 0 || loading}
                         onClick={() => void handleSignupResendOtp()}
                       >
                         {signupResendCooldown > 0 ? `Resend in ${signupResendCooldown}s` : "Resend OTP"}
                       </button>
                     </div>
-                    <div className="pt-2 text-center text-xs text-muted-foreground border-t border-border/40">
+                    <div className="pt-2 text-center text-xs text-slate-600 border-t border-slate-200">
                       Didn&apos;t receive OTP?{" "}
                       <button
                         type="button"
                         onClick={() => setSupportOpen(true)}
-                        className="text-primary hover:underline font-medium cursor-pointer"
+                        className="text-amber-600 hover:text-amber-700 hover:underline font-semibold cursor-pointer"
                       >
                         Get Help on WhatsApp
                       </button>
@@ -1468,12 +1467,12 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                   {signupStep === "password" && (
                   <form onSubmit={handleSignupComplete} className="space-y-3">
                     <AuthStepIndicator step={3} total={3} />
-                    <p className="text-xs sm:text-sm text-muted-foreground">
+                    <p className="text-xs sm:text-sm text-slate-600">
                       Mobile verified. Create your password to finish.
                     </p>
                     <div className="space-y-1.5">
-                      <Label htmlFor="signup-password" className="flex items-center gap-2 text-sm font-medium">
-                        <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Password
+                      <Label htmlFor="signup-password" className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                        <Lock className="w-3.5 h-3.5 text-slate-500" /> Password
                       </Label>
                       <div className="relative">
                         <Input
@@ -1483,14 +1482,14 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                           onChange={e => setSignupForm(f => ({ ...f, password: e.target.value }))}
                           placeholder="At least 6 characters"
                           autoComplete="new-password"
-                          className="h-10 pr-10"
+                          className="h-10 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
                           required
                           autoFocus
                         />
                         <button
                           type="button"
                           onClick={() => setShowSignupPw(v => !v)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 cursor-pointer"
                           aria-label={showSignupPw ? "Hide password" : "Show password"}
                         >
                           {showSignupPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1498,8 +1497,8 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <Label htmlFor="signup-confirm-password" className="flex items-center gap-2 text-sm font-medium">
-                        <Lock className="w-3.5 h-3.5 text-muted-foreground" /> Confirm Password
+                      <Label htmlFor="signup-confirm-password" className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                        <Lock className="w-3.5 h-3.5 text-slate-500" /> Confirm Password
                       </Label>
                       <div className="relative">
                         <Input
@@ -1509,13 +1508,13 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                           onChange={e => setSignupForm(f => ({ ...f, confirmPassword: e.target.value }))}
                           placeholder="Re-enter your password"
                           autoComplete="new-password"
-                          className="h-10 pr-10"
+                          className="h-10 pr-10 bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
                           required
                         />
                         <button
                           type="button"
                           onClick={() => setShowSignupConfirm(v => !v)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900 cursor-pointer"
                           aria-label={showSignupConfirm ? "Hide confirm password" : "Show confirm password"}
                         >
                           {showSignupConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1523,31 +1522,31 @@ export function AuthForm({ onSuccess, initialError, initialRedirectUriHint, next
                       </div>
                     </div>
                     {error ? (
-                      <p className="text-destructive text-xs flex items-start gap-1.5">
+                      <p className="text-destructive text-xs flex items-start gap-1.5 font-medium">
                         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <span>{error}</span>
                       </p>
                     ) : null}
                     <div className="pt-1 space-y-2">
-                      <Button type="submit" className="w-full h-10" disabled={loading}>
+                      <Button type="submit" className="w-full h-10 gold-button font-bold text-slate-900 shadow-xs cursor-pointer" disabled={loading}>
                         {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : null}
                         Create Account
                       </Button>
-                      <p className="text-[11px] text-muted-foreground text-center leading-relaxed">
+                      <p className="text-[11px] text-slate-600 text-center leading-relaxed">
                         By continuing, you agree to BidWar{" "}
-                        <a href="/legal/terms" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Terms</a>
+                        <a href="/legal/terms" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Terms</a>
                         {", "}
-                        <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Privacy Policy</a>
+                        <a href="/legal/privacy" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Privacy Policy</a>
                         {", and "}
-                        <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 hover:text-foreground transition-colors">Platform Policies</a>
+                        <a href="/legal/acceptable-use" target="_blank" className="underline underline-offset-2 text-slate-700 hover:text-slate-900 transition-colors font-medium">Platform Policies</a>
                         .
                       </p>
-                      <p className="text-center text-xs text-muted-foreground pt-1">
+                      <p className="text-center text-xs text-slate-600 pt-1">
                         Need help?{" "}
                         <button
                           type="button"
                           onClick={() => setSupportOpen(true)}
-                          className="text-primary hover:underline underline-offset-2 font-medium cursor-pointer"
+                          className="text-amber-600 hover:text-amber-700 hover:underline underline-offset-2 font-semibold cursor-pointer"
                         >
                           Contact Support
                         </button>
@@ -2561,16 +2560,14 @@ export default function OrganizerPortal() {
 
   if (isLoading) {
     return (
-      <FullscreenLayout>
-        <div className="lovable-home min-h-screen flex items-center justify-center">
-          <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-        </div>
-      </FullscreenLayout>
+      <div data-surface="organizer" className="bw-organizer-light min-h-screen flex items-center justify-center bg-background text-foreground">
+        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
     );
   }
 
   return (
-    <FullscreenLayout>
+    <div data-surface="organizer" className="bw-organizer-light min-h-screen bg-background text-foreground relative selection:bg-primary selection:text-primary-foreground">
       <AnimatePresence mode="wait">
         {organizer && needsMobile ? (
           <motion.div key="complete-profile" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -2600,6 +2597,6 @@ export default function OrganizerPortal() {
           onContinue={continueSession}
         />
       )}
-    </FullscreenLayout>
+    </div>
   );
 }

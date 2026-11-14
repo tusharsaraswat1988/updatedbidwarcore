@@ -350,6 +350,7 @@
 :is(.bw-organizer-light, [data-surface="organizer"]) .panel,
 :is(.bw-organizer-light, [data-surface="organizer"]) .panel-rail,
 :is(.bw-organizer-light, [data-surface="organizer"]) [data-slot="card"] {
+  background-image: none !important;
   background-color: #FFFFFF !important;
   border: 1px solid #CBD5E1 !important;
   border-radius: 0.75rem !important;

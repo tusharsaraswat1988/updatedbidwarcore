@@ -136,35 +136,11 @@ function RouteSuspenseFallback() {
   }
 
   if (isOrganizerRoute(path)) {
-    return (
-      <div
-        className="bw-organizer-light flex min-h-screen flex-col items-center justify-center gap-3 bg-[#F3F6FA] text-[#172B4D]"
-        data-surface="organizer"
-        role="status"
-        aria-live="polite"
-        aria-busy="true"
-        aria-label="Loading workspace"
-      >
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500" />
-        <p className="text-sm font-medium text-slate-600">Loading…</p>
-      </div>
-    );
+    return <BootSplash theme="light" label="Loading…" />;
   }
 
   if (/^\/tournament\/\d+\//.test(path)) {
-    return (
-      <div
-        className="bw-organizer-light flex min-h-screen flex-col items-center justify-center gap-3 bg-[#F3F6FA] text-[#172B4D]"
-        data-surface="organizer"
-        role="status"
-        aria-live="polite"
-        aria-busy="true"
-        aria-label="Loading tournament page"
-      >
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500" />
-        <p className="text-sm font-medium text-slate-600">Loading…</p>
-      </div>
-    );
+    return <BootSplash theme="light" label="Loading…" />;
   }
 
   return <BootSplash />;
@@ -264,6 +240,10 @@ function PlatformRouter() {
 
   useEffect(() => {
     syncDocumentSurfaceTheme(location);
+    return () => {
+      // Ensure organizer/admin classes are removed when navigating away from PlatformApp
+      syncDocumentSurfaceTheme(window.location.pathname);
+    };
   }, [location]);
 
   const organizerShell = parseAuctionOrganizerShell(location);

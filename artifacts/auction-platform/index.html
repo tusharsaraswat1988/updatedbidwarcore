@@ -49,11 +49,37 @@
       (function(){
         try {
           var p = window.location.pathname;
+          if (p.startsWith('/scoring-app')) {
+            p = p.slice('/scoring-app'.length) || '/';
+          }
           if (p === '/admin/login' || p === '/admin/login/') {
             var el = document.createElement('style');
             el.id = 'bidwar-admin-login-preboot';
             el.textContent = 'html,body,#root{background:#F8F7F2 !important;color:#2E281E !important;height:100% !important;overflow:hidden !important;overscroll-behavior:none !important;} #bidwar-boot-splash{display:none !important;}';
             document.head.appendChild(el);
+            return;
+          }
+          var isProtected = (
+            p === '' || p === '/' || p === '/pricing' || p === '/contact' || p === '/legal' || p.indexOf('/legal/') === 0 ||
+            p === '/auction-tips' || p === '/upcoming-auctions' || p === '/academy' || p.indexOf('/academy/') === 0 ||
+            p === '/blog' || p.indexOf('/blog/') === 0 || p.indexOf('/obs') !== -1 || p.indexOf('/display') !== -1 ||
+            p.indexOf('/side-display') !== -1 || p.indexOf('/score-display') !== -1 || p.indexOf('/live') === 0 ||
+            p.indexOf('/fan') === 0 || p.indexOf('/register') !== -1 || p === '/login' || p.indexOf('/scorer') !== -1 ||
+            p.indexOf('/overlay') !== -1 || p === '/admin' || p.indexOf('/admin/') === 0
+          );
+          var isOrganizer = !isProtected && (
+            p === '/organizer' || p.indexOf('/organizer/') === 0 || p === '/tournament/new' ||
+            /^\/tournament\/\d+(\/|$)/.test(p) || /^\/cricket\/\d+(\/|$)/.test(p) || /^\/badminton\/\d+(\/|$)/.test(p)
+          );
+          if (isOrganizer) {
+            var el = document.createElement('style');
+            el.id = 'bidwar-organizer-preboot';
+            el.textContent = 'html,body,#root{background:#F8FAFC !important;color:#0F172A !important;} #bidwar-boot-splash{background:#F8FAFC !important;} #bidwar-boot-splash .bidwar-boot-spinner{border-color:rgba(234,179,8,0.3) !important;border-top-color:#EAB308 !important;} #bidwar-boot-splash .bidwar-boot-text{color:#475569 !important;}';
+            document.head.appendChild(el);
+            window.addEventListener('DOMContentLoaded', function(){
+              var logo = document.querySelector('#bidwar-boot-splash img');
+              if (logo) { logo.src = '/bidwar-primary-logo.png'; }
+            });
           }
         } catch(e){}
       })();
