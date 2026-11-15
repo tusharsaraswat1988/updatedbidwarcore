@@ -143,6 +143,7 @@ type SuggestionProfile = {
   id: number;
   name: string;
   mobileNumber?: string | null;
+  email?: string | null;
   city?: string | null;
   age?: number | null;
   gender?: string | null;
@@ -761,6 +762,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         setForm(prev => ({
           ...prev,
           name: tournamentMatch.name || prev.name,
+          email: tournamentMatch.email ?? prev.email,
           city: tournamentMatch.city ?? prev.city,
           age: tournamentMatch.age != null ? String(tournamentMatch.age) : prev.age,
           gender: tournamentMatch.gender ?? prev.gender,
@@ -1045,6 +1047,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
     setForm(prev => ({
       ...prev,
       name: p.name || prev.name,
+      email: p.email || prev.email,
       city: p.city || prev.city,
       role: p.role || prev.role,
       age: p.age != null ? String(p.age) : prev.age,
@@ -1267,7 +1270,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
             </Label>
             <Select value={form.role} onValueChange={v => f("role", v)}>
               <SelectTrigger className="h-9 text-xs sm:text-sm">
-                <SelectValue placeholder="Select role" />
+                <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper" className="max-h-60">
                 {buildPlayerRoleSelectOptions(
@@ -1366,7 +1369,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
                     {group.options.length > 0 ? (
                       <Select value={value} onValueChange={onValueChange}>
                         <SelectTrigger className="h-9 text-xs sm:text-sm">
-                          <SelectValue placeholder={`Select ${group.groupName}`} />
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           {group.options.map(o => (

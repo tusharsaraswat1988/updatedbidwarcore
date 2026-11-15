@@ -95,6 +95,7 @@ interface GlobalPlayerLookup {
   id: number;
   name: string;
   mobileNumber: string | null;
+  email?: string | null;
   city: string | null;
   age: number | null;
   gender?: string | null;
@@ -330,7 +331,15 @@ export default function PlayerRegister() {
   const { specs, specsRoleId } = useRoleSpecs(selectedRole?.id);
 
   // Reset spec selections when role changes
-  useEffect(() => { setSpecSelections({}); }, [form.role]);
+  useEffect(() => {
+    setSpecSelections({});
+    setForm(prev => ({
+      ...prev,
+      battingStyle: "",
+      bowlingStyle: "",
+      specialization: "",
+    }));
+  }, [form.role]);
 
   // Pre-fill dynamic spec group selections from normalized or legacy values
   useEffect(() => {
@@ -1354,7 +1363,7 @@ export default function PlayerRegister() {
                     onValueChange={v => f("role", v)}
                     disabled={closedUpdateReadOnly}
                   >
-                    <SelectTrigger id="register-role"><SelectValue placeholder="Select role" /></SelectTrigger>
+                    <SelectTrigger id="register-role"><SelectValue /></SelectTrigger>
                     <SelectContent className={registrationSelectContentClass}>
                       {roles.length > 0
                         ? roles.map(r => (
@@ -1379,11 +1388,18 @@ export default function PlayerRegister() {
                       {group.options.length > 0 ? (
                         <Select
                           value={specSelections[group.id] ?? ""}
-                          onValueChange={v => setSpecSelections(prev => ({ ...prev, [group.id]: v }))}
+                          onValueChange={v => {
+                            setSpecSelections(prev => ({ ...prev, [group.id]: v }));
+                            const sorted = [...specs].sort((a, b) => a.displayOrder - b.displayOrder);
+                            const idx = sorted.findIndex(g => g.id === group.id);
+                            if (idx === 0) f("battingStyle", v);
+                            else if (idx === 1) f("bowlingStyle", v);
+                            else if (idx === 2) f("specialization", v);
+                          }}
                           disabled={closedUpdateReadOnly}
                         >
                           <SelectTrigger id={`register-spec-${group.id}`}>
-                            <SelectValue placeholder={`Select ${group.groupName}`} />
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent className={registrationSelectContentClass}>
                             {group.options.map(opt => (
@@ -1397,7 +1413,15 @@ export default function PlayerRegister() {
                         <Input
                           id={`register-spec-${group.id}`}
                           value={specSelections[group.id] ?? ""}
-                          onChange={e => setSpecSelections(prev => ({ ...prev, [group.id]: e.target.value }))}
+                          onChange={e => {
+                            const v = e.target.value;
+                            setSpecSelections(prev => ({ ...prev, [group.id]: v }));
+                            const sorted = [...specs].sort((a, b) => a.displayOrder - b.displayOrder);
+                            const idx = sorted.findIndex(g => g.id === group.id);
+                            if (idx === 0) f("battingStyle", v);
+                            else if (idx === 1) f("bowlingStyle", v);
+                            else if (idx === 2) f("specialization", v);
+                          }}
                           disabled={closedUpdateReadOnly}
                           readOnly={closedUpdateReadOnly}
                         />
@@ -1415,7 +1439,7 @@ export default function PlayerRegister() {
                         disabled={closedUpdateReadOnly}
                       >
                         <SelectTrigger id="register-batting">
-                          <SelectValue placeholder="Select batting style" />
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent className={registrationSelectContentClass}>
                           <SelectItem value="Right Hand Bat">Right Hand Bat</SelectItem>
@@ -1431,7 +1455,7 @@ export default function PlayerRegister() {
                         disabled={closedUpdateReadOnly}
                       >
                         <SelectTrigger id="register-bowling">
-                          <SelectValue placeholder="Select bowling style" />
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent className={registrationSelectContentClass}>
                           <SelectItem value="Right-arm fast">Right-arm fast</SelectItem>

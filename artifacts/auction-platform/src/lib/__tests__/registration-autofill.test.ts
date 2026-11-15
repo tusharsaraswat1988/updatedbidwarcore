@@ -11,6 +11,7 @@ import {
 function emptyForm(overrides: Partial<AutofillFormFields> = {}): AutofillFormFields {
   return {
     name: "",
+    email: "",
     city: "",
     age: "",
     gender: "",
@@ -93,5 +94,29 @@ describe("registration autofill field tracking", () => {
     expect(next[42]).toBe("Right Hand");
     expect(next[45]).toBe("Back Court Specialist");
     expect(changedSpecFieldIds({ 42: "Right Hand" }, next)).toEqual(["spec:45"]);
+  });
+
+  it("autofills email when present in profile", () => {
+    const before = emptyForm();
+    const after = mergeGlobalProfile(before, { name: "Asha", email: "asha@example.com" });
+    expect(after.email).toBe("asha@example.com");
+    expect(changedAutofillFieldIds(before, after)).toContain("email");
+  });
+
+  it("normalizes legacy batting style to matching spec option", () => {
+    const specs = [
+      {
+        id: 68,
+        displayOrder: 0,
+        options: [{ optionName: "Right-hand" }, { optionName: "Left-hand" }],
+      },
+    ];
+    const next = projectSpecSelections(
+      {},
+      specs,
+      {},
+      { battingStyle: "Right Hand Bat" },
+    );
+    expect(next[68]).toBe("Right-hand");
   });
 });

@@ -48,4 +48,13 @@ describe("buildSpecificationsPayload", () => {
     const resaved = buildSpecificationsPayload(badmintonGroups, legacyForm, extraSelections);
     expect(resaved.find((s) => s.specGroupId === 45)?.value).toBe("Singles Court");
   });
+
+  it("prefers extraSelections over legacyForm for spec groups", () => {
+    const specs = buildSpecificationsPayload(
+      badmintonGroups,
+      { battingStyle: "Right Hand" },
+      { 42: "Left Hand" },
+    );
+    expect(specs.find((s) => s.specGroupId === 42)?.value).toBe("Left Hand");
+  });
 });

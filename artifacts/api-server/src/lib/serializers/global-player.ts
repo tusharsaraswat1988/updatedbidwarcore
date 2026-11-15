@@ -80,13 +80,15 @@ export function publicGlobalPlayerIdentitySearchSerializer(row: {
   };
 }
 
-/** Private identity search — includes mobile. */
+/** Private identity search — includes mobile and email. */
 export function privateGlobalPlayerIdentitySearchSerializer(row: {
   mobileNumber?: string | null;
+  email?: string | null;
 } & Parameters<typeof publicGlobalPlayerIdentitySearchSerializer>[0]) {
   return {
     ...publicGlobalPlayerIdentitySearchSerializer(row),
     mobileNumber: row.mobileNumber ?? null,
+    email: row.email ?? null,
   };
 }
 
@@ -135,12 +137,14 @@ export function publicGlobalPlayerSearchSerializer(row: {
   };
 }
 
-/** Private search result — includes mobile for organizer prefill. */
+/** Private search result — includes mobile and email for organizer prefill. */
 export function privateGlobalPlayerSearchSerializer(row: {
   mobileNumber?: string | null;
+  email?: string | null;
 } & Parameters<typeof publicGlobalPlayerSearchSerializer>[0]) {
   return {
     ...publicGlobalPlayerSearchSerializer(row),
     mobileNumber: row.mobileNumber ?? null,
+    email: row.email ?? null,
   };
 }

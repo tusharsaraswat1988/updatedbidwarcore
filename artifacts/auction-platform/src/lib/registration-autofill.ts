@@ -1,11 +1,12 @@
 /**
  * Decides which registration fields a mobile lookup actually wrote.
- * Highlight only values that changed to a non-empty result. Email is never
- * part of lookup, so it is intentionally absent.
+ * Highlight only values that changed to a non-empty result.
  */
 
 export type AutofillProfile = {
   name?: string | null;
+  mobileNumber?: string | null;
+  email?: string | null;
   city?: string | null;
   age?: number | null;
   gender?: string | null;
@@ -26,6 +27,7 @@ export type AutofillProfile = {
 
 export type AutofillFormFields = {
   name: string;
+  email: string;
   city: string;
   age: string;
   gender: string;
@@ -46,6 +48,7 @@ export type AutofillFormFields = {
 
 const FIELD_IDS: Record<keyof AutofillFormFields, string> = {
   name: "name",
+  email: "email",
   city: "city",
   age: "age",
   gender: "gender",
@@ -69,6 +72,7 @@ export function mergeTournamentProfile<T extends AutofillFormFields>(prev: T, tp
   return {
     ...prev,
     name: tp.name || prev.name,
+    email: tp.email ?? prev.email,
     city: tp.city ?? prev.city,
     age: tp.age != null ? String(tp.age) : prev.age,
     gender: tp.gender ?? prev.gender,
@@ -93,6 +97,7 @@ export function mergeGlobalProfile<T extends AutofillFormFields>(prev: T, match:
   return {
     ...prev,
     name: prev.name || match.name || "",
+    email: prev.email || (match.email ?? ""),
     city: prev.city || (match.city ?? ""),
     age: prev.age || (match.age ? String(match.age) : ""),
     gender: prev.gender || (match.gender ?? ""),
@@ -120,9 +125,27 @@ export function changedAutofillFieldIds(before: AutofillFormFields, after: Autof
   return ids;
 }
 
+function normalizeOptionValue(val: string, options?: { optionName: string }[]): string {
+  if (!options?.length || !val.trim()) return val;
+  const exact = options.find((o) => o.optionName.toLowerCase() === val.toLowerCase());
+  if (exact) return exact.optionName;
+  const cleanVal = val.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const cleanMatch = options.find((o) => o.optionName.toLowerCase().replace(/[^a-z0-9]/g, "") === cleanVal);
+  if (cleanMatch) return cleanMatch.optionName;
+  if (/left/i.test(val)) {
+    const leftOpt = options.find((o) => /left/i.test(o.optionName));
+    if (leftOpt) return leftOpt.optionName;
+  }
+  if (/right/i.test(val)) {
+    const rightOpt = options.find((o) => /right/i.test(o.optionName));
+    if (rightOpt) return rightOpt.optionName;
+  }
+  return val;
+}
+
 export function projectSpecSelections(
   prev: Record<number, string>,
-  specs: { id: number; displayOrder: number }[],
+  specs: { id: number; displayOrder: number; options?: { optionName: string }[] }[],
   extraSelections: Record<number, string>,
   legacyForm: { battingStyle?: string; bowlingStyle?: string; specialization?: string },
 ): Record<number, string> {
@@ -140,7 +163,9 @@ export function projectSpecSelections(
       : legacyKeyIdx === 1 ? legacyForm.bowlingStyle
       : legacyKeyIdx === 2 ? legacyForm.specialization
       : undefined;
-    if (legacyVal && !next[group.id]) next[group.id] = legacyVal;
+    if (legacyVal && !next[group.id]) {
+      next[group.id] = normalizeOptionValue(legacyVal, group.options);
+    }
   }
   return next;
 }

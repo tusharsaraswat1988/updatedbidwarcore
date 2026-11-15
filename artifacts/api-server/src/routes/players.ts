@@ -755,9 +755,14 @@ async function handleRegisterLookup(tid: number, mobileRaw: string, res: Respons
     return;
   }
 
+  const serialized = await serializePlayerWithSpecifications(player, "public");
   res.json({
     registered: true,
-    player: await serializePlayerWithSpecifications(player, "public"),
+    player: {
+      ...serialized,
+      mobileNumber: player.mobileNumber,
+      email: player.email ?? null,
+    },
   });
 }
 

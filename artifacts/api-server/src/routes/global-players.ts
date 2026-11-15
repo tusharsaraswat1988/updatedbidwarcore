@@ -74,6 +74,7 @@ router.get("/global-players/search", heavyLimiter, async (req, res) => {
               p.id,
               p.name,
               p.mobile_number,
+              p.email,
               p.city,
               p.age,
               p.gender,
@@ -113,6 +114,7 @@ router.get("/global-players/search", heavyLimiter, async (req, res) => {
             id,
             name,
             mobile_number AS "mobileNumber",
+            email,
             city,
             age,
             gender,
@@ -141,6 +143,7 @@ router.get("/global-players/search", heavyLimiter, async (req, res) => {
               p.id,
               p.name,
               p.mobile_number,
+              p.email,
               p.city,
               p.age,
               p.gender,
@@ -179,6 +182,7 @@ router.get("/global-players/search", heavyLimiter, async (req, res) => {
             id,
             name,
             mobile_number AS "mobileNumber",
+            email,
             city,
             age,
             gender,
@@ -202,34 +206,43 @@ router.get("/global-players/search", heavyLimiter, async (req, res) => {
         `);
 
     const isPrivate = isAccountOrAdmin(req) || !!req.jwtUser?.isAdmin;
+    const isMobileLookup = q.replace(/\D/g, "").length >= 10;
     const rawRows = result.rows as Array<Record<string, unknown> & { id: number }>;
     const rows = await attachSpecificationsToSearchRows(rawRows);
 
     if (profilesEnabled) {
       res.json(
-        rows.map((row) =>
-          isPrivate
-            ? privateGlobalPlayerIdentitySearchSerializer(
-                row as Parameters<typeof privateGlobalPlayerIdentitySearchSerializer>[0],
-              )
-            : publicGlobalPlayerIdentitySearchSerializer(
-                row as Parameters<typeof publicGlobalPlayerIdentitySearchSerializer>[0],
-              ),
-        ),
+        rows.map((row) => {
+          if (isPrivate) {
+            return privateGlobalPlayerIdentitySearchSerializer(
+              row as Parameters<typeof privateGlobalPlayerIdentitySearchSerializer>[0],
+            );
+          }
+          const pub = publicGlobalPlayerIdentitySearchSerializer(
+            row as Parameters<typeof publicGlobalPlayerIdentitySearchSerializer>[0],
+          );
+          return isMobileLookup && (row as any).email
+            ? { ...pub, email: (row as any).email }
+            : pub;
+        }),
       );
       return;
     }
 
     res.json(
-      rows.map((row) =>
-        isPrivate
-          ? privateGlobalPlayerSearchSerializer(
-              row as Parameters<typeof privateGlobalPlayerSearchSerializer>[0],
-            )
-          : publicGlobalPlayerSearchSerializer(
-              row as Parameters<typeof publicGlobalPlayerSearchSerializer>[0],
-            ),
-      ),
+      rows.map((row) => {
+        if (isPrivate) {
+          return privateGlobalPlayerSearchSerializer(
+            row as Parameters<typeof privateGlobalPlayerSearchSerializer>[0],
+          );
+        }
+        const pub = publicGlobalPlayerSearchSerializer(
+          row as Parameters<typeof publicGlobalPlayerSearchSerializer>[0],
+        );
+        return isMobileLookup && (row as any).email
+          ? { ...pub, email: (row as any).email }
+          : pub;
+      }),
     );
   } catch (err) {
     req.log?.error({ err }, "global-players search error");

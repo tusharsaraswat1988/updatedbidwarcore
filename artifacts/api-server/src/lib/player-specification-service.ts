@@ -309,12 +309,18 @@ export async function validateRequiredRoleSpecifications(
   const requiredGroups = groups.filter((group) => !group.optional);
   if (requiredGroups.length === 0) return { ok: true };
 
-  const resolvedSpecs = input.specifications?.length
-    ? normalizeInputs(input.specifications)
-    : specificationsFromLegacyFields(groups, input);
+  const legacySpecs = specificationsFromLegacyFields(groups, input);
+  const inputSpecs = input.specifications?.length ? normalizeInputs(input.specifications) : [];
+  const map = new Map<number, string>();
+  for (const s of legacySpecs) {
+    if (s.value?.trim()) map.set(s.specGroupId, s.value.trim());
+  }
+  for (const s of inputSpecs) {
+    if (s.value?.trim()) map.set(s.specGroupId, s.value.trim());
+  }
 
   for (const group of requiredGroups) {
-    const value = resolvedSpecs.find((spec) => spec.specGroupId === group.id)?.value?.trim();
+    const value = map.get(group.id);
     if (!value) {
       return { ok: false, error: `${group.groupName} is required.` };
     }

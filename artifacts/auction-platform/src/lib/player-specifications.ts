@@ -15,9 +15,9 @@ export function buildSpecificationsPayload(
   for (let idx = 0; idx < sorted.length; idx++) {
     const group = sorted[idx]!;
     const legacyKey = LEGACY_SPEC_KEYS[idx];
-    const value = legacyKey
-      ? legacyForm[legacyKey]?.trim()
-      : extraSelections[group.id]?.trim();
+    const selectedVal = extraSelections[group.id]?.trim();
+    const legacyVal = legacyKey ? legacyForm[legacyKey]?.trim() : undefined;
+    const value = selectedVal || legacyVal;
     if (value) specs.push({ specGroupId: group.id, value });
   }
   return specs;
