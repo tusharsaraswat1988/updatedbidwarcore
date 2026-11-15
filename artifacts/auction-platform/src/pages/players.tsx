@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, useCallback, type Dispatch, type SetStateAction } from "react";
 import { ImageEditorDialog } from "@/components/image-editor-dialog";
+import { ImagePreviewModal } from "@/components/ui/image-preview-modal";
 import {
   PLAYER_PHOTO_ASPECT,
   PLAYER_PHOTO_EXPORT_MAX_MB,
@@ -1276,7 +1277,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         history={formAuctionHistory}
         isLoading={isFormHistoryLoading}
         fallbackAuctionUnit={tournament?.auctionUnit ?? "points"}
-        emptyState={player || pendingMobileProfile ? "neutral" : "hidden"}
+        emptyState={player || pendingMobileProfile ? "subtle" : "hidden"}
       />
 
       {/* 2. Role & Auction Valuation */}
@@ -2241,7 +2242,7 @@ function playerMatchesSearch(
   return false;
 }
 
-type PlayerSortKey = "id" | "name" | "status" | "category" | "baseValue" | "amount" | "team";
+type PlayerSortKey = "id" | "name" | "status" | "category" | "baseValue" | "amount" | "team" | "payment";
 type SortDir = "asc" | "desc";
 
 type PlayersFilterPersist = {
@@ -2336,6 +2337,12 @@ function sortPlayers(
       case "amount":
         cmp = playerSoldAtForSort(a) - playerSoldAtForSort(b);
         break;
+      case "payment": {
+        const pa = a.registrationPaymentStatus || "";
+        const pb = b.registrationPaymentStatus || "";
+        cmp = pa.localeCompare(pb, undefined, { sensitivity: "base" });
+        break;
+      }
       case "team": {
         const ta = a.teamId ? (teamMap[a.teamId]?.name ?? "") : "";
         const tb = b.teamId ? (teamMap[b.teamId]?.name ?? "") : "";
@@ -2726,7 +2733,6 @@ function PlayerRowActionsMenu({
   onReinstate,
   onDelete,
   triggerClassName,
-  labeled = false,
 }: {
   player: PlayerRowActionTarget;
   onEdit: () => void;
@@ -2740,35 +2746,33 @@ function PlayerRowActionsMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          size={labeled ? "sm" : "icon"}
-          variant="outline"
+          size="icon"
+          variant="ghost"
           className={cn(
-            labeled
-              ? "h-7 px-2 text-[11px] font-medium text-foreground"
-              : "h-8 w-8 text-muted-foreground hover:text-foreground",
+            "h-7 w-7 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer",
             triggerClassName,
           )}
-          title="Edit, withdraw, or delete"
+          title="Player actions"
           aria-label={`Actions for ${player.name}`}
-          onClick={e => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
-          {labeled ? "More" : <MoreHorizontal className="w-4 h-4" />}
+          <MoreHorizontal className="w-4 h-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onClick={e => e.stopPropagation()}>
-        <DropdownMenuItem onClick={onEdit}>
-          <Pencil className="w-3.5 h-3.5 mr-2" /> Edit player
+      <DropdownMenuContent align="end" className="w-40 z-50" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuItem onClick={onEdit} className="cursor-pointer text-xs">
+          <Pencil className="w-3.5 h-3.5 mr-2 text-slate-500" /> Edit player
         </DropdownMenuItem>
         {player.status === "withdrawn" ? (
-          <DropdownMenuItem onClick={onReinstate}>
-            <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-green-400" /> Reinstate
+          <DropdownMenuItem onClick={onReinstate} className="cursor-pointer text-xs text-emerald-600 focus:text-emerald-700">
+            <CheckCircle2 className="w-3.5 h-3.5 mr-2 text-emerald-600" /> Reinstate
           </DropdownMenuItem>
         ) : player.status !== "sold" && player.status !== "retained" ? (
-          <DropdownMenuItem className="text-amber-400 focus:text-amber-400" onClick={onWithdraw}>
+          <DropdownMenuItem className="cursor-pointer text-xs text-amber-700 focus:text-amber-800" onClick={onWithdraw}>
             <CalendarX className="w-3.5 h-3.5 mr-2" /> Withdraw
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={onDelete}>
+        <DropdownMenuItem className="cursor-pointer text-xs text-rose-600 focus:text-rose-700 focus:bg-rose-50" onClick={onDelete}>
           <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete player
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -2776,12 +2780,31 @@ function PlayerRowActionsMenu({
   );
 }
 
-function PlayerPhoto({ photoUrl, name, gender, size = "sm" }: { photoUrl?: string | null; name: string; gender?: string | null; size?: "sm" | "lg" }) {
-  const dim = size === "lg" ? "w-14 h-14" : "w-8 h-8";
-  const iconDim = size === "lg" ? "w-6 h-6" : "w-3.5 h-3.5";
+function PlayerPhoto({
+  photoUrl,
+  name,
+  gender,
+  size = "sm",
+  onClick,
+}: {
+  photoUrl?: string | null;
+  name: string;
+  gender?: string | null;
+  size?: "sm" | "md" | "lg";
+  onClick?: () => void;
+}) {
+  const dim = size === "lg" ? "w-12 h-12" : size === "md" ? "w-10 h-10" : "w-8 h-8";
+  const iconDim = size === "lg" ? "w-5 h-5" : size === "md" ? "w-4 h-4" : "w-3.5 h-3.5";
   const portraitGender = mapStoredGenderToPortrait(gender);
-  return (
-    <div className={`${dim} rounded-full bg-muted/20 border border-border/30 flex items-center justify-center overflow-hidden shrink-0`}>
+
+  const inner = (
+    <div
+      className={cn(
+        dim,
+        "rounded-full bg-slate-100 dark:bg-muted/30 border border-slate-200 dark:border-border/40 flex items-center justify-center overflow-hidden shrink-0 transition-transform duration-150",
+        photoUrl && onClick && "hover:scale-105 hover:ring-2 hover:ring-amber-500/70 cursor-pointer shadow-2xs",
+      )}
+    >
       {photoUrl ? (
         <img
           src={cldUrl(photoUrl, "thumbnail")}
@@ -2791,12 +2814,31 @@ function PlayerPhoto({ photoUrl, name, gender, size = "sm" }: { photoUrl?: strin
           decoding="async"
         />
       ) : portraitGender === "female" ? (
-        <UserRound className={`${iconDim} text-muted-foreground/35`} aria-hidden />
+        <UserRound className={`${iconDim} text-slate-400 dark:text-muted-foreground/40`} aria-hidden />
       ) : (
-        <User className={`${iconDim} text-muted-foreground/35`} aria-hidden />
+        <User className={`${iconDim} text-slate-400 dark:text-muted-foreground/40`} aria-hidden />
       )}
     </div>
   );
+
+  if (photoUrl && onClick) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClick();
+        }}
+        title={`Click to preview photo of ${name}`}
+        aria-label={`Preview photograph of ${name}`}
+        className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 cursor-pointer inline-flex shrink-0"
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return inner;
 }
 
 function CopyTextButton({ text, label }: { text: string; label?: string }) {
@@ -2807,11 +2849,41 @@ function CopyTextButton({ text, label }: { text: string; label?: string }) {
     setTimeout(() => setCopied(false), 1500);
   }
   return (
-    <Button type="button" size="sm" variant="outline" className="h-7 gap-1.5 text-xs" onClick={() => void handleCopy()}>
-      {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      className="h-6 px-1.5 gap-1 text-[11px] text-slate-600 hover:text-slate-900 border-slate-200 cursor-pointer"
+      onClick={() => void handleCopy()}
+      title="Copy to clipboard"
+    >
+      {copied ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <Copy className="w-2.5 h-2.5" />}
       {copied ? "Copied" : (label ?? "Copy")}
     </Button>
   );
+}
+
+function formatMatchAvailability(datesStr: string | null | undefined): string | null {
+  if (!datesStr) return null;
+  const raw = datesStr.trim();
+  if (!raw || /^(none|null|n\/a|nil|-)$/i.test(raw)) return null;
+
+  if (raw.includes(",") || /^\d{4}-\d{2}-\d{2}/.test(raw)) {
+    const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const parsed = parts.map((d) => {
+      const match = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (match) {
+        const [, year, month, day] = match;
+        const mIdx = parseInt(month, 10) - 1;
+        return `${parseInt(day, 10)} ${monthNames[mIdx] || month} ${year}`;
+      }
+      return d;
+    });
+    return parsed.join(", ");
+  }
+
+  return raw;
 }
 
 function PlayerDetailPanel({
@@ -2828,6 +2900,7 @@ function PlayerDetailPanel({
   onWithdraw,
   onReinstate,
   auctionUnit = "points",
+  onPreviewImage,
 }: {
   player: any;
   cat: { name: string; colorCode?: string | null } | null;
@@ -2842,6 +2915,7 @@ function PlayerDetailPanel({
   onWithdraw: () => void;
   onReinstate: () => void;
   auctionUnit?: AuctionUnit;
+  onPreviewImage?: (url: string, title?: string, subtitle?: string) => void;
 }) {
   const { data: auctionHistory, isLoading: isHistoryLoading } = usePlayerAuctionHistory({
     tournamentId,
@@ -2877,6 +2951,17 @@ function PlayerDetailPanel({
     return result;
   }, [customQuestions, customAnswers]);
 
+  const cleanAchievements = useMemo(() => {
+    if (!player.achievements) return null;
+    const trimmed = String(player.achievements).trim();
+    if (!trimmed || /^(none|null|n\/a|nil|no|na|-)$/i.test(trimmed)) return null;
+    return trimmed;
+  }, [player.achievements]);
+
+  const formattedAvailability = useMemo(() => {
+    return formatMatchAvailability(player.availabilityDates);
+  }, [player.availabilityDates]);
+
   const specParts = [player.battingStyle, player.bowlingStyle, player.specialization]
     .map((val, i) => (val ? { label: roleSpecGroups[i]?.groupName || "Spec", value: String(val) } : null))
     .filter((part): part is { label: string; value: string } => part != null);
@@ -2896,16 +2981,53 @@ function PlayerDetailPanel({
   const soldAmount = player.status === "retained" ? player.retainedPrice : player.soldPrice;
   const soldTone = player.status === "retained" ? "text-purple-700 font-bold" : "text-emerald-700 font-bold";
 
-  const showSpecs = Boolean(player.role) || specParts.length > 0 || Boolean(jersey) || Boolean(cat) || Boolean(categories?.length) || Boolean(tagTeam);
+  const showSpecs = Boolean(player.role) || specParts.length > 0 || Boolean(jersey) || Boolean(cat) || Boolean(categories?.length) || Boolean(tagTeam) || Boolean(formattedAvailability) || Boolean(cleanAchievements) || Boolean(sportCaps.hasLegacyCricketSpecs && player.cricheroUrl);
 
   return (
-    <div className="ops-detail">
-      <div className="flex items-center gap-2.5 min-w-0">
-        <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
+    <div className="ops-detail space-y-2.5">
+      {/* 1. Registration Payment — FIRST when applicable */}
+      {tournament?.enableRegistrationPayment ? (
+        <section className="ops-detail__payment">
+          <RegistrationPaymentReview
+            tournamentId={tournamentId}
+            playerId={player.id}
+            playerName={player.name}
+            registrationFee={tournament.registrationFee}
+            utrNumber={player.utrNumber}
+            paymentScreenshotUrl={player.paymentScreenshotUrl}
+            registrationPaymentStatus={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+            onPreviewScreenshot={
+              onPreviewImage
+                ? (url, title) => onPreviewImage(url, title ?? `Payment Proof: ${player.name}`, player.utrNumber ? `UTR: ${player.utrNumber}` : undefined)
+                : undefined
+            }
+            statusControl={(
+              <PlayerPaymentStatusSelect
+                tournamentId={tournamentId}
+                playerId={player.id}
+                status={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+              />
+            )}
+          />
+        </section>
+      ) : null}
+
+      {/* 2. Player Identity Header */}
+      <div className="flex items-center gap-2.5 min-w-0 bg-slate-50/70 p-2 rounded-md border border-slate-200/60">
+        <PlayerPhoto
+          photoUrl={player.photoUrl}
+          name={player.name}
+          gender={player.gender}
+          onClick={
+            onPreviewImage && player.photoUrl
+              ? () => onPreviewImage(player.photoUrl, player.name, player.serialNo != null ? `Serial #${player.serialNo}` : undefined)
+              : undefined
+          }
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="font-mono text-[11px] text-muted-foreground tabular-nums">#{player.serialNo ?? player.id}</span>
-            <span className="font-semibold truncate">{player.name}</span>
+            <span className="font-mono text-[11px] font-bold text-slate-500 tabular-nums">#{player.serialNo ?? player.id}</span>
+            <span className="font-semibold text-slate-900 text-sm truncate">{player.name}</span>
             <StatusBadge status={player.status} />
             {tagTheme ? (
               <span
@@ -2915,36 +3037,38 @@ function PlayerDetailPanel({
                 {tagTheme.label}
               </span>
             ) : null}
+            {cat ? (
+              <Badge variant="outline" className="text-[10px] h-5 font-semibold" style={{ color: cat.colorCode || undefined, borderColor: cat.colorCode || undefined }}>
+                {cat.name}
+              </Badge>
+            ) : null}
             {player.whatsappConsent ? (
-              <Badge variant="secondary" className="text-[10px] h-5 bg-emerald-50 text-emerald-800 border-emerald-300 gap-1 font-semibold">
-                <MessageSquare className="w-3 h-3" /> WhatsApp Opted-In
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-[10px] h-5 text-muted-foreground gap-1">
-                <MessageSquare className="w-3 h-3 opacity-60" /> No WhatsApp Consent
-              </Badge>
-            )}
+              <span title="WhatsApp notifications opted-in" className="inline-flex items-center text-emerald-600">
+                <MessageSquare className="w-3.5 h-3.5" />
+              </span>
+            ) : null}
             {player.isNonPlayingMember ? (
               <Badge variant="outline" className="text-[10px] h-5">Non-playing</Badge>
             ) : null}
           </div>
-          {contact ? <p className="text-[11px] text-muted-foreground truncate mt-0.5">{contact}</p> : null}
+          {contact ? <p className="text-[11px] text-slate-600 truncate mt-0.5">{contact}</p> : null}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <Button size="sm" variant="ghost" className="h-8 px-2 text-xs gap-1" onClick={onEdit}>
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs gap-1 text-slate-700 hover:text-slate-900" onClick={onEdit}>
             <Pencil className="w-3 h-3" /> Edit
           </Button>
           {player.status === "withdrawn" ? (
-            <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={onReinstate}>Reinstate</Button>
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-emerald-700 font-semibold" onClick={onReinstate}>Reinstate</Button>
           ) : player.status !== "sold" && player.status !== "retained" ? (
-            <Button size="sm" variant="ghost" className="h-8 px-2 text-xs text-amber-800 font-semibold hover:text-amber-950" onClick={onWithdraw}>Withdraw</Button>
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-amber-800 font-semibold hover:text-amber-950" onClick={onWithdraw}>Withdraw</Button>
           ) : null}
-          <Button size="sm" variant="ghost" className="h-8 w-8 px-0 text-destructive" onClick={onDelete} aria-label={`Delete ${player.name}`}>
-            <Trash2 className="w-3 h-3" />
+          <Button size="sm" variant="ghost" className="h-7 w-7 px-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50" onClick={onDelete} aria-label={`Delete ${player.name}`}>
+            <Trash2 className="w-3.5 h-3.5" />
           </Button>
         </div>
       </div>
 
+      {/* 3 & 4. Auction & Specifications Sections */}
       <div className="ops-detail__sections">
         <section>
           <h3 className="ops-detail__label">Auction</h3>
@@ -2979,7 +3103,7 @@ function PlayerDetailPanel({
               {player.role ? (
                 <>
                   <dt>Role</dt>
-                  <dd className="capitalize truncate">{player.role}</dd>
+                  <dd className="capitalize truncate font-medium text-slate-800">{player.role}</dd>
                 </>
               ) : null}
               {specParts.map(part => (
@@ -2994,6 +3118,40 @@ function PlayerDetailPanel({
                   <dd className="truncate">{jersey}</dd>
                 </>
               ) : null}
+              {formattedAvailability ? (
+                <>
+                  <dt className="flex items-center gap-1">
+                    <CalendarDays className="w-3 h-3 text-slate-400" />
+                    <span>Availability</span>
+                  </dt>
+                  <dd className="text-slate-700 font-medium truncate" title={formattedAvailability}>{formattedAvailability}</dd>
+                </>
+              ) : null}
+              {cleanAchievements ? (
+                <>
+                  <dt className="flex items-center gap-1">
+                    <Trophy className="w-3 h-3 text-amber-500" />
+                    <span>Achievements</span>
+                  </dt>
+                  <dd className="text-slate-700 italic truncate" title={cleanAchievements}>{cleanAchievements}</dd>
+                </>
+              ) : null}
+              {sportCaps.hasLegacyCricketSpecs && player.cricheroUrl ? (
+                <>
+                  <dt>Crichero</dt>
+                  <dd>
+                    <a
+                      href={player.cricheroUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                    >
+                      <span>Profile</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </dd>
+                </>
+              ) : null}
               {categories && categories.length > 0 ? (
                 <>
                   <dt>Category</dt>
@@ -3003,7 +3161,7 @@ function PlayerDetailPanel({
                       playerId={player.id}
                       categoryId={player.categoryId}
                       categories={categories}
-                      triggerClassName="h-8 min-h-8 w-full max-w-[12rem] text-[11px]"
+                      triggerClassName="h-7 min-h-7 w-full max-w-[11rem] text-[11px]"
                     />
                   </dd>
                 </>
@@ -3023,31 +3181,10 @@ function PlayerDetailPanel({
           </section>
         ) : null}
 
-        {tournament?.enableRegistrationPayment ? (
-          <section className="ops-detail__payment">
-            <RegistrationPaymentReview
-              tournamentId={tournamentId}
-              playerId={player.id}
-              playerName={player.name}
-              registrationFee={tournament.registrationFee}
-              utrNumber={player.utrNumber}
-              paymentScreenshotUrl={player.paymentScreenshotUrl}
-              registrationPaymentStatus={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
-              statusControl={(
-                <PlayerPaymentStatusSelect
-                  tournamentId={tournamentId}
-                  playerId={player.id}
-                  status={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
-                />
-              )}
-            />
-          </section>
-        ) : null}
-
         {customAnswersList.length > 0 ? (
           <section className="ops-detail__payment">
             <h3 className="ops-detail__label">Registration Questions</h3>
-            <dl className="grid sm:grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1">
+            <dl className="grid sm:grid-cols-[max-content_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
               {customAnswersList.map((item) => (
                 <Fragment key={item.label}>
                   <dt className="text-muted-foreground truncate" title={item.label}>{item.label}</dt>
@@ -3059,28 +3196,14 @@ function PlayerDetailPanel({
         ) : null}
       </div>
 
+      {/* 5. Historical Auction Performance */}
       <PlayerAuctionHistorySection
         history={auctionHistory}
         isLoading={isHistoryLoading}
         fallbackAuctionUnit={auctionUnit}
         emptyState="neutral"
+        emptyMessage="No previous auction history"
       />
-
-      {(player.achievements || player.availabilityDates || (sportCaps.hasLegacyCricketSpecs && player.cricheroUrl)) ? (
-        <p className="text-[11px] text-muted-foreground leading-snug">
-          {player.availabilityDates ? <span className="text-blue-600 dark:text-blue-300 font-medium">{player.availabilityDates}</span> : null}
-          {player.availabilityDates && player.achievements ? " · " : null}
-          {player.achievements || null}
-          {sportCaps.hasLegacyCricketSpecs && player.cricheroUrl ? (
-            <>
-              {(player.availabilityDates || player.achievements) ? " · " : null}
-              <a href={player.cricheroUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline font-medium">
-                Crichero
-              </a>
-            </>
-          ) : null}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -3221,6 +3344,7 @@ export default function Players() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [drawerPlayer, setDrawerPlayer] = useState<any | null>(null);
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
   const [exportingTarget, setExportingTarget] = useState<"excel" | "csv" | null>(null);
   const [renumberingSerial, setRenumberingSerial] = useState(false);
   const { toast } = useToast();
@@ -3514,7 +3638,7 @@ export default function Players() {
   const teamCount = teams?.length ?? 0;
   const auctionUnit = normalizeAuctionUnit(tournament?.auctionUnit);
 
-  const tableColCount = 9 + (hasCategories ? 1 : 0);
+  const tableColCount = 9 + (hasCategories ? 1 : 0) + (paymentEnabled ? 1 : 0);
   const teamOptions = (teams || []).map(t => ({
     value: t.id,
     label: t.name,
@@ -3849,9 +3973,9 @@ export default function Players() {
                       activeKey={sortKey}
                       sortDir={sortDir}
                       onSort={handleSort}
-                      className="text-center text-[11px] font-mono font-bold text-slate-700"
+                      className="text-center text-[11px] font-mono font-bold text-slate-700 w-12"
                     />
-                    <TableHead className="text-center text-[11px] font-bold text-slate-700 uppercase tracking-wider">Photo</TableHead>
+                    <TableHead className="text-center text-[11px] font-bold text-slate-700 uppercase tracking-wider w-12">Photo</TableHead>
                     <SortableTableHead
                       label="Player"
                       sortKey="name"
@@ -3864,6 +3988,16 @@ export default function Players() {
                       <SortableTableHead
                         label="Category"
                         sortKey="category"
+                        activeKey={sortKey}
+                        sortDir={sortDir}
+                        onSort={handleSort}
+                        className="text-[11px] font-bold text-slate-700 uppercase tracking-wider"
+                      />
+                    )}
+                    {paymentEnabled && (
+                      <SortableTableHead
+                        label="Payment"
+                        sortKey="payment"
                         activeKey={sortKey}
                         sortDir={sortDir}
                         onSort={handleSort}
@@ -3904,10 +4038,12 @@ export default function Players() {
                       onSort={handleSort}
                       className="text-[11px] font-bold text-slate-700 uppercase tracking-wider"
                     />
-                    <TableHead className="text-[11px] font-bold text-slate-700">
-                      <span className="sr-only">More</span>
+                    <TableHead className="text-center text-[11px] font-bold text-slate-700 w-12">
+                      <span className="sr-only">Actions</span>
                     </TableHead>
-                    <TableHead className="ops-col-fill" aria-hidden />
+                    <TableHead className="text-center text-[11px] font-bold text-slate-700 w-10">
+                      <span className="sr-only">Toggle details</span>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -3943,11 +4079,20 @@ export default function Players() {
                             toggleExpand(player.id);
                           }}
                         >
-                          <TableCell className="text-center font-mono text-[11px] text-slate-600 font-semibold tabular-nums py-1.5 align-middle">
+                          <TableCell className="text-center font-mono text-[11px] text-slate-600 font-semibold tabular-nums py-1.5 align-middle w-12">
                             {player.serialNo ?? player.id}
                           </TableCell>
-                          <TableCell className="py-1.5 align-middle">
-                            <PlayerPhoto photoUrl={player.photoUrl} name={player.name} gender={player.gender} />
+                          <TableCell className="py-1.5 align-middle w-12" data-row-control="" onClick={(e) => e.stopPropagation()}>
+                            <PlayerPhoto
+                              photoUrl={player.photoUrl}
+                              name={player.name}
+                              gender={player.gender}
+                              onClick={
+                                player.photoUrl
+                                  ? () => setPreviewImage({ url: player.photoUrl, title: player.name, subtitle: player.serialNo != null ? `Serial #${player.serialNo}` : undefined })
+                                  : undefined
+                              }
+                            />
                           </TableCell>
                           <TableCell className="ops-col-player py-1.5 align-middle">
                             <div className="flex items-center gap-1.5 min-w-0">
@@ -3990,6 +4135,14 @@ export default function Players() {
                               />
                             </TableCell>
                           )}
+                          {paymentEnabled && (
+                            <TableCell className="py-1.5 align-middle">
+                              <PaymentStatusBadge
+                                status={player.registrationPaymentStatus as RegistrationPaymentStatus | null}
+                                compact
+                              />
+                            </TableCell>
+                          )}
                           <TableCell className="py-1.5 align-middle">
                             <StatusBadge status={player.status} />
                           </TableCell>
@@ -4006,17 +4159,24 @@ export default function Players() {
                               </span>
                             ) : null}
                           </TableCell>
-                          <TableCell className="py-1.5 align-middle">
+                          <TableCell className="py-1.5 align-middle text-center w-12" data-row-control="" onClick={(e) => e.stopPropagation()}>
                             <PlayerRowActionsMenu
                               player={player}
-                              labeled
+                              labeled={false}
                               onEdit={() => openEdit(player)}
                               onWithdraw={() => void handleWithdraw({ id: player.id, name: player.name })}
                               onReinstate={() => void handleReinstate({ id: player.id, name: player.name })}
                               onDelete={() => openDelete({ id: player.id, name: player.name })}
                             />
                           </TableCell>
-                          <TableCell className="ops-col-fill" />
+                          <TableCell className="py-1.5 align-middle text-center w-10">
+                            <span
+                              className="inline-flex items-center justify-center h-7 w-7 text-slate-400 group-hover:text-slate-700 rounded-md transition-colors"
+                              aria-hidden="true"
+                            >
+                              <ChevronDown className={cn("w-4 h-4 transition-transform duration-200", isExpanded && "rotate-180 text-amber-600")} />
+                            </span>
+                          </TableCell>
                         </TableRow>
                         {isExpanded && (
                           <TableRow className="hover:bg-transparent border-0">
@@ -4036,6 +4196,7 @@ export default function Players() {
                                   onWithdraw={() => handleWithdraw({ id: player.id, name: player.name })}
                                   onReinstate={() => handleReinstate({ id: player.id, name: player.name })}
                                   auctionUnit={auctionUnit}
+                                  onPreviewImage={(url, title, subtitle) => setPreviewImage({ url, title: title ?? player.name, subtitle })}
                                 />
                               </div>
                             </TableCell>
@@ -4274,6 +4435,7 @@ export default function Players() {
                   onWithdraw={() => handleWithdraw({ id: drawerPlayer.id, name: drawerPlayer.name })}
                   onReinstate={() => handleReinstate({ id: drawerPlayer.id, name: drawerPlayer.name })}
                   auctionUnit={auctionUnit}
+                  onPreviewImage={(url, title, subtitle) => setPreviewImage({ url, title: title ?? drawerPlayer.name, subtitle })}
                 />
                 <SheetFooter className="mt-4 sm:justify-start" />
               </>
@@ -4309,6 +4471,15 @@ export default function Players() {
         </DialogContent>
       </Dialog>
 
+      <ImagePreviewModal
+        open={previewImage !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setPreviewImage(null);
+        }}
+        imageUrl={previewImage?.url || ""}
+        title={previewImage?.title || ""}
+        subtitle={previewImage?.subtitle}
+      />
     </AppLayout>
   );
 }

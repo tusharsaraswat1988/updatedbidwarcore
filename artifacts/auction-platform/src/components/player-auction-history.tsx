@@ -95,13 +95,15 @@ export function PlayerAuctionHistorySection({
   className,
   emptyState = "neutral",
   title = "Historical Auction Performance",
+  emptyMessage = "No prior sold auction history",
 }: {
   history?: PlayerAuctionHistoryRecord[] | PlayerAuctionHistorySummary | null;
   isLoading?: boolean;
   fallbackAuctionUnit?: AuctionUnit;
   className?: string;
-  emptyState?: "neutral" | "hidden";
+  emptyState?: "neutral" | "hidden" | "subtle";
   title?: string;
+  emptyMessage?: string;
 }) {
   const records = Array.isArray(history) ? history : history?.records ?? [];
 
@@ -132,7 +134,7 @@ export function PlayerAuctionHistorySection({
           <History className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
           {title}
         </span>
-        <span className="italic text-muted-foreground/70">No prior sold auction history</span>
+        <span className="italic text-muted-foreground/70">{emptyMessage}</span>
       </div>
     );
   }
