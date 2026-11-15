@@ -135,7 +135,18 @@ export async function updateAdminTournament(
     status: string; timerSeconds: number; bidTimerSeconds: number;
     basePurse: number; minBid: number; playerSelectionMode: string; bidTiers: string;
     localModeEnabled: boolean; auctionEnabled: boolean; scoringEnabled: boolean; scoringPhase: "disabled" | "setup" | "active" | "completed"; reason: string;
-    features: Partial<{ ownerApp: boolean; scoring: boolean; sponsorshipHub: boolean; analytics: boolean; whatsappNotifications: boolean; weddingBroadcast: boolean }>;
+    features: Partial<{
+      ownerApp: boolean;
+      scoring: boolean;
+      sponsorshipHub: boolean;
+      analytics: boolean;
+      whatsappNotifications: boolean;
+      weddingBroadcast: boolean;
+      liveAuctionHistory: boolean;
+      ownerAppHistory: boolean;
+      obsHistory: boolean;
+      ledHistory: boolean;
+    }>;
   }>
 ): Promise<{ success: boolean; error?: string; linkedOrganizerId?: number | null; linkedOrganizerName?: string | null }> {
   try {
@@ -232,7 +243,18 @@ export type AdminTournamentDetail = {
     scoringPhase: string;
     productMode: "auction_only" | "scoring_only" | "both";
     auctionUnit?: "rupee" | "points";
-    features: { ownerApp?: boolean; scoring?: boolean; sponsorshipHub?: boolean; analytics?: boolean; whatsappNotifications?: boolean; weddingBroadcast?: boolean };
+    features: {
+      ownerApp?: boolean;
+      scoring?: boolean;
+      sponsorshipHub?: boolean;
+      analytics?: boolean;
+      whatsappNotifications?: boolean;
+      weddingBroadcast?: boolean;
+      liveAuctionHistory?: boolean;
+      ownerAppHistory?: boolean;
+      obsHistory?: boolean;
+      ledHistory?: boolean;
+    };
     createdAt: string;
   };
   matchCounts?: { total: number; live: number; completed: number; upcoming: number };

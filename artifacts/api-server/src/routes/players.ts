@@ -105,6 +105,11 @@ import {
 import { scheduleGoogleSheetSync } from "../lib/google-sheets-sync-queue.js";
 import { isAuctionEnabled } from "@workspace/platform-core";
 import { broadcastState, invalidateAuctionBuildCache, invalidateStateCache } from "./auction";
+import {
+  getPlayerAuctionPerformanceHistory,
+  getPlayerAuctionPerformanceSummary,
+  type PlayerAuctionHistorySummary,
+} from "../lib/player-auction-history-service";
 
 async function afterPlayerDataChanged(
   tournamentId: number,
@@ -1403,6 +1408,59 @@ router.get("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
     .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
   if (!player) { res.status(404).json({ error: "Not found" }); return; }
   res.json(await serializePlayerWithSpecifications(player, isOrganizer ? "private" : "public"));
+});
+
+router.get("/tournaments/:tournamentId/players/:playerId/auction-history", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  const playerId = parseInt(req.params.playerId);
+  if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const [tournament] = await db
+    .select({ id: tournamentsTable.id, organizerId: tournamentsTable.organizerId })
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!tournament) {
+    res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+
+  const summary = await getPlayerAuctionPerformanceSummary({
+    currentTournamentId: tid,
+    playerId,
+  });
+
+  if (summary === null) {
+    res.status(404).json({ error: "Player not found" });
+    return;
+  }
+
+  res.json(summary);
+});
+
+router.get("/tournaments/:tournamentId/player-auction-history", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  if (!(await requireTournamentOrganizer(req, res, tid))) return;
+
+  const mobile = req.query.mobile ? String(req.query.mobile).trim() : undefined;
+  const globalPlayerId = req.query.globalPlayerId ? String(req.query.globalPlayerId).trim() : undefined;
+  const playerIdParam = req.query.playerId ? parseInt(String(req.query.playerId)) : undefined;
+
+  const summary = await getPlayerAuctionPerformanceSummary({
+    currentTournamentId: tid,
+    playerId: !isNaN(Number(playerIdParam)) ? playerIdParam : undefined,
+    globalPlayerId,
+    mobileNumber: mobile,
+  });
+
+  res.json(summary ?? {
+    records: [],
+    totalSoldAppearances: 0,
+    bestSoldRecord: null,
+    lastSoldRecord: null,
+    hasTop5Badge: false,
+    isBestTop5: false,
+  });
 });
 
 router.patch("/tournaments/:tournamentId/players/:playerId", async (req, res) => {

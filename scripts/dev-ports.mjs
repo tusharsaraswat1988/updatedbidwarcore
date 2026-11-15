@@ -187,7 +187,7 @@ export async function waitForApiHealth(
  * @param {{ api: number; frontend: number; ownerApp: number; scoringApp: number; mobileApp: number }} ports
  * @returns {Promise<{ api: boolean; web: boolean; owner: boolean; scoring: boolean; mobile: boolean }>}
  */
-export async function getDevStackStatus(ports) {
+export async function getDevStackStatus(ports = getDevPorts()) {
   /** @type {{ api: boolean; web: boolean; owner: boolean; scoring: boolean; mobile: boolean }} */
   const status = { api: false, web: false, owner: false, scoring: false, mobile: false };
 

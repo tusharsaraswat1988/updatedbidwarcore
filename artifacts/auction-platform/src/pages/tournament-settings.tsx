@@ -242,6 +242,10 @@ export default function TournamentSettings() {
       mainBannerEnabled: t.mainBannerEnabled ?? false,
       mainBannerFit: t.mainBannerFit ?? "cover",
       matchDates: t.matchDates ?? "",
+      liveAuctionHistory: (t as any)?.featuresJson?.liveAuctionHistory ?? (t as any)?.features?.liveAuctionHistory ?? true,
+      ownerAppHistory: (t as any)?.featuresJson?.ownerAppHistory ?? (t as any)?.features?.ownerAppHistory ?? true,
+      obsHistory: (t as any)?.featuresJson?.obsHistory ?? (t as any)?.features?.obsHistory ?? true,
+      ledHistory: (t as any)?.featuresJson?.ledHistory ?? (t as any)?.features?.ledHistory ?? true,
     };
     setEditForm(initialForm);
 
@@ -716,6 +720,13 @@ export default function TournamentSettings() {
       dataPayload.mainBannerPublicId = (editForm.mainBannerPublicId as string) || null;
       dataPayload.mainBannerEnabled = editForm.mainBannerEnabled === true;
       dataPayload.mainBannerFit = ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain";
+      dataPayload.features = {
+        ...(((tournament as any)?.featuresJson ?? (tournament as any)?.features) || {}),
+        liveAuctionHistory: editForm.liveAuctionHistory !== false,
+        ownerAppHistory: editForm.ownerAppHistory !== false,
+        obsHistory: editForm.obsHistory !== false,
+        ledHistory: editForm.ledHistory !== false,
+      };
     }
 
     try {
@@ -2017,6 +2028,81 @@ export default function TournamentSettings() {
                             </SelectContent>
                           </Select>
                         </div>
+                      </div>
+                    </SettingsCard>
+
+                    {/* Card 4: Live Auction Features */}
+                    <SettingsCard
+                      title="Live Auction Features"
+                      description="Historical player auction records across Owner Panel, OBS broadcast, and LED screen."
+                      icon={<Sparkles className="w-4 h-4 text-amber-400" />}
+                    >
+                      <div className="space-y-4">
+                        {/* Master Toggle */}
+                        <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-border/60 bg-muted/20">
+                          <div className="space-y-0.5">
+                            <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5 cursor-pointer">
+                              Player Auction History (Master)
+                              <FieldTooltip text="When enabled, previous tournament sales and Top 5 badges are shown for the active player during live auction." />
+                            </Label>
+                            <p className="text-[11px] text-muted-foreground">
+                              Show historical prices & Top 5 Star badges across live auction surfaces.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={editForm.liveAuctionHistory !== false}
+                            onCheckedChange={(v) => setEditForm((f) => ({ ...f, liveAuctionHistory: v }))}
+                          />
+                        </div>
+
+                        {editForm.liveAuctionHistory !== false && (
+                          <div className="space-y-2.5 pl-3 border-l-2 border-amber-500/30">
+                            <div className="flex items-center justify-between gap-3 py-1">
+                              <div className="space-y-0.5">
+                                <Label className="text-xs font-medium text-foreground cursor-pointer">
+                                  Owner Panel Display
+                                </Label>
+                                <p className="text-[10px] text-muted-foreground">
+                                  Show compact history pill on Team Owner live bidding interface.
+                                </p>
+                              </div>
+                              <Switch
+                                checked={editForm.ownerAppHistory !== false}
+                                onCheckedChange={(v) => setEditForm((f) => ({ ...f, ownerAppHistory: v }))}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3 py-1">
+                              <div className="space-y-0.5">
+                                <Label className="text-xs font-medium text-foreground cursor-pointer">
+                                  OBS Broadcast Overlay
+                                </Label>
+                                <p className="text-[10px] text-muted-foreground">
+                                  Show broadcast badge on OBS V2 lower-third player avatar.
+                                </p>
+                              </div>
+                              <Switch
+                                checked={editForm.obsHistory !== false}
+                                onCheckedChange={(v) => setEditForm((f) => ({ ...f, obsHistory: v }))}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3 py-1">
+                              <div className="space-y-0.5">
+                                <Label className="text-xs font-medium text-foreground cursor-pointer">
+                                  Live LED Stage Screen
+                                </Label>
+                                <p className="text-[10px] text-muted-foreground">
+                                  Show high-contrast performance stat banner on stage display.
+                                </p>
+                              </div>
+                              <Switch
+                                checked={editForm.ledHistory !== false}
+                                onCheckedChange={(v) => setEditForm((f) => ({ ...f, ledHistory: v }))}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </SettingsCard>
                   </div>

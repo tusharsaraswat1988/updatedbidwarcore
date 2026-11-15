@@ -537,6 +537,7 @@ export interface TournamentUpdate {
   scoringPin?: string | null;
   /** Mandatory audit reason when changing auction rules or critical tournament config (min 10 characters) */
   reason?: string;
+  features?: Record<string, unknown>;
 }
 
 export interface Team {

@@ -19,6 +19,7 @@
     "@vitejs/plugin-react": "catalog:",
     "@workspace/api-base": "workspace:*",
     "@workspace/api-client-react": "workspace:*",
+    "@workspace/platform-core": "workspace:*",
     "clsx": "catalog:",
     "framer-motion": "catalog:",
     "lucide-react": "catalog:",

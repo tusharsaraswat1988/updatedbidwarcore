@@ -167,6 +167,7 @@ export default function ObsV2Overlay() {
       feedState={feed.state}
       secondsSinceLastActivity={feed.secondsSinceLastActivity}
       isStaleFeed={isStaleFeed}
+      features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
     />
   );
 }

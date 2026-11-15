@@ -132,7 +132,7 @@ function shutdown(code = 0) {
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
-function run(label, command, args, env, { restartOnCrash = false, maxRestarts = 10 } = {}) {
+function run(label, command, args, env, { restartOnCrash = false, maxRestarts = 100 } = {}) {
   let restarts = 0;
 
   const start = () => {

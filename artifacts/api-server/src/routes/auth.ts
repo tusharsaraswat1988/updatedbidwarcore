@@ -1057,6 +1057,10 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
       analytics: z.boolean().optional(),
       whatsappNotifications: z.boolean().optional(),
       weddingBroadcast: z.boolean().optional(),
+      liveAuctionHistory: z.boolean().optional(),
+      ownerAppHistory: z.boolean().optional(),
+      obsHistory: z.boolean().optional(),
+      ledHistory: z.boolean().optional(),
     }).optional(),
     reason: z.string().optional(),
   });

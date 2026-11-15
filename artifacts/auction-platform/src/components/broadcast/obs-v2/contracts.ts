@@ -209,6 +209,8 @@ export interface BroadcastSettings {
   /** OBS performance mode — disables glows, sweeps and non-essential motion */
   performanceMode: boolean;
   showTicker: boolean;
+  tournamentId?: number;
+  features?: unknown;
 }
 
 export type FeedStatus = "live" | "stale" | "disconnected";

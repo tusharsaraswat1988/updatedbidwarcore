@@ -192,7 +192,13 @@ function SceneSwitch({ frame }: { frame: BroadcastFrame }) {
     case "WAITING":
       return <WaitingScene model={frame.model} />;
     case "AUCTION":
-      return <AuctionScene model={frame.model} />;
+      return (
+        <AuctionScene
+          model={frame.model}
+          tournamentId={frame.settings?.tournamentId}
+          features={frame.settings?.features}
+        />
+      );
     case "SOLD":
       return <SoldScene model={frame.model} teams={frame.teams} />;
     case "UNSOLD":

@@ -28,6 +28,7 @@ import { useRoleSpecGroups } from "@/hooks/useRoleSpecGroups";
 import { getListPlayersQueryKey, useListPlayers } from "@workspace/api-client-react";
 import { useBreakCountdownFromState } from "@/lib/break-countdown";
 import { getPlayerTagTheme } from "@/lib/player-tag-theme";
+import { OwnerPlayerAuctionHistory } from "@/components/OwnerPlayerAuctionHistory";
 
 const BIDWAR_AMBER = "#F59E0B";
 
@@ -198,13 +199,24 @@ function TimerBar({
   );
 }
 
-function PlayerCard({ player, teamColor, unit, categoryName, sport, tier }: {
+function PlayerCard({
+  player,
+  teamColor,
+  unit,
+  categoryName,
+  sport,
+  tier,
+  tournamentId,
+  features,
+}: {
   player: NonNullable<AuctionState["currentPlayer"]>;
   teamColor: string;
   unit: ReturnType<typeof resolveAuctionUnit>;
   categoryName?: string | null;
   sport?: string | null;
   tier: DeviceTier;
+  tournamentId?: number;
+  features?: any;
 }) {
   const specGroupLabels = useRoleSpecGroups(sport ?? undefined, player.role).map((g) => g.groupName);
   const specs = useMemo(
@@ -276,6 +288,15 @@ function PlayerCard({ player, teamColor, unit, categoryName, sport, tier }: {
             ))}
           </div>
         )}
+
+        {tournamentId && player.id ? (
+          <OwnerPlayerAuctionHistory
+            tournamentId={tournamentId}
+            playerId={player.id}
+            unit={unit}
+            features={features}
+          />
+        ) : null}
 
         {specs.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 mt-3 pt-3 border-t border-[#4a4478]">
@@ -2075,6 +2096,8 @@ export function LiveBid({
                 categoryName={state?.currentCategoryName}
                 sport={tournament?.sport}
                 tier={tier}
+                tournamentId={tournamentId}
+                features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
               />
             ) : showUnsoldResult ? (
               <UnsoldPlayerCard
@@ -2337,6 +2360,8 @@ export function LiveBid({
                 categoryName={state?.currentCategoryName}
                 sport={tournament?.sport}
                 tier={tier}
+                tournamentId={tournamentId}
+                features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
               />
             ) : showUnsoldResult ? (
               <UnsoldPlayerCard

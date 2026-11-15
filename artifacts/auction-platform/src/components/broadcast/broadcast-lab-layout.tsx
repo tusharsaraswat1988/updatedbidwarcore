@@ -29,6 +29,7 @@ export type BroadcastLabLayoutProps = {
   secondsSinceLastActivity: number | null;
   isStaleFeed: boolean;
   activeEvent?: ObsV2BroadcastEvent | null;
+  features?: unknown;
 };
 
 /**
@@ -81,6 +82,8 @@ export const BroadcastLabLayout = memo(function BroadcastLabLayout(props: Broadc
       secondsSinceLastActivity: props.secondsSinceLastActivity,
       performanceMode: props.isObsMode || props.settings.obsPerformanceMode,
       showTicker: props.sponsorLogos.length > 0,
+      tournamentId: props.tournamentId,
+      features: props.features,
     });
   }, [
     directorFrame,

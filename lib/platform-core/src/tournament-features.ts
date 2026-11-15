@@ -29,6 +29,26 @@ export interface TournamentFeatures {
    * with custom Bride's XI vs Groom's XI presentation.
    */
   weddingBroadcast?: boolean;
+  /**
+   * Master toggle for Live Player Auction History across live surfaces.
+   * Defaults to true (pre-enabled).
+   */
+  liveAuctionHistory?: boolean;
+  /**
+   * Display player auction history in Team Owner Bidding Panel (owner-app).
+   * Defaults to true (pre-enabled).
+   */
+  ownerAppHistory?: boolean;
+  /**
+   * Display player auction history on OBS V2 Broadcast Overlay.
+   * Defaults to true (pre-enabled).
+   */
+  obsHistory?: boolean;
+  /**
+   * Display player auction history on Live LED Stage Screen.
+   * Defaults to true (pre-enabled).
+   */
+  ledHistory?: boolean;
 }
 
 /** Canonical defaults when a tournament has no features_json row yet. */
@@ -39,6 +59,10 @@ export const TOURNAMENT_FEATURE_DEFAULTS: Readonly<Required<TournamentFeatures>>
   analytics: false,
   whatsappNotifications: true,
   weddingBroadcast: false,
+  liveAuctionHistory: true,
+  ownerAppHistory: true,
+  obsHistory: true,
+  ledHistory: true,
 };
 
 const FEATURE_KEYS = Object.keys(TOURNAMENT_FEATURE_DEFAULTS) as (keyof TournamentFeatures)[];
@@ -47,7 +71,13 @@ function readFlag(
   src: Partial<TournamentFeatures> | Record<string, unknown>,
   key: keyof TournamentFeatures,
 ): boolean {
-  if (key === "whatsappNotifications") {
+  if (
+    key === "whatsappNotifications" ||
+    key === "liveAuctionHistory" ||
+    key === "ownerAppHistory" ||
+    key === "obsHistory" ||
+    key === "ledHistory"
+  ) {
     return src[key] !== false;
   }
   return src[key] === true;
@@ -114,6 +144,38 @@ export function isWeddingBroadcastEnabled(
   return resolveTournamentFeatures(features).weddingBroadcast === true;
 }
 
+/** Master toggle check: Live Player Auction History across all live surfaces. */
+export function isLiveAuctionHistoryEnabled(
+  features?: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
+): boolean {
+  const f = resolveTournamentFeatures(features);
+  return f.liveAuctionHistory !== false;
+}
+
+/** Surface check: Owner App live player auction history. */
+export function isOwnerAppHistoryEnabled(
+  features?: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
+): boolean {
+  const f = resolveTournamentFeatures(features);
+  return f.liveAuctionHistory !== false && f.ownerAppHistory !== false;
+}
+
+/** Surface check: OBS V2 live player auction history. */
+export function isObsHistoryEnabled(
+  features?: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
+): boolean {
+  const f = resolveTournamentFeatures(features);
+  return f.liveAuctionHistory !== false && f.obsHistory !== false;
+}
+
+/** Surface check: Live LED Screen live player auction history. */
+export function isLedHistoryEnabled(
+  features?: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
+): boolean {
+  const f = resolveTournamentFeatures(features);
+  return f.liveAuctionHistory !== false && f.ledHistory !== false;
+}
+
 /** Zod-compatible partial schema keys for API validation. */
 export const tournamentFeaturesSchemaShape = {
   ownerApp: "boolean",
@@ -122,4 +184,8 @@ export const tournamentFeaturesSchemaShape = {
   analytics: "boolean",
   whatsappNotifications: "boolean",
   weddingBroadcast: "boolean",
+  liveAuctionHistory: "boolean",
+  ownerAppHistory: "boolean",
+  obsHistory: "boolean",
+  ledHistory: "boolean",
 } as const;

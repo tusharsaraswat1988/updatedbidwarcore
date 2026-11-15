@@ -14,6 +14,79 @@ import {
   portraitTagFrameStyle,
   resolvePortraitPlayerTag,
 } from "./portrait-player-tag";
+import { usePlayerAuctionHistory } from "@/components/player-auction-history";
+import { isLedHistoryEnabled } from "@workspace/platform-core";
+import { formatIndianRupee, type AuctionUnit } from "@/lib/format";
+
+function formatLedAmount(amount: number, unit?: AuctionUnit): string {
+  if (amount >= 10000000) {
+    return `₹${(amount / 10000000).toFixed(2)} CR`;
+  }
+  if (amount >= 100000) {
+    const l = amount / 100000;
+    return `₹${Number.isInteger(l) ? l : l.toFixed(1)} LAKH`;
+  }
+  return formatIndianRupee(amount, unit);
+}
+
+export function LedPlayerHistoryBanner({
+  tournamentId,
+  playerId,
+  features,
+  auctionUnit,
+}: {
+  tournamentId?: number;
+  playerId?: string | number | null;
+  features?: unknown;
+  auctionUnit?: AuctionUnit;
+}) {
+  const numericPlayerId = typeof playerId === "string" ? parseInt(playerId, 10) : playerId;
+  const isEnabled = Boolean(
+    tournamentId &&
+    numericPlayerId &&
+    !isNaN(numericPlayerId) &&
+    numericPlayerId > 0 &&
+    isLedHistoryEnabled(features as any)
+  );
+
+  const { data: history } = usePlayerAuctionHistory({
+    tournamentId: tournamentId ?? 0,
+    playerId: numericPlayerId,
+    enabled: isEnabled,
+  });
+
+  if (!isEnabled || !history?.bestSoldRecord) {
+    return null;
+  }
+
+  const { bestSoldRecord, lastSoldRecord, hasTop5Badge, isBestTop5 } = history;
+  const isTop5 = hasTop5Badge || isBestTop5 || bestSoldRecord.isTop5;
+
+  return (
+    <div
+      data-led-player-history-banner
+      className="absolute top-0 inset-x-0 z-20 bg-black/85 backdrop-blur-md border-b-2 border-[#d4af37] px-4 py-2 pr-16 sm:pr-20 transition-opacity duration-300 pointer-events-none"
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-amber-400 font-black text-base sm:text-lg lg:text-xl tracking-wider uppercase font-['Space_Grotesk']">
+          PREVIOUS BEST: {formatLedAmount(bestSoldRecord.soldPrice, auctionUnit)}
+        </span>
+        {isTop5 ? (
+          <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-extrabold text-xs px-2 py-0.5 rounded shadow-sm tracking-wide">
+            🏆 TOP 5 STAR
+          </span>
+        ) : null}
+      </div>
+      {lastSoldRecord ? (
+        <div className="text-white/90 font-bold text-xs sm:text-sm tracking-wide mt-0.5 font-['Space_Grotesk'] uppercase truncate">
+          LAST SOLD: {formatLedAmount(lastSoldRecord.soldPrice, auctionUnit)}
+          {lastSoldRecord.buyingTeamName ? ` | ${lastSoldRecord.buyingTeamName}` : ""}
+          {lastSoldRecord.tournamentName ? ` (${lastSoldRecord.tournamentName})` : ""}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * PLAYER PORTRAIT — full-bleed photo with identity + spec grid overlaid at bottom.
@@ -51,6 +124,13 @@ export const PlayerPortrait = memo(function PlayerPortrait({
       className="@container/portrait relative h-full min-h-0 overflow-hidden bg-black/40 border-2"
       style={frameStyle}
     >
+      <LedPlayerHistoryBanner
+        tournamentId={view.tournament?.id}
+        playerId={currentPlayer.id}
+        features={view.tournament?.featuresJson}
+        auctionUnit={view.tournament?.auctionUnit}
+      />
+
       {showPhoto ? (
         <img
           src={cldUrl(currentPlayer.portrait, "playerCard")}
@@ -81,7 +161,7 @@ export const PlayerPortrait = memo(function PlayerPortrait({
         {tag ? <PortraitPlayerTagBadge tag={tag} /> : null}
       </div>
 
-      <div className="absolute top-3 right-3 z-10">
+      <div className="absolute top-3 right-3 z-30">
         <div
           className="size-12 sm:size-14 grid place-items-center font-['Bebas_Neue'] text-xl sm:text-2xl italic shadow-2xl"
           style={{

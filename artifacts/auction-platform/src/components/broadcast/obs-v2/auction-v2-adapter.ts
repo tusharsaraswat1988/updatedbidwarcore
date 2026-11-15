@@ -26,6 +26,8 @@ export interface AdaptAuctionToBroadcastFrameOptions {
   secondsSinceLastActivity?: number | null;
   performanceMode?: boolean;
   showTicker?: boolean;
+  tournamentId?: number;
+  features?: unknown;
 }
 
 import { deriveBranding, mapSponsors, mapTeamPurses } from "./branding";
@@ -74,6 +76,8 @@ export function adaptAuctionToBroadcastFrame(
     settings: {
       performanceMode,
       showTicker,
+      tournamentId: opts.tournamentId,
+      features: opts.features,
     },
     feed: {
       status: feedStatus,

@@ -136,6 +136,10 @@ import {
   type RegistrationCustomQuestion,
   type RegistrationFieldsConfig,
 } from "@workspace/api-base";
+import {
+  PlayerAuctionHistorySection,
+  usePlayerAuctionHistory,
+} from "@/components/player-auction-history";
 
 // ─── Global Player Search Autocomplete ────────────────────────────────────────
 
@@ -601,6 +605,18 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
     isNonPlayingMember: player?.isNonPlayingMember ?? false,
     whatsappConsent: player ? player.whatsappConsent !== false : true,
     markPaymentCompleted: false,
+  });
+
+  const historyPlayerId = player?.id ?? matchedTournamentPlayer?.id ?? null;
+  const historyMobile = form.mobileNumber || pendingMobileProfile?.mobileNumber || null;
+  const historyGlobalPlayerId = player?.globalPlayerId ?? (pendingMobileProfile as any)?.globalPlayerId ?? null;
+
+  const { data: formAuctionHistory, isLoading: isFormHistoryLoading } = usePlayerAuctionHistory({
+    tournamentId,
+    playerId: historyPlayerId,
+    mobile: historyMobile,
+    globalPlayerId: historyGlobalPlayerId,
+    enabled: !!(historyPlayerId || (historyMobile && historyMobile.length >= 10) || historyGlobalPlayerId),
   });
 
   const [submitError, setSubmitError] = useState("");
@@ -1254,6 +1270,14 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
           </div>
         </div>
       </div>
+
+      {/* Historical Auction Performance (if known) */}
+      <PlayerAuctionHistorySection
+        history={formAuctionHistory}
+        isLoading={isFormHistoryLoading}
+        fallbackAuctionUnit={tournament?.auctionUnit ?? "points"}
+        emptyState={player || pendingMobileProfile ? "subtle" : "hidden"}
+      />
 
       {/* 2. Role & Auction Valuation */}
       <div className="rounded-xl border border-border bg-slate-50/70 p-4 space-y-3.5">
@@ -2819,6 +2843,13 @@ function PlayerDetailPanel({
   onReinstate: () => void;
   auctionUnit?: AuctionUnit;
 }) {
+  const { data: auctionHistory, isLoading: isHistoryLoading } = usePlayerAuctionHistory({
+    tournamentId,
+    playerId: player?.id,
+    mobile: player?.mobileNumber,
+    globalPlayerId: player?.globalPlayerId,
+  });
+
   const tagTheme = getTagTheme(player.playerTag);
   const sportCaps = getSportCapabilities(tournament?.sport);
   const customQuestions = (tournament as any)?.registrationFields?.customQuestions as RegistrationCustomQuestion[] | undefined;
@@ -3027,6 +3058,13 @@ function PlayerDetailPanel({
           </section>
         ) : null}
       </div>
+
+      <PlayerAuctionHistorySection
+        history={auctionHistory}
+        isLoading={isHistoryLoading}
+        fallbackAuctionUnit={auctionUnit}
+        emptyState="subtle"
+      />
 
       {(player.achievements || player.availabilityDates || (sportCaps.hasLegacyCricketSpecs && player.cricheroUrl)) ? (
         <p className="text-[11px] text-muted-foreground leading-snug">

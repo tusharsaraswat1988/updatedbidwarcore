@@ -20,6 +20,11 @@ export {
   mergeTournamentFeatures,
   isBuzzStudioEnabled,
   isWhatsAppNotificationsEnabled,
+  isWeddingBroadcastEnabled,
+  isLiveAuctionHistoryEnabled,
+  isOwnerAppHistoryEnabled,
+  isObsHistoryEnabled,
+  isLedHistoryEnabled,
   tournamentFeaturesSchemaShape,
 } from "./tournament-features.ts";
 

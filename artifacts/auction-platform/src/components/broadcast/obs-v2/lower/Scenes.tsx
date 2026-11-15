@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { usePlayerAuctionHistory } from "@/components/player-auction-history";
+import { isObsHistoryEnabled } from "@workspace/platform-core";
 import type {
   AuctionSceneModel,
   BreakSceneModel,
@@ -64,12 +66,94 @@ export function PrizePlate({ line1, line2 }: { line1: string; line2: string }) {
   );
 }
 
-export function AuctionScene({ model }: { model: AuctionSceneModel }) {
+export function ObsPlayerHistoryChip({
+  tournamentId,
+  playerId,
+  features,
+}: {
+  tournamentId?: number;
+  playerId?: number | string | null;
+  features?: unknown;
+}) {
+  const numericPlayerId = typeof playerId === "string" ? parseInt(playerId, 10) : playerId;
+  const isEnabled = Boolean(
+    tournamentId &&
+    numericPlayerId &&
+    !isNaN(numericPlayerId) &&
+    numericPlayerId > 0 &&
+    isObsHistoryEnabled(features as any)
+  );
+
+  const { data: history } = usePlayerAuctionHistory({
+    tournamentId: tournamentId ?? 0,
+    playerId: numericPlayerId,
+    enabled: isEnabled,
+  });
+
+  if (!isEnabled || !history?.bestSoldRecord) {
+    return null;
+  }
+
+  const { bestSoldRecord, hasTop5Badge, isBestTop5 } = history;
+  const isTop5 = hasTop5Badge || isBestTop5 || bestSoldRecord.isTop5;
+
+  return (
+    <div
+      data-obs-player-history-chip
+      style={{
+        position: "absolute",
+        top: -6,
+        left: -6,
+        zIndex: 5,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "2px 8px",
+        borderRadius: "9999px",
+        background: "linear-gradient(135deg, rgba(212,175,55,0.95), rgba(180,140,20,0.95))",
+        color: "#000",
+        fontWeight: 800,
+        fontSize: "12px",
+        letterSpacing: "0.04em",
+        whiteSpace: "nowrap",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.6)",
+        pointerEvents: "none",
+      }}
+    >
+      {isTop5 ? (
+        <>
+          <span>🏆 TOP 5</span>
+          <span>·</span>
+          <span>BEST {formatAmount(bestSoldRecord.soldPrice)}</span>
+        </>
+      ) : (
+        <span>PREV BEST: {formatAmount(bestSoldRecord.soldPrice)}</span>
+      )}
+    </div>
+  );
+}
+
+export function AuctionScene({
+  model,
+  tournamentId,
+  features,
+}: {
+  model: AuctionSceneModel;
+  tournamentId?: number;
+  features?: unknown;
+}) {
   const { player } = model;
   return (
     <div className="bw-lt-row bw-lt-solid">
       <div className="bw-seg bw-seg-player">
-        <Avatar name={player.name} photoUrl={player.photoUrl} />
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <Avatar name={player.name} photoUrl={player.photoUrl} />
+          <ObsPlayerHistoryChip
+            tournamentId={tournamentId}
+            playerId={player.id}
+            features={features}
+          />
+        </div>
         <div className="bw-stack" style={{ minWidth: 0, flex: 1 }}>
           <span className="bw-kicker">{player.category ?? "ON THE BLOCK"}</span>
           <strong
