@@ -35,33 +35,38 @@ export function buildSpecificationsFromSelections(
 }
 
 export function applySpecificationsToSelections(
-  groups: SpecGroupRef[],
-  specifications: PlayerSpecificationInput[] | undefined,
+  groups: (SpecGroupRef & { groupName?: string })[],
+  specifications: (PlayerSpecificationInput & { groupName?: string })[] | undefined,
   legacy: Partial<LegacySpecForm>,
 ): { legacyForm: Partial<LegacySpecForm>; extraSelections: Record<number, string> } {
   const sorted = [...groups].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
   const extraSelections: Record<number, string> = {};
   const legacyForm: Partial<LegacySpecForm> = {};
+  const legacyValues = [legacy.battingStyle, legacy.bowlingStyle, legacy.specialization];
 
   if (specifications?.length) {
     for (let idx = 0; idx < sorted.length; idx++) {
       const group = sorted[idx]!;
-      const match = specifications.find((s) => s.specGroupId === group.id);
-      if (!match?.value) continue;
+      const match = specifications.find(
+        (s) =>
+          s.specGroupId === group.id ||
+          Boolean(group.groupName && s.groupName && group.groupName.trim().toLowerCase() === s.groupName.trim().toLowerCase()),
+      );
+      const val = match?.value?.trim() || legacyValues[idx]?.trim();
+      if (!val) continue;
       const legacyKey = LEGACY_SPEC_KEYS[idx];
-      if (legacyKey) legacyForm[legacyKey] = match.value;
-      else extraSelections[group.id] = match.value;
+      if (legacyKey) legacyForm[legacyKey] = val;
+      extraSelections[group.id] = val;
     }
     return { legacyForm, extraSelections };
   }
 
-  const legacyValues = [legacy.battingStyle, legacy.bowlingStyle, legacy.specialization];
   sorted.forEach((group, idx) => {
     const val = legacyValues[idx]?.trim();
     if (!val) return;
     const legacyKey = LEGACY_SPEC_KEYS[idx];
     if (legacyKey) legacyForm[legacyKey] = val;
-    else extraSelections[group.id] = val;
+    extraSelections[group.id] = val;
   });
   return { legacyForm, extraSelections };
 }

@@ -67,7 +67,10 @@ const FIELD_IDS: Record<keyof AutofillFormFields, string> = {
   teamId: "team",
 };
 
-/** Tournament registration overwrites with the saved player, keeping previous values when the profile omits them. */
+/**
+ * Tournament registration overwrites with the saved player, keeping previous values when the profile omits them.
+ * MANDATORY RULE: Bid value (base price / selectedBidValue) is tournament-specific and NEVER prefilled from previous tournaments.
+ */
 export function mergeTournamentProfile<T extends AutofillFormFields>(prev: T, tp: AutofillProfile): T {
   return {
     ...prev,

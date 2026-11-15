@@ -119,4 +119,22 @@ describe("registration autofill field tracking", () => {
     );
     expect(next[68]).toBe("Right-hand");
   });
+
+  it("never autofills or overwrites bid value (mandatory tournament rule)", () => {
+    const before = emptyForm();
+    const globalMerged = mergeGlobalProfile(before, {
+      name: "Apurv Mittal",
+      ...({ basePrice: 10000 } as any),
+    });
+    // Bid value is tournament-specific and must not exist on AutofillFormFields
+    expect((globalMerged as any).basePrice).toBeUndefined();
+    expect((globalMerged as any).selectedBidValue).toBeUndefined();
+
+    const tournamentMerged = mergeTournamentProfile(before, {
+      name: "Apurv Mittal",
+      ...({ basePrice: 10000 } as any),
+    });
+    expect((tournamentMerged as any).basePrice).toBeUndefined();
+    expect((tournamentMerged as any).selectedBidValue).toBeUndefined();
+  });
 });

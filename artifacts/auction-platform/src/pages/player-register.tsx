@@ -283,6 +283,7 @@ export default function PlayerRegister() {
   const [utrNumber, setUtrNumber] = useState("");
   const [paymentScreenshotUrl, setPaymentScreenshotUrl] = useState("");
   const [paymentScreenshotPublicId, setPaymentScreenshotPublicId] = useState("");
+  // MANDATORY RULE: Bid value (base price tier) is tournament-specific and NEVER prefilled from previous tournaments.
   const [selectedBidValue, setSelectedBidValue] = useState("");
 
   const loadContext = useCallback(async () => {
@@ -330,15 +331,20 @@ export default function PlayerRegister() {
   const selectedRole = roles.find(r => r.roleName === form.role);
   const { specs, specsRoleId } = useRoleSpecs(selectedRole?.id);
 
-  // Reset spec selections when role changes
+  // Reset spec selections only when role changes from an existing non-empty role (user change).
+  // Initial autofill population transitioning from "" to a saved role must not wipe specs.
+  const prevRoleRef = useRef<string>(form.role);
   useEffect(() => {
-    setSpecSelections({});
-    setForm(prev => ({
-      ...prev,
-      battingStyle: "",
-      bowlingStyle: "",
-      specialization: "",
-    }));
+    if (prevRoleRef.current && prevRoleRef.current !== form.role) {
+      setSpecSelections({});
+      setForm(prev => ({
+        ...prev,
+        battingStyle: "",
+        bowlingStyle: "",
+        specialization: "",
+      }));
+    }
+    prevRoleRef.current = form.role;
   }, [form.role]);
 
   // Pre-fill dynamic spec group selections from normalized or legacy values
@@ -354,11 +360,15 @@ export default function PlayerRegister() {
     if (!source) return;
     const { legacyForm, extraSelections } = applySpecificationsToSelections(
       specs,
-      source.specifications?.map((s) => ({ specGroupId: s.specGroupId, value: s.value })),
+      source.specifications?.map((s) => ({
+        specGroupId: s.specGroupId,
+        groupName: (s as any).groupName,
+        value: s.value,
+      })),
       {
-        battingStyle: source.battingStyle ?? "",
-        bowlingStyle: source.bowlingStyle ?? "",
-        specialization: source.specialization ?? "",
+        battingStyle: source.battingStyle ?? form.battingStyle ?? "",
+        bowlingStyle: source.bowlingStyle ?? form.bowlingStyle ?? "",
+        specialization: source.specialization ?? form.specialization ?? "",
       },
     );
     setForm((prev) => ({
@@ -539,6 +549,7 @@ export default function PlayerRegister() {
     const sanitized = sanitizeMobileInput(val);
     lookupGenRef.current += 1;
     resetAutofillReveal();
+    prevRoleRef.current = "";
     f("mobileNumber", sanitized);
     setMobileLookedUp(false);
     setFoundProfile(null);
@@ -1212,6 +1223,7 @@ export default function PlayerRegister() {
                       variant="ghost"
                       className="min-h-11 self-start px-0"
                       onClick={() => {
+                        prevRoleRef.current = "";
                         setExistingRegistration(null);
                         setFoundProfile(null);
                         setMobileLookedUp(false);

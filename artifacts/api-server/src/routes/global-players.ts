@@ -97,6 +97,46 @@ router.get("/global-players/search", heavyLimiter, async (req, res) => {
                   CASE WHEN ${sportFilter}::text IS NOT NULL AND lower(t.sport) = ${sportFilter} THEN 0 ELSE 1 END,
                   p.created_at DESC
               ) AS rn,
+              FIRST_VALUE(p.email) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.email IS NOT NULL AND p.email != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_email,
+              FIRST_VALUE(p.city) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.city IS NOT NULL AND p.city != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_city,
+              FIRST_VALUE(p.age) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.age IS NOT NULL THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_age,
+              FIRST_VALUE(p.gender) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.gender IS NOT NULL AND p.gender != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_gender,
+              FIRST_VALUE(p.photo_url) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.photo_url IS NOT NULL AND p.photo_url != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_photo_url,
+              FIRST_VALUE(p.jersey_number) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.jersey_number IS NOT NULL AND p.jersey_number != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_jersey_number,
+              FIRST_VALUE(p.jersey_size) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.jersey_size IS NOT NULL AND p.jersey_size != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_jersey_size,
+              FIRST_VALUE(p.achievements) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.achievements IS NOT NULL AND p.achievements != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_achievements,
+              FIRST_VALUE(p.crichero_url) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.crichero_url IS NOT NULL AND p.crichero_url != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_crichero_url,
+              FIRST_VALUE(p.availability_dates) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.availability_dates IS NOT NULL AND p.availability_dates != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_availability_dates,
               COUNT(*) OVER (
                 PARTITION BY COALESCE(p.mobile_number, p.id::text)
               ) AS appearance_count
@@ -114,20 +154,20 @@ router.get("/global-players/search", heavyLimiter, async (req, res) => {
             id,
             name,
             mobile_number AS "mobileNumber",
-            email,
-            city,
-            age,
-            gender,
+            effective_email AS email,
+            effective_city AS city,
+            effective_age AS age,
+            effective_gender AS gender,
             role,
-            photo_url AS "photoUrl",
+            effective_photo_url AS "photoUrl",
             batting_style AS "battingStyle",
             bowling_style AS "bowlingStyle",
             specialization,
-            jersey_number AS "jerseyNumber",
-            jersey_size AS "jerseySize",
-            achievements,
-            crichero_url AS "cricheroUrl",
-            availability_dates AS "availabilityDates",
+            effective_jersey_number AS "jerseyNumber",
+            effective_jersey_size AS "jerseySize",
+            effective_achievements AS achievements,
+            effective_crichero_url AS "cricheroUrl",
+            effective_availability_dates AS "availabilityDates",
             global_player_id AS "globalPlayerId",
             base_price AS "basePrice",
             tournament_sport AS sport,
@@ -165,6 +205,46 @@ router.get("/global-players/search", heavyLimiter, async (req, res) => {
                   CASE WHEN ${sportFilter}::text IS NOT NULL AND lower(t.sport) = ${sportFilter} THEN 0 ELSE 1 END,
                   p.created_at DESC
               ) AS rn,
+              FIRST_VALUE(p.email) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.email IS NOT NULL AND p.email != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_email,
+              FIRST_VALUE(p.city) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.city IS NOT NULL AND p.city != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_city,
+              FIRST_VALUE(p.age) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.age IS NOT NULL THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_age,
+              FIRST_VALUE(p.gender) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.gender IS NOT NULL AND p.gender != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_gender,
+              FIRST_VALUE(p.photo_url) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.photo_url IS NOT NULL AND p.photo_url != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_photo_url,
+              FIRST_VALUE(p.jersey_number) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.jersey_number IS NOT NULL AND p.jersey_number != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_jersey_number,
+              FIRST_VALUE(p.jersey_size) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.jersey_size IS NOT NULL AND p.jersey_size != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_jersey_size,
+              FIRST_VALUE(p.achievements) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.achievements IS NOT NULL AND p.achievements != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_achievements,
+              FIRST_VALUE(p.crichero_url) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.crichero_url IS NOT NULL AND p.crichero_url != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_crichero_url,
+              FIRST_VALUE(p.availability_dates) OVER (
+                PARTITION BY COALESCE(p.mobile_number, p.id::text)
+                ORDER BY CASE WHEN p.availability_dates IS NOT NULL AND p.availability_dates != '' THEN 0 ELSE 1 END, p.created_at DESC
+              ) AS effective_availability_dates,
               COUNT(*) OVER (
                 PARTITION BY COALESCE(p.mobile_number, p.id::text)
               ) AS appearance_count
@@ -182,20 +262,20 @@ router.get("/global-players/search", heavyLimiter, async (req, res) => {
             id,
             name,
             mobile_number AS "mobileNumber",
-            email,
-            city,
-            age,
-            gender,
+            effective_email AS email,
+            effective_city AS city,
+            effective_age AS age,
+            effective_gender AS gender,
             role,
-            photo_url AS "photoUrl",
+            effective_photo_url AS "photoUrl",
             batting_style AS "battingStyle",
             bowling_style AS "bowlingStyle",
             specialization,
-            jersey_number AS "jerseyNumber",
-            jersey_size AS "jerseySize",
-            achievements,
-            crichero_url AS "cricheroUrl",
-            availability_dates AS "availabilityDates",
+            effective_jersey_number AS "jerseyNumber",
+            effective_jersey_size AS "jerseySize",
+            effective_achievements AS achievements,
+            effective_crichero_url AS "cricheroUrl",
+            effective_availability_dates AS "availabilityDates",
             global_player_id AS "globalPlayerId",
             base_price AS "basePrice",
             appearance_count::int AS "appearanceCount"

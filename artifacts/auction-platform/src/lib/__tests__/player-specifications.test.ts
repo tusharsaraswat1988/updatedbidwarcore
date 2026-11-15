@@ -57,4 +57,33 @@ describe("buildSpecificationsPayload", () => {
     );
     expect(specs.find((s) => s.specGroupId === 42)?.value).toBe("Left Hand");
   });
+
+  it("populates extraSelections for all matched groups so dynamic spec dropdowns prefill", () => {
+    const cricketGroups = [
+      { id: 1, groupName: "Batting Hand", displayOrder: 0 },
+      { id: 5, groupName: "Bowling Style", displayOrder: 1 },
+    ];
+    const { legacyForm, extraSelections } = applySpecificationsToSelections(
+      cricketGroups,
+      [{ specGroupId: 1, groupName: "Batting Hand", value: "Right-hand" }],
+      { bowlingStyle: "Medium pace" },
+    );
+
+    expect(legacyForm.battingStyle).toBe("Right-hand");
+    expect(extraSelections[1]).toBe("Right-hand");
+    expect(extraSelections[5]).toBe("Medium pace");
+  });
+
+  it("matches spec groups by groupName even when specGroupId is different or omitted", () => {
+    const cricketGroups = [
+      { id: 99, groupName: "Batting Hand", displayOrder: 0 },
+    ];
+    const { extraSelections } = applySpecificationsToSelections(
+      cricketGroups,
+      [{ specGroupId: 12, groupName: "Batting Hand", value: "Left-hand" }],
+      {},
+    );
+
+    expect(extraSelections[99]).toBe("Left-hand");
+  });
 });
