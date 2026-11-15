@@ -89,7 +89,7 @@ export function RegistrationPaymentReview({
             <Button
               size="sm"
               variant="outline"
-              className="h-8 gap-1 px-2 text-xs text-emerald-300"
+              className="h-8 gap-1 px-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300 border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
               disabled={busy}
               onClick={() => void handleAction("approve")}
             >
@@ -99,7 +99,7 @@ export function RegistrationPaymentReview({
             <Button
               size="sm"
               variant="outline"
-              className="h-8 gap-1 px-2 text-xs text-rose-300"
+              className="h-8 gap-1 px-2 text-xs font-semibold text-rose-700 dark:text-rose-300 border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30"
               disabled={busy}
               onClick={() => void handleAction("reject")}
             >

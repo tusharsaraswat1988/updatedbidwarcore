@@ -1276,7 +1276,7 @@ function PlayerForm({ tournamentId, player, tournamentPlayers, categories, teams
         history={formAuctionHistory}
         isLoading={isFormHistoryLoading}
         fallbackAuctionUnit={tournament?.auctionUnit ?? "points"}
-        emptyState={player || pendingMobileProfile ? "subtle" : "hidden"}
+        emptyState={player || pendingMobileProfile ? "neutral" : "hidden"}
       />
 
       {/* 2. Role & Auction Valuation */}
@@ -2950,7 +2950,7 @@ function PlayerDetailPanel({
           <h3 className="ops-detail__label">Auction</h3>
           <dl>
             <dt>Base</dt>
-            <dd className="font-mono tabular-nums text-primary">
+            <dd className="font-mono font-semibold tabular-nums text-foreground">
               {player.basePrice ? formatIndianRupee(player.basePrice, auctionUnit) : "—"}
             </dd>
             {soldAmount ? (
@@ -3063,18 +3063,18 @@ function PlayerDetailPanel({
         history={auctionHistory}
         isLoading={isHistoryLoading}
         fallbackAuctionUnit={auctionUnit}
-        emptyState="subtle"
+        emptyState="neutral"
       />
 
       {(player.achievements || player.availabilityDates || (sportCaps.hasLegacyCricketSpecs && player.cricheroUrl)) ? (
         <p className="text-[11px] text-muted-foreground leading-snug">
-          {player.availabilityDates ? <span className="text-blue-300">{player.availabilityDates}</span> : null}
+          {player.availabilityDates ? <span className="text-blue-600 dark:text-blue-300 font-medium">{player.availabilityDates}</span> : null}
           {player.availabilityDates && player.achievements ? " · " : null}
           {player.achievements || null}
           {sportCaps.hasLegacyCricketSpecs && player.cricheroUrl ? (
             <>
               {(player.availabilityDates || player.achievements) ? " · " : null}
-              <a href={player.cricheroUrl} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
+              <a href={player.cricheroUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline font-medium">
                 Crichero
               </a>
             </>

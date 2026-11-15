@@ -40,21 +40,25 @@ export function BidwarOrganizerBrandMark({
   iconOnly?: boolean;
 }) {
   const { logos, brandName, miniBrandText, loading } = useBranding();
-  const preset = getBrandSurfacePreset(surface);
+  const effectiveSurface = iconOnly ? "sidebar-compact" : surface;
+  const preset = getBrandSurfacePreset(effectiveSurface);
   const matchedKey = preset.logoOrder.find((key) => Boolean(logos[key]));
   const isWordmark =
-    matchedKey === "main" ||
-    matchedKey === "mainReverse" ||
-    (!matchedKey && (preset.logoOrder[0] === "main" || preset.logoOrder[0] === "mainReverse"));
-  const logoSrc =
-    preset.logoOrder
-      .map((key) =>
-        cldUrl(
-          logos[key],
-          key === "appIcon" ? "appIcon" : key === "main" || key === "mainReverse" ? "brandWordmark" : "headerLogo",
-        ),
-      )
-      .find(Boolean) || getBrandLogoSrc(logos, preset.logoOrder);
+    !iconOnly && (
+      matchedKey === "main" ||
+      matchedKey === "mainReverse" ||
+      (!matchedKey && (preset.logoOrder[0] === "main" || preset.logoOrder[0] === "mainReverse"))
+    );
+  const logoSrc = iconOnly
+    ? (logos.mini ? cldUrl(logos.mini, "appIcon") || logos.mini : logos.appIcon ? cldUrl(logos.appIcon, "appIcon") || logos.appIcon : "")
+    : (preset.logoOrder
+        .map((key) =>
+          cldUrl(
+            logos[key],
+            key === "appIcon" ? "appIcon" : key === "main" || key === "mainReverse" ? "brandWordmark" : "headerLogo",
+          ),
+        )
+        .find(Boolean) || getBrandLogoSrc(logos, preset.logoOrder));
 
   if (loading) {
     return (
@@ -103,9 +107,11 @@ export function BidwarOrganizerBrandMark({
 export function OrganizerDesktopBrandBar({
   tournamentName,
   className,
+  sidebarCollapsed = false,
 }: {
   tournamentName?: string | null;
   className?: string;
+  sidebarCollapsed?: boolean;
 }) {
   const showTournament = !!tournamentName?.trim();
 
@@ -116,7 +122,9 @@ export function OrganizerDesktopBrandBar({
         className,
       )}
     >
-      <BidwarOrganizerBrandMark surface="organizer-main-toolbar" />
+      {sidebarCollapsed && (
+        <BidwarOrganizerBrandMark surface="organizer-main-toolbar" />
+      )}
       {showTournament ? (
         <p
           className="min-w-0 flex-1 text-sm font-medium text-muted-foreground truncate text-right lg:text-left lg:max-w-md"

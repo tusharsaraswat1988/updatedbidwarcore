@@ -460,8 +460,8 @@
 .auction-ops {
   --ops-bg: var(--stage);
   --ops-surface: var(--panel);
-  --ops-input: color-mix(in oklab, var(--stage) 78%, black);
-  --ops-border: color-mix(in oklab, var(--foreground) 16%, transparent);
+  --ops-input: var(--card);
+  --ops-border: var(--border, color-mix(in oklab, var(--foreground) 16%, transparent));
   --ops-text: var(--foreground);
   --ops-text-secondary: var(--muted-foreground);
   --ops-muted: color-mix(in oklab, var(--muted-foreground) 78%, transparent);

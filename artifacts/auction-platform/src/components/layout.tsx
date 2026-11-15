@@ -511,12 +511,12 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
         {/* Header */}
         <div className="h-14 flex items-center border-b border-border flex-shrink-0 px-3 gap-2 min-w-0">
           {collapsed ? (
-            <div className="flex flex-col items-center gap-1.5 w-full py-0.5">
-              <BidwarOrganizerBrandMark surface="organizer-main-toolbar" iconOnly />
+            <div className="flex items-center justify-center w-full h-full">
               <button
                 onClick={toggleCollapsed}
                 title="Expand sidebar"
-                className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                aria-label="Expand sidebar"
+                className="flex items-center justify-center w-9 h-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -527,7 +527,8 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
               <button
                 onClick={toggleCollapsed}
                 title="Collapse sidebar"
-                className="ml-auto flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Collapse sidebar"
+                className="ml-auto flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-accent"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
@@ -552,7 +553,7 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
               menuExpanded={mobileOpen}
               tournamentName={tournamentName}
             />
-            <OrganizerDesktopBrandBar tournamentName={tournamentName} />
+            <OrganizerDesktopBrandBar tournamentName={tournamentName} sidebarCollapsed={collapsed} />
             {children}
           </div>
         ) : (
@@ -562,7 +563,7 @@ function OrganizerAppLayout({ children, tournamentId, noPadding }: LayoutProps) 
               menuExpanded={mobileOpen}
               tournamentName={tournamentName}
             />
-            <OrganizerDesktopBrandBar tournamentName={tournamentName} />
+            <OrganizerDesktopBrandBar tournamentName={tournamentName} sidebarCollapsed={collapsed} />
             <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7 w-full max-w-[90rem] mx-auto flex-1 min-w-0">
               {children}
             </div>
