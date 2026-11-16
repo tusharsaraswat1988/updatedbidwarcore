@@ -76,11 +76,13 @@ describe("OBS V2 Live Player Auction History Chip", () => {
     expect(src).toContain("data-obs-player-history-chip");
   });
 
-  it("evaluates isObsHistoryEnabled and supports dedicated two-line historical area with approved terminology", () => {
+  it("evaluates isObsHistoryEnabled and supports dedicated two-line historical area with approved terminology and smart single-event consolidation", () => {
     expect(src).toContain("isObsHistoryEnabled");
     expect(src).toContain("PAST TOURNAMENT TOP 5");
     expect(src).toContain("HIGHEST PRICE IN PAST AUCTIONS:");
     expect(src).toContain("PRICE IN MOST RECENT AUCTION:");
+    expect(src).toContain("isSameEvent");
+    expect(src).toContain("PAST HIGHEST & LAST AUCTION:");
   });
 });
 
@@ -97,12 +99,14 @@ describe("Live LED Screen Player Auction History Banner", () => {
     expect(src).toContain("data-led-player-history-banner");
   });
 
-  it("evaluates isLedHistoryEnabled and renders HIGHEST PRICE IN PAST AUCTIONS, PRICE IN MOST RECENT AUCTION, and PAST TOURNAMENT TOP 5 badge", () => {
+  it("evaluates isLedHistoryEnabled and renders smart consolidated or distinct cards with approved terminology", () => {
     expect(src).toContain("isLedHistoryEnabled");
     expect(src).toContain("HIGHEST PRICE IN PAST AUCTIONS:");
     expect(src).toContain("PRICE IN MOST RECENT AUCTION:");
     expect(src).toContain("PAST TOURNAMENT TOP 5");
     expect(src).toContain("BOUGHT BY:");
+    expect(src).toContain("isSameEvent");
+    expect(src).toContain("PAST HIGHEST &amp; LAST AUCTION:");
   });
 });
 
@@ -113,11 +117,13 @@ describe("Organiser Auction Panel & Live Viewer Player Auction History", () => {
   );
   const operatorSrc = readFileSync(operatorPath, "utf8");
 
-  it("mounts OperatorPlayerAuctionHistory in auction-operator with approved terminology", () => {
+  it("mounts OperatorPlayerAuctionHistory in auction-operator with approved terminology and smart consolidation", () => {
     expect(operatorSrc).toContain("OperatorPlayerAuctionHistory");
     expect(operatorSrc).toContain("PAST HIGHEST:");
     expect(operatorSrc).toContain("LAST AUCTION PRICE:");
     expect(operatorSrc).toContain("PAST TOURNAMENT TOP 5");
+    expect(operatorSrc).toContain("isSameEvent");
+    expect(operatorSrc).toContain("PAST HIGHEST &amp; LAST AUCTION:");
   });
 
   const viewerPath = path.resolve(
@@ -126,11 +132,27 @@ describe("Organiser Auction Panel & Live Viewer Player Auction History", () => {
   );
   const viewerSrc = readFileSync(viewerPath, "utf8");
 
-  it("mounts LiveViewerPlayerAuctionHistory in liveviewer with approved terminology", () => {
+  it("mounts LiveViewerPlayerAuctionHistory in liveviewer with approved terminology and smart consolidation", () => {
     expect(viewerSrc).toContain("LiveViewerPlayerAuctionHistory");
     expect(viewerSrc).toContain("HIGHEST PRICE IN PAST AUCTIONS:");
     expect(viewerSrc).toContain("PRICE IN MOST RECENT AUCTION:");
     expect(viewerSrc).toContain("PAST TOURNAMENT TOP 5");
+    expect(viewerSrc).toContain("isSameEvent");
+    expect(viewerSrc).toContain("PAST HIGHEST &amp; LAST AUCTION:");
+  });
+
+  const ownerHistoryPath = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../../../owner-app/src/components/OwnerPlayerAuctionHistory.tsx",
+  );
+  const ownerSrc = readFileSync(ownerHistoryPath, "utf8");
+
+  it("implements smart single-card consolidation in OwnerPlayerAuctionHistory when best == last", () => {
+    expect(ownerSrc).toContain("PLAYER AUCTION HISTORY");
+    expect(ownerSrc).toContain("PAST HIGHEST");
+    expect(ownerSrc).toContain("LAST AUCTION PRICE");
+    expect(ownerSrc).toContain("isSameEvent");
+    expect(ownerSrc).toContain("PAST HIGHEST &amp; LAST AUCTION");
   });
 });
 

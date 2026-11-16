@@ -1137,30 +1137,56 @@ export function LiveViewerPlayerAuctionHistory({
   if (!isEnabled || !history?.bestSoldRecord) return null;
 
   const { bestSoldRecord, lastSoldRecord, hasTop5Badge, isBestTop5 } = history;
-  const isTop5 = hasTop5Badge || isBestTop5 || bestSoldRecord.isTop5;
+  const isTop5 = hasTop5Badge || isBestTop5 || bestSoldRecord.isTop5 || lastSoldRecord?.isTop5;
+  const isSameEvent = Boolean(
+    bestSoldRecord &&
+    lastSoldRecord &&
+    bestSoldRecord.tournamentId === lastSoldRecord.tournamentId
+  );
 
   return (
     <div
       data-liveviewer-player-history
       className="mt-2 pt-2 border-t border-amber-500/20 flex flex-col gap-1 text-xs text-left"
     >
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="font-bold text-amber-400 text-xs sm:text-sm uppercase tracking-wide">
-          HIGHEST PRICE IN PAST AUCTIONS: {formatViewerHistoryAmount(bestSoldRecord.soldPrice, unit)}
-        </span>
-        {isTop5 ? (
-          <span className="inline-flex items-center gap-1 bg-amber-400/20 border border-amber-400/40 text-amber-300 font-extrabold text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">
-            🏆 PAST TOURNAMENT TOP 5
-          </span>
-        ) : null}
-      </div>
-
-      {lastSoldRecord ? (
-        <div className="text-white/80 font-medium text-xs sm:text-sm tracking-wide uppercase">
-          PRICE IN MOST RECENT AUCTION: {formatViewerHistoryAmount(lastSoldRecord.soldPrice, unit)}
-          {lastSoldRecord.buyingTeamName ? ` · BOUGHT BY ${lastSoldRecord.buyingTeamName}` : ""}
+      {isSameEvent ? (
+        <div className="flex flex-col gap-0.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-bold text-amber-400 text-xs sm:text-sm uppercase tracking-wide">
+              PAST HIGHEST &amp; LAST AUCTION: {formatViewerHistoryAmount(bestSoldRecord.soldPrice, unit)}
+            </span>
+            {isTop5 ? (
+              <span className="inline-flex items-center gap-1 bg-amber-400/20 border border-amber-400/40 text-amber-300 font-extrabold text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">
+                🏆 PAST TOURNAMENT TOP 5
+              </span>
+            ) : null}
+          </div>
+          <div className="text-white/80 font-medium text-xs sm:text-sm tracking-wide uppercase">
+            {lastSoldRecord?.buyingTeamName ? `BOUGHT BY ${lastSoldRecord.buyingTeamName}` : ""}
+            {bestSoldRecord.tournamentName ? ` (${bestSoldRecord.tournamentName})` : ""}
+          </div>
         </div>
-      ) : null}
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-bold text-amber-400 text-xs sm:text-sm uppercase tracking-wide">
+              HIGHEST PRICE IN PAST AUCTIONS: {formatViewerHistoryAmount(bestSoldRecord.soldPrice, unit)}
+            </span>
+            {isTop5 ? (
+              <span className="inline-flex items-center gap-1 bg-amber-400/20 border border-amber-400/40 text-amber-300 font-extrabold text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">
+                🏆 PAST TOURNAMENT TOP 5
+              </span>
+            ) : null}
+          </div>
+
+          {lastSoldRecord ? (
+            <div className="text-white/80 font-medium text-xs sm:text-sm tracking-wide uppercase">
+              PRICE IN MOST RECENT AUCTION: {formatViewerHistoryAmount(lastSoldRecord.soldPrice, unit)}
+              {lastSoldRecord.buyingTeamName ? ` · BOUGHT BY ${lastSoldRecord.buyingTeamName}` : ""}
+            </div>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

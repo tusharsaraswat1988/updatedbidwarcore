@@ -187,6 +187,42 @@ $ pnpm run check:manual
 🔍 Checking BidWar Operation Manual governance...
 ✅ SUCCESS: BidWar Operation Manual verified!
    - File: docs/BIDWAR_OPERATION_MANUAL.md
-   - Size: 1013 lines, 169.9 KB
+   - Size: 1024 lines, 175.8 KB
    - All 13 mandatory governance sections present.
 ```
+
+---
+
+## 10. Smart Single-Event Dynamic Consolidation Architecture
+
+### 10.1 Problem Analysis & UX Audit
+When a player's auction history contains only a single previous tournament appearance, or when their most recent auction happened to be their all-time personal best, naive split rendering produced two redundant cards/lines side-by-side:
+- Box 1: `PAST HIGHEST: ₹1.25 LAKH` · `Alumni Premier League 2026`
+- Box 2: `LAST AUCTION PRICE: ₹1.25 LAKH` · `BOUGHT BY: The Dominators by 2005` · `Alumni Premier League 2026`
+
+This presentation caused immediate cognitive confusion for viewers, commentators, and franchise owners:
+1. **Redundancy:** The price (`₹1.25 LAKH`) and tournament name (`Alumni Premier League 2026`) were duplicated.
+2. **Ambiguity:** Viewers were led to believe the player had participated in two conflicting tournaments or suspect a duplicate data glitch in the auction software.
+3. **Wasted Screen Real Estate:** Two cards consumed horizontal width without delivering distinct information.
+
+### 10.2 Architectural Solution: `isSameEvent` Logic
+An intelligent consolidation rule was engineered across all five live client surfaces:
+
+```typescript
+const isSameEvent = Boolean(
+  bestSoldRecord &&
+  lastSoldRecord &&
+  bestSoldRecord.tournamentId === lastSoldRecord.tournamentId
+);
+```
+
+### 10.3 Dynamic Behavior Matrix Across All Variations
+
+| Career Scenario | State Condition | Render Mode | UI Output Across Live Surfaces |
+| :--- | :--- | :--- | :--- |
+| **Scenario 1: Single Past Tournament** | `totalSoldAppearances === 1` | **Smart Consolidated** | **Single Card / Single Block:**<br>`PAST HIGHEST & LAST AUCTION: ₹1.25 LAKH`<br>`BOUGHT BY: The Dominators by 2005 · Alumni Premier League 2026`<br>`🏆 PAST TOURNAMENT TOP 5` |
+| **Scenario 2: Latest Auction is Personal Best** | `totalSoldAppearances > 1` & `best.tournamentId === last.tournamentId` | **Smart Consolidated** | **Single Card / Single Block:**<br>`PAST HIGHEST & LAST AUCTION: ₹1.50 LAKH`<br>`BOUGHT BY: Team X · Tournament C`<br>`(Header indicates total leagues, e.g. 3 leagues)` |
+| **Scenario 3: Peak Auction Differs from Recent** | `totalSoldAppearances > 1` & `best.tournamentId !== last.tournamentId` | **Dual Comparative** | **Two Distinct Cards / Rows:**<br>1. `PAST HIGHEST`: ₹2.50 LAKH · Corporate Cup 2024 · 🏆 PAST TOURNAMENT TOP 5<br>2. `LAST AUCTION PRICE`: ₹1.25 LAKH · BOUGHT BY: Dominators · Alumni League 2026 |
+| **Scenario 4: Equal Prices in Different Tournaments** | `best.soldPrice === last.soldPrice` & `best.tournamentId !== last.tournamentId` | **Dual Comparative** | **Two Distinct Cards:** Both cards display with their respective tournament names and buyers, clearly indicating equal peak valuation across different events. |
+| **Scenario 5: Debut Auction / No History** | `totalSoldAppearances === 0` | **Unmounted** | Component gracefully returns `null`, leaving the active player block clean. |
+

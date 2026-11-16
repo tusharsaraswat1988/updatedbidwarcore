@@ -60,7 +60,12 @@ export function LedPlayerHistoryBanner({
   }
 
   const { bestSoldRecord, lastSoldRecord, hasTop5Badge, isBestTop5 } = history;
-  const isTop5 = hasTop5Badge || isBestTop5 || bestSoldRecord.isTop5;
+  const isTop5 = hasTop5Badge || isBestTop5 || bestSoldRecord.isTop5 || lastSoldRecord?.isTop5;
+  const isSameEvent = Boolean(
+    bestSoldRecord &&
+    lastSoldRecord &&
+    bestSoldRecord.tournamentId === lastSoldRecord.tournamentId
+  );
 
   return (
     <div
@@ -71,32 +76,59 @@ export function LedPlayerHistoryBanner({
         HISTORICAL AUCTION PERFORMANCE
       </p>
 
-      <div className="flex flex-col gap-0.5">
-        <div className="text-amber-300 font-black text-sm sm:text-base tracking-wide uppercase font-['Space_Grotesk'] leading-snug">
-          HIGHEST PRICE IN PAST AUCTIONS: {formatLedAmount(bestSoldRecord.soldPrice, auctionUnit)}
+      {isSameEvent ? (
+        <div className="flex flex-col gap-1">
+          <div className="text-amber-300 font-black text-sm sm:text-base tracking-wide uppercase font-['Space_Grotesk'] leading-snug">
+            PAST HIGHEST &amp; LAST AUCTION: {formatLedAmount(bestSoldRecord.soldPrice, auctionUnit)}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {lastSoldRecord?.buyingTeamName ? (
+              <span className="text-white font-bold text-xs sm:text-sm tracking-wide font-['Space_Grotesk'] uppercase leading-snug break-words">
+                BOUGHT BY: {lastSoldRecord.buyingTeamName}
+              </span>
+            ) : null}
+            {bestSoldRecord.tournamentName ? (
+              <span className="text-white/70 font-semibold text-xs tracking-wide font-['Space_Grotesk'] uppercase">
+                ({bestSoldRecord.tournamentName})
+              </span>
+            ) : null}
+            {isTop5 ? (
+              <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-extrabold text-[10px] sm:text-xs px-2.5 py-0.5 rounded shadow-sm tracking-wide uppercase">
+                🏆 PAST TOURNAMENT TOP 5
+              </span>
+            ) : null}
+          </div>
         </div>
-        {isTop5 ? (
-          <div>
-            <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-extrabold text-[10px] sm:text-xs px-2.5 py-0.5 rounded shadow-sm tracking-wide uppercase">
-              🏆 PAST TOURNAMENT TOP 5
-            </span>
+      ) : (
+        <>
+          <div className="flex flex-col gap-0.5">
+            <div className="text-amber-300 font-black text-sm sm:text-base tracking-wide uppercase font-['Space_Grotesk'] leading-snug">
+              HIGHEST PRICE IN PAST AUCTIONS: {formatLedAmount(bestSoldRecord.soldPrice, auctionUnit)}
+            </div>
+            {isTop5 ? (
+              <div>
+                <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-extrabold text-[10px] sm:text-xs px-2.5 py-0.5 rounded shadow-sm tracking-wide uppercase">
+                  🏆 PAST TOURNAMENT TOP 5
+                </span>
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
 
-      {lastSoldRecord ? (
-        <div className="flex flex-col gap-0.5 mt-1">
-          <div className="text-white font-bold text-xs sm:text-sm tracking-wide font-['Space_Grotesk'] uppercase leading-snug">
-            PRICE IN MOST RECENT AUCTION: {formatLedAmount(lastSoldRecord.soldPrice, auctionUnit)}
-          </div>
-          {lastSoldRecord.buyingTeamName ? (
-            <div className="text-white/85 font-bold text-xs tracking-wide font-['Space_Grotesk'] uppercase leading-snug break-words">
-              BOUGHT BY: {lastSoldRecord.buyingTeamName}
-              {lastSoldRecord.tournamentName ? ` (${lastSoldRecord.tournamentName})` : ""}
+          {lastSoldRecord ? (
+            <div className="flex flex-col gap-0.5 mt-1">
+              <div className="text-white font-bold text-xs sm:text-sm tracking-wide font-['Space_Grotesk'] uppercase leading-snug">
+                PRICE IN MOST RECENT AUCTION: {formatLedAmount(lastSoldRecord.soldPrice, auctionUnit)}
+              </div>
+              {lastSoldRecord.buyingTeamName ? (
+                <div className="text-white/85 font-bold text-xs tracking-wide font-['Space_Grotesk'] uppercase leading-snug break-words">
+                  BOUGHT BY: {lastSoldRecord.buyingTeamName}
+                  {lastSoldRecord.tournamentName ? ` (${lastSoldRecord.tournamentName})` : ""}
+                </div>
+              ) : null}
             </div>
           ) : null}
-        </div>
-      ) : null}
+        </>
+      )}
     </div>
   );
 }

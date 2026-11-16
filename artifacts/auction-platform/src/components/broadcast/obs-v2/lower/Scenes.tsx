@@ -106,7 +106,12 @@ export function ObsPlayerHistoryChip({
   }
 
   const { bestSoldRecord, lastSoldRecord, hasTop5Badge, isBestTop5 } = history;
-  const isTop5 = hasTop5Badge || isBestTop5 || bestSoldRecord.isTop5;
+  const isTop5 = hasTop5Badge || isBestTop5 || bestSoldRecord.isTop5 || lastSoldRecord?.isTop5;
+  const isSameEvent = Boolean(
+    bestSoldRecord &&
+    lastSoldRecord &&
+    bestSoldRecord.tournamentId === lastSoldRecord.tournamentId
+  );
 
   return (
     <div
@@ -123,40 +128,79 @@ export function ObsPlayerHistoryChip({
         lineHeight: 1.15,
       }}
     >
-      <div
-        style={{
-          fontSize: "11px",
-          fontWeight: 800,
-          color: "var(--bw-gold, #f59e0b)",
-          textTransform: "uppercase",
-          letterSpacing: "0.03em",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-        }}
-        title={`HIGHEST PRICE IN PAST AUCTIONS: ${formatObsHistoryAmount(bestSoldRecord.soldPrice)}${isTop5 ? " · PAST TOURNAMENT TOP 5" : ""}`}
-      >
-        HIGHEST PRICE IN PAST AUCTIONS: {formatObsHistoryAmount(bestSoldRecord.soldPrice)}
-        {isTop5 ? " · PAST TOURNAMENT TOP 5" : ""}
-      </div>
-      {lastSoldRecord ? (
-        <div
-          style={{
-            fontSize: "10px",
-            fontWeight: 700,
-            color: "rgba(255, 255, 255, 0.85)",
-            textTransform: "uppercase",
-            letterSpacing: "0.02em",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-          }}
-          title={`PRICE IN MOST RECENT AUCTION: ${formatObsHistoryAmount(lastSoldRecord.soldPrice)}${lastSoldRecord.buyingTeamName ? ` · BOUGHT BY ${lastSoldRecord.buyingTeamName}` : ""}`}
-        >
-          PRICE IN MOST RECENT AUCTION: {formatObsHistoryAmount(lastSoldRecord.soldPrice)}
-          {lastSoldRecord.buyingTeamName ? ` · BOUGHT BY ${lastSoldRecord.buyingTeamName}` : ""}
-        </div>
-      ) : null}
+      {isSameEvent ? (
+        <>
+          <div
+            style={{
+              fontSize: "11px",
+              fontWeight: 800,
+              color: "var(--bw-gold, #f59e0b)",
+              textTransform: "uppercase",
+              letterSpacing: "0.03em",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            title={`PAST HIGHEST & LAST AUCTION: ${formatObsHistoryAmount(bestSoldRecord.soldPrice)}${isTop5 ? " · PAST TOURNAMENT TOP 5" : ""}`}
+          >
+            PAST HIGHEST &amp; LAST AUCTION: {formatObsHistoryAmount(bestSoldRecord.soldPrice)}
+            {isTop5 ? " · PAST TOURNAMENT TOP 5" : ""}
+          </div>
+          <div
+            style={{
+              fontSize: "10px",
+              fontWeight: 700,
+              color: "rgba(255, 255, 255, 0.85)",
+              textTransform: "uppercase",
+              letterSpacing: "0.02em",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            title={`${lastSoldRecord?.buyingTeamName ? `BOUGHT BY ${lastSoldRecord.buyingTeamName}` : ""}${bestSoldRecord.tournamentName ? ` (${bestSoldRecord.tournamentName})` : ""}`}
+          >
+            {lastSoldRecord?.buyingTeamName ? `BOUGHT BY ${lastSoldRecord.buyingTeamName}` : ""}
+            {bestSoldRecord.tournamentName ? ` (${bestSoldRecord.tournamentName})` : ""}
+          </div>
+        </>
+      ) : (
+        <>
+          <div
+            style={{
+              fontSize: "11px",
+              fontWeight: 800,
+              color: "var(--bw-gold, #f59e0b)",
+              textTransform: "uppercase",
+              letterSpacing: "0.03em",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            title={`HIGHEST PRICE IN PAST AUCTIONS: ${formatObsHistoryAmount(bestSoldRecord.soldPrice)}${isTop5 ? " · PAST TOURNAMENT TOP 5" : ""}`}
+          >
+            HIGHEST PRICE IN PAST AUCTIONS: {formatObsHistoryAmount(bestSoldRecord.soldPrice)}
+            {isTop5 ? " · PAST TOURNAMENT TOP 5" : ""}
+          </div>
+          {lastSoldRecord ? (
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: 700,
+                color: "rgba(255, 255, 255, 0.85)",
+                textTransform: "uppercase",
+                letterSpacing: "0.02em",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+              title={`PRICE IN MOST RECENT AUCTION: ${formatObsHistoryAmount(lastSoldRecord.soldPrice)}${lastSoldRecord.buyingTeamName ? ` · BOUGHT BY ${lastSoldRecord.buyingTeamName}` : ""}`}
+            >
+              PRICE IN MOST RECENT AUCTION: {formatObsHistoryAmount(lastSoldRecord.soldPrice)}
+              {lastSoldRecord.buyingTeamName ? ` · BOUGHT BY ${lastSoldRecord.buyingTeamName}` : ""}
+            </div>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

@@ -597,6 +597,8 @@ function TeamSquadSnapshot({
   teamId,
   unit,
   tier,
+  biddingActive = false,
+  collapseSignal = 0,
 }: {
   teamColor: string;
   teamPurse: TeamPurse | null;
@@ -604,8 +606,16 @@ function TeamSquadSnapshot({
   teamId: number;
   unit: ReturnType<typeof resolveAuctionUnit>;
   tier: DeviceTier;
+  biddingActive?: boolean;
+  collapseSignal?: number;
 }) {
   const [expanded, setExpanded] = useState<SquadListCategory | null>(null);
+
+  useEffect(() => {
+    if (biddingActive || collapseSignal > 0) {
+      setExpanded(null);
+    }
+  }, [biddingActive, collapseSignal]);
 
   const { data: allPlayers } = useListPlayers(tournamentId, {
     query: {
@@ -922,6 +932,8 @@ function TeamPurseFooter({
   tier,
   highlightBoost = false,
   purseOverride = null,
+  biddingActive = false,
+  collapseSignal = 0,
 }: {
   teamColor: string;
   teamPurse: TeamPurse | null;
@@ -936,6 +948,8 @@ function TeamPurseFooter({
     boosterTotal: number;
     maxAllowedBid: number;
   } | null;
+  biddingActive?: boolean;
+  collapseSignal?: number;
 }) {
   const { data: allPlayers } = useListPlayers(tournamentId, {
     query: {
@@ -1068,6 +1082,12 @@ function TeamPurseFooter({
   ]);
 
   const [showBreakdown, setShowBreakdown] = useState(false);
+
+  useEffect(() => {
+    if (biddingActive || collapseSignal > 0) {
+      setShowBreakdown(false);
+    }
+  }, [biddingActive, collapseSignal]);
 
   if (tier === "mobile") {
     return (
@@ -2261,9 +2281,15 @@ export function LiveBid({
 
   const [showSignOutConfirm, setShowSignOutConfirm]  = useState(false);
   const [showPlayerBioDrawer, setShowPlayerBioDrawer] = useState(false);
+  const [collapseSignal, setCollapseSignal]           = useState(0);
   const [syncing,            setSyncing]             = useState(false);
   const [syncFailed,         setSyncFailed]          = useState(false);
   const syncAttempted = useRef(false);
+
+  const prevTimerActiveRef = useRef(false);
+  const prevBidRef = useRef<number | undefined>(undefined);
+  const prevPlayerIdRef = useRef<number | undefined>(undefined);
+  const prevStatusRef = useRef<string | undefined>(undefined);
 
   const teamColor = team.color || "#F59E0B";
   const unit = resolveAuctionUnit(tournament?.auctionUnit);
@@ -2344,8 +2370,35 @@ export function LiveBid({
     setTimeout(() => setSyncing(false), 1200);
   }
 
+  // ── Auto-collapse any open drawers/popups when bidding starts or advances ──
+  useEffect(() => {
+    const timerStarted = !prevTimerActiveRef.current && timerActive;
+    const bidChanged = prevBidRef.current !== undefined && state?.currentBid !== prevBidRef.current;
+    const playerChanged = prevPlayerIdRef.current !== undefined && state?.currentPlayer?.id !== prevPlayerIdRef.current;
+    const statusBecameActive = prevStatusRef.current !== "active" && state?.status === "active";
+
+    prevTimerActiveRef.current = timerActive;
+    prevBidRef.current = state?.currentBid;
+    prevPlayerIdRef.current = state?.currentPlayer?.id;
+    prevStatusRef.current = state?.status;
+
+    if (isActive && hasPlayer && (timerStarted || statusBecameActive || bidChanged || playerChanged)) {
+      setShowPlayerBioDrawer(false);
+      setCollapseSignal((s) => s + 1);
+    }
+  }, [timerActive, state?.currentBid, state?.currentPlayer?.id, state?.status, isActive, hasPlayer]);
+
+  useEffect(() => {
+    if (bidding) {
+      setShowPlayerBioDrawer(false);
+      setCollapseSignal((s) => s + 1);
+    }
+  }, [bidding]);
+
   async function handleBidTap() {
     if (isOnBreak || !canBid) return;
+    setShowPlayerBioDrawer(false);
+    setCollapseSignal((s) => s + 1);
     hapticBid();
     const result = await runBid(nextBidAmount, onBid, canBid && !isOnBreak);
     if (result === "blocked") return;

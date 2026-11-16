@@ -291,7 +291,12 @@ export function OperatorPlayerAuctionHistory({
   if (!isEnabled || !history?.bestSoldRecord) return null;
 
   const { bestSoldRecord, lastSoldRecord, hasTop5Badge, isBestTop5 } = history;
-  const isTop5 = hasTop5Badge || isBestTop5 || bestSoldRecord.isTop5;
+  const isTop5 = hasTop5Badge || isBestTop5 || bestSoldRecord.isTop5 || lastSoldRecord?.isTop5;
+  const isSameEvent = Boolean(
+    bestSoldRecord &&
+    lastSoldRecord &&
+    bestSoldRecord.tournamentId === lastSoldRecord.tournamentId
+  );
 
   return (
     <div
@@ -299,36 +304,62 @@ export function OperatorPlayerAuctionHistory({
       className="mt-1 pt-1 border-t border-amber-500/25 flex flex-col gap-0.5 text-[10px] leading-tight"
       title="Player Auction Performance History"
     >
-      <div className="flex flex-wrap items-center gap-1 font-bold text-amber-400">
-        <span className="font-semibold text-white/60 shrink-0">PAST HIGHEST:</span>
-        <span className="font-mono text-emerald-400 shrink-0">
-          {formatShortIndianRupee(bestSoldRecord.soldPrice, unit)}
-        </span>
-        {isTop5 ? (
-          <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-amber-400/20 text-amber-300 text-[9px] font-black shrink-0 uppercase tracking-wide">
-            🏆 PAST TOURNAMENT TOP 5
+      {isSameEvent ? (
+        <div className="flex flex-wrap items-center gap-1 font-bold text-amber-400">
+          <span className="font-semibold text-white/60 shrink-0">PAST HIGHEST &amp; LAST AUCTION:</span>
+          <span className="font-mono text-emerald-400 shrink-0">
+            {formatShortIndianRupee(bestSoldRecord.soldPrice, unit)}
           </span>
-        ) : null}
-        {bestSoldRecord.tournamentName ? (
-          <span className="text-white/40 text-[9px] truncate max-w-[130px]" title={bestSoldRecord.tournamentName}>
-            ({bestSoldRecord.tournamentName})
-          </span>
-        ) : null}
-      </div>
-
-      {lastSoldRecord ? (
-        <div className="flex flex-wrap items-center gap-1 font-medium text-white/80">
-          <span className="font-semibold text-white/60 shrink-0">LAST AUCTION PRICE:</span>
-          <span className="font-mono text-amber-200 shrink-0">
-            {formatShortIndianRupee(lastSoldRecord.soldPrice, unit)}
-          </span>
-          {lastSoldRecord.buyingTeamName ? (
-            <span className="text-[9px] text-white/70 truncate max-w-[150px]" title={`BOUGHT BY ${lastSoldRecord.buyingTeamName}`}>
+          {lastSoldRecord?.buyingTeamName ? (
+            <span className="text-[9px] text-white/90 truncate max-w-[150px]" title={`BOUGHT BY ${lastSoldRecord.buyingTeamName}`}>
               · BOUGHT BY {lastSoldRecord.buyingTeamName}
             </span>
           ) : null}
+          {bestSoldRecord.tournamentName ? (
+            <span className="text-white/50 text-[9px] truncate max-w-[120px]" title={bestSoldRecord.tournamentName}>
+              ({bestSoldRecord.tournamentName})
+            </span>
+          ) : null}
+          {isTop5 ? (
+            <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-amber-400/20 text-amber-300 text-[9px] font-black shrink-0 uppercase tracking-wide">
+              🏆 PAST TOURNAMENT TOP 5
+            </span>
+          ) : null}
         </div>
-      ) : null}
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-1 font-bold text-amber-400">
+            <span className="font-semibold text-white/60 shrink-0">PAST HIGHEST:</span>
+            <span className="font-mono text-emerald-400 shrink-0">
+              {formatShortIndianRupee(bestSoldRecord.soldPrice, unit)}
+            </span>
+            {isTop5 ? (
+              <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-amber-400/20 text-amber-300 text-[9px] font-black shrink-0 uppercase tracking-wide">
+                🏆 PAST TOURNAMENT TOP 5
+              </span>
+            ) : null}
+            {bestSoldRecord.tournamentName ? (
+              <span className="text-white/40 text-[9px] truncate max-w-[130px]" title={bestSoldRecord.tournamentName}>
+                ({bestSoldRecord.tournamentName})
+              </span>
+            ) : null}
+          </div>
+
+          {lastSoldRecord ? (
+            <div className="flex flex-wrap items-center gap-1 font-medium text-white/80">
+              <span className="font-semibold text-white/60 shrink-0">LAST AUCTION PRICE:</span>
+              <span className="font-mono text-amber-200 shrink-0">
+                {formatShortIndianRupee(lastSoldRecord.soldPrice, unit)}
+              </span>
+              {lastSoldRecord.buyingTeamName ? (
+                <span className="text-[9px] text-white/70 truncate max-w-[150px]" title={`BOUGHT BY ${lastSoldRecord.buyingTeamName}`}>
+                  · BOUGHT BY {lastSoldRecord.buyingTeamName}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }
