@@ -183,7 +183,7 @@ export function PlayerAuctionHistorySection({
                   </span>
                   {record.isTop5 && (
                     <span className="inline-flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-gradient-to-r from-amber-500/20 via-yellow-400/25 to-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-400/60 shadow-xs">
-                      🏆 TOP 5 STAR
+                      🏆 PAST TOURNAMENT TOP 5
                     </span>
                   )}
                 </div>

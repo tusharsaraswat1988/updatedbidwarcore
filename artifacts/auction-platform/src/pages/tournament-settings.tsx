@@ -2046,7 +2046,7 @@ export default function TournamentSettings() {
                               <FieldTooltip text="When enabled, previous tournament sales and Top 5 badges are shown for the active player during live auction." />
                             </Label>
                             <p className="text-[11px] text-muted-foreground">
-                              Show historical prices & Top 5 Star badges across live auction surfaces.
+                              Show historical prices & Past Tournament Top 5 badges across live auction surfaces.
                             </p>
                           </div>
                           <Switch
