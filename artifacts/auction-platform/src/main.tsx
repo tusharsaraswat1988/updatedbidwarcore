@@ -6,6 +6,23 @@ import "./index.css";
 import { readWindowDehydratedState, readWindowInitialData, normalizeHomeInitialData } from "@/lib/initial-data/types";
 import { homePageInitialData } from "@/lib/initial-data/initial-data-provider";
 import { readWindowAcademyData } from "@/lib/academy-public";
+import { isChunkLoadError, reloadForFreshVersion } from "@/lib/lazy-with-retry";
+
+// Global resilience against stale Vite deployment chunks and temporary connection drops
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", (event) => {
+    console.warn("[Vite PreloadError] Dynamic import chunk failed, initiating version recovery:", event);
+    event.preventDefault();
+    reloadForFreshVersion();
+  });
+
+  window.addEventListener("unhandledrejection", (event) => {
+    if (isChunkLoadError(event.reason)) {
+      console.warn("[Unhandled Rejection] Chunk load error detected, initiating version recovery:", event.reason);
+      reloadForFreshVersion();
+    }
+  });
+}
 
 const root = document.getElementById("root")!;
 

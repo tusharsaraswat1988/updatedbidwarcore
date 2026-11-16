@@ -1,7 +1,7 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatShortIndianRupee, type AuctionUnit } from "@/lib/format";
-import { isOwnerAppHistoryEnabled } from "@workspace/platform-core/tournament-features";
+import { isOwnerAppHistoryEnabled } from "@workspace/api-base/tournament-features";
 
 export interface PlayerAuctionHistoryRecord {
   tournamentId: number;

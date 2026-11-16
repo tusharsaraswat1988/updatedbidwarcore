@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useWakeLock } from "../hooks/useWakeLock";
 import {
   useGetTeam, getGetTeamQueryKey,
@@ -26,6 +26,7 @@ import { Completed } from "./Completed";
 import { Squad } from "./Squad";
 import { Scout } from "./Scout";
 import { upsertSavedAuction, removeSavedAuction } from "./Launcher";
+import { loadOnboardingEntries } from "@/lib/owner-flow";
 import { isPlayerOnAuctionStage, AUCTION_STAGE_NAV_MESSAGE } from "@/lib/auction-stage";
 import { useAuctionSocket } from "@/hooks/use-auction-socket";
 import { useMutationSync } from "@/hooks/use-mutation-sync";
@@ -61,6 +62,7 @@ function extractBidErrorMessage(err: unknown): string {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function OwnerRoute() {
+  const [, setLocation] = useLocation();
   const params       = useParams<{ id: string; teamId: string }>();
   const tournamentId = parseInt(params.id || "0");
   const teamId       = parseInt(params.teamId || "0");
@@ -288,6 +290,23 @@ export function OwnerRoute() {
     );
   }
 
+  const handleBackFromGate = useCallback(() => {
+    const entries = loadOnboardingEntries();
+    if (entries.length > 1) {
+      setLocation("/join/teams");
+      return;
+    }
+    if (entries.length === 1) {
+      setLocation("/join");
+      return;
+    }
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    setLocation("/");
+  }, [setLocation]);
+
   if (screen === "gate") {
     return (
       <AccessCode
@@ -297,7 +316,9 @@ export function OwnerRoute() {
         teamShortCode={team.shortCode || "?"}
         teamColor={teamColor}
         teamLogoUrl={team.logoUrl}
+        tournamentName={tournament?.name}
         onVerified={() => setScreen("warmup")}
+        onBack={handleBackFromGate}
       />
     );
   }

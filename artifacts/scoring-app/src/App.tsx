@@ -17,6 +17,7 @@ import { ScoringAppDocumentChrome } from "@/components/scoring-app-document-chro
 import { ScorerPwaProvider } from "@/contexts/scorer-pwa-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
 import {
   useGetTournament,
   getGetTournamentQueryKey,
@@ -24,63 +25,63 @@ import {
 
 // Route-level code splitting — loading one organizer page must not pull in
 // players/matches/mission-control/image-cropper and the rest of the graph.
-const SportsMissionControlPage = lazy(() => import("@/pages/sports/mission-control"));
-const BadmintonTournamentHub = lazy(() => import("@/pages/badminton/tournament-hub"));
-const BadmintonPlayersPage = lazy(() => import("@/pages/badminton/players"));
-const BadmintonMatchesPage = lazy(() => import("@/pages/badminton/matches"));
-const BadmintonMatchControlPage = lazy(() => import("@/pages/badminton/match-control"));
-const BadmintonCourtsPage = lazy(() => import("@/pages/badminton/courts"));
-const BadmintonScorersPage = lazy(() => import("@/pages/badminton/scorers"));
-const BadmintonCategoriesPage = lazy(() => import("@/pages/badminton/categories"));
-const BadmintonFixturesPage = lazy(() => import("@/pages/badminton/fixtures"));
-const BadmintonSchedulePage = lazy(() => import("@/pages/badminton/schedule"));
-const BadmintonControlCenterPage = lazy(() => import("@/pages/badminton/control-center"));
-const BadmintonResultsPage = lazy(() => import("@/pages/badminton/results"));
-const BadmintonSummaryPage = lazy(() => import("@/pages/badminton/summary"));
-const BadmintonScoringFormatPage = lazy(() => import("@/pages/badminton/scoring-format"));
-const BadmintonAnalyticsPage = lazy(() => import("@/pages/badminton/analytics"));
-const BadmintonBrandingPage = lazy(() => import("@/pages/badminton/branding"));
-const BadmintonBroadcastPage = lazy(() => import("@/pages/badminton/broadcast"));
+const SportsMissionControlPage = lazyWithRetry(() => import("@/pages/sports/mission-control"));
+const BadmintonTournamentHub = lazyWithRetry(() => import("@/pages/badminton/tournament-hub"));
+const BadmintonPlayersPage = lazyWithRetry(() => import("@/pages/badminton/players"));
+const BadmintonMatchesPage = lazyWithRetry(() => import("@/pages/badminton/matches"));
+const BadmintonMatchControlPage = lazyWithRetry(() => import("@/pages/badminton/match-control"));
+const BadmintonCourtsPage = lazyWithRetry(() => import("@/pages/badminton/courts"));
+const BadmintonScorersPage = lazyWithRetry(() => import("@/pages/badminton/scorers"));
+const BadmintonCategoriesPage = lazyWithRetry(() => import("@/pages/badminton/categories"));
+const BadmintonFixturesPage = lazyWithRetry(() => import("@/pages/badminton/fixtures"));
+const BadmintonSchedulePage = lazyWithRetry(() => import("@/pages/badminton/schedule"));
+const BadmintonControlCenterPage = lazyWithRetry(() => import("@/pages/badminton/control-center"));
+const BadmintonResultsPage = lazyWithRetry(() => import("@/pages/badminton/results"));
+const BadmintonSummaryPage = lazyWithRetry(() => import("@/pages/badminton/summary"));
+const BadmintonScoringFormatPage = lazyWithRetry(() => import("@/pages/badminton/scoring-format"));
+const BadmintonAnalyticsPage = lazyWithRetry(() => import("@/pages/badminton/analytics"));
+const BadmintonBrandingPage = lazyWithRetry(() => import("@/pages/badminton/branding"));
+const BadmintonBroadcastPage = lazyWithRetry(() => import("@/pages/badminton/broadcast"));
 
-const CricketDashboard = lazy(() => import("@/pages/cricket/dashboard"));
-const CricketSettings = lazy(() => import("@/pages/cricket/settings"));
-const CricketRules = lazy(() => import("@/pages/cricket/rules"));
-const CricketTeams = lazy(() => import("@/pages/cricket/teams"));
-const CricketPlayers = lazy(() => import("@/pages/cricket/players"));
-const CricketFixtures = lazy(() => import("@/pages/cricket/fixtures"));
-const CricketStandings = lazy(() => import("@/pages/cricket/standings"));
-const CricketStats = lazy(() => import("@/pages/cricket/stats"));
-const CricketOfficials = lazy(() => import("@/pages/cricket/officials"));
-const CricketAwards = lazy(() => import("@/pages/cricket/awards"));
-const CricketReports = lazy(() => import("@/pages/cricket/reports"));
-const CricketMatchCenter = lazy(() => import("@/pages/cricket/match-center"));
-const CricketLiveControl = lazy(() => import("@/pages/cricket/live-control"));
-const CricketLinks = lazy(() => import("@/pages/cricket/links"));
-const ScoringMatchList = lazy(() => import("@/pages/scoring-match-list"));
-const ScoringMatch = lazy(() => import("@/pages/scoring-match"));
-const ScoringSchedule = lazy(() => import("@/pages/scoring-schedule"));
-const ScoringPublic = lazy(() => import("@/pages/scoring-public"));
-const ScoringPublicMatches = lazy(() => import("@/pages/scoring-public-matches"));
-const ScoringPublicStandings = lazy(() => import("@/pages/scoring-public-standings"));
-const ScoringPublicTeams = lazy(() => import("@/pages/scoring-public-teams"));
-const ScoringPublicPlayers = lazy(() => import("@/pages/scoring-public-players"));
-const ScoringPublicStatistics = lazy(() => import("@/pages/scoring-public-statistics"));
-const ScoringPublicSponsors = lazy(() => import("@/pages/scoring-public-sponsors"));
-const ScoringMatchPublic = lazy(() => import("@/pages/scoring-match-public"));
-const ScoringPlayerPublic = lazy(() => import("@/pages/scoring-player-public"));
-const ScoringTeamPublic = lazy(() => import("@/pages/scoring-team-public"));
-const CricketGlobalPlayer = lazy(() => import("@/pages/cricket-global-player"));
-const CricketGlobalLeaderboards = lazy(() => import("@/pages/cricket-global-leaderboards"));
-const CricketScorerHomePage = lazy(() => import("@/pages/cricket/scorer-home"));
-const CricketScorerPage = lazy(() => import("@/pages/cricket/scorer"));
-const ScoreDisplay = lazy(() => import("@/pages/score-display"));
-const BadmintonScorerPage = lazy(() => import("@/pages/badminton/scorer"));
-const BadmintonScorerHomePage = lazy(() => import("@/pages/badminton/scorer-home"));
-const BadmintonPublicStandingsPage = lazy(() => import("@/pages/badminton/public-standings"));
-const BadmintonDisplayPage = lazy(() => import("@/pages/badminton/display"));
-const BadmintonOverlayPage = lazy(() => import("@/pages/badminton/overlay"));
-const NotFound = lazy(() => import("@/pages/not-found"));
-const ScoringLoginPage = lazy(() => import("@/pages/scoring-login"));
+const CricketDashboard = lazyWithRetry(() => import("@/pages/cricket/dashboard"));
+const CricketSettings = lazyWithRetry(() => import("@/pages/cricket/settings"));
+const CricketRules = lazyWithRetry(() => import("@/pages/cricket/rules"));
+const CricketTeams = lazyWithRetry(() => import("@/pages/cricket/teams"));
+const CricketPlayers = lazyWithRetry(() => import("@/pages/cricket/players"));
+const CricketFixtures = lazyWithRetry(() => import("@/pages/cricket/fixtures"));
+const CricketStandings = lazyWithRetry(() => import("@/pages/cricket/standings"));
+const CricketStats = lazyWithRetry(() => import("@/pages/cricket/stats"));
+const CricketOfficials = lazyWithRetry(() => import("@/pages/cricket/officials"));
+const CricketAwards = lazyWithRetry(() => import("@/pages/cricket/awards"));
+const CricketReports = lazyWithRetry(() => import("@/pages/cricket/reports"));
+const CricketMatchCenter = lazyWithRetry(() => import("@/pages/cricket/match-center"));
+const CricketLiveControl = lazyWithRetry(() => import("@/pages/cricket/live-control"));
+const CricketLinks = lazyWithRetry(() => import("@/pages/cricket/links"));
+const ScoringMatchList = lazyWithRetry(() => import("@/pages/scoring-match-list"));
+const ScoringMatch = lazyWithRetry(() => import("@/pages/scoring-match"));
+const ScoringSchedule = lazyWithRetry(() => import("@/pages/scoring-schedule"));
+const ScoringPublic = lazyWithRetry(() => import("@/pages/scoring-public"));
+const ScoringPublicMatches = lazyWithRetry(() => import("@/pages/scoring-public-matches"));
+const ScoringPublicStandings = lazyWithRetry(() => import("@/pages/scoring-public-standings"));
+const ScoringPublicTeams = lazyWithRetry(() => import("@/pages/scoring-public-teams"));
+const ScoringPublicPlayers = lazyWithRetry(() => import("@/pages/scoring-public-players"));
+const ScoringPublicStatistics = lazyWithRetry(() => import("@/pages/scoring-public-statistics"));
+const ScoringPublicSponsors = lazyWithRetry(() => import("@/pages/scoring-public-sponsors"));
+const ScoringMatchPublic = lazyWithRetry(() => import("@/pages/scoring-match-public"));
+const ScoringPlayerPublic = lazyWithRetry(() => import("@/pages/scoring-player-public"));
+const ScoringTeamPublic = lazyWithRetry(() => import("@/pages/scoring-team-public"));
+const CricketGlobalPlayer = lazyWithRetry(() => import("@/pages/cricket-global-player"));
+const CricketGlobalLeaderboards = lazyWithRetry(() => import("@/pages/cricket-global-leaderboards"));
+const CricketScorerHomePage = lazyWithRetry(() => import("@/pages/cricket/scorer-home"));
+const CricketScorerPage = lazyWithRetry(() => import("@/pages/cricket/scorer"));
+const ScoreDisplay = lazyWithRetry(() => import("@/pages/score-display"));
+const BadmintonScorerPage = lazyWithRetry(() => import("@/pages/badminton/scorer"));
+const BadmintonScorerHomePage = lazyWithRetry(() => import("@/pages/badminton/scorer-home"));
+const BadmintonPublicStandingsPage = lazyWithRetry(() => import("@/pages/badminton/public-standings"));
+const BadmintonDisplayPage = lazyWithRetry(() => import("@/pages/badminton/display"));
+const BadmintonOverlayPage = lazyWithRetry(() => import("@/pages/badminton/overlay"));
+const NotFound = lazyWithRetry(() => import("@/pages/not-found"));
+const ScoringLoginPage = lazyWithRetry(() => import("@/pages/scoring-login"));
 
 const BASE = SCORING_APP_BASE.replace(/\/$/, "");
 
@@ -405,16 +406,24 @@ function Router() {
   );
 }
 
+function ScoringShell() {
+  const [location] = useLocation();
+
+  return (
+    <ErrorBoundary fallbackTitle="BidWar Sports Platform" resetKey={location}>
+      <ScorerPwaProvider>
+        <ScoringAppDocumentChrome />
+        <LocalOperatorPinEffects />
+        <Router />
+      </ScorerPwaProvider>
+    </ErrorBoundary>
+  );
+}
+
 export default function App() {
   return (
     <WouterRouter base={BASE}>
-      <ErrorBoundary fallbackTitle="BidWar Sports Platform">
-        <ScorerPwaProvider>
-          <ScoringAppDocumentChrome />
-          <LocalOperatorPinEffects />
-          <Router />
-        </ScorerPwaProvider>
-      </ErrorBoundary>
+      <ScoringShell />
     </WouterRouter>
   );
 }

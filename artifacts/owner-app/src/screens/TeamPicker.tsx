@@ -95,7 +95,7 @@ export function TeamPicker() {
   }, [setLocation]);
 
   function handleSelect(entry: OwnerOnboardingEntry) {
-    clearOnboardingEntries();
+    // Keep onboarding entries in session so back button can return to team selection if wrong team was selected
     setLocation(ownerDashboardRoute(entry.tournamentId, entry.teamId));
   }
 
@@ -124,11 +124,13 @@ export function TeamPicker() {
           {logos.mini ? (
             <img src={logos.mini} alt={brandName} className="h-7 w-auto" />
           ) : (
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center font-display font-black text-xs bg-amber-400/20 text-amber-400 border border-amber-400/30">
-              {miniBrandText}
-            </div>
+            <>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-display font-black text-xs bg-amber-400/20 text-amber-400 border border-amber-400/30">
+                {miniBrandText}
+              </div>
+              <span className="font-display font-black text-lg text-white">{brandName}</span>
+            </>
           )}
-          <span className="font-display font-black text-lg text-white">{brandName}</span>
         </div>
         <h1 className="font-display font-black text-2xl text-white">Select your team</h1>
         <p className="text-sm text-[#a8a0c4] mt-1">

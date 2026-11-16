@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider, hydrate, type DehydratedState } from 
 import { useBranding } from "@/hooks/use-branding";
 import { useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { PageTracking } from "@/components/page-tracking";
+import { lazyWithRetry } from "@/lib/lazy-with-retry";
 import {
   applyPwaHeadBranding,
   ADMIN_MANIFEST_HREF,
@@ -25,25 +26,25 @@ import { isOrganizerRoute, syncDocumentSurfaceTheme } from "@/lib/portal-theme";
 import Landing from "@/pages/lovable-home";
 import AdminLogin from "@/pages/admin-login";
 
-const PlatformApp = lazy(() => import("./platform-app"));
+const PlatformApp = lazyWithRetry(() => import("./platform-app"));
 
-const LegalPage = lazy(() => import("@/pages/legal"));
-const AcademyIndex = lazy(() => import("@/pages/academy/index"));
-const AcademyLesson = lazy(() => import("@/pages/academy/lesson"));
-const SeoSportLanding = lazy(() => import("@/pages/seo-sport-landing"));
-const UpcomingAuctions = lazy(() => import("@/pages/upcoming-auctions"));
-const ContactPage = lazy(() => import("@/pages/contact"));
-const PricingPage = lazy(() => import("@/pages/pricing"));
-const AuctionTipsPage = lazy(() => import("@/pages/auction-tips"));
-const BplHub = lazy(() => import("@/pages/bpl/bpl-hub"));
-const BplEdition = lazy(() => import("@/pages/bpl/bpl-edition"));
+const LegalPage = lazyWithRetry(() => import("@/pages/legal"));
+const AcademyIndex = lazyWithRetry(() => import("@/pages/academy/index"));
+const AcademyLesson = lazyWithRetry(() => import("@/pages/academy/lesson"));
+const SeoSportLanding = lazyWithRetry(() => import("@/pages/seo-sport-landing"));
+const UpcomingAuctions = lazyWithRetry(() => import("@/pages/upcoming-auctions"));
+const ContactPage = lazyWithRetry(() => import("@/pages/contact"));
+const PricingPage = lazyWithRetry(() => import("@/pages/pricing"));
+const AuctionTipsPage = lazyWithRetry(() => import("@/pages/auction-tips"));
+const BplHub = lazyWithRetry(() => import("@/pages/bpl/bpl-hub"));
+const BplEdition = lazyWithRetry(() => import("@/pages/bpl/bpl-edition"));
 
 // Blog
-const BlogIndex    = lazy(() => import("@/pages/blog/index"));
-const BlogArticle  = lazy(() => import("@/pages/blog/article"));
-const BlogCategory = lazy(() => import("@/pages/blog/category"));
-const BlogTag      = lazy(() => import("@/pages/blog/tag"));
-const BlogAuthor   = lazy(() => import("@/pages/blog/author"));
+const BlogIndex    = lazyWithRetry(() => import("@/pages/blog/index"));
+const BlogArticle  = lazyWithRetry(() => import("@/pages/blog/article"));
+const BlogCategory = lazyWithRetry(() => import("@/pages/blog/category"));
+const BlogTag      = lazyWithRetry(() => import("@/pages/blog/tag"));
+const BlogAuthor   = lazyWithRetry(() => import("@/pages/blog/author"));
 
 
 function makeBrowserQueryClient(
@@ -252,6 +253,21 @@ function Router() {
   );
 }
 
+function AppShell() {
+  const [location] = useLocation();
+
+  return (
+    <>
+      <OrganizerAccountAuthBootstrap />
+      <BrandingEffects />
+      <PageTracking />
+      <ErrorBoundary fallbackTitle="BidWar Platform" resetKey={location}>
+        <Router />
+      </ErrorBoundary>
+    </>
+  );
+}
+
 function App(props: AppProps = {}) {
   const bootstrap = props.pageData === undefined && props.dehydratedState === undefined
     ? resolveClientBootstrapProps()
@@ -270,12 +286,7 @@ function App(props: AppProps = {}) {
           base={import.meta.env.BASE_URL.replace(/\/$/, "")}
           ssrPath={props.ssrPath}
         >
-          <OrganizerAccountAuthBootstrap />
-          <BrandingEffects />
-          <PageTracking />
-          <ErrorBoundary fallbackTitle="BidWar Platform">
-            <Router />
-          </ErrorBoundary>
+          <AppShell />
         </WouterRouter>
       </InitialDataProvider>
     </QueryClientProvider>

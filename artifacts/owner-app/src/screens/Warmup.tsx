@@ -60,7 +60,7 @@ export function Warmup({ teamName, teamShortCode, teamColor, teamLogoUrl, onRead
               {miniBrandText}
             </div>
           )}
-          {!splashSrc && (
+          {!splashSrc && !logos.mini && (
             <span className="font-display font-black text-2xl text-white tracking-wide">{brandName}</span>
           )}
         </div>

@@ -35,11 +35,13 @@ export function Completed({ teamName, teamColor, tournamentName, auctionDate, pl
           {logos.mini ? (
             <img src={logos.mini} alt={brandName} className="h-8 w-auto opacity-60" />
           ) : (
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center font-display font-black text-xs bg-amber-400/20 text-amber-400 border border-amber-400/30 opacity-60">
-              {miniBrandText}
-            </div>
+            <>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-display font-black text-xs bg-amber-400/20 text-amber-400 border border-amber-400/30 opacity-60">
+                {miniBrandText}
+              </div>
+              <span className="font-display font-black text-lg text-white/60 tracking-wide">{brandName}</span>
+            </>
           )}
-          <span className="font-display font-black text-lg text-white/60 tracking-wide">{brandName}</span>
         </div>
 
         <div className="space-y-4">

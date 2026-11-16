@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lock, Eye, EyeOff } from "lucide-react";
+import { Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import {
   fetchOwnerAccessLockoutStatus,
   persistOwnerSession,
@@ -8,6 +9,7 @@ import {
 } from "@workspace/api-base/owner-auth";
 import { useBranding } from "@/hooks/useBranding";
 import { TeamLogo } from "@/components/TeamLogo";
+import { loadOnboardingEntries, clearOnboardingEntries } from "@/lib/owner-flow";
 
 type Props = {
   tournamentId: number;
@@ -16,7 +18,9 @@ type Props = {
   teamShortCode: string;
   teamColor: string;
   teamLogoUrl?: string | null;
+  tournamentName?: string;
   onVerified: () => void;
+  onBack?: () => void;
 };
 
 /** Single access-code gate for all owner entry paths. */
@@ -27,16 +31,40 @@ export function AccessCode({
   teamShortCode,
   teamColor,
   teamLogoUrl,
+  tournamentName,
   onVerified,
+  onBack,
 }: Props) {
+  const [, setLocation] = useLocation();
   const [code, setCode] = useState("");
   const [showCode, setShowCode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [lockoutRemainingSec, setLockoutRemainingSec] = useState(0);
-  const { brandName, logos, poweredByText, miniBrandText } = useBranding();
+  const { poweredByText, showPoweredBy } = useBranding();
 
   const lockedOut = lockoutRemainingSec > 0;
+
+  function handleBack() {
+    if (onBack) {
+      onBack();
+      return;
+    }
+    const entries = loadOnboardingEntries();
+    if (entries.length > 1) {
+      setLocation("/join/teams");
+      return;
+    }
+    if (entries.length === 1) {
+      setLocation("/join");
+      return;
+    }
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    setLocation("/");
+  }
 
   useEffect(() => {
     if (lockoutRemainingSec <= 0) return;
@@ -76,6 +104,7 @@ export function AccessCode({
 
     const result = await verifyOwnerAccessCode(tournamentId, teamId, code);
     if (result.ok) {
+      clearOnboardingEntries();
       persistOwnerSession(teamId, code);
       onVerified();
     } else if (result.reason === "lockout") {
@@ -93,25 +122,90 @@ export function AccessCode({
 
   return (
     <div
-      className="h-full flex flex-col items-center justify-center px-6 bg-background overscroll-none"
+      className="relative h-full flex flex-col items-center justify-between px-6 py-5 bg-background overscroll-none overflow-y-auto safe-top safe-bottom"
       style={{ background: `radial-gradient(ellipse at top, ${teamColor}18 0%, transparent 55%), #1e1845` }}
     >
+      {/* ── Top full-width live animated line across the viewport ── */}
+      <div className="fixed top-0 left-0 right-0 h-[3px] overflow-hidden bg-black/40 z-50 pointer-events-none">
+        <div
+          className="absolute inset-0 opacity-30"
+          style={{
+            background: `linear-gradient(90deg, transparent 0%, ${teamColor} 50%, transparent 100%)`,
+          }}
+        />
+        <motion.div
+          className="absolute top-0 bottom-0 w-48 rounded-full"
+          style={{
+            background: `linear-gradient(90deg, transparent, ${teamColor}, #10B981, #F59E0B, transparent)`,
+            boxShadow: `0 0 14px 2px ${teamColor}, 0 0 24px 4px #10B981`,
+          }}
+          animate={{
+            left: ["-200px", "100%"],
+          }}
+          transition={{
+            duration: 2.8,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+      </div>
+
+      {/* ── Top Navigation Bar: Back / Change Team ── */}
+      <div className="w-full max-w-sm flex items-center justify-between pt-2 pb-1 z-20">
+        <button
+          type="button"
+          onClick={handleBack}
+          aria-label="Change team"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#2a2458]/90 hover:bg-[#342e66] text-[#a8a0c4] hover:text-white border border-[#4a4478]/70 active:scale-95 transition-all text-xs font-semibold shadow-sm"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Change team</span>
+        </button>
+        {tournamentName && (
+          <span className="text-xs font-semibold text-[#a8a0c4]/70 truncate max-w-[190px]">
+            {tournamentName}
+          </span>
+        )}
+      </div>
+
+      {/* ── Main Access Card ── */}
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, type: "spring" }}
-        className="w-full max-w-sm space-y-8"
+        className="w-full max-w-sm space-y-6 my-auto"
       >
-        <div className="text-center space-y-5">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            {logos.mini ? (
-              <img src={logos.mini} alt={brandName} className="h-8 w-auto" />
-            ) : (
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-display font-black text-xs bg-amber-400/20 text-amber-400 border border-amber-400/30">
-                {miniBrandText}
-              </div>
-            )}
-            <span className="font-display font-black text-lg text-white tracking-wide">{brandName}</span>
+        <div className="text-center space-y-4">
+          {/* Live indicator & lively animated line */}
+          <div className="flex flex-col items-center gap-1.5 mb-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#18123a]/80 border border-[#4a4478]/60 shadow-inner">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+              </span>
+              <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-emerald-400 font-display">
+                LIVE AUCTION ROOM
+              </span>
+            </div>
+
+            {/* Glowing animated line */}
+            <div className="relative w-44 h-[2.5px] overflow-hidden rounded-full bg-white/10 mt-1">
+              <motion.div
+                className="absolute inset-y-0 w-24 rounded-full"
+                style={{
+                  background: `linear-gradient(90deg, transparent, ${teamColor}, #34d399, ${teamColor}, transparent)`,
+                  boxShadow: `0 0 10px ${teamColor}, 0 0 18px #34d399`,
+                }}
+                animate={{
+                  left: ["-50%", "150%"],
+                }}
+                transition={{
+                  duration: 2.2,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+              />
+            </div>
           </div>
 
           <TeamLogo
@@ -190,10 +284,27 @@ export function AccessCode({
           </motion.button>
         </form>
 
-        <p className="text-sm text-[#3d3670] uppercase tracking-widest text-center">
-          {poweredByText}
-        </p>
+        {/* Secondary back link if user tapped the wrong team */}
+        <div className="text-center pt-1">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="text-xs text-[#a8a0c4]/90 hover:text-amber-400 transition-colors font-medium inline-flex items-center gap-1.5 py-1 px-2.5 rounded-lg hover:bg-white/5 active:scale-95"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Wrong team? Select another team</span>
+          </button>
+        </div>
       </motion.div>
+
+      {/* ── Footer Branding ── */}
+      <div className="w-full text-center pb-2 z-20">
+        {showPoweredBy && (
+          <p className="text-xs text-[#524982] uppercase tracking-widest text-center select-none font-medium">
+            {poweredByText}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
