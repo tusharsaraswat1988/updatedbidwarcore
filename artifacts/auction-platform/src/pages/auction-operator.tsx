@@ -76,6 +76,8 @@ import {
   Smartphone, Sparkles,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { usePlayerAuctionHistory } from "@/components/player-auction-history";
+import { isLiveAuctionHistoryEnabled } from "@workspace/platform-core";
 import { cldUrl } from "@/lib/cloudinary";
 import { useAuctionUnit } from "@/hooks/use-auction-unit";
 import { useBranding } from "@/hooks/use-branding";
@@ -256,6 +258,77 @@ function CircularTimer({
         </span>
       </div>
       <p className="text-xs text-white/25 mt-0.5">of {totalSeconds}s window</p>
+    </div>
+  );
+}
+
+export function OperatorPlayerAuctionHistory({
+  tournamentId,
+  playerId,
+  features,
+  unit,
+}: {
+  tournamentId?: number;
+  playerId?: number | string | null;
+  features?: unknown;
+  unit?: any;
+}) {
+  const numericPlayerId = typeof playerId === "string" ? parseInt(playerId, 10) : playerId;
+  const isEnabled = Boolean(
+    tournamentId &&
+    numericPlayerId &&
+    !isNaN(numericPlayerId) &&
+    numericPlayerId > 0 &&
+    isLiveAuctionHistoryEnabled(features as any)
+  );
+
+  const { data: history } = usePlayerAuctionHistory({
+    tournamentId: tournamentId ?? 0,
+    playerId: numericPlayerId,
+    enabled: isEnabled,
+  });
+
+  if (!isEnabled || !history?.bestSoldRecord) return null;
+
+  const { bestSoldRecord, lastSoldRecord, hasTop5Badge, isBestTop5 } = history;
+  const isTop5 = hasTop5Badge || isBestTop5 || bestSoldRecord.isTop5;
+
+  return (
+    <div
+      data-operator-player-history
+      className="mt-1 pt-1 border-t border-amber-500/25 flex flex-col gap-0.5 text-[10px] leading-tight"
+      title="Player Auction Performance History"
+    >
+      <div className="flex flex-wrap items-center gap-1 font-bold text-amber-400">
+        <span className="font-semibold text-white/60 shrink-0">PAST HIGHEST:</span>
+        <span className="font-mono text-emerald-400 shrink-0">
+          {formatShortIndianRupee(bestSoldRecord.soldPrice, unit)}
+        </span>
+        {isTop5 ? (
+          <span className="inline-flex items-center gap-0.5 px-1 py-0.2 rounded bg-amber-400/20 text-amber-300 text-[9px] font-black shrink-0 uppercase tracking-wide">
+            🏆 PAST TOURNAMENT TOP 5
+          </span>
+        ) : null}
+        {bestSoldRecord.tournamentName ? (
+          <span className="text-white/40 text-[9px] truncate max-w-[130px]" title={bestSoldRecord.tournamentName}>
+            ({bestSoldRecord.tournamentName})
+          </span>
+        ) : null}
+      </div>
+
+      {lastSoldRecord ? (
+        <div className="flex flex-wrap items-center gap-1 font-medium text-white/80">
+          <span className="font-semibold text-white/60 shrink-0">LAST AUCTION PRICE:</span>
+          <span className="font-mono text-amber-200 shrink-0">
+            {formatShortIndianRupee(lastSoldRecord.soldPrice, unit)}
+          </span>
+          {lastSoldRecord.buyingTeamName ? (
+            <span className="text-[9px] text-white/70 truncate max-w-[150px]" title={`BOUGHT BY ${lastSoldRecord.buyingTeamName}`}>
+              · BOUGHT BY {lastSoldRecord.buyingTeamName}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1526,6 +1599,13 @@ export default function AuctionOperator() {
                   +{formatShort(increment)}/raise
                 </p>
               </div>
+
+              <OperatorPlayerAuctionHistory
+                tournamentId={tournament?.id}
+                playerId={state?.currentPlayer?.id}
+                features={tournament?.featuresJson}
+                unit={tournament?.auctionUnit}
+              />
             </div>
           </motion.div>
         ) : (

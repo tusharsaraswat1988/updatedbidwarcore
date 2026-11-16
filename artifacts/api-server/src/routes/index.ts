@@ -56,9 +56,11 @@ import ruleEngineRouter from "./rule-engine";
 import presentationEngineRouter from "./presentation-engine";
 import bplRouter from "./bpl";
 import mediaPostersRouter from "./media-posters";
+import adminMembersRouter from "./admin-members";
 
 const router: IRouter = Router();
 
+router.use(adminMembersRouter);
 router.use(mediaPostersRouter);
 router.use(bplRouter);
 router.use(authRouter);

@@ -66,6 +66,17 @@ export function PrizePlate({ line1, line2 }: { line1: string; line2: string }) {
   );
 }
 
+function formatObsHistoryAmount(amount: number): string {
+  if (amount >= 10000000) {
+    return `₹${(amount / 10000000).toFixed(2)} CR`;
+  }
+  if (amount >= 100000) {
+    const l = amount / 100000;
+    return `₹${Number.isInteger(l) ? l : l.toFixed(2).replace(/\.?0+$/, "")} LAKH`;
+  }
+  return `₹${amount.toLocaleString("en-IN")}`;
+}
+
 export function ObsPlayerHistoryChip({
   tournamentId,
   playerId,
@@ -94,41 +105,58 @@ export function ObsPlayerHistoryChip({
     return null;
   }
 
-  const { bestSoldRecord, hasTop5Badge, isBestTop5 } = history;
+  const { bestSoldRecord, lastSoldRecord, hasTop5Badge, isBestTop5 } = history;
   const isTop5 = hasTop5Badge || isBestTop5 || bestSoldRecord.isTop5;
 
   return (
     <div
       data-obs-player-history-chip
       style={{
-        position: "absolute",
-        top: -6,
-        left: -6,
-        zIndex: 5,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "4px",
-        padding: "2px 8px",
-        borderRadius: "9999px",
-        background: "linear-gradient(135deg, rgba(212,175,55,0.95), rgba(180,140,20,0.95))",
-        color: "#000",
-        fontWeight: 800,
-        fontSize: "12px",
-        letterSpacing: "0.04em",
-        whiteSpace: "nowrap",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.6)",
-        pointerEvents: "none",
+        marginTop: "4px",
+        paddingTop: "3px",
+        borderTop: "1px solid rgba(212, 175, 55, 0.25)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "2px",
+        minWidth: 0,
+        maxWidth: "100%",
+        lineHeight: 1.15,
       }}
     >
-      {isTop5 ? (
-        <>
-          <span>🏆 TOP 5</span>
-          <span>·</span>
-          <span>BEST {formatAmount(bestSoldRecord.soldPrice)}</span>
-        </>
-      ) : (
-        <span>PREV BEST: {formatAmount(bestSoldRecord.soldPrice)}</span>
-      )}
+      <div
+        style={{
+          fontSize: "11px",
+          fontWeight: 800,
+          color: "var(--bw-gold, #f59e0b)",
+          textTransform: "uppercase",
+          letterSpacing: "0.03em",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+        title={`HIGHEST PRICE IN PAST AUCTIONS: ${formatObsHistoryAmount(bestSoldRecord.soldPrice)}${isTop5 ? " · PAST TOURNAMENT TOP 5" : ""}`}
+      >
+        HIGHEST PRICE IN PAST AUCTIONS: {formatObsHistoryAmount(bestSoldRecord.soldPrice)}
+        {isTop5 ? " · PAST TOURNAMENT TOP 5" : ""}
+      </div>
+      {lastSoldRecord ? (
+        <div
+          style={{
+            fontSize: "10px",
+            fontWeight: 700,
+            color: "rgba(255, 255, 255, 0.85)",
+            textTransform: "uppercase",
+            letterSpacing: "0.02em",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+          title={`PRICE IN MOST RECENT AUCTION: ${formatObsHistoryAmount(lastSoldRecord.soldPrice)}${lastSoldRecord.buyingTeamName ? ` · BOUGHT BY ${lastSoldRecord.buyingTeamName}` : ""}`}
+        >
+          PRICE IN MOST RECENT AUCTION: {formatObsHistoryAmount(lastSoldRecord.soldPrice)}
+          {lastSoldRecord.buyingTeamName ? ` · BOUGHT BY ${lastSoldRecord.buyingTeamName}` : ""}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -143,34 +171,41 @@ export function AuctionScene({
   features?: unknown;
 }) {
   const { player } = model;
+  const roleText = (player.role || player.category || "PLAYER").trim();
+
   return (
     <div className="bw-lt-row bw-lt-solid">
-      <div className="bw-seg bw-seg-player">
-        <div style={{ position: "relative", flexShrink: 0 }}>
+      <div className="bw-seg bw-seg-player" style={{ width: "580px", maxWidth: "620px" }}>
+        <div style={{ flexShrink: 0 }}>
           <Avatar name={player.name} photoUrl={player.photoUrl} />
-          <ObsPlayerHistoryChip
-            tournamentId={tournamentId}
-            playerId={player.id}
-            features={features}
-          />
         </div>
-        <div className="bw-stack" style={{ minWidth: 0, flex: 1 }}>
-          <span className="bw-kicker">{player.category ?? "ON THE BLOCK"}</span>
+        <div className="bw-stack" style={{ minWidth: 0, flex: 1, justifyContent: "center", gap: "2px" }}>
           <strong
             className="bw-headline"
             style={{
               fontSize: getHeadlinePlayerFontSize(player.name),
               whiteSpace: "nowrap",
               overflow: "hidden",
+              textOverflow: "ellipsis",
+              lineHeight: 1.1,
             }}
             title={player.name}
           >
             {player.name}
           </strong>
-          <small className="bw-sub">
-            {player.role}
-            {player.basePrice ? ` · Base ${formatAmount(player.basePrice)}` : ""}
-          </small>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", lineHeight: 1.2 }}>
+            <span style={{ fontSize: "14px", fontWeight: 700, color: "var(--bw-cyan)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              {roleText}
+            </span>
+            <span style={{ fontSize: "13px", fontWeight: 700, color: "rgba(255, 255, 255, 0.75)", textTransform: "uppercase" }}>
+              BASE PRICE: {formatAmount(player.basePrice || 0)}
+            </span>
+          </div>
+          <ObsPlayerHistoryChip
+            tournamentId={tournamentId}
+            playerId={player.id}
+            features={features}
+          />
         </div>
       </div>
       <div className="bw-seg bw-stat bw-stat-hero bw-seg-bid">

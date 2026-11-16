@@ -1,7 +1,25 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { formatShortIndianRupee, type AuctionUnit } from "@/lib/format";
+import { formatIndianRupee, type AuctionUnit } from "@/lib/format";
 import { isOwnerAppHistoryEnabled } from "@workspace/api-base/tournament-features";
+
+function formatOwnerHistoryAmount(amount: number, unit?: AuctionUnit): string {
+  if (unit === "points") {
+    if (amount >= 100000) {
+      const l = amount / 100000;
+      return `${Number.isInteger(l) ? l : l.toFixed(2).replace(/\.?0+$/, "")} LAKH pts`;
+    }
+    return `${amount.toLocaleString("en-IN")} pts`;
+  }
+  if (amount >= 10000000) {
+    return `₹${(amount / 10000000).toFixed(2)} CR`;
+  }
+  if (amount >= 100000) {
+    const l = amount / 100000;
+    return `₹${Number.isInteger(l) ? l : l.toFixed(2).replace(/\.?0+$/, "")} LAKH`;
+  }
+  return formatIndianRupee(amount, unit);
+}
 
 export interface PlayerAuctionHistoryRecord {
   tournamentId: number;
@@ -85,48 +103,60 @@ export function OwnerPlayerAuctionHistory({
 
   return (
     <div
-      className={`pointer-events-none mt-2.5 rounded-xl border border-amber-500/40 bg-[#1c183d]/90 px-3 py-2 text-xs shadow-xs ${className}`}
+      data-owner-player-history
+      className={`pointer-events-none mt-2 rounded-xl border border-amber-500/40 bg-[#1c183d]/95 p-2 text-xs shadow-md ${className}`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-white/10 pb-1">
+      <div className="flex flex-wrap items-center justify-between gap-1 border-b border-amber-500/20 pb-1">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400/90">
-            Past Auction Creds
+          <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
+            PLAYER AUCTION HISTORY
           </span>
-          {showTop5 && (
-            <span className="inline-flex items-center rounded-md bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-black text-amber-300 ring-1 ring-amber-400/40 ring-inset">
-              🏆 TOP 5 STAR
-            </span>
-          )}
         </div>
         {data.totalSoldAppearances > 1 && (
           <span className="text-[10px] font-medium text-slate-400">
-            {data.totalSoldAppearances} sold leagues
+            {data.totalSoldAppearances} leagues
           </span>
         )}
       </div>
 
-      <div className="mt-1.5 grid grid-cols-1 gap-1 text-[11px] sm:grid-cols-2">
+      <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]">
         {bestSold && (
-          <div className="flex items-center gap-1">
-            <span className="font-semibold text-slate-400">Best:</span>
-            <span className="font-black text-emerald-400 tabular-nums">
-              {formatShortIndianRupee(bestSold.soldPrice, unit)}
+          <div className="flex flex-col gap-0.5 rounded-lg bg-black/35 border border-amber-500/20 p-1.5">
+            <span className="text-[9px] font-black uppercase tracking-wider text-amber-400/90">
+              PAST HIGHEST
             </span>
-            <span className="truncate text-slate-300" title={bestSold.tournamentName}>
-              ({bestSold.tournamentName})
+            <span className="font-display font-black text-emerald-400 text-xs tabular-nums leading-tight">
+              {formatOwnerHistoryAmount(bestSold.soldPrice, unit)}
             </span>
+            <span className="truncate text-slate-300 text-[10px]" title={bestSold.tournamentName}>
+              {bestSold.tournamentName}
+            </span>
+            {showTop5 && (
+              <div className="mt-0.5">
+                <span className="inline-flex items-center rounded bg-amber-400/20 px-1 py-0.5 text-[9px] font-black text-amber-300 ring-1 ring-amber-400/40 ring-inset uppercase tracking-wide">
+                  🏆 PAST TOURNAMENT TOP 5
+                </span>
+              </div>
+            )}
           </div>
         )}
 
         {lastSold && (
-          <div className="flex items-center gap-1">
-            <span className="font-semibold text-slate-400">Last:</span>
-            <span className="font-bold text-amber-200 tabular-nums">
-              {formatShortIndianRupee(lastSold.soldPrice, unit)}
+          <div className="flex flex-col gap-0.5 rounded-lg bg-black/35 border border-white/10 p-1.5">
+            <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">
+              LAST AUCTION PRICE
+            </span>
+            <span className="font-display font-black text-amber-200 text-xs tabular-nums leading-tight">
+              {formatOwnerHistoryAmount(lastSold.soldPrice, unit)}
             </span>
             {lastSold.buyingTeamName && (
-              <span className="truncate text-slate-300" title={`Sold to ${lastSold.buyingTeamName}`}>
-                · {lastSold.buyingTeamName}
+              <span className="truncate text-slate-300 text-[10px]" title={`BOUGHT BY: ${lastSold.buyingTeamName}`}>
+                BOUGHT BY: {lastSold.buyingTeamName}
+              </span>
+            )}
+            {lastSold.tournamentName && (
+              <span className="truncate text-slate-400 text-[9px]" title={lastSold.tournamentName}>
+                {lastSold.tournamentName}
               </span>
             )}
           </div>

@@ -15,6 +15,7 @@ import {
   Radio,
   Settings,
   Trophy,
+  Users,
 } from "lucide-react";
 
 type NavItem = {
@@ -28,6 +29,7 @@ const tournamentItems: NavItem[] = [
   { label: "Tournaments", href: "/admin/tournaments", icon: Trophy },
   { label: "BPL Editions", href: "/admin/bpl", icon: Crown },
   { label: "Organisers", href: "/admin/organisers", icon: Building2 },
+  { label: "Members Directory", href: "/admin/members", icon: Users },
   { label: "Sports & Specs", href: "/admin/tournaments/sports", icon: Gavel },
 ];
 
@@ -54,6 +56,9 @@ function isActive(location: string, href: string) {
   if (href === "/admin/tournaments") {
     // Exact tournaments list or /admin/tournaments/:id, NEVER match /admin/tournaments/sports
     return location === "/admin/tournaments" || /^\/admin\/tournaments\/\d+/.test(location);
+  }
+  if (href === "/admin/members") {
+    return location === "/admin/members" || location.startsWith("/admin/members/");
   }
   return location === href || location.startsWith(`${href}/`);
 }

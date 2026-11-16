@@ -18,6 +18,8 @@ import { sseAwareRefetchInterval } from "@/lib/sse-polling";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Radio, Volume2, VolumeX, User, Trophy, Gavel, MessageCircle, X, Star, Flame, ChevronRight, SlidersHorizontal, Check, Sparkles, Lock, AlertTriangle } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
+import { usePlayerAuctionHistory } from "@/components/player-auction-history";
+import { isLiveAuctionHistoryEnabled } from "@workspace/platform-core";
 import { resolveRetainedSpend } from "@workspace/api-base";
 import { normalizeAuctionUnit } from "@workspace/api-base/auction-unit";
 import type { AuctionUnit } from "@workspace/api-base/auction-unit";
@@ -1088,6 +1090,81 @@ function MobileCheerFeed({
   );
 }
 
+function formatViewerHistoryAmount(amount: number, unit?: AuctionUnit): string {
+  if (unit === "points") {
+    if (amount >= 100000) {
+      const l = amount / 100000;
+      return `${Number.isInteger(l) ? l : l.toFixed(2).replace(/\.?0+$/, "")} LAKH pts`;
+    }
+    return `${amount.toLocaleString("en-IN")} pts`;
+  }
+  if (amount >= 10000000) {
+    return `₹${(amount / 10000000).toFixed(2)} CR`;
+  }
+  if (amount >= 100000) {
+    const l = amount / 100000;
+    return `₹${Number.isInteger(l) ? l : l.toFixed(2).replace(/\.?0+$/, "")} LAKH`;
+  }
+  return formatIndianRupee(amount, unit);
+}
+
+export function LiveViewerPlayerAuctionHistory({
+  tournamentId,
+  playerId,
+  features,
+  unit,
+}: {
+  tournamentId?: number;
+  playerId?: number | string | null;
+  features?: unknown;
+  unit?: AuctionUnit;
+}) {
+  const numericPlayerId = typeof playerId === "string" ? parseInt(playerId, 10) : playerId;
+  const isEnabled = Boolean(
+    tournamentId &&
+    numericPlayerId &&
+    !isNaN(numericPlayerId) &&
+    numericPlayerId > 0 &&
+    isLiveAuctionHistoryEnabled(features as any)
+  );
+
+  const { data: history } = usePlayerAuctionHistory({
+    tournamentId: tournamentId ?? 0,
+    playerId: numericPlayerId,
+    enabled: isEnabled,
+  });
+
+  if (!isEnabled || !history?.bestSoldRecord) return null;
+
+  const { bestSoldRecord, lastSoldRecord, hasTop5Badge, isBestTop5 } = history;
+  const isTop5 = hasTop5Badge || isBestTop5 || bestSoldRecord.isTop5;
+
+  return (
+    <div
+      data-liveviewer-player-history
+      className="mt-2 pt-2 border-t border-amber-500/20 flex flex-col gap-1 text-xs text-left"
+    >
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="font-bold text-amber-400 text-xs sm:text-sm uppercase tracking-wide">
+          HIGHEST PRICE IN PAST AUCTIONS: {formatViewerHistoryAmount(bestSoldRecord.soldPrice, unit)}
+        </span>
+        {isTop5 ? (
+          <span className="inline-flex items-center gap-1 bg-amber-400/20 border border-amber-400/40 text-amber-300 font-extrabold text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">
+            🏆 PAST TOURNAMENT TOP 5
+          </span>
+        ) : null}
+      </div>
+
+      {lastSoldRecord ? (
+        <div className="text-white/80 font-medium text-xs sm:text-sm tracking-wide uppercase">
+          PRICE IN MOST RECENT AUCTION: {formatViewerHistoryAmount(lastSoldRecord.soldPrice, unit)}
+          {lastSoldRecord.buyingTeamName ? ` · BOUGHT BY ${lastSoldRecord.buyingTeamName}` : ""}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 // ── Main LiveViewerPage ───────────────────────────────────────────────────────
 
 export default function LiveViewerPage() {
@@ -1895,6 +1972,12 @@ export default function LiveViewerPage() {
                     <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 font-medium">
                       Base: {formatAmount(state?.currentPlayer?.basePrice)}
                     </p>
+                    <LiveViewerPlayerAuctionHistory
+                      tournamentId={tournamentId}
+                      playerId={state?.currentPlayer?.id}
+                      features={tournament?.featuresJson}
+                      unit={tournament?.auctionUnit}
+                    />
                   </div>
 
                   {/* Bid amount */}

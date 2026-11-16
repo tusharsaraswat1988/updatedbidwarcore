@@ -65,23 +65,36 @@ export function LedPlayerHistoryBanner({
   return (
     <div
       data-led-player-history-banner
-      className="absolute top-0 inset-x-0 z-20 bg-black/85 backdrop-blur-md border-b-2 border-[#d4af37] px-4 py-2 pr-16 sm:pr-20 transition-opacity duration-300 pointer-events-none"
+      className="mt-2.5 pt-2 border-t-2 border-[#d4af37]/50 flex flex-col gap-1.5 transition-opacity duration-300"
     >
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="text-amber-400 font-black text-base sm:text-lg lg:text-xl tracking-wider uppercase font-['Space_Grotesk']">
-          PREVIOUS BEST: {formatLedAmount(bestSoldRecord.soldPrice, auctionUnit)}
-        </span>
+      <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.16em] text-amber-400 font-['Space_Grotesk']">
+        HISTORICAL AUCTION PERFORMANCE
+      </p>
+
+      <div className="flex flex-col gap-0.5">
+        <div className="text-amber-300 font-black text-sm sm:text-base tracking-wide uppercase font-['Space_Grotesk'] leading-snug">
+          HIGHEST PRICE IN PAST AUCTIONS: {formatLedAmount(bestSoldRecord.soldPrice, auctionUnit)}
+        </div>
         {isTop5 ? (
-          <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-extrabold text-xs px-2 py-0.5 rounded shadow-sm tracking-wide">
-            🏆 TOP 5 STAR
-          </span>
+          <div>
+            <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-extrabold text-[10px] sm:text-xs px-2.5 py-0.5 rounded shadow-sm tracking-wide uppercase">
+              🏆 PAST TOURNAMENT TOP 5
+            </span>
+          </div>
         ) : null}
       </div>
+
       {lastSoldRecord ? (
-        <div className="text-white/90 font-bold text-xs sm:text-sm tracking-wide mt-0.5 font-['Space_Grotesk'] uppercase truncate">
-          LAST SOLD: {formatLedAmount(lastSoldRecord.soldPrice, auctionUnit)}
-          {lastSoldRecord.buyingTeamName ? ` | ${lastSoldRecord.buyingTeamName}` : ""}
-          {lastSoldRecord.tournamentName ? ` (${lastSoldRecord.tournamentName})` : ""}
+        <div className="flex flex-col gap-0.5 mt-1">
+          <div className="text-white font-bold text-xs sm:text-sm tracking-wide font-['Space_Grotesk'] uppercase leading-snug">
+            PRICE IN MOST RECENT AUCTION: {formatLedAmount(lastSoldRecord.soldPrice, auctionUnit)}
+          </div>
+          {lastSoldRecord.buyingTeamName ? (
+            <div className="text-white/85 font-bold text-xs tracking-wide font-['Space_Grotesk'] uppercase leading-snug break-words">
+              BOUGHT BY: {lastSoldRecord.buyingTeamName}
+              {lastSoldRecord.tournamentName ? ` (${lastSoldRecord.tournamentName})` : ""}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -89,7 +102,7 @@ export function LedPlayerHistoryBanner({
 }
 
 /**
- * PLAYER PORTRAIT — full-bleed photo with identity + spec grid overlaid at bottom.
+ * PLAYER PORTRAIT — unobstructed photo above with identity, spec grid, and history below.
  * Base price lives in BidCenter only.
  */
 export const PlayerPortrait = memo(function PlayerPortrait({
@@ -121,105 +134,101 @@ export const PlayerPortrait = memo(function PlayerPortrait({
 
   return (
     <div
-      className="@container/portrait relative h-full min-h-0 overflow-hidden bg-black/40 border-2"
+      className="@container/portrait flex flex-col h-full min-h-0 overflow-hidden bg-black/60 border-2"
       style={frameStyle}
     >
-      <LedPlayerHistoryBanner
-        tournamentId={view.tournament?.id}
-        playerId={currentPlayer.id}
-        features={view.tournament?.featuresJson}
-        auctionUnit={view.tournament?.auctionUnit}
-      />
+      {/* 1. Unobstructed photo section */}
+      <div className="relative flex-1 min-h-[220px] max-h-[46%] w-full overflow-hidden bg-black/40">
+        {showPhoto ? (
+          <img
+            src={cldUrl(currentPlayer.portrait, "playerCard")}
+            alt={currentPlayer.name}
+            className="w-full h-full object-cover object-center"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+            onError={() => setPhotoFailed(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-white/[0.06] via-black/20 to-black/70">
+            <GenderPortraitIcon gender={currentPlayer.gender} />
+          </div>
+        )}
 
-      {showPhoto ? (
-        <img
-          src={cldUrl(currentPlayer.portrait, "playerCard")}
-          alt={currentPlayer.name}
-          className="absolute inset-0 w-full h-full object-cover object-center"
-          loading="eager"
-          decoding="async"
-          fetchPriority="high"
-          onError={() => setPhotoFailed(true)}
-        />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-white/[0.06] via-black/20 to-black/70">
-          <GenderPortraitIcon gender={currentPlayer.gender} />
-        </div>
-      )}
+        {tag ? <PortraitPlayerTagGlow tag={tag} /> : null}
 
-      {tag ? <PortraitPlayerTagGlow tag={tag} /> : null}
-
-      <div
-        className="absolute inset-0 opacity-20 mix-blend-overlay pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(180deg, transparent 0%, transparent 45%, var(--accent-glow) 100%)",
-        }}
-      />
-
-      <div className="absolute top-3 left-3 z-10 max-w-[calc(100%-4.5rem)]">
-        {tag ? <PortraitPlayerTagBadge tag={tag} /> : null}
-      </div>
-
-      <div className="absolute top-3 right-3 z-30">
-        <div
-          className="size-12 sm:size-14 grid place-items-center font-['Bebas_Neue'] text-xl sm:text-2xl italic shadow-2xl"
-          style={{
-            backgroundColor: "var(--accent)",
-            color: "var(--accent-on)",
-          }}
-        >
-          #{currentPlayer.serialNo}
-        </div>
-      </div>
-
-      <div
-        className="absolute top-0 left-0 h-1 w-16 z-10"
-        style={{ backgroundColor: "var(--accent)" }}
-      />
-
-      <div className="absolute inset-x-0 bottom-0 z-10 px-3 sm:px-4 pb-3 pt-8 sm:pt-10 bg-gradient-to-t from-black/95 via-black/80 to-transparent">
-        <p className="mb-1.5 led-label text-[clamp(0.8rem,1.05cqw,1.2rem)] font-extrabold uppercase tracking-[0.06em] leading-snug flex flex-wrap items-center gap-x-2 gap-y-1 font-['Space_Grotesk']">
-          <span style={{ color: "var(--accent)" }}>{roleLabel}</span>
-          {currentPlayer.city ? (
-            <>
-              <span className="text-white/40 font-normal">•</span>
-              <span className="text-white/90 font-mono tracking-[0.06em]">
-                {currentPlayer.city}
-              </span>
-            </>
-          ) : null}
-          {tag ? (
-            <>
-              <span className="text-white/40 font-normal">•</span>
-              <span style={{ color: tag.color }}>{tag.label}</span>
-            </>
-          ) : null}
-        </p>
-
-        <PortraitPlayerName name={currentPlayer.name} />
-
-        {infoRows.length > 0 ? (
+        <div className="absolute top-3 right-3 z-30">
           <div
-            className={`mt-2 pt-2 border-t border-white/15 grid ${specGridClass} gap-x-3 gap-y-1 sm:gap-y-1.5`}
+            className="size-11 sm:size-13 grid place-items-center font-['Bebas_Neue'] text-lg sm:text-xl italic shadow-2xl"
+            style={{
+              backgroundColor: "var(--accent)",
+              color: "var(--accent-on)",
+            }}
           >
-            {infoRows.map((row, index) => (
-              <SpecRow
-                key={`${row.label}-${index}`}
-                shortLabel={row.shortLabel}
-                fullLabel={row.label}
-                value={row.value}
-                className={
-                  infoRows.length > 2 &&
-                  infoRows.length % 2 === 1 &&
-                  index === infoRows.length - 1
-                    ? "col-span-2"
-                    : undefined
-                }
-              />
-            ))}
+            #{currentPlayer.serialNo}
+          </div>
+        </div>
+
+        {tag ? (
+          <div className="absolute top-3 left-3 z-20 max-w-[calc(100%-4rem)]">
+            <PortraitPlayerTagBadge tag={tag} />
           </div>
         ) : null}
+
+        <div
+          className="absolute top-0 left-0 h-1 w-16 z-10"
+          style={{ backgroundColor: "var(--accent)" }}
+        />
+      </div>
+
+      {/* 2. Structured stadium-readable information area below photograph */}
+      <div className="flex-1 flex flex-col justify-start p-3 sm:p-4 bg-gradient-to-b from-black/95 via-black/90 to-black/85 border-t-2 border-white/10 overflow-y-auto">
+        <div className="mb-2">
+          <PortraitPlayerName name={currentPlayer.name} />
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-['Space_Grotesk'] text-sm sm:text-base font-extrabold uppercase tracking-[0.06em]">
+            <span style={{ color: "var(--accent)" }}>{roleLabel}</span>
+            {currentPlayer.city ? (
+              <>
+                <span className="text-white/40 font-normal">•</span>
+                <span className="text-white/90 font-mono tracking-[0.06em]">
+                  {currentPlayer.city}
+                </span>
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        {infoRows.length > 0 ? (
+          <div className="mb-2 pt-2 border-t border-white/15">
+            <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.14em] text-white/45 mb-1.5 font-['Space_Grotesk']">
+              PLAYER SPECIFICATIONS
+            </p>
+            <div className={`grid ${specGridClass} gap-x-3 gap-y-1`}>
+              {infoRows.map((row, index) => (
+                <SpecRow
+                  key={`${row.label}-${index}`}
+                  shortLabel={row.shortLabel}
+                  fullLabel={row.label}
+                  value={row.value}
+                  className={
+                    infoRows.length > 2 &&
+                    infoRows.length % 2 === 1 &&
+                    index === infoRows.length - 1
+                      ? "col-span-2"
+                      : undefined
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <LedPlayerHistoryBanner
+          tournamentId={view.tournament?.id}
+          playerId={currentPlayer.id}
+          features={view.tournament?.featuresJson}
+          auctionUnit={view.tournament?.auctionUnit}
+        />
       </div>
     </div>
   );

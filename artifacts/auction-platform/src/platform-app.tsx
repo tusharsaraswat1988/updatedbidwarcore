@@ -40,6 +40,7 @@ const AdminLiveOperations = lazyWithRetry(() => import("@/pages/admin-live-opera
 const AdminTournamentsList = lazyWithRetry(() => import("@/pages/admin-tournaments-list"));
 const AdminBplEditions = lazyWithRetry(() => import("@/pages/admin-bpl-editions"));
 const AdminOrganisersList = lazyWithRetry(() => import("@/pages/admin-organisers-list"));
+const AdminMembersList = lazyWithRetry(() => import("@/pages/admin-members-list"));
 const AdminSportsPage = lazyWithRetry(() => import("@/pages/admin-sports-page"));
 const AdminSystemPage = lazyWithRetry(() => import("@/pages/admin-system-page"));
 const AdminTournamentDetail = lazyWithRetry(() => import("@/pages/admin-tournament-detail"));
@@ -354,6 +355,8 @@ function PlatformRouter() {
         <Route path="/admin/tournaments/:id/live/emergency" component={AdminTournamentDetail} />
         <Route path="/admin/organisers" component={AdminOrganisersList} />
         <Route path="/admin/organisers/:id" component={AdminOrganiserDetail} />
+        <Route path="/admin/members" component={AdminMembersList} />
+        <Route path="/admin/members/:id" component={AdminMembersList} />
         <Route path="/admin/settings/reports" component={AdminReports} />
         <Route path="/admin/settings/intelligence" component={AdminIntelligence} />
         <Route path="/admin/settings/intelligence/:tab" component={AdminIntelligence} />
