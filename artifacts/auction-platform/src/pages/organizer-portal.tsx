@@ -6,6 +6,7 @@ import { useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import { TournamentCreationWizard } from "@/components/tournament-creation/tournament-creation-wizard";
+import { cn } from "@/lib/utils";
 import {
   signupEmail,
   signupVerify,
@@ -1635,6 +1636,7 @@ function OrganizerAvatarMenu({ organizer, onLogout }: { organizer: OrganizerInfo
 
   const initials = organizer.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
   const avatarSrc = cldUrl(organizer.photoUrl, "thumbnail");
+  const isLocked = isOrganizerAccountLocked(organizer.licenseStatus);
 
   return (
     <div ref={ref} className="relative">
@@ -1652,9 +1654,18 @@ function OrganizerAvatarMenu({ organizer, onLogout }: { organizer: OrganizerInfo
         )}
         <div className="text-left hidden sm:block min-w-0">
           <p className="text-xs font-bold text-foreground leading-tight max-w-[130px] truncate">{organizer.name}</p>
-          <p className="text-[10px] text-muted-foreground leading-tight flex items-center gap-1 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
-            Organizer
+          <p className="text-[10px] leading-tight flex items-center gap-1 font-medium">
+            <span
+              className={cn(
+                "w-1.5 h-1.5 rounded-full inline-block",
+                isLocked ? "bg-rose-500 animate-pulse" : "bg-emerald-400"
+              )}
+            />
+            {isLocked ? (
+              <span className="text-rose-600 font-bold">Account Locked</span>
+            ) : (
+              <span className="text-muted-foreground">Organizer</span>
+            )}
           </p>
         </div>
       </button>
@@ -1665,6 +1676,12 @@ function OrganizerAvatarMenu({ organizer, onLogout }: { organizer: OrganizerInfo
             <p className="text-sm font-bold text-foreground truncate">{organizer.name}</p>
             <p className="text-xs text-muted-foreground truncate">{organizer.email ?? organizer.mobile ?? ""}</p>
           </div>
+          {isLocked && (
+            <div className="mx-2 mt-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 font-medium flex items-center gap-2">
+              <Lock className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+              <span>Account locked by admin</span>
+            </div>
+          )}
           <div className="py-1.5">
             <button
               onClick={() => { setOpen(false); navigate("/organizer/profile"); }}
@@ -1712,30 +1729,47 @@ function TournamentModuleCta({
   const statement =
     state === "coming-soon" ? "Coming Soon" : state === "not-selected" ? "Not selected" : null;
   const title =
-    state === "coming-soon"
-      ? "Match scoring for this sport is coming soon"
-      : state === "not-selected"
-        ? kind === "auction"
-          ? "Auction was not selected for this tournament"
-          : "Scoring was not selected for this tournament"
-        : label;
+    locked
+      ? "Account is locked. Access to tournament operations is disabled."
+      : state === "coming-soon"
+        ? "Match scoring for this sport is coming soon"
+        : state === "not-selected"
+          ? kind === "auction"
+            ? "Auction was not selected for this tournament"
+            : "Scoring was not selected for this tournament"
+          : label;
 
   if (state !== "active") {
     return (
       <button
         type="button"
         disabled
-        className="flex-1 min-h-10 h-10 px-2 rounded-lg border border-dashed border-slate-600/50 bg-slate-900/30 text-slate-300 opacity-80 flex flex-col items-center justify-center cursor-not-allowed select-none"
+        className="flex-1 min-h-10 h-10 px-2 rounded-lg border border-dashed border-slate-200 bg-slate-50 text-slate-400 flex flex-col items-center justify-center cursor-not-allowed select-none"
         title={title}
         aria-label={`${label}. ${statement}`}
       >
-        <span className="flex items-center gap-1.5 text-xs font-semibold leading-none">
+        <span className="flex items-center gap-1.5 text-xs font-semibold leading-none text-slate-500">
           <Icon className="h-3 w-3 opacity-60 shrink-0" aria-hidden />
           {label}
         </span>
-        <span className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest leading-none mt-1">
+        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-1">
           {statement}
         </span>
+      </button>
+    );
+  }
+
+  if (locked) {
+    return (
+      <button
+        type="button"
+        disabled
+        className="flex-1 min-h-10 h-10 gap-1.5 px-3 text-xs font-semibold rounded-lg bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed inline-flex items-center justify-center select-none"
+        title={title}
+        aria-label={`${label} (Locked)`}
+      >
+        <Lock className="h-3.5 w-3.5 text-slate-400 shrink-0" aria-hidden />
+        <span className="text-slate-600">{label}</span>
       </button>
     );
   }
@@ -1748,7 +1782,6 @@ function TournamentModuleCta({
           ? "od-btn-enter-auction focus-visible:ring-amber-300"
           : "od-btn-match-scoring focus-visible:ring-cyan-200"
       }`}
-      disabled={locked}
       title={title}
       onClick={onClick}
     >
@@ -1967,13 +2000,34 @@ function OrganizerDashboard({
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4 overflow-x-hidden">
         {isLocked && (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            <div className="flex items-start gap-2">
-              <Lock className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-300" />
-              <div>
-                <p className="font-semibold text-red-100">Your account has been locked. Please contact admin.</p>
-                <p className="mt-1 text-xs text-red-200/80">
-                  You can still sign in, but opening existing tournaments and creating new ones is disabled until your account is restored.
+          <div className="rounded-2xl border-2 border-rose-300 bg-rose-50/95 p-4 sm:p-5 shadow-xs transition-all">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center shrink-0 text-rose-600 mt-0.5 shadow-2xs">
+                <Lock className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm sm:text-base font-bold text-rose-950">
+                      Account Temporarily Locked
+                    </h3>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-200 text-rose-800 border border-rose-300">
+                      Suspended
+                    </span>
+                  </div>
+                  <a
+                    href="mailto:support@bidwar.in?subject=BidWar%20Account%20Reactivation%20Request"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-800 bg-white hover:bg-rose-100 border border-rose-300 px-3 py-1.5 rounded-lg transition-colors shadow-2xs"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-rose-600" />
+                    Contact Support
+                  </a>
+                </div>
+                <p className="mt-1 text-xs sm:text-sm text-rose-900 leading-relaxed font-medium">
+                  Your organiser account has been locked by platform administration. You can still view tournament details and history, but launching live auctions, running match scoring, and creating new tournaments are frozen until your account is restored.
+                </p>
+                <p className="mt-2 text-[11px] text-rose-700">
+                  Need access restored? Please reach out to platform support or your designated administrator.
                 </p>
               </div>
             </div>
@@ -2062,12 +2116,18 @@ function OrganizerDashboard({
           <Button
             type="button"
             size="sm"
-            className="od-btn-gold gap-1.5 h-10 sm:h-11 text-sm px-4 w-full sm:w-auto shrink-0 focus-visible:ring-2 focus-visible:ring-amber-300"
+            className={cn(
+              "gap-1.5 h-10 sm:h-11 text-sm px-4 w-full sm:w-auto shrink-0 focus-visible:ring-2",
+              isLocked
+                ? "bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed hover:bg-slate-100 shadow-none font-semibold"
+                : "od-btn-gold focus-visible:ring-amber-300"
+            )}
             disabled={isLocked}
             onClick={() => setCreateOpen(true)}
+            title={isLocked ? "Account is locked. Creating new tournaments is disabled." : "Create a new tournament"}
           >
-            <Plus className="w-4 h-4" aria-hidden />
-            New Tournament
+            {isLocked ? <Lock className="w-4 h-4 text-slate-500" aria-hidden /> : <Plus className="w-4 h-4" aria-hidden />}
+            {isLocked ? "New Tournament (Locked)" : "New Tournament"}
           </Button>
         </div>
 
@@ -2268,9 +2328,10 @@ function OrganizerDashboard({
                 >
                   <Card
                     aria-disabled={isLocked}
-                    className={`od-tournament-card group relative overflow-hidden rounded-2xl transition-all duration-200 ${
-                      isLocked ? "opacity-60" : ""
-                    }`}
+                    className={cn(
+                      "od-tournament-card group relative overflow-hidden rounded-2xl transition-all duration-200",
+                      isLocked ? "border-slate-200 bg-white" : ""
+                    )}
                   >
                     <div
                       className={`od-card-decor ${tournamentCardSportDecorClass(t.sport)}`}
@@ -2299,31 +2360,38 @@ function OrganizerDashboard({
                             <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide bg-slate-100 border border-slate-200 text-slate-700">
                               {t.sport}
                             </span>
-                            <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${
-                                isActive
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : isCompleted
-                                    ? "bg-sky-50 text-sky-700 border-sky-200"
-                                    : "bg-amber-50 text-amber-800 border-amber-200"
-                              }`}
-                            >
+                            {isLocked ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide bg-rose-50 text-rose-700 border border-rose-200">
+                                <Lock className="w-2.5 h-2.5 text-rose-600" aria-hidden />
+                                Account Locked
+                              </span>
+                            ) : (
                               <span
-                                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                  isActive ? "bg-emerald-600 animate-pulse" : isCompleted ? "bg-sky-600" : "bg-amber-600"
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${
+                                  isActive
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : isCompleted
+                                      ? "bg-sky-50 text-sky-700 border-sky-200"
+                                      : "bg-amber-50 text-amber-800 border-amber-200"
                                 }`}
-                                aria-hidden
-                              />
-                              {isAuction
-                                ? getOrganizerAuctionStatusLabel(t.status)
-                                : t.status === "active"
-                                  ? "Live"
-                                  : t.status === "completed"
-                                    ? "Completed"
-                                    : "Getting Ready"}
-                            </span>
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                                    isActive ? "bg-emerald-600 animate-pulse" : isCompleted ? "bg-sky-600" : "bg-amber-600"
+                                  }`}
+                                  aria-hidden
+                                />
+                                {isAuction
+                                  ? getOrganizerAuctionStatusLabel(t.status)
+                                  : t.status === "active"
+                                    ? "Live"
+                                    : t.status === "completed"
+                                      ? "Completed"
+                                      : "Getting Ready"}
+                              </span>
+                            )}
 
-                            {isAuction && t.licenseStatus !== "active" && !isCompleted && (
+                            {isAuction && t.licenseStatus !== "active" && !isCompleted && !isLocked && (
                               pendingLicenseRequests[t.id] ? (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
                                   <Clock className="w-2.5 h-2.5" aria-hidden />
