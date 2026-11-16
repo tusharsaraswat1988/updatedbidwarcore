@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import {
   ArrowLeft,
+  ArrowRightLeft,
   Building2,
   Check,
   CheckCircle2,
@@ -38,6 +39,7 @@ import {
 import { MetricCard } from "@/components/admin/admin-metric-card";
 import { StatusBadge, organiserAccessTone } from "@/components/admin/admin-status-badge";
 import { AdminListHeader } from "@/components/admin/admin-list-header";
+import { TransferOrganizerDialog } from "@/components/admin/transfer-organizer-dialog";
 import {
   AdminOrganizerRow,
   AdminTournamentRow,
@@ -78,6 +80,23 @@ export default function AdminOrganiserDetailPage() {
   // Player stats state
   const [playerStats, setPlayerStats] = useState<{ totalPlayers: number; revenue: number } | null>(null);
   const [playerStatsLoading, setPlayerStatsLoading] = useState(true);
+
+  // Transfer tournament dialog state
+  const [transferTarget, setTransferTarget] = useState<AdminTournamentRow | null>(null);
+
+  const reloadOrganiserData = async () => {
+    const [organiserRows, tournamentRows] = await Promise.all([
+      listAdminOrganizers(),
+      listAdminTournaments(),
+    ]);
+    setOrganisers(organiserRows);
+    setTournaments(tournamentRows);
+    const current = organiserRows.find((o) => o.id === organiserId);
+    if (current) {
+      setQuotaVal(String(current.maxTournaments || 1));
+      setNotesVal(current.notes || "");
+    }
+  };
 
   useEffect(() => {
     if (!isLoading && !isLoggedIn) navigate("/admin/login");
@@ -322,27 +341,28 @@ export default function AdminOrganiserDetailPage() {
               </div>
 
               <AdminListHeader
-                gridClassName="sm:grid sm:grid-cols-[minmax(180px,2fr)_100px_100px_120px_80px] sm:items-center sm:gap-3"
+                gridClassName="sm:grid sm:grid-cols-[minmax(180px,2fr)_90px_90px_110px_140px] sm:items-center sm:gap-3"
                 columns={[
                   { label: "Tournament" },
                   { label: "Sport" },
                   { label: "Status" },
                   { label: "Schedule" },
-                  { label: "Action", align: "right" },
+                  { label: "Actions", align: "right" },
                 ]}
               />
 
               <AdminScrollPanel>
                 <div className="divide-y divide-border">
                   {linkedTournaments.map((t) => (
-                    <button
+                    <div
                       key={t.id}
-                      type="button"
-                      onClick={() => navigate(`/admin/tournaments/${t.id}`)}
-                      className="block w-full px-4 py-3 text-left text-xs hover:bg-accent/40 transition-colors sm:grid sm:grid-cols-[minmax(180px,2fr)_100px_100px_120px_80px] sm:items-center sm:gap-3"
+                      className="block w-full px-4 py-3 text-left text-xs hover:bg-accent/40 transition-colors sm:grid sm:grid-cols-[minmax(180px,2fr)_90px_90px_110px_140px] sm:items-center sm:gap-3"
                     >
-                      <div className="min-w-0">
-                        <span className="font-semibold text-foreground truncate block">{t.name}</span>
+                      <div
+                        className="min-w-0 cursor-pointer"
+                        onClick={() => navigate(`/admin/tournaments/${t.id}`)}
+                      >
+                        <span className="font-semibold text-foreground truncate block hover:text-primary transition-colors">{t.name}</span>
                         <span className="text-[11px] text-muted-foreground font-mono">#{t.id}</span>
                       </div>
 
@@ -370,10 +390,32 @@ export default function AdminOrganiserDetailPage() {
                         {t.auctionDate ? new Date(t.auctionDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Unscheduled"}
                       </div>
 
-                      <div className="text-primary font-medium text-right mt-1 sm:mt-0">
-                        Open →
+                      <div className="flex items-center justify-end gap-1.5 mt-1 sm:mt-0">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTransferTarget(t);
+                          }}
+                          className="h-7 px-2 text-[11px] text-muted-foreground hover:text-primary hover:bg-primary/10 gap-1 shrink-0"
+                          title="Transfer this tournament to another organiser"
+                        >
+                          <ArrowRightLeft className="w-3 h-3" />
+                          <span>Transfer</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => navigate(`/admin/tournaments/${t.id}`)}
+                          className="h-7 px-2 text-[11px] font-semibold text-primary hover:text-primary hover:bg-primary/10 shrink-0"
+                        >
+                          Open →
+                        </Button>
                       </div>
-                    </button>
+                    </div>
                   ))}
                   {!linkedTournaments.length && (
                     <div className="p-8 text-center text-xs text-muted-foreground">
@@ -542,6 +584,18 @@ export default function AdminOrganiserDetailPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* TRANSFER TOURNAMENT DIALOG */}
+      <TransferOrganizerDialog
+        open={Boolean(transferTarget)}
+        onOpenChange={(open) => {
+          if (!open) setTransferTarget(null);
+        }}
+        tournament={transferTarget}
+        onSuccess={() => {
+          reloadOrganiserData();
+        }}
+      />
     </AdminShell>
   );
 }

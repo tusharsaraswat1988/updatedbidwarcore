@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   AlertTriangle,
+  ArrowRightLeft,
   BadgeCheck,
   Check,
   CheckCircle2,
@@ -28,11 +29,13 @@ import {
   Trophy,
   Tv,
   Unlock,
+  UserCheck,
   Users,
   Zap,
 } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
 import { displayOrganizerMobile } from "@workspace/api-base/mobile";
+import { TransferOrganizerDialog } from "@/components/admin/transfer-organizer-dialog";
 import { cn } from "@/lib/utils";
 import { formatAuctionAmount } from "@/lib/format";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -220,6 +223,9 @@ export default function AdminTournamentDetailPage() {
   // Delete tournament state
   const [confirmDelete, setConfirmDelete] = useState(false);
 
+  // Transfer tournament organizer dialog state
+  const [transferOpen, setTransferOpen] = useState(false);
+
   const showFlash = (msg: string, ok = true) => {
     setFlash({ msg, ok });
     setTimeout(() => setFlash(null), 4000);
@@ -235,6 +241,15 @@ export default function AdminTournamentDetailPage() {
     const d = await fetchAdminTournamentDetail(tournamentId);
     setDetail(d);
   }, [tournamentId]);
+
+  const handleTransferSuccess = useCallback(async (res: { linkedOrganizerId: number | null; linkedOrganizerName: string | null }) => {
+    if (res.linkedOrganizerId) {
+      showFlash(`Tournament transferred to organiser: ${res.linkedOrganizerName || `#${res.linkedOrganizerId}`}`);
+    } else {
+      showFlash("Organiser account unlinked from tournament");
+    }
+    await Promise.all([reloadTournaments(), reloadDetail()]);
+  }, [reloadTournaments, reloadDetail]);
 
   useEffect(() => {
     let cancelled = false;
@@ -411,19 +426,26 @@ export default function AdminTournamentDetailPage() {
                       : "Unscheduled"}
                     {t.auctionTime ? ` · ${t.auctionTime}` : ""}
                   </span>
-                  {t.organizerName && (
-                    <>
-                      <span>·</span>
-                      <span>
-                        Host: <strong className="text-foreground">{t.organizerName}</strong>
-                        {t.organizerMobile && displayOrganizerMobile(t.organizerMobile) ? (
-                          <span className="font-mono text-muted-foreground ml-1">
-                            ({displayOrganizerMobile(t.organizerMobile)})
-                          </span>
-                        ) : null}
+                  <span>·</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    Host: <strong className="text-foreground">{t.organizerName || "Unassigned"}</strong>
+                    {t.organizerMobile && displayOrganizerMobile(t.organizerMobile) ? (
+                      <span className="font-mono text-muted-foreground">
+                        ({displayOrganizerMobile(t.organizerMobile)})
                       </span>
-                    </>
-                  )}
+                    ) : null}
+                    {isMaster && (
+                      <button
+                        type="button"
+                        onClick={() => setTransferOpen(true)}
+                        className="ml-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 inline-flex items-center gap-1 transition-colors"
+                        title="Transfer or Reassign Organiser"
+                      >
+                        <ArrowRightLeft className="w-2.5 h-2.5" />
+                        Transfer
+                      </button>
+                    )}
+                  </span>
                 </div>
               </div>
 
@@ -605,6 +627,94 @@ export default function AdminTournamentDetailPage() {
                 <span className="text-[11px] text-muted-foreground/80 font-mono">
                   Module: {productMode.replace("_", " ").toUpperCase()}
                 </span>
+              </div>
+
+              {/* TOURNAMENT HOST & ORGANISER OWNERSHIP */}
+              <div className="rounded-xl border border-border bg-card/70 p-4 sm:p-5 shadow-sm space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                      <UserCheck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Tournament Host & Organiser Assignment</h3>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Authoritative ownership and organiser portal access binding.</p>
+                    </div>
+                  </div>
+
+                  {isMaster && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setTransferOpen(true)}
+                        className="h-8 text-xs font-medium border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 gap-1.5"
+                      >
+                        <ArrowRightLeft className="w-3.5 h-3.5" />
+                        {t.organizerId ? "Transfer Organiser" : "Assign Organiser"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-1">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Account Status</span>
+                    <div className="flex items-center gap-1.5 pt-0.5">
+                      {t.organizerId ? (
+                        <Badge variant="outline" className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border-emerald-500/20 gap-1">
+                          <UserCheck className="w-3 h-3" /> Linked Host Account
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] font-semibold bg-amber-500/10 text-amber-400 border-amber-500/20 gap-1">
+                          <AlertTriangle className="w-3 h-3" /> Unlinked Account
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-1">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Host Name</span>
+                    <p className="text-xs font-semibold text-foreground truncate">
+                      {t.organizerName || "Unassigned"}
+                    </p>
+                    {t.organizerId ? (
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        Account ID: #{t.organizerId}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground">No account bound</span>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-1">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Host Phone / Contact</span>
+                    <p className="text-xs font-medium text-foreground font-mono truncate">
+                      {t.organizerMobile && displayOrganizerMobile(t.organizerMobile)
+                        ? displayOrganizerMobile(t.organizerMobile)
+                        : "No phone on file"}
+                    </p>
+                    {t.organizerEmail ? (
+                      <p className="text-[11px] text-muted-foreground truncate">{t.organizerEmail}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-1 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Organiser Profile</span>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {t.organizerId ? "View account governance & quota." : "No linked organiser account."}
+                      </p>
+                    </div>
+                    {t.organizerId ? (
+                      <Link href={`/admin/organisers/${t.organizerId}`}>
+                        <span className="text-xs text-primary hover:underline font-medium inline-flex items-center gap-1 mt-1 cursor-pointer">
+                          View Organiser Profile →
+                        </span>
+                      </Link>
+                    ) : null}
+                  </div>
+                </div>
               </div>
 
               {/* SECTION 1: OPERATIONS & LIFECYCLE CONTROLS */}
@@ -1814,6 +1924,14 @@ export default function AdminTournamentDetailPage() {
           }}
         />
       )}
+
+      {/* TRANSFER / REASSIGN ORGANISER DIALOG */}
+      <TransferOrganizerDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        tournament={t}
+        onSuccess={handleTransferSuccess}
+      />
     </AdminShell>
   );
 }

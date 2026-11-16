@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { tournamentsTable, organizersTable, auctionSessionsTable } from "@workspace/db";
+import { tournamentsTable, organizersTable, auctionSessionsTable, tournamentLicenseRequestsTable } from "@workspace/db";
 import { CURRENT_CONSENT_NOTICE_VERSION } from "@workspace/api-base";
 import { recordConsentGranted, recordConsentWithdrawal, handlePhoneNumberChange } from "../lib/communication/consent-service";
-import { eq, or, desc } from "drizzle-orm";
+import { eq, or, desc, and } from "drizzle-orm";
 import { z } from "zod";
 import { timingSafeEqual, scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
@@ -647,11 +647,32 @@ router.post("/auth/admin/tournaments", async (req, res) => {
   if (d.organizerMobile !== undefined) {
     const trimmed = d.organizerMobile.trim();
     if (trimmed) {
-      const mobileParsed = parseIndianMobile(trimmed);
-      if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
-      organizerMobile = mobileParsed.normalized;
+      if (isPlaceholderOrganizerMobile(trimmed)) {
+        organizerMobile = null;
+      } else {
+        const mobileParsed = parseIndianMobile(trimmed);
+        if (!mobileParsed.ok) { res.status(400).json({ error: mobileParsed.error }); return; }
+        organizerMobile = mobileParsed.normalized;
+      }
     } else {
       organizerMobile = null;
+    }
+  }
+
+  let organizerName = d.organizerName;
+  let organizerEmail = d.organizerEmail;
+  if (d.organizerId) {
+    const [matchedOrg] = await db
+      .select()
+      .from(organizersTable)
+      .where(eq(organizersTable.id, d.organizerId))
+      .limit(1);
+    if (matchedOrg) {
+      if (!organizerName) organizerName = matchedOrg.name;
+      if (!organizerEmail) organizerEmail = matchedOrg.email ?? undefined;
+      if (!organizerMobile && matchedOrg.mobile && !isPlaceholderOrganizerMobile(matchedOrg.mobile)) {
+        organizerMobile = matchedOrg.mobile;
+      }
     }
   }
 
@@ -666,7 +687,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     auctionDate: d.auctionDate,
     auctionTime: d.auctionTime ?? null,
     organizerId: d.organizerId ?? null,
-    organizerName: d.organizerName,
+    organizerName,
     variantId: catalogBindings.columns.variantId,
     competitionTypeId: catalogBindings.columns.competitionTypeId,
     ruleProfileId: catalogBindings.columns.ruleProfileId,
@@ -678,7 +699,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
     squadRulesJson: catalogBindings.columns.squadRulesJson,
     businessStageId: "registration_planning",
     organizerMobile,
-    organizerEmail: d.organizerEmail,
+    organizerEmail,
     auctionUnit: d.auctionUnit ?? "points",
     basePurse: d.basePurse ?? 10000000,
     minBid: d.minBid ?? 100000,
@@ -1210,36 +1231,114 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   res.json({ success: true, id: tournament.id, linkedOrganizerId: autoLinkedOrganizer?.id ?? null, linkedOrganizerName: autoLinkedOrganizer?.name ?? null });
 });
 
-// ─── Admin: Explicitly link/unlink organizer to tournament ────────────────────
+// ─── Admin: Explicitly link/unlink or transfer organizer to tournament ────────
 
-router.post("/auth/admin/tournaments/:tournamentId/link-organizer", async (req, res) => {
+async function handleLinkOrTransferOrganizer(req: import("express").Request, res: import("express").Response) {
   if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  const body = z.object({ organizerId: z.number().int().nullable() }).safeParse(req.body);
+  const schema = z.object({
+    organizerId: z.number().int().nullable(),
+    syncContact: z.boolean().optional().default(true),
+  });
+  const body = schema.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: "Invalid input" }); return; }
+
+  const [beforeTournament] = await db
+    .select()
+    .from(tournamentsTable)
+    .where(eq(tournamentsTable.id, tid));
+  if (!beforeTournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+
+  let targetOrganizer: typeof organizersTable.$inferSelect | null = null;
+  if (body.data.organizerId !== null) {
+    const [found] = await db
+      .select()
+      .from(organizersTable)
+      .where(eq(organizersTable.id, body.data.organizerId));
+    if (!found) {
+      res.status(404).json({ error: "Target organiser account not found" });
+      return;
+    }
+    targetOrganizer = found;
+  }
+
+  const updates: Record<string, unknown> = {
+    organizerId: targetOrganizer ? targetOrganizer.id : null,
+  };
+
+  if (targetOrganizer && body.data.syncContact) {
+    updates.organizerName = targetOrganizer.name;
+    if (targetOrganizer.mobile && !isPlaceholderOrganizerMobile(targetOrganizer.mobile)) {
+      updates.organizerMobile = targetOrganizer.mobile;
+    }
+    if (targetOrganizer.email) {
+      updates.organizerEmail = targetOrganizer.email;
+    }
+  }
+
   const [tournament] = await db.update(tournamentsTable)
-    .set({ organizerId: body.data.organizerId })
+    .set(updates)
     .where(eq(tournamentsTable.id, tid))
     .returning();
-  if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
-  let linkedOrganizer: { id: number; name: string } | null = null;
-  if (body.data.organizerId !== null) {
-    const rows = await db.select().from(organizersTable).where(eq(organizersTable.id, body.data.organizerId));
-    if (rows[0]) linkedOrganizer = { id: rows[0].id, name: rows[0].name };
+
+  // If there are pending license requests for this tournament, reassign them as well
+  if (targetOrganizer) {
+    const licUpdates: Record<string, unknown> = { organizerId: targetOrganizer.id };
+    if (targetOrganizer.mobile && !isPlaceholderOrganizerMobile(targetOrganizer.mobile)) {
+      licUpdates.organizerMobile = targetOrganizer.mobile;
+    }
+    await db
+      .update(tournamentLicenseRequestsTable)
+      .set(licUpdates)
+      .where(
+        and(
+          eq(tournamentLicenseRequestsTable.tournamentId, tid),
+          eq(tournamentLicenseRequestsTable.status, "pending"),
+        ),
+      );
   }
+
   auditLog(req, {
     category: "admin",
-    action: "tournament.organizer_linked",
-    summary: linkedOrganizer
-      ? `Organizer "${linkedOrganizer.name}" linked to tournament "${tournament.name}"`
-      : `Organizer unlinked from tournament "${tournament.name}"`,
+    action: targetOrganizer ? "tournament.organizer_transferred" : "tournament.organizer_unlinked",
+    summary: targetOrganizer
+      ? `Tournament "${tournament.name}" transferred to organiser "${targetOrganizer.name}"`
+      : `Organiser unlinked from tournament "${tournament.name}"`,
+    severity: "info",
     tournamentId: tid,
     resource: { type: "tournament", id: tid },
-    metadata: { organizerId: body.data.organizerId },
+    before: beforeTournament ? snapshotTournament(beforeTournament) : null,
+    after: snapshotTournament(tournament),
+    metadata: {
+      previousOrganizerId: beforeTournament.organizerId,
+      newOrganizerId: targetOrganizer?.id ?? null,
+      previousOrganizerName: beforeTournament.organizerName,
+      newOrganizerName: targetOrganizer?.name ?? null,
+      syncContact: body.data.syncContact,
+    },
   });
-  res.json({ success: true, id: tournament.id, linkedOrganizerId: linkedOrganizer?.id ?? null, linkedOrganizerName: linkedOrganizer?.name ?? null });
-});
+
+  res.json({
+    success: true,
+    id: tournament.id,
+    linkedOrganizerId: targetOrganizer?.id ?? null,
+    linkedOrganizerName: targetOrganizer?.name ?? null,
+    linkedOrganizerMobile: targetOrganizer?.mobile ?? null,
+    linkedOrganizerEmail: targetOrganizer?.email ?? null,
+    tournament: {
+      id: tournament.id,
+      name: tournament.name,
+      organizerId: tournament.organizerId,
+      organizerName: tournament.organizerName,
+      organizerMobile: tournament.organizerMobile,
+      organizerEmail: tournament.organizerEmail,
+    },
+  });
+}
+
+router.post("/auth/admin/tournaments/:tournamentId/link-organizer", handleLinkOrTransferOrganizer);
+router.post("/auth/admin/tournaments/:tournamentId/transfer-organizer", handleLinkOrTransferOrganizer);
 
 // ─── Admin: List all organizer accounts ──────────────────────────────────────
 

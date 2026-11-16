@@ -36,7 +36,7 @@ import { LicenseModeControl } from "@/components/admin/license-mode-control";
 import { AuditReasonDialog } from "@/components/audit-reason-dialog";
 import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
 import { payloadHasTournamentConfigFields } from "@/lib/audit-reason";
-import { parseIndianMobile, sanitizeMobileInput, displayOrganizerMobile } from "@workspace/api-base/mobile";
+import { parseIndianMobile, sanitizeMobileInput, displayOrganizerMobile, isPlaceholderOrganizerMobile } from "@workspace/api-base/mobile";
 import { isScoringSupportedSport, type TournamentProductMode } from "@workspace/platform-core";
 import { FullscreenLayout } from "@/components/layout";
 import { motion, AnimatePresence } from "framer-motion";
@@ -260,7 +260,9 @@ export function CreateTournamentModal({
     if (organizerMode === "existing") {
       if (selectedOrganizerId) {
         selectedOrg = organizers.find((o) => String(o.id) === selectedOrganizerId);
-        organizerMobile = selectedOrg?.mobile || undefined;
+        organizerMobile = selectedOrg?.mobile && !isPlaceholderOrganizerMobile(selectedOrg.mobile)
+          ? selectedOrg.mobile
+          : undefined;
       }
     } else if (form.organizerMobile.trim()) {
       const mobileResult = parseIndianMobile(form.organizerMobile);

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
 import {
+  ArrowRightLeft,
   Calendar,
   Check,
   CheckCircle2,
@@ -40,6 +41,7 @@ import {
 } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { CreateTournamentModal } from "@/pages/admin";
+import { TransferOrganizerDialog } from "@/components/admin/transfer-organizer-dialog";
 
 function getSportTag(sportName?: string) {
   const s = (sportName || "general").toLowerCase();
@@ -175,6 +177,9 @@ export default function AdminTournamentsListPage() {
   const [grantLoading, setGrantLoading] = useState(false);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  // Transfer organiser state
+  const [transferTarget, setTransferTarget] = useState<AdminTournamentRow | null>(null);
 
   function showFlash(msg: string, ok = true) {
     setFlash({ msg, ok });
@@ -624,13 +629,24 @@ export default function AdminTournamentsListPage() {
 
                     {/* Col 4: Organiser (Name + Contact + Linked Indicator) */}
                     <div className="min-w-0 flex flex-col justify-center mt-1.5 lg:mt-0">
-                      <div className="flex items-center gap-1 min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <span className="truncate text-xs font-medium text-foreground/90">
                           {t.organizerName || <span className="text-muted-foreground italic">Unlinked Host</span>}
                         </span>
                         {t.organizerId ? (
                           <UserCheck className="h-3 w-3 text-emerald-400 shrink-0" title="Linked Host Account" />
                         ) : null}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setTransferTarget(t);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 focus:opacity-100 p-0.5 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all shrink-0"
+                          title="Transfer or Reassign Organiser"
+                        >
+                          <ArrowRightLeft className="w-3 h-3" />
+                        </button>
                       </div>
                       {safeMobile ? (
                         <span className="block truncate text-[11px] text-muted-foreground font-mono">
@@ -668,8 +684,22 @@ export default function AdminTournamentsListPage() {
                       <LicenseTierBadge status={t.licenseStatus} />
                     </div>
 
-                    {/* Col 9: Actions (Refined Grant License & Open) */}
+                    {/* Col 9: Actions (Refined Grant License, Transfer & Open) */}
                     <div className="flex items-center justify-start lg:justify-end gap-1.5 min-w-0 mt-2.5 lg:mt-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTransferTarget(t);
+                        }}
+                        className="h-7 px-2 text-[11px] font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 gap-1 shrink-0"
+                        title="Transfer tournament to another organiser"
+                      >
+                        <ArrowRightLeft className="h-3 w-3" />
+                        <span className="hidden xl:inline">Transfer</span>
+                      </Button>
                       {t.licenseStatus !== "active" && (
                         <Button
                           type="button"
@@ -816,6 +846,23 @@ export default function AdminTournamentsListPage() {
           />
         )}
       </AnimatePresence>
+
+      {/* TRANSFER / REASSIGN ORGANISER DIALOG */}
+      <TransferOrganizerDialog
+        open={Boolean(transferTarget)}
+        onOpenChange={(open) => {
+          if (!open) setTransferTarget(null);
+        }}
+        tournament={transferTarget}
+        onSuccess={(result) => {
+          if (result.linkedOrganizerId) {
+            showFlash(`Tournament transferred to organiser: ${result.linkedOrganizerName || `#${result.linkedOrganizerId}`}`);
+          } else {
+            showFlash("Organiser account unlinked from tournament");
+          }
+          load();
+        }}
+      />
     </AdminShell>
   );
 }

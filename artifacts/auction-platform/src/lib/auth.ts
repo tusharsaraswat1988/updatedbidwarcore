@@ -164,18 +164,38 @@ export async function updateAdminTournament(
 
 export async function linkOrganizerToTournament(
   tournamentId: number,
-  organizerId: number | null
-): Promise<{ success: boolean; error?: string; linkedOrganizerId?: number | null; linkedOrganizerName?: string | null }> {
+  organizerId: number | null,
+  options?: { syncContact?: boolean }
+): Promise<{
+  success: boolean;
+  error?: string;
+  linkedOrganizerId?: number | null;
+  linkedOrganizerName?: string | null;
+  linkedOrganizerMobile?: string | null;
+  linkedOrganizerEmail?: string | null;
+}> {
   try {
     const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/link-organizer`, {
       method: "POST",
-      body: JSON.stringify({ organizerId }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        organizerId,
+        syncContact: options?.syncContact ?? true,
+      }),
     });
     const d = await r.json();
-    if (!r.ok) return { success: false, error: d.error || "Link failed" };
-    return { success: true, linkedOrganizerId: d.linkedOrganizerId ?? null, linkedOrganizerName: d.linkedOrganizerName ?? null };
+    if (!r.ok) return { success: false, error: d.error || "Transfer failed" };
+    return {
+      success: true,
+      linkedOrganizerId: d.linkedOrganizerId ?? null,
+      linkedOrganizerName: d.linkedOrganizerName ?? null,
+      linkedOrganizerMobile: d.linkedOrganizerMobile ?? null,
+      linkedOrganizerEmail: d.linkedOrganizerEmail ?? null,
+    };
   } catch { return { success: false, error: "Network error" }; }
 }
+
+export const transferTournamentOrganizer = linkOrganizerToTournament;
 
 // ─── Admin license / lock ─────────────────────────────────────────────────────
 
