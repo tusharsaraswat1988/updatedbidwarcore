@@ -107,6 +107,11 @@ describe("Live LED Screen Player Auction History Banner", () => {
     expect(src).toContain("BOUGHT BY:");
     expect(src).toContain("isSameEvent");
     expect(src).toContain("PAST HIGHEST &amp; LAST AUCTION:");
+    // Ensure exact decimal precision (₹1.25 LAKH, never rounded to ₹1.3 LAKH)
+    expect(src).toContain("l.toFixed(2).replace(/\\.?0+$/, \"\")");
+    expect(src).not.toContain("l.toFixed(1)");
+    // Ensure no rigid min-h-[220px] that breaks the 16:9 stage layout and pushes chyron off-screen
+    expect(src).not.toContain("min-h-[220px]");
   });
 });
 

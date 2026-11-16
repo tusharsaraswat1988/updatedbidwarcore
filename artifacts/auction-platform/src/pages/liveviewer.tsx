@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useRoute } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "@/lib/utils";
 import {
   useGetTournament,
   getGetTournamentQueryKey,
@@ -1141,7 +1142,12 @@ export function LiveViewerPlayerAuctionHistory({
   const isSameEvent = Boolean(
     bestSoldRecord &&
     lastSoldRecord &&
-    bestSoldRecord.tournamentId === lastSoldRecord.tournamentId
+    (
+      (history.records && history.records.length <= 1) ||
+      (history.totalSoldAppearances && history.totalSoldAppearances <= 1) ||
+      String(bestSoldRecord.tournamentId) === String(lastSoldRecord.tournamentId) ||
+      (bestSoldRecord.soldPrice === lastSoldRecord.soldPrice && bestSoldRecord.tournamentName === lastSoldRecord.tournamentName)
+    )
   );
 
   return (
@@ -1193,10 +1199,19 @@ export function LiveViewerPlayerAuctionHistory({
 
 // ── Main LiveViewerPage ───────────────────────────────────────────────────────
 
-export default function LiveViewerPage() {
+export interface LiveViewerPageProps {
+  tournamentId?: number;
+  embedded?: boolean;
+  [key: string]: unknown;
+}
+
+export default function LiveViewerPage({
+  tournamentId: propTournamentId,
+  embedded = false,
+}: LiveViewerPageProps = {}) {
   const [, legacyParams] = useRoute("/tournament/:id/liveviewer");
   const [, liveParams] = useRoute("/live/:id");
-  const tournamentId = parseInt(legacyParams?.id || liveParams?.id || "0");
+  const tournamentId = propTournamentId || parseInt(legacyParams?.id || liveParams?.id || "0");
   const { logos, brandName, poweredByText } = useBranding();
   const logoAlt = getBrandLogoAlt(brandName);
   const viewerHeaderPreset = getBrandSurfacePreset("auction-viewer-header");
@@ -1328,13 +1343,15 @@ export default function LiveViewerPage() {
 
   // ── Page title ────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (embedded) return;
     const name = tournament?.name;
     document.title = name ? `${name} — BidWar Live` : "BidWar Live";
     return () => { document.title = "BidWar"; };
-  }, [tournament?.name]);
+  }, [tournament?.name, embedded]);
 
-  // Lock document scroll — viewer is a fixed single-screen experience
+  // Lock document scroll — viewer is a fixed single-screen experience when standalone
   useEffect(() => {
+    if (embedded) return;
     const html = document.documentElement;
     const prevHtml = html.style.overflow;
     const prevBody = document.body.style.overflow;
@@ -1344,7 +1361,7 @@ export default function LiveViewerPage() {
       html.style.overflow = prevHtml;
       document.body.style.overflow = prevBody;
     };
-  }, []);
+  }, [embedded]);
 
   const sponsorLogos = useMemo(
     () => getSponsorsByPriority(parseSponsorLogos(tournament?.sponsorLogos)),
@@ -1689,7 +1706,7 @@ export default function LiveViewerPage() {
   }
 
   return (
-    <div className="lovable-theme dark h-[100dvh] bg-background relative flex flex-col overflow-hidden">
+    <div className={cn("lovable-theme dark relative flex flex-col", !embedded ? "h-[100dvh] bg-background overflow-hidden" : "w-full flex-1 min-h-0 bg-transparent")}>
       {isCompleted ? (
         <CompletedScreen
           tournament={tournament}
@@ -1713,80 +1730,84 @@ export default function LiveViewerPage() {
       </AnimatePresence>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex-shrink-0 z-30 bg-black/90 backdrop-blur-md border-b border-white/10 shadow-lg">
-        <div className="px-3 py-2.5 sm:px-5 sm:py-3 md:px-6 md:py-3.5">
-          {/* Top Row: Left (Live badge + Sound), Center (BidWar branding), Right (Sponsor banner) */}
-          <div className="flex items-center justify-between gap-2 sm:gap-4 min-w-0">
-            {/* Left: Status badge & Sound toggles */}
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 justify-start">
-              <span className={`inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border shadow-sm ${statusRing}`}>
-                {(isActive || isSold) && (
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                )}
-                {statusLabel}
-              </span>
-              <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-0.5 shadow-sm">
-                <button
-                  type="button"
-                  onClick={toggleAllSounds}
-                  className={`p-1.5 sm:p-2 rounded-lg transition-colors ${anySound ? "text-emerald-400 hover:bg-white/10" : "text-muted-foreground hover:text-foreground hover:bg-white/10"}`}
-                  title={anySound ? "Mute all sounds" : "Unmute sounds"}
-                  aria-label={anySound ? "Mute all sounds" : "Unmute sounds"}
-                >
-                  {anySound ? <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSoundSettingsOpen(true)}
-                  className="p-1.5 sm:p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors border-l border-white/10"
-                  title="Sound settings"
-                  aria-label="Sound settings"
-                >
-                  <SlidersHorizontal className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                </button>
-              </div>
-            </div>
-
-            {/* Center: BidWar official branding ("1. bidwar branding should be in top centre.") */}
-            <div className="flex items-center justify-center flex-shrink-0 px-2">
-              <img
-                src={logos.mini || miniLogoSrc}
-                alt={logoAlt}
-                className="h-7 sm:h-8 md:h-9 w-auto object-contain select-none transition-transform hover:scale-105"
-              />
-            </div>
-
-            {/* Right: Sponsors banner ("3. sponsors ke banner top right me apni proper jagah le ke rahe. aur thoda bada rahe, taaki dikhe.") */}
-            <div className="flex items-center justify-end min-w-0 flex-1">
-              {sponsorLogos.length > 0 ? (
-                <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white/[0.06] border border-white/10 backdrop-blur-md shadow-sm">
-                  <span className="text-[9px] uppercase tracking-widest font-black text-amber-400/90 hidden sm:inline-block">
-                    Sponsor
+      <div className={cn("flex-shrink-0 z-30 bg-black/90 backdrop-blur-md border-b border-white/10 shadow-lg", embedded && "rounded-2xl border mb-3")}>
+        <div className={cn("px-3 py-2.5 sm:px-5 sm:py-3 md:px-6 md:py-3.5", embedded && "py-2 sm:py-2.5")}>
+          {!embedded && (
+            <>
+              {/* Top Row: Left (Live badge + Sound), Center (BidWar branding), Right (Sponsor banner) */}
+              <div className="flex items-center justify-between gap-2 sm:gap-4 min-w-0">
+                {/* Left: Status badge & Sound toggles */}
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 justify-start">
+                  <span className={`inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full border shadow-sm ${statusRing}`}>
+                    {(isActive || isSold) && (
+                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    )}
+                    {statusLabel}
                   </span>
-                  <SponsorCarousel logos={sponsorLogos} compact />
+                  <div className="flex items-center bg-white/5 border border-white/10 rounded-xl p-0.5 shadow-sm">
+                    <button
+                      type="button"
+                      onClick={toggleAllSounds}
+                      className={`p-1.5 sm:p-2 rounded-lg transition-colors ${anySound ? "text-emerald-400 hover:bg-white/10" : "text-muted-foreground hover:text-foreground hover:bg-white/10"}`}
+                      title={anySound ? "Mute all sounds" : "Unmute sounds"}
+                      aria-label={anySound ? "Mute all sounds" : "Unmute sounds"}
+                    >
+                      {anySound ? <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSoundSettingsOpen(true)}
+                      className="p-1.5 sm:p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors border-l border-white/10"
+                      title="Sound settings"
+                      aria-label="Sound settings"
+                    >
+                      <SlidersHorizontal className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    </button>
+                  </div>
                 </div>
-              ) : (
-                <div className="w-16 sm:w-24 invisible pointer-events-none" />
-              )}
-            </div>
-          </div>
 
-          {/* Row 2: Tournament Name ("2. tournament name uske neeche 80-85% width le ke responsive rahe. depending on tournament name") */}
-          <div className="mt-2 sm:mt-2.5 w-full max-w-[85%] mx-auto flex items-center justify-center gap-2.5 sm:gap-3 text-center">
-            {tournament?.logoUrl && (
-              <img
-                src={cldUrl(tournament.logoUrl, "headerLogo")}
-                alt=""
-                className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-xl object-contain flex-shrink-0 bg-white/5 border border-white/10 shadow-sm"
-              />
-            )}
-            <h1 className="font-display font-black text-lg sm:text-2xl md:text-3xl lg:text-4xl leading-tight text-white tracking-tight line-clamp-2 drop-shadow-md">
-              {tournament?.name || "Live Auction"}
-            </h1>
-          </div>
+                {/* Center: BidWar official branding */}
+                <div className="flex items-center justify-center flex-shrink-0 px-2">
+                  <img
+                    src={logos.mini || miniLogoSrc}
+                    alt={logoAlt}
+                    className="h-7 sm:h-8 md:h-9 w-auto object-contain select-none transition-transform hover:scale-105"
+                  />
+                </div>
 
-          {/* Row 3: Prominent TV-Broadcast Stat Badges ("4. sold left unsold retained ye promonently dikhe abhi ajeeb sa kone me pada sa lag raha feeling less.") */}
-          <div className="mt-2.5 sm:mt-3 flex items-center justify-center flex-wrap gap-2 sm:gap-3">
+                {/* Right: Sponsors banner */}
+                <div className="flex items-center justify-end min-w-0 flex-1">
+                  {sponsorLogos.length > 0 ? (
+                    <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl bg-white/[0.06] border border-white/10 backdrop-blur-md shadow-sm">
+                      <span className="text-[9px] uppercase tracking-widest font-black text-amber-400/90 hidden sm:inline-block">
+                        Sponsor
+                      </span>
+                      <SponsorCarousel logos={sponsorLogos} compact />
+                    </div>
+                  ) : (
+                    <div className="w-16 sm:w-24 invisible pointer-events-none" />
+                  )}
+                </div>
+              </div>
+
+              {/* Row 2: Tournament Name */}
+              <div className="mt-2 sm:mt-2.5 w-full max-w-[85%] mx-auto flex items-center justify-center gap-2.5 sm:gap-3 text-center">
+                {tournament?.logoUrl && (
+                  <img
+                    src={cldUrl(tournament.logoUrl, "headerLogo")}
+                    alt=""
+                    className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-xl object-contain flex-shrink-0 bg-white/5 border border-white/10 shadow-sm"
+                  />
+                )}
+                <h1 className="font-display font-black text-lg sm:text-2xl md:text-3xl lg:text-4xl leading-tight text-white tracking-tight line-clamp-2 drop-shadow-md">
+                  {tournament?.name || "Live Auction"}
+                </h1>
+              </div>
+            </>
+          )}
+
+          {/* Row 3: Prominent TV-Broadcast Stat Badges */}
+          <div className={cn("flex items-center justify-center flex-wrap gap-2 sm:gap-3", !embedded && "mt-2.5 sm:mt-3")}>
             {/* SOLD */}
             <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shadow-sm shadow-emerald-950/20 backdrop-blur-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />

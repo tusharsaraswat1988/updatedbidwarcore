@@ -102,7 +102,12 @@ export function OwnerPlayerAuctionHistory({
   const isSameEvent = Boolean(
     bestSold &&
     lastSold &&
-    bestSold.tournamentId === lastSold.tournamentId
+    (
+      data.totalSoldAppearances <= 1 ||
+      (data.records && data.records.length <= 1) ||
+      String(bestSold.tournamentId) === String(lastSold.tournamentId) ||
+      (bestSold.soldPrice === lastSold.soldPrice && bestSold.tournamentName === lastSold.tournamentName)
+    )
   );
   const showTop5 = data.hasTop5Badge || bestSold?.isTop5 || lastSold?.isTop5;
 

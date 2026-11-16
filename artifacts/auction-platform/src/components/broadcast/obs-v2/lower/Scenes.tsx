@@ -110,7 +110,12 @@ export function ObsPlayerHistoryChip({
   const isSameEvent = Boolean(
     bestSoldRecord &&
     lastSoldRecord &&
-    bestSoldRecord.tournamentId === lastSoldRecord.tournamentId
+    (
+      (history.records && history.records.length <= 1) ||
+      (history.totalSoldAppearances && history.totalSoldAppearances <= 1) ||
+      String(bestSoldRecord.tournamentId) === String(lastSoldRecord.tournamentId) ||
+      (bestSoldRecord.soldPrice === lastSoldRecord.soldPrice && bestSoldRecord.tournamentName === lastSoldRecord.tournamentName)
+    )
   );
 
   return (

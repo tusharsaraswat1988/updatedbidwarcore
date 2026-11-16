@@ -120,7 +120,7 @@ export function LedStageContent({ view, tournamentId }: { view: LedView; tournam
       {view.currentPlayer || view.derivedState === "awaitingNext" ? (
         <div className={`absolute inset-0 grid ${STAGE_GRID_ROWS_LIVE} font-['Barlow_Condensed']`}>
           <TopStrip view={view} />
-          <div className="grid grid-cols-[28%_1fr_24%] gap-[1.2%] p-[1.5%]">
+          <div className="grid grid-cols-[28%_1fr_24%] gap-[1.2%] p-[1.5%] min-h-0 h-full overflow-hidden">
             <PlayerPortrait view={view} />
             <BidCenter view={view} />
             <TimerPanel view={view} />

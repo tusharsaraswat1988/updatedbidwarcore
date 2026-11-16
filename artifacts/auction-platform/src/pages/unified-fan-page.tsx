@@ -17,7 +17,43 @@ import {
   UnifiedFanPageErrorState,
 } from "@/components/fan/unified-fan-page-shell";
 import type { FanModuleTab } from "@/components/fan/unified-module-nav";
-import { Gavel, Trophy, ShieldCheck, Sparkles, Activity } from "lucide-react";
+import { AuctionFanRenderer } from "@/components/fan/auction-fan-renderer";
+import { CricketFanRenderer } from "@/components/fan/cricket-fan-renderer";
+import { BadmintonFanRenderer } from "@/components/fan/badminton-fan-renderer";
+import { Trophy } from "lucide-react";
+
+export function UnsupportedSportFallback({
+  sport,
+  tournamentName,
+}: {
+  sport?: string | null;
+  tournamentName?: string;
+}) {
+  return (
+    <section
+      aria-label="Unsupported Sport Experience"
+      className="flex-1 flex flex-col items-center justify-center p-8 sm:p-12 text-center rounded-3xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-sm my-4 max-w-lg mx-auto"
+    >
+      <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-4">
+        <Trophy className="w-7 h-7" />
+      </div>
+      <h3 className="font-display font-black text-xl !text-white tracking-wide mb-2 capitalize">
+        {sport || "Sport"} Scoring Setup
+      </h3>
+      <p className="text-xs sm:text-sm text-slate-400 leading-relaxed mb-6">
+        Public live scoring for <span className="text-white font-semibold capitalize">{sport || "this sport"}</span> is being configured for <span className="text-white font-semibold">{tournamentName}</span>. Fixtures and tournament announcements will appear here once live scoring commences.
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs text-slate-300">
+        <span className="px-3 py-1.5 rounded-xl bg-white/[0.05] border border-white/10 capitalize">
+          Sport: <span className="font-semibold text-amber-400">{sport || "General"}</span>
+        </span>
+        <span className="px-3 py-1.5 rounded-xl bg-white/[0.05] border border-white/10">
+          Status: <span className="font-semibold text-slate-300">Pending Setup</span>
+        </span>
+      </div>
+    </section>
+  );
+}
 
 export interface UnifiedFanPageProps {
   routeIdentifier?: string;
@@ -226,58 +262,21 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
       soundEnabled={soundEnabled}
       onToggleSound={toggleSound}
     >
-      {/* ── Phase 2 Placeholder Renderer Slots ───────────────────────────── */}
-      {activeTab === "auction" && (
-        <section
-          aria-label="Auction Experience Slot"
-          className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 text-center rounded-3xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-sm my-4"
-        >
-          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-4 shadow-[0_0_25px_rgba(245,158,11,0.2)]">
-            <Gavel className="w-8 h-8" />
-          </div>
-          <h2 className="font-display font-black text-xl sm:text-2xl !text-white tracking-wide mb-2">
-            Live Auction Viewer Slot
-          </h2>
-          <p className="max-w-md text-xs sm:text-sm text-slate-400 leading-relaxed mb-6">
-            Unified Fan Page Shell active for <span className="text-white font-semibold">{tournament.name}</span>. Full auction bidding cockpit, hammer timer, and team purses connect in Phase 3.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs text-slate-300">
-            <span className="px-3 py-1.5 rounded-xl bg-white/[0.05] border border-white/10 font-mono">
-              Purse: {tournament.basePurse ? `₹${(tournament.basePurse / 10000000).toFixed(1)} Cr` : "Configured"}
-            </span>
-            <span className="px-3 py-1.5 rounded-xl bg-white/[0.05] border border-white/10 font-mono">
-              Min Bid: {tournament.minBid ? `₹${tournament.minBid.toLocaleString()}` : "Configured"}
-            </span>
-            <span className="px-3 py-1.5 rounded-xl bg-white/[0.05] border border-white/10">
-              Units: <span className="uppercase font-semibold text-amber-400">{tournament.auctionUnit || "points"}</span>
-            </span>
-          </div>
-        </section>
+      {/* ── Active Module Spectator Renderer (Zero Duplicate Connection Lifecycle) ── */}
+      {activeTab === "auction" && showAuctionTab && (
+        <AuctionFanRenderer tournamentId={tournamentId} />
       )}
 
-      {activeTab === "scoring" && (
-        <section
-          aria-label="Sports Scoring Slot"
-          className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 text-center rounded-3xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-sm my-4"
-        >
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4 shadow-[0_0_25px_rgba(16,185,129,0.2)]">
-            {sport === "badminton" ? <Activity className="w-8 h-8" /> : <Trophy className="w-8 h-8" />}
-          </div>
-          <h2 className="font-display font-black text-xl sm:text-2xl !text-white tracking-wide mb-2">
-            Sports Scoring Slot ({sport.toUpperCase()})
-          </h2>
-          <p className="max-w-md text-xs sm:text-sm text-slate-400 leading-relaxed mb-6">
-            Unified Fan Page Shell active for <span className="text-white font-semibold">{tournament.name}</span>. Realtime scorecards, points table, bracket tree, and player awards connect in Phase 3.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-xs text-slate-300">
-            <span className="px-3 py-1.5 rounded-xl bg-white/[0.05] border border-white/10 capitalize">
-              Sport: <span className="font-semibold text-emerald-400">{sport}</span>
-            </span>
-            <span className="px-3 py-1.5 rounded-xl bg-white/[0.05] border border-white/10">
-              Scoring Phase: <span className="font-semibold">{tournament.scoringPhase || "Setup"}</span>
-            </span>
-          </div>
-        </section>
+      {activeTab === "scoring" && showScoringTab && sport === "cricket" && (
+        <CricketFanRenderer tournamentId={tournamentId} />
+      )}
+
+      {activeTab === "scoring" && showScoringTab && sport === "badminton" && (
+        <BadmintonFanRenderer tournamentId={tournamentId} />
+      )}
+
+      {activeTab === "scoring" && showScoringTab && sport !== "cricket" && sport !== "badminton" && (
+        <UnsupportedSportFallback sport={sport} tournamentName={tournament.name} />
       )}
     </UnifiedFanPageShell>
   );

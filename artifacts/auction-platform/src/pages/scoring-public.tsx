@@ -85,7 +85,16 @@ const LEADERBOARD_TABS: { key: LeaderboardCategory; label: string; valueLabel: s
   { key: "fours", label: "Fours", valueLabel: "4s" },
 ];
 
-export default function ScoringPublicPage() {
+export interface ScoringPublicPageProps {
+  tournamentIdProp?: number;
+  embedded?: boolean;
+  [key: string]: unknown;
+}
+
+export default function ScoringPublicPage({
+  tournamentIdProp,
+  embedded = false,
+}: ScoringPublicPageProps = {}) {
   const [, paramsShort1] = useRoute("/:code/fanpage");
   const [, paramsFanId] = useRoute("/fan/:id");
   const [, paramsFanpageId] = useRoute("/fanpage/:id");
@@ -93,6 +102,7 @@ export default function ScoringPublicPage() {
   const [, paramsTournCricket] = useRoute("/tournament/:id/cricket");
 
   const rawParam =
+    (tournamentIdProp && tournamentIdProp > 0 ? String(tournamentIdProp) : null) ||
     paramsShort1?.code ||
     paramsFanId?.id ||
     paramsFanpageId?.id ||
@@ -305,6 +315,7 @@ export default function ScoringPublicPage() {
         soundEnabled={cheerState.soundEnabled}
         onToggleSound={cheerState.toggleSound}
         streamUrl={streamUrl}
+        embedded={embedded}
       />
 
       {isOrganizer ? <FanLiveStreamEditor tournamentId={tournamentId} /> : null}

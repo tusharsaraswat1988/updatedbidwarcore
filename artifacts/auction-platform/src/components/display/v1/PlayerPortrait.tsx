@@ -19,12 +19,19 @@ import { isLedHistoryEnabled } from "@workspace/platform-core";
 import { formatIndianRupee, type AuctionUnit } from "@/lib/format";
 
 function formatLedAmount(amount: number, unit?: AuctionUnit): string {
+  if (unit === "points") {
+    if (amount >= 100000) {
+      const l = amount / 100000;
+      return `${Number.isInteger(l) ? l : l.toFixed(2).replace(/\.?0+$/, "")} LAKH pts`;
+    }
+    return `${amount.toLocaleString("en-IN")} pts`;
+  }
   if (amount >= 10000000) {
-    return `₹${(amount / 10000000).toFixed(2)} CR`;
+    return `₹${(amount / 10000000).toFixed(2).replace(/\.?0+$/, "")} CR`;
   }
   if (amount >= 100000) {
     const l = amount / 100000;
-    return `₹${Number.isInteger(l) ? l : l.toFixed(1)} LAKH`;
+    return `₹${Number.isInteger(l) ? l : l.toFixed(2).replace(/\.?0+$/, "")} LAKH`;
   }
   return formatIndianRupee(amount, unit);
 }
@@ -64,70 +71,73 @@ export function LedPlayerHistoryBanner({
   const isSameEvent = Boolean(
     bestSoldRecord &&
     lastSoldRecord &&
-    bestSoldRecord.tournamentId === lastSoldRecord.tournamentId
+    (
+      (history.records && history.records.length <= 1) ||
+      (history.totalSoldAppearances && history.totalSoldAppearances <= 1) ||
+      String(bestSoldRecord.tournamentId) === String(lastSoldRecord.tournamentId) ||
+      (bestSoldRecord.soldPrice === lastSoldRecord.soldPrice && bestSoldRecord.tournamentName === lastSoldRecord.tournamentName)
+    )
   );
 
   return (
     <div
       data-led-player-history-banner
-      className="mt-2.5 pt-2 border-t-2 border-[#d4af37]/50 flex flex-col gap-1.5 transition-opacity duration-300"
+      className="mt-1.5 pt-1.5 border-t-2 border-[#d4af37]/40 flex flex-col gap-1 transition-opacity duration-300"
     >
-      <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.16em] text-amber-400 font-['Space_Grotesk']">
+      <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.14em] text-amber-400 font-['Space_Grotesk'] leading-none">
         HISTORICAL AUCTION PERFORMANCE
       </p>
 
       {isSameEvent ? (
-        <div className="flex flex-col gap-1">
-          <div className="text-amber-300 font-black text-sm sm:text-base tracking-wide uppercase font-['Space_Grotesk'] leading-snug">
+        <div className="flex flex-col gap-0.5">
+          <div className="text-amber-300 font-black text-xs sm:text-sm tracking-wide uppercase font-['Space_Grotesk'] leading-tight">
             PAST HIGHEST &amp; LAST AUCTION: {formatLedAmount(bestSoldRecord.soldPrice, auctionUnit)}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 leading-tight">
             {lastSoldRecord?.buyingTeamName ? (
-              <span className="text-white font-bold text-xs sm:text-sm tracking-wide font-['Space_Grotesk'] uppercase leading-snug break-words">
+              <span className="text-white font-bold text-[11px] sm:text-xs tracking-wide font-['Space_Grotesk'] uppercase break-words">
                 BOUGHT BY: {lastSoldRecord.buyingTeamName}
               </span>
             ) : null}
             {bestSoldRecord.tournamentName ? (
-              <span className="text-white/70 font-semibold text-xs tracking-wide font-['Space_Grotesk'] uppercase">
+              <span className="text-white/70 font-semibold text-[10px] sm:text-[11px] tracking-wide font-['Space_Grotesk'] uppercase">
                 ({bestSoldRecord.tournamentName})
               </span>
             ) : null}
             {isTop5 ? (
-              <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-extrabold text-[10px] sm:text-xs px-2.5 py-0.5 rounded shadow-sm tracking-wide uppercase">
+              <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-extrabold text-[9px] sm:text-[10px] px-2 py-0.5 rounded shadow-sm tracking-wide uppercase">
                 🏆 PAST TOURNAMENT TOP 5
               </span>
             ) : null}
           </div>
         </div>
       ) : (
-        <>
-          <div className="flex flex-col gap-0.5">
-            <div className="text-amber-300 font-black text-sm sm:text-base tracking-wide uppercase font-['Space_Grotesk'] leading-snug">
+        <div className="flex flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-amber-300 font-black text-xs sm:text-sm tracking-wide uppercase font-['Space_Grotesk'] leading-tight">
               HIGHEST PRICE IN PAST AUCTIONS: {formatLedAmount(bestSoldRecord.soldPrice, auctionUnit)}
-            </div>
+            </span>
             {isTop5 ? (
-              <div>
-                <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-extrabold text-[10px] sm:text-xs px-2.5 py-0.5 rounded shadow-sm tracking-wide uppercase">
-                  🏆 PAST TOURNAMENT TOP 5
-                </span>
-              </div>
+              <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-extrabold text-[9px] sm:text-[10px] px-2 py-0.5 rounded shadow-sm tracking-wide uppercase">
+                🏆 PAST TOURNAMENT TOP 5
+              </span>
             ) : null}
           </div>
 
           {lastSoldRecord ? (
-            <div className="flex flex-col gap-0.5 mt-1">
-              <div className="text-white font-bold text-xs sm:text-sm tracking-wide font-['Space_Grotesk'] uppercase leading-snug">
+            <div className="flex flex-col gap-0.5">
+              <div className="text-white font-bold text-[11px] sm:text-xs tracking-wide font-['Space_Grotesk'] uppercase leading-tight">
                 PRICE IN MOST RECENT AUCTION: {formatLedAmount(lastSoldRecord.soldPrice, auctionUnit)}
               </div>
               {lastSoldRecord.buyingTeamName ? (
-                <div className="text-white/85 font-bold text-xs tracking-wide font-['Space_Grotesk'] uppercase leading-snug break-words">
+                <div className="text-white/85 font-semibold text-[10px] sm:text-[11px] tracking-wide font-['Space_Grotesk'] uppercase leading-tight break-words">
                   BOUGHT BY: {lastSoldRecord.buyingTeamName}
                   {lastSoldRecord.tournamentName ? ` (${lastSoldRecord.tournamentName})` : ""}
                 </div>
               ) : null}
             </div>
           ) : null}
-        </>
+        </div>
       )}
     </div>
   );
@@ -170,7 +180,7 @@ export const PlayerPortrait = memo(function PlayerPortrait({
       style={frameStyle}
     >
       {/* 1. Unobstructed photo section */}
-      <div className="relative flex-1 min-h-[220px] max-h-[46%] w-full overflow-hidden bg-black/40">
+      <div className="relative h-[43%] shrink-0 min-h-0 w-full overflow-hidden bg-black/40">
         {showPhoto ? (
           <img
             src={cldUrl(currentPlayer.portrait, "playerCard")}
@@ -214,7 +224,7 @@ export const PlayerPortrait = memo(function PlayerPortrait({
       </div>
 
       {/* 2. Structured stadium-readable information area below photograph */}
-      <div className="flex-1 flex flex-col justify-start p-3 sm:p-4 bg-gradient-to-b from-black/95 via-black/90 to-black/85 border-t-2 border-white/10 overflow-y-auto">
+      <div className="flex-1 min-h-0 flex flex-col justify-between p-2.5 sm:p-3 bg-gradient-to-b from-black/95 via-black/90 to-black/85 border-t-2 border-white/10 overflow-hidden">
         <div className="mb-2">
           <PortraitPlayerName name={currentPlayer.name} />
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-['Space_Grotesk'] text-sm sm:text-base font-extrabold uppercase tracking-[0.06em]">
