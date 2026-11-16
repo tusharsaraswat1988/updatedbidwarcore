@@ -270,6 +270,17 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
     return <UnifiedFanPageLoadingSkeleton />;
   }
 
+  // Private Tournament Gate
+  if (isPrivateLocked) {
+    return (
+      <PrivateTournamentGate
+        tournamentId={tournamentId}
+        tournamentName={tournament?.name}
+        onUnlock={handleUnlockPin}
+      />
+    );
+  }
+
   // Error / Not found state
   if (error || !tournament || tournamentId === 0) {
     return (
