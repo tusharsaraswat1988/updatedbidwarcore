@@ -4,9 +4,24 @@ import {
   mergeTournamentFeatures,
 } from "@workspace/platform-core/tournament-features";
 
+const mockStorage: Record<string, string> = {};
+const localStorageMock = {
+  getItem: (k: string) => mockStorage[k] ?? null,
+  setItem: (k: string, v: string) => {
+    mockStorage[k] = v;
+  },
+  clear: () => {
+    for (const k in mockStorage) delete mockStorage[k];
+  },
+};
+
+if (typeof globalThis.localStorage === "undefined") {
+  globalThis.localStorage = localStorageMock as any;
+}
+
 describe("Phase 4 — Universal Fan Home & Tournament Discovery Tests", () => {
   beforeEach(() => {
-    localStorage.clear();
+    globalThis.localStorage.clear();
   });
 
   describe("Tournament Visibility Resolution", () => {
