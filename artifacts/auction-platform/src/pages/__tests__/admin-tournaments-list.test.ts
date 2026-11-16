@@ -54,11 +54,12 @@ describe("BIDWAR — Admin Tournaments List Separation & Governance", () => {
   });
 
   describe("3. Column Layout & Required Fields", () => {
-    it("defines separate columns for Tournament, Sport, Code, Organiser, Schedule, Status, License, and Action", () => {
+    it("defines separate columns for Tournament, Sport, Code, Organiser, Created, Schedule, Status, License, and Action", () => {
       expect(pageSrc).toContain('{ label: "Tournament" }');
       expect(pageSrc).toContain('{ label: "Sport" }');
       expect(pageSrc).toContain('{ label: "Code" }');
       expect(pageSrc).toContain('{ label: "Organiser" }');
+      expect(pageSrc).toContain('{ label: "Created" }');
       expect(pageSrc).toContain('{ label: "Schedule" }');
       expect(pageSrc).toContain('{ label: "Status" }');
       expect(pageSrc).toContain('{ label: "License" }');
