@@ -19,6 +19,11 @@ import {
 } from "@workspace/platform-core";
 import { canAccessPrivateTournamentData } from "../middleware/require-organizer";
 import { publicTournamentSerializer } from "../lib/serializers/tournament";
+import {
+  secureComparePins,
+  checkPinRateLimit,
+  recordPinAttempt,
+} from "../lib/pin-security";
 
 const router = Router();
 
@@ -100,6 +105,8 @@ router.get("/fan/tournaments", async (req: Request, res: Response): Promise<void
     sql`${tournamentsTable.name} NOT ILIKE '%[test]%'`,
     sql`${tournamentsTable.name} NOT ILIKE '%demo tournament%'`,
     sql`${tournamentsTable.name} NOT ILIKE '%internal test%'`,
+    sql`${tournamentsTable.name} NOT ILIKE 'SIM_%'`,
+    sql`${tournamentsTable.name} NOT ILIKE '%testing%'`,
   ];
 
   if (search && search.trim().length > 0) {
@@ -321,9 +328,37 @@ router.get("/tournaments/:tournamentId/fan/context", async (req: Request, res: R
   const isOrganizer = await canAccessPrivateTournamentData(req, id);
 
   if (visibility === "private" && !isOrganizer) {
+    const clientIp = req.ip || req.socket.remoteAddress || "127.0.0.1";
+
+    // 1. Check if client IP is currently locked out from brute-force attempts
+    const rateCheck = checkPinRateLimit(clientIp, id);
+    if (!rateCheck.allowed) {
+      res.setHeader("Retry-After", String(rateCheck.retryAfterSeconds || 600));
+      res.status(429).json({
+        error: "Too many failed PIN attempts. Access locked out temporarily.",
+        code: "RATE_LIMIT_EXCEEDED",
+        retryAfterSeconds: rateCheck.retryAfterSeconds,
+      });
+      return;
+    }
+
     const pin = (req.headers["x-bidwar-pin"] as string) || (req.query.pin as string);
-    const pinMatches = Boolean(tournament.scoringPin && pin && pin === tournament.scoringPin);
+    const pinMatches = secureComparePins(pin, tournament.scoringPin);
+
+    // Record attempt for rate limiting
+    const attemptResult = recordPinAttempt(clientIp, id, pinMatches);
+
     if (!pinMatches) {
+      if (attemptResult.lockedOut) {
+        res.setHeader("Retry-After", String(attemptResult.retryAfterSeconds || 600));
+        res.status(429).json({
+          error: "Too many failed PIN attempts. Access locked out for 10 minutes.",
+          code: "RATE_LIMIT_EXCEEDED",
+          retryAfterSeconds: attemptResult.retryAfterSeconds,
+        });
+        return;
+      }
+
       res.status(403).json({
         error: "This tournament is private",
         code: "PRIVATE_TOURNAMENT",
@@ -386,7 +421,13 @@ router.get("/tournaments/:tournamentId/fan/context", async (req: Request, res: R
 
   const serialized = publicTournamentSerializer(tournament);
 
-  res.setHeader("Cache-Control", "public, max-age=10, stale-while-revalidate=20");
+  // Cache-Control Privacy Hardening: Never allow public proxy/CDN caching for private or unlisted tournaments
+  if (visibility === "private" || visibility === "unlisted") {
+    res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate, max-age=0");
+    res.setHeader("Pragma", "no-cache");
+  } else {
+    res.setHeader("Cache-Control", "public, max-age=10, stale-while-revalidate=20");
+  }
   res.json({
     tournament: {
       id: serialized.id,
