@@ -43,11 +43,14 @@ export function UnifiedModuleNav({
 
   return (
     <nav
-      className={cn("w-full flex items-center justify-center my-3 sm:my-4", className)}
+      className={cn("w-full flex items-center justify-center my-3 sm:my-4 !bg-transparent", className)}
       aria-label="Tournament module navigation"
-      role="tablist"
     >
-      <div className="inline-flex items-center p-1 sm:p-1.5 rounded-2xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-2xl gap-1.5 sm:gap-2 max-w-full overflow-x-auto">
+      <div
+        role="tablist"
+        aria-label="Tournament module navigation tabs"
+        className="inline-flex items-center p-1 sm:p-1.5 rounded-2xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-2xl gap-1.5 sm:gap-2 max-w-full overflow-x-auto"
+      >
         {/* Auction Tab Pill */}
         {showAuctionTab && (
           <button

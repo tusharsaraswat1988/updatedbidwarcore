@@ -2287,9 +2287,9 @@ export function LiveBid({
   const syncAttempted = useRef(false);
 
   const prevTimerActiveRef = useRef(false);
-  const prevBidRef = useRef<number | undefined>(undefined);
-  const prevPlayerIdRef = useRef<number | undefined>(undefined);
-  const prevStatusRef = useRef<string | undefined>(undefined);
+  const prevBidRef = useRef<number | null | undefined>(undefined);
+  const prevPlayerIdRef = useRef<number | null | undefined>(undefined);
+  const prevStatusRef = useRef<string | null | undefined>(undefined);
 
   const teamColor = team.color || "#F59E0B";
   const unit = resolveAuctionUnit(tournament?.auctionUnit);

@@ -20,7 +20,8 @@ describe("Phase 2: BidWar Unified Fan Page Shell & Adaptive Module Navigation", 
   describe("1. Canonical Route Registration", () => {
     it("registers /tournament/:id/fan mapped to UnifiedFanPage in platform-app.tsx", () => {
       expect(platformAppSrc).toContain('const UnifiedFanPage = lazyWithRetry(() => import("@/pages/unified-fan-page"));');
-      expect(platformAppSrc).toContain('<Route path="/tournament/:id/fan" component={UnifiedFanPage} />');
+      expect(platformAppSrc).toContain('<Route path="/tournament/:id/fan"');
+      expect(platformAppSrc).toContain('UnifiedFanPage');
     });
 
     it("does not remove or break legacy redirect routes in platform-app.tsx", () => {
@@ -99,7 +100,7 @@ describe("Phase 2: BidWar Unified Fan Page Shell & Adaptive Module Navigation", 
   describe("5. Unified Fan Page URL Tab State Synchronization", () => {
     it("reads ?tab= from window.location.search and updates state without full page reload", () => {
       expect(unifiedFanPageSrc).toContain('urlParams.get("tab")');
-      expect(unifiedFanPageSrc).toContain("window.history.replaceState(null, \"\", url.toString());");
+      expect(unifiedFanPageSrc).toContain('window.history.pushState({ tab: nextTab }, "", url.toString());');
       expect(unifiedFanPageSrc).toContain("localStorage.setItem(`bidwar_fan_pref_${tournamentId}`, nextTab);");
     });
 

@@ -45,6 +45,8 @@ export function isOrganizerRoute(pathname?: string): boolean {
     p.startsWith("/live") ||
     p.startsWith("/fan") ||
     p.startsWith("/fanpage") ||
+    p.endsWith("/fan") ||
+    p.includes("/fan/") ||
     p.includes("/register") ||
     p === "/login" ||
     p === "/scoring-app/login" ||

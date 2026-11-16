@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "wouter";
 import {
   Volume2,
@@ -24,6 +24,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { UnifiedModuleNav, type FanModuleTab } from "./unified-module-nav";
 import { cn } from "@/lib/utils";
+import { syncDocumentSurfaceTheme } from "@/lib/portal-theme";
 
 export interface UnifiedFanPageShellProps {
   tournament: {
@@ -103,6 +104,10 @@ export function UnifiedFanPageShell({
     return "/assets/branding/bidwar-reverse-logo-official.png";
   }, [logos, miniLogoSrc, mainWordmarkSrc]);
 
+  useEffect(() => {
+    syncDocumentSurfaceTheme();
+  }, []);
+
   return (
     <div
       className={cn("min-h-screen bg-[#0B101B] text-slate-100 flex flex-col antialiased selection:bg-amber-500 selection:text-black", className)}
@@ -172,7 +177,7 @@ export function UnifiedFanPageShell({
               type="button"
               onClick={onToggleSound}
               className={cn(
-                "p-2 rounded-xl border transition-all duration-200 cursor-pointer min-h-[40px] min-w-[40px] flex items-center justify-center",
+                "p-2.5 rounded-xl border transition-all duration-200 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center",
                 soundEnabled
                   ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
                   : "bg-white/[0.04] border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.08]"
@@ -187,7 +192,7 @@ export function UnifiedFanPageShell({
             <button
               type="button"
               onClick={() => setShareOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-xs font-semibold text-white transition-all cursor-pointer min-h-[40px]"
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-xs font-semibold text-white transition-all cursor-pointer min-h-[44px] min-w-[44px]"
               aria-label="Share tournament fan page"
             >
               <Share2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
@@ -270,6 +275,10 @@ export function UnifiedFanPageShell({
 
 /** Loading Skeleton for the Unified Fan Page Shell */
 export function UnifiedFanPageLoadingSkeleton() {
+  useEffect(() => {
+    syncDocumentSurfaceTheme();
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#0B101B] flex flex-col p-4 sm:p-6 lg:p-8 space-y-6" aria-busy="true" aria-label="Loading tournament fan page">
       {/* Header Bar Skeleton */}
@@ -317,6 +326,10 @@ export function UnifiedFanPageErrorState({
   message?: string;
   onRetry?: () => void;
 }) {
+  useEffect(() => {
+    syncDocumentSurfaceTheme();
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#0B101B] flex flex-col items-center justify-center p-6 text-center">
       <div className="max-w-md w-full p-8 rounded-3xl bg-[#131B2E] border border-white/10 shadow-2xl space-y-5">
@@ -324,7 +337,7 @@ export function UnifiedFanPageErrorState({
           <AlertTriangle className="w-7 h-7" />
         </div>
         <div className="space-y-2">
-          <h2 className="font-display font-black text-xl text-white tracking-wide">{title}</h2>
+          <h2 className="font-display font-black text-xl !text-white tracking-wide">{title}</h2>
           <p className="text-sm text-slate-400 leading-relaxed">{message}</p>
         </div>
         <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">

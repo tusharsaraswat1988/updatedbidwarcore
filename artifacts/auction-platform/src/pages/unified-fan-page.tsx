@@ -103,8 +103,8 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const urlTab = urlParams.get("tab");
-      if (urlTab === "scoring" && showScoringTab) return "scoring";
-      if (urlTab === "auction" && showAuctionTab) return "auction";
+      if (urlTab === "scoring") return "scoring";
+      if (urlTab === "auction") return "auction";
     } catch {}
 
     // 2. Check local device preference
@@ -123,14 +123,29 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
 
   const [activeTab, setActiveTab] = useState<FanModuleTab>(getInitialTab);
 
-  // Sync state if tournament capabilities load asynchronously
+  // Sync state when tournament capabilities finish loading asynchronously
   useEffect(() => {
+    if (!tournament) return;
+
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlTab = urlParams.get("tab");
+      if (urlTab === "scoring" && showScoringTab) {
+        setActiveTab("scoring");
+        return;
+      }
+      if (urlTab === "auction" && showAuctionTab) {
+        setActiveTab("auction");
+        return;
+      }
+    } catch {}
+
     if (!showAuctionTab && showScoringTab && activeTab !== "scoring") {
       setActiveTab("scoring");
     } else if (showAuctionTab && !showScoringTab && activeTab !== "auction") {
       setActiveTab("auction");
     }
-  }, [showAuctionTab, showScoringTab, activeTab]);
+  }, [tournament, showAuctionTab, showScoringTab]);
 
   // Handle user manual tab change with URL query sync and history preservation
   const handleTabChange = useCallback(
@@ -140,8 +155,10 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
       if (typeof window !== "undefined") {
         try {
           const url = new URL(window.location.href);
-          url.searchParams.set("tab", nextTab);
-          window.history.replaceState(null, "", url.toString());
+          if (url.searchParams.get("tab") !== nextTab) {
+            url.searchParams.set("tab", nextTab);
+            window.history.pushState({ tab: nextTab }, "", url.toString());
+          }
 
           if (tournamentId > 0) {
             localStorage.setItem(`bidwar_fan_pref_${tournamentId}`, nextTab);
@@ -154,14 +171,16 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
 
   // Listen to browser Back/Forward (popstate) to synchronize activeTab
   useEffect(() => {
-    function handlePopState() {
+    function handlePopState(event: PopStateEvent) {
       try {
         const urlParams = new URLSearchParams(window.location.search);
-        const urlTab = urlParams.get("tab");
+        const urlTab = urlParams.get("tab") || (event.state && event.state.tab);
         if (urlTab === "scoring" && showScoringTab) {
           setActiveTab("scoring");
         } else if (urlTab === "auction" && showAuctionTab) {
           setActiveTab("auction");
+        } else if (!urlTab) {
+          setActiveTab(showAuctionTab ? "auction" : "scoring");
         }
       } catch {}
     }
@@ -216,7 +235,7 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
           <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-4 shadow-[0_0_25px_rgba(245,158,11,0.2)]">
             <Gavel className="w-8 h-8" />
           </div>
-          <h2 className="font-display font-black text-xl sm:text-2xl text-white tracking-wide mb-2">
+          <h2 className="font-display font-black text-xl sm:text-2xl !text-white tracking-wide mb-2">
             Live Auction Viewer Slot
           </h2>
           <p className="max-w-md text-xs sm:text-sm text-slate-400 leading-relaxed mb-6">
@@ -244,7 +263,7 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
           <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4 shadow-[0_0_25px_rgba(16,185,129,0.2)]">
             {sport === "badminton" ? <Activity className="w-8 h-8" /> : <Trophy className="w-8 h-8" />}
           </div>
-          <h2 className="font-display font-black text-xl sm:text-2xl text-white tracking-wide mb-2">
+          <h2 className="font-display font-black text-xl sm:text-2xl !text-white tracking-wide mb-2">
             Sports Scoring Slot ({sport.toUpperCase()})
           </h2>
           <p className="max-w-md text-xs sm:text-sm text-slate-400 leading-relaxed mb-6">
