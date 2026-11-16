@@ -82,43 +82,49 @@ export function LedPlayerHistoryBanner({
   return (
     <div
       data-led-player-history-banner
-      className="mt-1.5 pt-1.5 border-t-2 border-[#d4af37]/40 flex flex-col gap-1 transition-opacity duration-300"
+      className="mt-2 pt-2 border-t-2 border-[#d4af37]/40 flex flex-col gap-1 transition-opacity duration-300"
     >
-      <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.14em] text-amber-400 font-['Space_Grotesk'] leading-none">
+      <p className="text-xs sm:text-sm font-black uppercase tracking-[0.16em] text-amber-400 font-['Space_Grotesk'] leading-none">
         HISTORICAL AUCTION PERFORMANCE
       </p>
 
       {isSameEvent ? (
-        <div className="flex flex-col gap-0.5">
-          <div className="text-amber-300 font-black text-xs sm:text-sm tracking-wide uppercase font-['Space_Grotesk'] leading-tight">
-            PAST HIGHEST &amp; LAST AUCTION: {formatLedAmount(bestSoldRecord.soldPrice, auctionUnit)}
+        <div className="flex flex-col gap-1">
+          <div className="text-amber-300 font-black text-sm sm:text-base lg:text-lg tracking-wide uppercase font-['Space_Grotesk'] leading-snug">
+            PAST HIGHEST &amp; LAST AUCTION:{" "}
+            <span className="font-mono text-emerald-400 font-black text-base sm:text-lg lg:text-xl">
+              {formatLedAmount(bestSoldRecord.soldPrice, auctionUnit)}
+            </span>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5 leading-tight">
+          <div className="flex flex-wrap items-center gap-2 leading-snug">
             {lastSoldRecord?.buyingTeamName ? (
-              <span className="text-white font-bold text-[11px] sm:text-xs tracking-wide font-['Space_Grotesk'] uppercase break-words">
+              <span className="text-white font-extrabold text-xs sm:text-sm tracking-wide font-['Space_Grotesk'] uppercase break-words">
                 BOUGHT BY: {lastSoldRecord.buyingTeamName}
               </span>
             ) : null}
             {bestSoldRecord.tournamentName ? (
-              <span className="text-white/70 font-semibold text-[10px] sm:text-[11px] tracking-wide font-['Space_Grotesk'] uppercase">
+              <span className="text-white/80 font-bold text-xs sm:text-sm tracking-wide font-['Space_Grotesk'] uppercase">
                 ({bestSoldRecord.tournamentName})
               </span>
             ) : null}
             {isTop5 ? (
-              <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-extrabold text-[9px] sm:text-[10px] px-2 py-0.5 rounded shadow-sm tracking-wide uppercase">
+              <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-black text-xs px-2.5 py-0.5 rounded shadow-sm tracking-wide uppercase">
                 🏆 PAST TOURNAMENT TOP 5
               </span>
             ) : null}
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-amber-300 font-black text-xs sm:text-sm tracking-wide uppercase font-['Space_Grotesk'] leading-tight">
-              HIGHEST PRICE IN PAST AUCTIONS: {formatLedAmount(bestSoldRecord.soldPrice, auctionUnit)}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-amber-300 font-black text-sm sm:text-base lg:text-lg tracking-wide uppercase font-['Space_Grotesk'] leading-snug">
+              HIGHEST PRICE IN PAST AUCTIONS:{" "}
+              <span className="font-mono text-emerald-400 font-black text-base sm:text-lg lg:text-xl">
+                {formatLedAmount(bestSoldRecord.soldPrice, auctionUnit)}
+              </span>
             </span>
             {isTop5 ? (
-              <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-extrabold text-[9px] sm:text-[10px] px-2 py-0.5 rounded shadow-sm tracking-wide uppercase">
+              <span className="inline-flex items-center gap-1 bg-[#d4af37] text-black font-black text-xs px-2.5 py-0.5 rounded shadow-sm tracking-wide uppercase">
                 🏆 PAST TOURNAMENT TOP 5
               </span>
             ) : null}
@@ -126,11 +132,14 @@ export function LedPlayerHistoryBanner({
 
           {lastSoldRecord ? (
             <div className="flex flex-col gap-0.5">
-              <div className="text-white font-bold text-[11px] sm:text-xs tracking-wide font-['Space_Grotesk'] uppercase leading-tight">
-                PRICE IN MOST RECENT AUCTION: {formatLedAmount(lastSoldRecord.soldPrice, auctionUnit)}
+              <div className="text-white font-extrabold text-xs sm:text-sm tracking-wide font-['Space_Grotesk'] uppercase leading-snug">
+                PRICE IN MOST RECENT AUCTION:{" "}
+                <span className="font-mono text-amber-200 font-black">
+                  {formatLedAmount(lastSoldRecord.soldPrice, auctionUnit)}
+                </span>
               </div>
               {lastSoldRecord.buyingTeamName ? (
-                <div className="text-white/85 font-semibold text-[10px] sm:text-[11px] tracking-wide font-['Space_Grotesk'] uppercase leading-tight break-words">
+                <div className="text-white/85 font-bold text-xs sm:text-sm tracking-wide font-['Space_Grotesk'] uppercase leading-snug break-words">
                   BOUGHT BY: {lastSoldRecord.buyingTeamName}
                   {lastSoldRecord.tournamentName ? ` (${lastSoldRecord.tournamentName})` : ""}
                 </div>
@@ -179,13 +188,13 @@ export const PlayerPortrait = memo(function PlayerPortrait({
       className="@container/portrait flex flex-col h-full min-h-0 overflow-hidden bg-black/60 border-2"
       style={frameStyle}
     >
-      {/* 1. Unobstructed photo section */}
-      <div className="relative h-[43%] shrink-0 min-h-0 w-full overflow-hidden bg-black/40">
+      {/* 1. Unobstructed photo section with top anchor to prevent head cut */}
+      <div className="relative h-[52%] shrink-0 min-h-0 w-full overflow-hidden bg-black/40">
         {showPhoto ? (
           <img
             src={cldUrl(currentPlayer.portrait, "playerCard")}
             alt={currentPlayer.name}
-            className="w-full h-full object-cover object-center"
+            className="w-full h-full object-cover object-top"
             loading="eager"
             decoding="async"
             fetchPriority="high"
@@ -224,10 +233,10 @@ export const PlayerPortrait = memo(function PlayerPortrait({
       </div>
 
       {/* 2. Structured stadium-readable information area below photograph */}
-      <div className="flex-1 min-h-0 flex flex-col justify-between p-2.5 sm:p-3 bg-gradient-to-b from-black/95 via-black/90 to-black/85 border-t-2 border-white/10 overflow-hidden">
-        <div className="mb-2">
+      <div className="flex-1 min-h-0 flex flex-col justify-start gap-2.5 sm:gap-3 p-3 sm:p-4 bg-gradient-to-b from-black/95 via-black/90 to-black/85 border-t-2 border-amber-500/40 overflow-hidden">
+        <div>
           <PortraitPlayerName name={currentPlayer.name} />
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-['Space_Grotesk'] text-sm sm:text-base font-extrabold uppercase tracking-[0.06em]">
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-['Space_Grotesk'] text-base sm:text-lg font-extrabold uppercase tracking-[0.06em]">
             <span style={{ color: "var(--accent)" }}>{roleLabel}</span>
             {currentPlayer.city ? (
               <>
@@ -241,11 +250,11 @@ export const PlayerPortrait = memo(function PlayerPortrait({
         </div>
 
         {infoRows.length > 0 ? (
-          <div className="mb-2 pt-2 border-t border-white/15">
-            <p className="text-[11px] sm:text-xs font-black uppercase tracking-[0.14em] text-white/45 mb-1.5 font-['Space_Grotesk']">
+          <div className="pt-2 border-t border-white/15">
+            <p className="text-xs sm:text-sm font-black uppercase tracking-[0.16em] text-amber-400/90 mb-1.5 font-['Space_Grotesk']">
               PLAYER SPECIFICATIONS
             </p>
-            <div className={`grid ${specGridClass} gap-x-3 gap-y-1`}>
+            <div className={`grid ${specGridClass} gap-x-4 gap-y-1.5`}>
               {infoRows.map((row, index) => (
                 <SpecRow
                   key={`${row.label}-${index}`}
@@ -288,7 +297,7 @@ function PortraitPlayerName({ name }: { name: string }) {
     const fit = () => {
       text.style.fontSize = "";
       const maxPx = parseFloat(getComputedStyle(text).fontSize);
-      const minPx = 18;
+      const minPx = 20;
       let lo = minPx;
       let hi = maxPx;
       let best = minPx;
@@ -317,7 +326,7 @@ function PortraitPlayerName({ name }: { name: string }) {
     <div ref={containerRef} className="w-full">
       <h2
         ref={textRef}
-        className="w-max max-w-full led-player font-['Bebas_Neue'] text-[clamp(2rem,18cqw,4.5rem)] leading-[0.88] uppercase text-white tracking-tight whitespace-nowrap font-bold"
+        className="w-max max-w-full led-player font-['Bebas_Neue'] text-[clamp(2.2rem,3.8cqw,3.8rem)] leading-[0.88] uppercase text-white tracking-tight whitespace-nowrap font-bold"
       >
         {name}
       </h2>
@@ -346,19 +355,19 @@ function SpecRow({
   className?: string;
 }) {
   return (
-    <p className={`min-w-0 leading-snug ${className ?? ""}`}>
+    <div className={`min-w-0 flex items-baseline gap-1.5 leading-snug ${className ?? ""}`}>
       <span
-        className="led-label text-[clamp(0.8rem,1cqw,1.15rem)] font-bold uppercase tracking-[0.06em] text-white/75 font-['Space_Grotesk']"
+        className="led-label text-xs sm:text-sm font-extrabold uppercase tracking-wider text-white/70 font-['Space_Grotesk'] shrink-0"
         title={fullLabel}
       >
-        {shortLabel}:{" "}
+        {shortLabel}:
       </span>
       <span
-        className="led-value font-mono text-[clamp(0.95rem,1.25cqw,1.4rem)] font-extrabold tabular-nums"
+        className="led-value font-mono text-sm sm:text-base lg:text-lg font-black tabular-nums uppercase truncate"
         style={{ color: "var(--accent)" }}
       >
         {value}
       </span>
-    </p>
+    </div>
   );
 }
