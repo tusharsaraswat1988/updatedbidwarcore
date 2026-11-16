@@ -2675,6 +2675,8 @@ export function LiveBid({
             teamId={teamId}
             unit={unit}
             tier={tier}
+            biddingActive={timerActive && isActive && hasPlayer}
+            collapseSignal={collapseSignal}
           />
 
           {/* Reserve / squad banners */}
@@ -2693,6 +2695,8 @@ export function LiveBid({
             tier={tier}
             highlightBoost={purseFooterPulse}
             purseOverride={purseFooterOverride}
+            biddingActive={timerActive && isActive && hasPlayer}
+            collapseSignal={collapseSignal}
           />
 
           {bidDisabledHint && <BidDisabledMessage hint={bidDisabledHint} compact={tier === "mobile"} />}
@@ -2950,6 +2954,8 @@ export function LiveBid({
             teamId={teamId}
             unit={unit}
             tier={tier}
+            biddingActive={timerActive && isActive && hasPlayer}
+            collapseSignal={collapseSignal}
           />
           <MaxSquadNotice maxSquadReached={maxSquadReached} />
         </div>
@@ -2965,6 +2971,8 @@ export function LiveBid({
             tier={tier}
             highlightBoost={purseFooterPulse}
             purseOverride={purseFooterOverride}
+            biddingActive={timerActive && isActive && hasPlayer}
+            collapseSignal={collapseSignal}
           />
         </div>
       </div>
