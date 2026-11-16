@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Flame,
   Award,
+  ExternalLink,
 } from "lucide-react";
 import { fetchBadmintonMatches } from "@/lib/badminton-api";
 import { subscribeBadmintonDashboardStream } from "@/hooks/use-badminton-match";
@@ -242,6 +243,22 @@ export function BadmintonFanRenderer({ tournamentId }: BadmintonFanRendererProps
                         </p>
                       </div>
                     </div>
+
+                    {/* Match Court Broadcast Stream if present */}
+                    {(m.detail?.streamUrl || (m as any).streamUrl) && (
+                      <div className="pt-2 border-t border-white/10 flex items-center justify-end">
+                        <a
+                          href={m.detail?.streamUrl || (m as any).streamUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-white border border-red-500/30 transition-all shadow-sm"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse motion-reduce:animate-none" />
+                          <span>Watch Court Stream</span>
+                          <ExternalLink className="w-3 h-3 opacity-70" />
+                        </a>
+                      </div>
+                    )}
                   </div>
                 );
               })}

@@ -12,6 +12,9 @@ import {
   ArrowLeft,
   Gavel,
   Trophy,
+  ExternalLink,
+  Radio,
+  Tv,
 } from "lucide-react";
 import { useBranding } from "@/hooks/use-branding";
 import {
@@ -41,6 +44,20 @@ export interface UnifiedFanPageShellProps {
     mainBannerEnabled?: boolean | null;
     logoUrl?: string | null;
     status?: string;
+    broadcast?: {
+      auction?: {
+        url: string;
+        platform?: string;
+        status: "live" | "upcoming" | "ended";
+        title?: string;
+      };
+      scoring?: {
+        url: string;
+        platform?: string;
+        status: "live" | "upcoming" | "ended";
+        title?: string;
+      };
+    } | null;
   };
   productMode: "auction_only" | "scoring_only" | "both";
   showAuctionTab: boolean;
@@ -170,8 +187,65 @@ export function UnifiedFanPageShell({
             </div>
           </div>
 
-          {/* Action Toolbar: Share + Audio Controls */}
+          {/* Action Toolbar: Share + Audio Controls + Official Broadcast Stream */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Official Module Broadcast Stream CTA */}
+            {activeTab === "auction" && tournament.broadcast?.auction?.url && (
+              <a
+                href={tournament.broadcast.auction.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer min-h-[44px]",
+                  tournament.broadcast.auction.status === "live"
+                    ? "bg-red-500/15 hover:bg-red-500/25 border-red-500/35 text-red-300 hover:text-white shadow-[0_0_12px_rgba(239,68,68,0.2)]"
+                    : "bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-slate-300"
+                )}
+                title={tournament.broadcast.auction.title || "Watch Auction Stream"}
+              >
+                {tournament.broadcast.auction.status === "live" ? (
+                  <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse motion-reduce:animate-none" />
+                ) : (
+                  <Radio className="w-3.5 h-3.5 text-sky-400" />
+                )}
+                <span className="hidden md:inline">
+                  {tournament.broadcast.auction.title ||
+                    (tournament.broadcast.auction.status === "live"
+                      ? "Watch Auction Live"
+                      : "Auction Stream")}
+                </span>
+                <ExternalLink className="w-3 h-3 opacity-70" />
+              </a>
+            )}
+
+            {activeTab === "scoring" && tournament.broadcast?.scoring?.url && (
+              <a
+                href={tournament.broadcast.scoring.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "px-3 py-1.5 rounded-xl border text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer min-h-[44px]",
+                  tournament.broadcast.scoring.status === "live"
+                    ? "bg-red-500/15 hover:bg-red-500/25 border-red-500/35 text-red-300 hover:text-white shadow-[0_0_12px_rgba(239,68,68,0.2)]"
+                    : "bg-white/[0.04] hover:bg-white/[0.08] border-white/10 text-slate-300"
+                )}
+                title={tournament.broadcast.scoring.title || "Watch Match Stream"}
+              >
+                {tournament.broadcast.scoring.status === "live" ? (
+                  <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse motion-reduce:animate-none" />
+                ) : (
+                  <Tv className="w-3.5 h-3.5 text-sky-400" />
+                )}
+                <span className="hidden md:inline">
+                  {tournament.broadcast.scoring.title ||
+                    (tournament.broadcast.scoring.status === "live"
+                      ? "Watch Match Live"
+                      : "Match Stream")}
+                </span>
+                <ExternalLink className="w-3 h-3 opacity-70" />
+              </a>
+            )}
+
             {/* Audio Toggle */}
             <button
               type="button"

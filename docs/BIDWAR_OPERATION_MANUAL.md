@@ -214,6 +214,9 @@ BidWar enforces a strict architectural boundary between **Internal Organiser Wor
 | Grant Tournament Licenses | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | Transfer / Reassign Tournament Organiser | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (Master / Super Admin) |
 | Configure White-label Branding | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Manage Fan Arena Listing (Opt-In) | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Configure Broadcast Links (Auction / Match) | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Direct Fan Arena Curation Approval | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ (Master / Super Admin) |
 
 ---
 
@@ -233,6 +236,8 @@ BidWar enforces a strict architectural boundary between **Internal Organiser Wor
 - `/academy`: Video and step-by-step guides for league management.
 - `/cricket-auction-software` (and 14 sport landing slugs): Dedicated SEO search landing pages.
 - `/live/:id`: Interactive public spectator live stream viewer with cheer reactions and chat heat meter.
+- `/fan`: Universal Fan Arena & Tournament Discovery Hub (curated public tournament discovery platform, live broadcast CTAs, module format badges, spotlight hero, search and favorite pinning).
+- `/tournament/:id/fan`: BidWar Unified Fan Page (consolidated spectator portal adaptively rendering Auction, Cricket Scoring, or Badminton experiences, direct official stream CTAs, audio sound effects, and WhatsApp share).
 - `/register/:code`: Universal modern mobile-first player registration portal.
 - `/wa-consent/:token`: Dedicated WhatsApp notification opt-in confirmation page.
 
@@ -247,7 +252,7 @@ BidWar enforces a strict architectural boundary between **Internal Organiser Wor
 - `/tournament/:id/teams`: Team list, purse management, owner mobile numbers, access codes, logos.
 - `/tournament/:id/categories`: Auction categories, price tiers, minimum bids, squad limits.
 - `/tournament/:id/players`: High-density enterprise player roster workspace. Features scannable 10/11-column data table (`#`, `Photo` preview, `Player`, `Category`, `Payment` status badge when registration payment enabled, auction `Status`, `Base`, `Sold`, `Team`, `Actions` menu, dedicated `Expand` chevron toggle). Clickable row expansion into compact structured panel (`.ops-player-expand`): Registration Payment Review FIRST with UTR copy and receipt preview; Player Identity bar; 2-column Auction valuation and Player Specifications with formatted match availability dates and sanitized achievements; and Historical Auction Performance (`🏆 TOP 5 STAR` badge or clean `"No previous auction history"` fallback). In-page accessible Radix image preview modal (`ImagePreviewModal`) for player photos and payment screenshots with contain-fit, zoom toggle, and escape-key dismissal.
-- `/tournament/:id/settings`: Complete tournament configuration (auction rules, sound, registration fields).
+- `/tournament/:id/settings`: Complete tournament configuration (auction rules, sound, registration fields). Includes dedicated tabs: General, Auction Rules, Squad & Teams, Sound & FX, Registration, and **Fan Arena & Broadcast** (`?tab=fanArena`) for managing public Fan Arena listing opt-in, live curation eligibility diagnostics, and tournament-wide / match-specific official broadcast stream links.
 - `/tournament/:id/reports`: Downloadable Excel planning sheets, team purses, roster printouts.
 - `/tournament/:id/links`: Quick share links for team owners, live displays, OBS, registration.
 - `/tournament/:id/fortune-wheel`: Visual random draw wheel for stage lots.
@@ -441,6 +446,30 @@ BidWar enforces a strict architectural boundary between **Internal Organiser Wor
 
 ### 5.6 Public Fan Experience, Spectator Displays & Broadcast Overlays
 - **Universal Fan Home & Tournament Discovery (`/fan`):** Central spectator directory and discovery hub for all discoverable BidWar tournaments. Displays live-highlight hero banner for active tournaments, search by name/city/venue, sport filter pills (Cricket, Badminton, Football), status filter pills (Live Now, Upcoming, Concluded), format badges (`[⚡ Auction]`, `[🏏 Cricket Scoring]`, `[🏸 Badminton Scoring]`), and 1-click localStorage favorites bookmarking ("★ My Favorites"). Directly navigates to canonical `/tournament/:id/fan` spectator arena.
+- **Fan Arena Curation Engine (7-Point Canonical Eligibility Filter):** Main `/fan` discovery does not list every public tournament. To prevent clutter and ensure spectators discover high-quality, verified competitions, tournaments must satisfy all 7 server-side criteria evaluated by `evaluateFanArenaEligibility`:
+  1. *Public Visibility:* `featuresJson.visibility === 'public'` (unlisted and private events are strictly excluded).
+  2. *Licensed / Approved Status:* Tournament license is active (`tournaments.license_status === 'active'`) OR explicit administrative curation approval has been granted (`featuresJson.fanArenaApproved === true`).
+  3. *Organizer Opt-In:* Organizer has enabled Fan Arena discovery (`featuresJson.fanArenaOptIn === true`, default `true` upon public visibility).
+  4. *Active Modules:* At least one core module is enabled (`auctionEnabled === true` or `scoringEnabled === true`).
+  5. *Administrative Unlocked:* Tournament is not frozen or locked by platform admins (`adminLocked === false`).
+  6. *Non-Test / Non-Demo:* Tournament name and auction code do not contain test keywords (`test`, `demo`, `internal`, `sample`, `dummy`).
+  7. *Active Lifecycle:* Tournament status is not `archived` or `cancelled`.
+  - *Server-Side Enforcement:* Filter is applied directly in SQL and reinforced in-memory (`GET /api/fan/tournaments`). Organizer opt-in cannot bypass the BidWar license or approval requirement.
+- **Organizer Broadcast Channels & Stream Management:** Dedicated settings interface (`/tournament/:id/settings?tab=fanArena`) allowing organizers to attach verified live stream destinations across 3 distinct scopes:
+  - *Tournament-wide Auction Stream:* Live broadcast for player auction bidding (`broadcast.auctionStream`).
+  - *Tournament-wide Match / Scoring Stream:* Live broadcast for stadium match coverage (`broadcast.scoringStream`).
+  - *Individual Match Stream:* Match-specific stream URLs mapped directly to discrete cricket matches (`scoringMatchesTable.brandingJson.broadcast` / `featuresJson.matchBroadcasts`) or badminton court matches (`badmintonMatchesTable.streamUrl`). A match broadcast appears only on its designated match card and never leaks to other matches.
+- **Server-Side Broadcast URL Validation & SSRF Defense (`broadcast-url-validator.ts`):**
+  - Rejects non-HTTPS protocols (e.g. `javascript:`, `http:`, `data:`, `file:`).
+  - Validates URL syntax and rejects raw IPs, loopback hosts (`127.0.0.1`, `localhost`, `::1`), private RFC1918 subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), link-local / cloud instance metadata (`169.254.169.254`), and internal TLDs (`.local`, `.internal`, `.lan`, `.corp`).
+  - Auto-detects streaming platform (`youtube`, `facebook`, `twitch`, `vimeo`, `other`).
+- **Safe Spectator CTA & Broadcast Status Lifecycle:**
+  - *External Safe Opening:* All broadcast CTAs render standard anchor tags with `target="_blank" rel="noopener noreferrer"`. No untrusted iframe embedding is permitted without explicit security review.
+  - *Status Handling:*
+    - `live`: Renders active watch CTA with subtle red glowing pulse beacon (`Watch Auction Live`, `Watch Match Live`). Respects `prefers-reduced-motion`.
+    - `upcoming`: Renders a calm `Stream Scheduled` badge or link. Never falsely labels a scheduled stream as LIVE.
+    - `ended`: Concluded broadcasts suppress the live indicator and hide live CTAs to avoid confusing spectators.
+    - Disabled or empty URLs: CTA is cleanly hidden.
 - **Privacy & Tournament Visibility Strategy:** 3-tier privacy enforcement model (`public`, `unlisted`, `private`):
   - *Public:* Discoverable on `/fan`, indexed by search crawlers, accessible via direct link.
   - *Unlisted:* Excluded from `/fan` discovery and search feeds; accessible strictly via direct link or QR code.
@@ -783,6 +812,16 @@ The registration journey includes:
 | **“Wrong team? Select another team” (Form Link)** | Owner App Access Gate (`/tournament/:id/owner/:teamId`) | Team Owner | None | Secondary contextual return action directly beneath the Enter button. Invokes same safe team reselection routing. | Ergonomic one-thumb tap on mobile viewports. |
 | **“Live Auction Room Pulse & Animated Beam”** | Owner App Access Gate (`/tournament/:id/owner/:teamId`) | All Viewers | None | Renders full-width top viewport laser beam and badge-level glowing animated gradient line with emerald live pulse indicator, creating real-time broadcast atmosphere. | Pure visual/ambient indicator; zero performance overhead; GPU-accelerated Framer Motion keyframes. |
 
+### 8.7 Fan Arena Curation & Broadcast Controls
+
+| Control Label | Location | Eligible Roles | Prerequisites | Action & Effect | Confirmation / Error Behavior |
+|:---|:---|:---|:---|:---|:---|
+| **“Fan Arena Public Listing” Switch (`fanArenaOptIn`)** | `/tournament/:id/settings?tab=fanArena` | Tournament Organizer, Super Admin | Visibility is `public` | Toggles tournament participation in the curated `/fan` spectator discovery feed. Immediately recalculates the 7-point server-side eligibility diagnostics. | Disables with warning banner if visibility is `private` or `unlisted`. Provides instant optimistic UI and toast feedback. |
+| **“Save Broadcast Settings” Button** | `/tournament/:id/settings?tab=fanArena` | Tournament Organizer, Super Admin | Tournament exists | Submits tournament-wide Auction/Scoring stream URLs, match streams, display titles, and statuses to backend `PUT /tournaments/:id/broadcast`. | Server validates URLs with strict SSRF defense (blocking private IPs, localhost, metadata). Rejects invalid entries with inline error toast. |
+| **“Watch Auction Live” / “Watch Match Live” CTA** | `/fan`, `/tournament/:id/fan`, Match Cards | Public Spectators | Broadcast configured and `status = 'live'` | Launches the official live stream destination in an external browser tab (`target="_blank" rel="noopener noreferrer"`). Features subtle red pulsing indicator. | Hidden when broadcast is disabled, empty, or status is `ended`. Respects `prefers-reduced-motion`. |
+| **“Stream Scheduled” CTA** | `/fan`, `/tournament/:id/fan` | Public Spectators | Broadcast configured and `status = 'upcoming'` | Displays scheduled stream notification with external link to broadcast waiting room. Never displays misleading LIVE indicators. | Calm slate styling with calendar icon. |
+| **“Direct Fan Arena Curation Approval”** | Admin API (`POST /auth/admin/tournaments/:id/fan-arena-approval`) | Super Admin, Master Admin | Admin session | Grants explicit curation approval (`featuresJson.fanArenaApproved = true`), allowing high-profile tournaments to appear on `/fan` even before full enterprise license activation. | Rejects with 403 for unauthorized users. Records audit log entry. |
+
 ---
 
 ## Section 9 — Statuses & State Transition Reference
@@ -844,6 +883,30 @@ The registration journey includes:
 - `approved`: Organizer validated funds; player approved into auction/scoring roster.
 - `rejected`: Invalid transaction ID or missing payment; player excluded from lot pool.
 
+### 9.7 Fan Arena Discovery Eligibility Lifecycle
+
+```
+[Ineligible: Private/Unlisted] ──► [Public] ──┬──► [Opted-Out by Organizer]
+                                              └──► [Opted-In] ──┬──► [Pending License / Approval]
+                                                                └──► [Licensed / Approved] ──► [LIVE ON FAN ARENA]
+```
+
+- **`eligible` (Live on Fan Arena):** Meets all 7 criteria (Public, Active License or Curation Approval, Opted-in, Module enabled, Admin unlocked, Non-test, Active lifecycle). Returned in `/api/fan/tournaments` discovery index.
+- **`opted_out`:** Public and licensed, but organizer turned off Fan Arena listing in Settings.
+- **`pending_approval`:** Public and opted-in, but tournament is running in unlicensed/trial mode without explicit admin curation approval.
+- **`excluded`:** Tournament visibility is `unlisted` or `private`, admin-locked, test/sample event, or archived/cancelled.
+
+### 9.8 Broadcast Stream Status Lifecycle
+
+```
+[disabled] ──► [upcoming] ──► [live] ──► [ended]
+```
+
+- **`disabled`:** Stream toggle switched off by organizer or URL field empty. All stream CTAs hidden on fan cards.
+- **`upcoming`:** Broadcast scheduled for a future time. Displays calm "Stream Scheduled" card on `/fan`; never displays misleading LIVE indicators.
+- **`live`:** Active broadcast. Triggers luminous red LIVE pulse beacon on `/fan` discovery cards, spotlight hero, and match scorecards.
+- **`ended`:** Broadcast concluded. Suppresses live indicator and hides CTA to eliminate viewer frustration.
+
 ---
 
 ## Section 10 — Settings, Configuration, Reports & Integrations
@@ -870,6 +933,12 @@ The registration journey includes:
   - `cheerMessagesEnabled`: Toggles live spectator emoji reactions.
   - `cheerCooldownSeconds`: Rate limiter per fan device (default 2s).
   - `cheerHeatMeterEnabled`: Shows live fan battle bar on stream.
+- **Fan Arena & Broadcast Settings (`?tab=fanArena`):**
+  - `fanArenaOptIn`: Opt-in toggle to participate in `/fan` spectator discovery feed.
+  - `broadcast.auctionStream`: Tournament-wide live auction stream configuration (`enabled`, `url`, `platform`, `status`, `title`).
+  - `broadcast.scoringStream`: Tournament-wide sports scoring stream configuration (`enabled`, `url`, `platform`, `status`, `title`).
+  - `matchBroadcasts`: Dictionary of match-specific broadcast configs indexed by match ID (`enabled`, `url`, `platform`, `status`, `title`).
+  - `eligibilityDiagnostics`: Real-time client & server evaluation of 7-point Fan Arena curation criteria with actionable fix hints.
 
 ### 10.2 Reports & Exports Engine
 - **Master Auction Workbook (Excel):** Full roster data, sold prices, team purses, category distribution.
@@ -975,6 +1044,7 @@ The BidWar Organiser Light Mode is implemented in `artifacts/auction-platform/sr
 - **Organiser Workspace Shells:** `artifacts/auction-platform/src/components/layout.tsx`, `artifacts/auction-platform/src/components/sports-shell/sports-shell.tsx`
 - **Player Auction Performance History Engine & UI:** `artifacts/api-server/src/lib/player-auction-history-service.ts`, `artifacts/auction-platform/src/components/player-auction-history.tsx`, `artifacts/api-server/src/__tests__/player-auction-history.test.ts`, `artifacts/auction-platform/src/components/__tests__/player-auction-history-ui.test.ts`
 - **Tournament Organiser Transfer Engine & Modal:** `artifacts/api-server/src/routes/auth.ts`, `artifacts/auction-platform/src/components/admin/transfer-organizer-dialog.tsx`, `artifacts/api-server/src/__tests__/tournament-transfer-organizer.test.ts`
+- **Fan Arena Curation & Broadcast Engine:** `lib/platform-core/src/broadcast-url-validator.ts`, `artifacts/api-server/src/routes/fan-broadcast.ts`, `artifacts/auction-platform/src/components/settings/fan-arena-broadcast-settings.tsx`, `artifacts/api-server/src/__tests__/fan-arena-curation-broadcast.test.ts`
 
 ### 12.2 Needs-Verification Items
 
@@ -990,6 +1060,7 @@ The BidWar Organiser Light Mode is implemented in `artifacts/auction-platform/sr
 
 | Date | Author / Agent | Changes & Domains Affected | Operational Impact |
 |:---|:---|:---|:---|
+| **2026-11-16** | Antigravity AI Engineering | BidWar Unified Fan Page — Phase 5 Fan Arena Curation + Organizer Broadcast Links (`/fan`, `/tournament/:id/settings?tab=fanArena`, `broadcast-url-validator.ts`, `fan-broadcast.ts`, `fan-discovery.ts`, `tournament-features.ts`, `fan-arena-broadcast-settings.tsx`): 1. Fan Arena Curation Engine (7-Point Canonical Eligibility Filter): Overhauled `/fan` discovery from a flat public tournament dump into a curated spectator discovery hub. Enforced server-side evaluation (`evaluateFanArenaEligibility`) across 7 mandatory criteria: (a) Public visibility (`visibility === 'public'`); (b) Licensed or approved (`license_status === 'active'` or `featuresJson.fanArenaApproved === true`); (c) Organizer opt-in (`featuresJson.fanArenaOptIn === true`); (d) Active modules (`auctionEnabled` or `scoringEnabled`); (e) Administrative unlocked (`adminLocked === false`); (f) Non-test/non-demo event (filters test keywords from name/code); (g) Active tournament lifecycle (non-archived, non-cancelled). Organizer opt-in cannot bypass the BidWar license or approval requirement. 2. Organizer Broadcast Configuration Workspace (`/tournament/:id/settings?tab=fanArena`): Built a dedicated settings interface for organizers to manage Fan Arena listing status, inspect live 7-point eligibility diagnostics, and configure live broadcast destinations across three scopes: (a) Tournament-wide Auction Stream; (b) Tournament-wide Match/Scoring Stream; (c) Match-specific streams linked directly to discrete Cricket (`scoringMatchesTable.brandingJson.broadcast` / `featuresJson.matchBroadcasts`) or Badminton matches (`badmintonMatchesTable.streamUrl`). 3. Strict Server-Side URL Validation & SSRF Defense (`broadcast-url-validator.ts`): Enforced strict protocol validation (HTTPS only, rejecting `javascript:`, `data:`, `file:`, `http:`), domain auto-detection (YouTube, Facebook Live, Twitch, Vimeo), and defense-in-depth SSRF mitigation blocking private RFC1918 subnets, loopback hosts (`127.0.0.1`, `localhost`), link-local/cloud metadata endpoints (`169.254.169.254`), and internal TLDs. 4. Spectator Broadcast CTAs & Status Lifecycle: Upgraded Fan Arena spotlight banner, tournament cards, unified fan header, and match scorecards with responsive watch actions. Streams marked `live` render a subtle red pulsing indicator; streams marked `upcoming` display a calm scheduled badge without misleading live indicators; ended or disabled streams cleanly hide the CTA. All broadcast links open safely in external tabs (`target="_blank" rel="noopener noreferrer"`), avoiding untrusted iframe security risks. 5. Automated Testing & Verification: Added 22 integration and security tests in `fan-arena-curation-broadcast.test.ts` verifying unauthorized rejection, SSRF defense, curation filtering, opt-in toggling, CTA suppression, and PII protection. Passed all boundary checks, typechecks, Vitest suites, and production builds. | Transforms `/fan` into a curated, high-quality spectator discovery hub and provides official, secure broadcast streaming access points across auctions and live matches while defending against SSRF and private data leakage. |
 | **2026-11-16** | Antigravity AI Engineering | Fan Discovery Hub & Tournament Privacy Gate (`/fan`, `universal-fan-home.tsx`, `fan-discovery.ts`, `private-tournament-gate.tsx`, `tournament-features.ts`): 1. Universal Fan Discovery Hub (`/fan`): Built cross-tournament spectator discovery portal featuring live tournament ticker, active and upcoming event filters, sport categories, full-text tournament search, and local favorite pinning (`useFanFavorites`). 2. Tournament Privacy Tier Engine (`visibility: 'public' | 'unlisted' | 'private'`): Added privacy level controls to `TournamentFeatures`. Public tournaments are discoverable on `/fan` and indexed; Unlisted tournaments are hidden from search/discovery but accessible via direct URL/QR; Private tournaments require organizer authentication or spectator PIN verification. 3. Spectator PIN Gate (`PrivateTournamentGate`): Protected private tournament spectator routes (`/tournament/:id/fan`, `/tournament/:id/liveviewer`, `/tournament/:id/display`) with a dedicated PIN verification modal validating against backend `scoringPin` via `x-bidwar-pin` header and session memory. 4. Automated Tests: Added 10 backend integration test cases in `fan-discovery-privacy.test.ts` verifying discovery queries, unlisted exclusion, private gate enforcement, and PIN authentication. | Delivers an engaging public tournament discovery experience while strictly preserving tournament host privacy and spectator access controls. |
 | **2026-11-16** | Antigravity AI Engineering | Live LED Stage Layout Fix & Strict Currency Precision (`PlayerPortrait.tsx`, `DisplayShell.tsx`): 1. Root Cause Resolution — ₹1.3 Lakh vs ₹1.25 Lakh Rounding Defect: Identified that `formatLedAmount` in `PlayerPortrait.tsx` previously used `(amount / 100000).toFixed(1)`. For ₹1,25,000, `1.25.toFixed(1)` rounded up to `"1.3"`, producing a ₹5,000 discrepancy against the actual sold price shown on owner app and OBS (`₹1.25 LAKH`). Overhauled formatting to `l.toFixed(2).replace(/\.?0+$/, "")`, guaranteeing exact two-decimal precision for both Lakhs and Points with zero trailing zero clutter. 2. Root Cause Resolution — Vanishing Bottom Sponsor Ticker (`ChyronStrip`): Discovered that in `DisplayShell.tsx`, the 16:9 stage middle row lacked `min-h-0 overflow-hidden`, and `PlayerPortrait.tsx` had an unconstrained `min-h-[220px]` photo frame that bloated Row 2 beyond `1fr`. Because CSS Grid track `1fr` expands to content height by default, Row 2 pushed Row 3 (`BidLadder`) and Row 4 (`ChyronStrip` sponsor ticker) completely out of the 16:9 stage frame. Re-engineered `PlayerPortrait` layout with a proportional 43% photo frame and 57% bounded info container, and locked the stage middle grid with `min-h-0 h-full overflow-hidden`. 3. Verified permanently anchored sponsor ticker and bid ladder at 1920×1080 resolution with unit tests and headless browser audits. | Eliminates the critical pricing discrepancy, restores full spectator trust, and permanently guarantees 100% visibility for official sponsors and bid ladder on arena LED screens. |
 | **2026-11-16** | Antigravity AI Engineering | Smart Consolidation for Live Player Auction History (`OwnerPlayerAuctionHistory.tsx`, `Scenes.tsx`, `PlayerPortrait.tsx`, `auction-operator.tsx`, `liveviewer.tsx`): 1. Root Cause Resolution — Confusing Redundant Cards on Single-Tournament Peak: Identified that when a player had only one past tournament, or their most recent tournament was their career peak (`bestSoldRecord.tournamentId === lastSoldRecord.tournamentId`), all live surfaces rendered two separate, identical cards repeating the exact same price and tournament twice. This led viewers and franchise owners to assume the player had participated in two conflicting tournaments or suspect a duplicate data glitch. 2. Smart Single-Event Dynamic Consolidation (`isSameEvent`): Engineered dynamic layout detection across all 5 live surfaces. When `bestSoldRecord.tournamentId === lastSoldRecord.tournamentId`, the UI intelligently merges into a single cohesive card/block (`PAST HIGHEST & LAST AUCTION`) rendering the price once in bold font, attributing the buying franchise, mentioning the tournament name once, and rendering the `🏆 PAST TOURNAMENT TOP 5` badge. When the player has distinct historical milestones across different leagues (`best.tournamentId !== last.tournamentId`), the UI gracefully branches to two distinct comparative cards (`PAST HIGHEST` and `LAST AUCTION PRICE`). 3. Multi-Surface Synchronization: Applied identical consolidated logic across Team Owner Panel, OBS V2 broadcast lower-thirds, Live LED stadium screen, Organiser Console, and Live Viewer. 4. Automated Tests: Updated 15 Vitest component tests in `player-auction-history-ui.test.ts` verifying consolidation logic, clean builds, and manual compliance. | Completely eliminates viewer confusion and redundant duplicate cards during live bidding, delivering crystal-clear, intelligent historical player valuation across all broadcast, arena, owner, and operator surfaces. |

@@ -17,10 +17,27 @@ import {
   RefreshCw,
   Sparkles,
   Users,
+  ExternalLink,
+  Clock,
 } from "lucide-react";
 import { useFanFavorites } from "@/hooks/use-fan-favorites";
 import { cldUrl } from "@/lib/cloudinary";
 import { cn } from "@/lib/utils";
+
+interface PublicBroadcast {
+  auction?: {
+    url: string;
+    platform?: string;
+    status: "live" | "upcoming" | "ended";
+    title?: string;
+  };
+  scoring?: {
+    url: string;
+    platform?: string;
+    status: "live" | "upcoming" | "ended";
+    title?: string;
+  };
+}
 
 interface FanDiscoveryCard {
   id: number;
@@ -43,6 +60,7 @@ interface FanDiscoveryCard {
   liveSnippet?: string | null;
   teamsCount?: number;
   featured?: boolean;
+  broadcast?: PublicBroadcast | null;
 }
 
 interface FanDiscoveryResponse {
@@ -215,13 +233,50 @@ export default function UniversalFanHome() {
                 </div>
               </div>
 
-              <Link
-                to={`/tournament/${spotlightTournament.id}/fan`}
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm transition-all shadow-lg shadow-amber-500/25 active:scale-95 cursor-pointer whitespace-nowrap self-start md:self-auto"
-              >
-                <span>Enter Live Arena</span>
-                <ChevronRight className="w-4 h-4" />
-              </Link>
+              <div className="flex flex-wrap items-center gap-2.5 self-start md:self-auto">
+                {(() => {
+                  const b = spotlightTournament.broadcast;
+                  const activeStream =
+                    (b?.auction?.status === "live" && b.auction) ||
+                    (b?.scoring?.status === "live" && b.scoring) ||
+                    (b?.auction?.status === "upcoming" && b.auction) ||
+                    (b?.scoring?.status === "upcoming" && b.scoring);
+
+                  if (!activeStream) return null;
+                  const isLive = activeStream.status === "live";
+
+                  return (
+                    <a
+                      href={activeStream.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cn(
+                        "inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-xs transition-all cursor-pointer whitespace-nowrap border",
+                        isLive
+                          ? "bg-red-500/20 hover:bg-red-500/30 border-red-500/40 text-red-300 hover:text-white shadow-[0_0_15px_rgba(239,68,68,0.25)]"
+                          : "bg-slate-800 hover:bg-slate-700 border-white/10 text-slate-300"
+                      )}
+                    >
+                      {isLive && (
+                        <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse motion-reduce:animate-none" />
+                      )}
+                      <span>
+                        {activeStream.title ||
+                          (isLive ? "Watch Official Stream" : "Stream Scheduled")}
+                      </span>
+                      <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+                    </a>
+                  );
+                })()}
+
+                <Link
+                  to={`/tournament/${spotlightTournament.id}/fan`}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-sm transition-all shadow-lg shadow-amber-500/25 active:scale-95 cursor-pointer whitespace-nowrap"
+                >
+                  <span>Enter Live Arena</span>
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
+              </div>
             </div>
           </motion.div>
         )}
@@ -522,7 +577,81 @@ export default function UniversalFanHome() {
                   </div>
 
                   {/* Bottom Action CTA */}
-                  <div className="pt-5 mt-4">
+                  <div className="pt-4 mt-3 space-y-2">
+                    {/* Official Broadcast CTA if available */}
+                    {(() => {
+                      const b = tournament.broadcast;
+                      const auctionStream = b?.auction?.url ? b.auction : null;
+                      const scoringStream = b?.scoring?.url ? b.scoring : null;
+                      if (!auctionStream && !scoringStream) return null;
+
+                      return (
+                        <div className="flex flex-col gap-1.5">
+                          {auctionStream && (
+                            <a
+                              href={auctionStream.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={cn(
+                                "w-full flex items-center justify-between gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all group/stream cursor-pointer",
+                                auctionStream.status === "live"
+                                  ? "bg-red-500/15 hover:bg-red-500/25 border-red-500/35 text-red-300 hover:text-white shadow-[0_0_12px_rgba(239,68,68,0.15)]"
+                                  : auctionStream.status === "upcoming"
+                                  ? "bg-slate-800/80 hover:bg-slate-700/80 border-white/10 text-slate-300"
+                                  : "bg-slate-900 border-white/5 text-slate-400"
+                              )}
+                            >
+                              <div className="flex items-center gap-1.5 truncate">
+                                {auctionStream.status === "live" ? (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse motion-reduce:animate-none shrink-0" />
+                                ) : (
+                                  <Clock className="w-3 h-3 text-sky-400 shrink-0" />
+                                )}
+                                <span className="truncate">
+                                  {auctionStream.title ||
+                                    (auctionStream.status === "live"
+                                      ? "Watch Auction Live"
+                                      : "Auction Stream Scheduled")}
+                                </span>
+                              </div>
+                              <ExternalLink className="w-3 h-3 opacity-60 group-hover/stream:opacity-100 shrink-0" />
+                            </a>
+                          )}
+
+                          {scoringStream && (
+                            <a
+                              href={scoringStream.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={cn(
+                                "w-full flex items-center justify-between gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all group/stream cursor-pointer",
+                                scoringStream.status === "live"
+                                  ? "bg-red-500/15 hover:bg-red-500/25 border-red-500/35 text-red-300 hover:text-white shadow-[0_0_12px_rgba(239,68,68,0.15)]"
+                                  : scoringStream.status === "upcoming"
+                                  ? "bg-slate-800/80 hover:bg-slate-700/80 border-white/10 text-slate-300"
+                                  : "bg-slate-900 border-white/5 text-slate-400"
+                              )}
+                            >
+                              <div className="flex items-center gap-1.5 truncate">
+                                {scoringStream.status === "live" ? (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse motion-reduce:animate-none shrink-0" />
+                                ) : (
+                                  <Clock className="w-3 h-3 text-sky-400 shrink-0" />
+                                )}
+                                <span className="truncate">
+                                  {scoringStream.title ||
+                                    (scoringStream.status === "live"
+                                      ? "Watch Match Live"
+                                      : "Match Stream Scheduled")}
+                                </span>
+                              </div>
+                              <ExternalLink className="w-3 h-3 opacity-60 group-hover/stream:opacity-100 shrink-0" />
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     <Link
                       to={`/tournament/${tournament.id}/fan`}
                       className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-amber-500 group-hover:bg-amber-500 hover:text-slate-950 group-hover:text-slate-950 text-white font-bold text-xs transition-all shadow active:scale-[0.98] cursor-pointer"

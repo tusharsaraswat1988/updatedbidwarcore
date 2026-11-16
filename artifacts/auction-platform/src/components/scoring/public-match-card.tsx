@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { CircleDot } from "lucide-react";
+import { CircleDot, Video, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { cricketCardClass } from "@/components/scoring/cricket-page-chrome";
 import { cricketFanMatchPath } from "@/lib/tournament-navigation";
@@ -84,6 +84,26 @@ export function PublicMatchCard({
             >
               {scoreline}
             </p>
+          ) : null}
+
+          {match.streamUrl ? (
+            <div className="pt-2 flex items-center">
+              <a
+                href={match.streamUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-white border border-red-500/30 transition-colors shadow-sm"
+              >
+                {isLive ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse motion-reduce:animate-none" />
+                ) : (
+                  <Video className="w-3 h-3 text-red-400" />
+                )}
+                <span>Watch Match Stream</span>
+                <ExternalLink className="w-3 h-3 opacity-70" />
+              </a>
+            </div>
           ) : null}
         </div>
         {(home?.color || away?.color) && (

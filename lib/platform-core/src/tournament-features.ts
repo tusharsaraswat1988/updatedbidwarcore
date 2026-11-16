@@ -2,10 +2,28 @@
  * Tournament feature flags — generic module enablement per tournament.
  *
  * Stored as JSON on the tournaments row (`features_json`).
- * Only `buzzStudio` is wired today; other keys are reserved for future modules.
- *
- * Backward compatibility: missing or null JSON resolves to all flags false.
+ * Backward compatibility: missing or null JSON resolves to all flags false (or sensible defaults).
  */
+
+import { isAuctionEnabled, isScoringEnabled, type TournamentModuleFlags } from "./tournament-modules";
+import { validateBroadcastUrl, type BroadcastPlatform } from "./broadcast-url-validator";
+
+export type { BroadcastPlatform };
+
+export type BroadcastStatus = "live" | "upcoming" | "ended";
+
+export interface BroadcastLinkConfig {
+  url: string;
+  platform?: BroadcastPlatform;
+  enabled: boolean;
+  status: BroadcastStatus;
+  title?: string;
+}
+
+export interface TournamentBroadcastConfig {
+  auction?: BroadcastLinkConfig | null;
+  scoring?: BroadcastLinkConfig | null;
+}
 
 /** Per-tournament feature toggles. All keys optional in storage; resolved to booleans at read time. */
 export interface TournamentFeatures {
@@ -57,6 +75,26 @@ export interface TournamentFeatures {
    * Defaults to "public" for backward compatibility with legacy tournaments.
    */
   visibility?: TournamentVisibility;
+  /**
+   * Fan Arena Discovery Opt-In (Phase 5).
+   * When true, organizer requests this tournament to be curated and discovered on /fan.
+   * Final eligibility requires server-side checks (public, licensed/approved, not admin-locked, etc.).
+   */
+  fanArenaOptIn?: boolean;
+  /**
+   * BidWar Admin Curation Approval for Fan Arena (Phase 5).
+   * When true, explicitly approved by BidWar admin for discovery.
+   * Reuses licenseStatus = 'active' as licensed status.
+   */
+  fanArenaApproved?: boolean;
+  /**
+   * Tournament-wide Broadcast Links configuration (Phase 5).
+   */
+  broadcast?: TournamentBroadcastConfig;
+  /**
+   * Match-specific broadcast links indexed by matchId (Phase 5).
+   */
+  matchBroadcasts?: Record<string, BroadcastLinkConfig>;
 }
 
 export type TournamentVisibility = "public" | "unlisted" | "private";
@@ -72,7 +110,7 @@ export function resolveTournamentVisibility(
 }
 
 /** Canonical defaults when a tournament has no features_json row yet. */
-export const TOURNAMENT_FEATURE_DEFAULTS: Readonly<Required<TournamentFeatures>> = {
+export const TOURNAMENT_FEATURE_DEFAULTS: Readonly<Required<Omit<TournamentFeatures, "broadcast" | "matchBroadcasts">>> = {
   ownerApp: false,
   scoring: false,
   sponsorshipHub: false,
@@ -84,9 +122,11 @@ export const TOURNAMENT_FEATURE_DEFAULTS: Readonly<Required<TournamentFeatures>>
   obsHistory: true,
   ledHistory: true,
   visibility: "public",
+  fanArenaOptIn: false,
+  fanArenaApproved: false,
 };
 
-const FEATURE_BOOLEAN_KEYS: (keyof Omit<TournamentFeatures, "visibility">)[] = [
+const FEATURE_BOOLEAN_KEYS: (keyof Omit<TournamentFeatures, "visibility" | "broadcast" | "matchBroadcasts">)[] = [
   "ownerApp",
   "scoring",
   "sponsorshipHub",
@@ -97,11 +137,13 @@ const FEATURE_BOOLEAN_KEYS: (keyof Omit<TournamentFeatures, "visibility">)[] = [
   "ownerAppHistory",
   "obsHistory",
   "ledHistory",
+  "fanArenaOptIn",
+  "fanArenaApproved",
 ];
 
 function readFlag(
   src: Partial<TournamentFeatures> | Record<string, unknown>,
-  key: keyof Omit<TournamentFeatures, "visibility">,
+  key: keyof Omit<TournamentFeatures, "visibility" | "broadcast" | "matchBroadcasts">,
 ): boolean {
   if (
     key === "whatsappNotifications" ||
@@ -115,6 +157,74 @@ function readFlag(
   return src[key] === true;
 }
 
+function sanitizeBroadcastConfig(raw: unknown): TournamentBroadcastConfig | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const obj = raw as Record<string, unknown>;
+  const res: TournamentBroadcastConfig = {};
+
+  const sanitizeLink = (linkRaw: unknown): BroadcastLinkConfig | null => {
+    if (!linkRaw || typeof linkRaw !== "object") return null;
+    const l = linkRaw as Record<string, unknown>;
+    const url = typeof l.url === "string" ? l.url.trim() : "";
+    if (!url) return null;
+
+    const validated = validateBroadcastUrl(url);
+    if (!validated.valid || !validated.normalizedUrl) return null;
+
+    const status: BroadcastStatus =
+      l.status === "upcoming" || l.status === "ended" ? l.status : "live";
+    const enabled = l.enabled !== false;
+    const title = typeof l.title === "string" && l.title.trim() ? l.title.trim() : undefined;
+
+    return {
+      url: validated.normalizedUrl,
+      platform: validated.platform,
+      enabled,
+      status,
+      title,
+    };
+  };
+
+  if ("auction" in obj) {
+    res.auction = sanitizeLink(obj.auction);
+  }
+  if ("scoring" in obj) {
+    res.scoring = sanitizeLink(obj.scoring);
+  }
+  return res;
+}
+
+function sanitizeMatchBroadcasts(raw: unknown): Record<string, BroadcastLinkConfig> | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const obj = raw as Record<string, unknown>;
+  const res: Record<string, BroadcastLinkConfig> = {};
+
+  for (const [key, val] of Object.entries(obj)) {
+    if (!val || typeof val !== "object") continue;
+    const l = val as Record<string, unknown>;
+    const url = typeof l.url === "string" ? l.url.trim() : "";
+    if (!url) continue;
+
+    const validated = validateBroadcastUrl(url);
+    if (!validated.valid || !validated.normalizedUrl) continue;
+
+    const status: BroadcastStatus =
+      l.status === "upcoming" || l.status === "ended" ? l.status : "live";
+    const enabled = l.enabled !== false;
+    const title = typeof l.title === "string" && l.title.trim() ? l.title.trim() : undefined;
+
+    res[key] = {
+      url: validated.normalizedUrl,
+      platform: validated.platform,
+      enabled,
+      status,
+      title,
+    };
+  }
+
+  return res;
+}
+
 /**
  * Normalize raw DB/API JSON into a stable TournamentFeatures object.
  * Unknown keys are ignored; missing keys default to false (or true for whatsappNotifications/history).
@@ -123,12 +233,20 @@ export function resolveTournamentFeatures(
   raw: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
 ): TournamentFeatures {
   const src = raw ?? {};
-  const resolved = {} as Required<TournamentFeatures>;
+  const resolved = {} as Record<string, unknown>;
   for (const key of FEATURE_BOOLEAN_KEYS) {
     resolved[key] = readFlag(src, key);
   }
   resolved.visibility = resolveTournamentVisibility(src);
-  return resolved;
+
+  if ("broadcast" in src) {
+    resolved.broadcast = sanitizeBroadcastConfig(src.broadcast);
+  }
+  if ("matchBroadcasts" in src) {
+    resolved.matchBroadcasts = sanitizeMatchBroadcasts(src.matchBroadcasts);
+  }
+
+  return resolved as TournamentFeatures;
 }
 
 /**
@@ -147,6 +265,12 @@ export function mergeTournamentFeatures(
   }
   if (patch.visibility !== undefined) {
     merged.visibility = patch.visibility;
+  }
+  if (patch.broadcast !== undefined) {
+    merged.broadcast = sanitizeBroadcastConfig(patch.broadcast);
+  }
+  if (patch.matchBroadcasts !== undefined) {
+    merged.matchBroadcasts = sanitizeMatchBroadcasts(patch.matchBroadcasts);
   }
   return resolveTournamentFeatures(merged);
 }
@@ -212,6 +336,143 @@ export function isLedHistoryEnabled(
   return f.liveAuctionHistory !== false && f.ledHistory !== false;
 }
 
+/** Helper: Check if organizer has opted in to Fan Arena listing. */
+export function isFanArenaOptedIn(
+  features?: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
+): boolean {
+  const f = resolveTournamentFeatures(features);
+  return f.fanArenaOptIn === true;
+}
+
+/** Helper: Check if tournament is explicitly approved by BidWar for Fan Arena. */
+export function isFanArenaApproved(
+  features?: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
+): boolean {
+  const f = resolveTournamentFeatures(features);
+  return f.fanArenaApproved === true;
+}
+
+/** Helper: Extract active public broadcast links for display (only enabled ones). */
+export function resolvePublicBroadcasts(
+  features?: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
+): { auction?: BroadcastLinkConfig; scoring?: BroadcastLinkConfig } | undefined {
+  const f = resolveTournamentFeatures(features);
+  const b = f.broadcast;
+  if (!b) return undefined;
+
+  const auction = b.auction && b.auction.enabled ? b.auction : undefined;
+  const scoring = b.scoring && b.scoring.enabled ? b.scoring : undefined;
+
+  if (!auction && !scoring) return undefined;
+  return { auction, scoring };
+}
+
+/**
+ * Result of evaluating tournament eligibility for the curated Fan Arena (/fan).
+ */
+export interface FanArenaEligibilityResult {
+  eligible: boolean;
+  reasons: string[];
+  details: {
+    isPublic: boolean;
+    isLicensedOrApproved: boolean;
+    isOptedIn: boolean;
+    isModuleEnabled: boolean;
+    isNotAdminLocked: boolean;
+    isNotTest: boolean;
+    qualifiesLifecycle: boolean;
+  };
+}
+
+/**
+ * Canonical 7-point server-side evaluator for Fan Arena Curation Discovery (/fan).
+ *
+ * Rules:
+ * 1. Tournament is public.
+ * 2. Tournament is licensed (licenseStatus = 'active') or explicitly approved by BidWar (fanArenaApproved = true).
+ * 3. Organizer has opted in to Fan Arena discovery (fanArenaOptIn = true).
+ * 4. Auction or Scoring is enabled.
+ * 5. Tournament is not admin-locked.
+ * 6. Tournament is not a test, simulation, demo, or internal event.
+ * 7. Tournament lifecycle qualifies for discovery (not archived or cancelled).
+ */
+export function evaluateFanArenaEligibility(
+  tournament: {
+    name: string;
+    auctionCode?: string | null;
+    licenseStatus?: string | null;
+    adminLocked?: boolean;
+    status?: string;
+    auctionEnabled?: boolean;
+    scoringEnabled?: boolean;
+    featuresJson?: unknown;
+  },
+): FanArenaEligibilityResult {
+  const features = resolveTournamentFeatures(tournament.featuresJson as any);
+  const visibility = resolveTournamentVisibility(tournament.featuresJson as any);
+
+  const isPublic = visibility === "public";
+  const isLicensedOrApproved =
+    tournament.licenseStatus === "active" || features.fanArenaApproved === true;
+  const isOptedIn = features.fanArenaOptIn === true;
+  const isModuleEnabled = isAuctionEnabled(tournament) || isScoringEnabled(tournament);
+  const isNotAdminLocked = tournament.adminLocked !== true;
+
+  const lowerName = (tournament.name || "").toLowerCase();
+  const lowerCode = (tournament.auctionCode || "").toLowerCase();
+  const isNotTest = !(
+    lowerName.includes("[test]") ||
+    lowerName.includes("demo tournament") ||
+    lowerName.includes("internal test") ||
+    lowerName.startsWith("sim_") ||
+    lowerName.includes("testing") ||
+    lowerCode.startsWith("test") ||
+    lowerCode.startsWith("demo")
+  );
+
+  const status = tournament.status || "setup";
+  const qualifiesLifecycle = status !== "archived" && status !== "cancelled";
+
+  const reasons: string[] = [];
+  if (!isPublic) {
+    reasons.push("Tournament visibility is not public (unlisted or private).");
+  }
+  if (!isLicensedOrApproved) {
+    reasons.push("Tournament requires a BidWar live license or curation approval.");
+  }
+  if (!isOptedIn) {
+    reasons.push("Organizer has not opted in to Fan Arena listing.");
+  }
+  if (!isModuleEnabled) {
+    reasons.push("Neither Auction nor Scoring module is enabled.");
+  }
+  if (!isNotAdminLocked) {
+    reasons.push("Tournament is locked by administrator.");
+  }
+  if (!isNotTest) {
+    reasons.push("Tournament is marked as a test, demo, or simulation event.");
+  }
+  if (!qualifiesLifecycle) {
+    reasons.push(`Tournament lifecycle status '${status}' does not qualify.`);
+  }
+
+  const eligible = reasons.length === 0;
+
+  return {
+    eligible,
+    reasons,
+    details: {
+      isPublic,
+      isLicensedOrApproved,
+      isOptedIn,
+      isModuleEnabled,
+      isNotAdminLocked,
+      isNotTest,
+      qualifiesLifecycle,
+    },
+  };
+}
+
 /** Zod-compatible partial schema keys for API validation. */
 export const tournamentFeaturesSchemaShape = {
   ownerApp: "boolean",
@@ -224,4 +485,6 @@ export const tournamentFeaturesSchemaShape = {
   ownerAppHistory: "boolean",
   obsHistory: "boolean",
   ledHistory: "boolean",
+  fanArenaOptIn: "boolean",
+  fanArenaApproved: "boolean",
 } as const;

@@ -16,6 +16,9 @@ import {
   isAuctionEnabled,
   isScoringEnabled,
   tryResolveTournamentProductMode,
+  resolvePublicBroadcasts,
+  evaluateFanArenaEligibility,
+  type BroadcastLinkConfig,
 } from "@workspace/platform-core";
 import { canAccessPrivateTournamentData } from "../middleware/require-organizer";
 import { publicTournamentSerializer } from "../lib/serializers/tournament";
@@ -40,6 +43,21 @@ export const fanDiscoveryQuerySchema = z.object({
 
 export type FanDiscoveryQueryParams = z.infer<typeof fanDiscoveryQuerySchema>;
 
+export interface PublicBroadcastDto {
+  auction?: {
+    url: string;
+    platform?: string;
+    status: "live" | "upcoming" | "ended";
+    title?: string;
+  };
+  scoring?: {
+    url: string;
+    platform?: string;
+    status: "live" | "upcoming" | "ended";
+    title?: string;
+  };
+}
+
 export interface FanDiscoveryCardDto {
   id: number;
   name: string;
@@ -61,6 +79,7 @@ export interface FanDiscoveryCardDto {
   liveSnippet?: string | null;
   teamsCount?: number;
   featured?: boolean;
+  broadcast?: PublicBroadcastDto | null;
 }
 
 export interface FanDiscoveryResponseDto {
@@ -96,8 +115,8 @@ router.get("/fan/tournaments", async (req: Request, res: Response): Promise<void
 
   const { search, sport, status, module, city, page, limit, sortBy } = parsed.data;
 
-  // 1. Mandatory Public Discovery Filters (Phase 1 Privacy Contract)
-  // Strictly enforce visibility = 'public' in SQL, exclude locked & test records
+  // 1. Mandatory Public Discovery Filters (Phase 5 Curation & Privacy Contract)
+  // Strictly enforce visibility = 'public' in SQL, exclude locked & test records, require opt-in & licensed/approved
   const baseConditions = [
     sql`COALESCE(${tournamentsTable.featuresJson}->>'visibility', 'public') = 'public'`,
     eq(tournamentsTable.adminLocked, false),
@@ -107,6 +126,12 @@ router.get("/fan/tournaments", async (req: Request, res: Response): Promise<void
     sql`${tournamentsTable.name} NOT ILIKE '%internal test%'`,
     sql`${tournamentsTable.name} NOT ILIKE 'SIM_%'`,
     sql`${tournamentsTable.name} NOT ILIKE '%testing%'`,
+    sql`COALESCE((${tournamentsTable.featuresJson}->>'fanArenaOptIn')::boolean, false) = true`,
+    or(
+      eq(tournamentsTable.licenseStatus, "active"),
+      sql`COALESCE((${tournamentsTable.featuresJson}->>'fanArenaApproved')::boolean, false) = true`
+    ),
+    sql`${tournamentsTable.status} NOT IN ('archived', 'cancelled')`,
   ];
 
   if (search && search.trim().length > 0) {
@@ -161,12 +186,15 @@ router.get("/fan/tournaments", async (req: Request, res: Response): Promise<void
     .from(tournamentsTable)
     .where(and(...baseConditions));
 
+  // Apply canonical 7-point curation evaluation in-memory for complete reliability across all environments & mocks
+  const eligibleCandidates = allCandidates.filter((t) => evaluateFanArenaEligibility(t).eligible);
+
   // 3. Resolve live state and filter by status
   const todayIso = new Date().toISOString().slice(0, 10);
   let liveCount = 0;
   let upcomingTodayCount = 0;
 
-  const resolvedCandidates = allCandidates.map((t) => {
+  const resolvedCandidates = eligibleCandidates.map((t) => {
     const auctionOn = isAuctionEnabled(t);
     const scoringOn = isScoringEnabled(t);
     const isAuctionLive = auctionOn && t.status === "active";
@@ -260,28 +288,51 @@ router.get("/fan/tournaments", async (req: Request, res: Response): Promise<void
   }
 
   // 7. Format Card DTOs
-  const items: FanDiscoveryCardDto[] = pageSlice.map(({ t, isLive, liveType, liveSnippet }) => ({
-    id: t.id,
-    name: t.name,
-    code: t.auctionCode ?? null,
-    sport: t.sport,
-    city: t.city ?? null,
-    venue: t.venue ?? null,
-    organizerName: t.organizerName ?? null,
-    logoUrl: t.logoUrl ?? null,
-    status: t.status,
-    auctionDate: t.auctionDate ?? null,
-    auctionTime: t.auctionTime ?? null,
-    matchDates: t.matchDates ?? null,
-    auctionEnabled: isAuctionEnabled(t),
-    scoringEnabled: isScoringEnabled(t),
-    productMode: tryResolveTournamentProductMode(t) ?? "auction_only",
-    isLive,
-    liveType,
-    liveSnippet,
-    teamsCount: teamCountsMap.get(t.id) ?? 0,
-    featured: isLive,
-  }));
+  const items: FanDiscoveryCardDto[] = pageSlice.map(({ t, isLive, liveType, liveSnippet }) => {
+    const publicBroadcast = resolvePublicBroadcasts(t.featuresJson);
+    return {
+      id: t.id,
+      name: t.name,
+      code: t.auctionCode ?? null,
+      sport: t.sport,
+      city: t.city ?? null,
+      venue: t.venue ?? null,
+      organizerName: t.organizerName ?? null,
+      logoUrl: t.logoUrl ?? null,
+      status: t.status,
+      auctionDate: t.auctionDate ?? null,
+      auctionTime: t.auctionTime ?? null,
+      matchDates: t.matchDates ?? null,
+      auctionEnabled: isAuctionEnabled(t),
+      scoringEnabled: isScoringEnabled(t),
+      productMode: tryResolveTournamentProductMode(t) ?? "auction_only",
+      isLive,
+      liveType,
+      liveSnippet,
+      teamsCount: teamCountsMap.get(t.id) ?? 0,
+      featured: isLive,
+      broadcast: publicBroadcast
+        ? {
+            auction: publicBroadcast.auction
+              ? {
+                  url: publicBroadcast.auction.url,
+                  platform: publicBroadcast.auction.platform,
+                  status: publicBroadcast.auction.status,
+                  title: publicBroadcast.auction.title,
+                }
+              : undefined,
+            scoring: publicBroadcast.scoring
+              ? {
+                  url: publicBroadcast.scoring.url,
+                  platform: publicBroadcast.scoring.platform,
+                  status: publicBroadcast.scoring.status,
+                  title: publicBroadcast.scoring.title,
+                }
+              : undefined,
+          }
+        : null,
+    };
+  });
 
   res.setHeader("Cache-Control", "public, max-age=15, stale-while-revalidate=45");
   res.json({
@@ -454,6 +505,7 @@ router.get("/tournaments/:tournamentId/fan/context", async (req: Request, res: R
       productMode: serialized.productMode,
       scoringPhase: serialized.scoringPhase,
       features: serialized.features,
+      broadcast: resolvePublicBroadcasts(tournament.featuresJson) ?? null,
     },
     liveState: {
       isAuctionLive,

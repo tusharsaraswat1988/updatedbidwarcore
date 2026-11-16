@@ -25,8 +25,9 @@ const mockTournaments: Record<number, any> = {
     auctionEnabled: true,
     scoringEnabled: true,
     status: "active",
+    licenseStatus: "active",
     adminLocked: false,
-    featuresJson: { visibility: "public" },
+    featuresJson: { visibility: "public", fanArenaOptIn: true },
     createdAt: new Date(),
   },
   202: {

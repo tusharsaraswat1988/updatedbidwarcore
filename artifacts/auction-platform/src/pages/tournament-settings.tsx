@@ -39,8 +39,9 @@ import {
   Gavel, Monitor, ShieldAlert, Image as ImageIcon, X, RotateCcw,
   Calendar as CalendarIcon, AlertTriangle, Upload, Pencil,
   Megaphone, Clapperboard, Loader2, Info, CalendarDays, Crop, IndianRupee, ClipboardList, Handshake,
-  Play, Coffee, Plus, Sparkles, HelpCircle, Lock,
+  Play, Coffee, Plus, Sparkles, HelpCircle, Lock, Radio,
 } from "lucide-react";
+import { FanArenaBroadcastSettings } from "@/components/settings/fan-arena-broadcast-settings";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { type SponsorLogo, normalizeSponsorLogos, validateSponsorList } from "@/lib/sponsor-logo";
@@ -818,6 +819,7 @@ export default function TournamentSettings() {
     { id: "playerRegistration", label: "Player Registration", icon: UserPlus, module: "core" },
     { id: "auction", label: "Auction Rules", icon: Gavel, module: "auction" },
     { id: "sponsors", label: "Sponsors", icon: Handshake, module: "core" },
+    { id: "fanArena", label: "Fan Arena & Broadcast", icon: Radio, module: "core" },
     { id: "broadcast", label: "Screen & Sound", icon: Megaphone, module: "auction" },
     { id: "recovery", label: tournament?.licenseStatus !== "active" ? "Trial Demo & Reset" : "Reset", icon: tournament?.licenseStatus !== "active" ? Sparkles : ShieldAlert, module: "auction" },
   ];
@@ -2145,6 +2147,13 @@ export default function TournamentSettings() {
                 <SponsorMediaSettingsEditor tournamentId={tournamentId} />
               </SettingsCard>
             </div>
+          </SettingsTabPanel>
+        )}
+
+        {/* ── FAN ARENA & BROADCAST ── */}
+        {activeSection === "fanArena" && (
+          <SettingsTabPanel>
+            <FanArenaBroadcastSettings tournamentId={tournamentId} />
           </SettingsTabPanel>
         )}
 

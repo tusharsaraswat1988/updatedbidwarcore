@@ -1,12 +1,13 @@
 import { isAuctionEnabled, type TournamentModuleFlags } from "@workspace/platform-core";
 import type { AuctionReadinessCheckId } from "@workspace/api-base/auction-readiness";
 
-export type SettingsTab = "identity" | "playerRegistration" | "auction" | "sponsors" | "broadcast" | "recovery";
+export type SettingsTab = "identity" | "playerRegistration" | "auction" | "sponsors" | "fanArena" | "broadcast" | "recovery";
 
 export const CORE_SETTINGS_TABS: readonly SettingsTab[] = [
   "identity",
   "playerRegistration",
   "sponsors",
+  "fanArena",
 ];
 
 export const AUCTION_SETTINGS_TABS: readonly SettingsTab[] = [
@@ -20,6 +21,7 @@ export const SETTINGS_TABS: readonly SettingsTab[] = [
   "playerRegistration",
   "auction",
   "sponsors",
+  "fanArena",
   "broadcast",
   "recovery",
 ];

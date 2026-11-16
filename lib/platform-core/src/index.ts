@@ -15,7 +15,14 @@ export {
 
 export {
   type TournamentFeatures,
+  type TournamentVisibility,
+  type BroadcastPlatform,
+  type BroadcastStatus,
+  type BroadcastLinkConfig,
+  type TournamentBroadcastConfig,
+  type FanArenaEligibilityResult,
   TOURNAMENT_FEATURE_DEFAULTS,
+  resolveTournamentVisibility,
   resolveTournamentFeatures,
   mergeTournamentFeatures,
   isBuzzStudioEnabled,
@@ -25,8 +32,18 @@ export {
   isOwnerAppHistoryEnabled,
   isObsHistoryEnabled,
   isLedHistoryEnabled,
+  isFanArenaOptedIn,
+  isFanArenaApproved,
+  resolvePublicBroadcasts,
+  evaluateFanArenaEligibility,
   tournamentFeaturesSchemaShape,
 } from "./tournament-features.ts";
+
+export {
+  validateBroadcastUrl,
+  detectBroadcastPlatform,
+  type BroadcastUrlValidationResult,
+} from "./broadcast-url-validator.ts";
 
 export {
   type TournamentProductMode,

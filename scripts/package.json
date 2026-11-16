@@ -6,6 +6,7 @@
   "scripts": {
     "hello": "tsx ./src/hello.ts",
     "seed:demo": "tsx --env-file=../.env src/seed-demo.ts",
+    "seed:fan": "tsx --env-file=../.env src/seed-fan-broadcast-demo.ts",
     "seed:scoring-local": "tsx --env-file=../.env src/seed-scoring-local.ts",
     "seed:sports": "tsx src/seed-sports.ts",
     "seed:live-history": "tsx --env-file=../.env src/seed-live-history.ts",
