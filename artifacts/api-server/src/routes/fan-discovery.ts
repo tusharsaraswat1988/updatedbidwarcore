@@ -307,7 +307,10 @@ router.get("/fan/tournaments", async (req: Request, res: Response): Promise<void
  * Checks privacy and returns safe tournament fan context.
  */
 router.get("/tournaments/:tournamentId/fan/context", async (req: Request, res: Response): Promise<void> => {
-  const id = parseInt(req.params.tournamentId, 10);
+  const rawId = Array.isArray(req.params.tournamentId)
+    ? req.params.tournamentId[0]
+    : req.params.tournamentId;
+  const id = parseInt(String(rawId), 10);
   if (isNaN(id) || id <= 0) {
     res.status(400).json({ error: "Invalid tournament ID" });
     return;
