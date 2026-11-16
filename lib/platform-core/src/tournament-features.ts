@@ -49,6 +49,26 @@ export interface TournamentFeatures {
    * Defaults to true (pre-enabled).
    */
   ledHistory?: boolean;
+  /**
+   * Tournament discovery visibility:
+   * - "public": Discoverable on /fan, indexed by crawlers, accessible via direct link.
+   * - "unlisted": Excluded from /fan discovery and search, accessible via direct link/QR.
+   * - "private": Excluded from /fan, requires Organizer Auth or spectator PIN.
+   * Defaults to "public" for backward compatibility with legacy tournaments.
+   */
+  visibility?: TournamentVisibility;
+}
+
+export type TournamentVisibility = "public" | "unlisted" | "private";
+
+export function resolveTournamentVisibility(
+  raw: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
+): TournamentVisibility {
+  const v = raw?.visibility;
+  if (v === "unlisted" || v === "private") {
+    return v;
+  }
+  return "public";
 }
 
 /** Canonical defaults when a tournament has no features_json row yet. */
@@ -63,13 +83,25 @@ export const TOURNAMENT_FEATURE_DEFAULTS: Readonly<Required<TournamentFeatures>>
   ownerAppHistory: true,
   obsHistory: true,
   ledHistory: true,
+  visibility: "public",
 };
 
-const FEATURE_KEYS = Object.keys(TOURNAMENT_FEATURE_DEFAULTS) as (keyof TournamentFeatures)[];
+const FEATURE_BOOLEAN_KEYS: (keyof Omit<TournamentFeatures, "visibility">)[] = [
+  "ownerApp",
+  "scoring",
+  "sponsorshipHub",
+  "analytics",
+  "whatsappNotifications",
+  "weddingBroadcast",
+  "liveAuctionHistory",
+  "ownerAppHistory",
+  "obsHistory",
+  "ledHistory",
+];
 
 function readFlag(
   src: Partial<TournamentFeatures> | Record<string, unknown>,
-  key: keyof TournamentFeatures,
+  key: keyof Omit<TournamentFeatures, "visibility">,
 ): boolean {
   if (
     key === "whatsappNotifications" ||
@@ -85,16 +117,17 @@ function readFlag(
 
 /**
  * Normalize raw DB/API JSON into a stable TournamentFeatures object.
- * Unknown keys are ignored; missing keys default to false (or true for whatsappNotifications).
+ * Unknown keys are ignored; missing keys default to false (or true for whatsappNotifications/history).
  */
 export function resolveTournamentFeatures(
   raw: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
 ): TournamentFeatures {
   const src = raw ?? {};
   const resolved = {} as Required<TournamentFeatures>;
-  for (const key of FEATURE_KEYS) {
+  for (const key of FEATURE_BOOLEAN_KEYS) {
     resolved[key] = readFlag(src, key);
   }
+  resolved.visibility = resolveTournamentVisibility(src);
   return resolved;
 }
 
@@ -107,10 +140,13 @@ export function mergeTournamentFeatures(
 ): TournamentFeatures {
   const base = resolveTournamentFeatures(existing);
   const merged: Record<string, unknown> = { ...base };
-  for (const key of FEATURE_KEYS) {
+  for (const key of FEATURE_BOOLEAN_KEYS) {
     if (patch[key] !== undefined) {
       merged[key] = patch[key];
     }
+  }
+  if (patch.visibility !== undefined) {
+    merged.visibility = patch.visibility;
   }
   return resolveTournamentFeatures(merged);
 }

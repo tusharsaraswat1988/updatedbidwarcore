@@ -22,6 +22,7 @@ import {
 } from "@workspace/api-base/registration-fields";
 import { randomBytes, randomInt } from "crypto";
 import { isAccountOrAdmin, requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
+import { resolveTournamentVisibility, mergeTournamentFeatures } from "@workspace/platform-core/tournament-features";
 import { publicTournamentSerializer, privateTournamentSerializer } from "../lib/serializers/tournament";
 import { db } from "@workspace/db";
 import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable, purseBoostersTable, brandingSettingsTable, auctionSessionsTable, tournamentLicenseRequestsTable, adminNotificationsTable } from "@workspace/db";
@@ -125,7 +126,10 @@ const tournamentToPublicJson = publicTournamentSerializer;
 router.get("/tournaments", async (req, res) => {
   const tournaments = await db.select().from(tournamentsTable).orderBy(tournamentsTable.createdAt);
   const isPrivate = isAccountOrAdmin(req) || !!req.jwtUser?.isAdmin;
-  res.json(tournaments.map((t) => (isPrivate ? tournamentToJson(t) : tournamentToPublicJson(t))));
+  const accessible = isPrivate
+    ? tournaments
+    : tournaments.filter((t) => resolveTournamentVisibility(t.featuresJson) === "public" && !t.adminLocked);
+  res.json(accessible.map((t) => (isPrivate ? tournamentToJson(t) : tournamentToPublicJson(t))));
 });
 
 const tournamentInputSchema = z.object({
@@ -365,6 +369,19 @@ router.get("/tournaments/:tournamentId", async (req, res) => {
   if (!tournament) { res.status(404).json({ error: "Not found" }); return; }
   const platformDefaults = await getPlatformDefaultAudioCached();
   const isOrganizer = await canAccessPrivateTournamentData(req, id);
+  const visibility = resolveTournamentVisibility(tournament.featuresJson);
+
+  // Private Tournament Gate (Phase 1 Privacy Contract)
+  // Deny access to private tournaments unless authenticated as organizer or supplying valid PIN
+  if (visibility === "private" && !isOrganizer) {
+    const pin = (req.headers["x-bidwar-pin"] as string) || (req.query.pin as string);
+    const pinMatches = Boolean(tournament.scoringPin && pin && pin === tournament.scoringPin);
+    if (!pinMatches) {
+      res.status(403).json({ error: "This tournament is private", code: "PRIVATE_TOURNAMENT" });
+      return;
+    }
+  }
+
   const serializer = isOrganizer ? tournamentToJson : tournamentToPublicJson;
   res.json(serializer(tournament, {
     includeScoringPin: isOrganizer,
@@ -450,6 +467,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     scoringEnabled: z.boolean().optional(),
     scoringPhase: z.enum(["disabled", "setup", "active", "completed"]).optional(),
     scoringPin: z.string().min(4).max(12).nullable().optional(),
+    visibility: z.enum(["public", "unlisted", "private"]).optional(),
     reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -689,6 +707,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
       }
     }
     if (d.scoringPin !== undefined) updates.scoringPin = d.scoringPin === "" ? null : d.scoringPin;
+  }
+  if (d.visibility !== undefined) {
+    updates.featuresJson = mergeTournamentFeatures(beforeTournament.featuresJson, { visibility: d.visibility });
   }
   const mergedPaymentSettings = {
     enableRegistrationPayment:

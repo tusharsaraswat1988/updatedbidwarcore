@@ -20,6 +20,7 @@ import type { FanModuleTab } from "@/components/fan/unified-module-nav";
 import { AuctionFanRenderer } from "@/components/fan/auction-fan-renderer";
 import { CricketFanRenderer } from "@/components/fan/cricket-fan-renderer";
 import { BadmintonFanRenderer } from "@/components/fan/badminton-fan-renderer";
+import { PrivateTournamentGate } from "@/components/fan/private-tournament-gate";
 import { Trophy } from "lucide-react";
 
 export function UnsupportedSportFallback({
@@ -80,6 +81,16 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
 
   const tournamentId = numericId || codeContext?.tournament?.id || 0;
 
+  // Stored access PIN for private tournaments
+  const [accessPin, setAccessPin] = useState<string | null>(() => {
+    if (typeof window === "undefined" || !tournamentId) return null;
+    try {
+      return sessionStorage.getItem(`bidwar_private_pin_${tournamentId}`);
+    } catch {
+      return null;
+    }
+  });
+
   // Fetch full tournament configuration
   const {
     data: tournament,
@@ -88,11 +99,40 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
     refetch,
   } = useGetTournament(tournamentId, {
     query: {
-      queryKey: getGetTournamentQueryKey(tournamentId),
+      queryKey: [...getGetTournamentQueryKey(tournamentId), accessPin || ""],
       enabled: tournamentId > 0,
       staleTime: 15_000,
+      retry: (failureCount, err) => {
+        if ((err as any)?.status === 403) return false;
+        return failureCount < 2;
+      },
+    },
+    request: {
+      headers: accessPin ? { "x-bidwar-pin": accessPin } : {},
     },
   });
+
+  const isPrivateLocked = (error as any)?.status === 403 || (error as any)?.data?.code === "PRIVATE_TOURNAMENT";
+
+  const handleUnlockPin = useCallback(
+    async (pin: string): Promise<boolean> => {
+      try {
+        const res = await fetch(`/api/tournaments/${tournamentId}?pin=${encodeURIComponent(pin)}`);
+        if (res.ok) {
+          try {
+            sessionStorage.setItem(`bidwar_private_pin_${tournamentId}`, pin);
+          } catch {}
+          setAccessPin(pin);
+          await refetch();
+          return true;
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    },
+    [tournamentId, refetch]
+  );
 
   // Sound preference state
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {

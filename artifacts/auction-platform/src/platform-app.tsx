@@ -73,6 +73,7 @@ const CompleteProfile = lazyWithRetry(() => import("@/pages/complete-profile"));
 const BreakTimerPage = lazyWithRetry(() => import("@/pages/break-timer"));
 const LocalModePage = lazyWithRetry(() => import("@/pages/local-mode"));
 const UnifiedFanPage = lazyWithRetry(() => import("@/pages/unified-fan-page"));
+const UniversalFanHome = lazyWithRetry(() => import("@/pages/universal-fan-home"));
 const NotFound = lazyWithRetry(() => import("@/pages/not-found"));
 
 function RouteSuspenseFallback() {
@@ -441,6 +442,7 @@ function PlatformRouter() {
         <Route path="/:code/fanpage" component={RedirectToScoringApp} />
         <Route path="/fan/:id" component={RedirectToScoringApp} />
         <Route path="/fanpage/:id" component={RedirectToScoringApp} />
+        <Route path="/fan" component={UniversalFanHome} />
         <Route path="/tournament/:id/fan">
           {(params) => <UnifiedFanPage routeIdentifier={params?.id} />}
         </Route>
