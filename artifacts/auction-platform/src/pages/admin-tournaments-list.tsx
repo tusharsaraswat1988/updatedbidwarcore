@@ -130,7 +130,9 @@ function LicenseTierBadge({ status }: { status: string }) {
 type TournamentStatusFilter = "all" | "setup" | "active" | "completed" | "locked";
 type LicenseStatusFilter = "all" | "trial" | "active";
 
-const GRID_COLS = "lg:grid lg:grid-cols-[minmax(180px,1.6fr)_100px_105px_minmax(130px,1.2fr)_125px_95px_115px_minmax(130px,auto)] lg:items-center lg:gap-3";
+// Mathematically balanced responsive grid proportions:
+// Tournament(2fr) | Sport(105px) | Code(110px) | Organiser(1.4fr) | Schedule(1.1fr) | Status(95px) | License(115px) | Action(155px)
+const GRID_COLS = "lg:grid lg:grid-cols-[minmax(220px,2fr)_105px_110px_minmax(150px,1.4fr)_minmax(130px,1.1fr)_95px_115px_155px] lg:items-center lg:gap-3.5";
 
 const AUDIT_REASON_PRESETS = [
   "Payment verified in bank statement",
@@ -290,7 +292,7 @@ export default function AdminTournamentsListPage() {
       {flash && (
         <div
           className={cn(
-            "mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium shadow-sm transition-all",
+            "mb-3 flex items-center gap-2 rounded-lg border px-3.5 py-2 text-xs font-medium shadow-sm transition-all",
             flash.ok
               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
               : "border-red-500/30 bg-red-500/10 text-red-400"
@@ -305,9 +307,9 @@ export default function AdminTournamentsListPage() {
       )}
 
       <div className="rounded-xl border border-border bg-card/70 shadow-sm overflow-hidden">
-        {/* Top Search & Controls Bar */}
+        {/* Top Search & Actions Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border p-3 gap-3 bg-card/50">
-          {/* Left: Compact Search Input */}
+          {/* Left: Search Input */}
           <div className="relative w-full sm:w-80 flex-shrink-0">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -326,7 +328,7 @@ export default function AdminTournamentsListPage() {
             )}
           </div>
 
-          {/* Right: Quick Action & Refresh */}
+          {/* Right: Sport Selector & Refresh */}
           <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
             {sportsList.length > 0 && (
               <select
@@ -356,113 +358,129 @@ export default function AdminTournamentsListPage() {
           </div>
         </div>
 
-        {/* Separated Filter Rows: Tournament Status & License Status */}
-        <div className="border-b border-border px-3 py-2.5 bg-muted/20 space-y-2 text-xs">
-          {/* Row 1: Tournament Status Filter Buttons */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-semibold text-muted-foreground mr-1 uppercase tracking-wider">
+        {/* Unified, Professionally Aligned Segmented Filter Bar */}
+        <div className="border-b border-border px-3.5 py-2.5 bg-muted/20 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3 text-xs">
+          {/* Filter Pills Groups (Side-by-side) */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Tournament Status Group */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 Tournament:
               </span>
-              <button
-                onClick={() => setTournamentStatusFilter("all")}
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
-                  tournamentStatusFilter === "all"
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "bg-muted/40 text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                All ({tournamentCounts.all})
-              </button>
-              <button
-                onClick={() => setTournamentStatusFilter("setup")}
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
-                  tournamentStatusFilter === "setup"
-                    ? "bg-slate-600 text-white shadow-xs"
-                    : "bg-muted/40 text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Setup ({tournamentCounts.setup})
-              </button>
-              <button
-                onClick={() => setTournamentStatusFilter("active")}
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
-                  tournamentStatusFilter === "active"
-                    ? "bg-emerald-500 text-white shadow-xs"
-                    : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                }`}
-              >
-                Live ({tournamentCounts.active})
-              </button>
-              <button
-                onClick={() => setTournamentStatusFilter("completed")}
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
-                  tournamentStatusFilter === "completed"
-                    ? "bg-blue-500 text-white shadow-xs"
-                    : "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20"
-                }`}
-              >
-                Completed ({tournamentCounts.completed})
-              </button>
-              {tournamentCounts.locked > 0 && (
+              <div className="inline-flex items-center rounded-lg bg-background/70 p-0.5 border border-border/70 text-xs shadow-2xs">
                 <button
-                  onClick={() => setTournamentStatusFilter("locked")}
-                  className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
-                    tournamentStatusFilter === "locked"
-                      ? "bg-red-500 text-white shadow-xs"
-                      : "bg-red-500/10 text-red-400 hover:bg-red-500/20"
-                  }`}
+                  onClick={() => setTournamentStatusFilter("all")}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs transition-all whitespace-nowrap",
+                    tournamentStatusFilter === "all"
+                      ? "bg-card text-foreground font-semibold shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
                 >
-                  Locked ({tournamentCounts.locked})
+                  All ({tournamentCounts.all})
                 </button>
-              )}
+                <button
+                  onClick={() => setTournamentStatusFilter("setup")}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs transition-all whitespace-nowrap",
+                    tournamentStatusFilter === "setup"
+                      ? "bg-card text-foreground font-semibold shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Setup ({tournamentCounts.setup})
+                </button>
+                <button
+                  onClick={() => setTournamentStatusFilter("active")}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs transition-all whitespace-nowrap",
+                    tournamentStatusFilter === "active"
+                      ? "bg-emerald-500/15 text-emerald-400 font-semibold border border-emerald-500/30 shadow-xs"
+                      : "text-muted-foreground hover:text-emerald-400"
+                  )}
+                >
+                  Live ({tournamentCounts.active})
+                </button>
+                <button
+                  onClick={() => setTournamentStatusFilter("completed")}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs transition-all whitespace-nowrap",
+                    tournamentStatusFilter === "completed"
+                      ? "bg-blue-500/15 text-blue-400 font-semibold border border-blue-500/30 shadow-xs"
+                      : "text-muted-foreground hover:text-blue-400"
+                  )}
+                >
+                  Completed ({tournamentCounts.completed})
+                </button>
+                {tournamentCounts.locked > 0 && (
+                  <button
+                    onClick={() => setTournamentStatusFilter("locked")}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-xs transition-all whitespace-nowrap",
+                      tournamentStatusFilter === "locked"
+                        ? "bg-red-500/15 text-red-400 font-semibold border border-red-500/30 shadow-xs"
+                        : "text-muted-foreground hover:text-red-400"
+                    )}
+                  >
+                    Locked ({tournamentCounts.locked})
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="text-[11px] font-medium text-muted-foreground hidden sm:block">
-              {filtered.length === tournaments.length
-                ? `${tournaments.length} tournaments · Latest first`
-                : `Showing ${filtered.length} of ${tournaments.length}`}
+            {/* Subtle Divider */}
+            <div className="hidden sm:block h-4 w-px bg-border/80 self-center" />
+
+            {/* License Status Group */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                License:
+              </span>
+              <div className="inline-flex items-center rounded-lg bg-background/70 p-0.5 border border-border/70 text-xs shadow-2xs">
+                <button
+                  onClick={() => setLicenseStatusFilter("all")}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs transition-all whitespace-nowrap",
+                    licenseStatusFilter === "all"
+                      ? "bg-card text-foreground font-semibold shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  All Licenses ({licenseCounts.all})
+                </button>
+                <button
+                  onClick={() => setLicenseStatusFilter("trial")}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs transition-all whitespace-nowrap",
+                    licenseStatusFilter === "trial"
+                      ? "bg-amber-500/15 text-amber-300 font-semibold border border-amber-500/30 shadow-xs"
+                      : "text-muted-foreground hover:text-amber-300"
+                  )}
+                >
+                  Trial ({licenseCounts.trial})
+                </button>
+                <button
+                  onClick={() => setLicenseStatusFilter("active")}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs transition-all whitespace-nowrap",
+                    licenseStatusFilter === "active"
+                      ? "bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30 shadow-xs"
+                      : "text-muted-foreground hover:text-emerald-300"
+                  )}
+                >
+                  Live License ({licenseCounts.active})
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Row 2: License Status Filter Buttons */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] font-semibold text-muted-foreground mr-1 uppercase tracking-wider">
-                License:
-              </span>
-              <button
-                onClick={() => setLicenseStatusFilter("all")}
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
-                  licenseStatusFilter === "all"
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "bg-muted/40 text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                All Licenses ({licenseCounts.all})
-              </button>
-              <button
-                onClick={() => setLicenseStatusFilter("trial")}
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
-                  licenseStatusFilter === "trial"
-                    ? "bg-amber-500 text-white shadow-xs"
-                    : "bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-                }`}
-              >
-                Trial ({licenseCounts.trial})
-              </button>
-              <button
-                onClick={() => setLicenseStatusFilter("active")}
-                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors whitespace-nowrap ${
-                  licenseStatusFilter === "active"
-                    ? "bg-emerald-500 text-white shadow-xs"
-                    : "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                }`}
-              >
-                Live License ({licenseCounts.active})
-              </button>
-            </div>
-
+          {/* Counts and Clear Controls */}
+          <div className="flex items-center gap-3 text-xs text-muted-foreground self-end xl:self-auto">
+            <span className="font-medium text-[11px]">
+              {filtered.length === tournaments.length
+                ? `${tournaments.length} tournaments · Latest first`
+                : `Showing ${filtered.length} of ${tournaments.length} tournaments`}
+            </span>
             {isAnyFilterActive && (
               <button
                 onClick={() => {
@@ -471,15 +489,15 @@ export default function AdminTournamentsListPage() {
                   setSportFilter("all");
                   setSearch("");
                 }}
-                className="text-[11px] text-muted-foreground hover:text-foreground underline decoration-dotted"
+                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors underline decoration-dotted"
               >
-                Reset all filters
+                <X className="h-3 w-3" /> Reset
               </button>
             )}
           </div>
         </div>
 
-        {/* Table Header with strictly matched grid columns */}
+        {/* Table Header: Exact match to GRID_COLS and row padding */}
         <AdminListHeader
           gridClassName={GRID_COLS}
           columns={[
@@ -538,27 +556,25 @@ export default function AdminTournamentsListPage() {
                   <div
                     key={t.id}
                     onClick={() => navigate(`/admin/tournaments/${t.id}`)}
-                    className={`block w-full border-b border-border p-3.5 text-left text-sm hover:bg-accent/40 transition-colors cursor-pointer ${GRID_COLS} lg:border-b-0`}
+                    className={`block w-full border-b border-border px-4 py-3 text-left text-sm hover:bg-accent/40 transition-colors cursor-pointer ${GRID_COLS} lg:border-b-0`}
                   >
-                    {/* Col 1: Tournament Info (Without ID number, clean title + linked badge) */}
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span
-                          className="font-bold text-foreground text-sm hover:text-primary transition-colors truncate max-w-[280px]"
-                          title={t.name}
-                        >
-                          {t.name}
-                        </span>
-                        {t.organizerId ? (
-                          <Badge className="h-4 bg-emerald-500/15 px-1.5 text-[9px] text-emerald-400 font-semibold gap-0.5">
-                            <UserCheck className="h-2.5 w-2.5" /> Linked
-                          </Badge>
-                        ) : null}
-                      </div>
+                    {/* Col 1: Tournament Info (No ID number, clean title + linked badge) */}
+                    <div className="min-w-0 flex items-center gap-2">
+                      <span
+                        className="font-bold text-foreground text-sm hover:text-primary transition-colors truncate"
+                        title={t.name}
+                      >
+                        {t.name}
+                      </span>
+                      {t.organizerId ? (
+                        <Badge className="h-4 bg-emerald-500/15 px-1.5 text-[9px] text-emerald-400 font-semibold gap-0.5 shrink-0">
+                          <UserCheck className="h-2.5 w-2.5" /> Linked
+                        </Badge>
+                      ) : null}
                     </div>
 
                     {/* Col 2: Sport */}
-                    <div className="min-w-0 mt-1.5 lg:mt-0">
+                    <div className="flex items-center min-w-0 mt-1.5 lg:mt-0">
                       <Badge variant="outline" className={`text-[10px] gap-1 px-1.5 py-0.5 font-medium ${sport.color}`}>
                         <span>{sport.emoji}</span>
                         <span>{sport.label}</span>
@@ -566,19 +582,19 @@ export default function AdminTournamentsListPage() {
                     </div>
 
                     {/* Col 3: Tournament / Auction Code */}
-                    <div className="min-w-0 mt-1.5 lg:mt-0 flex items-center gap-1">
+                    <div className="flex items-center min-w-0 mt-1.5 lg:mt-0">
                       {t.auctionCode ? (
                         <button
                           type="button"
                           onClick={(e) => handleCopyCode(e, t.auctionCode!)}
                           title="Click to copy tournament code"
-                          className="inline-flex items-center gap-1 rounded bg-muted/60 hover:bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold text-foreground/90 transition-colors border border-border/60 group"
+                          className="inline-flex items-center gap-1 rounded bg-muted/60 hover:bg-muted px-2 py-0.5 font-mono text-[11px] font-semibold text-foreground/90 transition-colors border border-border/70 group"
                         >
                           <span>{t.auctionCode}</span>
                           {copiedCode === t.auctionCode ? (
-                            <Check className="h-2.5 w-2.5 text-emerald-400" />
+                            <Check className="h-2.5 w-2.5 text-emerald-400 shrink-0" />
                           ) : (
-                            <Copy className="h-2.5 w-2.5 text-muted-foreground opacity-60 group-hover:opacity-100" />
+                            <Copy className="h-2.5 w-2.5 text-muted-foreground opacity-60 group-hover:opacity-100 shrink-0" />
                           )}
                         </button>
                       ) : (
@@ -587,7 +603,7 @@ export default function AdminTournamentsListPage() {
                     </div>
 
                     {/* Col 4: Organiser */}
-                    <div className="min-w-0 mt-1.5 lg:mt-0">
+                    <div className="min-w-0 flex flex-col justify-center mt-1.5 lg:mt-0">
                       <span className="block truncate text-xs font-medium text-foreground/90">
                         {t.organizerName || <span className="text-muted-foreground italic">Unlinked Host</span>}
                       </span>
@@ -607,37 +623,38 @@ export default function AdminTournamentsListPage() {
                     </div>
 
                     {/* Col 5: Schedule */}
-                    <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground min-w-0 lg:mt-0">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0 mt-1.5 lg:mt-0">
                       <Calendar className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0 hidden lg:inline" />
                       <span className="truncate">{formatSchedule(t.auctionDate, t.auctionTime)}</span>
                     </div>
 
                     {/* Col 6: Tournament Status */}
-                    <div className="mt-1.5 flex items-center gap-2 lg:mt-0">
+                    <div className="flex items-center min-w-0 mt-1.5 lg:mt-0">
                       <UnifiedTournamentStatus status={t.status} adminLocked={t.adminLocked} />
                     </div>
 
                     {/* Col 7: License Status */}
-                    <div className="mt-1.5 flex items-center gap-1.5 min-w-0 lg:mt-0">
+                    <div className="flex items-center min-w-0 mt-1.5 lg:mt-0">
                       <LicenseTierBadge status={t.licenseStatus} />
                     </div>
 
-                    {/* Col 8: Actions (Grant License & Open) */}
-                    <div className="mt-2.5 flex items-center justify-start lg:justify-end gap-1.5 lg:mt-0">
+                    {/* Col 8: Actions (Refined Grant License & Open) */}
+                    <div className="flex items-center justify-start lg:justify-end gap-1.5 min-w-0 mt-2.5 lg:mt-0">
                       {t.licenseStatus !== "active" && (
                         <Button
                           type="button"
                           size="sm"
+                          variant="outline"
                           onClick={(e) => {
                             e.stopPropagation();
                             setGrantTarget(t);
                             setGrantReason("Payment verified in bank statement");
                           }}
-                          className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] gap-1 shrink-0 shadow-xs"
+                          className="h-7 px-2 text-[11px] font-semibold border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/15 gap-1 shrink-0"
                           title="Grant Live License directly"
                         >
                           <Sparkles className="h-3 w-3" />
-                          <span>Grant License</span>
+                          <span>Grant</span>
                         </Button>
                       )}
                       <Button
