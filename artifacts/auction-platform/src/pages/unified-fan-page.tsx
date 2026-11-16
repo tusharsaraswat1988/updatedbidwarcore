@@ -117,7 +117,9 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
   const handleUnlockPin = useCallback(
     async (pin: string): Promise<boolean> => {
       try {
-        const res = await fetch(`/api/tournaments/${tournamentId}?pin=${encodeURIComponent(pin)}`);
+        const res = await fetch(`/api/tournaments/${tournamentId}`, {
+          headers: { "x-bidwar-pin": pin },
+        });
         if (res.ok) {
           try {
             sessionStorage.setItem(`bidwar_private_pin_${tournamentId}`, pin);

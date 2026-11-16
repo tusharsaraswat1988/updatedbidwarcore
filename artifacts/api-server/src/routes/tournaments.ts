@@ -24,6 +24,11 @@ import { randomBytes, randomInt } from "crypto";
 import { isAccountOrAdmin, requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
 import { resolveTournamentVisibility, mergeTournamentFeatures } from "@workspace/platform-core/tournament-features";
 import { publicTournamentSerializer, privateTournamentSerializer } from "../lib/serializers/tournament";
+import {
+  secureComparePins,
+  checkPinRateLimit,
+  recordPinAttempt,
+} from "../lib/pin-security";
 import { db } from "@workspace/db";
 import { tournamentsTable, teamsTable, playersTable, categoriesTable, bidsTable, organizersTable, purseBoostersTable, brandingSettingsTable, auctionSessionsTable, tournamentLicenseRequestsTable, adminNotificationsTable } from "@workspace/db";
 import { requireAdmin } from "../middleware/require-admin.js";
@@ -374,12 +379,42 @@ router.get("/tournaments/:tournamentId", async (req, res) => {
   // Private Tournament Gate (Phase 1 Privacy Contract)
   // Deny access to private tournaments unless authenticated as organizer or supplying valid PIN
   if (visibility === "private" && !isOrganizer) {
+    const clientIp = req.ip || req.socket.remoteAddress || "127.0.0.1";
+
+    const rateCheck = checkPinRateLimit(clientIp, id);
+    if (!rateCheck.allowed) {
+      res.setHeader("Retry-After", String(rateCheck.retryAfterSeconds || 600));
+      res.status(429).json({
+        error: "Too many failed PIN attempts. Access locked out temporarily.",
+        code: "RATE_LIMIT_EXCEEDED",
+        retryAfterSeconds: rateCheck.retryAfterSeconds,
+      });
+      return;
+    }
+
     const pin = (req.headers["x-bidwar-pin"] as string) || (req.query.pin as string);
-    const pinMatches = Boolean(tournament.scoringPin && pin && pin === tournament.scoringPin);
+    const pinMatches = secureComparePins(pin, tournament.scoringPin);
+    const attemptResult = recordPinAttempt(clientIp, id, pinMatches);
+
     if (!pinMatches) {
+      if (attemptResult.lockedOut) {
+        res.setHeader("Retry-After", String(attemptResult.retryAfterSeconds || 600));
+        res.status(429).json({
+          error: "Too many failed PIN attempts. Access locked out for 10 minutes.",
+          code: "RATE_LIMIT_EXCEEDED",
+          retryAfterSeconds: attemptResult.retryAfterSeconds,
+        });
+        return;
+      }
+
       res.status(403).json({ error: "This tournament is private", code: "PRIVATE_TOURNAMENT" });
       return;
     }
+  }
+
+  if (visibility === "private" || visibility === "unlisted") {
+    res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate, max-age=0");
+    res.setHeader("Pragma", "no-cache");
   }
 
   const serializer = isOrganizer ? tournamentToJson : tournamentToPublicJson;
