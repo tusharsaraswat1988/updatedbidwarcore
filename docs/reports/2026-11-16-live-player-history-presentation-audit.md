@@ -226,3 +226,41 @@ const isSameEvent = Boolean(
 | **Scenario 4: Equal Prices in Different Tournaments** | `best.soldPrice === last.soldPrice` & `best.tournamentId !== last.tournamentId` | **Dual Comparative** | **Two Distinct Cards:** Both cards display with their respective tournament names and buyers, clearly indicating equal peak valuation across different events. |
 | **Scenario 5: Debut Auction / No History** | `totalSoldAppearances === 0` | **Unmounted** | Component gracefully returns `null`, leaving the active player block clean. |
 
+---
+
+## 11. Stadium LED Stage Geometry Recovery & Rounding Precision Fix
+
+### 11.1 Problem 1: Rounding Precision Bug (`₹1.3 LAKH` vs `₹1.25 LAKH`)
+- **Root Cause:** In `PlayerPortrait.tsx`, `formatLedAmount` used `l.toFixed(1)`. For ₹1,25,000 (1.25 Lakh), JavaScript evaluated `(1.25).toFixed(1)` to `"1.3"`, displaying `HIGHEST PRICE IN PAST AUCTIONS: ₹1.3 LAKH` on the stadium screen while all other surfaces accurately displayed `₹1.25 LAKH`.
+- **Resolution:** Updated `formatLedAmount` to `l.toFixed(2).replace(/\.?0+$/, "")`, matching the precision formatting of the Owner App and OBS V2 broadcast engine. Added points handling for `unit === "points"` (`1.25 LAKH pts`).
+- **Result:** Price displays with exact mathematical accuracy (`₹1.25 LAKH` / `1.25 LAKH pts`), eliminating any risk of trust erosion.
+
+### 11.2 Problem 2: Missing Sponsor Ticker (`ChyronStrip`) & Overflowing LED Stage
+- **Root Cause:** In `DisplayShell.tsx`, the 16:9 stage layout defines 4 rows:
+  - Row 1: `TopStrip` (`5.2cqh`)
+  - Row 2: Middle grid (`1fr`, containing `PlayerPortrait`, `BidCenter`, `TimerPanel`)
+  - Row 3: `BidLadder` (`minmax(6.7cqh, 12%)`)
+  - Row 4: `ChyronStrip` (`minmax(4.5cqh, 8%)` — the bottom sponsor ticker)
+  In `PlayerPortrait.tsx`, the player photo had an unbounded `min-h-[220px]`, and the information container below it bloated the middle row beyond `1fr`. Because CSS Grid defaults to `min-height: auto` on grid items, Row 2 expanded to fit content, pushing Rows 3 and 4 (`BidLadder` and `ChyronStrip`) completely out of the bottom of the fixed 16:9 `overflow-hidden` stage frame!
+- **Resolution:**
+  1. In `DisplayShell.tsx`, applied `min-h-0 h-full overflow-hidden` to Row 2 (`<div className="grid grid-cols-[28%_1fr_24%] gap-[1.2%] p-[1.5%] min-h-0 h-full overflow-hidden">`), guaranteeing that Row 2 can NEVER expand beyond `1fr`.
+  2. In `PlayerPortrait.tsx`, removed `min-h-[220px]` and constrained the photo container to a crisp, proportional `h-[43%] shrink-0 min-h-0 w-full overflow-hidden`.
+  3. Constrained the lower details section to `flex-1 min-h-0 flex flex-col justify-between p-2.5 sm:p-3 overflow-hidden`.
+- **Result:** Rows 3 and 4 (`BidLadder` and `ChyronStrip` sponsor ticker) are 100% anchored and permanently visible inside the 1920×1080 stage frame at all times.
+
+---
+
+## 12. Real Browser Visual Evidence
+
+All five live surfaces have been verified in real browser sessions at their target resolutions:
+
+| Surface | Target Resolution | Verification Artifact | Visual Proof Highlights |
+| :--- | :--- | :--- | :--- |
+| **Live LED Stage Screen** | 1920×1080 | [led_screen_verified.png](file:///C:/Users/win%2010/.gemini/antigravity/brain/617f8e04-7713-48fb-97a8-2fdd50d01a72/browser_evidence/df1875c0-5040-43e2-a8ba-19807d46265d/led_screen_verified.png) | Exact `1.25 LAKH pts`, consolidated `PAST HIGHEST & LAST AUCTION`, photo unobstructed, `OUR SPONSORS` chyron ticker and `BidLadder` 100% visible at bottom. |
+| **OBS V2 Lower-Third** | 1920×1080 | [obs_v2_verified.png](file:///C:/Users/win%2010/.gemini/antigravity/brain/617f8e04-7713-48fb-97a8-2fdd50d01a72/browser_evidence/df1875c0-5040-43e2-a8ba-19807d46265d/obs_v2_verified.png) | Dedicated two-line area below base price: `PAST HIGHEST & LAST AUCTION: ₹1.25 LAKH · PAST TOURNAMENT TOP 5`, buying team & tournament attribution. Zero photo overlap. |
+| **Team Owner App (Mobile)** | 390×844 | [owner_app_mobile_verified.png](file:///C:/Users/win%2010/.gemini/antigravity/brain/617f8e04-7713-48fb-97a8-2fdd50d01a72/browser_evidence/df1875c0-5040-43e2-a8ba-19807d46265d/owner_app_mobile_verified.png) | Unified single card `PAST HIGHEST & LAST AUCTION` (`1.25 LAKH pts`), zero duplicate cards, zero horizontal scrolling, full live bidding pad access. |
+| **Team Owner App (Desktop)** | 1440×900 | [owner_app_desktop_verified.png](file:///C:/Users/win%2010/.gemini/antigravity/brain/617f8e04-7713-48fb-97a8-2fdd50d01a72/browser_evidence/df1875c0-5040-43e2-a8ba-19807d46265d/owner_app_desktop_verified.png) | High-contrast consolidated card cleanly integrated into live bidding desk alongside purse bars and countdown timer. |
+| **Organiser Auction Operator** | 1920×1080 | [organiser_auction_verified.png](file:///C:/Users/win%2010/.gemini/antigravity/brain/617f8e04-7713-48fb-97a8-2fdd50d01a72/browser_evidence/df1875c0-5040-43e2-a8ba-19807d46265d/organiser_auction_verified.png) | Compact historical indicators beside base price; zero interference with operator controls (`SOLD`, `UNSOLD`, `DEFER`, `SELL MANUALLY`, `START BIDDING`). |
+| **Live Viewer Public Arena** | 1920×1080 | [live_viewer_verified.png](file:///C:/Users/win%2010/.gemini/antigravity/brain/617f8e04-7713-48fb-97a8-2fdd50d01a72/browser_evidence/df1875c0-5040-43e2-a8ba-19807d46265d/live_viewer_verified.png) | Clear consolidated career highlight beneath active lot details, preserving current bid and hammer timer hierarchy. |
+
+
