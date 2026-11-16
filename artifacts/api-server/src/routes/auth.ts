@@ -575,6 +575,7 @@ router.get("/auth/admin/tournaments", async (req, res) => {
     id: t.id,
     name: t.name,
     sport: t.sport,
+    auctionCode: t.auctionCode ?? null,
     status: t.status,
     licenseStatus: t.licenseStatus,
     adminLocked: t.adminLocked,

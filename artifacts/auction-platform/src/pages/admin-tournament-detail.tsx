@@ -390,7 +390,7 @@ export default function AdminTournamentDetailPage() {
                         : "bg-amber-500/15 text-amber-400 border-amber-500/30"
                     )}
                   >
-                    {t.licenseStatus === "active" ? "Production License" : "Trial License"}
+                    {t.licenseStatus === "active" ? "Live License" : "Trial License"}
                   </span>
 
                   {t.localModeEnabled && (
@@ -813,15 +813,15 @@ export default function AdminTournamentDetailPage() {
                             : "bg-amber-500/10 text-amber-400 border-amber-500/20"
                         )}
                       >
-                        {t.licenseStatus === "active" ? "Production License" : t.licenseStatus === "trial" ? "Trial License" : "Concluded"}
+                        {t.licenseStatus === "active" ? "Live License" : t.licenseStatus === "trial" ? "Trial License" : "Concluded"}
                       </Badge>
                     </div>
 
                     <div className="text-[11px] text-muted-foreground">
                       {t.licenseStatus === "active"
-                        ? "Production license unlocked — all squad, player, and bidding limits unrestricted."
+                        ? "Live license unlocked — all squad, player, and bidding limits unrestricted."
                         : t.licenseStatus === "completed"
-                        ? "Tournament concluded. Production license was active."
+                        ? "Tournament concluded. Live license was active."
                         : "Trial limits applied (Max 20 players, 2 teams). Upgrade to lift limits."}
                     </div>
 
@@ -1524,7 +1524,7 @@ export default function AdminTournamentDetailPage() {
               </DialogTitle>
             </DialogHeader>
             <p className="text-xs text-muted-foreground">
-              Confirm payment receipt for <strong className="text-white">{t.name}</strong> to unlock full live production entitlements.
+              Confirm payment receipt for <strong className="text-white">{t.name}</strong> to unlock full live entitlements.
             </p>
             <div className="space-y-3 py-2">
               <div className="grid grid-cols-2 gap-3">

@@ -65,6 +65,7 @@ export async function logoutAdmin(): Promise<void> {
 
 export type AdminTournamentRow = {
   id: number; name: string; sport: string; status: string;
+  auctionCode?: string | null;
   licenseStatus: string; adminLocked: boolean;
   organizerId: number | null;
   organizerName: string | null; organizerMobile: string | null;
