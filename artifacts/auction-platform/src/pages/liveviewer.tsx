@@ -1975,7 +1975,7 @@ export default function LiveViewerPage() {
                     <LiveViewerPlayerAuctionHistory
                       tournamentId={tournamentId}
                       playerId={state?.currentPlayer?.id}
-                      features={tournament?.featuresJson}
+                      features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
                       unit={tournament?.auctionUnit}
                     />
                   </div>

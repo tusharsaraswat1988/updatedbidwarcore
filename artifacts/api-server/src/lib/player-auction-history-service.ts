@@ -207,7 +207,7 @@ export function processHistoricalAuctionSummary(
       buyingTeamName: rec.buyingTeamName ?? null,
       buyingTeamColor: rec.buyingTeamColor ?? null,
       isTop5,
-      top5BadgeText: isTop5 ? "🏆 TOP 5 STAR" : undefined,
+      top5BadgeText: isTop5 ? "🏆 PAST TOURNAMENT TOP 5" : undefined,
       tournamentDate: rec.tournamentDate ?? null,
       auctionUnit: rec.auctionUnit ?? null,
     };

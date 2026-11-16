@@ -8,6 +8,7 @@
     "seed:demo": "tsx --env-file=../.env src/seed-demo.ts",
     "seed:scoring-local": "tsx --env-file=../.env src/seed-scoring-local.ts",
     "seed:sports": "tsx src/seed-sports.ts",
+    "seed:live-history": "tsx --env-file=../.env src/seed-live-history.ts",
     "purge:badminton-matches": "tsx --env-file=../.env src/purge-badminton-matches.ts",
     "seed:vnbl3-league": "tsx --env-file=../.env src/seed-vnbl3-league-fixtures.ts",
     "seed:varanasi": "tsx --env-file=../.env src/seed-varanasi-tournament.ts",

@@ -1603,7 +1603,7 @@ export default function AuctionOperator() {
               <OperatorPlayerAuctionHistory
                 tournamentId={tournament?.id}
                 playerId={state?.currentPlayer?.id}
-                features={tournament?.featuresJson}
+                features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
                 unit={tournament?.auctionUnit}
               />
             </div>

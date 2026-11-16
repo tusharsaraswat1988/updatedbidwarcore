@@ -5,10 +5,10 @@ import {
   getMemberDetail,
   updateMemberContact,
   getMemberKpis,
+  reconcileAllPlatformMembers,
 } from "../lib/members/member-directory-service.js";
-import { applyIdentityLinkingProposal } from "@workspace/db/identity-linking";
-import { pool, db, playersTable, teamsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { pool, db, playersTable, teamsTable, membersTable, memberIdentityLinksTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { parseIndianMobile } from "@workspace/api-base/mobile";
 
 const router = Router();
@@ -119,11 +119,12 @@ router.patch("/auth/admin/members/:id", requireAdmin, async (req: Request, res: 
 
 /**
  * POST /auth/admin/members/sync
- * Manually trigger canonical identity reconciliation across all legacy tables.
+ * Manually trigger canonical identity reconciliation across all legacy tables
+ * (Team owners, organizers, scorers, players).
  */
 router.post("/auth/admin/members/sync", requireAdmin, async (req: Request, res: Response) => {
   try {
-    const result = await applyIdentityLinkingProposal(pool);
+    const result = await reconcileAllPlatformMembers(pool);
     res.json({ success: true, result });
   } catch (err) {
     req.log.error({ err }, "Failed to execute identity reconciliation");
@@ -156,6 +157,19 @@ router.patch("/auth/admin/communicate/contacts/player/:id", requireAdmin, async 
       .set({ mobileNumber: parsed.normalized })
       .where(eq(playersTable.id, playerId));
 
+    // Cascade to linked member record if present
+    const linkRes = await pool.query<{ member_id: string }>(
+      "SELECT member_id FROM member_identity_links WHERE source_table = 'players' AND source_record_id = $1 LIMIT 1",
+      [String(playerId)],
+    );
+
+    if (linkRes.rows[0]?.member_id) {
+      await db
+        .update(membersTable)
+        .set({ primaryMobile: parsed.normalized, isMobileVerified: true, updatedAt: new Date() })
+        .where(eq(membersTable.id, linkRes.rows[0].member_id));
+    }
+
     res.json({ success: true, mobile: parsed.normalized });
   } catch (err) {
     req.log.error({ err, id: String(req.params.id) }, "Failed to update player contact");
@@ -186,6 +200,19 @@ router.patch("/auth/admin/communicate/contacts/team/:id", requireAdmin, async (r
       .update(teamsTable)
       .set({ ownerMobile: parsed.normalized })
       .where(eq(teamsTable.id, teamId));
+
+    // Cascade to linked member record if present
+    const linkRes = await pool.query<{ member_id: string }>(
+      "SELECT member_id FROM member_identity_links WHERE source_table = 'teams' AND source_record_id = $1 LIMIT 1",
+      [String(teamId)],
+    );
+
+    if (linkRes.rows[0]?.member_id) {
+      await db
+        .update(membersTable)
+        .set({ primaryMobile: parsed.normalized, isMobileVerified: true, updatedAt: new Date() })
+        .where(eq(membersTable.id, linkRes.rows[0].member_id));
+    }
 
     res.json({ success: true, mobile: parsed.normalized });
   } catch (err) {

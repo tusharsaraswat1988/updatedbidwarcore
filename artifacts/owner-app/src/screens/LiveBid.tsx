@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy, User, LogOut,
   AlertTriangle, Coffee, RefreshCw, X, XCircle, Radar, ShieldUser, Sparkles,
+  Info, ChevronRight, Wallet,
 } from "lucide-react";
 import { useLiveBidLayout, type DeviceTier } from "@/hooks/useLiveBidLayout";
 import { useCountdown } from "@/hooks/useCountdown";
@@ -199,6 +200,194 @@ function TimerBar({
   );
 }
 
+function PlayerBioSideDrawer({
+  isOpen,
+  onClose,
+  player,
+  teamColor,
+  unit,
+  categoryName: _categoryName,
+  sport,
+  tournamentId,
+  features,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  player: NonNullable<AuctionState["currentPlayer"]> | null;
+  teamColor: string;
+  unit: ReturnType<typeof resolveAuctionUnit>;
+  categoryName?: string | null;
+  sport?: string | null;
+  tournamentId?: number;
+  features?: any;
+}) {
+  const specGroupLabels = useRoleSpecGroups(sport ?? undefined, player?.role).map((g) => g.groupName);
+  const specs = useMemo(
+    () => (player ? resolvePlayerSpecifications(player, { specGroupLabels }).filter((s) => s.value.trim()) : []),
+    [player, specGroupLabels],
+  );
+
+  const genderLabel = player ? formatPlayerGender(player.gender) : null;
+  const tagTheme = player ? getPlayerTagTheme(player.playerTag) : null;
+
+  const metaItems = player
+    ? [
+        player.role ? { label: "Role", value: player.role } : null,
+        player.age ? { label: "Age", value: String(player.age) } : null,
+        player.city ? { label: "City", value: player.city } : null,
+        genderLabel ? { label: "Gender", value: genderLabel } : null,
+        player.jerseyNumber ? { label: "Jersey", value: `#${player.jerseyNumber}` } : null,
+        player.isNonPlayingMember ? { label: "Type", value: "Non-Playing" } : null,
+      ].filter(Boolean) as { label: string; value: string }[]
+    : [];
+
+  return (
+    <AnimatePresence>
+      {isOpen && player && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+          />
+
+          {/* Side Drawer Panel */}
+          <motion.aside
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 28, stiffness: 280 }}
+            className="relative z-10 w-full max-w-[340px] sm:max-w-md h-full bg-[#1e1845] border-l border-[#4a4478] shadow-2xl flex flex-col text-white select-none overflow-hidden safe-top safe-bottom"
+          >
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#4a4478] bg-[#18123a] flex-shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <Sparkles className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                <p className="font-display font-bold text-sm uppercase tracking-wider text-amber-300 truncate">
+                  Player Dossier & History
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 rounded-xl text-[#a8a0c4] hover:text-white hover:bg-[#3d3670] transition-colors"
+                aria-label="Close dossier"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 [-webkit-overflow-scrolling:touch]">
+              {/* Avatar + Main identity */}
+              <div className="flex items-start gap-3.5">
+                <div className="relative flex-shrink-0">
+                  <PlayerAvatar
+                    name={player.name ?? "Player"}
+                    photoUrl={player.photoUrl}
+                    accentColor={tagTheme?.color ?? teamColor}
+                    className="w-20 h-28 rounded-2xl object-cover shadow-lg border border-[#4a4478]"
+                  />
+                  {player.playerTag ? (
+                    <div className="absolute left-1 top-1 z-10 scale-90 origin-top-left">
+                      <PlayerTagBadge tagKey={player.playerTag} />
+                    </div>
+                  ) : null}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="font-mono text-xs text-amber-400 font-bold">#{player.serialNo ?? player.id}</span>
+                  <h3 className="font-display font-black text-xl text-white leading-tight truncate mt-0.5">
+                    {player.name}
+                  </h3>
+                  {player.playerTag ? (
+                    <div className="mt-1">
+                      <PlayerTagBadge tagKey={player.playerTag} size="md" />
+                    </div>
+                  ) : null}
+                  {player.basePrice != null && (
+                    <div className="mt-2.5 px-2.5 py-1 rounded-lg bg-[#2a2458] border border-[#4a4478] inline-block">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#a8a0c4]">Base Price</p>
+                      <p className="font-display font-black text-sm text-emerald-400 leading-none mt-0.5">
+                        {formatIndianRupee(player.basePrice, unit)}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Meta Grid */}
+              {metaItems.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-[#2a2458]/70 border border-[#4a4478]">
+                  {metaItems.map(({ label, value }) => (
+                    <div key={label} className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#6b6490]">{label}</p>
+                      <p className="text-xs text-[#d4d4d8] font-semibold capitalize truncate">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Past Auction Creds */}
+              {tournamentId && player.id ? (
+                <div className="rounded-xl border border-[#4a4478] bg-[#2a2458]/50 p-2.5">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-400/90 mb-1.5 flex items-center gap-1.5">
+                    <Trophy className="w-3.5 h-3.5" />
+                    Historical Performance
+                  </p>
+                  <OwnerPlayerAuctionHistory
+                    tournamentId={tournamentId}
+                    playerId={player.id}
+                    unit={unit}
+                    features={features}
+                  />
+                </div>
+              ) : null}
+
+              {/* Specs */}
+              {specs.length > 0 && (
+                <div className="p-3 rounded-xl bg-[#2a2458]/70 border border-[#4a4478] space-y-2">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-300/90">Specifications</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {specs.map((spec) => (
+                      <div key={`${spec.specGroupId ?? spec.label}-${spec.value}`} className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-[#6b6490]">{spec.label}</p>
+                        <p className="text-xs text-white font-semibold truncate">{spec.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Achievements */}
+              {player.achievements?.trim() && (
+                <div className="p-3 rounded-xl bg-[#2a2458]/70 border border-[#4a4478] space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-300/90">Achievements</p>
+                  <p className="text-xs text-[#d4d4d8] leading-relaxed whitespace-pre-wrap">{player.achievements.trim()}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-[#4a4478] bg-[#18123a] flex-shrink-0">
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-2.5 rounded-xl bg-[#3d3670] hover:bg-[#4a4478] text-white font-bold text-xs uppercase tracking-wider transition-colors active:scale-95"
+              >
+                Back to Live Bidding
+              </button>
+            </div>
+          </motion.aside>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function PlayerCard({
   player,
   teamColor,
@@ -208,6 +397,7 @@ function PlayerCard({
   tier,
   tournamentId,
   features,
+  onOpenBio,
 }: {
   player: NonNullable<AuctionState["currentPlayer"]>;
   teamColor: string;
@@ -217,6 +407,7 @@ function PlayerCard({
   tier: DeviceTier;
   tournamentId?: number;
   features?: any;
+  onOpenBio?: () => void;
 }) {
   const specGroupLabels = useRoleSpecGroups(sport ?? undefined, player.role).map((g) => g.groupName);
   const specs = useMemo(
@@ -237,10 +428,82 @@ function PlayerCard({
     player.isNonPlayingMember ? { label: "Type", value: "Non-Playing" } : null,
   ].filter(Boolean) as { label: string; value: string }[];
 
-  const cardPad = tier === "mobile" ? "p-4 gap-4" : "p-5 gap-5";
-  const photoClass = tier === "mobile" ? "w-16 h-24" : tier === "tablet" ? "w-20 h-28" : "w-24 h-32";
-  const nameClass = tier === "mobile" ? "text-2xl" : "text-3xl";
-  const metaCols = tier === "mobile" ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3";
+  if (tier === "mobile") {
+    const keySpecs = specs.slice(0, 2).map((s) => s.value).join(" • ");
+    return (
+      <motion.div
+        key={player.id}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -12 }}
+        onClick={onOpenBio}
+        className="rounded-2xl border bg-[#2a2458] p-3 shadow-md flex items-center justify-between gap-2.5 relative cursor-pointer active:scale-[0.99] transition-transform select-none"
+        style={
+          tagTheme
+            ? { borderColor: tagTheme.color, boxShadow: `0 0 16px ${tagTheme.glow}` }
+            : { borderColor: "#4a4478" }
+        }
+      >
+        <div className="relative flex-shrink-0">
+          <PlayerAvatar
+            name={player.name ?? "Player"}
+            photoUrl={player.photoUrl}
+            accentColor={tagTheme?.color ?? teamColor}
+            className="w-14 h-16 rounded-xl object-cover shadow-sm"
+          />
+          {player.playerTag ? (
+            <div className="absolute -top-1 -left-1 z-10 scale-90 origin-top-left">
+              <PlayerTagBadge tagKey={player.playerTag} />
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex-1 min-w-0 pr-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="font-mono text-xs text-[#a8a0c4] shrink-0">#{player.serialNo ?? player.id}</span>
+            <h2 className="font-display font-black leading-tight text-white text-base truncate">{player.name}</h2>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            {player.role ? (
+              <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-[#18123a] text-amber-300 border border-amber-400/30">
+                {player.role}
+              </span>
+            ) : null}
+            {player.basePrice != null ? (
+              <span className="text-[11px] font-bold text-[#faf8ff]">
+                Base <span className="text-emerald-400 font-extrabold">{formatIndianRupee(player.basePrice, unit)}</span>
+              </span>
+            ) : null}
+          </div>
+
+          {(keySpecs || player.jerseyNumber) && (
+            <p className="text-[10px] text-[#a8a0c4] mt-1 truncate">
+              {player.jerseyNumber ? `#${player.jerseyNumber} · ` : ""}{keySpecs || (player.city ? player.city : "")}
+            </p>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenBio?.();
+          }}
+          className="flex-shrink-0 flex flex-col items-center justify-center gap-1 px-2.5 py-2 rounded-xl bg-[#3d3670]/90 hover:bg-[#4a4478] border border-[#5d568e] text-amber-300 active:scale-95 transition-all text-center shadow-xs"
+          aria-label="Open player bio and stats"
+        >
+          <Sparkles className="w-4 h-4 text-amber-400" />
+          <span className="text-[9px] font-black uppercase tracking-wider leading-none">Bio & Stats</span>
+        </button>
+      </motion.div>
+    );
+  }
+
+  const cardPad = "p-5 gap-5";
+  const photoClass = tier === "tablet" ? "w-20 h-28" : "w-24 h-32";
+  const nameClass = "text-3xl";
+  const metaCols = "grid-cols-2 sm:grid-cols-3";
 
   return (
     <motion.div
@@ -512,6 +775,143 @@ function TeamSquadSnapshot({
   );
 }
 
+function PurseBreakdownModal({
+  isOpen,
+  onClose,
+  totalPurse,
+  totalSpent,
+  retainedSpend,
+  purseRemaining,
+  reserve,
+  boosterTotal,
+  maxBid,
+  unit,
+  teamColor: _teamColor,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  totalPurse: number;
+  totalSpent: number;
+  retainedSpend: number;
+  purseRemaining: number;
+  reserve: number | null;
+  boosterTotal: number;
+  maxBid: number | null;
+  unit: ReturnType<typeof resolveAuctionUnit>;
+  teamColor: string;
+}) {
+  const boughtSpend = Math.max(0, totalSpent - retainedSpend);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+          />
+
+          {/* Modal / Sheet Panel */}
+          <motion.div
+            initial={{ y: "100%", opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: "100%", opacity: 0 }}
+            transition={{ type: "spring", damping: 26, stiffness: 280 }}
+            className="relative z-10 w-full sm:max-w-md bg-[#1e1845] border-t sm:border border-[#4a4478] rounded-t-3xl sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col text-white max-h-[85vh] safe-bottom"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[#4a4478] bg-[#18123a] flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-emerald-400" />
+                <p className="font-display font-bold text-sm uppercase tracking-wider text-emerald-300">
+                  Purse & Budget Breakdown
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-1.5 rounded-xl text-[#a8a0c4] hover:text-white hover:bg-[#3d3670] transition-colors"
+                aria-label="Close breakdown"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 space-y-3 overflow-y-auto min-h-0 [-webkit-overflow-scrolling:touch]">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="p-3 rounded-xl bg-[#2a2458] border border-[#4a4478]">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#a8a0c4]">Purse Left</p>
+                  <p className="font-display font-black text-xl text-emerald-400 mt-0.5">
+                    {formatIndianRupee(purseRemaining, unit)}
+                  </p>
+                  <p className="text-[10px] text-[#6b6490] mt-0.5">Available for bids</p>
+                </div>
+                <div className="p-3 rounded-xl bg-[#2a2458] border border-[#4a4478]">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#a8a0c4]">Max Bid Limit</p>
+                  <p className="font-display font-black text-xl text-amber-400 mt-0.5">
+                    {maxBid != null ? formatIndianRupee(maxBid, unit) : "—"}
+                  </p>
+                  <p className="text-[10px] text-[#6b6490] mt-0.5">Single-player ceiling</p>
+                </div>
+              </div>
+
+              <div className="divide-y divide-[#4a4478]/70 rounded-xl bg-[#2a2458]/70 border border-[#4a4478] px-3.5 py-1 text-xs">
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-[#a8a0c4]">Total Purse Capacity</span>
+                  <span className="font-bold text-white tabular-nums">{formatIndianRupee(totalPurse, unit)}</span>
+                </div>
+                {boosterTotal > 0 && (
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-amber-400 font-semibold">Active Purse Boosters</span>
+                    <span className="font-bold text-amber-300 tabular-nums">+{formatIndianRupee(boosterTotal, unit)}</span>
+                  </div>
+                )}
+                {retainedSpend > 0 && (
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-[#a8a0c4]">Retained Players Spend</span>
+                    <span className="font-bold text-white tabular-nums">{formatIndianRupee(retainedSpend, unit)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-[#a8a0c4]">Auction Bought Spend</span>
+                  <span className="font-bold text-white tabular-nums">{formatIndianRupee(boughtSpend, unit)}</span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-[#a8a0c4] font-semibold">Total Spent</span>
+                  <span className="font-bold text-rose-300 tabular-nums">{formatIndianRupee(totalSpent, unit)}</span>
+                </div>
+                <div className="flex items-center justify-between py-2">
+                  <span className="text-[#a8a0c4]">Reserve for Required Slots</span>
+                  <span className="font-bold text-amber-200 tabular-nums">
+                    {reserve != null ? formatIndianRupee(reserve, unit) : "—"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-3 border-t border-[#4a4478] bg-[#18123a] flex-shrink-0">
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-2.5 rounded-xl bg-[#3d3670] hover:bg-[#4a4478] text-white font-bold text-xs uppercase tracking-wider transition-colors active:scale-95"
+              >
+                Done
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function TeamPurseFooter({
   teamColor,
   teamPurse,
@@ -667,6 +1067,77 @@ function TeamPurseFooter({
     syncBoostValues,
   ]);
 
+  const [showBreakdown, setShowBreakdown] = useState(false);
+
+  if (tier === "mobile") {
+    return (
+      <>
+        <div
+          onClick={() => setShowBreakdown(true)}
+          className={`grid grid-cols-3 divide-x divide-[#4a4478] transition-all rounded-xl border border-[#4a4478]/80 bg-[#251f4f]/90 py-1.5 px-0.5 cursor-pointer active:scale-[0.99] select-none ${
+            highlightBoost ? "ring-2 ring-amber-400/70" : ""
+          }`}
+          style={highlightBoost ? { boxShadow: `0 0 24px ${BIDWAR_AMBER}40` } : undefined}
+          title="Tap to view purse breakdown"
+        >
+          {/* Pillar 1: Purse Left */}
+          <div className="text-center min-w-0 px-1 py-0.5">
+            <motion.p
+              animate={highlightBoost ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+              transition={{ duration: 0.55, repeat: highlightBoost ? 2 : 0 }}
+              className="font-display font-black text-sm sm:text-base leading-none truncate text-emerald-400"
+            >
+              {fmtFooter(purseRemaining, true)}
+            </motion.p>
+            <p className="text-[#a8a0c4] font-bold uppercase tracking-wider text-[9px] mt-1">
+              Purse Left
+            </p>
+          </div>
+
+          {/* Pillar 2: Max Bid */}
+          <div className="text-center min-w-0 px-1 py-0.5">
+            <motion.p
+              animate={highlightBoost ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+              transition={{ duration: 0.55, repeat: highlightBoost ? 2 : 0 }}
+              className="font-display font-black text-sm sm:text-base leading-none truncate"
+              style={{ color: BIDWAR_AMBER }}
+            >
+              {fmtOrDash(maxBid, true)}
+            </motion.p>
+            <p className="text-[#a8a0c4] font-bold uppercase tracking-wider text-[9px] mt-1">
+              Max Bid
+            </p>
+          </div>
+
+          {/* Pillar 3: Spent & Breakdown */}
+          <div className="text-center min-w-0 px-1 py-0.5 flex flex-col items-center justify-center">
+            <div className="flex items-center gap-1 font-display font-black text-sm sm:text-base leading-none text-white max-w-full">
+              <span className="truncate">{fmtFooter(totalSpent)}</span>
+              <Info className="w-3 h-3 text-amber-400/90 flex-shrink-0" />
+            </div>
+            <p className="text-[#a8a0c4] font-bold uppercase tracking-wider text-[9px] mt-1">
+              Spent • Info
+            </p>
+          </div>
+        </div>
+
+        <PurseBreakdownModal
+          isOpen={showBreakdown}
+          onClose={() => setShowBreakdown(false)}
+          totalPurse={totalPurse}
+          totalSpent={totalSpent}
+          retainedSpend={retainedSpend}
+          purseRemaining={purseRemaining}
+          reserve={reserve ?? null}
+          boosterTotal={boosterTotal}
+          maxBid={maxBid ?? null}
+          unit={unit}
+          teamColor={teamColor}
+        />
+      </>
+    );
+  }
+
   return (
     <div
       className={`grid divide-x divide-[#4a4478] transition-shadow duration-500 ${highlightBoost ? "rounded-xl ring-2 ring-amber-400/70" : ""}`}
@@ -723,10 +1194,10 @@ function BidAmount({
       </div>
     );
   }
-  const amountClass = tier === "mobile" ? "text-5xl" : tier === "tablet" ? "text-6xl" : "text-7xl";
+  const amountClass = tier === "mobile" ? "text-4xl sm:text-5xl" : tier === "tablet" ? "text-6xl" : "text-7xl";
   return (
-    <div className="text-center py-2">
-      <p className={`font-bold text-[#a8a0c4] uppercase tracking-widest mb-2 ${tier === "mobile" ? "text-xs" : "text-sm"}`}>
+    <div className="text-center py-1 sm:py-2">
+      <p className={`font-bold text-[#a8a0c4] uppercase tracking-widest mb-1.5 sm:mb-2 ${tier === "mobile" ? "text-[11px]" : "text-sm"}`}>
         {isLeading ? "Your Bid — You Are Leading" : "Current Bid"}
       </p>
       <motion.p
@@ -739,8 +1210,8 @@ function BidAmount({
         {formatIndianRupee(amount || 0, unit)}
       </motion.p>
       {!isLeading && leadingTeam && (
-        <p className="text-base text-[#a8a0c4] mt-2">
-          Leading: <span className="font-bold text-white text-lg">{leadingTeam}</span>
+        <p className="text-sm sm:text-base text-[#a8a0c4] mt-1 sm:mt-2">
+          Leading: <span className="font-bold text-white text-base sm:text-lg">{leadingTeam}</span>
         </p>
       )}
     </div>
@@ -912,17 +1383,17 @@ function BidButton({
 }) {
   const isSplit = layout === "split";
   const buttonH = dock
-    ? tier === "mobile" ? "h-36" : tier === "tablet" ? "h-40" : "h-36"
+    ? tier === "mobile" ? "h-20 sm:h-24" : tier === "tablet" ? "h-40" : "h-36"
     : isSplit
       ? tier === "mobile" ? "min-h-[42vh] h-full" : tier === "tablet" ? "min-h-[44vh] h-full" : "min-h-[40vh] h-full"
       : tier === "mobile" ? "h-full min-h-[22vh]" : "h-full min-h-[18vh]";
   const dockIdleH = dock
-    ? tier === "mobile" ? "h-36" : tier === "tablet" ? "h-40" : "h-36"
+    ? tier === "mobile" ? "h-20 sm:h-24" : tier === "tablet" ? "h-40" : "h-36"
     : isSplit ? "h-16" : "h-14";
-  const dockStatusH = tier === "mobile" ? "h-36" : tier === "tablet" ? "h-40" : "h-36";
+  const dockStatusH = tier === "mobile" ? "h-20 sm:h-24" : tier === "tablet" ? "h-40" : "h-36";
   const bidFontSize = dock
     ? tier === "mobile"
-      ? "clamp(2rem, 8.5vw, 3rem)"
+      ? "clamp(1.5rem, 6.5vw, 2.25rem)"
       : tier === "tablet"
         ? "clamp(2.25rem, 5.5vw, 3.35rem)"
         : "clamp(2rem, 3vw, 3rem)"
@@ -941,7 +1412,7 @@ function BidButton({
       ? `${String(breakMins).padStart(2, "0")}:${String(breakSecs).padStart(2, "0")}`
       : "--:--";
     const clockClass = dock
-      ? tier === "mobile" ? "text-4xl" : "text-5xl"
+      ? tier === "mobile" ? "text-3xl" : "text-5xl"
       : tier === "mobile" ? "text-5xl" : "text-6xl";
 
     return (
@@ -961,12 +1432,12 @@ function BidButton({
         key="leading"
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={`w-full ${dock ? dockStatusH : buttonH} rounded-3xl border-4 flex flex-col items-center justify-center gap-4 px-6`}
+        className={`w-full ${dock ? dockStatusH : buttonH} rounded-3xl border-4 flex flex-col items-center justify-center ${dock && tier === "mobile" ? "gap-1 px-3" : "gap-4 px-6"}`}
         style={{ borderColor: `${teamColor}80`, backgroundColor: `${teamColor}18` }}
       >
-        <Trophy className={dock ? "w-10 h-10" : "w-16 h-16"} style={{ color: teamColor }} />
+        <Trophy className={dock ? (tier === "mobile" ? "w-6 h-6" : "w-10 h-10") : "w-16 h-16"} style={{ color: teamColor }} />
         <div className="text-center">
-          <p className={`font-display font-black ${dock ? "text-xl" : "text-3xl"}`} style={{ color: teamColor }}>HIGHEST BIDDER</p>
+          <p className={`font-display font-black ${dock ? (tier === "mobile" ? "text-lg" : "text-xl") : "text-3xl"}`} style={{ color: teamColor }}>HIGHEST BIDDER</p>
           {!dock && <p className="text-base text-[#a8a0c4] mt-2">Waiting for other teams...</p>}
         </div>
       </motion.div>
@@ -979,14 +1450,14 @@ function BidButton({
         key="owner-bidding-disabled"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className={`w-full ${dock ? dockStatusH : buttonH} rounded-3xl border-2 border-red-500/30 bg-red-500/10 flex flex-col items-center justify-center gap-2 px-4 text-center`}
+        className={`w-full ${dock ? dockStatusH : buttonH} rounded-3xl border-2 border-red-500/30 bg-red-500/10 flex flex-col items-center justify-center ${dock && tier === "mobile" ? "gap-1 px-2" : "gap-2 px-4"} text-center`}
       >
-        <XCircle className={`${dock ? "w-8 h-8" : "w-12 h-12"} text-red-400`} />
+        <XCircle className={`${dock ? (tier === "mobile" ? "w-6 h-6" : "w-8 h-8") : "w-12 h-12"} text-red-400`} />
         <div>
-          <p className={`font-display font-black text-red-400 ${dock ? "text-lg" : "text-2xl"}`}>
+          <p className={`font-display font-black text-red-400 ${dock ? (tier === "mobile" ? "text-sm" : "text-lg") : "text-2xl"}`}>
             BIDDING DISABLED
           </p>
-          <p className={`text-[#a8a0c4] font-medium ${dock ? "text-xs" : "text-sm"} mt-1`}>
+          <p className={`text-[#a8a0c4] font-medium ${dock ? (tier === "mobile" ? "text-[10px]" : "text-xs") : "text-sm"} mt-0.5`}>
             Online bidding is disabled by the organizer.
           </p>
         </div>
@@ -1000,11 +1471,11 @@ function BidButton({
         key="expired"
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className={`w-full ${dock ? dockStatusH : buttonH} rounded-3xl border-2 border-red-500/30 bg-red-500/10 flex flex-col items-center justify-center gap-4`}
+        className={`w-full ${dock ? dockStatusH : buttonH} rounded-3xl border-2 border-red-500/30 bg-red-500/10 flex flex-col items-center justify-center ${dock && tier === "mobile" ? "gap-1.5 px-3" : "gap-4 px-6"}`}
       >
-        <AlertTriangle className={`${dock ? "w-10 h-10" : "w-14 h-14"} text-red-400`} />
+        <AlertTriangle className={`${dock ? (tier === "mobile" ? "w-6 h-6" : "w-10 h-10") : "w-14 h-14"} text-red-400`} />
         <div className="text-center">
-          <p className={`font-display font-black text-red-400 ${dock ? "text-xl" : "text-3xl"}`}>BIDDING CLOSED</p>
+          <p className={`font-display font-black text-red-400 ${dock ? (tier === "mobile" ? "text-lg" : "text-xl") : "text-3xl"}`}>BIDDING CLOSED</p>
           {!dock && <p className="text-base text-[#a8a0c4] mt-2">Timer expired — awaiting operator</p>}
         </div>
       </motion.div>
@@ -1019,10 +1490,10 @@ function BidButton({
           key="timer-waiting-dock"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className={`w-full ${dockIdleH} rounded-3xl border-2 border-dashed border-[#3d3670] bg-[#2a2458] flex flex-col items-center justify-center gap-1 px-4`}
+          className={`w-full ${dockIdleH} rounded-3xl border-2 border-dashed border-[#3d3670] bg-[#2a2458] flex flex-col items-center justify-center gap-0.5 px-4`}
         >
-          <p className={`font-display font-black text-[#6b6490] ${tier === "mobile" ? "text-3xl" : tier === "tablet" ? "text-[2rem]" : "text-2xl"}`}>BID</p>
-          <p className="text-xs text-[#a8a0c4] font-medium text-center">{idleMessage}</p>
+          <p className={`font-display font-black text-[#6b6490] ${tier === "mobile" ? "text-2xl" : tier === "tablet" ? "text-[2rem]" : "text-2xl"}`}>BID</p>
+          <p className="text-[11px] text-[#a8a0c4] font-medium text-center">{idleMessage}</p>
         </motion.div>
       );
     }
@@ -1051,10 +1522,10 @@ function BidButton({
           key="waiting-dock"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className={`w-full ${dockIdleH} rounded-3xl border-2 border-dashed border-[#3d3670] bg-[#2a2458] flex flex-col items-center justify-center gap-1 px-4`}
+          className={`w-full ${dockIdleH} rounded-3xl border-2 border-dashed border-[#3d3670] bg-[#2a2458] flex flex-col items-center justify-center gap-0.5 px-4`}
         >
-          <p className={`font-display font-black text-[#6b6490] ${tier === "mobile" ? "text-3xl" : tier === "tablet" ? "text-[2rem]" : "text-2xl"}`}>BID</p>
-          <p className="text-xs text-[#a8a0c4] font-medium text-center">{idleMessage}</p>
+          <p className={`font-display font-black text-[#6b6490] ${tier === "mobile" ? "text-2xl" : tier === "tablet" ? "text-[2rem]" : "text-2xl"}`}>BID</p>
+          <p className="text-[11px] text-[#a8a0c4] font-medium text-center">{idleMessage}</p>
         </motion.div>
       );
     }
@@ -1084,7 +1555,7 @@ function BidButton({
       disabled={!canBid || bidding}
       whileTap={canBid ? { scale: 0.95 } : {}}
       animate={bidFeedback === "success" ? { scale: [1, 1.04, 1] } : {}}
-      className={`w-full ${buttonH} rounded-3xl font-display font-black text-black disabled:opacity-50 disabled:cursor-not-allowed transition-all select-none`}
+      className={`w-full ${buttonH} rounded-3xl font-display font-black text-black disabled:opacity-50 disabled:cursor-not-allowed transition-all select-none active:scale-[0.98]`}
       style={{
         backgroundColor: canBid ? teamColor : "#374151",
         boxShadow: canBid ? `0 0 60px ${teamColor}50, 0 8px 32px rgba(0,0,0,0.5)` : "none",
@@ -1097,7 +1568,7 @@ function BidButton({
       ) : bidFeedback === "success" ? (
         <span>BID PLACED!</span>
       ) : (
-        <div className="flex flex-col items-center leading-none gap-2">
+        <div className="flex flex-col items-center leading-none gap-1 sm:gap-2">
           <span>BID</span>
           <span style={{ fontSize: "0.42em", fontWeight: 700, opacity: 0.85 }}>
             {formatIndianRupee(nextBidAmount, unit)}
@@ -1244,7 +1715,7 @@ function HeaderBrandLogo({
   const sizeClass =
     layout === "stacked"
       ? tier === "mobile"
-        ? "h-12 w-auto max-w-[min(300px,82vw)]"
+        ? "h-7 sm:h-8 w-auto max-w-[min(260px,75vw)]"
         : tier === "tablet"
           ? "h-[3.75rem] w-auto max-w-[min(360px,78vw)]"
           : "h-16 w-auto max-w-[min(400px,70vw)]"
@@ -1550,6 +2021,7 @@ function HeaderActionButton({
   label,
   blocked = false,
   compact = false,
+  danger = false,
   children,
 }: {
   onClick: () => void;
@@ -1557,6 +2029,7 @@ function HeaderActionButton({
   label: string;
   blocked?: boolean;
   compact?: boolean;
+  danger?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -1568,15 +2041,17 @@ function HeaderActionButton({
       aria-disabled={blocked}
       disabled={blocked}
       className={`inline-flex flex-col items-center justify-center gap-0.5 rounded-xl border transition-all active:scale-95 ${
-        compact ? "min-w-[38px] px-1 py-1" : "min-w-[44px] px-1.5 py-1.5"
+        compact ? "min-w-[34px] px-1 py-1" : "min-w-[44px] px-1.5 py-1.5"
       } ${
         blocked
           ? "border-[#4a4478] bg-[#141416] text-[#6b6490] opacity-50 cursor-not-allowed"
-          : "border-[#3d3670] bg-[#2a2458] text-[#d4d4d8] hover:text-white hover:border-[#6b6490] hover:bg-[#4a4478] shadow-sm"
+          : danger
+            ? "border-red-500/40 bg-red-500/10 text-red-300 hover:text-white hover:border-red-500/70 hover:bg-red-500/20 shadow-sm"
+            : "border-[#3d3670] bg-[#2a2458] text-[#d4d4d8] hover:text-white hover:border-[#6b6490] hover:bg-[#4a4478] shadow-sm"
       }`}
     >
       {children}
-      <span className={`font-bold uppercase tracking-wide leading-none ${compact ? "text-[7px]" : "text-[8px]"}`}>
+      <span className={`font-bold uppercase tracking-wide leading-none ${compact ? "text-[7.5px]" : "text-[8px]"}`}>
         {label}
       </span>
     </button>
@@ -1585,8 +2060,8 @@ function HeaderActionButton({
 
 function resolveHeaderToolbar(_team: Team, _teamColor: string, actionCompact: boolean) {
   return {
-    teamLogoClass: actionCompact ? "w-9 h-9 rounded-lg" : "w-10 h-10 rounded-xl",
-    teamNameClass: actionCompact ? "text-sm" : "text-base",
+    teamLogoClass: actionCompact ? "w-8 h-8 rounded-lg" : "w-10 h-10 rounded-xl",
+    teamNameClass: actionCompact ? "text-xs sm:text-sm" : "text-base",
   };
 }
 
@@ -1636,7 +2111,7 @@ function LiveBidHeader({
   const { teamLogoClass, teamNameClass } = resolveHeaderToolbar(team, teamColor, actionCompact);
 
   const teamBlock = (
-    <div className="flex items-center gap-2 min-w-0">
+    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
       <TeamLogo
         logoUrl={team.logoUrl}
         shortCode={team.shortCode}
@@ -1645,12 +2120,12 @@ function LiveBidHeader({
         className={`${teamLogoClass} flex-shrink-0`}
         textClassName={actionCompact ? "text-xs" : undefined}
       />
-      <div className="min-w-0">
-        <div className="flex items-center gap-1.5 min-w-0">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
           <p className={`font-display font-bold leading-none truncate ${teamNameClass}`} style={{ color: teamColor }}>
             {team.name}
           </p>
-          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border flex-shrink-0 ${
+          <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full border flex-shrink-0 ${
             isActive
               ? "bg-emerald-500/15 border-emerald-500/35 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.25)]"
               : isPaused
@@ -1658,14 +2133,14 @@ function LiveBidHeader({
                 : "bg-[#4a4478] border-[#5d568e] text-[#a8a0c4]"
           }`}>
             {isActive && (
-              <span className="relative flex h-2 w-2">
+              <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
               </span>
             )}
-            <span className="text-[10px] font-black uppercase tracking-wider">{statusLabel}</span>
+            <span className="text-[9px] font-black uppercase tracking-wider">{statusLabel}</span>
             {isActive && (
-              <span className="inline-flex items-end gap-[2px] h-3 ml-0.5">
+              <span className="inline-flex items-end gap-[2px] h-2.5 ml-0.5">
                 <motion.span
                   animate={{ height: ["30%", "100%", "45%", "85%", "30%"] }}
                   transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
@@ -1687,7 +2162,7 @@ function LiveBidHeader({
           <AuctionFeedIndicator
             feedState={feed.state}
             secondsSinceLastActivity={feed.secondsSinceLastActivity}
-            className="w-4 h-4 flex-shrink-0"
+            className="w-3.5 h-3.5 flex-shrink-0"
           />
         </div>
         {showTournamentLine && (
@@ -1700,16 +2175,16 @@ function LiveBidHeader({
   const actionBlock = (
     <div className="flex items-center justify-end gap-0.5 sm:gap-1 min-w-0 shrink-0">
       <HeaderActionButton onClick={onSync} title="Sync auction data" label="Sync" compact={actionCompact}>
-        <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
+        <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${syncing ? "animate-spin" : ""}`} />
       </HeaderActionButton>
       <HeaderActionButton
         onClick={onViewSquad}
         title={navBlocked ? "Unavailable during live player auction" : "View my squad"}
-        label="My Squad"
+        label={actionCompact ? "Squad" : "My Squad"}
         blocked={navBlocked}
         compact={actionCompact}
       >
-        <ShieldUser className="w-4 h-4" strokeWidth={2.25} />
+        <ShieldUser className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={2.25} />
       </HeaderActionButton>
       <HeaderActionButton
         onClick={onViewScout}
@@ -1718,10 +2193,10 @@ function LiveBidHeader({
         blocked={navBlocked}
         compact={actionCompact}
       >
-        <Radar className="w-4 h-4" strokeWidth={2.25} />
+        <Radar className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={2.25} />
       </HeaderActionButton>
-      <HeaderActionButton onClick={onLeave} title="Leave auction" label="Leave" compact={actionCompact}>
-        <LogOut className="w-4 h-4" />
+      <HeaderActionButton onClick={onLeave} title="Leave auction" label="Leave" compact={actionCompact} danger>
+        <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />
       </HeaderActionButton>
     </div>
   );
@@ -1729,7 +2204,7 @@ function LiveBidHeader({
   if (layout === "stacked") {
     return (
       <div className="border-b border-[#4a4478] flex-shrink-0">
-        <div className="flex items-center justify-center px-3 sm:px-4 py-2.5 sm:py-3 bg-[#18123a] border-b border-[#4a4478]/70">
+        <div className="flex items-center justify-center px-3 sm:px-4 py-1.5 sm:py-2 bg-[#18123a] border-b border-[#4a4478]/70">
           <HeaderBrandLogo
             logos={logos}
             brandName={brandName}
@@ -1738,7 +2213,7 @@ function LiveBidHeader({
             iconVersion={iconVersion}
           />
         </div>
-        <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-2.5 min-h-[48px] sm:min-h-[52px]">
+        <div className="flex items-center justify-between gap-1.5 px-2 sm:px-4 py-1.5 sm:py-2 min-h-[44px] sm:min-h-[50px]">
           {teamBlock}
           {actionBlock}
         </div>
@@ -1785,6 +2260,7 @@ export function LiveBid({
   } = useBidLifecycle({ tournamentId, teamId });
 
   const [showSignOutConfirm, setShowSignOutConfirm]  = useState(false);
+  const [showPlayerBioDrawer, setShowPlayerBioDrawer] = useState(false);
   const [syncing,            setSyncing]             = useState(false);
   const [syncFailed,         setSyncFailed]          = useState(false);
   const syncAttempted = useRef(false);
@@ -2098,6 +2574,7 @@ export function LiveBid({
                 tier={tier}
                 tournamentId={tournamentId}
                 features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
+                onOpenBio={() => setShowPlayerBioDrawer(true)}
               />
             ) : showUnsoldResult ? (
               <UnsoldPlayerCard
@@ -2152,7 +2629,7 @@ export function LiveBid({
         </div>
 
         {/* Bottom bid dock — always pinned visible */}
-        <div className={`sticky bottom-0 z-20 flex-shrink-0 px-3 sm:px-4 pt-2.5 sm:pt-3 pb-3 sm:pb-4 border-t border-[#4a4478] space-y-2 safe-bottom bg-background ${tier === "tablet" ? "pb-5" : ""}`}>
+        <div className={`sticky bottom-0 z-20 flex-shrink-0 px-3 sm:px-4 pt-1.5 sm:pt-2.5 pb-2 sm:pb-3.5 border-t border-[#4a4478] space-y-1.5 sm:space-y-2 safe-bottom bg-background ${tier === "tablet" ? "pb-5" : ""}`}>
           <TeamPurseFooter
             teamColor={teamColor}
             teamPurse={teamPurse}
@@ -2254,6 +2731,18 @@ export function LiveBid({
         <AuctionConnectionBanner
           feedState={feed.state}
           secondsSinceLastActivity={feed.secondsSinceLastActivity}
+        />
+
+        <PlayerBioSideDrawer
+          isOpen={showPlayerBioDrawer}
+          onClose={() => setShowPlayerBioDrawer(false)}
+          player={state?.currentPlayer ?? null}
+          teamColor={teamColor}
+          unit={unit}
+          categoryName={state?.currentCategoryName}
+          sport={tournament?.sport}
+          tournamentId={tournamentId}
+          features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
         />
 
         {/* ── Sign-out confirmation ── */}
@@ -2362,6 +2851,7 @@ export function LiveBid({
                 tier={tier}
                 tournamentId={tournamentId}
                 features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
+                onOpenBio={() => setShowPlayerBioDrawer(true)}
               />
             ) : showUnsoldResult ? (
               <UnsoldPlayerCard
@@ -2553,6 +3043,18 @@ export function LiveBid({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <PlayerBioSideDrawer
+        isOpen={showPlayerBioDrawer}
+        onClose={() => setShowPlayerBioDrawer(false)}
+        player={state?.currentPlayer ?? null}
+        teamColor={teamColor}
+        unit={unit}
+        categoryName={state?.currentCategoryName}
+        sport={tournament?.sport}
+        tournamentId={tournamentId}
+        features={(tournament as any)?.featuresJson ?? (tournament as any)?.features}
+      />
 
       <Toast message={navToast ?? null} onDismiss={onNavToastDismiss ?? (() => {})} />
     </div>

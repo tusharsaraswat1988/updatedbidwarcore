@@ -420,7 +420,17 @@ export default function AdminMembersListPage() {
 
         {/* KPI Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-          <Card className="border-slate-800/80 bg-slate-950/60 backdrop-blur-sm p-3.5">
+          <Card
+            onClick={() => {
+              setSelectedRole("all");
+              setContactStatus("all");
+              setPage(1);
+            }}
+            className={cn(
+              "border-slate-800/80 bg-slate-950/60 backdrop-blur-sm p-3.5 cursor-pointer hover:border-slate-700 transition-all",
+              selectedRole === "all" && contactStatus === "all" && "ring-1 ring-amber-500/50"
+            )}
+          >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                 Total Members
@@ -431,7 +441,16 @@ export default function AdminMembersListPage() {
             <p className="text-[10px] text-slate-500 mt-0.5">All registered human entities</p>
           </Card>
 
-          <Card className="border-slate-800/80 bg-slate-950/60 backdrop-blur-sm p-3.5">
+          <Card
+            onClick={() => {
+              setSelectedRole("player");
+              setPage(1);
+            }}
+            className={cn(
+              "border-slate-800/80 bg-slate-950/60 backdrop-blur-sm p-3.5 cursor-pointer hover:border-sky-500/40 transition-all",
+              selectedRole === "player" && "ring-1 ring-sky-500/50 bg-sky-950/20"
+            )}
+          >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-sky-400 uppercase tracking-wider">
                 Active Players
@@ -442,7 +461,16 @@ export default function AdminMembersListPage() {
             <p className="text-[10px] text-slate-500 mt-0.5">Auction & tournament roster</p>
           </Card>
 
-          <Card className="border-slate-800/80 bg-slate-950/60 backdrop-blur-sm p-3.5">
+          <Card
+            onClick={() => {
+              setSelectedRole("team_owner");
+              setPage(1);
+            }}
+            className={cn(
+              "border-slate-800/80 bg-slate-950/60 backdrop-blur-sm p-3.5 cursor-pointer hover:border-purple-500/40 transition-all",
+              selectedRole === "team_owner" && "ring-1 ring-purple-500/50 bg-purple-950/20"
+            )}
+          >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-purple-400 uppercase tracking-wider">
                 Team Owners
@@ -453,7 +481,16 @@ export default function AdminMembersListPage() {
             <p className="text-[10px] text-slate-500 mt-0.5">Franchise leaders across teams</p>
           </Card>
 
-          <Card className="border-slate-800/80 bg-slate-950/60 backdrop-blur-sm p-3.5">
+          <Card
+            onClick={() => {
+              setSelectedRole("scorer");
+              setPage(1);
+            }}
+            className={cn(
+              "border-slate-800/80 bg-slate-950/60 backdrop-blur-sm p-3.5 cursor-pointer hover:border-emerald-500/40 transition-all",
+              selectedRole === "scorer" && "ring-1 ring-emerald-500/50 bg-emerald-950/20"
+            )}
+          >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-emerald-400 uppercase tracking-wider">
                 Scorers & Umpires
@@ -464,10 +501,17 @@ export default function AdminMembersListPage() {
             <p className="text-[10px] text-slate-500 mt-0.5">Match officials & scorers</p>
           </Card>
 
-          <Card className={cn(
-            "border-slate-800/80 bg-slate-950/60 backdrop-blur-sm p-3.5",
-            kpis.missingPhone > 0 && "border-amber-500/30 bg-amber-950/15"
-          )}>
+          <Card
+            onClick={() => {
+              setContactStatus("missing_phone");
+              setPage(1);
+            }}
+            className={cn(
+              "border-slate-800/80 bg-slate-950/60 backdrop-blur-sm p-3.5 cursor-pointer hover:border-amber-500/40 transition-all",
+              kpis.missingPhone > 0 && "border-amber-500/30 bg-amber-950/15",
+              contactStatus === "missing_phone" && "ring-1 ring-amber-500/50 bg-amber-950/30"
+            )}
+          >
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-amber-400 uppercase tracking-wider">
                 Missing Mobile
@@ -733,11 +777,20 @@ export default function AdminMembersListPage() {
                             <div className="space-y-1">
                               {m.teams.slice(0, 2).map((t) => (
                                 <div
-                                  key={`${t.tournamentId}-${t.teamId}`}
+                                  key={`${t.tournamentId}-${t.teamId}-${t.roleInTeam}`}
                                   className="text-[11px] flex items-center gap-1.5 text-slate-300"
                                 >
                                   <span className="font-semibold text-white">{t.teamName}</span>
-                                  <span className="text-[10px] text-slate-500">({t.tournamentName})</span>
+                                  {t.roleInTeam === "team_owner" ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[9px] px-1 py-0 border-purple-500/50 text-purple-300 bg-purple-950/40"
+                                    >
+                                      Owner
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-500">({t.tournamentName})</span>
+                                  )}
                                   {t.soldPrice && (
                                     <span className="text-[10px] text-amber-400 font-mono">
                                       ₹{t.soldPrice.toLocaleString()}
@@ -753,6 +806,16 @@ export default function AdminMembersListPage() {
                                   +{m.teams.length - 2} more team{m.teams.length - 2 > 1 ? "s" : ""}
                                 </button>
                               )}
+                            </div>
+                          ) : m.roleTypes.includes("organizer") ? (
+                            <div className="flex items-center gap-1 text-[11px] text-amber-400/90">
+                              <Building2 className="h-3 w-3 text-amber-400 shrink-0" />
+                              <span>Tournament Organiser</span>
+                            </div>
+                          ) : m.roleTypes.includes("scorer") ? (
+                            <div className="flex items-center gap-1 text-[11px] text-emerald-400/90">
+                              <Shield className="h-3 w-3 text-emerald-400 shrink-0" />
+                              <span>Match Official / Scorer</span>
                             </div>
                           ) : (
                             <span className="text-slate-500 text-[11px]">No team assigned yet</span>

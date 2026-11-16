@@ -92,7 +92,7 @@ describe("Player Auction Performance History", () => {
   });
 
   describe("5. Player ranks within Top 5 in a tournament — badge appears", () => {
-    it("assigns rank <= 5 and qualifies for TOP 5 STAR", () => {
+    it("assigns rank <= 5 and qualifies for PAST TOURNAMENT TOP 5", () => {
       const tournamentPlayers: TournamentSoldPlayerRankEntry[] = [
         { playerId: 10, soldPrice: 500000 },
         { playerId: 11, soldPrice: 400000 },
@@ -268,7 +268,7 @@ describe("Player Auction Performance History", () => {
       expect(result).toBeNull();
     });
 
-    it("correctly decorates records with TOP 5 STAR badge when DB returns is_top_5", async () => {
+    it("correctly decorates records with PAST TOURNAMENT TOP 5 badge when DB returns is_top_5", async () => {
       let executeCount = 0;
       const mockDb: any = {
         select: vi.fn().mockReturnValue({
@@ -329,7 +329,7 @@ describe("Player Auction Performance History", () => {
       expect(result![0]!.tournamentName).toBe("Premier League 2024");
       expect(result![0]!.soldPrice).toBe(500000);
       expect(result![0]!.isTop5).toBe(true);
-      expect(result![0]!.top5BadgeText).toBe("🏆 TOP 5 STAR");
+      expect(result![0]!.top5BadgeText).toBe("🏆 PAST TOURNAMENT TOP 5");
       expect(result![0]!.buyingTeamName).toBe("Mumbai Warriors");
 
       expect(result![1]!.tournamentName).toBe("Super League 2024");

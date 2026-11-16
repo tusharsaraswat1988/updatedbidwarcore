@@ -272,6 +272,23 @@ export function OwnerRoute() {
     }
   }
 
+  const handleBackFromGate = useCallback(() => {
+    const entries = loadOnboardingEntries();
+    if (entries.length > 1) {
+      setLocation("/join/teams");
+      return;
+    }
+    if (entries.length === 1) {
+      setLocation("/join");
+      return;
+    }
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    setLocation("/");
+  }, [setLocation]);
+
   // ── Render ────────────────────────────────────────────────────────────────
   if (screen === "loading" || !team) {
     return (
@@ -289,23 +306,6 @@ export function OwnerRoute() {
       </div>
     );
   }
-
-  const handleBackFromGate = useCallback(() => {
-    const entries = loadOnboardingEntries();
-    if (entries.length > 1) {
-      setLocation("/join/teams");
-      return;
-    }
-    if (entries.length === 1) {
-      setLocation("/join");
-      return;
-    }
-    if (window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-    setLocation("/");
-  }, [setLocation]);
 
   if (screen === "gate") {
     return (
