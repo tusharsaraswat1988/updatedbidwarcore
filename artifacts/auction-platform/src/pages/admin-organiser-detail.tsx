@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowRightLeft,
   Building2,
@@ -13,6 +14,7 @@ import {
   MessageSquare,
   Phone,
   Radio,
+  RefreshCw,
   Save,
   ShieldCheck,
   Trophy,
@@ -32,10 +34,12 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { AuditReasonField, isAuditReasonValid } from "@/components/audit-reason-field";
 import { MetricCard } from "@/components/admin/admin-metric-card";
 import { StatusBadge, organiserAccessTone } from "@/components/admin/admin-status-badge";
 import { AdminListHeader } from "@/components/admin/admin-list-header";
@@ -56,6 +60,21 @@ function getOrganiserId(pathname: string) {
   return match ? Number(match[1]) : null;
 }
 
+const SUSPEND_REASON_PRESETS = [
+  "Administrative review of organiser operations",
+  "Payment default or overdue platform charges",
+  "Terms of service violation under investigation",
+  "Organiser requested temporary account freeze",
+  "Duplicate or unverified organiser profile",
+];
+
+const ACTIVATE_REASON_PRESETS = [
+  "Administrative verification completed and approved",
+  "Account reactivated following compliance clearance",
+  "Payment received and account balance settled",
+  "Reactivated upon verified organiser request",
+];
+
 export default function AdminOrganiserDetailPage() {
   const [location, navigate] = useLocation();
   const { isLoggedIn, isLoading } = useAdminAuth();
@@ -64,9 +83,13 @@ export default function AdminOrganiserDetailPage() {
   const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Access state
+  // Access state & audit dialog
+  const [accessDialogOpen, setAccessDialogOpen] = useState(false);
+  const [accessPendingAction, setAccessPendingAction] = useState<"suspend" | "activate" | null>(null);
+  const [accessReason, setAccessReason] = useState("");
   const [accessSaving, setAccessSaving] = useState(false);
   const [accessError, setAccessError] = useState("");
+  const [accessSuccess, setAccessSuccess] = useState("");
 
   // Quota & notes state
   const [quotaVal, setQuotaVal] = useState<string>("1");
@@ -173,25 +196,46 @@ export default function AdminOrganiserDetailPage() {
     return `₹${amount.toLocaleString("en-IN")}`;
   }
 
-  async function handleAccessToggle(enabled: boolean) {
-    if (!organiser) return;
+  function handleOpenAccessDialog(action: "suspend" | "activate") {
+    setAccessError("");
+    setAccessPendingAction(action);
+    setAccessReason("");
+    setAccessDialogOpen(true);
+  }
+
+  async function handleAccessConfirm() {
+    if (!organiser || !accessPendingAction) return;
+    if (!isAuditReasonValid(accessReason)) return;
+
     setAccessSaving(true);
     setAccessError("");
+    const targetStatus = accessPendingAction === "suspend" ? "suspended" : "active";
     const result = await updateAdminOrganizer(organiser.id, {
-      licenseStatus: enabled ? "active" : "suspended",
+      licenseStatus: targetStatus,
+      reason: accessReason.trim(),
     });
     setAccessSaving(false);
+
     if (!result.success) {
       setAccessError(result.error || "Failed to update account access.");
       return;
     }
+
     setOrganisers((rows) =>
       rows.map((row) =>
         row.id === organiser.id
-          ? { ...row, licenseStatus: enabled ? "active" : "suspended" }
+          ? { ...row, licenseStatus: targetStatus }
           : row,
       ),
     );
+    setAccessDialogOpen(false);
+    setAccessReason("");
+    const msg =
+      accessPendingAction === "suspend"
+        ? `Account for "${organiser.name}" suspended. Operations frozen.`
+        : `Account for "${organiser.name}" reactivated. Full access restored.`;
+    setAccessSuccess(msg);
+    setTimeout(() => setAccessSuccess(""), 4500);
   }
 
   async function handleSaveSettings() {
@@ -430,31 +474,102 @@ export default function AdminOrganiserDetailPage() {
             <div className="space-y-5">
               {/* Account Access Card */}
               <div className="rounded-xl border border-border bg-card/70 p-4 shadow-sm space-y-3">
-                <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Account Access</h3>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Control tournament creation and portal access.
-                  </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Account Access</h3>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      Control tournament creation and portal access.
+                    </p>
+                  </div>
+                  <Badge
+                    className={cn(
+                      "text-[10px] font-semibold",
+                      accessEnabled
+                        ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                        : "bg-destructive/15 text-destructive border border-destructive/30"
+                    )}
+                  >
+                    {accessEnabled ? "Active" : "Locked"}
+                  </Badge>
                 </div>
 
                 <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/20 p-3">
                   <div className="space-y-0.5">
-                    <Label htmlFor="org-access" className="text-xs font-semibold text-foreground flex items-center gap-1.5 cursor-pointer">
-                      {accessEnabled ? <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> : <Lock className="w-3.5 h-3.5 text-destructive" />}
+                    <Label
+                      htmlFor="org-access"
+                      className="text-xs font-semibold text-foreground flex items-center gap-1.5 cursor-pointer"
+                    >
+                      {accessEnabled ? (
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      ) : (
+                        <Lock className="w-3.5 h-3.5 text-destructive" />
+                      )}
                       {accessEnabled ? "Account Active" : "Account Locked"}
                     </Label>
                     <p className="text-[11px] text-muted-foreground">
-                      {accessEnabled ? "Organiser can access assigned tournaments." : "Tournament operations are temporarily frozen."}
+                      {accessEnabled
+                        ? "Organiser can access assigned tournaments."
+                        : "Tournament operations are temporarily frozen."}
                     </p>
                   </div>
                   <Switch
                     id="org-access"
                     checked={accessEnabled}
                     disabled={accessSaving}
-                    onCheckedChange={(checked) => void handleAccessToggle(checked)}
+                    onCheckedChange={(checked) => {
+                      handleOpenAccessDialog(checked ? "activate" : "suspend");
+                    }}
                   />
                 </div>
-                {accessError && <p className="text-xs text-destructive">{accessError}</p>}
+
+                {/* Direct Action Trigger Button */}
+                <div className="flex items-center justify-between pt-0.5">
+                  {accessEnabled ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleOpenAccessDialog("suspend")}
+                      disabled={accessSaving}
+                      className="h-7 px-2.5 text-xs text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive gap-1.5"
+                    >
+                      <Lock className="w-3 h-3" />
+                      <span>Suspend Account</span>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleOpenAccessDialog("activate")}
+                      disabled={accessSaving}
+                      className="h-7 px-2.5 text-xs text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-300 gap-1.5"
+                    >
+                      <ShieldCheck className="w-3 h-3" />
+                      <span>Activate Account</span>
+                    </Button>
+                  )}
+
+                  {accessSuccess && (
+                    <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Saved
+                    </span>
+                  )}
+                </div>
+
+                {accessSuccess && (
+                  <p className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md p-2 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>{accessSuccess}</span>
+                  </p>
+                )}
+
+                {accessError && !accessDialogOpen && (
+                  <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-2 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{accessError}</span>
+                  </p>
+                )}
               </div>
 
               {/* Quota & Notes Card */}
@@ -584,6 +699,150 @@ export default function AdminOrganiserDetailPage() {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* ACCOUNT ACCESS GOVERNANCE DIALOG (SUSPEND / ACTIVATE) */}
+      <Dialog
+        open={accessDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAccessDialogOpen(false);
+            setAccessPendingAction(null);
+            setAccessReason("");
+            setAccessError("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle
+              className={cn(
+                "flex items-center gap-2",
+                accessPendingAction === "suspend" ? "text-destructive" : "text-emerald-400"
+              )}
+            >
+              {accessPendingAction === "suspend" ? (
+                <>
+                  <Lock className="h-5 w-5" /> Suspend Organiser Account
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-5 w-5" /> Activate Organiser Account
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground pt-1">
+              {accessPendingAction === "suspend" ? (
+                <>
+                  Suspending will immediately lock portal access for{" "}
+                  <strong className="text-foreground">{organiser?.name}</strong>.
+                  Tournament creation and operations will be temporarily frozen. This action is permanently recorded in the administrative audit log.
+                </>
+              ) : (
+                <>
+                  Reactivating will restore full tournament operations and dashboard access for{" "}
+                  <strong className="text-foreground">{organiser?.name}</strong>.
+                  This action is permanently recorded in the administrative audit log.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            {/* Quick Audit Reason Presets */}
+            <div>
+              <label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">
+                Quick Reason Presets:
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {(accessPendingAction === "suspend" ? SUSPEND_REASON_PRESETS : ACTIVATE_REASON_PRESETS).map(
+                  (preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setAccessReason(preset)}
+                      className={cn(
+                        "text-[11px] rounded-md px-2 py-0.5 border transition-colors text-left",
+                        accessReason === preset
+                          ? accessPendingAction === "suspend"
+                            ? "bg-destructive/20 text-destructive border-destructive/40 font-medium"
+                            : "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-medium"
+                          : "bg-muted/40 text-muted-foreground border-border hover:text-foreground hover:bg-muted/70"
+                      )}
+                    >
+                      {preset}
+                    </button>
+                  )
+                )}
+              </div>
+            </div>
+
+            {/* Audit Reason Text Area */}
+            <AuditReasonField
+              value={accessReason}
+              onChange={setAccessReason}
+              label="Administrative Audit Reason (Required)"
+              placeholder={
+                accessPendingAction === "suspend"
+                  ? "Explain why this organiser account is being suspended (min 10 characters)..."
+                  : "Explain why this organiser account is being reactivated (min 10 characters)..."
+              }
+            />
+
+            {accessError && (
+              <p className="text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md p-2 flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>{accessError}</span>
+              </p>
+            )}
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setAccessDialogOpen(false);
+                setAccessPendingAction(null);
+                setAccessReason("");
+                setAccessError("");
+              }}
+              disabled={accessSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={accessSaving || !isAuditReasonValid(accessReason)}
+              onClick={handleAccessConfirm}
+              className={cn(
+                "font-semibold gap-1.5 text-white",
+                accessPendingAction === "suspend"
+                  ? "bg-destructive hover:bg-destructive/90"
+                  : "bg-emerald-600 hover:bg-emerald-500"
+              )}
+            >
+              {accessSaving ? (
+                <>
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  {accessPendingAction === "suspend" ? "Suspending…" : "Activating…"}
+                </>
+              ) : accessPendingAction === "suspend" ? (
+                <>
+                  <Lock className="h-3.5 w-3.5" />
+                  Suspend Account
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Activate Account
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* TRANSFER TOURNAMENT DIALOG */}
       <TransferOrganizerDialog

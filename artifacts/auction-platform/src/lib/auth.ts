@@ -683,6 +683,7 @@ export async function updateAdminOrganizer(
   data: Partial<{
     name: string; email: string; mobile: string;
     licenseStatus: "pending" | "active" | "suspended"; maxTournaments: number; notes: string;
+    reason: string;
   }>
 ): Promise<{ success: boolean; error?: string }> {
   try {
