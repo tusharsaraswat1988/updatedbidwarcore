@@ -73,6 +73,7 @@ import {
   Hourglass, Monitor, Users, Crown, ShieldAlert,
   PanelRightClose, PanelRightOpen, Tv2, Clapperboard,
   Coffee, PlusCircle, ChevronDown, Volume2, VolumeX, Info,
+  Smartphone, Sparkles,
 } from "lucide-react";
 import { formatIndianRupee, formatShortIndianRupee } from "@/lib/format";
 import { cldUrl } from "@/lib/cloudinary";
@@ -1143,6 +1144,7 @@ export default function AuctionOperator() {
   const isActive   = state?.status === "active";
   const isPaused   = state?.status === "paused";
   const isCompleted = state?.status === "completed";
+  const isPreAuction = !isActive && !isPaused && !isCompleted;
   const hasPlayer  = !!state?.currentPlayer;
   const canReauctionLastSale = !!lastSoldPlayer?.id && !hasPlayer && isActive && !isPaused;
   const hasBid     = !!state?.currentBidTeamId;
@@ -1209,6 +1211,7 @@ export default function AuctionOperator() {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       switch (e.key.toLowerCase()) {
+        case "enter": if (isPreAuction && !controlsLocked && !startAuction.isPending) handleStartAuction(); break;
         case "s": if (!timerActive && hasBid && isActive && !sellPlayer.isPending) handleSell(); break;
         case "u": if (!timerActive && hasPlayer && isActive && !markUnsold.isPending) handleUnsold(); break;
         case "d": if (!timerActive && hasPlayer && isActive && !deferPlayerMut.isPending) handleDeferPlayer(); break;
@@ -1221,7 +1224,7 @@ export default function AuctionOperator() {
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, hasPlayer, timerActive, hasBid, controlsLocked]);
+  }, [isActive, hasPlayer, timerActive, hasBid, controlsLocked, isPreAuction]);
 
   // Category-filtered available queue (used for category filter context)
   const filteredQueue = activeCategoryIds && activeCategoryIds.length > 0
@@ -1840,6 +1843,179 @@ export default function AuctionOperator() {
     </div>
   );
 
+  const preAuctionReadinessIssues = useMemo(() => {
+    if (!isPreAuction || !tournament || !Array.isArray(teams) || !Array.isArray(players)) {
+      return [];
+    }
+    const input = tournamentToReadinessInput(
+      tournament,
+      teams.length,
+      players.length,
+    );
+    return validateAuctionReadiness(input, isTrialMode ? "trial" : "live");
+  }, [isPreAuction, tournament, teams, players, isTrialMode]);
+
+  const preAuctionLaunchpad = (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+      className="rounded-2xl border border-emerald-500/35 bg-gradient-to-b from-emerald-950/30 via-card to-card p-5 sm:p-7 shadow-2xl relative overflow-hidden flex flex-col justify-between"
+    >
+      {/* Ambient background glow */}
+      <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-96 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+      <div className="relative z-10">
+        {/* Header Badge & Auction Code */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-4 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+            </span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/25">
+              Pre-Auction Stage · Ready to Launch
+            </span>
+          </div>
+
+          {(tournament as { auctionCode?: string | null } | undefined)?.auctionCode && (
+            <div className="flex items-center gap-1.5 text-xs text-white/50">
+              <span>Code:</span>
+              <span className="font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded text-[11px]">
+                {(tournament as { auctionCode?: string | null }).auctionCode}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Hero Headline */}
+        <div className="pt-4 pb-5 text-center sm:text-left">
+          <h2 className="text-xl sm:text-2xl font-display font-black text-white tracking-tight">
+            Ready to Start the Auction?
+          </h2>
+          <p className="text-xs sm:text-sm text-white/60 mt-1 max-w-xl leading-relaxed">
+            All teams and player pools are staged. Launching the auction will synchronize venue LED screens, connect team owner mobile pads, and open the player nomination deck.
+          </p>
+        </div>
+
+        {/* Pre-Flight Vitals Grid (4 informative cards) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 mb-5">
+          <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3 text-left">
+            <div className="flex items-center gap-1.5 text-white/40 mb-1">
+              <Users className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-[9px] font-black uppercase tracking-wider">Teams</span>
+            </div>
+            <p className="text-sm sm:text-base font-bold text-white leading-tight">
+              {teams?.length || 0} Registered
+            </p>
+            <p className="text-[10px] text-white/40 truncate mt-0.5">
+              Purses configured
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3 text-left">
+            <div className="flex items-center gap-1.5 text-white/40 mb-1">
+              <Trophy className="w-3.5 h-3.5 text-yellow-400" />
+              <span className="text-[9px] font-black uppercase tracking-wider">Player Pool</span>
+            </div>
+            <p className="text-sm sm:text-base font-bold text-white leading-tight">
+              {available.length} Available
+            </p>
+            <p className="text-[10px] text-white/40 truncate mt-0.5">
+              {allPlayers.length} total players
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3 text-left">
+            <div className="flex items-center gap-1.5 text-white/40 mb-1">
+              {selectionMode === "random" ? (
+                <Shuffle className="w-3.5 h-3.5 text-purple-400" />
+              ) : (
+                <SkipForward className="w-3.5 h-3.5 text-purple-400" />
+              )}
+              <span className="text-[9px] font-black uppercase tracking-wider">Draw Mode</span>
+            </div>
+            <p className="text-sm sm:text-base font-bold text-white capitalize leading-tight">
+              {selectionMode === "random" ? "Random Draw" : selectionMode === "manual" ? "Manual Pick" : "Sequential"}
+            </p>
+            <p className="text-[10px] text-white/40 truncate mt-0.5">
+              {activeCategoryIds?.length ? `${activeCategoryIds.length} categories` : "All categories"}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3 text-left">
+            <div className="flex items-center gap-1.5 text-white/40 mb-1">
+              <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-[9px] font-black uppercase tracking-wider">Owner Bidding</span>
+            </div>
+            <p className="text-sm sm:text-base font-bold text-white leading-tight">
+              {tournament?.ownerBiddingEnabled ? "Online Active" : "Auctioneer Only"}
+            </p>
+            <p className="text-[10px] text-white/40 truncate mt-0.5">
+              {tournament?.ownerBiddingEnabled ? "Phones enabled" : "Paddle mode"}
+            </p>
+          </div>
+        </div>
+
+        {/* Readiness Warning / Green Health Pill */}
+        {preAuctionReadinessIssues.length > 0 ? (
+          <div className="mb-5 p-3 rounded-xl border border-amber-500/35 bg-amber-500/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="text-xs text-amber-200 font-medium">
+                {preAuctionReadinessIssues.length} item{preAuctionReadinessIssues.length !== 1 ? "s" : ""} need attention before official launch
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setReadinessIssues(preAuctionReadinessIssues);
+                setReadinessModalOpen(true);
+              }}
+              className="text-xs font-bold text-amber-300 hover:text-amber-200 underline cursor-pointer shrink-0"
+            >
+              Review checklist →
+            </button>
+          </div>
+        ) : (
+          <div className="mb-5 p-2.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs text-emerald-300 font-medium">
+              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>All pre-flight rules validated (squad sizes, budgets, and player pool ready).</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setReadinessIssues([]);
+                setReadinessModalOpen(true);
+              }}
+              className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 underline cursor-pointer shrink-0 hidden sm:inline"
+            >
+              View checklist
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Grand CTA Area */}
+      <div className="pt-2 text-center relative z-10">
+        <button
+          type="button"
+          onClick={handleStartAuction}
+          disabled={controlsLocked || startAuction.isPending}
+          className="w-full sm:w-auto min-w-[300px] h-14 sm:h-16 px-8 rounded-xl bg-gradient-to-r from-emerald-500 via-green-500 to-emerald-600 hover:from-emerald-400 hover:to-green-500 text-black font-display font-black text-lg sm:text-xl shadow-[0_0_35px_rgba(16,185,129,0.35)] hover:shadow-[0_0_50px_rgba(16,185,129,0.55)] active:scale-[0.98] transition-all inline-flex items-center justify-center gap-3 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mx-auto"
+        >
+          <Play className="w-6 h-6 fill-current" />
+          <span>{startAuction.isPending ? "Starting Auction…" : "START LIVE AUCTION"}</span>
+        </button>
+
+        <p className="text-[11px] text-white/40 mt-2.5">
+          Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white/70 text-[10px]">Enter</kbd> or click to begin the auction
+        </p>
+      </div>
+    </motion.div>
+  );
+
   const headerSessionAction = mainRoundExhausted ? (
     <button
       type="button"
@@ -1850,7 +2026,18 @@ export default function AuctionOperator() {
       <CheckCircle className="w-3.5 h-3.5" />
       Conclude
     </button>
-  ) : !isActive && !isCompleted ? (
+  ) : isPreAuction ? (
+    <button
+      type="button"
+      className="h-10 px-3 flex items-center gap-1.5 text-xs font-bold rounded-md bg-emerald-600 active:bg-emerald-500 text-white shadow-sm ring-1 ring-emerald-400/40 disabled:opacity-50"
+      onClick={handleStartAuction}
+      disabled={controlsLocked || startAuction.isPending}
+      title="Launch Live Auction"
+    >
+      <Play className="w-3.5 h-3.5 fill-current" />
+      Start Live Auction
+    </button>
+  ) : isPaused ? (
     <button
       type="button"
       className="h-10 px-2.5 flex items-center gap-1 text-[11px] font-semibold rounded-md bg-green-600 text-white disabled:opacity-50"
@@ -1858,7 +2045,7 @@ export default function AuctionOperator() {
       disabled={controlsLocked || startAuction.isPending}
     >
       <Play className="w-3.5 h-3.5" />
-      {isPaused ? "Resume" : "Start"}
+      Resume
     </button>
   ) : isActive ? (
     <button
@@ -2033,14 +2220,24 @@ export default function AuctionOperator() {
               <CheckCircle className="w-3 h-3" />
               Conclude Auction
             </button>
-          ) : !isActive && !isCompleted ? (
+          ) : isPreAuction ? (
+            <button
+              className="h-7 px-3 flex items-center gap-1.5 text-xs font-bold rounded-md bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm ring-1 ring-emerald-400/40 transition-all flex-shrink-0 disabled:opacity-50"
+              onClick={handleStartAuction}
+              disabled={controlsLocked || startAuction.isPending}
+              title="Launch Live Auction (also available on the center stage)"
+            >
+              <Play className="w-3 h-3 fill-current" />
+              Start Live Auction
+            </button>
+          ) : isPaused ? (
             <button
               className="h-7 px-3 flex items-center gap-1.5 text-xs font-semibold rounded-md bg-green-600 hover:bg-green-500 text-white transition-all flex-shrink-0 disabled:opacity-50"
               onClick={handleStartAuction}
               disabled={controlsLocked || startAuction.isPending}
             >
               <Play className="w-3 h-3" />
-              {isPaused ? "Resume Auction" : "Start Auction"}
+              Resume Auction
             </button>
           ) : isActive ? (
             <button
@@ -2503,12 +2700,21 @@ export default function AuctionOperator() {
             <div className="flex-1 overflow-y-auto">
               <div className="px-4 py-2.5 space-y-2 lg:space-y-2.5 max-w-2xl mx-auto flex flex-col min-h-full">
                 <div className="space-y-2 lg:space-y-2.5 flex-1">
-                  {ownerBiddingControlCard}
-                  {currentPlayerAndBidCards}
-                  {reauctionLastPlayerButton}
-                  {primaryActionsGrid}
-                  {nextPlayerAndStartRow}
-                  {quickBidSection}
+                  {isPreAuction ? (
+                    <>
+                      {ownerBiddingControlCard}
+                      {preAuctionLaunchpad}
+                    </>
+                  ) : (
+                    <>
+                      {ownerBiddingControlCard}
+                      {currentPlayerAndBidCards}
+                      {reauctionLastPlayerButton}
+                      {primaryActionsGrid}
+                      {nextPlayerAndStartRow}
+                      {quickBidSection}
+                    </>
+                  )}
                 </div>
                 {subtleEngineWatermark}
               </div>
@@ -2522,12 +2728,21 @@ export default function AuctionOperator() {
             <div className="flex-1 overflow-y-auto">
               <div className="px-3 py-2 space-y-2 flex flex-col min-h-full">
                 <div className="space-y-2 flex-1">
-                  {ownerBiddingControlCard}
-                  {currentPlayerAndBidCards}
-                  {nextPlayerAndStartRow}
-                  {primaryActionsGrid}
-                  {quickBidSection}
-                  {reauctionLastPlayerButton}
+                  {isPreAuction ? (
+                    <>
+                      {ownerBiddingControlCard}
+                      {preAuctionLaunchpad}
+                    </>
+                  ) : (
+                    <>
+                      {ownerBiddingControlCard}
+                      {currentPlayerAndBidCards}
+                      {nextPlayerAndStartRow}
+                      {primaryActionsGrid}
+                      {quickBidSection}
+                      {reauctionLastPlayerButton}
+                    </>
+                  )}
                 </div>
                 {subtleEngineWatermark}
               </div>
@@ -3556,49 +3771,71 @@ export default function AuctionOperator() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-400" /> Auction is not ready
+                {readinessIssues.length > 0 ? (
+                  <>
+                    <AlertTriangle className="w-4 h-4 text-amber-400" /> Auction is not ready
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-emerald-400" /> Pre-Flight Readiness Checklist
+                  </>
+                )}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-2">
-              <p className="text-sm text-muted-foreground">Complete these before starting:</p>
-              <ul className="space-y-2 text-sm">
-                {readinessIssues.map((issue) => {
-                  const fixLink = readinessFixLinks[issue.id];
-                  return (
-                    <li key={`${issue.id}-${issue.message}`} className="flex items-start justify-between gap-3 rounded-md border border-border/50 px-3 py-2">
-                      <span className="flex items-start gap-2 min-w-0">
-                        <span className="text-primary mt-0.5">•</span>
-                        <span>{issue.message}</span>
-                      </span>
-                      {fixLink && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setReadinessModalOpen(false);
-                            navigate(fixLink);
-                          }}
-                          className="text-xs text-primary font-semibold hover:underline flex-shrink-0"
-                        >
-                          Fix →
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-              {readinessIssues[0] && readinessFixLinks[readinessIssues[0].id] && (
-                <Button
-                  className="w-full"
-                  onClick={() => {
-                    setReadinessModalOpen(false);
-                    navigate(readinessFixLinks[readinessIssues[0].id]!);
-                  }}
-                >
-                  Fix first issue →
-                </Button>
+              {readinessIssues.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-4 text-center">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-2.5">
+                    <CheckCircle className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-bold text-foreground">All Pre-Flight Checks Passed</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+                    Teams, player pool, minimum squad sizes, bid tiers, and timers are verified. You are completely ready to launch the live auction!
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">Complete these before starting:</p>
+                  <ul className="space-y-2 text-sm">
+                    {readinessIssues.map((issue) => {
+                      const fixLink = readinessFixLinks[issue.id];
+                      return (
+                        <li key={`${issue.id}-${issue.message}`} className="flex items-start justify-between gap-3 rounded-md border border-border/50 px-3 py-2">
+                          <span className="flex items-start gap-2 min-w-0">
+                            <span className="text-primary mt-0.5">•</span>
+                            <span>{issue.message}</span>
+                          </span>
+                          {fixLink && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReadinessModalOpen(false);
+                                navigate(fixLink);
+                              }}
+                              className="text-xs text-primary font-semibold hover:underline flex-shrink-0"
+                            >
+                              Fix →
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {readinessIssues[0] && readinessFixLinks[readinessIssues[0].id] && (
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        setReadinessModalOpen(false);
+                        navigate(readinessFixLinks[readinessIssues[0].id]!);
+                      }}
+                    >
+                      Fix first issue →
+                    </Button>
+                  )}
+                </>
               )}
               <Button variant="outline" className="w-full" onClick={() => setReadinessModalOpen(false)}>
-                Close
+                {readinessIssues.length === 0 ? "Got it" : "Close"}
               </Button>
             </div>
           </DialogContent>
