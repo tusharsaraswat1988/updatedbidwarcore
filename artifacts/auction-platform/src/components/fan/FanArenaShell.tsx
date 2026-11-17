@@ -34,7 +34,9 @@ export function FanArenaShell({
   const [shareOpen, setShareOpen] = useState(false);
   const [location] = useLocation();
   
-  useEffect(() => { syncDocumentSurfaceTheme(); }, [location]);
+  useEffect(() => { 
+    syncDocumentSurfaceTheme(location); 
+  }, [location]);
 
   const fanPageUrl = typeof window !== "undefined" ? `${window.location.origin}/tournament/${tournament.id}/fan` : "";
 
