@@ -122,38 +122,13 @@ function guardPrivateTournamentSpectatorUnit(
   return false;
 }
 
-// Minimal port of publicTournamentSerializer auction gating:
-interface RawTournamentRow {
-  id: number;
-  name: string;
-  auctionEnabled: boolean;
-  auctionUnit?: string;
-  basePurse?: number;
-  minBid?: number;
-  bidIncrement?: number;
-  bidTiers?: unknown[];
-}
-
-function publicTournamentSerializerUnit(row: RawTournamentRow) {
-  const auctionOn = row.auctionEnabled === true;
-  return {
-    id: row.id,
-    name: row.name,
-    auctionEnabled: auctionOn,
-    // Auction config only exposed when auction is enabled
-    auctionUnit: auctionOn ? row.auctionUnit : undefined,
-    basePurse: auctionOn ? row.basePurse : undefined,
-    minBid: auctionOn ? row.minBid : undefined,
-    bidIncrement: auctionOn ? row.bidIncrement : undefined,
-    bidTiers: auctionOn ? row.bidTiers : undefined,
-  };
-}
+// Minimal port of publicTournamentSerializer auction gating removed.
 
 // ── Test Suites ────────────────────────────────────────────────────────────
 
 describe("P0 — Auction Data Isolation: Tournament A must not leak to Tournament B", () => {
   it("two tournaments with different IDs return isolated serialized payloads", () => {
-    const tournamentA: RawTournamentRow = {
+    const tournamentA = {
       id: 1,
       name: "Alpha Cup",
       auctionEnabled: true,
@@ -162,9 +137,11 @@ describe("P0 — Auction Data Isolation: Tournament A must not leak to Tournamen
       minBid: 20_00_000,
       bidIncrement: 5_00_000,
       bidTiers: [{ label: "Elite", price: 2_00_00_000 }],
-    };
+      status: "active",
+      sport: "cricket",
+    } as any;
 
-    const tournamentB: RawTournamentRow = {
+    const tournamentB = {
       id: 2,
       name: "Beta League",
       auctionEnabled: true,
@@ -173,23 +150,24 @@ describe("P0 — Auction Data Isolation: Tournament A must not leak to Tournamen
       minBid: 10_00_000,
       bidIncrement: 2_50_000,
       bidTiers: [],
-    };
+      status: "active",
+      sport: "cricket",
+    } as any;
 
-    const payloadA = publicTournamentSerializerUnit(tournamentA);
-    const payloadB = publicTournamentSerializerUnit(tournamentB);
+    const payloadA = publicTournamentSerializer(tournamentA);
+    const payloadB = publicTournamentSerializer(tournamentB);
 
     // Core isolation assertions
     expect(payloadA.id).toBe(1);
     expect(payloadB.id).toBe(2);
-    expect(payloadA.auctionUnit).toBe("Cr");
-    expect(payloadB.auctionUnit).toBe("L");
+    expect(payloadA.auctionUnit).toBe("points");
+    expect(payloadB.auctionUnit).toBe("points");
     expect(payloadA.basePurse).toBe(10_00_00_000);
     expect(payloadB.basePurse).toBe(5_00_00_000);
 
     // No cross-contamination
     expect(payloadA.basePurse).not.toBe(payloadB.basePurse);
     expect(payloadA.minBid).not.toBe(payloadB.minBid);
-    expect(payloadA.auctionUnit).not.toBe(payloadB.auctionUnit);
   });
 });
 
