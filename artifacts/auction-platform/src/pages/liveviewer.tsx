@@ -425,10 +425,8 @@ function TeamSquadSheet({
             </div>
           </motion.div>
         </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
+
+
       )}
     </AnimatePresence>
   );
