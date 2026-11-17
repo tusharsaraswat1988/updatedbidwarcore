@@ -35,9 +35,16 @@ export const TopStrip = memo(function TopStrip({ view }: { view: LedView }) {
             />
           ) : null}
           <div className="flex min-w-0 flex-col justify-center leading-none">
-            <span className="led-label text-[clamp(0.75rem,0.95cqw,1.05rem)] font-bold uppercase tracking-[0.06em] text-white/80">
-              Tournament
-            </span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="led-label text-[clamp(0.75rem,0.95cqw,1.05rem)] font-bold uppercase tracking-[0.06em] text-white/80">
+                Tournament
+              </span>
+              {tournament.season?.trim() && (
+                <span className="text-[clamp(0.65rem,0.85cqw,0.95rem)] font-bold text-amber-400 uppercase tracking-wider truncate">
+                  · {tournament.season.trim()}
+                </span>
+              )}
+            </div>
             <span className="mt-0.5 truncate led-tournament font-['Bebas_Neue'] text-[clamp(1.2rem,1.75cqw,2.2rem)] tracking-[0.06em] uppercase text-white font-bold leading-none">
               {tournament.name}
             </span>

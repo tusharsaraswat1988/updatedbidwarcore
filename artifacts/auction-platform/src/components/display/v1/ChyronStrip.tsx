@@ -101,6 +101,7 @@ export const ChyronStrip = memo(function ChyronStrip({ view }: { view: LedView }
         ) : (
           <div className="px-4 led-tournament text-[clamp(0.95rem,1.3cqw,1.45rem)] font-bold uppercase tracking-[0.12em] text-white/80 font-['Bebas_Neue']">
             {view.tournament.name}
+            {view.tournament.season?.trim() ? ` · ${view.tournament.season.trim()}` : ""}
           </div>
         )}
         <div className="absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-black to-transparent pointer-events-none" />
