@@ -40,9 +40,9 @@ describe("P0 — Integration: guardPrivateTournamentSpectator", () => {
     expect(res.status).toBe(200);
   });
 
-  it("rejects PIN in query string (403) - populated", async () => {
+  it("rejects repeated PIN in query string (403)", async () => {
     const res = await request(app)
-      .get("/test-gate?pin=secret");
+      .get("/test-gate?pin=a&pin=b");
     expect(res.status).toBe(403);
     expect(res.body.error).toContain("x-bidwar-pin header");
   });
