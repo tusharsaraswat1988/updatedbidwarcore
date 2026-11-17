@@ -2,7 +2,7 @@ import React from "react";
 import { Link, useLocation } from "wouter";
 import { CircleDot } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TournamentShell } from "../fan/tournament-shell";
+import { FanArenaShell } from "../fan/FanArenaShell";
 import {
   cricketFanHomePath,
   cricketFanMatchesPath,
@@ -115,15 +115,16 @@ export function CricketFanExperienceShell({
   const [soundEnabled, setSoundEnabled] = React.useState(true);
 
   return (
-    <TournamentShell
+    <FanArenaShell
       tournament={tournament}
       soundEnabled={soundEnabled}
       onToggleSound={() => setSoundEnabled(!soundEnabled)}
       streamUrl={streamUrl}
+      isLive={!!liveMatchId}
       moduleNav={<CricketFanNav tournamentId={tournament.id} liveMatchId={liveMatchId} streamUrl={streamUrl} />}
     >
       {children}
-    </TournamentShell>
+    </FanArenaShell>
   );
 }
 
