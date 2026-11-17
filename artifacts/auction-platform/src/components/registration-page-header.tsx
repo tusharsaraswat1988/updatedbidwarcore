@@ -55,6 +55,7 @@ export type RegistrationHeaderFact = {
 
 type RegistrationPageHeaderProps = {
   tournamentName?: string;
+  season?: string | null;
   tournamentLogoUrl?: string | null;
   sponsorLogosJson?: string | null;
   brandNameFallback?: string;
@@ -85,6 +86,7 @@ function capacityFact(
 
 export function RegistrationPageHeader({
   tournamentName,
+  season,
   tournamentLogoUrl,
   sponsorLogosJson,
   brandNameFallback = "BidWar",
@@ -130,6 +132,7 @@ export function RegistrationPageHeader({
       <div className="reg-header-copy">
         <p className="reg-kicker">{subtitle}</p>
         <h1>{title}</h1>
+        {season?.trim() ? <p className="text-xs font-semibold text-muted-foreground mt-0.5">{season.trim()}</p> : null}
         {tagline ? <p className="reg-tagline">{tagline}</p> : null}
         {visibleFacts.length > 0 ? (
           <dl className="reg-facts">

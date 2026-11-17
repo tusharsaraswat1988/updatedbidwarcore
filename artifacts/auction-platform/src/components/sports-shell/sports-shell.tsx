@@ -530,10 +530,15 @@ export function SportsShell({
       )}
 
       {(!collapsed || isMobileDrawer) && (
-        <div className="px-4 mt-6 mb-1 flex items-center gap-2 min-w-0">
+        <div className="px-4 mt-6 mb-1 flex flex-col min-w-0">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
             {tournamentTitle}
           </span>
+          {tournament?.season?.trim() ? (
+            <span className="text-[11px] font-medium text-muted-foreground/80 truncate">
+              {tournament.season.trim()}
+            </span>
+          ) : null}
         </div>
       )}
       {(!collapsed || isMobileDrawer) && (
@@ -610,12 +615,19 @@ export function SportsShell({
             </button>
             <div className="min-w-0 flex-1">
               <BidwarOrganizerBrandMark surface="organizer-main-toolbar" className="max-w-[9rem]" />
-              <p
-                className="text-xs font-semibold text-foreground truncate leading-tight mt-0.5"
-                title={tournamentTitle}
-              >
-                {tournamentTitle}
-              </p>
+              <div className="flex items-center gap-1.5 min-w-0 mt-0.5">
+                <p
+                  className="text-xs font-semibold text-foreground truncate leading-tight"
+                  title={tournamentTitle}
+                >
+                  {tournamentTitle}
+                </p>
+                {tournament?.season?.trim() ? (
+                  <Badge variant="outline" className="text-[10px] h-4 px-1 font-normal shrink-0">
+                    {tournament.season.trim()}
+                  </Badge>
+                ) : null}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
@@ -724,6 +736,11 @@ export function SportsShell({
                 <p className="text-sm font-bold text-foreground truncate leading-tight" title={tournamentTitle}>
                   {tournamentTitle}
                 </p>
+                {tournament?.season?.trim() ? (
+                  <Badge variant="secondary" className="text-[10px] px-2 py-0.5 h-5 font-medium shrink-0">
+                    {tournament.season.trim()}
+                  </Badge>
+                ) : null}
                 <Badge variant="outline" className="text-[10px] px-2 py-0.5 h-5 border-primary/30 bg-primary/5 text-primary font-bold uppercase shrink-0">
                   {nav.sportLabel}
                 </Badge>

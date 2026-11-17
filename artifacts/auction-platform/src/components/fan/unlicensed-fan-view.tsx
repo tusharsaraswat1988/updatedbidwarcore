@@ -71,10 +71,10 @@ export function UnlicensedFanView({ tournament }: UnlicensedFanViewProps) {
   };
 
   // Fetch allowlisted teams summary (name, logo, playerCount only)
-  const { data: teamsData, isLoading: isLoadingTeams } = useQuery<{ teams: UnlicensedTeamSummary[] }>({
+  const { data: teamsData, isLoading: isLoadingTeams } = useQuery<UnlicensedTeamSummary[] | { teams: UnlicensedTeamSummary[] }>({
     queryKey: ["unlicensed-tournament-teams", tournament.id],
     queryFn: async () => {
-      const res = await fetch(`/api/tournaments/${tournament.id}/teams`);
+      const res = await fetch(`/api/tournaments/${tournament.id}/teams?scope=spectator`);
       if (!res.ok) {
         throw new Error("Failed to load teams");
       }
@@ -84,7 +84,7 @@ export function UnlicensedFanView({ tournament }: UnlicensedFanViewProps) {
     staleTime: 30_000,
   });
 
-  const teams = teamsData?.teams ?? [];
+  const teams = Array.isArray(teamsData) ? teamsData : (teamsData?.teams ?? []);
 
   return (
     <div

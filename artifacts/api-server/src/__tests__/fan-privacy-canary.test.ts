@@ -145,20 +145,26 @@ function extractAllNumbers(node: any): number[] {
   const nums: number[] = [];
   function walk(n: any) {
     if (n === null || n === undefined) return;
-    if (typeof n === "number") {
+    if (typeof n === "number" && !isNaN(n)) {
       nums.push(n);
       return;
     }
+    if (typeof n.value === "number" && !isNaN(n.value)) {
+      nums.push(n.value);
+    }
+    if (typeof n.right === "number" && !isNaN(n.right)) {
+      nums.push(n.right);
+    } else if (n.right && typeof n.right === "object") {
+      walk(n.right);
+    }
     if (Array.isArray(n)) {
       for (const item of n) walk(item);
-      return;
     }
-    if (typeof n === "object") {
-      if (typeof n.value === "number") nums.push(n.value);
-      if (typeof n.right === "number") nums.push(n.right);
-      if (Array.isArray(n.queryChunks)) {
-        for (const chunk of n.queryChunks) walk(chunk);
-      }
+    if (Array.isArray(n.queryChunks)) {
+      for (const chunk of n.queryChunks) walk(chunk);
+    }
+    if (Array.isArray(n.params)) {
+      for (const p of n.params) walk(p);
     }
   }
   walk(node);
@@ -177,6 +183,30 @@ vi.mock("../lib/player-specification-service", () => ({
     getPlayerSpecifications: vi.fn().mockResolvedValue([]),
   },
   legacyFieldsFromSpecifications: () => ({}),
+}));
+
+vi.mock("../lib/player-auction-history-service", () => ({
+  getPlayerAuctionPerformanceSummary: vi.fn().mockImplementation(async ({ playerId }: any) => {
+    if (playerId === 6021) {
+      return {
+        records: [
+          {
+            tournamentId: 602,
+            tournamentName: "Canary Licensed Championship",
+            teamName: "Canary Titans",
+            soldPrice: 500000,
+            status: "sold",
+          },
+        ],
+        totalSoldAppearances: 1,
+        bestSoldRecord: null,
+        lastSoldRecord: null,
+        hasTop5Badge: false,
+        isBestTop5: false,
+      };
+    }
+    return null;
+  }),
 }));
 
 vi.mock("@workspace/db", async (importOriginal) => {
@@ -248,8 +278,18 @@ vi.mock("@workspace/db", async (importOriginal) => {
 
         // Players table query
         if (fromTable === actual.playersTable) {
-          const tid = targetId;
+          const allPlayers = Object.values(mockPlayers).flat();
+          if (numbers.length >= 2) {
+            const p = allPlayers.find((player) => numbers.includes(player.id) && numbers.includes(player.tournamentId));
+            return resolve(p ? [p] : []);
+          }
+          const tid = numbers.find((n) => n in mockTournaments) ?? targetId;
           return resolve(tid && mockPlayers[tid] ? [...mockPlayers[tid]] : []);
+        }
+
+        // Auction events or matches
+        if (fromTable === actual.auctionEventsTable || fromTable === actual.matchesTable) {
+          return resolve([]);
         }
 
         // Tournaments table query
@@ -310,10 +350,14 @@ describe("Fan Arena — Automated P0 Privacy Regression & Canary Secrets Test", 
     const fanDiscoveryRouter = (await import("../routes/fan-discovery")).default;
     const teamsRouter = (await import("../routes/teams")).default;
     const playersRouter = (await import("../routes/players")).default;
+    const tournamentsRouter = (await import("../routes/tournaments")).default;
+    const fanBroadcastRouter = (await import("../routes/fan-broadcast")).default;
 
     app.use("/api", fanDiscoveryRouter);
     app.use("/api", teamsRouter);
     app.use("/api", playersRouter);
+    app.use("/api", tournamentsRouter);
+    app.use("/api", fanBroadcastRouter);
   });
 
   describe("Zero Canary Leakage Across All Public Surfaces", () => {
@@ -369,6 +413,103 @@ describe("Fan Arena — Automated P0 Privacy Regression & Canary Secrets Test", 
       const res = await request(app).get("/api/tournaments/602/players");
       expect(res.status).toBe(200);
       assertZeroCanaryLeakage(res.body, "GET /api/tournaments/602/players (Licensed)");
+    });
+
+    it("guarantees unlicensed player list error payload does not expose canary secrets", async () => {
+      const res = await request(app).get("/api/tournaments/601/players");
+      expect(res.status).toBe(403);
+      assertZeroCanaryLeakage(res.body, "GET /api/tournaments/601/players (Unlicensed Error 403)");
+    });
+
+    it("guarantees unlicensed single player endpoint error does not expose canary secrets", async () => {
+      const res = await request(app).get("/api/tournaments/601/players/6011");
+      expect(res.status).toBe(403);
+      assertZeroCanaryLeakage(res.body, "GET /api/tournaments/601/players/6011 (Unlicensed Error 403)");
+    });
+
+    it("guarantees licensed single player profile does not expose phone/email/UTR or canary secrets", async () => {
+      const res = await request(app).get("/api/tournaments/602/players/6021");
+      expect(res.status).toBe(200);
+      assertZeroCanaryLeakage(res.body, "GET /api/tournaments/602/players/6021 (Licensed Profile)");
+      expect(res.body.mobileNumber).toBeUndefined();
+      expect(res.body.email).toBeUndefined();
+      expect(res.body.utrNumber).toBeUndefined();
+    });
+
+    it("guarantees player auction-history endpoints do not expose canary secrets", async () => {
+      const unlicRes = await request(app).get("/api/tournaments/601/players/6011/auction-history");
+      expect(unlicRes.status).toBe(403);
+      assertZeroCanaryLeakage(unlicRes.body, "GET /api/tournaments/601/players/6011/auction-history (Unlicensed)");
+
+      const licRes = await request(app).get("/api/tournaments/602/players/6021/auction-history");
+      expect(licRes.status).toBe(200);
+      assertZeroCanaryLeakage(licRes.body, "GET /api/tournaments/602/players/6021/auction-history (Licensed)");
+    });
+
+    it("guarantees direct tournament details GET /tournaments/:id do not leak pins, passwords or canary secrets", async () => {
+      const res601 = await request(app).get("/api/tournaments/601");
+      expect(res601.status).toBe(200);
+      assertZeroCanaryLeakage(res601.body, "GET /api/tournaments/601 (Direct Details Unlicensed)");
+      expect(res601.body.scoringPin).toBeUndefined();
+      expect(res601.body.organizerPassword).toBeUndefined();
+      expect(res601.body.organizerMobile).toBeUndefined();
+
+      const res602 = await request(app).get("/api/tournaments/602");
+      expect(res602.status).toBe(200);
+      assertZeroCanaryLeakage(res602.body, "GET /api/tournaments/602 (Direct Details Licensed)");
+      expect(res602.body.scoringPin).toBeUndefined();
+      expect(res602.body.organizerPassword).toBeUndefined();
+      expect(res602.body.organizerMobile).toBeUndefined();
+    });
+
+    it("guarantees dedicated pure spectator teams endpoint /fan/teams has zero canary leakage", async () => {
+      const res601 = await request(app).get("/api/tournaments/601/fan/teams");
+      expect(res601.status).toBe(200);
+      assertZeroCanaryLeakage(res601.body, "GET /api/tournaments/601/fan/teams (Unlicensed)");
+
+      const res602 = await request(app).get("/api/tournaments/602/fan/teams");
+      expect(res602.status).toBe(200);
+      assertZeroCanaryLeakage(res602.body, "GET /api/tournaments/602/fan/teams (Licensed)");
+    });
+
+    it("guarantees spectator scope query ?scope=spectator has zero canary leakage", async () => {
+      const res601 = await request(app).get("/api/tournaments/601/teams?scope=spectator");
+      expect(res601.status).toBe(200);
+      assertZeroCanaryLeakage(res601.body, "GET /api/tournaments/601/teams?scope=spectator (Unlicensed)");
+
+      const res602 = await request(app).get("/api/tournaments/602/teams?scope=spectator");
+      expect(res602.status).toBe(200);
+      assertZeroCanaryLeakage(res602.body, "GET /api/tournaments/602/teams?scope=spectator (Licensed)");
+    });
+
+    it("guarantees organizer broadcast endpoint denies public spectators with HTTP 403 and zero canary leakage", async () => {
+      const res601 = await request(app).get("/api/tournaments/601/broadcast");
+      expect(res601.status).toBe(403);
+      assertZeroCanaryLeakage(res601.body, "GET /api/tournaments/601/broadcast (Spectator Denial 403)");
+
+      const res602 = await request(app).get("/api/tournaments/602/broadcast");
+      expect(res602.status).toBe(403);
+      assertZeroCanaryLeakage(res602.body, "GET /api/tournaments/602/broadcast (Spectator Denial 403)");
+    });
+
+    it("guarantees 404 and error responses across endpoints have zero canary leakage", async () => {
+      const notFoundRes = await request(app).get("/api/tournaments/999999/fan/context");
+      expect(notFoundRes.status).toBe(404);
+      assertZeroCanaryLeakage(notFoundRes.body, "GET 404 Context Error Response");
+    });
+
+    it("guarantees HTML metadata strings and serialized OpenGraph data have zero canary leakage", async () => {
+      // Simulate HTML metadata tags rendered from tournament context
+      const contextRes = await request(app).get("/api/tournaments/601/fan/context");
+      const tournament = contextRes.body.tournament;
+
+      const htmlMeta = `
+        <title>${tournament.name} | BidWar Fan Arena</title>
+        <meta name="description" content="Follow ${tournament.name} live on BidWar Fan Arena. City: ${tournament.city}, Venue: ${tournament.venue}">
+        <meta property="og:title" content="${tournament.name}">
+        <meta property="og:description" content="${tournament.name} live updates on BidWar">
+      `;
+      assertZeroCanaryLeakage(htmlMeta, "HTML Metadata / OpenGraph Tags");
     });
   });
 });

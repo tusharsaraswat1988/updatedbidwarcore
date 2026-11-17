@@ -245,6 +245,11 @@ export default function AuctionOverview() {
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight leading-tight">
               {tournament?.name}
             </h1>
+            {tournament?.season?.trim() ? (
+              <span className="px-2 py-0.5 bg-muted text-muted-foreground border border-border/60 rounded-md text-xs font-semibold">
+                {tournament.season.trim()}
+              </span>
+            ) : null}
             {readinessMode === "trial" ? <TrialLicenseBadge /> : null}
             <span className="px-2.5 py-0.5 bg-primary/20 text-primary border border-primary/30 rounded-full text-[11px] font-bold tracking-widest uppercase">
               {statusLabel}

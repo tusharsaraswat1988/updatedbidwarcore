@@ -672,6 +672,11 @@ export default function CricketScorerHomePage() {
                   >
                     <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                     <span className="truncate">{tournament?.name || `Tournament #${tournamentId}`}</span>
+                    {tournament?.season?.trim() ? (
+                      <span className="text-[10px] text-white/60 font-normal shrink-0">
+                        ({tournament.season.trim()})
+                      </span>
+                    ) : null}
                     <span className="text-[10px] bg-amber-500/20 border border-amber-500/30 text-amber-300 px-1 rounded font-mono group-hover:bg-amber-500/30 flex items-center gap-0.5 shrink-0">
                       <span>{session.tournaments.length}</span>
                       <ChevronDown className="w-2.5 h-2.5" />
@@ -683,6 +688,11 @@ export default function CricketScorerHomePage() {
                     <span className="text-amber-400 font-bold text-xs truncate max-w-[12rem] sm:max-w-sm tracking-wide">
                       {tournament?.name || `Tournament #${tournamentId}`}
                     </span>
+                    {tournament?.season?.trim() ? (
+                      <span className="text-[10px] text-white/60 font-normal shrink-0">
+                        ({tournament.season.trim()})
+                      </span>
+                    ) : null}
                   </div>
                 )}
               </div>

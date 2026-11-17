@@ -575,6 +575,7 @@ router.get("/auth/admin/tournaments", async (req, res) => {
   res.json(tournaments.map(t => ({
     id: t.id,
     name: t.name,
+    season: t.season ?? null,
     sport: t.sport,
     auctionCode: t.auctionCode ?? null,
     status: t.status,
@@ -598,6 +599,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
   if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
   const schema = z.object({
     name: z.string().min(1),
+    season: z.string().nullable().optional(),
     sport: z.string().default("cricket"),
     city: z.string().trim().min(1, "City is required"),
     venue: z.string().optional(),
@@ -680,6 +682,7 @@ router.post("/auth/admin/tournaments", async (req, res) => {
   const auctionCode = await _generateUniqueAuctionCode(d.name, d.auctionDate);
   const [t] = await db.insert(tournamentsTable).values({
     name: d.name,
+    season: d.season ? d.season.trim() : null,
     sport: d.sport,
     sportId: await resolveSportIdBySlug(d.sport),
     auctionCode,
@@ -996,6 +999,7 @@ router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
     tournament: {
       id: tournament.id,
       name: tournament.name,
+      season: tournament.season ?? null,
       sport: tournament.sport,
       city: tournament.city,
       venue: tournament.venue,
@@ -1095,6 +1099,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const schema = z.object({
     name: z.string().optional(),
+    season: z.string().nullable().optional(),
     sport: z.string().optional(),
     city: z.string().trim().min(1).optional(),
     venue: z.string().optional(),
@@ -1189,6 +1194,9 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
     return;
   }
   if (d.name !== undefined) updates.name = d.name;
+  if (d.season !== undefined) {
+    updates.season = d.season === "" || d.season === null ? null : d.season.trim();
+  }
   if (d.organizerId !== undefined) updates.organizerId = d.organizerId;
   if (d.organizerName !== undefined) updates.organizerName = d.organizerName;
   if (d.organizerMobile !== undefined) {
@@ -2035,6 +2043,7 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
 
   const schema = z.object({
     name: z.string().min(1),
+    season: z.string().nullable().optional(),
     sport: z.string().default("cricket"),
     city: z.string().trim().min(1, "City is required"),
     venue: z.string().optional(),
@@ -2135,6 +2144,7 @@ router.post("/auth/organizer-account/tournaments", async (req, res) => {
   const [tournament] = await db.insert(tournamentsTable).values({
     organizerId: organizer.id,
     name: d.name,
+    season: d.season ? d.season.trim() : null,
     sport: d.sport,
     sportId: await resolveSportIdBySlug(d.sport),
     auctionCode,

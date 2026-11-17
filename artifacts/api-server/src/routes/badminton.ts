@@ -242,8 +242,10 @@ router.use(async (req, res, next) => {
 
   const isOrganizer = await canAccessPrivateTournamentData(req, tournamentId);
   const isScorerPinProvided = !!req.headers["x-scorer-pin"] || !!req.headers["x-scorer-token"];
+  const isSpectatorScope = req.query.scope === "spectator" || req.headers["x-bidwar-scope"] === "spectator";
+  const isAuthorizedManagement = (isOrganizer || isScorerPinProvided) && !isSpectatorScope;
 
-  if (!isOrganizer && !isScorerPinProvided && !isTournamentLicensed(tournament)) {
+  if (!isAuthorizedManagement && !isTournamentLicensed(tournament)) {
     res.status(403).json({
       error: "Badminton scoring requires an active BidWar licence.",
       code: "UNLICENSED_TOURNAMENT",

@@ -88,6 +88,11 @@ export default function Dashboard() {
                   <CardTitle className="text-2xl mt-4 line-clamp-1 group-hover:text-primary transition-colors">
                     {tournament.name}
                   </CardTitle>
+                  {tournament.season?.trim() ? (
+                    <p className="text-xs font-semibold text-muted-foreground mt-0.5">
+                      {tournament.season.trim()}
+                    </p>
+                  ) : null}
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col justify-end">
                   <div className="space-y-3 text-sm text-muted-foreground">

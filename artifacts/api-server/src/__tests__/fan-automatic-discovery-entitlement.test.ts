@@ -152,20 +152,26 @@ function extractAllNumbers(node: any): number[] {
   const nums: number[] = [];
   function walk(n: any) {
     if (n === null || n === undefined) return;
-    if (typeof n === "number") {
+    if (typeof n === "number" && !isNaN(n)) {
       nums.push(n);
       return;
     }
+    if (typeof n.value === "number" && !isNaN(n.value)) {
+      nums.push(n.value);
+    }
+    if (typeof n.right === "number" && !isNaN(n.right)) {
+      nums.push(n.right);
+    } else if (n.right && typeof n.right === "object") {
+      walk(n.right);
+    }
     if (Array.isArray(n)) {
       for (const item of n) walk(item);
-      return;
     }
-    if (typeof n === "object") {
-      if (typeof n.value === "number") nums.push(n.value);
-      if (typeof n.right === "number") nums.push(n.right);
-      if (Array.isArray(n.queryChunks)) {
-        for (const chunk of n.queryChunks) walk(chunk);
-      }
+    if (Array.isArray(n.queryChunks)) {
+      for (const chunk of n.queryChunks) walk(chunk);
+    }
+    if (Array.isArray(n.params)) {
+      for (const p of n.params) walk(p);
     }
   }
   walk(node);
@@ -228,7 +234,7 @@ vi.mock("@workspace/db", async (importOriginal) => {
           limit: () => chain,
           then: (resolve: any) => {
             const numbers = extractAllNumbers(whereCond);
-            const targetId = numbers.length > 0 ? numbers[0] : undefined;
+            const targetId = numbers.find((n) => n in mockTournaments) ?? (numbers.length > 0 ? numbers[0] : undefined);
 
             // Grouped count on playersTable (teamId, count)
             if (fields && typeof fields === "object" && "teamId" in fields && "count" in fields) {
@@ -633,7 +639,7 @@ describe("Fan Arena — Automatic Discovery, Licence Entitlements & Security", (
       expect(ids).toContain(103);
     });
 
-    it("allows Super Admin to permanently delete tournament and cascades out of Fan Arena", async () => {
+    it("allows Super Admin to permanently delete tournament via admin route and cascades out of Fan Arena", async () => {
       mockCallerRole = "admin";
       const res = await request(app).delete("/api/auth/admin/tournaments/101");
       expect(res.status).toBe(200);
@@ -648,6 +654,80 @@ describe("Fan Arena — Automatic Discovery, Licence Entitlements & Security", (
       // Detail context returns 404
       const contextRes = await request(app).get("/api/tournaments/101/fan/context");
       expect(contextRes.status).toBe(404);
+    });
+
+    it("enforces Super Admin-only deletion on DELETE /tournaments/:tournamentId (401 unauth, 403 organizer, 204 admin)", async () => {
+      // 1. Unauthenticated caller -> HTTP 401
+      mockCallerRole = "anonymous";
+      const unauthRes = await request(app).delete("/api/tournaments/102");
+      expect(unauthRes.status).toBe(401);
+
+      // 2. Authenticated organizer -> HTTP 403
+      mockCallerRole = "organizer_10";
+      const orgRes = await request(app).delete("/api/tournaments/102");
+      expect(orgRes.status).toBe(403);
+      expect(orgRes.body.error).toContain("Only Super Admin can delete tournaments");
+
+      // Verify tournament 102 still exists in discovery
+      mockCallerRole = "anonymous";
+      const discoveryBefore = await request(app).get("/api/fan/tournaments?limit=50");
+      expect(discoveryBefore.body.items.map((t: any) => t.id)).toContain(102);
+
+      // 3. Super Admin -> HTTP 204
+      mockCallerRole = "admin";
+      const adminRes = await request(app).delete("/api/tournaments/102");
+      expect(adminRes.status).toBe(204);
+
+      // 4. Verify tournament 102 disappeared from discovery, context and direct public APIs
+      mockCallerRole = "anonymous";
+      const discoveryAfter = await request(app).get("/api/fan/tournaments?limit=50");
+      expect(discoveryAfter.body.items.map((t: any) => t.id)).not.toContain(102);
+
+      const contextAfter = await request(app).get("/api/tournaments/102/fan/context");
+      expect(contextAfter.status).toBe(404);
+
+      const detailAfter = await request(app).get("/api/tournaments/102");
+      expect(detailAfter.status).toBe(404);
+    });
+
+    it("verifies licence suspension and restoration transitions with discovery persistence and Level 1/2 switching", async () => {
+      // 102 is active (licensed Level 2)
+      mockCallerRole = "anonymous";
+      const initialDiscovery = await request(app).get("/api/fan/tournaments?limit=50");
+      expect(initialDiscovery.body.items.map((t: any) => t.id)).toContain(102);
+
+      const initialContext = await request(app).get("/api/tournaments/102/fan/context");
+      expect(initialContext.body.isLicensed).toBe(true);
+
+      const initialPlayers = await request(app).get("/api/tournaments/102/players");
+      expect(initialPlayers.status).toBe(200);
+
+      // Suspend licence
+      mockTournaments[102].licenseStatus = "suspended";
+
+      // Discovery: remains discoverable!
+      const suspendedDiscovery = await request(app).get("/api/fan/tournaments?limit=50");
+      expect(suspendedDiscovery.body.items.map((t: any) => t.id)).toContain(102);
+
+      // Context: downgrades to Level 1
+      const suspendedContext = await request(app).get("/api/tournaments/102/fan/context");
+      expect(suspendedContext.body.isLicensed).toBe(false);
+
+      // Players: restricted with HTTP 403 UNLICENSED_TOURNAMENT
+      const suspendedPlayers = await request(app).get("/api/tournaments/102/players");
+      expect(suspendedPlayers.status).toBe(403);
+      expect(suspendedPlayers.body.code).toBe("UNLICENSED_TOURNAMENT");
+
+      // Restore licence
+      mockTournaments[102].licenseStatus = "active";
+
+      // Context: upgraded back to Level 2
+      const restoredContext = await request(app).get("/api/tournaments/102/fan/context");
+      expect(restoredContext.body.isLicensed).toBe(true);
+
+      // Players: re-allowed
+      const restoredPlayers = await request(app).get("/api/tournaments/102/players");
+      expect(restoredPlayers.status).toBe(200);
     });
   });
 });

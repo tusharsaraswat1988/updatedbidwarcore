@@ -114,6 +114,7 @@ export function adaptCricketToBroadcastFrame(
     vm.tournamentName || "BidWar Cricket",
     vm.tournamentLogoUrl || tournamentLogoUrl || null,
     vm.venueText,
+    (vm as { season?: string | null }).season,
   );
 
   const sponsors = mapSponsors(

@@ -140,6 +140,7 @@ router.get("/tournaments", async (req, res) => {
 
 const tournamentInputSchema = z.object({
   name: z.string().min(1),
+  season: z.string().nullable().optional(),
   sport: z.string().default("cricket"),
   city: z.string().trim().min(1, "City is required"),
   venue: z.string().optional(),
@@ -302,6 +303,7 @@ router.post("/tournaments", async (req, res) => {
     .insert(tournamentsTable)
     .values({
       name: d.name,
+      season: d.season ? d.season.trim() : null,
       sport: d.sport,
       sportId: await resolveSportIdBySlug(d.sport),
       auctionCode,
@@ -383,9 +385,11 @@ router.get("/tournaments/:tournamentId", async (req, res) => {
     return;
   }
 
-  const serializer = isOrganizer ? tournamentToJson : tournamentToPublicJson;
+  const isSpectatorScope = req.query.scope === "spectator" || req.headers["x-bidwar-scope"] === "spectator";
+  const isOrganizerManagement = isOrganizer && !isSpectatorScope;
+  const serializer = isOrganizerManagement ? tournamentToJson : tournamentToPublicJson;
   res.json(serializer(tournament, {
-    includeScoringPin: isOrganizer,
+    includeScoringPin: isOrganizerManagement,
     platformDefaults,
   }));
 });
@@ -396,6 +400,7 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (!(await requireTournamentOrganizer(req, res, id))) return;
   const schema = z.object({
     name: z.string().optional(),
+    season: z.string().nullable().optional(),
     sport: z.string().optional(),
     city: z.string().trim().min(1).optional(),
     venue: z.string().optional(),
@@ -571,6 +576,9 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   const imageChanges: ImageFieldChange[] = [];
   let removedSponsorLogos: ReturnType<typeof listRemovedSponsorLogos> = [];
   if (d.name !== undefined) updates.name = d.name;
+  if (d.season !== undefined) {
+    updates.season = d.season === "" || d.season === null ? null : d.season.trim();
+  }
   if (d.sport !== undefined) {
     updates.sport = d.sport;
     updates.sportId = await resolveSportIdBySlug(d.sport);
@@ -821,9 +829,29 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
 });
 
 router.delete("/tournaments/:tournamentId", async (req, res) => {
-  const id = parseInt(req.params.tournamentId);
+  const id = parseInt(String(req.params.tournamentId), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid ID" }); return; }
-  if (!(await requireTournamentOrganizer(req, res, id))) return;
+
+  // 1. Unauthenticated denial (HTTP 401)
+  const hasAuth = Boolean(
+    req.jwtUser &&
+      (req.jwtUser.isAdmin ||
+        req.jwtUser.organizerAccountId ||
+        (req.jwtUser.organizer && Object.keys(req.jwtUser.organizer).length > 0) ||
+        req.jwtUser.email)
+  );
+  if (!hasAuth) {
+    res.status(401).json({ error: "Not authorised" });
+    return;
+  }
+
+  // 2. Explicit Super Admin authorization only — ordinary organisers receive HTTP 403
+  const isSuperAdmin = Boolean(req.jwtUser?.isAdmin && (!req.jwtUser.adminLevel || req.jwtUser.adminLevel === "master"));
+  if (!isSuperAdmin) {
+    res.status(403).json({ error: "Forbidden: Only Super Admin can delete tournaments" });
+    return;
+  }
+
   const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, id));
   if (!before) {
     res.status(404).json({ error: "Not found" });
@@ -836,9 +864,9 @@ router.delete("/tournaments/:tournamentId", async (req, res) => {
     return;
   }
   auditLog(req, {
-    category: "tournament",
+    category: "admin",
     action: "tournament.deleted",
-    summary: `Tournament "${before.name}" deleted`,
+    summary: `Super Admin deleted tournament "${before.name}" and all tournament-scoped data`,
     severity: "critical",
     tournamentId: id,
     resource: { type: "tournament", id: id },

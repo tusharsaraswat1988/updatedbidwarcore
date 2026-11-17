@@ -33,6 +33,7 @@ export function unlicensedSpectatorTournamentSerializer(t: TournamentRow) {
   return {
     id: t.id,
     name: t.name,
+    season: t.season ?? null,
     sport: t.sport,
     sportId: t.sportId ?? null,
     venue: t.venue ?? null,
@@ -66,6 +67,7 @@ export function spectatorTournamentSerializer(
   return {
     id: t.id,
     name: t.name,
+    season: t.season ?? null,
     sport: t.sport,
     sportId: t.sportId ?? null,
     auctionCode: t.auctionCode ?? null,
@@ -109,6 +111,7 @@ export function publicTournamentSerializer(
   return {
     id: t.id,
     name: t.name,
+    season: t.season ?? null,
     sport: t.sport,
     sportId: t.sportId ?? null,
     auctionCode: t.auctionCode ?? null,

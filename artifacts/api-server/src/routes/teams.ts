@@ -21,7 +21,7 @@ import { db } from "@workspace/db";
 import { teamsTable, tournamentsTable, organizersTable, playersTable, categoriesTable, auctionSessionsTable } from "@workspace/db";
 import { CURRENT_CONSENT_NOTICE_VERSION } from "@workspace/api-base";
 import { recordConsentGranted, recordConsentWithdrawal, handlePhoneNumberChange } from "../lib/communication/consent-service";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { logger } from "../lib/logger";
 import { computeAllTeamPurseProtections } from "../lib/purse-protection";
@@ -130,7 +130,7 @@ router.get("/tournaments/:tournamentId/teams", async (req, res) => {
     .where(eq(teamsTable.tournamentId, tid))
     .orderBy(teamsTable.name);
 
-  // Compute player counts per team for this tournament
+  // Compute player counts per team for this tournament (excluding withdrawn / rejected registrations)
   const teamPlayerCounts = new Map<number, number>();
   try {
     const counts = await db
@@ -139,7 +139,14 @@ router.get("/tournaments/:tournamentId/teams", async (req, res) => {
         count: sql<number>`count(*)::int`,
       })
       .from(playersTable)
-      .where(and(eq(playersTable.tournamentId, tid), sql`${playersTable.teamId} IS NOT NULL`))
+      .where(
+        and(
+          eq(playersTable.tournamentId, tid),
+          sql`${playersTable.teamId} IS NOT NULL`,
+          ne(playersTable.status, "withdrawn"),
+          sql`(${playersTable.registrationPaymentStatus} IS NULL OR ${playersTable.registrationPaymentStatus} != 'rejected')`,
+        ),
+      )
       .groupBy(playersTable.teamId);
     for (const c of counts) {
       if (c.teamId != null) {
@@ -150,7 +157,10 @@ router.get("/tournaments/:tournamentId/teams", async (req, res) => {
     // Non-blocking
   }
 
-  if (isOrganizer) {
+  const isSpectatorScope = req.query.scope === "spectator" || req.headers["x-bidwar-scope"] === "spectator";
+
+  // Dedicated organizer management workspace route (/tournament/:id/teams)
+  if (isOrganizer && !isSpectatorScope) {
     res.json(
       teams.map((t) => ({
         ...teamToJson(t),
@@ -174,6 +184,58 @@ router.get("/tournaments/:tournamentId/teams", async (req, res) => {
   res.json(
     teams.map((t) => publicTeamSerializer(t, teamPlayerCounts.get(t.id) ?? 0)),
   );
+});
+
+/**
+ * GET /tournaments/:tournamentId/fan/teams
+ * Dedicated pure spectator endpoint for Fan Arena.
+ * Returns only public allowlist DTOs regardless of caller auth state.
+ */
+router.get("/tournaments/:tournamentId/fan/teams", async (req, res) => {
+  const tid = parseInt(req.params.tournamentId);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
+
+  const isLicensed = isTournamentLicensed(tournament);
+
+  const teams = await db
+    .select()
+    .from(teamsTable)
+    .where(eq(teamsTable.tournamentId, tid))
+    .orderBy(teamsTable.name);
+
+  const teamPlayerCounts = new Map<number, number>();
+  try {
+    const counts = await db
+      .select({
+        teamId: playersTable.teamId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.tournamentId, tid),
+          sql`${playersTable.teamId} IS NOT NULL`,
+          ne(playersTable.status, "withdrawn"),
+          sql`(${playersTable.registrationPaymentStatus} IS NULL OR ${playersTable.registrationPaymentStatus} != 'rejected')`,
+        ),
+      )
+      .groupBy(playersTable.teamId);
+    for (const c of counts) {
+      if (c.teamId != null) {
+        teamPlayerCounts.set(c.teamId, c.count);
+      }
+    }
+  } catch {}
+
+  if (!isLicensed) {
+    res.json(teams.map((t) => unlicensedTeamSummarySerializer(t, teamPlayerCounts.get(t.id) ?? 0)));
+    return;
+  }
+
+  res.json(teams.map((t) => publicTeamSerializer(t, teamPlayerCounts.get(t.id) ?? 0)));
 });
 
 router.post("/tournaments/:tournamentId/teams", async (req, res) => {
@@ -463,13 +525,27 @@ router.get("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
   const isLicensed = isTournamentLicensed(tournament);
 
-  const [playerCountRow] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(playersTable)
-    .where(and(eq(playersTable.tournamentId, tid), eq(playersTable.teamId, teamId)));
-  const playerCount = playerCountRow?.count ?? 0;
+  let playerCount = 0;
+  try {
+    const [playerCountRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(playersTable)
+      .where(
+        and(
+          eq(playersTable.tournamentId, tid),
+          eq(playersTable.teamId, teamId),
+          ne(playersTable.status, "withdrawn"),
+          sql`(${playersTable.registrationPaymentStatus} IS NULL OR ${playersTable.registrationPaymentStatus} != 'rejected')`,
+        ),
+      );
+    playerCount = playerCountRow?.count ?? 0;
+  } catch {
+    // Non-blocking fallback
+  }
 
-  if (isOrganizer) {
+  const isSpectatorScope = req.query.scope === "spectator" || req.headers["x-bidwar-scope"] === "spectator";
+
+  if (isOrganizer && !isSpectatorScope) {
     return res.json({
       ...teamToJson(team),
       playerCount,

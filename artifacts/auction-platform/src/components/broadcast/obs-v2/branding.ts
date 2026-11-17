@@ -24,6 +24,7 @@ export function deriveBranding(
   tournamentName: string | null,
   tournamentLogoUrl: string | null,
   venue?: string | null,
+  season?: string | null,
 ): BroadcastBranding {
   const cleanName = (tournamentName || "BidWar Cricket").trim();
   const parts = cleanName.split(/\s+/);
@@ -37,6 +38,7 @@ export function deriveBranding(
     tournamentShort: shortCode,
     tournamentLogoUrl: tournamentLogoUrl || undefined,
     venue: venue || undefined,
+    season: season?.trim() || undefined,
   };
 }
 

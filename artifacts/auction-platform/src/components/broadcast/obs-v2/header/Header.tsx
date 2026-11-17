@@ -43,6 +43,22 @@ export function TournamentBrand({ branding }: { branding: BroadcastBranding }) {
           {branding.tournamentAccent && (
             <span className="bw-tn-accent">{branding.tournamentAccent}</span>
           )}
+          {branding.season && (
+            <span
+              className="bw-tn-season"
+              style={{
+                fontSize: 14,
+                color: "rgba(255, 215, 0, 0.9)",
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                fontFamily: "'Inter', sans-serif",
+                fontWeight: 700,
+                marginLeft: 8,
+              }}
+            >
+              ({branding.season})
+            </span>
+          )}
         </div>
         {branding.venue && (
           <span

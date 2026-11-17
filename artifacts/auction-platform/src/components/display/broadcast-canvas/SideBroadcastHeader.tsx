@@ -37,11 +37,13 @@ type SideBroadcastHeaderVariant = "profile" | "sponsor";
 
 export function SideBroadcastHeader({
   tournamentName,
+  season,
   variant = "sponsor",
   showLiveDot = false,
   isTrial = false,
 }: {
   tournamentName: string;
+  season?: string | null;
   variant?: SideBroadcastHeaderVariant;
   showLiveDot?: boolean;
   isTrial?: boolean;
@@ -184,7 +186,7 @@ export function SideBroadcastHeader({
             WebkitBoxOrient: "vertical",
           }}
         >
-          {tournamentName}
+          {tournamentName}{season?.trim() ? ` · ${season.trim()}` : ""}{season?.trim() ? ` · ${season.trim()}` : ""}
         </h1>
 
       </>
@@ -292,7 +294,7 @@ export function SideBroadcastHeader({
           WebkitBoxOrient: "vertical",
         }}
       >
-        {tournamentName}
+        {tournamentName}{season?.trim() ? ` · ${season.trim()}` : ""}
       </h1>
 
     </>

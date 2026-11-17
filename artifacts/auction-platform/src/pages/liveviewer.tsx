@@ -617,7 +617,10 @@ function CompletedScreen({
             Auction Concluded
           </h1>
           {tournament?.name && (
-            <p className="font-display font-bold text-base sm:text-lg text-amber-400/90 mt-1.5 line-clamp-2">{tournament.name}</p>
+            <p className="font-display font-bold text-base sm:text-lg text-amber-400/90 mt-1.5 line-clamp-2">
+              {tournament.name}
+              {tournament.season?.trim() ? ` · ${tournament.season.trim()}` : ""}
+            </p>
           )}
         </div>
       </div>
@@ -765,6 +768,11 @@ function IdleHoldingScreen({ tournament }: { tournament?: Tournament }) {
         <p className="font-display font-bold text-[22px] md:text-xl text-foreground leading-tight">
           {tournament?.name || "Live Auction"}
         </p>
+        {tournament?.season?.trim() ? (
+          <p className="text-xs font-semibold text-muted-foreground mt-0.5">
+            {tournament.season.trim()}
+          </p>
+        ) : null}
         <p className="text-[15px] md:text-sm text-muted-foreground">Waiting for the auction to start</p>
       </div>
     </div>
@@ -1799,9 +1807,16 @@ export default function LiveViewerPage({
                     className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-xl object-contain flex-shrink-0 bg-white/5 border border-white/10 shadow-sm"
                   />
                 )}
-                <h1 className="font-display font-black text-lg sm:text-2xl md:text-3xl lg:text-4xl leading-tight text-white tracking-tight line-clamp-2 drop-shadow-md">
-                  {tournament?.name || "Live Auction"}
-                </h1>
+                <div className="flex flex-col items-center">
+                  <h1 className="font-display font-black text-lg sm:text-2xl md:text-3xl lg:text-4xl leading-tight text-white tracking-tight line-clamp-2 drop-shadow-md">
+                    {tournament?.name || "Live Auction"}
+                  </h1>
+                  {tournament?.season?.trim() ? (
+                    <span className="mt-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/10 text-white/80 border border-white/20">
+                      {tournament.season.trim()}
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </>
           )}

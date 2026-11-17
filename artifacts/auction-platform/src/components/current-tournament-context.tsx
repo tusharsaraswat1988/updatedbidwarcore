@@ -5,6 +5,7 @@ import { TrialLicenseBadge } from "@/components/trial-license-badge";
 type CurrentTournamentContextProps = {
   tournamentId: number;
   name?: string | null;
+  season?: string | null;
   status?: string | null;
   licenseStatus?: string | null;
   expanded: boolean;
@@ -27,18 +28,20 @@ export function formatTournamentStatusLabel(status?: string | null): string | nu
 export function CurrentTournamentContext({
   tournamentId,
   name,
+  season,
   status,
   licenseStatus,
   expanded,
   overviewHref,
 }: CurrentTournamentContextProps) {
   const displayName = name?.trim() || "Tournament";
+  const displaySeason = season?.trim() || null;
   const statusLabel = formatTournamentStatusLabel(status);
   const showTrialBadge =
     !!licenseStatus && licenseStatus !== "active" && licenseStatus !== "completed";
   const accessibleLabel = statusLabel
-    ? `Current tournament: ${displayName}, status ${statusLabel}`
-    : `Current tournament: ${displayName}`;
+    ? `Current tournament: ${displayName}${displaySeason ? ` (${displaySeason})` : ""}, status ${statusLabel}`
+    : `Current tournament: ${displayName}${displaySeason ? ` (${displaySeason})` : ""}`;
 
   if (!expanded) {
     return (
@@ -77,6 +80,11 @@ export function CurrentTournamentContext({
             <p className="text-[14px] font-bold leading-snug text-foreground line-clamp-2 break-words">
               {displayName}
             </p>
+            {displaySeason ? (
+              <p className="text-[11px] font-medium text-muted-foreground line-clamp-1">
+                {displaySeason}
+              </p>
+            ) : null}
             <div className="mt-1 flex flex-wrap items-center gap-1.5 min-w-0">
               {statusLabel ? (
                 <span

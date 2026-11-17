@@ -951,6 +951,7 @@ export async function getPublicTournamentSchedule(tournamentId: number) {
     .select({
       id: tournamentsTable.id,
       name: tournamentsTable.name,
+      season: tournamentsTable.season,
       sport: tournamentsTable.sport,
       scoringEnabled: tournamentsTable.scoringEnabled,
       status: tournamentsTable.status,

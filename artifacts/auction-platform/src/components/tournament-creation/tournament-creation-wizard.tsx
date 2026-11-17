@@ -47,6 +47,7 @@ import {
 
 export type TournamentCreationPayload = {
   name: string;
+  season?: string;
   sport: string;
   city: string;
   venue?: string;
@@ -208,6 +209,7 @@ export function TournamentCreationWizard({
 
     const payload: TournamentCreationPayload = {
       name: draft.name.trim(),
+      season: draft.season?.trim() || undefined,
       sport: draft.sportId,
       city: draft.city.trim(),
       venue: draft.venue.trim() || undefined,
@@ -315,6 +317,23 @@ export function TournamentCreationWizard({
                 className="h-11 rounded-xl bg-white border border-slate-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-slate-900 text-sm font-medium shadow-xs"
                 autoFocus
               />
+            </div>
+
+            {/* Season Field */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-foreground/90">
+                <span>Season</span>
+                <span className="text-[10px] text-muted-foreground lowercase font-normal">(optional)</span>
+              </Label>
+              <Input
+                value={draft.season || ""}
+                onChange={(e) => patch({ season: e.target.value })}
+                placeholder="e.g. Season 2026–27"
+                className="h-11 rounded-xl bg-white border border-slate-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-slate-900 text-sm shadow-xs"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Optional · Enter season, edition or year
+              </p>
             </div>
 
             {/* Sport Selector */}

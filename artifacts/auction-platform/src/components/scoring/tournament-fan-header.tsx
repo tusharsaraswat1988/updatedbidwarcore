@@ -308,6 +308,11 @@ export function TournamentFanHeader({
                   <h1 className="font-display font-black text-sm sm:text-lg md:text-xl text-white tracking-tight truncate drop-shadow-md uppercase">
                     {tournament.name}
                   </h1>
+                  {tournament.season?.trim() ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-white/10 text-white/80 border border-white/20 shrink-0 uppercase tracking-normal font-sans">
+                      {tournament.season.trim()}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </>

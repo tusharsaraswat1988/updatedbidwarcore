@@ -1187,8 +1187,11 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
   if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
   if (!requireAuctionModule(res, tournament)) return;
 
+  const isSpectatorScope = req.query.scope === "spectator" || req.headers["x-bidwar-scope"] === "spectator";
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
-  if (!isOrganizer && !isTournamentLicensed(tournament)) {
+  const isAuthorizedManagement = isOrganizer && !isSpectatorScope;
+
+  if (!isAuthorizedManagement && !isTournamentLicensed(tournament)) {
     res.status(403).json({
       error: "Live auction stream requires an active BidWar licence.",
       code: "UNLICENSED_TOURNAMENT",
@@ -1284,8 +1287,11 @@ router.get("/tournaments/:tournamentId/auction", async (req, res) => {
   if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
   if (!requireAuctionModule(res, tournament)) return;
 
+  const isSpectatorScope = req.query.scope === "spectator" || req.headers["x-bidwar-scope"] === "spectator";
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
-  if (!isOrganizer && !isTournamentLicensed(tournament)) {
+  const isAuthorizedManagement = isOrganizer && !isSpectatorScope;
+
+  if (!isAuthorizedManagement && !isTournamentLicensed(tournament)) {
     res.status(403).json({
       error: "Live auction stream requires an active BidWar licence.",
       code: "UNLICENSED_TOURNAMENT",
@@ -4214,8 +4220,11 @@ router.get("/tournaments/:tournamentId/auction/bids", async (req, res) => {
   if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
   if (!requireAuctionModule(res, tournament)) return;
 
+  const isSpectatorScope = req.query.scope === "spectator" || req.headers["x-bidwar-scope"] === "spectator";
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
-  if (!isOrganizer && !isTournamentLicensed(tournament)) {
+  const isAuthorizedManagement = isOrganizer && !isSpectatorScope;
+
+  if (!isAuthorizedManagement && !isTournamentLicensed(tournament)) {
     res.status(403).json({
       error: "Live auction stream requires an active BidWar licence.",
       code: "UNLICENSED_TOURNAMENT",

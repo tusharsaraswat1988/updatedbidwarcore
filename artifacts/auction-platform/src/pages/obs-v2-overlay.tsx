@@ -155,6 +155,7 @@ export default function ObsV2Overlay() {
     <BroadcastLabLayout
       tournamentId={tournamentId}
       tournamentName={tournament?.name ?? null}
+      season={tournament?.season ?? null}
       tournamentLogoUrl={tournament?.logoUrl ?? null}
       auctionStartsAt={auctionStartsAt}
       sponsorLogos={sponsorLogos}

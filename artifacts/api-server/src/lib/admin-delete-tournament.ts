@@ -45,6 +45,8 @@ import {
 import { eq, inArray, or } from "drizzle-orm";
 import { invalidateIntelCacheForTournament } from "./intelligence-cache";
 import { archiveIntelligenceBeforeDelete } from "./intelligence-archive";
+import { invalidateAuctionBuildCache } from "./auction-state-build-cache";
+import { invalidateHomepagePageCache } from "./homepage-data";
 
 /**
  * Permanently removes a tournament and all tournament-scoped data.
@@ -175,5 +177,9 @@ export async function adminDeleteTournamentCascade(tournamentId: number): Promis
   });
 
   invalidateIntelCacheForTournament(tournamentId);
+  try {
+    invalidateAuctionBuildCache(tournamentId, "all");
+    invalidateHomepagePageCache();
+  } catch {}
   return true;
 }

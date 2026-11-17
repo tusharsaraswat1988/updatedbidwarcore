@@ -24,7 +24,7 @@ const LAB_TOURNAMENT_LOGO_MAX_W = 200;
 const LAB_BIDWAR_MAX_W = 320;
 
 /** Compact tournament title — less vertical chrome for camera. */
-function LabTournamentTitle({ name }: { name: string }) {
+function LabTournamentTitle({ name, season }: { name: string; season?: string | null }) {
   return (
     <div
       style={{
@@ -74,7 +74,7 @@ function LabTournamentTitle({ name }: { name: string }) {
             whiteSpace: "nowrap",
           }}
         >
-          {name}
+          {name}{season?.trim() ? ` · ${season.trim()}` : ""}
         </p>
         <span
           aria-hidden
@@ -97,10 +97,12 @@ function LabTournamentTitle({ name }: { name: string }) {
 export const BroadcastLabOverlayTopBar = memo(function BroadcastLabOverlayTopBar({
   tournamentLogoUrl,
   tournamentName,
+  season,
   sponsorLogos,
 }: {
   tournamentLogoUrl?: string | null;
   tournamentName?: string | null;
+  season?: string | null;
   sponsorLogos: SponsorLogo[];
 }) {
   const { logos, brandName, iconVersion } = useBranding();
@@ -208,7 +210,7 @@ export const BroadcastLabOverlayTopBar = memo(function BroadcastLabOverlayTopBar
         </div>
       </div>
 
-      {title ? <LabTournamentTitle name={title} /> : null}
+      {title ? <LabTournamentTitle name={title} season={season} /> : null}
     </div>
   );
 });

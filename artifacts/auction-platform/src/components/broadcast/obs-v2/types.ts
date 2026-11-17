@@ -12,6 +12,7 @@ export interface ObsV2TeamInfo {
 
 export interface ObsV2HeaderData {
   tournamentName?: string;
+  season?: string | null;
   tournamentLogoUrl?: string | null;
   matchContext?: string; // e.g. "Qualifier 01", "Match 14", "Final"
   live?: boolean;

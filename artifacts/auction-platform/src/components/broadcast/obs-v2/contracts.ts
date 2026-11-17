@@ -43,6 +43,8 @@ export interface BroadcastBranding {
   tournamentLogoUrl?: string;
   /** Optional venue / location subline for header display */
   venue?: string;
+  /** Optional season / edition / year */
+  season?: string;
 }
 
 /** Production: TeamPurse */

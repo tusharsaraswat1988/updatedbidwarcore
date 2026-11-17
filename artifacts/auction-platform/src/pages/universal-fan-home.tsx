@@ -46,6 +46,7 @@ interface PublicBroadcast {
 interface FanDiscoveryCard {
   id: number;
   name: string;
+  season?: string | null;
   code: string | null;
   sport: string;
   city: string | null;
@@ -276,9 +277,16 @@ export default function UniversalFanHome() {
                     {spotlightTournament.sport} • {spotlightTournament.liveSnippet || "Action in Progress"}
                   </span>
                 </div>
-                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                  {spotlightTournament.name}
-                </h2>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    {spotlightTournament.name}
+                  </h2>
+                  {spotlightTournament.season?.trim() ? (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-white/10 text-amber-200 border border-white/15">
+                      {spotlightTournament.season.trim()}
+                    </span>
+                  ) : null}
+                </div>
                 <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
                   {spotlightTournament.city && (
                     <span className="flex items-center gap-1">
@@ -629,6 +637,11 @@ export default function UniversalFanHome() {
                         <h3 className="font-bold text-base text-white group-hover:text-amber-300 transition-colors line-clamp-2 leading-snug">
                           {tournament.name}
                         </h3>
+                        {tournament.season?.trim() ? (
+                          <p className="text-[11px] font-medium text-slate-300 mt-0.5 line-clamp-1">
+                            {tournament.season.trim()}
+                          </p>
+                        ) : null}
                         {tournament.code && (
                           <p className="text-[11px] font-mono font-bold text-amber-400/80 mt-0.5">
                             #{tournament.code}

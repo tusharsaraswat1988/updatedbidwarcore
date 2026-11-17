@@ -34,6 +34,7 @@ export interface UnifiedFanPageShellProps {
   tournament: {
     id: number;
     name: string;
+    season?: string | null;
     sport?: string | null;
     city?: string | null;
     venue?: string | null;
@@ -166,6 +167,11 @@ export function UnifiedFanPageShell({
                 <h1 className="font-display font-bold text-sm sm:text-base text-white truncate max-w-[200px] sm:max-w-md lg:max-w-lg">
                   {tournament.name}
                 </h1>
+                {tournament.season?.trim() ? (
+                  <span className="hidden sm:inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold bg-white/10 text-slate-300 border border-white/15">
+                    {tournament.season.trim()}
+                  </span>
+                ) : null}
                 {tournament.auctionCode && (
                   <span className="hidden md:inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-white/[0.06] text-amber-400 border border-amber-400/30">
                     {tournament.auctionCode}
@@ -173,6 +179,11 @@ export function UnifiedFanPageShell({
                 )}
               </div>
               <div className="flex items-center gap-2 text-[11px] text-slate-400 truncate">
+                {tournament.season?.trim() ? (
+                  <span className="sm:hidden px-1.5 py-0.2 rounded bg-white/[0.06] text-slate-300 font-medium">
+                    {tournament.season.trim()}
+                  </span>
+                ) : null}
                 {tournament.city && (
                   <span className="flex items-center gap-1">
                     <MapPin className="w-3 h-3 text-slate-500 shrink-0" />

@@ -771,6 +771,7 @@ export function useLedView(
       tournament: {
         id: tournament.id,
         name: tournament.name,
+        season: tournament.season ?? null,
         organizer: tournament.organizerName ?? "",
         venue: tournament.venue ?? "",
         date: tournament.auctionDate ?? "",

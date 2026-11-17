@@ -226,6 +226,7 @@ export type LedView = {
   tournament: {
     id?: number;
     name: string;
+    season?: string | null;
     organizer: string;
     venue: string;
     date: string;

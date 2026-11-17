@@ -7,6 +7,7 @@ export type LicenseOptionId = "auction_only" | "scoring_only" | "auction_and_sco
 
 export type TournamentCreationDraft = {
   name: string;
+  season?: string;
   city: string;
   venue: string;
   sportId: string;
@@ -46,6 +47,7 @@ export function emptyTournamentCreationDraft(
 ): TournamentCreationDraft {
   return {
     name: "",
+    season: "",
     city: "",
     venue: "",
     sportId: "cricket",

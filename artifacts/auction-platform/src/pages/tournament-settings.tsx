@@ -191,6 +191,7 @@ export default function TournamentSettings() {
   const hydrateFromTournament = useCallback((t: NonNullable<typeof tournament>) => {
     const initialForm = {
       name: t.name,
+      season: (t as { season?: string | null }).season || "",
       sport: t.sport,
       city: t.city || "",
       venue: t.venue || "",
@@ -652,6 +653,7 @@ export default function TournamentSettings() {
     const dataPayload: Record<string, unknown> = {
       reason: DEFAULT_SETTINGS_AUDIT_REASON,
       name: editForm.name as string,
+      season: (editForm.season as string)?.trim() || null,
       sport: editForm.sport as string,
       city: (editForm.city as string).trim() || undefined,
       venue: editForm.venue as string || undefined,
@@ -733,7 +735,7 @@ export default function TournamentSettings() {
     try {
       const saved = await updateTournament.mutateAsync({
         tournamentId,
-        data: dataPayload as import("@workspace/api-client-react").TournamentUpdate & {
+        data: dataPayload as unknown as import("@workspace/api-client-react").TournamentUpdate & {
           reason: string;
           logoPublicId?: string;
           mainBannerPublicId?: string | null;
@@ -1005,6 +1007,20 @@ export default function TournamentSettings() {
                       </p>
                     ) : null}
                   </div>
+                </div>
+
+                {/* Season */}
+                <div className="space-y-1.5 pt-0.5">
+                  <Label className="text-xs font-medium text-foreground/90">Season</Label>
+                  <Input
+                    value={(editForm.season as string) || ""}
+                    onChange={(e) => setEditForm((f) => ({ ...f, season: e.target.value }))}
+                    placeholder="e.g. Season 2026–27"
+                    className="h-9 text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Optional · Enter season, edition or year
+                  </p>
                 </div>
 
                 {/* Logo & Photo Section */}

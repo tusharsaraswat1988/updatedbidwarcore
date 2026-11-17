@@ -144,6 +144,11 @@ export const TournamentScoringPhase = {
 export interface Tournament {
   id: number;
   name: string;
+  /**
+   * Optional tournament season, edition or year (e.g. 'Season 2026–27', 'Edition 5')
+   * @nullable
+   */
+  season?: string | null;
   sport: string;
   /** @nullable */
   sportId?: number | null;
@@ -456,6 +461,11 @@ export const TournamentUpdateScoringPhase = {
 
 export interface TournamentUpdate {
   name?: string;
+  /**
+   * Optional tournament season, edition or year
+   * @nullable
+   */
+  season?: string | null;
   sport?: string;
   venue?: string;
   /** City where the tournament is held */
@@ -537,7 +547,6 @@ export interface TournamentUpdate {
   scoringPin?: string | null;
   /** Mandatory audit reason when changing auction rules or critical tournament config (min 10 characters) */
   reason?: string;
-  features?: Record<string, unknown>;
 }
 
 export interface Team {

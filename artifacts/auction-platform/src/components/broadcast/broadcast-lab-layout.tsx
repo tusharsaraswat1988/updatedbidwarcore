@@ -16,6 +16,7 @@ export type BroadcastLabLayoutProps = {
   tournamentId: number;
   outputTarget?: BroadcastOutputTarget;
   tournamentName: string | null;
+  season?: string | null;
   tournamentLogoUrl: string | null;
   auctionStartsAt?: string | null;
   sponsorLogos: SponsorLogo[];
@@ -70,6 +71,7 @@ export const BroadcastLabLayout = memo(function BroadcastLabLayout(props: Broadc
     return adaptAuctionToBroadcastFrame({
       directorFrame,
       tournamentName: props.tournamentName,
+      season: props.season,
       tournamentLogoUrl: props.tournamentLogoUrl,
       auctionStartsAt: props.auctionStartsAt,
       sponsorLogos: props.sponsorLogos,

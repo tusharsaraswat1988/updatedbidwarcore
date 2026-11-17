@@ -6,6 +6,8 @@ export const tournamentsTable = pgTable("tournaments", {
   id: serial("id").primaryKey(),
   organizerId: integer("organizer_id"),
   name: text("name").notNull(),
+  /** Optional season, edition or year (e.g. "Season 2026–27", "Edition 5"). Pure presentation metadata. */
+  season: text("season"),
   sport: text("sport").notNull().default("cricket"),
   // Dynamic sport reference (Phase 2) — nullable for backward compat
   sportId: integer("sport_id"),

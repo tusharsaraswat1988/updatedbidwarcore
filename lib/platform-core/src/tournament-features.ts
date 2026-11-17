@@ -371,10 +371,10 @@ export function isTournamentLicensed(
 ): boolean {
   if (!tournament) return false;
   if (tournament.adminLocked === true) return false;
+  if (tournament.licenseStatus === "suspended") return false;
   if (tournament.licenseStatus === "active") return true;
   if (
     tournament.status === "completed" &&
-    (tournament.licenseStatus === "completed" || tournament.licenseStatus === "active") &&
     tournament.licenseGrantedAt != null
   ) {
     return true;

@@ -196,9 +196,16 @@ export function OperatorLayout({
         {/* Desktop (>1024px): single row — Logo | Tournament Name | LIVE | Trial | Fullscreen | Setup */}
         <div className="hidden lg:flex items-center gap-3 px-3 py-2 min-h-[52px]">
           <OperatorAppIcon />
-          <h1 className="text-sm font-bold truncate text-foreground/90 flex-1 min-w-0">
-            {tournamentName}
-          </h1>
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            <h1 className="text-sm font-bold truncate text-foreground/90">
+              {tournamentName}
+            </h1>
+            {tournament?.season?.trim() ? (
+              <span className="text-[11px] font-medium text-muted-foreground truncate shrink-0">
+                ({tournament.season.trim()})
+              </span>
+            ) : null}
+          </div>
           {connectionBadge}
           {trialBadge}
           <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -211,9 +218,16 @@ export function OperatorLayout({
         <div className="flex lg:hidden flex-col gap-1 px-2.5 py-1.5">
           <div className="flex items-center gap-2 min-h-[32px]">
             <OperatorAppIcon compact />
-            <h1 className="text-[13px] font-bold truncate text-foreground/90 flex-1 min-w-0 leading-tight">
-              {tournamentName}
-            </h1>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-[13px] font-bold truncate text-foreground/90 leading-tight">
+                {tournamentName}
+              </h1>
+              {tournament?.season?.trim() ? (
+                <span className="text-[10px] font-medium text-muted-foreground truncate block leading-tight">
+                  {tournament.season.trim()}
+                </span>
+              ) : null}
+            </div>
             {connectionBadge}
             {setupButton}
           </div>

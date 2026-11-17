@@ -96,6 +96,18 @@ export const ObsV2Header = forwardRef<HTMLDivElement, ObsV2HeaderProps>(
               >
                 {tournamentName}
               </ObsV2Text>
+              {data?.season?.trim() ? (
+                <span
+                  className="text-xs font-semibold px-1.5 py-0.5 rounded tracking-normal uppercase"
+                  style={{
+                    color: OBS_V2.color.textSecondary,
+                    backgroundColor: OBS_V2.color.panelInset,
+                    border: `1px solid ${OBS_V2.color.hairline}`,
+                  }}
+                >
+                  {data.season.trim()}
+                </span>
+              ) : null}
             </div>
           </div>
 

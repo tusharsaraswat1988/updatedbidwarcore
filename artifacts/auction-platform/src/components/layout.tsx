@@ -38,6 +38,7 @@ interface LayoutProps {
 
 type TournamentData = {
   name?: string | null;
+  season?: string | null;
   sport?: string | null;
   auctionCode?: string | null;
   status?: string | null;
@@ -166,6 +167,7 @@ function SidebarNav({
           <CurrentTournamentContext
             tournamentId={tournamentId}
             name={tournament?.name}
+            season={tournament?.season}
             status={tournament?.status}
             licenseStatus={tournament?.licenseStatus}
             expanded={expanded}

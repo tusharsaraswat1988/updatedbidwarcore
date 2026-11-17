@@ -3,6 +3,7 @@
 export type PublicTournamentMeta = {
   id: number;
   name: string;
+  season?: string | null;
   sport: string;
   scoringEnabled: boolean;
   status?: string | null;

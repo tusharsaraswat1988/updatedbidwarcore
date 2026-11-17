@@ -14,6 +14,7 @@ import type {
 export interface AdaptAuctionToBroadcastFrameOptions {
   directorFrame: DirectorFrame;
   tournamentName: string | null;
+  season?: string | null;
   tournamentLogoUrl: string | null;
   auctionStartsAt?: string | null;
   sponsorLogos: BidWarSponsorLogo[];
@@ -44,6 +45,7 @@ export function adaptAuctionToBroadcastFrame(
   const {
     directorFrame,
     tournamentName,
+    season,
     tournamentLogoUrl,
     auctionStartsAt,
     sponsorLogos,
@@ -58,7 +60,7 @@ export function adaptAuctionToBroadcastFrame(
     showTicker = true,
   } = opts;
 
-  const branding = deriveBranding(tournamentName, tournamentLogoUrl);
+  const branding = deriveBranding(tournamentName, tournamentLogoUrl, undefined, season);
   const sponsors = mapSponsors(sponsorLogos);
   const teams = mapTeamPurses(teamPurses);
 

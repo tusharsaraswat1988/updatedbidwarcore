@@ -261,6 +261,7 @@ export default function AdminTournamentsListPage() {
       const cleanMobile = displayOrganizerMobile(t.organizerMobile) || "";
       return (
         t.name.toLowerCase().includes(q) ||
+        (t.season && t.season.toLowerCase().includes(q)) ||
         (t.auctionCode && t.auctionCode.toLowerCase().includes(q)) ||
         String(t.id).includes(q) ||
         (t.sport && t.sport.toLowerCase().includes(q)) ||
@@ -598,6 +599,11 @@ export default function AdminTournamentsListPage() {
                       >
                         {t.name}
                       </span>
+                      {t.season?.trim() ? (
+                        <span className="text-[11px] text-muted-foreground truncate block font-medium">
+                          {t.season.trim()}
+                        </span>
+                      ) : null}
                     </div>
 
                     {/* Col 2: Sport (Clean icon + typography, no box) */}

@@ -731,6 +731,11 @@ export function ScoreDisplayShell({ tournamentId }: { tournamentId: number }) {
               >
                 {tournamentTitle}
               </h2>
+              {tournament?.season?.trim() ? (
+                <p className="text-[11px] sm:text-xs font-bold text-amber-400 uppercase tracking-widest line-clamp-1 mt-0.5">
+                  {tournament.season.trim()}
+                </p>
+              ) : null}
             </div>
           </div>
 

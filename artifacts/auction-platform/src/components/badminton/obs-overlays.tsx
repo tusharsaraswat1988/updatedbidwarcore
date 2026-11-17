@@ -222,6 +222,7 @@ interface OverlayProps {
   type: OverlayType;
   state: BadmintonMatchState;
   tournamentName?: string;
+  season?: string;
   tournamentLogoUrl?: string;
   courtNumber?: string;
   matchLabel?: string;
@@ -236,6 +237,7 @@ export function BadmintonOverlay({
   type,
   state,
   tournamentName,
+  season,
   tournamentLogoUrl,
   courtNumber,
   matchLabel,
@@ -270,6 +272,7 @@ export function BadmintonOverlay({
         <WinnerOverlay
           state={state}
           tournamentName={tournamentName}
+          season={season}
         />
       ) : null;
     case "sponsor":
@@ -1029,9 +1032,11 @@ function IntroCard({
 function WinnerOverlay({
   state,
   tournamentName,
+  season,
 }: {
   state: BadmintonMatchState;
   tournamentName?: string;
+  season?: string;
 }) {
   if (!state.winnerSide) return null;
 
@@ -1053,7 +1058,7 @@ function WinnerOverlay({
           <span className="bw-heading">WINNER</span>
         </div>
         <p className="text-white/45 text-xs font-bold uppercase tracking-[0.4em] mb-2">
-          {tournamentName ?? "Match Winner"}
+          {tournamentName ? (season ? `${tournamentName} · ${season}` : tournamentName) : "Match Winner"}
         </p>
 
         {winner.photoUrl && (

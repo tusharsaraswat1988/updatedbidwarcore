@@ -381,7 +381,10 @@ router.use("/tournaments/:tournamentId/scoring", async (req, res, next) => {
     }
   }
 
-  if (!isOrganizer && !isScorer && !isTournamentLicensed(tournament)) {
+  const isSpectatorScope = req.query.scope === "spectator" || req.headers["x-bidwar-scope"] === "spectator";
+  const isAuthorizedManagement = (isOrganizer || isScorer) && !isSpectatorScope;
+
+  if (!isAuthorizedManagement && !isTournamentLicensed(tournament)) {
     res.status(403).json({
       error: "Cricket scoring requires an active BidWar licence.",
       code: "UNLICENSED_TOURNAMENT",

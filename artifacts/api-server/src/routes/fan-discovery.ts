@@ -67,6 +67,7 @@ export interface PublicBroadcastDto {
 export interface FanDiscoveryCardDto {
   id: number;
   name: string;
+  season?: string | null;
   code: string | null;
   sport: string;
   city: string | null;
@@ -299,6 +300,7 @@ router.get("/fan/tournaments", async (req: Request, res: Response): Promise<void
     return {
       id: t.id,
       name: t.name,
+      season: t.season ?? null,
       code: t.auctionCode ?? null,
       sport: t.sport,
       city: t.city ?? null,

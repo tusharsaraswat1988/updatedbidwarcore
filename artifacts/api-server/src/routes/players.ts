@@ -514,8 +514,11 @@ router.get("/tournaments/:tournamentId/players", async (req, res) => {
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
   if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
 
+  const isSpectatorScope = req.query.scope === "spectator" || req.headers["x-bidwar-scope"] === "spectator";
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
-  if (!isOrganizer && !isTournamentLicensed(tournament)) {
+  const isOrganizerManagement = isOrganizer && !isSpectatorScope;
+
+  if (!isOrganizerManagement && !isTournamentLicensed(tournament)) {
     res.status(403).json({
       error: "Tournament is unlicensed. Player rosters and profiles require an active BidWar licence.",
       code: "UNLICENSED_TOURNAMENT",
@@ -529,7 +532,7 @@ router.get("/tournaments/:tournamentId/players", async (req, res) => {
     .from(playersTable)
     .where(eq(playersTable.tournamentId, tid))
     .orderBy(asc(playersTable.serialNo));
-  res.json(await serializePlayersWithSpecifications(players, isOrganizer ? "private" : "public"));
+  res.json(await serializePlayersWithSpecifications(players, isOrganizerManagement ? "private" : "public"));
 });
 
 router.post("/tournaments/:tournamentId/players", async (req, res) => {
@@ -1420,8 +1423,11 @@ router.get("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
   if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
 
+  const isSpectatorScope = req.query.scope === "spectator" || req.headers["x-bidwar-scope"] === "spectator";
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
-  if (!isOrganizer && !isTournamentLicensed(tournament)) {
+  const isOrganizerManagement = isOrganizer && !isSpectatorScope;
+
+  if (!isOrganizerManagement && !isTournamentLicensed(tournament)) {
     res.status(403).json({
       error: "Tournament is unlicensed. Player rosters and profiles require an active BidWar licence.",
       code: "UNLICENSED_TOURNAMENT",
@@ -1435,7 +1441,7 @@ router.get("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
     .from(playersTable)
     .where(and(eq(playersTable.id, playerId), eq(playersTable.tournamentId, tid)));
   if (!player) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(await serializePlayerWithSpecifications(player, isOrganizer ? "private" : "public"));
+  res.json(await serializePlayerWithSpecifications(player, isOrganizerManagement ? "private" : "public"));
 });
 
 router.get("/tournaments/:tournamentId/players/:playerId/auction-history", async (req, res) => {
@@ -1453,8 +1459,11 @@ router.get("/tournaments/:tournamentId/players/:playerId/auction-history", async
   }
   if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
 
+  const isSpectatorScope = req.query.scope === "spectator" || req.headers["x-bidwar-scope"] === "spectator";
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
-  if (!isOrganizer && !isTournamentLicensed(tournament)) {
+  const isOrganizerManagement = isOrganizer && !isSpectatorScope;
+
+  if (!isOrganizerManagement && !isTournamentLicensed(tournament)) {
     res.status(403).json({
       error: "Tournament is unlicensed. Player auction history requires an active BidWar licence.",
       code: "UNLICENSED_TOURNAMENT",

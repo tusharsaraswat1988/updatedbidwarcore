@@ -464,6 +464,7 @@ export function useCricketObsLive(
         players,
         scorecard: scorecardData?.scorecard ?? null,
         tournamentName: tournament?.name ?? "BidWar Cricket",
+        season: tournament?.season,
         tournamentLogoUrl:
           tournament?.logoUrl && !tournament.logoUrl.startsWith("data:")
             ? tournament.logoUrl

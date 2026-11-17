@@ -122,6 +122,7 @@ export type CricketObsViewModel = {
   phase: CricketObsPhase;
   matchId: number | null;
   tournamentName: string;
+  season?: string | null;
   tournamentLogoUrl: string | null;
   home: CricketObsTeamView | null;
   away: CricketObsTeamView | null;
@@ -431,6 +432,7 @@ export type BuildCricketObsViewModelInput = {
   players?: CricketScorerPlayer[];
   scorecard?: CricketFullScorecard | null;
   tournamentName: string;
+  season?: string | null;
   tournamentLogoUrl: string | null;
   sponsors: SponsorLogo[];
   /** null = follow tournament live; number = pin to match */
@@ -506,6 +508,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     players,
     scorecard,
     tournamentName,
+    season,
     tournamentLogoUrl,
     sponsors,
     pinnedMatchId,
@@ -526,6 +529,7 @@ export function buildCricketObsViewModel(input: BuildCricketObsViewModelInput): 
     phase: "no_live",
     matchId: null,
     tournamentName,
+    season,
     tournamentLogoUrl,
     home: null,
     away: null,

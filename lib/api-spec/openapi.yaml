@@ -2262,6 +2262,9 @@ components:
           type: integer
         name:
           type: string
+        season:
+          type: ["string", "null"]
+          description: "Optional tournament season, edition or year (e.g. 'Season 2026–27', 'Edition 5')"
         sport:
           type: string
         sportId:
@@ -2569,6 +2572,9 @@ components:
       properties:
         name:
           type: string
+        season:
+          type: ["string", "null"]
+          description: "Optional tournament season, edition or year"
         sport:
           type: string
         venue:

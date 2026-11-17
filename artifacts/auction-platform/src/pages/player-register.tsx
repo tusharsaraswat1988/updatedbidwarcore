@@ -1011,6 +1011,7 @@ export default function PlayerRegister() {
         <aside className="reg-aside">
           <RegistrationPageHeader
             tournamentName={tournament.name}
+            season={tournament.season}
             tournamentLogoUrl={(tournament as { logoUrl?: string | null }).logoUrl}
             sponsorLogosJson={(tournament as { sponsorLogos?: string | null }).sponsorLogos}
             brandNameFallback={brandName}
