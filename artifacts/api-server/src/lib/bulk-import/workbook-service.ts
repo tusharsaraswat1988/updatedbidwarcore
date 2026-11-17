@@ -22,6 +22,8 @@ import {
   buildFieldLabelMap,
   resolvePlayerIdentity,
   findPlayersMissingFromWorkbook,
+  assessReplaceIdentityCoverage,
+  getReplaceDataSafetyError,
   computeHealthScore,
   getWorkbookSport,
   type ParsedWorkbook,
@@ -631,7 +633,7 @@ export async function commitTournamentWorkbook(
     versionNotes?: string;
     photoImportMode?: PhotoImportMode;
   },
-): Promise<{ jobId: number; updatedRows: number; versionId?: number; photoQueued?: number; photoImportMode?: PhotoImportMode }> {
+): Promise<{ jobId: number; updatedRows: number; versionId?: number; photoQueued?: number; photoImportMode?: PhotoImportMode; playersDeleted: number }> {
   if (validation.mode === "dry_run") {
     return { jobId: 0, updatedRows: 0 };
   }
