@@ -71,7 +71,7 @@ async function persistFaviconPipelineMetadata(
   await db
     .update(brandingAssetsTable)
     .set({
-      metadataJson: metadata as Record<string, unknown>,
+      metadataJson: metadata as any,
       updatedAt: new Date(),
     })
     .where(eq(brandingAssetsTable.id, assetId));
@@ -243,7 +243,7 @@ export async function upsertAsset(input: UpsertAssetInput): Promise<{
             fileSize: input.fileSize ?? null,
             version: existing.version + 1,
             isActive: true,
-            metadataJson: input.assetType === "FAVICON" ? (pipelineSeed as Record<string, unknown>) : (existing.metadataJson as Record<string, unknown> | null),
+            metadataJson: input.assetType === "FAVICON" ? (pipelineSeed as any) : (existing.metadataJson as any),
             updatedAt: now,
           })
           .where(eq(brandingAssetsTable.id, existing.id))
@@ -262,7 +262,7 @@ export async function upsertAsset(input: UpsertAssetInput): Promise<{
             fileSize: input.fileSize ?? null,
             version: 1,
             isActive: true,
-            metadataJson: pipelineSeed as Record<string, unknown>,
+            metadataJson: pipelineSeed as any,
             updatedAt: now,
           })
           .returning();

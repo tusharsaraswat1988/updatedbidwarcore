@@ -635,7 +635,7 @@ export async function commitTournamentWorkbook(
   },
 ): Promise<{ jobId: number; updatedRows: number; versionId?: number; photoQueued?: number; photoImportMode?: PhotoImportMode; playersDeleted: number }> {
   if (validation.mode === "dry_run") {
-    return { jobId: 0, updatedRows: 0 };
+    return { jobId: 0, updatedRows: 0, playersDeleted: 0 };
   }
 
   const extractDir = (workbook as ParsedWorkbook & { extractDir?: string }).extractDir;
