@@ -283,9 +283,9 @@ export default function ScoringPublicPage({
     typeof window !== "undefined" ? `${window.location.origin}${cricketPublicPath(tournamentId)}` : "";
   const shareTitle = data?.tournament?.name ?? "Cricket tournament";
 
-  if (isLoading) return <CricketFanLoading tournamentId={tournamentId} />;
+  if (isLoading) return <CricketFanLoading />;
   if (error || !data?.tournament) {
-    return <CricketFanEmpty tournamentId={tournamentId} message="Tournament scoring not available." />;
+    return <CricketFanEmpty message="Tournament scoring not available." />;
   }
 
   const t = data.tournament;
@@ -293,7 +293,7 @@ export default function ScoringPublicPage({
 
   return (
     <CricketFanExperienceShell
-      tournamentId={tournamentId}
+      tournament={t}
       liveMatchId={primaryLiveId}
       streamUrl={streamUrl}
       hideNav={true}
