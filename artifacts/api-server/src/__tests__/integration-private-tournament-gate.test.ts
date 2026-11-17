@@ -1,9 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import request from "supertest";
 import express from "express";
 import { guardPrivateTournamentSpectator } from "../middleware/private-tournament-gate";
 
-// Mock the organizer check middleware to avoid DB dependency in this test
 vi.mock("../middleware/require-organizer", () => ({
   canAccessPrivateTournamentData: vi.fn().mockResolvedValue(false),
 }));
@@ -11,7 +10,6 @@ vi.mock("../middleware/require-organizer", () => ({
 const app = express();
 app.use(express.json());
 
-// Dummy endpoint to test the guard
 app.get("/test-gate", async (req, res) => {
   const tournament = { 
     id: 1, 
@@ -42,16 +40,29 @@ describe("P0 — Integration: guardPrivateTournamentSpectator", () => {
     expect(res.status).toBe(200);
   });
 
-  it("rejects PIN in query string (403)", async () => {
+  it("rejects PIN in query string (403) - populated", async () => {
     const res = await request(app)
       .get("/test-gate?pin=secret");
     expect(res.status).toBe(403);
-    // This expects the error message from the middleware update
+    expect(res.body.error).toContain("x-bidwar-pin header");
+  });
+
+  it("rejects PIN in query string (403) - empty", async () => {
+    const res = await request(app)
+      .get("/test-gate?pin=");
+    expect(res.status).toBe(403);
     expect(res.body.error).toContain("x-bidwar-pin header");
   });
 
   it("sets no-store headers", async () => {
     const res = await request(app).get("/test-gate");
     expect(res.headers["cache-control"]).toContain("no-store");
+  });
+
+  it("allows harmless query parameters", async () => {
+    const res = await request(app)
+      .get("/test-gate?other=123")
+      .set("x-bidwar-pin", "secret");
+    expect(res.status).toBe(200);
   });
 });
