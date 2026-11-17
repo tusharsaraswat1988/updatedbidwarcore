@@ -26,81 +26,97 @@ export function ScorecardView({ data, tournamentId }: ScorecardViewProps) {
   const { match, scorecard, players, manOfTheMatch } = data;
 
   return (
-    <div className="space-y-8">
-      <header className="space-y-1">
-        <p className="text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
-          {match.roundName ?? "Match"} · {match.status}
-        </p>
-        <h1 className="text-2xl font-display font-bold text-[hsl(var(--foreground))]">
-          {match.homeTeam?.name ?? "Home"} vs {match.awayTeam?.name ?? "Away"}
-        </h1>
-        {match.resultSummary ? (
-          <p className="text-sm text-[hsl(var(--primary)) font-semibold">{match.resultSummary}</p>
-        ) : null}
-        {manOfTheMatch ? (
-          <p className="text-sm text-[hsl(var(--foreground))] flex items-center gap-2 pt-1">
-            <Award className="h-4 w-4 shrink-0 text-[hsl(var(--primary))]" />
-            Player of the Match:{" "}
-            {tournamentId ? (
-              <Link
-                href={cricketPlayerPublicPath(tournamentId, manOfTheMatch.playerId)}
-                className="font-semibold text-[hsl(var(--primary))] hover:underline"
-              >
-                {manOfTheMatch.playerName}
-              </Link>
-            ) : (
-              <span className="font-semibold text-[hsl(var(--primary))]">{manOfTheMatch.playerName}</span>
-            )}
-            {manOfTheMatch.reason ? (
-              <span className="text-[hsl(var(--muted-foreground))]">({manOfTheMatch.reason})</span>
+    <div className="space-y-6">
+      <header className="rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 shadow-sm space-y-3">
+        <div className="flex items-start justify-between gap-4">
+            <div>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-[hsl(var(--muted-foreground))]">
+                {match.roundName ?? "Match"} · {match.status}
+                </p>
+                <h1 className="text-xl sm:text-2xl font-black text-[hsl(var(--foreground))] mt-0.5 tracking-tight">
+                {match.homeTeam?.name ?? "Home"} <span className="text-[hsl(var(--muted-foreground))]">vs</span> {match.awayTeam?.name ?? "Away"}
+                </h1>
+            </div>
+            {match.resultSummary ? (
+                <div className="px-3 py-1 rounded-full bg-[hsl(var(--primary))/10] text-[11px] font-bold text-[hsl(var(--primary))] border border-[hsl(var(--primary))/20]">
+                    {match.resultSummary}
+                </div>
             ) : null}
-          </p>
+        </div>
+        
+        {manOfTheMatch ? (
+          <div className="flex items-center gap-3 pt-2 text-sm border-t border-[hsl(var(--border))]">
+            <div className="p-2 rounded-lg bg-[hsl(var(--muted))] text-[hsl(var(--primary))]">
+                <Award className="h-4 w-4" />
+            </div>
+            <div>
+                <p className="text-[11px] font-bold uppercase text-[hsl(var(--muted-foreground))]">Player of the Match</p>
+                <p className="font-semibold text-[hsl(var(--foreground))]">
+                {tournamentId ? (
+                    <Link
+                    href={cricketPlayerPublicPath(tournamentId, manOfTheMatch.playerId)}
+                    className="hover:text-[hsl(var(--primary))] hover:underline"
+                    >
+                    {manOfTheMatch.playerName}
+                    </Link>
+                ) : (
+                    <span>{manOfTheMatch.playerName}</span>
+                )}
+                {manOfTheMatch.reason ? (
+                    <span className="text-[hsl(var(--muted-foreground))] ml-2 text-xs font-normal">({manOfTheMatch.reason})</span>
+                ) : null}
+                </p>
+            </div>
+          </div>
         ) : null}
       </header>
 
       {scorecard.innings.map((inn) => (
-        <section key={inn.innings} className="space-y-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-sm">
-          <div className="flex items-baseline justify-between gap-4 pb-2 border-b border-[hsl(var(--border))]">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
+        <section key={inn.innings} className="space-y-3 rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-4 pb-2 border-b border-[hsl(var(--border))]">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
               Innings {inn.innings} — {teamLabel(match, inn.battingTeamId)}
             </h2>
-            <p className="text-lg font-bold tabular-nums text-[hsl(var(--foreground))]">
-              {inn.totalRuns}/{inn.totalWickets}{" "}
-              <span className="text-sm font-normal text-[hsl(var(--muted-foreground))]">({inn.overs} ov)</span>
-            </p>
+            <div className="text-right">
+                <p className="text-lg font-black tabular-nums text-[hsl(var(--foreground))] tracking-tight">
+                {inn.totalRuns}/{inn.totalWickets}
+                </p>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] font-medium">({inn.overs} ov)</p>
+            </div>
           </div>
 
-          <div className="rounded-lg border border-[hsl(var(--border))] overflow-hidden">
+
+          <div className="overflow-x-auto rounded-lg border border-[hsl(var(--border))]">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-[hsl(var(--muted))/50] text-[hsl(var(--muted-foreground))] uppercase text-xs tracking-wider">
-                  <th className="px-3 py-2 font-medium text-left">Batter</th>
-                  <th className="px-3 py-2 font-medium text-right">R</th>
-                  <th className="px-3 py-2 font-medium text-right">B</th>
-                  <th className="px-3 py-2 font-medium text-right">4s</th>
-                  <th className="px-3 py-2 font-medium text-right">6s</th>
-                  <th className="px-3 py-2 font-medium text-right">SR</th>
+                <tr className="bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] uppercase text-[10px] tracking-widest font-bold">
+                  <th className="px-3 py-2.5 text-left">Batter</th>
+                  <th className="px-3 py-2.5 text-right">R</th>
+                  <th className="px-3 py-2.5 text-right">B</th>
+                  <th className="px-3 py-2.5 text-right">4s</th>
+                  <th className="px-3 py-2.5 text-right">6s</th>
+                  <th className="px-3 py-2.5 text-right">SR</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[hsl(var(--border))]">
                 {inn.batting.map((b) => (
-                  <tr key={b.playerId} className="hover:bg-[hsl(var(--muted))/30] transition-colors">
-                    <td className="px-3 py-2">
-                      <span className="font-medium text-[hsl(var(--foreground))]">
+                  <tr key={b.playerId} className="hover:bg-[hsl(var(--muted))/50] transition-colors">
+                    <td className="px-3 py-3">
+                      <span className="font-semibold text-[hsl(var(--foreground))]">
                         {playerName(players, b.playerId)}
                         {b.notOut ? " *" : ""}
                       </span>
                       {b.dismissalType ? (
-                        <span className="block text-xs text-[hsl(var(--muted-foreground))] capitalize">
+                        <span className="block text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-tight">
                           {b.dismissalType.replace(/_/g, " ")}
                         </span>
                       ) : null}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--foreground))]">{b.runs}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.balls}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.fours}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.sixes}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.strikeRate}</td>
+                    <td className="px-3 py-3 text-right tabular-nums font-bold text-[hsl(var(--foreground))]">{b.runs}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.balls}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.fours}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.sixes}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.strikeRate}</td>
                   </tr>
                 ))}
               </tbody>
@@ -117,27 +133,27 @@ export function ScorecardView({ data, tournamentId }: ScorecardViewProps) {
           </p>
 
           {inn.bowling.length > 0 ? (
-            <div className="rounded-lg border border-[hsl(var(--border))] overflow-hidden">
+            <div className="overflow-x-auto rounded-lg border border-[hsl(var(--border))]">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-[hsl(var(--muted))/50] text-[hsl(var(--muted-foreground))] uppercase text-xs tracking-wider">
-                    <th className="px-3 py-2 font-medium text-left">Bowler</th>
-                    <th className="px-3 py-2 font-medium text-right">O</th>
-                    <th className="px-3 py-2 font-medium text-right">R</th>
-                    <th className="px-3 py-2 font-medium text-right">W</th>
-                    <th className="px-3 py-2 font-medium text-right">Econ</th>
+                  <tr className="bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] uppercase text-[10px] tracking-widest font-bold">
+                    <th className="px-3 py-2.5 text-left">Bowler</th>
+                    <th className="px-3 py-2.5 text-right">O</th>
+                    <th className="px-3 py-2.5 text-right">R</th>
+                    <th className="px-3 py-2.5 text-right">W</th>
+                    <th className="px-3 py-2.5 text-right">Econ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[hsl(var(--border))]">
                   {inn.bowling.map((b) => (
-                    <tr key={b.playerId} className="hover:bg-[hsl(var(--muted))/30] transition-colors">
-                      <td className="px-3 py-2 font-medium text-[hsl(var(--foreground))]">
+                    <tr key={b.playerId} className="hover:bg-[hsl(var(--muted))/50] transition-colors">
+                      <td className="px-3 py-3 font-semibold text-[hsl(var(--foreground))]">
                         {playerName(players, b.playerId)}
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--foreground))]">{b.overs}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--foreground))]">{b.runs}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--primary))] font-semibold">{b.wickets}</td>
-                      <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.economy}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-[hsl(var(--foreground))]">{b.overs}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-[hsl(var(--foreground))]">{b.runs}</td>
+                      <td className="px-3 py-3 text-right tabular-nums font-black text-[hsl(var(--primary))]">{b.wickets}</td>
+                      <td className="px-3 py-3 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.economy}</td>
                     </tr>
                   ))}
                 </tbody>

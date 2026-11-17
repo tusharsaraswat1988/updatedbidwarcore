@@ -198,121 +198,85 @@ export function TournamentFanHeader({
 
   return (
     <>
-      <header className={cn("z-30 mb-5 space-y-2", !embedded ? "sticky top-0 -mx-4 px-4 sm:-mx-0 sm:px-0" : "w-full")}>
-        <div className="rounded-2xl border border-white/15 bg-black/90 backdrop-blur-xl shadow-2xl overflow-hidden">
+      <header className={cn("z-30 mb-6 space-y-3", !embedded ? "sticky top-0 -mx-4 px-4 sm:-mx-0 sm:px-0" : "w-full")}>
+        <div className="rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] shadow-sm overflow-hidden">
           {!embedded && (
             <>
-              {/* ── ROW 1: Top Bar (Left: Status/Sound, Center: BidWar Logo, Right: Sponsor + Share) ─ */}
-              <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 sm:px-6 sm:py-3 border-b border-white/10">
+              {/* Row 1: Top Bar (Left: Status/Sound, Center: BidWar Logo, Right: Sponsor + Share) */}
+              <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[hsl(var(--border))]">
                 {/* Left: Status Badge + Sound Toggle */}
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-1 justify-start">
+                <div className="flex items-center gap-2 flex-1 justify-start">
                   {liveCount > 0 ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-emerald-400 shadow-sm">
-                      <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       LIVE
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-white/60">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[hsl(var(--border))] bg-[hsl(var(--muted))] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
                       SCHEDULED
                     </span>
                   )}
-
-                  {streamUrl ? (
-                    <button
-                      type="button"
-                      onClick={() => window.open(streamUrl, "_blank", "noopener,noreferrer")}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-red-600 hover:bg-red-500 px-2.5 py-1 text-[11px] font-bold text-white transition-colors shadow-sm"
-                    >
-                      <Tv className="h-3.5 w-3.5" />
-                      <span className="hidden min-[380px]:inline">Watch Live Stream</span>
-                      <span className="min-[380px]:hidden">Live</span>
-                    </button>
-                  ) : null}
-
                   {onToggleSound ? (
                     <button
                       type="button"
                       onClick={onToggleSound}
-                      className="p-1 sm:p-1.5 rounded-xl border border-white/10 bg-white/5 text-white/70 hover:text-white transition-colors"
+                      className="p-1.5 rounded-lg border border-[hsl(var(--border))] hover:bg-[hsl(var(--accent))] transition-colors"
                       title={soundEnabled ? "Mute sounds" : "Enable sounds"}
                       aria-label={soundEnabled ? "Mute sounds" : "Enable sounds"}
                     >
                       {soundEnabled ? (
-                        <Volume2 className="h-3.5 w-3.5 text-emerald-400" />
+                        <Volume2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                       ) : (
-                        <VolumeX className="h-3.5 w-3.5 text-white/40" />
+                        <VolumeX className="h-3.5 w-3.5 text-[hsl(var(--muted-foreground))]" />
                       )}
                     </button>
                   ) : null}
                 </div>
 
-                {/* Center: PROMINENT BIDWAR OFFICIAL GOLDEN GLOWING LOGO */}
-                <div className="flex items-center justify-center flex-shrink-0 px-2">
+                {/* Center: BIDWAR Logo */}
+                <div className="flex items-center justify-center flex-shrink-0">
                   <a
                     href={BIDWAR_HOME_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center group transition-transform hover:scale-105"
+                    className="flex items-center justify-center transition-transform hover:scale-105"
                     aria-label="BidWar Official Platform"
                   >
                     <img
                       src={brandLogoSrc}
                       alt={logoAlt || "BidWar"}
-                      className="h-8 sm:h-9 md:h-10 w-auto object-contain select-none filter drop-shadow-[0_0_14px_rgba(234,179,8,0.5)] transition-transform hover:scale-105"
+                      className="h-7 w-auto object-contain select-none"
                     />
                   </a>
                 </div>
 
-                {/* Right: Sponsor Logo (if any) + Small Share Icon */}
+                {/* Right: Share */}
                 <div className="flex items-center justify-end gap-2 flex-1">
-                  {topSponsor?.url ? (
-                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-xl bg-white/5 border border-white/10 backdrop-blur-md">
-                      <span className="text-[9px] uppercase tracking-widest font-black text-amber-400 hidden sm:inline-block">
-                        Sponsor
-                      </span>
-                      <img
-                        src={topSponsor.url}
-                        alt={topSponsor.name || "Sponsor"}
-                        className="h-4 sm:h-5 max-w-[65px] object-contain"
-                      />
-                    </div>
-                  ) : null}
-
-                  {/* Small Share Icon Button (Opens 2-field dialog) */}
                   <button
                     type="button"
                     onClick={() => setShareOpen(true)}
-                    className="p-1.5 sm:p-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/15 text-white/80 hover:text-white transition-all shadow-sm active:scale-95"
+                    className="p-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] hover:bg-[hsl(var(--accent))] transition-all shadow-sm"
                     title="Share Tournament Fanpage"
                     aria-label="Share Tournament Fanpage"
                   >
-                    <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-400" />
+                    <Share2 className="h-4 w-4 text-[hsl(var(--primary))]" />
                   </button>
                 </div>
               </div>
 
-              {/* ── ROW 2: Tournament Name & Logo in ONE SINGLE CLEAN LINE ─ */}
-              <div className="px-4 py-2.5 text-center border-b border-white/5">
-                <div className="w-full max-w-[92%] mx-auto flex items-center justify-center gap-2.5 sm:gap-3">
+              {/* Row 2: Tournament Name */}
+              <div className="px-4 py-3 text-center border-b border-[hsl(var(--border))] bg-[hsl(var(--background))]">
+                <div className="w-full max-w-[92%] mx-auto flex items-center justify-center gap-3">
                   {tournament.logoUrl ? (
                     <img
                       src={tournament.logoUrl}
                       alt=""
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl object-cover flex-shrink-0 bg-white/5 border border-white/15 shadow-sm"
+                      className="w-8 h-8 rounded-xl object-cover flex-shrink-0 border border-[hsl(var(--border))]"
                     />
-                  ) : (
-                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center font-display font-bold text-xs text-emerald-300 flex-shrink-0">
-                      {tournament.name.slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
-                  <h1 className="font-display font-black text-sm sm:text-lg md:text-xl text-white tracking-tight truncate drop-shadow-md uppercase">
+                  ) : null}
+                  <h1 className="font-bold text-sm sm:text-base text-[hsl(var(--foreground))] tracking-tight truncate uppercase">
                     {tournament.name}
                   </h1>
-                  {tournament.season?.trim() ? (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-white/10 text-white/80 border border-white/20 shrink-0 uppercase tracking-normal font-sans">
-                      {tournament.season.trim()}
-                    </span>
-                  ) : null}
                 </div>
               </div>
             </>
@@ -347,9 +311,9 @@ export function TournamentFanHeader({
             </div>
           ) : null}
 
-          {/* ── ROW 4: The 4 Clean Top Sections ─────────────────────────── */}
+          {/* Row 4: Navigation Tabs */}
           <div
-            className="flex items-center gap-1.5 overflow-x-auto px-3 py-2 border-t border-white/10 scrollbar-none bg-black/40"
+            className="flex items-center gap-1 overflow-x-auto px-2 py-1.5 scrollbar-none bg-[hsl(var(--muted))]"
             role="tablist"
           >
             {/* 1. Live Match */}
@@ -359,26 +323,15 @@ export function TournamentFanHeader({
               aria-selected={activeSection === "live"}
               onClick={() => onSelectSection("live")}
               className={cn(
-                "flex items-center gap-1.5 shrink-0 rounded-xl px-4 py-2 text-xs font-bold whitespace-nowrap transition-all border",
+                "flex items-center gap-2 shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-all border",
                 activeSection === "live"
-                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-400/60 shadow-md ring-1 ring-emerald-400/30"
-                  : "border-transparent text-white/70 hover:text-white hover:bg-white/5",
+                  ? "bg-[hsl(var(--background))] text-[hsl(var(--primary))] border-[hsl(var(--border))] shadow-sm"
+                  : "border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--background))/50]",
               )}
             >
-              <CircleDot
-                className={cn(
-                  "h-3.5 w-3.5",
-                  liveCount > 0 ? "text-red-400 animate-pulse" : "text-emerald-400",
-                )}
-              />
-              <span>Live Match</span>
-              {liveCount > 0 ? (
-                <span className="ml-1 rounded-full bg-red-500 px-1.5 py-0.2 text-[9px] font-black text-white">
-                  {liveCount}
-                </span>
-              ) : null}
+              <CircleDot className={cn("h-3.5 w-3.5", liveCount > 0 ? "text-red-500 animate-pulse" : "text-emerald-500")} />
+              Live
             </button>
-
             {/* 2. Upcoming Match & Stats */}
             <button
               type="button"
@@ -386,56 +339,30 @@ export function TournamentFanHeader({
               aria-selected={activeSection === "matches_stats"}
               onClick={() => onSelectSection("matches_stats")}
               className={cn(
-                "flex items-center gap-1.5 shrink-0 rounded-xl px-4 py-2 text-xs font-bold whitespace-nowrap transition-all border",
+                "flex items-center gap-2 shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-all border",
                 activeSection === "matches_stats"
-                  ? "bg-primary/20 text-primary border-primary/60 shadow-md ring-1 ring-primary/30"
-                  : "border-transparent text-white/70 hover:text-white hover:bg-white/5",
+                  ? "bg-[hsl(var(--background))] text-[hsl(var(--primary))] border-[hsl(var(--border))] shadow-sm"
+                  : "border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--background))/50]",
               )}
             >
-              <CalendarDays className="h-3.5 w-3.5 text-sky-400" />
-              <span>Upcoming Match & Stats</span>
-              {upcomingCount > 0 ? (
-                <span className="ml-1 rounded-full bg-white/10 px-1.5 py-0.2 text-[9px] text-white/80">
-                  {upcomingCount}
-                </span>
-              ) : null}
+              <CalendarDays className="h-3.5 w-3.5 text-[hsl(var(--primary))]" />
+              Matches & Stats
             </button>
-
-            {/* 3. Sponsors */}
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeSection === "sponsors"}
-              onClick={() => onSelectSection("sponsors")}
-              className={cn(
-                "flex items-center gap-1.5 shrink-0 rounded-xl px-4 py-2 text-xs font-bold whitespace-nowrap transition-all border",
-                activeSection === "sponsors"
-                  ? "bg-amber-500/20 text-amber-300 border-amber-400/60 shadow-md ring-1 ring-amber-400/30"
-                  : "border-transparent text-white/70 hover:text-white hover:bg-white/5",
-              )}
-            >
-              <Trophy className="h-3.5 w-3.5 text-amber-400" />
-              <span>Sponsors</span>
-            </button>
-
-            {/* 4. Fan Arena */}
+            {/* 3. Fan Arena */}
             <button
               type="button"
               role="tab"
               aria-selected={activeSection === "fan_arena"}
               onClick={() => onSelectSection("fan_arena")}
               className={cn(
-                "flex items-center gap-1.5 shrink-0 rounded-xl px-4 py-2 text-xs font-bold whitespace-nowrap transition-all border",
+                "flex items-center gap-2 shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-all border",
                 activeSection === "fan_arena"
-                  ? "bg-gradient-to-r from-amber-500/25 to-orange-500/25 text-amber-300 border-amber-400/60 shadow-md ring-1 ring-amber-400/30"
-                  : "border-transparent text-white/70 hover:text-white hover:bg-white/5",
+                  ? "bg-[hsl(var(--background))] text-[hsl(var(--primary))] border-[hsl(var(--border))] shadow-sm"
+                  : "border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--background))/50]",
               )}
             >
-              <Flame className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
-              <span>Fan Arena</span>
-              <span className="rounded bg-amber-500/20 px-1.5 py-0.2 text-[9px] text-amber-300 font-bold uppercase">
-                Cheer
-              </span>
+              <Flame className="h-3.5 w-3.5 text-amber-500" />
+              Fan Arena
             </button>
           </div>
         </div>

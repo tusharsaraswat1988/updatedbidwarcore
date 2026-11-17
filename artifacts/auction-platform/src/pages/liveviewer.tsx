@@ -259,7 +259,7 @@ function TeamSquadSheet({
 
           {/* Panel */}
           <motion.div
-            className="relative z-10 w-full sm:max-w-md bg-[#18181b] border border-border/60 rounded-t-2xl sm:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl"
+            className="relative z-10 w-full sm:max-w-md bg-[hsl(var(--card))] border border-[hsl(var(--border))] rounded-t-2xl sm:rounded-2xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl"
             initial={{ y: "100%" }}
             animate={{ y: 0 }}
             exit={{ y: "100%" }}
@@ -267,34 +267,34 @@ function TeamSquadSheet({
           >
             {/* Drag handle — mobile only */}
             <div className="flex justify-center pt-3 pb-1 sm:hidden flex-shrink-0">
-              <div className="w-12 h-1 rounded-full bg-muted-foreground/30" />
+              <div className="w-12 h-1 rounded-full bg-[hsl(var(--muted-foreground)/.3)]" />
             </div>
 
             {/* Header */}
-            <div className="flex-shrink-0 px-5 pb-4 pt-2 sm:pt-5 border-b border-border/50">
+            <div className="flex-shrink-0 px-5 pb-4 pt-2 sm:pt-5 border-b border-[hsl(var(--border))]">
               <div className="flex items-center gap-3 mb-4">
                 {team?.logoUrl ? (
                   <img src={cldUrl(team.logoUrl, "teamLogo")} alt="" className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
                 ) : (
                   <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center font-display font-black text-sm flex-shrink-0"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0"
                     style={{ backgroundColor: `${tc}22`, color: tc, border: `2px solid ${tc}44` }}
                   >
                     {team?.shortCode?.slice(0, 3) || "?"}
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="font-display font-bold text-lg leading-none truncate" style={{ color: tc }}>
+                  <p className="font-bold text-lg leading-none truncate" style={{ color: tc }}>
                     {team?.teamName}
                   </p>
                   {team?.ownerName && (
-                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{team.ownerName}</p>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5 truncate">{team.ownerName}</p>
                   )}
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors flex-shrink-0"
+                  className="p-1.5 rounded-lg text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))] transition-colors flex-shrink-0"
                   aria-label="Close"
                 >
                   <X className="w-5 h-5" />
@@ -303,59 +303,59 @@ function TeamSquadSheet({
 
               {/* Purse stats */}
               <div className="grid grid-cols-3 gap-2">
-                <div className="p-2.5 rounded-xl bg-card/60 border border-border/50 text-center">
-                  <p className="font-display font-black text-base" style={{ color: tc }}>
+                <div className="p-2.5 rounded-xl bg-[hsl(var(--muted))] border border-[hsl(var(--border))] text-center">
+                  <p className="font-black text-base" style={{ color: tc }}>
                     {fmtShort(team?.purseRemaining ?? 0)}
                   </p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Remaining</p>
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider mt-0.5">Remaining</p>
                 </div>
-                <div className="p-2.5 rounded-xl bg-card/60 border border-border/50 text-center">
-                  <p className="font-display font-black text-base text-foreground">
+                <div className="p-2.5 rounded-xl bg-[hsl(var(--muted))] border border-[hsl(var(--border))] text-center">
+                  <p className="font-black text-base text-[hsl(var(--foreground))]">
                     {fmtShort(team?.purseUsed ?? 0)}
                   </p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Spent</p>
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider mt-0.5">Spent</p>
                 </div>
-                <div className="p-2.5 rounded-xl bg-card/60 border border-border/50 text-center">
-                  <p className="font-display font-black text-base text-foreground">
+                <div className="p-2.5 rounded-xl bg-[hsl(var(--muted))] border border-[hsl(var(--border))] text-center">
+                  <p className="font-black text-base text-[hsl(var(--foreground))]">
                     {team?.playersBought ?? 0}
                     {(team?.maximumSquadSize ?? 0) > 0 && (
-                      <span className="text-xs text-muted-foreground font-normal">/{team?.maximumSquadSize}</span>
+                      <span className="text-xs text-[hsl(var(--muted-foreground))] font-normal">/{team?.maximumSquadSize}</span>
                     )}
                   </p>
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Players</p>
+                  <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider mt-0.5">Players</p>
                 </div>
               </div>
               {(team?.maxAllowedBid !== undefined || (team?.futureReservePurse ?? team?.reservePurse ?? 0) > 0) && (
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   {team?.maxAllowedBid !== undefined && (
-                    <div className="p-2 rounded-lg bg-card/40 border border-border/40 text-center">
-                      <p className={`font-mono font-bold text-sm tabular-nums ${(team.maximumSquadSize > 0 && team.playersBought >= team.maximumSquadSize) ? "text-red-400" : "text-emerald-400"}`}>
+                    <div className="p-2 rounded-lg bg-[hsl(var(--muted))] border border-[hsl(var(--border))] text-center">
+                      <p className={`font-mono font-bold text-sm tabular-nums ${(team.maximumSquadSize > 0 && team.playersBought >= team.maximumSquadSize) ? "text-[hsl(var(--destructive))]" : "text-[hsl(var(--primary))]"}`}>
                         {(team.maximumSquadSize > 0 && team.playersBought >= team.maximumSquadSize)
                           ? "Squad Full"
                           : fmtShort(team.maxAllowedBid)}
                       </p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Max Bid</p>
+                      <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider mt-0.5">Max Bid</p>
                     </div>
                   )}
                   {(team?.futureReservePurse ?? team?.reservePurse ?? 0) > 0 && (
-                    <div className="p-2 rounded-lg bg-card/40 border border-border/40 text-center">
-                      <p className="font-mono font-bold text-sm tabular-nums text-amber-400/90">
+                    <div className="p-2 rounded-lg bg-[hsl(var(--muted))] border border-[hsl(var(--border))] text-center">
+                      <p className="font-mono font-bold text-sm tabular-nums text-[hsl(var(--warning))]">
                         {fmtShort(team?.futureReservePurse ?? team?.reservePurse ?? 0)}
                       </p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Reserved</p>
+                      <p className="text-[10px] text-[hsl(var(--muted-foreground))] uppercase tracking-wider mt-0.5">Reserved</p>
                     </div>
                   )}
                 </div>
               )}
               {(team?.maximumSquadSize ?? 0) > 0 && (
                 <div className="mt-3">
-                  <div className="flex items-center justify-between text-[10px] mb-1 text-muted-foreground">
+                  <div className="flex items-center justify-between text-[10px] mb-1 text-[hsl(var(--muted-foreground))]">
                     <span>Squad</span>
                     <span>{team?.playersBought ?? 0} / {team?.maximumSquadSize}</span>
                   </div>
-                  <div className="h-1 rounded-full bg-muted/30 overflow-hidden">
+                  <div className="h-1 rounded-full bg-[hsl(var(--muted))] overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-green-400/70"
+                      className="h-full rounded-full bg-[hsl(var(--primary))]"
                       style={{
                         width: `${Math.min(100, ((team?.playersBought ?? 0) / (team?.maximumSquadSize ?? 1)) * 100)}%`,
                       }}
@@ -364,11 +364,11 @@ function TeamSquadSheet({
                 </div>
               )}
               {team?.topPlayerName && (
-                <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 px-2.5 py-2">
-                  <Star className="w-3 h-3 flex-shrink-0 text-amber-400" />
-                  <span className="text-xs text-muted-foreground truncate flex-1">{team.topPlayerName}</span>
+                <div className="mt-3 flex items-center gap-1.5 rounded-lg bg-[hsl(var(--warning))/10] border border-[hsl(var(--warning))/20] px-2.5 py-2">
+                  <Star className="w-3 h-3 flex-shrink-0 text-[hsl(var(--warning))]" />
+                  <span className="text-xs text-[hsl(var(--muted-foreground))] truncate flex-1">{team.topPlayerName}</span>
                   {team.topPlayerAmount != null && (
-                    <span className="text-xs font-mono font-bold text-amber-400 tabular-nums">
+                    <span className="text-xs font-mono font-bold text-[hsl(var(--warning))] tabular-nums">
                       {fmtShort(team.topPlayerAmount)}
                     </span>
                   )}
@@ -379,7 +379,7 @@ function TeamSquadSheet({
             {/* Player list */}
             <div className="flex-1 overflow-y-auto px-2 py-2 pb-8 sm:pb-4">
               {squadPlayers.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <div className="flex flex-col items-center justify-center py-12 text-[hsl(var(--muted-foreground))]">
                   <User className="w-8 h-8 mb-2 opacity-25" />
                   <p className="text-sm">No players acquired yet</p>
                 </div>
@@ -388,25 +388,25 @@ function TeamSquadSheet({
                   {squadPlayers.map((player, i) => (
                     <div
                       key={player.id}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors"
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[hsl(var(--accent))] transition-colors"
                     >
-                      <span className="text-xs text-muted-foreground w-5 text-right tabular-nums flex-shrink-0">
+                      <span className="text-xs text-[hsl(var(--muted-foreground))] w-5 text-right tabular-nums flex-shrink-0">
                         {i + 1}
                       </span>
-                      <div className="w-8 h-8 rounded-full bg-card border border-border flex-shrink-0 overflow-hidden flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full bg-[hsl(var(--card))] border border-[hsl(var(--border))] flex-shrink-0 overflow-hidden flex items-center justify-center">
                         {player.photoUrl ? (
                           <img src={cldUrl(player.photoUrl, "thumbnail")} alt={player.name} className="w-full h-full object-cover" />
                         ) : (
-                          <User className="w-3.5 h-3.5 text-muted-foreground" />
+                          <User className="w-3.5 h-3.5 text-[hsl(var(--muted-foreground))]" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm leading-none truncate">{player.name}</p>
                         {player.role && (
-                          <p className="text-xs text-muted-foreground capitalize mt-0.5 flex items-center gap-1.5">
+                          <p className="text-xs text-[hsl(var(--muted-foreground))] capitalize mt-0.5 flex items-center gap-1.5">
                             {player.role}
                             {player.status === "retained" && (
-                              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wide bg-amber-400/10 px-1.5 py-0.5 rounded-full border border-amber-400/30">
+                              <span className="text-[10px] font-bold text-[hsl(var(--warning))] uppercase tracking-wide bg-[hsl(var(--warning))/10] px-1.5 py-0.5 rounded-full border border-[hsl(var(--warning))/30]">
                                 Retained
                               </span>
                             )}
@@ -425,6 +425,10 @@ function TeamSquadSheet({
             </div>
           </motion.div>
         </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
       )}
     </AnimatePresence>
   );
