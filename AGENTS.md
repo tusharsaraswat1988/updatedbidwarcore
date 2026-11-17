@@ -23,6 +23,10 @@
 >
 > PRs or commits that change features without updating `docs/BIDWAR_OPERATION_MANUAL.md` fail the Definition of Done.
 > Do not fabricate feature behavior. Document strictly what is implemented.
+>
+> ### Autonomous Execution Policy
+> Once a task is approved, execute the full requested scope autonomously. Do not seek approval between components, phases, or small commits. Document implemented features strictly from the final code, not beforehand.
+>
 
 ---
 
@@ -30,3 +34,4 @@
 - **Architecture Contract:** Read `.agents/skills/bidwar_architecture_skill/SKILL.md` before making module-boundary, database, routing, or authentication changes.
 - **Protected Surfaces:** Do not modify public marketing pages, OBS broadcast scenes, LED displays, owner app, or live scoring pads during internal organiser UI tasks.
 - **Operation Manual as Knowledge Base:** Consult `docs/BIDWAR_OPERATION_MANUAL.md` to understand any existing feature before altering it.
+

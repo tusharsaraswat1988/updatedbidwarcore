@@ -14,6 +14,9 @@ description: Permanent architecture & engineering contract for BidWar. Mandatory
 > Whenever ANY feature, screen, button, workflow, setting, permission, validation rule, or integration is created, modified, renamed, moved, deprecated, or removed, you **MUST update `docs/BIDWAR_OPERATION_MANUAL.md` in the same task/PR/commit** as the code change. Validate via `pnpm run check:manual`.
 >
 > This document defines the intended architecture. Existing code may contain legacy behavior that conflicts with these rules. In such cases, **do not blindly preserve legacy architecture**. Identify it, document it, and refactor toward this contract.
+>
+> **Autonomous Execution Policy:** Once a task is approved, execute the full requested scope autonomously. Do not seek approval between components, phases, or small commits. Document implemented features strictly from the final code, not beforehand.
+
 
 ---
 

@@ -31,6 +31,9 @@
 > 4. **Enforcement:**
 >    Run `pnpm run check:manual` to verify that all 13 required sections exist and manual links are intact.
 >    Do not consider any feature task complete without updating the Operation Manual!
+>
+> ### Autonomous Execution Policy
+> Once approved, execute the task autonomously. Documentation updates are a final step of implementation, not a prerequisite for work.
 
 ---
 
