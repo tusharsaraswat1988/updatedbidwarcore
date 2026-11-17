@@ -15,9 +15,9 @@ function statusLabel(status: string) {
 }
 
 function statusClass(status: string) {
-  if (status === "live") return "text-emerald-400";
-  if (isTerminalCricketMatchStatus(status)) return "text-muted-foreground";
-  return "text-sky-300";
+  if (status === "live") return "text-[hsl(var(--live))]";
+  if (isTerminalCricketMatchStatus(status)) return "text-[hsl(var(--completed))]";
+  return "text-[hsl(var(--upcoming))]";
 }
 
 export function PublicMatchCard({
@@ -47,8 +47,8 @@ export function PublicMatchCard({
         cricketCardClass,
         "block px-4 py-3 transition-colors",
         isLive
-          ? "border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/15 shadow-[0_0_0_1px_rgba(16,185,129,0.12)]"
-          : "hover:border-primary/30 hover:bg-card/80",
+          ? "border-[hsl(var(--live))/40] bg-[hsl(var(--live))/15] hover:bg-[hsl(var(--live))/20] shadow-sm"
+          : "hover:border-[hsl(var(--primary))/30] hover:bg-[hsl(var(--card))]/80",
         compact && "py-2.5",
       )}
     >
@@ -93,12 +93,12 @@ export function PublicMatchCard({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-white border border-red-500/30 transition-colors shadow-sm"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-[hsl(var(--destructive))/15] hover:bg-[hsl(var(--destructive))/25] text-[hsl(var(--destructive))] border border-[hsl(var(--destructive))/30] transition-colors shadow-sm"
               >
                 {isLive ? (
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse motion-reduce:animate-none" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[hsl(var(--destructive))] animate-pulse motion-reduce:animate-none" />
                 ) : (
-                  <Video className="w-3 h-3 text-red-400" />
+                  <Video className="w-3 h-3 text-[hsl(var(--destructive))]" />
                 )}
                 <span>Watch Match Stream</span>
                 <ExternalLink className="w-3 h-3 opacity-70" />

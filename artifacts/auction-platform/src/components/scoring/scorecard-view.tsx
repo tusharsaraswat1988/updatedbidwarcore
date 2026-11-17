@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import type { PublicScorecardResponse } from "@/lib/scoring-api";
 import { cricketPlayerPublicPath } from "@/lib/tournament-navigation";
 import { Award } from "lucide-react";
-import { cricketTableHeadRowClass, cricketTableWrapClass } from "@/components/scoring/cricket-page-chrome";
+import { cn } from "@/lib/utils";
 
 function playerName(map: Record<string, string>, id: number): string {
   return map[String(id)] ?? `Player ${id}`;
@@ -28,53 +28,53 @@ export function ScorecardView({ data, tournamentId }: ScorecardViewProps) {
   return (
     <div className="space-y-8">
       <header className="space-y-1">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">
+        <p className="text-xs uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
           {match.roundName ?? "Match"} · {match.status}
         </p>
-        <h1 className="text-2xl font-display font-bold text-foreground">
+        <h1 className="text-2xl font-display font-bold text-[hsl(var(--foreground))]">
           {match.homeTeam?.name ?? "Home"} vs {match.awayTeam?.name ?? "Away"}
         </h1>
         {match.resultSummary ? (
-          <p className="text-sm text-primary">{match.resultSummary}</p>
+          <p className="text-sm text-[hsl(var(--primary)) font-semibold">{match.resultSummary}</p>
         ) : null}
         {manOfTheMatch ? (
-          <p className="text-sm text-primary flex items-center gap-2 pt-1">
-            <Award className="h-4 w-4 shrink-0" />
+          <p className="text-sm text-[hsl(var(--foreground))] flex items-center gap-2 pt-1">
+            <Award className="h-4 w-4 shrink-0 text-[hsl(var(--primary))]" />
             Player of the Match:{" "}
             {tournamentId ? (
               <Link
                 href={cricketPlayerPublicPath(tournamentId, manOfTheMatch.playerId)}
-                className="font-semibold hover:underline"
+                className="font-semibold text-[hsl(var(--primary))] hover:underline"
               >
                 {manOfTheMatch.playerName}
               </Link>
             ) : (
-              <span className="font-semibold">{manOfTheMatch.playerName}</span>
+              <span className="font-semibold text-[hsl(var(--primary))]">{manOfTheMatch.playerName}</span>
             )}
             {manOfTheMatch.reason ? (
-              <span className="text-muted-foreground">({manOfTheMatch.reason})</span>
+              <span className="text-[hsl(var(--muted-foreground))]">({manOfTheMatch.reason})</span>
             ) : null}
           </p>
         ) : null}
       </header>
 
       {scorecard.innings.map((inn) => (
-        <section key={inn.innings} className="space-y-4">
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <section key={inn.innings} className="space-y-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 shadow-sm">
+          <div className="flex items-baseline justify-between gap-4 pb-2 border-b border-[hsl(var(--border))]">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-[hsl(var(--muted-foreground))]">
               Innings {inn.innings} — {teamLabel(match, inn.battingTeamId)}
             </h2>
-            <p className="text-lg font-bold tabular-nums text-foreground">
+            <p className="text-lg font-bold tabular-nums text-[hsl(var(--foreground))]">
               {inn.totalRuns}/{inn.totalWickets}{" "}
-              <span className="text-sm font-normal text-muted-foreground">({inn.overs} ov)</span>
+              <span className="text-sm font-normal text-[hsl(var(--muted-foreground))]">({inn.overs} ov)</span>
             </p>
           </div>
 
-          <div className={cricketTableWrapClass}>
-            <table className="w-full text-sm min-w-[28rem]">
+          <div className="rounded-lg border border-[hsl(var(--border))] overflow-hidden">
+            <table className="w-full text-sm">
               <thead>
-                <tr className={cricketTableHeadRowClass}>
-                  <th className="px-3 py-2 font-medium">Batter</th>
+                <tr className="bg-[hsl(var(--muted))/50] text-[hsl(var(--muted-foreground))] uppercase text-xs tracking-wider">
+                  <th className="px-3 py-2 font-medium text-left">Batter</th>
                   <th className="px-3 py-2 font-medium text-right">R</th>
                   <th className="px-3 py-2 font-medium text-right">B</th>
                   <th className="px-3 py-2 font-medium text-right">4s</th>
@@ -82,32 +82,32 @@ export function ScorecardView({ data, tournamentId }: ScorecardViewProps) {
                   <th className="px-3 py-2 font-medium text-right">SR</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-[hsl(var(--border))]">
                 {inn.batting.map((b) => (
-                  <tr key={b.playerId} className="border-b border-border/50">
+                  <tr key={b.playerId} className="hover:bg-[hsl(var(--muted))/30] transition-colors">
                     <td className="px-3 py-2">
-                      <span className="font-medium text-foreground">
+                      <span className="font-medium text-[hsl(var(--foreground))]">
                         {playerName(players, b.playerId)}
                         {b.notOut ? " *" : ""}
                       </span>
                       {b.dismissalType ? (
-                        <span className="block text-xs text-muted-foreground capitalize">
+                        <span className="block text-xs text-[hsl(var(--muted-foreground))] capitalize">
                           {b.dismissalType.replace(/_/g, " ")}
                         </span>
                       ) : null}
                     </td>
-                    <td className="px-3 py-2 text-right tabular-nums">{b.runs}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{b.balls}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{b.fours}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{b.sixes}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{b.strikeRate}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--foreground))]">{b.runs}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.balls}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.fours}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.sixes}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.strikeRate}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-[hsl(var(--muted-foreground))] pt-1">
             Extras {inn.extras.total}
             {inn.extras.byes ? ` (b ${inn.extras.byes})` : ""}
             {inn.extras.legByes ? ` (lb ${inn.extras.legByes})` : ""}
@@ -117,27 +117,27 @@ export function ScorecardView({ data, tournamentId }: ScorecardViewProps) {
           </p>
 
           {inn.bowling.length > 0 ? (
-            <div className={cricketTableWrapClass}>
-              <table className="w-full text-sm min-w-[24rem]">
+            <div className="rounded-lg border border-[hsl(var(--border))] overflow-hidden">
+              <table className="w-full text-sm">
                 <thead>
-                  <tr className={cricketTableHeadRowClass}>
-                    <th className="px-3 py-2 font-medium">Bowler</th>
+                  <tr className="bg-[hsl(var(--muted))/50] text-[hsl(var(--muted-foreground))] uppercase text-xs tracking-wider">
+                    <th className="px-3 py-2 font-medium text-left">Bowler</th>
                     <th className="px-3 py-2 font-medium text-right">O</th>
                     <th className="px-3 py-2 font-medium text-right">R</th>
                     <th className="px-3 py-2 font-medium text-right">W</th>
                     <th className="px-3 py-2 font-medium text-right">Econ</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[hsl(var(--border))]">
                   {inn.bowling.map((b) => (
-                    <tr key={b.playerId} className="border-b border-border/50">
-                      <td className="px-3 py-2 font-medium text-foreground">
+                    <tr key={b.playerId} className="hover:bg-[hsl(var(--muted))/30] transition-colors">
+                      <td className="px-3 py-2 font-medium text-[hsl(var(--foreground))]">
                         {playerName(players, b.playerId)}
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums">{b.overs}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{b.runs}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{b.wickets}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">{b.economy}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--foreground))]">{b.overs}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--foreground))]">{b.runs}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--primary))] font-semibold">{b.wickets}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-[hsl(var(--muted-foreground))]">{b.economy}</td>
                     </tr>
                   ))}
                 </tbody>
