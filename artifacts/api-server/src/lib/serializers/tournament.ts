@@ -65,7 +65,7 @@ export function spectatorTournamentSerializer(
     cheerMessagePresets: t.cheerMessagePresets ?? null,
     broadcast: resolvePublicBroadcasts(t.featuresJson) ?? null,
     ...(auctionOn ? { auctionUnit: normalizeAuctionUnit(t.auctionUnit) } : {}),
-    createdAt: t.createdAt.toISOString(),
+    createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : (t.createdAt ? String(t.createdAt) : new Date().toISOString()),
   };
 }
 
@@ -148,7 +148,7 @@ export function publicTournamentSerializer(
     scoringPhase: t.scoringPhase ?? "disabled",
     features: resolveTournamentFeatures(t.featuresJson),
     ...catalogBindingSerializerFields(t),
-    createdAt: t.createdAt.toISOString(),
+    createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : (t.createdAt ? String(t.createdAt) : new Date().toISOString()),
     ...(platform
       ? {
           platformAudioDefaults: platform,
