@@ -92,12 +92,12 @@ export function CricketPublicShell({
   return (
     <div
       className={cn(
-        "min-h-screen bg-background text-foreground antialiased relative flex flex-col dark",
+        "min-h-screen bg-[#0B101B] text-[#E8EDF5] antialiased relative flex flex-col dark",
         className,
       )}
       style={shellStyle}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-accent/20 via-background to-background pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-emerald-500/5 via-[#0B101B] to-[#0B101B] pointer-events-none" />
       <div className={cn("relative z-10 flex-1 w-full mx-auto px-4 py-6 sm:py-8", maxWidth)}>
         {children}
       </div>

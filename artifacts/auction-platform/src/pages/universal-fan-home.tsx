@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
@@ -19,10 +19,14 @@ import {
   Users,
   ExternalLink,
   Clock,
+  Home,
 } from "lucide-react";
 import { useFanFavorites } from "@/hooks/use-fan-favorites";
 import { cldUrl } from "@/lib/cloudinary";
 import { cn } from "@/lib/utils";
+import { useBranding } from "@/hooks/use-branding";
+import { getBrandLogoSrc, isBrandLogoPlaceholderSrc } from "@/lib/brand-assets";
+import { formatFanDate, formatFanDateTime, formatFanStatus } from "@/lib/fan-date-utils";
 
 interface PublicBroadcast {
   auction?: {
@@ -80,6 +84,15 @@ interface FanDiscoveryResponse {
 }
 
 export default function UniversalFanHome() {
+  // Initialise city from URL query string on mount
+  const [selectedCity, setSelectedCity] = useState<string>(() => {
+    if (typeof window === "undefined") return "all";
+    try {
+      return new URLSearchParams(window.location.search).get("city") || "all";
+    } catch {
+      return "all";
+    }
+  });
   const [search, setSearch] = useState("");
   const [selectedSport, setSelectedSport] = useState("all");
   const [selectedStatus, setSelectedStatus] = useState("all");
@@ -87,7 +100,42 @@ export default function UniversalFanHome() {
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [page, setPage] = useState(1);
 
+  const { logos } = useBranding();
+  const brandLogoSrc = useMemo(() => {
+    const candidates = [logos.mini, logos.mainReverse, logos.main];
+    for (const c of candidates) {
+      if (c && !isBrandLogoPlaceholderSrc(c)) return c;
+    }
+    return "/assets/branding/bidwar-reverse-logo-official.png";
+  }, [logos]);
+
   const { isFavorite, toggleFavorite, favoritesCount, favoriteIds } = useFanFavorites();
+
+  // Sync city to URL query param
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const url = new URL(window.location.href);
+      if (selectedCity !== "all") {
+        url.searchParams.set("city", selectedCity);
+      } else {
+        url.searchParams.delete("city");
+      }
+      window.history.replaceState(null, "", url.toString());
+    } catch {}
+  }, [selectedCity]);
+
+  // Available cities from dedicated endpoint
+  const { data: citiesData } = useQuery<{ cities: string[] }>({
+    queryKey: ["/api/fan/cities"],
+    queryFn: async () => {
+      const res = await fetch("/api/fan/cities");
+      if (!res.ok) return { cities: [] };
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+  const availableCities = citiesData?.cities ?? [];
 
   // Query parameters for discovery API
   const queryParams = useMemo(() => {
@@ -96,11 +144,12 @@ export default function UniversalFanHome() {
     if (selectedSport !== "all") params.set("sport", selectedSport);
     if (selectedStatus !== "all") params.set("status", selectedStatus);
     if (selectedModule !== "all") params.set("module", selectedModule);
+    if (selectedCity !== "all") params.set("city", selectedCity);
     params.set("page", String(page));
     params.set("limit", "24");
     params.set("sortBy", "live_first");
     return params.toString();
-  }, [search, selectedSport, selectedStatus, selectedModule, page]);
+  }, [search, selectedSport, selectedStatus, selectedModule, selectedCity, page]);
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery<FanDiscoveryResponse>({
     queryKey: ["/api/fan/tournaments", queryParams],
@@ -133,6 +182,7 @@ export default function UniversalFanHome() {
     setSelectedSport("all");
     setSelectedStatus("all");
     setSelectedModule("all");
+    setSelectedCity("all");
     setShowOnlyFavorites(false);
     setPage(1);
   };
@@ -142,23 +192,35 @@ export default function UniversalFanHome() {
     selectedSport !== "all" ||
     selectedStatus !== "all" ||
     selectedModule !== "all" ||
+    selectedCity !== "all" ||
     showOnlyFavorites;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col selection:bg-amber-500/30">
+    <div className="min-h-screen bg-[#0B101B] text-white flex flex-col selection:bg-amber-500/30">
       {/* ── Top Header & Branding ────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-white/10 px-4 sm:px-6 py-3.5">
+      <header className="sticky top-0 z-40 bg-[#0B101B]/90 backdrop-blur-md border-b border-white/10 px-4 sm:px-6 py-3.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 p-0.5 shadow-lg shadow-amber-500/20">
-              <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-                <Trophy className="w-5 h-5 text-amber-400" />
+            {/* Official Brand Logo */}
+            {brandLogoSrc ? (
+              <img
+                src={brandLogoSrc}
+                alt="BidWar"
+                className="h-7 sm:h-8 w-auto object-contain"
+                loading="eager"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 p-0.5 shadow-lg shadow-amber-500/20">
+                <div className="w-full h-full bg-[#0B101B] rounded-[10px] flex items-center justify-center">
+                  <Trophy className="w-5 h-5 text-amber-400" />
+                </div>
               </div>
-            </div>
+            )}
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-black text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">
-                  BidWar Fan Arena
+                  <Link to="/fan" className="hover:opacity-80 transition-opacity">BidWar Fan Arena</Link>
                 </span>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -369,6 +431,41 @@ export default function UniversalFanHome() {
                 </button>
               ))}
             </div>
+
+            {/* City Filter */}
+            {availableCities.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] uppercase font-bold text-slate-500 mr-1 flex items-center gap-1">
+                  <MapPin className="w-3 h-3" /> City:
+                </span>
+                <select
+                  value={selectedCity}
+                  onChange={(e) => {
+                    setSelectedCity(e.target.value);
+                    setPage(1);
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-black/30 border border-white/10 text-slate-300 hover:text-white cursor-pointer focus:outline-none focus:border-amber-400/80 transition-colors"
+                >
+                  <option value="all">All Cities</option>
+                  {availableCities.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                {selectedCity !== "all" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 border border-amber-400/60 text-amber-300">
+                    {selectedCity}
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedCity("all"); setPage(1); }}
+                      className="ml-0.5 hover:text-white cursor-pointer"
+                      aria-label="Clear city filter"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {hasActiveFilters && (
@@ -551,7 +648,7 @@ export default function UniversalFanHome() {
                       {(tournament.auctionDate || tournament.matchDates) && (
                         <div className="flex items-center gap-1.5">
                           <Calendar className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                          <span>{tournament.auctionDate || tournament.matchDates?.split(",")[0]}</span>
+                      <span>{formatFanDate(tournament.auctionDate) || formatFanDate(tournament.matchDates?.split(",")[0])}</span>
                         </div>
                       )}
                     </div>

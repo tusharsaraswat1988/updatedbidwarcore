@@ -443,8 +443,15 @@ function PlatformRouter() {
         <Route path="/fan/:id" component={RedirectToScoringApp} />
         <Route path="/fanpage/:id" component={RedirectToScoringApp} />
         <Route path="/fan" component={UniversalFanHome} />
+        <Route path="/fan/" component={UniversalFanHome} />
+        <Route path="/tournaments/:id/fan">
+          {(params) => <UnifiedFanPage key={params?.id || "fan"} routeIdentifier={params?.id} />}
+        </Route>
         <Route path="/tournament/:id/fan">
-          {(params) => <UnifiedFanPage routeIdentifier={params?.id} />}
+          {(params) => <UnifiedFanPage key={params?.id || "fan"} routeIdentifier={params?.id} />}
+        </Route>
+        <Route path="/tournament/:id/fan/">
+          {(params) => <UnifiedFanPage key={params?.id || "fan"} routeIdentifier={params?.id} />}
         </Route>
         <Route path="/tournament/:id/cricket" component={RedirectToScoringApp} />
         <Route path="/tournament/:id/score/dashboard" component={RedirectToScoringApp} />

@@ -3,6 +3,7 @@ import {
   canAccessPrivateTournamentData,
   requireTournamentOrganizer,
 } from "../middleware/require-organizer";
+import { guardPrivateTournamentSpectator } from "../middleware/private-tournament-gate";
 import {
   checkVerifyAccessAllowed,
   clearAllTeamAccessLockouts,
@@ -112,6 +113,10 @@ const teamToPublicJson = publicTeamSerializer;
 router.get("/tournaments/:tournamentId/teams", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
+
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
   const serializer = isOrganizer ? teamToJson : teamToPublicJson;
   const teams = await db
@@ -403,6 +408,10 @@ router.get("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const teamId = parseInt(req.params.teamId);
   if (isNaN(tid) || isNaN(teamId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
+
   const [team] = await db
     .select()
     .from(teamsTable)

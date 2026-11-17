@@ -197,6 +197,7 @@ import {
   isTournamentOrganizer,
   requireTournamentOrganizer,
 } from "../middleware/require-organizer";
+import { guardPrivateTournamentSpectator } from "../middleware/private-tournament-gate";
 import {
   publicBadmintonPlayerSerializer,
   serializeBadmintonPlayerForAudience,
@@ -2633,6 +2634,10 @@ router.get("/matches", async (req, res) => {
   const tournamentId = tid(req);
   if (!tournamentId) return void res.status(400).json({ error: "bad id" });
 
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
+  if (!tournament) return void res.status(404).json({ error: "Tournament not found" });
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
+
   const includeScorerPin = await resolveIsTournamentOwner(req, tournamentId);
   const matches = await getLiveBadmintonMatches(tournamentId);
   res.json(
@@ -2815,6 +2820,10 @@ router.get("/matches/:matchId", async (req, res) => {
   const tournamentId = tid(req);
   const matchId = parseId((req.params as MergedParams).matchId);
   if (!tournamentId || !matchId) return void res.status(400).json({ error: "bad id" });
+
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
+  if (!tournament) return void res.status(404).json({ error: "Tournament not found" });
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
 
   // replayMatch now verifies match.tournamentId === tournamentId internally.
   const state = await replayMatch(matchId, tournamentId);

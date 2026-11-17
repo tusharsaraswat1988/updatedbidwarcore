@@ -2,10 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import {
-  useGetTournament,
-  getGetTournamentQueryKey,
-} from "@workspace/api-client-react";
-import {
   isAuctionEnabled,
   isScoringEnabled,
   resolveTournamentProductMode,
@@ -91,33 +87,58 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
     }
   });
 
-  // Fetch full tournament configuration
+  // Fetch safe spectator tournament context (zero exposure of organizer-only private fields)
   const {
-    data: tournament,
+    data: fanContext,
     isLoading: isLoadingTournament,
     error,
     refetch,
-  } = useGetTournament(tournamentId, {
-    query: {
-      queryKey: [...getGetTournamentQueryKey(tournamentId), accessPin || ""],
-      enabled: tournamentId > 0,
-      staleTime: 15_000,
-      retry: (failureCount, err) => {
-        if ((err as any)?.status === 403) return false;
-        return failureCount < 2;
-      },
+  } = useQuery({
+    queryKey: ["fan-tournament-context", tournamentId, accessPin || ""],
+    queryFn: async () => {
+      const headers: Record<string, string> = {};
+      if (accessPin) {
+        headers["x-bidwar-pin"] = accessPin;
+      }
+      const res = await fetch(`/api/tournaments/${tournamentId}/fan/context`, { headers });
+      if (res.status === 403) {
+        const err: any = new Error("Private tournament");
+        err.status = 403;
+        err.code = "PRIVATE_TOURNAMENT";
+        throw err;
+      }
+      if (res.status === 404) {
+        const err: any = new Error("Tournament not found");
+        err.status = 404;
+        throw err;
+      }
+      if (!res.ok) {
+        const err: any = new Error(`Server error: ${res.status}`);
+        err.status = res.status;
+        throw err;
+      }
+      return (await res.json()) as {
+        tournament: any;
+        isPrivate: boolean;
+        modules: { auction: boolean; scoring: boolean };
+        sport: string | null;
+      };
     },
-    request: {
-      headers: accessPin ? { "x-bidwar-pin": accessPin } : {},
+    enabled: tournamentId > 0,
+    staleTime: 15_000,
+    retry: (failureCount, err: any) => {
+      if (err?.status === 403 || err?.status === 404) return false;
+      return failureCount < 2;
     },
   });
 
-  const isPrivateLocked = (error as any)?.status === 403 || (error as any)?.data?.code === "PRIVATE_TOURNAMENT";
+  const tournament = fanContext?.tournament;
+  const isPrivateLocked = (error as any)?.status === 403 || (error as any)?.data?.code === "PRIVATE_TOURNAMENT" || (error as any)?.code === "PRIVATE_TOURNAMENT";
 
   const handleUnlockPin = useCallback(
     async (pin: string): Promise<boolean> => {
       try {
-        const res = await fetch(`/api/tournaments/${tournamentId}`, {
+        const res = await fetch(`/api/tournaments/${tournamentId}/fan/context`, {
           headers: { "x-bidwar-pin": pin },
         });
         if (res.ok) {
@@ -283,12 +304,22 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
     );
   }
 
-  // Error / Not found state
-  if (error || !tournament || tournamentId === 0) {
+  // Error / Not found / Connection state
+  if ((error as any)?.status === 404 || tournamentId === 0) {
     return (
       <UnifiedFanPageErrorState
         title="Tournament Not Found"
         message="The requested tournament fan page does not exist or has been removed."
+        onRetry={refetch}
+      />
+    );
+  }
+
+  if (error || !tournament) {
+    return (
+      <UnifiedFanPageErrorState
+        title="Connection Issue"
+        message="Unable to load tournament spectator data. Please check your connection and try again."
         onRetry={refetch}
       />
     );
@@ -317,15 +348,15 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
     >
       {/* ── Active Module Spectator Renderer (Zero Duplicate Connection Lifecycle) ── */}
       {activeTab === "auction" && showAuctionTab && (
-        <AuctionFanRenderer tournamentId={tournamentId} />
+        <AuctionFanRenderer key={tournamentId} tournamentId={tournamentId} />
       )}
 
       {activeTab === "scoring" && showScoringTab && sport === "cricket" && (
-        <CricketFanRenderer tournamentId={tournamentId} />
+        <CricketFanRenderer key={tournamentId} tournamentId={tournamentId} />
       )}
 
       {activeTab === "scoring" && showScoringTab && sport === "badminton" && (
-        <BadmintonFanRenderer tournamentId={tournamentId} />
+        <BadmintonFanRenderer key={tournamentId} tournamentId={tournamentId} />
       )}
 
       {activeTab === "scoring" && showScoringTab && sport !== "cricket" && sport !== "badminton" && (

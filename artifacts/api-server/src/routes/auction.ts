@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { isTournamentOrganizer, requireTournamentOrganizer } from "../middleware/require-organizer";
+import { guardPrivateTournamentSpectator } from "../middleware/private-tournament-gate";
 import { requireAuctionModule, assertAuctionModule } from "../middleware/require-module";
 import { serializePlayerWithSpecifications } from "../lib/player-spec-response";
 import { requireTeamInTournament } from "../lib/team-tournament-guard";
@@ -62,6 +63,7 @@ import { notifyPlayerSold } from "../lib/whatsapp";
 import { enqueuePlayerSoldEmailAsync } from "../lib/communication/player-sold-email-service.js";
 import { isNameClean } from "../lib/name-filter";
 import { CHEER_DEFAULT_PRESETS } from "../lib/cheer-constants";
+import { broadcastScoringState } from "../lib/scoring-broadcast";
 import { getAdminPassword, getPublicOrigin, getRuntimeConfig } from "../lib/runtime-env";
 import { scheduleGoogleSheetSync } from "../lib/google-sheets-sync-queue.js";
 
@@ -1180,6 +1182,8 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
   if (!requireAuctionModule(res, tournament)) return;
 
   res.setHeader("Content-Type", "text/event-stream");
@@ -1265,6 +1269,8 @@ router.get("/tournaments/:tournamentId/auction", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
   if (!requireAuctionModule(res, tournament)) return;
   res.json(await getCachedOrBuildState(tid));
 });
@@ -4183,6 +4189,8 @@ router.get("/tournaments/:tournamentId/auction/bids", async (req, res) => {
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
   if (!requireAuctionModule(res, tournament)) return;
 
   const bids = await db
@@ -4327,7 +4335,7 @@ router.post("/tournaments/:tournamentId/cheer", cheerLimiter, async (req, res) =
   recentCheerTimestamps.set(tid, tsArr.filter((t) => t > now - 300_000));
   const heatLevel = getHeatLevel(tid);
 
-  await publishAuctionEvent(tid, {
+  const cheerPayload = {
     type: "cheer_message",
     supporterLabel,
     message,
@@ -4336,7 +4344,10 @@ router.post("/tournaments/:tournamentId/cheer", cheerLimiter, async (req, res) =
     timestamp: now,
     heatLevel,
     fanBattle,
-  });
+  };
+
+  await publishAuctionEvent(tid, cheerPayload);
+  broadcastScoringState(tid, cheerPayload);
   res.json({ ok: true });
 });
 

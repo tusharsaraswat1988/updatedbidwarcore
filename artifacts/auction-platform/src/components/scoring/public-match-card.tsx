@@ -86,7 +86,7 @@ export function PublicMatchCard({
             </p>
           ) : null}
 
-          {match.streamUrl ? (
+          {match.streamUrl && !isTerminalCricketMatchStatus(match.status) && match.status !== "completed" ? (
             <div className="pt-2 flex items-center">
               <a
                 href={match.streamUrl}

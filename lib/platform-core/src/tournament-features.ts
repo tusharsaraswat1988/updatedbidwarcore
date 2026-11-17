@@ -352,7 +352,7 @@ export function isFanArenaApproved(
   return f.fanArenaApproved === true;
 }
 
-/** Helper: Extract active public broadcast links for display (only enabled ones). */
+/** Helper: Extract active public broadcast links for display (only enabled, non-ended, valid URL ones). */
 export function resolvePublicBroadcasts(
   features?: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
 ): { auction?: BroadcastLinkConfig; scoring?: BroadcastLinkConfig } | undefined {
@@ -360,8 +360,23 @@ export function resolvePublicBroadcasts(
   const b = f.broadcast;
   if (!b) return undefined;
 
-  const auction = b.auction && b.auction.enabled ? b.auction : undefined;
-  const scoring = b.scoring && b.scoring.enabled ? b.scoring : undefined;
+  const isValidUrl = (url?: string) => Boolean(url && /^https?:\/\/.+/i.test(url.trim()));
+
+  const auction =
+    b.auction &&
+    b.auction.enabled !== false &&
+    b.auction.status !== "ended" &&
+    isValidUrl(b.auction.url)
+      ? b.auction
+      : undefined;
+
+  const scoring =
+    b.scoring &&
+    b.scoring.enabled !== false &&
+    b.scoring.status !== "ended" &&
+    isValidUrl(b.scoring.url)
+      ? b.scoring
+      : undefined;
 
   if (!auction && !scoring) return undefined;
   return { auction, scoring };

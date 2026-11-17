@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { canAccessPrivateTournamentData, requireTournamentOrganizer } from "../middleware/require-organizer";
+import { guardPrivateTournamentSpectator } from "../middleware/private-tournament-gate";
 import { publicPlayerSerializer, privatePlayerSerializer } from "../lib/serializers/player";
 import { validateTeamBelongsToTournament } from "../lib/team-tournament-guard";
 import { validateCategoryBelongsToTournament } from "../lib/category-tournament-guard";
@@ -508,6 +509,10 @@ const playerInputSchema = z.object({
 router.get("/tournaments/:tournamentId/players", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
+
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
   const players = await db
     .select()
@@ -1401,6 +1406,10 @@ router.get("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
   const tid = parseInt(req.params.tournamentId);
   const playerId = parseInt(req.params.playerId);
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
+  const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
+
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
   const [player] = await db
     .select()

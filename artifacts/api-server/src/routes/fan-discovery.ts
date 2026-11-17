@@ -21,7 +21,11 @@ import {
   type BroadcastLinkConfig,
 } from "@workspace/platform-core";
 import { canAccessPrivateTournamentData } from "../middleware/require-organizer";
-import { publicTournamentSerializer } from "../lib/serializers/tournament";
+import {
+  publicTournamentSerializer,
+  spectatorTournamentSerializer,
+} from "../lib/serializers/tournament";
+import { guardPrivateTournamentSpectator } from "../middleware/private-tournament-gate";
 import {
   secureComparePins,
   checkPinRateLimit,
@@ -378,47 +382,8 @@ router.get("/tournaments/:tournamentId/fan/context", async (req: Request, res: R
   }
 
   // Privacy Gate (Phase 1 Privacy Contract)
-  const visibility = resolveTournamentVisibility(tournament.featuresJson);
-  const isOrganizer = await canAccessPrivateTournamentData(req, id);
-
-  if (visibility === "private" && !isOrganizer) {
-    const clientIp = req.ip || req.socket.remoteAddress || "127.0.0.1";
-
-    // 1. Check if client IP is currently locked out from brute-force attempts
-    const rateCheck = checkPinRateLimit(clientIp, id);
-    if (!rateCheck.allowed) {
-      res.setHeader("Retry-After", String(rateCheck.retryAfterSeconds || 600));
-      res.status(429).json({
-        error: "Too many failed PIN attempts. Access locked out temporarily.",
-        code: "RATE_LIMIT_EXCEEDED",
-        retryAfterSeconds: rateCheck.retryAfterSeconds,
-      });
-      return;
-    }
-
-    const pin = (req.headers["x-bidwar-pin"] as string) || (req.query.pin as string);
-    const pinMatches = secureComparePins(pin, tournament.scoringPin);
-
-    // Record attempt for rate limiting
-    const attemptResult = recordPinAttempt(clientIp, id, pinMatches);
-
-    if (!pinMatches) {
-      if (attemptResult.lockedOut) {
-        res.setHeader("Retry-After", String(attemptResult.retryAfterSeconds || 600));
-        res.status(429).json({
-          error: "Too many failed PIN attempts. Access locked out for 10 minutes.",
-          code: "RATE_LIMIT_EXCEEDED",
-          retryAfterSeconds: attemptResult.retryAfterSeconds,
-        });
-        return;
-      }
-
-      res.status(403).json({
-        error: "This tournament is private",
-        code: "PRIVATE_TOURNAMENT",
-      });
-      return;
-    }
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) {
+    return;
   }
 
   // Live state checks
@@ -473,40 +438,15 @@ router.get("/tournaments/:tournamentId/fan/context", async (req: Request, res: R
     recommendedTab = "scoring";
   }
 
-  const serialized = publicTournamentSerializer(tournament);
+  const spectator = spectatorTournamentSerializer(tournament);
 
-  // Cache-Control Privacy Hardening: Never allow public proxy/CDN caching for private or unlisted tournaments
-  if (visibility === "private" || visibility === "unlisted") {
-    res.setHeader("Cache-Control", "private, no-cache, no-store, must-revalidate, max-age=0");
-    res.setHeader("Pragma", "no-cache");
-  } else {
+  // Cache-Control: guard already set private/no-store for private+unlisted tournaments.
+  // Set public cache for public tournaments (guard does not set this).
+  if (!res.getHeader("Cache-Control")) {
     res.setHeader("Cache-Control", "public, max-age=10, stale-while-revalidate=20");
   }
   res.json({
-    tournament: {
-      id: serialized.id,
-      name: serialized.name,
-      sport: serialized.sport,
-      auctionCode: serialized.auctionCode,
-      city: serialized.city,
-      venue: serialized.venue,
-      organizerName: serialized.organizerName,
-      logoUrl: serialized.logoUrl,
-      sponsorLogos: serialized.sponsorLogos,
-      mainBannerUrl: serialized.mainBannerUrl,
-      mainBannerEnabled: serialized.mainBannerEnabled,
-      mainBannerFit: serialized.mainBannerFit,
-      status: serialized.status,
-      auctionDate: serialized.auctionDate,
-      auctionTime: serialized.auctionTime,
-      matchDates: serialized.matchDates,
-      auctionEnabled: serialized.auctionEnabled,
-      scoringEnabled: serialized.scoringEnabled,
-      productMode: serialized.productMode,
-      scoringPhase: serialized.scoringPhase,
-      features: serialized.features,
-      broadcast: resolvePublicBroadcasts(tournament.featuresJson) ?? null,
-    },
+    tournament: spectator,
     liveState: {
       isAuctionLive,
       isMatchLive,
@@ -514,6 +454,48 @@ router.get("/tournaments/:tournamentId/fan/context", async (req: Request, res: R
       recommendedTab,
     },
   });
+});
+
+/**
+ * GET /api/fan/cities
+ * Returns unique sorted cities having public, active tournaments.
+ */
+router.get("/fan/cities", async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const baseConditions = [
+      sql`COALESCE(${tournamentsTable.featuresJson}->>'visibility', 'public') = 'public'`,
+      eq(tournamentsTable.adminLocked, false),
+      or(eq(tournamentsTable.auctionEnabled, true), eq(tournamentsTable.scoringEnabled, true)),
+      sql`${tournamentsTable.name} NOT ILIKE '%[test]%'`,
+      sql`${tournamentsTable.name} NOT ILIKE '%demo tournament%'`,
+      sql`${tournamentsTable.name} NOT ILIKE '%internal test%'`,
+      sql`${tournamentsTable.name} NOT ILIKE 'SIM_%'`,
+      sql`${tournamentsTable.name} NOT ILIKE '%testing%'`,
+      sql`COALESCE((${tournamentsTable.featuresJson}->>'fanArenaOptIn')::boolean, false) = true`,
+      or(
+        eq(tournamentsTable.licenseStatus, "active"),
+        sql`COALESCE((${tournamentsTable.featuresJson}->>'fanArenaApproved')::boolean, false) = true`
+      ),
+      sql`${tournamentsTable.status} NOT IN ('archived', 'cancelled')`,
+      sql`${tournamentsTable.city} IS NOT NULL`,
+      sql`TRIM(${tournamentsTable.city}) != ''`,
+    ];
+
+    const rows = await db
+      .selectDistinct({ city: tournamentsTable.city })
+      .from(tournamentsTable)
+      .where(and(...baseConditions))
+      .orderBy(asc(tournamentsTable.city));
+
+    const cities = rows
+      .map((r) => r.city?.trim())
+      .filter((c): c is string => Boolean(c && c.length > 0));
+
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
+    res.json({ cities: Array.from(new Set(cities)) });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to list fan cities" });
+  }
 });
 
 export default router;

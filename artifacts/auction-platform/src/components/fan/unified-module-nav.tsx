@@ -68,8 +68,8 @@ export function UnifiedModuleNav({
                 : "text-slate-300 hover:text-white hover:bg-white/[0.06] border border-transparent"
             )}
           >
-            <Gavel className={cn("w-4 h-4 shrink-0", activeTab === "auction" ? "text-white animate-pulse" : "text-amber-400/80")} />
-            <span>Live Auction</span>
+            <Gavel className={cn("w-4 h-4 shrink-0", activeTab === "auction" ? "text-white" : "text-amber-400/80")} />
+            <span>Auction</span>
 
             {/* Live Indicator Beacon */}
             {isAuctionLive ? (
@@ -77,9 +77,7 @@ export function UnifiedModuleNav({
                 <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
                 LIVE
               </span>
-            ) : (
-              <span className="sr-only">Auction view</span>
-            )}
+            ) : null}
           </button>
         )}
 
@@ -109,13 +107,11 @@ export function UnifiedModuleNav({
 
             {/* Live Indicator Beacon */}
             {isScoringLive ? (
-              <span className="flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-full bg-emerald-500/25 border border-emerald-500/40 text-[10px] font-black tracking-wider text-emerald-200 animate-pulse">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
+              <span className="flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-full bg-red-500/25 border border-red-500/40 text-[10px] font-black tracking-wider text-red-200 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
                 LIVE
               </span>
-            ) : (
-              <span className="sr-only">Scoring view</span>
-            )}
+            ) : null}
           </button>
         )}
       </div>

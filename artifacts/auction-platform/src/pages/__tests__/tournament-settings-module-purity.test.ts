@@ -30,7 +30,7 @@ describe("Phase 4E: Tournament Settings Module Purity", () => {
 
   describe("1. Settings Navigation Tab Classification & Availability", () => {
     it("defines canonical CORE_SETTINGS_TABS containing only core surfaces", () => {
-      expect(CORE_SETTINGS_TABS).toEqual(["identity", "playerRegistration", "sponsors"]);
+      expect(CORE_SETTINGS_TABS).toEqual(["identity", "playerRegistration", "sponsors", "fanArena"]);
       expect(CORE_SETTINGS_TABS).not.toContain("auction");
       expect(CORE_SETTINGS_TABS).not.toContain("broadcast");
       expect(CORE_SETTINGS_TABS).not.toContain("recovery");
@@ -43,7 +43,7 @@ describe("Phase 4E: Tournament Settings Module Purity", () => {
       expect(AUCTION_SETTINGS_TABS).not.toContain("sponsors");
     });
 
-    it("getAvailableSettingsTabs returns all 6 tabs for auction_only tournament", () => {
+    it("getAvailableSettingsTabs returns all 7 tabs for auction_only tournament", () => {
       const auctionOnly: TournamentModuleFlags = { auctionEnabled: true, scoringEnabled: false };
       const tabs = getAvailableSettingsTabs(auctionOnly);
       expect(tabs).toEqual(SETTINGS_TABS);
@@ -51,6 +51,7 @@ describe("Phase 4E: Tournament Settings Module Purity", () => {
       expect(tabs).toContain("playerRegistration");
       expect(tabs).toContain("auction");
       expect(tabs).toContain("sponsors");
+      expect(tabs).toContain("fanArena");
       expect(tabs).toContain("broadcast");
       expect(tabs).toContain("recovery");
     });
@@ -67,7 +68,7 @@ describe("Phase 4E: Tournament Settings Module Purity", () => {
       expect(tabs).not.toContain("recovery");
     });
 
-    it("getAvailableSettingsTabs returns all 6 tabs for both tournament", () => {
+    it("getAvailableSettingsTabs returns all 7 tabs for both tournament", () => {
       const both: TournamentModuleFlags = { auctionEnabled: true, scoringEnabled: true };
       const tabs = getAvailableSettingsTabs(both);
       expect(tabs).toEqual(SETTINGS_TABS);
@@ -75,6 +76,7 @@ describe("Phase 4E: Tournament Settings Module Purity", () => {
       expect(tabs).toContain("playerRegistration");
       expect(tabs).toContain("auction");
       expect(tabs).toContain("sponsors");
+      expect(tabs).toContain("fanArena");
       expect(tabs).toContain("broadcast");
       expect(tabs).toContain("recovery");
     });

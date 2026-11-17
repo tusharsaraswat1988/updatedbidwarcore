@@ -249,6 +249,24 @@ const STATIC_PAGES: Record<string, PageMeta> = {
     })],
   },
 
+  "/fan": {
+    title: "BidWar Fan Arena | Live Scores, Auctions & Tournament Match Center",
+    description: "Follow your favorite teams, live cricket and badminton matches, real-time auction bids, tournament standings, and cheer live in the BidWar Fan Arena.",
+    canonical: `${BASE_URL}/fan`,
+    keywords: "bidwar fan arena, live cricket scores, live auction bids, tournament match center, spectator scores, cheer arena",
+    ogTitle: "BidWar Fan Arena — Live Scores, Auctions & Match Center",
+    ogDescription: "Follow matches, real-time auction bidding, team rosters, and cheer live in the BidWar Fan Arena.",
+    ogImage: DEFAULT_OG_IMAGE_URL,
+    schemas: [graph(ORGANIZATION_SCHEMA, WEBSITE_SCHEMA, {
+      "@type": "WebPage",
+      "name": "BidWar Fan Arena",
+      "url": `${BASE_URL}/fan`,
+      "description": "Live cricket and badminton scores, real-time auction bids, tournament standings, and cheer live in the BidWar Fan Arena.",
+      "isPartOf": { "@type": "WebSite", "url": BASE_URL },
+      "breadcrumb": breadcrumb("Fan Arena", `${BASE_URL}/fan`),
+    })],
+  },
+
   "/bpl": {
     title: "BidWar Premier League (BPL) | Official Tournament Hub",
     description: "Follow the BidWar Premier League live. Track team purse spending, player bidding wars, squad compositions, and auction results in real time.",

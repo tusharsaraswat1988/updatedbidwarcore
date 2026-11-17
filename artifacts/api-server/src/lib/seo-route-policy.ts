@@ -36,6 +36,8 @@ export const ROBOTS_DISALLOW_PREFIXES = [
 /** Explicit Allow entries for high-value commercial URLs (robots.txt hint). */
 export const ROBOTS_ALLOW_PATHS = [
   "/pricing",
+  "/fan",
+  "/fan/",
   "/bpl",
   "/bpl/",
   "/upcoming-auctions",
@@ -72,18 +74,19 @@ const PUBLIC_INDEXABLE_EXACT = new Set(ALL_PUBLIC_PATHS);
  */
 const NOINDEX_SPA_ROUTE_RES: RegExp[] = [
   /^\/dashboard$/,
+  /^\/fan(?:\/.*)?$/,
   /^\/live(?:\/\d+)?$/,
   /^\/register\/[A-Za-z0-9-]+$/,
   /^\/tournament\/new$/,
-  /^\/tournament\/\d+\/(?:login|display|side-display|score-display|liveviewer|register|obs\/preview|obs)$/,
-  /^\/tournament\/\d+\/owner\/\d+$/,
-  /^\/badminton\/\d+\/(?:score|display|overlay)$/,
+  /^\/tournament\/[^/]+\/(?:login|display|side-display|score-display|liveviewer|register|obs\/preview|obs)$/,
+  /^\/tournament\/[^/]+\/owner\/[^/]+$/,
+  /^\/badminton\/[^/]+\/(?:score|display|overlay)$/,
   /^\/wa-consent\/[^/]+$/,
   /^\/complete-profile$/,
   /^\/organizer(?:\/.*)?$/,
   /^\/admin(?:\/.*)?$/,
-  /^\/tournament\/\d+(?:\/.*)?$/,
-  /^\/tournament\/\d+\/(?:cricket|score|badminton)(?:\/.*)?$/,
+  /^\/tournament\/[^/]+(?:\/.*)?$/,
+  /^\/tournament\/[^/]+\/(?:cricket|score|badminton)(?:\/.*)?$/,
   /^\/cricket\/leaderboards$/,
   /^\/player\/[^/]+$/,
 ];
@@ -94,6 +97,7 @@ function matchesAny(pathname: string, patterns: RegExp[]): boolean {
 
 function isPublicContentPath(pathname: string): boolean {
   if (PUBLIC_INDEXABLE_EXACT.has(pathname)) return true;
+  if (pathname === "/fan" || pathname === "/fan/") return true;
   if (pathname === "/pricing") return true;
   if (pathname === "/bpl" || /^\/bpl\/[a-zA-Z0-9_-]+$/.test(pathname)) return true;
   if (pathname === "/legal") return true;

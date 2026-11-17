@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireTournamentOrganizer, isTournamentOrganizer } from "../middleware/require-organizer";
+import { guardPrivateTournamentSpectator } from "../middleware/private-tournament-gate";
 import {
   requireScorerFromRequest,
   assertScorerCanScore,
@@ -81,6 +82,13 @@ router.get("/public/schedule", async (req, res) => {
     return;
   }
   try {
+    const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tournamentId));
+    if (!tournament) {
+      res.status(404).json({ error: "Tournament not found" });
+      return;
+    }
+    if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
+
     const data = await getPublicTournamentSchedule(tournamentId);
     res.json(data);
   } catch (err) {

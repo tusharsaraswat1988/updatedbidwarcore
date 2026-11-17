@@ -145,7 +145,65 @@ export function useFanCheerState(
     ];
   });
 
+  const [isSending, setIsSending] = useState(false);
   const [cooldown, setCooldown] = useState(false);
+  const [cooldownSecondsLeft, setCooldownSecondsLeft] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Active client-side countdown timer for rate limits & cooldown
+  useEffect(() => {
+    if (cooldownSecondsLeft <= 0) {
+      setCooldown(false);
+      return;
+    }
+    const timer = setInterval(() => {
+      setCooldownSecondsLeft((prev) => {
+        if (prev <= 1) {
+          setCooldown(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldownSecondsLeft]);
+
+  // Listen for real-time cheer events broadcast from API server
+  useEffect(() => {
+    if (!tournamentId || tournamentId <= 0) return;
+    let es: EventSource | null = null;
+    try {
+      es = new EventSource(`/api/tournaments/${tournamentId}/scoring/events`);
+      const onCheer = (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "cheer_message") {
+            const incoming: FanCheerEntry = {
+              id: `cheer-${data.timestamp || Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              supporterLabel: data.supporterLabel || "Fan",
+              message: data.message,
+              teamId: data.teamId,
+              teamName: data.teamName || "",
+              teamColor: data.teamColor || null,
+              shortCode: data.shortCode || "",
+              timestamp: data.timestamp || Date.now(),
+            };
+            setMessages((prev) => {
+              if (prev.some((m) => m.timestamp === incoming.timestamp && m.message === incoming.message)) {
+                return prev;
+              }
+              return [...prev.slice(-40), incoming];
+            });
+          }
+        } catch {}
+      };
+      es.addEventListener("cheer_message", onCheer);
+    } catch {}
+
+    return () => {
+      es?.close();
+    };
+  }, [tournamentId]);
 
   const handleSelectTeam = (id: number) => {
     setSelectedTeamId(id);
@@ -165,47 +223,88 @@ export function useFanCheerState(
   };
 
   const sendCheer = useCallback(
-    (text: string) => {
-      if (!text.trim() || cooldown || !selectedTeam) return;
+    async (text: string, presetIndex?: number) => {
+      const cleanText = text.trim();
+      if (!cleanText || cooldown || isSending || !selectedTeam || tournamentId <= 0) return;
 
-      const newEntry: FanCheerEntry = {
-        id: `cheer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-        supporterLabel: `Fan · ${selectedTeam.shortCode || selectedTeam.name.slice(0, 3)}`,
-        message: text.trim().slice(0, 100),
-        teamId: selectedTeam.id,
-        teamName: selectedTeam.name,
-        teamColor: selectedTeam.color,
-        shortCode: selectedTeam.shortCode,
-        timestamp: Date.now(),
-      };
+      setIsSending(true);
+      setErrorMessage(null);
 
-      setMessages((prev) => {
-        const next = [...prev.slice(-40), newEntry];
-        try {
-          localStorage.setItem(messagesStorageKey, JSON.stringify(next));
-        } catch {}
-        return next;
-      });
+      try {
+        const payload: { teamId: number; reactionId?: number; message?: string } = {
+          teamId: selectedTeam.id,
+        };
+        if (presetIndex !== undefined) {
+          payload.reactionId = presetIndex;
+        } else {
+          payload.message = cleanText.slice(0, 100);
+        }
 
-      // Spawn floating reaction emoji
-      const emojis = ["🔥", "6️⃣", "💥", "🏏", "🎯", "⚡", "👏"];
-      const picked = emojis[Math.floor(Math.random() * emojis.length)];
-      const reactionId = `react-${Date.now()}-${Math.random()}`;
-      const leftPos = 20 + Math.random() * 60; // 20% to 80% width
+        const res = await fetch(`/api/tournaments/${tournamentId}/cheer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
 
-      setFloatingReactions((prev) => [...prev.slice(-8), { id: reactionId, emoji: picked, left: leftPos }]);
-      setTimeout(() => {
-        setFloatingReactions((prev) => prev.filter((r) => r.id !== reactionId));
-      }, 2500);
+        if (res.status === 429) {
+          const data = await res.json().catch(() => ({}));
+          const waitSec = data.cooldownSeconds ?? 2;
+          setCooldown(true);
+          setCooldownSecondsLeft(waitSec);
+          setErrorMessage(`Slow down! Wait ${waitSec}s before cheering again.`);
+          return;
+        }
 
-      if (soundEnabled) {
-        playCheerChime();
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setErrorMessage(data.error || "Unable to send cheer right now.");
+          return;
+        }
+
+        // Optimistic local add
+        const newEntry: FanCheerEntry = {
+          id: `cheer-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          supporterLabel: `Fan · ${(selectedTeam.shortCode || selectedTeam.name.slice(0, 4)).toUpperCase()}`,
+          message: cleanText.slice(0, 100),
+          teamId: selectedTeam.id,
+          teamName: selectedTeam.name,
+          teamColor: selectedTeam.color,
+          shortCode: selectedTeam.shortCode,
+          timestamp: Date.now(),
+        };
+
+        setMessages((prev) => {
+          const next = [...prev.slice(-40), newEntry];
+          try {
+            localStorage.setItem(messagesStorageKey, JSON.stringify(next));
+          } catch {}
+          return next;
+        });
+
+        // Spawn floating reaction emoji
+        const emojis = ["🔥", "6️⃣", "💥", "🏏", "🎯", "⚡", "👏"];
+        const picked = emojis[Math.floor(Math.random() * emojis.length)];
+        const reactionId = `react-${Date.now()}-${Math.random()}`;
+        const leftPos = 20 + Math.random() * 60;
+
+        setFloatingReactions((prev) => [...prev.slice(-8), { id: reactionId, emoji: picked, left: leftPos }]);
+        setTimeout(() => {
+          setFloatingReactions((prev) => prev.filter((r) => r.id !== reactionId));
+        }, 2500);
+
+        if (soundEnabled) {
+          playCheerChime();
+        }
+
+        setCooldown(true);
+        setCooldownSecondsLeft(2);
+      } catch {
+        setErrorMessage("Network issue: could not reach cheer server.");
+      } finally {
+        setIsSending(false);
       }
-
-      setCooldown(true);
-      setTimeout(() => setCooldown(false), 2000);
     },
-    [cooldown, selectedTeam, soundEnabled, messagesStorageKey],
+    [cooldown, isSending, selectedTeam, tournamentId, messagesStorageKey, soundEnabled],
   );
 
   // Heat meter calculation
@@ -235,7 +334,10 @@ export function useFanCheerState(
     handleSelectTeam,
     messages,
     sendCheer,
+    isSending,
     cooldown,
+    cooldownSecondsLeft,
+    errorMessage,
     soundEnabled,
     toggleSound,
     heatMeter,
@@ -261,7 +363,10 @@ export function FanCheerFloatingWidget({
     handleSelectTeam,
     messages,
     sendCheer,
+    isSending,
     cooldown,
+    cooldownSecondsLeft,
+    errorMessage,
     soundEnabled,
     toggleSound,
     heatMeter,
@@ -456,9 +561,9 @@ export function FanCheerFloatingWidget({
                   <button
                     key={idx}
                     type="button"
-                    disabled={cooldown}
-                    onClick={() => sendCheer(preset)}
-                    className="shrink-0 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-white/90 hover:bg-white/15 active:scale-95 disabled:opacity-50 whitespace-nowrap"
+                    disabled={cooldown || isSending}
+                    onClick={() => sendCheer(preset, idx)}
+                    className="shrink-0 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-white/90 hover:bg-white/15 active:scale-95 disabled:opacity-50 whitespace-nowrap cursor-pointer"
                   >
                     {preset}
                   </button>
@@ -466,11 +571,18 @@ export function FanCheerFloatingWidget({
               </div>
             </div>
 
+            {/* Error Message Toast in Floating Widget */}
+            {errorMessage ? (
+              <div className="px-3 py-1.5 bg-red-500/15 border-t border-red-500/30 text-[11px] text-red-300 font-medium text-center">
+                {errorMessage}
+              </div>
+            ) : null}
+
             {/* Custom Chat Input */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (customText.trim()) {
+                if (customText.trim() && !cooldown && !isSending) {
                   sendCheer(customText);
                   setCustomText("");
                 }
@@ -482,17 +594,18 @@ export function FanCheerFloatingWidget({
                 value={customText}
                 onChange={(e) => setCustomText(e.target.value)}
                 maxLength={100}
+                disabled={cooldown || isSending}
                 placeholder={
                   selectedTeam
                     ? `Cheer for ${selectedTeam.shortCode || selectedTeam.name}...`
                     : "Type a cheer..."
                 }
-                className="flex-1 rounded-xl border border-white/15 bg-black/50 px-3.5 py-2 text-xs text-white placeholder:text-white/40 focus:outline-none focus:border-emerald-400"
+                className="flex-1 rounded-xl border border-white/15 bg-black/50 px-3.5 py-2 text-xs text-white placeholder:text-white/40 focus:outline-none focus:border-emerald-400 disabled:opacity-60"
               />
               <button
                 type="submit"
-                disabled={!customText.trim() || cooldown}
-                className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-2 text-xs font-bold text-white shadow-md disabled:opacity-40"
+                disabled={!customText.trim() || cooldown || isSending}
+                className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-2 text-xs font-bold text-white shadow-md disabled:opacity-40 cursor-pointer"
               >
                 <Send className="h-3.5 w-3.5" />
               </button>
@@ -521,7 +634,10 @@ export function FanArenaSection({
     handleSelectTeam,
     messages,
     sendCheer,
+    isSending,
     cooldown,
+    cooldownSecondsLeft,
+    errorMessage,
     soundEnabled,
     toggleSound,
     heatMeter,
@@ -705,9 +821,9 @@ export function FanArenaSection({
             <button
               key={idx}
               type="button"
-              disabled={cooldown}
-              onClick={() => sendCheer(preset)}
-              className="shrink-0 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-white/90 hover:bg-white/15 hover:border-emerald-400/50 hover:text-emerald-300 transition-all disabled:opacity-50 whitespace-nowrap active:scale-95"
+              disabled={cooldown || isSending}
+              onClick={() => sendCheer(preset, idx)}
+              className="shrink-0 rounded-lg border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-white/90 hover:bg-white/15 hover:border-emerald-400/50 hover:text-emerald-300 transition-all disabled:opacity-50 whitespace-nowrap active:scale-95 cursor-pointer"
             >
               {preset}
             </button>
@@ -715,11 +831,18 @@ export function FanArenaSection({
         </div>
       </div>
 
+      {/* Error Message Toast in Fan Arena */}
+      {errorMessage ? (
+        <div className="relative z-10 mb-3 px-3.5 py-2 rounded-xl bg-red-500/15 border border-red-500/30 text-xs text-red-300 font-medium">
+          {errorMessage}
+        </div>
+      ) : null}
+
       {/* Custom Input Field */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (customText.trim()) {
+          if (customText.trim() && !cooldown && !isSending) {
             sendCheer(customText);
             setCustomText("");
           }
@@ -731,21 +854,22 @@ export function FanArenaSection({
           value={customText}
           onChange={(e) => setCustomText(e.target.value)}
           maxLength={100}
+          disabled={cooldown || isSending}
           placeholder={
             selectedTeam
               ? `Cheer for ${selectedTeam.name}...`
               : "Type your cheer message..."
           }
-          className="flex-1 rounded-xl border border-white/15 bg-black/40 px-3.5 py-2.5 text-xs text-white placeholder:text-white/40 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400/50 transition-all"
+          className="flex-1 rounded-xl border border-white/15 bg-black/40 px-3.5 py-2.5 text-xs text-white placeholder:text-white/40 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-400/50 transition-all disabled:opacity-60"
         />
 
         <button
           type="submit"
-          disabled={!customText.trim() || cooldown}
-          className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/10 disabled:text-white/30 text-white font-semibold px-5 py-2.5 text-xs transition-colors shadow-lg shadow-emerald-900/40"
+          disabled={!customText.trim() || cooldown || isSending}
+          className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-white/10 disabled:text-white/30 text-white font-semibold px-5 py-2.5 text-xs transition-colors shadow-lg shadow-emerald-900/40 cursor-pointer"
         >
           <Send className="h-3.5 w-3.5 mr-1" />
-          {cooldown ? "Wait..." : "Cheer"}
+          {isSending ? "Sending..." : cooldownSecondsLeft > 0 ? `Wait ${cooldownSecondsLeft}s` : cooldown ? "Wait..." : "Cheer"}
         </button>
       </form>
     </section>

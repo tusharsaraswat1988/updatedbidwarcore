@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@workspace/api-base/api-fetch";
 import { getPublicSchedule } from "@/lib/scoring-foundation-api";
-import { useListPlayers } from "@workspace/api-client-react";
 import {
   getPublicMatchScorecard,
   getScoringLeaderboard,
@@ -124,7 +123,6 @@ export default function ScoringPublicPage({
   });
 
   const tournamentId = numericId || codeContext?.tournament?.id || 0;
-  const { data: playersData } = useListPlayers(tournamentId);
   const { data: organizerSession } = useQuery({
     queryKey: ["organizer-me", tournamentId],
     queryFn: async () => {
@@ -320,8 +318,10 @@ export default function ScoringPublicPage({
 
       {isOrganizer ? <FanLiveStreamEditor tournamentId={tournamentId} /> : null}
 
-      {/* ── Persistent Floating Cheer & Reaction Overlay (Common across ALL tabs) ─ */}
-      <FanCheerFloatingWidget cheerState={cheerState} teams={data.teams} />
+      {/* ── Persistent Floating Cheer & Reaction Overlay (Omitted inside dedicated Fan Arena tab) ─ */}
+      {activeSection !== "fan_arena" && (
+        <FanCheerFloatingWidget cheerState={cheerState} teams={data.teams} />
+      )}
 
       <main className="space-y-8">
         {/* ============================================================== */}
@@ -338,7 +338,6 @@ export default function ScoringPublicPage({
                 scorecardData={liveScorecard}
                 streamUrl={streamUrl}
                 hideMissingStreamHint={isOrganizer}
-                tournamentPlayers={playersData}
               />
             ) : (
               <div className="rounded-2xl border border-white/10 bg-black/30 p-8 text-center text-white/70">

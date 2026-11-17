@@ -1224,7 +1224,7 @@ export default function LiveViewerPage({
   const [cheerMessages, setCheerMessages] = useState<CheerEntry[]>([]);
   const [floatingReactions, setFloatingReactions] = useState<FloatingReactionItem[]>([]);
   const [cheerTeamId, setCheerTeamId] = useState<number | null>(() => {
-    try { const v = localStorage.getItem("bidwar-cheer-team"); return v ? parseInt(v) : null; } catch { return null; }
+    try { const v = localStorage.getItem(`bidwar-cheer-team-${tournamentId}`); return v ? parseInt(v) : null; } catch { return null; }
   });
   const [showTeamSelector, setShowTeamSelector] = useState(false);
   const [cheerCooldown, setCheerCooldown] = useState(false);
@@ -2633,7 +2633,7 @@ export default function LiveViewerPage({
                         type="button"
                         onClick={() => {
                           setCheerTeamId(team.teamId);
-                          try { localStorage.setItem("bidwar-cheer-team", String(team.teamId)); } catch {}
+                          try { localStorage.setItem(`bidwar-cheer-team-${tournamentId}`, String(team.teamId)); } catch {}
                           setShowTeamSelector(false);
                           setTimeout(() => setCheerOpen(true), 120);
                         }}
