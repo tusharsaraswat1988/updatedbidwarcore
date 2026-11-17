@@ -163,6 +163,7 @@ export default function UniversalFanHome() {
     },
     staleTime: 15_000,
     refetchInterval: 30_000, // Poll discovery feed gently every 30s
+    placeholderData: (previousData) => previousData,
   });
 
   const rawItems = data?.items ?? [];
