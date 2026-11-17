@@ -761,3 +761,24 @@
 .touch-target {
   @apply min-h-[44px] min-w-[44px];
 }
+
+.fan-arena-theme.light {
+  --background: 210 40% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --border: 214 32% 91%;
+  --muted: 210 20% 90%;
+  --primary: 43 96% 56%;
+  --live: 0 84% 40%;
+}
+
+.fan-arena-theme.dark {
+  --background: 243 48% 12%;
+  --foreground: 45 20% 98%;
+  --card: 243 42% 16%;
+  --border: 243 28% 28%;
+  --muted: 243 35% 20%;
+  --primary: 43 96% 56%;
+  --live: 0 84% 60%;
+}
+

@@ -73,7 +73,7 @@ const CompleteProfile = lazyWithRetry(() => import("@/pages/complete-profile"));
 const BreakTimerPage = lazyWithRetry(() => import("@/pages/break-timer"));
 const LocalModePage = lazyWithRetry(() => import("@/pages/local-mode"));
 const UnifiedFanPage = lazyWithRetry(() => import("@/pages/unified-fan-page"));
-const UniversalFanHome = lazyWithRetry(() => import("@/pages/universal-fan-home"));
+const UniversalFanHome = lazyWithRetry(() => import("@/pages/UniversalFanHomeRedesign"));
 const NotFound = lazyWithRetry(() => import("@/pages/not-found"));
 
 function RouteSuspenseFallback() {
