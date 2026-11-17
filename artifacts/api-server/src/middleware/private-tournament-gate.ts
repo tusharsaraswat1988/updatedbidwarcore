@@ -54,6 +54,14 @@ export async function guardPrivateTournamentSpectator(
     }
 
     // Strictly header-only authentication — query-string PIN fallback removed
+    if (req.query.pin) {
+      res.status(403).json({
+        error: "PIN must be supplied in the x-bidwar-pin header, not as a query parameter.",
+        code: "INVALID_AUTH_METHOD",
+      });
+      return false;
+    }
+
     const pin = (req.headers["x-bidwar-pin"] as string) || "";
     const pinMatches = secureComparePins(pin, tournament.scoringPin);
     const attemptResult = recordPinAttempt(clientIp, tournament.id, pinMatches);
