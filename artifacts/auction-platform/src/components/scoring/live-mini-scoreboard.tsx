@@ -6,6 +6,7 @@ import type { PublicMatch, PublicTeam } from "@/lib/public-tournament-types";
 import type { ScoringLiveDisplay, PublicScorecardResponse } from "@/lib/scoring-api";
 import { cricketFanMatchPath } from "@/lib/tournament-navigation";
 import { cn } from "@/lib/utils";
+import { cricketTableWrapClass } from "@/components/scoring/cricket-page-chrome";
 import { CricketTossResultPanel } from "@/components/scoring/cricket-toss-result-panel";
 import { buildTossResultCopy, isTossResultHold } from "@/lib/cricket-toss-result";
 
@@ -132,7 +133,7 @@ export function LiveMiniScoreboard({
   }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 sm:p-6 shadow-sm text-[hsl(var(--foreground))]">
+    <div className="relative overflow-hidden rounded-2xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-4 sm:p-6 shadow-sm text-[hsl(var(--foreground))] min-w-[300px]">
       {/* Dynamic ambient background glow */}
       <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[hsl(var(--primary))/10] blur-3xl" />
       <div className="pointer-events-none absolute -bottom-16 -left-16 h-56 w-56 rounded-full bg-[hsl(var(--primary))/5] blur-3xl" />
