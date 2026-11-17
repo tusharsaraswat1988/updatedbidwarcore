@@ -297,7 +297,6 @@ export default function ScoringPublicPage({
       liveMatchId={primaryLiveId}
       streamUrl={streamUrl}
     >
-      {/* ── Header removed from here, now in TournamentShell ─ */}
       <main className="space-y-8">
         {/* ============================================================== */}
         {/* SECTION 1: LIVE MATCH                                          */}

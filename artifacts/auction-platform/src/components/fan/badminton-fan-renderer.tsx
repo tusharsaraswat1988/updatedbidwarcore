@@ -93,37 +93,6 @@ export function BadmintonFanRenderer({ tournamentId }: BadmintonFanRendererProps
 
   return (
     <div className="w-full flex-1 flex flex-col space-y-5" data-testid="badminton-fan-renderer">
-      {/* ── Realtime Status Bar & Sub-Navigation Pills ───────────────────── */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-black/40 border border-white/10 rounded-2xl p-2.5 sm:p-3 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-            <Activity className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-white tracking-wide">Badminton Court Center</span>
-              {liveMatches.length > 0 ? (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-red-500/20 border border-red-500/40 text-[10px] font-black text-red-400 uppercase tracking-wider animate-pulse">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                  {liveMatches.length} Live Court{liveMatches.length > 1 ? "s" : ""}
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-medium text-slate-400">
-                  <Clock className="w-3 h-3 text-slate-400" />
-                  {upcomingMatches.length} Scheduled
-                </span>
-              )}
-            </div>
-            <p className="text-[11px] text-slate-400">
-              {streamStatus === "connected" ? (
-                <span className="text-emerald-400 font-medium">● Real-time Live Connection Active</span>
-              ) : (
-                <span className="text-slate-400">Syncing tournament courts...</span>
-              )}
-            </p>
-          </div>
-        </div>
-
         {/* Section Tabs */}
         <div className="flex items-center gap-1 bg-white/[0.04] p-1 rounded-xl border border-white/[0.08] max-w-full overflow-x-auto">
           <button
@@ -175,7 +144,6 @@ export function BadmintonFanRenderer({ tournamentId }: BadmintonFanRendererProps
             Schedule
           </button>
         </div>
-      </div>
 
       {/* ── Section Content ──────────────────────────────────────────────── */}
       {activeSection === "live_courts" && (

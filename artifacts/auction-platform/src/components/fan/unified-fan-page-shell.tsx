@@ -1,46 +1,27 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "wouter";
-import {
-  Volume2,
-  VolumeX,
-  Share2,
-  Copy,
-  Check,
-  MapPin,
-  Calendar,
-  AlertTriangle,
-  ArrowLeft,
-  Radio,
-  Tv,
-} from "lucide-react";
-import { useBranding } from "@/hooks/use-branding";
-import {
-  getBrandLogoAlt,
-  getBrandLogoSrc,
-  getBrandWordmarkSrc,
-  isBrandLogoPlaceholderSrc,
-} from "@/lib/brand-assets";
+import { Volume2, VolumeX, Share2, MapPin } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { UnifiedModuleNav, type FanModuleTab } from "./unified-module-nav";
 import { cn } from "@/lib/utils";
 import { syncDocumentSurfaceTheme } from "@/lib/portal-theme";
-import { formatFanDateTime } from "@/lib/fan-date-utils";
+import { useBranding } from "@/hooks/use-branding";
+import { isBrandLogoPlaceholderSrc } from "@/lib/brand-assets";
 
 export interface UnifiedFanPageShellProps {
   tournament: {
     id: number;
     name: string;
-    season?: string | null;
     sport?: string | null;
     city?: string | null;
-    auctionCode?: string | null;
-    auctionDate?: string | null;
-    auctionTime?: string | null;
-    broadcast?: {
-      auction?: { url: string; status: "live" | "upcoming" | "ended"; title?: string; };
-      scoring?: { url: string; status: "live" | "upcoming" | "ended"; title?: string; };
-    } | null;
+    logoUrl?: string | null;
   };
+  matchMetadata?: {
+    liveCount: number;
+    upcomingCount: number;
+    completedCount: number;
+  };
+  moment?: React.ReactNode;
   productMode: "auction_only" | "scoring_only" | "both";
   showAuctionTab: boolean;
   showScoringTab: boolean;
@@ -56,6 +37,8 @@ export interface UnifiedFanPageShellProps {
 
 export function UnifiedFanPageShell({
   tournament,
+  matchMetadata,
+  moment,
   productMode,
   showAuctionTab,
   showScoringTab,
@@ -68,22 +51,10 @@ export function UnifiedFanPageShell({
   children,
   className,
 }: UnifiedFanPageShellProps) {
-  const { logos, brandName } = useBranding();
   const [shareOpen, setShareOpen] = useState(false);
-
-  const fanPageUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/tournament/${tournament.id}/fan`
-    : "";
-
-  const brandLogoSrc = React.useMemo(() => {
-    const candidates = [logos.mini, logos.mainReverse, logos.main];
-    for (const c of candidates) {
-      if (c && !isBrandLogoPlaceholderSrc(c)) return c;
-    }
-    return "/assets/branding/bidwar-reverse-logo-official.png";
-  }, [logos]);
-
   useEffect(() => { syncDocumentSurfaceTheme(); }, []);
+
+  const fanPageUrl = typeof window !== "undefined" ? `${window.location.origin}/tournament/${tournament.id}/fan` : "";
 
   return (
     <div className={cn("min-h-screen bg-[hsl(var(--background))] text-[hsl(var(--foreground))]", className)} data-surface="unified-fan-page">
@@ -92,22 +63,29 @@ export function UnifiedFanPageShell({
           <div className="flex items-center gap-4">
             <Link href="/fan" className="font-display font-black text-2xl tracking-tighter text-[hsl(var(--primary))]">BIDWAR</Link>
             <div className="hidden sm:block h-6 w-px bg-[hsl(var(--border))]" />
-            <div>
-                <h1 className="font-bold text-sm truncate max-w-[200px]">{tournament.name}</h1>
-                <p className="text-xs text-[hsl(var(--muted-foreground))]">{tournament.sport} • {tournament.city}</p>
+            <div className="flex items-center gap-3">
+                {tournament.logoUrl ? <img src={tournament.logoUrl} className="w-8 h-8 rounded-lg object-cover" /> : null}
+                <div>
+                    <h1 className="font-bold text-sm truncate max-w-[200px]">{tournament.name}</h1>
+                    <p className="text-xs text-[hsl(var(--muted-foreground))]">{tournament.sport} • {tournament.city}</p>
+                </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button onClick={onToggleSound} className="p-2 bg-[hsl(var(--card))] rounded-full">
-                {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-            </button>
-            <button onClick={() => setShareOpen(true)} className="p-2 bg-[hsl(var(--card))] rounded-full">
-                <Share2 className="w-4 h-4" />
-            </button>
+          <div className="flex items-center gap-3">
+            {matchMetadata && (
+                <div className="hidden sm:flex items-center gap-3 text-xs font-bold text-[hsl(var(--muted-foreground))]">
+                    <span>{matchMetadata.liveCount} Live</span>
+                    <span>{matchMetadata.upcomingCount} Upcoming</span>
+                </div>
+            )}
+            <button onClick={onToggleSound} className="p-2 bg-[hsl(var(--card))] rounded-full">{soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}</button>
+            <button onClick={() => setShareOpen(true)} className="p-2 bg-[hsl(var(--card))] rounded-full"><Share2 className="w-4 h-4" /></button>
           </div>
         </div>
       </header>
+
+      {moment && <div className="bg-[hsl(var(--amber-500))/10] border-b border-[hsl(var(--amber-500))/20] px-6 py-2">{moment}</div>}
 
       <main className="max-w-7xl mx-auto w-full px-6 py-6 flex-1 flex flex-col">
         <UnifiedModuleNav
@@ -125,9 +103,7 @@ export function UnifiedFanPageShell({
       
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
         <DialogContent className="bg-[hsl(var(--card))] border-[hsl(var(--border))]">
-            <DialogHeader>
-                <DialogTitle>Share Tournament</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Share Tournament</DialogTitle></DialogHeader>
             <div className="p-4 bg-[hsl(var(--background))] rounded-xl text-xs font-mono">{fanPageUrl}</div>
         </DialogContent>
       </Dialog>
@@ -135,10 +111,7 @@ export function UnifiedFanPageShell({
   );
 }
 
-export function UnifiedFanPageLoadingSkeleton() {
-    return <div className="p-10 text-center">Loading Arena...</div>;
-}
-
+export function UnifiedFanPageLoadingSkeleton() { return <div className="p-10 text-center">Loading Arena...</div>; }
 export function UnifiedFanPageErrorState({ title, message, onRetry }: { title?: string; message?: string; onRetry?: () => void; }) {
     return (
         <div className="min-h-screen bg-[hsl(var(--background))] flex flex-col items-center justify-center p-6 text-center">
