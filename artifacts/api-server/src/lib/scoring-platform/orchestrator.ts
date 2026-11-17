@@ -423,7 +423,7 @@ export async function appendSingleMatchEvent(
   match: typeof scoringMatchesTable.$inferSelect,
 ) {
   const adapter = getScoringAdapter(input.sportSlug);
-  if (!adapter.processEvent || !adapter.projectMatchFromState) {
+  if (!adapter || !adapter.processEvent || !adapter.projectMatchFromState) {
     throw new ScoringPlatformError("Adapter does not support event append", 500, "ADAPTER_UNSUPPORTED");
   }
 
@@ -570,7 +570,9 @@ export async function appendSingleMatchEvent(
         }
       } else {
         try {
-          adapter.processEvent(currentState, trialEvent, { enforceLiveRules: true });
+          if (adapter.processEvent) {
+            adapter.processEvent(currentState, trialEvent, { enforceLiveRules: true });
+          }
         } catch (err) {
           if (err instanceof InvalidEventPayloadError) {
             throw new ScoringPlatformError(err.message, 400, "INVALID_PAYLOAD");
@@ -601,10 +603,12 @@ export async function appendSingleMatchEvent(
         ...(replayedState as Record<string, unknown>),
         lastSequence: newSeq,
       };
-      const nextProjection = adapter.projectMatchFromState(replayedState);
-      nextProjection.lastEventSeq = newSeq;
+      const nextProjection = adapter.projectMatchFromState ? adapter.projectMatchFromState(replayedState) : null;
+      if (nextProjection) {
+        nextProjection.lastEventSeq = newSeq;
+      }
 
-      const nextMatch = await updateCricketMatchAndSession(match, nextState, nextProjection, tx);
+      const nextMatch = await updateCricketMatchAndSession(match, nextState, (nextProjection ?? { matchStatus: match.status }) as MatchProjection, tx);
 
       let batterName: string | undefined;
       let bowlerName: string | undefined;
@@ -686,7 +690,7 @@ export async function appendSingleMatchEvent(
     eventRow = committed.eventRow;
     state = committed.state;
     updatedMatch = committed.updatedMatch;
-    projection = committed.projection;
+    projection = (committed.projection ?? { matchStatus: match.status }) as MatchProjection;
     broadcastEvent = committed.broadcastEvent ?? null;
   } catch (err) {
     if (err instanceof ScoringPlatformError) throw err;

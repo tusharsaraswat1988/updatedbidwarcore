@@ -158,7 +158,8 @@ export default function CricketLinksPage() {
   const obsV2PreviewUrl = cricketObsV2PreviewPath(tournamentId);
   const obsWeddingUrl = cricketObsWeddingPath(tournamentId);
   const obsWeddingPreviewUrl = cricketObsWeddingPreviewPath(tournamentId);
-  const isWeddingEnabled = Boolean((tournament?.features as Record<string, unknown> | undefined)?.weddingBroadcast);
+  const tFeatures = tournament as { features?: Record<string, unknown>; featuresJson?: Record<string, unknown> } | undefined;
+  const isWeddingEnabled = Boolean((tFeatures?.features ?? tFeatures?.featuresJson)?.weddingBroadcast);
   const publicFanUrl = cricketPublicPath(tournamentId);
   const scorerPortalUrl = `/scoring-app/cricket/scorer?tid=${tournamentId}`;
   const fanShareText = `Watch live scores for ${tournament?.name ?? "this tournament"}: ${absoluteUrl(publicFanUrl)}`;

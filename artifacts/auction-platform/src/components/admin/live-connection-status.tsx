@@ -36,7 +36,7 @@ export function LiveConnectionStatus({ tournamentId }: { tournamentId: number })
   const feed = useAuctionConnectionState(
     connectionStatus,
     tournamentId,
-    typeof state?.lastAuctionActivityAt === "string" ? state.lastAuctionActivityAt : null,
+    typeof (state as any)?.lastAuctionActivityAt === "string" ? (state as any).lastAuctionActivityAt : null,
   );
   const diagnostic = formatLastActivityDiagnostic(feed.secondsSinceLastActivity);
 

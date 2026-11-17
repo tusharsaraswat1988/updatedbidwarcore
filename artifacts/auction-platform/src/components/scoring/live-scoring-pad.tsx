@@ -129,6 +129,7 @@ type LiveScoringPadProps = {
   /** When true, local crease ids are exact, including null for a vacant end. */
   creaseLocked?: boolean;
   dismissedBatters?: number[];
+  initialBatterRuns?: Record<number, number>;
 };
 
 function useDebounceTap(ms = 400) {
@@ -164,6 +165,7 @@ export function LiveScoringPad({
   localNonStrikerId,
   creaseLocked = false,
   dismissedBatters,
+  initialBatterRuns,
 }: LiveScoringPadProps) {
   const { toast } = useToast();
   const lbwEnabled = rules?.lbwEnabled !== false;

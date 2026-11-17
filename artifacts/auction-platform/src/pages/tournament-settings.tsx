@@ -403,7 +403,7 @@ export default function TournamentSettings() {
       const uploadOne = async (f: File) => {
         const fd = new FormData();
         fd.append("file", f);
-        const r = await fetch("/api/upload", { method: "POST", body: fd });
+        const r = await fetch("/api/upload", { method: "POST", credentials: "include", body: fd });
         if (!r.ok) throw new Error("Upload failed");
         const data = await r.json() as { url?: string; publicId?: string };
         if (!data.url) throw new Error("Upload failed");
@@ -1308,9 +1308,8 @@ export default function TournamentSettings() {
                   {/* Configurable Field List with Show/Hide & Mandatory/Optional */}
                   <div className="space-y-2">
                     {REGISTRATION_CONFIGURABLE_FIELD_KEYS.map((key) => {
-                      if (key === "whatsappConsent") return null;
                       const visible = !registrationFieldsHidden.includes(key);
-                      const isRequired = visible && key !== "whatsappConsent" && registrationFieldsRequired.includes(key);
+                      const isRequired = visible && registrationFieldsRequired.includes(key);
                       const sport = (editForm.sport as string) || tournament?.sport || "cricket";
                       if (key === "cricheroUrl" && sport !== "cricket") return null;
                       if (key === "matchAvailability" && !(editForm.matchDates as string)?.trim() && !tournament?.matchDates) {
@@ -1367,10 +1366,10 @@ export default function TournamentSettings() {
                             <div className="flex items-center gap-1.5">
                               <span className="text-[11px] text-muted-foreground">Mandatory</span>
                               <Switch
-                                disabled={!visible || key === "whatsappConsent"}
+                                disabled={!visible}
                                 checked={visible && isRequired}
                                 onCheckedChange={(checked) => {
-                                  if (checked && key !== "whatsappConsent") {
+                                  if (checked) {
                                     setRegistrationFieldsRequired((prev) => (prev.includes(key) ? prev : [...prev, key]));
                                     setRegistrationFieldsHidden((prev) => prev.filter((k) => k !== key));
                                   } else {

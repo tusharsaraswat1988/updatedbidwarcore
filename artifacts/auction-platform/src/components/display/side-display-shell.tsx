@@ -79,10 +79,7 @@ export function SideDisplayShell({
     },
   });
 
-  const lastActivityAt =
-    typeof (state as { lastAuctionActivityAt?: string } | undefined)?.lastAuctionActivityAt === "string"
-      ? (state as { lastAuctionActivityAt: string }).lastAuctionActivityAt
-      : null;
+  const lastActivityAt = state?.lastAuctionActivityAt ?? null;
   const feed = useAuctionConnectionState(connectionStatus, tournamentId, lastActivityAt);
 
   // EPIC-12 Phase 1 — prefer Policy-derived paint when provided; else stadium-gold (unchanged).
@@ -91,18 +88,23 @@ export function SideDisplayShell({
 
   const audioSettings = useMemo<AudioSettings | null>(() => {
     if (!tournament) return null;
-    const platform = (tournament as { platformAudioDefaults?: PlatformAudioDefaults }).platformAudioDefaults;
+    
+    // Proper interfaces to replace unsafe 'as' casts
+    interface TournamentAudioExtensions {
+      platformAudioDefaults?: PlatformAudioDefaults;
+      resolvedCountdownSoundUrl?: string | null;
+      resolvedSoldSoundUrl?: string | null;
+      resolvedBreakEndMusicUrl?: string | null;
+    }
+
+    const t = tournament as TournamentAudioExtensions;
+
+    const platform = t.platformAudioDefaults;
     const resolved = resolveBroadcastAudioUrls(
       {
-        countdownSoundUrl:
-          (tournament as { resolvedCountdownSoundUrl?: string | null }).resolvedCountdownSoundUrl
-          ?? tournament.countdownSoundUrl,
-        soldSoundUrl:
-          (tournament as { resolvedSoldSoundUrl?: string | null }).resolvedSoldSoundUrl
-          ?? tournament.soldSoundUrl,
-        breakEndMusicUrl:
-          (tournament as { resolvedBreakEndMusicUrl?: string | null }).resolvedBreakEndMusicUrl
-          ?? tournament.breakEndMusicUrl,
+        countdownSoundUrl: t.resolvedCountdownSoundUrl ?? tournament.countdownSoundUrl,
+        soldSoundUrl: t.resolvedSoldSoundUrl ?? tournament.soldSoundUrl,
+        breakEndMusicUrl: t.resolvedBreakEndMusicUrl ?? tournament.breakEndMusicUrl,
       },
       platform ?? {
         countdownSoundUrl: null,
@@ -134,7 +136,11 @@ export function SideDisplayShell({
   const displayCountdownType = dc?.type;
   const displayCountdownEndsAt =
     dc?.type === "break" || dc?.type === "pre-auction" ? (dc?.endsAt ?? null) : null;
-  const displayCountdownMusicMuted = (dc as { musicMuted?: boolean } | null)?.musicMuted === true;
+  
+  interface CountdownSettings {
+    musicMuted?: boolean;
+  }
+  const displayCountdownMusicMuted = (dc as CountdownSettings | null)?.musicMuted === true;
 
   const isAudioLeader = useDisplayAudioLeader(tournamentId, "side");
 

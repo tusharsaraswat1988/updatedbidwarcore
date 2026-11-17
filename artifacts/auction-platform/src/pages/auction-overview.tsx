@@ -448,11 +448,11 @@ export default function AuctionOverview() {
                 <Tv className="w-3.5 h-3.5 text-muted-foreground" />
                 Display Screen Summary
               </Button>
-              {isScoringEnabled(tournament?.mode) && (
+              {scoringActive && (
                 <Button
                   size="sm"
                   className="h-8 text-xs gap-1.5 font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
-                  onClick={() => navigate(resolveScoringEntryPath(tournamentId, tournament?.mode))}
+                  onClick={() => navigate(resolveScoringEntryPath(tournamentId, tournament?.sport))}
                 >
                   <Trophy className="w-3.5 h-3.5" />
                   Go to Match Center →

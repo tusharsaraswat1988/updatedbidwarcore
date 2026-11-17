@@ -5,7 +5,7 @@ import { useCricketObsLive } from "@/hooks/use-cricket-obs-live";
 import { adaptCricketToBroadcastFrame } from "../components/broadcast/obs-v2";
 import { useObsV2Events } from "../components/broadcast/obs-v2/use-obs-v2-events";
 import { useV2Sync } from "../components/broadcast/obs-v2/obs-v2-sync";
-import type { ObsV2BroadcastEvent } from "../components/broadcast/obs-v2/obs-v2-events";
+import { OBS_V2_EVENT_CONFIGS, type ObsV2BroadcastEvent } from "../components/broadcast/obs-v2/obs-v2-events";
 import type { BroadcastFrame, BroadcastSceneId } from "../components/broadcast/obs-v2/contracts";
 import { WeddingCricketBroadcastStage } from "../components/broadcast/wedding/WeddingCricketBroadcastStage";
 import { makeWeddingPreviewFrame } from "../components/broadcast/wedding/preview/wedding-preview-data";
@@ -55,7 +55,8 @@ export default function CricketObsWeddingPage() {
   const isWeddingEnabled = useMemo(() => {
     // If no tournament ID specified (global preview/lab mode), allow preview
     if (tournamentId <= 0) return true;
-    const features = tournament?.features as Record<string, unknown> | undefined;
+    const t = tournament as { features?: Record<string, unknown>; featuresJson?: Record<string, unknown> } | undefined;
+    const features = t?.features ?? t?.featuresJson;
     return Boolean(features?.weddingBroadcast);
   }, [tournamentId, tournament]);
 
@@ -82,8 +83,23 @@ export default function CricketObsWeddingPage() {
   const [syncEvent, setSyncEvent] = useState<ObsV2BroadcastEvent | null>(null);
 
   useV2Sync(tournamentId || 0, (msg) => {
-    if (msg.type === "TRIGGER_EVENT") {
-      setSyncEvent(msg.event);
+    if (msg.type === "TRIGGER_FLASH") {
+      const cfg = OBS_V2_EVENT_CONFIGS[msg.flash];
+      if (cfg) {
+        setSyncEvent({
+          id: `flash-${Date.now()}`,
+          type: msg.flash,
+          matchId: tournamentId || 1,
+          timestamp: Date.now(),
+          title: cfg.title,
+          subtitle: msg.detail || cfg.subtitle,
+          accentColor: cfg.accentColor,
+          borderColor: cfg.borderColor,
+          priority: cfg.priority,
+          batter: msg.batter,
+          milestoneValue: msg.milestoneValue,
+        });
+      }
     } else if (msg.type === "SET_BROADCAST_MESSAGE") {
       setSyncMessage({
         name: msg.broadcastMessage.name,
@@ -331,10 +347,13 @@ export default function CricketObsWeddingPage() {
                 setSimulatedEvent({
                   id: `event-${Date.now()}`,
                   type: "SIX",
-                  priority: 100,
+                  matchId: tournamentId || 1,
+                  priority: OBS_V2_EVENT_CONFIGS.SIX.priority,
                   timestamp: Date.now(),
                   title: "SIX",
                   subtitle: "Maximum · 88m",
+                  accentColor: OBS_V2_EVENT_CONFIGS.SIX.accentColor,
+                  borderColor: OBS_V2_EVENT_CONFIGS.SIX.borderColor,
                 })
               }
               className="px-2 py-0.5 rounded font-bold bg-[#D4AF37]/20 text-[#E5C378] hover:bg-[#D4AF37]/30 border border-[#D4AF37]/40"
@@ -346,10 +365,13 @@ export default function CricketObsWeddingPage() {
                 setSimulatedEvent({
                   id: `event-${Date.now()}`,
                   type: "FOUR",
-                  priority: 90,
+                  matchId: tournamentId || 1,
+                  priority: OBS_V2_EVENT_CONFIGS.FOUR.priority,
                   timestamp: Date.now(),
                   title: "FOUR",
                   subtitle: "Boundary",
+                  accentColor: OBS_V2_EVENT_CONFIGS.FOUR.accentColor,
+                  borderColor: OBS_V2_EVENT_CONFIGS.FOUR.borderColor,
                 })
               }
               className="px-2 py-0.5 rounded font-bold bg-[#D4AF37]/20 text-[#E5C378] hover:bg-[#D4AF37]/30 border border-[#D4AF37]/40"
@@ -361,10 +383,13 @@ export default function CricketObsWeddingPage() {
                 setSimulatedEvent({
                   id: `event-${Date.now()}`,
                   type: "WICKET",
-                  priority: 100,
+                  matchId: tournamentId || 1,
+                  priority: OBS_V2_EVENT_CONFIGS.WICKET.priority,
                   timestamp: Date.now(),
                   title: "WICKET",
                   subtitle: "Bowled",
+                  accentColor: OBS_V2_EVENT_CONFIGS.WICKET.accentColor,
+                  borderColor: OBS_V2_EVENT_CONFIGS.WICKET.borderColor,
                 })
               }
               className="px-2 py-0.5 rounded font-bold bg-[#801830]/30 text-rose-300 hover:bg-[#801830]/50 border border-rose-500/40"

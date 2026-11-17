@@ -414,7 +414,7 @@ export function useLedView(
     const awaitingNext =
       state?.status === "active" &&
       !blockPlayerId &&
-      outcome?.type === "deferred";
+      (outcome?.type as string) === "deferred";
 
     const currentPlayerIdResolved =
       blockPlayerId ??

@@ -117,7 +117,7 @@ function defaultScheduleParts(fromIso?: string | null): { date: string; time: st
 interface MatchRow {
   id: number;
   status: string;
-  scheduledAt: string | null;
+  scheduledAt?: string | null;
   detail: Record<string, unknown> | null;
   state: BadmintonMatchState | null;
 }

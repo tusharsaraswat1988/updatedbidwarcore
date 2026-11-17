@@ -4,7 +4,7 @@
  * and eliminating raw ISO date displays.
  */
 
-const DEFAULT_TIMEZONE = "Asia/Kolkata";
+export const DEFAULT_TIMEZONE = "Asia/Kolkata";
 
 /**
  * Formats an ISO date string into standard Fan display format (e.g., "29 Nov 2026").

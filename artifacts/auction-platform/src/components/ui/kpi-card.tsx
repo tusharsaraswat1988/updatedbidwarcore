@@ -12,6 +12,7 @@ export interface KpiCardProps {
   valueClassName?: string;
   loading?: boolean;
   className?: string;
+  onClick?: () => void;
 }
 
 /**
@@ -29,12 +30,18 @@ export function KpiCard({
   valueClassName,
   loading = false,
   className,
+  onClick,
 }: KpiCardProps) {
   return (
     <div
       data-slot="kpi-card"
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
       className={cn(
         "org-kpi-card flex justify-between items-start gap-3 p-4 sm:p-5 rounded-xl border border-border bg-card shadow-card transition-all hover:border-slate-400/60",
+        onClick && "cursor-pointer",
         className
       )}
     >

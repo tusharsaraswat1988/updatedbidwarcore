@@ -897,7 +897,7 @@ function Top5ShowcasePoster({ data, tournament }: { data: ReportData; tournament
                   <h2 className="text-lg sm:text-xl font-black text-white leading-tight break-words">
                     {String(top1.name)}
                   </h2>
-                  {top1.role && (
+                  {Boolean(top1.role) && (
                     <p className="text-xs font-bold text-amber-300 uppercase mt-0.5 break-words">
                       {String(top1.role).replace(/_/g, " ")}
                     </p>
@@ -905,12 +905,12 @@ function Top5ShowcasePoster({ data, tournament }: { data: ReportData; tournament
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 text-[11px] text-slate-300">
-                  {top1.categoryName && (
+                  {Boolean(top1.categoryName) && (
                     <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
                       {String(top1.categoryName)}
                     </span>
                   )}
-                  {top1.city && (
+                  {Boolean(top1.city) && (
                     <span className="flex items-center gap-1 text-slate-400">
                       <MapPin className="w-3 h-3 text-slate-400" /> {String(top1.city)}
                     </span>
@@ -993,7 +993,7 @@ function Top5ShowcasePoster({ data, tournament }: { data: ReportData; tournament
                       <p className="text-[10px] font-semibold text-amber-300 uppercase leading-snug mt-0.5 break-words">
                         {String(p.role || "").replace(/_/g, " ")}
                       </p>
-                      {p.categoryName && (
+                      {Boolean(p.categoryName) && (
                         <span className="text-[9px] text-slate-400 block mt-0.5 break-words">
                           {String(p.categoryName)}
                         </span>
@@ -1290,20 +1290,20 @@ function TeamSoldSquadShowcase({ data }: { data: ReportData }) {
                             <p className="font-bold text-xs sm:text-sm text-white leading-snug break-words">
                               {String(p.name)}
                             </p>
-                            {p.jerseyNumber && (
+                            {Boolean(p.jerseyNumber) && (
                               <span className="text-[9px] font-mono font-bold text-slate-400 shrink-0">
-                                #{p.jerseyNumber}
+                                #{String(p.jerseyNumber)}
                               </span>
                             )}
                           </div>
 
                           <div className="space-y-0.5">
-                            {p.role && (
+                            {Boolean(p.role) && (
                               <p className="text-[10px] font-semibold text-amber-300 uppercase leading-snug break-words">
                                 {String(p.role).replace(/_/g, " ")}
                               </p>
                             )}
-                            {p.categoryName && (
+                            {Boolean(p.categoryName) && (
                               <p className="text-[9px] text-slate-400 break-words leading-tight">
                                 {String(p.categoryName)}
                               </p>

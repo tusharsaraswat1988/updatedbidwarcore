@@ -124,6 +124,7 @@ export default function AdminLogin() {
       }, 350);
       return () => window.clearTimeout(focusTimer);
     }
+    return undefined;
   }, [stage]);
 
   const activateCore = () => {

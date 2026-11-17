@@ -41,6 +41,7 @@ export type ControlMatch = {
     currentGame?: number;
     gamesLeft?: number;
     gamesRight?: number;
+    pauseReason?: string;
   } | null;
 };
 

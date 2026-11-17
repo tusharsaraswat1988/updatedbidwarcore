@@ -47,27 +47,29 @@ export function UnifiedFanPageShell({
   className,
 }: UnifiedFanPageShellProps) {
   return (
-    <FanArenaShell
-      tournament={tournament}
-      soundEnabled={soundEnabled}
-      onToggleSound={onToggleSound}
-      isLive={isAuctionLive || isScoringLive}
-      moduleNav={
-        <UnifiedModuleNav
-          productMode={productMode}
-          showAuctionTab={showAuctionTab}
-          showScoringTab={showScoringTab}
-          activeTab={activeTab}
-          onTabChange={onTabChange}
-          isAuctionLive={isAuctionLive}
-          isScoringLive={isScoringLive}
-          sport={tournament.sport}
-        />
-      }
-    >
-      {moment && <div className="bg-[hsl(var(--amber-500))/10] border-b border-[hsl(var(--amber-500))/20] px-6 py-2 -mt-6 mb-6">{moment}</div>}
-      <div className={className}>{children}</div>
-    </FanArenaShell>
+    <div data-surface="unified-fan-page">
+      <FanArenaShell
+        tournament={tournament}
+        soundEnabled={soundEnabled}
+        onToggleSound={onToggleSound}
+        isLive={isAuctionLive || isScoringLive}
+        moduleNav={
+          <UnifiedModuleNav
+            productMode={productMode}
+            showAuctionTab={showAuctionTab}
+            showScoringTab={showScoringTab}
+            activeTab={activeTab}
+            onTabChange={onTabChange}
+            isAuctionLive={isAuctionLive}
+            isScoringLive={isScoringLive}
+            sport={tournament.sport}
+          />
+        }
+      >
+        {moment && <div className="bg-[hsl(var(--amber-500))/10] border-b border-[hsl(var(--amber-500))/20] px-6 py-2 -mt-6 mb-6">{moment}</div>}
+        <div className={className}>{children}</div>
+      </FanArenaShell>
+    </div>
   );
 }
 

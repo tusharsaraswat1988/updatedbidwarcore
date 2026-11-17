@@ -78,7 +78,7 @@ export function TournamentFanHeader({
   const [copied, setCopied] = useState(false);
 
   // Short canonical fan page link (e.g. bidwar.in/IPL26/fanpage or /fan/10)
-  const codeOrId = tournamentCode || tournament.code || tournament.id;
+  const codeOrId = tournamentCode || ("code" in tournament ? (tournament as { code?: string }).code : undefined) || tournament.id;
   const fanPageUrl = typeof window !== "undefined"
     ? `${window.location.origin}/${codeOrId}/fanpage`
     : "";
@@ -194,6 +194,7 @@ export function TournamentFanHeader({
 
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [liveState]);
 
   return (

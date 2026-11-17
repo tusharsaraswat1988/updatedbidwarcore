@@ -54,7 +54,7 @@ export function DisplayShell({
   });
 
   const lastActivityAt =
-    typeof state?.lastAuctionActivityAt === "string" ? state.lastAuctionActivityAt : null;
+    typeof (state as any)?.lastAuctionActivityAt === "string" ? (state as any).lastAuctionActivityAt : null;
   const feed = useAuctionConnectionState(connectionStatus, tournamentId, lastActivityAt);
 
   // EPIC-12 Phase 1 — prefer Policy-derived paint when provided; else stadium-gold (unchanged).

@@ -11,6 +11,7 @@ import {
   type BadmintonSideInfo,
   type FranchiseFields,
 } from "@workspace/badminton-core";
+import { type ControlMatchSide } from "@/lib/badminton-control-center";
 
 export type TeamPlayerIdentity = {
   /** Player or pair display name. */
@@ -158,6 +159,18 @@ export function isPlaceholderPlayerName(name: string | null | undefined): boolea
   const t = name?.trim() ?? "";
   if (!t || t === "—" || t === "-" || t === "TBD") return true;
   return /^(Player|Side)\s*[AB1-2]$/i.test(t);
+}
+
+export function mapControlMatchSideToBadmintonSideInfo(
+  side: ControlMatchSide | null | undefined,
+): BadmintonSideInfo {
+  if (!side) return { label: "—", shortLabel: "—", playerIds: [] };
+  return {
+    label: side.label ?? side.shortLabel ?? "—",
+    shortLabel: side.shortLabel ?? side.label ?? "—",
+    teamColor: side.teamColor,
+    playerIds: [],
+  };
 }
 
 /**

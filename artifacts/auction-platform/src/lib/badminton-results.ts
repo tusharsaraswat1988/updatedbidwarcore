@@ -496,6 +496,7 @@ export function detectCategoryChampion(
         if (!fix.registrationAId || !fix.registrationBId) continue;
         const match = catMatches.find((m) => m.id === fix.scoringMatchId);
         matchInputs.push({
+          matchId: fix.scoringMatchId ?? fix.id,
           registrationAId: fix.registrationAId,
           registrationBId: fix.registrationBId,
           status: fix.status,

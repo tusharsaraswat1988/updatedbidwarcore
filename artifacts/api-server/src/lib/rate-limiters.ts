@@ -235,3 +235,26 @@ export const contactFormLimiter = rateLimit({
     res.status(options.statusCode).json(options.message);
   },
 });
+
+/**
+ * Image upload limiter (30 uploads / 15 min per IP; relaxed for organizers/admins).
+ * Prevents automated file flood while allowing normal player registrations.
+ */
+export const imageUploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: (req) => {
+    if (req.jwtUser?.isAdmin || (req.jwtUser?.organizerAccountId != null)) {
+      return isDev ? 1000 : 300;
+    }
+    const configured = Number(process.env.RATE_LIMIT_IMAGE_UPLOAD_MAX ?? 30);
+    return isDev ? Math.max(configured, 100) : configured;
+  },
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => disabled,
+  message: { error: "Too many upload requests. Please wait a few minutes before trying again." },
+  handler(req, res, next, options) {
+    onLimitReached(req, res, "image-upload");
+    res.status(options.statusCode).json(options.message);
+  },
+});

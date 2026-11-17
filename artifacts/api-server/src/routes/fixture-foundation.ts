@@ -123,7 +123,7 @@ router.patch(
     }
     const result = await patchFixtureConfiguration(tid, req.params.fixtureId, parsed.data);
     if (!result.ok) return void res.status(result.status).json({ error: result.error });
-    res.json({ configuration: result.configuration });
+    return res.json({ configuration: result.configuration });
   },
 );
 

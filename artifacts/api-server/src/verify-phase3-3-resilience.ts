@@ -28,7 +28,7 @@ if (rawUrl) {
   process.env.DIRECT_DATABASE_URL = isolatedUrl.replace("-pooler.", ".");
 }
 
-import { createPgClient, Client, db } from "@workspace/db";
+import { Client, db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import request from "supertest";
 import express from "express";

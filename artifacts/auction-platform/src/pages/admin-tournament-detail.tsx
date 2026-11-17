@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { AdminShell } from "@/components/admin-shell";
 import { displayOrganizerMobile } from "@workspace/api-base/mobile";
+import { resolveTournamentVisibility } from "@workspace/platform-core";
 import { TransferOrganizerDialog } from "@/components/admin/transfer-organizer-dialog";
 import { cn } from "@/lib/utils";
 import { formatAuctionAmount } from "@/lib/format";
@@ -293,6 +294,7 @@ export default function AdminTournamentDetailPage() {
   };
 
   const t = detail?.tournament;
+  const tournamentVisibility = useMemo(() => resolveTournamentVisibility(t?.features), [t?.features]);
 
   // Resolve product mode with safety fallback
   const productMode = useMemo(() => {
@@ -990,24 +992,24 @@ export default function AdminTournamentDetailPage() {
                         variant="outline"
                         className={cn(
                           "text-[10px] font-semibold uppercase",
-                          (t.features?.visibility ?? "public") === "public"
+                          tournamentVisibility === "public"
                             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                             : "bg-rose-500/10 text-rose-400 border-rose-500/20"
                         )}
                       >
-                        {(t.features?.visibility ?? "public") === "public" ? "Public (Discoverable)" : "Private / Restricted"}
+                        {tournamentVisibility === "public" ? "Public (Discoverable)" : "Private / Restricted"}
                       </Badge>
                     </div>
 
                     <div className="text-[11px] text-muted-foreground">
-                      {(t.features?.visibility ?? "public") === "public"
+                      {tournamentVisibility === "public"
                         ? "Public tournament: Automatically discoverable on BidWar Fan Arena (/fan) without organiser opt-in."
                         : "Private tournament: Excluded from Fan Arena discovery. Requires organiser credentials or spectator PIN."}
                     </div>
 
                     {isMaster && (
                       <div className="pt-1 flex gap-2">
-                        {(t.features?.visibility ?? "public") === "public" ? (
+                        {tournamentVisibility === "public" ? (
                           <Button
                             size="sm"
                             variant="outline"
@@ -2028,7 +2030,7 @@ export default function AdminTournamentDetailPage() {
       <TransferOrganizerDialog
         open={transferOpen}
         onOpenChange={setTransferOpen}
-        tournament={t}
+        tournament={t ?? null}
         onSuccess={handleTransferSuccess}
       />
     </AdminShell>

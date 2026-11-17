@@ -12,6 +12,7 @@ import { buildTeamPurseSnapshot } from "../lib/team-purse-snapshot";
 import { getTournamentInsights } from "../lib/tournament-insights";
 import { insightsLimiter } from "../lib/rate-limiters";
 import { requireAuctionModule } from "../middleware/require-module";
+import { requireTournamentOrganizer } from "../middleware/require-organizer";
 
 const router = Router();
 
@@ -195,6 +196,8 @@ router.get(
   async (req, res) => {
     const tid = tournamentIdParam(req.params.tournamentId);
     if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+    if (!(await requireTournamentOrganizer(req, res, tid))) return;
 
     const [tournament] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
     if (!requireAuctionModule(res, tournament)) return;

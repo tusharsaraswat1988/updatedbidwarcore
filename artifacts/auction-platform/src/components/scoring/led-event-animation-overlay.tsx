@@ -771,12 +771,12 @@ export function LedEventAnimationOverlay({
                   : "NEW BATTER AT CREASE"}
               </span>
               <h4 className="text-2xl sm:text-4xl font-black uppercase text-white truncate">
-                {currentEvent.type === "BOWLER_CHANGE" || currentEvent.type === "NEW_BOWLER"
+                {"bowlerName" in currentEvent
                   ? currentEvent.bowlerName
                   : currentEvent.batsmanName}
               </h4>
               <p className="text-sm sm:text-base text-primary font-bold">
-                {currentEvent.type === "BOWLER_CHANGE" || currentEvent.type === "NEW_BOWLER"
+                {"bowlerName" in currentEvent
                   ? currentEvent.figures || "Right Arm Fast"
                   : currentEvent.role || "Right Handed Batter"}
               </p>

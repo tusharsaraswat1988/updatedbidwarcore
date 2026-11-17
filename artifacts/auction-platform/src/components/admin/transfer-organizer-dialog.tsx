@@ -93,7 +93,7 @@ export function TransferOrganizerDialog({
       const name = (o.name || "").toLowerCase();
       const mobile = (o.mobile || "").toLowerCase();
       const email = (o.email || "").toLowerCase();
-      const cleanPhone = displayOrganizerMobile(o.mobile).toLowerCase();
+      const cleanPhone = (displayOrganizerMobile(o.mobile) || "").toLowerCase();
       return (
         name.includes(q) ||
         mobile.includes(q) ||

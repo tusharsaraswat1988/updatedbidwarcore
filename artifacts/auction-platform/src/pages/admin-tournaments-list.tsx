@@ -640,7 +640,9 @@ export default function AdminTournamentsListPage() {
                           {t.organizerName || <span className="text-muted-foreground italic">Unlinked Host</span>}
                         </span>
                         {t.organizerId ? (
-                          <UserCheck className="h-3 w-3 text-emerald-400 shrink-0" title="Linked Host Account" />
+                          <span title="Linked Host Account" className="inline-flex shrink-0">
+                            <UserCheck className="h-3 w-3 text-emerald-400" />
+                          </span>
                         ) : null}
                         <button
                           type="button"

@@ -213,7 +213,7 @@ export function BadmintonFanRenderer({ tournamentId }: BadmintonFanRendererProps
                     </div>
 
                     {/* Match Court Broadcast Stream */}
-                    {(m.detail?.streamUrl || (m as any).streamUrl) && m.state?.status !== "completed" && m.state?.status !== "retired" && m.state?.status !== "walkover" && (
+                    {(m.detail?.streamUrl || (m as any).streamUrl) && m.state?.matchStatus !== "completed" && m.state?.matchStatus !== "retired" && m.state?.matchStatus !== "walkover" && (
                       <div className="pt-2 border-t border-[hsl(var(--border))] flex items-center justify-end">
                         <a
                           href={m.detail?.streamUrl || (m as any).streamUrl}

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Search, Filter, Trophy } from "lucide-react";
-import { FanDiscoveryCard } from "./FanDiscoveryCard";
+import { FanDiscoveryCard } from "@/components/fan/FanDiscoveryCard";
 
 export function UniversalFanHome() {
   const [search, setSearch] = useState("");

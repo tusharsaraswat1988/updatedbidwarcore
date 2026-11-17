@@ -103,35 +103,38 @@ export function CricketFanNav({
 
 export function CricketFanExperienceShell({
   tournament,
+  tournamentId,
   liveMatchId,
   streamUrl,
   children,
 }: {
-  tournament: any;
+  tournament?: any;
+  tournamentId?: number;
   liveMatchId?: number | null;
   streamUrl?: string | null;
   children: React.ReactNode;
 }) {
   const [soundEnabled, setSoundEnabled] = React.useState(true);
+  const resolvedTournament = tournament ?? (tournamentId ? { id: tournamentId } : undefined);
 
   return (
     <FanArenaShell
-      tournament={tournament}
+      tournament={resolvedTournament}
       soundEnabled={soundEnabled}
       onToggleSound={() => setSoundEnabled(!soundEnabled)}
       streamUrl={streamUrl}
       isLive={!!liveMatchId}
-      moduleNav={<CricketFanNav tournamentId={tournament.id} liveMatchId={liveMatchId} streamUrl={streamUrl} />}
+      moduleNav={<CricketFanNav tournamentId={resolvedTournament?.id ?? tournamentId ?? 0} liveMatchId={liveMatchId} streamUrl={streamUrl} />}
     >
       {children}
     </FanArenaShell>
   );
 }
 
-export function CricketFanLoading({ tournamentId }: { tournamentId: number }) {
+export function CricketFanLoading({ tournamentId }: { tournamentId?: number }) {
   return <div className="p-10 text-center">Loading Arena...</div>;
 }
 
-export function CricketFanEmpty({ message }: { message: string }) {
+export function CricketFanEmpty({ message, tournamentId }: { message: string; tournamentId?: number }) {
   return <div className="p-10 text-center text-muted-foreground">{message}</div>;
 }

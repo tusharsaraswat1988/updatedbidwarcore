@@ -28,7 +28,7 @@ import {
 export type DbExecutor = Pick<typeof db, "select" | "insert" | "delete" | "update">;
 
 /** Values stored in badminton_categories.current_stage today. */
-export type PersistedTournamentStage = TournamentEngineStage;
+export type PersistedTournamentStage = TournamentEngineStage | "completed";
 
 /** Generic engine lifecycle (future DB vocabulary). */
 export type LifecycleStage = "league" | "elimination" | "completed";
@@ -544,13 +544,13 @@ export async function advanceStage(
     return resultFromDto(previousStage, startDto, 0, "NO_KNOCKOUT");
   }
 
-  let workingStage = startDto.currentStage;
+  let workingStage: PersistedTournamentStage = startDto.currentStage ?? "league";
   let workingDto = startDto;
   let transitionCount = 0;
   let lastReason: AdvanceStageReason = "ALREADY_SETTLED";
 
   while (transitionCount < MAX_STAGE_TRANSITIONS) {
-    if (workingStage === "completed") {
+    if ((workingStage as string) === "completed") {
       lastReason =
         transitionCount > 0 ? "ADVANCED" : "TOURNAMENT_COMPLETED";
       break;
@@ -597,7 +597,7 @@ export async function advanceStage(
     if (next === "completed") {
       await completeTournament(executor, tournamentId, categoryId);
     } else {
-      await writeCategoryStage(executor, tournamentId, categoryId, next);
+      await writeCategoryStage(executor, tournamentId, categoryId, next as PersistedTournamentStage);
       onStageAdvanced({
         tournamentId,
         categoryId,
@@ -619,7 +619,7 @@ export async function advanceStage(
   if (transitionCount >= MAX_STAGE_TRANSITIONS && lastReason === "ADVANCED") {
     // Cap hit while still potentially able to advance further.
     const gate = resolveGateCollection(workingStage, collections);
-    if (gate && workingStage !== "completed") {
+    if (gate && (workingStage as string) !== "completed") {
       lastReason = "MAX_TRANSITIONS";
     }
   }

@@ -110,7 +110,7 @@ router.get("/catalog/rule-definitions", (req, res) => {
   }
   const categoryId =
     typeof req.query.categoryId === "string" ? req.query.categoryId : undefined;
-  res.json({
+  return res.json({
     definitions: CatalogRegistry.getRuleDefinitions({ sportId, categoryId }),
   });
 });
@@ -122,7 +122,7 @@ router.get("/catalog/rule-profiles", (req, res) => {
   }
   const profiles = CatalogRegistry.listRuleProfiles(parsed.data);
   const families = CatalogRegistry.listRuleProfileFamilies(parsed.data);
-  res.json({ profiles, families });
+  return res.json({ profiles, families });
 });
 
 router.get("/catalog/rule-profiles/:id", (req, res) => {
@@ -132,7 +132,7 @@ router.get("/catalog/rule-profiles/:id", (req, res) => {
     return res.status(404).json({ error: "Rule profile not found" });
   }
   const versions = CatalogRegistry.listRuleProfileVersions(profile.familyId);
-  res.json({ profile, versions });
+  return res.json({ profile, versions });
 });
 
 router.post("/catalog/rule-profiles/validate", (req, res) => {
@@ -148,7 +148,7 @@ router.post("/catalog/rule-profiles/validate", (req, res) => {
     resolutionMode: "VALIDATE" satisfies ResolutionMode,
   };
   const result = CatalogRegistry.resolveRuleProfilePreview(ctx);
-  res.json({
+  return res.json({
     ok: resolveResultOk(result),
     issues: result.validation,
     warnings: result.warnings,
@@ -167,7 +167,7 @@ router.post("/catalog/rule-profiles/resolve", (req, res) => {
   };
   const result = CatalogRegistry.resolveRuleProfilePreview(ctx);
   // Permanent public contract: ResolveResult (not adapter DTOs).
-  res.json(result);
+  return res.json(result);
 });
 
 export default router;

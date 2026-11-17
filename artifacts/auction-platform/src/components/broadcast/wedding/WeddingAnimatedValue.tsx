@@ -36,6 +36,7 @@ export function WeddingAnimatedValue({
       mq.addEventListener("change", handler);
       return () => mq.removeEventListener("change", handler);
     }
+    return undefined;
   }, []);
 
   const hasChanged = prevValueRef.current !== value;

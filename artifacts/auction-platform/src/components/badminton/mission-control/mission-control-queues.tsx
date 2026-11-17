@@ -20,8 +20,8 @@ import { TeamPlayerVs } from "@/components/badminton/team-player-card";
 import {
   identityForPreStartMatchSide,
   identityFromLooseSide,
+  mapControlMatchSideToBadmintonSideInfo,
 } from "@/lib/team-player-identity";
-import { displayMatchSideScores } from "@/lib/badminton-results";
 import { hubCardClass } from "@/components/badminton/page-chrome";
 import { useToast } from "@/hooks/use-toast";
 
@@ -149,12 +149,12 @@ export function MissionControlQueues({
                 {m.state?.leftSide || m.state?.rightSide ? (
                   <TeamPlayerVs
                     left={identityForPreStartMatchSide(
-                      m.state?.leftSide,
+                      mapControlMatchSideToBadmintonSideInfo(m.state?.leftSide),
                       (m.detail?.leftSideJson as Record<string, unknown> | undefined) ??
                         null,
                     )}
                     right={identityForPreStartMatchSide(
-                      m.state?.rightSide,
+                      mapControlMatchSideToBadmintonSideInfo(m.state?.rightSide),
                       (m.detail?.rightSideJson as Record<string, unknown> | undefined) ??
                         null,
                     )}
@@ -168,12 +168,11 @@ export function MissionControlQueues({
                 <p className="text-white/35 text-xs">
                   {m.state
                     ? (() => {
-                        const scores = displayMatchSideScores(m.state);
                         const hasGames =
                           (m.state.gamesLeft ?? 0) > 0 || (m.state.gamesRight ?? 0) > 0;
                         return hasGames
                           ? `${m.state.gamesLeft}–${m.state.gamesRight} games`
-                          : `${scores.left}–${scores.right}`;
+                          : `${m.state.leftScore ?? 0}–${m.state.rightScore ?? 0}`;
                       })()
                     : "Completed"}
                   {m.detail?.courtNumber != null

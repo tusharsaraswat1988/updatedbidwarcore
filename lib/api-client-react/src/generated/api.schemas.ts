@@ -1483,6 +1483,11 @@ export interface AuctionState {
   timerType?: AuctionStateTimerType;
   /** @nullable */
   lastAction?: string | null;
+  /**
+   * ISO8601 timestamp of the last auction activity.
+   * @nullable
+   */
+  lastAuctionActivityAt?: string | null;
   outcome?: AuctionOutcome | null;
   soldPlayersCount?: number;
   unsoldPlayersCount?: number;

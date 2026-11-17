@@ -32,10 +32,10 @@ export const WeddingBallPill = React.forwardRef<HTMLDivElement, WeddingBallPillP
     const isEmpty = !clean || clean === "PENDING";
 
     // Dynamic styling based on ball outcome
-    let background = "transparent";
-    let border = `1px solid ${WEDDING_TOKENS.color.gold.border}`;
-    let textColor = WEDDING_TOKENS.color.charcoal.ink;
-    let textShadow = "none";
+    let background: string = "transparent";
+    let border: string = `1px solid ${WEDDING_TOKENS.color.gold.border}`;
+    let textColor: string = WEDDING_TOKENS.color.charcoal.ink;
+    let textShadow: string = "none";
 
     if (isEmpty) {
       border = `1px dashed ${WEDDING_TOKENS.color.gold.hairline}`;

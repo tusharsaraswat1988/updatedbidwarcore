@@ -148,7 +148,7 @@ router.post("/bulk-roster-import", async (req, res) => {
 
   const parsed = bodySchema.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+    res.status(400).json({ error: "Invalid input", details: parsed.error.issues as any });
     return;
   }
 
@@ -234,7 +234,7 @@ router.post("/bulk-roster-import", async (req, res) => {
   // Sync all players to Player Registry and master roster
   await syncCricketRosterFromAuction(tournamentId);
   invalidateCricketRosterCache(tournamentId);
-  void broadcastScoringState(tournamentId, "roster_synced");
+  void broadcastScoringState(tournamentId, { type: "roster_synced" });
 
   res.json({
     ok: true,

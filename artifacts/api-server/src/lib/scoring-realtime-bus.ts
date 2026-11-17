@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createPgClient, type Client } from "@workspace/db";
+import { createPgClient, Client } from "@workspace/db";
 import { resolveDirectDatabaseUrl } from "@workspace/db/database-url";
 import { logger } from "./logger";
 
@@ -18,7 +18,7 @@ const CHANNEL_NAME = "bidwar_scoring_realtime";
 const localInstanceId = randomUUID();
 const handlers = new Set<RealtimeMessageHandler>();
 
-let pgListenerClient: Client | null = null;
+let pgListenerClient: InstanceType<typeof Client> | null = null;
 let isConnecting = false;
 let isConnected = false;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;

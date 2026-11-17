@@ -16,23 +16,26 @@ export function BplPromoModal({ forceOpen, onClose }: BplPromoModalProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") return undefined;
     if (forceOpen !== undefined) {
       setIsOpen(forceOpen);
-      return;
+      return undefined;
     }
     const now = Date.now();
-    if (now > BPL_POPUP_EXPIRY) return;
+    if (now > BPL_POPUP_EXPIRY) return undefined;
 
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const isDismissed = sessionStorage.getItem(BPL_POPUP_DISMISSED_KEY);
       if (!isDismissed) {
-        const timer = setTimeout(() => setIsOpen(true), 450);
-        return () => clearTimeout(timer);
+        timer = setTimeout(() => setIsOpen(true), 450);
       }
     } catch {
       setIsOpen(true);
     }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [forceOpen]);
 
   const handleClose = () => {
@@ -46,7 +49,7 @@ export function BplPromoModal({ forceOpen, onClose }: BplPromoModalProps) {
   };
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) return undefined;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         handleClose();

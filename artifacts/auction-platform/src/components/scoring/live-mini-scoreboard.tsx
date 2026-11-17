@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "wouter";
 import { CircleDot, Flame, Target, Zap, ArrowRight, Activity, Crosshair, Tv } from "lucide-react";
-import type { CricketScoreboardState, BallDisplayOutcome } from "@workspace/scoring-core";
+import type { CricketScoreboardState, BallDisplayOutcome, BattingCardRow, BowlingCardRow } from "@workspace/scoring-core";
 import type { PublicMatch, PublicTeam } from "@/lib/public-tournament-types";
 import type { ScoringLiveDisplay, PublicScorecardResponse } from "@/lib/scoring-api";
 import { cricketFanMatchPath } from "@/lib/tournament-navigation";
@@ -97,22 +97,31 @@ export function LiveMiniScoreboard({
   const bowlerName = bowlerId ? (playerNameMap.get(bowlerId) || "Current Bowler") : "Current Bowler";
 
   // Detailed batsman stats if available in scorecard
-  const strikerStats = useMemo(() => {
-    if (!strikerId || !scorecardData?.scorecard?.batting) return null;
-    const allBatting = Object.values(scorecardData.scorecard.batting).flat();
-    return allBatting.find((b) => b.playerId === strikerId);
+  const strikerStats = useMemo<BattingCardRow | null>(() => {
+    if (!strikerId || !scorecardData?.scorecard?.innings) return null;
+    for (const inn of scorecardData.scorecard.innings) {
+      const found = inn.batting.find((b) => b.playerId === strikerId);
+      if (found) return found;
+    }
+    return null;
   }, [strikerId, scorecardData]);
 
-  const nonStrikerStats = useMemo(() => {
-    if (!nonStrikerId || !scorecardData?.scorecard?.batting) return null;
-    const allBatting = Object.values(scorecardData.scorecard.batting).flat();
-    return allBatting.find((b) => b.playerId === nonStrikerId);
+  const nonStrikerStats = useMemo<BattingCardRow | null>(() => {
+    if (!nonStrikerId || !scorecardData?.scorecard?.innings) return null;
+    for (const inn of scorecardData.scorecard.innings) {
+      const found = inn.batting.find((b) => b.playerId === nonStrikerId);
+      if (found) return found;
+    }
+    return null;
   }, [nonStrikerId, scorecardData]);
 
-  const bowlerStats = useMemo(() => {
-    if (!bowlerId || !scorecardData?.scorecard?.bowling) return null;
-    const allBowling = Object.values(scorecardData.scorecard.bowling).flat();
-    return allBowling.find((b) => b.playerId === bowlerId);
+  const bowlerStats = useMemo<BowlingCardRow | null>(() => {
+    if (!bowlerId || !scorecardData?.scorecard?.innings) return null;
+    for (const inn of scorecardData.scorecard.innings) {
+      const found = inn.bowling.find((b) => b.playerId === bowlerId);
+      if (found) return found;
+    }
+    return null;
   }, [bowlerId, scorecardData]);
 
   // Deliveries in current over

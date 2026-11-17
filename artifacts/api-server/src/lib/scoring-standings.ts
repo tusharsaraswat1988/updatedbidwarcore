@@ -701,7 +701,7 @@ async function getScoringStandingsRaw(tournamentId: number) {
           const team = teamMeta.get(row.teamId);
           return {
             teamId: row.teamId,
-            drawId: null,
+            drawId: -1,
             teamName: team?.name ?? `Team ${row.teamId}`,
             shortCode: team?.shortCode ?? "—",
             color: team?.color ?? null,

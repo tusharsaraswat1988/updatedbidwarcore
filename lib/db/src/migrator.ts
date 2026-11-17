@@ -574,6 +574,27 @@ export async function runVersionedMigrations(
 
   migrationItems.sort((a, b) => a.file.localeCompare(b.file));
 
+  // Greenfield database initialization guard:
+  // If foundational entity 'tournaments' does not exist yet (blank DB), prioritize 0042_baseline_and_healer_absorption.sql
+  // so that all base tables exist before incremental 0001..0041 migrations execute.
+  const hasTournamentsCheck = await client.query<{ exists: boolean }>(
+    `SELECT to_regclass('public.tournaments') IS NOT NULL AS exists`,
+  );
+  const isGreenfield = !hasTournamentsCheck.rows[0]?.exists;
+
+  if (isGreenfield) {
+    const idx0042 = migrationItems.findIndex((item) =>
+      item.file.startsWith("0042_baseline_and_healer_absorption"),
+    );
+    if (idx0042 > 0) {
+      const [item0042] = migrationItems.splice(idx0042, 1);
+      migrationItems.unshift(item0042);
+      log(
+        "[migrate] Greenfield database detected — prioritized baseline migration 0042_baseline_and_healer_absorption.sql to initialize base tables.",
+      );
+    }
+  }
+
   const appliedFiles: string[] = [];
   let alreadyAppliedCount = 0;
 

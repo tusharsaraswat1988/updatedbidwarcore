@@ -31,7 +31,12 @@ export async function guardPrivateTournamentSpectator(
   res: Response,
   tournament: PrivateTournamentGateCandidate,
 ): Promise<boolean> {
-  const visibility = resolveTournamentVisibility(tournament.featuresJson);
+  const featuresJson = tournament.featuresJson;
+  const resolvedFeatures =
+    featuresJson !== null && typeof featuresJson === "object"
+      ? (featuresJson as Record<string, unknown>)
+      : undefined;
+  const visibility = resolveTournamentVisibility(resolvedFeatures);
   const isOrganizer = await canAccessPrivateTournamentData(req, tournament.id);
 
   if (visibility === "private" || visibility === "unlisted") {

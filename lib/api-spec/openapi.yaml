@@ -3452,6 +3452,9 @@ components:
           description: Identifies whether the active timer was started by the operator (start) or triggered by a bid (bid). Null when no timer is running.
         lastAction:
           type: ["string", "null"]
+        lastAuctionActivityAt:
+          type: ["string", "null"]
+          description: "ISO8601 timestamp of the last auction activity."
         outcome:
           nullable: true
           allOf:

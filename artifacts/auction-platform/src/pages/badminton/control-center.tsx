@@ -439,10 +439,6 @@ export default function BadmintonControlCenterPage() {
     onSuccess: (data) => {
       qc.setQueryData(["badminton-branding", tournamentId], data);
       toast({ title: "Screens follow this court" });
-      setActivity((prev) => [
-        { id: `${Date.now()}-focus`, at: Date.now(), text: "Focus court updated for Venue / OBS / LED" },
-        ...prev,
-      ].slice(0, 20));
     },
   });
 

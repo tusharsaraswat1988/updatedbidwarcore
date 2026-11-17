@@ -1176,8 +1176,7 @@ router.post("/tournaments/:tournamentId/sync", async (req, res) => {
     .update(auctionSessionsTable)
     .set({
       status: "completed",
-      phase: "completed",
-      activePlayerId: null,
+      currentPlayerId: null,
       lastAction: "Auction concluded via local offline sync",
     })
     .where(eq(auctionSessionsTable.tournamentId, id));

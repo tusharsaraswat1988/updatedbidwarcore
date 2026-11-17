@@ -8,6 +8,7 @@ import { fileURLToPath } from "url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const schemaDir = path.join(root, "lib/db/src/schema");
+const migrationsDir = path.join(root, "lib/db/migrations");
 const ensurePath = path.join(root, "lib/db/src/ensure-schema.ts");
 const systemCPath = path.join(root, "lib/db/src/index.ts");
 
@@ -99,6 +100,15 @@ for (const file of fs.readdirSync(schemaDir).filter((f) => f.endsWith(".ts") && 
   Object.assign(allTables, extractDrizzleTables(src, file));
 }
 
+const migTexts = fs.existsSync(migrationsDir)
+  ? fs
+      .readdirSync(migrationsDir)
+      .filter((f) => f.endsWith(".sql"))
+      .map((f) => fs.readFileSync(path.join(migrationsDir, f), "utf8"))
+  : [];
+const combinedMigText = migTexts.join("\n");
+const migrationsDdl = parseBootDdl(combinedMigText);
+
 const ensureText = fs.readFileSync(ensurePath, "utf8");
 const systemCText = fs.readFileSync(systemCPath, "utf8");
 const ensure = parseBootDdl(ensureText);
@@ -108,6 +118,7 @@ function covered(table, column) {
   const t = table.toLowerCase();
   const c = column.toLowerCase();
   return (
+    (migrationsDdl.addColumns.get(t)?.has(c) ?? false) ||
     (ensure.addColumns.get(t)?.has(c) ?? false) ||
     (systemC.addColumns.get(t)?.has(c) ?? false)
   );
@@ -115,7 +126,11 @@ function covered(table, column) {
 
 function tableCreatedInBoot(table) {
   const t = table.toLowerCase();
-  return ensure.createTables.has(t) || systemC.createTables.has(t);
+  return (
+    migrationsDdl.createTables.has(t) ||
+    ensure.createTables.has(t) ||
+    systemC.createTables.has(t)
+  );
 }
 
 const missingColumns = [];
@@ -124,9 +139,7 @@ const drizzleIndexesMissingFromBoot = [];
 
 for (const [table, meta] of Object.entries(allTables).sort(([a], [b]) => a.localeCompare(b))) {
   const missing = meta.columns.filter((c) => !covered(table, c));
-  // If table is created in boot with columns, those count as covered.
-  // Columns only in Drizzle and never mentioned in boot DDL = risk for existing prod tables
-  // OR new tables that rely on drizzle-kit push / manual create.
+  // If table is created in migrations/boot with columns, those count as covered.
   if (!tableCreatedInBoot(table) && missing.length === meta.columns.length) {
     tablesOnlyInDrizzle.push({ table, file: meta.file, columnCount: meta.columns.length, columns: meta.columns });
   } else if (missing.length) {
@@ -134,7 +147,9 @@ for (const [table, meta] of Object.entries(allTables).sort(([a], [b]) => a.local
   }
   for (const idx of meta.indexes) {
     const inBoot =
-      ensure.createIndexes.has(idx.toLowerCase()) || systemC.createIndexes.has(idx.toLowerCase());
+      migrationsDdl.createIndexes.has(idx.toLowerCase()) ||
+      ensure.createIndexes.has(idx.toLowerCase()) ||
+      systemC.createIndexes.has(idx.toLowerCase());
     if (!inBoot) drizzleIndexesMissingFromBoot.push({ table, index: idx, file: meta.file });
   }
 }

@@ -364,7 +364,7 @@ export default function BadmintonBrandingPage() {
       const uploadOne = async (f: File) => {
         const fd = new FormData();
         fd.append("file", f);
-        const r = await fetch("/api/upload", { method: "POST", body: fd });
+        const r = await fetch("/api/upload", { method: "POST", credentials: "include", body: fd });
         if (!r.ok) throw new Error("Upload failed");
         const data = (await r.json()) as { url?: string };
         if (!data.url) throw new Error("Upload failed");

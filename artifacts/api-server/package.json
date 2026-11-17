@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.32.0",
+    "@types/pg": "^8.18.0",
     "@workspace/api-base": "workspace:*",
     "@workspace/api-zod": "workspace:*",
     "@workspace/auction": "workspace:*",
@@ -45,6 +46,7 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pdfkit": "^0.18.0",
+    "pg": "^8.20.0",
     "pino": "^9",
     "pino-http": "^10",
     "react": "catalog:",

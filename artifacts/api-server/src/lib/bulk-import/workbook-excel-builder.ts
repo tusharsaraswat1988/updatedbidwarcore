@@ -631,7 +631,7 @@ function fillSummarySheet(
   let row = 5;
   let totalCompletion = 0;
   let completionSheets = 0;
-  const sheets = bmwSheetsForSport(ctx.tournament.sport);
+  const sheets = bmwSheetsForSport(ctx.tournament.sport as string | null | undefined);
 
   for (const sheetDef of sheets) {
     const dataWs = wb.getWorksheet(sheetDef.name);

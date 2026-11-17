@@ -105,6 +105,7 @@ function usePointScoreFlash(leftScore: number, rightScore: number): PointFlashSi
       return () => window.clearTimeout(timer);
     }
     prevRef.current = { left: leftScore, right: rightScore };
+    return undefined;
   }, [leftScore, rightScore]);
 
   return flashSide;

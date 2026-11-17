@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Search, MapPin, Star, Radio, Calendar, ChevronRight, Filter, Target } from "lucide-react";
@@ -37,7 +37,16 @@ function getEffectiveStatus(status: string, date: string | null) {
 
 export default function UniversalFanHomeRedesign() {
   const [search, setSearch] = useState("");
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window !== 'undefined') {
+        return (localStorage.getItem('fan-theme') as 'dark' | 'light') || 'dark';
+    }
+    return 'dark';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('fan-theme', theme);
+  }, [theme]);
   const [sportFilter, setSportFilter] = useState("all");
   const { isFavorite, toggleFavorite } = useFanFavorites();
 
@@ -111,17 +120,17 @@ export default function UniversalFanHomeRedesign() {
           )}
 
           <section>
-            <div className="flex justify-between items-center mb-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <h2 className="font-display font-bold text-2xl">All Tournaments</h2>
-                <div className="flex gap-2">
-                    <select onChange={e => setSportFilter(e.target.value)} className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] px-4 py-2 rounded-xl text-xs font-bold">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
+                    <select onChange={e => setSportFilter(e.target.value)} className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] px-4 py-2 rounded-xl text-xs font-bold shrink-0">
                         <option value="all">All Sports</option>
                         <option value="cricket">Cricket</option>
                         <option value="badminton">Badminton</option>
                     </select>
-                    <div className="relative">
+                    <div className="relative flex-1 sm:w-64 min-w-[140px]">
                         <Search className="absolute left-3 top-2.5 w-4 h-4 text-[hsl(var(--muted-foreground))]" />
-                        <input className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] py-2 pl-10 pr-4 rounded-xl text-xs" placeholder="Search..." onChange={e => setSearch(e.target.value)}/>
+                        <input className="bg-[hsl(var(--card))] border border-[hsl(var(--border))] py-2 pl-10 pr-4 rounded-xl text-xs w-full" placeholder="Search..." onChange={e => setSearch(e.target.value)}/>
                     </div>
                 </div>
             </div>

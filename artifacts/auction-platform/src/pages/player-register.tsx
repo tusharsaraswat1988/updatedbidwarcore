@@ -58,6 +58,7 @@ import {
 import { getSportCapabilities } from "@/lib/sport-capabilities";
 import { formatTimeLabel } from "@/components/ui/time-picker";
 import { formatIndianRupee, normalizeAuctionUnit } from "@/lib/format";
+import { setActiveRegistrationCode } from "@/lib/cloudinary-upload";
 
 /** Format YYYY-MM-DD as DD-MM-YYYY without timezone shifting. */
 function formatIsoDateDdMmYyyy(value: string | null | undefined): string {
@@ -178,6 +179,13 @@ export default function PlayerRegister() {
   const [, params] = useRoute("/register/:code");
   const registrationCode = params?.code ? normalizeRegistrationCode(params.code) : "";
   const { brandName } = useBranding();
+
+  useEffect(() => {
+    setActiveRegistrationCode(registrationCode || null);
+    return () => {
+      setActiveRegistrationCode(null);
+    };
+  }, [registrationCode]);
   const [contextLoading, setContextLoading] = useState(true);
   const [contextError, setContextError] = useState<string | null>(null);
   const [tournament, setTournament] = useState<Tournament | null>(null);

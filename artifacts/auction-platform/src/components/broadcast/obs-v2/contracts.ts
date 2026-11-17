@@ -184,6 +184,8 @@ export interface CricketScoreModel {
   // ── Optional Extended Live Fields (Phase 9 scorebug enhancement) ──
   /** Required Run Rate — only defined during chase */
   rrr?: number | null;
+  /** Target score to win during chase */
+  target?: number | null;
   /** Runs still needed to win — only during chase */
   needRuns?: number | null;
   /** Balls remaining in chase innings */

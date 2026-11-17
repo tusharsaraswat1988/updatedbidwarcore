@@ -51,7 +51,7 @@ export function LiveOperationsModule({
     query: { queryKey: getGetTournamentQueryKey(tournamentId), enabled: !!tournamentId },
   });
   const sportsActive = useTournamentScoringActive(
-    tournament?.sport ?? sport,
+    (tournament?.sport ?? sport) ?? undefined,
     tournament?.scoringEnabled,
   );
 

@@ -82,7 +82,7 @@ async function broadcastBlobAccepted(blob: Blob, slot: SponsorMediaSlotDto): Pro
     blob,
     expectedVersion: slot.version,
     actualVersion: slot.version,
-    expectedChecksum: slot.checksum,
+    expectedChecksum: slot.checksum ?? "",
     expectedSize: slot.fileSizeBytes ?? blob.size,
   });
   const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -299,7 +299,15 @@ export function SponsorMediaLayer({ tournamentId, surface, cover = "absolute" }:
     if (slot.checksum && checksum !== slot.checksum) {
       const playable = slot.assetType === "video" && isPlayableBroadcastMp4(new Uint8Array(await blob.arrayBuffer()));
       if (!playable) {
-        localRef.current.set(cue.slotNumber, { ...local, verified: false, status: "failed", error: "Checksum mismatch" });
+        localRef.current.set(cue.slotNumber, {
+          slotId: slot.id ?? cue.slotNumber,
+          version: cue.version,
+          checkedAt: Date.now(),
+          ...local,
+          verified: false,
+          status: "failed",
+          error: "Checksum mismatch",
+        });
         hide("error", "Checksum mismatch");
         return;
       }

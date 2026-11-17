@@ -1212,7 +1212,7 @@ export function LiveViewerPlayerAuctionHistory({
 export interface LiveViewerPageProps {
   tournamentId?: number;
   embedded?: boolean;
-  [key: string]: unknown;
+  params?: { id?: string };
 }
 
 export default function LiveViewerPage({
