@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Volume2, VolumeX, Share2, Radio } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -32,8 +32,9 @@ export function FanArenaShell({
   isLive = false,
 }: FanArenaShellProps) {
   const [shareOpen, setShareOpen] = useState(false);
+  const [location] = useLocation();
   
-  useEffect(() => { syncDocumentSurfaceTheme(); }, []);
+  useEffect(() => { syncDocumentSurfaceTheme(); }, [location]);
 
   const fanPageUrl = typeof window !== "undefined" ? `${window.location.origin}/tournament/${tournament.id}/fan` : "";
 
