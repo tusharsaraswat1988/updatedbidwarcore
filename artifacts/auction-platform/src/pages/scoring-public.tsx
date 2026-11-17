@@ -296,33 +296,8 @@ export default function ScoringPublicPage({
       tournament={t}
       liveMatchId={primaryLiveId}
       streamUrl={streamUrl}
-      hideNav={true}
     >
-      {/* ── Permanent BidWar Header + Event Animations + 4 Top Sections ─ */}
-      <TournamentFanHeader
-        tournament={t}
-        tournamentCode={!isNumeric ? rawParam : undefined}
-        activeSection={activeSection}
-        onSelectSection={setActiveSection}
-        liveMatch={live[0]}
-        liveState={(liveDisplay?.state as CricketScoreboardState | null) ?? null}
-        teamMap={teamMap}
-        liveCount={live.length}
-        upcomingCount={upcoming.length}
-        completedCount={completed.length}
-        soundEnabled={cheerState.soundEnabled}
-        onToggleSound={cheerState.toggleSound}
-        streamUrl={streamUrl}
-        embedded={embedded}
-      />
-
-      {isOrganizer ? <FanLiveStreamEditor tournamentId={tournamentId} /> : null}
-
-      {/* ── Persistent Floating Cheer & Reaction Overlay (Omitted inside dedicated Fan Arena tab) ─ */}
-      {activeSection !== "fan_arena" && (
-        <FanCheerFloatingWidget cheerState={cheerState} teams={data.teams} />
-      )}
-
+      {/* ── Header removed from here, now in TournamentShell ─ */}
       <main className="space-y-8">
         {/* ============================================================== */}
         {/* SECTION 1: LIVE MATCH                                          */}

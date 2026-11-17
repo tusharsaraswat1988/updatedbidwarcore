@@ -105,13 +105,11 @@ export function CricketFanExperienceShell({
   tournament,
   liveMatchId,
   streamUrl,
-  hideNav = false,
   children,
 }: {
   tournament: any;
   liveMatchId?: number | null;
   streamUrl?: string | null;
-  hideNav?: boolean;
   children: React.ReactNode;
 }) {
   const [soundEnabled, setSoundEnabled] = React.useState(true);
@@ -121,7 +119,8 @@ export function CricketFanExperienceShell({
       tournament={tournament}
       soundEnabled={soundEnabled}
       onToggleSound={() => setSoundEnabled(!soundEnabled)}
-      moduleNav={!hideNav && <CricketFanNav tournamentId={tournament.id} liveMatchId={liveMatchId} streamUrl={streamUrl} />}
+      streamUrl={streamUrl}
+      moduleNav={<CricketFanNav tournamentId={tournament.id} liveMatchId={liveMatchId} streamUrl={streamUrl} />}
     >
       {children}
     </TournamentShell>
