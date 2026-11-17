@@ -273,7 +273,9 @@ async function readWorld(tx: Tx, tournamentId: number): Promise<DemoWorld> {
     externalTeamRefs.push({ teamId: row.awayTeamId, source: "scoring match" });
   }
   for (const row of groupMembers) {
-    externalTeamRefs.push({ teamId: row.teamId, source: "badminton group" });
+    if (row.teamId != null) {
+      externalTeamRefs.push({ teamId: row.teamId, source: "badminton group" });
+    }
   }
 
   const masterSponsorIds = owned
