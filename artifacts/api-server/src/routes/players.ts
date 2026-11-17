@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { isTournamentLicensed } from "@workspace/platform-core";
 import { canAccessPrivateTournamentData, requireTournamentOrganizer } from "../middleware/require-organizer";
 import { guardPrivateTournamentSpectator } from "../middleware/private-tournament-gate";
 import { publicPlayerSerializer, privatePlayerSerializer } from "../lib/serializers/player";
@@ -514,6 +515,15 @@ router.get("/tournaments/:tournamentId/players", async (req, res) => {
   if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
 
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
+  if (!isOrganizer && !isTournamentLicensed(tournament)) {
+    res.status(403).json({
+      error: "Tournament is unlicensed. Player rosters and profiles require an active BidWar licence.",
+      code: "UNLICENSED_TOURNAMENT",
+      tournamentId: tid,
+    });
+    return;
+  }
+
   const players = await db
     .select()
     .from(playersTable)
@@ -1411,6 +1421,15 @@ router.get("/tournaments/:tournamentId/players/:playerId", async (req, res) => {
   if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
 
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
+  if (!isOrganizer && !isTournamentLicensed(tournament)) {
+    res.status(403).json({
+      error: "Tournament is unlicensed. Player rosters and profiles require an active BidWar licence.",
+      code: "UNLICENSED_TOURNAMENT",
+      tournamentId: tid,
+    });
+    return;
+  }
+
   const [player] = await db
     .select()
     .from(playersTable)
@@ -1425,11 +1444,22 @@ router.get("/tournaments/:tournamentId/players/:playerId/auction-history", async
   if (isNaN(tid) || isNaN(playerId)) { res.status(400).json({ error: "Invalid ID" }); return; }
 
   const [tournament] = await db
-    .select({ id: tournamentsTable.id, organizerId: tournamentsTable.organizerId })
+    .select()
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tid));
   if (!tournament) {
     res.status(404).json({ error: "Tournament not found" });
+    return;
+  }
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
+
+  const isOrganizer = await canAccessPrivateTournamentData(req, tid);
+  if (!isOrganizer && !isTournamentLicensed(tournament)) {
+    res.status(403).json({
+      error: "Tournament is unlicensed. Player auction history requires an active BidWar licence.",
+      code: "UNLICENSED_TOURNAMENT",
+      tournamentId: tid,
+    });
     return;
   }
 

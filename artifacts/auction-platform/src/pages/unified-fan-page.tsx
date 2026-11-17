@@ -16,6 +16,7 @@ import type { FanModuleTab } from "@/components/fan/unified-module-nav";
 import { AuctionFanRenderer } from "@/components/fan/auction-fan-renderer";
 import { CricketFanRenderer } from "@/components/fan/cricket-fan-renderer";
 import { BadmintonFanRenderer } from "@/components/fan/badminton-fan-renderer";
+import { UnlicensedFanView } from "@/components/fan/unlicensed-fan-view";
 import { PrivateTournamentGate } from "@/components/fan/private-tournament-gate";
 import { Trophy } from "lucide-react";
 
@@ -122,6 +123,7 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
         isPrivate: boolean;
         modules: { auction: boolean; scoring: boolean };
         sport: string | null;
+        isLicensed?: boolean;
       };
     },
     enabled: tournamentId > 0,
@@ -325,6 +327,12 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
     );
   }
 
+  // Level 1: Unlicensed Tournament View (Deliberately limited spectator experience)
+  const isLicensed = fanContext?.isLicensed ?? tournament?.isLicensed ?? true;
+  if (!isLicensed) {
+    return <UnlicensedFanView tournament={tournament} />;
+  }
+
   // Invalid state: neither module enabled
   if (!auctionEnabled && !scoringEnabled) {
     return (
@@ -348,15 +356,15 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
     >
       {/* ── Active Module Spectator Renderer (Zero Duplicate Connection Lifecycle) ── */}
       {activeTab === "auction" && showAuctionTab && (
-        <AuctionFanRenderer key={tournamentId} tournamentId={tournamentId} />
+        <AuctionFanRenderer tournamentId={tournamentId} />
       )}
 
       {activeTab === "scoring" && showScoringTab && sport === "cricket" && (
-        <CricketFanRenderer key={tournamentId} tournamentId={tournamentId} />
+        <CricketFanRenderer tournamentId={tournamentId} />
       )}
 
       {activeTab === "scoring" && showScoringTab && sport === "badminton" && (
-        <BadmintonFanRenderer key={tournamentId} tournamentId={tournamentId} />
+        <BadmintonFanRenderer tournamentId={tournamentId} />
       )}
 
       {activeTab === "scoring" && showScoringTab && sport !== "cricket" && sport !== "badminton" && (

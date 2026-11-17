@@ -4,7 +4,9 @@ import { scoringFeatureMiddleware } from "../lib/scoring-feature";
 import {
   isTournamentOrganizer,
   requireTournamentOrganizer,
+  canAccessPrivateTournamentData,
 } from "../middleware/require-organizer";
+import { guardPrivateTournamentSpectator } from "../middleware/private-tournament-gate";
 import {
   appendScoringEvent,
   createScoringMatch,
@@ -27,7 +29,7 @@ import {
   broadcastCricketObsDirector,
 } from "../lib/scoring-broadcast";
 import { buildCricketMatchSummary, InvalidEventPayloadError, type SponsorMediaCue } from "@workspace/scoring-core";
-import { InvalidTournamentModuleStateError } from "@workspace/platform-core";
+import { InvalidTournamentModuleStateError, isTournamentLicensed } from "@workspace/platform-core";
 import { db, scoringMatchesTable, tournamentsTable, cricketBroadcastMessageTemplatesTable, scoringEventsTable } from "@workspace/db";
 import { eq, and, desc, asc, or, sql } from "drizzle-orm";
 import { logger } from "../lib/logger";
@@ -358,17 +360,36 @@ router.use("/tournaments/:tournamentId/scoring", async (req, res, next) => {
     return;
   }
   const [tournament] = await db
-    .select({
-      id: tournamentsTable.id,
-      auctionEnabled: tournamentsTable.auctionEnabled,
-      scoringEnabled: tournamentsTable.scoringEnabled,
-      sport: tournamentsTable.sport,
-    })
+    .select()
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
 
   if (!requireSportModule(res, tournament, "cricket")) return;
+  if (!tournament) return;
+
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
+
+  const isOrganizer = await canAccessPrivateTournamentData(req, tournamentId);
+  let isScorer = false;
+  if (!isOrganizer) {
+    try {
+      const scorerAuth = await requireScorerFromRequest(req);
+      if (scorerAuth) isScorer = true;
+    } catch {
+      // not a scorer
+    }
+  }
+
+  if (!isOrganizer && !isScorer && !isTournamentLicensed(tournament)) {
+    res.status(403).json({
+      error: "Cricket scoring requires an active BidWar licence.",
+      code: "UNLICENSED_TOURNAMENT",
+      tournamentId,
+    });
+    return;
+  }
+
   next();
 });
 

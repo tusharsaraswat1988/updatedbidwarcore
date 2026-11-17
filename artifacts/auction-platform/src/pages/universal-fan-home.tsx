@@ -578,7 +578,7 @@ export default function UniversalFanHome() {
                           </span>
                         ) : tournament.status === "completed" ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-white/5">
-                            Concluded
+                            Completed
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">

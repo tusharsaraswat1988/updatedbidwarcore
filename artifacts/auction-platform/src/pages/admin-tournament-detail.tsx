@@ -14,6 +14,7 @@ import {
   ExternalLink,
   Flame,
   Gavel,
+  Globe,
   Lock,
   Mail,
   MessageSquare,
@@ -72,6 +73,7 @@ import {
   resetTournamentAsAdmin,
   setTournamentLicenseStatus,
   setTournamentScoringPhase,
+  setTournamentVisibility,
   unlockTournament,
   updateAdminTournament,
   verifyAndGrantTournamentLicense,
@@ -201,6 +203,10 @@ export default function AdminTournamentDetailPage() {
 
   // Scoring phase transition dialog state
   const [pendingScoringPhase, setPendingScoringPhase] = useState<"setup" | "active" | "completed" | null>(null);
+
+  // Tournament visibility dialog state
+  const [visibilityReasonOpen, setVisibilityReasonOpen] = useState(false);
+  const [pendingVisibility, setPendingVisibility] = useState<"public" | "private" | null>(null);
 
   // Verify and grant license dialog state
   const [verifyPaymentOpen, setVerifyPaymentOpen] = useState(false);
@@ -967,6 +973,67 @@ export default function AdminTournamentDetailPage() {
                             )}
                           >
                             {t.licenseStatus === "active" ? "Switch to Trial License" : "Upgrade to Live"}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Tournament Public Visibility Box (Super Admin Exclusive) */}
+                  <div className="rounded-lg border border-border/60 bg-muted/20 p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                        <Globe className="h-3.5 w-3.5 text-primary" />
+                        Fan Arena Visibility
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px] font-semibold uppercase",
+                          (t.features?.visibility ?? "public") === "public"
+                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                            : "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                        )}
+                      >
+                        {(t.features?.visibility ?? "public") === "public" ? "Public (Discoverable)" : "Private / Restricted"}
+                      </Badge>
+                    </div>
+
+                    <div className="text-[11px] text-muted-foreground">
+                      {(t.features?.visibility ?? "public") === "public"
+                        ? "Public tournament: Automatically discoverable on BidWar Fan Arena (/fan) without organiser opt-in."
+                        : "Private tournament: Excluded from Fan Arena discovery. Requires organiser credentials or spectator PIN."}
+                    </div>
+
+                    {isMaster && (
+                      <div className="pt-1 flex gap-2">
+                        {(t.features?.visibility ?? "public") === "public" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-8 text-xs font-medium border-rose-500/40 text-rose-300 hover:bg-rose-500/10 gap-1.5"
+                            disabled={!!actionLoading}
+                            onClick={() => {
+                              setPendingVisibility("private");
+                              setVisibilityReasonOpen(true);
+                            }}
+                          >
+                            <Lock className="h-3.5 w-3.5" />
+                            Make Private (Hide from Fan Arena)
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-8 text-xs font-medium border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 gap-1.5"
+                            disabled={!!actionLoading}
+                            onClick={() => {
+                              setPendingVisibility("public");
+                              setVisibilityReasonOpen(true);
+                            }}
+                          >
+                            <Globe className="h-3.5 w-3.5" />
+                            Restore Public Visibility (List on /fan)
                           </Button>
                         )}
                       </div>
@@ -1919,6 +1986,38 @@ export default function AdminTournamentDetailPage() {
             setActionLoading(null);
             setLicenseReasonOpen(false);
             setPendingLicense(null);
+            await reloadDetail();
+            await reloadTournaments();
+          }}
+        />
+      )}
+
+      {/* AUDIT REASON DIALOG FOR VISIBILITY CHANGES */}
+      {tournamentId != null && (
+        <AuditReasonDialog
+          open={visibilityReasonOpen}
+          onOpenChange={(open) => {
+            setVisibilityReasonOpen(open);
+            if (!open) setPendingVisibility(null);
+          }}
+          title={pendingVisibility === "private" ? "Make Tournament Private" : "Restore Public Visibility"}
+          description="Tournament visibility modifications are recorded in the audit log and require an administrative reason."
+          confirmLabel={pendingVisibility === "private" ? "Make Private" : "Make Public"}
+          loading={!!actionLoading}
+          onConfirm={async (reason) => {
+            if (!pendingVisibility || tournamentId == null) return;
+            const label = pendingVisibility === "private" ? "Make Private" : "Make Public";
+            setActionLoading(label);
+            const r = await setTournamentVisibility(tournamentId, pendingVisibility, reason);
+            if (!r.success) {
+              setActionLoading(null);
+              showFlash(r.error || `${label} failed`, false);
+              return;
+            }
+            showFlash(`Tournament visibility updated to ${pendingVisibility}`);
+            setActionLoading(null);
+            setVisibilityReasonOpen(false);
+            setPendingVisibility(null);
             await reloadDetail();
             await reloadTournaments();
           }}

@@ -17,6 +17,7 @@ import {
   isScoringEnabled,
   tryResolveTournamentProductMode,
   resolvePublicBroadcasts,
+  isTournamentLicensed,
 } from "@workspace/platform-core";
 import { catalogBindingSerializerFields } from "../tournament-catalog-bindings";
 
@@ -26,6 +27,29 @@ type TournamentSerializerOptions = {
   includeScoringPin?: boolean;
   platformDefaults?: PlatformAudioDefaults;
 };
+
+/** Limited Spectator DTO: Minimal public metadata for unlicensed tournament discovery & views. */
+export function unlicensedSpectatorTournamentSerializer(t: TournamentRow) {
+  return {
+    id: t.id,
+    name: t.name,
+    sport: t.sport,
+    sportId: t.sportId ?? null,
+    venue: t.venue ?? null,
+    city: t.city ?? null,
+    auctionDate: t.auctionDate ?? null,
+    auctionTime: t.auctionTime ?? null,
+    matchDates: t.matchDates ?? null,
+    logoUrl: t.logoUrl ?? null,
+    status: t.status,
+    isLicensed: false,
+    auctionEnabled: isAuctionEnabled(t),
+    scoringEnabled: isScoringEnabled(t),
+    productMode: tryResolveTournamentProductMode(t) ?? "auction_only",
+    broadcast: null,
+    createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : (t.createdAt ? String(t.createdAt) : new Date().toISOString()),
+  };
+}
 
 /** Spectator-safe DTO: Strictly public metadata for fan screens, matches & spectator views. */
 export function spectatorTournamentSerializer(
@@ -37,6 +61,7 @@ export function spectatorTournamentSerializer(
   const resolvedSponsorLogos = resolveBadmintonSponsorLogos(brandingRaw, t.sponsorLogos);
   const auctionOn = isAuctionEnabled(t);
   const scoringOn = isScoringEnabled(t);
+  const isLicensed = isTournamentLicensed(t);
 
   return {
     id: t.id,
@@ -56,6 +81,7 @@ export function spectatorTournamentSerializer(
     mainBannerEnabled: t.mainBannerEnabled ?? false,
     mainBannerFit: t.mainBannerFit ?? "cover",
     status: t.status,
+    isLicensed,
     auctionEnabled: auctionOn,
     scoringEnabled: scoringOn,
     productMode: tryResolveTournamentProductMode(t) ?? "auction_only",
@@ -63,7 +89,7 @@ export function spectatorTournamentSerializer(
     features: resolveTournamentFeatures(t.featuresJson),
     cheerMessagesEnabled: t.cheerMessagesEnabled ?? true,
     cheerMessagePresets: t.cheerMessagePresets ?? null,
-    broadcast: resolvePublicBroadcasts(t.featuresJson) ?? null,
+    broadcast: isLicensed ? (resolvePublicBroadcasts(t.featuresJson) ?? null) : null,
     ...(auctionOn ? { auctionUnit: normalizeAuctionUnit(t.auctionUnit) } : {}),
     createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : (t.createdAt ? String(t.createdAt) : new Date().toISOString()),
   };

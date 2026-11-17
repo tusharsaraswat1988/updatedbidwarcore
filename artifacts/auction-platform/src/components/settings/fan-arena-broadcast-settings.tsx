@@ -91,7 +91,6 @@ export function FanArenaBroadcastSettings({
   });
 
   // Local form state
-  const [optIn, setOptIn] = useState(false);
   const [auctionUrl, setAuctionUrl] = useState("");
   const [auctionEnabled, setAuctionEnabled] = useState(true);
   const [auctionStatus, setAuctionStatus] = useState<BroadcastStatus>("live");
@@ -115,7 +114,6 @@ export function FanArenaBroadcastSettings({
   // Sync state when data arrives
   useEffect(() => {
     if (!data) return;
-    setOptIn(data.fanArenaOptIn ?? false);
 
     if (data.broadcast?.auction) {
       setAuctionUrl(data.broadcast.auction.url ?? "");
@@ -204,7 +202,6 @@ export function FanArenaBroadcastSettings({
       }
 
       const payload = {
-        fanArenaOptIn: optIn,
         broadcast: {
           auction: auctionUrl.trim()
             ? {
@@ -291,8 +288,8 @@ export function FanArenaBroadcastSettings({
     <div className="space-y-6 animate-fade-in" data-testid="fan-arena-broadcast-settings">
       {/* ── CARD 1: FAN ARENA DISCOVERY & CURATION ──────────────────────────── */}
       <SettingsCard
-        title="Fan Arena Curation & Public Discovery"
-        description="Control tournament listing and spectator discovery on the main BidWar Fan Arena (/fan)."
+        title="Public Tournament Discovery"
+        description="Every tournament created on BidWar is automatically discoverable on BidWar Fan Arena (/fan). Public visibility is managed exclusively by Super Admins."
         icon={<Globe className="w-4 h-4 text-amber-500" />}
       >
         <div className="space-y-4">
@@ -301,45 +298,35 @@ export function FanArenaBroadcastSettings({
             className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs ${
               eligibility.eligible
                 ? "bg-emerald-50 border-emerald-200 text-emerald-950"
-                : optIn
-                ? "bg-amber-50 border-amber-200 text-amber-950"
-                : "bg-slate-50 border-slate-200 text-slate-800"
+                : "bg-amber-50 border-amber-200 text-amber-950"
             }`}
           >
             <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-2">
                 {eligibility.eligible ? (
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                ) : optIn ? (
-                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
                 ) : (
-                  <Clock className="w-5 h-5 text-slate-500 shrink-0" />
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
                 )}
                 <span className="font-bold text-sm text-slate-900">
                   Listing Status:{" "}
                   {eligibility.eligible ? (
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 ml-1">
-                      Live on Fan Arena
-                    </span>
-                  ) : optIn ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 ml-1">
-                      Pending BidWar License / Approval
+                      Automatically Listed on Fan Arena
                     </span>
                   ) : (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-slate-200 text-slate-700 border border-slate-300 ml-1">
-                      Disabled / Opted Out
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 ml-1">
+                      Admin Restricted
                     </span>
                   )}
                 </span>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
                 {eligibility.eligible
-                  ? "Your tournament meets all BidWar curation criteria and is publicly discoverable on the Fan Arena."
-                  : optIn
-                  ? "Organizer opt-in is active. Awaiting BidWar production license or administrator approval before appearing publicly on /fan."
-                  : "Enable Fan Arena listing below to submit this tournament for public discovery."}
+                  ? "Your tournament is automatically discoverable on BidWar Fan Arena. Spectator experience depth (basic details vs live ball-by-ball scoring & auction) is determined by your tournament licence."
+                  : "Public discovery is currently restricted by administrator policy or emergency lock."}
               </p>
-              {!eligibility.eligible && optIn && eligibility.reasons.length > 0 && (
+              {!eligibility.eligible && eligibility.reasons.length > 0 && (
                 <ul className="text-xs text-slate-700 space-y-1 mt-2 pt-2 border-t border-amber-200/80">
                   {eligibility.reasons.map((r, i) => (
                     <li key={i} className="flex items-start gap-1.5">
@@ -353,6 +340,14 @@ export function FanArenaBroadcastSettings({
 
             <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
               <Link
+                href={`/tournament/${tournamentId}/fan`}
+                target="_blank"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 shadow-xs transition-colors"
+              >
+                <span>View Fan Page</span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
+              </Link>
+              <Link
                 href="/fan"
                 target="_blank"
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 shadow-xs transition-colors"
@@ -362,25 +357,6 @@ export function FanArenaBroadcastSettings({
               </Link>
             </div>
           </div>
-
-          {/* Opt-In Switch */}
-          <SettingsInsetBlock className="bg-slate-50/80 border-slate-200">
-            <div className="flex items-center justify-between gap-4">
-              <div className="space-y-0.5 min-w-0">
-                <Label htmlFor="fanArenaOptIn" className="font-bold text-sm text-slate-900 cursor-pointer">
-                  Fan Arena Public Listing (Opt-In)
-                </Label>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Request listing on the curated BidWar discovery portal. Does not bypass BidWar licensing or administrator review.
-                </p>
-              </div>
-              <Switch
-                id="fanArenaOptIn"
-                checked={optIn}
-                onCheckedChange={setOptIn}
-              />
-            </div>
-          </SettingsInsetBlock>
         </div>
       </SettingsCard>
 

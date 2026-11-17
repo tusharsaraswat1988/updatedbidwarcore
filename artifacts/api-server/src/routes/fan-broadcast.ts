@@ -279,7 +279,6 @@ router.put(
     }
 
     const updatedFeatures = mergeTournamentFeatures(tournament.featuresJson, {
-      ...(fanArenaOptIn !== undefined ? { fanArenaOptIn } : {}),
       broadcast: nextBroadcast,
       matchBroadcasts: nextMatchBroadcasts,
     });
@@ -287,7 +286,7 @@ router.put(
     await db
       .update(tournamentsTable)
       .set({
-        featuresJson: updatedFeatures,
+        featuresJson: updatedFeatures as unknown as Record<string, unknown>,
       })
       .where(eq(tournamentsTable.id, tournamentId));
 
@@ -345,62 +344,15 @@ router.put(
 
 /**
  * PUT /tournaments/:tournamentId/fan-arena
- * Organizer toggle for Fan Arena discovery opt-in.
+ * Deprecated organizer toggle. Blocked by contract: public discovery is automatic
+ * and visibility is exclusively managed by Super Admin.
  */
 router.put(
   "/tournaments/:tournamentId/fan-arena",
   async (req: Request, res: Response): Promise<void> => {
-    const rawId = Array.isArray(req.params.tournamentId)
-      ? req.params.tournamentId[0]
-      : req.params.tournamentId;
-    const tournamentId = parseInt(String(rawId), 10);
-    if (isNaN(tournamentId) || tournamentId <= 0) {
-      res.status(400).json({ error: "Invalid tournament ID" });
-      return;
-    }
-
-    const authorized = await requireTournamentOrganizer(req, res, tournamentId);
-    if (!authorized) return;
-
-    const optInSchema = z.object({
-      optIn: z.boolean(),
-    });
-    const parsed = optInSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: "Invalid input: 'optIn' boolean required" });
-      return;
-    }
-
-    const [tournament] = await db
-      .select()
-      .from(tournamentsTable)
-      .where(eq(tournamentsTable.id, tournamentId))
-      .limit(1);
-
-    if (!tournament) {
-      res.status(404).json({ error: "Tournament not found" });
-      return;
-    }
-
-    const updatedFeatures = mergeTournamentFeatures(tournament.featuresJson, {
-      fanArenaOptIn: parsed.data.optIn,
-    });
-
-    await db
-      .update(tournamentsTable)
-      .set({ featuresJson: updatedFeatures })
-      .where(eq(tournamentsTable.id, tournamentId));
-
-    const updatedTournament = {
-      ...tournament,
-      featuresJson: updatedFeatures,
-    };
-    const eligibility = evaluateFanArenaEligibility(updatedTournament);
-
-    res.json({
-      success: true,
-      fanArenaOptIn: parsed.data.optIn,
-      eligibility,
+    res.status(403).json({
+      error: "Organizers cannot modify Fan Arena listing eligibility. Public discovery is automatic and visibility is managed exclusively by Super Admin.",
+      code: "FORBIDDEN_FAN_ARENA_OPT_IN",
     });
   },
 );
@@ -448,7 +400,7 @@ router.post(
 
     await db
       .update(tournamentsTable)
-      .set({ featuresJson: updatedFeatures })
+      .set({ featuresJson: updatedFeatures as unknown as Record<string, unknown> })
       .where(eq(tournamentsTable.id, tournamentId));
 
     const updatedTournament = {

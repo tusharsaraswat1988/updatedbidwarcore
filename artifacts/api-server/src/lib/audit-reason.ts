@@ -56,6 +56,7 @@ export const TOURNAMENT_CONFIG_FIELDS = new Set([
   "scoringPhase",
   "auctionEnabled",
   "scoringEnabled",
+  "visibility",
 ]);
 
 export function tournamentConfigFieldsChanged(updates: Record<string, unknown>): string[] {

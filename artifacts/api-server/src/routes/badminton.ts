@@ -198,6 +198,7 @@ import {
   requireTournamentOrganizer,
 } from "../middleware/require-organizer";
 import { guardPrivateTournamentSpectator } from "../middleware/private-tournament-gate";
+import { isTournamentLicensed } from "@workspace/platform-core";
 import {
   publicBadmintonPlayerSerializer,
   serializeBadmintonPlayerForAudience,
@@ -229,17 +230,28 @@ router.use(async (req, res, next) => {
     return;
   }
   const [tournament] = await db
-    .select({
-      id: tournamentsTable.id,
-      auctionEnabled: tournamentsTable.auctionEnabled,
-      scoringEnabled: tournamentsTable.scoringEnabled,
-      sport: tournamentsTable.sport,
-    })
+    .select()
     .from(tournamentsTable)
     .where(eq(tournamentsTable.id, tournamentId))
     .limit(1);
 
   if (!requireSportModule(res, tournament, "badminton")) return;
+  if (!tournament) return;
+
+  if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
+
+  const isOrganizer = await canAccessPrivateTournamentData(req, tournamentId);
+  const isScorerPinProvided = !!req.headers["x-scorer-pin"] || !!req.headers["x-scorer-token"];
+
+  if (!isOrganizer && !isScorerPinProvided && !isTournamentLicensed(tournament)) {
+    res.status(403).json({
+      error: "Badminton scoring requires an active BidWar licence.",
+      code: "UNLICENSED_TOURNAMENT",
+      tournamentId,
+    });
+    return;
+  }
+
   next();
 });
 

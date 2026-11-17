@@ -18,12 +18,14 @@ import {
   tryResolveTournamentProductMode,
   resolvePublicBroadcasts,
   evaluateFanArenaEligibility,
+  isTournamentLicensed,
   type BroadcastLinkConfig,
 } from "@workspace/platform-core";
 import { canAccessPrivateTournamentData } from "../middleware/require-organizer";
 import {
   publicTournamentSerializer,
   spectatorTournamentSerializer,
+  unlicensedSpectatorTournamentSerializer,
 } from "../lib/serializers/tournament";
 import { guardPrivateTournamentSpectator } from "../middleware/private-tournament-gate";
 import {
@@ -79,6 +81,7 @@ export interface FanDiscoveryCardDto {
   scoringEnabled: boolean;
   productMode: "auction_only" | "scoring_only" | "both";
   isLive: boolean;
+  isLicensed: boolean;
   liveType?: "auction" | "scoring" | null;
   liveSnippet?: string | null;
   teamsCount?: number;
@@ -119,8 +122,9 @@ router.get("/fan/tournaments", async (req: Request, res: Response): Promise<void
 
   const { search, sport, status, module, city, page, limit, sortBy } = parsed.data;
 
-  // 1. Mandatory Public Discovery Filters (Phase 5 Curation & Privacy Contract)
-  // Strictly enforce visibility = 'public' in SQL, exclude locked & test records, require opt-in & licensed/approved
+  // 1. Mandatory Public Discovery Filters
+  // Strictly enforce visibility = 'public' in SQL, exclude locked & test records, and lifecycle exclusions.
+  // Every newly created public tournament is automatically discoverable (no organizer opt-in or admin approval required).
   const baseConditions = [
     sql`COALESCE(${tournamentsTable.featuresJson}->>'visibility', 'public') = 'public'`,
     eq(tournamentsTable.adminLocked, false),
@@ -130,11 +134,6 @@ router.get("/fan/tournaments", async (req: Request, res: Response): Promise<void
     sql`${tournamentsTable.name} NOT ILIKE '%internal test%'`,
     sql`${tournamentsTable.name} NOT ILIKE 'SIM_%'`,
     sql`${tournamentsTable.name} NOT ILIKE '%testing%'`,
-    sql`COALESCE((${tournamentsTable.featuresJson}->>'fanArenaOptIn')::boolean, false) = true`,
-    or(
-      eq(tournamentsTable.licenseStatus, "active"),
-      sql`COALESCE((${tournamentsTable.featuresJson}->>'fanArenaApproved')::boolean, false) = true`
-    ),
     sql`${tournamentsTable.status} NOT IN ('archived', 'cancelled')`,
   ];
 
@@ -199,10 +198,12 @@ router.get("/fan/tournaments", async (req: Request, res: Response): Promise<void
   let upcomingTodayCount = 0;
 
   const resolvedCandidates = eligibleCandidates.map((t) => {
+    const isLicensed = isTournamentLicensed(t);
     const auctionOn = isAuctionEnabled(t);
     const scoringOn = isScoringEnabled(t);
-    const isAuctionLive = auctionOn && t.status === "active";
-    const isMatchLive = scoringOn && liveMatchTournamentIds.has(t.id);
+    // Live state detection is strictly for licensed tournaments (no misleading live badges for unlicensed)
+    const isAuctionLive = isLicensed && auctionOn && t.status === "active";
+    const isMatchLive = isLicensed && scoringOn && liveMatchTournamentIds.has(t.id);
     const isLive = isAuctionLive || isMatchLive;
 
     if (isLive) liveCount++;
@@ -224,6 +225,7 @@ router.get("/fan/tournaments", async (req: Request, res: Response): Promise<void
     return {
       t,
       isLive,
+      isLicensed,
       liveType,
       liveSnippet,
     };
@@ -292,8 +294,8 @@ router.get("/fan/tournaments", async (req: Request, res: Response): Promise<void
   }
 
   // 7. Format Card DTOs
-  const items: FanDiscoveryCardDto[] = pageSlice.map(({ t, isLive, liveType, liveSnippet }) => {
-    const publicBroadcast = resolvePublicBroadcasts(t.featuresJson);
+  const items: FanDiscoveryCardDto[] = pageSlice.map(({ t, isLive, isLicensed, liveType, liveSnippet }) => {
+    const publicBroadcast = isLicensed ? resolvePublicBroadcasts(t.featuresJson) : null;
     return {
       id: t.id,
       name: t.name,
@@ -311,6 +313,7 @@ router.get("/fan/tournaments", async (req: Request, res: Response): Promise<void
       scoringEnabled: isScoringEnabled(t),
       productMode: tryResolveTournamentProductMode(t) ?? "auction_only",
       isLive,
+      isLicensed,
       liveType,
       liveSnippet,
       teamsCount: teamCountsMap.get(t.id) ?? 0,
@@ -387,14 +390,15 @@ router.get("/tournaments/:tournamentId/fan/context", async (req: Request, res: R
   }
 
   // Live state checks
+  const isLicensed = isTournamentLicensed(tournament);
   const auctionOn = isAuctionEnabled(tournament);
   const scoringOn = isScoringEnabled(tournament);
-  const isAuctionLive = auctionOn && tournament.status === "active";
+  const isAuctionLive = isLicensed && auctionOn && tournament.status === "active";
 
   let isMatchLive = false;
   let activeMatchInfo = null;
 
-  if (scoringOn) {
+  if (isLicensed && scoringOn) {
     try {
       const [liveMatch] = await db
         .select({
@@ -438,7 +442,9 @@ router.get("/tournaments/:tournamentId/fan/context", async (req: Request, res: R
     recommendedTab = "scoring";
   }
 
-  const spectator = spectatorTournamentSerializer(tournament);
+  const spectator = isLicensed
+    ? spectatorTournamentSerializer(tournament)
+    : unlicensedSpectatorTournamentSerializer(tournament);
 
   // Cache-Control: guard already set private/no-store for private+unlisted tournaments.
   // Set public cache for public tournaments (guard does not set this).
@@ -447,6 +453,12 @@ router.get("/tournaments/:tournamentId/fan/context", async (req: Request, res: R
   }
   res.json({
     tournament: spectator,
+    isLicensed,
+    modules: {
+      auction: auctionOn,
+      scoring: scoringOn,
+    },
+    sport: tournament.sport,
     liveState: {
       isAuctionLive,
       isMatchLive,
@@ -471,11 +483,6 @@ router.get("/fan/cities", async (_req: Request, res: Response): Promise<void> =>
       sql`${tournamentsTable.name} NOT ILIKE '%internal test%'`,
       sql`${tournamentsTable.name} NOT ILIKE 'SIM_%'`,
       sql`${tournamentsTable.name} NOT ILIKE '%testing%'`,
-      sql`COALESCE((${tournamentsTable.featuresJson}->>'fanArenaOptIn')::boolean, false) = true`,
-      or(
-        eq(tournamentsTable.licenseStatus, "active"),
-        sql`COALESCE((${tournamentsTable.featuresJson}->>'fanArenaApproved')::boolean, false) = true`
-      ),
       sql`${tournamentsTable.status} NOT IN ('archived', 'cancelled')`,
       sql`${tournamentsTable.city} IS NOT NULL`,
       sql`TRIM(${tournamentsTable.city}) != ''`,

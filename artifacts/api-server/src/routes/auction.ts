@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { isTournamentOrganizer, requireTournamentOrganizer } from "../middleware/require-organizer";
+import { isTournamentOrganizer, requireTournamentOrganizer, canAccessPrivateTournamentData } from "../middleware/require-organizer";
+import { isTournamentLicensed } from "@workspace/platform-core";
 import { guardPrivateTournamentSpectator } from "../middleware/private-tournament-gate";
 import { requireAuctionModule, assertAuctionModule } from "../middleware/require-module";
 import { serializePlayerWithSpecifications } from "../lib/player-spec-response";
@@ -1186,6 +1187,16 @@ router.get("/tournaments/:tournamentId/auction/events", async (req, res) => {
   if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
   if (!requireAuctionModule(res, tournament)) return;
 
+  const isOrganizer = await canAccessPrivateTournamentData(req, tid);
+  if (!isOrganizer && !isTournamentLicensed(tournament)) {
+    res.status(403).json({
+      error: "Live auction stream requires an active BidWar licence.",
+      code: "UNLICENSED_TOURNAMENT",
+      tournamentId: tid,
+    });
+    return;
+  }
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
@@ -1272,6 +1283,16 @@ router.get("/tournaments/:tournamentId/auction", async (req, res) => {
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
   if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
   if (!requireAuctionModule(res, tournament)) return;
+
+  const isOrganizer = await canAccessPrivateTournamentData(req, tid);
+  if (!isOrganizer && !isTournamentLicensed(tournament)) {
+    res.status(403).json({
+      error: "Live auction stream requires an active BidWar licence.",
+      code: "UNLICENSED_TOURNAMENT",
+      tournamentId: tid,
+    });
+    return;
+  }
   res.json(await getCachedOrBuildState(tid));
 });
 
@@ -4192,6 +4213,16 @@ router.get("/tournaments/:tournamentId/auction/bids", async (req, res) => {
   if (!tournament) { res.status(404).json({ error: "Tournament not found" }); return; }
   if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
   if (!requireAuctionModule(res, tournament)) return;
+
+  const isOrganizer = await canAccessPrivateTournamentData(req, tid);
+  if (!isOrganizer && !isTournamentLicensed(tournament)) {
+    res.status(403).json({
+      error: "Live auction stream requires an active BidWar licence.",
+      code: "UNLICENSED_TOURNAMENT",
+      tournamentId: tid,
+    });
+    return;
+  }
 
   const bids = await db
     .select()

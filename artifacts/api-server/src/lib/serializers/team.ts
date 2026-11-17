@@ -28,8 +28,20 @@ export function privateTeamSerializer(t: TeamRow) {
   };
 }
 
+/** Limited unlicensed team summary — name, logo, player count only. No purse, coach, or internal fields. */
+export function unlicensedTeamSummarySerializer(t: TeamRow, playerCount: number = 0) {
+  return {
+    id: t.id,
+    tournamentId: t.tournamentId,
+    name: t.name,
+    shortCode: t.shortCode,
+    logoUrl: t.logoUrl ?? null,
+    playerCount,
+  };
+}
+
 /** Public display — team identity and purse only; no owner PII or access codes. */
-export function publicTeamSerializer(t: TeamRow) {
+export function publicTeamSerializer(t: TeamRow, playerCount?: number) {
   return {
     id: t.id,
     tournamentId: t.tournamentId,
@@ -43,5 +55,6 @@ export function publicTeamSerializer(t: TeamRow) {
     requiresAccessCode: !!t.accessCode,
     coachName: t.coachName ?? null,
     createdAt: t.createdAt.toISOString(),
+    ...(playerCount !== undefined ? { playerCount } : {}),
   };
 }

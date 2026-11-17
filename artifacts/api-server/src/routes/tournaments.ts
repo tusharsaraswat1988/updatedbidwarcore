@@ -482,6 +482,14 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   if (!beforeTournament) { res.status(404).json({ error: "Tournament not found" }); return; }
   const isAdminCaller = req.jwtUser?.isAdmin === true;
 
+  if (d.visibility !== undefined && !isAdminCaller) {
+    res.status(403).json({
+      error: "Only administrators can change tournament visibility",
+      code: "FORBIDDEN_VISIBILITY_CHANGE",
+    });
+    return;
+  }
+
   const nextSport = d.sport ?? beforeTournament.sport;
   const nextAuctionEnabled =
     isAdminCaller && d.auctionEnabled !== undefined

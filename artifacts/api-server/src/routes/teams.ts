@@ -12,7 +12,11 @@ import {
   getVerifyAccessGuardStatus,
   recordVerifyAccessFailure,
 } from "../lib/verify-access-guard";
-import { publicTeamSerializer, privateTeamSerializer } from "../lib/serializers/team";
+import {
+  publicTeamSerializer,
+  privateTeamSerializer,
+  unlicensedTeamSummarySerializer,
+} from "../lib/serializers/team";
 import { db } from "@workspace/db";
 import { teamsTable, tournamentsTable, organizersTable, playersTable, categoriesTable, auctionSessionsTable } from "@workspace/db";
 import { CURRENT_CONSENT_NOTICE_VERSION } from "@workspace/api-base";
@@ -39,7 +43,7 @@ import {
 } from "../lib/cloudinary-image-fields";
 
 import { broadcastState, invalidateAuctionBuildCache, invalidateStateCache } from "./auction";
-import { isAuctionEnabled } from "@workspace/platform-core";
+import { isAuctionEnabled, isTournamentLicensed } from "@workspace/platform-core";
 import { requireAuctionModule } from "../middleware/require-module";
 
 const cloudinaryLogoUrl = z
@@ -118,18 +122,57 @@ router.get("/tournaments/:tournamentId/teams", async (req, res) => {
   if (!(await guardPrivateTournamentSpectator(req, res, tournament))) return;
 
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
-  const serializer = isOrganizer ? teamToJson : teamToPublicJson;
+  const isLicensed = isTournamentLicensed(tournament);
+
   const teams = await db
     .select()
     .from(teamsTable)
     .where(eq(teamsTable.tournamentId, tid))
     .orderBy(teamsTable.name);
+
+  // Compute player counts per team for this tournament
+  const teamPlayerCounts = new Map<number, number>();
+  try {
+    const counts = await db
+      .select({
+        teamId: playersTable.teamId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(playersTable)
+      .where(and(eq(playersTable.tournamentId, tid), sql`${playersTable.teamId} IS NOT NULL`))
+      .groupBy(playersTable.teamId);
+    for (const c of counts) {
+      if (c.teamId != null) {
+        teamPlayerCounts.set(c.teamId, c.count);
+      }
+    }
+  } catch {
+    // Non-blocking
+  }
+
+  if (isOrganizer) {
+    res.json(
+      teams.map((t) => ({
+        ...teamToJson(t),
+        playerCount: teamPlayerCounts.get(t.id) ?? 0,
+        ...getTeamAccessLockoutStatus(tid, t.id),
+      })),
+    );
+    return;
+  }
+
+  if (!isLicensed) {
+    // Level 1 — Unlicensed tournament: team name, logo, player count ONLY.
+    // Strictly NO purse, NO coach, NO bidding status, NO access codes.
+    res.json(
+      teams.map((t) => unlicensedTeamSummarySerializer(t, teamPlayerCounts.get(t.id) ?? 0)),
+    );
+    return;
+  }
+
+  // Level 2 — Licensed tournament: public team details with player count
   res.json(
-    teams.map((t) => {
-      const base = serializer(t);
-      if (!isOrganizer) return base;
-      return { ...base, ...getTeamAccessLockoutStatus(tid, t.id) };
-    }),
+    teams.map((t) => publicTeamSerializer(t, teamPlayerCounts.get(t.id) ?? 0)),
   );
 });
 
@@ -418,8 +461,27 @@ router.get("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {
     .where(and(eq(teamsTable.id, teamId), eq(teamsTable.tournamentId, tid)));
   if (!team) { res.status(404).json({ error: "Not found" }); return; }
   const isOrganizer = await canAccessPrivateTournamentData(req, tid);
-  const base = isOrganizer ? teamToJson(team) : teamToPublicJson(team);
-  res.json(isOrganizer ? { ...base, ...getTeamAccessLockoutStatus(tid, team.id) } : base);
+  const isLicensed = isTournamentLicensed(tournament);
+
+  const [playerCountRow] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(playersTable)
+    .where(and(eq(playersTable.tournamentId, tid), eq(playersTable.teamId, teamId)));
+  const playerCount = playerCountRow?.count ?? 0;
+
+  if (isOrganizer) {
+    return res.json({
+      ...teamToJson(team),
+      playerCount,
+      ...getTeamAccessLockoutStatus(tid, team.id),
+    });
+  }
+
+  if (!isLicensed) {
+    return res.json(unlicensedTeamSummarySerializer(team, playerCount));
+  }
+
+  return res.json(publicTeamSerializer(team, playerCount));
 });
 
 router.patch("/tournaments/:tournamentId/teams/:teamId", async (req, res) => {

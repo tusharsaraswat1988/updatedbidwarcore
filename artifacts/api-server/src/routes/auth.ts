@@ -45,6 +45,7 @@ import { toOrganizerTournamentListItem } from "../lib/organizer-tournament-list-
 import { parseIndianMobile, isPlaceholderOrganizerMobile, displayOrganizerMobile, organizerNeedsPhoneVerification } from "@workspace/api-base/mobile";
 import { isOrganizerAccountLocked, organizerPhoneStatusLabel } from "@workspace/api-base/organizer-account";
 import { mergeTournamentFeatures, resolveTournamentFeatures } from "@workspace/api-base/tournament-features";
+import { resolveTournamentVisibility } from "@workspace/platform-core/tournament-features";
 import { notifyAsync } from "../lib/notifications";
 import { notifyOrganiserOnboardingWelcome } from "../lib/whatsapp";
 import {
@@ -885,6 +886,52 @@ router.post("/auth/admin/tournaments/:tournamentId/unlock", async (req, res) => 
   res.json({ success: true });
 });
 
+router.post("/auth/admin/tournaments/:tournamentId/visibility", async (req, res) => {
+  if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
+  const tid = parseInt(String(req.params.tournamentId), 10);
+  if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
+
+  const schema = z.object({
+    visibility: z.enum(["public", "unlisted", "private"]),
+    reason: z.string().optional(),
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Visibility must be public, unlisted, or private" }); return; }
+
+  const reasonResult = parseAuditReason(req.body, true);
+  if (!reasonResult.ok) { res.status(400).json({ error: reasonResult.error }); return; }
+
+  const [before] = await db.select().from(tournamentsTable).where(eq(tournamentsTable.id, tid));
+  if (!before) { res.status(404).json({ error: "Not found" }); return; }
+
+  const currentVisibility = resolveTournamentVisibility(before.featuresJson);
+  const nextFeatures = mergeTournamentFeatures(before.featuresJson, { visibility: parsed.data.visibility });
+
+  const [t] = await db.update(tournamentsTable)
+    .set({ featuresJson: nextFeatures as unknown as Record<string, unknown> })
+    .where(eq(tournamentsTable.id, tid))
+    .returning();
+
+  auditLog(req, {
+    category: "admin",
+    action: "tournament.visibility_changed",
+    summary: `Tournament "${t.name}" visibility changed from ${currentVisibility} to ${parsed.data.visibility} by admin`,
+    severity: "critical",
+    reason: reasonResult.reason,
+    tournamentId: tid,
+    resource: { type: "tournament", id: tid },
+    before: snapshotTournament(before),
+    after: snapshotTournament(t),
+    metadata: {
+      previousVisibility: currentVisibility,
+      newVisibility: parsed.data.visibility,
+    },
+    alertKey: "tournament_visibility_changed",
+  });
+
+  res.json({ success: true, visibility: parsed.data.visibility, tournament: t });
+});
+
 // ─── Admin: Full tournament detail ────────────────────────────────────────────
 
 router.get("/auth/admin/tournaments/:tournamentId/detail", async (req, res) => {
@@ -1083,7 +1130,9 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
       ownerAppHistory: z.boolean().optional(),
       obsHistory: z.boolean().optional(),
       ledHistory: z.boolean().optional(),
+      visibility: z.enum(["public", "unlisted", "private"]).optional(),
     }).optional(),
+    visibility: z.enum(["public", "unlisted", "private"]).optional(),
     reason: z.string().optional(),
   });
   const parsed = schema.safeParse(req.body);
@@ -1183,6 +1232,12 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
   if (d.features !== undefined) {
     updates.featuresJson = mergeTournamentFeatures(beforeTournament?.featuresJson, d.features);
   }
+  if (d.visibility !== undefined) {
+    updates.featuresJson = mergeTournamentFeatures(
+      (updates.featuresJson as typeof beforeTournament.featuresJson) ?? beforeTournament?.featuresJson,
+      { visibility: d.visibility },
+    );
+  }
 
   // Auto-link organizer account by mobile or email when those fields are set
   let autoLinkedOrganizer: { id: number; name: string } | null = null;
@@ -1235,7 +1290,7 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
 
 async function handleLinkOrTransferOrganizer(req: import("express").Request, res: import("express").Response) {
   if (!isAnyAdmin(req)) { res.status(401).json({ error: "Not authorised" }); return; }
-  const tid = parseInt(req.params.tournamentId);
+  const tid = parseInt(String(req.params.tournamentId), 10);
   if (isNaN(tid)) { res.status(400).json({ error: "Invalid ID" }); return; }
   const schema = z.object({
     organizerId: z.number().int().nullable(),

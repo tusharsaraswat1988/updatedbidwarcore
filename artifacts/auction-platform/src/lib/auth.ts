@@ -723,6 +723,23 @@ export async function setTournamentLicenseStatus(
   } catch { return { success: false, error: "Network error" }; }
 }
 
+export async function setTournamentVisibility(
+  tournamentId: number,
+  visibility: "public" | "private" | "unlisted",
+  reason: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const r = await apiFetch(`/auth/admin/tournaments/${tournamentId}/visibility`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visibility, reason }),
+    });
+    const d = await r.json();
+    if (!r.ok) return { success: false, error: d.error || "Failed to update tournament visibility" };
+    return { success: true };
+  } catch { return { success: false, error: "Network error" }; }
+}
+
 export async function setTournamentScoringPhase(
   tournamentId: number,
   phase: "setup" | "active" | "completed",

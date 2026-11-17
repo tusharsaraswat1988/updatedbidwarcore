@@ -34,6 +34,7 @@ export {
   isLedHistoryEnabled,
   isFanArenaOptedIn,
   isFanArenaApproved,
+  isTournamentLicensed,
   resolvePublicBroadcasts,
   evaluateFanArenaEligibility,
   tournamentFeaturesSchemaShape,

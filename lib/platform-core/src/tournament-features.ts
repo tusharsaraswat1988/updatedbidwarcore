@@ -352,6 +352,36 @@ export function isFanArenaApproved(
   return f.fanArenaApproved === true;
 }
 
+/**
+ * Checks if tournament holds an active or granted license for full spectator Fan Arena experience.
+ *
+ * Requirements:
+ * - Not admin-locked.
+ * - licenseStatus = 'active'
+ * - OR completed tournament with historically granted license (licenseGrantedAt != null).
+ * Suspended, trial, pending, and expired tournaments are UNLICENSED.
+ */
+export function isTournamentLicensed(
+  tournament?: {
+    licenseStatus?: string | null;
+    status?: string;
+    licenseGrantedAt?: Date | string | null;
+    adminLocked?: boolean;
+  } | null,
+): boolean {
+  if (!tournament) return false;
+  if (tournament.adminLocked === true) return false;
+  if (tournament.licenseStatus === "active") return true;
+  if (
+    tournament.status === "completed" &&
+    (tournament.licenseStatus === "completed" || tournament.licenseStatus === "active") &&
+    tournament.licenseGrantedAt != null
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /** Helper: Extract active public broadcast links for display (only enabled, non-ended, valid URL ones). */
 export function resolvePublicBroadcasts(
   features?: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
@@ -383,39 +413,38 @@ export function resolvePublicBroadcasts(
 }
 
 /**
- * Result of evaluating tournament eligibility for the curated Fan Arena (/fan).
+ * Result of evaluating tournament eligibility for the Fan Arena (/fan).
  */
 export interface FanArenaEligibilityResult {
   eligible: boolean;
   reasons: string[];
   details: {
     isPublic: boolean;
-    isLicensedOrApproved: boolean;
-    isOptedIn: boolean;
     isModuleEnabled: boolean;
     isNotAdminLocked: boolean;
     isNotTest: boolean;
     qualifiesLifecycle: boolean;
+    isLicensed: boolean;
+    isLicensedOrApproved: boolean;
+    isOptedIn: boolean;
   };
 }
 
 /**
- * Canonical 7-point server-side evaluator for Fan Arena Curation Discovery (/fan).
+ * Server-side evaluator for Automatic Fan Arena Public Discovery (/fan).
  *
- * Rules:
- * 1. Tournament is public.
- * 2. Tournament is licensed (licenseStatus = 'active') or explicitly approved by BidWar (fanArenaApproved = true).
- * 3. Organizer has opted in to Fan Arena discovery (fanArenaOptIn = true).
- * 4. Auction or Scoring is enabled.
- * 5. Tournament is not admin-locked.
- * 6. Tournament is not a test, simulation, demo, or internal event.
- * 7. Tournament lifecycle qualifies for discovery (not archived or cancelled).
+ * Product Rules:
+ * 1. Automatic Discovery: All public, non-locked, non-test tournaments with at least
+ *    one enabled module are automatically discoverable.
+ * 2. No organizer opt-in or admin curation approval is required for discovery.
+ * 3. License status controls experience depth (Level 1 vs Level 2), NOT discovery.
  */
 export function evaluateFanArenaEligibility(
   tournament: {
     name: string;
     auctionCode?: string | null;
     licenseStatus?: string | null;
+    licenseGrantedAt?: Date | string | null;
     adminLocked?: boolean;
     status?: string;
     auctionEnabled?: boolean;
@@ -427,6 +456,7 @@ export function evaluateFanArenaEligibility(
   const visibility = resolveTournamentVisibility(tournament.featuresJson as any);
 
   const isPublic = visibility === "public";
+  const isLicensed = isTournamentLicensed(tournament);
   const isLicensedOrApproved =
     tournament.licenseStatus === "active" || features.fanArenaApproved === true;
   const isOptedIn = features.fanArenaOptIn === true;
@@ -452,12 +482,6 @@ export function evaluateFanArenaEligibility(
   if (!isPublic) {
     reasons.push("Tournament visibility is not public (unlisted or private).");
   }
-  if (!isLicensedOrApproved) {
-    reasons.push("Tournament requires a BidWar live license or curation approval.");
-  }
-  if (!isOptedIn) {
-    reasons.push("Organizer has not opted in to Fan Arena listing.");
-  }
   if (!isModuleEnabled) {
     reasons.push("Neither Auction nor Scoring module is enabled.");
   }
@@ -478,12 +502,13 @@ export function evaluateFanArenaEligibility(
     reasons,
     details: {
       isPublic,
-      isLicensedOrApproved,
-      isOptedIn,
       isModuleEnabled,
       isNotAdminLocked,
       isNotTest,
       qualifiesLifecycle,
+      isLicensed,
+      isLicensedOrApproved,
+      isOptedIn,
     },
   };
 }

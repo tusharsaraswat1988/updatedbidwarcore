@@ -347,16 +347,16 @@ describe("PHASE 5 — Fan Arena Curation & Broadcast Links", () => {
       expect(res.details.isLicensedOrApproved).toBe(true);
     });
 
-    it("rejects tournaments without organizer opt-in", () => {
+    it("allows tournaments without organizer opt-in to be automatically discoverable", () => {
       const res = evaluateFanArenaEligibility(mockTournaments[502]);
-      expect(res.eligible).toBe(false);
-      expect(res.reasons).toContain("Organizer has not opted in to Fan Arena listing.");
+      expect(res.eligible).toBe(true);
+      expect(res.details.isOptedIn).toBe(false);
     });
 
-    it("rejects unlicensed tournaments without admin approval", () => {
+    it("allows unlicensed tournaments to be discoverable while tracking license status", () => {
       const res = evaluateFanArenaEligibility(mockTournaments[503]);
-      expect(res.eligible).toBe(false);
-      expect(res.reasons).toContain("Tournament requires a BidWar live license or curation approval.");
+      expect(res.eligible).toBe(true);
+      expect(res.details.isLicensedOrApproved).toBe(false);
     });
 
     it("rejects private or unlisted tournaments", () => {
@@ -454,14 +454,13 @@ describe("PHASE 5 — Fan Arena Curation & Broadcast Links", () => {
       expect(res.body.broadcast.auction.url).toBe("https://www.youtube.com/watch?v=updated789");
     });
 
-    it("allows organizer to toggle Fan Arena opt-in via dedicated endpoint", async () => {
+    it("blocks organizer from toggling Fan Arena opt-in via deprecated endpoint", async () => {
       mockCallerRole = "organizer_77";
       const res = await request(app)
         .put("/api/tournaments/501/fan-arena")
         .send({ optIn: true });
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.fanArenaOptIn).toBe(true);
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe("FORBIDDEN_FAN_ARENA_OPT_IN");
     });
   });
 
@@ -487,19 +486,20 @@ describe("PHASE 5 — Fan Arena Curation & Broadcast Links", () => {
   });
 
   describe("5. Public Discovery Feed Curation & Broadcast Metadata", () => {
-    it("only returns tournaments meeting all 7 eligibility criteria", async () => {
+    it("returns all public tournaments automatically while respecting admin restrictions", async () => {
       const res = await request(app).get("/api/fan/tournaments?limit=50");
       expect(res.status).toBe(200);
       expect(res.body.items).toBeDefined();
 
       const returnedIds = res.body.items.map((i: any) => i.id);
 
-      // Eligible tournaments: 501 (licensed + opted-in) and 504 (approved + opted-in)
+      // Public tournaments are discoverable: 501, 502 (opted-out legacy), 503 (unlicensed), 504 (approved)
       expect(returnedIds).toContain(501);
+      expect(returnedIds).toContain(502);
+      expect(returnedIds).toContain(503);
       expect(returnedIds).toContain(504);
 
       // Ineligible tournaments must NOT be returned in discovery feed:
-      expect(returnedIds).not.toContain(502); // Opted out
       expect(returnedIds).not.toContain(506); // Admin locked
       expect(returnedIds).not.toContain(507); // Test tournament
       expect(returnedIds).not.toContain(505); // Private tournament
