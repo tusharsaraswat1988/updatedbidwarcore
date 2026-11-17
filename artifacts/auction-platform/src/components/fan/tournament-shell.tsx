@@ -42,7 +42,9 @@ export function TournamentShell({
       <header className="sticky top-0 z-40 w-full border-b border-[hsl(var(--border))] bg-[hsl(var(--background))/90] backdrop-blur-md px-6 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <Link href="/fan" className="font-display font-black text-xl tracking-tighter text-[hsl(var(--primary))]">BIDWAR</Link>
+            <Link href="/fan" className="font-display font-black text-xl tracking-tighter text-[hsl(var(--primary))]">
+              <img src="/assets/branding/bidwar-primary-logo-official.png" alt="BIDWAR" className="h-8 w-auto" />
+            </Link>
             <div className="h-6 w-px bg-[hsl(var(--border))]" />
             <div className="flex items-center gap-3">
                 {tournament.logoUrl ? <img src={tournament.logoUrl} className="w-8 h-8 rounded-lg object-cover" /> : null}
