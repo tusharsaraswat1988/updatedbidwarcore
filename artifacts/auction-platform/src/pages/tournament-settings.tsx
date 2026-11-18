@@ -190,6 +190,7 @@ export default function TournamentSettings() {
   const hydrateFromTournament = useCallback((t: NonNullable<typeof tournament>) => {
     const initialForm = {
       name: t.name,
+      season: t.season || "",
       sport: t.sport,
       city: t.city || "",
       venue: t.venue || "",
@@ -651,6 +652,7 @@ export default function TournamentSettings() {
     const dataPayload: Record<string, unknown> = {
       reason: DEFAULT_SETTINGS_AUDIT_REASON,
       name: editForm.name as string,
+      season: (editForm.season as string).trim() || null,
       sport: editForm.sport as string,
       city: (editForm.city as string).trim() || undefined,
       venue: editForm.venue as string || undefined,
@@ -969,6 +971,18 @@ export default function TournamentSettings() {
                       onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
                       className="h-9 text-sm"
                     />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-foreground/90">
+                      Season <span className="text-muted-foreground font-normal">· Optional</span>
+                    </Label>
+                    <Input
+                      value={editForm.season as string || ""}
+                      onChange={e => setEditForm(f => ({ ...f, season: e.target.value }))}
+                      className="h-9 text-sm"
+                      placeholder="e.g. Season 2026–27"
+                    />
+                    <HintLabel>Enter season, edition or year</HintLabel>
                   </div>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">

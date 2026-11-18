@@ -308,6 +308,11 @@ export function TournamentFanHeader({
                   <h1 className="font-display font-black text-sm sm:text-lg md:text-xl text-white tracking-tight truncate drop-shadow-md uppercase">
                     {tournament.name}
                   </h1>
+                  {tournament.season && (
+                    <div className="text-[10px] sm:text-xs text-white/70 font-medium tracking-wide uppercase truncate drop-shadow-md">
+                      {tournament.season}
+                    </div>
+                  )}
                 </div>
               </div>
             </>

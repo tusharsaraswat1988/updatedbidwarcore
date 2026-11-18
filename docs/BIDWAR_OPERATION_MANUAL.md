@@ -122,6 +122,7 @@ Key architectural principle: **Tournament is independent of Auction and Scoring*
 | **Organizer** | Person or organization hosting a tournament. Authenticates via mobile/password or Google OAuth. | `lib/db/src/schema/organizers.ts` |
 | **Tournament** | Event container defined by sport, venue, dates, module flags (`auctionEnabled`, `scoringEnabled`), and licensing status. | `lib/db/src/schema/tournaments.ts` |
 | **Auction Code** | Unique 8-character alphanumeric string (e.g., `RC732504`) identifying the tournament for owner login and spectator links. | `lib/db/src/schema/tournaments.ts` |
+| **Season** | Optional text field for tournament season, edition, or year (e.g., "Season 2026", "Edition 5"). | `lib/db/src/schema/tournaments.ts` |
 | **Purse / Budget** | Total spending capacity allocated to a team for buying players. Tracked in Points (Pt.) or Rupees (₹). | `lib/db/src/schema/teams.ts` |
 | **Purse Booster** | Append-only capacity adjustment granting additional purse to a team without altering base historical purse. | `lib/db/src/schema/purse_boosters.ts` |
 | **Bid Tier** | Price threshold tiers configuring automatic increment escalations (e.g., ₹25k up to ₹1L, ₹50k up to ₹2L, ₹1L thereafter). | `lib/db/src/schema/tournaments.ts` |
@@ -247,7 +248,7 @@ BidWar enforces a strict architectural boundary between **Internal Organiser Wor
 - `/tournament/:id/teams`: Team list, purse management, owner mobile numbers, access codes, logos.
 - `/tournament/:id/categories`: Auction categories, price tiers, minimum bids, squad limits.
 - `/tournament/:id/players`: High-density enterprise player roster workspace. Features scannable 10/11-column data table (`#`, `Photo` preview, `Player`, `Category`, `Payment` status badge when registration payment enabled, auction `Status`, `Base`, `Sold`, `Team`, `Actions` menu, dedicated `Expand` chevron toggle). Clickable row expansion into compact structured panel (`.ops-player-expand`): Registration Payment Review FIRST with UTR copy and receipt preview; Player Identity bar; 2-column Auction valuation and Player Specifications with formatted match availability dates and sanitized achievements; and Historical Auction Performance (`🏆 TOP 5 STAR` badge or clean `"No previous auction history"` fallback). In-page accessible Radix image preview modal (`ImagePreviewModal`) for player photos and payment screenshots with contain-fit, zoom toggle, and escape-key dismissal.
-- `/tournament/:id/settings`: Complete tournament configuration (auction rules, sound, registration fields).
+- `/tournament/:id/settings`: Complete tournament configuration including season edition, auction rules, sound, and registration fields.
 - `/tournament/:id/reports`: Downloadable Excel planning sheets, team purses, roster printouts.
 - `/tournament/:id/links`: Quick share links for team owners, live displays, OBS, registration.
 - `/tournament/:id/fortune-wheel`: Visual random draw wheel for stage lots.
