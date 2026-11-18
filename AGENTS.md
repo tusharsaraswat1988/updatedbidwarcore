@@ -1,37 +1,16 @@
-# AI AGENT DIRECTIVES — BIDWAR REPOSITORY
+# BIDWAR — Repository Agent Instructions
 
-> **MANDATORY DEFINITION-OF-DONE: LIVING BIDWAR OPERATION MANUAL**
->
-> All AI coding agents (Antigravity, Cursor, Gemini, Claude, Codex) working on this repository MUST follow this non-negotiable rule:
->
-> **Canonical File:** `docs/BIDWAR_OPERATION_MANUAL.md`
->
-> Whenever any feature, screen, button, workflow, setting, permission, registration field, or validation rule is:
-> - **Created**
-> - **Modified**
-> - **Renamed**
-> - **Moved**
-> - **Deprecated**
-> - **Removed**
->
-> You **MUST update `docs/BIDWAR_OPERATION_MANUAL.md` in the exact same task/PR/commit** as the code change.
->
-> Validation command:
-> ```bash
-> pnpm run check:manual
-> ```
->
-> PRs or commits that change features without updating `docs/BIDWAR_OPERATION_MANUAL.md` fail the Definition of Done.
-> Do not fabricate feature behavior. Document strictly what is implemented.
->
-> ### Autonomous Execution Policy
-> Once a task is approved, execute the full requested scope autonomously. Do not seek approval between components, phases, or small commits. Document implemented features strictly from the final code, not beforehand.
->
+All coding agents must follow [the BIDWAR AI Agent Execution Contract](docs/AI_AGENT_EXECUTION_CONTRACT.md) and the applicable domain/architecture rules.
 
----
+## Repository knowledge
+- Consult `docs/BIDWAR_OPERATION_MANUAL.md` when the requested task depends on existing user-facing workflows, roles, permissions, settings, or operating procedures.
+- Read `.agents/skills/bidwar_architecture_skill/SKILL.md` before architectural, database, API, routing, authentication, performance, or module-boundary changes.
+- Follow relevant scoped rules under `.cursor/rules/` and skills under `.agents/skills/`; do not apply a task-specific audit prompt or specialist workflow globally.
 
-## Core Engineering Directives
-- **Architecture Contract:** Read `.agents/skills/bidwar_architecture_skill/SKILL.md` before making module-boundary, database, routing, or authentication changes.
-- **Protected Surfaces:** Do not modify public marketing pages, OBS broadcast scenes, LED displays, owner app, or live scoring pads during internal organiser UI tasks.
-- **Operation Manual as Knowledge Base:** Consult `docs/BIDWAR_OPERATION_MANUAL.md` to understand any existing feature before altering it.
+## Operation Manual — proportional Definition of Done
+Update `docs/BIDWAR_OPERATION_MANUAL.md` when a completed change materially changes documented user-facing behaviour, operating procedures, routes, permissions, configuration, or supported workflows. Update only the affected sections and change log, based on verified implementation.
+Do not update the manual for purely internal refactors, formatting, tests, dependency maintenance, or visual adjustments that do not change documented operation.
+Run `pnpm run check:manual` after a manual update, or when the task specifically changes manual structure/validation. The check confirms document structure; it does not prove factual accuracy.
 
+## Protected surfaces
+Do not modify public marketing pages, OBS broadcast scenes, LED displays, owner app, or live scoring pads during an internal organiser UI task unless the user explicitly includes those surfaces in scope.
