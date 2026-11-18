@@ -1,20 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-:root {
-  --bg-primary: #0F172A;
-  --bg-secondary: #1E293B;
-  --text-primary: #F8FAFC;
-  --text-secondary: #94A3B8;
-  --accent: #EAB308;
-  --status-live: #EF4444;
-  --status-soon: #3B82F6;
-  --status-done: #10B981;
-}
-
-body {
-  margin: 0;
-  font-family: 'Inter', sans-serif;
-  @apply bg-[var(--bg-primary)] text-[var(--text-primary)];
+@layer base {
+  body {
+    @apply bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100;
+  }
 }
