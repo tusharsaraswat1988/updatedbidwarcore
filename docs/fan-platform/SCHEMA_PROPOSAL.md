@@ -13,8 +13,13 @@ CREATE TABLE IF NOT EXISTS fan_sessions (
     revoked_at TIMESTAMPTZ,
     token_version INTEGER NOT NULL DEFAULT 1 CHECK (token_version >= 1),
     -- Constraint: token_version must only increment atomically
-    CONSTRAINT positive_token_version CHECK (token_version > 0)
+    CONSTRAINT positive_token_version CHECK (token_version > 0),
+    -- Constraint: is_revoked/revoked_at consistency
+    CONSTRAINT revokation_consistency CHECK ((is_revoked = TRUE AND revoked_at IS NOT NULL) OR (is_revoked = FALSE AND revoked_at IS NULL))
 );
+...
+-- Revocation Rule: Revocation is irreversible. Once `is_revoked` is set to TRUE, it cannot be updated to FALSE.
+-- Implementation: Application layer logic must enforce this; DB constraint could optionally be added via trigger if strictly required for audit integrity.
 
 -- 2. Tournament Entitlements Table (Authoritative)
 CREATE TABLE IF NOT EXISTS tournament_entitlements (
@@ -42,16 +47,18 @@ CREATE TABLE IF NOT EXISTS session_tournament_access (
   - `idle_expiry_at`: Sliding window based on `last_activity_at + idle_timeout` (e.g., 30m).
 - **Atomic Increments:** Entitlement versions and token versions increment atomically via `UPDATE ... SET version = version + 1`.
 - **Session-Tournament Entitlement Cache Validation:**
-  - Upon API request: `IF last_verified_version < TournamentEntitlements.version THEN REVALIDATE`.
-  - Refresh Algorithm: Query `TournamentEntitlements`, update `session_tournament_access`, and refresh `last_verified_version` to match. If query fails (DB down), return 403 (Fail-Closed).
-- **WebSocket 5m Revalidation:** 
-  - Every 5 minutes, WebSocket servers perform a database re-check of active session entitlements (`db.entitlement_version > connection.version`).
-  - If authoritative validation fails, fail closed: terminate connection with `WS_CLOSE_CODE_AUTH_REVOKED`.
+  - Upon API request: `IF last_verified_version != TournamentEntitlements.version THEN REVALIDATE`.
+  - Refresh Algorithm: Query `TournamentEntitlements`, update `session_tournament_access`, and refresh `last_verified_version` to match exactly. If query fails (DB down), return 403 (Fail-Closed).
+- **WebSocket 5m Heartbeat Validation:** 
+  - Every 5 minutes, WebSocket servers perform a database re-check:
+    - Check session: `is_revoked = FALSE`, `NOW() < absolute_expiry_at`, `NOW() < idle_expiry_at`.
+    - Check entitlements: `db.entitlement_version == connection.version`.
+  - If any check fails, fail closed: terminate connection with `WS_CLOSE_CODE_AUTH_REVOKED`.
 
-## 3. Migration Rollback & Compatibility
-- **Rollback Requirements:**
-  1. Disable traffic to `fan.bidwar.in` (Reverse proxy).
-  2. Disconnect active WebSocket nodes.
-  3. Purge `fan_sessions` in Redis.
-  4. Only then, run `DROP TABLE ...` scripts.
-- **Migration Runner:** Audited `migrator.js` (see system files). It uses `pg-pool` to execute migrations. It does NOT automatically wrap `CREATE INDEX CONCURRENTLY` in transactions (PostgreSQL restriction); requires a standalone execution function.
+## 4. Redis and PostgreSQL Storage Strategy
+- **Authoritative Storage (PostgreSQL):** PostgreSQL holds all persistent session data, revocation state, and entitlement versions.
+- **Cache Storage (Redis):** Redis stores transient session state for high-performance WebSocket access.
+- **Redis Key Pattern:** `fan_session:{sessionId}`. Holds serialized session object + entitlement version map.
+- **Rollback / Invalidation:**
+  - Upon migration rollback, trigger global Redis purge: `SCAN 0 MATCH fan_session:* | xargs del`.
+  - This forces all active connections to re-authenticate against authoritative PostgreSQL source.
