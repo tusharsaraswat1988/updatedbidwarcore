@@ -1,28 +1,17 @@
 ---
-description: Mandatory Definition of Done requirement to update docs/BIDWAR_OPERATION_MANUAL.md on any feature change
+description: Proportional Operation Manual documentation requirement
 globs: artifacts/**,lib/**,standalone/**
 alwaysApply: true
 ---
 
-# BidWar Operation Manual — Living Document Governance
+# BidWar Operation Manual — Proportional Documentation
 
-The canonical Operation Manual for the BidWar platform is located at:
-`docs/BIDWAR_OPERATION_MANUAL.md`
+The canonical operational knowledge base is `docs/BIDWAR_OPERATION_MANUAL.md`.
 
-## Mandatory Rule (Definition of Done)
-Whenever any feature, screen, button, workflow, setting, permission, validation rule, or integration is:
-- **Created**
-- **Modified**
-- **Renamed**
-- **Moved**
-- **Deprecated**
-- **Removed**
+Update the manual only when the implemented change materially alters documented user-facing behaviour, operating procedures, routes, permissions, settings, or supported workflows. Update only affected sections and the change log, using verified implementation as the source.
 
-You **MUST update `docs/BIDWAR_OPERATION_MANUAL.md` in the exact same task/PR/commit** as the code change.
+Do not update the manual for purely internal refactors, formatting, tests, dependency maintenance, or visual-only adjustments that do not change documented operation.
 
-## Verification
-Always run:
-```bash
-pnpm run check:manual
-```
-to verify that all 13 required sections are present and all references remain valid.
+Run `pnpm run check:manual` after changing the manual or its validator. This structural check does not prove that manual statements are factually correct.
+
+For task execution, follow `docs/AI_AGENT_EXECUTION_CONTRACT.md`. This rule is not a reason to stop otherwise-complete implementation work.

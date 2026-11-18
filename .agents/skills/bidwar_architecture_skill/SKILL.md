@@ -9,9 +9,12 @@ description: Permanent architecture & engineering contract for BidWar. Mandatory
 >
 > **Rule:** Read this file before making architectural, database, API, routing, authentication, UI, performance, or module-boundary changes.
 >
-> **LIVING OPERATION MANUAL MANDATE (Definition of Done):**
-> `docs/BIDWAR_OPERATION_MANUAL.md` is the permanent operational knowledge base for BidWar.
-> Whenever ANY feature, screen, button, workflow, setting, permission, validation rule, or integration is created, modified, renamed, moved, deprecated, or removed, you **MUST update `docs/BIDWAR_OPERATION_MANUAL.md` in the same task/PR/commit** as the code change. Validate via `pnpm run check:manual`.
+> **Operation Manual (proportional Definition of Done):**
+> `docs/BIDWAR_OPERATION_MANUAL.md` is the operational knowledge base for BidWar.
+> Update only the sections materially affected when a change alters documented user-facing behaviour, operating procedures, routes, permissions, settings, or supported workflows. Base updates on verified implementation.
+> Purely internal refactors, formatting, tests, dependency maintenance, and visual-only changes that do not alter documented operation do not require a manual update. Run `pnpm run check:manual` after changing the manual or its validator.
+>
+> **Execution policy:** Follow `docs/AI_AGENT_EXECUTION_CONTRACT.md`. A clear implementation request authorizes the full requested scope; do not stop at a plan or seek approval between routine steps.
 >
 > This document defines the intended architecture. Existing code may contain legacy behavior that conflicts with these rules. In such cases, **do not blindly preserve legacy architecture**. Identify it, document it, and refactor toward this contract.
 >

@@ -1,5 +1,7 @@
 # BIDWAR — FULL REPOSITORY AUDIT: PERSON IDENTITY, MULTI-ROLE ACCESS, MOBILE + CROSS-MODULE INTEGRATION
 
+> **TASK-SCOPED AUDIT INSTRUCTION:** This file is an explicit audit-only prompt for the specific Global Identity / Multi-Role audit. Its "do not implement" restrictions apply only when a user explicitly asks an agent to execute this audit. Do not load or apply this file as a repository-wide instruction for unrelated implementation tasks. General execution behaviour is governed by `docs/AI_AGENT_EXECUTION_CONTRACT.md`.
+>
 ## Mission
 Perform a thorough, evidence-backed audit of the complete BidWar codebase and produce a detailed report. This is an AUDIT AND DESIGN REPORT ONLY. Do not implement changes, run destructive migrations, modify production data, or refactor code during this task. Inspect the actual source, schema, migrations, routes, middleware, session logic, frontend apps, tests, scripts, and architecture docs. Do not infer implementation from docs alone.
 
