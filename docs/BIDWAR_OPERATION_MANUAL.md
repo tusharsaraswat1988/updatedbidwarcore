@@ -1,10 +1,11 @@
 # BIDWAR — OFFICIAL OPERATION MANUAL
 ### The Permanent Operational Knowledge Base & Living Product Guide
 
-> **MANDATORY DEFINITION-OF-DONE REQUIREMENT:**
-> This Operation Manual is a living document and the permanent source of truth for the implemented BidWar platform.
-> Whenever any feature, screen, button, workflow, setting, permission, or validation rule is **created, modified, renamed, moved, deprecated, or removed**, this manual **MUST be updated in the same pull request / commit** as the code change.
-> No feature is considered complete until this manual reflects its exact shipped behavior.
+> **PROPORTIONAL DEFINITION-OF-DONE REQUIREMENT:**
+> This Operation Manual is the operational knowledge base for the implemented BidWar platform.
+> Update the affected sections when a change materially alters documented user-facing behaviour, operating procedures, routes, permissions, settings, or supported workflows. Base every update on verified implementation.
+> Purely internal refactors, formatting, tests, dependency maintenance, and visual-only adjustments that do not change documented operation do not require a manual update.
+> A feature is not complete until any materially affected operational documentation is accurate.
 
 ---
 
@@ -74,8 +75,11 @@ The **BidWar Operation Manual** is the definitive operational specification and 
 - **Applications Covered:** `artifacts/api-server`, `artifacts/auction-platform`, `artifacts/scoring-app`, `artifacts/owner-app`, `artifacts/bidwar-local`, `artifacts/mobile-app`, `standalone/bpl-kids-registration`.
 - **Domains Covered:** Tournaments, Auctions, Cricket, Badminton, Football (schema-stage), Member Identity, Registrations, Displays, Broadcast/OBS, Admin, Communications.
 
-### 1.4 Non-Negotiable Maintenance Rule
-1. **Same-Task Requirement:** Any code change that introduces, modifies, renames, relocates, deprecates, or removes any user-facing feature, API route, form field, validation rule, button, permission, or setting **MUST include a corresponding update to this Operation Manual in the same pull request / commit**.
+### 1.4 Proportional Maintenance Rule
+1. **Material Behaviour Change:** Update this manual in the same task/PR when a code change materially changes documented user-facing behaviour, an operating procedure, route, form field or validation rule, permission, setting, or supported workflow.
+2. **Targeted Updates:** Update only the affected sections and the change log. Document verified shipped behaviour, not plans or assumptions.
+3. **No Documentation Churn:** Purely internal refactors, formatting, tests, dependency maintenance, and visual-only changes that do not alter documented operation do not require a manual update.
+4. **Validation:** Run `pnpm run check:manual` after changing this manual or its validator. The check verifies document structure and references; it does not establish factual accuracy.
 2. **No Fabrication:** Every description in this manual must derive from verified source code and database schemas. If a feature is incomplete, planned, or unverified, it must be explicitly marked **“Needs verification”** in [Section 12](#section-12--needs-verification-registry--source-code-map).
 3. **Automated Enforcement:** Continuous integration runs `pnpm run check:manual` (`node scripts/verify-operation-manual.mjs`) to verify manual integrity, required sections, and link health before build and release.
 
