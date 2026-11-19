@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "typecheck": "tsc --noEmit"
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.3.1",

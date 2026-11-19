@@ -101,6 +101,20 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
 
   const currentBatchSponsors = sponsorBatches[activeBatchIndex] || [];
 
+  // Score display helper: parse main score (e.g. "0/0") and overs (e.g. "(0 ov)") to prevent awkward 2-row breaks
+  const fullScoreStr = liveScore || t.liveMatchSummary?.scoreSummary || (isBadminton ? 'Game On' : '0/0 (0 ov)');
+  const parsedScore = useMemo(() => {
+    const s = (fullScoreStr || '').trim();
+    const m = s.match(/^([^\(]+)(\(.*?\))?$/);
+    if (m) {
+      return {
+        main: m[1].trim(),
+        overs: m[2] ? m[2].trim() : '',
+      };
+    }
+    return { main: s, overs: '' };
+  }, [fullScoreStr]);
+
   // Real-time SSE listener scoped strictly to the featured live match
   useEffect(() => {
     const matchId = t.liveMatchSummary?.matchId;
@@ -142,7 +156,21 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
     : 'from-emerald-950/80 via-slate-900 to-slate-950';
 
   return (
-    <section className="relative mb-12 overflow-hidden rounded-3xl border border-amber-500/25 bg-slate-950 text-white shadow-2xl transition-all dark:border-amber-400/20">
+    <section className="relative mb-12 overflow-hidden rounded-3xl border border-amber-500/30 bg-slate-950 text-white shadow-2xl transition-all dark:border-amber-400/25">
+      {/* ── Traveling Star Sparkle Orbiting Along Border ── */}
+      <div className="animate-border-sparkle -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+        <div className="relative flex items-center justify-center">
+          <div className="absolute h-8 w-8 rounded-full bg-amber-400/50 blur-xs" />
+          <div className="absolute h-4 w-4 rounded-full bg-yellow-200 blur-2xs" />
+          <svg
+            viewBox="0 0 24 24"
+            className="relative h-4 w-4 text-amber-100 fill-amber-200 drop-shadow-[0_0_8px_rgba(251,191,36,1)]"
+          >
+            <path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z" />
+          </svg>
+        </div>
+      </div>
+
       {/* ── Atmospheric Lighting: Golden & Emerald Stadium Beams ── */}
       <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none" />
@@ -175,10 +203,10 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
             </span>
 
             {isMatchLive ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/50 bg-red-500/25 px-3 py-1 text-xs font-black uppercase tracking-wider text-red-300 shadow-md shadow-red-500/20">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/50 bg-emerald-500/20 px-3 py-1 text-xs font-black uppercase tracking-wider text-emerald-300 shadow-md shadow-emerald-500/20">
                 <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
                 </span>
                 ● Live Match
               </span>
@@ -188,7 +216,7 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
                 ● Live Auction
               </span>
             ) : hasValidStream ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/20 px-3 py-1 text-xs font-bold uppercase tracking-widest text-red-400">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/20 px-3 py-1 text-xs font-bold uppercase tracking-widest text-emerald-300">
                 <Tv size={14} />
                 Featured · Broadcast Stream
               </span>
@@ -257,7 +285,7 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
           <div className="mb-5 flex flex-wrap gap-2 text-[11px] font-bold uppercase tracking-wider">
             {t.auctionEnabled && (
               <span className="rounded-full bg-amber-500/20 px-3 py-1 text-amber-300 border border-amber-500/30">
-                Auction Module
+                Auction
               </span>
             )}
             {t.scoringEnabled && (
@@ -266,7 +294,7 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
               </span>
             )}
             {hasValidStream && (
-              <span className="rounded-full bg-red-500/20 px-3 py-1 text-red-300 border border-red-500/30 flex items-center gap-1">
+              <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
                 <Radio size={12} className="animate-pulse" /> Live Stream
               </span>
             )}
@@ -363,7 +391,7 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
                 <button
                   type="button"
                   onClick={() => setWatchLiveOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-xl border border-red-500/50 bg-red-600/20 px-5 py-3.5 font-semibold text-red-300 backdrop-blur-sm transition-all hover:bg-red-600/30 hover:text-white cursor-pointer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/50 bg-emerald-600/20 px-5 py-3.5 font-semibold text-emerald-300 backdrop-blur-sm transition-all hover:bg-emerald-600/30 hover:text-white cursor-pointer shadow-lg shadow-emerald-500/10"
                   aria-label="Watch live stream broadcast"
                 >
                   <Tv size={16} />
@@ -408,10 +436,10 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
               </div>
 
               {/* VS Battle Arena: Team 1 vs Team 2 */}
-              <div className="my-4 grid grid-cols-12 items-center gap-3">
+              <div className="my-4 flex items-center justify-between gap-2 sm:gap-3">
                 {/* Team 1 (Home) */}
-                <div className="col-span-4 flex flex-col items-center text-center">
-                  <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-white p-1.5 shadow-lg border border-slate-200 flex items-center justify-center overflow-hidden mb-2">
+                <div className="flex flex-col items-center text-center shrink-0 w-[78px] sm:w-[92px]">
+                  <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-white p-1.5 shadow-lg border border-slate-200 flex items-center justify-center overflow-hidden mb-1.5">
                     {t.liveMatchSummary.homeTeam.logoUrl ? (
                       <img
                         src={t.liveMatchSummary.homeTeam.logoUrl}
@@ -419,7 +447,7 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
                         className="max-h-full max-w-full object-contain"
                       />
                     ) : (
-                      <span className="font-display font-black text-slate-900 text-lg sm:text-xl">
+                      <span className="font-display font-black text-slate-900 text-base sm:text-lg">
                         {t.liveMatchSummary.homeTeam.shortName || 'HOM'}
                       </span>
                     )}
@@ -429,30 +457,35 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
                   </span>
                 </div>
 
-                {/* Scoreboard Centerpiece */}
-                <div className="col-span-4 flex flex-col items-center text-center">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                {/* Scoreboard Centerpiece (Flexible width, single row, ample space) */}
+                <div className="flex-1 min-w-[130px] flex flex-col items-center text-center px-1">
+                  <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
                     LIVE SCORE
                   </span>
-                  <div className="px-3 py-1.5 rounded-xl bg-slate-950/80 border border-amber-400/40 shadow-inner shadow-black/60 w-full">
-                    <p className="font-display text-2xl sm:text-3xl font-black text-amber-400 tracking-tight drop-shadow-[0_0_12px_rgba(245,158,11,0.5)]">
-                      {liveScore ||
-                        t.liveMatchSummary.scoreSummary ||
-                        (isBadminton ? 'Game On' : '0/0 (0 ov)')}
-                    </p>
+                  <div className="px-3 sm:px-4 py-2 rounded-xl bg-slate-950/90 border border-amber-400/50 shadow-inner shadow-black/80 w-full flex flex-col items-center justify-center">
+                    <div className="flex items-baseline justify-center gap-1.5 whitespace-nowrap">
+                      <span className="font-display text-2xl sm:text-3xl font-black text-amber-400 tracking-tight drop-shadow-[0_0_12px_rgba(245,158,11,0.5)] leading-none">
+                        {parsedScore.main}
+                      </span>
+                      {parsedScore.overs && (
+                        <span className="font-display font-bold text-xs sm:text-sm text-amber-300/85 leading-none">
+                          {parsedScore.overs}
+                        </span>
+                      )}
+                    </div>
+                    {liveTarget ? (
+                      <p className="text-[10px] font-bold text-emerald-400 mt-1 truncate max-w-full">{liveTarget}</p>
+                    ) : (
+                      <span className="text-[9px] font-bold text-slate-500 mt-1 uppercase tracking-widest">
+                        Innings 1
+                      </span>
+                    )}
                   </div>
-                  {liveTarget ? (
-                    <p className="text-[10px] font-bold text-emerald-400 mt-1">{liveTarget}</p>
-                  ) : (
-                    <span className="text-[9px] font-bold text-slate-500 mt-1 uppercase tracking-widest">
-                      Innings 1
-                    </span>
-                  )}
                 </div>
 
                 {/* Team 2 (Away) */}
-                <div className="col-span-4 flex flex-col items-center text-center">
-                  <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-white p-1.5 shadow-lg border border-slate-200 flex items-center justify-center overflow-hidden mb-2">
+                <div className="flex flex-col items-center text-center shrink-0 w-[78px] sm:w-[92px]">
+                  <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-white p-1.5 shadow-lg border border-slate-200 flex items-center justify-center overflow-hidden mb-1.5">
                     {t.liveMatchSummary.awayTeam.logoUrl ? (
                       <img
                         src={t.liveMatchSummary.awayTeam.logoUrl}
@@ -460,7 +493,7 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
                         className="max-h-full max-w-full object-contain"
                       />
                     ) : (
-                      <span className="font-display font-black text-slate-900 text-lg sm:text-xl">
+                      <span className="font-display font-black text-slate-900 text-base sm:text-lg">
                         {t.liveMatchSummary.awayTeam.shortName || 'AWY'}
                       </span>
                     )}

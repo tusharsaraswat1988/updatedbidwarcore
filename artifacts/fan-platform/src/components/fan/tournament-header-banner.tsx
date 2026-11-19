@@ -88,7 +88,7 @@ export function TournamentHeaderBanner({
               </span>
 
               {isLive ? (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-500 text-white shadow-sm shadow-red-500/40">
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500 text-white shadow-sm shadow-emerald-500/40">
                   <span className="h-1.5 w-1.5 rounded-full bg-white animate-ping" />
                   ● LIVE NOW
                 </span>

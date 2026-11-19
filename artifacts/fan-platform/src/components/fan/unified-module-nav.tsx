@@ -73,8 +73,8 @@ export function UnifiedModuleNav({
 
             {/* Live Indicator Beacon */}
             {isAuctionLive ? (
-              <span className="flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-full bg-red-500/25 border border-red-500/40 text-[10px] font-black tracking-wider text-red-200 animate-pulse">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-400 inline-block" />
+              <span className="flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-full bg-emerald-500/25 border border-emerald-500/40 text-[10px] font-black tracking-wider text-emerald-200 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block" />
                 LIVE
               </span>
             ) : (

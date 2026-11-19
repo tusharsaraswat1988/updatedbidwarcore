@@ -67,10 +67,10 @@ export const ActivityTicker: React.FC<ActivityTickerProps> = ({ tournaments }) =
       {/* Static Left Badge */}
       <div className="relative z-10 flex shrink-0 items-center gap-1.5 border-r border-slate-200 bg-white/95 px-3 py-1 font-bold text-xs dark:border-white/10 dark:bg-[#131B2E]">
         {hasLiveEvent ? (
-          <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
+          <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
             <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
             </span>
             <span className="uppercase tracking-wider font-extrabold text-[11px]">Live Updates</span>
           </span>
@@ -91,7 +91,7 @@ export const ActivityTicker: React.FC<ActivityTickerProps> = ({ tournaments }) =
                 <span
                   className={`rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider ${
                     item.badge.includes('LIVE')
-                      ? 'bg-red-500/15 text-red-700 dark:bg-red-500/20 dark:text-red-300'
+                      ? 'bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 border border-emerald-500/30'
                       : item.badge === 'PLAYER SOLD'
                       ? 'bg-emerald-500/15 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300'
                       : 'bg-amber-500/15 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300'

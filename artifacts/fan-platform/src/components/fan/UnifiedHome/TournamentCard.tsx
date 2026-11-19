@@ -67,7 +67,7 @@ export const TournamentCard = ({ t }: { t: TournamentSummary }) => {
           {/* Top Badges */}
           <div className="absolute top-2.5 left-3 flex flex-wrap gap-1.5 z-10">
             {isLive ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-md">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-md shadow-emerald-500/30">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
