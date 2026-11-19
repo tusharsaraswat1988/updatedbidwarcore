@@ -1,5 +1,6 @@
 import { config as loadEnv } from "dotenv";
 import { defineConfig } from "vite";
+import httpProxy from "http-proxy";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
@@ -63,10 +64,24 @@ const rawPort =
 const port = Number(rawPort);
 const basePath = process.env.BASE_PATH ?? "/";
 const analyzeBundle = process.env.ANALYZE === "true";
+const proxy = httpProxy.createProxyServer({});
 
 export default defineConfig({
   base: basePath,
   plugins: [
+    {
+      name: 'subdomain-proxy',
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          console.log('Request Host:', req.headers.host);
+          if (req.headers.host === 'fan.localhost:24755') {
+            console.log('Proxying to Fan Platform');
+            return proxy.web(req, res, { target: 'http://localhost:5180', changeOrigin: true });
+          }
+          next();
+        });
+      }
+    },
     stripUseClientDirective(),
     bootSplashHtmlPlugin(),
     brandingIconsDevPlugin(),

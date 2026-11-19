@@ -247,6 +247,8 @@ export default function TournamentSettings() {
       ownerAppHistory: (t as any)?.featuresJson?.ownerAppHistory ?? (t as any)?.features?.ownerAppHistory ?? true,
       obsHistory: (t as any)?.featuresJson?.obsHistory ?? (t as any)?.features?.obsHistory ?? true,
       ledHistory: (t as any)?.featuresJson?.ledHistory ?? (t as any)?.features?.ledHistory ?? true,
+      liveStreamEnabled: (t as any)?.featuresJson?.liveStreamEnabled ?? (t as any)?.features?.liveStreamEnabled ?? Boolean((t as any)?.featuresJson?.liveStreamUrl ?? (t as any)?.features?.liveStreamUrl),
+      liveStreamUrl: (t as any)?.featuresJson?.liveStreamUrl ?? (t as any)?.features?.liveStreamUrl ?? "",
     };
     setEditForm(initialForm);
 
@@ -728,6 +730,10 @@ export default function TournamentSettings() {
         ownerAppHistory: editForm.ownerAppHistory !== false,
         obsHistory: editForm.obsHistory !== false,
         ledHistory: editForm.ledHistory !== false,
+        liveStreamEnabled: editForm.liveStreamEnabled === true,
+        liveStreamUrl: typeof editForm.liveStreamUrl === "string" && editForm.liveStreamUrl.trim()
+          ? editForm.liveStreamUrl.trim()
+          : null,
       };
     }
 
@@ -1685,174 +1691,287 @@ export default function TournamentSettings() {
 
               return (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-                  {/* Column 1: Budget, Min Bid & Bid Increments */}
-                  <SettingsCard
-                    title="Budget & Bid Pricing"
-                    description="Team purse, minimum player valuation, and tiered raise increments."
-                    icon={<Gavel className="w-4 h-4 text-primary" />}
-                    className="lg:col-span-1"
-                  >
-                    <div className="space-y-4">
-                      {/* Units Selector */}
-                      <div className="space-y-1.5 pb-3 border-b border-border/50">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1">
-                            Auction Units <span className="text-destructive">*</span>
-                            <FieldTooltip text="Rupees (₹) displays standard currency across live auction and broadcasts. Points (Pt.) is used for corporate or fantasy leagues with point budgets." />
-                          </Label>
-                          <span className="text-[10px] text-muted-foreground">Applies to LED, OBS &amp; Apps</span>
-                        </div>
-                        <Select
-                          value={currentUnit}
-                          onValueChange={(value) => setEditForm((f) => ({ ...f, auctionUnit: value }))}
-                        >
-                          <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {AUCTION_UNIT_OPTIONS.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Team Budget & Minimum Player Value */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1">
-                            {budgetFieldLabel(currentUnit)} <span className="text-destructive">*</span>
-                            <FieldTooltip text={`Total spending limit allocated to each team at the start of the auction.`} />
-                          </Label>
-                          <Input
-                            type="number"
-                            value={editForm.basePurse as string || ""}
-                            onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))}
-                            className="h-9 text-xs font-mono"
-                          />
-                          <IndianAmountHint value={editForm.basePurse as string} unit={currentUnit} className="text-[10px]" />
-                        </div>
-                        <div id="settings-field-minBid" className={`space-y-1.5 ${fieldWrapClass("minBid", Number(editForm.minBid) <= 0)}`}>
-                          <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1">
-                            {minValueFieldLabel(currentUnit)} <span className="text-destructive">*</span>
-                            <FieldTooltip text="The lowest possible winning bid for any player in the pool." />
-                          </Label>
-                          <Input
-                            type="number"
-                            value={editForm.minBid as string || ""}
-                            onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))}
-                            className="h-9 text-xs font-mono"
-                          />
-                          <IndianAmountHint value={editForm.minBid as string} unit={currentUnit} className="text-[10px]" />
-                        </div>
-                      </div>
-
-                      {/* Bid Increase Amount / Tiers */}
-                      <div id="settings-field-bidTiers" className={`space-y-2.5 pt-3 border-t border-border/50 ${fieldWrapClass("bidTiers", !bidTiers.some(t => t.increment > 0))}`}>
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs font-semibold text-foreground flex items-center gap-1">
-                            {bidIncrementFieldLabel(currentUnit)} <span className="text-destructive">*</span>
-                            <FieldTooltip text="Minimum amount a team must raise when clicking the Bid button." />
-                          </Label>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs px-2.5 gap-1"
-                            onClick={() => setBidTiers(t => [
-                              ...t.slice(0, -1),
-                              { upTo: 0, increment: 0 },
-                              { increment: t[t.length - 1]?.increment ?? 100000 },
-                            ])}
+                  {/* Column 1: Financial & Squad Roster Rules */}
+                  <div className="space-y-5">
+                    {/* Card 1: Budget, Min Bid & Bid Increments */}
+                    <SettingsCard
+                      title="Budget & Bid Pricing"
+                      description="Team purse, minimum player valuation, and tiered raise increments."
+                      icon={<Gavel className="w-4 h-4 text-primary" />}
+                    >
+                      <div className="space-y-4">
+                        {/* Units Selector */}
+                        <div className="space-y-1.5 pb-3 border-b border-border/50">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1">
+                              Auction Units <span className="text-destructive">*</span>
+                              <FieldTooltip text="Rupees (₹) displays standard currency across live auction and broadcasts. Points (Pt.) is used for corporate or fantasy leagues with point budgets." />
+                            </Label>
+                            <span className="text-[10px] text-muted-foreground">Applies to LED, OBS &amp; Apps</span>
+                          </div>
+                          <Select
+                            value={currentUnit}
+                            onValueChange={(value) => setEditForm((f) => ({ ...f, auctionUnit: value }))}
                           >
-                            + Add Tier
-                          </Button>
+                            <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {AUCTION_UNIT_OPTIONS.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
-                        {bidTiers.length === 1 ? (
-                          <div className="flex items-center gap-2.5 pt-1">
-                            <div className="flex-1 max-w-[220px]">
-                              <Input
-                                type="number"
-                                className="h-9 text-xs font-mono"
-                                value={bidTiers[0]?.increment || ""}
-                                onChange={e => setBidTiers([{ increment: Number(e.target.value) || 0 }])}
-                              />
-                            </div>
-                            <IndianAmountHint value={bidTiers[0]?.increment} unit={currentUnit} className="text-xs shrink-0" />
-                            <span className="text-xs text-muted-foreground">per raise</span>
+                        {/* Team Budget & Minimum Player Value */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1">
+                              {budgetFieldLabel(currentUnit)} <span className="text-destructive">*</span>
+                              <FieldTooltip text={`Total spending limit allocated to each team at the start of the auction.`} />
+                            </Label>
+                            <Input
+                              type="number"
+                              value={editForm.basePurse as string || ""}
+                              onChange={e => setEditForm(f => ({ ...f, basePurse: e.target.value }))}
+                              className="h-9 text-xs font-mono"
+                            />
+                            <IndianAmountHint value={editForm.basePurse as string} unit={currentUnit} className="text-[10px]" />
                           </div>
-                        ) : (
-                          <div className="space-y-2.5 pt-1">
-                            <p className="text-[11px] text-muted-foreground">
-                              Tiered raise rules — set higher increment steps at higher price brackets.
-                            </p>
-                            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                              {bidTiers.map((tier, i) => {
-                                const isLast = i === bidTiers.length - 1;
-                                return (
-                                  <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 p-2 rounded-lg border border-border/60 bg-muted/15 items-end">
-                                    <div className="space-y-1">
-                                      <Label className="text-[10px] text-muted-foreground font-medium">
-                                        {isLast ? `Above threshold (${unitSymbol})` : `Up to (${unitSymbol}) — Tier ${i + 1}`}
-                                      </Label>
-                                      {isLast ? (
-                                        <div className="h-8 flex items-center px-2.5 rounded-md border border-border/50 bg-muted/20 text-muted-foreground text-xs font-medium">
-                                          No upper limit
-                                        </div>
-                                      ) : (
-                                        <>
-                                          <Input
-                                            type="number"
-                                            value={tier.upTo ?? ""}
-                                            onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))}
-                                            className="h-8 text-xs font-mono"
-                                          />
-                                          <IndianAmountHint value={tier.upTo} unit={currentUnit} className="text-[10px]" />
-                                        </>
-                                      )}
-                                    </div>
-                                    <div className="space-y-1">
-                                      <Label className="text-[10px] text-muted-foreground font-medium">
-                                        Raise by ({unitSymbol})
-                                      </Label>
-                                      <Input
-                                        type="number"
-                                        value={tier.increment || ""}
-                                        onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, increment: Number(e.target.value) || 0 } : x))}
-                                        className="h-8 text-xs font-mono"
-                                      />
-                                      <IndianAmountHint value={tier.increment} unit={currentUnit} className="text-[10px]" />
-                                    </div>
-                                    <Button
-                                      type="button"
-                                      size="icon"
-                                      variant="ghost"
-                                      className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
-                                      disabled={bidTiers.length <= 1}
-                                      onClick={() => setBidTiers(t => {
-                                        const next = t.filter((_, j) => j !== i);
-                                        if (next.length === 0) return t;
-                                        const last = { ...next[next.length - 1] };
-                                        delete last.upTo;
-                                        return [...next.slice(0, -1), last];
-                                      })}
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </Button>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                          <div id="settings-field-minBid" className={`space-y-1.5 ${fieldWrapClass("minBid", Number(editForm.minBid) <= 0)}`}>
+                            <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1">
+                              {minValueFieldLabel(currentUnit)} <span className="text-destructive">*</span>
+                              <FieldTooltip text="The lowest possible winning bid for any player in the pool." />
+                            </Label>
+                            <Input
+                              type="number"
+                              value={editForm.minBid as string || ""}
+                              onChange={e => setEditForm(f => ({ ...f, minBid: e.target.value }))}
+                              className="h-9 text-xs font-mono"
+                            />
+                            <IndianAmountHint value={editForm.minBid as string} unit={currentUnit} className="text-[10px]" />
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  </SettingsCard>
+                        </div>
 
-                  {/* Column 2: Timers & Squad/Draw Rules */}
-                  <div className="space-y-5 lg:col-span-1">
-                    {/* Card 2: Timers & Anti-Sniping */}
+                        {/* Bid Increase Amount / Tiers */}
+                        <div id="settings-field-bidTiers" className={`space-y-2.5 pt-3 border-t border-border/50 ${fieldWrapClass("bidTiers", !bidTiers.some(t => t.increment > 0))}`}>
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-semibold text-foreground flex items-center gap-1">
+                              {bidIncrementFieldLabel(currentUnit)} <span className="text-destructive">*</span>
+                              <FieldTooltip text="Minimum amount a team must raise when clicking the Bid button." />
+                            </Label>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs px-2.5 gap-1"
+                              onClick={() => setBidTiers(t => [
+                                ...t.slice(0, -1),
+                                { upTo: 0, increment: 0 },
+                                { increment: t[t.length - 1]?.increment ?? 100000 },
+                              ])}
+                            >
+                              + Add Tier
+                            </Button>
+                          </div>
+
+                          {bidTiers.length === 1 ? (
+                            <div className="flex items-center gap-2.5 pt-1">
+                              <div className="flex-1 max-w-[220px]">
+                                <Input
+                                  type="number"
+                                  className="h-9 text-xs font-mono"
+                                  value={bidTiers[0]?.increment || ""}
+                                  onChange={e => setBidTiers([{ increment: Number(e.target.value) || 0 }])}
+                                />
+                              </div>
+                              <IndianAmountHint value={bidTiers[0]?.increment} unit={currentUnit} className="text-xs shrink-0" />
+                              <span className="text-xs text-muted-foreground">per raise</span>
+                            </div>
+                          ) : (
+                            <div className="space-y-2.5 pt-1">
+                              <p className="text-[11px] text-muted-foreground">
+                                Tiered raise rules — set higher increment steps at higher price brackets.
+                              </p>
+                              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                                {bidTiers.map((tier, i) => {
+                                  const isLast = i === bidTiers.length - 1;
+                                  return (
+                                    <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 p-2 rounded-lg border border-border/60 bg-muted/15 items-end">
+                                      <div className="space-y-1">
+                                        <Label className="text-[10px] text-muted-foreground font-medium">
+                                          {isLast ? `Above threshold (${unitSymbol})` : `Up to (${unitSymbol}) — Tier ${i + 1}`}
+                                        </Label>
+                                        {isLast ? (
+                                          <div className="h-8 flex items-center px-2.5 rounded-md border border-border/50 bg-muted/20 text-muted-foreground text-xs font-medium">
+                                            No upper limit
+                                          </div>
+                                        ) : (
+                                          <>
+                                            <Input
+                                              type="number"
+                                              value={tier.upTo ?? ""}
+                                              onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, upTo: Number(e.target.value) || 0 } : x))}
+                                              className="h-8 text-xs font-mono"
+                                            />
+                                            <IndianAmountHint value={tier.upTo} unit={currentUnit} className="text-[10px]" />
+                                          </>
+                                        )}
+                                      </div>
+                                      <div className="space-y-1">
+                                        <Label className="text-[10px] text-muted-foreground font-medium">
+                                          Raise by ({unitSymbol})
+                                        </Label>
+                                        <Input
+                                          type="number"
+                                          value={tier.increment || ""}
+                                          onChange={e => setBidTiers(t => t.map((x, j) => j === i ? { ...x, increment: Number(e.target.value) || 0 } : x))}
+                                          className="h-8 text-xs font-mono"
+                                        />
+                                        <IndianAmountHint value={tier.increment} unit={currentUnit} className="text-[10px]" />
+                                      </div>
+                                      <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                                        disabled={bidTiers.length <= 1}
+                                        onClick={() => setBidTiers(t => {
+                                          const next = t.filter((_, j) => j !== i);
+                                          if (next.length === 0) return t;
+                                          const last = { ...next[next.length - 1] };
+                                          delete last.upTo;
+                                          return [...next.slice(0, -1), last];
+                                        })}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </SettingsCard>
+
+                    {/* Card 2: Squad Limits & Player Draw Order */}
+                    <SettingsCard
+                      title="Squad Limits & Player Draw"
+                      description="Team roster constraints and player sequence during live auction."
+                      icon={<ShieldAlert className="w-4 h-4 text-amber-400" />}
+                    >
+                      <div className="space-y-4">
+                        {/* Squad Limits */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                          <div id="settings-field-minSquad" className={`space-y-1.5 ${fieldWrapClass("minSquad", Number(editForm.minimumSquadSize) <= 0)}`}>
+                            <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1">
+                              Minimum Players / Team <span className="text-destructive">*</span>
+                              <FieldTooltip text="Teams must buy at least this many players. Budget is reserved automatically for unfilled mandatory slots." />
+                            </Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={editForm.minimumSquadSize as string ?? "0"}
+                              onChange={e => setEditForm(f => ({ ...f, minimumSquadSize: e.target.value }))}
+                              className="h-9 text-xs font-mono"
+                            />
+                          </div>
+
+                          <div id="settings-field-maxSquad" className={`space-y-1.5 ${fieldWrapClass("maxSquad", !!squadSizeError)}`}>
+                            <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1">
+                              Maximum Players / Team
+                              <FieldTooltip text="Teams cannot place bids once they reach this roster cap. Set 0 for unlimited squad size." />
+                            </Label>
+                            <Input
+                              type="number"
+                              min={Number(editForm.minimumSquadSize) > 0 ? Number(editForm.minimumSquadSize) : 0}
+                              max={100}
+                              value={editForm.maximumSquadSize as string ?? "0"}
+                              onChange={e => setEditForm(f => ({ ...f, maximumSquadSize: e.target.value }))}
+                              className="h-9 text-xs font-mono"
+                            />
+                            {squadSizeError && (
+                              <p className="text-[10px] text-destructive">{squadSizeError}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Player Draw Flow */}
+                        <div id="settings-field-playerOrder" className={`space-y-2 pt-2 border-t border-border/50 ${fieldWrapClass("playerOrder")}`}>
+                          <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1">
+                            Player Draw Sequence
+                            <FieldTooltip text="Controls which player is brought up when the operator clicks Next Player during the live auction." />
+                          </Label>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            {[
+                              {
+                                value: "random",
+                                label: "Random Draw",
+                                icon: "🎲",
+                                badge: "Recommended",
+                                desc: "Fair & balanced pool draw",
+                              },
+                              {
+                                value: "sequential",
+                                label: "In Order",
+                                icon: "📋",
+                                badge: null,
+                                desc: "Sequence as registered",
+                              },
+                              {
+                                value: "manual",
+                                label: "Manual Pick",
+                                icon: "👆",
+                                badge: null,
+                                desc: "Operator queue choice",
+                              },
+                            ].map((opt) => {
+                              const isSelected = ((editForm.playerSelectionMode as string) || "random") === opt.value;
+                              return (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => setEditForm(f => ({ ...f, playerSelectionMode: opt.value }))}
+                                  className={`flex flex-col items-start p-2.5 rounded-lg border text-left transition-all cursor-pointer relative ${
+                                    isSelected
+                                      ? "border-amber-400 bg-amber-400/10 text-slate-950 dark:text-amber-300 ring-2 ring-amber-400/40 shadow-xs font-semibold"
+                                      : "border-border/60 bg-muted/15 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between w-full mb-1">
+                                    <span className="text-base">{opt.icon}</span>
+                                    {opt.badge && (
+                                      <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
+                                        isSelected
+                                          ? "bg-amber-400 text-slate-950 font-bold"
+                                          : "bg-muted text-muted-foreground"
+                                      }`}>
+                                        {opt.badge}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs font-semibold text-foreground">
+                                    {opt.label}
+                                  </span>
+                                  <span className="text-[10px] text-muted-foreground mt-0.5 leading-tight">
+                                    {opt.desc}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </SettingsCard>
+                  </div>
+
+                  {/* Column 2: Timers & Live Floor Features */}
+                  <div className="space-y-5">
+                    {/* Card 3: Timers & Anti-Sniping */}
                     <SettingsCard
                       title="Auction Timers & Anti-Sniping"
                       description="Countdown timers for new players, per-bid reset, and last-second extensions."
@@ -1948,103 +2067,6 @@ export default function TournamentSettings() {
                       </div>
                     </SettingsCard>
 
-                    {/* Card 3: Squad Limits & Player Draw Order */}
-                    <SettingsCard
-                      title="Squad Limits & Player Draw"
-                      description="Team roster constraints and player sequence during live auction."
-                      icon={<ShieldAlert className="w-4 h-4 text-amber-400" />}
-                    >
-                      <div className="space-y-3.5">
-                        {/* Quick Presets for Demo / Standard */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg border border-border/60 bg-muted/20">
-                          <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                            <span className="font-medium text-foreground/80">Quick Roster Presets:</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="h-6 text-[10px] px-2.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/10 font-medium"
-                              onClick={() => setEditForm(f => ({ ...f, minimumSquadSize: "4", maximumSquadSize: "6" }))}
-                            >
-                              Trial Demo (4 – 6)
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              className="h-6 text-[10px] px-2.5 text-foreground/80 hover:text-foreground font-medium"
-                              onClick={() => setEditForm(f => ({ ...f, minimumSquadSize: "11", maximumSquadSize: "15" }))}
-                            >
-                              Cricket (11 – 15)
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Squad Limits */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                          <div id="settings-field-minSquad" className={`space-y-1.5 ${fieldWrapClass("minSquad", Number(editForm.minimumSquadSize) <= 0)}`}>
-                            <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1">
-                              Minimum Players / Team <span className="text-destructive">*</span>
-                              <FieldTooltip text="Teams must buy at least this many players. Budget is reserved automatically for unfilled mandatory slots." />
-                            </Label>
-                            <Input
-                              type="number"
-                              min={0}
-                              max={100}
-                              value={editForm.minimumSquadSize as string ?? "0"}
-                              onChange={e => setEditForm(f => ({ ...f, minimumSquadSize: e.target.value }))}
-                              className="h-9 text-xs font-mono"
-                            />
-                            <p className="text-[10px] text-muted-foreground">
-                              Required for purse reserve protection. Demo: 4, Cricket: 11.
-                            </p>
-                          </div>
-
-                          <div id="settings-field-maxSquad" className={`space-y-1.5 ${fieldWrapClass("maxSquad", !!squadSizeError)}`}>
-                            <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1">
-                              Maximum Players / Team
-                              <FieldTooltip text="Teams cannot place bids once they reach this roster cap. Set 0 for unlimited squad size." />
-                            </Label>
-                            <Input
-                              type="number"
-                              min={Number(editForm.minimumSquadSize) > 0 ? Number(editForm.minimumSquadSize) : 0}
-                              max={100}
-                              value={editForm.maximumSquadSize as string ?? "0"}
-                              onChange={e => setEditForm(f => ({ ...f, maximumSquadSize: e.target.value }))}
-                              className="h-9 text-xs font-mono"
-                            />
-                            {squadSizeError ? (
-                              <p className="text-[10px] text-destructive">{squadSizeError}</p>
-                            ) : (
-                              <p className="text-[10px] text-muted-foreground">Roster cap per team. Demo: 6 (or 0 for unlimited).</p>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Player Draw Flow */}
-                        <div id="settings-field-playerOrder" className={`space-y-1.5 pt-2 border-t border-border/50 ${fieldWrapClass("playerOrder")}`}>
-                          <Label className="text-xs font-medium text-foreground/90 flex items-center gap-1">
-                            Player Draw Sequence
-                            <FieldTooltip text="Controls which player is brought up when the operator clicks Next Player during the live auction." />
-                          </Label>
-                          <Select
-                            value={editForm.playerSelectionMode as string || "random"}
-                            onValueChange={v => setEditForm(f => ({ ...f, playerSelectionMode: v }))}
-                          >
-                            <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="random">🎲 Random draw — recommended for balanced auctions</SelectItem>
-                              <SelectItem value="sequential">📋 In order — players appear in sequence as added</SelectItem>
-                              <SelectItem value="manual">👆 Manual pick — operator chooses from active queue</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </SettingsCard>
-
                     {/* Card 4: Live Auction Features */}
                     <SettingsCard
                       title="Live Auction Features"
@@ -2117,6 +2139,43 @@ export default function TournamentSettings() {
                             </div>
                           </div>
                         )}
+
+                        {/* Live Stream on Fan Platform */}
+                        <div className="pt-3 border-t border-border/60 space-y-3">
+                          <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-border/60 bg-muted/20">
+                            <div className="space-y-0.5">
+                              <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5 cursor-pointer">
+                                Live Video Stream (Fan Platform)
+                                <FieldTooltip text="When enabled with a valid YouTube or Facebook Live link, fans see a 'Watch Live' button on the Fan Platform during live auction." />
+                              </Label>
+                              <p className="text-[11px] text-muted-foreground">
+                                Broadcast your live auction video feed to the public Fan Platform.
+                              </p>
+                            </div>
+                            <Switch
+                              checked={editForm.liveStreamEnabled === true}
+                              onCheckedChange={(v) => setEditForm((f) => ({ ...f, liveStreamEnabled: v }))}
+                            />
+                          </div>
+
+                          {editForm.liveStreamEnabled === true && (
+                            <div className="space-y-1.5 pl-3 border-l-2 border-amber-500/30">
+                              <Label className="text-xs font-medium text-foreground">
+                                Live Stream URL
+                              </Label>
+                              <Input
+                                type="url"
+                                placeholder="https://www.youtube.com/watch?v=... or https://youtube.com/live/..."
+                                value={(editForm.liveStreamUrl as string) || ""}
+                                onChange={(e) => setEditForm((f) => ({ ...f, liveStreamUrl: e.target.value }))}
+                                className="h-9 text-xs"
+                              />
+                              <p className="text-[10px] text-muted-foreground">
+                                Paste the public YouTube, Facebook, or custom streaming link. Spectators on the Fan Platform can click 'Watch Live' to stream directly.
+                              </p>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </SettingsCard>
                   </div>

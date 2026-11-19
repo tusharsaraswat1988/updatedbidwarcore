@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -43,6 +44,9 @@ export const scoringEventsTable = pgTable(
   },
   (t) => [
     uniqueIndex("uq_scoring_events_match_sequence").on(t.matchId, t.sequence),
+    uniqueIndex("uq_scoring_events_match_correlation")
+      .on(t.matchId, t.correlationId)
+      .where(sql`${t.correlationId} IS NOT NULL`),
     index("ix_scoring_events_match_id").on(t.matchId),
     index("ix_scoring_events_tournament_id").on(t.tournamentId),
   ],

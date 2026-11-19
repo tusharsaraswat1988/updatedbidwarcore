@@ -863,9 +863,9 @@ describe("Scorer Lock Architectural Contract & Code Verification", () => {
     expect(corrCallIdx).toBeGreaterThan(-1);
     expect(sessionLockIdx).toBeGreaterThan(-1);
 
-    // Strict order: assert lease -> check correlation -> lock scoring session
-    expect(leaseCallIdx).toBeLessThan(corrCallIdx);
-    expect(corrCallIdx).toBeLessThan(sessionLockIdx);
+    // Strict order: assert lease -> lock scoring session -> check correlation
+    expect(leaseCallIdx).toBeLessThan(sessionLockIdx);
+    expect(sessionLockIdx).toBeLessThan(corrCallIdx);
   });
 
   it("scoring.ts passes server-authoritative scorer identity to scoringService (prevents client spoofing)", async () => {

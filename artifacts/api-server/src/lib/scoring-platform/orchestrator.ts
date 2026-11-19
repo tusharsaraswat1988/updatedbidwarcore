@@ -478,8 +478,14 @@ export async function appendSingleMatchEvent(
         });
       }
 
-      // 2. Idempotent replay of offline-queued events (same correlationId).
-      // Checked AFTER verifying lease to prevent stale scorers from replaying or mutating.
+      // 2. Serialize concurrent appends for this match before the idempotency read,
+      // so two requests cannot both miss the same correlationId and both insert.
+      await tx.execute(
+        sql`SELECT id FROM scoring_sessions WHERE match_id = ${input.matchId} FOR UPDATE`,
+      );
+
+      // 3. Idempotent replay of offline-queued events (same correlationId).
+      // Checked AFTER the lease and the session lock.
       if (input.correlationId) {
         const existing = await findMatchEventByCorrelationId(input.matchId, input.correlationId, tx);
         if (existing) {
@@ -508,11 +514,6 @@ export async function appendSingleMatchEvent(
           };
         }
       }
-
-      // 3. Serialize concurrent appends for this match.
-      await tx.execute(
-        sql`SELECT id FROM scoring_sessions WHERE match_id = ${input.matchId} FOR UPDATE`,
-      );
 
       const [session] = await tx
         .select()

@@ -2,19 +2,31 @@
   "name": "@workspace/fan-platform",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "lucide-react": "^1.75.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "wouter": "^3.0.0"
+    "@radix-ui/react-dialog": "^1.3.1",
+    "@tanstack/react-query": "catalog:",
+    "@workspace/api-base": "workspace:*",
+    "@workspace/api-client-react": "workspace:*",
+    "@workspace/platform-core": "workspace:*",
+    "clsx": "catalog:",
+    "framer-motion": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwind-merge": "catalog:",
+    "wouter": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.5",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.6.2",
     "postcss": "^8.5.33",

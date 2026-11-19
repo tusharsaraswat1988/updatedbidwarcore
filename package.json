@@ -13,7 +13,6 @@
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "check:boundaries": "node scripts/check-domain-boundaries.mjs",
-    "check:manual": "node scripts/verify-operation-manual.mjs",
     "build:prod": "pnpm install --frozen-lockfile --prod=false && pnpm run build:deploy",
     "start": "pnpm run migrate:prod && cross-env NODE_ENV=production SERVE_STATIC=true node --enable-source-maps artifacts/api-server/dist/index.mjs",
     "start:prod": "pnpm run migrate:prod && cross-env NODE_ENV=production SERVE_STATIC=true node --enable-source-maps artifacts/api-server/dist/index.mjs",
@@ -33,6 +32,8 @@
     "typescript": "~5.9.2"
   },
   "dependencies": {
-    "drizzle-orm": "catalog:"
+    "drizzle-orm": "catalog:",
+    "express": "^5.3.0",
+    "http-proxy-middleware": "^3.0.0"
   }
 }

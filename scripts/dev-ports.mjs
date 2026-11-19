@@ -7,16 +7,18 @@ import { loadRootEnv } from "./load-root-env.mjs";
 
 loadRootEnv();
 
-/** @returns {{ api: number; frontend: number; ownerApp: number; scoringApp: number; mobileApp: number }} */
+/** @returns {{ api: number; frontend: number; ownerApp: number; scoringApp: number; mobileApp: number; fanPlatform: number; gateway: number }} */
 export function getDevPorts(env = process.env) {
   return {
     api: Number(env.API_PORT?.trim() || "8080"),
     frontend: Number(
-      env.FRONTEND_PORT?.trim() || env.WEB_PORT?.trim() || "3000",
+      env.FRONTEND_PORT?.trim() || env.WEB_PORT?.trim() || "5173",
     ),
     ownerApp: Number(env.OWNER_APP_PORT?.trim() || "5174"),
     scoringApp: Number(env.SCORING_APP_PORT?.trim() || "5175"),
     mobileApp: Number(env.MOBILE_APP_PORT?.trim() || "5176"),
+    fanPlatform: Number(env.FAN_PLATFORM_PORT?.trim() || "5177"),
+    gateway: Number(env.GATEWAY_PORT?.trim() || "3000"),
   };
 }
 
@@ -118,15 +120,29 @@ export function killChildTree(child) {
   killPid(child.pid);
 }
 
-/** Wait until all dev ports are free (or timeout). */
-export async function waitForPortsFree(ports, timeoutMs = 8000) {
+/** Wait until a specific port is listening */
+export async function waitForPortListening(port, timeoutMs = 10000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const busy = ports.filter((p) => findListeningPids(p).length > 0);
-    if (busy.length === 0) return true;
+    if (findListeningPids(port).length > 0) return true;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return false;
+}
+
+/**
+ * Wait until none of the given ports have a listener.
+ * @param {number[]} ports
+ * @param {number} [timeoutMs]
+ */
+export async function waitForPortsFree(ports, timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const occupied = ports.filter((port) => findListeningPids(port).length > 0);
+    if (occupied.length === 0) return true;
     await new Promise((r) => setTimeout(r, 250));
   }
-  return ports.every((p) => findListeningPids(p).length === 0);
+  return false;
 }
 
 /**

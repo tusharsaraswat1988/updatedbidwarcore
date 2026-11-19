@@ -49,6 +49,14 @@ export interface TournamentFeatures {
    * Defaults to true (pre-enabled).
    */
   ledHistory?: boolean;
+  /** Admin-promoted hero on the public fan homepage. */
+  featuredEnabled?: boolean;
+  featuredStartDate?: string | null;
+  featuredEndDate?: string | null;
+  featuredPriority?: number;
+  /** Organizer live stream URL and visibility toggle. */
+  liveStreamEnabled?: boolean;
+  liveStreamUrl?: string | null;
 }
 
 /** Canonical defaults when a tournament has no features_json row yet. */
@@ -63,14 +71,42 @@ export const TOURNAMENT_FEATURE_DEFAULTS: Readonly<Required<TournamentFeatures>>
   ownerAppHistory: true,
   obsHistory: true,
   ledHistory: true,
+  featuredEnabled: false,
+  featuredStartDate: null,
+  featuredEndDate: null,
+  featuredPriority: 0,
+  liveStreamEnabled: false,
+  liveStreamUrl: null,
 };
 
-const FEATURE_KEYS = Object.keys(TOURNAMENT_FEATURE_DEFAULTS) as (keyof TournamentFeatures)[];
+const BOOLEAN_FEATURE_KEYS = [
+  "ownerApp",
+  "scoring",
+  "sponsorshipHub",
+  "analytics",
+  "whatsappNotifications",
+  "weddingBroadcast",
+  "liveAuctionHistory",
+  "ownerAppHistory",
+  "obsHistory",
+  "ledHistory",
+] as const;
+
+function readHero(src: Record<string, unknown>) {
+  const priority = src.featuredPriority;
+  return {
+    featuredEnabled: src.featuredEnabled === true,
+    featuredStartDate: typeof src.featuredStartDate === "string" && src.featuredStartDate ? src.featuredStartDate : null,
+    featuredEndDate: typeof src.featuredEndDate === "string" && src.featuredEndDate ? src.featuredEndDate : null,
+    featuredPriority: typeof priority === "number" && Number.isFinite(priority) ? priority : 0,
+  };
+}
 
 function readFlag(
   src: Partial<TournamentFeatures> | Record<string, unknown>,
-  key: keyof TournamentFeatures,
+  key: (typeof BOOLEAN_FEATURE_KEYS)[number],
 ): boolean {
+  const s = src as Record<string, unknown>;
   if (
     key === "whatsappNotifications" ||
     key === "liveAuctionHistory" ||
@@ -78,24 +114,31 @@ function readFlag(
     key === "obsHistory" ||
     key === "ledHistory"
   ) {
-    return src[key] !== false;
+    return s[key] !== false;
   }
-  return src[key] === true;
+  return s[key] === true;
 }
 
 /**
  * Normalize raw DB/API JSON into a stable TournamentFeatures object.
  * Unknown keys are ignored; missing keys default to false (or true for whatsappNotifications).
+ * Homepage hero fields are kept so an admin save is not stripped on the next read.
  */
 export function resolveTournamentFeatures(
   raw: Partial<TournamentFeatures> | Record<string, unknown> | null | undefined,
 ): TournamentFeatures {
-  const src = raw ?? {};
-  const resolved = {} as Required<TournamentFeatures>;
-  for (const key of FEATURE_KEYS) {
+  const src = (raw ?? {}) as Record<string, unknown>;
+  const resolved: Record<string, boolean> = {};
+  for (const key of BOOLEAN_FEATURE_KEYS) {
     resolved[key] = readFlag(src, key);
   }
-  return resolved;
+  return {
+    ...TOURNAMENT_FEATURE_DEFAULTS,
+    ...resolved,
+    ...readHero(src),
+    liveStreamEnabled: src.liveStreamEnabled === true,
+    liveStreamUrl: typeof src.liveStreamUrl === "string" && src.liveStreamUrl.trim() ? src.liveStreamUrl.trim() : null,
+  };
 }
 
 /**
@@ -106,8 +149,8 @@ export function mergeTournamentFeatures(
   patch: Partial<TournamentFeatures>,
 ): TournamentFeatures {
   const base = resolveTournamentFeatures(existing);
-  const merged: Record<string, unknown> = { ...base };
-  for (const key of FEATURE_KEYS) {
+  const merged: Record<string, unknown> = { ...base, ...patch };
+  for (const key of BOOLEAN_FEATURE_KEYS) {
     if (patch[key] !== undefined) {
       merged[key] = patch[key];
     }

@@ -57,10 +57,12 @@ import presentationEngineRouter from "./presentation-engine";
 import bplRouter from "./bpl";
 import mediaPostersRouter from "./media-posters";
 import adminMembersRouter from "./admin-members";
+import fanDiscoveryRouter from "./fan-discovery";
 
 const router: IRouter = Router();
 
 router.use(adminMembersRouter);
+router.use(fanDiscoveryRouter);
 router.use(mediaPostersRouter);
 router.use(bplRouter);
 router.use(authRouter);

@@ -1,7 +1,32 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: "Oswald", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
 @layer base {
-  body {
-    @apply bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100;
+  html {
+    @apply font-sans;
   }
+  body {
+    @apply bg-[#f4f6fb] text-slate-900 dark:bg-[#0B101B] dark:text-slate-100;
+  }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 40s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
 }

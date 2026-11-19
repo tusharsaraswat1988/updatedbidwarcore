@@ -33,6 +33,10 @@ import {
   playerNameById,
 } from "@/lib/scoring-squad";
 import {
+  setupEventAlreadyOnScoreboard,
+  shouldRetrySetupEventAfterConflict,
+} from "@/lib/cricket-setup-retry";
+import {
   countQueuedScoringEvents,
   enqueueScoringEvent,
   isNetworkScoringError,

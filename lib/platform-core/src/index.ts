@@ -41,6 +41,11 @@ export {
 } from "./tournament-modules.ts";
 
 export {
+  type ResolvedFanCapabilities,
+  resolveFanPageCapabilities,
+} from "./resolve-capabilities.ts";
+
+export {
   SCORING_APP_BASE,
   SPORTS_PRODUCT_HOST_BASE,
   scoringAppPath,

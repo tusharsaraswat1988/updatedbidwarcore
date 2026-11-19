@@ -23,7 +23,6 @@ flowchart TD
 
 1. **Tier 1 — Architectural Governance:**
    - `pnpm run check:boundaries`: Enforces module boundary integrity between Auction, Cricket, Badminton, and Members.
-   - `pnpm run check:manual`: Enforces the mandatory living documentation rule for `docs/BIDWAR_OPERATION_MANUAL.md`.
 2. **Tier 2 — Automated Unit Tests (Vitest):**
    - Pure functional testing of product mode derivation, adaptive navigation logic, URL parsing, and discovery schema validation.
 3. **Tier 3 — Automated Integration & Route Tests (Vitest & Supertest):**

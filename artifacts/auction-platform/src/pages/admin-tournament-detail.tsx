@@ -33,6 +33,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import { FanPlatformSettingsCard } from "@/components/admin/fan-platform-settings-card";
 import { AdminShell } from "@/components/admin-shell";
 import { displayOrganizerMobile } from "@workspace/api-base/mobile";
 import { TransferOrganizerDialog } from "@/components/admin/transfer-organizer-dialog";
@@ -583,6 +584,12 @@ export default function AdminTournamentDetailPage() {
               </div>
             </div>
           )}
+
+          <FanPlatformSettingsCard
+            tournamentId={tournamentId}
+            features={t.features}
+            onUpdate={reloadDetail}
+          />
 
           {/* Module-Aware Navigation Bar */}
           <div className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-2 sm:flex-row sm:items-center sm:justify-between overflow-hidden">

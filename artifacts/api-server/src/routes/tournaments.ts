@@ -446,6 +446,32 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
     mainBannerEnabled: z.boolean().optional(),
     mainBannerFit: z.enum(["cover", "contain"]).optional(),
     matchDates: z.string().nullable().optional(),
+    features: z.object({
+        ownerApp: z.boolean().optional(),
+        scoring: z.boolean().optional(),
+        sponsorshipHub: z.boolean().optional(),
+        analytics: z.boolean().optional(),
+        whatsappNotifications: z.boolean().optional(),
+        weddingBroadcast: z.boolean().optional(),
+        liveAuctionHistory: z.boolean().optional(),
+        ownerAppHistory: z.boolean().optional(),
+        obsHistory: z.boolean().optional(),
+        ledHistory: z.boolean().optional(),
+        featuredEnabled: z.boolean().optional(),
+        featuredStartDate: z.string().optional(),
+        featuredEndDate: z.string().optional(),
+        featuredPriority: z.number().optional(),
+        liveStreamEnabled: z.boolean().optional(),
+        liveStreamUrl: z
+          .string()
+          .trim()
+          .refine(
+            (val) => !val || /^https?:\/\/.+/i.test(val),
+            { message: "Live stream URL must be a valid HTTP or HTTPS link" }
+          )
+          .nullable()
+          .optional(),
+    }).optional(),
     auctionEnabled: z.boolean().optional(),
     scoringEnabled: z.boolean().optional(),
     scoringPhase: z.enum(["disabled", "setup", "active", "completed"]).optional(),
@@ -671,6 +697,12 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
   });
   if (d.mainBannerEnabled !== undefined) updates.mainBannerEnabled = d.mainBannerEnabled;
   if (d.mainBannerFit !== undefined) updates.mainBannerFit = d.mainBannerFit;
+  if (d.features !== undefined) {
+    updates.featuresJson = {
+      ...(beforeTournament.featuresJson as Record<string, unknown> ?? {}),
+      ...d.features
+    };
+  }
   if (d.matchDates !== undefined) updates.matchDates = d.matchDates;
   if (isAdminCaller) {
     if (d.auctionEnabled !== undefined) {

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { scoringFeatureMiddleware } from "../lib/scoring-feature";
+import { fanScoringGuard } from "../middleware/fan-scoring-guard";
 import {
   isTournamentOrganizer,
   requireTournamentOrganizer,
@@ -472,7 +473,7 @@ router.get("/tournaments/:tournamentId/scoring/squads", async (req, res) => {
   }
 });
 
-/** Public snapshot for LED display (no auth). */
+// Public snapshot for LED display / public match viewer (no auth)
 router.get("/tournaments/:tournamentId/scoring/live", async (req, res) => {
   const tournamentId = parseId(req.params.tournamentId);
   if (tournamentId === null) {
@@ -480,6 +481,21 @@ router.get("/tournaments/:tournamentId/scoring/live", async (req, res) => {
     return;
   }
 
+  try {
+    const display = await getLiveScoringDisplay(tournamentId);
+    res.json(liveDisplayJson(display));
+  } catch (err) {
+    if (err instanceof ScoringServiceError) {
+      res.status(err.status).json({ error: err.message, code: err.code });
+      return;
+    }
+    throw err;
+  }
+});
+
+// Fan Platform integration
+router.get("/tournaments/:tournamentId/scoring/fan-live", fanScoringGuard, async (req, res) => {
+  const tournamentId = (req as any).tournament.id;
   try {
     const display = await getLiveScoringDisplay(tournamentId);
     res.json(liveDisplayJson(display));

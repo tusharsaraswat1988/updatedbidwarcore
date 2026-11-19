@@ -106,6 +106,7 @@ function resolvePublicOrigin(
 const PRODUCTION_SITE_ORIGINS = [
   "https://bidwar.in",
   "https://www.bidwar.in",
+  "https://fan.bidwar.in",
   "https://bidwarlive.up.railway.app",
 ] as const;
 

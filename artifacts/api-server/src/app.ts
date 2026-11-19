@@ -296,6 +296,7 @@ if (serveStatic) {
   const ownerDist   = path.resolve(__dirname, "../../owner-app/dist/public");
   const scoringDist = path.resolve(__dirname, "../../scoring-app/dist/public");
   const mobileDist  = path.resolve(__dirname, "../../mobile-app/dist/public");
+  const fanDist     = path.resolve(__dirname, "../../fan-platform/dist");
 
   assertServeStaticBuild(auctionDist);
 
@@ -453,6 +454,26 @@ if (serveStatic) {
         res.sendFile(path.join(mobileDist, "index.html"));
       });
       logger.info({ path: mobileDist }, "Static: mobile-app at /mobile");
+    }
+
+    // Dedicated fan platform (served on fan.* subdomain, e.g. fan.bidwar.in)
+    if (existsSync(fanDist)) {
+      app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+        const xfh = req.headers["x-forwarded-host"];
+        const rawXfh = Array.isArray(xfh) ? xfh[0] : (xfh ?? "");
+        const host = (rawXfh.split(",")[0].trim() || req.headers.host || "").split(":")[0].toLowerCase().trim();
+        if (host.startsWith("fan.")) {
+          return expressStaticGzip(fanDist, staticOpts)(req, res, () => {
+            if (req.method === "GET") {
+              res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+              return res.sendFile(path.join(fanDist, "index.html"));
+            }
+            next();
+          });
+        }
+        next();
+      });
+      logger.info({ path: fanDist }, "Static: fan-platform enabled for fan.* subdomain");
     }
 
     // Canonical SPA entry is / — never serve the built index.html at /index.html.

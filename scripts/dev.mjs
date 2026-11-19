@@ -18,7 +18,7 @@ import {
 } from "./dev-ports.mjs";
 
 const { loaded, path: envPath, file } = loadRootEnv();
-const { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT, scoringApp: SCORING_APP_PORT, mobileApp: MOBILE_APP_PORT } =
+const { api: API_PORT, frontend: FRONTEND_PORT, ownerApp: OWNER_APP_PORT, scoringApp: SCORING_APP_PORT, mobileApp: MOBILE_APP_PORT, fanPlatform: FAN_PLATFORM_PORT } =
   getDevPorts();
 
 const API_PORT_STR = String(API_PORT);
@@ -26,6 +26,7 @@ const FRONTEND_PORT_STR = String(FRONTEND_PORT);
 const OWNER_APP_PORT_STR = String(OWNER_APP_PORT);
 const SCORING_APP_PORT_STR = String(SCORING_APP_PORT);
 const MOBILE_APP_PORT_STR = String(MOBILE_APP_PORT);
+const FAN_PLATFORM_PORT_STR = String(FAN_PLATFORM_PORT);
 
 /**
  * Scoring-app is required for badminton/cricket scoring URLs proxied via auction-platform.
@@ -41,6 +42,8 @@ function resolveEnableScoring() {
 }
 
 const enableScoring = resolveEnableScoring();
+const enableGateway = !process.argv.includes("--no-gateway");
+
 /** Local dev public origin — always overrides production APP_* from .env so OAuth stays on localhost. */
 function resolveDevPublicEnv(frontendPort) {
   const explicit = process.env.DEV_PUBLIC_ORIGIN?.trim()?.replace(/\/+$/, "");
@@ -70,6 +73,7 @@ function resolveDevPublicEnv(frontendPort) {
 const devPublicEnv = resolveDevPublicEnv(FRONTEND_PORT);
 
 function devEnv(overrides) {
+  const ports = getDevPorts();
   return {
     ...process.env,
     NODE_ENV: "development",
@@ -79,11 +83,14 @@ function devEnv(overrides) {
       process.env.PLAYER_SPORT_PROFILES_ENABLED?.trim() || "true",
     SERVE_STATIC: "false",
     ...devPublicEnv,
+    ...Object.fromEntries(Object.entries(ports).map(([k, v]) => [k.toUpperCase() + "_PORT", String(v)])),
     API_PORT: API_PORT_STR,
     FRONTEND_PORT: FRONTEND_PORT_STR,
     OWNER_APP_PORT: OWNER_APP_PORT_STR,
     SCORING_APP_PORT: SCORING_APP_PORT_STR,
     MOBILE_APP_PORT: MOBILE_APP_PORT_STR,
+    FAN_PLATFORM_PORT: FAN_PLATFORM_PORT_STR,
+    GATEWAY_PORT: String(ports.gateway),
     API_DEV_PROXY_TARGET:
       process.env.API_DEV_PROXY_TARGET?.trim() ||
       `http://127.0.0.1:${API_PORT}`,
@@ -178,6 +185,7 @@ const devPorts = [
     OWNER_APP_PORT,
     SCORING_APP_PORT,
     MOBILE_APP_PORT,
+    FAN_PLATFORM_PORT,
   ]),
 ];
 
@@ -272,7 +280,10 @@ if (startServers) {
     `  Mobile:    http://127.0.0.1:${FRONTEND_PORT}/mobile/`,
   );
   console.log(
-    `             (direct) http://127.0.0.1:${MOBILE_APP_PORT}/mobile/\n`,
+    `             (direct) http://127.0.0.1:${MOBILE_APP_PORT}/mobile/`,
+  );
+  console.log(
+    `  Fan:       http://127.0.0.1:${FAN_PLATFORM_PORT}/fan/\n`,
   );
 
   console.log("Building API (one-time)…\n");
@@ -330,7 +341,7 @@ if (startServers) {
     "web",
     "pnpm",
     ["--filter", "@workspace/auction-platform", "run", "dev"],
-    devEnv({ PORT: FRONTEND_PORT_STR }),
+    devEnv({ PORT: FRONTEND_PORT_STR, VITE_BASE_PATH: "/" }),
     { restartOnCrash: true },
   );
 
@@ -338,7 +349,7 @@ if (startServers) {
     "owner",
     "pnpm",
     ["--filter", "@workspace/owner-app", "run", "dev"],
-    devEnv({ OWNER_APP_PORT: OWNER_APP_PORT_STR, PORT: OWNER_APP_PORT_STR }),
+    devEnv({ OWNER_APP_PORT: OWNER_APP_PORT_STR, PORT: OWNER_APP_PORT_STR, VITE_BASE_PATH: "/owner-app/" }),
     { restartOnCrash: true },
   );
 
@@ -347,7 +358,7 @@ if (startServers) {
       "scoring",
       "pnpm",
       ["--filter", "@workspace/scoring-app", "run", "dev"],
-      devEnv({ SCORING_APP_PORT: SCORING_APP_PORT_STR, PORT: SCORING_APP_PORT_STR }),
+      devEnv({ SCORING_APP_PORT: SCORING_APP_PORT_STR, PORT: SCORING_APP_PORT_STR, VITE_BASE_PATH: "/scoring-app/" }),
       { restartOnCrash: true },
     );
   }
@@ -356,9 +367,27 @@ if (startServers) {
     "mobile",
     "pnpm",
     ["--filter", "@workspace/mobile-app", "run", "dev"],
-    devEnv({ MOBILE_APP_PORT: MOBILE_APP_PORT_STR, PORT: MOBILE_APP_PORT_STR }),
+    devEnv({ MOBILE_APP_PORT: MOBILE_APP_PORT_STR, PORT: MOBILE_APP_PORT_STR, VITE_BASE_PATH: "/mobile/" }),
     { restartOnCrash: true },
   );
+
+  run(
+    "fan",
+    "pnpm",
+    ["--filter", "@workspace/fan-platform", "run", "dev"],
+    devEnv({ FAN_PLATFORM_PORT: FAN_PLATFORM_PORT_STR, PORT: FAN_PLATFORM_PORT_STR, VITE_BASE_PATH: "/fan/" }),
+    { restartOnCrash: true },
+  );
+
+  if (enableGateway) {
+    run(
+      "gateway",
+      "node",
+      ["artifacts/gateway/index.mjs"],
+      devEnv({ PORT: String(devPortsConfig.gateway) }),
+      { restartOnCrash: true },
+    );
+  }
 
   console.log("All dev processes started. Press Ctrl+C to stop.\n");
 }

@@ -1083,6 +1083,10 @@ router.patch("/auth/admin/tournaments/:tournamentId", async (req, res) => {
       ownerAppHistory: z.boolean().optional(),
       obsHistory: z.boolean().optional(),
       ledHistory: z.boolean().optional(),
+      featuredEnabled: z.boolean().optional(),
+      featuredStartDate: z.string().nullable().optional(),
+      featuredEndDate: z.string().nullable().optional(),
+      featuredPriority: z.number().optional(),
     }).optional(),
     reason: z.string().optional(),
   });

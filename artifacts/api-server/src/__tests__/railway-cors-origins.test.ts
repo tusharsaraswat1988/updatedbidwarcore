@@ -331,6 +331,7 @@ describe("production CORS middleware (REST + SSE)", () => {
     for (const origin of [
       "https://bidwar.in",
       "https://www.bidwar.in",
+      "https://fan.bidwar.in",
       "https://bidwarlive.up.railway.app",
     ]) {
       const res = await request(app)

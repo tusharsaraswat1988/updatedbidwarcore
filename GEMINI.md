@@ -1,37 +1,5 @@
 # GEMINI & ANTIGRAVITY PROJECT INSTRUCTIONS — BIDWAR
 
-> **CRITICAL RULE: MANDATORY LIVING OPERATION MANUAL MAINTENANCE**
->
-> Canonical File: `docs/BIDWAR_OPERATION_MANUAL.md`
->
-> 1. **Definition of Done Requirement:**
->    Whenever ANY feature, screen, button, workflow, setting, permission, validation rule, or integration is:
->    - **Created**
->    - **Modified**
->    - **Renamed**
->    - **Moved**
->    - **Deprecated**
->    - **Removed**
->    You **MUST** update `docs/BIDWAR_OPERATION_MANUAL.md` in the **SAME task / pull request / commit** as the code change.
->
-> 2. **Scope of Update:**
->    Update all affected manual sections:
->    - Route/screen inventory
->    - Role/permission matrix
->    - Step-by-step operating procedures and workflows
->    - Registration form fields & validation rules
->    - Button/action reference (prerequisites, eligible roles, outcomes, danger zones)
->    - State transitions
->    - Needs-verification registry (if unverified or mock)
->    - Change log with date and summary
->
-> 3. **Never Fabricate:**
->    Always document from actual implementation. If behavior is unverified or external, mark it clearly as "Needs verification".
->
-> 4. **Enforcement:**
->    Run `pnpm run check:manual` to verify that all 13 required sections exist and manual links are intact.
->    Do not consider any feature task complete without updating the Operation Manual!
-
 ---
 
 ## Architecture Principles

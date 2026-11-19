@@ -147,6 +147,10 @@ export async function updateAdminTournament(
       ownerAppHistory: boolean;
       obsHistory: boolean;
       ledHistory: boolean;
+      featuredEnabled: boolean;
+      featuredStartDate: string;
+      featuredEndDate: string;
+      featuredPriority: number;
     }>;
   }>
 ): Promise<{ success: boolean; error?: string; linkedOrganizerId?: number | null; linkedOrganizerName?: string | null }> {
@@ -275,6 +279,10 @@ export type AdminTournamentDetail = {
       ownerAppHistory?: boolean;
       obsHistory?: boolean;
       ledHistory?: boolean;
+      featuredEnabled?: boolean;
+      featuredStartDate?: string;
+      featuredEndDate?: string;
+      featuredPriority?: number;
     };
     createdAt: string;
   };

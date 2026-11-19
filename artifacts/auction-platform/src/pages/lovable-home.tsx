@@ -787,6 +787,12 @@ function Hero({
             >
               Book Live Demo
             </a>
+            <a
+              href="https://fan.bidwar.in"
+              className="ghost-button ghost-button-hover min-h-11 inline-flex items-center justify-center rounded-md px-6 py-3.5 text-xs font-bold uppercase tracking-wider border border-white/10"
+            >
+              Explore Live Tournaments →
+            </a>
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground font-mono">

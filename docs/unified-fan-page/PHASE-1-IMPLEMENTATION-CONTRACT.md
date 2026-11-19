@@ -11,7 +11,7 @@
 
 1. **Strict Sequential Execution:** Only ONE phase may be executed at a time.
 2. **Approval Gate Mandate:** Every phase must stop and wait for explicit user approval before proceeding to the next.
-3. **Living Operation Manual Enforcement:** In accordance with repository directives, whenever any screen, button, route, or workflow is added or modified, `docs/BIDWAR_OPERATION_MANUAL.md` **MUST** be updated in the same phase and verified via `pnpm run check:manual`.
+3. **Living Operation Manual Enforcement:** In accordance with repository directives, whenever any screen, button, route, or workflow is added or modified, ensure relevant documentation is updated in the same phase and verified.
 4. **Git Tree Cleanliness:** Do not overwrite or discard unrelated unstaged user changes. Verify `git status` before and after each phase.
 5. **No Blind Rewrites:** Re-use the existing Auction Live Viewer and Sports Scoring engines as child renderers without rewriting business logic.
 
@@ -48,7 +48,7 @@ Create the shared presentation shell, adaptive module navigation tabs, and tourn
 - `artifacts/auction-platform/src/components/fan/unified-module-nav.tsx` (NEW)
 - `artifacts/auction-platform/src/components/fan/unified-fan-page-shell.tsx` (NEW)
 - `artifacts/auction-platform/src/platform-app.tsx` (MODIFIED: add `/tournament/:id/fan` route)
-- `docs/BIDWAR_OPERATION_MANUAL.md` (MODIFIED: document Unified Fan Page Shell)
+- Update documentation for Unified Fan Page Shell.
 
 #### D. Dependencies
 - Phase 1 Architecture Approval.
@@ -92,7 +92,7 @@ Connect the existing Auction Live Viewer (`liveviewer.tsx`) and Sports Scoring p
 - `artifacts/auction-platform/src/components/fan/sport-fan-renderer-host.tsx` (NEW)
 - `artifacts/auction-platform/src/pages/unified-fan-page.tsx` (MODIFIED: mount domain renderers)
 - `artifacts/auction-platform/src/pages/liveviewer.tsx` (MODIFIED: export standalone sub-renderer props if needed)
-- `docs/BIDWAR_OPERATION_MANUAL.md` (MODIFIED: document integrated module experiences)
+- Update documentation for integrated module experiences.
 
 #### D. Dependencies
 - Phase 2 Shell completion.
@@ -136,7 +136,7 @@ Establish `/tournament/:id/fan` as the canonical destination while preserving 10
 - `artifacts/auction-platform/src/platform-app.tsx` (MODIFIED)
 - `artifacts/auction-platform/src/components/scoring/tournament-fan-header.tsx` (MODIFIED: update canonical share URL)
 - `artifacts/auction-platform/src/lib/tournament-navigation.ts` (MODIFIED: generate canonical links)
-- `docs/BIDWAR_OPERATION_MANUAL.md` (MODIFIED: document updated URL directory)
+- Update documentation for updated URL directory.
 
 #### D. Dependencies
 - Phase 3 Renderer Integration.
@@ -180,7 +180,7 @@ Build the public tournament discovery experience: the Universal Fan Home UI (`/f
 - `artifacts/auction-platform/src/pages/fan-home.tsx` (NEW)
 - `artifacts/auction-platform/src/components/fan/tournament-discovery-card.tsx` (NEW)
 - `artifacts/auction-platform/src/platform-app.tsx` (MODIFIED: register `/fan`)
-- `docs/BIDWAR_OPERATION_MANUAL.md` (MODIFIED: document Universal Fan Home)
+- Update documentation for Universal Fan Home.
 
 #### D. Dependencies
 - Phase 4 Canonical Routes.
@@ -214,11 +214,11 @@ Execute a comprehensive functional, visual, and performance regression across al
 - Run complete automated test suite across all packages.
 - Measure bundle size, time-to-interactive (TTI), and SSE reconnect latency.
 - Conduct deep `/browser` audit across Chrome, mobile emulation, and tablet viewports.
-- Update `docs/BIDWAR_OPERATION_MANUAL.md` and run `pnpm run check:manual`.
+- Ensure documentation is up-to-date.
 
 #### C. Expected Files to Change
 - Performance optimizations and bug fixes discovered during testing.
-- `docs/BIDWAR_OPERATION_MANUAL.md` (Final manual sign-off).
+- Final documentation review and sign-off.
 - `docs/unified-fan-page/PHASE-6-REPORT.md` (NEW).
 
 #### D. Dependencies
