@@ -34,7 +34,7 @@ export function TournamentHeaderBanner({
   const sportFallbackGradient =
     sport === "badminton"
       ? "from-indigo-950 via-slate-900 to-sky-950"
-      : "from-emerald-950/70 via-slate-950 to-slate-900";
+      : "from-slate-950 via-slate-900 to-slate-950";
 
   return (
     <div

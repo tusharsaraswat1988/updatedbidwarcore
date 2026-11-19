@@ -179,24 +179,19 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
         </div>
       </div>
 
-      {/* ── Atmospheric Lighting: Subtle Golden Glow Only (Green Light Beam Removed) ── */}
-      <div className="absolute -top-32 -left-32 h-80 w-80 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(245,158,11,0.12),rgba(255,255,255,0))] pointer-events-none" />
-
-      {/* ── Background Layer: Banner with Cinematic Color Grade ── */}
+      {/* ── Background Layer: Clean Dark Stadium Backdrop (No Beams or Radial Glows) ── */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         {t.mainBannerUrl ? (
           <img
             src={t.mainBannerUrl}
             alt=""
             aria-hidden="true"
-            className="h-full w-full object-cover opacity-45 filter saturate-125 contrast-105"
+            className="h-full w-full object-cover opacity-30"
           />
         ) : (
-          <div className={`h-full w-full bg-gradient-to-br ${sportFallbackBg} opacity-95`} />
+          <div className="h-full w-full bg-slate-950" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-slate-950/80 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-black/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/85 to-slate-950/90" />
       </div>
 
       <div className="relative z-10 grid grid-cols-1 gap-8 p-6 sm:p-8 md:p-10 lg:grid-cols-12 lg:items-center">
@@ -638,7 +633,7 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
 
           {/* 4. Concluded Tournament Card */}
           {!isMatchLive && !isAuctionLive && isCompleted && (
-            <div className="rounded-3xl border border-emerald-500/20 bg-slate-900/70 p-6 shadow-xl backdrop-blur-md">
+            <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-6 shadow-xl backdrop-blur-md">
               <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-400">
                 <Trophy size={16} />
                 <span>Tournament Concluded</span>

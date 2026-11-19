@@ -19,7 +19,7 @@ export const TournamentCard = ({ t }: { t: TournamentSummary }) => {
   const sportFallbackBg =
     sport === 'badminton'
       ? 'from-indigo-950 via-slate-900 to-slate-950'
-      : 'from-emerald-950/80 via-slate-900 to-slate-950';
+      : 'from-slate-900 via-slate-950 to-slate-950';
 
   return (
     <Link href={`/${t.slug}`}>
@@ -27,7 +27,7 @@ export const TournamentCard = ({ t }: { t: TournamentSummary }) => {
         className={cn(
           "group flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white transition-all duration-200 hover:-translate-y-1 hover:border-amber-500/50 hover:shadow-xl dark:border-white/[0.08] dark:bg-[#131B2E]",
           isFeatured && "border-amber-500/40 ring-1 ring-amber-500/20",
-          isLive && "border-red-500/30"
+          isLive && "border-emerald-500/30"
         )}
       >
         {/* Card header / Artwork Container */}
