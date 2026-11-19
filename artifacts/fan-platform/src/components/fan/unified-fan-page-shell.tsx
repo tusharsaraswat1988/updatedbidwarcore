@@ -203,7 +203,7 @@ export function UnifiedFanPageShell({
               <button
                 type="button"
                 onClick={() => setWatchLiveOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-500/30 transition-all cursor-pointer min-h-[44px]"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-500/30 transition-all cursor-pointer min-h-[44px]"
                 aria-label="Watch live broadcast stream"
               >
                 <Tv className="w-3.5 h-3.5 animate-pulse" />

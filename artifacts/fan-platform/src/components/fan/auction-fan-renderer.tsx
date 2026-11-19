@@ -772,7 +772,7 @@ export function AuctionFanRenderer({ tournamentId }: AuctionFanRendererProps) {
           >
             <Gavel className="h-3.5 w-3.5" />
             <span>Auction Floor</span>
-            {live && <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />}
+            {live && <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />}
           </button>
 
           <button
@@ -841,7 +841,7 @@ export function AuctionFanRenderer({ tournamentId }: AuctionFanRendererProps) {
             className={cn(
               "rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider",
               live
-                ? "bg-red-500 text-white shadow-lg shadow-red-500/30 animate-pulse"
+                ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 animate-pulse"
                 : isPaused
                 ? "bg-amber-500 text-slate-950 font-black"
                 : isCompleted

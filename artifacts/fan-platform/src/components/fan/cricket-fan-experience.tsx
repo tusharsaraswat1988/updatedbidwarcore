@@ -389,7 +389,7 @@ function StatusPill({ status }: { status: string | null }) {
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-black uppercase tracking-wider ${
       live
-        ? "bg-red-500 text-white"
+        ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/30"
         : "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300"
     }`}>
       {statusLabel(status)}

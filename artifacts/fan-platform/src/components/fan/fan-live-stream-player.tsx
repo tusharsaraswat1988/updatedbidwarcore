@@ -34,20 +34,20 @@ export function FanLiveStreamPlayer({
     <section
       aria-label="Official Video Broadcast"
       className={cn(
-        "w-full overflow-hidden rounded-3xl border border-red-500/30 bg-slate-950/90 text-white shadow-xl transition-all dark:bg-black/80",
+        "w-full overflow-hidden rounded-3xl border border-emerald-500/30 bg-slate-950/90 text-white shadow-xl transition-all dark:bg-black/80",
         className
       )}
       data-testid="fan-live-stream-player"
     >
       {/* Top Banner / Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 sm:p-4 bg-gradient-to-r from-red-950/60 via-slate-950 to-slate-950 border-b border-white/10">
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 sm:p-4 bg-gradient-to-r from-emerald-950/60 via-slate-950 to-slate-950 border-b border-white/10">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${isLive ? 'bg-red-500/20 text-red-500 border border-red-500/40' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${isLive ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
             <Radio className={`h-4 w-4 ${isLive ? 'animate-pulse' : ''}`} />
           </span>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-sm ${isLive ? 'bg-red-500 shadow-red-500/50' : 'bg-slate-700'}`}>
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-sm ${isLive ? 'bg-emerald-500 shadow-emerald-500/50' : 'bg-slate-700'}`}>
                 {isLive ? "● LIVE" : "STREAM"}
               </span>
               <h3 className="truncate font-display font-bold text-sm text-white">
@@ -75,7 +75,7 @@ export function FanLiveStreamPlayer({
           <button
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-red-500/30 transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white shadow-md shadow-emerald-500/30 transition cursor-pointer"
             aria-expanded={isExpanded}
             aria-label={isExpanded ? "Collapse live stream player" : "Watch live stream player"}
           >
@@ -110,7 +110,7 @@ export function FanLiveStreamPlayer({
                 href={parsed.directUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-red-500/40 hover:bg-red-500 transition"
+                className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-500/40 hover:bg-emerald-500 transition"
               >
                 <ExternalLink className="h-4 w-4" />
                 Open Live Video Stream

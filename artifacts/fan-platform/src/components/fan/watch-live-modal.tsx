@@ -29,13 +29,13 @@ export function WatchLiveModal({
       <DialogContent className="max-w-4xl p-0 overflow-hidden bg-slate-950 text-white border-white/10 rounded-3xl shadow-2xl">
         <DialogHeader className="p-4 sm:p-5 border-b border-white/10 flex flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isLive ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${isLive ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}`}>
               <Tv className={`h-5 w-5 ${isLive ? 'animate-pulse' : ''}`} />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 {isLive && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white shadow-sm shadow-emerald-500/30">
                     ● Live
                   </span>
                 )}
@@ -86,7 +86,7 @@ export function WatchLiveModal({
                 href={parsed.directUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-red-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-red-500/40 hover:bg-red-500 transition"
+                className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-500/40 hover:bg-emerald-500 transition"
               >
                 <ExternalLink className="h-4 w-4" />
                 <span>Launch Stream Player</span>
