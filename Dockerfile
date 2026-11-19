@@ -66,6 +66,7 @@ COPY --from=builder /app/artifacts/auction-platform/dist/public ./artifacts/auct
 COPY --from=builder /app/artifacts/owner-app/dist/public        ./artifacts/owner-app/dist/public
 COPY --from=builder /app/artifacts/scoring-app/dist/public      ./artifacts/scoring-app/dist/public
 COPY --from=builder /app/artifacts/mobile-app/dist/public       ./artifacts/mobile-app/dist/public
+COPY --from=builder /app/artifacts/fan-platform/dist           ./artifacts/fan-platform/dist
 
 EXPOSE 3000
 

@@ -22,6 +22,7 @@ import { jwtAuthMiddleware } from "./middleware/jwt-auth";
 import { organizerAccountStatusMiddleware } from "./middleware/organizer-account-status";
 import { ownerJoinPath } from "@workspace/api-base/owner-urls";
 import {
+  assertFanPlatformBuild,
   assertServeStaticBuild,
   corsOriginDelegate,
   getRuntimeConfig,
@@ -299,6 +300,7 @@ if (serveStatic) {
   const fanDist     = path.resolve(__dirname, "../../fan-platform/dist");
 
   assertServeStaticBuild(auctionDist);
+  assertFanPlatformBuild(fanDist);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const staticOpts: any = {
@@ -331,6 +333,51 @@ if (serveStatic) {
         },
       },
     };
+
+    // ── Dedicated fan platform (served on fan.bidwar.in / fan.* subdomain) ──
+    // MUST be registered before marketing homepage SSR, meta-injection, and auction catch-all
+    // so fan requests are completely isolated from auction-platform assets and SSR.
+    if (existsSync(fanDist)) {
+      const isFanRequest = (req: express.Request): boolean => {
+        const xfh = req.headers["x-forwarded-host"];
+        const rawXfh = Array.isArray(xfh) ? xfh[0] : (xfh ?? "");
+        const host = (rawXfh.split(",")[0].trim() || req.headers.host || "").split(":")[0].toLowerCase().trim();
+        return host === "fan.bidwar.in" || host.startsWith("fan.");
+      };
+
+      app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+        if (!isFanRequest(req)) {
+          return next();
+        }
+
+        // Never intercept API routes or health checks
+        if (req.path.startsWith("/api/") || req.path === "/healthz" || req.path === "/api/healthz") {
+          return next();
+        }
+
+        if (req.method !== "GET" && req.method !== "HEAD") {
+          return res.status(405).send("Method Not Allowed");
+        }
+
+        // Try serving static assets (JS, CSS, images, webmanifest, etc.) from fanDist
+        return expressStaticGzip(fanDist, staticOpts)(req, res, () => {
+          // If static file was not found:
+          // Missing static assets (e.g. /assets/foo.js, /foo.css, /foo.png) must return 404,
+          // NEVER returning index.html which causes MIME-type errors in the browser.
+          const ext = path.extname(req.path);
+          if (ext && ext !== ".html") {
+            res.status(404).setHeader("Content-Type", "text/plain; charset=utf-8");
+            return res.send("Not Found");
+          }
+
+          // SPA fallback for HTML / client navigation (e.g. /, /VYAPARI, /VS581307, /tournaments, etc.)
+          res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+          return res.sendFile(path.join(fanDist, "index.html"));
+        });
+      });
+
+      logger.info({ path: fanDist }, "Static: fan-platform enabled for fan.bidwar.in / fan.*");
+    }
 
     registerAcademyHtmlRoutes(app);
     logger.info("SEO: page-meta injector loaded");
@@ -454,26 +501,6 @@ if (serveStatic) {
         res.sendFile(path.join(mobileDist, "index.html"));
       });
       logger.info({ path: mobileDist }, "Static: mobile-app at /mobile");
-    }
-
-    // Dedicated fan platform (served on fan.* subdomain, e.g. fan.bidwar.in)
-    if (existsSync(fanDist)) {
-      app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-        const xfh = req.headers["x-forwarded-host"];
-        const rawXfh = Array.isArray(xfh) ? xfh[0] : (xfh ?? "");
-        const host = (rawXfh.split(",")[0].trim() || req.headers.host || "").split(":")[0].toLowerCase().trim();
-        if (host.startsWith("fan.")) {
-          return expressStaticGzip(fanDist, staticOpts)(req, res, () => {
-            if (req.method === "GET") {
-              res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-              return res.sendFile(path.join(fanDist, "index.html"));
-            }
-            next();
-          });
-        }
-        next();
-      });
-      logger.info({ path: fanDist }, "Static: fan-platform enabled for fan.* subdomain");
     }
 
     // Canonical SPA entry is / — never serve the built index.html at /index.html.

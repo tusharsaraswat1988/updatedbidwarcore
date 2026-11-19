@@ -629,3 +629,29 @@ export function assertServeStaticBuild(auctionDistPath: string): void {
     );
   }
 }
+
+/**
+ * When SERVE_STATIC is enabled in production, the fan-platform build must exist (including index.html) or startup fails.
+ */
+export function assertFanPlatformBuild(fanDistPath: string): void {
+  const { serveStatic, isProduction } = getRuntimeConfig();
+  if (!serveStatic || !isProduction) return;
+
+  if (!existsSync(fanDistPath)) {
+    throw new Error(
+      `SERVE_STATIC is enabled in production but the fan-platform build directory was not found at:\n` +
+        `  ${fanDistPath}\n` +
+        `Ensure "pnpm run build:deploy" ran and Dockerfile includes:\n` +
+        `  COPY --from=builder /app/artifacts/fan-platform/dist ./artifacts/fan-platform/dist`,
+    );
+  }
+
+  const builtIndex = path.join(fanDistPath, "index.html");
+  if (!existsSync(builtIndex)) {
+    throw new Error(
+      `SERVE_STATIC is enabled in production but fan-platform/dist/index.html was not found at:\n` +
+        `  ${builtIndex}\n` +
+        `Run "pnpm run build:deploy" from the repository root, then start the server again.`,
+    );
+  }
+}
