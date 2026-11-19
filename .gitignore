@@ -48,6 +48,9 @@ Thumbs.db
 .cache/
 .local/
 .playwright-browsers/
+
+# Local runner scripts
+start-*.mjs
 .playwright-browsers-test/
 .env
 .env.local
