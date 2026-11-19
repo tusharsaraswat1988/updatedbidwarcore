@@ -153,28 +153,35 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
   // Sport-specific fallback background
   const sportFallbackBg = isBadminton
     ? 'from-indigo-950 via-slate-900 to-slate-950'
-    : 'from-emerald-950/80 via-slate-900 to-slate-950';
+    : 'from-slate-900 via-slate-950 to-slate-950';
 
   return (
     <section className="relative mb-12 overflow-hidden rounded-3xl border border-amber-500/30 bg-slate-950 text-white shadow-2xl transition-all dark:border-amber-400/25">
-      {/* ── Traveling Star Sparkle Orbiting Along Border ── */}
+      {/* ── Traveling Star Sparkle Orbiting Along Border (Authentic 4-Point Concave Needle Diamond Sparkle Star) ── */}
       <div className="animate-border-sparkle -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-        <div className="relative flex items-center justify-center">
-          <div className="absolute h-8 w-8 rounded-full bg-amber-400/50 blur-xs" />
-          <div className="absolute h-4 w-4 rounded-full bg-yellow-200 blur-2xs" />
+        <div className="relative flex items-center justify-center animate-spin [animation-duration:6s]">
+          {/* Primary Sharp 4-Point Star with Curved Needle Points */}
           <svg
             viewBox="0 0 24 24"
-            className="relative h-4 w-4 text-amber-100 fill-amber-200 drop-shadow-[0_0_8px_rgba(251,191,36,1)]"
+            className="h-6 w-6 text-amber-200 fill-amber-300 drop-shadow-[0_0_10px_rgba(251,191,36,0.95)]"
           >
-            <path d="M12 0L14.5 9.5L24 12L14.5 14.5L12 24L9.5 14.5L0 12L9.5 9.5L12 0Z" />
+            <path d="M12 0C12 7.2 14.8 12 24 12C14.8 12 12 16.8 12 24C12 16.8 9.2 12 0 12C9.2 12 12 7.2 12 0Z" />
           </svg>
+          {/* Secondary 4-Point Star Rotated at 45° for Brilliant 8-Point Diamond Twinkle */}
+          <svg
+            viewBox="0 0 24 24"
+            className="absolute h-4 w-4 rotate-45 text-yellow-100 fill-white drop-shadow-[0_0_6px_rgba(255,255,255,1)] opacity-95"
+          >
+            <path d="M12 0C12 7.2 14.8 12 24 12C14.8 12 12 16.8 12 24C12 16.8 9.2 12 0 12C9.2 12 12 7.2 12 0Z" />
+          </svg>
+          {/* Brilliant Pinpoint Center Core */}
+          <div className="absolute h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_6px_#fff]" />
         </div>
       </div>
 
-      {/* ── Atmospheric Lighting: Golden & Emerald Stadium Beams ── */}
-      <div className="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-emerald-500/15 blur-3xl pointer-events-none" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(245,158,11,0.15),rgba(255,255,255,0))] pointer-events-none" />
+      {/* ── Atmospheric Lighting: Subtle Golden Glow Only (Green Light Beam Removed) ── */}
+      <div className="absolute -top-32 -left-32 h-80 w-80 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(245,158,11,0.12),rgba(255,255,255,0))] pointer-events-none" />
 
       {/* ── Background Layer: Banner with Cinematic Color Grade ── */}
       <div className="absolute inset-0 z-0 overflow-hidden">
@@ -414,9 +421,9 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
         <div className="lg:col-span-5">
           {/* 1. Live Match Head-to-Head Arena Card (Cricket / Badminton) */}
           {isMatchLive && t.liveMatchSummary && (
-            <div className="relative overflow-hidden rounded-3xl border border-emerald-500/40 bg-gradient-to-b from-slate-900/90 via-slate-900/95 to-slate-950/95 p-5 sm:p-6 shadow-[0_0_35px_rgba(16,185,129,0.18)] backdrop-blur-xl">
-              {/* Top ambient emerald highlight line */}
-              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500" />
+            <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-slate-900/90 via-slate-900/95 to-slate-950/95 p-5 sm:p-6 shadow-2xl shadow-black/60 backdrop-blur-xl">
+              {/* Top ambient highlight line */}
+              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-500/60 via-yellow-400/80 to-amber-500/60" />
 
               {/* Arena Header */}
               <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3">
