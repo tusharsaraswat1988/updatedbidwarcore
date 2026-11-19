@@ -38,7 +38,7 @@ export function RegistrationPaymentFormSection({
   const upiLink = buildUpiPaymentUrl(upiId, registrationFee, tournamentName);
   const showUtr = verificationMethod === "utr" || verificationMethod === "utr_and_screenshot";
   const showScreenshot = verificationMethod === "screenshot" || verificationMethod === "utr_and_screenshot";
-  const amountLabel = formatIndianRupee(registrationFee);
+  const amountLabel = formatIndianRupee(registrationFee, "rupee");
 
   const handleCopyUpi = useCallback(() => {
     if (!upiId) return;

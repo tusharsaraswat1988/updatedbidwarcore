@@ -1450,7 +1450,7 @@ export default function TournamentSettings() {
                             onChange={e => setEditForm(f => ({ ...f, registrationFee: e.target.value }))}
                             className="h-9 text-xs"
                           />
-                          <IndianAmountHint value={editForm.registrationFee as string} className="text-[10px]" />
+                          <IndianAmountHint value={editForm.registrationFee as string} unit="rupee" className="text-[10px]" />
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-xs font-medium text-foreground/90">

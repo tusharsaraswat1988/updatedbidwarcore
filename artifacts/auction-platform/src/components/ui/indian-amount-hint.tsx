@@ -14,9 +14,11 @@ export function IndianAmountHint({
   const words = formatIndianAmountWords(value, unit);
   if (!words) return null;
 
+  const display = unit === "rupee" && /^\d+$/.test(words) ? `₹${words}` : words;
+
   return (
     <p className={cn("text-xs text-amber-400/80 font-medium", className)}>
-      {words}
+      {display}
     </p>
   );
 }
