@@ -10,6 +10,7 @@ type SettingsSaveBarProps = {
   autoSave?: boolean;
   autoSavePhase?: AutoSavePhase;
   blockReason?: string | null;
+  errorMessage?: string | null;
 };
 
 export function SettingsSaveBar({
@@ -20,6 +21,7 @@ export function SettingsSaveBar({
   autoSave = false,
   autoSavePhase = "idle",
   blockReason = null,
+  errorMessage = null,
 }: SettingsSaveBarProps) {
   if (autoSave) {
     const showDiscard = isDirty && autoSavePhase !== "saving";
@@ -34,7 +36,11 @@ export function SettingsSaveBar({
         return { label: blockReason, tone: "amber" as const, icon: <span className="w-2 h-2 rounded-full bg-amber-500" aria-hidden /> };
       }
       if (autoSavePhase === "error") {
-        return { label: "Save failed — retrying on next edit", tone: "destructive" as const, icon: null };
+        return {
+          label: errorMessage ? `Save failed — ${errorMessage}` : "Save failed — retrying on next edit",
+          tone: "destructive" as const,
+          icon: null,
+        };
       }
       if (autoSavePhase === "saved" || (!isDirty && autoSavePhase === "idle")) {
         return { label: "All changes saved", tone: "success" as const, icon: <Check className="w-3.5 h-3.5" /> };
@@ -57,7 +63,7 @@ export function SettingsSaveBar({
             }`}
           >
             {status.icon}
-            {status.label}
+            <span className="truncate max-w-[280px]">{status.label}</span>
           </div>
         ) : null}
         {showDiscard ? (
@@ -99,9 +105,10 @@ type AutoSaveStatusPillProps = {
   isDirty: boolean;
   isSaving: boolean;
   blockReason?: string | null;
+  errorMessage?: string | null;
 };
 
-export function AutoSaveStatusPill({ phase, isDirty, isSaving, blockReason }: AutoSaveStatusPillProps) {
+export function AutoSaveStatusPill({ phase, isDirty, isSaving, blockReason, errorMessage = null }: AutoSaveStatusPillProps) {
   const visible =
     isSaving
     || phase === "saving"
@@ -125,7 +132,7 @@ export function AutoSaveStatusPill({ phase, isDirty, isSaving, blockReason }: Au
     label = blockReason;
     tone = "amber";
   } else if (phase === "error") {
-    label = "Could not save";
+    label = errorMessage || "Could not save";
     tone = "destructive";
   } else if (phase === "saved" && !isDirty) {
     label = "Saved";
@@ -141,7 +148,7 @@ export function AutoSaveStatusPill({ phase, isDirty, isSaving, blockReason }: Au
       aria-live="polite"
     >
       <div
-        className={`pointer-events-auto flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/90 ${
+        className={`pointer-events-auto flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium shadow-lg backdrop-blur max-w-[90vw] supports-[backdrop-filter]:bg-background/90 ${
           tone === "amber"
             ? "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
             : tone === "success"
@@ -158,7 +165,7 @@ export function AutoSaveStatusPill({ phase, isDirty, isSaving, blockReason }: Au
         ) : tone === "amber" ? (
           <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" aria-hidden />
         ) : null}
-        {label}
+        <span className="truncate">{label}</span>
       </div>
     </div>
   );

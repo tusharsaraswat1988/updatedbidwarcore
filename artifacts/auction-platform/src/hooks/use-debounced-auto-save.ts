@@ -2,13 +2,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type AutoSavePhase = "idle" | "pending" | "saving" | "saved" | "blocked" | "error";
 
+export type SaveResult = boolean | { ok: boolean; error?: string };
+
 type UseDebouncedAutoSaveOptions = {
   isDirty: boolean;
   saveKey: string;
   enabled: boolean;
   delayMs?: number;
   canSave: () => string | null;
-  onSave: () => Promise<boolean>;
+  onSave: () => Promise<SaveResult>;
   onSaved?: () => void;
   onError?: (message: string) => void;
 };
@@ -24,6 +26,7 @@ export function useDebouncedAutoSave({
   onError,
 }: UseDebouncedAutoSaveOptions) {
   const [phase, setPhase] = useState<AutoSavePhase>("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
@@ -45,7 +48,7 @@ export function useDebouncedAutoSave({
     }
   }, []);
 
-  const runSave = useCallback(async (options?: { notifySaved?: boolean }): Promise<boolean> => {
+  const runSave = useCallback(async (options?: { notifyUser?: boolean }): Promise<boolean> => {
     const blockReason = canSaveRef.current();
     if (blockReason) {
       setPhase("blocked");
@@ -62,22 +65,38 @@ export function useDebouncedAutoSave({
     clearSavedTimer();
 
     try {
-      const ok = await onSaveRef.current();
+      const res = await onSaveRef.current();
+      const ok = typeof res === "boolean" ? res : res.ok;
+      const errorMsg = typeof res === "object" && !res.ok ? res.error : undefined;
+
       if (ok) {
+        setErrorMessage(null);
         setPhase("saved");
-        if (options?.notifySaved !== false) {
+        if (options?.notifyUser !== false) {
           onSavedRef.current?.();
         }
         savedTimerRef.current = setTimeout(() => {
           setPhase("idle");
         }, 2500);
       } else {
+        const msg = errorMsg || "Could not save settings. Please try again.";
+        setErrorMessage(msg);
         setPhase("error");
+        if (options?.notifyUser !== false) {
+          onErrorRef.current?.(msg);
+        }
       }
       return ok;
-    } catch {
+    } catch (err: unknown) {
+      const msg =
+        (err as { data?: { error?: string } })?.data?.error ||
+        (err as Error)?.message ||
+        "Could not save settings. Please try again.";
+      setErrorMessage(msg);
       setPhase("error");
-      onErrorRef.current?.("Could not save settings.");
+      if (options?.notifyUser !== false) {
+        onErrorRef.current?.(msg);
+      }
       return false;
     } finally {
       savingRef.current = false;
@@ -93,7 +112,7 @@ export function useDebouncedAutoSave({
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    return runSave({ notifySaved: false });
+    return runSave({ notifyUser: false });
   }, [runSave]);
 
   useEffect(() => {
@@ -105,6 +124,7 @@ export function useDebouncedAutoSave({
     }
 
     if (!isDirty) {
+      setErrorMessage(null);
       return;
     }
 
@@ -134,5 +154,5 @@ export function useDebouncedAutoSave({
     clearSavedTimer();
   }, [clearSavedTimer]);
 
-  return { phase, saveNow };
+  return { phase, errorMessage, saveNow };
 }

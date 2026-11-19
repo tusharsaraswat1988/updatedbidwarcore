@@ -458,8 +458,8 @@ router.patch("/tournaments/:tournamentId", async (req, res) => {
         obsHistory: z.boolean().optional(),
         ledHistory: z.boolean().optional(),
         featuredEnabled: z.boolean().optional(),
-        featuredStartDate: z.string().optional(),
-        featuredEndDate: z.string().optional(),
+        featuredStartDate: z.string().nullable().optional(),
+        featuredEndDate: z.string().nullable().optional(),
         featuredPriority: z.number().optional(),
         liveStreamEnabled: z.boolean().optional(),
         liveStreamUrl: z

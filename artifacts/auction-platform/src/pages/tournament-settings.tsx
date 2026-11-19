@@ -151,6 +151,7 @@ export default function TournamentSettings() {
   >(null);
   const [highlightField, setHighlightField] = useState<SettingsFocusField | null>(null);
   const [baselineSnapshot, setBaselineSnapshot] = useState("");
+  const lastErrorRef = useRef<string | null>(null);
 
   const updateTournament = useUpdateTournament();
   const sportLocked = players.length > 0;
@@ -632,13 +633,13 @@ export default function TournamentSettings() {
     return null;
   }, [editForm, bidTiers, bidValueOptions, squadSizeError, sportLocked, tournament, sponsorLogos, audioUploadingField, openingTimerError, bidTimerError, isAuction, customQuestions]);
 
-  const performSave = useCallback(async (options?: { notify?: boolean }): Promise<boolean> => {
+  const performSave = useCallback(async (options?: { notify?: boolean }): Promise<{ ok: boolean; error?: string }> => {
     const blockReason = getSaveBlockReason();
     if (blockReason) {
       if (options?.notify) {
         toast({ title: "Cannot save yet", description: blockReason, variant: "destructive" });
       }
-      return false;
+      return { ok: false, error: blockReason };
     }
 
     const filteredLogos = sponsorLogos
@@ -724,8 +725,11 @@ export default function TournamentSettings() {
       dataPayload.mainBannerPublicId = (editForm.mainBannerPublicId as string) || null;
       dataPayload.mainBannerEnabled = editForm.mainBannerEnabled === true;
       dataPayload.mainBannerFit = ((editForm.mainBannerFit as string) || "cover") as "cover" | "contain";
+      const existingFeatures = (((tournament as any)?.featuresJson ?? (tournament as any)?.features) || {});
       dataPayload.features = {
-        ...(((tournament as any)?.featuresJson ?? (tournament as any)?.features) || {}),
+        ...existingFeatures,
+        featuredStartDate: existingFeatures.featuredStartDate ?? undefined,
+        featuredEndDate: existingFeatures.featuredEndDate ?? undefined,
         liveAuctionHistory: editForm.liveAuctionHistory !== false,
         ownerAppHistory: editForm.ownerAppHistory !== false,
         obsHistory: editForm.obsHistory !== false,
@@ -740,12 +744,13 @@ export default function TournamentSettings() {
     try {
       const saved = await updateTournament.mutateAsync({
         tournamentId,
-        data: dataPayload as import("@workspace/api-client-react").TournamentUpdate & {
+        data: dataPayload as unknown as import("@workspace/api-client-react").TournamentUpdate & {
           reason: string;
           logoPublicId?: string;
           mainBannerPublicId?: string | null;
         },
       });
+      lastErrorRef.current = null;
       qc.setQueryData(getGetTournamentQueryKey(tournamentId), saved);
       qc.invalidateQueries({ queryKey: getGetRegistrationStatusQueryKey(tournamentId) });
       if (isAuction) {
@@ -759,13 +764,17 @@ export default function TournamentSettings() {
           description: isAuction ? "Your auction rules have been updated." : "Tournament settings updated successfully.",
         });
       }
-      return true;
+      return { ok: true };
     } catch (err: unknown) {
-      const msg = (err as { data?: { error?: string } })?.data?.error ?? "Could not save settings. Please try again.";
+      const msg =
+        (err as { data?: { error?: string } })?.data?.error ??
+        (err as { message?: string })?.message ??
+        "Could not save settings. Please try again.";
+      lastErrorRef.current = msg;
       if (options?.notify) {
         toast({ title: "Save failed", description: msg, variant: "destructive" });
       }
-      return false;
+      return { ok: false, error: msg };
     }
   }, [
     bidTiers,
@@ -788,7 +797,7 @@ export default function TournamentSettings() {
 
   const saveBlockReason = getSaveBlockReason();
 
-  const { phase: autoSavePhase, saveNow } = useDebouncedAutoSave({
+  const { phase: autoSavePhase, errorMessage: autoSaveErrorMessage, saveNow } = useDebouncedAutoSave({
     isDirty,
     saveKey,
     enabled: initialized,
@@ -809,13 +818,21 @@ export default function TournamentSettings() {
   }
 
   function handleSave() {
+    if (saveBlockReason) {
+      toast({ title: "Cannot save yet", description: saveBlockReason, variant: "destructive" });
+      return;
+    }
     void saveNow().then((ok) => {
-      if (!ok && saveBlockReason) {
-        toast({ title: "Cannot save yet", description: saveBlockReason, variant: "destructive" });
-      } else if (ok) {
+      if (ok) {
         toast({
           title: "Settings saved",
           description: isAuction ? "Your auction rules have been updated." : "Tournament settings updated successfully.",
+        });
+      } else {
+        toast({
+          title: "Save failed",
+          description: lastErrorRef.current || autoSaveErrorMessage || "Could not save settings. Please try again.",
+          variant: "destructive",
         });
       }
     });
@@ -895,6 +912,7 @@ export default function TournamentSettings() {
           autoSave
           autoSavePhase={autoSavePhase}
           blockReason={saveBlockReason}
+          errorMessage={autoSaveErrorMessage}
         />
       </div>
 
@@ -903,6 +921,7 @@ export default function TournamentSettings() {
         isDirty={isDirty}
         isSaving={updateTournament.isPending}
         blockReason={saveBlockReason}
+        errorMessage={autoSaveErrorMessage}
       />
 
       {/* Sticky tab strip — horizontally scrollable on mobile */}
