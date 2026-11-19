@@ -71,7 +71,7 @@ export function MobileFanBottomNav({
             <div className="relative">
               <Gavel className="h-5 w-5" />
               {isAuctionLive && (
-                <span className="absolute -top-1 -right-1.5 h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                <span className="absolute -top-1 -right-1.5 h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
               )}
             </div>
             <span className="text-[10px] font-bold">Auction</span>
@@ -93,7 +93,7 @@ export function MobileFanBottomNav({
             <div className="relative">
               <Trophy className="h-5 w-5" />
               {isScoringLive && (
-                <span className="absolute -top-1 -right-1.5 h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                <span className="absolute -top-1 -right-1.5 h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
               )}
             </div>
             <span className="text-[10px] font-bold capitalize">{sport || "Match"}</span>
@@ -105,7 +105,7 @@ export function MobileFanBottomNav({
           <button
             type="button"
             onClick={onOpenStream}
-            className="flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl text-red-400 hover:text-red-300 transition cursor-pointer min-h-[44px] min-w-[54px]"
+            className="flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl text-emerald-400 hover:text-emerald-300 transition cursor-pointer min-h-[44px] min-w-[54px]"
             title="Watch Live Broadcast"
           >
             <Tv className="h-5 w-5 animate-pulse" />

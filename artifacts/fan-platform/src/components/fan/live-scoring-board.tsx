@@ -158,7 +158,7 @@ export function LiveScoringBoard({
             {sportLabel}
           </div>
           {liveMatches.length > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-red-500 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-white shadow-sm shadow-emerald-500/30">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
@@ -258,7 +258,7 @@ export function LiveScoringBoard({
                           {m.matchLabel || m.detail?.matchLabel || "Match"}
                         </span>
                       </div>
-                      <span className="rounded-full bg-red-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-400">
+                      <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
                         Game {state?.currentGame || 1}
                       </span>
                     </div>
