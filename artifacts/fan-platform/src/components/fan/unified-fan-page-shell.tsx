@@ -166,7 +166,7 @@ export function UnifiedFanPageShell({
             >
               <BrandLogoImage
                 theme={theme}
-                src={theme === "light" ? (logos.main || logos.mainReverse) : (logos.mainReverse || logos.main)}
+                src={theme === "light" ? (logos.main || "/assets/branding/bidwar-primary-logo-official.png") : (logos.mainReverse || "/assets/branding/bidwar-reverse-logo-official.png")}
                 alt={logoAlt}
                 className="h-7 sm:h-8 w-auto object-contain"
                 loading="eager"

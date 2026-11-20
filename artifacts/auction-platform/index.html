@@ -59,6 +59,13 @@
             document.head.appendChild(el);
             return;
           }
+          var isFan = p.indexOf('/fan') !== -1;
+          var fanTheme = null;
+          try {
+            fanTheme = localStorage.getItem('bidwar_fan_theme') || localStorage.getItem('bidwar_theme');
+          } catch(e) {}
+          var isFanLight = isFan && fanTheme === 'light';
+
           var isProtected = (
             p === '' || p === '/' || p === '/pricing' || p === '/contact' || p === '/legal' || p.indexOf('/legal/') === 0 ||
             p === '/auction-tips' || p === '/upcoming-auctions' || p === '/academy' || p.indexOf('/academy/') === 0 ||
@@ -71,16 +78,24 @@
             p === '/organizer' || p.indexOf('/organizer/') === 0 || p === '/tournament/new' ||
             /^\/tournament\/\d+(\/|$)/.test(p) || /^\/cricket\/\d+(\/|$)/.test(p) || /^\/badminton\/\d+(\/|$)/.test(p)
           );
-          if (isOrganizer) {
+
+          if (isOrganizer || isFanLight) {
             var el = document.createElement('style');
-            el.id = 'bidwar-organizer-preboot';
+            el.id = 'bidwar-light-preboot';
             el.textContent = 'html,body,#root{background:#F8FAFC !important;color:#0F172A !important;} #bidwar-boot-splash{background:#F8FAFC !important;} #bidwar-boot-splash .bidwar-boot-spinner{border-color:rgba(234,179,8,0.2) !important;border-top-color:#EAB308 !important;border-right-color:rgba(234,179,8,0.7) !important;box-shadow:0 0 12px rgba(245,158,11,0.18) !important;} #bidwar-boot-splash .bidwar-boot-text{color:#64748B !important;}';
             document.head.appendChild(el);
-            document.documentElement.classList.add('bw-organizer-light');
+            if (isOrganizer) {
+              document.documentElement.classList.add('bw-organizer-light');
+              document.documentElement.setAttribute('data-surface', 'organizer');
+            }
+            if (isFanLight) {
+              document.documentElement.classList.add('light');
+              document.documentElement.setAttribute('data-theme', 'light');
+            }
             var setLogo = function() {
               var logo = document.querySelector('#bidwar-boot-splash img');
               if (logo) {
-                logo.src = '/assets/branding/bidwar-clean-logo-v2.png';
+                logo.src = '/assets/branding/bidwar-clean-logo-v2-dark.png';
                 logo.onerror = function() { logo.src = '/bidwar-primary-logo.png'; };
               }
             };
@@ -93,7 +108,7 @@
               var observer = new MutationObserver(function() {
                 var logo = document.querySelector('#bidwar-boot-splash img');
                 if (logo) {
-                  logo.src = '/assets/branding/bidwar-clean-logo-v2.png';
+                  logo.src = '/assets/branding/bidwar-clean-logo-v2-dark.png';
                   logo.onerror = function() { logo.src = '/bidwar-primary-logo.png'; };
                   observer.disconnect();
                 }

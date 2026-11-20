@@ -12,6 +12,8 @@ import {
   ArrowLeft,
   Gavel,
   Trophy,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useBranding } from "@/hooks/use-branding";
 import {
@@ -51,6 +53,8 @@ export interface UnifiedFanPageShellProps {
   isScoringLive?: boolean;
   soundEnabled: boolean;
   onToggleSound: () => void;
+  theme?: "dark" | "light";
+  onToggleTheme?: () => void;
   children: React.ReactNode;
   className?: string;
 }
@@ -66,6 +70,8 @@ export function UnifiedFanPageShell({
   isScoringLive = false,
   soundEnabled,
   onToggleSound,
+  theme,
+  onToggleTheme,
   children,
   className,
 }: UnifiedFanPageShellProps) {
@@ -108,14 +114,25 @@ export function UnifiedFanPageShell({
     syncDocumentSurfaceTheme();
   }, []);
 
+  const isLight = theme === "light";
+
   return (
     <div
-      className={cn("min-h-screen bg-[#0B101B] text-slate-100 flex flex-col antialiased selection:bg-amber-500 selection:text-black", className)}
+      className={cn(
+        "min-h-screen flex flex-col antialiased selection:bg-amber-500 selection:text-black transition-colors duration-300",
+        isLight ? "bg-[#f4f6fb] text-slate-900" : "bg-[#0B101B] text-slate-100",
+        className
+      )}
       data-surface="unified-fan-page"
     >
       {/* ── Top Global Chrome Bar ────────────────────────────────────────── */}
       <header
-        className="sticky top-0 z-40 w-full border-b border-white/[0.08] bg-[#0B101B]/90 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3"
+        className={cn(
+          "sticky top-0 z-40 w-full border-b backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3 transition-colors duration-300",
+          isLight
+            ? "border-slate-200 bg-[#f4f6fb]/90"
+            : "border-white/[0.08] bg-[#0B101B]/90"
+        )}
         role="banner"
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
@@ -126,43 +143,47 @@ export function UnifiedFanPageShell({
               className="shrink-0 flex items-center gap-2 hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-amber-400 rounded-lg"
               title="BidWar Platform Home"
             >
-              {brandLogoSrc ? (
-                <img
-                  src={brandLogoSrc}
-                  alt={logoAlt}
-                  className="h-7 sm:h-8 w-auto object-contain"
-                  loading="eager"
-                />
-              ) : (
-                <span className="font-display font-black text-lg text-amber-400 tracking-wider">
-                  BIDWAR
-                </span>
-              )}
+              <img
+                src={
+                  isLight
+                    ? logos.main || "/assets/branding/bidwar-clean-logo-v2-dark.png"
+                    : brandLogoSrc || "/assets/branding/bidwar-reverse-logo-official.png"
+                }
+                alt={logoAlt}
+                className="h-7 sm:h-8 w-auto object-contain"
+                loading="eager"
+              />
             </Link>
 
-            <div className="hidden sm:block h-5 w-px bg-white/10" aria-hidden="true" />
+            <div className={cn("hidden sm:block h-5 w-px", isLight ? "bg-slate-300" : "bg-white/10")} aria-hidden="true" />
 
             {/* Tournament Meta Heading */}
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="font-display font-bold text-sm sm:text-base text-white truncate max-w-[200px] sm:max-w-md lg:max-w-lg">
+                <h1 className={cn("font-display font-bold text-sm sm:text-base truncate max-w-[200px] sm:max-w-md lg:max-w-lg", isLight ? "text-slate-900" : "text-white")}>
                   {tournament.name}
                 </h1>
                 {tournament.auctionCode && (
-                  <span className="hidden md:inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-white/[0.06] text-amber-400 border border-amber-400/30">
+                  <span className={cn(
+                    "hidden md:inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border",
+                    isLight ? "bg-amber-50 text-amber-700 border-amber-300" : "bg-white/[0.06] text-amber-400 border-amber-400/30"
+                  )}>
                     {tournament.auctionCode}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2 text-[11px] text-slate-400 truncate">
+              <div className={cn("flex items-center gap-2 text-[11px] truncate", isLight ? "text-slate-500" : "text-slate-400")}>
                 {tournament.city && (
                   <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
+                    <MapPin className={cn("w-3 h-3 shrink-0", isLight ? "text-slate-400" : "text-slate-500")} />
                     <span>{tournament.city}</span>
                   </span>
                 )}
                 {tournament.sport && (
-                  <span className="capitalize px-1.5 py-0.2 rounded bg-white/[0.04] text-slate-300">
+                  <span className={cn(
+                    "capitalize px-1.5 py-0.2 rounded",
+                    isLight ? "bg-slate-200/60 text-slate-700" : "bg-white/[0.04] text-slate-300"
+                  )}>
                     {tournament.sport}
                   </span>
                 )}
@@ -170,7 +191,7 @@ export function UnifiedFanPageShell({
             </div>
           </div>
 
-          {/* Action Toolbar: Share + Audio Controls */}
+          {/* Action Toolbar: Share + Audio Controls + Theme Toggle */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Audio Toggle */}
             <button
@@ -180,7 +201,9 @@ export function UnifiedFanPageShell({
                 "p-2.5 rounded-xl border transition-all duration-200 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center",
                 soundEnabled
                   ? "bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
-                  : "bg-white/[0.04] border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.08]"
+                  : isLight
+                    ? "bg-slate-100 border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-200"
+                    : "bg-white/[0.04] border-white/10 text-slate-400 hover:text-white hover:bg-white/[0.08]"
               )}
               title={soundEnabled ? "Mute spectator audio" : "Enable live sound effects"}
               aria-label={soundEnabled ? "Mute spectator audio" : "Enable live sound effects"}
@@ -188,14 +211,37 @@ export function UnifiedFanPageShell({
               {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </button>
 
+            {/* Theme Toggle Button */}
+            {onToggleTheme && (
+              <button
+                type="button"
+                onClick={onToggleTheme}
+                className={cn(
+                  "p-2.5 rounded-xl border transition-all duration-200 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center",
+                  isLight
+                    ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-100 shadow-xs"
+                    : "border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"
+                )}
+                title={isLight ? "Switch to dark mode" : "Switch to light mode"}
+                aria-label={isLight ? "Switch to dark mode" : "Switch to light mode"}
+              >
+                {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+              </button>
+            )}
+
             {/* Share Button */}
             <button
               type="button"
               onClick={() => setShareOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-xs font-semibold text-white transition-all cursor-pointer min-h-[44px] min-w-[44px]"
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer min-h-[44px] min-w-[44px]",
+                isLight
+                  ? "bg-amber-500 hover:bg-amber-600 border-amber-600 text-white shadow-xs"
+                  : "bg-white/[0.06] hover:bg-white/[0.1] border-white/10 text-white"
+              )}
               aria-label="Share tournament fan page"
             >
-              <Share2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <Share2 className="w-3.5 h-3.5 shrink-0" />
               <span className="hidden sm:inline">Share</span>
             </button>
           </div>

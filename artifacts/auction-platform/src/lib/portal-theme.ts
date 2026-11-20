@@ -113,6 +113,32 @@ export function syncDocumentSurfaceTheme(pathname?: string): void {
     document.documentElement.removeAttribute("data-surface");
     document.body.classList.remove("bw-organizer-light", "bw-admin-dark");
     document.body.removeAttribute("data-surface");
+
+    const currentPath = pathname ?? window.location.pathname;
+    const isFan = currentPath.includes("/fan");
+    if (isFan) {
+      try {
+        const fanTheme =
+          localStorage.getItem("bidwar_fan_theme") ||
+          localStorage.getItem("bidwar_theme") ||
+          localStorage.getItem("theme");
+        if (fanTheme === "light") {
+          document.documentElement.classList.add("light");
+          document.documentElement.classList.remove("dark");
+          document.documentElement.setAttribute("data-theme", "light");
+          document.body.classList.add("light");
+          document.body.classList.remove("dark");
+          document.body.setAttribute("data-theme", "light");
+        } else if (fanTheme === "dark") {
+          document.documentElement.classList.add("dark");
+          document.documentElement.classList.remove("light");
+          document.documentElement.setAttribute("data-theme", "dark");
+          document.body.classList.add("dark");
+          document.body.classList.remove("light");
+          document.body.setAttribute("data-theme", "dark");
+        }
+      } catch {}
+    }
   }
 }
 

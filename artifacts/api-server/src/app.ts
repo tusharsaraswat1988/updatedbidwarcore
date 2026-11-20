@@ -57,6 +57,7 @@ import {
   getFanNotFoundHtml,
   isTournamentExisting,
   handleFanTournamentRequest,
+  getCachedFanIndexHtml,
 } from "./lib/fan-seo-policy.js";
 import { registerOgImageRoutes } from "./routes/og-images.js";
 import { trySendHomepageSsr } from "./lib/homepage-ssr.js";
@@ -430,7 +431,9 @@ if (serveStatic) {
           // Root route "/" — always valid tournament discovery/search
           if (req.path === "/" || req.path === "") {
             res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-            return res.sendFile(path.join(fanDist, "index.html"));
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            const template = getCachedFanIndexHtml(fanDist);
+            return res.send(template);
           }
 
           // Canonical entry: redirect /index.html to /

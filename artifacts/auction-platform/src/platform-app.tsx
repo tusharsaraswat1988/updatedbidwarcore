@@ -141,7 +141,7 @@ function LegacyLiveRedirect() {
 }
 
 function OrganizerPageFallback() {
-  return <GlobalLoadingScreen fullScreen={false} theme="light" />;
+  return <GlobalLoadingScreen fullScreen={false} theme="light" label="Loading…" />;
 }
 
 /**

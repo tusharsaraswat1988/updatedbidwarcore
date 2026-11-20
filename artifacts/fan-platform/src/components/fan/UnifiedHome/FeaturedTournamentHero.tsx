@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Link } from 'wouter';
 import {
   Trophy,
@@ -14,6 +14,8 @@ import {
   Crown,
   Clock,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { TournamentSummary } from '../../../lib/api/types';
 import { WatchLiveModal } from '../watch-live-modal';
@@ -27,11 +29,23 @@ import {
 import { cldUrl } from '../../../lib/cloudinary';
 import { cn } from '../../../lib/utils';
 
-interface FeaturedHeroProps {
+interface SingleFeaturedSlideProps {
   t: TournamentSummary;
+  slideIndex?: number;
+  totalSlides?: number;
+  hasMultipleSlides?: boolean;
 }
 
-export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
+/**
+ * Individual self-contained hero slide component.
+ * Isolates SSE scoring events, sponsor rotation timer, and video modals per tournament.
+ */
+const SingleFeaturedHeroSlide: React.FC<SingleFeaturedSlideProps> = ({
+  t,
+  slideIndex = 0,
+  totalSlides = 1,
+  hasMultipleSlides = false,
+}) => {
   // Local live score state updated via SSE when a live match is active
   const [liveScore, setLiveScore] = useState<string | null>(
     t.liveMatchSummary?.scoreSummary ?? null,
@@ -115,7 +129,7 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
     return { main: s, overs: '' };
   }, [fullScoreStr]);
 
-  // Real-time SSE listener scoped strictly to the featured live match
+  // Real-time SSE listener scoped strictly to this tournament's featured live match
   useEffect(() => {
     const matchId = t.liveMatchSummary?.matchId;
     if (!isMatchLive || !matchId || !t.id) return;
@@ -150,39 +164,9 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
     };
   }, [t.id, t.liveMatchSummary?.matchId, isMatchLive]);
 
-  // Sport-specific fallback background
-  const sportFallbackBg = isBadminton
-    ? 'from-indigo-950 via-slate-900 to-slate-950'
-    : 'from-slate-900 via-slate-950 to-slate-950';
-
   return (
-    <section className="relative mb-6 sm:mb-8 overflow-hidden rounded-2xl sm:rounded-3xl border border-amber-500/35 bg-gradient-to-br from-[#080E1C] via-[#0E172E] to-[#0A1224] text-white shadow-2xl transition-all dark:border-amber-400/30">
-      {/* ── Top subtle gold highlight ── */}
-      <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/80 to-transparent z-10" />
-
-      {/* ── Traveling Star Sparkle Orbiting Along Border (Authentic 4-Point Concave Needle Diamond Sparkle Star) ── */}
-      <div className="animate-border-sparkle -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-        <div className="relative flex items-center justify-center animate-spin [animation-duration:6s]">
-          {/* Primary Sharp 4-Point Star with Curved Needle Points */}
-          <svg
-            viewBox="0 0 24 24"
-            className="h-6 w-6 text-amber-200 fill-amber-300 drop-shadow-[0_0_10px_rgba(251,191,36,0.95)]"
-          >
-            <path d="M12 0C12 7.2 14.8 12 24 12C14.8 12 12 16.8 12 24C12 16.8 9.2 12 0 12C9.2 12 12 7.2 12 0Z" />
-          </svg>
-          {/* Secondary 4-Point Star Rotated at 45° for Brilliant 8-Point Diamond Twinkle */}
-          <svg
-            viewBox="0 0 24 24"
-            className="absolute h-4 w-4 rotate-45 text-yellow-100 fill-white drop-shadow-[0_0_6px_rgba(255,255,255,1)] opacity-95"
-          >
-            <path d="M12 0C12 7.2 14.8 12 24 12C14.8 12 12 16.8 12 24C12 16.8 9.2 12 0 12C9.2 12 12 7.2 12 0Z" />
-          </svg>
-          {/* Brilliant Pinpoint Center Core */}
-          <div className="absolute h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_6px_#fff]" />
-        </div>
-      </div>
-
-      {/* ── Background Layer: Clean Dark Stadium Backdrop (No Beams or Radial Glows) ── */}
+    <div className="relative w-full overflow-hidden">
+      {/* ── Background Layer: Clean Dark Stadium Backdrop with subtle tournament banner ── */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         {t.mainBannerUrl ? (
           <img
@@ -197,14 +181,25 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
         <div className="absolute inset-0 bg-gradient-to-t from-[#080E1C] via-[#080E1C]/85 to-[#080E1C]/90" />
       </div>
 
-      <div className="relative z-10 grid grid-cols-1 gap-5 sm:gap-6 p-4 sm:p-5 md:p-6 lg:p-7 lg:grid-cols-12 lg:items-center">
+      <div
+        className={cn(
+          'relative z-10 grid grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-12 lg:items-center',
+          hasMultipleSlides
+            ? 'p-4 sm:p-5 md:p-6 lg:p-7 sm:px-12 md:px-14 pb-12 sm:pb-14'
+            : 'p-4 sm:p-5 md:p-6 lg:p-7',
+        )}
+      >
         {/* ── Left Column: Headline Tournament Identity ── */}
         <div className="lg:col-span-7 flex flex-col justify-between min-w-0">
           {/* Header pill / badge */}
           <div className="mb-3 flex flex-wrap items-center gap-1.5 sm:gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/60 bg-gradient-to-r from-amber-500/25 via-yellow-400/20 to-amber-500/25 px-3 py-0.5 text-[11px] font-black uppercase tracking-widest text-amber-300 shadow-sm">
               <Sparkles size={12} className="text-amber-300 animate-pulse" />
-              <span>Featured Spotlight</span>
+              <span>
+                {hasMultipleSlides
+                  ? `Featured Spotlight (${slideIndex + 1} of ${totalSlides})`
+                  : 'Featured Spotlight'}
+              </span>
             </span>
 
             {isMatchLive ? (
@@ -689,6 +684,207 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
           )}
         </div>
       </div>
+    </div>
+  );
+};
+
+export interface FeaturedHeroProps {
+  tournaments?: TournamentSummary[];
+  t?: TournamentSummary;
+}
+
+/**
+ * Featured tournament hero section with smooth auto-rotating carousel supporting up to 3 featured tournaments.
+ * Smooth cross-slide animations, pause on hover/focus, swipe gestures, and desktop navigation controls.
+ */
+export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({
+  tournaments,
+  t,
+}) => {
+  // Cap at maximum 3 featured tournaments
+  const items = useMemo(() => {
+    if (tournaments && tournaments.length > 0) {
+      return tournaments.slice(0, 3);
+    }
+    return t ? [t] : [];
+  }, [tournaments, t]);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Bounds check if items array dynamically changes
+  useEffect(() => {
+    if (currentIndex >= items.length && items.length > 0) {
+      setCurrentIndex(0);
+    }
+  }, [items.length, currentIndex]);
+
+  // Touch gesture support for mobile swiping
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
+  const minSwipeDistance = 45;
+
+  const handlePrev = useCallback(() => {
+    if (items.length <= 1) return;
+    setCurrentIndex((prev) => (prev === 0 ? items.length - 1 : prev - 1));
+  }, [items.length]);
+
+  const handleNext = useCallback(() => {
+    if (items.length <= 1) return;
+    setCurrentIndex((prev) => (prev + 1) % items.length);
+  }, [items.length]);
+
+  const goToSlide = useCallback((index: number) => {
+    setCurrentIndex(index);
+  }, []);
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    touchEndX.current = null;
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.targetTouches[0].clientX;
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return;
+    const distance = touchStartX.current - touchEndX.current;
+    if (distance > minSwipeDistance) {
+      handleNext();
+    } else if (distance < -minSwipeDistance) {
+      handlePrev();
+    }
+    touchStartX.current = null;
+    touchEndX.current = null;
+  };
+
+  // Auto-slide interval: 7s per tournament, paused on hover or focus
+  useEffect(() => {
+    if (items.length <= 1 || isHovered) return;
+
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % items.length);
+    }, 7000);
+
+    return () => clearInterval(interval);
+  }, [items.length, isHovered]);
+
+  if (items.length === 0) {
+    return null;
+  }
+
+  const hasMultiple = items.length > 1;
+
+  return (
+    <section
+      aria-roledescription={hasMultiple ? 'carousel' : undefined}
+      aria-label="Featured Tournaments Spotlight"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      className="group/carousel relative mb-6 sm:mb-8 overflow-hidden rounded-2xl sm:rounded-3xl border border-amber-500/35 bg-gradient-to-br from-[#080E1C] via-[#0E172E] to-[#0A1224] text-white shadow-2xl transition-all dark:border-amber-400/30"
+    >
+      {/* ── Top subtle gold highlight ── */}
+      <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/80 to-transparent z-20 pointer-events-none" />
+
+      {/* ── Traveling Star Sparkle Orbiting Along Border (Authentic 4-Point Concave Needle Diamond Sparkle Star) ── */}
+      <div className="animate-border-sparkle -translate-x-1/2 -translate-y-1/2 pointer-events-none">
+        <div className="relative flex items-center justify-center animate-spin [animation-duration:6s]">
+          {/* Primary Sharp 4-Point Star with Curved Needle Points */}
+          <svg
+            viewBox="0 0 24 24"
+            className="h-6 w-6 text-amber-200 fill-amber-300 drop-shadow-[0_0_10px_rgba(251,191,36,0.95)]"
+          >
+            <path d="M12 0C12 7.2 14.8 12 24 12C14.8 12 12 16.8 12 24C12 16.8 9.2 12 0 12C9.2 12 12 7.2 12 0Z" />
+          </svg>
+          {/* Secondary 4-Point Star Rotated at 45° for Brilliant 8-Point Diamond Twinkle */}
+          <svg
+            viewBox="0 0 24 24"
+            className="absolute h-4 w-4 rotate-45 text-yellow-100 fill-white drop-shadow-[0_0_6px_rgba(255,255,255,1)] opacity-95"
+          >
+            <path d="M12 0C12 7.2 14.8 12 24 12C14.8 12 12 16.8 12 24C12 16.8 9.2 12 0 12C9.2 12 12 7.2 12 0Z" />
+          </svg>
+          {/* Brilliant Pinpoint Center Core */}
+          <div className="absolute h-1.5 w-1.5 rounded-full bg-white shadow-[0_0_6px_#fff]" />
+        </div>
+      </div>
+
+      {/* ── Carousel Slide Track (Silky Smooth, Natural Ease-in-Out Glide) ── */}
+      <div
+        className="flex w-full transition-transform duration-700 ease-in-out will-change-transform"
+        style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+      >
+        {items.map((tournament, idx) => {
+          const isCurrent = currentIndex === idx;
+          return (
+            <div
+              key={tournament.id || idx}
+              className={cn(
+                'w-full shrink-0 flex-none relative transition-opacity duration-700 ease-in-out',
+                hasMultiple && !isCurrent
+                  ? 'opacity-40 pointer-events-none'
+                  : 'opacity-100',
+              )}
+              aria-hidden={hasMultiple && !isCurrent}
+            >
+              <SingleFeaturedHeroSlide
+                t={tournament}
+                slideIndex={idx}
+                totalSlides={items.length}
+                hasMultipleSlides={hasMultiple}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Desktop Navigation Chevron Controls (Only rendered when > 1 slide) ── */}
+      {hasMultiple && (
+        <>
+          {/* Previous Button */}
+          <button
+            type="button"
+            onClick={handlePrev}
+            aria-label="Previous featured tournament"
+            className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 z-20 h-9 w-9 items-center justify-center rounded-full bg-slate-950/75 border border-white/20 text-white shadow-xl backdrop-blur-md transition-all hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 hover:scale-105 active:scale-95 cursor-pointer opacity-80 group-hover/carousel:opacity-100 duration-200"
+          >
+            <ChevronLeft size={18} />
+          </button>
+
+          {/* Next Button */}
+          <button
+            type="button"
+            onClick={handleNext}
+            aria-label="Next featured tournament"
+            className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 z-20 h-9 w-9 items-center justify-center rounded-full bg-slate-950/75 border border-white/20 text-white shadow-xl backdrop-blur-md transition-all hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 hover:scale-105 active:scale-95 cursor-pointer opacity-80 group-hover/carousel:opacity-100 duration-200"
+          >
+            <ChevronRight size={18} />
+          </button>
+
+          {/* ── Bottom Carousel Indicators & Play/Pause State ── */}
+          <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-950/80 border border-white/15 backdrop-blur-md shadow-lg">
+            {items.map((tournament, i) => (
+              <button
+                key={tournament.id || i}
+                type="button"
+                onClick={() => goToSlide(i)}
+                aria-label={`Go to slide ${i + 1} (${tournament.name})`}
+                className={cn(
+                  'h-2 rounded-full transition-all duration-700 ease-out cursor-pointer',
+                  currentIndex === i
+                    ? 'w-7 bg-gradient-to-r from-amber-400 to-yellow-400 shadow-xs shadow-amber-400/50'
+                    : 'w-2 bg-white/30 hover:bg-white/60',
+                )}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </section>
   );
 };

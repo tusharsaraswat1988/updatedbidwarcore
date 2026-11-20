@@ -6,6 +6,7 @@ import { Header } from '../components/Header';
 import { FeaturedTournamentHero } from '../components/fan/UnifiedHome/FeaturedTournamentHero';
 import { TournamentSection } from '../components/fan/UnifiedHome/TournamentSection';
 import { BrandLogoImage } from '../components/brand-logo-image';
+import { useBranding } from '../hooks/use-branding';
 import {
   Dialog,
   DialogContent,
@@ -106,6 +107,14 @@ export const HomePage = ({
   toggleTheme: () => void;
   theme: 'dark' | 'light';
 }) => {
+  const { logos, brandName } = useBranding();
+
+  // High contrast brand logo for footer matching header logic
+  const footerBrandSrc =
+    theme === 'light'
+      ? logos.main || '/assets/branding/bidwar-primary-logo-official.png'
+      : logos.mainReverse || '/assets/branding/bidwar-reverse-logo-official.png';
+
   const initial = useMemo(() => parseInitialFilters(), []);
 
   const [data, setData] = useState<FanDiscoveryResponse | null>(null);
@@ -138,12 +147,21 @@ export const HomePage = ({
     ) => {
       if (typeof window === 'undefined') return;
 
-      const sp = new URLSearchParams();
+      const sp = new URLSearchParams(window.location.search);
       if (newSearch.trim()) sp.set('search', newSearch.trim());
+      else sp.delete('search');
+
       if (newCity.trim()) sp.set('city', newCity.trim());
+      else sp.delete('city');
+
       if (newStatus !== 'All') sp.set('status', newStatus.toLowerCase());
+      else sp.delete('status');
+
       if (newSport !== 'All') sp.set('sport', newSport.toLowerCase());
+      else sp.delete('sport');
+
       if (newModule !== 'All') sp.set('module', newModule.toLowerCase());
+      else sp.delete('module');
 
       const qs = sp.toString();
       const currentQuery = window.location.search.replace(/^\?/, '');
@@ -320,9 +338,36 @@ export const HomePage = ({
 
   const isFiltered = activeFilterCount > 0;
 
-  // Prioritize admin-featured tournament; fallback to first live tournament
-  const featured = useMemo(() => {
-    return items.find((t) => t.featured) || items.find((t) => t.liveState?.isLive);
+  // Up to 3 featured tournaments (sorted by highest featuredPriority, then Live status); fallback to first live tournament
+  const featuredTournaments = useMemo(() => {
+    // Optional demo query parameter for QA verification of multi-tournament carousel
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const demoCount = sp.get('demo_featured');
+      if (demoCount && items.length > 0) {
+        const count = Math.min(3, parseInt(demoCount, 10) || 2);
+        return items.slice(0, count).map((t, idx) => ({
+          ...t,
+          featured: true,
+          featuredPriority: 10 - idx,
+        }));
+      }
+    }
+
+    const featuredItems = items.filter((t) => t.featured);
+    if (featuredItems.length > 0) {
+      return [...featuredItems]
+        .sort((a, b) => {
+          const prioDiff = (b.featuredPriority ?? 0) - (a.featuredPriority ?? 0);
+          if (prioDiff !== 0) return prioDiff;
+          if (a.liveState?.isLive && !b.liveState?.isLive) return -1;
+          if (!a.liveState?.isLive && b.liveState?.isLive) return 1;
+          return 0;
+        })
+        .slice(0, 3);
+    }
+    const firstLive = items.find((t) => t.liveState?.isLive);
+    return firstLive ? [firstLive] : [];
   }, [items]);
 
   // True state classifications
@@ -477,8 +522,10 @@ export const HomePage = ({
           {/* Main Content Sections */}
           {!loading && !error && (
             <>
-              {/* 4. Featured Tournament Spotlight */}
-              {!isFiltered && featured && <FeaturedTournamentHero t={featured} />}
+              {/* 4. Featured Tournament Spotlight Carousel (up to 3 tournaments) */}
+              {!isFiltered && featuredTournaments.length > 0 && (
+                <FeaturedTournamentHero tournaments={featuredTournaments} />
+              )}
 
               {/* 5. Live Now (High priority live tournament action) */}
               {!isFiltered && live.length > 0 && (
@@ -952,7 +999,12 @@ export const HomePage = ({
       <footer className="mt-16 border-t border-slate-200/80 bg-white/70 py-8 backdrop-blur-md dark:border-white/[0.08] dark:bg-[#0B101B]/80 text-xs text-slate-500 dark:text-slate-400">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <BrandLogoImage theme={theme} className="h-6 w-auto object-contain" />
+            <BrandLogoImage
+              theme={theme}
+              src={footerBrandSrc}
+              alt={brandName || 'BidWar'}
+              className="h-6 w-auto object-contain"
+            />
             <span className="text-slate-300 dark:text-slate-600">|</span>
             <span className="font-bold tracking-tight text-slate-700 dark:text-slate-300">
               Fan Arena
@@ -960,7 +1012,7 @@ export const HomePage = ({
           </div>
           <p className="text-center sm:text-right text-[11px] text-slate-400">
             Real-time community sports auctions and scoring powered by{' '}
-            <span className="font-bold text-amber-500">BidWar</span>.
+            <span className="font-bold text-amber-500">{brandName || 'BidWar'}</span>.
           </p>
         </div>
       </footer>

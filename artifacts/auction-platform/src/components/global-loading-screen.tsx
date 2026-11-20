@@ -35,14 +35,26 @@ export function resolveIsLightTheme(themeProp: "dark" | "light" | "auto" = "auto
   if (themeProp === "dark") return false;
   if (typeof window === "undefined") return false;
 
-  // 2. Persisted application theme in storage takes precedence over route assumptions
-  try {
-    const persisted = localStorage.getItem("bidwar_theme") || localStorage.getItem("theme");
-    if (persisted === "light") return true;
-    if (persisted === "dark") return false;
-  } catch {}
+  const path = window.location.pathname;
 
-  // 3. Actual active DOM state on html/body (attributes or classes)
+  // 2. Protected route architecture contracts:
+  // Organizer routes are mandatory light enterprise workspace by design
+  if (isOrganizerRoute(path)) return true;
+  if (isAdminRoute(path)) return false;
+
+  // 3. Fan routes respect explicit fan preference stored in localStorage
+  if (path.includes("/fan")) {
+    try {
+      const fanTheme =
+        localStorage.getItem("bidwar_fan_theme") ||
+        localStorage.getItem("bidwar_theme") ||
+        localStorage.getItem("theme");
+      if (fanTheme === "light") return true;
+      if (fanTheme === "dark") return false;
+    } catch {}
+  }
+
+  // 4. Actual active DOM state on html/body (attributes or classes)
   if (typeof document !== "undefined") {
     const root = document.documentElement;
     const body = document.body;
@@ -74,12 +86,14 @@ export function resolveIsLightTheme(themeProp: "dark" | "light" | "auto" = "auto
     }
   }
 
-  // 4. Route-based detection used only as a fallback when actual theme state is indeterminate
-  const path = window.location.pathname;
-  if (isOrganizerRoute(path)) return true;
-  if (isAdminRoute(path)) return false;
+  // 5. Persisted application theme in storage
+  try {
+    const persisted = localStorage.getItem("bidwar_theme") || localStorage.getItem("theme");
+    if (persisted === "light") return true;
+    if (persisted === "dark") return false;
+  } catch {}
 
-  // 5. Operating system preference fallback
+  // 6. Operating system preference fallback
   if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
     return true;
   }
@@ -87,7 +101,7 @@ export function resolveIsLightTheme(themeProp: "dark" | "light" | "auto" = "auto
   return false;
 }
 
-const STATIC_FALLBACK_PRIMARY = "/assets/branding/bidwar-clean-logo-v2.png";
+const STATIC_FALLBACK_PRIMARY = "/assets/branding/bidwar-clean-logo-v2-dark.png";
 const STATIC_FALLBACK_REVERSE = "/assets/branding/bidwar-reverse-logo-official.png";
 const FALLBACK_PRIMARY = "/bidwar-primary-logo.png";
 const FALLBACK_REVERSE = "/bidwar-reverse-logo.png";

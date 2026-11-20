@@ -9,15 +9,37 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <link rel="icon" href="/assets/branding/favicon.ico" sizes="any" />
-    <link rel="icon" type="image/svg+xml" href="/assets/branding/favicon.svg" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/branding/favicon-32.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/assets/branding/favicon-32x32.png" />
-    <link rel="shortcut icon" href="/assets/branding/favicon-32.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/assets/branding/apple-touch-icon.png" />
+    <!-- BRANDING_ICONS_START -->
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="shortcut icon" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <!-- BRANDING_ICONS_END -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Oswald:wght@500;700&display=swap" rel="stylesheet" />
+    <script>
+      (function() {
+        try {
+          var t =
+            localStorage.getItem('bidwar_fan_theme') ||
+            localStorage.getItem('bidwar_theme') ||
+            localStorage.getItem('theme');
+          var theme = (t === 'light' || t === 'dark') ? t : 'dark';
+          document.documentElement.className = theme;
+          document.documentElement.setAttribute('data-theme', theme);
+          if (theme === 'light') {
+            document.documentElement.classList.add('light');
+            document.documentElement.classList.remove('dark');
+          } else {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -16,8 +16,8 @@ export const Header = ({
   // High contrast brand logo: dark text for light theme, white text for dark theme
   const brandSrc =
     theme === 'light'
-      ? logos.main || logos.mainReverse
-      : logos.mainReverse || logos.main;
+      ? logos.main || '/assets/branding/bidwar-primary-logo-official.png'
+      : logos.mainReverse || '/assets/branding/bidwar-reverse-logo-official.png';
 
   const scrollToSearch = () => {
     const el = document.getElementById('hero-search-input') || document.getElementById('search-section') || document.getElementById('discover-section');

@@ -113,6 +113,46 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
     });
   }, []);
 
+  // Theme preference state with immediate persistence
+  const [theme, setTheme] = useState<"dark" | "light">(() => {
+    if (typeof window === "undefined") return "dark";
+    try {
+      const persisted =
+        localStorage.getItem("bidwar_fan_theme") ||
+        localStorage.getItem("bidwar_theme") ||
+        localStorage.getItem("theme");
+      if (persisted === "light" || persisted === "dark") return persisted;
+    } catch {}
+    return "dark";
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("bidwar_fan_theme", theme);
+      localStorage.setItem("bidwar_theme", theme);
+    } catch {}
+    document.documentElement.className = theme;
+    document.documentElement.setAttribute("data-theme", theme);
+    if (theme === "light") {
+      document.documentElement.classList.add("light");
+      document.documentElement.classList.remove("dark");
+    } else {
+      document.documentElement.classList.add("dark");
+      document.documentElement.classList.remove("light");
+    }
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === "dark" ? "light" : "dark";
+      try {
+        localStorage.setItem("bidwar_fan_theme", next);
+        localStorage.setItem("bidwar_theme", next);
+      } catch {}
+      return next;
+    });
+  }, []);
+
   // Module enablement and sport capability derivation
   const auctionEnabled = isAuctionEnabled(tournament);
   const scoringEnabled = isScoringEnabled(tournament);
@@ -261,6 +301,8 @@ export default function UnifiedFanPage({ routeIdentifier }: UnifiedFanPageProps)
       onTabChange={handleTabChange}
       soundEnabled={soundEnabled}
       onToggleSound={toggleSound}
+      theme={theme}
+      onToggleTheme={toggleTheme}
     >
       {/* ── Active Module Spectator Renderer (Zero Duplicate Connection Lifecycle) ── */}
       {activeTab === "auction" && showAuctionTab && (

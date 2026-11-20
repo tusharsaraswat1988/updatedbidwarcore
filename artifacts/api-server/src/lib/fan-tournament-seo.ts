@@ -6,6 +6,8 @@ import { eq, or, and, sql } from "drizzle-orm";
 import { isAuctionEnabled, isScoringEnabled } from "@workspace/platform-core";
 import { logger } from "./logger.js";
 import { getFanOrigin, getFanNotFoundHtml } from "./fan-seo-policy.js";
+import { injectBrandingIconsIntoHtml } from "@workspace/api-base/branding-icon-head";
+import { getCachedFaviconVersion } from "./branding-asset-resolver.js";
 
 /** Escape HTML special characters for safe injection into raw HTML. */
 export function esc(str: string | null | undefined): string {
@@ -88,16 +90,20 @@ let cachedFanIndexHtml: string | null = null;
 let cachedFanDistPath: string | null = null;
 
 export function getCachedFanIndexHtml(fanDist: string): string {
+  const v = getCachedFaviconVersion();
+  let baseHtml = "";
   if (cachedFanIndexHtml && cachedFanDistPath === fanDist) {
-    return cachedFanIndexHtml;
+    baseHtml = cachedFanIndexHtml;
+  } else {
+    const indexPath = path.join(fanDist, "index.html");
+    if (existsSync(indexPath)) {
+      cachedFanIndexHtml = readFileSync(indexPath, "utf-8");
+      cachedFanDistPath = fanDist;
+      baseHtml = cachedFanIndexHtml;
+    }
   }
-  const indexPath = path.join(fanDist, "index.html");
-  if (existsSync(indexPath)) {
-    cachedFanIndexHtml = readFileSync(indexPath, "utf-8");
-    cachedFanDistPath = fanDist;
-    return cachedFanIndexHtml;
-  }
-  return "";
+  if (!baseHtml) return "";
+  return v > 0 ? injectBrandingIconsIntoHtml(baseHtml, v) : baseHtml;
 }
 
 /** Reset in-memory cached template (useful for tests) */
