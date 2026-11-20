@@ -9,7 +9,8 @@ import {
   UnifiedFanPageLoadingSkeleton,
   UnifiedFanPageErrorState,
 } from "@/components/fan/unified-fan-page-shell";
-import type { FanModuleTab } from "@/components/fan/unified-module-nav";
+import type { FanNavSection, FanModuleTab } from "@/components/fan/unified-module-nav";
+import { FanNavigationContext } from "@/components/fan/fan-navigation-context";
 import { AuctionFanRenderer } from "@/components/fan/auction-fan-renderer";
 import { CricketFanRenderer } from "@/components/fan/cricket-fan-renderer";
 import { BadmintonFanRenderer } from "@/components/fan/badminton-fan-renderer";
@@ -154,32 +155,42 @@ export default function UnifiedFanPage({ routeIdentifier, theme, toggleTheme }: 
 
   const showAuctionTab = auctionEnabled;
   const showScoringTab = scoringEnabled && isScoringSupported;
+  const showMatchesTab = showScoringTab;
+  const showStandingsTab = showScoringTab && sport === "cricket";
+  const showLeadersTab = showScoringTab && sport === "cricket";
 
   // URL-Synchronized Tab State Management
   const getInitialTab = useCallback((): FanModuleTab => {
-    if (typeof window === "undefined") return "auction";
+    if (typeof window === "undefined") return "overview";
 
-    // 1. Check URL query parameters (?tab=auction or ?tab=scoring)
+    // 1. Check URL query parameters (?tab=overview|matches|standings|leaders|auction|scoring)
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      const urlTab = urlParams.get("tab");
-      if (urlTab === "scoring") return "scoring";
-      if (urlTab === "auction") return "auction";
+      const urlTab = (urlParams.get("tab") || "").toLowerCase();
+      if (urlTab === "auction" && showAuctionTab) return "auction";
+      if (urlTab === "matches" && showMatchesTab) return "matches";
+      if (urlTab === "standings" && showStandingsTab) return "standings";
+      if (urlTab === "leaders" && showLeadersTab) return "leaders";
+      if (urlTab === "overview" || urlTab === "scoring") return "overview";
     } catch {}
 
     // 2. Check local device preference
     if (tournamentId > 0) {
       try {
         const stored = localStorage.getItem(`bidwar_fan_pref_${tournamentId}`);
-        if (stored === "scoring" && showScoringTab) return "scoring";
         if (stored === "auction" && showAuctionTab) return "auction";
+        if (stored === "matches" && showMatchesTab) return "matches";
+        if (stored === "standings" && showStandingsTab) return "standings";
+        if (stored === "leaders" && showLeadersTab) return "leaders";
+        if (stored === "overview" || stored === "scoring") return "overview";
       } catch {}
     }
 
-    // 3. Deterministic fallback based on enabled modules
-    if (showScoringTab && !showAuctionTab) return "scoring";
-    return "auction";
-  }, [showAuctionTab, showScoringTab, tournamentId]);
+    // 3. Deterministic fallback: if scoring is enabled, default to "overview"; if auction-only, "auction"
+    if (showScoringTab) return "overview";
+    if (showAuctionTab) return "auction";
+    return "overview";
+  }, [showAuctionTab, showScoringTab, showMatchesTab, showStandingsTab, showLeadersTab, tournamentId]);
 
   const [activeTab, setActiveTab] = useState<FanModuleTab>(getInitialTab);
 
@@ -189,23 +200,35 @@ export default function UnifiedFanPage({ routeIdentifier, theme, toggleTheme }: 
 
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      const urlTab = urlParams.get("tab");
-      if (urlTab === "scoring" && showScoringTab) {
-        setActiveTab("scoring");
-        return;
-      }
+      const urlTab = (urlParams.get("tab") || "").toLowerCase();
       if (urlTab === "auction" && showAuctionTab) {
         setActiveTab("auction");
         return;
       }
+      if (urlTab === "matches" && showMatchesTab) {
+        setActiveTab("matches");
+        return;
+      }
+      if (urlTab === "standings" && showStandingsTab) {
+        setActiveTab("standings");
+        return;
+      }
+      if (urlTab === "leaders" && showLeadersTab) {
+        setActiveTab("leaders");
+        return;
+      }
+      if (urlTab === "overview" || urlTab === "scoring") {
+        setActiveTab("overview");
+        return;
+      }
     } catch {}
 
-    if (!showAuctionTab && showScoringTab && activeTab !== "scoring") {
-      setActiveTab("scoring");
+    if (!showAuctionTab && showScoringTab && activeTab === "auction") {
+      setActiveTab("overview");
     } else if (showAuctionTab && !showScoringTab && activeTab !== "auction") {
       setActiveTab("auction");
     }
-  }, [tournament, showAuctionTab, showScoringTab]);
+  }, [tournament, showAuctionTab, showScoringTab, showMatchesTab, showStandingsTab, showLeadersTab]);
 
   // Handle user manual tab change with URL query sync and history preservation
   const handleTabChange = useCallback(
@@ -234,20 +257,26 @@ export default function UnifiedFanPage({ routeIdentifier, theme, toggleTheme }: 
     function handlePopState(event: PopStateEvent) {
       try {
         const urlParams = new URLSearchParams(window.location.search);
-        const urlTab = urlParams.get("tab") || (event.state && event.state.tab);
-        if (urlTab === "scoring" && showScoringTab) {
-          setActiveTab("scoring");
-        } else if (urlTab === "auction" && showAuctionTab) {
+        const urlTab = (urlParams.get("tab") || (event.state && event.state.tab) || "").toLowerCase();
+        if (urlTab === "auction" && showAuctionTab) {
           setActiveTab("auction");
+        } else if (urlTab === "matches" && showMatchesTab) {
+          setActiveTab("matches");
+        } else if (urlTab === "standings" && showStandingsTab) {
+          setActiveTab("standings");
+        } else if (urlTab === "leaders" && showLeadersTab) {
+          setActiveTab("leaders");
+        } else if (urlTab === "overview" || urlTab === "scoring") {
+          setActiveTab("overview");
         } else if (!urlTab) {
-          setActiveTab(showAuctionTab ? "auction" : "scoring");
+          setActiveTab(showAuctionTab && !showScoringTab ? "auction" : "overview");
         }
       } catch {}
     }
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [showAuctionTab, showScoringTab]);
+  }, [showAuctionTab, showScoringTab, showMatchesTab, showStandingsTab, showLeadersTab]);
 
   // Fetch tournament teams for the Fan Cheer system
   const [teams, setTeams] = useState<CheerTeam[]>([]);
@@ -319,36 +348,49 @@ export default function UnifiedFanPage({ routeIdentifier, theme, toggleTheme }: 
   const isScoringLive = Boolean((tournament as any)?.isScoringLive);
 
   return (
-    <UnifiedFanPageShell
-      tournament={tournament}
-      productMode={productMode}
-      showAuctionTab={showAuctionTab}
-      showScoringTab={showScoringTab}
-      activeTab={activeTab}
-      onTabChange={handleTabChange}
-      isAuctionLive={isAuctionLive}
-      isScoringLive={isScoringLive}
-      soundEnabled={soundEnabled}
-      onToggleSound={toggleSound}
-      theme={theme}
-      onToggleTheme={toggleTheme}
+    <FanNavigationContext.Provider
+      value={{
+        activeSection: (activeTab === "scoring" ? "overview" : activeTab) as FanNavSection,
+        onNavigateSection: handleTabChange as (section: FanNavSection) => void,
+        showStandingsTab,
+        showLeadersTab,
+        showMatchesTab,
+        showAuctionTab,
+      }}
     >
-      {/* ── Active Module Spectator Renderer (Zero Duplicate Connection Lifecycle) ── */}
-      {activeTab === "auction" && showAuctionTab && (
-        <AuctionFanRenderer tournamentId={tournamentId} />
-      )}
+      <UnifiedFanPageShell
+        tournament={tournament}
+        productMode={productMode}
+        showAuctionTab={showAuctionTab}
+        showScoringTab={showScoringTab}
+        showMatchesTab={showMatchesTab}
+        showStandingsTab={showStandingsTab}
+        showLeadersTab={showLeadersTab}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+        isAuctionLive={isAuctionLive}
+        isScoringLive={isScoringLive}
+        soundEnabled={soundEnabled}
+        onToggleSound={toggleSound}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      >
+        {/* ── Active Module Spectator Renderer (Zero Duplicate Connection Lifecycle) ── */}
+        {activeTab === "auction" && showAuctionTab && (
+          <AuctionFanRenderer tournamentId={tournamentId} />
+        )}
 
-      {activeTab === "scoring" && showScoringTab && sport === "cricket" && (
-        <CricketFanRenderer tournamentId={tournamentId} />
-      )}
+        {activeTab !== "auction" && showScoringTab && sport === "cricket" && (
+          <CricketFanRenderer tournamentId={tournamentId} />
+        )}
 
-      {activeTab === "scoring" && showScoringTab && sport === "badminton" && (
-        <BadmintonFanRenderer tournamentId={tournamentId} />
-      )}
+        {activeTab !== "auction" && showScoringTab && sport === "badminton" && (
+          <BadmintonFanRenderer tournamentId={tournamentId} />
+        )}
 
-      {activeTab === "scoring" && showScoringTab && sport !== "cricket" && sport !== "badminton" && (
-        <UnsupportedSportFallback sport={sport} tournamentName={tournament.name} />
-      )}
+        {activeTab !== "auction" && showScoringTab && sport !== "cricket" && sport !== "badminton" && (
+          <UnsupportedSportFallback sport={sport} tournamentName={tournament.name} />
+        )}
 
       {!showAuctionTab && !showScoringTab && (
         <section className="rounded-3xl border border-slate-200 bg-white p-6 dark:border-white/10 dark:bg-[#131B2E]">
@@ -379,8 +421,9 @@ export default function UnifiedFanPage({ routeIdentifier, theme, toggleTheme }: 
         presets={cheerPresets}
         soundEnabled={soundEnabled}
         onToggleSound={toggleSound}
-        activeModule={activeTab}
+        activeModule={activeTab === "auction" ? "auction" : "scoring"}
       />
     </UnifiedFanPageShell>
+    </FanNavigationContext.Provider>
   );
 }

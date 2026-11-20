@@ -13,10 +13,11 @@ export const Header = ({
 }) => {
   const { logos, brandName } = useBranding();
 
+  // High contrast brand logo: dark text for light theme, white text for dark theme
   const brandSrc =
-    theme === 'dark'
-      ? logos.mainReverse || logos.main
-      : logos.main || logos.mainReverse;
+    theme === 'light'
+      ? logos.main || logos.mainReverse
+      : logos.mainReverse || logos.main;
 
   const scrollToSearch = () => {
     const el = document.getElementById('hero-search-input') || document.getElementById('search-section') || document.getElementById('discover-section');
@@ -27,7 +28,7 @@ export const Header = ({
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800 py-2.5 sm:py-3 shadow-sm transition-all duration-300">
+    <header className="sticky top-0 z-50 w-full bg-white/95 dark:bg-[#070C18]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-white/[0.08] py-2 sm:py-2.5 shadow-xs transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center">
         <Link
           href="/"

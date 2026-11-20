@@ -347,16 +347,16 @@ export function FanCheerWidget({
             if (e.target === e.currentTarget) setIsOpen(false);
           }}
         >
-          <div className="w-full sm:w-[400px] max-h-[80vh] sm:max-h-[520px] sm:mr-5 sm:mb-20 rounded-t-3xl sm:rounded-3xl border border-white/20 bg-[#0e1726]/98 backdrop-blur-2xl shadow-2xl flex flex-col overflow-hidden text-white animate-in slide-in-from-bottom duration-200">
+          <div className="w-full sm:w-[400px] max-h-[80vh] sm:max-h-[520px] sm:mr-5 sm:mb-20 rounded-t-3xl sm:rounded-3xl border border-slate-200 bg-white/95 dark:border-white/20 dark:bg-[#0e1726]/98 backdrop-blur-2xl shadow-2xl flex flex-col overflow-hidden text-slate-900 dark:text-white animate-in slide-in-from-bottom duration-200">
             {/* Drawer Header */}
-            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 bg-slate-950/80">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/90 dark:border-white/10 dark:bg-slate-950/80 px-4 py-3">
               <div className="flex items-center gap-2.5">
                 <div className="h-8 w-8 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center shadow">
                   <Flame className="h-4 w-4 text-slate-950 fill-slate-950" />
                 </div>
                 <div>
-                  <h4 className="font-display font-black text-sm text-white">Live Fan Arena</h4>
-                  <p className="text-[10px] text-slate-400">Cheer live for your team</p>
+                  <h4 className="font-display font-black text-sm text-slate-900 dark:text-white">Live Fan Arena</h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">Cheer live for your team</p>
                 </div>
               </div>
 
@@ -365,16 +365,16 @@ export function FanCheerWidget({
                   <button
                     type="button"
                     onClick={onToggleSound}
-                    className="p-1.5 rounded-xl border border-white/10 bg-white/5 text-slate-300 hover:text-white cursor-pointer"
+                    className="p-1.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:text-white cursor-pointer"
                     title={soundEnabled ? "Mute cheer chimes" : "Enable cheer chimes"}
                   >
-                    {soundEnabled ? <Volume2 className="h-4 w-4 text-emerald-400" /> : <VolumeX className="h-4 w-4" />}
+                    {soundEnabled ? <Volume2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> : <VolumeX className="h-4 w-4" />}
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="p-1.5 rounded-xl border border-white/10 bg-white/5 text-slate-300 hover:text-white cursor-pointer"
+                  className="p-1.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:text-white cursor-pointer"
                   aria-label="Close cheer drawer"
                 >
                   <X className="h-4 w-4" />
@@ -384,8 +384,8 @@ export function FanCheerWidget({
 
             {/* Team Picker Selector */}
             {teams.length > 0 && (
-              <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 bg-white/[0.02] text-xs">
-                <span className="text-slate-400 text-[11px] font-bold uppercase tracking-wider shrink-0 mr-2">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 bg-slate-50/50 dark:border-white/10 dark:bg-white/[0.02] text-xs">
+                <span className="text-slate-500 dark:text-slate-400 text-[11px] font-bold uppercase tracking-wider shrink-0 mr-2">
                   My Team:
                 </span>
                 <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
@@ -397,8 +397,8 @@ export function FanCheerWidget({
                       className={cn(
                         "shrink-0 rounded-xl px-2.5 py-1 text-[11px] font-bold uppercase transition-all border flex items-center gap-1.5 cursor-pointer",
                         t.id === selectedTeamId
-                          ? "bg-amber-500 text-slate-950 border-amber-400 font-black shadow-sm"
-                          : "bg-white/5 text-slate-300 border-white/10 hover:bg-white/10"
+                          ? "bg-amber-500 text-slate-950 border-amber-400 font-black shadow-xs"
+                          : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 dark:bg-white/5 dark:text-slate-300 dark:border-white/10 dark:hover:bg-white/10"
                       )}
                     >
                       <span className="h-2 w-2 rounded-full shrink-0" style={{ background: t.color || "#f59e0b" }} />
@@ -412,7 +412,7 @@ export function FanCheerWidget({
             {/* Cheer Chat Feed */}
             <div
               ref={scrollRef}
-              className="flex-1 overflow-y-auto p-4 space-y-2.5 max-h-[260px] scrollbar-thin scrollbar-thumb-white/15"
+              className="flex-1 overflow-y-auto p-4 space-y-2.5 max-h-[260px] scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-white/15"
             >
               {messages.map((m) => {
                 const isMyTeam = m.teamId === selectedTeamId;
@@ -423,29 +423,29 @@ export function FanCheerWidget({
                       "rounded-2xl p-2.5 text-xs border transition-all",
                       isMyTeam
                         ? "bg-amber-500/10 border-amber-500/30 ml-4"
-                        : "bg-white/[0.04] border-white/10 mr-4"
+                        : "bg-slate-50 border-slate-200 text-slate-800 dark:bg-white/[0.04] dark:border-white/10 dark:text-slate-200 mr-4"
                     )}
                   >
                     <div className="flex items-center justify-between text-[10px] mb-1">
                       <span className="font-bold flex items-center gap-1.5">
                         <span
-                          className="h-2 w-2 rounded-full"
+                           className="h-2 w-2 rounded-full"
                           style={{ backgroundColor: m.teamColor || "#f59e0b" }}
                         />
-                        <span className="text-white font-bold">{m.supporterLabel}</span>
+                        <span className="text-slate-900 dark:text-white font-bold">{m.supporterLabel}</span>
                       </span>
                       <span className="text-slate-400 text-[9px]">
                         {new Date(m.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
-                    <p className="text-slate-200 font-medium break-words leading-relaxed">{m.message}</p>
+                    <p className="text-slate-700 dark:text-slate-200 font-medium break-words leading-relaxed">{m.message}</p>
                   </div>
                 );
               })}
             </div>
 
             {/* Quick Presets Carousel */}
-            <div className="px-4 py-2 border-t border-white/10 bg-black/40">
+            <div className="px-4 py-2 border-t border-slate-200 bg-slate-100/60 dark:border-white/10 dark:bg-black/40">
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                 {presets.map((preset, idx) => (
                   <button
@@ -453,7 +453,7 @@ export function FanCheerWidget({
                     type="button"
                     disabled={cooldown}
                     onClick={() => sendCheer(preset, idx)}
-                    className="shrink-0 rounded-xl border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-white/90 hover:bg-white/15 active:scale-95 disabled:opacity-50 whitespace-nowrap cursor-pointer transition"
+                    className="shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/15 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/15 active:scale-95 disabled:opacity-50 whitespace-nowrap cursor-pointer transition shadow-2xs"
                   >
                     {preset}
                   </button>
@@ -470,7 +470,7 @@ export function FanCheerWidget({
                   setCustomText("");
                 }
               }}
-              className="flex items-center gap-2 p-3 border-t border-white/10 bg-slate-950"
+              className="flex items-center gap-2 p-3 border-t border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950"
             >
               <input
                 type="text"
@@ -482,7 +482,7 @@ export function FanCheerWidget({
                     ? `Cheer for ${selectedTeam.shortCode || selectedTeam.name}...`
                     : "Type a cheer..."
                 }
-                className="flex-1 rounded-xl border border-white/15 bg-white/5 px-3.5 py-2 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
+                className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-amber-500 dark:border-white/15 dark:bg-white/5 dark:text-white dark:placeholder:text-slate-500 dark:focus:border-amber-400"
               />
               <button
                 type="submit"

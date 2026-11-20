@@ -60,12 +60,12 @@ export const ActivityTicker: React.FC<ActivityTickerProps> = ({ tournaments }) =
 
   return (
     <div
-      className="group relative mb-3.5 sm:mb-4 flex items-center overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 p-2 sm:p-2.5 shadow-xs backdrop-blur-md transition-colors dark:border-white/[0.08] dark:bg-[#131B2E]/90"
+      className="group relative mb-2 sm:mb-2.5 flex items-center overflow-hidden rounded-xl sm:rounded-2xl border border-slate-200/80 bg-white/90 p-1.5 sm:p-2 shadow-xs backdrop-blur-md transition-colors dark:border-white/[0.08] dark:bg-[#0B1325]/90"
       aria-label="Tournament activity ticker"
       role="region"
     >
       {/* Static Left Badge */}
-      <div className="relative z-10 flex shrink-0 items-center gap-1.5 border-r border-slate-200 bg-white/95 px-3 py-1 font-bold text-xs dark:border-white/10 dark:bg-[#131B2E]">
+      <div className="relative z-10 flex shrink-0 items-center gap-1.5 border-r border-slate-200 bg-white/95 px-2.5 py-0.5 font-bold text-xs dark:border-white/10 dark:bg-[#0B1325]">
         {hasLiveEvent ? (
           <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
             <span className="relative flex h-2 w-2">

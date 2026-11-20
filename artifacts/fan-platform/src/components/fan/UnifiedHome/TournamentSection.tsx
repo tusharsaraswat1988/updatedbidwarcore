@@ -16,14 +16,14 @@ export const TournamentSection = ({
   if (tournaments.length === 0) {
     if (!emptyMessage) return null;
     return (
-      <section className="mb-12">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 rounded-xl bg-slate-100 dark:bg-white/[0.04]">
-            <Icon size={20} className="text-amber-500" />
+      <section className="mb-8 sm:mb-10">
+        <div className="flex items-center gap-2.5 mb-4 sm:mb-5">
+          <div className="p-1.5 sm:p-2 rounded-xl bg-slate-100 dark:bg-white/[0.04]">
+            <Icon size={18} className="text-amber-500" />
           </div>
-          <h2 className="font-display text-xl font-bold text-slate-900 dark:text-white">{title}</h2>
+          <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white">{title}</h2>
         </div>
-        <div className="rounded-2xl border border-dashed border-slate-200 dark:border-white/10 p-8 text-center text-sm text-slate-500 dark:text-slate-400">
+        <div className="rounded-2xl border border-dashed border-slate-200 dark:border-white/10 p-6 sm:p-8 text-center text-sm text-slate-500 dark:text-slate-400">
           {emptyMessage}
         </div>
       </section>
@@ -31,13 +31,13 @@ export const TournamentSection = ({
   }
 
   return (
-    <section className="mb-12">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 rounded-xl bg-slate-100 dark:bg-white/[0.04]">
-          <Icon size={20} className="text-amber-500" />
+    <section className="mb-8 sm:mb-10">
+      <div className="flex items-center gap-2.5 mb-4 sm:mb-5">
+        <div className="p-1.5 sm:p-2 rounded-xl bg-slate-100 dark:bg-white/[0.04]">
+          <Icon size={18} className="text-amber-500" />
         </div>
-        <h2 className="font-display text-xl font-bold text-slate-900 dark:text-white">{title}</h2>
-        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-600 dark:bg-white/[0.06] dark:text-slate-400">
+        <h2 className="font-display text-lg sm:text-xl font-bold text-slate-900 dark:text-white">{title}</h2>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600 dark:bg-white/[0.06] dark:text-slate-400">
           {tournaments.length}
         </span>
       </div>

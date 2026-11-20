@@ -1,21 +1,26 @@
 import React from "react";
 import { Link } from "wouter";
 import {
-  Compass,
-  Gavel,
+  LayoutDashboard,
+  Calendar,
   Trophy,
+  Award,
+  Gavel,
   Tv,
   Share2,
   Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { FanModuleTab } from "./unified-module-nav";
+import type { FanNavSection } from "./unified-module-nav";
 
 export interface MobileFanBottomNavProps {
-  activeTab: FanModuleTab;
-  onTabChange: (tab: FanModuleTab) => void;
+  activeTab: FanNavSection | string;
+  onTabChange: (tab: FanNavSection) => void;
   showAuctionTab: boolean;
-  showScoringTab: boolean;
+  showScoringTab?: boolean;
+  showMatchesTab?: boolean;
+  showStandingsTab?: boolean;
+  showLeadersTab?: boolean;
   isAuctionLive?: boolean;
   isScoringLive?: boolean;
   sport?: string | null;
@@ -29,7 +34,10 @@ export function MobileFanBottomNav({
   activeTab,
   onTabChange,
   showAuctionTab,
-  showScoringTab,
+  showScoringTab = true,
+  showMatchesTab = true,
+  showStandingsTab = false,
+  showLeadersTab = false,
   isAuctionLive = false,
   isScoringLive = false,
   sport = "cricket",
@@ -38,38 +46,99 @@ export function MobileFanBottomNav({
   onOpenShare,
   onOpenCheer,
 }: MobileFanBottomNavProps) {
-  const isLive = isAuctionLive || isScoringLive;
+  const currentActive = activeTab === "scoring" ? "overview" : activeTab;
 
   return (
     <nav
       aria-label="Mobile Navigation"
-      className="fixed bottom-0 left-0 right-0 z-30 sm:hidden border-t border-white/10 bg-[#0B101B]/95 backdrop-blur-xl px-2 pt-2 pb-[max(0.6rem,env(safe-area-inset-bottom))] shadow-2xl"
+      className="fixed bottom-0 left-0 right-0 z-30 sm:hidden border-t border-slate-200 bg-white/95 dark:border-white/10 dark:bg-[#0B101B]/95 backdrop-blur-xl px-1 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-2xl"
     >
-      <div className="flex items-center justify-around gap-1">
-        {/* 1. Discover Portal */}
-        <Link
-          href="/"
-          className="flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl text-slate-400 hover:text-white transition cursor-pointer min-h-[44px] min-w-[54px]"
-          title="All Tournaments"
+      <div className="flex items-center justify-around gap-0.5">
+        {/* 1. Overview */}
+        <button
+          type="button"
+          onClick={() => onTabChange("overview")}
+          className={cn(
+            "relative flex flex-col items-center justify-center gap-0.5 py-1 px-1.5 rounded-xl transition cursor-pointer min-h-[44px] min-w-[48px]",
+            currentActive === "overview"
+              ? "text-amber-500 font-bold bg-amber-500/10 dark:text-amber-400"
+              : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+          )}
         >
-          <Compass className="h-5 w-5" />
-          <span className="text-[10px] font-bold">Discover</span>
-        </Link>
+          <LayoutDashboard className="h-4 w-4" />
+          <span className="text-[10px] font-bold">Overview</span>
+        </button>
 
-        {/* 2. Auction Tab (if enabled) */}
+        {/* 2. Matches (if scoring enabled) */}
+        {showScoringTab && showMatchesTab && (
+          <button
+            type="button"
+            onClick={() => onTabChange("matches")}
+            className={cn(
+              "relative flex flex-col items-center justify-center gap-0.5 py-1 px-1.5 rounded-xl transition cursor-pointer min-h-[44px] min-w-[48px]",
+              currentActive === "matches"
+                ? "text-amber-500 font-bold bg-amber-500/10 dark:text-amber-400"
+                : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+            )}
+          >
+            <div className="relative">
+              <Calendar className="h-4 w-4" />
+              {isScoringLive && (
+                <span className="absolute -top-1 -right-1.5 h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+              )}
+            </div>
+            <span className="text-[10px] font-bold">Matches</span>
+          </button>
+        )}
+
+        {/* 3. Standings (if available for sport) */}
+        {showScoringTab && showStandingsTab && (
+          <button
+            type="button"
+            onClick={() => onTabChange("standings")}
+            className={cn(
+              "relative flex flex-col items-center justify-center gap-0.5 py-1 px-1.5 rounded-xl transition cursor-pointer min-h-[44px] min-w-[48px]",
+              currentActive === "standings"
+                ? "text-amber-500 font-bold bg-amber-500/10 dark:text-amber-400"
+                : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+            )}
+          >
+            <Trophy className="h-4 w-4" />
+            <span className="text-[10px] font-bold">Table</span>
+          </button>
+        )}
+
+        {/* 4. Leaders (if available for sport) */}
+        {showScoringTab && showLeadersTab && (
+          <button
+            type="button"
+            onClick={() => onTabChange("leaders")}
+            className={cn(
+              "relative flex flex-col items-center justify-center gap-0.5 py-1 px-1.5 rounded-xl transition cursor-pointer min-h-[44px] min-w-[48px]",
+              currentActive === "leaders"
+                ? "text-amber-500 font-bold bg-amber-500/10 dark:text-amber-400"
+                : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+            )}
+          >
+            <Award className="h-4 w-4" />
+            <span className="text-[10px] font-bold">Leaders</span>
+          </button>
+        )}
+
+        {/* 5. Auction (if enabled) */}
         {showAuctionTab && (
           <button
             type="button"
             onClick={() => onTabChange("auction")}
             className={cn(
-              "relative flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl transition cursor-pointer min-h-[44px] min-w-[54px]",
-              activeTab === "auction"
-                ? "text-amber-400 font-bold bg-amber-500/10"
-                : "text-slate-400 hover:text-white"
+              "relative flex flex-col items-center justify-center gap-0.5 py-1 px-1.5 rounded-xl transition cursor-pointer min-h-[44px] min-w-[48px]",
+              currentActive === "auction"
+                ? "text-amber-500 font-bold bg-amber-500/10 dark:text-amber-400"
+                : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
             )}
           >
             <div className="relative">
-              <Gavel className="h-5 w-5" />
+              <Gavel className="h-4 w-4" />
               {isAuctionLive && (
                 <span className="absolute -top-1 -right-1.5 h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
               )}
@@ -78,64 +147,29 @@ export function MobileFanBottomNav({
           </button>
         )}
 
-        {/* 3. Scoring Tab (if enabled) */}
-        {showScoringTab && (
-          <button
-            type="button"
-            onClick={() => onTabChange("scoring")}
-            className={cn(
-              "relative flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl transition cursor-pointer min-h-[44px] min-w-[54px]",
-              activeTab === "scoring"
-                ? "text-amber-400 font-bold bg-amber-500/10"
-                : "text-slate-400 hover:text-white"
-            )}
-          >
-            <div className="relative">
-              <Trophy className="h-5 w-5" />
-              {isScoringLive && (
-                <span className="absolute -top-1 -right-1.5 h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-              )}
-            </div>
-            <span className="text-[10px] font-bold capitalize">{sport || "Match"}</span>
-          </button>
-        )}
-
-        {/* 4. Watch Stream (if active) */}
-        {streamEnabled && onOpenStream && (
-          <button
-            type="button"
-            onClick={onOpenStream}
-            className="flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl text-emerald-400 hover:text-emerald-300 transition cursor-pointer min-h-[44px] min-w-[54px]"
-            title="Watch Live Broadcast"
-          >
-            <Tv className="h-5 w-5 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-wider">Stream</span>
-          </button>
-        )}
-
-        {/* 5. Cheer Arena Button */}
+        {/* 6. Cheer Arena */}
         {onOpenCheer && (
           <button
             type="button"
             onClick={onOpenCheer}
-            className="flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl text-orange-400 hover:text-orange-300 transition cursor-pointer min-h-[44px] min-w-[54px]"
+            className="flex flex-col items-center justify-center gap-0.5 py-1 px-1.5 rounded-xl text-orange-500 hover:text-orange-400 transition cursor-pointer min-h-[44px] min-w-[48px]"
             title="Open Fan Cheer Arena"
           >
-            <Flame className="h-5 w-5 fill-orange-400 text-orange-400 animate-pulse" />
+            <Flame className="h-4 w-4 fill-orange-500 text-orange-500 animate-pulse" />
             <span className="text-[10px] font-black uppercase tracking-wider">Cheer</span>
           </button>
         )}
 
-        {/* 6. Share Action */}
-        {onOpenShare && (
+        {/* 7. Watch Stream (if active) */}
+        {streamEnabled && onOpenStream && (
           <button
             type="button"
-            onClick={onOpenShare}
-            className="flex flex-col items-center justify-center gap-1 py-1 px-2.5 rounded-xl text-slate-400 hover:text-white transition cursor-pointer min-h-[44px] min-w-[54px]"
-            title="Share Fan Page"
+            onClick={onOpenStream}
+            className="flex flex-col items-center justify-center gap-0.5 py-1 px-1.5 rounded-xl text-emerald-500 hover:text-emerald-400 transition cursor-pointer min-h-[44px] min-w-[48px]"
+            title="Watch Live Broadcast"
           >
-            <Share2 className="h-5 w-5 text-amber-400/80" />
-            <span className="text-[10px] font-bold">Share</span>
+            <Tv className="h-4 w-4 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-wider">Stream</span>
           </button>
         )}
       </div>

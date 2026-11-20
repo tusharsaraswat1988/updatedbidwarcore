@@ -119,6 +119,28 @@ export function syncDocumentSurfaceTheme(pathname?: string): void {
 export function getPortalThemeClass(pathname?: string): string {
   if (isOrganizerRoute(pathname)) return "bw-organizer-light";
   if (isAdminRoute(pathname)) return "bw-admin-dark dark";
+
+  if (typeof document !== "undefined") {
+    const isExplicitLight =
+      document.documentElement.classList.contains("light") ||
+      document.documentElement.className === "light" ||
+      document.documentElement.classList.contains("bw-organizer-light") ||
+      document.body.classList.contains("light");
+
+    if (isExplicitLight) {
+      return "lovable-theme light";
+    }
+
+    const isExplicitDark =
+      document.documentElement.classList.contains("dark") ||
+      document.documentElement.className === "dark" ||
+      document.body.classList.contains("dark");
+
+    if (isExplicitDark) {
+      return "lovable-theme dark";
+    }
+  }
+
   return "lovable-theme dark";
 }
 

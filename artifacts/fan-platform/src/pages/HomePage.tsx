@@ -346,75 +346,76 @@ export const HomePage = ({
         <Header toggleTheme={toggleTheme} theme={theme} />
 
         {/* 2. Live Activity Ticker (Snug transition beneath header) */}
-        <div className="mx-auto max-w-7xl px-4 pt-2 sm:pt-2.5 sm:px-6">
+        <div className="mx-auto max-w-7xl px-4 pt-1 sm:pt-1.5 sm:px-6">
           <ActivityTicker tournaments={items} />
         </div>
 
-        <main className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
+        <main className="mx-auto max-w-7xl px-4 pb-12 sm:px-6">
           {/* 3. Compact Fan Arena Hero & Integrated Search */}
-          <section className="relative mb-6 overflow-hidden rounded-3xl border border-amber-500/25 bg-gradient-to-br from-slate-950 via-[#0E1626] to-[#0A0F1D] p-5 sm:p-7 text-white shadow-xl shadow-black/20">
+          <section className="relative mb-4 sm:mb-5 overflow-hidden rounded-2xl sm:rounded-3xl border border-amber-500/30 bg-gradient-to-r from-[#070D1A] via-[#0E172E] to-[#0A1224] p-3.5 sm:p-4.5 md:p-5 text-white shadow-xl shadow-black/25">
             {/* Ambient Background Accents */}
-            <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-amber-500/10 blur-3xl" />
-            <div className="pointer-events-none absolute -left-16 -bottom-16 h-56 w-56 rounded-full bg-sky-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-amber-500/10 blur-2xl" />
+            <div className="pointer-events-none absolute -left-12 -bottom-12 h-44 w-44 rounded-full bg-sky-500/10 blur-2xl" />
 
-            <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative z-10 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               {/* Headline & Identity */}
-              <div className="max-w-2xl">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-0.5 text-[11px] font-black uppercase tracking-[0.2em] text-amber-400 shadow-xs">
-                    <Sparkles size={12} className="text-amber-400" />
+              <div className="max-w-2xl min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] sm:text-[11px] font-black uppercase tracking-[0.15em] text-amber-400 shadow-xs">
+                    <Sparkles size={11} className="text-amber-400" />
                     Fan Arena
                   </span>
 
                   {summary.live > 0 ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-wider text-emerald-400 shadow-xs">
-                      <span className="relative flex h-2 w-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-0.5 text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-emerald-400 shadow-xs">
+                      <span className="relative flex h-1.5 w-1.5">
                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       </span>
                       {summary.live} Live Now
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] font-bold text-slate-300">
-                      Live Sports & Auctions
+                    <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-bold text-slate-300">
+                      Live Sports &amp; Auctions
                     </span>
                   )}
                 </div>
 
-                <h1 className="mt-2 font-display text-2xl font-black tracking-tight sm:text-3xl lg:text-4xl text-white">
-                  Live Auctions & Match Center
+                <h1 className="mt-1 font-display text-xl sm:text-2xl lg:text-[26px] font-black uppercase tracking-tight text-white leading-tight">
+                  Live Auctions &amp;{' '}
+                  <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 bg-clip-text text-transparent">
+                    Match Center
+                  </span>
                 </h1>
-                <p className="mt-1 text-xs text-slate-300 sm:text-sm font-medium">
-                  Experience live bidding wars, ball-by-ball cricket scoring, and court-side badminton action across India's premier community tournaments.
+                <p className="mt-0.5 text-[11px] sm:text-xs text-slate-300/85 font-normal max-w-xl line-clamp-1 sm:line-clamp-none">
+                  Real-time bidding wars, ball-by-ball cricket scoring, and court-side badminton action across India.
                 </p>
               </div>
 
-              {/* Compact Metrics Strip */}
-              <div className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-end lg:gap-1.5 shrink-0">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-300">
-                  <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5">
-                    <Radio size={13} className={summary.live > 0 ? 'text-emerald-400 animate-pulse' : 'text-slate-400'} />
-                    <span className="text-white font-black">{summary.live}</span> Live
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5">
-                    <Calendar size={13} className="text-amber-400" />
-                    <span className="text-white font-black">{summary.upcoming + summary.today}</span> Soon
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-1.5">
-                    <Trophy size={13} className="text-sky-400" />
-                    <span className="text-white font-black">{summary.total}</span> Total
-                  </span>
-                </div>
+              {/* Compact Metrics Strip (Desktop / Tablet) */}
+              <div className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-slate-300 shrink-0">
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px]">
+                  <Radio size={12} className={summary.live > 0 ? 'text-emerald-400 animate-pulse' : 'text-slate-400'} />
+                  <span className="text-white font-black">{summary.live}</span> Live
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px]">
+                  <Calendar size={12} className="text-amber-400" />
+                  <span className="text-white font-black">{summary.upcoming + summary.today}</span> Soon
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px]">
+                  <Trophy size={12} className="text-sky-400" />
+                  <span className="text-white font-black">{summary.total}</span> Total
+                </span>
               </div>
             </div>
 
             {/* Integrated Streamlined Search Bar */}
-            <div className="relative z-10 mt-4 pt-3.5 border-t border-white/10 grid gap-2.5 sm:grid-cols-[1fr_200px]">
+            <div className="relative z-10 mt-2.5 pt-2 sm:pt-2.5 border-t border-white/10 grid gap-2 sm:grid-cols-[1fr_200px]">
               <div className="relative">
-                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   id="hero-search-input"
-                  className="w-full rounded-xl border border-white/15 bg-white/10 py-2.5 pl-10 pr-9 text-xs sm:text-sm text-white placeholder:text-slate-400 shadow-inner backdrop-blur-sm transition focus:border-amber-400 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  className="w-full rounded-xl border border-white/15 bg-white/10 py-2 pl-9 pr-8 text-xs sm:text-sm text-white placeholder:text-slate-400 shadow-inner backdrop-blur-sm transition focus:border-amber-400 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-amber-400"
                   placeholder="Search tournament name, venue, or team..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -422,18 +423,19 @@ export const HomePage = ({
                 {search && (
                   <button
                     type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:text-white"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 hover:text-white"
                     onClick={() => setSearch('')}
                     aria-label="Clear search"
                   >
-                    <X size={14} />
+                    <X size={13} />
                   </button>
                 )}
               </div>
 
               <div className="relative">
+                <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
-                  className="w-full rounded-xl border border-white/15 bg-white/10 py-2.5 pl-3.5 pr-8 text-xs sm:text-sm text-white placeholder:text-slate-400 shadow-inner backdrop-blur-sm transition focus:border-amber-400 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  className="w-full rounded-xl border border-white/15 bg-white/10 py-2 pl-8 pr-7 text-xs sm:text-sm text-white placeholder:text-slate-400 shadow-inner backdrop-blur-sm transition focus:border-amber-400 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-amber-400"
                   placeholder="Filter by city..."
                   value={city}
                   onChange={(e) => setCity(e.target.value)}

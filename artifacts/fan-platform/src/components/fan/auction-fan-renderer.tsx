@@ -385,15 +385,15 @@ export function TeamSquadDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl bg-slate-950 text-white border-slate-800 p-0 overflow-hidden rounded-3xl">
+      <DialogContent className="max-w-2xl bg-white text-slate-900 border-slate-200 dark:bg-slate-950 dark:text-white dark:border-slate-800 p-0 overflow-hidden rounded-3xl shadow-2xl">
         {/* Header */}
-        <DialogHeader className="p-5 sm:p-6 border-b border-white/10 bg-gradient-to-r from-slate-900 to-slate-950">
+        <DialogHeader className="p-5 sm:p-6 border-b border-slate-200 bg-slate-50/90 dark:border-white/10 dark:bg-gradient-to-r dark:from-slate-900 dark:to-slate-950">
           <div className="flex items-center gap-3">
             {team.logoUrl ? (
               <img
                 src={cldUrl(team.logoUrl, "teamLogo")}
                 alt=""
-                className="h-12 w-12 rounded-2xl object-cover border border-white/20"
+                className="h-12 w-12 rounded-2xl object-cover border border-slate-200 dark:border-white/20"
               />
             ) : (
               <div
@@ -404,10 +404,10 @@ export function TeamSquadDialog({
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <DialogTitle className="text-xl sm:text-2xl font-black text-white truncate">
+              <DialogTitle className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white truncate">
                 {team.teamName}
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-400">
+              <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
                 Official Auction Roster · {squad.length} {squad.length === 1 ? "Player" : "Players"} Acquired
               </DialogDescription>
             </div>
@@ -423,8 +423,8 @@ export function TeamSquadDialog({
                 className={cn(
                   "flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-xl text-xs font-bold transition cursor-pointer",
                   t.teamId === team.teamId
-                    ? "bg-amber-500 text-slate-950 font-black shadow"
-                    : "bg-white/[0.06] text-slate-300 hover:bg-white/10"
+                    ? "bg-amber-500 text-slate-950 font-black shadow-sm"
+                    : "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/80 dark:bg-white/[0.06] dark:text-slate-300 dark:hover:bg-white/10 dark:border-transparent"
                 )}
               >
                 <span className="h-2 w-2 rounded-full shrink-0" style={{ background: t.color || "#f59e0b" }} />
@@ -436,18 +436,18 @@ export function TeamSquadDialog({
         </DialogHeader>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-2 p-4 bg-white/[0.02] border-b border-white/10 text-center">
-          <div className="rounded-xl bg-white/[0.03] p-2.5">
-            <p className="text-[10px] uppercase font-bold text-slate-400">Purse Left</p>
-            <p className="font-display font-black text-base text-amber-400">{inr(team.purseRemaining)}</p>
+        <div className="grid grid-cols-3 gap-2 p-4 bg-slate-50/60 dark:bg-white/[0.02] border-b border-slate-200 dark:border-white/10 text-center">
+          <div className="rounded-xl bg-white border border-slate-200/80 dark:border-transparent dark:bg-white/[0.03] p-2.5 shadow-xs">
+            <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Purse Left</p>
+            <p className="font-display font-black text-base text-amber-600 dark:text-amber-400">{inr(team.purseRemaining)}</p>
           </div>
-          <div className="rounded-xl bg-white/[0.03] p-2.5">
-            <p className="text-[10px] uppercase font-bold text-slate-400">Purse Spent</p>
-            <p className="font-display font-black text-base text-slate-200">{inr(team.purseUsed)}</p>
+          <div className="rounded-xl bg-white border border-slate-200/80 dark:border-transparent dark:bg-white/[0.03] p-2.5 shadow-xs">
+            <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Purse Spent</p>
+            <p className="font-display font-black text-base text-slate-800 dark:text-slate-200">{inr(team.purseUsed)}</p>
           </div>
-          <div className="rounded-xl bg-white/[0.03] p-2.5">
-            <p className="text-[10px] uppercase font-bold text-slate-400">Max Bid Left</p>
-            <p className="font-display font-black text-base text-emerald-400">{inr(team.maxAllowedBid)}</p>
+          <div className="rounded-xl bg-white border border-slate-200/80 dark:border-transparent dark:bg-white/[0.03] p-2.5 shadow-xs">
+            <p className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Max Bid Left</p>
+            <p className="font-display font-black text-base text-emerald-600 dark:text-emerald-400">{inr(team.maxAllowedBid)}</p>
           </div>
         </div>
 
@@ -458,30 +458,30 @@ export function TeamSquadDialog({
               {squad.map((player) => (
                 <div
                   key={player.id}
-                  className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3 transition hover:border-white/20 hover:bg-white/[0.05]"
+                  className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-xs transition hover:border-amber-500/40 hover:bg-slate-50/80 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-white/20 dark:hover:bg-white/[0.05]"
                 >
                   {player.photoUrl ? (
                     <img
                       src={cldUrl(player.photoUrl, "thumbnail")}
                       alt=""
-                      className="h-11 w-11 rounded-xl object-cover border border-white/10 shrink-0"
+                      className="h-11 w-11 rounded-xl object-cover border border-slate-200 dark:border-white/10 shrink-0"
                     />
                   ) : (
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-xs font-bold text-slate-400">
-                      <User className="h-5 w-5 text-slate-500" />
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                      <User className="h-5 w-5 text-slate-400 dark:text-slate-500" />
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-1">
-                      <p className="truncate font-bold text-sm text-white">{player.name}</p>
+                      <p className="truncate font-bold text-sm text-slate-900 dark:text-white">{player.name}</p>
                       {player.playerTag && (
-                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
                           {player.playerTag}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400 capitalize">{player.role || "Squad Member"}</p>
-                    <p className="text-xs font-black text-amber-400 mt-0.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{player.role || "Squad Member"}</p>
+                    <p className="text-xs font-black text-amber-600 dark:text-amber-400 mt-0.5">
                       {inr(player.soldPrice || player.retainedPrice || player.basePrice)}
                     </p>
                   </div>
@@ -489,10 +489,10 @@ export function TeamSquadDialog({
               ))}
             </div>
           ) : (
-            <div className="py-12 text-center text-slate-400 text-sm">
-              <User className="h-10 w-10 mx-auto text-slate-600 mb-2" />
-              <p className="font-semibold text-slate-300">No players acquired yet</p>
-              <p className="text-xs text-slate-500 mt-1">
+            <div className="py-12 text-center text-slate-500 dark:text-slate-400 text-sm">
+              <User className="h-10 w-10 mx-auto text-slate-400 dark:text-slate-600 mb-2" />
+              <p className="font-semibold text-slate-800 dark:text-slate-300">No players acquired yet</p>
+              <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
                 Winning bids from the auction floor will automatically appear here.
               </p>
             </div>

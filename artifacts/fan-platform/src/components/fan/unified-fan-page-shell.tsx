@@ -61,8 +61,11 @@ export interface UnifiedFanPageShellProps {
   productMode: "auction_only" | "scoring_only" | "both";
   showAuctionTab: boolean;
   showScoringTab: boolean;
+  showMatchesTab?: boolean;
+  showStandingsTab?: boolean;
+  showLeadersTab?: boolean;
   activeTab: FanModuleTab;
-  onTabChange: (tab: FanModuleTab) => void;
+  onTabChange: (tab: any) => void;
   isAuctionLive?: boolean;
   isScoringLive?: boolean;
   soundEnabled: boolean;
@@ -78,6 +81,9 @@ export function UnifiedFanPageShell({
   productMode,
   showAuctionTab,
   showScoringTab,
+  showMatchesTab = true,
+  showStandingsTab = false,
+  showLeadersTab = false,
   activeTab,
   onTabChange,
   isAuctionLive = false,
@@ -160,6 +166,7 @@ export function UnifiedFanPageShell({
             >
               <BrandLogoImage
                 theme={theme}
+                src={theme === "light" ? (logos.main || logos.mainReverse) : (logos.mainReverse || logos.main)}
                 alt={logoAlt}
                 className="h-7 sm:h-8 w-auto object-contain"
                 loading="eager"
@@ -271,6 +278,9 @@ export function UnifiedFanPageShell({
           productMode={productMode}
           showAuctionTab={showAuctionTab}
           showScoringTab={showScoringTab}
+          showMatchesTab={showMatchesTab}
+          showStandingsTab={showStandingsTab}
+          showLeadersTab={showLeadersTab}
           activeTab={activeTab}
           onTabChange={onTabChange}
           isAuctionLive={isAuctionLive}
@@ -291,32 +301,32 @@ export function UnifiedFanPageShell({
 
       {/* ── Share Modal Dialog ──────────────────────────────────────────── */}
       <Dialog open={shareOpen} onOpenChange={setShareOpen}>
-        <DialogContent className="sm:max-w-md bg-[#131B2E] border-white/10 text-white rounded-2xl shadow-2xl">
+        <DialogContent className="sm:max-w-md bg-white border-slate-200 text-slate-900 dark:bg-[#131B2E] dark:border-white/10 dark:text-white rounded-2xl shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="font-display font-bold text-lg text-white flex items-center gap-2">
-              <Share2 className="w-5 h-5 text-amber-400" />
+            <DialogTitle className="font-display font-bold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+              <Share2 className="w-5 h-5 text-amber-500 dark:text-amber-400" />
               Share Tournament Fan Page
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 pt-2">
-            <p className="text-xs text-slate-300">
+            <p className="text-xs text-slate-600 dark:text-slate-300">
               Share the official live spectator hub with team owners, players, and fans.
             </p>
 
-            <div className="flex items-center gap-2 p-2 rounded-xl bg-black/40 border border-white/10">
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-100 border border-slate-200 dark:bg-black/40 dark:border-white/10">
               <input
                 type="text"
                 readOnly
                 value={fanPageUrl}
-                className="w-full bg-transparent text-xs text-slate-200 font-mono focus:outline-none truncate px-1"
+                className="w-full bg-transparent text-xs text-slate-800 dark:text-slate-200 font-mono focus:outline-none truncate px-1"
               />
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 text-black font-bold text-xs hover:bg-amber-400 transition-colors cursor-pointer"
+                className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition-colors cursor-pointer"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-black" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? <Check className="w-3.5 h-3.5 text-slate-950" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{copied ? "Copied" : "Copy"}</span>
               </button>
             </div>
@@ -348,6 +358,9 @@ export function UnifiedFanPageShell({
         onTabChange={onTabChange}
         showAuctionTab={showAuctionTab}
         showScoringTab={showScoringTab}
+        showMatchesTab={showMatchesTab}
+        showStandingsTab={showStandingsTab}
+        showLeadersTab={showLeadersTab}
         isAuctionLive={isAuctionLive}
         isScoringLive={isScoringLive}
         sport={tournament.sport}
