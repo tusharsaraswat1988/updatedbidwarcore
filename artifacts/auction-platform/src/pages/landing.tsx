@@ -16,7 +16,7 @@ import { DEFAULT_GALLERY_ITEMS } from "@/data/homepage-content";
 import { LazyWhenVisible } from "@/components/home/lazy-when-visible";
 
 import { HeroSection } from "@/components/home/hero-section";
-import { UpcomingAuctionsStrip } from "@/components/home/upcoming-auctions-strip";
+import { ProductExperienceShowcase } from "@/components/home/product-experience-showcase";
 import { TrustStrip } from "@/components/home/trust-strip";
 import { NumbersSection } from "@/components/home/numbers-section";
 import type { GalleryItem } from "@/components/home/events-gallery";
@@ -188,7 +188,7 @@ export default function Landing() {
         onOperatorLogin={() => navigate("/organizer")}
       />
 
-      <UpcomingAuctionsStrip auctions={displayAuctions} onViewAll={() => navigate("/upcoming-auctions")} />
+      <ProductExperienceShowcase onViewAllAuctions={() => navigate("/upcoming-auctions")} />
 
       <TrustStrip />
 

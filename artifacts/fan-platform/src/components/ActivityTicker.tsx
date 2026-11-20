@@ -60,7 +60,7 @@ export const ActivityTicker: React.FC<ActivityTickerProps> = ({ tournaments }) =
 
   return (
     <div
-      className="group relative mb-6 flex items-center overflow-hidden rounded-2xl border border-slate-200 bg-white/80 p-2.5 shadow-sm backdrop-blur-md transition-colors dark:border-white/[0.08] dark:bg-[#131B2E]/90"
+      className="group relative mb-3.5 sm:mb-4 flex items-center overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 p-2 sm:p-2.5 shadow-xs backdrop-blur-md transition-colors dark:border-white/[0.08] dark:bg-[#131B2E]/90"
       aria-label="Tournament activity ticker"
       role="region"
     >

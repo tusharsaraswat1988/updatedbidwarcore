@@ -10,8 +10,18 @@ export interface BrandLogoImageProps {
   loading?: "eager" | "lazy";
 }
 
-const OFFICIAL_FALLBACK_DARK = "/assets/branding/bidwar-reverse-logo-official.png";
-const OFFICIAL_FALLBACK_LIGHT = "/assets/branding/bidwar-primary-logo-official.png";
+const BASE = import.meta.env.BASE_URL || "/";
+const prefix = BASE.endsWith("/") ? BASE : `${BASE}/`;
+const OFFICIAL_FALLBACK_DARK = `${prefix}assets/branding/bidwar-reverse-logo-official.png`;
+const OFFICIAL_FALLBACK_LIGHT = `${prefix}assets/branding/bidwar-primary-logo-official.png`;
+
+function resolveBrandSrc(rawSrc: string | null | undefined, fallback: string): string {
+  if (!rawSrc || rawSrc.startsWith("data:image/svg+xml")) return fallback;
+  if (rawSrc.startsWith("/assets/")) {
+    return `${prefix}${rawSrc.slice(1)}`;
+  }
+  return rawSrc;
+}
 
 export function BrandLogoImage({
   theme = "dark",
@@ -21,13 +31,13 @@ export function BrandLogoImage({
   loading = "eager",
 }: BrandLogoImageProps) {
   const defaultFallback = theme === "dark" ? OFFICIAL_FALLBACK_DARK : OFFICIAL_FALLBACK_LIGHT;
-  const initialSrc = (src && !src.startsWith("data:image/svg+xml")) ? src : defaultFallback;
+  const initialSrc = resolveBrandSrc(src, defaultFallback);
 
   const [currentSrc, setCurrentSrc] = useState<string>(initialSrc);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    const candidate = (src && !src.startsWith("data:image/svg+xml")) ? src : defaultFallback;
+    const candidate = resolveBrandSrc(src, defaultFallback);
     setCurrentSrc(candidate);
     setFailed(false);
   }, [src, defaultFallback]);

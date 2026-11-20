@@ -20,6 +20,8 @@ export interface TournamentSummary {
   sponsorLogos?: string | null;
   /** Present when the tournament is on BidWar but has no live module. */
   licensed: boolean;
+  licenseStatus?: string;
+  isTrial?: boolean;
   featured: boolean;
   featuredPriority: number;
   featuredStartDate?: string | null;
@@ -74,6 +76,24 @@ export interface TournamentSummary {
   } | null;
 }
 
+export interface OrganizerTrialTournament {
+  id: number;
+  slug: string;
+  name: string;
+  sport: string;
+  status: string;
+  city: string | null;
+  venue: string | null;
+  auctionDate: string | null;
+  auctionTime: string | null;
+  logoUrl: string | null;
+  licenseStatus: string;
+  auctionEnabled: boolean;
+  scoringEnabled: boolean;
+  isTrial: boolean;
+  featured: false;
+}
+
 export interface FanDiscoveryResponse {
   items: TournamentSummary[];
   pagination: {
@@ -88,7 +108,14 @@ export interface FanDiscoveryResponse {
     today: number;
     completed: number;
     total: number;
+    modules?: {
+      all: number;
+      auction: number;
+      scoring: number;
+      both: number;
+    };
   };
+  organizerTrials?: OrganizerTrialTournament[];
 }
 
 export interface ActivityEvent {

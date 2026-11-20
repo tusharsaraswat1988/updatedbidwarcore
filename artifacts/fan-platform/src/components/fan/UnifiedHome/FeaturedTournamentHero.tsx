@@ -156,7 +156,7 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
     : 'from-slate-900 via-slate-950 to-slate-950';
 
   return (
-    <section className="relative mb-12 overflow-hidden rounded-3xl border border-amber-500/30 bg-slate-950 text-white shadow-2xl transition-all dark:border-amber-400/25">
+    <section className="relative mb-8 sm:mb-10 overflow-hidden rounded-3xl border border-amber-500/35 bg-slate-950 text-white shadow-2xl transition-all dark:border-amber-400/30">
       {/* ── Traveling Star Sparkle Orbiting Along Border (Authentic 4-Point Concave Needle Diamond Sparkle Star) ── */}
       <div className="animate-border-sparkle -translate-x-1/2 -translate-y-1/2 pointer-events-none">
         <div className="relative flex items-center justify-center animate-spin [animation-duration:6s]">
@@ -194,7 +194,7 @@ export const FeaturedTournamentHero: React.FC<FeaturedHeroProps> = ({ t }) => {
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/85 to-slate-950/90" />
       </div>
 
-      <div className="relative z-10 grid grid-cols-1 gap-8 p-6 sm:p-8 md:p-10 lg:grid-cols-12 lg:items-center">
+      <div className="relative z-10 grid grid-cols-1 gap-6 sm:gap-8 p-5 sm:p-7 md:p-8 lg:p-9 lg:grid-cols-12 lg:items-center">
         {/* ── Left Column: Headline Tournament Identity ── */}
         <div className="lg:col-span-7">
           {/* Header pill / badge */}

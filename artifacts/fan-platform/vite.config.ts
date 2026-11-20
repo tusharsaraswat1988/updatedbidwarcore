@@ -8,6 +8,7 @@ const fanPort = getDevPorts().fanPlatform;
 
 export default defineConfig({
   base: process.env.VITE_BASE_PATH || '/',
+  publicDir: path.resolve(__dirname, './public'),
   plugins: [react()],
   resolve: {
     alias: {

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { Upload, X, Loader2, ImageIcon } from "lucide-react";
+import { Upload, X, Loader2, Camera, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadImageFile } from "@/lib/cloudinary-upload";
 import { RegLabel } from "@/components/registration/registration-chrome";
@@ -51,7 +51,7 @@ export function CompactScreenshotUpload({ value, onChange, disabled }: CompactSc
 
   return (
     <div className="reg-field">
-      <RegLabel marker="required">Payment receipt</RegLabel>
+      <RegLabel marker="required">Payment receipt screenshot</RegLabel>
       <input
         ref={galleryInputRef}
         type="file"
@@ -77,32 +77,41 @@ export function CompactScreenshotUpload({ value, onChange, disabled }: CompactSc
           e.target.value = "";
         }}
       />
+
       {value ? (
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 p-3">
-          <div className="w-14 h-14 rounded-lg overflow-hidden border border-border shrink-0">
+        <div className="flex items-center gap-3.5 rounded-xl border border-border bg-card p-3 shadow-2xs">
+          <div className="w-16 h-16 rounded-lg overflow-hidden border border-border shrink-0 bg-muted/40">
             <img src={value} alt="Uploaded payment receipt" className="w-full h-full object-cover" />
           </div>
-          <div className="flex-1 min-w-0 space-y-2">
-            <p className="text-sm text-foreground">Receipt uploaded. You can replace it before submitting.</p>
-            <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>Receipt attached</span>
+            </div>
+            <p className="text-xs text-muted-foreground truncate">
+              Ready for organizer verification
+            </p>
+            <div className="flex items-center gap-2 pt-0.5">
               <Button
                 type="button"
                 variant="outline"
-                className="min-h-11"
+                size="sm"
+                className="h-8 px-3 text-xs font-medium cursor-pointer"
                 disabled={disabled || uploading}
                 onClick={() => galleryInputRef.current?.click()}
               >
-                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Upload className="w-3.5 h-3.5 mr-1.5" />}
                 Replace
               </Button>
               <Button
                 type="button"
                 variant="ghost"
-                className="min-h-11 text-destructive hover:text-destructive"
+                size="sm"
+                className="h-8 px-3 text-xs font-medium text-destructive hover:text-destructive cursor-pointer"
                 disabled={disabled || uploading}
                 onClick={() => onChange("")}
               >
-                <X className="w-4 h-4" /> Remove
+                <X className="w-3.5 h-3.5 mr-1.5" /> Remove
               </Button>
             </div>
           </div>
@@ -112,42 +121,56 @@ export function CompactScreenshotUpload({ value, onChange, disabled }: CompactSc
           onDragOver={e => { e.preventDefault(); if (!disabled) setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
-          className={`rounded-xl border border-dashed p-4 transition-colors ${
-            dragOver ? "border-primary bg-primary/10" : "border-border bg-muted/30"
+          className={`rounded-xl border border-dashed p-3.5 sm:p-4 transition-colors ${
+            dragOver ? "border-primary bg-primary/10" : "border-border/80 bg-muted/20 hover:bg-muted/35"
           } ${disabled ? "opacity-50 pointer-events-none" : ""}`}
         >
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="w-11 h-11 rounded-lg bg-card border border-border flex items-center justify-center shrink-0">
-              {uploading ? <Loader2 className="w-5 h-5 animate-spin text-primary" /> : <ImageIcon className="w-5 h-5 text-muted-foreground" />}
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 text-center sm:text-left">
+            <div className="w-10 h-10 rounded-lg bg-card border border-border/80 flex items-center justify-center shrink-0 shadow-2xs">
+              {uploading ? (
+                <Loader2 className="w-5 h-5 animate-spin text-primary" />
+              ) : (
+                <Upload className="w-5 h-5 text-muted-foreground" />
+              )}
             </div>
-            <div className="flex-1 space-y-2 min-w-0">
-              <p className="reg-hint">JPG, PNG, WEBP, or HEIC, up to 8 MB. Drag a file here on desktop.</p>
-              <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex-1 min-w-0 space-y-2">
+              <div>
+                <p className="text-xs sm:text-sm font-semibold text-foreground">
+                  {uploading ? "Uploading receipt…" : "Upload payment screenshot or receipt"}
+                </p>
+                <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                  JPG, PNG, WEBP, or HEIC up to 8 MB
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-0.5">
                 <Button
                   type="button"
                   variant="outline"
-                  className="min-h-11"
+                  size="sm"
+                  className="min-h-11 px-3.5 text-xs font-medium cursor-pointer"
                   disabled={disabled || uploading}
                   onClick={() => galleryInputRef.current?.click()}
                 >
-                  <Upload className="w-4 h-4" />
+                  <Upload className="w-3.5 h-3.5 mr-1.5" />
                   {uploading ? "Uploading…" : "Choose from gallery"}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  className="min-h-11 sm:hidden"
+                  size="sm"
+                  className="min-h-11 px-3.5 text-xs font-medium sm:hidden cursor-pointer"
                   disabled={disabled || uploading}
                   onClick={() => cameraInputRef.current?.click()}
                 >
-                  {uploading ? "Uploading…" : "Take photo"}
+                  <Camera className="w-3.5 h-3.5 mr-1.5" />
+                  Take photo
                 </Button>
               </div>
             </div>
           </div>
         </div>
       )}
-      {error ? <p className="text-sm text-destructive" role="alert">{error}</p> : null}
+      {error ? <p className="text-xs text-destructive mt-1.5" role="alert">{error}</p> : null}
     </div>
   );
 }

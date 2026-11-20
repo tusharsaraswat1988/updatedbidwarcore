@@ -43,6 +43,8 @@ export {
 export {
   type ResolvedFanCapabilities,
   resolveFanPageCapabilities,
+  isTournamentLicensed,
+  isTournamentTrial,
 } from "./resolve-capabilities.ts";
 
 export {

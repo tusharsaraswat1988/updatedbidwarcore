@@ -19,9 +19,10 @@ export const Header = ({
       : logos.main || logos.mainReverse;
 
   const scrollToSearch = () => {
-    const el = document.getElementById('search-section');
+    const el = document.getElementById('hero-search-input') || document.getElementById('search-section') || document.getElementById('discover-section');
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
+      if ('focus' in el) (el as HTMLElement).focus();
     }
   };
 

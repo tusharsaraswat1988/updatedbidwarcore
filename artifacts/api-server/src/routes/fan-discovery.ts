@@ -8,7 +8,12 @@ import {
   playersTable,
 } from "@workspace/db";
 import { eq, sql, inArray, and, not, ilike, desc } from "drizzle-orm";
-import { resolveFanPageCapabilities } from "@workspace/platform-core";
+import {
+  resolveFanPageCapabilities,
+  isAuctionEnabled,
+  isScoringEnabled,
+  isTournamentLicensed,
+} from "@workspace/platform-core";
 
 const router = Router();
 
@@ -68,6 +73,7 @@ router.get("/fan/tournaments", async (req, res) => {
       city = "",
       sport = "",
       status = "",
+      module: moduleParam = "",
       featured: featuredParam = "",
       page: pageParam = "1",
       limit: limitParam = "50",
@@ -76,15 +82,26 @@ router.get("/fan/tournaments", async (req, res) => {
     const page = Math.max(1, parseInt(pageParam, 10) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(limitParam, 10) || 50));
 
-    // 1. Fetch all tournaments ordered by active preference
-    const all = await db.select().from(tournamentsTable).orderBy(sql`
-      CASE status
-        WHEN 'active' THEN 0
-        WHEN 'upcoming' THEN 1
-        ELSE 2
-      END,
-      COALESCE(auction_date, created_at::text)
-    `);
+    // 1. Fetch tournaments from database.
+    // Defense-in-depth: only active-licensed, non-locked, non-archived tournaments may enter public discovery
+    const all = await db
+      .select()
+      .from(tournamentsTable)
+      .where(
+        and(
+          eq(tournamentsTable.licenseStatus, "active"),
+          eq(tournamentsTable.adminLocked, false),
+          sql`status != 'archived'`,
+        ),
+      )
+      .orderBy(sql`
+        CASE status
+          WHEN 'active' THEN 0
+          WHEN 'upcoming' THEN 1
+          ELSE 2
+        END,
+        COALESCE(auction_date, created_at::text)
+      `);
 
     // 2. Fetch active live matches across tournaments
     const liveMatches = await db
@@ -297,6 +314,21 @@ router.get("/fan/tournaments", async (req, res) => {
       });
     }
 
+    // Module filter using actual entitlements
+    if (moduleParam && moduleParam !== "all") {
+      const m = moduleParam.toLowerCase();
+      items = items.filter((t) => {
+        const hasAuction = isAuctionEnabled(t);
+        const hasScoring = isScoringEnabled(t);
+        if (m === "both") return hasAuction && hasScoring;
+        if (m === "auction_only") return hasAuction && !hasScoring;
+        if (m === "scoring_only") return hasScoring && !hasAuction;
+        if (m === "auction") return hasAuction;
+        if (m === "scoring") return hasScoring;
+        return false;
+      });
+    }
+
     // Featured filter
     if (featuredParam === "true") {
       items = items.filter((t) => {
@@ -349,6 +381,10 @@ router.get("/fan/tournaments", async (req, res) => {
         mainBannerFit: t.mainBannerFit ?? "cover",
         sponsorLogos: t.sponsorLogos ?? null,
         capabilities: (t as any).capabilities,
+        auctionEnabled: isAuctionEnabled(t),
+        scoringEnabled: isScoringEnabled(t),
+        licenseStatus: t.licenseStatus,
+        isTrial: false,
         featured,
         featuredPriority: featured ? ((fj?.featuredPriority as number) ?? 0) : 0,
         featuredStartDate: fj?.featuredStartDate ?? null,
@@ -388,8 +424,82 @@ router.get("/fan/tournaments", async (req, res) => {
         const isLive = liveStateMap.get(t.id)?.isLive ?? false;
         return resolveFanStatus(t.status, t.auctionDate, isLive) === "COMPLETED";
       }).length,
+      modules: {
+        all: publicTournaments.length,
+        auction: publicTournaments.filter((t) => isAuctionEnabled(t)).length,
+        scoring: publicTournaments.filter((t) => isScoringEnabled(t)).length,
+        both: publicTournaments.filter((t) => isAuctionEnabled(t) && isScoringEnabled(t)).length,
+      },
       total: publicTournaments.length,
     };
+
+    // Optional organizer trials for logged-in organizer viewing fan home
+    let organizerTrials: Array<any> | undefined = undefined;
+    const user = req.jwtUser;
+    if (user && (user.organizerAccountId || user.isAdmin || user.organizer)) {
+      try {
+        let trialRows: Array<typeof tournamentsTable.$inferSelect> = [];
+        if (user.isAdmin) {
+          trialRows = await db
+            .select()
+            .from(tournamentsTable)
+            .where(
+              and(
+                eq(tournamentsTable.licenseStatus, "trial"),
+                sql`status != 'archived'`,
+              ),
+            )
+            .orderBy(desc(tournamentsTable.createdAt));
+        } else if (user.organizerAccountId) {
+          trialRows = await db
+            .select()
+            .from(tournamentsTable)
+            .where(
+              and(
+                eq(tournamentsTable.licenseStatus, "trial"),
+                eq(tournamentsTable.organizerId, user.organizerAccountId),
+                sql`status != 'archived'`,
+              ),
+            )
+            .orderBy(desc(tournamentsTable.createdAt));
+        } else if (user.organizer) {
+          const allowedIds = Object.keys(user.organizer).map(Number).filter((id) => !isNaN(id));
+          if (allowedIds.length > 0) {
+            trialRows = await db
+              .select()
+              .from(tournamentsTable)
+              .where(
+                and(
+                  eq(tournamentsTable.licenseStatus, "trial"),
+                  inArray(tournamentsTable.id, allowedIds),
+                  sql`status != 'archived'`,
+                ),
+              )
+              .orderBy(desc(tournamentsTable.createdAt));
+          }
+        }
+
+        organizerTrials = trialRows.map((t) => ({
+          id: t.id,
+          slug: t.auctionCode ?? String(t.id),
+          name: t.name,
+          sport: t.sport ?? "cricket",
+          status: t.status,
+          city: t.city ?? null,
+          venue: t.venue ?? null,
+          auctionDate: t.auctionDate ?? null,
+          auctionTime: t.auctionTime ?? null,
+          logoUrl: t.logoUrl ?? null,
+          licenseStatus: t.licenseStatus,
+          auctionEnabled: isAuctionEnabled(t),
+          scoringEnabled: isScoringEnabled(t),
+          isTrial: true,
+          featured: false,
+        }));
+      } catch (err) {
+        console.error("[fan-discovery] Error loading organizer trials:", err);
+      }
+    }
 
     res.json({
       items: serialized,
@@ -400,6 +510,7 @@ router.get("/fan/tournaments", async (req, res) => {
         pages: Math.ceil(total / limit),
       },
       summary,
+      ...(organizerTrials !== undefined && { organizerTrials }),
     });
   } catch (err) {
     console.error("[fan-discovery] Error:", err);
@@ -408,9 +519,94 @@ router.get("/fan/tournaments", async (req, res) => {
 });
 
 /**
+ * Authenticated Organizer Trial Tournaments Endpoint
+ * Strictly requires organizer authentication.
+ * Returns only the requesting organizer's trial/unlicensed tournaments with basic metadata only.
+ * No test players, bids, squads, or operational secrets are exposed.
+ */
+router.get(["/fan/trial-tournaments", "/fan/my-trial-tournaments"], async (req, res) => {
+  try {
+    const user = req.jwtUser;
+    if (!user || (!user.organizerAccountId && !user.isAdmin && !user.organizer)) {
+      res.status(401).json({ error: "Authentication required as organizer" });
+      return;
+    }
+
+    let trialRows: Array<typeof tournamentsTable.$inferSelect> = [];
+    if (user.isAdmin) {
+      trialRows = await db
+        .select()
+        .from(tournamentsTable)
+        .where(
+          and(
+            eq(tournamentsTable.licenseStatus, "trial"),
+            sql`status != 'archived'`,
+          ),
+        )
+        .orderBy(desc(tournamentsTable.createdAt));
+    } else if (user.organizerAccountId) {
+      trialRows = await db
+        .select()
+        .from(tournamentsTable)
+        .where(
+          and(
+            eq(tournamentsTable.licenseStatus, "trial"),
+            eq(tournamentsTable.organizerId, user.organizerAccountId),
+            sql`status != 'archived'`,
+          ),
+        )
+        .orderBy(desc(tournamentsTable.createdAt));
+    } else if (user.organizer) {
+      const allowedIds = Object.keys(user.organizer).map(Number).filter((id) => !isNaN(id));
+      if (allowedIds.length > 0) {
+        trialRows = await db
+          .select()
+          .from(tournamentsTable)
+          .where(
+            and(
+              eq(tournamentsTable.licenseStatus, "trial"),
+              inArray(tournamentsTable.id, allowedIds),
+              sql`status != 'archived'`,
+            ),
+          )
+          .orderBy(desc(tournamentsTable.createdAt));
+      }
+    }
+
+    // Return strictly basic metadata
+    const items = trialRows.map((t) => ({
+      id: t.id,
+      slug: t.auctionCode ?? String(t.id),
+      name: t.name,
+      sport: t.sport ?? "cricket",
+      status: t.status, // basic status (setup, active, completed)
+      city: t.city ?? null,
+      venue: t.venue ?? null,
+      auctionDate: t.auctionDate ?? null,
+      auctionTime: t.auctionTime ?? null,
+      logoUrl: t.logoUrl ?? null,
+      licenseStatus: t.licenseStatus, // "trial"
+      auctionEnabled: isAuctionEnabled(t),
+      scoringEnabled: isScoringEnabled(t),
+      isTrial: true,
+      featured: false, // Trial tournaments must never be featured
+    }));
+
+    res.json({
+      items,
+      count: items.length,
+    });
+  } catch (err) {
+    console.error("[fan-discovery:trial] Error:", err);
+    res.status(500).json({ error: "Failed to fetch trial tournaments" });
+  }
+});
+
+/**
  * Public Live Ticker Endpoint
  * Provides real-time activity events for live matches and auctions across tournaments.
  * Rules:
+ * - Exclude unlicensed, trial and private tournaments.
  * - Exclude test, demo and latency-probe records.
  * - Exclude private and archived tournaments.
  * - Do not invent events.
@@ -430,13 +626,35 @@ router.get("/fan/ticker", async (req, res) => {
       badge?: string;
     }> = [];
 
-    // Query active non-archived tournaments only
+    // Query actively licensed, non-archived, non-locked public tournaments only
     const activeTourneys = await db
-      .select({ id: tournamentsTable.id, name: tournamentsTable.name, sport: tournamentsTable.sport })
+      .select({
+        id: tournamentsTable.id,
+        name: tournamentsTable.name,
+        sport: tournamentsTable.sport,
+        licenseStatus: tournamentsTable.licenseStatus,
+        adminLocked: tournamentsTable.adminLocked,
+        featuresJson: tournamentsTable.featuresJson,
+      })
       .from(tournamentsTable)
-      .where(sql`status != 'archived'`);
-    const tourneyMap = new Map(activeTourneys.map((t) => [t.id, t]));
-    const activeTourneyIds = activeTourneys.map((t) => t.id);
+      .where(
+        and(
+          eq(tournamentsTable.licenseStatus, "active"),
+          eq(tournamentsTable.adminLocked, false),
+          sql`status != 'archived'`,
+          not(ilike(tournamentsTable.name, "%[test]%")),
+          not(ilike(tournamentsTable.name, "%[dev]%")),
+          not(ilike(tournamentsTable.name, "%[demo]%")),
+        ),
+      );
+
+    const publicTourneys = activeTourneys.filter((t) => {
+      const fj = t.featuresJson as Record<string, unknown> | null;
+      return fj?.visibility !== "private";
+    });
+
+    const tourneyMap = new Map(publicTourneys.map((t) => [t.id, t]));
+    const activeTourneyIds = publicTourneys.map((t) => t.id);
 
     if (activeTourneyIds.length > 0) {
       // 1. Genuine live scoring matches (updated within last 24h, not test/probe)
@@ -464,6 +682,7 @@ router.get("/fan/ticker", async (req, res) => {
 
       for (const m of liveMatches) {
         const tourney = tourneyMap.get(m.tournamentId);
+        if (!tourney) continue;
         const sJson = m.summaryJson as any;
         let msg = `${m.matchLabel || "Match"} in progress`;
         if (sJson?.innings?.[0]) {
@@ -474,7 +693,7 @@ router.get("/fan/ticker", async (req, res) => {
         events.push({
           id: `match-${m.id}`,
           tournamentId: m.tournamentId,
-          tournamentName: tourney?.name ?? "Tournament",
+          tournamentName: tourney.name,
           sport: m.sportSlug || "cricket",
           timestamp: m.updatedAt?.toISOString() || new Date().toISOString(),
           message: msg,
@@ -498,6 +717,7 @@ router.get("/fan/ticker", async (req, res) => {
 
       for (const a of liveAuctions) {
         const tourney = tourneyMap.get(a.tournamentId);
+        if (!tourney) continue;
         let msg = a.lastAction || "Auction session in progress";
         if (a.currentPlayerId) {
           const player = await db
@@ -514,8 +734,8 @@ router.get("/fan/ticker", async (req, res) => {
         events.push({
           id: `auction-${a.id}`,
           tournamentId: a.tournamentId,
-          tournamentName: tourney?.name ?? "Tournament",
-          sport: tourney?.sport || "cricket",
+          tournamentName: tourney.name,
+          sport: tourney.sport || "cricket",
           timestamp: a.updatedAt?.toISOString() || new Date().toISOString(),
           message: msg,
           type: "AUCTION",
@@ -553,6 +773,7 @@ router.get("/fan/ticker", async (req, res) => {
 
           for (const sp of soldPlayers) {
             const tourney = tourneyMap.get(sp.tournamentId);
+            if (!tourney) continue;
             const teamName = sp.teamId ? teamNameMap.get(sp.teamId) : null;
             const priceStr = sp.soldPrice
               ? (sp.soldPrice >= 10000000
@@ -568,8 +789,8 @@ router.get("/fan/ticker", async (req, res) => {
             events.push({
               id: `sold-${sp.id}`,
               tournamentId: sp.tournamentId,
-              tournamentName: tourney?.name ?? "Tournament",
-              sport: tourney?.sport || "cricket",
+              tournamentName: tourney.name,
+              sport: tourney.sport || "cricket",
               timestamp: sp.updatedAt?.toISOString() || new Date().toISOString(),
               message: msg,
               type: "AUCTION",
@@ -605,13 +826,14 @@ router.get("/fan/ticker", async (req, res) => {
 
         for (const cm of recentCompleted) {
           const tourney = tourneyMap.get(cm.tournamentId);
+          if (!tourney) continue;
           const sJson = cm.summaryJson as any;
           const resultMsg = sJson?.result || sJson?.winnerMessage || `${cm.matchLabel || "Match"} completed`;
 
           events.push({
             id: `completed-${cm.id}`,
             tournamentId: cm.tournamentId,
-            tournamentName: tourney?.name ?? "Tournament",
+            tournamentName: tourney.name,
             sport: cm.sportSlug || "cricket",
             timestamp: cm.updatedAt?.toISOString() || new Date().toISOString(),
             message: resultMsg,
@@ -622,7 +844,7 @@ router.get("/fan/ticker", async (req, res) => {
       }
     }
 
-    // 5. If no live or recent events exist, provide verified upcoming announcements
+    // 5. If no live or recent events exist, provide verified upcoming announcements (licensed public tournaments only)
     if (events.length === 0) {
       const upcoming = await db
         .select({
@@ -632,13 +854,34 @@ router.get("/fan/ticker", async (req, res) => {
           city: tournamentsTable.city,
           venue: tournamentsTable.venue,
           auctionDate: tournamentsTable.auctionDate,
+          featuresJson: tournamentsTable.featuresJson,
+          auctionEnabled: tournamentsTable.auctionEnabled,
+          scoringEnabled: tournamentsTable.scoringEnabled,
         })
         .from(tournamentsTable)
-        .where(sql`status != 'archived' AND status != 'completed'`)
+        .where(
+          and(
+            eq(tournamentsTable.licenseStatus, "active"),
+            eq(tournamentsTable.adminLocked, false),
+            sql`status != 'archived' AND status != 'completed'`,
+            not(ilike(tournamentsTable.name, "%[test]%")),
+            not(ilike(tournamentsTable.name, "%[dev]%")),
+            not(ilike(tournamentsTable.name, "%[demo]%")),
+          ),
+        )
         .orderBy(sql`COALESCE(auction_date, created_at::text) ASC`)
-        .limit(5);
+        .limit(10);
 
-      for (const t of upcoming) {
+      const publicUpcoming = upcoming
+        .filter((t) => {
+          const fj = t.featuresJson as Record<string, unknown> | null;
+          const isPublic = fj?.visibility !== "private";
+          const hasModule = isAuctionEnabled(t) || isScoringEnabled(t);
+          return isPublic && hasModule;
+        })
+        .slice(0, 5);
+
+      for (const t of publicUpcoming) {
         const location = t.city || t.venue || "India";
         const dateStr = t.auctionDate ? `on ${new Date(t.auctionDate).toLocaleDateString()}` : "coming soon";
         events.push({

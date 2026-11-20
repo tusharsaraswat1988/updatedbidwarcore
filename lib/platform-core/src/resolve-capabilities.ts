@@ -6,11 +6,31 @@ export type FanCapability = 'auction' | 'scoring' | 'stats' | 'fixtures';
 export interface ResolvedFanCapabilities {
   capabilities: FanCapability[];
   isPubliclyVisible: boolean;
+  isLicensed: boolean;
+  isTrial: boolean;
   activeModules: ('auction' | 'scoring')[];
   featured: {
     isFeatured: boolean;
     priority: number;
   };
+}
+
+/**
+ * Checks whether a tournament is actively licensed for live public fan discovery.
+ * Strictly checks licenseStatus === 'active'.
+ * Default 'trial' tournaments are not licensed for public fan discovery.
+ */
+export function isTournamentLicensed(tournament: { licenseStatus?: string | null } | null | undefined): boolean {
+  return tournament?.licenseStatus === "active";
+}
+
+/**
+ * Checks whether a tournament is explicitly a trial tournament.
+ * Strictly checks licenseStatus === 'trial'.
+ * Expired, suspended, missing and unknown license states must NOT be classified as trial.
+ */
+export function isTournamentTrial(tournament: { licenseStatus?: string | null } | null | undefined): boolean {
+  return tournament?.licenseStatus === "trial";
 }
 
 export async function resolveFanPageCapabilities(tournament: any): Promise<ResolvedFanCapabilities> {
@@ -19,7 +39,11 @@ export async function resolveFanPageCapabilities(tournament: any): Promise<Resol
   const features = resolveTournamentFeatures(tournament.featuresJson);
   const fj = tournament.featuresJson as Record<string, unknown> | null;
 
+  const isLicensed = isTournamentLicensed(tournament);
+  const isTrial = isTournamentTrial(tournament);
+
   const isPubliclyVisible = 
+    isLicensed &&
     !tournament.adminLocked && 
     !/\[test\]|\[dev\]|\[demo\]/i.test(tournament.name) &&
     (auctionEnabled || scoringEnabled) &&
@@ -54,6 +78,8 @@ export async function resolveFanPageCapabilities(tournament: any): Promise<Resol
   return {
     capabilities,
     isPubliclyVisible,
+    isLicensed,
+    isTrial,
     activeModules,
     featured: {
       isFeatured,

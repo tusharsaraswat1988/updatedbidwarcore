@@ -1,10 +1,16 @@
-import { TournamentSummary, FanDiscoveryResponse, ActivityEvent } from './types';
+import {
+  TournamentSummary,
+  FanDiscoveryResponse,
+  ActivityEvent,
+  OrganizerTrialTournament,
+} from './types';
 
 export interface TournamentQueryParams {
   search?: string;
   city?: string;
   sport?: string;
   status?: string;
+  module?: string;
   featured?: boolean;
   page?: number;
   limit?: number;
@@ -17,6 +23,7 @@ export const apiClient = {
     if (params.city) qs.set('city', params.city);
     if (params.sport) qs.set('sport', params.sport);
     if (params.status) qs.set('status', params.status);
+    if (params.module) qs.set('module', params.module);
     if (params.featured !== undefined) qs.set('featured', String(params.featured));
     if (params.page) qs.set('page', String(params.page));
     if (params.limit) qs.set('limit', String(params.limit));
@@ -45,6 +52,17 @@ export const apiClient = {
         };
       }),
     };
+  },
+
+  async getTrialTournaments(): Promise<OrganizerTrialTournament[]> {
+    try {
+      const res = await fetch('/api/fan/trial-tournaments');
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data?.items) ? data.items : [];
+    } catch {
+      return [];
+    }
   },
 
   async getLiveTicker(): Promise<ActivityEvent[]> {
