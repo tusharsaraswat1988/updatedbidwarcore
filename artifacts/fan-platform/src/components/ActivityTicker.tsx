@@ -82,9 +82,12 @@ export const ActivityTicker: React.FC<ActivityTickerProps> = ({ tournaments }) =
         )}
       </div>
 
-      {/* Marquee Scroller with Hover Pause & Reduced Motion Support */}
+      {/* Marquee Scroller with Hover Pause & Reduced Motion Support (velocity calibrated) */}
       <div className="relative flex-1 overflow-hidden px-3">
-        <div className="animate-marquee group-hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:animate-none flex items-center gap-8 text-xs text-slate-700 dark:text-slate-300">
+        <div
+          className="animate-marquee group-hover:[animation-play-state:paused] focus-within:[animation-play-state:paused] motion-reduce:animate-none flex items-center gap-8 text-xs text-slate-700 dark:text-slate-300"
+          style={{ animationDuration: `${Math.max(28, events.length * 6)}s` }}
+        >
           {marqueeItems.map((item, idx) => (
             <div key={`${item.id}-${idx}`} className="flex items-center gap-2 whitespace-nowrap">
               {item.badge && (

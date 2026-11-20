@@ -161,21 +161,33 @@ export function TournamentSponsorStrip({
 
   // Construct infinite seamless marquee track:
   // Dual identical halves (`[...half, ...half]`) moving 0% to -50% ensures a 100% gapless loop.
-  const marqueeTrack = useMemo(() => {
-    if (sponsors.length === 0) return [];
-    const minPerHalf = Math.max(4, Math.ceil(12 / sponsors.length));
+  // We calibrate repetitions and duration to maintain a constant, calm scrolling velocity (~48 px/sec)
+  // regardless of whether there are 2, 10, 20, or 40 sponsors.
+  const { marqueeTrack, marqueeDurationSec } = useMemo(() => {
+    if (sponsors.length === 0) return { marqueeTrack: [], marqueeDurationSec: 30 };
+
+    // Fill screen width without runaway array explosion:
+    // ~8 cards (at ~220px avg width) is 1,760px, sufficient to fill standard desktop viewports.
+    const repetitionsPerHalf = Math.max(1, Math.ceil(8 / sponsors.length));
     const half: PrioritizedSponsor[] = [];
-    for (let i = 0; i < minPerHalf; i++) {
+    for (let i = 0; i < repetitionsPerHalf; i++) {
       half.push(...sponsors);
     }
-    return [...half, ...half];
+
+    // Velocity-governed animation duration:
+    // Each sponsor card in the moving half gets ~4.5 seconds to pass smoothly (~48 px/sec).
+    // Min 28s for small lists so even 1-2 sponsors glide at a dignified, readable pace.
+    const duration = Math.max(28, Math.round(half.length * 4.5));
+
+    return {
+      marqueeTrack: [...half, ...half],
+      marqueeDurationSec: duration,
+    };
   }, [sponsors]);
 
   if (sponsors.length === 0) {
     return null;
   }
-
-  const marqueeDurationSec = Math.max(28, Math.min(60, sponsors.length * 7));
 
   return (
     <section
