@@ -74,32 +74,52 @@
           if (isOrganizer) {
             var el = document.createElement('style');
             el.id = 'bidwar-organizer-preboot';
-            el.textContent = 'html,body,#root{background:#F8FAFC !important;color:#0F172A !important;} #bidwar-boot-splash{background:#F8FAFC !important;} #bidwar-boot-splash .bidwar-boot-spinner{border-color:rgba(234,179,8,0.3) !important;border-top-color:#EAB308 !important;} #bidwar-boot-splash .bidwar-boot-text{color:#475569 !important;}';
+            el.textContent = 'html,body,#root{background:#F8FAFC !important;color:#0F172A !important;} #bidwar-boot-splash{background:#F8FAFC !important;} #bidwar-boot-splash .bidwar-boot-spinner{border-color:rgba(234,179,8,0.2) !important;border-top-color:#EAB308 !important;border-right-color:rgba(234,179,8,0.7) !important;box-shadow:0 0 12px rgba(245,158,11,0.18) !important;} #bidwar-boot-splash .bidwar-boot-text{color:#64748B !important;}';
             document.head.appendChild(el);
-            window.addEventListener('DOMContentLoaded', function(){
+            document.documentElement.classList.add('bw-organizer-light');
+            var setLogo = function() {
               var logo = document.querySelector('#bidwar-boot-splash img');
-              if (logo) { logo.src = '/bidwar-primary-logo.png'; }
-            });
+              if (logo) {
+                logo.src = '/assets/branding/bidwar-clean-logo-v2.png';
+                logo.onerror = function() { logo.src = '/bidwar-primary-logo.png'; };
+              }
+            };
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', setLogo);
+            } else {
+              setLogo();
+            }
+            if (window.MutationObserver) {
+              var observer = new MutationObserver(function() {
+                var logo = document.querySelector('#bidwar-boot-splash img');
+                if (logo) {
+                  logo.src = '/assets/branding/bidwar-clean-logo-v2.png';
+                  logo.onerror = function() { logo.src = '/bidwar-primary-logo.png'; };
+                  observer.disconnect();
+                }
+              });
+              observer.observe(document.documentElement, { childList: true, subtree: true });
+            }
           }
         } catch(e){}
       })();
     </script>
 
-    <!-- Critical CSS: dark shell + boot splash (inline so first paint is styled before Tailwind loads).
-         Colors match the Lovable design tokens (.lovable-home in src/styles/lovable-homepage.css)
-         so the loader doesn't flash a different theme before the app mounts. -->
+    <!-- Critical CSS: brand shell + global boot splash (inline for instant first paint). -->
     <style>
       *,*::before,*::after{box-sizing:border-box}
-      html,body{margin:0;padding:0;background:oklch(0.22 0.13 265);color:oklch(0.98 0.005 90);font-family:'Inter','Inter Fallback',system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
-      #root{min-height:100vh;background:
-        radial-gradient(ellipse at 20% -10%, oklch(0.42 0.15 265 / 0.7), transparent 55%),
-        radial-gradient(ellipse at 90% 0%, oklch(0.45 0.14 260 / 0.5), transparent 60%),
-        linear-gradient(180deg, oklch(0.24 0.12 265), oklch(0.18 0.11 265))}
-      @keyframes bidwar-boot-spin{to{transform:rotate(360deg)}}
-      #bidwar-boot-splash{display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;gap:1.25rem;background:transparent}
-      #bidwar-boot-splash img,#bidwar-boot-splash .bidwar-boot-logo{height:48px;width:auto;max-width:min(260px,75vw);max-height:56px;object-fit:contain}
-      #bidwar-boot-splash .bidwar-boot-spinner{width:32px;height:32px;border:2px solid oklch(0.85 0.17 88 / 0.3);border-top-color:oklch(0.85 0.17 88);border-radius:50%;animation:bidwar-boot-spin .7s linear infinite}
-      #bidwar-boot-splash .bidwar-boot-text{font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:oklch(0.85 0.17 88 / 0.85);font-weight:600;margin-top:0.25rem}
+      html,body{margin:0;padding:0;background:#080B14;color:#F8FAFC;font-family:'Inter','Inter Fallback',system-ui,sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+      #root{min-height:100vh;background:#080B14}
+      @keyframes bidwar-gold-spin{to{transform:rotate(360deg)}}
+      @keyframes bidwar-logo-fade{from{opacity:0;transform:scale(0.96)}to{opacity:1;transform:scale(1)}}
+      #bidwar-boot-splash{display:flex;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;gap:1.5rem;background:#080B14;position:relative;overflow:hidden;padding:1.5rem}
+      #bidwar-boot-splash[data-surface="organizer"],#bidwar-boot-splash.bw-organizer-light,html.bw-organizer-light #bidwar-boot-splash{background:#F8FAFC !important;color:#0F172A !important}
+      #bidwar-boot-splash[data-surface="organizer"] .bidwar-boot-spinner,#bidwar-boot-splash.bw-organizer-light .bidwar-boot-spinner,html.bw-organizer-light #bidwar-boot-splash .bidwar-boot-spinner{border-color:rgba(234,179,8,0.2) !important;border-top-color:#EAB308 !important;border-right-color:rgba(234,179,8,0.7) !important;box-shadow:0 0 12px rgba(245,158,11,0.18) !important}
+      #bidwar-boot-splash[data-surface="organizer"] .bidwar-boot-text,#bidwar-boot-splash.bw-organizer-light .bidwar-boot-text,html.bw-organizer-light #bidwar-boot-splash .bidwar-boot-text{color:#64748B !important}
+      #bidwar-boot-splash img,#bidwar-boot-splash .bidwar-boot-logo{height:44px;width:auto;max-width:min(240px,75vw);max-height:52px;object-fit:contain;animation:bidwar-logo-fade 0.4s cubic-bezier(0.16,1,0.3,1) forwards}
+      #bidwar-boot-splash .bidwar-boot-spinner{width:32px;height:32px;border:2px solid rgba(245,158,11,0.25);border-top-color:#F59E0B;border-right-color:rgba(245,158,11,0.8);border-radius:50%;box-shadow:0 0 16px rgba(245,158,11,0.25);animation:bidwar-gold-spin 0.9s cubic-bezier(0.4,0,0.2,1) infinite}
+      #bidwar-boot-splash .bidwar-boot-text{font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#94A3B8;font-weight:500;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;margin-top:0.125rem}
+      @media(prefers-reduced-motion:reduce){#bidwar-boot-splash img,#bidwar-boot-splash .bidwar-boot-logo,#bidwar-boot-splash .bidwar-boot-spinner{animation:none!important}}
     </style>
 
     <!-- BOOT_SPLASH_PRELOAD_START -->
@@ -271,7 +291,7 @@
   <body>
     <div id="root">
       <div id="bidwar-boot-splash" role="status" aria-live="polite" aria-busy="true" aria-label="Loading">
-        <img class="bidwar-boot-logo" src="/bidwar-reverse-logo.png" alt="BidWar" height="48" decoding="async" />
+        <img class="bidwar-boot-logo" src="/assets/branding/bidwar-reverse-logo-official.png" alt="BidWar" height="48" decoding="async" onerror="this.onerror=null;this.src='/bidwar-reverse-logo.png';" />
         <div class="bidwar-boot-spinner" aria-hidden="true"></div>
         <div class="bidwar-boot-text">Loading...</div>
       </div>

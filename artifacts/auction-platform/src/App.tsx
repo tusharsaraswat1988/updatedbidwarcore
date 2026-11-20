@@ -20,7 +20,7 @@ import {
 import type { PageInitialData } from "@/lib/initial-data/types";
 import { readWindowDehydratedState, readWindowInitialData, normalizeHomeInitialData } from "@/lib/initial-data/types";
 
-import { BootSplash } from "@/components/boot-splash";
+import { GlobalLoadingScreen } from "@/components/global-loading-screen";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { isOrganizerRoute, syncDocumentSurfaceTheme } from "@/lib/portal-theme";
 import Landing from "@/pages/lovable-home";
@@ -186,7 +186,7 @@ function Router() {
   }, [location]);
 
   return (
-    <Suspense fallback={<BootSplash theme={isOrganizerRoute(location) ? "light" : "dark"} />}>
+    <Suspense fallback={<GlobalLoadingScreen />}>
       <Switch>
         {/* Marketing routes */}
         <Route path="/" component={HomeRoute} />
@@ -244,7 +244,7 @@ function Router() {
 
         {/* Everything else lives in the operator/admin app shell */}
         <Route>
-          <Suspense fallback={<BootSplash theme={isOrganizerRoute(location) ? "light" : "dark"} />}>
+          <Suspense fallback={<GlobalLoadingScreen />}>
             <PlatformApp />
           </Suspense>
         </Route>

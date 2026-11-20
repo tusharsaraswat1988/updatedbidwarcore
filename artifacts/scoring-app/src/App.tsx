@@ -15,6 +15,7 @@ import { syncDocumentSurfaceTheme } from "@/lib/portal-theme";
 import { LocalOperatorPinEffects } from "@/components/local-operator-pin-effects";
 import { ScoringAppDocumentChrome } from "@/components/scoring-app-document-chrome";
 import { ScorerPwaProvider } from "@/contexts/scorer-pwa-context";
+import { GlobalLoadingScreen } from "@/components/global-loading-screen";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
@@ -150,22 +151,7 @@ function RedirectLegacyCricketObs() {
 }
 
 function RouteSuspenseFallback() {
-  const [location] = useLocation();
-  const isSports =
-    isBadmintonOrganizerPath(location) ||
-    isCricketOrganizerPath(location) ||
-    isSportsMissionControlPath(location);
-
-  if (isSports) {
-    return <SportsTabSuspenseSkeleton />;
-  }
-
-  const className = isBadmintonOrganizerPath(location)
-    ? `bw-organizer-light ${BADMINTON_ROUTE_LOADING_CLASS}`
-    : isCricketOrganizerPath(location) || isSportsMissionControlPath(location)
-      ? `bw-organizer-light ${CRICKET_ROUTE_LOADING_CLASS}`
-      : "bw-organizer-light min-h-screen bg-[#F3F6FA] text-[#0F172A]";
-  return <div className={className} data-surface="organizer" aria-busy="true" />;
+  return <GlobalLoadingScreen label="Loading scoring…" />;
 }
 
 function badmintonTournamentIdFromPath(path: string): number {
@@ -196,9 +182,7 @@ function SportsMissionControlLayout({ tournamentId }: { tournamentId: number }) 
   }, [tournament?.sport]);
 
   if (isLoading || !tournament) {
-    return (
-      <div className="min-h-screen bg-background" aria-busy="true" aria-label="Loading Sports" />
-    );
+    return <GlobalLoadingScreen label="Loading sports…" />;
   }
 
   return (

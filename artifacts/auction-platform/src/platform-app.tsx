@@ -14,7 +14,7 @@ import { readWindowAcademyData } from "@/lib/academy-public";
 import { lazyWithRetry } from "@/lib/lazy-with-retry";
 
 import { isOrganizerRoute, syncDocumentSurfaceTheme } from "@/lib/portal-theme";
-import { BootSplash } from "@/components/boot-splash";
+import { GlobalLoadingScreen } from "@/components/global-loading-screen";
 import AdminLogin from "@/pages/admin-login";
 
 const TournamentSettings = lazyWithRetry(() => import("@/pages/tournament-settings"));
@@ -103,50 +103,11 @@ function RouteSuspenseFallback() {
     );
   }
 
-  if (/^\/tournament\/\d+\/auction\/?$/.test(path)) {
-    return (
-      <div
-        className="lovable-theme dark flex min-h-screen flex-col items-center justify-center gap-3 bg-background text-foreground"
-        role="status"
-        aria-live="polite"
-        aria-busy="true"
-        aria-label="Loading auction control"
-      >
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-amber-400" />
-        <p className="text-sm text-white/50">Loading auction control…</p>
-      </div>
-    );
-  }
-
   if (path === "/admin/login" || path.startsWith("/admin/login")) {
     return null;
   }
 
-  if (path === "/admin" || path.startsWith("/admin/")) {
-    return (
-      <div
-        className="bw-admin-dark dark flex min-h-screen flex-col items-center justify-center gap-3 bg-[#090D1A] text-[#F8FAFC]"
-        data-surface="admin"
-        role="status"
-        aria-live="polite"
-        aria-busy="true"
-        aria-label="Loading admin console"
-      >
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-amber-400" />
-        <p className="text-sm font-medium text-slate-400">Loading admin console…</p>
-      </div>
-    );
-  }
-
-  if (isOrganizerRoute(path)) {
-    return <BootSplash theme="light" label="Loading…" />;
-  }
-
-  if (/^\/tournament\/\d+\//.test(path)) {
-    return <BootSplash theme="light" label="Loading…" />;
-  }
-
-  return <BootSplash />;
+  return <GlobalLoadingScreen />;
 }
 
 /** Old classic overlay URLs. Graphics are v2; bookmarks and OBS sources keep working. */
@@ -180,21 +141,7 @@ function LegacyLiveRedirect() {
 }
 
 function OrganizerPageFallback() {
-  return (
-    <div
-      className="bw-organizer-light flex items-center justify-center py-24 text-sm text-slate-600"
-      data-surface="organizer"
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-      aria-label="Loading tournament page"
-    >
-      <div className="flex items-center gap-2">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-amber-500" />
-        <span>Loading…</span>
-      </div>
-    </div>
-  );
+  return <GlobalLoadingScreen fullScreen={false} theme="light" />;
 }
 
 /**
@@ -276,6 +223,15 @@ function PlatformRouter() {
         <Route path="/tournament/:id/score-display" component={RedirectToScoringApp} />
         {/* SOLD Poster V2 design preview - standalone sandbox, not production */}
         <Route path="/poster-v2-preview" component={SoldPosterV2Preview} />
+        <Route path="/preview-loader">
+          {() => {
+            const search = typeof window !== "undefined" ? window.location.search : "";
+            const params = new URLSearchParams(search);
+            const theme = (params.get("theme") as "dark" | "light" | "auto") || "auto";
+            const label = params.get("label") ?? "Loading BidWar...";
+            return <GlobalLoadingScreen theme={theme} label={label} />;
+          }}
+        </Route>
 
                 {/* V2 Broadcast Overlays (Must precede legacy :matchId wildcard) */}
         <Route path="/tournament/:id/cricket/obs/v2/preview" component={CricketObsV2Preview} />

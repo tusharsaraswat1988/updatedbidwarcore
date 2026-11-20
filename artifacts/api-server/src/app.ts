@@ -48,6 +48,16 @@ import {
   getPrivatePageMeta,
 } from "./lib/seo-route-policy.js";
 import { isSeoAssetPath, registerSeoRoutes } from "./lib/register-seo-routes.js";
+import {
+  isFanRequest,
+  getFanOrigin,
+  buildFanRobotsTxt,
+  buildFanSitemapIndex,
+  buildFanSitemapTournaments,
+  getFanNotFoundHtml,
+  isTournamentExisting,
+  handleFanTournamentRequest,
+} from "./lib/fan-seo-policy.js";
 import { registerOgImageRoutes } from "./routes/og-images.js";
 import { trySendHomepageSsr } from "./lib/homepage-ssr.js";
 import { registerBrandingIconRoutes } from "./lib/branding-asset-resolver.js";
@@ -223,6 +233,59 @@ app.use(globalLimiter);
 app.use("/api", router);
 app.use(webhooksRouter);
 
+// ── Fan platform host detection & crawl routing ────────────────────────────
+// Ensure Fan hostname detection occurs before marketing SEO endpoint registration
+// so Fan requests never inherit marketing robots.txt, marketing sitemaps, or marketing SPA shells.
+app.use(async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (!isFanRequest(req)) {
+    return next();
+  }
+
+  // Allow API routes to be handled by /api (mounted above)
+  if (req.path.startsWith("/api/") || req.path === "/healthz" || req.path === "/api/healthz") {
+    return next();
+  }
+
+  // Dedicated Fan crawl assets
+  if (req.path === "/robots.txt") {
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    return res.send(buildFanRobotsTxt(getFanOrigin(req)));
+  }
+
+  if (req.path === "/sitemap-index.xml") {
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    return res.send(buildFanSitemapIndex(getFanOrigin(req)));
+  }
+
+  if (req.path === "/sitemap-tournaments.xml") {
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    const xml = await buildFanSitemapTournaments(getFanOrigin(req));
+    return res.send(xml);
+  }
+
+  if (req.path === "/sitemap.xml") {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    return res.redirect(301, "/sitemap-index.xml");
+  }
+
+  // Marketing sitemaps on fan domain: return 404
+  if (
+    req.path === "/sitemap-pages.xml" ||
+    req.path === "/sitemap-academy.xml" ||
+    req.path === "/sitemap-blog.xml" ||
+    req.path === "/sitemap-taxonomy.xml" ||
+    req.path === "/sitemap-images.xml"
+  ) {
+    res.status(404).setHeader("Content-Type", "text/plain; charset=utf-8");
+    return res.send("Not Found");
+  }
+
+  next();
+});
+
 // ── Crawl assets (robots.txt + sitemaps) — always registered ───────────────
 registerSeoRoutes(app);
 
@@ -317,6 +380,7 @@ if (serveStatic) {
             "robots.txt",
             "sitemap.xml",
             "sitemap-index.xml",
+            "sitemap-tournaments.xml",
             "sitemap-pages.xml",
             "sitemap-academy.xml",
             "sitemap-blog.xml",
@@ -338,13 +402,6 @@ if (serveStatic) {
     // MUST be registered before marketing homepage SSR, meta-injection, and auction catch-all
     // so fan requests are completely isolated from auction-platform assets and SSR.
     if (existsSync(fanDist)) {
-      const isFanRequest = (req: express.Request): boolean => {
-        const xfh = req.headers["x-forwarded-host"];
-        const rawXfh = Array.isArray(xfh) ? xfh[0] : (xfh ?? "");
-        const host = (rawXfh.split(",")[0].trim() || req.headers.host || "").split(":")[0].toLowerCase().trim();
-        return host === "fan.bidwar.in" || host.startsWith("fan.");
-      };
-
       app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
         if (!isFanRequest(req)) {
           return next();
@@ -360,7 +417,7 @@ if (serveStatic) {
         }
 
         // Try serving static assets (JS, CSS, images, webmanifest, etc.) from fanDist
-        return expressStaticGzip(fanDist, staticOpts)(req, res, () => {
+        return expressStaticGzip(fanDist, staticOpts)(req, res, async () => {
           // If static file was not found:
           // Missing static assets (e.g. /assets/foo.js, /foo.css, /foo.png) must return 404,
           // NEVER returning index.html which causes MIME-type errors in the browser.
@@ -370,9 +427,35 @@ if (serveStatic) {
             return res.send("Not Found");
           }
 
-          // SPA fallback for HTML / client navigation (e.g. /, /VYAPARI, /VS581307, /tournaments, etc.)
-          res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-          return res.sendFile(path.join(fanDist, "index.html"));
+          // Root route "/" — always valid tournament discovery/search
+          if (req.path === "/" || req.path === "") {
+            res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+            return res.sendFile(path.join(fanDist, "index.html"));
+          }
+
+          // Canonical entry: redirect /index.html to /
+          if (req.path === "/index.html") {
+            return res.redirect(301, "/");
+          }
+
+          // Potential tournament slug: /:slug
+          const slug = req.path.replace(/^\/+|\/+$/g, "");
+
+          // Multi-segment non-API paths (e.g. /foo/bar) -> return 404 HTML
+          if (slug.includes("/")) {
+            res.status(404);
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+            return res.send(getFanNotFoundHtml({ origin: getFanOrigin(req), slug }));
+          }
+
+          // Phase 2: Server-Rendered Tournament Pages & Dynamic Metadata
+          return await handleFanTournamentRequest({
+            req,
+            res,
+            fanDist,
+            slug,
+          });
         });
       });
 
@@ -396,7 +479,7 @@ if (serveStatic) {
     // This ensures social crawlers and bots that don't run JavaScript see the
     // correct metadata for each page.
     app.use(async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-      if (req.method !== "GET") return next();
+      if (req.method !== "GET" && req.method !== "HEAD") return next();
       if (req.path === "/") return next();
       if (isSeoAssetPath(req.path)) return next();
 
@@ -512,7 +595,7 @@ if (serveStatic) {
     // Auction platform catch-all — route-aware HTML responses (404 / private / SPA)
     app.use("/", expressStaticGzip(auctionDist, staticOpts));
     app.use((req: express.Request, res: express.Response) => {
-      if (req.method !== "GET") {
+      if (req.method !== "GET" && req.method !== "HEAD") {
         res.status(405).send("Method Not Allowed");
         return;
       }

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { ownerJoinPath } from "@workspace/api-base/owner-urls";
+import { GlobalLoadingScreen } from "@/components/global-loading-screen";
 
 type Props = {
   tournamentId: string;
@@ -18,10 +19,5 @@ export function RedirectToOwnerApp({ tournamentId, teamId }: Props) {
     window.location.replace(dest);
   }, [tournamentId, teamId]);
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3 text-muted-foreground">
-      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      <p className="text-sm">Opening owner app…</p>
-    </div>
-  );
+  return <GlobalLoadingScreen label="Opening owner panel…" />;
 }

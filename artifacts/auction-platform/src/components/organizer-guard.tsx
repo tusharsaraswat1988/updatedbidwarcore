@@ -5,6 +5,7 @@ import { useOrganizerAuth, useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import { AccessStateView } from "@/components/access-state-view";
+import { GlobalLoadingScreen } from "@/components/global-loading-screen";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Shield, MonitorDown } from "lucide-react";
 import { isBidWarLocalHost } from "@/lib/local-mode-host";
@@ -28,23 +29,7 @@ import {
 } from "@/lib/tournament-navigation";
 
 function OrganizerAccessLoading({ badmintonRoute }: { badmintonRoute: boolean }) {
-  return (
-    <div
-      data-surface="organizer"
-      className="bw-organizer-light min-h-screen bg-[#F3F6FA] text-[#0F172A] p-8"
-      aria-busy="true"
-      aria-label="Checking organizer access"
-    >
-      <div className="space-y-4 max-w-2xl">
-        <div className="flex items-center gap-3 text-slate-600">
-          <Shield className="w-5 h-5 animate-pulse text-amber-500" />
-          <span className="text-sm font-semibold text-slate-800">Checking access...</span>
-        </div>
-        <Skeleton className="h-8 w-48 bg-slate-200" />
-        <Skeleton className="h-64 w-full bg-slate-200" />
-      </div>
-    </div>
-  );
+  return <GlobalLoadingScreen label="Checking access..." />;
 }
 
 function scoringLoginUrl(returnTo: string): string {

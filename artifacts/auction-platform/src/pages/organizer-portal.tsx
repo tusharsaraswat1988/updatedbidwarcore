@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useBranding } from "@/hooks/use-branding";
 import { useOrganizerAccountAuth } from "@/hooks/use-auth";
 import { useOrganizerInactivityLogout } from "@/hooks/use-organizer-inactivity-logout";
+import { GlobalLoadingScreen } from "@/components/global-loading-screen";
 import { AdminLockWarning } from "@/components/admin-lock-warning";
 import { TournamentCreationWizard } from "@/components/tournament-creation/tournament-creation-wizard";
 import { cn } from "@/lib/utils";
@@ -2679,11 +2680,7 @@ export default function OrganizerPortal() {
   }
 
   if (isLoading) {
-    return (
-      <div data-surface="organizer" className="bw-organizer-light min-h-screen flex items-center justify-center bg-background text-foreground">
-        <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-      </div>
-    );
+    return <GlobalLoadingScreen theme="light" label="Loading Organizer..." />;
   }
 
   return (
