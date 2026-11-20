@@ -97,12 +97,6 @@ export function TournamentHeaderBanner({
                   {tournament.status || "Active"}
                 </span>
               )}
-
-              {tournament.auctionCode && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-white/[0.06] text-amber-400 border border-amber-400/30">
-                  {tournament.auctionCode}
-                </span>
-              )}
             </div>
 
             <h1 className="font-display font-black text-lg sm:text-2xl text-white truncate drop-shadow-sm">

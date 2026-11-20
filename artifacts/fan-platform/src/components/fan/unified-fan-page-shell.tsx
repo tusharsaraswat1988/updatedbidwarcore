@@ -177,17 +177,10 @@ export function UnifiedFanPageShell({
 
             {/* Tournament Meta Heading */}
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white truncate max-w-[200px] sm:max-w-md lg:max-w-lg">
-                  {tournament.name}
-                </h1>
-                {tournament.auctionCode && (
-                  <span className="hidden md:inline-flex px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-white/[0.06] text-amber-400 border border-amber-400/30">
-                    {tournament.auctionCode}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-[11px] text-slate-400 truncate">
+              <h1 className="font-display font-bold text-sm sm:text-base text-slate-900 dark:text-white truncate max-w-[200px] sm:max-w-md lg:max-w-lg">
+                {tournament.name}
+              </h1>
+              <div className="flex items-center gap-2 text-[11px] text-slate-400 truncate mt-0.5">
                 {tournament.city && (
                   <span className="flex items-center gap-1">
                     <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
