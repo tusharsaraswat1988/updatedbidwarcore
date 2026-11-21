@@ -86,12 +86,15 @@ export interface OrganizerTrialTournament {
   venue: string | null;
   auctionDate: string | null;
   auctionTime: string | null;
+  matchDates?: string | null;
   logoUrl: string | null;
   licenseStatus: string;
   auctionEnabled: boolean;
   scoringEnabled: boolean;
   isTrial: boolean;
   featured: false;
+  teamsCount?: number;
+  playersCount?: number;
 }
 
 export interface FanDiscoveryResponse {

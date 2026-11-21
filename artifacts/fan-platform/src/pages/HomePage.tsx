@@ -5,6 +5,7 @@ import { ActivityTicker } from '../components/ActivityTicker';
 import { Header } from '../components/Header';
 import { FeaturedTournamentHero } from '../components/fan/UnifiedHome/FeaturedTournamentHero';
 import { TournamentSection } from '../components/fan/UnifiedHome/TournamentSection';
+import { TrialTournamentCard } from '../components/fan/UnifiedHome/TrialTournamentCard';
 import { BrandLogoImage } from '../components/brand-logo-image';
 import { useBranding } from '../hooks/use-branding';
 import {
@@ -753,65 +754,28 @@ export const HomePage = ({
                 </>
               )}
 
-              {/* 8. Organizer Trial Area (Strictly authenticated and authorized) */}
+              {/* 8. BIDWAR Trial Tournaments Area */}
               {organizerTrials.length > 0 && !isFiltered && (
-                <section className="mt-12 rounded-3xl border border-amber-500/25 bg-amber-500/[0.04] p-5 sm:p-6 dark:border-amber-400/20 dark:bg-amber-400/[0.03]">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 mb-4">
-                    <div className="flex items-center gap-2">
-                      <Shield size={18} className="text-amber-500 shrink-0" />
-                      <h3 className="font-display text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                        My Trial Tournaments
-                      </h3>
-                      <span className="rounded-full bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 text-[10px] font-black uppercase text-amber-700 dark:text-amber-300">
-                        Organizer Preview
-                      </span>
+                <section className="mt-12 rounded-3xl border border-amber-500/20 bg-gradient-to-b from-amber-500/[0.04] via-amber-500/[0.02] to-transparent p-5 sm:p-6 dark:border-amber-400/15 dark:from-amber-400/[0.03] dark:to-transparent">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/20">
+                        <Sparkles size={20} className="stroke-[2.5]" />
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <h3 className="font-display text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                          BIDWAR Trial Tournaments
+                        </h3>
+                        <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                          {organizerTrials.length}
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Private organizer preview · Not visible in public fan discovery
-                    </p>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {organizerTrials.map((trial) => (
-                      <div
-                        key={trial.id}
-                        className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs dark:border-white/[0.08] dark:bg-[#131B2E]"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:bg-white/10 dark:text-slate-300">
-                            {trial.sport}
-                          </span>
-                          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                            Trial Mode
-                          </span>
-                        </div>
-                        <h4 className="mt-2 font-display text-sm font-bold text-slate-900 dark:text-white line-clamp-1">
-                          {trial.name}
-                        </h4>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
-                          {trial.city && (
-                            <span className="flex items-center gap-1">
-                              <MapPin size={12} className="text-slate-400" />
-                              {trial.city}
-                            </span>
-                          )}
-                          {trial.auctionDate && (
-                            <span className="flex items-center gap-1">
-                              <Calendar size={12} className="text-slate-400" />
-                              {new Date(trial.auctionDate).toLocaleDateString(undefined, {
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 dark:border-white/5 text-[11px]">
-                          <span className="text-slate-400 font-medium">Status: {trial.status}</span>
-                          <span className="font-semibold text-amber-600 dark:text-amber-400">
-                            Activate License to Publish &rarr;
-                          </span>
-                        </div>
-                      </div>
+                      <TrialTournamentCard key={trial.id} trial={trial} />
                     ))}
                   </div>
                 </section>

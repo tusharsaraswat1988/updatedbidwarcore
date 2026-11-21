@@ -479,6 +479,30 @@ router.get("/fan/tournaments", async (req, res) => {
           }
         }
 
+        const trialIds = trialRows.map((t) => t.id);
+        const teamsCountMap = new Map<number, number>();
+        const playersCountMap = new Map<number, number>();
+
+        if (trialIds.length > 0) {
+          const teamRows = await db
+            .select()
+            .from(teamsTable)
+            .where(inArray(teamsTable.tournamentId, trialIds));
+
+          for (const tc of teamRows) {
+            teamsCountMap.set(tc.tournamentId, (teamsCountMap.get(tc.tournamentId) ?? 0) + 1);
+          }
+
+          const playerRows = await db
+            .select()
+            .from(playersTable)
+            .where(inArray(playersTable.tournamentId, trialIds));
+
+          for (const pc of playerRows) {
+            playersCountMap.set(pc.tournamentId, (playersCountMap.get(pc.tournamentId) ?? 0) + 1);
+          }
+        }
+
         organizerTrials = trialRows.map((t) => ({
           id: t.id,
           slug: t.auctionCode ?? String(t.id),
@@ -489,12 +513,15 @@ router.get("/fan/tournaments", async (req, res) => {
           venue: t.venue ?? null,
           auctionDate: t.auctionDate ?? null,
           auctionTime: t.auctionTime ?? null,
+          matchDates: t.matchDates ?? null,
           logoUrl: t.logoUrl ?? null,
           licenseStatus: t.licenseStatus,
           auctionEnabled: isAuctionEnabled(t),
           scoringEnabled: isScoringEnabled(t),
           isTrial: true,
           featured: false,
+          teamsCount: teamsCountMap.get(t.id) ?? 0,
+          playersCount: playersCountMap.get(t.id) ?? 0,
         }));
       } catch (err) {
         console.error("[fan-discovery] Error loading organizer trials:", err);
@@ -573,6 +600,30 @@ router.get(["/fan/trial-tournaments", "/fan/my-trial-tournaments"], async (req, 
       }
     }
 
+    const trialIds = trialRows.map((t) => t.id);
+    const teamsCountMap = new Map<number, number>();
+    const playersCountMap = new Map<number, number>();
+
+    if (trialIds.length > 0) {
+      const teamRows = await db
+        .select()
+        .from(teamsTable)
+        .where(inArray(teamsTable.tournamentId, trialIds));
+
+      for (const tc of teamRows) {
+        teamsCountMap.set(tc.tournamentId, (teamsCountMap.get(tc.tournamentId) ?? 0) + 1);
+      }
+
+      const playerRows = await db
+        .select()
+        .from(playersTable)
+        .where(inArray(playersTable.tournamentId, trialIds));
+
+      for (const pc of playerRows) {
+        playersCountMap.set(pc.tournamentId, (playersCountMap.get(pc.tournamentId) ?? 0) + 1);
+      }
+    }
+
     // Return strictly basic metadata
     const items = trialRows.map((t) => ({
       id: t.id,
@@ -584,12 +635,15 @@ router.get(["/fan/trial-tournaments", "/fan/my-trial-tournaments"], async (req, 
       venue: t.venue ?? null,
       auctionDate: t.auctionDate ?? null,
       auctionTime: t.auctionTime ?? null,
+      matchDates: t.matchDates ?? null,
       logoUrl: t.logoUrl ?? null,
       licenseStatus: t.licenseStatus, // "trial"
       auctionEnabled: isAuctionEnabled(t),
       scoringEnabled: isScoringEnabled(t),
       isTrial: true,
       featured: false, // Trial tournaments must never be featured
+      teamsCount: teamsCountMap.get(t.id) ?? 0,
+      playersCount: playersCountMap.get(t.id) ?? 0,
     }));
 
     res.json({
