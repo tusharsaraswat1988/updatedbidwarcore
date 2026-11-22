@@ -554,6 +554,7 @@ export async function notifyTeamOwnerWelcome(opts: {
           recipientId: opts.teamId ?? null,
           recipientMobile: opts.mobile,
           channel: "whatsapp",
+          direction: "outbound",
           templateName: META_TEAM_OWNER_WELCOME_TEMPLATE,
           messageContent: msg,
           sentByAdminId: null,
@@ -661,7 +662,7 @@ export async function autoDispatchPendingTeamOwnerWelcomes(
               eq(commLogsTable.recipientId, team.id),
               eq(commLogsTable.channel, "whatsapp"),
               eq(commLogsTable.templateName, META_TEAM_OWNER_WELCOME_TEMPLATE),
-              eq(commLogsTable.deliveryStatus, "sent"),
+              inArray(commLogsTable.deliveryStatus, ["sent", "delivered", "read"]),
             ),
           )
           .limit(1);

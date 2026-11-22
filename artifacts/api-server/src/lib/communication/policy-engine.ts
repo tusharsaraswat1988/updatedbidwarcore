@@ -266,6 +266,7 @@ export class CommunicationPolicyEngine {
       const isTeamOwnerUtility = (
         input.templateName === "team_owner_welcome_login" ||
         input.templateName === "team_owner_welcome" ||
+        input.templateName === "welcome_team_owner" ||
         event === "team_owner_welcome"
       );
 
